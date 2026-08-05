@@ -177,13 +177,6 @@ unconstrained fn test_schedule_change_to_zero_delay_fails() {
     delay_change.schedule_change(0, 50);
 }
 
-#[test(should_fail_with = "INITIAL_DELAY must be greater than zero")]
-unconstrained fn test_zero_initial_delay_fails() {
-    let delay_change: ScheduledDelayChange<0_u64> = std::mem::zeroed();
-
-    let _ = delay_change.get_effective_minimum_delay_at(100);
-}
-
 unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u64>(
     delay_change: &mut ScheduledDelayChange<INITIAL_DELAY>,
     anchor_block_timestamp: u64,

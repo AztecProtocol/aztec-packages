@@ -9,6 +9,8 @@ mod test;
 // is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the
 // delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a
 // reduced delay, invalidating prior private reads.
+// INITIAL_DELAY must be nonzero: DelayedPublicMutable enforces this, while direct users of this low-level type must
+// uphold it themselves.
 pub struct ScheduledDelayChange<let INITIAL_DELAY: u64> {
     // Both pre and post are stored in public storage, so by default they are zeroed. By wrapping them in an Option,
     // they default to Option::none(), which we detect and replace with INITIAL_DELAY. The end result is that a
@@ -25,14 +27,6 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
         Self { pre, post, timestamp_of_change }
     }
 
-    /// Returns the delay in effect before any delay change has been scheduled.
-    ///
-    /// Delays must be strictly positive (see `schedule_change`), so a zero `INITIAL_DELAY` is rejected at compile time.
-    fn initial_delay() -> u64 {
-        std::static_assert(INITIAL_DELAY > 0, "INITIAL_DELAY must be greater than zero");
-        INITIAL_DELAY
-    }
-
     /// Returns the current value of the delay stored in the data structure.
     /// WARNING: This function only returns a meaningful value when called in public with the current timestamp - for
     /// historical private reads use `get_effective_minimum_delay_at` instead.
@@ -40,9 +34,9 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
         // The post value becomes the current one at the timestamp of change, so any transaction that is included at or
         // after the timestamp of change will use the post value.
         if current_timestamp < self.timestamp_of_change {
-            self.pre.unwrap_or(Self::initial_delay())
+            self.pre.unwrap_or(INITIAL_DELAY)
         } else {
-            self.post.unwrap_or(Self::initial_delay())
+            self.post.unwrap_or(INITIAL_DELAY)
         }
     }
 
@@ -50,7 +44,7 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
     /// delay. Note that this timestamp may be in the past if the change has already taken place.
     /// Additionally, further changes might be later scheduled, potentially canceling the one returned by this function.
     pub fn get_scheduled(self) -> (u64, u64) {
-        (self.post.unwrap_or(Self::initial_delay()), self.timestamp_of_change)
+        (self.post.unwrap_or(INITIAL_DELAY), self.timestamp_of_change)
     }
 
     /// Schedules a change to the delay, given the `current_timestamp` and the `current` delay.
@@ -188,7 +182,7 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             //
             // If no delay changes are scheduled (as at the time of the anchor timestamp), then the "current delay" (as
             // at the time of the anchor block timestamp) is `self.post - 1` (or the `INITIAL_DELAY - 1` if never set).
-            self.post.unwrap_or(Self::initial_delay()) - 1
+            self.post.unwrap_or(INITIAL_DELAY) - 1
         } else {
             //
             //          `anchor_block_timestamp` < `self.timestamp_of_change`
@@ -311,8 +305,8 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             let time_until_delay_change = self.timestamp_of_change - anchor_block_timestamp;
 
             let time_until_next_delay_change = min(
-                self.pre.unwrap_or(Self::initial_delay()), // in case the scheduled delay (`post`) gets cancelled before it takes effect.
-                time_until_delay_change + self.post.unwrap_or(Self::initial_delay()),
+                self.pre.unwrap_or(INITIAL_DELAY), // in case the scheduled delay (`post`) gets cancelled before it takes effect.
+                time_until_delay_change + self.post.unwrap_or(INITIAL_DELAY),
             );
 
             // The effective minimum delay equals the minimum time until a value change, minus 1, since reads are
