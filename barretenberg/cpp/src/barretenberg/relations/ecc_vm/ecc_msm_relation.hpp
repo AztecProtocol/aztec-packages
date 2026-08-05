@@ -144,13 +144,29 @@ template <typename FF_> class ECCVMMSMRelationImpl {
         // skew->idle boundary (where q_skew_shift = 0), so it closes the gap without the false
         // positive that motivated dropping q_skew from MSM_PC_CONTINUITY.
         MSM_PC_SKEW_CONTINUITY = 50,
+
+        // An MSM result may only be emitted from a row that has just completed a SKEW round.
+        //
+        // The emitted accumulator is `msm_accumulator_{x,y}_shift`. On a row with `msm_transition = 1`
+        // and no phase active it is a free witness: ADD_ACC, DOUBLE_ACC and SKEW_ACC are gated by their
+        // phase selectors, and IDLE_ROW_PRESERVES_ACC carries a `(1 - msm_transition)` factor. Requiring
+        // `q_skew = 1` at every emitting row places the emission inside SKEW_ACC's domain.
+        //
+        // `is_not_first_row` is required for satisfiability: MSM_TRANSITION_AT_ACTIVE_START forces
+        // `msm_transition = 1` at the row after `lagrange_first`, where MSM_SKEW_INIT pins `q_skew = 0`.
+        // `ECCVMSetRelation`'s third-term numerator suppresses the emission there with its own
+        // `(1 - lagrange_first)` factor; the two gates must stay in step.
+        //
+        // This does not tie a segment's `msm_count` to its `msm_size_of_msm`. No subrelation compares
+        // them; the first-term multiset rejects a segment that reads the wrong number of points.
+        MSM_TRANSITION_FOLLOWS_SKEW = 51,
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 51> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    static constexpr std::array<size_t, 52> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
                                                                          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
                                                                          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
