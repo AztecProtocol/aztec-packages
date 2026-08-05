@@ -17,6 +17,7 @@ struct TimeStorage {
    * proofs for epoch n must land while the epoch is ongoing.
    */
   uint32 proofSubmissionEpochs;
+  uint32 ethereumSlotDuration; // Number of seconds in an L1 slot
 }
 
 library TimeLib {
@@ -28,18 +29,36 @@ library TimeLib {
     uint256 _genesisTime,
     uint256 _slotDuration,
     uint256 _epochDuration,
-    uint256 _proofSubmissionEpochs
+    uint256 _proofSubmissionEpochs,
+    uint256 _ethereumSlotDuration
   ) internal {
     TimeStorage storage store = getStorage();
     store.genesisTime = _genesisTime.toUint128();
     store.slotDuration = _slotDuration.toUint32();
     store.epochDuration = _epochDuration.toUint32();
     store.proofSubmissionEpochs = _proofSubmissionEpochs.toUint32();
+    store.ethereumSlotDuration = _ethereumSlotDuration.toUint32();
   }
 
   function toTimestamp(Slot _a) internal view returns (Timestamp) {
     TimeStorage storage store = getStorage();
     return Timestamp.wrap(store.genesisTime) + Timestamp.wrap(Slot.unwrap(_a) * store.slotDuration);
+  }
+
+  /**
+   * @notice The timestamp at which the build frame of a checkpoint proposed in `_slot` opens
+   *
+   * @dev A checkpoint proposed in slot S is built during slot S-1, and the frame opens one L1 slot before that
+   *      slot starts, since the builder works from the L1 state as of the preceding L1 block. Anything on L1 by
+   *      this timestamp has therefore been visible to every node for the entire build frame.
+   *
+   * @param _slot - The slot the checkpoint is proposed in
+   *
+   * @return The timestamp the build frame opens at
+   */
+  function getBuildFrameStart(Slot _slot) internal view returns (Timestamp) {
+    TimeStorage storage store = getStorage();
+    return toTimestamp(_slot - Slot.wrap(1)) - Timestamp.wrap(store.ethereumSlotDuration);
   }
 
   function slotFromTimestamp(Timestamp _a) internal view returns (Slot) {

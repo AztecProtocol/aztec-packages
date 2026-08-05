@@ -70,7 +70,9 @@ contract MinimalFeeModel {
     EthPerFeeAssetE12 _initialEthPerFeeAsset,
     EthValue _provingCost
   ) {
-    TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs);
+    TimeLib.initialize(
+      block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs, TestConstants.ETHEREUM_SLOT_DURATION
+    );
     FeeLib.initialize(MANA_TARGET, _provingCost, _initialEthPerFeeAsset);
     STFLib.initialize(
       GenesisState({vkTreeRoot: bytes32(0), protocolContractsHash: bytes32(0), genesisArchiveRoot: bytes32(0)})

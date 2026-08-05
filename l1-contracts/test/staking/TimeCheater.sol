@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {TimeStorage, Timestamp, TimeLib, Epoch, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 
 contract TimeCheater {
   Vm public constant vm = Vm(address(bytes20(uint160(uint256(keccak256("hevm cheat code"))))));
@@ -33,7 +34,8 @@ contract TimeCheater {
         genesisTime: uint128(_genesisTime),
         slotDuration: uint32(_slotDuration),
         epochDuration: uint32(_epochDuration),
-        proofSubmissionEpochs: uint32(_proofSubmissionEpochs)
+        proofSubmissionEpochs: uint32(_proofSubmissionEpochs),
+        ethereumSlotDuration: uint32(TestConstants.ETHEREUM_SLOT_DURATION)
       })
     );
   }
@@ -65,7 +67,8 @@ contract TimeCheater {
       _timeStorage.genesisTime,
       _timeStorage.slotDuration,
       _timeStorage.epochDuration,
-      _timeStorage.proofSubmissionEpochs
+      _timeStorage.proofSubmissionEpochs,
+      _timeStorage.ethereumSlotDuration
     );
   }
 

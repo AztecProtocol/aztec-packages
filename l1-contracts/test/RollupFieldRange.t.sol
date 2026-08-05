@@ -60,7 +60,8 @@ contract RollupFieldRangeTest is RollupBase {
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
       TestConstants.AZTEC_EPOCH_DURATION,
-      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS,
+      TestConstants.ETHEREUM_SLOT_DURATION
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
   }
