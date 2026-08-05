@@ -48,8 +48,8 @@ export function decodeCheckpointBlobData(fields: Fr[] | FieldReader): Checkpoint
     blocks.push(decodeBlockBlobData(reader));
 
     // After reading a block, the next item must be either a checkpoint end marker or another block.
-    // The first field of a block is always a tx start marker. So if the provided fields are valid, it's not possible to
-    // misinterpret a tx start marker as checkpoint end marker, or vice versa.
+    // A block starts with a tx start marker, or, when it carries no txs, directly with its block end marker. Neither
+    // can be misinterpreted as a checkpoint end marker (or vice versa) as long as the provided fields are valid.
     const nextField = reader.peekField();
     if (isCheckpointEndMarker(nextField)) {
       checkpointEndMarker = decodeCheckpointEndMarker(reader.readField());
