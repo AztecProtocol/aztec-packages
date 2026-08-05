@@ -632,6 +632,11 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // `active_phase` excludes q_skew, and `MSM_TRANSITION_PC` only pins the last skew row).
     std::get<MSM_PC_SKEW_CONTINUITY>(accumulator) += q_skew * q_skew_shift * (pc_shift - pc) * scaling_factor;
 
+    // Confine the emission of an MSM result to rows whose accumulator update is pinned by SKEW_ACC.
+    // See the comment on MSM_TRANSITION_FOLLOWS_SKEW in ecc_msm_relation.hpp.
+    std::get<MSM_TRANSITION_FOLLOWS_SKEW>(accumulator) +=
+        is_not_first_row * msm_transition_shift * (-q_skew + 1) * scaling_factor; // degree 3
+
     // Addition continuity checks
     // We want to RULE OUT the following scenarios:
     // Case 1: add2 = 1, add1 = 0

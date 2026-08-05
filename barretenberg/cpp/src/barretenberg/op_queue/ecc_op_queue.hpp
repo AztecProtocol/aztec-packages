@@ -235,6 +235,24 @@ class ECCOpQueue {
     }
 
     /**
+     * @brief A testing only method that installs an eccvm ops table along with its derived row counts.
+     *
+     * @details `set_eccvm_ops_for_fuzzing` writes the ops alone, leaving the row counts that
+     * `append_eccvm_op` would have maintained at whatever they were. `ECCVMCircuitBuilder` reads those
+     * counts through `get_number_of_muls` and the row-count accessors, so it needs them refreshed here.
+     * Use this to build an ECCVM trace over a variant of an existing op sequence, for instance one with
+     * an operation removed or a scalar changed.
+     */
+    void set_eccvm_ops_with_row_counts_for_testing(const std::vector<ECCVMOperation>& eccvm_ops_in)
+    {
+        eccvm_ops_reconstructed = eccvm_ops_in;
+        eccvm_row_tracker = EccvmRowTracker{};
+        for (const auto& op : eccvm_ops_reconstructed) {
+            eccvm_row_tracker.update_cached_msms(op);
+        }
+    }
+
+    /**
      * @brief A testing only method that adds an erroneous equality op to the eccvm ops
      * @brief May be used to ensure that ECCVM responds as expected when encountering a bad op
      *
