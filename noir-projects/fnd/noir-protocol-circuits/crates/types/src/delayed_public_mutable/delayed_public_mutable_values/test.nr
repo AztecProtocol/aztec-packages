@@ -151,9 +151,7 @@ unconstrained fn schedule_change_accepts_delay_at_u32_max() {
     assert_eq(sdc.post.unwrap(), max_u32);
 }
 
-// Every read of a stored delay goes through `unpack_delay_change`, so guarding it there covers both the aztec-nr and
-// `aztec_sublib` state variables as well as the private kernel's contract update horizon. The `static_assert` failure
-// surfaces as a test failure because each test is compiled on demand.
+// Every read of a stored delay goes through `unpack_delay_change`
 #[test(should_fail_with = "INITIAL_DELAY must be greater than zero")]
 unconstrained fn unpacking_a_zero_initial_delay_fails() {
     let _ = unpack_delay_change::<0_u64>(0);
