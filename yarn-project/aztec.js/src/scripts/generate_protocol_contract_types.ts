@@ -3,6 +3,7 @@
  * These wrappers use a minimal artifact (without bytecode) since PXE already has the full artifacts registered.
  */
 import { generateTypescriptContractInterface } from '@aztec/builder/codegen';
+import { fileURLToPath } from '@aztec/foundation/url';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -18,8 +19,10 @@ import path from 'path';
 
 const log = console.log;
 
-const noirContractsRoot = path.join(import.meta.dirname, '../../../../noir-projects/fnd/noir-contracts');
-const srcPath = path.join(noirContractsRoot, 'target');
+const artifactsPkgRoot = path.dirname(
+  fileURLToPath(import.meta.resolve('@aztec/protocol-contracts-artifacts/package.json')),
+);
+const srcPath = path.join(artifactsPkgRoot, 'artifacts');
 const outputDir = path.join(import.meta.dirname, '../contract/protocol_contracts');
 
 function toKebabCase(str: string): string {
@@ -134,7 +137,7 @@ async function main() {
   await fs.mkdir(outputDir, { recursive: true });
 
   const srcNames = JSON.parse(
-    await fs.readFile(path.join(noirContractsRoot, 'protocol_contracts.json'), 'utf8'),
+    await fs.readFile(path.join(artifactsPkgRoot, 'protocol_contracts.json'), 'utf8'),
   ) as string[];
 
   for (const srcName of srcNames) {

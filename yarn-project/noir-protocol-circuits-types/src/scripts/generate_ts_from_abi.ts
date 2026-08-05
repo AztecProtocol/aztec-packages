@@ -47,7 +47,10 @@ const main = async () => {
   // protocol-maxima base, so noir-codegen renders mapping helpers generically over hint sizes
   // (see `TEMPLATE_DIMENSIONS` below for the differs-from-template invariant).
   const dimensionsByGroup = JSON.parse(
-    await fs.readFile('../../noir-projects/fnd/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
+    await fs.readFile(
+      new URL(import.meta.resolve('@aztec/protocol-circuits-artifacts/private_kernel_reset_dimensions.json')),
+      'utf8',
+    ),
   ) as Record<string, number[][]>;
 
   // The template circuit has every dimension at the protocol max for that dimension. For codegen to

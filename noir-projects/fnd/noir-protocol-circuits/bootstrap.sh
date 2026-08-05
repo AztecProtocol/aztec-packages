@@ -338,7 +338,7 @@ case "$cmd" in
     ;;
   "hash")
     # While $circuits_hash is meant for tests, this extended hash
-    # more accuratelly captures the identity of the protocol circuits.
+    # more accurately captures the identity of the protocol circuits.
     hash_str $circuits_hash $(cache_content_hash \
       "^noir-projects/fnd/noir-protocol-circuits/" \
       "^noir-projects/fnd/chonk_circuits.json" \
