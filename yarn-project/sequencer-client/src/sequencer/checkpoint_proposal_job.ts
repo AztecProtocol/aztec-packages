@@ -53,7 +53,13 @@ import {
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import { InboxBucketRef, type L1ToL2MessageSource, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
+import {
+  type InboxBucket,
+  InboxBucketRef,
+  type L1ToL2MessageSource,
+  getInboxCutoffTimestamp,
+  isInboxConsumptionSufficient,
+} from '@aztec/stdlib/messaging';
 import type {
   BlockProposal,
   BlockProposalOptions,
@@ -776,6 +782,36 @@ export class CheckpointProposalJob implements Traceable {
         return undefined;
       }
 
+      // Streaming Inbox censorship floor: re-derive the mandatory-consumption verdict from the final consumed
+      // position, independently of the per-block selection that produced it. Runs before the checkpoint is assembled,
+      // so the held last block and the checkpoint proposal are both still ungossiped and the propose tx is never
+      // sent for a checkpoint L1 would revert and validators would refuse to attest.
+      const consumption = await this.checkCheckpointConsumption(streamingState);
+      if (!consumption.sufficient) {
+        const { cutoffTimestamp, nextBucket } = consumption;
+        const context = {
+          slot: this.targetSlot,
+          checkpointNumber: this.checkpointNumber,
+          blocksBuilt: blocksInCheckpoint.length,
+          blocksRemaining: this.config.maxBlocksPerCheckpoint - blocksInCheckpoint.length,
+          checkpointStartTotalMsgCount: streamingState.checkpointStartTotalMsgCount,
+          consumedBucketSeq: streamingState.parent.seq,
+          consumedTotalMsgCount: streamingState.parent.totalMsgCount,
+          unconsumedBucketSeq: nextBucket?.seq,
+          unconsumedBucketTotalMsgCount: nextBucket?.totalMsgCount,
+          cutoffTimestamp,
+          reason: 'inbox_consumption_insufficient',
+        };
+        this.logCheckpointEvent('build-failed', `Checkpoint build failed for slot ${this.targetSlot}`, context);
+        this.log.warn(
+          `Checkpoint leaves a mandatory Inbox bucket unconsumed, skipping proposal; the streaming backlog does not ` +
+            `fit ${this.config.maxBlocksPerCheckpoint} blocks per checkpoint`,
+          context,
+        );
+        this.metrics.recordCheckpointProposalFailed('inbox_consumption_insufficient');
+        return undefined;
+      }
+
       // Assemble and broadcast the checkpoint proposal, including the last block that was not
       // broadcasted yet, and wait to collect the committee attestations.
       this.setState(SequencerState.ASSEMBLING_CHECKPOINT);
@@ -972,6 +1008,22 @@ export class CheckpointProposalJob implements Traceable {
       const selection = streamingState
         ? await this.selectStreamingBundle(streamingState, isCheckpointFinalBlock, nowSeconds)
         : undefined;
+
+      // No checkpoint ending on this block can satisfy the censorship floor, so building it would only waste the
+      // sub-slot: stop here and let the post-loop consumption check abort the checkpoint before anything is gossiped.
+      if (selection?.insufficientFinalBlockCapacity) {
+        this.log.warn(
+          `Streaming Inbox backlog does not fit the checkpoint's remaining blocks; stopping block building`,
+          {
+            slot: this.targetSlot,
+            checkpointNumber: this.checkpointNumber,
+            blocksBuilt,
+            blockNumber,
+          },
+        );
+        break;
+      }
+
       const streamingBundle = streamingState ? (selection && selection.consume ? selection.bundle : []) : undefined;
 
       const buildResult = await this.buildSingleBlock(checkpointBuilder, {
@@ -1127,6 +1179,29 @@ export class CheckpointProposalJob implements Traceable {
       parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
       lastBucketRef: InboxBucketRef.fromBucket(parentBucket),
     };
+  }
+
+  /**
+   * Whether the checkpoint's final consumed position satisfies the streaming-Inbox censorship floor, mirroring the
+   * mandatory-consumption assert in `ProposeLib.validateInboxConsumption`: the first bucket left unconsumed must be
+   * absent, past the cutoff, or a cap-escape. The bucket and cutoff the verdict was taken against are returned for
+   * diagnostics.
+   *
+   * Derived from the consumption cursor rather than from the per-block selections that advanced it, so a selector that
+   * stops short of a mandatory bucket is caught here regardless of how it reported the shortfall.
+   */
+  private async checkCheckpointConsumption(
+    state: StreamingCheckpointState,
+  ): Promise<{ sufficient: boolean; nextBucket: InboxBucket | undefined; cutoffTimestamp: bigint }> {
+    const nextBucket = await this.l1ToL2MessageSource.getInboxBucket(state.parent.seq + 1n);
+    const cutoffTimestamp = getInboxCutoffTimestamp(this.targetSlot, this.l1Constants);
+    const sufficient = isInboxConsumptionSufficient({
+      nextBucket,
+      cutoffTimestamp,
+      checkpointStartTotalMsgCount: state.checkpointStartTotalMsgCount,
+      perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+    });
+    return { sufficient, nextBucket, cutoffTimestamp };
   }
 
   /**

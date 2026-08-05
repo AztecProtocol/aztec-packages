@@ -1,6 +1,7 @@
 import { l1ContractsConfigMappings } from '@aztec/ethereum/config';
 
 import { MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
+import { MIN_BLOCKS_FOR_INBOX_CATCHUP } from '../messaging/inbox_consumption.js';
 import {
   NETWORK_CONSENSUS_ENV_VARS,
   type NetworkConsensusConfig,
@@ -56,6 +57,36 @@ describe('validateNetworkConsensusConfig', () => {
     expect(
       validateNetworkConsensusConfig({ ...base, maxBlocksPerCheckpoint: MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT }),
     ).not.toContainEqual(expect.stringContaining('exceeds the'));
+  });
+
+  it('derives the streaming-Inbox catch-up floor from the message caps', () => {
+    // 2 * ceil((1024 + 1) / (256 + 1)) - 1 = 7 for the current caps.
+    expect(MIN_BLOCKS_FOR_INBOX_CATCHUP).toBe(7);
+  });
+
+  it('rejects a maxBlocksPerCheckpoint below the streaming-Inbox catch-up floor', () => {
+    // A 36s slot with 6s blocks derives 4 blocks per checkpoint, so the derived-count check passes while the
+    // network remains permanently haltable by a mandatory backlog no checkpoint can clear.
+    const errors = validateNetworkConsensusConfig({
+      ...base,
+      aztecSlotDuration: 36,
+      maxBlocksPerCheckpoint: 4,
+      checkpointProposalSyncGraceSeconds: 12,
+    });
+    expect(errors).toEqual([expect.stringContaining(`at least ${MIN_BLOCKS_FOR_INBOX_CATCHUP}`)]);
+    expect(errors[0]).toContain('4');
+  });
+
+  it('accepts a maxBlocksPerCheckpoint exactly at the catch-up floor', () => {
+    // A 72s slot with 8s blocks derives exactly 7 blocks: floor((72 - 1 - 8 - 4 - 1) / 8).
+    expect(
+      validateNetworkConsensusConfig({
+        ...base,
+        blockDurationMs: 8000,
+        maxBlocksPerCheckpoint: MIN_BLOCKS_FOR_INBOX_CATCHUP,
+        checkpointProposalSyncGraceSeconds: 16,
+      }),
+    ).toEqual([]);
   });
 
   it('errors when the slot duration is not a multiple of the ethereum slot duration', () => {
