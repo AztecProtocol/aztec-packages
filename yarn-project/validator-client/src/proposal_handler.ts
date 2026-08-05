@@ -2,7 +2,6 @@ import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, encodeCheckpointBlobDataFromBlocks, getBlobsPerL1Block } from '@aztec/blob-lib';
 import {
-  INBOX_LAG_SECONDS,
   INITIAL_L2_BLOCK_NUM,
   MAX_BLOCKS_PER_CHECKPOINT,
   MAX_L1_TO_L2_MSGS_PER_BLOCK,
@@ -993,7 +992,7 @@ export class ProposalHandler {
       parentTotalMsgCount,
       checkpointStartTotalMsgCount,
       nowSeconds,
-      lagSeconds: INBOX_LAG_SECONDS,
+      minBucketAgeSeconds: this.epochCache.getL1Constants().ethereumSlotDuration,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
       perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
     });
@@ -1051,7 +1050,7 @@ export class ProposalHandler {
       return true;
     }
     const nextBucket = await this.l1ToL2MessageSource.getInboxBucket(lastConsumedBucket.seq + 1n);
-    const cutoffTimestamp = getInboxCutoffTimestamp(slot, this.epochCache.getL1Constants(), INBOX_LAG_SECONDS);
+    const cutoffTimestamp = getInboxCutoffTimestamp(slot, this.epochCache.getL1Constants());
     return isInboxConsumptionSufficient({
       nextBucket,
       cutoffTimestamp,

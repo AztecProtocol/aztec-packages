@@ -32,8 +32,16 @@ export type StreamingBlockCheckInput = {
   checkpointStartTotalMsgCount: bigint;
   /** Validation-time wall clock in seconds; the lag-eligibility anchor. */
   nowSeconds: bigint;
-  /** Minimum bucket age in seconds (`INBOX_LAG_SECONDS`) for a bucket to be lag-eligible. */
-  lagSeconds: number;
+  /**
+   * Minimum bucket age in seconds for a bucket to be lag-eligible: one configured Ethereum slot, the same value the
+   * sequencer's selection uses.
+   *
+   * Age in seconds is a proxy for L1 reorg depth, and only an exact one when no L1 slot is missed: with missed slots a
+   * bucket can be a full Ethereum slot old and still sit in the latest L1 block. A block-depth rule would be
+   * stronger — require at least one later L1 block to have synced — and is implementable without new L1 state, since
+   * the archiver records each bucket's `l1BlockNumber`.
+   */
+  minBucketAgeSeconds: number;
   /** Maximum number of messages this block may consume (`MAX_L1_TO_L2_MSGS_PER_BLOCK`). */
   perBlockCap: number;
   /** Maximum number of messages the checkpoint may consume in total (`MAX_L1_TO_L2_MSGS_PER_CHECKPOINT`). */
@@ -63,8 +71,9 @@ export type StreamingBlockCheckResult =
  *    lookup hint — timestamp and message counts are read from the locally resolved bucket, never from the wire.
  * 2. **Moves forward**: the bucket's cumulative total is at least the parent block's, so consumption never rewinds.
  *    Equal totals mean the block consumes nothing (empty bundle).
- * 3. **Not too new**: the bucket is at least `lagSeconds` old at validation time (`timestamp <= now - lagSeconds`,
- *    inclusive — a bucket exactly `lagSeconds` old is eligible, matching L1's strict `>` "too new" test).
+ * 3. **Not too new**: the bucket is at least `minBucketAgeSeconds` old at validation time
+ *    (`timestamp <= now - minBucketAgeSeconds`, inclusive — a bucket exactly that old is eligible, matching L1's
+ *    strict `>` "too new" test).
  * 4. **Caps**: the per-block message count and the running per-checkpoint total fit their respective caps.
  *
  * The reject branch is a single function so a future bounded wait can wrap `bucket_unknown`.
@@ -76,7 +85,7 @@ export async function checkStreamingBlockProposal(input: StreamingBlockCheckInpu
     parentTotalMsgCount,
     checkpointStartTotalMsgCount,
     nowSeconds,
-    lagSeconds,
+    minBucketAgeSeconds,
     perBlockCap,
     perCheckpointCap,
   } = input;
@@ -100,8 +109,8 @@ export async function checkStreamingBlockProposal(input: StreamingBlockCheckInpu
     return { accepted: false, reason: 'bucket_moves_backwards' };
   }
 
-  // Check 3: the bucket is at least `lagSeconds` old at validation time.
-  if (bucket.timestamp > nowSeconds - BigInt(lagSeconds)) {
+  // Check 3: the bucket is at least `minBucketAgeSeconds` old at validation time.
+  if (bucket.timestamp > nowSeconds - BigInt(minBucketAgeSeconds)) {
     return { accepted: false, reason: 'bucket_too_new' };
   }
 

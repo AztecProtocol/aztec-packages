@@ -10,7 +10,7 @@ import {
   checkStreamingBlockProposal,
 } from './streaming_inbox_checks.js';
 
-const LAG_SECONDS = 12;
+const MIN_BUCKET_AGE_SECONDS = 12;
 const PER_BLOCK_CAP = 1024;
 const PER_CHECKPOINT_CAP = 1024;
 const NOW = 10_000n;
@@ -94,7 +94,7 @@ function baseInput(overrides: Partial<StreamingBlockCheckInput>): StreamingBlock
     parentTotalMsgCount: 0n,
     checkpointStartTotalMsgCount: 0n,
     nowSeconds: NOW,
-    lagSeconds: LAG_SECONDS,
+    minBucketAgeSeconds: MIN_BUCKET_AGE_SECONDS,
     perBlockCap: PER_BLOCK_CAP,
     perCheckpointCap: PER_CHECKPOINT_CAP,
     ...overrides,
@@ -149,17 +149,17 @@ describe('checkStreamingBlockProposal', () => {
     });
   });
 
-  describe('check 3: bucket is at least lagSeconds old', () => {
-    it('accepts a bucket exactly lagSeconds old (inclusive boundary)', async () => {
+  describe('check 3: bucket is at least one Ethereum slot old', () => {
+    it('accepts a bucket exactly at the minimum age (inclusive boundary)', async () => {
       const view = new FakeInboxView();
-      const bucket = view.addBucket(1, 2, Number(NOW) - LAG_SECONDS); // timestamp == now - lag
+      const bucket = view.addBucket(1, 2, Number(NOW) - MIN_BUCKET_AGE_SECONDS); // timestamp == now - minBucketAgeSeconds
       const result = await checkStreamingBlockProposal(baseInput({ messageSource: view, bucketRef: refFor(bucket) }));
       expect(result.accepted).toBe(true);
     });
 
     it('rejects a bucket one second too new', async () => {
       const view = new FakeInboxView();
-      const bucket = view.addBucket(1, 2, Number(NOW) - LAG_SECONDS + 1);
+      const bucket = view.addBucket(1, 2, Number(NOW) - MIN_BUCKET_AGE_SECONDS + 1);
       const result = await checkStreamingBlockProposal(baseInput({ messageSource: view, bucketRef: refFor(bucket) }));
       expect(result).toEqual({ accepted: false, reason: 'bucket_too_new' });
     });
