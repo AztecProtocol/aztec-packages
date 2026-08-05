@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { InboxBucket } from '@aztec/stdlib/messaging';
+import { type InboxBucket, MIN_BLOCKS_FOR_INBOX_CATCHUP, isInboxConsumptionSufficient } from '@aztec/stdlib/messaging';
 
 import { type InboxBucketSource, selectInboxBucketForBlock } from './inbox_bucket_selector.js';
 
@@ -258,6 +258,102 @@ describe('selectInboxBucketForBlock', () => {
       cutoffTimestamp: cutoff,
     });
     expect(mayskip.consume).toBe(false);
+  });
+
+  it('reports insufficiency when the final block cannot reach the censorship floor', async () => {
+    // Two mandatory buckets holding 256 and 1 messages, one block of capacity left. Consuming through the second
+    // needs 257 messages, one over the per-block cap, and 257 is under the per-checkpoint cap so there is no
+    // cap-escape: no position this block can reach satisfies the floor.
+    const cutoff = cutoffForSlot(10n);
+    const { source } = makeSource([
+      { seq: 1n, timestamp: cutoff - 20n, msgCount: 256 },
+      { seq: 2n, timestamp: cutoff - 10n, msgCount: 1 },
+    ]);
+
+    const result = await selectInboxBucketForBlock({
+      ...baseInput,
+      messageSource: source,
+      now: cutoff + MIN_AGE,
+      parent: GENESIS_PARENT,
+      perBlockCap: 256,
+      perCheckpointCap: 1024,
+      isLastBlock: true,
+      cutoffTimestamp: cutoff,
+    });
+
+    expect(result.insufficientFinalBlockCapacity).toBe(true);
+    // The best reachable prefix is still reported, so a caller can log what it would have consumed.
+    expect(result).toMatchObject({ consume: true });
+    if (result.consume) {
+      expect(result.bucket.seq).toBe(1n);
+    }
+  });
+
+  it('does not report insufficiency on a non-final block that leaves a mandatory bucket', async () => {
+    const cutoff = cutoffForSlot(10n);
+    const { source } = makeSource([
+      { seq: 1n, timestamp: cutoff - 20n, msgCount: 256 },
+      { seq: 2n, timestamp: cutoff - 10n, msgCount: 1 },
+    ]);
+
+    const result = await selectInboxBucketForBlock({
+      ...baseInput,
+      messageSource: source,
+      now: cutoff + MIN_AGE,
+      parent: GENESIS_PARENT,
+      perBlockCap: 256,
+      perCheckpointCap: 1024,
+      isLastBlock: false,
+      cutoffTimestamp: cutoff,
+    });
+
+    expect(result.insufficientFinalBlockCapacity).toBeUndefined();
+    expect(result.consume).toBe(true);
+  });
+
+  it('clears the worst-case alternating backlog in exactly MIN_BLOCKS_FOR_INBOX_CATCHUP blocks', async () => {
+    // The bound's witness: alternating 1 and 256-message buckets. Each pair needs two blocks, because consuming
+    // through both would take 257 messages, one over the per-block cap.
+    const counts = [1, 256, 1, 256, 1, 256, 1];
+    const cutoff = cutoffForSlot(10n);
+    const { source } = makeSource(
+      counts.map((msgCount, i) => ({ seq: BigInt(i + 1), timestamp: cutoff - BigInt(counts.length - i), msgCount })),
+    );
+    const caps = { perBlockCap: 256, perCheckpointCap: 1024 };
+    const sufficiencyAt = async (parent: { seq: bigint; totalMsgCount: bigint }) =>
+      isInboxConsumptionSufficient({
+        nextBucket: await source.getInboxBucket(parent.seq + 1n),
+        cutoffTimestamp: cutoff,
+        checkpointStartTotalMsgCount: 0n,
+        perCheckpointCap: caps.perCheckpointCap,
+      });
+
+    let parent = GENESIS_PARENT;
+    for (let block = 1; block <= MIN_BLOCKS_FOR_INBOX_CATCHUP; block++) {
+      const isLastBlock = block === MIN_BLOCKS_FOR_INBOX_CATCHUP;
+      const result = await selectInboxBucketForBlock({
+        ...baseInput,
+        ...caps,
+        messageSource: source,
+        now: cutoff + MIN_AGE,
+        parent,
+        isLastBlock,
+        cutoffTimestamp: cutoff,
+      });
+      expect(result).toMatchObject({ consume: true });
+      if (!result.consume) {
+        return;
+      }
+      // Each block advances by exactly one bucket, which is what makes the bound tight.
+      expect(result.bucket.seq).toBe(BigInt(block));
+      expect(result.insufficientFinalBlockCapacity).toBeUndefined();
+      parent = { seq: result.bucket.seq, totalMsgCount: result.bucket.totalMsgCount };
+    }
+
+    expect(parent.totalMsgCount).toBe(772n);
+    expect(await sufficiencyAt(parent)).toBe(true);
+    // One block short of the bound the backlog is still mandatory, so the floor really needs all of them.
+    expect(await sufficiencyAt({ seq: 6n, totalMsgCount: 771n })).toBe(false);
   });
 
   it('consumes nothing when even the first bucket past the parent exceeds the per-checkpoint cap (cap-escape)', async () => {

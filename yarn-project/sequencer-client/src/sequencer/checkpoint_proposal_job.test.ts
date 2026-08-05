@@ -1534,6 +1534,51 @@ describe('CheckpointProposalJob', () => {
       // checkpoint header's rolling hash. Before the fix this fell back to genesis bucket 0n.
       expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(2n);
     });
+
+    it('abandons the checkpoint when the mandatory backlog does not fit the remaining blocks', async () => {
+      // Four mandatory buckets alternating 256 and 1 messages, and only two sub-slots to clear them. Buckets are
+      // indivisible, so each block can advance by at most one bucket here, leaving bucket 3 mandatory and
+      // unconsumed at the end of the checkpoint. Every honest validator would refuse to attest and L1 `propose`
+      // would revert, so the checkpoint must never be assembled or gossiped.
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, false))
+        .mockReturnValueOnce(subslot(18, 1, true))
+        .mockReturnValue(noSubslot());
+
+      const totals = [256n, 257n, 513n, 514n];
+      const buckets = totals.map((totalMsgCount, i) => ({
+        seq: BigInt(i + 1),
+        inboxRollingHash: new Fr(i + 1),
+        totalMsgCount,
+        // Well before the censorship cutoff, so every bucket is mandatory.
+        timestamp: 0n,
+        msgCount: Number(totalMsgCount - (i === 0 ? 0n : totals[i - 1])),
+        lastMessageIndex: totalMsgCount - 1n,
+      }));
+      l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(buckets[3]);
+      l1ToL2MessageSource.getInboxBucket.mockImplementation(seq => Promise.resolve(buckets[Number(seq) - 1]));
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockImplementation((from, to) =>
+        Promise.resolve(
+          Array.from({ length: Number(totals[Number(to) - 1] - (from === 0n ? 0n : totals[Number(from) - 1])) }, () =>
+            Fr.random(),
+          ),
+        ),
+      );
+
+      const { lastBlock } = await setupMultipleBlocks(2, [2, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeUndefined();
+      // The final block is never built, so it is never held for broadcast, and no checkpoint reaches the network
+      // or L1.
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_consumption_insufficient');
+    });
   });
 
   describe('build single block', () => {
