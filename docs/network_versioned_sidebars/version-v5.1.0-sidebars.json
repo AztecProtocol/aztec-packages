@@ -1,18 +1,9 @@
 {
   "operatorsSidebar": [
     {
-      "type": "html",
-      "value": "<span class=\"sidebar-title\">Getting Started</span>",
-      "className": "sidebar-title"
-    },
-    {
       "type": "doc",
       "id": "operators/index",
-      "label": "Operator Overview"
-    },
-    {
-      "type": "doc",
-      "id": "operators/prerequisites"
+      "label": "Overview"
     },
     {
       "type": "html",
@@ -20,41 +11,100 @@
     },
     {
       "type": "html",
-      "value": "<span class=\"sidebar-title\">Setup</span>",
+      "value": "<span class=\"sidebar-title\">Guided setup</span>",
       "className": "sidebar-title"
-    },
-    {
-      "type": "doc",
-      "id": "operators/setup/running_a_node"
     },
     {
       "type": "category",
-      "label": "Running a Sequencer",
+      "label": "Full node",
+      "collapsible": true,
+      "collapsed": true,
       "link": {
         "type": "doc",
-        "id": "operators/setup/sequencer_management"
+        "id": "operators/full-node/overview"
       },
       "items": [
-        "operators/setup/registering_sequencer",
-        "operators/setup/become_a_staking_provider",
-        "operators/setup/high_availability_sequencers"
+        "operators/full-node/setup",
+        "operators/full-node/verification",
+        "operators/full-node/troubleshooting"
       ]
     },
     {
-      "type": "doc",
-      "id": "operators/setup/running_a_prover"
+      "type": "category",
+      "label": "Solo sequencer",
+      "collapsible": true,
+      "collapsed": true,
+      "link": {
+        "type": "doc",
+        "id": "operators/solo-sequencer/index"
+      },
+      "items": [
+        "operators/solo-sequencer/pre-flight",
+        "operators/solo-sequencer/install-toolchain",
+        "operators/solo-sequencer/generate-keystore",
+        "operators/solo-sequencer/fund-accounts",
+        "operators/solo-sequencer/configure-environment",
+        "operators/solo-sequencer/docker-compose",
+        "operators/solo-sequencer/start-node",
+        "operators/solo-sequencer/register-sequencer",
+        "operators/solo-sequencer/verify",
+        "operators/solo-sequencer/day-2-essentials",
+        "operators/solo-sequencer/dappnode"
+      ]
     },
     {
-      "type": "doc",
-      "id": "operators/setup/building_from_source"
+      "type": "category",
+      "label": "Staking provider",
+      "collapsible": true,
+      "collapsed": true,
+      "link": {
+        "type": "doc",
+        "id": "operators/provider/index"
+      },
+      "items": [
+        "operators/provider/pre-flight",
+        "operators/provider/install-toolchain",
+        "operators/provider/generate-keystore",
+        "operators/provider/fund-accounts",
+        "operators/provider/configure-environment",
+        "operators/provider/docker-compose",
+        "operators/provider/start-node",
+        "operators/provider/register-sequencer",
+        "operators/provider/verify",
+        "operators/provider/day-2-essentials",
+        "operators/provider/provider-operations"
+      ]
     },
     {
-      "type": "doc",
-      "id": "operators/setup/bootnode_operation"
+      "type": "category",
+      "label": "Prover",
+      "collapsible": true,
+      "collapsed": true,
+      "link": {
+        "type": "doc",
+        "id": "operators/prover/overview"
+      },
+      "items": [
+        "operators/prover/setup",
+        "operators/prover/verification",
+        "operators/prover/claiming-rewards",
+        "operators/prover/troubleshooting"
+      ]
     },
     {
-      "type": "doc",
-      "id": "operators/setup/syncing_best_practices"
+      "type": "category",
+      "label": "Essentials",
+      "collapsible": true,
+      "collapsed": true,
+      "items": [
+        "operators/concepts/identity-model",
+        "operators/concepts/hardware",
+        "operators/concepts/l1-rpc",
+        "operators/concepts/claiming-rewards",
+        "operators/concepts/slashing",
+        "operators/concepts/monitoring",
+        "operators/concepts/sequencer-troubleshooting"
+      ]
     },
     {
       "type": "html",
@@ -62,12 +112,26 @@
     },
     {
       "type": "html",
-      "value": "<span class=\"sidebar-title\">Operation</span>",
+      "value": "<span class=\"sidebar-title\">Advanced operations</span>",
       "className": "sidebar-title"
+    },
+    {
+      "type": "category",
+      "label": "Topology and infrastructure",
+      "collapsible": true,
+      "collapsed": true,
+      "items": [
+        "operators/setup/high_availability_sequencers",
+        "operators/setup/bootnode_operation",
+        "operators/setup/syncing_best_practices",
+        "operators/setup/building_from_source"
+      ]
     },
     {
       "type": "category",
       "label": "Monitoring",
+      "collapsible": true,
+      "collapsed": true,
       "link": {
         "type": "doc",
         "id": "operators/monitoring/monitoring"
@@ -75,7 +139,7 @@
       "items": [
         {
           "type": "category",
-          "label": "Setup Guides",
+          "label": "Setup guides",
           "items": [
             "operators/monitoring/otel-setup",
             "operators/monitoring/prometheus-setup",
@@ -88,7 +152,9 @@
     },
     {
       "type": "category",
-      "label": "Keystore Management",
+      "label": "Keystore management",
+      "collapsible": true,
+      "collapsed": true,
       "link": {
         "type": "doc",
         "id": "operators/keystore/advanced_keystore_guide"
@@ -103,7 +169,9 @@
     },
     {
       "type": "category",
-      "label": "Sequencer Management",
+      "label": "Sequencer management",
+      "collapsible": true,
+      "collapsed": true,
       "link": {
         "type": "doc",
         "id": "operators/sequencer-management/sequencer_management_overview"
@@ -118,6 +186,20 @@
     {
       "type": "doc",
       "id": "operators/operator-faq"
+    },
+    {
+      "type": "html",
+      "value": "<span class=\"sidebar-divider\" />"
+    },
+    {
+      "type": "html",
+      "value": "<span class=\"sidebar-title\">Operator tooling</span>",
+      "className": "sidebar-title"
+    },
+    {
+      "type": "doc",
+      "id": "operators/tooling/index",
+      "label": "Foundation and community tools"
     },
     {
       "type": "html",
@@ -142,21 +224,10 @@
         "operators/reference/changelog/v2.0.2"
       ]
     },
-    {
-      "type": "doc",
-      "id": "operators/reference/cli-reference"
-    },
-    {
-      "type": "doc",
-      "id": "operators/reference/node_api_reference"
-    },
-    {
-      "type": "doc",
-      "id": "operators/reference/ethereum_rpc_reference"
-    },
-    {
-      "type": "doc",
-      "id": "operators/reference/glossary"
-    }
+    "operators/reference/cli-reference",
+    "operators/reference/node_api_reference",
+    "operators/reference/ethereum_rpc_reference",
+    "operators/reference/reading_logs",
+    "operators/reference/glossary"
   ]
 }
