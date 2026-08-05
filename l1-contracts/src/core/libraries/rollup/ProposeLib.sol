@@ -9,6 +9,7 @@ import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/
 import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {CoordinationSignatureLib} from "@aztec/core/libraries/rollup/CoordinationSignatureLib.sol";
@@ -21,11 +22,6 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {ProposedHeader, ProposedHeaderLib} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
-
-// Streaming-inbox protocol constant (AZIP-22 Fast Inbox). Mirrors the protocol circuit constant and should move
-// into the generated Constants library once the Solidity emitter includes it.
-// Maximum number of L1 to L2 messages a single checkpoint can insert.
-uint256 constant MAX_L1_TO_L2_MSGS_PER_CHECKPOINT = 1024;
 
 struct ProposeArgs {
   bytes32 archive;
@@ -462,7 +458,7 @@ library ProposeLib {
     );
 
     require(
-      bucket.totalMsgCount - _parentTotalMsgCount <= MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+      bucket.totalMsgCount - _parentTotalMsgCount <= Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
       Errors.Rollup__TooManyInboxMessagesConsumed(bucket.totalMsgCount - _parentTotalMsgCount)
     );
 
@@ -471,7 +467,7 @@ library ProposeLib {
       Timestamp cutoff = TimeLib.getBuildFrameStart(_slotNumber);
       require(
         next.timestamp > Timestamp.unwrap(cutoff)
-          || next.totalMsgCount - _parentTotalMsgCount > MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+          || next.totalMsgCount - _parentTotalMsgCount > Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
         Errors.Rollup__UnconsumedInboxMessages(_bucketHint + 1)
       );
     }
