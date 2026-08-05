@@ -78,6 +78,45 @@ describe('waitForTx', () => {
     });
   });
 
+  describe('initialDelay option', () => {
+    it('delays the first receipt poll', async () => {
+      const start = Date.now();
+      let firstPollAt: number | undefined;
+      node.getTxReceipt.mockImplementation(() => {
+        firstPollAt ??= Date.now();
+        return Promise.resolve(minedReceipt(TxStatus.CHECKPOINTED));
+      });
+
+      const receipt = await waitForTx(node, txHash, { timeout: 1, interval: 0.05, initialDelay: 0.2 });
+
+      expect(receipt.status).toBe(TxStatus.CHECKPOINTED);
+      expect(node.getTxReceipt).toHaveBeenCalledTimes(1);
+      expect(firstPollAt! - start).toBeGreaterThanOrEqual(150);
+    });
+
+    it('does not consume the dropped-receipt grace period', async () => {
+      node.getTxReceipt.mockResolvedValue(new DroppedTxReceipt(txHash, 'Tx dropped'));
+      const start = Date.now();
+
+      await expect(
+        waitForTx(node, txHash, { timeout: 2, interval: 0.05, initialDelay: 0.3, ignoreDroppedReceiptsFor: 0.2 }),
+      ).rejects.toThrow(/dropped/);
+
+      expect(Date.now() - start).toBeGreaterThanOrEqual(450);
+    });
+
+    it('counts against the timeout', async () => {
+      node.getTxReceipt.mockResolvedValue(new PendingTxReceipt(txHash, undefined));
+      const start = Date.now();
+
+      await expect(waitForTx(node, txHash, { timeout: 0.3, interval: 0.05, initialDelay: 1 })).rejects.toThrow(
+        /Timeout/,
+      );
+
+      expect(Date.now() - start).toBeLessThan(1000);
+    });
+  });
+
   describe('waitForStatus option', () => {
     it('returns immediately when receipt status matches requested status', async () => {
       node.getTxReceipt.mockResolvedValue(minedReceipt(TxStatus.CHECKPOINTED));
