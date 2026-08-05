@@ -55,6 +55,7 @@ jobs:
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NETWORK: ${{ inputs.network }}
+          REGISTRY_ADDRESS: ${{ inputs.registry_address }}
           NO_SPOT: 1
         run: |
-          ./.github/ci3.sh deploy-rollup-upgrade "${{ inputs.registry_address }}"
+          ./.github/ci3.sh deploy-rollup-upgrade "$REGISTRY_ADDRESS"

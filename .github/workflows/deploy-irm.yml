@@ -103,22 +103,27 @@ jobs:
           echo "IMAGE_TAG=${VERSION}" >> "$GITHUB_ENV"
 
       - name: Validate inputs
+        env:
+          L1_NETWORK: ${{ inputs.l1_network }}
+          INPUT_NAMESPACE: ${{ inputs.namespace }}
+          INPUT_NETWORK: ${{ inputs.network }}
+          INPUT_MONITORING_NAMESPACE: ${{ inputs.monitoring_namespace }}
         run: |
           # Validate l1_network
-          if [[ "${{ inputs.l1_network }}" != "sepolia" && "${{ inputs.l1_network }}" != "mainnet" ]]; then
-            echo "Error: L1 network must be 'sepolia' or 'mainnet', got '${{ inputs.l1_network }}'"
+          if [[ "$L1_NETWORK" != "sepolia" && "$L1_NETWORK" != "mainnet" ]]; then
+            echo "Error: L1 network must be 'sepolia' or 'mainnet', got '${L1_NETWORK}'"
             exit 1
           fi
 
           # Validate namespace to monitor
           # Determine namespace to monitor (defaults to network when not provided)
-          NAMESPACE_TO_MONITOR="${{ inputs.namespace }}"
+          NAMESPACE_TO_MONITOR="${INPUT_NAMESPACE}"
           if [[ -z "$NAMESPACE_TO_MONITOR" ]]; then
-            NAMESPACE_TO_MONITOR="${{ inputs.network }}"
+            NAMESPACE_TO_MONITOR="${INPUT_NETWORK}"
           fi
 
           # Determine IRM namespace (defaults to {namespace}-irm when not provided)
-          EFFECTIVE_MONITORING_NAMESPACE="${{ inputs.monitoring_namespace }}"
+          EFFECTIVE_MONITORING_NAMESPACE="${INPUT_MONITORING_NAMESPACE}"
           if [[ -z "$EFFECTIVE_MONITORING_NAMESPACE" ]]; then
             EFFECTIVE_MONITORING_NAMESPACE="${NAMESPACE_TO_MONITOR}-irm"
           fi
@@ -143,11 +148,13 @@ jobs:
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          INPUT_NETWORK: ${{ inputs.network }}
+          L1_NETWORK: ${{ inputs.l1_network }}
         run: |
-          echo "Deploying IRM to network: ${{ inputs.network }}"
+          echo "Deploying IRM to network: ${INPUT_NETWORK}"
           echo "Namespace to monitor: ${NAMESPACE}"
           echo "Monitoring namespace: ${MONITORING_NAMESPACE}"
-          echo "L1 network: ${{ inputs.l1_network }}"
+          echo "L1 network: ${L1_NETWORK}"
           echo "Image tag: ${IMAGE_TAG}"
 
-          ./spartan/metrics/irm-monitor/scripts/update-monitoring.sh $NAMESPACE $MONITORING_NAMESPACE ${{ inputs.network }} $ETHEREUM_HOSTS_SECRET_NAME
+          ./spartan/metrics/irm-monitor/scripts/update-monitoring.sh $NAMESPACE $MONITORING_NAMESPACE "$INPUT_NETWORK" $ETHEREUM_HOSTS_SECRET_NAME

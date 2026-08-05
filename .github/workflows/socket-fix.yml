@@ -44,6 +44,7 @@ jobs:
 
       - name: Run
         env:
+          SEVERITY: ${{ inputs.severity || 'high' }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -51,4 +52,4 @@ jobs:
           SOCKET_SECURITY_API_TOKEN: ${{ secrets.SOCKET_SECURITY_API_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: ./.github/ci3.sh socket-fix ${{ inputs.severity || 'high' }}
+        run: ./.github/ci3.sh socket-fix "$SEVERITY"

@@ -21,11 +21,11 @@ jobs:
 
       - name: Run healthcheck
         env:
+          NETWORKS: ${{ inputs.networks || 'next-net,staging-public,staging-internal,testnet,mainnet' }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           CI: "1"
         run: |
-          NETWORKS="${{ inputs.networks || 'next-net,staging-public,staging-internal,testnet,mainnet' }}"
 
           PROMPT="Run a network healthcheck for: ${NETWORKS}.
 
