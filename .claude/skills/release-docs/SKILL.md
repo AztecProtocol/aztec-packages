@@ -544,11 +544,12 @@ checked out at the tag in Step 2) against the snapshot you just cut from it.
 
 Two distinct classes of change can be missed — **check both**:
 
-- **Source (current) docs** — only `docs/docs-developers/` (→ `developer_versioned_docs/`)
-  and `docs/docs-operate/` (→ `network_versioned_docs/`) are snapshotted. Edits here only
-  reach a version when that version is cut, so anything added on `next` since the tag is
-  missing from the new snapshot. A source file at `docs/docs-developers/docs/X` maps to
-  `developer_versioned_docs/version-v<new_version>/docs/X` in the snapshot. (`docs/docs-participate/`,
+- **Source (current) docs and sidebars** — `docs/docs-developers/` (→
+  `developer_versioned_docs/`), `docs/docs-operate/` (→ `network_versioned_docs/`),
+  `docs/sidebars-developer.js`, and `docs/sidebars-operate.js` are snapshot inputs.
+  Anything added on `next` since the tag may be missing from the new snapshot. A source
+  file at `docs/docs-developers/docs/X` maps to
+  `developer_versioned_docs/version-v<new_version>/docs/X`. (`docs/docs-participate/`,
   `docs/src/`, and the `docs/docs/` root pages are NOT versioned; changes there land live
   on `next` and are out of scope for this reconcile.)
 - **Existing versioned snapshots on `next`** — fixes that were applied _directly_
@@ -575,7 +576,8 @@ is actually visible:
 
    ```bash
    git diff v<new_version>..origin/next -- \
-     docs/docs-developers/ docs/docs-operate/
+     docs/docs-developers/ docs/docs-operate/ \
+     docs/sidebars-developer.js docs/sidebars-operate.js
    ```
 
 3. See what `next` changed **directly in the previous versioned snapshot with the same major version number**, and
@@ -614,6 +616,13 @@ is actually visible:
    `docs/developer_versioned_docs/version-v<new_version>/` (and the network snapshot
    where applicable). Present a summary of what was found, what was backported, and
    what was intentionally skipped, for user confirmation.
+
+6. Treat sidebar changes as part of the same backport. If you reconcile a docs layout
+   from `next`, update the matching file under `developer_versioned_sidebars/` or
+   `network_versioned_sidebars/` from the same final sidebar source. Never combine
+   reconciled `next` pages with the tag-generated sidebar. When adopting the `next`
+   sidebar wholesale, load both configs in Node and assert deep semantic equality;
+   a successful Docusaurus build does not catch a stale sidebar when legacy pages still exist.
 
 ### Step 13: Run `yarn build` and Fix Issues
 
@@ -832,7 +841,8 @@ Check for stash conflicts. Then report to the user:
 - **Reconcile against `next` after cutting**: The new version is cut from the release
   tag, which predates docs changes merged into `next`. After the cut, diff the tag
   against `origin/next` and backport relevant changes — both to source docs **and** to
-  the previous versioned snapshot (see Step 12). This is the most commonly missed step.
+  the previous versioned snapshot, including matching sidebar changes (see Step 12).
+  This is the most commonly missed step.
 - **API ref docs**: Generated in Step 6 into `docs/static/typescript-api/` and
   `docs/static/aztec-nr-api/` with stable folder names (`mainnet`, `testnet`,
   `devnet`, `nightly`). The `#api_ref_version` macro resolves to the matching

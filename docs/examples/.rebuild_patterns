@@ -1,3 +1,5 @@
 ^docs/examples/
+^docs/package.json
+^docs/yarn.lock
 ^yarn-project/
 ^noir-projects/

@@ -478,9 +478,11 @@ noir-projects: noir-projects-fnd noir-projects-labs
 
 # l1-contracts-solc: Download (or cache-hit) the pinned solc binary.
 # This is the single owner of the svm download. Other forge projects
-# (barretenberg/sol, docs/examples/solidity) point their foundry.toml at the
-# same binary, so they must wait on this target before invoking forge build,
-# otherwise parallel forge invocations race on ~/.svm.
+# (barretenberg/sol) point their foundry.toml at the same binary, so they
+# must wait on this target before invoking forge build, otherwise parallel
+# forge invocations race on ~/.svm. (docs/examples/solidity pins a plain
+# solc version and downloads via svm itself; it builds after l1-contracts
+# in the dependency graph, so the invocations never overlap.)
 l1-contracts-solc:
 	$(call build,$@,l1-contracts,download_solc)
 

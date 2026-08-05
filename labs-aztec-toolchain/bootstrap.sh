@@ -358,6 +358,15 @@ function check_pin_drift {
   # (e.g. the viem fork) version independently and must not be checked.
   done < <(grep -oE 'npm:@aztec/(bb\.js|noir-[^@"]*)@[^"]*' "$config" 2>/dev/null || true)
 
+  # docs pins the l1-artifacts package, whose l1-contracts sources feed the docs
+  # L1 snippets and the solidity examples' imports.
+  local pkg_json=$repo_root/docs/package.json
+  version=$(sed -n 's/.*"@aztec\/l1-artifacts": *"\([^"]*\)".*/\1/p' "$pkg_json")
+  if [ "$version" != "$BB_VERSION" ]; then
+    echo_stderr "$pkg_json: @aztec/l1-artifacts pins version \"$version\", expected \"$BB_VERSION\" (BB_VERSION in labs-aztec-toolchain/bootstrap.sh)."
+    failed=true
+  fi
+
   # yarn-project pins its first-party npm dependencies in one place, the resolutions block; the
   # workspace manifests carry a dummy version. Every @aztec-scoped entry there is a release of this
   # repo and so tracks BB_VERSION, unlike the third-party entries it sits beside.

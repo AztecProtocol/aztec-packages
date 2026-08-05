@@ -1,6 +1,48 @@
 const fs = require("fs");
 const path = require("path");
 
+// Snippets included from an installed npm package must not link to the local
+// node_modules path: the source link instead points at the repo and tag the
+// installed version was published from, with the in-repo path as display text.
+// Line numbers remain valid because the package ships the tag's sources verbatim.
+//
+// On release builds this tag deliberately diverges from COMMIT_TAG (which the
+// rest of the site links at): the snippet is extracted from the installed
+// package's sources, so only the package's own version tag is guaranteed to
+// match it line-for-line. The pin is kept equal to the toolchain's BB_VERSION
+// by check_pin_drift in labs-aztec-toolchain/bootstrap.sh, so these links
+// track the pinned toolchain release rather than the docs release.
+const PUBLISHED_SNIPPET_SOURCES = [
+  {
+    pathPrefix: "docs/node_modules/@aztec/l1-artifacts/",
+    repoUrl: "https://github.com/AztecProtocol/aztec-packages",
+  },
+];
+
+function resolveSnippetSource(relativeCodeFilePath, rootDir, defaultTag) {
+  const published = PUBLISHED_SNIPPET_SOURCES.find((source) =>
+    relativeCodeFilePath.startsWith(source.pathPrefix),
+  );
+  if (!published) {
+    return {
+      repoUrl: "https://github.com/AztecProtocol/aztec-packages",
+      ref: defaultTag,
+      displayPath: relativeCodeFilePath,
+    };
+  }
+  const { version } = JSON.parse(
+    fs.readFileSync(
+      path.join(rootDir, published.pathPrefix, "package.json"),
+      "utf8",
+    ),
+  );
+  return {
+    repoUrl: published.repoUrl,
+    ref: `v${version}`,
+    displayPath: relativeCodeFilePath.slice(published.pathPrefix.length),
+  };
+}
+
 const getLineNumberFromIndex = (fileContent, index) => {
   return fileContent.substring(0, index).split("\n").length;
 };
@@ -120,7 +162,7 @@ function extractCodeSnippet(filePath, identifier) {
         } else {
           if (matchFound === true) {
             throw new Error(
-              `Duplicate for regex ${regex} and identifier ${identifier}`
+              `Duplicate for regex ${regex} and identifier ${identifier}`,
             );
           }
           matchFound = true;
@@ -149,15 +191,15 @@ function extractCodeSnippet(filePath, identifier) {
   if (startMatch === null || endMatch === null) {
     if (startMatch === null && endMatch === null) {
       throw new Error(
-        `Identifier "${identifier}" not found in file "${filePath}"`
+        `Identifier "${identifier}" not found in file "${filePath}"`,
       );
     } else if (startMatch === null) {
       throw new Error(
-        `Start line "docs:start:${identifier}" not found in file "${filePath}"`
+        `Start line "docs:start:${identifier}" not found in file "${filePath}"`,
       );
     } else {
       throw new Error(
-        `End line "docs:end:${identifier}" not found in file "${filePath}"`
+        `End line "docs:end:${identifier}" not found in file "${filePath}"`,
       );
     }
   }
@@ -249,17 +291,20 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
       const [codeSnippet, startLine, endLine] = extractCodeSnippet(
         absCodeFilePath,
         identifier,
-        filePath
+        filePath,
       );
 
       const relativeCodeFilePath = path
         .resolve(rootDir, codeFilePath)
         .replace(/^\//, "");
-      const urlText = `${relativeCodeFilePath}#L${startLine}-L${endLine}`;
-      const tag = process.env.COMMIT_TAG
-        ? `${process.env.COMMIT_TAG}`
-        : "next";
-      const url = `https://github.com/AztecProtocol/aztec-packages/blob/${tag}/${urlText}`;
+      const tag = process.env.COMMIT_TAG ? `${process.env.COMMIT_TAG}` : "next";
+      const { repoUrl, ref, displayPath } = resolveSnippetSource(
+        relativeCodeFilePath,
+        rootDir,
+        tag,
+      );
+      const urlText = `${displayPath}#L${startLine}-L${endLine}`;
+      const url = `${repoUrl}/blob/${ref}/${urlText}`;
 
       const title = noTitle ? "" : `title="${identifier}"`;
       const lineNumbers = noLineNumbers ? "" : "showLineNumbers";
@@ -277,7 +322,7 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
       const lineNum = getLineNumberFromIndex(markdownContent, match.index);
       // We were warning here, but code snippets were being broken. So making this throw an error instead:
       throw new Error(
-        `Error processing "${filePath}:${lineNum}": ${error.message}.`
+        `Error processing "${filePath}:${lineNum}": ${error.message}.`,
       );
     }
   }
