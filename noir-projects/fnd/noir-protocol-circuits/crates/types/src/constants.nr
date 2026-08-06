@@ -399,6 +399,7 @@ pub global TOTAL_MANA_USED_LENGTH: u32 = 1;
 pub global BLOCK_HEADER_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + STATE_REFERENCE_LENGTH
     + 1 /* blob_sponge_hash */
+    + 1 /* tx_effects_tree_root */
     + GLOBAL_VARIABLES_LENGTH
     + TOTAL_FEES_LENGTH
     + TOTAL_MANA_USED_LENGTH;
@@ -556,6 +557,7 @@ pub global TX_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
     + SPONGE_BLOB_LENGTH /* end_sponge_blob */
     + 1 /* num_txs */
     + 1 /* out_hash */
+    + 1 /* tx_effects_tree_root */
     + 1 /* accumulated_fees */
     + 1 /* accumulated_mana_used */;
 pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LENGTH
@@ -743,6 +745,20 @@ pub global DOM_SEP__BLOCK_HEADER_HASH: u32 = 4195546849;
 pub global DOM_SEP__TX_REQUEST: u32 = 3763737512;
 pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 1630108851;
 pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 1971680439;
+
+/// Domain separator for the per-field sub-hashes of a tx effect. Each variable-length field of a tx effect
+/// (note hashes, nullifiers, ...) is hashed on its own with this separator, over that field's slice of the
+/// blob encoding. A single separator is shared across all fields because each sub-hash sits at a fixed
+/// position in the tx effect hash preimage.
+pub global DOM_SEP__TX_EFFECT_FIELD_HASH: u32 = 2264957172;
+/// Domain separator for the hash over a tx's effects: the tx start marker, the transaction fee, and the
+/// per-field sub-hashes.
+pub global DOM_SEP__TX_EFFECT_HASH: u32 = 3479234285;
+/// Domain separator for a leaf of the tx effects tree, which binds a tx hash to that tx's effect hash.
+pub global DOM_SEP__TX_EFFECT_LEAF: u32 = 2445468887;
+/// Domain separator for the internal nodes of the tx effects tree. Distinct from
+/// [`DOM_SEP__TX_EFFECT_LEAF`] so that a leaf can never be confused with an internal node.
+pub global DOM_SEP__TX_EFFECTS_TREE: u32 = 2908237871;
 
 // Hashing the calldata of public functions:
 pub global DOM_SEP__PUBLIC_CALLDATA: u32 = 2760353947;
