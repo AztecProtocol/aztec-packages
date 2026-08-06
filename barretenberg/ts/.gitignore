@@ -8,6 +8,7 @@ bb.js/build
 bb.js/.tsbuildinfo*
 bb.js/*.tsbuildinfo
 bb-avm-sim/
+cdb/
 .tsbuildinfo*
 *.tsbuildinfo
 *.log

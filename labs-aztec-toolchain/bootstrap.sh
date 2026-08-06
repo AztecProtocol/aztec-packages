@@ -92,16 +92,29 @@ function hash {
     echo_stderr "noir-profiler: $(realpath -m "$noir_profiler")"
     exit 1
   fi
-  # The optional binaries are hashed only when provisioned: what the toolchain
-  # provides (including their absence) is part of its identity.
-  local files=("$bb" "$nargo" "$noir_profiler")
+  # The toolchain's identity is the SOURCE identity of its providers, not the bytes of the
+  # built binaries: bb/bb-avm get the current commit hash stamped into them on non-release
+  # builds (inject_version in barretenberg/cpp/bootstrap.sh), so hashing bytes makes every
+  # commit look like a new toolchain even when nothing changed — forcing downstream consumers
+  # (e.g. every noir-contracts cache key) to rebuild and mass-regenerate VKs per commit.
+  # Composing the upstream content hashes keys rebuilds on exactly the same inputs that decide
+  # whether the binaries themselves rebuild. (A future labs-repo provisioning mode should use
+  # the released toolchain's version string as its fixed identity instead.)
+  #
+  # The optional binaries contribute presence only: what the toolchain provides (including
+  # their absence) is part of its identity, but their content is already covered by the
+  # provider hashes.
+  local provided=""
   local optional
   for optional in "$TARGET_DIR/$BB_AVM_BINARY" "$TARGET_DIR/$ACVM_BINARY"; do
     if [ -f "$optional" ]; then
-      files+=("$optional")
+      provided+=" $(basename "$optional")"
     fi
   done
-  hash_str $(git hash-object "${files[@]}")
+  hash_str \
+    $("$ROOT"/barretenberg/cpp/bootstrap.sh hash) \
+    $("$ROOT"/noir/bootstrap.sh hash) \
+    "$provided"
 }
 
 case "$cmd" in

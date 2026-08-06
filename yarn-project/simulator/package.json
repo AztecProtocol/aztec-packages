@@ -19,9 +19,8 @@
     "build": "yarn clean && ../scripts/tsc.sh",
     "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "generate": "node --experimental-strip-types --experimental-transform-types --no-warnings ../../ipc-codegen/src/generate.ts --schema ../../barretenberg/cpp/src/barretenberg/cdb/cdb_schema.json --lang ts --server --out src/public/cdb/generated",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
-    "build:fuzzer": "yarn clean && yarn generate && ../scripts/tsc.sh"
+    "build:fuzzer": "yarn clean && ../scripts/tsc.sh"
   },
   "inherits": [
     "../package.common.json"
@@ -65,6 +64,7 @@
   },
   "dependencies": {
     "@aztec/bb-avm-sim": "0.1.0",
+    "@aztec/cdb": "0.1.0",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/ipc-runtime": "0.1.0",

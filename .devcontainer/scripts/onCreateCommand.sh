@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-TYPE=$1
-NAME=$2
-
 curl -s https://install.aztec.network | NON_INTERACTIVE=1 bash -s
 docker compose -f $HOME/.aztec/docker-compose.local-network.yml pull
 
@@ -12,16 +9,3 @@ fi
 
 
 corepack enable
-
-if [ "$TYPE" != "local_network_only" ]; then
-    source ~/.bashrc
-    yes | npx aztec-app -t $TYPE -n $NAME -s
-    mv $NAME/* $NAME/.* .
-    rm -rf $NAME
-
-    yarn
-
-    npx -y playwright install --with-deps
-    yarn add @aztec/builder
-    yarn prep
-fi
