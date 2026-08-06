@@ -363,6 +363,7 @@ export const BLOCK_HEADER: TypeMapping<BlockHeader> = STRUCT<BlockHeader>([
   { name: 'lastArchive', type: APPEND_ONLY_TREE_SNAPSHOT },
   { name: 'state', type: STATE_REFERENCE },
   { name: 'spongeBlobHash', type: FIELD },
+  { name: 'txEffectsTreeRoot', type: FIELD },
   { name: 'globalVariables', type: GLOBAL_VARIABLES },
   { name: 'totalFees', type: FIELD },
   { name: 'totalManaUsed', type: FIELD },
