@@ -295,6 +295,9 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
       blockRootRollupOutput.previousArchive,
       blockRootRollupOutput.endState,
       spongeBlobHash,
+      // The tx effects tree root is committed via the header hash only, so it is not part of the block root rollup
+      // public inputs. TODO: take it from the caller, which holds the block's tx effects.
+      Fr.ZERO,
       globalVariables,
       blockRootRollupOutput.accumulatedFees,
       blockRootRollupOutput.accumulatedManaUsed,
@@ -353,6 +356,8 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       lastArchive,
       state: endState,
       spongeBlobHash,
+      // TODO: compute from the block's tx effects via Body.computeTxEffectsTreeRoot.
+      txEffectsTreeRoot: Fr.ZERO,
       globalVariables,
       totalFees,
       totalManaUsed,

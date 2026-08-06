@@ -221,6 +221,8 @@ export class BlockProvingState {
       this.lastArchiveTreeSnapshot,
       this.endState,
       endSpongeBlobHash,
+      // TODO: compute from the block's tx effects via Body.computeTxEffectsTreeRoot.
+      Fr.ZERO,
       this.#getGlobalVariables(),
       this.#getTotalFees(),
       new Fr(this.#getTotalManaUsed()),

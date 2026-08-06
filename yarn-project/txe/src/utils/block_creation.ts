@@ -54,6 +54,8 @@ export async function makeTXEBlockHeader(
   return BlockHeader.from({
     lastArchive: new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
     spongeBlobHash: Fr.ZERO,
+    // TODO: compute from the block's tx effects via Body.computeTxEffectsTreeRoot.
+    txEffectsTreeRoot: Fr.ZERO,
     state: stateReference,
     globalVariables,
     totalFees: Fr.ZERO,

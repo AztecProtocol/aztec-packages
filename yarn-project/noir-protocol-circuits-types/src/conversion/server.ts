@@ -415,6 +415,7 @@ export function mapTxRollupPublicInputsFromNoir(publicInputs: TxRollupPublicInpu
     mapSpongeBlobFromNoir(publicInputs.start_sponge_blob),
     mapSpongeBlobFromNoir(publicInputs.end_sponge_blob),
     mapFieldFromNoir(publicInputs.out_hash),
+    mapFieldFromNoir(publicInputs.tx_effects_tree_root),
     mapFieldFromNoir(publicInputs.accumulated_fees),
     mapFieldFromNoir(publicInputs.accumulated_mana_used),
   );
@@ -429,6 +430,7 @@ export function mapTxRollupPublicInputsToNoir(publicInputs: TxRollupPublicInputs
     start_sponge_blob: mapSpongeBlobToNoir(publicInputs.startSpongeBlob),
     end_sponge_blob: mapSpongeBlobToNoir(publicInputs.endSpongeBlob),
     out_hash: mapFieldToNoir(publicInputs.outHash),
+    tx_effects_tree_root: mapFieldToNoir(publicInputs.txEffectsTreeRoot),
     accumulated_fees: mapFieldToNoir(publicInputs.accumulatedFees),
     accumulated_mana_used: mapFieldToNoir(publicInputs.accumulatedManaUsed),
   };

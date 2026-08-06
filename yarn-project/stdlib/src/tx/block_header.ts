@@ -30,6 +30,8 @@ export class BlockHeader {
      * May contain tx effects from the previous blocks in the same checkpoint.
      */
     public readonly spongeBlobHash: Fr,
+    /** Root of this block's tx effects tree, with one leaf per tx. Zero for an empty block. */
+    public readonly txEffectsTreeRoot: Fr,
     /** Global variables of an L2 block. */
     public readonly globalVariables: GlobalVariables,
     /** Total fees in the block, computed by the root rollup circuit */
@@ -44,6 +46,7 @@ export class BlockHeader {
         lastArchive: AppendOnlyTreeSnapshot.schema,
         state: StateReference.schema,
         spongeBlobHash: schemas.Fr,
+        txEffectsTreeRoot: schemas.Fr,
         globalVariables: GlobalVariables.schema,
         totalFees: schemas.Fr,
         totalManaUsed: schemas.Fr,
@@ -56,6 +59,7 @@ export class BlockHeader {
       fields.lastArchive,
       fields.state,
       fields.spongeBlobHash,
+      fields.txEffectsTreeRoot,
       fields.globalVariables,
       fields.totalFees,
       fields.totalManaUsed,
@@ -79,6 +83,7 @@ export class BlockHeader {
       this.lastArchive.getSize() +
       this.state.getSize() +
       this.spongeBlobHash.size +
+      this.txEffectsTreeRoot.size +
       this.globalVariables.getSize() +
       this.totalFees.size +
       this.totalManaUsed.size
@@ -113,6 +118,7 @@ export class BlockHeader {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(StateReference),
       reader.readObject(Fr),
+      reader.readObject(Fr),
       reader.readObject(GlobalVariables),
       reader.readObject(Fr),
       reader.readObject(Fr),
@@ -126,6 +132,7 @@ export class BlockHeader {
       AppendOnlyTreeSnapshot.fromFields(reader),
       StateReference.fromFields(reader),
       reader.readField(),
+      reader.readField(),
       GlobalVariables.fromFields(reader),
       reader.readField(),
       reader.readField(),
@@ -137,6 +144,7 @@ export class BlockHeader {
       lastArchive: AppendOnlyTreeSnapshot.empty(),
       state: StateReference.empty(),
       spongeBlobHash: Fr.ZERO,
+      txEffectsTreeRoot: Fr.ZERO,
       globalVariables: GlobalVariables.empty(),
       totalFees: Fr.ZERO,
       totalManaUsed: Fr.ZERO,
@@ -149,6 +157,7 @@ export class BlockHeader {
       this.lastArchive.isEmpty() &&
       this.state.isEmpty() &&
       this.spongeBlobHash.isZero() &&
+      this.txEffectsTreeRoot.isZero() &&
       this.globalVariables.isEmpty() &&
       this.totalFees.isZero() &&
       this.totalManaUsed.isZero()
@@ -192,6 +201,7 @@ export class BlockHeader {
       lastArchive: AppendOnlyTreeSnapshot.random(),
       state: StateReference.random(),
       spongeBlobHash: Fr.random(),
+      txEffectsTreeRoot: Fr.random(),
       globalVariables: GlobalVariables.random(overrides),
       totalFees: new Fr(randomInt(100_000)),
       totalManaUsed: new Fr(randomInt(100_000_000)),
@@ -204,6 +214,7 @@ export class BlockHeader {
       lastArchive: this.lastArchive.root.toString(),
       state: this.state.toInspect(),
       spongeBlobHash: this.spongeBlobHash.toBigInt(),
+      txEffectsTreeRoot: this.txEffectsTreeRoot.toBigInt(),
       globalVariables: this.globalVariables.toInspect(),
       totalFees: this.totalFees.toBigInt(),
       totalManaUsed: this.totalManaUsed.toBigInt(),
@@ -218,6 +229,7 @@ export class BlockHeader {
   state.nullifierTree: ${inspect(this.state.partial.nullifierTree)},
   state.publicDataTree: ${inspect(this.state.partial.publicDataTree)},
   spongeBlobHash: ${this.spongeBlobHash},
+  txEffectsTreeRoot: ${this.txEffectsTreeRoot},
   globalVariables: ${inspect(this.globalVariables)},
   totalFees: ${this.totalFees},
   totalManaUsed: ${this.totalManaUsed},
@@ -229,6 +241,7 @@ export class BlockHeader {
       this.lastArchive.equals(other.lastArchive) &&
       this.state.equals(other.state) &&
       this.spongeBlobHash.equals(other.spongeBlobHash) &&
+      this.txEffectsTreeRoot.equals(other.txEffectsTreeRoot) &&
       this.globalVariables.equals(other.globalVariables) &&
       this.totalFees.equals(other.totalFees) &&
       this.totalManaUsed.equals(other.totalManaUsed)

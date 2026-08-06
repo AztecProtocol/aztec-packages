@@ -103,6 +103,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
             ),
           ),
           new Fr(31n),
+          new Fr(83n),
           new GlobalVariables(
             new Fr(37n),
             new Fr(41n),
@@ -699,6 +700,7 @@ function buildL2Block(): L2Block {
       ),
     ),
     new Fr(163n),
+    new Fr(347n),
     new GlobalVariables(
       new Fr(167n),
       new Fr(173n),

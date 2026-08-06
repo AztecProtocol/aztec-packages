@@ -42,6 +42,14 @@ export class TxRollupPublicInputs {
      */
     public outHash: Fr,
     /**
+     * Root of the tx effects tree over the constituent transactions, with one leaf per tx.
+     *
+     * Accumulated pairwise up the rollup tree with `DomainSeparator.TX_EFFECTS_TREE`, without skipping zero roots. The
+     * greedy-fill assertions on the rollup tree admit exactly one shape per tx count, so the root is a function of the
+     * txs and their count alone.
+     */
+    public txEffectsTreeRoot: Fr,
+    /**
      * The summed `transaction_fee` of the constituent transactions.
      */
     public accumulatedFees: Fr,
@@ -60,6 +68,7 @@ export class TxRollupPublicInputs {
       PartialStateReference.empty(),
       SpongeBlob.empty(),
       SpongeBlob.empty(),
+      Fr.zero(),
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
@@ -84,6 +93,7 @@ export class TxRollupPublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -103,6 +113,7 @@ export class TxRollupPublicInputs {
       this.endSpongeBlob,
 
       this.outHash,
+      this.txEffectsTreeRoot,
 
       this.accumulatedFees,
       this.accumulatedManaUsed,

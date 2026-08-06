@@ -380,6 +380,7 @@ describe('NativeWorldState', () => {
         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
         stateReference,
         Fr.random(), // spongeBlobHash
+        Fr.random(), // txEffectsTreeRoot
         makeGlobalVariables(),
         Fr.ZERO,
         Fr.ZERO,
@@ -410,6 +411,7 @@ describe('NativeWorldState', () => {
         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
         stateReference,
         Fr.random(), // spongeBlobHash
+        Fr.random(), // txEffectsTreeRoot
         makeGlobalVariables(),
         Fr.ZERO,
         Fr.ZERO,

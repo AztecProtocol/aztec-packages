@@ -1,6 +1,9 @@
 import type { TxBlobData } from '@aztec/blob-lib/encoding';
+import { DomainSeparator } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { computeUnbalancedMerkleTreeRootAsync, makePoseidonMerkleHash } from '@aztec/foundation/trees';
 
 import { inspect } from 'util';
 import { z } from 'zod';
@@ -49,6 +52,22 @@ export class Body {
    */
   toTxBlobData(): TxBlobData[] {
     return this.txEffects.map(txEffect => txEffect.toTxBlobData());
+  }
+
+  /**
+   * Root of the block's tx effects tree, with one leaf per tx binding the tx hash to the hash of its effects.
+   *
+   * Mirrors the accumulation performed by the rollup circuits: an unbalanced (greedily filled) tree over the leaves in
+   * tx order. Zero leaves are not skipped — there are no padding txs, so the shape is a function of the tx count
+   * alone. A block with no txs has root 0, and a single-tx block's root is that tx's leaf, unhashed.
+   */
+  async computeTxEffectsTreeRoot(): Promise<Fr> {
+    const leaves = await Promise.all(this.txEffects.map(txEffect => txEffect.computeTxEffectLeaf()));
+    const root = await computeUnbalancedMerkleTreeRootAsync(
+      leaves.map(leaf => leaf.toBuffer()),
+      makePoseidonMerkleHash(DomainSeparator.TX_EFFECTS_TREE),
+    );
+    return Fr.fromBuffer(root);
   }
 
   /**

@@ -2,10 +2,14 @@ import {
   type TxBlobData,
   type TxStartMarker,
   decodeTxBlobData,
+  encodePrivateLogsBlobFields,
+  encodePublicDataWritesBlobFields,
   encodeTxBlobData,
+  encodeTxStartMarker,
   getNumTxBlobFields,
 } from '@aztec/blob-lib/encoding';
 import {
+  DomainSeparator,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -14,6 +18,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
@@ -278,6 +283,35 @@ export class TxEffect {
   }
 
   /**
+   * Hash committing to the full contents of this tx's effects.
+   *
+   * The hash is structured rather than flat: each variable-length field is hashed on its own first, and this hash is
+   * taken over those sub-hashes plus the small scalar fields inline. Proving a single field (e.g. one note hash)
+   * therefore only requires the preimage of that field's sub-hash, with the other sub-hashes as opaque witnesses.
+   *
+   * Must match `compute_tx_effect_hash` in noir-protocol-circuits/crates/types/src/blob_data/tx_effect.nr.
+   */
+  async computeTxEffectHash(): Promise<Fr> {
+    const txBlobData = this.toTxBlobData();
+    const fieldHashes = await Promise.all(getTxEffectFieldBlobSlices(txBlobData).map(computeTxEffectFieldHash));
+    return poseidon2HashWithSeparator(
+      [encodeTxStartMarker(txBlobData.txStartMarker), this.transactionFee, ...fieldHashes],
+      DomainSeparator.TX_EFFECT_HASH,
+    );
+  }
+
+  /**
+   * This tx's leaf of the block's tx effects tree: a hash binding the tx hash to the hash of the tx's effects.
+   *
+   * A holder of the block header can verify "tx X was included in this block and produced exactly effects E" with a
+   * membership proof against `BlockHeader.txEffectsTreeRoot`.
+   */
+  async computeTxEffectLeaf(): Promise<Fr> {
+    const txEffectHash = await this.computeTxEffectHash();
+    return poseidon2HashWithSeparator([this.txHash.hash, txEffectHash], DomainSeparator.TX_EFFECT_LEAF);
+  }
+
+  /**
    * Decodes a flat packed array of fields to TxEffect.
    */
   static fromTxBlobData(txBlobData: TxBlobData) {
@@ -372,4 +406,33 @@ export class TxEffect {
   static fromString(str: string) {
     return TxEffect.fromBuffer(hexToBuffer(str));
   }
+}
+
+/**
+ * The blob-encoding slices of a tx effect's variable-length fields, in the order they are hashed into the tx effect
+ * hash. Each slice is exactly what `encodeTxBlobData` writes for that field, so no new serialization format is
+ * introduced.
+ */
+function getTxEffectFieldBlobSlices(txBlobData: TxBlobData): Fr[][] {
+  return [
+    txBlobData.noteHashes,
+    txBlobData.nullifiers,
+    txBlobData.l2ToL1Msgs,
+    encodePublicDataWritesBlobFields(txBlobData.publicDataWrites),
+    encodePrivateLogsBlobFields(txBlobData.privateLogs),
+    txBlobData.publicLogs,
+    txBlobData.contractClassLog,
+  ];
+}
+
+/**
+ * Hashes one variable-length field of a tx effect over that field's slice of the blob encoding.
+ *
+ * An empty field hashes to 0 rather than to a hash of nothing. This is unambiguous because every array count is bound
+ * by the tx start marker, which is hashed alongside the sub-hashes.
+ */
+function computeTxEffectFieldHash(blobFields: Fr[]): Promise<Fr> {
+  return blobFields.length === 0
+    ? Promise.resolve(Fr.ZERO)
+    : poseidon2HashWithSeparator(blobFields, DomainSeparator.TX_EFFECT_FIELD_HASH);
 }

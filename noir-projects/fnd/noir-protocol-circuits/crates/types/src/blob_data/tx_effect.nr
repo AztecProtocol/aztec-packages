@@ -193,6 +193,7 @@ mod tests {
     global TRANSACTION_FEE: Field = 42;
     global REVERT_CODE: u8 = 1;
     global CONTRACT_CLASS_LOG_ADDRESS: Field = 77;
+    global PUBLIC_LOG_ADDRESS: Field = 200;
 
     /// A tx effect with a couple of items in every field, small enough that the expected hashes can be written out
     /// by hand.
@@ -207,7 +208,9 @@ mod tests {
         tx_effect.l2_to_l1_msgs[0] = 31;
         tx_effect.public_data_writes[0] = PublicDataWrite { leaf_slot: 41, value: 42 };
         tx_effect.private_logs[0] = PrivateLog::new(pad_end([101, 102, 103]), 3);
-        tx_effect.public_logs = PublicLogs::new(pad_end([201, 202]), 2);
+        // A well-formed encoding of a single public log: `[num_fields, contract_address, ...fields]`. The TS mirror
+        // of this fixture builds the payload out of a `PublicLog`, so an arbitrary payload could not be reproduced.
+        tx_effect.public_logs = PublicLogs::new(pad_end([2, PUBLIC_LOG_ADDRESS, 201, 202]), 4);
         tx_effect.contract_class_logs[0] = ContractClassLog {
             log: Log::new(pad_end([301, 302]), 2),
             contract_address: AztecAddress::from_field(CONTRACT_CLASS_LOG_ADDRESS),
@@ -232,14 +235,14 @@ mod tests {
     /// The tx start marker of the fixture, computed independently of the code under test.
     fn small_fixture_tx_start_marker() -> Field {
         // 3 leading fields, 2 note hashes, 1 nullifier, 1 l2->l1 msg, 1 write (2 fields), 1 private log (1 length
-        // field + 3 fields), 2 public log fields, 1 contract class log (1 address field + 2 fields).
-        let num_blob_fields = 3 + 2 + 1 + 1 + 2 + 4 + 2 + 3;
+        // field + 3 fields), 4 public log fields, 1 contract class log (1 address field + 2 fields).
+        let num_blob_fields = 3 + 2 + 1 + 1 + 2 + 4 + 4 + 3;
         let (_, array_lengths) = small_fixture();
         create_tx_start_marker(
             num_blob_fields,
             array_lengths,
             3, // private_logs_length
-            2, // public_logs_length
+            4, // public_logs_length
             2, // contract_class_log_length
             REVERT_CODE,
         )
@@ -258,7 +261,7 @@ mod tests {
                 field_hash([31]),
                 field_hash([41, 42]),
                 field_hash([3, 101, 102, 103]),
-                field_hash([201, 202]),
+                field_hash([2, PUBLIC_LOG_ADDRESS, 201, 202]),
                 field_hash([CONTRACT_CLASS_LOG_ADDRESS, 301, 302]),
             ],
             DOM_SEP__TX_EFFECT_HASH,
@@ -270,6 +273,20 @@ mod tests {
             DOM_SEP__TX_EFFECT_LEAF,
         );
         assert_eq(compute_tx_effect_leaf(tx_effect, array_lengths), expected_leaf);
+    }
+
+    /// Pins the leaf of the fixture against the TypeScript implementation, which mirrors the fixture field for field.
+    /// Both sides must agree: the archiver recomputes the tx effects tree root from the effects it decodes from blobs,
+    /// and compares it against the root the rollup circuits put in the block header.
+    #[test]
+    fn leaf_of_small_fixture_matches_typescript() {
+        let (tx_effect, array_lengths) = small_fixture();
+
+        // Generated from yarn-project/stdlib/src/tx/tx_effect.test.ts
+        let test_data_tx_effect_leaf =
+            0x23123931ffdee54cf34fbf657b7817ad5fcae54bce508a739a01977591b991cc;
+
+        assert_eq(compute_tx_effect_leaf(tx_effect, array_lengths), test_data_tx_effect_leaf);
     }
 
     /// The sub-hash preimages must be exactly the field's slice of the blob encoding. `create_tx_blob_data` checks
@@ -295,6 +312,8 @@ mod tests {
             101,
             102,
             103,
+            2,
+            PUBLIC_LOG_ADDRESS,
             201,
             202,
             CONTRACT_CLASS_LOG_ADDRESS,
@@ -302,7 +321,7 @@ mod tests {
             302,
         ]);
 
-        assert_eq(num_blob_fields, 18);
+        assert_eq(num_blob_fields, 20);
         assert_eq(blob_fields, expected_blob_fields);
     }
 

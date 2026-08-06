@@ -768,6 +768,7 @@ export function makeTxRollupPublicInputs(
     fr(seed + 0x901),
     fr(seed + 0x902),
     fr(seed + 0x903),
+    fr(seed + 0x904),
   );
 }
 
@@ -859,6 +860,7 @@ export function makeBlockHeader(
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x100),
     state: makeStateReference(seed + 0x200),
     spongeBlobHash: fr(seed + 0x300),
+    txEffectsTreeRoot: fr(seed + 0x350),
     globalVariables: makeGlobalVariables((seed += 0x700), overrides),
     totalFees: fr(seed + 0x800),
     totalManaUsed: fr(seed + 0x900),

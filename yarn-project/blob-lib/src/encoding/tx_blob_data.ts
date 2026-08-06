@@ -20,6 +20,16 @@ export interface TxBlobData {
   contractClassLog: Fr[];
 }
 
+/** The blob encoding of a tx effect's public data writes: the leaf slot and value of each write. */
+export function encodePublicDataWritesBlobFields(publicDataWrites: [Fr, Fr][]): Fr[] {
+  return publicDataWrites.flat();
+}
+
+/** The blob encoding of a tx effect's private logs: for each log, its length followed by its fields. */
+export function encodePrivateLogsBlobFields(privateLogs: Fr[][]): Fr[] {
+  return privateLogs.flatMap(log => [new Fr(log.length), ...log]);
+}
+
 export function encodeTxBlobData(txBlobData: TxBlobData): Fr[] {
   return [
     encodeTxStartMarker(txBlobData.txStartMarker),
@@ -28,8 +38,8 @@ export function encodeTxBlobData(txBlobData: TxBlobData): Fr[] {
     ...txBlobData.noteHashes,
     ...txBlobData.nullifiers,
     ...txBlobData.l2ToL1Msgs,
-    ...txBlobData.publicDataWrites.flat(),
-    ...txBlobData.privateLogs.map(log => [new Fr(log.length), ...log]).flat(),
+    ...encodePublicDataWritesBlobFields(txBlobData.publicDataWrites),
+    ...encodePrivateLogsBlobFields(txBlobData.privateLogs),
     ...txBlobData.publicLogs,
     ...txBlobData.contractClassLog,
   ];

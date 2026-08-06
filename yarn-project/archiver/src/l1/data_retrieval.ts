@@ -131,6 +131,8 @@ export async function retrievedToPublishedCheckpoint({
       lastArchive: new AppendOnlyTreeSnapshot(lastArchiveRoot, l2BlockNumber),
       state,
       spongeBlobHash,
+      // TODO: compute from the block's tx effects via Body.computeTxEffectsTreeRoot.
+      txEffectsTreeRoot: Fr.ZERO,
       globalVariables,
       totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
       totalManaUsed: new Fr(blockEndStateField.totalManaUsed),
