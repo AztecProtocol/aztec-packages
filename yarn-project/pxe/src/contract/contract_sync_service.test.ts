@@ -63,6 +63,7 @@ describe('ContractSyncService', () => {
       contractClassService,
       noteStore,
       createLogger('test:contract-sync'),
+      false, // concurrentContractSyncEnabled
     );
   });
 
@@ -396,6 +397,40 @@ describe('ContractSyncService', () => {
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       await service.ensureContractSynced(contract2, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       expectSyncedContracts([contractAddress, [scopeA]], [contract2, [scopeA]], [contractAddress, [scopeA]]);
+    });
+  });
+
+  describe('speculative sync', () => {
+    const otherContract = AztecAddress.fromBigIntUnsafe(101n);
+
+    beforeEach(() => {
+      service = new ContractSyncService(
+        aztecNode,
+        contractStore,
+        contractClassService,
+        noteStore,
+        createLogger('test:contract-sync'),
+        true, // concurrentContractSyncEnabled
+      );
+    });
+
+    it('speculatively syncs contracts used by previous jobs of the same entry call', async () => {
+      // Two jobs start with contractAddress, also use otherContract, and commit: otherContract's confidence reaches
+      // the prediction threshold for that entry call.
+      for (const id of [jobId, 'job-2']) {
+        await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, id, [scopeA]);
+        await service.ensureContractSynced(otherContract, null, utilityExecutor, anchorBlockHeader, id, [scopeA]);
+        await service.commit(id);
+      }
+      // Wipe the sync cache (as an anchor block change would) so the next job's syncs run for real.
+      service.wipe();
+      utilityExecutor.mockClear();
+
+      // A new job of the same entry call requests only contractAddress, yet otherContract syncs too.
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, 'job-3', [scopeA]);
+      // The speculative sync runs in the background; yield so it reaches the executor.
+      await tick();
+      expectSyncedContracts([contractAddress, [scopeA]], [otherContract, [scopeA]]);
     });
   });
 

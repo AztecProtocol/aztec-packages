@@ -36,7 +36,23 @@ export interface BlockSynchronizerConfig {
   autoSync: boolean;
 }
 
-export type PXEConfig = KernelProverConfig & DataStoreConfig & ChainConfig & BlockSynchronizerConfig;
+/**
+ * Configuration settings for the contract sync service.
+ */
+export interface ContractSyncConfig {
+  /**
+   * Whether PXE speculatively syncs contracts it predicts will follow the one requested, running them concurrently
+   * with it instead of waiting for execution to reach them. When enabled, repeated flows sync faster, but a wrong
+   * prediction spends unnecessary node requests syncing contracts the job never uses. Experimental; off by default.
+   */
+  concurrentContractSyncEnabled: boolean;
+}
+
+export type PXEConfig = KernelProverConfig &
+  DataStoreConfig &
+  ChainConfig &
+  BlockSynchronizerConfig &
+  ContractSyncConfig;
 
 export type CliPXEOptions = {
   /** Custom Aztec Node URL to connect to  */
@@ -73,6 +89,12 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
     description:
       'Whether PXE syncs with the node automatically before each operation. Disable to let the caller (e.g. a wallet) drive syncs explicitly via pxe.sync().',
     ...booleanConfigHelper(true),
+  },
+  concurrentContractSyncEnabled: {
+    env: 'PXE_CONCURRENT_CONTRACT_SYNC_ENABLED',
+    description:
+      'Whether PXE speculatively syncs contracts it predicts will follow the one requested, running them concurrently with it. Repeated flows sync faster, but a wrong prediction spends unnecessary node requests. Experimental; off by default.',
+    ...booleanConfigHelper(false),
   },
 };
 

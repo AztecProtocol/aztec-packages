@@ -326,6 +326,7 @@ export class PXE {
       contractClassService,
       noteStore,
       createLogger('pxe:contract_sync', bindings),
+      config.concurrentContractSyncEnabled,
     );
     const txResolver = new TxResolverService(readCachedNode);
 
