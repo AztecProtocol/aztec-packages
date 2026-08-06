@@ -9,6 +9,7 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { EpochProverManager, ITxProvider, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { BlockHeader } from '@aztec/stdlib/tx';
 import { L1Metrics } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -448,6 +449,7 @@ describe('ProverNode', () => {
     await proverNode.handleBlockStreamEvent({
       type: 'chain-proposed',
       block: { number: BlockNumber(1), hash: '0x01' },
+      header: BlockHeader.empty(),
     });
 
     // No checkpoint, prune, or proven handler should have fired, and expiry is not on the event path.

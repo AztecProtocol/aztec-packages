@@ -1,5 +1,6 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 
+import type { BlockHeader } from '../../tx/block_header.js';
 import type { L2Block } from '../l2_block.js';
 import type { CheckpointId, L2BlockId, L2TipId, L2Tips, LocalL2Tips } from '../l2_block_source.js';
 
@@ -81,13 +82,14 @@ export type L2BlockStreamEvent =
     }
   | /**
    * Reports the new proposed tip of the chain. Emitted once per sync pass when the source's proposed tip differs
-   * from the pre-pass local one (downloads, a prune, or a thin tip movement). Carries only the block id; in block
-   * mode the corresponding payloads arrive via preceding `blocks-added` events, while in tips-only mode this is the
-   * sole signal that the proposed tip moved. Consumers that only track the proposed tip can ignore `blocks-added`
-   * entirely and anchor on this event instead.
+   * from the pre-pass local one (downloads, a prune, or a thin tip movement). In block mode the corresponding
+   * payloads also arrive via preceding `blocks-added` events, while in tips-only mode this is the sole signal that
+   * the proposed tip moved. Consumers that only track the proposed tip can ignore `blocks-added` entirely and
+   * anchor on this event instead.
    */ {
       type: 'chain-proposed';
       block: L2BlockId;
+      header: BlockHeader;
     }
   | /**
    * Reports a new checkpointed tip. Emitted at most once per sync pass when the source's checkpointed tip
