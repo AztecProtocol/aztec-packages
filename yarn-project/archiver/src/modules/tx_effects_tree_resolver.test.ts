@@ -4,40 +4,40 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { Body } from '@aztec/stdlib/block';
-import { type TxEffectMembershipWitness, TxHash } from '@aztec/stdlib/tx';
+import { type TxEffectMembershipWitness, TxHash, computeTxEffectLeaves } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type TxEffectsTreeArchiverView, TxEffectsTreeResolver } from './tx_effects_tree_resolver.js';
+import { TxEffectsTreeResolver, type TxEffectsTreeStoreView } from './tx_effects_tree_resolver.js';
 
 /** Block number every fixture block is served at. */
 const BLOCK_NUMBER = BlockNumber(7);
 
 describe('TxEffectsTreeResolver', () => {
-  let archiver: MockProxy<TxEffectsTreeArchiverView>;
+  let blocks: MockProxy<TxEffectsTreeStoreView>;
   let resolver: TxEffectsTreeResolver;
 
   beforeEach(() => {
-    archiver = mock<TxEffectsTreeArchiverView>();
-    resolver = new TxEffectsTreeResolver(archiver, makeFakeStore());
+    blocks = mock<TxEffectsTreeStoreView>();
+    resolver = new TxEffectsTreeResolver(blocks, makeFakeStore());
   });
 
   it('returns undefined for a tx the archiver does not know', async () => {
-    archiver.getTxEffect.mockResolvedValue(undefined);
+    blocks.getTxEffect.mockResolvedValue(undefined);
     expect(await resolver.getTxEffectMembershipWitness(TxHash.random())).toBeUndefined();
   });
 
   it('returns undefined when the tx is indexed but its block is gone', async () => {
     const body = await makeBody(2);
-    await wireArchiver(archiver, body);
-    archiver.getBlock.mockResolvedValue(undefined);
+    await wireStore(blocks, body);
+    blocks.getBlockData.mockResolvedValue(undefined);
 
     expect(await resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash)).toBeUndefined();
   });
 
   it('builds a verifiable witness for every tx of a multi-tx block', async () => {
     const body = await makeBody(3);
-    const root = await wireArchiver(archiver, body);
+    const root = await wireStore(blocks, body);
 
     for (const txEffect of body.txEffects) {
       const witness = await resolver.getTxEffectMembershipWitness(txEffect.txHash);
@@ -51,7 +51,7 @@ describe('TxEffectsTreeResolver', () => {
   // The tree is greedily filled, so a 3-leaf tree pairs the first two leaves and shifts the last one up a level.
   it('yields per-leaf path depths matching the unbalanced tree shape', async () => {
     const body = await makeBody(3);
-    await wireArchiver(archiver, body);
+    await wireStore(blocks, body);
 
     const witnesses = await Promise.all(
       body.txEffects.map(txEffect => resolver.getTxEffectMembershipWitness(txEffect.txHash)),
@@ -63,7 +63,7 @@ describe('TxEffectsTreeResolver', () => {
 
   it('builds an empty witness for a single-tx block', async () => {
     const body = await makeBody(1);
-    const root = await wireArchiver(archiver, body);
+    const root = await wireStore(blocks, body);
 
     const witness = await resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash);
     expect(witness!.siblingPath.pathSize).toBe(0);
@@ -72,21 +72,54 @@ describe('TxEffectsTreeResolver', () => {
     expect(root).toEqual(await body.txEffects[0].computeTxEffectLeaf());
   });
 
-  it('throws when the stored tx effects do not hash up to the root in the block header', async () => {
+  // Serves a second leaf that does not match the second tx's effects, so a resolver that recomputed the leaves from the
+  // block body instead of reading the stored ones would build a different tree and fail the header root check.
+  it('builds the witness from the stored leaves rather than recomputing them from the block', async () => {
     const body = await makeBody(2);
-    await wireArchiver(archiver, body, Fr.random());
+    const storedLeaves = [await body.txEffects[0].computeTxEffectLeaf(), Fr.random()];
+    const root = await wireStore(blocks, body, await hashPair(storedLeaves[0], storedLeaves[1]));
+    blocks.getTxEffectLeaves.mockResolvedValue(storedLeaves);
+
+    const witness = await resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash);
+
+    expect(witness!.root).toEqual(root);
+    expect(witness!.siblingPath.toFields()).toEqual([storedLeaves[1]]);
+  });
+
+  it('throws when the block has no stored leaves', async () => {
+    const body = await makeBody(2);
+    await wireStore(blocks, body);
+    blocks.getTxEffectLeaves.mockResolvedValue(undefined);
+
+    await expect(resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash)).rejects.toThrow(
+      'No tx effects tree leaves stored for block 7',
+    );
+  });
+
+  it('throws when the stored leaves do not hash up to the root in the block header', async () => {
+    const body = await makeBody(2);
+    await wireStore(blocks, body, Fr.random());
 
     await expect(resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash)).rejects.toThrow(
       'does not match its header',
     );
   });
 
+  it('throws when the stored leaf does not match the effects served for the tx', async () => {
+    const body = await makeBody(2);
+    await wireStore(blocks, body);
+    blocks.getTxEffectLeaves.mockResolvedValue([Fr.random(), await body.txEffects[1].computeTxEffectLeaf()]);
+
+    await expect(resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash)).rejects.toThrow('is indexed at');
+  });
+
   it('throws when the tx index does not point at the tx it was looked up by', async () => {
     const body = await makeBody(2);
-    await wireArchiver(archiver, body);
-    archiver.getTxEffect.mockResolvedValue({
+    await wireStore(blocks, body);
+    blocks.getTxEffect.mockResolvedValue({
       l2BlockNumber: BLOCK_NUMBER,
       txIndexInBlock: 1,
+      data: body.txEffects[0],
     } as never);
 
     await expect(resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash)).rejects.toThrow('is indexed at');
@@ -94,7 +127,7 @@ describe('TxEffectsTreeResolver', () => {
 });
 
 /**
- * Store double whose `transactionAsync` just runs the callback. The archiver view is mocked here, so there is no real
+ * Store double whose `transactionAsync` just runs the callback. The store view is mocked here, so there is no real
  * snapshot to isolate; the resolver only needs the callback invoked.
  */
 function makeFakeStore(): AztecAsyncKVStore {
@@ -108,20 +141,27 @@ function makeBody(txsPerBlock: number): Promise<Body> {
 }
 
 /**
- * Wires the archiver view to serve a single block holding `body`, indexing each of its txs by position. Returns the
- * root the block header commits to, which is the body's own root unless `headerRoot` overrides it.
+ * Wires the store view to serve a single block holding `body`: the block's header, its stored tx effects tree leaves,
+ * and each of its txs indexed by position. Returns the root the block header commits to, which is the body's own root
+ * unless `headerRoot` overrides it.
  */
-async function wireArchiver(archiver: MockProxy<TxEffectsTreeArchiverView>, body: Body, headerRoot?: Fr): Promise<Fr> {
+async function wireStore(blocks: MockProxy<TxEffectsTreeStoreView>, body: Body, headerRoot?: Fr): Promise<Fr> {
   const txEffectsTreeRoot = headerRoot ?? (await body.computeTxEffectsTreeRoot());
-  archiver.getBlock.mockResolvedValue({ number: BLOCK_NUMBER, header: { txEffectsTreeRoot }, body } as never);
-  archiver.getTxEffect.mockImplementation(((txHash: TxHash) => {
+  blocks.getBlockData.mockResolvedValue({ header: { txEffectsTreeRoot } } as never);
+  blocks.getTxEffectLeaves.mockResolvedValue(await computeTxEffectLeaves(body.txEffects));
+  blocks.getTxEffect.mockImplementation(((txHash: TxHash) => {
     const txIndexInBlock = body.txEffects.findIndex(txEffect => txEffect.txHash.equals(txHash));
     if (txIndexInBlock === -1) {
       return Promise.resolve(undefined);
     }
-    return Promise.resolve({ l2BlockNumber: BLOCK_NUMBER, txIndexInBlock });
+    return Promise.resolve({ l2BlockNumber: BLOCK_NUMBER, txIndexInBlock, data: body.txEffects[txIndexInBlock] });
   }) as never);
   return txEffectsTreeRoot;
+}
+
+/** Hashes a pair of nodes the way the tx effects tree does. */
+function hashPair(left: Fr, right: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([left, right], DomainSeparator.TX_EFFECTS_TREE);
 }
 
 /** Hashes `leaf` up the witness' sibling path, taking the side of each step from the leaf index. */

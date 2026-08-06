@@ -103,7 +103,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   /** Resolver for L2-to-L1 message membership witnesses, built over this archiver's read view. */
   private readonly outboxTreesResolver: OutboxTreesResolver;
 
-  /** Resolver for tx effect membership witnesses, built over this archiver's read view. */
+  /** Resolver for tx effect membership witnesses, built over the block store's persisted tx effects tree leaves. */
   private readonly txEffectsTreeResolver: TxEffectsTreeResolver;
 
   private initialSyncComplete: boolean = false;
@@ -212,7 +212,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       l1Constants.epochDuration,
     );
 
-    this.txEffectsTreeResolver = new TxEffectsTreeResolver(this, this.dataStores.db);
+    this.txEffectsTreeResolver = new TxEffectsTreeResolver(this.dataStores.blocks, this.dataStores.db);
 
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
     // are done as fast as possible. This then gets updated once the initial sync completes.

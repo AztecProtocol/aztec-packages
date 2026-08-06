@@ -37,6 +37,7 @@ import {
   type IndexedTxEffect,
   TxEffect,
   TxHash,
+  computeTxEffectLeaves,
   deserializeIndexedTxEffect,
   serializeIndexedTxEffect,
 } from '@aztec/stdlib/tx';
@@ -164,6 +165,9 @@ export class BlockStore {
   /** Tx hash to serialized IndexedTxEffect */
   #txEffects: AztecAsyncMap<string, Buffer>;
 
+  /** Map block number to the concatenated leaves of the block's tx effects tree, in tx order */
+  #txEffectLeaves: AztecAsyncMap<number, Buffer>;
+
   /** Stores L1 block number in which the last processed L2 block was included */
   #lastSynchedL1Block: AztecAsyncSingleton<bigint>;
 
@@ -197,6 +201,7 @@ export class BlockStore {
     this.#blocks = db.openMap('archiver_blocks');
     this.#blockTxs = db.openMap('archiver_block_txs');
     this.#txEffects = db.openMap('archiver_tx_effects');
+    this.#txEffectLeaves = db.openMap('archiver_tx_effect_leaves');
     this.#contractIndex = db.openMap('archiver_contract_index');
     this.#blockHashIndex = db.openMap('archiver_block_hash_index');
     this.#blockArchiveIndex = db.openMap('archiver_block_archive_index');
@@ -510,6 +515,11 @@ export class BlockStore {
   private async addBlockToDatabase(block: L2Block, checkpointNumber: number, indexWithinCheckpoint: number) {
     const blockHash = await block.hash();
 
+    // Each leaf is a structured hash over a tx's full effect data, so it is computed once here, at ingestion, and read
+    // back by membership-witness requests instead of being recomputed per request.
+    const txEffectLeaves = await computeTxEffectLeaves(block.body.txEffects);
+    await this.#txEffectLeaves.set(block.number, Buffer.concat(txEffectLeaves.map(leaf => leaf.toBuffer())));
+
     await this.#blocks.set(block.number, {
       header: block.header.toBuffer(),
       blockHash: blockHash.toBuffer(),
@@ -540,6 +550,7 @@ export class BlockStore {
   private async deleteBlock(blockNumber: number, blockStorage: BlockStorage): Promise<void> {
     // Delete the block from the main blocks map
     await this.#blocks.delete(blockNumber);
+    await this.#txEffectLeaves.delete(blockNumber);
 
     const blockHash = bufferToHex(blockStorage.blockHash);
 
@@ -1160,6 +1171,24 @@ export class BlockStore {
       return undefined;
     }
     return deserializeIndexedTxEffect(buffer);
+  }
+
+  /**
+   * Gets the leaves of a block's tx effects tree, in tx order, as computed when the block was stored.
+   * @param blockNumber - The block to read the leaves of.
+   * @returns The leaves, or undefined if the block is not stored.
+   */
+  async getTxEffectLeaves(blockNumber: BlockNumber): Promise<Fr[] | undefined> {
+    const buffer = await this.#txEffectLeaves.getAsync(blockNumber);
+    if (buffer === undefined) {
+      return undefined;
+    }
+    const reader = BufferReader.asReader(buffer);
+    const leaves: Fr[] = [];
+    while (!reader.isEmpty()) {
+      leaves.push(reader.readObject(Fr));
+    }
+    return leaves;
   }
 
   /**

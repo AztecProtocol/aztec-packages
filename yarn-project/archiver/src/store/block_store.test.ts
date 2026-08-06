@@ -20,7 +20,7 @@ import { Checkpoint, PublishedCheckpoint, randomCheckpointInfo } from '@aztec/st
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import '@aztec/stdlib/testing/jest';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
+import { type IndexedTxEffect, TxHash, computeTxEffectLeaves } from '@aztec/stdlib/tx';
 
 import {
   BlockAlreadyCheckpointedError,
@@ -1987,6 +1987,58 @@ describe('BlockStore', () => {
 
     it('returns undefined for an unknown tx hash', async () => {
       await expect(blockStore.getTxLocation(TxHash.random())).resolves.toBeUndefined();
+    });
+  });
+
+  describe('getTxEffectLeaves', () => {
+    const getBlock = (i: number) => publishedCheckpoints[i].checkpoint.blocks[0];
+
+    it('stores the tx effects tree leaves of every block added as part of a checkpoint', async () => {
+      await blockStore.addCheckpoints(publishedCheckpoints);
+
+      for (const checkpoint of publishedCheckpoints) {
+        for (const block of checkpoint.checkpoint.blocks) {
+          await expect(blockStore.getTxEffectLeaves(block.number)).resolves.toEqual(
+            await computeTxEffectLeaves(block.body.txEffects),
+          );
+        }
+      }
+    });
+
+    it('stores the tx effects tree leaves of a proposed block', async () => {
+      const block = getBlock(0);
+      await blockStore.addProposedBlock(block);
+
+      await expect(blockStore.getTxEffectLeaves(block.number)).resolves.toEqual(
+        await computeTxEffectLeaves(block.body.txEffects),
+      );
+    });
+
+    it('returns undefined for a block that is not stored', async () => {
+      await blockStore.addCheckpoints(publishedCheckpoints.slice(0, 2));
+
+      await expect(blockStore.getTxEffectLeaves(BlockNumber(5))).resolves.toBeUndefined();
+    });
+
+    it('deletes the leaves of unwound blocks', async () => {
+      await blockStore.addCheckpoints(publishedCheckpoints);
+      await blockStore.removeBlocksAfter(BlockNumber(4));
+
+      await expect(blockStore.getTxEffectLeaves(BlockNumber(4))).resolves.toEqual(
+        await computeTxEffectLeaves(getBlock(3).body.txEffects),
+      );
+      for (let blockNumber = 5; blockNumber <= 10; blockNumber++) {
+        await expect(blockStore.getTxEffectLeaves(BlockNumber(blockNumber))).resolves.toBeUndefined();
+      }
+    });
+
+    it('deletes the leaves of blocks in removed checkpoints', async () => {
+      await blockStore.addCheckpoints(publishedCheckpoints);
+      await blockStore.removeCheckpointsAfter(CheckpointNumber(0));
+
+      for (let blockNumber = 1; blockNumber <= 10; blockNumber++) {
+        await expect(blockStore.getTxEffectLeaves(BlockNumber(blockNumber))).resolves.toBeUndefined();
+      }
     });
   });
 

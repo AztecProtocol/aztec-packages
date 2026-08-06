@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { MAX_TX_EFFECTS_PER_BODY } from '../deserialization/index.js';
 import type { ZodFor } from '../schemas/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
-import { txEffectsTreeNodeHash } from '../tx/tx_effect_membership.js';
+import { computeTxEffectLeaves, txEffectsTreeNodeHash } from '../tx/tx_effect_membership.js';
 
 export class Body {
   constructor(public txEffects: TxEffect[]) {}
@@ -62,7 +62,7 @@ export class Body {
    * alone. A block with no txs has root 0, and a single-tx block's root is that tx's leaf, unhashed.
    */
   async computeTxEffectsTreeRoot(): Promise<Fr> {
-    const leaves = await Promise.all(this.txEffects.map(txEffect => txEffect.computeTxEffectLeaf()));
+    const leaves = await computeTxEffectLeaves(this.txEffects);
     const root = await computeUnbalancedMerkleTreeRootAsync(
       leaves.map(leaf => leaf.toBuffer()),
       txEffectsTreeNodeHash,

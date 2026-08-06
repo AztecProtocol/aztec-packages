@@ -22,7 +22,8 @@ from published data.
 This is a breaking protocol change: the block header serialization grew by one field, so every transaction hash,
 verification key, contract artifact, canonical contract address, and the genesis constants change. Contracts must be
 recompiled against the updated `aztec-nr`. The PXE oracle interface version was bumped (30 → 31), and existing PXE
-databases are re-initialized on next open (data schema version 13 → 14).
+databases are re-initialized on next open (data schema version 13 → 14). Nodes resync their archiver, which now also
+stores the tx effects tree leaves of each block (archiver data schema version 7 → 8).
 
 ### [Aztec.js] A function's return type is a single `returnType`, not a `returnTypes` list
 

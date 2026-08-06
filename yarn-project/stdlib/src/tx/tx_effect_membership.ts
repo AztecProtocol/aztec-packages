@@ -46,6 +46,16 @@ export const TxEffectMembershipWitnessSchema = z.object({
 }) as unknown as z.ZodType<TxEffectMembershipWitness>;
 
 /**
+ * Computes the leaves of a block's tx effects tree, in block order. Each leaf is an expensive structured hash over the
+ * tx's full effect data, so callers that need the leaves more than once should keep them around.
+ *
+ * @param txEffects - All tx effects of the block, in block order.
+ */
+export function computeTxEffectLeaves(txEffects: TxEffect[]): Promise<Fr[]> {
+  return Promise.all(txEffects.map(txEffect => txEffect.computeTxEffectLeaf()));
+}
+
+/**
  * Rebuilds a block's tx effects tree from all its tx effects and returns the membership witness for the tx at
  * `txIndexInBlock`. The returned root must be checked against the block header's `txEffectsTreeRoot` by the caller.
  *
@@ -56,11 +66,27 @@ export async function computeTxEffectMembershipWitness(
   txEffects: TxEffect[],
   txIndexInBlock: number,
 ): Promise<Omit<TxEffectMembershipWitness, 'blockNumber'>> {
-  if (txIndexInBlock < 0 || txIndexInBlock >= txEffects.length) {
-    throw new Error(`Tx index ${txIndexInBlock} is out of bounds for a block with ${txEffects.length} txs`);
+  return await computeTxEffectMembershipWitnessFromLeaves(await computeTxEffectLeaves(txEffects), txIndexInBlock);
+}
+
+/**
+ * Rebuilds a block's tx effects tree from its precomputed leaves and returns the membership witness for the tx at
+ * `txIndexInBlock`. The returned root must be checked against the block header's `txEffectsTreeRoot` by the caller.
+ *
+ * Only the internal nodes are hashed here (one cheap two-field hash per tx), so this is the cheap path for callers
+ * that already hold the leaves.
+ *
+ * @param leaves - Leaves of the block's tx effects tree, in block order.
+ * @param txIndexInBlock - Index within the block of the tx to prove.
+ */
+export async function computeTxEffectMembershipWitnessFromLeaves(
+  leaves: Fr[],
+  txIndexInBlock: number,
+): Promise<Omit<TxEffectMembershipWitness, 'blockNumber'>> {
+  if (txIndexInBlock < 0 || txIndexInBlock >= leaves.length) {
+    throw new Error(`Tx index ${txIndexInBlock} is out of bounds for a block with ${leaves.length} txs`);
   }
 
-  const leaves = await Promise.all(txEffects.map(txEffect => txEffect.computeTxEffectLeaf()));
   const tree = await UnbalancedMerkleTreeCalculator.createAsync(
     leaves.map(leaf => leaf.toBuffer()),
     txEffectsTreeNodeHash,
