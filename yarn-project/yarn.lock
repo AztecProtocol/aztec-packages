@@ -1117,6 +1117,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/cdb@portal:../barretenberg/ts/cdb::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/cdb@portal:../barretenberg/ts/cdb::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  dependencies:
+    msgpackr: "npm:^1.11.2"
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
 "@aztec/cli-wallet@workspace:cli-wallet":
   version: 0.0.0-use.local
   resolution: "@aztec/cli-wallet@workspace:cli-wallet"
@@ -2062,6 +2071,7 @@ __metadata:
   resolution: "@aztec/simulator@workspace:simulator"
   dependencies:
     "@aztec/bb-avm-sim": "npm:0.1.0"
+    "@aztec/cdb": "npm:0.1.0"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/ipc-runtime": "npm:0.1.0"

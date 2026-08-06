@@ -1,4 +1,4 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -8,13 +8,13 @@ import { BlockHash } from '@aztec/stdlib/block';
 import { computePrivateEventCommitment, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
-import { type IndexedTxEffect, TxEffect } from '@aztec/stdlib/tx';
+import { TxEffect } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
 import type { EventValidationRequest } from '../contract_function_simulator/noir-structs/event_validation_request.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
-import { EventService } from './event_service.js';
+import { EventService, type EventValidationTxData } from './event_service.js';
 
 describe('validateAndStoreEvents', () => {
   let blockNumber: BlockNumber;
@@ -24,7 +24,7 @@ describe('validateAndStoreEvents', () => {
   let eventCommitment: Fr;
   let eventNullifier: Fr;
   let txEffect: TxEffect;
-  let indexedTxEffect: IndexedTxEffect;
+  let validationTxData: EventValidationTxData;
   let contractAddress: AztecAddress;
   let recipient: AztecAddress;
 
@@ -58,12 +58,11 @@ describe('validateAndStoreEvents', () => {
       nullifiers: [eventNullifier],
     });
 
-    indexedTxEffect = {
+    validationTxData = {
       l2BlockNumber: blockNumber,
       l2BlockHash: BlockHash.random(),
-      data: txEffect,
+      nullifiers: txEffect.nullifiers,
       txIndexInBlock: 0,
-      slotNumber: SlotNumber(Number(blockNumber)),
     };
 
     /* Happy path context conditions:
@@ -81,7 +80,7 @@ describe('validateAndStoreEvents', () => {
     overrides: {
       eventContent?: Fr[];
       eventCommitment?: Fr;
-      txEffectsMap?: Map<string, IndexedTxEffect>;
+      validationTxDataMap?: Map<string, EventValidationTxData>;
     } = {},
   ) {
     const request: EventValidationRequest = {
@@ -93,21 +92,21 @@ describe('validateAndStoreEvents', () => {
       txHash: txEffect.txHash,
     };
 
-    const map = overrides.txEffectsMap ?? defaultTxEffectsMap();
+    const map = overrides.validationTxDataMap ?? defaultValidationTxDataMap();
     await eventService.validateAndStoreEvents([request], recipient, map);
 
     await privateEventStore.commit('test');
   }
 
   it('should throw when tx does not exist or has no effects', async () => {
-    const txEffectsMap = new Map();
-    await expect(() => runStoreEvent({ txEffectsMap })).rejects.toThrow(/Could not find tx effect for tx hash/);
+    const validationTxDataMap = new Map();
+    await expect(() => runStoreEvent({ validationTxDataMap })).rejects.toThrow(/Could not find tx effect for tx hash/);
   });
 
   it('should throw when tx block has not yet been synchronized', async () => {
-    const laterIndexedTxEffect = { ...indexedTxEffect, l2BlockNumber: BlockNumber(blockNumber + 1) };
-    const txEffectsMap = new Map([[txEffect.txHash.toString(), laterIndexedTxEffect]]);
-    await expect(() => runStoreEvent({ txEffectsMap })).rejects.toThrow(
+    const laterTxData = { ...validationTxData, l2BlockNumber: BlockNumber(blockNumber + 1) };
+    const validationTxDataMap = new Map([[txEffect.txHash.toString(), laterTxData]]);
+    await expect(() => runStoreEvent({ validationTxDataMap })).rejects.toThrow(
       /Obtained a newer tx effect for .* for an event validation request than the anchor block/,
     );
   });
@@ -160,7 +159,7 @@ describe('validateAndStoreEvents', () => {
     expect(result[0].packedEvent).toEqual(eventContent);
   });
 
-  function defaultTxEffectsMap() {
-    return new Map([[txEffect.txHash.toString(), indexedTxEffect]]);
+  function defaultValidationTxDataMap() {
+    return new Map([[txEffect.txHash.toString(), validationTxData]]);
   }
 });

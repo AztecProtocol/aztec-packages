@@ -90,6 +90,7 @@
     "@aztec/bb-avm-sim-linux-arm64": "portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-linux-arm64",
     "@aztec/bb-avm-sim-linux-x64": "portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-linux-x64",
     "@aztec/bb.js": "portal:../barretenberg/ts/bb.js",
+    "@aztec/cdb": "portal:../barretenberg/ts/cdb",
     "@aztec/ipc-runtime": "portal:../ipc-runtime/ts",
     "@aztec/l1-artifacts": "portal:../l1-contracts/l1-artifacts",
     "@aztec/wsdb": "portal:../wsdb/ts",

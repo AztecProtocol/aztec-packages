@@ -6,6 +6,26 @@
  * server. This class only implements the generated handler interface and routes requests to
  * PublicContractsDB instances by fork ID.
  */
+import {
+  type CdbAddContracts,
+  type CdbAddContractsResponse,
+  type CdbCommitCheckpoint,
+  type CdbCommitCheckpointResponse,
+  type CdbCreateCheckpoint,
+  type CdbCreateCheckpointResponse,
+  type CdbGetBytecodeCommitment,
+  type CdbGetBytecodeCommitmentResponse,
+  type CdbGetContractClass,
+  type CdbGetContractClassResponse,
+  type CdbGetContractInstance,
+  type CdbGetContractInstanceResponse,
+  type CdbGetDebugFunctionName,
+  type CdbGetDebugFunctionNameResponse,
+  type Handler as CdbHandler,
+  type CdbRevertCheckpoint,
+  type CdbRevertCheckpointResponse,
+  handleRequest,
+} from '@aztec/cdb';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { UdsIpcServer } from '@aztec/ipc-runtime';
@@ -18,25 +38,6 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { threadId } from 'node:worker_threads';
 
-import type {
-  CdbAddContracts,
-  CdbAddContractsResponse,
-  CdbCommitCheckpoint,
-  CdbCommitCheckpointResponse,
-  CdbCreateCheckpoint,
-  CdbCreateCheckpointResponse,
-  CdbGetBytecodeCommitment,
-  CdbGetBytecodeCommitmentResponse,
-  CdbGetContractClass,
-  CdbGetContractClassResponse,
-  CdbGetContractInstance,
-  CdbGetContractInstanceResponse,
-  CdbGetDebugFunctionName,
-  CdbGetDebugFunctionNameResponse,
-  CdbRevertCheckpoint,
-  CdbRevertCheckpointResponse,
-} from './cdb/generated/api_types.js';
-import { type Handler as CdbHandler, handleRequest } from './cdb/generated/server.js';
 import type { PublicContractsDB } from './public_db_sources.js';
 
 const encoder = new Encoder({ useRecords: false });
