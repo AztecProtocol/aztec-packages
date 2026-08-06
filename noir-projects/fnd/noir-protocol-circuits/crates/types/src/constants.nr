@@ -186,9 +186,9 @@ pub global MAX_CHECKPOINTS_PER_EPOCH: u32 = 32;
 pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x0e7bf88e8833c27b0fca6be614ecc2c63def7bffa35b3ccfa1caff3e39e0c0d2;
+    0x22c20c79c14de01ee15231d523dcfc20a1d4aba37f8c590baad4df9f80ba3e60;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x177a4955b31ecaafad999753938a44e526b54c5ba5d536688227f85f15cfbdf5;
+    0x0a0877e7fa8646252b46122976de111ece73d0cc054da8d780e3f12ec1709305;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
     0xc95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093;
 
