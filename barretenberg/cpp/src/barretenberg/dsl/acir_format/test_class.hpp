@@ -688,9 +688,11 @@ template <TestBase Base_> class TestClass {
         {
             AcirProgram program{ constraint_system, witness_values };
             auto builder = create_circuit<Builder>(program, Base::generate_metadata());
-            num_gates = builder.get_num_finalized_gates_inefficient();
 
             auto prover_instance = std::make_shared<ProverInstance>(builder);
+            // Constructing the ProverInstance finalizes the builder, so the gate count is available here
+            // without get_num_finalized_gates_inefficient()'s copy of the whole circuit.
+            num_gates = builder.get_num_finalized_gates();
             vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
 
             // Validate the builder
