@@ -32,6 +32,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       poolSize: config.numConcurrentIVCVerifiers > 0 ? config.numConcurrentIVCVerifiers : undefined,
       logger,
       debugDir: config.bbDebugOutputDir,
+      threads: config.bbIVCConcurrency,
     });
   }
 
