@@ -249,23 +249,14 @@ export async function prepareFeeSession(opts: PrepareFeeSessionOpts): Promise<Fe
     } else {
       reporter.onBridge?.({ recipient: address, amount: policy.fundAmount, reused: false });
       // Local defaults to anvil; a non-local network must supply L1 connection details.
-      const l1RpcUrl = policy.l1RpcUrl ?? (local ? DEFAULT_LOCAL_L1_RPC_URL : undefined);
-      const l1ChainId = policy.l1ChainId ?? (local ? DEFAULT_LOCAL_L1_CHAIN_ID : undefined);
-      if (l1RpcUrl === undefined || l1ChainId === undefined) {
-        throw new Error(
-          'fee-juice policy on a non-local network requires `l1RpcUrl` and `l1ChainId` (no hardcoded defaults).',
-        );
-      }
+      const { l1ChainId, l1RpcUrl, l1PrivateKey } = resolveL1Config(local, policy);
       const bridged = await bridgeFeeJuice({
         node,
         recipient: address,
         l1RpcUrl,
         l1ChainId,
         amount: policy.fundAmount,
-        // Local: anvil's dev key (its `mint` is owner-gated, so an ephemeral key is rejected).
-        // Non-local: the policy's key, else an ephemeral key + the faucet. Deliberately no env
-        // fallback — the framework never reads the environment; callers pipe keys in via the policy.
-        l1PrivateKey: policy.l1FunderKey ?? (local ? ANVIL_DEV_KEY : undefined),
+        l1PrivateKey,
       });
       stored = {
         claimAmount: bridged.claimAmount.toString(),

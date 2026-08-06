@@ -74,7 +74,7 @@ describe('runDeployment', () => {
       contract: TokenContract,
       deployer: r => r.account('admin'),
       mode: 'publish',
-      dependsOn: ['mint'],
+      dependsOn: ['mint', 'token'],
       deferredInitializerArgs: async ctx => {
         const { result } = await TokenContract.at(ctx.contract('token'), ctx.wallet)
           .methods.balance_of_public(ctx.account('admin'))
@@ -167,6 +167,29 @@ describe('runDeployment', () => {
       await runDeployment({ ...base, reporter });
       expect(nothingToDo).toBe(true);
       expect(defBalance).toEqual(7n);
+
+      // A gate reading a contract it doesn't declare is rejected even though the read succeeds here
+      // (token is on-chain) and even though the gate swallows its own errors — nothing checked the
+      // contract was in place before the read.
+      const undeclared = {
+        kind: 'action',
+        from: r => r.account('admin'),
+        dependsOn: [],
+        call: ctx => TokenContract.at(ctx.contract('token'), ctx.wallet).methods.mint_to_public(operator, 1n),
+        done: async ctx => {
+          try {
+            const { result } = await TokenContract.at(ctx.contract('token'), ctx.wallet)
+              .methods.balance_of_public(ctx.account('admin'))
+              .simulate({ from: ctx.account('admin') });
+            return BigInt(result.toString()) > 0n;
+          } catch {
+            return false;
+          }
+        },
+      } satisfies ActionStep;
+      await expect(runDeployment({ ...base, reporter: {}, steps: { ...base.steps, undeclared } })).rejects.toThrow(
+        /does not declare it in dependsOn/,
+      );
     } finally {
       await rm(stateDir, { recursive: true, force: true });
       await net.stop();

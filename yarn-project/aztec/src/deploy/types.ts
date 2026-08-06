@@ -6,9 +6,6 @@
  * {@link AccountSpec | accounts}. {@link runDeployment} resolves deterministic addresses upfront,
  * inventories what's on-chain, funds the accounts, and executes only what's missing in dependency
  * order — idempotently and resumably.
- *
- * Generic over the steps map, so `ctx.instance("alias")` is typed as the exact contract that
- * alias's class produces — no casts.
  */
 import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -108,7 +105,8 @@ export interface ContractStep<C = Steps, T extends ContractBase = ContractBase> 
   /**
    * Steps that must complete first. Auto-derived from {@link initializerArgs}. Required for
    * deferred contracts: declare the steps whose effects the args read, or an explicit empty array
-   * if they only read pre-existing state.
+   * if they only read pre-existing state. {@link deferredInitializerArgs} resolves only once these
+   * are in place, and a contract it reads without declaring here is rejected.
    */
   dependsOn?: string[];
 }
@@ -123,9 +121,15 @@ export interface ActionStep<C = Steps> {
    * creates required authwits at send time, so the interaction usually needs no `.with(...)`.
    */
   call: (ctx: Ctx<C>) => ContractFunctionInteraction | Promise<ContractFunctionInteraction>;
-  /** Idempotency gate: if it resolves true, the action is skipped this run. */
+  /**
+   * Idempotency gate: if it resolves true, the action is skipped this run. Not consulted until the
+   * contracts in {@link dependsOn} are in place. Anything it throws aborts the run.
+   */
   done: (ctx: Ctx<C>) => Promise<boolean>;
-  /** Steps that must complete first (contracts it calls, actions it follows). */
+  /**
+   * Steps that must complete first: every contract this action calls or its {@link done} gate
+   * reads, plus the actions it follows.
+   */
   dependsOn?: string[];
 }
 
