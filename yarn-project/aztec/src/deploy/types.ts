@@ -5,8 +5,7 @@
  * (published on-chain, or registered privately in the PXE) or an `action` (a tx) — sent from named
  * {@link AccountSpec | accounts}. {@link runDeployment} resolves deterministic addresses upfront,
  * inventories what's on-chain, funds the accounts, and executes only what's missing in dependency
- * order — idempotently and resumably. The framework never reads the environment; callers pipe in
- * secrets/config.
+ * order — idempotently and resumably.
  *
  * Generic over the steps map, so `ctx.instance("alias")` is typed as the exact contract that
  * alias's class produces — no casts.
@@ -21,7 +20,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { DeployReporter } from './reporter.js';
 
 /**
- * How a step's txs are paid.
+ * How txs are paid.
  * - `sponsored`: a SponsoredFPC pays (the local-network default).
  * - `fee-juice`: the account pays from its own Fee Juice; if below `threshold` with work to do,
  *   bridge `fundAmount` from L1 and claim it on the first paying tx. `l1FunderKey`/`l1RpcUrl`/
@@ -42,7 +41,7 @@ export type FeePolicy =
 
 /** An account the deployment sends from: a v0 initializerless Schnorr account (no deploy tx). */
 export interface AccountSpec {
-  /** The account secret, piped in by the caller (env/vault/generated) — never read by the framework. */
+  /** The account secret */
   secret: Fr;
   /** Fee policy for this account's txs, overriding {@link DeploymentSpec.fees}. */
   fees?: FeePolicy;
