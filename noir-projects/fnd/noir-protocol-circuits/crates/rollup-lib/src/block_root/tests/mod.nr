@@ -19,7 +19,7 @@ use types::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader,
         checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
-    blob_data::SpongeBlob,
+    blob_data::{accumulate_tx_effects_tree_root, SpongeBlob},
     constants::{
         ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, PARITY_ROOT_VK_INDEX,
         PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
@@ -284,6 +284,18 @@ impl TestBuilder {
         );
         assert_eq(pi.end_sponge_blob, expected_end_sponge_blob);
 
+        // --- Tx effects tree root ---
+
+        // The root is not in the public inputs: it is committed to by the block header hash checked below.
+        let expected_tx_effects_tree_root = if is_empty_block {
+            0
+        } else if is_single_tx_block {
+            // The single tx's leaf, left unhashed.
+            left.tx_effects_tree_root
+        } else {
+            accumulate_tx_effects_tree_root(left.tx_effects_tree_root, right.tx_effects_tree_root)
+        };
+
         // --- Archive ---
 
         assert_eq(pi.previous_archive, left.constants.last_archive);
@@ -294,6 +306,7 @@ impl TestBuilder {
             last_archive: pi.previous_archive,
             state: pi.end_state,
             sponge_blob_hash,
+            tx_effects_tree_root: expected_tx_effects_tree_root,
             global_variables: left.constants.global_variables,
             total_fees: pi.accumulated_fees,
             total_mana_used: pi.accumulated_mana_used,

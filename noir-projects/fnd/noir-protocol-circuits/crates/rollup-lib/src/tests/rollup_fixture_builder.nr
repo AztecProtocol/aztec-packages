@@ -252,6 +252,7 @@ impl RollupFixtureBuilder {
             last_archive: self.get_archive(block_number - 1),
             state: self.get_state_reference(block_number),
             sponge_blob_hash: block_number as Field * 9439783,
+            tx_effects_tree_root: self.get_tx_effects_tree_root(block_number),
             global_variables: self.get_global_variables(block_number),
             total_fees: self.get_fee(block_number),
             total_mana_used: self.get_mana_used(block_number),
@@ -299,6 +300,7 @@ impl RollupFixtureBuilder {
             start_sponge_blob: self.get_sponge_blob(start_tx_index as u32 - 1),
             end_sponge_blob: self.get_sponge_blob(end_tx_index as u32),
             out_hash: self.get_out_hash(end_tx_index as u32),
+            tx_effects_tree_root: self.get_tx_effects_tree_root(end_tx_index as u32),
             accumulated_fees: self.get_fee(end_tx_index as u32),
             accumulated_mana_used: self.get_mana_used(end_tx_index as u32),
         }
@@ -453,6 +455,10 @@ impl RollupFixtureBuilder {
 
     pub fn get_out_hash(_self: Self, tx_or_block_or_slot_number: u32) -> Field {
         tx_or_block_or_slot_number as Field * 60415
+    }
+
+    fn get_tx_effects_tree_root(_self: Self, tx_or_block_number: u32) -> Field {
+        tx_or_block_number as Field * 51239
     }
 
     fn get_in_hash(_self: Self, slot_number: Field) -> Field {
