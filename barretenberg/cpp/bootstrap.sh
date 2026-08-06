@@ -134,7 +134,7 @@ function download_chonk_inputs {
 function build_cross_objects {
   set -eu
   target=$1
-  # vm2 is only needed by bb-avm, which only arm64-linux builds.
+  # Of the cross targets, only arm64-linux builds bb-avm, which needs the full vm2.
   local vm2_full=$([[ "$target" == arm64-linux ]] && echo vm2 || true)
   if ! cache_exists barretenberg-$target-$hash.zst; then
     cmake_build $target --target barretenberg vm2_stub vm2_sim circuit_checker honk $vm2_full
