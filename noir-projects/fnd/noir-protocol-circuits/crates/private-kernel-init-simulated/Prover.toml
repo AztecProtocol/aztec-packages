@@ -16,6 +16,7 @@ tx_request_salt = 0
 
 [app_public_inputs.anchor_block_header]
 sponge_blob_hash = 0
+tx_effects_tree_root = "0x00"
 total_fees = 0
 total_mana_used = 0
 
@@ -1585,6 +1586,7 @@ vk_tree_root = 0
 
 [return.constants.anchor_block_header]
 sponge_blob_hash = 0
+tx_effects_tree_root = "0x00"
 total_fees = 0
 total_mana_used = 0
 

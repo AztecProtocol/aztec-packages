@@ -127,6 +127,12 @@ export class TxEffect {
         throw new Error('Private log is empty');
       }
     });
+
+    if (contractClassLogs.length > MAX_CONTRACT_CLASS_LOGS_PER_TX) {
+      throw new Error(
+        `Too many contract class logs: ${contractClassLogs.length}, max: ${MAX_CONTRACT_CLASS_LOGS_PER_TX}`,
+      );
+    }
   }
 
   toBuffer(): Buffer {

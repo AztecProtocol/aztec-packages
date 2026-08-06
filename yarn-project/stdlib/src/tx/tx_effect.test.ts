@@ -92,6 +92,26 @@ describe('TxEffect', () => {
     expect(TxEffect.fromBlobFields(fields)).toEqual(txEffect);
   });
 
+  it('rejects more contract class logs than the protocol maximum', () => {
+    const txEffect = smallFixture();
+    const extraLog = ContractClassLog.fromBlobFields(2, [new Fr(CONTRACT_CLASS_LOG_ADDRESS), new Fr(303), new Fr(304)]);
+    expect(
+      () =>
+        new TxEffect(
+          txEffect.revertCode,
+          txEffect.txHash,
+          txEffect.transactionFee,
+          txEffect.noteHashes,
+          txEffect.nullifiers,
+          txEffect.l2ToL1Msgs,
+          txEffect.publicDataWrites,
+          txEffect.privateLogs,
+          txEffect.publicLogs,
+          [...txEffect.contractClassLogs, extraLog],
+        ),
+    ).toThrow(/Too many contract class logs/);
+  });
+
   describe('effect hash', () => {
     it('hashes each field over its slice of the blob encoding', async () => {
       const txEffect = smallFixture();
