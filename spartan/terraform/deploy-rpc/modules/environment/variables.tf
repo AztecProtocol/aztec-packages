@@ -12,12 +12,17 @@ variable "RPCS" {
   description = "RPC instances keyed by public route alias."
   type = map(object({
     aztec_docker_image                            = string
+    log_level                                     = optional(string, "info")
     l1_rpc_secret_name                            = string
     l1_consensus_host_urls_secret_name            = string
     l1_consensus_host_api_keys_secret_name        = string
     l1_consensus_host_api_key_headers_secret_name = string
     hosts                                         = list(string)
     storage_size                                  = string
+    extra_helm_values                             = optional(list(string), [])
+    min_replicas                                  = optional(number, 1)
+    force_update                                  = optional(bool, true)
+    recreate_pods                                 = optional(bool, true)
     env                                           = map(string)
   }))
 }

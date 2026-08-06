@@ -13,6 +13,12 @@ variable "RELEASE_PREFIX" {
   type        = string
 }
 
+variable "LOG_LEVEL" {
+  description = "Default and per-module log levels for the RPC node."
+  type        = string
+  default     = "info"
+}
+
 variable "AZTEC_DOCKER_IMAGE" {
   description = "Aztec Docker image in repository:tag form."
   type        = string
@@ -51,6 +57,30 @@ variable "L1_CONSENSUS_HOST_API_KEY_HEADERS_SECRET_NAME" {
 variable "STORAGE_SIZE" {
   description = "Persistent volume size per RPC pod."
   type        = string
+}
+
+variable "EXTRA_HELM_VALUES" {
+  description = "Additional YAML values applied after the standard RPC values."
+  type        = list(string)
+  default     = []
+}
+
+variable "MIN_REPLICAS" {
+  description = "Minimum number of RPC pods kept ready by the HPA."
+  type        = number
+  default     = 1
+}
+
+variable "FORCE_UPDATE" {
+  description = "Whether Helm may replace resources during an upgrade."
+  type        = bool
+  default     = true
+}
+
+variable "RECREATE_PODS" {
+  description = "Whether Helm restarts pods during an upgrade."
+  type        = bool
+  default     = true
 }
 
 variable "OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME" {

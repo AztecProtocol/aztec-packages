@@ -58,6 +58,53 @@ locals {
       aztec_docker_image = var.CANONICAL_AZTEC_DOCKER_IMAGE
       hosts              = ["v5.mainnet.rpc.aztec-labs.com", "canonical.mainnet.rpc.aztec-labs.com"]
       storage_size       = "8Gi"
+      min_replicas       = 1
+      force_update       = false
+      recreate_pods      = false
+      log_level          = "info"
+      extra_helm_values = [
+        yamlencode({
+          nodeSelector = {
+            local-ssd = "false"
+            node-type = "network"
+            cores     = "2"
+          }
+          affinity = {
+            nodeAffinity = {
+              preferredDuringSchedulingIgnoredDuringExecution = [
+                {
+                  weight = 100
+                  preference = {
+                    matchExpressions = [
+                      {
+                        key      = "cores"
+                        operator = "In"
+                        values   = ["2"]
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+          node = {
+            resources = {
+              requests = {
+                cpu = "1"
+              }
+              limits = {
+                cpu = "2"
+              }
+            }
+            updateStrategy = {
+              type = "RollingUpdate"
+              rollingUpdate = {
+                partition = 0
+              }
+            }
+          }
+        })
+      ]
       env = merge(local.env, {
         ROLLUP_VERSION = ""
       })
@@ -107,10 +154,10 @@ module "environment" {
     google     = google
   }
 
-  NAMESPACE       = "mainnet-rpc"
-  RELEASE_PREFIX  = "mainnet"
-  RPCS            = local.rpcs
-  ALLOW_ANONYMOUS = false
-  CONSUMERS = local.consumers
+  NAMESPACE           = "mainnet-rpc"
+  RELEASE_PREFIX      = "mainnet"
+  RPCS                = local.rpcs
+  ALLOW_ANONYMOUS     = false
+  CONSUMERS           = local.consumers
   IRM_METRICS_ENABLED = true
 }
