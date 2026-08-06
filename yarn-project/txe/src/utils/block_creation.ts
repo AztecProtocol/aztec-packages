@@ -47,6 +47,7 @@ export async function insertTxEffectIntoWorldTrees(
 export async function makeTXEBlockHeader(
   worldTrees: MerkleTreeWriteOperations,
   globalVariables: GlobalVariables,
+  txEffects: TxEffect[],
 ): Promise<BlockHeader> {
   const stateReference = await worldTrees.getStateReference();
   const archiveInfo = await worldTrees.getTreeInfo(MerkleTreeId.ARCHIVE);
@@ -54,8 +55,7 @@ export async function makeTXEBlockHeader(
   return BlockHeader.from({
     lastArchive: new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
     spongeBlobHash: Fr.ZERO,
-    // TODO: compute from the block's tx effects via Body.computeTxEffectsTreeRoot.
-    txEffectsTreeRoot: Fr.ZERO,
+    txEffectsTreeRoot: await new Body(txEffects).computeTxEffectsTreeRoot(),
     state: stateReference,
     globalVariables,
     totalFees: Fr.ZERO,
@@ -81,7 +81,7 @@ export async function makeTXEBlock(
   globalVariables: GlobalVariables,
   txEffects: TxEffect[],
 ): Promise<L2Block> {
-  const header = await makeTXEBlockHeader(worldTrees, globalVariables);
+  const header = await makeTXEBlockHeader(worldTrees, globalVariables, txEffects);
 
   // Update the archive tree with this block's header hash
   await worldTrees.updateArchive(header);

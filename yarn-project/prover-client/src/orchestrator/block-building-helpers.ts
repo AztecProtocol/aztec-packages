@@ -273,10 +273,12 @@ export const accumulateBlobs = runInSpan(
   },
 );
 
+// The tx effects tree root is committed via the header hash only, so it is not part of the block root rollup public
+// inputs and must be supplied by the caller, which holds the block's tx effects.
 export const buildHeaderFromCircuitOutputs = runInSpan(
   'BlockBuilderHelpers',
   'buildHeaderFromCircuitOutputs',
-  async (_span, blockRootRollupOutput: BlockRollupPublicInputs) => {
+  async (_span, blockRootRollupOutput: BlockRollupPublicInputs, txEffectsTreeRoot: Fr) => {
     const constants = blockRootRollupOutput.constants;
     const globalVariables = GlobalVariables.from({
       chainId: constants.chainId,
@@ -295,9 +297,7 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
       blockRootRollupOutput.previousArchive,
       blockRootRollupOutput.endState,
       spongeBlobHash,
-      // The tx effects tree root is committed via the header hash only, so it is not part of the block root rollup
-      // public inputs. TODO: take it from the caller, which holds the block's tx effects.
-      Fr.ZERO,
+      txEffectsTreeRoot,
       globalVariables,
       blockRootRollupOutput.accumulatedFees,
       blockRootRollupOutput.accumulatedManaUsed,
@@ -356,8 +356,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       lastArchive,
       state: endState,
       spongeBlobHash,
-      // TODO: compute from the block's tx effects via Body.computeTxEffectsTreeRoot.
-      txEffectsTreeRoot: Fr.ZERO,
+      txEffectsTreeRoot: await body.computeTxEffectsTreeRoot(),
       globalVariables,
       totalFees,
       totalManaUsed,

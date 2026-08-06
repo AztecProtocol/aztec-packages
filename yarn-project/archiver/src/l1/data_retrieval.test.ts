@@ -72,6 +72,13 @@ describe('data_retrieval', () => {
         body3.txEffects.map(tx => tx.txHash.toString()),
       );
 
+      // Each reconstructed header must carry the tx effects tree root of its own body
+      for (const [i, block] of publishedCheckpoint.checkpoint.blocks.entries()) {
+        const expectedRoot = await [body1, body2, body3][i].computeTxEffectsTreeRoot();
+        expect(block.header.txEffectsTreeRoot).toEqual(expectedRoot);
+        expect(block.header.txEffectsTreeRoot).not.toEqual(Fr.ZERO);
+      }
+
       // Also verify blocks are distinct from each other
       expect(reconstructedBlock1.body.txEffects.map(tx => tx.txHash.toString())).not.toEqual(
         reconstructedBlock2.body.txEffects.map(tx => tx.txHash.toString()),

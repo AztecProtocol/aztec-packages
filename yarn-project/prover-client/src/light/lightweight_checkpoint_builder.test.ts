@@ -116,6 +116,8 @@ describe('LightweightCheckpointBuilder', () => {
       const { block } = await checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true });
 
       expect(block.header.globalVariables.blockNumber).toEqual(blockNumber);
+      // A block with no txs has an empty tx effects tree.
+      expect(block.header.txEffectsTreeRoot).toEqual(Fr.ZERO);
 
       // Complete checkpoint
       const checkpoint = await checkpointBuilder.completeCheckpoint();
@@ -212,6 +214,8 @@ describe('LightweightCheckpointBuilder', () => {
 
       expect(block.header.globalVariables.blockNumber).toEqual(blockNumber);
       expect(block.body.txEffects.length).toBe(3);
+      expect(block.header.txEffectsTreeRoot).toEqual(await block.body.computeTxEffectsTreeRoot());
+      expect(block.header.txEffectsTreeRoot).not.toEqual(Fr.ZERO);
 
       // Complete checkpoint
       const checkpoint = await checkpointBuilder.completeCheckpoint();
