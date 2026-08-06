@@ -4,6 +4,7 @@
  *        per ACIR component.
  */
 #include "components_check.hpp"
+#include "barretenberg/common/assert.hpp"
 
 namespace acir_components_check {
 
@@ -13,6 +14,12 @@ static constexpr size_t NO_CIRCUIT_CC = SIZE_MAX;
 
 template <typename Builder> std::vector<Error> ComponentsChecker_<Builder>::check()
 {
+    // ACIR witnesses beyond the builder's variables are a legitimate input here (they are reported
+    // as UNCONSTRAINED below), but the builder itself must be internally consistent: the static
+    // analyzer resolves every gate wire through `real_variable_index`.
+    BB_ASSERT_EQ(builder_.real_variable_index.size(),
+                 builder_.get_num_variables(),
+                 "Builder does not have a real variable index for every variable.");
     build_acir_component_map();
     build_circuit_component_map();
     return compare_components();

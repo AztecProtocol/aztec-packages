@@ -422,7 +422,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::save_constant_variable_indices()
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzer_<FF, CircuitBuilder>::check_is_not_constant_variable(const uint32_t& variable_index)
 {
-    uint32_t real_variable_index = circuit_builder.real_variable_index[variable_index];
+    uint32_t real_variable_index = to_real(variable_index);
     return constant_variable_indices_set.find(real_variable_index) == constant_variable_indices_set.end();
 }
 
@@ -1064,8 +1064,8 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
     for (auto& pair : range_lists) {
         for (auto& elem : pair.second.variable_indices) {
             bool is_not_constant_variable = check_is_not_constant_variable(elem);
-            if (variables_gate_counts[circuit_builder.real_variable_index[elem]] == 1 && is_not_constant_variable) {
-                decompose_variables.insert(circuit_builder.real_variable_index[elem]);
+            if (variables_gate_counts[to_real(elem)] == 1 && is_not_constant_variable) {
+                decompose_variables.insert(to_real(elem));
             }
         }
     }

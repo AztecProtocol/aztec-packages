@@ -6,6 +6,7 @@
 
 #pragma once
 #include "./gate_patterns.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <list>
@@ -102,6 +103,12 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     };
     uint32_t to_real(const uint32_t& variable_index) const
     {
+        // Every gate wire is resolved through here, so this is where a builder whose
+        // `real_variable_index` does not cover all of its variables shows up. Report that as an
+        // assertion rather than reading past the end of the table.
+        BB_ASSERT_LT(static_cast<size_t>(variable_index),
+                     circuit_builder.real_variable_index.size(),
+                     "Variable index is not covered by the builder's real_variable_index table.");
         return circuit_builder.real_variable_index[variable_index];
     }
     void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, auto& blk);

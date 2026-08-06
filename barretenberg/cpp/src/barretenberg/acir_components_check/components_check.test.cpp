@@ -544,25 +544,31 @@ TEST_F(AcirComponentsCheckTest, DetectsSplitComponents)
 
 TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
 {
-    Acir::Circuit circuit = make_circuit({
-        Acir::Opcode{ .value = Acir::Opcode::AssertZero{
-                          .value = Acir::Expression{
-                              .linear_combinations =
-                                  {
-                                      { bb::fr::one().to_buffer(), make_witness(8) },
-                                      { bb::fr(-1).to_buffer(), make_witness(9) },
-                                  },
-                              .q_c = bb::fr::zero().to_buffer(),
-                          } } },
-    });
+    auto linked_pair = [](uint32_t lhs, uint32_t rhs) {
+        return Acir::Opcode{ .value = Acir::Opcode::AssertZero{
+                                 .value = Acir::Expression{
+                                     .linear_combinations =
+                                         {
+                                             { bb::fr::one().to_buffer(), make_witness(lhs) },
+                                             { bb::fr(-1).to_buffer(), make_witness(rhs) },
+                                         },
+                                     .q_c = bb::fr::zero().to_buffer(),
+                                 } } };
+    };
 
-    auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
+    // The builder is synthesised from a program whose highest witness index is 9.
+    Acir::Circuit synthesised_circuit = make_circuit({ linked_pair(8, 9) });
+    auto constraints = circuit_serde_to_acir_format(synthesised_circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
 
-    acir_components_check::ComponentsChecker checker(circuit, builder);
+    // The ACIR handed to the checker links a second pair the builder has no variables for, so that
+    // component has no circuit-side placement at all. Shrinking `real_variable_index` to fake this
+    // instead would leave the builder's own gates wired to variables past its end, which the static
+    // analyzer subscripts per wire.
+    Acir::Circuit checked_circuit = make_circuit({ linked_pair(8, 9), linked_pair(1000, 1001) });
+
+    acir_components_check::ComponentsChecker checker(checked_circuit, builder);
     auto errors = checker.check();
     expect_single_error_type(errors, acir_components_check::Error::Type::UNCONSTRAINED);
 }
