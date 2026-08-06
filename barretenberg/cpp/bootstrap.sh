@@ -292,8 +292,11 @@ function test_cmds_native {
           prefix="$prefix:CPUS=8:MEM=16g"
         elif [[ "$test" == HonkRecursionConstraintTestWithoutPredicate/2.* ]]; then
           # Root rollup circuit (HonkRecursionTypesWithoutPredicate index 2, IsRootRollup=true):
-          # a ~6.35M-gate circuit whose VK generation is memory- and compute-heavy.
-          prefix="$prefix:CPUS=8:MEM=16g"
+          # a ~6.35M-gate circuit whose VK generation is memory- and compute-heavy. It peaks at
+          # ~19.2GiB RSS and, because parallelize runs nproc/2 jobs that each take HARDWARE_CONCURRENCY
+          # threads, its wall-time spreads ~5x with host load (102s..486s observed on a healthy 64-core
+          # runner). The default 600s budget leaves no headroom for the slow tail, so give it 20m.
+          prefix="$prefix:CPUS=8:MEM=20g:TIMEOUT=20m"
         elif [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
           # IPARecursiveTests fails with 2 threads.
           prefix="$prefix:CPUS=4:MEM=8g"
