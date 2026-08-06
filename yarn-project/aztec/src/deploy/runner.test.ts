@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/aztec.js/fields';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { type ActionStep, type ContractStep, runDeployment } from './index.js';
+import { type ActionStep, type ContractStep, type Resolver, runDeployment } from './index.js';
 
 // Spec validation happens before anything touches the network, so these run fast against a
 // nodeUrl that points nowhere.
@@ -40,14 +40,19 @@ describe('runDeployment spec validation', () => {
     );
   });
 
+  // `ContractStep` is a union whose variants make these three specs unwritable in TypeScript. The
+  // cast stands in for what still reaches the runtime check: a JS caller, or a spec assembled
+  // dynamically (e.g. through `Object.fromEntries`) where the element types are erased.
+  const illTyped = (step: object): ContractStep => step as ContractStep;
+
   it('rejects a deferred contract with no dependsOn', async () => {
-    const deferred = {
+    const deferred = illTyped({
       kind: 'contract',
       contract: TokenContract,
-      deployer: r => r.account('admin'),
+      deployer: (r: Resolver) => r.account('admin'),
       mode: 'publish',
       deferredInitializerArgs: () => [],
-    } satisfies ContractStep;
+    });
     await expect(runDeployment({ ...base, steps: { token, deferred } })).rejects.toThrow(/deferred args.*dependsOn/);
   });
 
@@ -65,27 +70,27 @@ describe('runDeployment spec validation', () => {
   });
 
   it('rejects a register-mode contract with deferred args', async () => {
-    const reg = {
+    const reg = illTyped({
       kind: 'contract',
       contract: TokenContract,
-      deployer: r => r.account('admin'),
+      deployer: (r: Resolver) => r.account('admin'),
       mode: 'register',
       dependsOn: ['token'],
       deferredInitializerArgs: () => [],
-    } satisfies ContractStep;
+    });
     await expect(runDeployment({ ...base, steps: { token, reg } })).rejects.toThrow(/register-mode with deferred/);
   });
 
   it('rejects a contract declaring both deterministic and deferred args', async () => {
-    const both = {
+    const both = illTyped({
       kind: 'contract',
       contract: TokenContract,
-      deployer: r => r.account('admin'),
+      deployer: (r: Resolver) => r.account('admin'),
       mode: 'publish',
       dependsOn: [],
-      initializerArgs: r => [r.account('admin')],
+      initializerArgs: (r: Resolver) => [r.account('admin')],
       deferredInitializerArgs: () => [],
-    } satisfies ContractStep;
+    });
     await expect(runDeployment({ ...base, steps: { token, both } })).rejects.toThrow(
       /both initializerArgs and deferredInitializerArgs/,
     );

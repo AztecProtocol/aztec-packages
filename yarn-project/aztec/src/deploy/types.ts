@@ -55,30 +55,21 @@ export interface Resolver {
 }
 
 /**
- * A generated contract class (e.g. `TokenContract`): the single source of both the artifact and a
- * typed `.at`. Carries the instance type `T`, surfaced by {@link Ctx.instance}.
+ * The static side of a codegen'd contract class (e.g. `TokenContract`): the single source of both
+ * the artifact and a typed `.at`. Carries the instance type `T`, surfaced by {@link Ctx.instance}.
  */
-export interface ContractClass<T extends ContractBase = ContractBase> {
+export interface GeneratedContractClass<T extends ContractBase = ContractBase> {
   artifact: ContractArtifact;
   at(address: AztecAddress, wallet: Wallet): T;
 }
 
-/**
- * A step that puts a contract on-chain (or in the PXE):
- * - `publish`  → register the class + deploy the instance + run its initializer (a tx).
- * - `register` → private; only derive the deterministic address and register it in the PXE (no tx).
- *
- * The address is deterministic in (class id, deployer, salt, initializer + its args). Provide args
- * via {@link initializerArgs} (deterministic — addresses/static, resolved UPFRONT) or
- * {@link deferredInitializerArgs} (may read runtime state — resolved AT EXECUTION TIME). At most one.
- */
-export interface ContractStep<C = Steps, T extends ContractBase = ContractBase> {
+/** What a contract step declares however its initializer args are produced. */
+interface ContractStepBase<T extends ContractBase = ContractBase> {
   kind: 'contract';
   /** The generated contract class — provides the artifact and the typed `.at`. */
-  contract: ContractClass<T>;
+  contract: GeneratedContractClass<T>;
   /** Account that salts + sends the deploy, e.g. `(r) => r.account("admin")`. */
   deployer: (resolve: Resolver) => AztecAddress;
-  mode: 'publish' | 'register';
   /** Per-contract salt, overriding {@link DeploymentSpec.salt}. */
   salt?: Fr;
   /**
@@ -89,27 +80,44 @@ export interface ContractStep<C = Steps, T extends ContractBase = ContractBase> 
   secret?: Fr;
   /** Name of a non-default `#[initializer]` to call. Defaults to the contract's constructor. */
   initializer?: string;
-  /**
-   * Deterministic initializer args — a pure function of resolved addresses + static config. Its
-   * contract→contract dependencies are auto-derived and the address is resolved UPFRONT. Mutually
-   * exclusive with {@link deferredInitializerArgs}.
-   */
-  initializerArgs?: (resolve: Resolver) => unknown[];
-  /**
-   * Runtime initializer args — may read live state (e.g. `ctx.instance(x).methods.f().simulate()`).
-   * Resolved at inventory time when the state it reads already exists (the re-run case, which is
-   * what makes re-runs no-ops), and otherwise AT EXECUTION TIME, once {@link dependsOn} has run.
-   * Mutually exclusive with {@link initializerArgs}.
-   */
-  deferredInitializerArgs?: (ctx: Ctx<C>) => unknown[] | Promise<unknown[]>;
-  /**
-   * Steps that must complete first. Auto-derived from {@link initializerArgs}. Required for
-   * deferred contracts: declare the steps whose effects the args read, or an explicit empty array
-   * if they only read pre-existing state. {@link deferredInitializerArgs} resolves only once these
-   * are in place, and a contract it reads without declaring here is rejected.
-   */
-  dependsOn?: string[];
 }
+
+/**
+ * A step that puts a contract on-chain (or in the PXE):
+ * - `publish`  → register the class + deploy the instance + run its initializer (a tx).
+ * - `register` → private; only derive the deterministic address and register it in the PXE (no tx).
+ *
+ * The address is deterministic in (class id, deployer, salt, initializer + its args). The two ways
+ * to supply those args are the union's two variants, so a step can only pick one.
+ */
+export type ContractStep<C = Steps, T extends ContractBase = ContractBase> =
+  | (ContractStepBase<T> & {
+      mode: 'publish' | 'register';
+      /**
+       * Deterministic initializer args — a pure function of resolved addresses + static config. Its
+       * contract→contract dependencies are auto-derived and the address is resolved UPFRONT.
+       */
+      initializerArgs?: (resolve: Resolver) => unknown[];
+      deferredInitializerArgs?: never;
+      /** Steps that must complete first, on top of those auto-derived from {@link initializerArgs}. */
+      dependsOn?: string[];
+    })
+  | (ContractStepBase<T> & {
+      /** Deferred args resolve once the run is underway, so there has to be a tx to defer. */
+      mode: 'publish';
+      /**
+       * Runtime initializer args — may read live state (e.g. `ctx.instance(x).methods.f().simulate()`).
+       * Resolved at inventory time when the state it reads already exists (the re-run case, which is
+       * what makes re-runs no-ops), and otherwise AT EXECUTION TIME, once {@link dependsOn} has run.
+       */
+      deferredInitializerArgs: (ctx: Ctx<C>) => unknown[] | Promise<unknown[]>;
+      initializerArgs?: never;
+      /**
+       * The steps whose effects the args read.
+       * The initializer args resolve only once these are in place
+       */
+      dependsOn: string[];
+    });
 
 /** A step that sends a tx once its dependencies exist. */
 export interface ActionStep<C = Steps> {
@@ -172,7 +180,7 @@ export type StepSpec<C = Steps> = ContractStep<C> | ActionStep<C> | FundStep;
 export type Steps = Record<string, StepSpec<any>>;
 
 /** The concrete contract type a contract step produces (else the base type). */
-export type InstanceOf<S> = S extends { contract: ContractClass<infer T> } ? T : ContractBase;
+export type InstanceOf<S> = S extends { contract: GeneratedContractClass<infer T> } ? T : ContractBase;
 /** The aliases of the contract steps in C — so `ctx.instance` only accepts those. */
 export type ContractAlias<C> = {
   [K in keyof C]: C[K] extends { kind: 'contract' } ? K : never;

@@ -34,7 +34,7 @@ export type {
   FundStep,
   StepSpec,
   Steps,
-  ContractClass,
+  GeneratedContractClass,
   FeePolicy,
   Resolver,
   Ctx,
