@@ -38,7 +38,11 @@ export type FeePolicy =
 
 /** An account the deployment sends from: a v0 initializerless Schnorr account (no deploy tx). */
 export interface AccountSpec {
-  /** The account secret */
+  /**
+   * The account's privacy master secret — the seed its nullifier, viewing and tagging keys derive
+   * from. The signing key is derived from it too, separately (domain-separated as the master
+   * message-signing key), so this one value pins the account
+   */
   secret: Fr;
   /** Fee policy for this account's txs, overriding {@link DeploymentSpec.fees}. */
   fees?: FeePolicy;
@@ -73,9 +77,8 @@ interface ContractStepBase<T extends ContractBase = ContractBase> {
   /** Per-contract salt, overriding {@link DeploymentSpec.salt}. */
   salt?: Fr;
   /**
-   * For contracts that own private notes (e.g. an FPC): the contract's key secret. The framework
-   * derives the deploy `publicKeys` from it (so the address depends on it) and registers it in the
-   * PXE with it so its notes decrypt. Omit for ordinary contracts (default keys).
+   * For contracts that own private notes (e.g. an FPC): the contract's privacy master secret. The
+   * framework derives its `PublicKeys` from it. Omit for ordinary contracts (default keys).
    */
   secret?: Fr;
   /** Name of a non-default `#[initializer]` to call. Defaults to the contract's constructor. */
