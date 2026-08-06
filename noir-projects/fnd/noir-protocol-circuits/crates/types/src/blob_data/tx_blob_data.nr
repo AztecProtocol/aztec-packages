@@ -163,13 +163,26 @@ pub fn create_public_data_writes_blob_fields(
 
 /// The blob encoding of a tx effect's `private_logs`: for each log, its length followed by its fields.
 ///
+/// The encoding is built by an unconstrained hint and then verified element by element, rather than being written
+/// directly. Because each log's position depends on the lengths of the preceding logs, writing it directly would
+/// mean writes at run-time offsets, which barretenberg lowers to a RAM block whose access-count range constraint
+/// caps out at `2^16 - 1` — far below the ~72k accesses of this array. Verifying a hint instead only ever reads at
+/// run-time offsets, which becomes an (uncapped) ROM block.
+///
+/// Only the first `num_blob_fields` returned fields are constrained; the padding beyond them is unconstrained, so
+/// callers must not read past the returned length. This matches what `create_tx_blob_data` guarantees for the
+/// concatenated encoding.
+///
 /// @returns the encoded fields, zero-padded, and the number of encoded fields (the sum of all log lengths plus one
 /// length field per log).
 pub fn create_private_logs_blob_fields(
     private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
     num_private_logs: u32,
 ) -> ([Field; PRIVATE_LOGS_BLOB_FIELDS_LENGTH], u32) {
-    let mut blob_fields = [0; PRIVATE_LOGS_BLOB_FIELDS_LENGTH];
+    // Safety: every field up to `num_blob_fields` is constrained against `private_logs` below, and
+    // `num_blob_fields` is checked against the offset the verified encoding ends at.
+    let (blob_fields, num_blob_fields) =
+        unsafe { get_private_logs_blob_fields_unsafe(private_logs, num_private_logs) };
 
     let mut offset = 0;
     let mut include_log = true;
@@ -177,18 +190,49 @@ pub fn create_private_logs_blob_fields(
         include_log &= i != num_private_logs;
         if include_log {
             let log = private_logs[i];
-            blob_fields[offset] = log.length as Field;
+            assert_eq(
+                blob_fields[offset],
+                log.length as Field,
+                "Incorrect private log length in blob data",
+            );
             offset += 1;
 
             let mut include_elt = true;
             for j in 0..log.fields.len() {
                 include_elt &= j != log.length;
                 if include_elt {
-                    blob_fields[offset + j] = log.fields[j];
+                    assert_eq(
+                        blob_fields[offset + j],
+                        log.fields[j],
+                        "Incorrect private log field in blob data",
+                    );
                 }
             }
             offset += log.length;
         }
+    }
+
+    assert_eq(offset, num_blob_fields, "Incorrect number of private log fields in blob data");
+
+    (blob_fields, num_blob_fields)
+}
+
+unconstrained fn get_private_logs_blob_fields_unsafe(
+    private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
+    num_private_logs: u32,
+) -> ([Field; PRIVATE_LOGS_BLOB_FIELDS_LENGTH], u32) {
+    let mut blob_fields = [0; PRIVATE_LOGS_BLOB_FIELDS_LENGTH];
+
+    let mut offset = 0;
+    for i in 0..num_private_logs {
+        let log = private_logs[i];
+        blob_fields[offset] = log.length as Field;
+        offset += 1;
+
+        for j in 0..log.length {
+            blob_fields[offset + j] = log.fields[j];
+        }
+        offset += log.length;
     }
 
     (blob_fields, offset)
@@ -196,6 +240,11 @@ pub fn create_private_logs_blob_fields(
 
 /// The blob encoding of a tx effect's `contract_class_logs`: for each log, its contract address followed by its
 /// fields. Note the log length is not encoded here: it is carried by the tx start marker.
+///
+/// Because `MAX_CONTRACT_CLASS_LOGS_PER_TX` is 1, every index written below is a compile-time constant. If that
+/// constant is ever raised, the writes become run-time offsets and lower to a barretenberg RAM block whose
+/// access-count range constraint caps at `2^16 - 1`; follow `create_private_logs_blob_fields` and verify an
+/// unconstrained hint with reads instead.
 ///
 /// @returns the encoded fields, zero-padded, and the number of encoded fields.
 pub fn create_contract_class_logs_blob_fields(
