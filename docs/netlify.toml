@@ -7,6 +7,10 @@
   command = "yarn build"
   functions = "netlify/functions"
 
+# The markdown content-negotiation edge function declares its own `path` via the
+# inline `config` export in netlify/edge-functions/markdown-negotiation.js, so it
+# does not need a [[edge_functions]] entry here (declaring both runs it twice).
+
 # Install nargo only for preview deploys (not needed for production)
 [context.deploy-preview]
   command = "./scripts/netlify-preview-build.sh"
@@ -176,6 +180,33 @@
 [[redirects]]
     from = "/developers/testnet/getting_started_on_local_network"
     to = "/developers/getting_started_on_local_network"
+    status = 301
+
+[[redirects]]
+    # v4 wallet-sdk pages moved into the webapp tutorial in v5
+    from = "/developers/docs/aztec-js/wallet-sdk/dapp_integration"
+    to = "/developers/docs/tutorials/js_tutorials/webapp/wallet-sdk/dapp-integration"
+    status = 301
+
+[[redirects]]
+    from = "/developers/docs/aztec-js/wallet-sdk/wallet_integration"
+    to = "/developers/docs/tutorials/js_tutorials/webapp/wallet-sdk/wallet-integration"
+    status = 301
+
+[[redirects]]
+    from = "/developers/docs/aztec-js/wallet-sdk/*"
+    to = "/developers/docs/tutorials/js_tutorials/webapp/wallet-sdk"
+    status = 301
+
+[[redirects]]
+    from = "/developers/docs/aztec-js/wallet-sdk"
+    to = "/developers/docs/tutorials/js_tutorials/webapp/wallet-sdk"
+    status = 301
+
+[[redirects]]
+    # Unified Alpha/Testnet docs: the testnet-prefixed routes fold into the default version
+    from = "/developers/testnet/*"
+    to = "/developers/:splat"
     status = 301
 
 [[redirects]]
@@ -424,6 +455,37 @@
 [[redirects]]
     from = "/developers/docs/tutorials/faceid_wallet"
     to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
+
+# =============================================================================
+# ACTIVE REDIRECTS: Removed contract tutorials (PR #16788)
+# These pages were deleted without a redirect; LLMs trained on older versions
+# of the docs still link to them. Send each to the closest current page.
+# =============================================================================
+[[redirects]]
+    from = "/developers/docs/tutorials/contract_tutorials/private_voting_contract"
+    to = "/developers/docs/aztec-nr/framework-description/state_variables"
+    status = 301
+
+[[redirects]]
+    from = "/developers/docs/tutorials/contract_tutorials/crowdfunding_contract"
+    to = "/developers/docs/tutorials/contract_tutorials/token_contract"
+    status = 301
+
+[[redirects]]
+    from = "/developers/docs/tutorials/contract_tutorials/nft_contract"
+    to = "/developers/docs/aztec-nr/standards/aip-721"
+    status = 301
+
+[[redirects]]
+    from = "/developers/docs/tutorials/contract_tutorials/write_accounts_contract"
+    to = "/developers/docs/aztec-js/how_to_create_account"
+    status = 301
+
+# Bare /developers/getting_started landed on no page after the local/testnet split
+[[redirects]]
+    from = "/developers/getting_started"
+    to = "/developers/getting_started_on_local_network"
+    status = 301
 
 # Legacy network paths - SPECIFIC PATHS MUST COME BEFORE WILDCARDS
 # (Netlify processes redirects top-to-bottom, first match wins)
@@ -918,3 +980,8 @@
     # Aztec-nr: contract errors
     from = "/errors/14"
     to = "/developers/docs/aztec-nr/debugging#contract-errors"
+
+[[redirects]]
+    # Aztec-nr: auto-generated note properties require the derived Packable layout
+    from = "/errors/15"
+    to = "/aztec-nr-api/mainnet/noir_aztec/note/note_interface/trait.NoteProperties.html"

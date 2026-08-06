@@ -1757,8 +1757,9 @@ pub fn patch_debug_info_pcs(
             // create a new map with all of its keys (OpcodeLocations) patched
             let mut patched_locations = BTreeMap::new();
             for (original_opcode_location, source_locations) in opcode_locations_map.iter() {
-                let avm_opcode_location =
-                    BrilligOpcodeLocation(brillig_pcs_to_avm_pcs[original_opcode_location.0]);
+                let avm_opcode_location = BrilligOpcodeLocation::new(
+                    brillig_pcs_to_avm_pcs[original_opcode_location.index()],
+                );
                 patched_locations.insert(avm_opcode_location, *source_locations);
             }
             // insert the new map as a brillig locations map for the current function id

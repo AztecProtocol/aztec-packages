@@ -115,6 +115,36 @@ describe('AztecLMDBStoreV2', () => {
     });
   });
 
+  it('gives reads inside a transaction a consistent snapshot while a concurrent write is queued', async () => {
+    const map = store.openMap<string, string>('snapshot');
+    await map.set('k', 'v1');
+
+    const started = promiseWithResolvers<void>();
+    const release = promiseWithResolvers<void>();
+
+    const snapshotReads = store.transactionAsync(async () => {
+      const first = await map.getAsync('k');
+      started.resolve();
+      await release.promise;
+      const second = await map.getAsync('k');
+      return [first, second];
+    });
+
+    await started.promise;
+    // Queue a competing write for the same key. The single writer serializes it behind the in-flight
+    // transaction, so it cannot commit until that transaction finishes.
+    const concurrentWrite = map.set('k', 'v2');
+    release.resolve();
+
+    const [first, second] = await snapshotReads;
+    await concurrentWrite;
+
+    // Both reads inside the transaction observe the pre-write value; the queued write only lands after.
+    expect(first).toBe('v1');
+    expect(second).toBe('v1');
+    expect(await map.getAsync('k')).toBe('v2');
+  });
+
   it('should serialize writes correctly', async () => {
     const key = Buffer.from('foo');
     const inc = () =>

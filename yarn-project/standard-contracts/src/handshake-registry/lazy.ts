@@ -1,9 +1,11 @@
 import { type ContractArtifact, loadContractArtifact } from '@aztec/stdlib/abi';
 
-import { makeStandardContract } from '../make_standard_contract.js';
+import { makeStandardContract, makeStandardContractFromData } from '../make_standard_contract.js';
 import type { StandardContract } from '../standard_contract.js';
+import { HANDSHAKE_REGISTRY_V5_0_1_DATA } from './historical.js';
 
 export {
+  HISTORICAL_STANDARD_HANDSHAKE_REGISTRY_ADDRESSES,
   STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
   STANDARD_HANDSHAKE_REGISTRY_CLASS_ID,
   STANDARD_HANDSHAKE_REGISTRY_SALT,
@@ -32,4 +34,20 @@ export async function getStandardHandshakeRegistry(): Promise<StandardContract> 
     standardContract = makeStandardContract('HandshakeRegistry', artifact);
   }
   return standardContract;
+}
+
+let historicalStandardContracts: StandardContract[];
+
+/** Returns superseded standard deployments of the handshake registry that remain live onchain. */
+export async function getHistoricalStandardHandshakeRegistries(): Promise<StandardContract[]> {
+  if (!historicalStandardContracts) {
+    // Same bundler-compatible lazy import as `getHandshakeRegistryArtifact` above.
+    const { default: handshakeRegistryV501Json } = await import(
+      '../../artifacts-historical/HandshakeRegistry-5.0.1.json'
+    );
+    historicalStandardContracts = [
+      makeStandardContractFromData(HANDSHAKE_REGISTRY_V5_0_1_DATA, loadContractArtifact(handshakeRegistryV501Json)),
+    ];
+  }
+  return historicalStandardContracts;
 }

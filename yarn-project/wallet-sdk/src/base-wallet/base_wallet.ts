@@ -2,9 +2,11 @@ import type { Account, NoFrom } from '@aztec/aztec.js/account';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import type { CallIntent, IntentInnerHash } from '@aztec/aztec.js/authorization';
 import {
+  DefaultWaitOpts,
   type InteractionWaitOptions,
   NO_WAIT,
   type SendReturn,
+  type WaitOpts,
   extractOffchainOutput,
 } from '@aztec/aztec.js/contracts';
 import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
@@ -125,8 +127,15 @@ export abstract class BaseWallet implements Wallet {
     protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
 
-  protected scopesFrom(from: AztecAddress | NoFrom, additionalScopes: AztecAddress[] = []): AztecAddress[] {
-    const allScopes = from === NO_FROM ? additionalScopes : [from, ...additionalScopes];
+  protected scopesFrom(
+    from: AztecAddress | NoFrom,
+    additionalScopes: AztecAddress[],
+    sendMessagesAs: AztecAddress | undefined,
+  ): AztecAddress[] {
+    // The sendMessagesAs account must be in scope so that its tagging secrets can be accessed.
+    const tagSenderScopes = sendMessagesAs ? [sendMessagesAs] : [];
+    const baseScopes = from === NO_FROM ? [] : [from];
+    const allScopes = [...baseScopes, ...additionalScopes, ...tagSenderScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
     return [...scopeSet].map(AztecAddress.fromStringUnsafe);
   }
@@ -402,7 +411,7 @@ export abstract class BaseWallet implements Wallet {
       simulatePublic: true,
       skipTxValidation: opts.skipTxValidation,
       skipFeeEnforcement: opts.skipFeeEnforcement,
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
       overrides: opts.overrides,
     });
@@ -498,7 +507,7 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.profileTx(txRequest, {
       profileMode: opts.profileMode,
       skipProofGeneration: opts.skipProofGeneration ?? true,
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
   }
@@ -515,7 +524,7 @@ export abstract class BaseWallet implements Wallet {
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, {
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
     const offchainOutput = extractOffchainOutput(
@@ -524,9 +533,6 @@ export abstract class BaseWallet implements Wallet {
     );
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
-    if ((await this.aztecNode.getTxReceipt(txHash)).isMined()) {
-      throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
-    }
     this.log.debug(`Sending transaction ${txHash}`);
     await this.aztecNode.sendTx(tx).catch(err => {
       throw this.contextualizeError(err, inspect(tx));
@@ -540,11 +546,13 @@ export abstract class BaseWallet implements Wallet {
 
     // Otherwise, wait for the full receipt (default behavior on wait: undefined)
     const callerWaitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
-    const waitOpts =
+    const waitOpts: WaitOpts | undefined =
       this.defaultWaitInterval !== undefined && callerWaitOpts?.interval === undefined
         ? { ...callerWaitOpts, interval: this.defaultWaitInterval }
         : callerWaitOpts;
-    const receipt = await waitForTx(this.aztecNode, txHash, waitOpts);
+    // The tx was just sent, so an immediate first poll cannot find it mined; skip one poll interval up front.
+    const initialDelay = waitOpts?.initialDelay ?? waitOpts?.interval ?? DefaultWaitOpts.interval;
+    const receipt = await waitForTx(this.aztecNode, txHash, { ...waitOpts, initialDelay });
 
     // Display debug logs from public execution if present (served in test mode only)
     if (receipt.isMined() && receipt.debugLogs?.length) {

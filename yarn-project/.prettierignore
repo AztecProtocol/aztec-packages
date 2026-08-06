@@ -21,4 +21,5 @@ noir-protocol-circuits-types/src/client_artifacts_helper.ts
 constants/src/constants.gen.ts
 cli/src/config/generated
 sqlite3mc-wasm/vendor/
+standard-contracts/artifacts-historical/
 

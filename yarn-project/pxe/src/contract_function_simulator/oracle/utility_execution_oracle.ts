@@ -1,4 +1,4 @@
-import { ARCHIVE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import { ARCHIVE_HEIGHT, type NOTE_HASH_TREE_HEIGHT, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
@@ -15,7 +15,10 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
-import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
+import {
+  HISTORICAL_STANDARD_HANDSHAKE_REGISTRY_ADDRESSES,
+  STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+} from '@aztec/standard-contracts/handshake-registry/constants';
 import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -33,20 +36,20 @@ import {
   type BlockHeader,
   CallContext,
   type Capsule,
-  type IndexedTxEffect,
   type OffchainEffect,
   type TxEffect,
   type TxHash,
+  type TxReceipt,
 } from '@aztec/stdlib/tx';
 
 import type { ContractSyncService } from '../../contract/contract_sync_service.js';
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
-import { EventService } from '../../events/event_service.js';
+import { EventService, type EventValidationTxData } from '../../events/event_service.js';
 import type { UtilityCallAuthorizationRequest } from '../../hooks/authorize_utility_call.js';
 import type { ExecutionHooks } from '../../hooks/index.js';
-import { LogService } from '../../logs/log_service.js';
-import { TxResolverService } from '../../messages/tx_resolver_service.js';
-import { NoteService } from '../../notes/note_service.js';
+import { LogService, type RetrievedTaggedLog } from '../../logs/log_service.js';
+import { type TxOnchainContext, TxResolverService } from '../../messages/tx_resolver_service.js';
+import { NoteService, type NoteValidationTxData } from '../../notes/note_service.js';
 import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { assertAllowedScope } from '../../storage/allowed_scopes.js';
@@ -58,7 +61,6 @@ import type { PrivateEventStore } from '../../storage/private_event_store/privat
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import type { AnchoredContractData } from '../anchored_contract_data.js';
-import { AztecNodeReadCache } from '../aztec_node_read_cache.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
@@ -122,7 +124,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   private offchainEffects: OffchainEffect[] = [];
   private readonly ephemeralArrayService = new EphemeralArrayService();
   protected readonly transientArrayService: TransientArrayService;
-  private readonly aztecNodeReadCache: AztecNodeReadCache;
+  /** Keyed by tx hash string. */
+  private readonly txReceiptsCache = new Map<string, Promise<TxReceipt<{ includeTxEffect: true }>>>();
+  /**
+   * Information that can be used to validate the existence of a note or an event, keyed by tx hash string. It is
+   * populated by the node queries that precede validation (tagged log retrieval, tx resolution), which already return
+   * everything validation needs, so validating a note or event created in one of those txs costs no node roundtrip.
+   * Notes and events reached through other paths (e.g. offchain inbox messages) still need a receipt.
+   */
+  private readonly validationTxDataCache = new Map<string, ValidationTxData>();
 
   // We store oracle version to be able to show a nice error message when an oracle handler is missing.
   private contractOracleVersion: { major: number; minor: number } | undefined;
@@ -176,7 +186,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.hooks = args.hooks;
     this.utilityExecutor = args.utilityExecutor;
     this.transientArrayService = args.transientArrayService;
-    this.aztecNodeReadCache = new AztecNodeReadCache(args.aztecNode);
   }
 
   public assertCompatibleOracleVersion(major: number, minor: number): void {
@@ -270,7 +279,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // hash at all. If the block hash did not exist by the reference block hash, then the node will not return the
     // membership witness as there is none.
     const witness = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
-      this.aztecNodeReadCache.getBlockHashMembershipWitness(referenceBlockHash, blockHash),
+      this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash),
     );
     return witness ? Option.some(witness) : Option.none();
   }
@@ -284,7 +293,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const memberships = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
       Promise.all(
         hashes.map(blockHash =>
-          this.aztecNodeReadCache.getBlockHashMembershipWitness(referenceBlockHash, blockHash).then(Boolean),
+          this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash).then(Boolean),
         ),
       ),
     );
@@ -339,7 +348,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async getPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness> {
     const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
-      this.aztecNodeReadCache.getPublicDataWitness(blockHash, leafSlot),
+      this.aztecNode.getPublicDataWitness(blockHash, leafSlot),
     );
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${leafSlot} at block hash ${blockHash.toString()}.`);
@@ -530,11 +539,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     numberOfElements: number,
   ) {
     return this.#queryWithBlockHashNotAfterAnchor(blockHash, async () => {
-      const values = await this.aztecNodeReadCache.getPublicStorageRange(
-        blockHash,
-        contractAddress,
-        startStorageSlot,
-        numberOfElements,
+      const slots = Array(numberOfElements)
+        .fill(0)
+        .map((_, i) => new Fr(startStorageSlot.toBigInt() + BigInt(i)));
+      const values = await Promise.all(
+        slots.map(storageSlot => this.aztecNode.getPublicStorageAt(blockHash, contractAddress, storageSlot)),
       );
 
       this.logger.debug(
@@ -601,8 +610,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       .map(ps => new AppTaggingSecret(ps.secret, this.contractAddress, ps.mode));
 
     const logService = this.#createLogService();
-    const logs = await logService.fetchTaggedLogs(this.contractAddress, scope, secrets);
-    return EphemeralArray.fromValues(this.ephemeralArrayService, logs);
+    const retrievedLogs = await logService.fetchTaggedLogs(this.contractAddress, scope, secrets);
+
+    this.#cacheValidationTxData(retrievedLogs);
+
+    return EphemeralArray.fromValues(this.ephemeralArrayService, retrievedLogs.map(toPendingTaggedLog));
   }
 
   #createLogService(): LogService {
@@ -637,7 +649,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     eventValidationRequests: EventValidationRequest[],
     scope: AztecAddress,
   ) {
-    const txEffects = await this.#fetchTxEffects([
+    const validationTxData = await this.#getValidationTxData([
       ...noteValidationRequests.map(r => r.txHash),
       ...eventValidationRequests.map(r => r.txHash),
     ]);
@@ -646,8 +658,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
 
     await Promise.all([
-      noteService.validateAndStoreNotes(noteValidationRequests, scope, txEffects),
-      eventService.validateAndStoreEvents(eventValidationRequests, scope, txEffects),
+      noteService.validateAndStoreNotes(noteValidationRequests, scope, validationTxData),
+      eventService.validateAndStoreEvents(eventValidationRequests, scope, validationTxData),
     ]);
   }
 
@@ -657,11 +669,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);
     const logService = this.#createLogService();
 
-    const logRetrievalResponses = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
+    const retrievedLogsPerRequest = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
+
+    this.#cacheValidationTxData(retrievedLogsPerRequest.flat());
 
     // Create an inner ephemeral array for each request's matching logs, then wrap all slots in an outer array.
-    const innerArrays = logRetrievalResponses.map(responses =>
-      EphemeralArray.fromValues(this.ephemeralArrayService, responses),
+    const innerArrays = retrievedLogsPerRequest.map(retrievedLogs =>
+      EphemeralArray.fromValues(this.ephemeralArrayService, retrievedLogs.map(toLogRetrievalResponse)),
     );
 
     return EphemeralArray.fromValues(this.ephemeralArrayService, innerArrays);
@@ -673,7 +687,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const resolved = await this.txResolver.resolveTxs(txHashes, this.anchorBlockHeader.getBlockNumber());
 
-    const options = resolved.map(r => (r ? Option.some(r) : Option.none<ResolvedTx>()));
+    this.#cacheValidationTxData(resolved.filter(tx => tx !== null));
+
+    const options = resolved.map(tx => (tx ? Option.some(toResolvedTx(tx)) : Option.none<ResolvedTx>()));
     return EphemeralArray.fromValues(this.ephemeralArrayService, options);
   }
 
@@ -859,13 +875,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
   public async decryptAes128(
     ciphertext: BoundedVec<number>,
-    iv: Buffer,
-    symKey: Buffer,
+    iv: number[],
+    symKey: number[],
   ): Promise<Option<BoundedVec<number>>> {
     const capacity = ciphertext.maxLength;
     try {
       const aes128 = new Aes128();
-      const plaintext = await aes128.decryptBufferCBC(Buffer.from(ciphertext.data), iv, symKey);
+      const plaintext = await aes128.decryptBufferCBC(
+        Buffer.from(ciphertext.data),
+        Buffer.from(iv),
+        Buffer.from(symKey),
+      );
       return Option.some(BoundedVec.from<number>({ data: [...plaintext], maxLength: capacity }));
     } catch {
       return Option.none({ maxLength: capacity });
@@ -1103,16 +1123,34 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.offchainEffects;
   }
 
+  /** Stores the onchain context of the given txs, so that validating the notes and events they created is free. */
+  #cacheValidationTxData(txs: TxOnchainContext[]) {
+    txs.forEach(tx => this.validationTxDataCache.set(tx.txHash.toString(), toValidationTxData(tx)));
+  }
+
   /**
-   * Fetches tx effects for the given hashes in parallel, deduplicating repeated hashes so each tx is only requested
-   * once. Returns a map keyed by `TxHash.toString()`; hashes for which the node has no tx effect are omitted.
+   * Returns the information needed to validate the notes and events created in the given txs, keyed by
+   * `TxHash.toString()`. Txs already in {@link validationTxDataCache} cost no node request, and the rest are read from
+   * the node. Txs with no tx effect are absent from the returned map.
    */
-  async #fetchTxEffects(txHashes: TxHash[]): Promise<Map<string, IndexedTxEffect>> {
-    const uniqueTxHashes = uniqueBy(txHashes, h => h.toString());
-    const fetched = await Promise.all(uniqueTxHashes.map(h => this.aztecNodeReadCache.getTxReceiptWithEffect(h)));
-    return new Map(
-      uniqueTxHashes
-        .map((h, i): [string, IndexedTxEffect | undefined] => {
+  async #getValidationTxData(txHashes: TxHash[]): Promise<Map<string, ValidationTxData>> {
+    const known: [string, ValidationTxData][] = [];
+    const misses: TxHash[] = [];
+    for (const txHash of uniqueBy(txHashes, h => h.toString())) {
+      const key = txHash.toString();
+      const cached = this.validationTxDataCache.get(key);
+      if (cached) {
+        known.push([key, cached]);
+      } else {
+        misses.push(txHash);
+      }
+    }
+
+    const fetched = await Promise.all(misses.map(h => this.#getTxReceiptWithEffect(h)));
+    return new Map([
+      ...known,
+      ...misses
+        .map((h, i): [string, ValidationTxData | undefined] => {
           const receipt = fetched[i];
           if (!receipt.isMined() || !receipt.txEffect) {
             return [h.toString(), undefined];
@@ -1120,20 +1158,41 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
           return [
             h.toString(),
             {
-              data: receipt.txEffect,
+              noteHashes: receipt.txEffect.noteHashes,
+              nullifiers: receipt.txEffect.nullifiers,
               l2BlockNumber: receipt.blockNumber,
               l2BlockHash: receipt.blockHash,
               txIndexInBlock: receipt.txIndexInBlock,
-              slotNumber: receipt.slotNumber,
             },
           ];
         })
-        .filter((entry): entry is [string, IndexedTxEffect] => entry[1] !== undefined),
-    );
+        .filter((entry): entry is [string, ValidationTxData] => entry[1] !== undefined),
+    ]);
+  }
+
+  /**
+   * Reads a receipt with its effect, at most once per tx for the lifetime of this execution.
+   *
+   * A receipt is not cacheable in general, since pending, mined and dropped are all correct answers to the same call
+   * over time. Within one execution it is: the execution is anchored at a fixed block, and validation runs in several
+   * batches that name overlapping tx hashes, so re-reading would both cost extra requests and let one execution see a
+   * tx as included in one batch and absent in the next.
+   */
+  #getTxReceiptWithEffect(txHash: TxHash) {
+    const key = txHash.toString();
+    let receipt = this.txReceiptsCache.get(key);
+    if (!receipt) {
+      receipt = this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true }).catch(err => {
+        this.txReceiptsCache.delete(key);
+        throw err;
+      });
+      this.txReceiptsCache.set(key, receipt);
+    }
+    return receipt;
   }
 
   async #getTxEffectOption(txHash: TxHash): Promise<Option<TxEffectData>> {
-    const receipt = await this.aztecNodeReadCache.getTxReceiptWithEffect(txHash);
+    const receipt = await this.#getTxReceiptWithEffect(txHash);
     if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
       return Option.none();
     }
@@ -1143,6 +1202,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   #toTxEffectData(txEffect: TxEffect): TxEffectData {
     return {
       ...txEffect,
+      revertCode: txEffect.revertCode.getCode(),
       publicLogs: FlatPublicLogs.fromLogs(txEffect.publicLogs),
       contractClassLogs: txEffect.contractClassLogs.map(log => ({
         contractAddress: log.contractAddress,
@@ -1163,7 +1223,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const [response] = await Promise.all([
       query(),
       (async () => {
-        const block = await this.aztecNodeReadCache.getBlock(blockHash);
+        const block = await this.aztecNode.getBlock(blockHash);
         const header = block?.header;
         if (!header) {
           throw new Error(`Could not find block header for block hash ${blockHash}`);
@@ -1199,12 +1259,20 @@ const STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES = [
   'get_app_siloed_secrets((Field),(Field))',
 ];
 
+// Contracts compiled against an older release have that release's registry address baked into their bytecode, so
+// historical deployments get the same default authorization as the current one.
+const DEFAULT_AUTHORIZED_HANDSHAKE_REGISTRY_ADDRESSES = [
+  STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+  ...HISTORICAL_STANDARD_HANDSHAKE_REGISTRY_ADDRESSES,
+];
+
 async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {
   return functionSelector.equals(await FunctionSelector.fromSignature(signature));
 }
 
 /**
- * Whether a cross-contract utility call targets one of the standard handshake registry's read functions.
+ * Whether a cross-contract utility call targets a default-authorized read function of a standard handshake
+ * registry deployment (the current one or a superseded historical one).
  *
  * These reads are authorized by PXE for every wallet, without consulting the `authorizeUtilityCall` hook, so that
  * wallets don't need to know the handshake registry exists in order to deliver and discover messages through it.
@@ -1213,7 +1281,7 @@ async function isStandardHandshakeRegistryUtilityRead(
   targetContractAddress: AztecAddress,
   functionSelector: FunctionSelector,
 ): Promise<boolean> {
-  if (!targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS)) {
+  if (!DEFAULT_AUTHORIZED_HANDSHAKE_REGISTRY_ADDRESSES.some(address => targetContractAddress.equals(address))) {
     return false;
   }
 
@@ -1224,3 +1292,41 @@ async function isStandardHandshakeRegistryUtilityRead(
   );
   return matches.some(Boolean);
 }
+
+function toPendingTaggedLog(retrievedLog: RetrievedTaggedLog): PendingTaggedLog {
+  return { log: retrievedLog.logData, context: toResolvedTx(retrievedLog) };
+}
+
+function toResolvedTx(tx: TxOnchainContext): ResolvedTx {
+  const { txHash, blockNumber, blockHash, noteHashes, nullifiers } = tx;
+  return {
+    txHash,
+    uniqueNoteHashesInTx: noteHashes,
+    firstNullifierInTx: nullifiers[0],
+    blockNumber,
+    blockHash: blockHash.toFr(),
+  };
+}
+
+function toLogRetrievalResponse(retrievedLog: RetrievedTaggedLog): LogRetrievalResponse {
+  const { logData, txHash, blockNumber, blockHash, blockTimestamp, noteHashes, nullifiers } = retrievedLog;
+  return {
+    // Skip the tag, and clip to the wire cap: public logs can exceed PRIVATE_LOG_CIPHERTEXT_LEN, which is the fixed
+    // size of the oracle's BoundedVec slot. A no-op for private logs, which are already within the cap.
+    logPayload: logData.slice(1, 1 + PRIVATE_LOG_CIPHERTEXT_LEN),
+    txHash,
+    uniqueNoteHashesInTx: noteHashes,
+    firstNullifierInTx: nullifiers[0],
+    blockNumber,
+    blockTimestamp,
+    blockHash,
+  };
+}
+
+function toValidationTxData(tx: TxOnchainContext): ValidationTxData {
+  const { blockNumber, blockHash, txIndexInBlock, noteHashes, nullifiers } = tx;
+  return { noteHashes, nullifiers, l2BlockNumber: blockNumber, l2BlockHash: blockHash, txIndexInBlock };
+}
+
+/** The onchain context of a tx served to note and event validation: the union of what the two services read. */
+type ValidationTxData = NoteValidationTxData & EventValidationTxData;

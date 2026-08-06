@@ -15,7 +15,7 @@ import {
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
-import { ReadOnlyGovernanceContract, extractProposalIdFromLogs } from './governance.js';
+import { type PayloadProposalStatus, ReadOnlyGovernanceContract, extractProposalIdFromLogs } from './governance.js';
 
 export class GovernanceProposerContract implements IEmpireBase {
   private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, ViemClient>;
@@ -38,16 +38,16 @@ export class GovernanceProposerContract implements IEmpireBase {
     this.proposer = getContract({ address, abi: GovernanceProposerAbi, client });
   }
 
-  public get address() {
+  public get address(): EthAddress {
     return EthAddress.fromString(this.proposer.address);
   }
 
-  public async getRollupAddress() {
+  public async getRollupAddress(): Promise<EthAddress> {
     return EthAddress.fromString(await this.proposer.read.getInstance());
   }
 
   @memoize
-  public async getRegistryAddress() {
+  public async getRegistryAddress(): Promise<EthAddress> {
     return EthAddress.fromString(await this.proposer.read.REGISTRY());
   }
 
@@ -57,10 +57,6 @@ export class GovernanceProposerContract implements IEmpireBase {
 
   public getRoundSize(): Promise<bigint> {
     return this.proposer.read.ROUND_SIZE();
-  }
-
-  public getInstance() {
-    return this.proposer.read.getInstance();
   }
 
   public computeRound(slot: SlotNumber): Promise<bigint> {
@@ -107,7 +103,7 @@ export class GovernanceProposerContract implements IEmpireBase {
       signer,
       payload,
       slot,
-      await this.getInstance(),
+      (await this.getRollupAddress()).toString(),
       this.address.toString(),
       chainId,
     );
@@ -130,15 +126,15 @@ export class GovernanceProposerContract implements IEmpireBase {
   }
 
   /**
-   * Returns true iff the given original payload is currently the subject of a live (non-terminal)
-   * Governance proposal. Delegates to `ReadOnlyGovernanceContract.hasActiveProposalWithPayload`, which
-   * implements the actual sweep against the Governance contract -- this method exists only as a
-   * convenience wrapper so callers that already hold a GovernanceProposer reference don't have to
+   * Classifies the given original payload against the Governance proposal history (`'live'` /
+   * `'executed'` / `'none'`). Delegates to `ReadOnlyGovernanceContract.getPayloadProposalStatus`,
+   * which implements the actual sweep against the Governance contract -- this method exists only as
+   * a convenience wrapper so callers that already hold a GovernanceProposer reference don't have to
    * resolve the Governance address themselves.
    */
-  public async hasActiveProposalWithPayload(payload: Hex): Promise<boolean> {
+  public async getPayloadProposalStatus(payload: Hex): Promise<PayloadProposalStatus> {
     const governance = await this.getGovernance();
-    return governance.hasActiveProposalWithPayload(payload);
+    return governance.getPayloadProposalStatus(payload);
   }
 
   /**

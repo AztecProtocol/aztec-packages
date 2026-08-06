@@ -122,7 +122,7 @@ ${LINKS}"
 ${LINKS}"
     fi
 
-    data=$(jq -n --arg channel "#team-alpha" --arg text "$TEXT" '{channel: $channel, text: $text}')
+    data=$(jq -n --arg channel "#team-alpha-ci" --arg text "$TEXT" '{channel: $channel, text: $text}')
 
     curl -X POST https://slack.com/api/chat.postMessage \
       -H "Authorization: Bearer $SLACK_BOT_TOKEN" \

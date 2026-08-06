@@ -9,6 +9,74 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] Protocol contracts removed from `@aztec/noir-contracts.js`
+
+`@aztec/noir-contracts.js` no longer includes the protocol contracts: the `FeeJuice`, `ContractClassRegistry`, and `ContractInstanceRegistry` artifacts and typed wrappers have been removed from the package, so imports such as `@aztec/noir-contracts.js/FeeJuice` no longer resolve. These names are also no longer available to the `aztec` CLI's contract-name lookup (e.g. in `aztec example-contracts`).
+
+Protocol contracts are distributed via `@aztec/protocol-contracts` (artifacts and canonical deployment data), and typed wrappers for them are exported from `@aztec/aztec.js/protocol`. The `aztec.js` wrappers are bound to the contract's canonical address, so attaching takes only the wallet: there is no address parameter.
+
+**Migration:**
+
+```diff
+- import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
++ import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
+
+- const feeJuice = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
++ const feeJuice = FeeJuiceContract.withWallet(wallet);
+```
+
+### [Aztec.js] Protocol contract wrappers: `at(wallet)` deprecated in favor of `withWallet(wallet)`
+
+The protocol contract wrappers exported from `@aztec/aztec.js/protocol` (`FeeJuiceContract`, `ContractClassRegistryContract`, `ContractInstanceRegistryContract`) rename their static `at(wallet)` to `withWallet(wallet)`. These wrappers are bound to the contract's canonical address, so their only parameter is the wallet to act through; `withWallet` states that directly and matches the existing `withWallet` instance method, whereas the one-argument `at` read as if it took an address. `at(wallet)` still works but is deprecated and will be removed in a future release.
+
+**Migration:**
+
+```diff
+- const feeJuice = FeeJuiceContract.at(wallet);
++ const feeJuice = FeeJuiceContract.withWallet(wallet);
+```
+
+### [Aztec.nr] Standard contracts re-pinned at new addresses
+
+The canonical `HandshakeRegistry` now protects handshake shared secrets from recipient forgery and includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. All standard contracts have been re-pinned and move to new addresses. Handshakes established with a previous registry instance are not visible to the new one and must be re-established.
+
+### [Aztec.nr] Note property selectors are typed and use packed-layout indices
+
+The selectors in the generated `properties()` used the field's position in the note struct declaration, which pointed at the wrong packed field for any note with an earlier field packing to more than one `Field` (a `Point`, an array, a nested struct). Selector indices are now the field's offset in the note's packed representation, so `select`/`sort` criteria constrain the field they name.
+
+Breaking changes:
+
+- `PropertySelector<T>` carries the selected property's type. Hand-constructed literals need a type annotation, e.g. `let selector: PropertySelector<Field> = PropertySelector { index: 0, offset: 0, length: 32 };`.
+- `select`/`sort` reject properties that pack to more than one `Field` at compile time.
+- `select` takes its value typed as the property's type. Cast the value if a mixed-type comparison was intentional.
+- `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
+- Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
+
+### [Aztec.nr] Note types declared inside a contract must be `pub`
+
+Noir v1.0.0-beta.25 enforces the caller's visibility when comptime code resolves a trait method into a typed expression. The `#[aztec]` macro resolves each note type's `NoteType::get_id` that way when it generates `compute_note_hash_and_nullifier`, so a note struct declared directly inside the `contract` module without `pub` no longer compiles:
+
+```
+error: Function `get_id` is private
+    ┌─ .../aztec/src/macros/utils.nr:152:5
+    │ `get_id` is declared in `MyContract`
+```
+
+Note types declared in their own module are unaffected, since they are already `pub` for the contract to reach them.
+
+**Migration:**
+
+```diff
+  #[derive(Packable, Eq)]
+  #[note]
+- struct MyNote {
++ pub struct MyNote {
+      owner: AztecAddress,
+  }
+```
+
+## 5.0.1
+
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
 
 The `history::note` helpers that recompute a note's nullifier have been renamed with a `local_` prefix and now assert that the note belongs to the executing contract:
@@ -43,6 +111,14 @@ await deleteStore(names[0]);
 ```
 
 This change also removes `createStore` from `@aztec/kv-store/sqlite-opfs` and `@aztec/kv-store/deprecated/indexeddb`: stores are now opened by name with `AztecSQLiteOPFSStore.open` / `AztecIndexedDBStore.open`.
+
+## 5.0.0
+
+### [PXE] Local PXE database is reset on upgrade
+
+The persisted tagging stores now key every entry by the self-describing `<kind>:<secret>:<app>` form of `AppTaggingSecret`; unconstrained secrets previously used a two-part `<secret>:<app>` key. This bumps the PXE data schema version, and there is no forward migration for the old keys: on first open the PXE clears any database whose stored schema version differs from the current one. The wipe resets the entire PXE store, not just the tagging data, because all of it shares one backing database.
+
+**Impact**: On upgrade your local PXE state is reset. You must re-register accounts and re-sync from genesis. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path.
 
 ### [Aztec.nr] `TestEnvironmentOptions::with_tagging_secret_strategy` replaced
 
@@ -1468,7 +1544,6 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 
 `slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
 
-## Unreleased (v5)
 
 ### [Aztec Node] `getTxByHash`, `getTxsByHash` and `getPendingTxs` no longer return tx proofs by default
 

@@ -18,3 +18,25 @@ import { MAX_PRIVATE_LOGS_PER_TX } from '@aztec/constants';
 // reserved at log emission time, before squashing is decided, and the kernel's reset/squash loop is not bounded by
 // MAX_PRIVATE_LOGS_PER_TX. No fixed window value closes that gap.
 export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = MAX_PRIVATE_LOGS_PER_TX + 20;
+
+/**
+ * Exclusive upper bound of the tag indexes that can exist for a secret whose highest finalized index is
+ * `finalizedIndex` (undefined when nothing is finalized yet). The sender store refuses pending indexes at or past it,
+ * and both sender and recipient sync scan exactly up to it. Every absolute window bound must come from this helper:
+ * a site with a wider or narrower bound lets a tx land at an index the syncs never scan, so two stores sharing the
+ * secret could later pick a colliding index.
+ */
+export function unfinalizedTaggingIndexesWindowEnd(finalizedIndex: number | undefined): number {
+  const windowStart = finalizedIndex === undefined ? 0 : finalizedIndex + 1;
+  return windowStart + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
+}
+
+// The number of tags probed per constrained secret in the first round.
+//
+// The probe doubles each round (2, 4, 8, ..., capped at UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) while every probed
+// index is a hit, stopping at the first missing tag. Constrained delivery is gapless, so a single missing tag proves
+// the stream has ended: at steady state this turns a full WINDOW_LEN probe into two tags. A secret K logs behind
+// catches up in ~log2(K) round-trips while the probe is still doubling (2, 4, 8, 16, 32), but once it saturates the cap
+// and advances WINDOW_LEN tags per round, deeper catch-up is linear at ~K/WINDOW_LEN rounds. Either way it beats both
+// the full window every round and one round per log.
+export const INITIAL_CONSTRAINED_PROBE_LEN = 2;

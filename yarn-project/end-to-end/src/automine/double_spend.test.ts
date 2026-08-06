@@ -1,6 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -11,6 +12,7 @@ import { AutomineTestContext } from './automine_test_context.js';
 // Uses setup(1, AUTOMINE_E2E_OPTS) with one node, automine sequencer, one funded account.
 describe('automine/double_spend', () => {
   let wallet: Wallet;
+  let aztecNode: AztecNode;
   let defaultAccountAddress: AztecAddress;
 
   let logger: Logger;
@@ -20,12 +22,14 @@ describe('automine/double_spend', () => {
 
   beforeAll(async () => {
     // Setup environment
+    const ctx = await AutomineTestContext.setup({ numberOfAccounts: 1 });
     ({
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
       logger,
-    } = (await AutomineTestContext.setup({ numberOfAccounts: 1 })).context);
+    } = ctx.context);
+    aztecNode = ctx.aztecNode;
 
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
 
@@ -52,6 +56,17 @@ describe('automine/double_spend', () => {
       await expect(
         contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress }),
       ).rejects.toThrow(TxExecutionResult.REVERTED);
+    });
+
+    it('rejects re-sending a tx that was already mined', async () => {
+      const { receipt } = await contract.methods.emit_nullifier_public(new Fr(2)).send({
+        from: defaultAccountAddress,
+      });
+
+      const minedTx = await aztecNode.getTxByHash(receipt.txHash, { includeProof: true });
+      expect(minedTx).toBeDefined();
+
+      await expect(aztecNode.sendTx(minedTx!)).rejects.toThrow(/Existing nullifier/);
     });
   });
 });

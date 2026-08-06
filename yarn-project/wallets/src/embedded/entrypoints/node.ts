@@ -3,9 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { type PXE, type PXECreationOptions, createPXE, openStore } from '@aztec/pxe/server';
-import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
-import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
-import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint';
+import { getDefaultStandardPreloadedContracts } from '@aztec/standard-contracts/preloaded';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { BundleAccountContractsProvider } from '../account-contract-providers/bundle.js';
@@ -50,11 +48,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
     const pxeOptions: PXECreationOptions = {
       ...mergedCreationOverrides,
       preloadedContractsProvider: mergedCreationOverrides.preloadedContractsProvider ?? {
-        getPreloadedContracts: async () => [
-          await getStandardMultiCallEntrypoint(),
-          await getStandardAuthRegistry(),
-          await getStandardHandshakeRegistry(),
-        ],
+        getPreloadedContracts: getDefaultStandardPreloadedContracts,
       },
       loggers: {
         store: rootLogger.createChild('pxe:data'),

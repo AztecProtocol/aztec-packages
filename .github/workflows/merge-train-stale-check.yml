@@ -19,7 +19,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        run: ./ci3/merge_train_stale_check merge-train/spartan '#team-alpha'
+        run: ./ci3/merge_train_stale_check merge-train/spartan '#team-alpha-ci'
 
   spartan-v5:
     name: Check merge-train/spartan-v5
@@ -34,7 +34,7 @@ jobs:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           BASE_BRANCH: v5-next
-        run: ./ci3/merge_train_stale_check merge-train/spartan-v5 '#team-alpha'
+        run: ./ci3/merge_train_stale_check merge-train/spartan-v5 '#team-alpha-ci'
 
   spartan-v6:
     name: Check merge-train/spartan-v6
