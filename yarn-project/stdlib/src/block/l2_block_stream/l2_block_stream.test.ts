@@ -45,7 +45,7 @@ describe('L2BlockStream', () => {
       indexWithinCheckpoint: 0,
     }) as unknown as BlockData;
 
-  const makeHeader = (number: number) => ({ number, hash: headerHashFromNumber }) as unknown as BlockHeader;
+  const makeHeader = (number: number) => ({ number, hash: blockHashFromNumber }) as unknown as BlockHeader;
 
   const makeBlockId = (number: number): L2BlockId => ({ number: BlockNumber(number), hash: makeHash(number) });
 
@@ -1600,13 +1600,8 @@ function collapseConsecutive<T>(items: T[]): T[] {
   return items.filter((item, i) => i === 0 || item !== items[i - 1]);
 }
 
-/** Shared block-hash function: hashes `this.number`. A single reference so makeBlock(n) objects compare equal. */
+/** Shared block-hash function: hashes `this.number`. A single reference so equal-numbered objects compare equal. */
 function blockHashFromNumber(this: { number: number }): Promise<BlockHash> {
-  return Promise.resolve(new BlockHash(new Fr(this.number)));
-}
-
-/** Shared header-hash function: hashes `this.number`. A single reference so makeHeader(n) objects compare equal. */
-function headerHashFromNumber(this: { number: number }): Promise<BlockHash> {
   return Promise.resolve(new BlockHash(new Fr(this.number)));
 }
 
@@ -1619,7 +1614,7 @@ function forkedBlockHashFromNumber(this: { number: number }): Promise<BlockHash>
 function makeForkedBlock(number: number) {
   return {
     number: BlockNumber(number),
-    header: { number, hash: headerHashFromNumber },
+    header: { number, hash: blockHashFromNumber },
     checkpointNumber: CheckpointNumber(number),
     indexWithinCheckpoint: 0,
     hash: forkedBlockHashFromNumber,

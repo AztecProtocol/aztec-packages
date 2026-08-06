@@ -371,7 +371,7 @@ export class L2BlockStream {
       .getBlockData({ hash: BlockHash.fromString(hash) })
       .then(data => data?.header)
       .catch(err => {
-        this.log.error(`Failed to read header for block ${hash}`, err);
+        this.log.error(`Failed to read header for block`, err, { blockHash: hash });
         return undefined;
       });
   }
