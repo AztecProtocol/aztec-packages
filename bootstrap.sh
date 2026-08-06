@@ -473,7 +473,7 @@ function build_and_test {
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/{fnd/noir-protocol-circuits,labs/noir-contracts} l1-contracts
+    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp} noir-projects/{fnd/noir-protocol-circuits,labs/noir-contracts}
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
@@ -578,7 +578,6 @@ function release {
     barretenberg/ts
     barretenberg/rust
     noir
-    l1-contracts
     noir-projects/labs/aztec-nr
     protocol/constants-codegen
     yarn-project
@@ -659,13 +658,6 @@ function private_release {
       npm publish "$td"/*.tgz
       rm -rf "$td"
     done
-  fi
-
-  # Publish @aztec/l1-artifacts to the internal registry. 13 yarn-project packages depend on it at the
-  # release version, so it must exist before yarn-project's release smoke-test installs them. amd64
-  # only (npm packages are platform-independent; mirrors the publish guard below).
-  if [ $(arch) != arm64 ]; then
-    l1-contracts/bootstrap.sh release
   fi
 
   # Publish for real, in dependency order: bb.js, the noir packages, ipc-runtime, and wsdb must be on

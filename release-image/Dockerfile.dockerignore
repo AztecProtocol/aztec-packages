@@ -31,9 +31,3 @@
 !/yarn-project/noir-contracts.js/artifacts/
 !/yarn-project/noir-test-contracts.js/artifacts/
 !/yarn-project/simulator/artifacts/
-# l1-artifacts is a portal dependency of @aztec/aztec but lives outside yarn-project, so it isn't
-# covered by the /yarn-project/* globs above. We need its manifest, compiled output, and the bundled
-# foundry subtree used for l1-contracts deployment via forge script.
-!/l1-contracts/l1-artifacts/package.json
-!/l1-contracts/l1-artifacts/dest/
-!/l1-contracts/l1-artifacts/l1-contracts/

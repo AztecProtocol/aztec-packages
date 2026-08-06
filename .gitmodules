@@ -1,9 +1,3 @@
-[submodule "l1-contracts/lib/openzeppelin-contracts"]
-	path = l1-contracts/lib/openzeppelin-contracts
-	url = https://github.com/openzeppelin/openzeppelin-contracts
-[submodule "l1-contracts/lib/forge-std"]
-	path = l1-contracts/lib/forge-std
-	url = https://github.com/foundry-rs/forge-std
 [submodule "barretenberg/sol/lib/forge-std"]
 	path = barretenberg/sol/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
@@ -17,9 +11,6 @@
 	path = bb-pilcom/powdr
 	url = https://github.com/AztecProtocol/powdr
 	branch = avm-minimal
-[submodule "l1-contracts/lib/circuits"]
-	path = l1-contracts/lib/circuits
-	url = https://github.com/zkpassport/circuits
 [submodule "noir/noir-repo"]
 	path = noir/noir-repo
 	url = https://github.com/noir-lang/noir.git

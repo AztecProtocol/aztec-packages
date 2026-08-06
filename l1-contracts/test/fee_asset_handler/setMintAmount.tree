@@ -1,6 +1,0 @@
-SetMintAmountTest
-├── when caller is not owner
-│   └── it reverts
-└── when caller is owner
-    ├── it updates the mint amount
-    └── it emits {MintAmountUpdated} event
