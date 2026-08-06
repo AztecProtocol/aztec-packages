@@ -3,12 +3,12 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { type ActionStep, type ContractStep, type Resolver, runDeployment } from './index.js';
 
-// Spec validation happens before anything touches the network, so these run fast against a
-// nodeUrl that points nowhere.
+// Spec validation happens before anything touches the network, so these run fast against a node
+// URL that points nowhere.
 describe('runDeployment spec validation', () => {
   const secret = new Fr(1);
   const base = {
-    nodeUrl: 'http://127.0.0.1:1',
+    node: 'http://127.0.0.1:1',
     accounts: { admin: { secret } },
     reporter: {},
   };

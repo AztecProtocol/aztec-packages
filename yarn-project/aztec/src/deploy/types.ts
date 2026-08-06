@@ -211,16 +211,12 @@ export interface Ctx<C = Steps> extends Resolver {
 /** The full declarative input to {@link runDeployment}: target, accounts, steps, fees, and hooks. */
 export interface DeploymentSpec<C extends Steps = Steps> {
   /**
-   * Aztec node JSON-RPC URL; one of this or {@link node} is required. When {@link node} is also
-   * provided, only used to reach the node's debug API for local time-warping while a bridge settles.
+   * The node to deploy against: a JSON-RPC URL, or an already-connected node (e.g. an in-process
+   * `AztecNodeService` from a test fixture). Local time-warping while a bridge settles reaches the
+   * debug API through whichever is given — a URL builds a debug client, an in-process node serves
+   * it directly.
    */
-  nodeUrl?: string;
-  /**
-   * An already-connected node to deploy against — e.g. an in-process `AztecNodeService` from a test
-   * fixture. Takes precedence over {@link nodeUrl}; pass {@link nodeUrl} too if you bridge with the
-   * `fee-juice` policy against an in-process local node (the warp path needs its debug API URL).
-   */
-  node?: AztecNode;
+  node: string | AztecNode;
   /**
    * Whether the target is a local (anvil) network. Local uses the deterministic sandbox defaults:
    * sponsored fees, no real proofs, warp-based L1→L2 message advancement, and anvil's dev funder.

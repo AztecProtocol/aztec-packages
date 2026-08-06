@@ -179,12 +179,15 @@ class DeploymentRun<C extends Steps> {
 
   private readonly resolver: Resolver;
   private readonly ctx: Ctx<C>;
+  /** Set only when the spec gave a URL — a connected node serves the debug API for warping itself. */
+  private readonly nodeUrl: string | undefined;
 
   private constructor(
     private readonly spec: DeploymentSpec<C>,
     private readonly node: AztecNode,
     private readonly wallet: EmbeddedWallet,
   ) {
+    this.nodeUrl = typeof spec.node === 'string' ? spec.node : undefined;
     this.local = spec.local ?? false;
     this.label = spec.label ?? (this.local ? 'local' : 'network');
     this.reporter = spec.reporter ?? consoleReporter();
@@ -223,7 +226,7 @@ class DeploymentRun<C extends Steps> {
   /** Validates the spec, connects the node + ephemeral wallet, then resolves accounts and class ids. */
   public static async create<C extends Steps>(spec: DeploymentSpec<C>): Promise<DeploymentRun<C>> {
     DeploymentRun.validateSpec(spec);
-    const node = spec.node ?? createAztecNodeClient(spec.nodeUrl!);
+    const node = typeof spec.node === 'string' ? createAztecNodeClient(spec.node) : spec.node;
     const wallet = await EmbeddedWallet.create(node, {
       ephemeral: true,
       pxeConfig: { ...getPXEConfig(), proverEnabled: !(spec.local ?? false) },
@@ -236,8 +239,8 @@ class DeploymentRun<C extends Steps> {
 
   /** Static spec validation — everything that can be rejected before touching the network. */
   private static validateSpec<C extends Steps>(spec: DeploymentSpec<C>): void {
-    if (!spec.node && !spec.nodeUrl) {
-      throw new Error('runDeployment requires either `node` or `nodeUrl` on the spec.');
+    if (!spec.node) {
+      throw new Error('runDeployment requires a `node` on the spec — a JSON-RPC URL or a connected node.');
     }
     const steps = Object.entries(spec.steps) as [string, StepSpec<C>][];
     const aliases = new Set(steps.map(([alias]) => alias));
@@ -402,7 +405,7 @@ class DeploymentRun<C extends Steps> {
     return prepareFeeSession({
       local: this.local,
       node: this.node,
-      nodeUrl: this.spec.nodeUrl,
+      nodeUrl: this.nodeUrl,
       wallet: this.wallet,
       state: this.state,
       persist: () => this.persist(),
@@ -815,7 +818,7 @@ class DeploymentRun<C extends Steps> {
           const claim = await obtainFeeJuiceClaim({
             local: this.local,
             node: this.node,
-            nodeUrl: this.spec.nodeUrl,
+            nodeUrl: this.nodeUrl,
             recipient,
             amount: step.amount,
             l1: { l1FunderKey: step.l1FunderKey, l1RpcUrl: step.l1RpcUrl, l1ChainId: step.l1ChainId },
