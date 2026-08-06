@@ -7,7 +7,7 @@
 //! `#[generate_oracle_tests]`, applied to a module, generates that test from each oracle's signature. The generated
 //! test:
 //!   1. builds a canonical value for every parameter and the return type,
-//!   2. calls the real oracle, which serializes the arguments and sends them to a dedicated TS resolver,
+//!   2. calls the real oracle, which serializes the arguments and sends them to a dedicated test resolver,
 //!   3. the resolver deserializes the arguments, checks them against the same canonical values (which it rebuilds
 //!      independently from the oracle's registered type), and serializes a canonical return value back,
 //!   4. Noir deserializes that return value and asserts it equals the expected one.
@@ -15,8 +15,7 @@
 //! So if the two serializers agree the test passes, and if they drift it fails.
 //!
 //! Canonical values come from the synthesizer table ([`synthesizers`]) and the scalar registrations ([`scalars`]),
-//! which mirror the TS synthesizer (`yarn-project/txe/src/oracle/test-resolver/default_fixtures.ts`) entry for
-//! entry.
+//! which mirror the test resolver's own synthesizer entry for entry.
 //!
 //! ## The scenario convention
 //!
@@ -48,12 +47,34 @@
 //!
 //! produces two tests: `some+some` and `none+none`. Each scenario becomes its own `#[test]`, suffixed by index
 //! (`__0`, `__1`, …).
+//!
+//! ## Ephemeral arrays
+//!
+//! An `EphemeralArray<T>` puts only its slot on the wire, so its canonical test value is a handle at the canonical
+//! slot and the oracle roundtrip covers just that scalar (handles compare by slot). The elements' serialization is
+//! tested separately: after calling the oracle, the generated test roundtrips each reachable element type's
+//! canonical value through the [`roundtrip_element`] meta-oracle, addressed by the element's type label (see
+//! [`label_of`]) so the resolver picks the matching element mapping by label alone.
 
+use std::append::Append;
+use std::meta::ctstring::AsCtString;
+
+use crate::ephemeral::EphemeralArray;
+use crate::facts::OriginBlockState;
 use crate::messages::delivery::OnchainDeliveryMode;
-use crate::protocol::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
+use crate::protocol::{
+    abis::function_selector::FunctionSelector,
+    address::{AztecAddress, EthAddress},
+    traits::FromField,
+};
+use crate::unconstrained_array::UnconstrainedArray;
 
 /// Max capacity of [`Scenario`] names.
 global MAX_SCENARIO_NAME_LEN: u32 = 64;
+
+/// Max capacity of the element type labels sent to [`roundtrip_element`]. Sized for the largest structural label in
+/// the registry (a big struct like `TxEffect` composes every field's label).
+global MAX_LABEL_LEN: u32 = 1024;
 
 /// The base every seed is offset by.
 ///
@@ -94,37 +115,34 @@ comptime struct TestValueSynthesizer {
     /// The type quoted for annotation positions, with generic lengths pinned to the test constants (see
     /// [`pinned_type`]).
     pinned: fn(Type) -> Quoted,
+    /// The kind's contribution to the wire-structural type label (see [`label_of`]).
+    label: fn(Type) -> CtString,
 }
 
-/// The scalar registrations.
-comptime fn scalars() -> [(Type, Quoted)] {
+/// The scalar registrations. Each entry's label is the type's registered kind, and must match the label the test
+/// resolver declares for the same type.
+comptime fn scalars() -> [(Type, Quoted, CtString)] {
     @[
-        scalar::<Field>(quote { |seed: u32| seed as Field }),
-        scalar::<bool>(quote { |seed: u32| (seed % 2) != 0 }),
-        scalar::<u8>(quote { |seed: u32| seed as u8 }),
-        scalar::<u32>(quote { |seed: u32| seed }),
-        scalar::<u64>(quote { |seed: u32| seed as u64 }),
-        scalar::<u128>(quote { |seed: u32| seed as u128 }),
-        scalar::<AztecAddress>(
-            quote {
-            |seed: u32| <crate::protocol::address::AztecAddress as crate::protocol::traits::FromField>::from_field(
-                seed as Field,
-            )
-        },
+        scalar("field", |seed: u32| seed as Field),
+        scalar("bool", |seed: u32| (seed % 2) != 0),
+        scalar("u8", |seed: u32| seed as u8),
+        scalar("u32", |seed: u32| seed),
+        scalar("u64", |seed: u32| seed as u64),
+        scalar("u128", |seed: u32| seed as u128),
+        scalar(
+            "aztec-address",
+            |seed: u32| AztecAddress::from_field(seed as Field),
         ),
-        scalar::<EthAddress>(
-            quote {
-                |seed: u32| crate::protocol::address::EthAddress::from_field(seed as Field)
-            },
+        scalar(
+            "eth-address",
+            |seed: u32| EthAddress::from_field(seed as Field),
         ),
-        scalar::<FunctionSelector>(
-            quote {
-            |seed: u32| <crate::protocol::abis::function_selector::FunctionSelector as crate::protocol::traits::FromField>::from_field(
-                seed as Field,
-            )
-        },
+        scalar(
+            "function-selector",
+            |seed: u32| FunctionSelector::from_field(seed as Field),
         ),
         onchain_delivery_mode_scalar(),
+        origin_block_state_scalar(),
     ]
 }
 
@@ -136,32 +154,44 @@ comptime fn synthesizers() -> [TestValueSynthesizer] {
         array_synth(),
         bounded_vec_synth(),
         tuple_synth(),
+        ephemeral_array_synth(),
         // Matches ANY named data type: must stay last (find-first).
         struct_synth(),
     ]
 }
 
-/// The seed alternates between the only two valid modes.
-comptime fn onchain_delivery_mode_scalar() -> (Type, Quoted) {
-    scalar::<OnchainDeliveryMode>(
-        quote {
-            |seed: u32| if (seed % 2) == 0 {
-                crate::messages::delivery::OnchainDeliveryMode::onchain_unconstrained()
-            } else {
-                crate::messages::delivery::OnchainDeliveryMode::onchain_constrained()
-            }
+/// The seed rotates through the only three valid states.
+comptime fn origin_block_state_scalar() -> (Type, Quoted, CtString) {
+    scalar(
+        "origin-block-state",
+        |seed: u32| if (seed % 3) == 0 {
+            OriginBlockState::pending()
+        } else if (seed % 3) == 1 {
+            OriginBlockState::proven()
+        } else {
+            OriginBlockState::finalized()
         },
     )
 }
 
-/// One [`scalars`] entry: the scalar type `T`, paired with the function that builds its canonical test value from
-/// a seed.
-comptime fn scalar<T>(value: Quoted) -> (Type, Quoted) {
-    // Keep the builder as syntax until it is expanded at the call site. A typed closure would capture comptime
-    // locals in this scope and cannot escape into the generated runtime code.
+/// The seed alternates between the only two valid modes.
+comptime fn onchain_delivery_mode_scalar() -> (Type, Quoted, CtString) {
+    scalar(
+        "onchain-delivery-mode",
+        |seed: u32| if (seed % 2) == 0 {
+            OnchainDeliveryMode::onchain_unconstrained()
+        } else {
+            OnchainDeliveryMode::onchain_constrained()
+        },
+    )
+}
+
+/// One [`scalars`] entry: the scalar type `T`, paired with its label and the function that builds its canonical test
+/// value from a seed.
+comptime fn scalar<T, let N: u32>(label: str<N>, value: fn(u32) -> T) -> (Type, Quoted, CtString) {
     // There is no direct way to reflect the generic `T` as a `Type`, so a zeroed value is materialized purely to
     // take its type.
-    (std::meta::type_of(std::mem::zeroed::<T>()), value)
+    (std::meta::type_of(std::mem::zeroed::<T>()), quote { $value }, label.as_ctstring())
 }
 
 comptime fn scalar_synth() -> TestValueSynthesizer {
@@ -174,17 +204,29 @@ comptime fn scalar_synth() -> TestValueSynthesizer {
         // Being a single wire field with no lengths to pin is what qualifies a type for the scalars table.
         width: |_t: Type| 1,
         pinned: |t: Type| quote { $t },
+        // A leaf's label is its registered kind.
+        label: |t: Type| maybe_scalar_label(t).unwrap(),
     }
 }
 
 /// Looks `typ` up in [`scalars`] and returns the builder lambda registered for it, or `Option::none()` if `typ`
 /// is not a scalar.
 comptime fn maybe_scalar_builder(typ: Type) -> Option<Quoted> {
-    let matching = scalars().filter(|entry: (Type, Quoted)| entry.0 == typ);
+    maybe_scalar_entry(typ).map(|entry: (Type, Quoted, CtString)| entry.1)
+}
+
+/// Looks `typ` up in [`scalars`] and returns the label registered for it, or `Option::none()` if `typ` is not a
+/// scalar.
+comptime fn maybe_scalar_label(typ: Type) -> Option<CtString> {
+    maybe_scalar_entry(typ).map(|entry: (Type, Quoted, CtString)| entry.2)
+}
+
+comptime fn maybe_scalar_entry(typ: Type) -> Option<(Type, Quoted, CtString)> {
+    let matching = scalars().filter(|entry: (Type, Quoted, CtString)| entry.0 == typ);
     if matching.len() == 0 {
         Option::none()
     } else {
-        Option::some(matching[0].1)
+        Option::some(matching[0])
     }
 }
 
@@ -194,27 +236,25 @@ comptime fn option_synth() -> TestValueSynthesizer {
         scenarios: |t: Type, seed: Quoted| {
             @[named(quote { "some" }, some_value_expr(t, seed)), named(quote { "none" }, none_value_expr(t, seed))]
         },
-        width: |t: Type| 1 + flat_width(t.as_data_type().unwrap().1[0]),
+        width: |t: Type| 1 + flat_width(inner_type(t)),
         pinned: |t: Type| {
-            let inner = t.as_data_type().unwrap().1[0];
-            let pinned_inner = pinned_type(inner);
+            let pinned_inner = pinned_type(inner_type(t));
             quote { Option<$pinned_inner> }
         },
+        label: |t: Type| "option(".as_ctstring().append(label_of(inner_type(t))).append_str(")"),
     }
 }
 
 /// `Option::some` around the inner type's value.
 comptime fn some_value_expr(typ: Type, seed: Quoted) -> Quoted {
-    let inner = typ.as_data_type().unwrap().1[0];
-    let inner_value = value_expr(inner, seed, 0);
+    let inner_value = value_expr(inner_type(typ), seed, 0);
     quote { Option::some($inner_value) }
 }
 
 /// `Option::none`, with the inner type pinned in the turbofish so generic lengths resolve even though no inner
 /// value is built.
 comptime fn none_value_expr(typ: Type, _seed: Quoted) -> Quoted {
-    let inner = typ.as_data_type().unwrap().1[0];
-    let pinned_inner = pinned_type(inner);
+    let pinned_inner = pinned_type(inner_type(typ));
     quote { Option::<$pinned_inner>::none() }
 }
 
@@ -237,6 +277,19 @@ comptime fn array_synth() -> TestValueSynthesizer {
                 .map(|concrete_length: u32| f"{concrete_length}".quoted_contents())
                 .unwrap_or_else(|| f"{TEST_COLLECTION_LEN}".quoted_contents());
             quote { [$pinned_element; $len] }
+        },
+        label: |t: Type| {
+            let (element_type, length_type) = t.as_array().unwrap();
+            let open = "array(".as_ctstring().append(label_of(element_type));
+            // A concrete length is part of the signature and so of the label (`array(label,len)`); a generic one
+            // labels without it (`array(label)`).
+            let with_length = if length_type.as_constant().is_some() {
+                let length = length_type.as_constant().unwrap();
+                open.append_fmtstr(f",{length}")
+            } else {
+                open
+            };
+            with_length.append_str(")")
         },
     }
 }
@@ -278,6 +331,19 @@ comptime fn bounded_vec_synth() -> TestValueSynthesizer {
             let cap = f"{capacity}".quoted_contents();
             quote { BoundedVec<$pinned_element, $cap> }
         },
+        label: |t: Type| {
+            let generics = t.as_data_type().unwrap().1;
+            let open = "bounded-vec(".as_ctstring().append(label_of(generics[0]));
+            // Same as arrays: a concrete capacity is part of the label (`bounded-vec(label,cap)`); a generic one
+            // labels without it (`bounded-vec(label)`).
+            let with_capacity = if generics[1].as_constant().is_some() {
+                let capacity = generics[1].as_constant().unwrap();
+                open.append_fmtstr(f",{capacity}")
+            } else {
+                open
+            };
+            with_capacity.append_str(")")
+        },
     }
 }
 
@@ -285,8 +351,7 @@ comptime fn bounded_vec_synth() -> TestValueSynthesizer {
 comptime fn bounded_vec_value_expr(typ: Type, seed: Quoted) -> Quoted {
     let generics = typ.as_data_type().unwrap().1;
     let element_type = generics[0];
-    // A concrete capacity is part of the oracle's signature and is kept (the TS side must map it as
-    // FIXED_BOUNDED_VEC); only a generic capacity gets pinned.
+    // A concrete capacity is part of the oracle's signature and is kept; only a generic capacity gets pinned.
     let capacity = generics[1].as_constant().unwrap_or(TEST_BOUNDED_VEC_CAP);
     let cap = f"{capacity}".quoted_contents();
     let pinned_element = pinned_type(element_type);
@@ -309,6 +374,116 @@ pub(crate) fn oracle_test_bounded_vec<T, let MaxLen: u32>(
     bounded_vec
 }
 
+comptime fn ephemeral_array_synth() -> TestValueSynthesizer {
+    TestValueSynthesizer {
+        matches: |t: Type| is_ephemeral_array(t),
+        scenarios: |t: Type, seed: Quoted| @[unnamed(ephemeral_array_value_expr(t, seed))],
+        // On the wire an ephemeral array is only its slot; the contents live behind the array-storage oracles.
+        width: |_t: Type| 1,
+        pinned: |t: Type| {
+            let pinned_element = pinned_type(inner_type(t));
+            quote { crate::ephemeral::EphemeralArray<$pinned_element> }
+        },
+        label: |t: Type| "ephemeral-array(".as_ctstring().append(label_of(inner_type(t))).append_str(")"),
+    }
+}
+
+/// Whether `typ` is `EphemeralArray<T>` (i.e. `UnconstrainedArray<T, EphemeralOracles>`).
+comptime fn is_ephemeral_array(typ: Type) -> bool {
+    if is_data_type_named(typ, quote { UnconstrainedArray }) {
+        let generics = typ.as_data_type().unwrap().1;
+        is_data_type_named(generics[1], quote { EphemeralOracles })
+    } else {
+        false
+    }
+}
+
+/// The inner type of a single-element generic like `Option`, `BoundedVec` or `EphemeralArray`: its first generic.
+comptime fn inner_type(typ: Type) -> Type {
+    typ.as_data_type().unwrap().1[0]
+}
+
+/// A call to [`oracle_test_ephemeral_array_handle`] with the seed as the slot.
+comptime fn ephemeral_array_value_expr(typ: Type, seed: Quoted) -> Quoted {
+    let pinned_element = pinned_type(inner_type(typ));
+    quote {
+        crate::macros::oracle_testing::oracle_test_ephemeral_array_handle::<$pinned_element>(($seed) as Field)
+    }
+}
+
+/// The handle at the canonical slot: an ephemeral array's wire form is only its slot, so the test value carries no
+/// contents and handles compare by slot. Element serialization is exercised separately (see [`roundtrip_element`]).
+pub(crate) fn oracle_test_ephemeral_array_handle<T>(slot: Field) -> EphemeralArray<T> {
+    UnconstrainedArray { slot }
+}
+
+/// Roundtrips one ephemeral-array element row through the test resolver: `row` is verified against the resolver's
+/// canonical element at [`ELEMENT_ROUNDTRIP_SEED`] for the element mapping whose `label` matches (see [`label_of`]),
+/// and the resolver's own canonical serialization comes back. Only the test resolver implements the oracle (PXE and
+/// TXE do not).
+pub(crate) unconstrained fn roundtrip_element<let L: u32, let N: u32>(label: str<L>, row: [Field; N]) -> [Field; N] {
+    roundtrip_element_oracle(BoundedVec::from_array(label.as_bytes()), row)
+}
+
+#[oracle(aztec_oracle_test_roundtripElement)]
+unconstrained fn roundtrip_element_oracle<let N: u32>(
+    _label: BoundedVec<u8, MAX_LABEL_LEN>,
+    _row: [Field; N],
+) -> [Field; N] {}
+
+/// The seed every element roundtrip's canonical value is built at. A roundtrip call is self-contained (the label is
+/// the element's identity and each call carries one value), so unlike parameter positions there is no ordering to
+/// disambiguate with distinct seeds, and both sides can fix one. Must match the test resolver's
+/// `ELEMENT_ROUNDTRIP_SEED`.
+global ELEMENT_ROUNDTRIP_SEED: u32 = SEED_BASE;
+
+/// The wire-structural label of `typ`, from its kind's entry: two types share a label exactly when they have the
+/// same wire layout and the same canonical-value function, which is the equivalence the roundtrip needs — anything
+/// the wire tolerates (field names, struct-in-struct nesting) the label tolerates too. A leaf's label is its
+/// registered kind ([`scalars`]); a composite's is built from its inners (grouping is kept only under a combinator,
+/// where element boundaries drive the canonical seeding); a struct's is a nameless `{label,...}` with nested plain
+/// structs spliced into the parent. The test resolver derives the same label from its own type declarations, so a
+/// genuine layout divergence fails loudly as an unknown label instead of pairing the row with the wrong mapping.
+comptime fn label_of(typ: Type) -> CtString {
+    (synthesizer_for(typ).label)(typ)
+}
+
+/// The comma-joined labels of a struct's fields, with nested plain structs spliced into the parent: nesting affects
+/// neither the wire (struct slots concatenate) nor canonical values (fields are seeded at flat wire offsets), so the
+/// label treats nested and flat declarations as the same type.
+comptime fn struct_field_labels(typ: Type) -> CtString {
+    let (definition, generics) = typ.as_data_type().unwrap();
+    let mut labels = "".as_ctstring();
+    let mut first = true;
+    for field in definition.fields(generics) {
+        let (_name, field_type, _visibility) = field;
+        if !first {
+            labels = labels.append_str(",");
+        }
+        first = false;
+        let field_labels = if is_plain_struct(field_type) {
+            struct_field_labels(field_type)
+        } else {
+            label_of(field_type)
+        };
+        labels = labels.append(field_labels);
+    }
+    labels
+}
+
+/// Whether `typ` is a struct with no leaf or combinator meaning of its own: not a registered scalar, not an
+/// `Option`/`BoundedVec`/`EphemeralArray`. Only these get spliced into an enclosing struct's label: splicing cannot
+/// simply recurse until scalars because leaves and combinators are wire-visible — a leaf has its own canonical value
+/// semantics, and a combinator contributes slots (an `Option`'s discriminant, a `BoundedVec`'s length) and element
+/// boundaries — so they must stay in the label. A plain struct is the one wire-invisible grouping.
+comptime fn is_plain_struct(typ: Type) -> bool {
+    typ.as_data_type().is_some()
+        & maybe_scalar_label(typ).is_none()
+        & !is_ephemeral_array(typ)
+        & !is_data_type_named(typ, quote { Option })
+        & !is_data_type_named(typ, quote { BoundedVec })
+}
+
 comptime fn tuple_synth() -> TestValueSynthesizer {
     TestValueSynthesizer {
         matches: |t: Type| t.as_tuple().is_some(),
@@ -321,6 +496,8 @@ comptime fn tuple_synth() -> TestValueSynthesizer {
             width
         },
         pinned: |t: Type| quote { $t },
+        // The label grammar has no tuple form.
+        label: |t: Type| panic(f"no label grammar for the tuple {t}"),
     }
 }
 
@@ -370,6 +547,7 @@ comptime fn struct_synth() -> TestValueSynthesizer {
             width
         },
         pinned: |t: Type| quote { $t },
+        label: |t: Type| "{".as_ctstring().append(struct_field_labels(t)).append_str("}"),
     }
 }
 
@@ -488,16 +666,28 @@ pub(crate) comptime fn generate_oracle_tests_excluding(m: Module, skip: [Quoted]
     tests.join(quote {})
 }
 
-/// Generates the roundtrip test(s) for a single oracle: one `#[test]` per scenario (see the module docs).
+/// Generates the roundtrip test(s) for a single oracle: one `#[test]` per scenario (see the module docs). Each test
+/// ends with one roundtrip per ephemeral element position of the signature (see [`element_roundtrip_assertions`]);
+/// the roundtrips follow the oracle call because the resolver serves them for the session's last-called oracle.
 comptime fn oracle_test_for(f: FunctionDefinition) -> Quoted {
     let oracle = f.name();
+    let element_roundtrips = element_roundtrip_assertions(f.parameters(), f.return_type(), oracle);
     let scenarios = prepare_scenarios(f);
     let multi = scenarios.len() > 1;
 
     let mut tests: [Quoted] = @[];
     for i in 0..scenarios.len() {
         let (setup, assertion) = scenarios[i];
-        tests = tests.push_back(build_test(oracle, setup, assertion, multi, i));
+        tests = tests
+            .push_back(
+                build_test(
+                    oracle,
+                    setup,
+                    quote { $assertion $element_roundtrips },
+                    multi,
+                    i,
+                ),
+            );
     }
     tests.join(quote {})
 }
@@ -534,6 +724,80 @@ comptime fn prepare_scenarios(f: FunctionDefinition) -> [(Quoted, Quoted)] {
         setup = setup.push_back(return_setup);
 
         result = result.push_back((setup.join(quote {}), assertion));
+    }
+    result
+}
+
+/// One roundtrip per ephemeral element position of the signature, appended to every generated test after the
+/// oracle call: the canonical element is serialized, sent through [`roundtrip_element`], and the resolver's
+/// canonical response must deserialize back to it. This is where an ephemeral position's *element* serialization is
+/// verified; the oracle roundtrip itself only covers the slot the array puts on the wire.
+comptime fn element_roundtrip_assertions(params: [(Quoted, Type)], return_type: Type, oracle: Quoted) -> Quoted {
+    let elements = ephemeral_element_types(params, return_type);
+    let mut statements = quote {};
+    for k in 0..elements.len() {
+        let element = elements[k];
+        let pinned = pinned_type(element);
+        let label = label_of(element).as_quoted_str();
+        let seed = f"{ELEMENT_ROUNDTRIP_SEED}".quoted_contents();
+        let value = value_expr(element, seed, 0);
+        let why = f"element serialization mismatch for {oracle} (ephemeral element {k}). Consider bumping the oracle version after fixing the mismatch";
+        statements = quote {
+            $statements
+            {
+                let expected: $pinned = $value;
+                let returned = crate::macros::oracle_testing::roundtrip_element(
+                    $label,
+                    crate::protocol::traits::Serialize::serialize(expected),
+                );
+                let actual: $pinned = crate::protocol::traits::Deserialize::deserialize(returned);
+                assert_eq(actual, expected, $why);
+            }
+        };
+    }
+    statements
+}
+
+/// Every ephemeral-array element type reachable from the oracle's signature: params first then the return, members
+/// in declaration order, recursing into each ephemeral element after collecting it. Only membership matters — the
+/// resolver picks the element mapping by the label each roundtrip carries, so it needs no matching walk and the
+/// order is inconsequential.
+comptime fn ephemeral_element_types(params: [(Quoted, Type)], return_type: Type) -> [Type] {
+    let mut collected: [Type] = @[];
+    for i in 0..params.len() {
+        let (_name, param_type) = params[i];
+        collected = append_ephemeral_elements(collected, param_type);
+    }
+    if !return_type.is_unit() {
+        collected = append_ephemeral_elements(collected, return_type);
+    }
+    collected
+}
+
+comptime fn append_ephemeral_elements(collected: [Type], typ: Type) -> [Type] {
+    let mut result = collected;
+    if is_ephemeral_array(typ) {
+        let element = inner_type(typ);
+        result = result.push_back(element);
+        result = append_ephemeral_elements(result, element);
+    } else if maybe_scalar_builder(typ).is_some() {
+        // Scalars are leaves, including the data types among them: the test resolver treats them as scalars too,
+        // so their fields are not separately-mapped element types.
+    } else if typ.as_array().is_some() {
+        let (element_type, _length_type) = typ.as_array().unwrap();
+        result = append_ephemeral_elements(result, element_type);
+    } else if typ.as_tuple().is_some() {
+        for member_type in typ.as_tuple().unwrap() {
+            result = append_ephemeral_elements(result, member_type);
+        }
+    } else if is_data_type_named(typ, quote { Option }) | is_data_type_named(typ, quote { BoundedVec }) {
+        result = append_ephemeral_elements(result, inner_type(typ));
+    } else if typ.as_data_type().is_some() {
+        let (definition, generics) = typ.as_data_type().unwrap();
+        for field in definition.fields(generics) {
+            let (_name, field_type, _visibility) = field;
+            result = append_ephemeral_elements(result, field_type);
+        }
     }
     result
 }

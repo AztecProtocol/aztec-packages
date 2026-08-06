@@ -40,18 +40,11 @@ pub(crate) mod ephemeral_oracles;
 pub(crate) mod transient_oracles;
 #[generate_oracle_tests]
 pub mod contract_sync;
-#[generate_oracle_tests_excluding(
-    @[
-        // TODO: implement once the test resolver can serve EphemeralArray contents.
-        quote { record_fact_oracle },
-        quote { get_fact_collection_oracle },
-        quote { get_fact_collections_by_type_oracle },
-    ],
-)]
+#[generate_oracle_tests]
 pub mod fact_store;
 #[generate_oracle_tests]
 pub mod public_call;
-// TODO: cover with oracle tests once the test resolver can serve EphemeralArray contents.
+#[generate_oracle_tests]
 pub mod tx_resolution;
 #[generate_oracle_tests]
 pub mod resolve_custom_request;
@@ -93,24 +86,32 @@ pub mod get_nullifier_membership_witness;
     ],
 )]
 pub mod get_public_data_witness;
-#[generate_oracle_tests_excluding(
-    @[
-        // TODO: cover once the test resolver can serve EphemeralArray contents.
-        quote { are_block_hashes_in_archive_oracle },
-    ],
-)]
+#[generate_oracle_tests]
 pub mod get_membership_witness;
 #[generate_oracle_tests]
 pub mod keys;
 #[generate_oracle_tests]
 pub mod key_validation_request;
-// TODO: cover with oracle tests once the two sides agree on the param grouping (TS wraps them in a single struct).
+#[generate_oracle_tests_excluding(
+    @[
+        // TODO: cover once the two sides agree on the param grouping (the resolver wraps three of the params in a
+        // single struct, so the two synthesizers seed different canonical values).
+        quote { notify_created_contract_class_log_private_oracle },
+    ],
+)]
 pub mod logs;
-// TODO: cover with oracle tests once the test resolver can serve EphemeralArray contents.
+#[generate_oracle_tests_excluding(
+    @[
+        // TODO: cover once NoteValidationRequest/EventValidationRequest have reflectable (non-private) fields.
+        quote { validate_and_store_enqueued_notes_and_events_oracle },
+        // TODO: cover once both sides agree on a canonical log-source value (plain Field vs validated enum).
+        quote { get_logs_by_tag_oracle },
+    ],
+)]
 pub mod message_processing;
 #[generate_oracle_tests_excluding(
     @[
-        // TODO: implement once the test resolver can serve EphemeralArray contents.
+        // TODO: cover once the variable-width packed-note return (the NOTE mapping) is synthesizable.
         quote { get_notes_oracle },
     ],
 )]
@@ -123,7 +124,7 @@ pub mod offchain_effect;
 pub mod version;
 #[generate_oracle_tests]
 pub mod random;
-// TODO: cover with oracle tests once the test resolver can serve EphemeralArray contents.
+#[generate_oracle_tests]
 pub mod shared_secret;
 #[generate_oracle_tests]
 pub mod storage;

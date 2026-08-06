@@ -5,6 +5,8 @@ import { withoutHexPrefix } from '@aztec/foundation/string';
 import {
   AZTEC_ADDRESS,
   BoundedVec,
+  EPHEMERAL_ARRAY,
+  EphemeralArray,
   FIELD,
   OPTION,
   Option,
@@ -12,7 +14,13 @@ import {
   makeEntry,
 } from '@aztec/pxe/simulator';
 
-import { OracleTestResolver, type OracleTestScenario, SET_SCENARIO_ENTRY } from './resolver.js';
+import { ELEMENT_ROUNDTRIP_SEED } from './default_fixtures.js';
+import {
+  OracleTestResolver,
+  type OracleTestScenario,
+  ROUNDTRIP_ELEMENT_ENTRY,
+  SET_SCENARIO_ENTRY,
+} from './resolver.js';
 
 const TEST_REGISTRY: Record<string, OracleRegistryEntry> = {
   test_single: makeEntry({
@@ -34,6 +42,10 @@ const TEST_REGISTRY: Record<string, OracleRegistryEntry> = {
     params: [{ name: 'p', type: OPTION(FIELD) }],
     returnType: OPTION(FIELD),
   }),
+  test_ephemeral: makeEntry({
+    params: [{ name: 'values', type: EPHEMERAL_ARRAY(FIELD) }],
+    returnType: EPHEMERAL_ARRAY(FIELD),
+  }),
 };
 
 const TEST_FIXTURES: Record<string, OracleTestScenario[]> = {
@@ -49,6 +61,13 @@ const TEST_FIXTURES: Record<string, OracleTestScenario[]> = {
   test_both_option: [
     { scenario: 'some+some', inputs: { p: Option.some(new Fr(10)) }, output: Option.some(new Fr(20)) },
     { scenario: 'none+none', inputs: { p: Option.none(new Fr(0)) }, output: Option.none(new Fr(0)) },
+  ],
+  // An ephemeral array's wire form is its slot, so the fixture values are handles at the canonical slots.
+  test_ephemeral: [
+    {
+      inputs: { values: EphemeralArray.fromSlot(new Fr(10), FIELD) },
+      output: EphemeralArray.fromSlot(new Fr(11), FIELD),
+    },
   ],
 };
 
@@ -123,6 +142,26 @@ describe('OracleTestResolver', () => {
     expect(none.values).toEqual([toHex(new Fr(0)), toHex(new Fr(0))]); // Option::none()
   });
 
+  it('verifies an ephemeral-array position as its slot', async () => {
+    const result = await callOracle('test_ephemeral', [toHex(new Fr(10))]);
+    expect(result.values).toEqual([toHex(new Fr(11))]);
+
+    await expect(callOracle('test_ephemeral', [toHex(new Fr(777))])).rejects.toThrow('Input mismatch');
+  });
+
+  it('roundtrips an ephemeral element by its label', async () => {
+    const returned = await roundtripElement('field', [new Fr(ELEMENT_ROUNDTRIP_SEED)]);
+    expect(returned.values).toEqual([[toHex(new Fr(ELEMENT_ROUNDTRIP_SEED))]]);
+  });
+
+  it('rejects a roundtripped element that does not match the canonical value', async () => {
+    await expect(roundtripElement('field', [new Fr(999)])).rejects.toThrow('Element mismatch');
+  });
+
+  it('rejects an element roundtrip with an unknown label', async () => {
+    await expect(roundtripElement('bogus', [new Fr(ELEMENT_ROUNDTRIP_SEED)])).rejects.toThrow("Unknown label 'bogus'");
+  });
+
   it('tracks uncalled fixtures', async () => {
     expect(resolver.getUncalledFixtures()).toContain('test_single');
 
@@ -150,6 +189,17 @@ describe('OracleTestResolver', () => {
       package_name: 'test',
       inputs,
     });
+  }
+
+  // Encodes `label` as Noir's `BoundedVec<u8, N>` wire shape, via the same entry the resolver decodes it with.
+  function roundtripElement(label: string, row: Fr[], sessionId = 1) {
+    const bytes = BoundedVec.from({ data: Array.from(label, c => c.charCodeAt(0)), maxLength: 1024 });
+    const [data, length] = ROUNDTRIP_ELEMENT_ENTRY.params[0].type.serialization!.fn(bytes) as [Fr[], Fr];
+    return callOracle(
+      'aztec_oracle_test_roundtripElement',
+      [data.map(toHex), toHex(length), row.map(toHex)],
+      sessionId,
+    );
   }
 
   // Encodes `name` as Noir's `BoundedVec<u8, 64>` wire shape, via the same entry the resolver decodes it with.

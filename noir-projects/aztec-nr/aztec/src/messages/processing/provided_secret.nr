@@ -4,7 +4,7 @@ use crate::{messages::delivery::OnchainDeliveryMode, protocol::traits::{Deserial
 ///
 /// These are searched alongside the secrets PXE derives or stores internally, and exist for secrets PXE cannot
 /// enumerate on its own (e.g. handshake-derived ones).
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Eq)]
 pub(crate) struct ProvidedSecret {
     pub secret: Field,
     pub mode: OnchainDeliveryMode,

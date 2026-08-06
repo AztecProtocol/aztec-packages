@@ -30,7 +30,7 @@ pub struct RetractableFactOrigin {
 }
 
 /// A single immutable fact in a collection.
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct Fact {
     /// A user-defined identifier for fact kinds. Typically used to determine how to deserialize `payload`.
     pub fact_type_id: Field,
@@ -42,7 +42,7 @@ pub struct Fact {
 }
 
 /// A fact collection as returned by the store.
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct FactCollection {
     pub contract_address: AztecAddress,
     pub scope: AztecAddress,

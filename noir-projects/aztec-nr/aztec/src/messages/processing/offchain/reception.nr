@@ -100,8 +100,7 @@ use crate::{
         delete_fact_collection, Fact, FactCollection, get_fact_collection, get_fact_collections_by_type, OriginBlock,
         record_non_retractable_fact, record_retractable_fact,
     },
-    messages::processing::OffchainMessageWithTx,
-    oracle::tx_resolution::ResolvedTx,
+    messages::processing::{OffchainMessageWithTx, ResolvedTx},
     protocol::{
         address::AztecAddress,
         constants::MAX_TX_LIFETIME,
@@ -302,8 +301,8 @@ unconstrained fn to_payload(message: OffchainMessage) -> EphemeralArray<Field> {
 
 mod test {
     use crate::{
-        messages::processing::offchain::OffchainMessage,
-        oracle::{random::random, tx_resolution::ResolvedTx},
+        messages::processing::{offchain::OffchainMessage, ResolvedTx},
+        oracle::random::random,
         protocol::address::AztecAddress,
         test::helpers::test_environment::TestEnvironment,
     };

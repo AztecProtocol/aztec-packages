@@ -1,7 +1,8 @@
+mod resolved_tx;
+pub use resolved_tx::ResolvedTx;
+
 pub(crate) mod event_validation_request;
 pub mod offchain;
-
-pub use crate::oracle::tx_resolution::ResolvedTx;
 
 mod note_validation_request;
 pub use note_validation_request::NoteValidationRequest;
