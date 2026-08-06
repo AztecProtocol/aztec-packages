@@ -49,6 +49,7 @@ import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { SimulationOverrides } from '../tx/simulated_tx.js';
 import { Tx } from '../tx/tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
+import type { TxEffectMembershipWitness } from '../tx/tx_effect_membership.js';
 import { TxHash } from '../tx/tx_hash.js';
 import {
   DroppedTxReceipt,
@@ -172,6 +173,11 @@ describe('AztecNodeApiSchema', () => {
   it('getL2ToL1MembershipWitness', async () => {
     const response = await context.client.getL2ToL1MembershipWitness(TxHash.random(), Fr.random());
     expect(response).toBeUndefined();
+  });
+
+  it('getTxEffectMembershipWitness', async () => {
+    const response = await context.client.getTxEffectMembershipWitness(TxHash.random());
+    expect(response).toEqual(mockTxEffectMembershipWitness());
   });
 
   it('getBlockHashMembershipWitness', async () => {
@@ -605,6 +611,17 @@ describe('AztecNodeApiSchema', () => {
   });
 });
 
+/** Fixed witness with a two-level sibling path, so the schema round-trip covers a non-empty path. */
+function mockTxEffectMembershipWitness(): TxEffectMembershipWitness {
+  const path = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
+  return {
+    blockNumber: BlockNumber(1),
+    root: new Fr(0x42),
+    leafIndex: 1n,
+    siblingPath: new SiblingPath(path.length, path),
+  };
+}
+
 class MockAztecNode implements AztecNode {
   public validatorStats: ValidatorsStats | undefined;
   public singleValidatorStats: SingleValidatorStats | undefined;
@@ -754,6 +771,10 @@ class MockAztecNode implements AztecNode {
     expect(txHash).toBeInstanceOf(TxHash);
     expect(message).toBeInstanceOf(Fr);
     return Promise.resolve(undefined);
+  }
+  getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined> {
+    expect(txHash).toBeInstanceOf(TxHash);
+    return Promise.resolve(mockTxEffectMembershipWitness());
   }
   getNullifierMembershipWitness(
     referenceBlock: BlockParameter,

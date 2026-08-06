@@ -1,4 +1,4 @@
-import { type Hasher, shaMerkleHash } from './hasher.js';
+import { type AsyncHasher, type Hasher, shaMerkleHash } from './hasher.js';
 import { SiblingPath } from './sibling_path.js';
 import { type TreeNodeLocation, UnbalancedTreeStore } from './unbalanced_tree_store.js';
 
@@ -6,6 +6,9 @@ interface TreeNode {
   value: Buffer;
   leafIndex?: number;
 }
+
+/** A pair of node values whose hash the caller of the build routine must supply to continue. */
+type PendingHash = [left: Buffer, right: Buffer];
 
 /**
  * An ephemeral unbalanced Merkle tree implementation.
@@ -19,23 +22,46 @@ export class UnbalancedMerkleTreeCalculator {
   private store: UnbalancedTreeStore<TreeNode>;
   private leafLocations: TreeNodeLocation[] = [];
 
-  public constructor(
+  private constructor(
     private readonly leaves: Buffer[],
     private readonly valueToCompress: Buffer,
     private readonly emptyRoot: Buffer,
-    private readonly hasher: Hasher['hash'],
   ) {
     this.store = new UnbalancedTreeStore(leaves.length);
-    this.buildTree();
   }
 
   static create(
     leaves: Buffer[],
     valueToCompress = Buffer.alloc(0),
     emptyRoot = Buffer.alloc(32),
-    hasher = shaMerkleHash,
+    hasher: Hasher['hash'] = shaMerkleHash,
   ) {
-    return new UnbalancedMerkleTreeCalculator(leaves, valueToCompress, emptyRoot, hasher);
+    const calculator = new UnbalancedMerkleTreeCalculator(leaves, valueToCompress, emptyRoot);
+    const build = calculator.buildTree();
+    let step = build.next();
+    while (!step.done) {
+      step = build.next(hasher(...step.value));
+    }
+    return calculator;
+  }
+
+  /**
+   * Same as {@link create}, for hashers that resolve asynchronously (e.g. poseidon2). The hasher comes second here
+   * because it is required, unlike in the synchronous factory where it defaults to sha256.
+   */
+  static async createAsync(
+    leaves: Buffer[],
+    hasher: AsyncHasher['hash'],
+    valueToCompress = Buffer.alloc(0),
+    emptyRoot = Buffer.alloc(32),
+  ): Promise<UnbalancedMerkleTreeCalculator> {
+    const calculator = new UnbalancedMerkleTreeCalculator(leaves, valueToCompress, emptyRoot);
+    const build = calculator.buildTree();
+    let step = build.next();
+    while (!step.done) {
+      step = build.next(await hasher(...step.value));
+    }
+    return calculator;
   }
 
   /**
@@ -93,9 +119,12 @@ export class UnbalancedMerkleTreeCalculator {
 
   /**
    * Adds leaves and nodes to the store. Updates the leafLocations.
-   * @param leaves - The leaves of the tree.
+   *
+   * Implemented as a coroutine: each pair of nodes to hash is yielded to the caller, which hashes it and passes the
+   * result back into the generator. That keeps a single copy of the tree-shaping logic usable by both the synchronous
+   * and the asynchronous factory, since only the caller needs to know whether hashing awaits.
    */
-  private buildTree() {
+  private *buildTree(): Generator<PendingHash, void, Buffer> {
     this.leafLocations = this.leaves.map((value, i) => this.store.setLeaf(i, { value, leafIndex: i }));
 
     // Start with the leaves that are not compressed.
@@ -130,7 +159,7 @@ export class UnbalancedMerkleTreeCalculator {
         } else {
           // Hash the value with the (right) sibling and update the parent node.
           const node = this.store.getNode(location)!;
-          const parentValue = this.hasher(node.value, sibling.value);
+          const parentValue = yield [node.value, sibling.value];
           this.store.setNode(parentLocation, { value: parentValue });
         }
 

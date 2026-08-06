@@ -93,6 +93,7 @@ import {
   PublicSimulationOutput,
   type SimulationOverrides,
   Tx,
+  type TxEffectMembershipWitness,
   type TxHash,
   type TxReceipt,
   type TxValidationResult,
@@ -700,6 +701,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     messageIndexInTx?: number,
   ): Promise<L2ToL1MembershipWitness | undefined> {
     return this.worldStateQueries.getL2ToL1MembershipWitness(txHash, message, messageIndexInTx);
+  }
+
+  /**
+   * Returns a membership witness proving that `txHash` was included in its block and produced exactly the effects the
+   * node reports for it. Passthrough to the archiver — see {@link Archiver.getTxEffectMembershipWitness}.
+   */
+  public getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined> {
+    return this.worldStateQueries.getTxEffectMembershipWitness(txHash);
   }
 
   public getNullifierMembershipWitness(

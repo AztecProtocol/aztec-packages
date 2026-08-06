@@ -115,4 +115,9 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     // TXE doesn't drive the L2-to-L1 message flow through this archiver.
     return Promise.resolve(undefined);
   }
+
+  public getTxEffectMembershipWitness(): Promise<undefined> {
+    // TXE doesn't serve tx effect membership witnesses.
+    return Promise.resolve(undefined);
+  }
 }

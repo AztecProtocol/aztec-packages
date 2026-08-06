@@ -3,6 +3,7 @@ import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import { SiblingPath } from '@aztec/foundation/trees';
 
 import omit from 'lodash.omit';
 
@@ -42,6 +43,7 @@ import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { TxEffect } from '../tx/tx_effect.js';
+import type { TxEffectMembershipWitness } from '../tx/tx_effect_membership.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { MAX_RPC_CHECKPOINTS_DATA_LEN } from './api_limit.js';
 import { type ArchiverApi, ArchiverApiSchema } from './archiver.js';
@@ -128,6 +130,11 @@ describe('ArchiverApiSchema', () => {
   it('getL2ToL1MembershipWitness', async () => {
     const result = await context.client.getL2ToL1MembershipWitness(TxHash.random(), Fr.random());
     expect(result).toBeUndefined();
+  });
+
+  it('getTxEffectMembershipWitness', async () => {
+    const result = await context.client.getTxEffectMembershipWitness(TxHash.random());
+    expect(result).toEqual(mockTxEffectMembershipWitness());
   });
 
   it('getSyncedL2SlotNumber', async () => {
@@ -382,6 +389,17 @@ describe('CheckpointsQuerySchema', () => {
   });
 });
 
+/** Fixed witness with a two-level sibling path, so the schema round-trip covers a non-empty path. */
+function mockTxEffectMembershipWitness(): TxEffectMembershipWitness {
+  const path = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
+  return {
+    blockNumber: BlockNumber(1),
+    root: new Fr(0x42),
+    leafIndex: 1n,
+    siblingPath: new SiblingPath(path.length, path),
+  };
+}
+
 class MockArchiver implements ArchiverApi {
   constructor(private artifact: ContractArtifact) {}
 
@@ -463,6 +481,10 @@ class MockArchiver implements ArchiverApi {
   }
   getL2ToL1MembershipWitness(): Promise<undefined> {
     return Promise.resolve(undefined);
+  }
+  getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined> {
+    expect(txHash).toBeInstanceOf(TxHash);
+    return Promise.resolve(mockTxEffectMembershipWitness());
   }
   getSyncedL2SlotNumber(): Promise<SlotNumber> {
     return Promise.resolve(SlotNumber(1));

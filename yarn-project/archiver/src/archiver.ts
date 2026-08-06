@@ -33,7 +33,7 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 import type { L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
-import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxEffectMembershipWitness, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
@@ -45,6 +45,7 @@ import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import type { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { OutboxTreesResolver } from './modules/outbox_trees_resolver.js';
+import { TxEffectsTreeResolver } from './modules/tx_effects_tree_resolver.js';
 import { type ArchiverDataStores, backupArchiverDataStores, getArchiverSynchPoint } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 
@@ -101,6 +102,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
   /** Resolver for L2-to-L1 message membership witnesses, built over this archiver's read view. */
   private readonly outboxTreesResolver: OutboxTreesResolver;
+
+  /** Resolver for tx effect membership witnesses, built over this archiver's read view. */
+  private readonly txEffectsTreeResolver: TxEffectsTreeResolver;
 
   private initialSyncComplete: boolean = false;
   private initialSyncPromise: PromiseWithResolvers<void>;
@@ -208,6 +212,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       l1Constants.epochDuration,
     );
 
+    this.txEffectsTreeResolver = new TxEffectsTreeResolver(this, this.dataStores.db);
+
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
     // are done as fast as possible. This then gets updated once the initial sync completes.
     this.runningPromise = new RunningPromise(
@@ -237,6 +243,15 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     messageIndexInTx?: number,
   ): Promise<L2ToL1MembershipWitness | undefined> {
     return this.outboxTreesResolver.getL2ToL1MembershipWitness(txHash, message, messageIndexInTx);
+  }
+
+  /**
+   * Returns a membership witness proving that tx `txHash` was included in its block and produced exactly the effects
+   * this archiver stores for it, verifiable against the block header's `txEffectsTreeRoot`. Returns `undefined` if the
+   * tx is not in a block this archiver knows about.
+   */
+  public getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined> {
+    return this.txEffectsTreeResolver.getTxEffectMembershipWitness(txHash);
   }
 
   /** Updates archiver config */

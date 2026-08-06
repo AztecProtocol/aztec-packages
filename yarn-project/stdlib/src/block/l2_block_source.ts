@@ -23,6 +23,7 @@ import { MAX_RPC_CHECKPOINTS_DATA_LEN } from '../interfaces/api_limit.js';
 import type { L2ToL1MembershipWitness } from '../messaging/l2_to_l1_membership.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
+import type { TxEffectMembershipWitness } from '../tx/tx_effect_membership.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { BlockData } from './block_data.js';
 import { BlockHash } from './block_hash.js';
@@ -200,6 +201,13 @@ export interface L2BlockSource {
     message: Fr,
     messageIndexInTx?: number,
   ): Promise<L2ToL1MembershipWitness | undefined>;
+
+  /**
+   * Returns a membership witness proving that tx `txHash` was included in its block and produced exactly the effects
+   * reported for it, verifiable against the `txEffectsTreeRoot` of that block's header. Returns `undefined` if the tx
+   * is unknown.
+   */
+  getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined>;
 
   /**
    * Returns the last L2 slot number for which we have all L1 data needed to build the next checkpoint.

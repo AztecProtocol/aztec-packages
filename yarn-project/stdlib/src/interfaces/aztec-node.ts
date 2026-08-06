@@ -66,6 +66,8 @@ import {
   PublicSimulationOutput,
   SimulationOverrides,
   Tx,
+  type TxEffectMembershipWitness,
+  TxEffectMembershipWitnessSchema,
   TxHash,
   type TxReceipt,
   TxReceiptSchema,
@@ -236,6 +238,17 @@ export interface AztecNode {
     message: Fr,
     messageIndexInTx?: number,
   ): Promise<L2ToL1MembershipWitness | undefined>;
+
+  /**
+   * Returns a membership witness proving that tx `txHash` was included in its block and produced exactly the effects
+   * the node reports for it. The witness is verified against the `txEffectsTreeRoot` of the block header of
+   * `witness.blockNumber`.
+   *
+   * Returns `undefined` if the node does not know the tx.
+   *
+   * @param txHash - The tx to prove inclusion of.
+   */
+  getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined>;
 
   /**
    * Returns the block number at a given block tag, or the latest proposed block number when
@@ -622,6 +635,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getL2ToL1MembershipWitness: z.function({
     input: z.tuple([TxHash.schema, schemas.Fr, optional(schemas.Integer)]),
     output: L2ToL1MembershipWitnessSchema.optional(),
+  }),
+
+  getTxEffectMembershipWitness: z.function({
+    input: z.tuple([TxHash.schema]),
+    output: TxEffectMembershipWitnessSchema.optional(),
   }),
 
   getBlockNumber: z.function({ input: z.tuple([optional(BlockTagWithoutLatestSchema)]), output: BlockNumberSchema }),

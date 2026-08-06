@@ -1,9 +1,8 @@
 import type { TxBlobData } from '@aztec/blob-lib/encoding';
-import { DomainSeparator } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { computeUnbalancedMerkleTreeRootAsync, makePoseidonMerkleHash } from '@aztec/foundation/trees';
+import { computeUnbalancedMerkleTreeRootAsync } from '@aztec/foundation/trees';
 
 import { inspect } from 'util';
 import { z } from 'zod';
@@ -11,6 +10,7 @@ import { z } from 'zod';
 import { MAX_TX_EFFECTS_PER_BODY } from '../deserialization/index.js';
 import type { ZodFor } from '../schemas/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
+import { txEffectsTreeNodeHash } from '../tx/tx_effect_membership.js';
 
 export class Body {
   constructor(public txEffects: TxEffect[]) {}
@@ -65,7 +65,7 @@ export class Body {
     const leaves = await Promise.all(this.txEffects.map(txEffect => txEffect.computeTxEffectLeaf()));
     const root = await computeUnbalancedMerkleTreeRootAsync(
       leaves.map(leaf => leaf.toBuffer()),
-      makePoseidonMerkleHash(DomainSeparator.TX_EFFECTS_TREE),
+      txEffectsTreeNodeHash,
     );
     return Fr.fromBuffer(root);
   }

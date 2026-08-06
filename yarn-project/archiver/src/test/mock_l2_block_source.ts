@@ -365,6 +365,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
+  public getTxEffectMembershipWitness(): Promise<undefined> {
+    // Mock does not back the tx effect membership witness flow.
+    return Promise.resolve(undefined);
+  }
+
   async getL2Tips(): Promise<L2Tips> {
     const [latest, proven, finalized, checkpointed] = [
       await this.getBlockNumber(),

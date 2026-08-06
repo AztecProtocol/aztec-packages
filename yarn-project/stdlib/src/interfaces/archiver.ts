@@ -29,6 +29,7 @@ import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.j
 import { L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { optional, schemas } from '../schemas/schemas.js';
 import { indexedTxSchema } from '../tx/indexed_tx_effect.js';
+import { TxEffectMembershipWitnessSchema } from '../tx/tx_effect_membership.js';
 import { TxHash } from '../tx/tx_hash.js';
 import type { L2LogsSource } from './l2_logs_source.js';
 
@@ -113,6 +114,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL2ToL1MembershipWitness: z.function({
     input: z.tuple([TxHash.schema, schemas.Fr, optional(schemas.Integer)]),
     output: L2ToL1MembershipWitnessSchema.optional(),
+  }),
+  getTxEffectMembershipWitness: z.function({
+    input: z.tuple([TxHash.schema]),
+    output: TxEffectMembershipWitnessSchema.optional(),
   }),
   getSyncedL2SlotNumber: z.function({ input: z.tuple([]), output: schemas.SlotNumber.optional() }),
   getSyncedL2EpochNumber: z.function({ input: z.tuple([]), output: EpochNumberSchema.optional() }),

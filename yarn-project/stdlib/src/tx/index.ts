@@ -18,6 +18,7 @@ export * from './processed_tx.js';
 export * from './proven_tx.js';
 export * from './simulated_tx.js';
 export * from './tx_effect.js';
+export * from './tx_effect_membership.js';
 export * from './public_simulation_output.js';
 export * from './tx_execution_request.js';
 export * from './validator/tx_validator.js';
