@@ -432,7 +432,7 @@ yarn-project-benches: yarn-project
 #==============================================================================
 
 # Release Image - Docker image for releases
-release-image: yarn-project
+release-image: yarn-project labs-aztec-toolchain
 	$(call build,$@,release-image)
 
 release-image-tests: release-image

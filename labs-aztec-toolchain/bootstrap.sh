@@ -31,7 +31,11 @@ NOIRUP_URL=${NOIRUP_URL:-https://raw.githubusercontent.com/noir-lang/noirup/324a
 # bbup's artifact name is hardcoded to the plain bb, so the AVM-enabled build is taken
 # straight from the release. The URLs are tried in order: the barretenberg mirror, which
 # bb is also published to first, then aztec-packages.
-BB_AVM_ARTIFACT=barretenberg-avm-amd64-linux.tar.gz
+# Empty on a machine ci3/arch does not recognize, which makes bb_avm_released_here skip bb-avm.
+# Letting arch fail here would abort every command this script offers instead, including the nargo
+# and acvm installs that have nothing to do with bb-avm.
+BB_AVM_ARCH=$(arch 2>/dev/null || true)
+BB_AVM_ARTIFACT=barretenberg-avm-$BB_AVM_ARCH-linux.tar.gz
 BB_AVM_URLS=${BB_AVM_URLS:-"
   https://github.com/AztecProtocol/barretenberg/releases/download/v$BB_VERSION/$BB_AVM_ARTIFACT
   https://github.com/AztecProtocol/aztec-packages/releases/download/v$BB_VERSION/$BB_AVM_ARTIFACT
@@ -153,9 +157,9 @@ function install_bb {
   BB_PATH="$PWD/$TARGET_DIR" "$tmp/bbup" -v "$BB_VERSION" --no-modify-path
 }
 
-# bb-avm is released for amd64 linux only, see build_release_dir in barretenberg/cpp/bootstrap.sh.
+# bb-avm is released for linux only, see build_release_dir in barretenberg/cpp/bootstrap.sh.
 function bb_avm_released_here {
-  [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]
+  [ "$(os)" = linux ] && [ -n "$BB_AVM_ARCH" ]
 }
 
 function install_bb_avm {
@@ -287,8 +291,8 @@ function build_labs {
     if bb_avm_released_here; then
       install_bb_avm "$tmp"
     else
-      # Absence is tolerated: its consumers (AVM proving) only run on amd64 linux anyway.
-      echo "Skipping $BB_AVM_BINARY: released for amd64 linux only."
+      # Absence is tolerated: its consumers (AVM proving) only run on linux anyway.
+      echo "Skipping $BB_AVM_BINARY: released for linux amd64/arm64 only (this is $(os)/$(uname -m))."
       drop_unprovisionable "$BB_AVM_BINARY"
     fi
   else
