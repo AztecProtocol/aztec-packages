@@ -2,6 +2,10 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
+  # Mirror the GKE network node-pool label: one-off jobs (e.g. deploy-rollup-contracts)
+  # pin node-type=network via nodeSelector and would otherwise never schedule on kind.
+  labels:
+    node-type: network
   extraPortMappings:
   - containerPort: 6443
     hostPort: 45729 # AZTE0 minus 1, right before the ports we start for TXEs in bootstrap test
