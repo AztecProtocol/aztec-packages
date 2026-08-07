@@ -4,13 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 function hash {
   # Nothing under noir-projects/fnd is an input: everything it produces reaches us as a pinned
   # package, hashed via yarn.lock (covered by the yarn-project patterns).
-  # The ipc-codegen/cdb patterns cover the simulator's cdb server codegen, which
-  # runs ipc-codegen against barretenberg's cdb_schema.json on every build.
   hash_str \
     $(../labs-aztec-toolchain/bootstrap.sh hash) \
     $(../noir-projects/labs/noir-contracts/bootstrap.sh hash) \
     $(../noir-projects/labs/aztec-nr/bootstrap.sh hash) \
-    $(cache_content_hash "^ipc-codegen/" "^barretenberg/cpp/src/barretenberg/cdb/") \
     $(cache_content_hash ../yarn-project/.rebuild_patterns)
 }
 
