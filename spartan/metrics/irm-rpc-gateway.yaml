@@ -1,0 +1,53 @@
+schemaVersion: 1
+
+resourceAttributes:
+  - k8s.namespace.name
+  - rpc_namespace
+
+metrics:
+  - otelName: up
+    allowedAttributes:
+      - network
+
+  - otelName: kong_http_requests_total
+    allowedAttributes:
+      - network
+      - route
+      - code
+    aggregation:
+      function: sum
+      attributes:
+        - network
+        - route
+        - code
+
+  - otelName: kong_request_latency_ms
+    allowedAttributes:
+      - network
+      - route
+    aggregation:
+      function: sum
+      attributes:
+        - network
+        - route
+
+  - otelName: kong_latency
+    allowedAttributes:
+      - network
+      - route
+      - type
+    includeAttributeSets:
+      - type: request
+    aggregation:
+      function: sum
+      attributes:
+        - network
+        - route
+        - type
+
+  - otelName: kong_upstream_target_health
+    allowedAttributes:
+      - network
+      - state
+      - upstream
+      - target

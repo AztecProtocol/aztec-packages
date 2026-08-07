@@ -1,3 +1,30 @@
+{{- $irmHasAggregation := false -}}
+{{- range (.Values.irm.metricCatalog.metrics | default list) -}}
+{{- with .aggregation -}}
+{{- $irmHasAggregation = true -}}
+{{- end -}}
+{{- end -}}
+{{- if .Values.irm.enabled -}}
+{{- $_ := required "irm.endpoint is required when irm.enabled=true" .Values.irm.endpoint -}}
+{{- if ne (int .Values.irm.metricCatalog.schemaVersion) 1 -}}
+{{- fail "irm.metricCatalog.schemaVersion must be 1" -}}
+{{- end -}}
+{{- $_ := required "irm.metricCatalog.resourceAttributes must not be empty" .Values.irm.metricCatalog.resourceAttributes -}}
+{{- $_ := required "irm.metricCatalog.metrics must not be empty" .Values.irm.metricCatalog.metrics -}}
+{{- range $index, $metric := .Values.irm.metricCatalog.metrics -}}
+{{- $_ := required (printf "irm.metricCatalog.metrics[%d].otelName is required" $index) $metric.otelName -}}
+{{- range $setIndex, $attributeSet := ($metric.includeAttributeSets | default list) -}}
+{{- if eq (len $attributeSet) 0 -}}
+{{- fail (printf "irm.metricCatalog.metrics[%d].includeAttributeSets[%d] must not be empty" $index $setIndex) -}}
+{{- end -}}
+{{- end -}}
+{{- with $metric.aggregation -}}
+{{- if not (has .function (list "sum" "max" "min" "mean" "median" "count")) -}}
+{{- fail (printf "irm.metricCatalog.metrics[%d].aggregation.function is unsupported" $index) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -18,11 +45,103 @@ data:
       resource:
         attributes:
           {{- include "otel-metrics-collector.resourceAttributes" . | nindent 10 }}
+      {{- if .Values.irm.enabled }}
+      resource/irm:
+        attributes:
+          {{- include "otel-metrics-collector.irmResourceAttributes" . | nindent 10 }}
+      filter/irm_metrics:
+        error_mode: propagate
+        metrics:
+          metric:
+            {{- $dropConditions := list }}
+            {{- range .Values.irm.metricCatalog.metrics }}
+            {{- $dropConditions = append $dropConditions (printf "metric.name != %q" .otelName) }}
+            {{- end }}
+            - {{ join " and " $dropConditions | quote }}
+          {{- $hasSelectors := false }}
+          {{- range .Values.irm.metricCatalog.metrics }}
+          {{- if gt (len (.includeAttributeSets | default list)) 0 }}
+          {{- $hasSelectors = true }}
+          {{- end }}
+          {{- end }}
+          {{- if $hasSelectors }}
+          datapoint:
+            {{- range $metric := .Values.irm.metricCatalog.metrics }}
+            {{- $attributeSets := $metric.includeAttributeSets | default list }}
+            {{- if gt (len $attributeSets) 0 }}
+            {{- $alternatives := list }}
+            {{- range $attributeSet := $attributeSets }}
+            {{- $conditions := list }}
+            {{- range $key, $value := $attributeSet }}
+            {{- $conditions = append $conditions (printf "datapoint.attributes[%q] == %q" $key $value) }}
+            {{- end }}
+            {{- $alternatives = append $alternatives (printf "(%s)" (join " and " $conditions)) }}
+            {{- end }}
+            - {{ printf "metric.name == %q and not (%s)" $metric.otelName (join " or " $alternatives) | quote }}
+            {{- end }}
+            {{- end }}
+          {{- end }}
+      transform/promote_irm_resource_attributes:
+        error_mode: propagate
+        metric_statements:
+          - context: datapoint
+            statements:
+              {{- range .Values.irm.metricCatalog.resourceAttributes }}
+              - set(datapoint.attributes[{{ . | quote }}], resource.attributes[{{ . | quote }}]) where resource.attributes[{{ . | quote }}] != nil
+              {{- end }}
+      {{- if $irmHasAggregation }}
+      transform/aggregate_irm_metrics:
+        error_mode: propagate
+        metric_statements:
+          - context: metric
+            statements:
+              {{- $resourceAttributes := .Values.irm.metricCatalog.resourceAttributes }}
+              {{- range $metric := .Values.irm.metricCatalog.metrics }}
+              {{- with $metric.aggregation }}
+              {{- $aggregationAttributes := uniq (concat $resourceAttributes (.attributes | default list)) }}
+              - {{ printf "aggregate_on_attributes(%q, %s) where metric.name == %q" .function (toJson $aggregationAttributes) $metric.otelName | quote }}
+              {{- end }}
+              {{- end }}
+      {{- end }}
+      transform/irm_allowlisted_attributes:
+        error_mode: propagate
+        metric_statements:
+          - context: resource
+            statements:
+              - keep_keys(resource.attributes, {{ toJson .Values.irm.metricCatalog.resourceAttributes }})
+          - context: scope
+            statements:
+              - keep_keys(scope.attributes, [])
+          - context: datapoint
+            statements:
+              {{- $resourceAttributes := .Values.irm.metricCatalog.resourceAttributes }}
+              {{- range .Values.irm.metricCatalog.metrics }}
+              {{- $allowedAttributes := uniq (concat $resourceAttributes (.allowedAttributes | default list)) }}
+              - keep_keys(datapoint.attributes, {{ toJson $allowedAttributes }}) where metric.name == {{ .otelName | quote }}
+              {{- end }}
+      batch/irm: {}
+      {{- end }}
       batch: {}
     exporters:
       otlphttp:
         endpoint: ${env:OTEL_EXPORTER_OTLP_ENDPOINT}
         compression: gzip
+      {{- if .Values.irm.enabled }}
+      otlphttp/irm:
+        endpoint: {{ .Values.irm.endpoint | quote }}
+        compression: gzip
+        timeout: {{ .Values.irm.exporter.timeout }}
+        retry_on_failure:
+          enabled: true
+          initial_interval: {{ .Values.irm.exporter.retry.initialInterval }}
+          max_interval: {{ .Values.irm.exporter.retry.maxInterval }}
+          max_elapsed_time: {{ .Values.irm.exporter.retry.maxElapsedTime }}
+        sending_queue:
+          enabled: true
+          num_consumers: {{ .Values.irm.exporter.queue.numConsumers }}
+          sizer: requests
+          queue_size: {{ .Values.irm.exporter.queue.size }}
+      {{- end }}
     service:
       extensions:
         - health_check
@@ -35,3 +154,19 @@ data:
             - batch
           exporters:
             - otlphttp
+        {{- if .Values.irm.enabled }}
+        metrics/irm:
+          receivers:
+            - prometheus
+          processors:
+            - resource/irm
+            - filter/irm_metrics
+            - transform/promote_irm_resource_attributes
+            {{- if $irmHasAggregation }}
+            - transform/aggregate_irm_metrics
+            {{- end }}
+            - transform/irm_allowlisted_attributes
+            - batch/irm
+          exporters:
+            - otlphttp/irm
+        {{- end }}
