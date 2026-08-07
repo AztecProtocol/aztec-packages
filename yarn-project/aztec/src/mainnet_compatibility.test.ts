@@ -7,17 +7,14 @@ import { getGenesisValues } from '@aztec/world-state/testing';
  * This test suit makes sure that the code in the monorepo is still compatible with the latest version of mainnet
  * Only update these values after a governance update that changes the protocol is enacted
  */
-// TODO: temporarily skipped on v5-next, which carries unreleased protocol circuit changes that
-// shift the VK tree root, protocol contracts hash and genesis roots away from the live mainnet
-// values. Re-enable (and refresh the expected values) once we cut the first RC.
-describe.skip('Mainnet compatibility', () => {
+describe('Mainnet compatibility', () => {
   it('has expected VK tree root', () => {
-    const expectedRoots = [Fr.fromHexString('0x18e358ea5367f6069a4c1c08a2e0628fbb1b25c00b0b98160072d4ad397bae7c')];
+    const expectedRoots = [Fr.fromHexString('0x2b3b6ea4412b9c8f6457a37f91a2870306f8641e07e16a49b68bda6f8bc02892')];
     expect(expectedRoots).toContainEqual(getVKTreeRoot());
   });
   it('has expected Protocol Contracts tree root', () => {
     expect(protocolContractsHash).toEqual(
-      Fr.fromHexString('0x2d0277dcfbd0213fa60233bb3edb87acabedcaff904a4e65830be9f30b881f70'),
+      Fr.fromHexString('0x2f4fe1e640100dd7e077e98acb92f30f06a8c483d0e20acc059cc4e5761f414c'),
     );
   });
   it('has expected Genesis tree roots', async () => {

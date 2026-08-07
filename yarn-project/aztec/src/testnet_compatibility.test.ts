@@ -9,17 +9,14 @@ import { getGenesisValues } from '@aztec/world-state/testing';
  * This test suit makes sure that the code in the monorepo is still compatible with the latest version of testnet
  * Only update these values after a governance update that changes the protocol is enacted
  */
-// TODO: temporarily skipped on v5-next, which carries unreleased protocol circuit changes that
-// shift the VK tree root, protocol contracts hash and genesis roots away from the live testnet
-// values. Re-enable (and refresh the expected values) once we cut the first RC.
-describe.skip('Testnet compatibility', () => {
+describe('Testnet compatibility', () => {
   it('has expected VK tree root', () => {
-    const expectedRoots = [Fr.fromHexString('0x18e358ea5367f6069a4c1c08a2e0628fbb1b25c00b0b98160072d4ad397bae7c')];
+    const expectedRoots = [Fr.fromHexString('0x2b3b6ea4412b9c8f6457a37f91a2870306f8641e07e16a49b68bda6f8bc02892')];
     expect(expectedRoots).toContainEqual(getVKTreeRoot());
   });
   it('has expected Protocol Contracts hash', () => {
     expect(protocolContractsHash).toEqual(
-      Fr.fromHexString('0x2d0277dcfbd0213fa60233bb3edb87acabedcaff904a4e65830be9f30b881f70'),
+      Fr.fromHexString('0x2f4fe1e640100dd7e077e98acb92f30f06a8c483d0e20acc059cc4e5761f414c'),
     );
   });
   it('has expected Genesis tree roots', async () => {
@@ -29,7 +26,7 @@ describe.skip('Testnet compatibility', () => {
     const { genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
 
     expect(genesisArchiveRoot).toEqual(
-      Fr.fromHexString('0x1166dcb89990c7e99ee40ae5cd2bb2ea2542a28e5e72aa6c11daa4a7b1fa1e12'),
+      Fr.fromHexString('0x190db362ddbc0e8b326a749a1fa120372a7c4b64fb719a502939f79d1485aadc'),
     );
   });
 });
