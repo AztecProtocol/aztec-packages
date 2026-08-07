@@ -46,8 +46,19 @@ export class TxArchive {
    * Archives transactions, stripping their proofs.
    * Evicts oldest transactions if the limit is exceeded.
    */
-  async archiveTxs(txs: Tx[]): Promise<void> {
-    if (!this.isEnabled() || txs.length === 0) {
+  archiveTxs(txs: Tx[]): Promise<void> {
+    return this.archiveTxBuffers(
+      txs.map(tx => ({ txHash: tx.getTxHash().toString(), buffer: tx.withoutProof().toBuffer() })),
+    );
+  }
+
+  /**
+   * Archives already-serialized proof-less tx buffers, avoiding any deserialization. This is the
+   * hot path used at finalization time, where the pool already stores txs proof-stripped.
+   * Evicts oldest transactions if the limit is exceeded.
+   */
+  async archiveTxBuffers(entries: { txHash: string; buffer: Buffer }[]): Promise<void> {
+    if (!this.isEnabled() || entries.length === 0) {
       return;
     }
 
@@ -57,7 +68,7 @@ export class TxArchive {
         let headIdx = await this.getHeadIndex();
         let tailIdx = await this.getTailIndex();
 
-        for (const tx of txs) {
+        for (const { txHash, buffer } of entries) {
           // Evict oldest entries if at capacity
           while (headIdx - tailIdx >= this.#limit) {
             const txHashToEvict = await this.#indices.getAsync(tailIdx);
@@ -68,15 +79,12 @@ export class TxArchive {
             tailIdx++;
           }
 
-          // Archive the transaction with stripped proof
-          const archivedTx = tx.withoutProof();
-          const txHash = tx.getTxHash().toString();
-          await this.#txs.set(txHash, archivedTx.toBuffer());
+          await this.#txs.set(txHash, buffer);
           await this.#indices.set(headIdx, txHash);
           headIdx++;
         }
 
-        this.#log.debug(`Archived ${txs.length} txs, total: ${headIdx - tailIdx}`);
+        this.#log.debug(`Archived ${entries.length} txs, total: ${headIdx - tailIdx}`);
       });
     } catch (error) {
       this.#log.error('Error archiving transactions', { error });

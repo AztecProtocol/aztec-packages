@@ -1,7 +1,8 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { chunk } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2Block, L2BlockId } from '@aztec/stdlib/block';
@@ -11,6 +12,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import EventEmitter from 'node:events';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
+import { TxPoolQueueInstrumentation } from './instrumentation.js';
 import type {
   AddTxsResult,
   PoolReadAccess,
@@ -21,7 +23,7 @@ import type {
 } from './interfaces.js';
 import type { TxState } from './tx_metadata.js';
 import type { MinedTxInfo } from './tx_pool_v2_impl.js';
-import { TxPoolV2Impl } from './tx_pool_v2_impl.js';
+import { FINALIZE_BLOCK_CHUNK_SIZE, TxPoolV2Impl } from './tx_pool_v2_impl.js';
 
 /**
  * Implementation of TxPoolV2 with explicit state management.
@@ -31,6 +33,7 @@ import { TxPoolV2Impl } from './tx_pool_v2_impl.js';
  */
 export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitter<TxPoolV2Events>) implements TxPoolV2 {
   #queue: SerialQueue;
+  #queueMetrics: TxPoolQueueInstrumentation;
   #impl: TxPoolV2Impl;
   #metrics?: PoolInstrumentation<Tx>;
   #store: AztecAsyncKVStore;
@@ -53,6 +56,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     this.#telemetry = telemetry;
     this.#log = log;
     this.#queue = new SerialQueue();
+    this.#queueMetrics = new TxPoolQueueInstrumentation(telemetry, () => this.#queue.length());
 
     // Create callbacks that the impl uses to notify us about events and metrics
     const callbacks = {
@@ -84,106 +88,141 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
   // PUBLIC API - All methods queue to the implementation
   // ============================================================================
 
+  /**
+   * Enqueues an operation on the serial queue, recording how long it waited behind other queued
+   * work and how long it took to execute once running.
+   */
+  #run<T>(operation: string, fn: () => T | Promise<T>): Promise<Awaited<T>> {
+    const waitTimer = new Timer();
+    return this.#queue.put(async () => {
+      const waitMs = waitTimer.ms();
+      const executionTimer = new Timer();
+      try {
+        return await fn();
+      } finally {
+        this.#queueMetrics.record(operation, waitMs, executionTimer.ms());
+      }
+    });
+  }
+
   // === Core Operations ===
 
   addPendingTxs(txs: Tx[], opts: { source?: string; feeComparisonOnly?: boolean } = {}): Promise<AddTxsResult> {
-    return this.#queue.put(() => this.#impl.addPendingTxs(txs, opts));
+    return this.#run('addPendingTxs', () => this.#impl.addPendingTxs(txs, opts));
   }
 
   canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
-    return this.#queue.put(() => this.#impl.canAddPendingTx(tx));
+    return this.#run('canAddPendingTx', () => this.#impl.canAddPendingTx(tx));
   }
 
   addProtectedTxs(txs: Tx[], block: BlockHeader, opts: { source?: string } = {}): Promise<void> {
-    return this.#queue.put(() => this.#impl.addProtectedTxs(txs, block, opts));
+    return this.#run('addProtectedTxs', () => this.#impl.addProtectedTxs(txs, block, opts));
   }
 
   protectTxs(txHashes: TxHash[], block: BlockHeader): Promise<TxHash[]> {
-    return this.#queue.put(() => this.#impl.protectTxs(txHashes, block));
+    return this.#run('protectTxs', () => this.#impl.protectTxs(txHashes, block));
   }
 
   addMinedTxs(txs: Tx[], block: BlockHeader, opts: { source?: string } = {}): Promise<void> {
-    return this.#queue.put(() => this.#impl.addMinedTxs(txs, block, opts));
+    return this.#run('addMinedTxs', () => this.#impl.addMinedTxs(txs, block, opts));
   }
 
   // === State Transition Handlers ===
 
   handleMinedBlock(block: L2Block): Promise<void> {
-    return this.#queue.put(() => this.#impl.handleMinedBlock(block));
+    return this.#run('handleMinedBlock', () => this.#impl.handleMinedBlock(block));
   }
 
   prepareForSlot(slotNumber: SlotNumber): Promise<void> {
-    return this.#queue.put(() => this.#impl.prepareForSlot(slotNumber));
+    return this.#run('prepareForSlot', () => this.#impl.prepareForSlot(slotNumber));
   }
 
   unprotectTxs(txHashes: TxHash[], slotNumber: SlotNumber): Promise<void> {
-    return this.#queue.put(() => this.#impl.unprotectTxs(txHashes, slotNumber));
+    return this.#run('unprotectTxs', () => this.#impl.unprotectTxs(txHashes, slotNumber));
   }
 
   handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void> {
-    return this.#queue.put(() => this.#impl.handlePrunedBlocks(latestBlock, options));
+    return this.#run('handlePrunedBlocks', () => this.#impl.handlePrunedBlocks(latestBlock, options));
   }
 
   handleFailedExecution(txHashes: TxHash[]): Promise<void> {
-    return this.#queue.put(() => this.#impl.handleFailedExecution(txHashes));
+    return this.#run('handleFailedExecution', () => this.#impl.handleFailedExecution(txHashes));
   }
 
-  handleFinalizedBlock(block: BlockHeader): Promise<void> {
-    return this.#queue.put(() => this.#impl.handleFinalizedBlock(block));
+  /**
+   * Handles a finalized block by archiving and deleting the mined txs it finalizes. The work is
+   * split into chunk-sized serial-queue items rather than one long-running item, so gossip-driven
+   * pool operations (canAddPendingTx / addPendingTxs) interleave with finalization instead of
+   * stalling behind an entire epoch's worth of tx processing.
+   */
+  async handleFinalizedBlock(block: BlockHeader): Promise<void> {
+    const { cutoffBlock, txHashes } = await this.#run('prepareFinalization', () =>
+      this.#impl.prepareFinalization(block),
+    );
+    const batches = chunk(txHashes, FINALIZE_BLOCK_CHUNK_SIZE);
+    for (const batch of batches) {
+      await this.#run('archiveFinalizedTxs', () => this.#impl.archiveFinalizedTxs(batch));
+    }
+    for (const batch of batches) {
+      await this.#run('deleteFinalizedTxs', () => this.#impl.deleteFinalizedTxs(batch));
+    }
+    await this.#run('completeFinalization', () =>
+      this.#impl.completeFinalization(txHashes, cutoffBlock, block.globalVariables.blockNumber),
+    );
   }
 
   // === Queries ===
 
   getTxByHash(txHash: TxHash, opts?: { includeProof?: boolean }): Promise<Tx | undefined> {
-    return this.#queue.put(() => this.#impl.getTxByHash(txHash, opts));
+    return this.#run('getTxByHash', () => this.#impl.getTxByHash(txHash, opts));
   }
 
   getTxsByHash(txHashes: TxHash[], opts?: { includeProof?: boolean }): Promise<(Tx | undefined)[]> {
-    return this.#queue.put(() => this.#impl.getTxsByHash(txHashes, opts));
+    return this.#run('getTxsByHash', () => this.#impl.getTxsByHash(txHashes, opts));
   }
 
   hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
-    return this.#queue.put(() => this.#impl.hasTxs(txHashes));
+    return this.#run('hasTxs', () => this.#impl.hasTxs(txHashes));
   }
 
   getTxStatus(txHash: TxHash): Promise<TxState | 'deleted' | undefined> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.getTxStatus(txHash)));
+    return this.#run('getTxStatus', () => this.#impl.getTxStatus(txHash));
   }
 
   getPendingTxHashes(): Promise<TxHash[]> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.getPendingTxHashes()));
+    return this.#run('getPendingTxHashes', () => this.#impl.getPendingTxHashes());
   }
 
   getEligiblePendingTxHashes(): Promise<TxHash[]> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.getEligiblePendingTxHashes()));
+    return this.#run('getEligiblePendingTxHashes', () => this.#impl.getEligiblePendingTxHashes());
   }
 
   getPendingTxCount(): Promise<number> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.getPendingTxCount()));
+    return this.#run('getPendingTxCount', () => this.#impl.getPendingTxCount());
   }
 
   hasEligiblePendingTxs(minCount: number): Promise<boolean> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.hasEligiblePendingTxs(minCount)));
+    return this.#run('hasEligiblePendingTxs', () => this.#impl.hasEligiblePendingTxs(minCount));
   }
 
   getMinedTxHashes(): Promise<[TxHash, L2BlockId][]> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.getMinedTxHashes()));
+    return this.#run('getMinedTxHashes', () => this.#impl.getMinedTxHashes());
   }
 
   getMinedTxCount(): Promise<number> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.getMinedTxCount()));
+    return this.#run('getMinedTxCount', () => this.#impl.getMinedTxCount());
   }
 
   isEmpty(): Promise<boolean> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.isEmpty()));
+    return this.#run('isEmpty', () => this.#impl.isEmpty());
   }
 
   getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    return this.#queue.put(() => this.#impl.getArchivedTxByHash(txHash));
+    return this.#run('getArchivedTxByHash', () => this.#impl.getArchivedTxByHash(txHash));
   }
 
   getLowestPriorityPending(limit: number): Promise<TxHash[]> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.getLowestPriorityPending(limit)));
+    return this.#run('getLowestPriorityPending', () => this.#impl.getLowestPriorityPending(limit));
   }
 
   /** Returns read-only access to the pool. Used for testing. */
