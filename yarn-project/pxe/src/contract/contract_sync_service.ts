@@ -30,10 +30,14 @@ export class ContractSyncService implements StagedStore {
   readonly storeName = 'contract_sync';
 
   // Tracks contracts synced since last wipe. The cache is keyed per individual scope address
-  // (`contractAddress:scopeAddress`), or `contractAddress:*` for all scopes (all accounts).
-  // The value is a promise that resolves when the contract is synced.
-  private readonly syncedContracts: Map<string, Promise<void>> = new Map();
+  // (`contractAddress:scopeAddress`). The value is a promise that resolves when the contract is synced.
+  private readonly syncedContracts: Map<SyncKey, Promise<void>> = new Map();
 
+  // job → sync promises triggered by it. A speculative sync is not awaited by any request unless the job actually
+  // uses its contract, so every sync is tracked here for `settle` to await before the job commits or discards.
+  private readonly syncsTriggeredByJob: Map<JobId, Promise<void>[]> = new Map();
+
+  // Predicts a contract's callees from the calls observed in past jobs, driving speculative sync.
   private readonly callDependencies: ContractCallDependencies;
 
   constructor(
@@ -42,7 +46,7 @@ export class ContractSyncService implements StagedStore {
     private contractClassService: ContractClassService,
     private noteStore: NoteStore,
     private log: Logger,
-    /** Whether contracts known to follow the requested one may be speculatively synced. */
+    /** Whether a requested contract's known dependencies may be speculatively synced. */
     concurrentContractSyncEnabled: boolean,
   ) {
     this.callDependencies = new ContractCallDependencies(concurrentContractSyncEnabled, log);
@@ -51,33 +55,19 @@ export class ContractSyncService implements StagedStore {
   /**
    * Ensures a contract's private state is synchronized.
    * Uses a cache to avoid redundant sync operations - the cache is wiped when the anchor block changes.
-   * @param contractAddress - The address of the contract to sync.
-   * @param functionToInvokeAfterSync - The function selector that will be called after sync (used to validate it's
-   * not sync_state itself).
-   * @param utilityExecutor - Executor function for running the sync_state utility function.
-   * @param scopes - Access scopes to pass through to the utility executor (affects whose account's private state is discovered).
    */
-  async ensureContractSynced(
-    contractAddress: AztecAddress,
-    functionToInvokeAfterSync: FunctionSelector | null,
-    utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<any>,
-    anchorBlockHeader: BlockHeader,
-    jobId: string,
-    scopes: AztecAddress[],
-  ): Promise<void> {
-    this.#startSyncIfNeeded(contractAddress, scopes, anchorBlockHeader, jobId, scope =>
-      syncScope(
-        contractAddress,
-        this.contractStore,
-        this.contractClassService,
-        anchorBlockHeader,
-        functionToInvokeAfterSync,
-        utilityExecutor,
-        scope,
-      ),
-    );
+  async ensureContractSynced({
+    contractAddress,
+    functionToInvokeAfterSync,
+    utilityExecutor,
+    anchorBlockHeader,
+    jobId,
+    scopes,
+    caller,
+  }: ContractSyncRequest): Promise<void> {
+    this.callDependencies.onContractUsed(jobId, contractAddress, caller);
 
-    this.#speculativelySync(
+    this.#startSyncIfNeeded(
       contractAddress,
       functionToInvokeAfterSync,
       utilityExecutor,
@@ -90,50 +80,19 @@ export class ContractSyncService implements StagedStore {
   }
 
   /**
-   * Starts the syncs of the contracts known to follow the requested one, so they run in parallel with it. Without
-   * this, syncs within a job serialize by execution order: a contract only syncs once execution reaches it, so its
-   * round trips wait on every earlier sync (see {@link ContractCallDependencies} for how the contracts are learned).
-   * The `syncedContracts` memo dedupes them when execution reaches them for real.
-   *
-   * Guessing wrong is cheap: syncing a contract the job never uses spends extra node requests but does not change
-   * what the job computes. If a speculative sync fails it is dropped from the memo and forgotten as a dependency, so
-   * it cannot fail a job that never needed it, and a real request retries from scratch.
+   * Waits until every sync the job started has settled, so all its staged writes land before the job's stores
+   * commit or discard. Never rejects: sync failures are surfaced by the requests that await them, not here.
    */
-  #speculativelySync(
-    contractAddress: AztecAddress,
-    functionToInvokeAfterSync: FunctionSelector | null,
-    utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<any>,
-    anchorBlockHeader: BlockHeader,
-    jobId: string,
-    scopes: AztecAddress[],
-  ): void {
-    const contractsToSpeculativelySync = this.callDependencies.onContractUsed(
-      jobId,
-      contractAddress,
-      functionToInvokeAfterSync,
-      scopes,
-    );
-    for (const address of contractsToSpeculativelySync) {
-      this.#startSyncIfNeeded(address, scopes, anchorBlockHeader, jobId, scope =>
-        syncScope(
-          address,
-          this.contractStore,
-          this.contractClassService,
-          anchorBlockHeader,
-          null,
-          utilityExecutor,
-          scope,
-        ),
-      );
-      // Nothing may ever await a speculative sync, so observe its failure here: without this a rejection would go
-      // unhandled, and a contract that no longer syncs cleanly would keep being speculatively synced.
-      for (const scope of scopes) {
-        this.syncedContracts.get(toKey(address, scope))?.catch(err => {
-          this.callDependencies.forget(jobId, address);
-          this.log.debug(`Speculative sync of ${address} failed`, { jobId, error: err?.message });
-        });
-      }
+  async settle(jobId: JobId): Promise<void> {
+    const syncs = this.syncsTriggeredByJob.get(jobId);
+    if (!syncs) {
+      return;
     }
+    // A settling sync can start more syncs, so drain until no new promises appear.
+    while (syncs.length > 0) {
+      await Promise.allSettled(syncs.splice(0));
+    }
+    this.syncsTriggeredByJob.delete(jobId);
   }
 
   /** Clears sync cache entries for the given scopes of a contract. */
@@ -150,16 +109,18 @@ export class ContractSyncService implements StagedStore {
     this.syncedContracts.clear();
   }
 
-  commit(jobId: string): Promise<void> {
+  commit(jobId: JobId): Promise<void> {
     this.callDependencies.commitJob(jobId);
+    this.syncsTriggeredByJob.delete(jobId);
     return Promise.resolve();
   }
 
-  discardStaged(jobId: string): Promise<void> {
-    this.callDependencies.discardJob(jobId);
+  discardStaged(jobId: JobId): Promise<void> {
     // We clear the synced contracts cache here because, when the job is discarded, any associated database writes from
     // the sync are also undone.
     this.syncedContracts.clear();
+    this.callDependencies.discardJob(jobId);
+    this.syncsTriggeredByJob.delete(jobId);
     return Promise.resolve();
   }
 
@@ -167,13 +128,16 @@ export class ContractSyncService implements StagedStore {
    * For each unsynced scope, creates a promise that waits on:
    *  1. Note nullifier sync (shared, batched across all unsynced scopes).
    *  2. Per-scope sync (individual, semaphore-bounded).
+   * When concurrent contract sync is enabled, the contract's known direct dependencies start speculatively too, once
+   * the contract's own syncs have started (see {@link #speculativelySync}).
    */
   #startSyncIfNeeded(
     contractAddress: AztecAddress,
-    scopes: AztecAddress[],
+    functionToInvokeAfterSync: FunctionSelector | null,
+    utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<any>,
     anchorBlockHeader: BlockHeader,
-    jobId: string,
-    syncScopeFn: (scope: AztecAddress) => Promise<void>,
+    jobId: JobId,
+    scopes: AztecAddress[],
   ): void {
     const scopesToSync = scopes.filter(scope => !this.syncedContracts.has(toKey(contractAddress, scope)));
     if (scopesToSync.length === 0) {
@@ -190,13 +154,59 @@ export class ContractSyncService implements StagedStore {
 
     for (const scope of scopesToSync) {
       const key = toKey(contractAddress, scope);
-      const promise = Promise.all([syncNullifiersPromise, runBounded(syncSlot, () => syncScopeFn(scope))])
+      const syncScopePromise = runBounded(syncSlot, () =>
+        syncScope(
+          contractAddress,
+          this.contractStore,
+          this.contractClassService,
+          anchorBlockHeader,
+          functionToInvokeAfterSync,
+          utilityExecutor,
+          scope,
+        ),
+      );
+      const promise = Promise.all([syncNullifiersPromise, syncScopePromise])
         .then(() => {})
         .catch(err => {
           this.syncedContracts.delete(key);
           throw err;
         });
       this.syncedContracts.set(key, promise);
+
+      let syncs = this.syncsTriggeredByJob.get(jobId);
+      if (!syncs) {
+        syncs = [];
+        this.syncsTriggeredByJob.set(jobId, syncs);
+      }
+      syncs.push(promise);
+    }
+
+    this.#speculativelySync(contractAddress, utilityExecutor, anchorBlockHeader, jobId, scopes);
+  }
+
+  /**
+   * Starts the syncs of the given contract's predicted callees. Each fires its own predictions in turn, so the whole
+   * predicted call tree syncs in parallel with the contract instead of one contract at a time as execution reaches it
+   * (see {@link ContractCallDependencies} for how the tree is learned).
+   *
+   * A wrong prediction is cheap: the extra node requests are batched into round trips the job already makes, and the
+   * synced data simply goes unused. A prediction that fails to sync is forgotten and dropped from the memo, so it
+   * cannot fail a job that never needed it, and a real request retries from scratch.
+   */
+  #speculativelySync(
+    contractAddress: AztecAddress,
+    utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<any>,
+    anchorBlockHeader: BlockHeader,
+    jobId: JobId,
+    scopes: AztecAddress[],
+  ): void {
+    for (const address of this.callDependencies.predictDirectDependencies(contractAddress)) {
+      this.#startSyncIfNeeded(address, null, utilityExecutor, anchorBlockHeader, jobId, scopes);
+      // If a callee's speculative sync fails, forget it so we don't trigger it speculatively again.
+      Promise.all(scopes.map(scope => this.syncedContracts.get(toKey(address, scope)))).catch(err => {
+        this.callDependencies.forget(address);
+        this.log.warn(`Speculative sync of ${address} failed; dropping prediction`, { jobId, error: err?.message });
+      });
     }
   }
 
@@ -204,7 +214,7 @@ export class ContractSyncService implements StagedStore {
   async #syncNoteNullifiers(
     contractAddress: AztecAddress,
     anchorBlockHeader: BlockHeader,
-    jobId: string,
+    jobId: JobId,
     scopes: AztecAddress[],
   ): Promise<void> {
     // Protocol contracts don't have private state to sync
@@ -226,7 +236,36 @@ export class ContractSyncService implements StagedStore {
   }
 }
 
-function toKey(contract: AztecAddress, scope: AztecAddress) {
+/** A request to synchronize a contract's private state. */
+type ContractSyncRequest = {
+  /** The address of the contract to sync. */
+  contractAddress: AztecAddress;
+  /**
+   * The function that will be invoked after the sync, or null when nothing will be invoked (e.g. reading
+   * notes/events directly).
+   */
+  functionToInvokeAfterSync: FunctionSelector | null;
+  /** Executes a utility function call under the given scopes. Syncs run each contract's sync_state through it. */
+  utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<any>;
+  /** The anchor block to sync at. */
+  anchorBlockHeader: BlockHeader;
+  /** The job requesting the sync. */
+  jobId: JobId;
+  /** Access scopes to pass through to the utility executor (affects whose account's private state is discovered). */
+  scopes: AztecAddress[];
+  /**
+   * The contract whose execution requested this sync, or undefined when the request is a job's top-level use (an
+   * entry call or a direct read) rather than a nested call.
+   */
+  caller: AztecAddress | undefined;
+};
+
+type JobId = string;
+
+/** Key of a contract's sync cache entry for a single scope: `contractAddress:scopeAddress`. */
+type SyncKey = `0x${string}:0x${string}`;
+
+function toKey(contract: AztecAddress, scope: AztecAddress): SyncKey {
   return `${contract.toString()}:${scope.toString()}`;
 }
 

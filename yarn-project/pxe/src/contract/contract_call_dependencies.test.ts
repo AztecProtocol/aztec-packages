@@ -1,11 +1,6 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { ContractCallDependencies, MAX_CONFIDENCE, PREDICTION_THRESHOLD } from './contract_call_dependencies.js';
-
-/** Missed jobs a dependency at full confidence survives while still being predicted. */
-const TOLERATED_MISSES = MAX_CONFIDENCE - PREDICTION_THRESHOLD;
 
 describe('ContractCallDependencies', () => {
   let callDependencies: ContractCallDependencies;
@@ -13,176 +8,202 @@ describe('ContractCallDependencies', () => {
   const account = makeAddress(1);
   const token = makeAddress(2);
   const fpc = makeAddress(3);
-  const otherAccount = makeAddress(4);
-  const entrypoint = makeSelector(0x11223344);
-  const otherFunction = makeSelector(0x55667788);
-  const scopes = [account];
-  const accountEntryCall = { contract: account, functionToInvoke: entrypoint };
 
   beforeEach(() => {
     callDependencies = new ContractCallDependencies(true);
   });
 
-  it('returns nothing for an entry call it has never seen', () => {
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual([]);
+  it('returns nothing for a contract it has never seen', () => {
+    expect(dependenciesOf(account)).toEqual([]);
   });
 
-  it('does not return a contract until enough committed jobs have used it', () => {
-    runJobs({ count: PREDICTION_THRESHOLD - 1, entryCall: accountEntryCall, uses: [token, fpc], scopes });
+  it('does not predict a callee until enough committed jobs observe the call', () => {
+    runJobs({
+      count: PREDICTION_THRESHOLD - 1,
+      calls: [
+        { caller: account, callee: token },
+        { caller: account, callee: fpc },
+      ],
+    });
 
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual([]);
+    expect(dependenciesOf(account)).toEqual([]);
   });
 
-  it('returns a contract once enough committed jobs of the same entry call use it', () => {
-    runJobs({ count: PREDICTION_THRESHOLD, entryCall: accountEntryCall, uses: [token, fpc], scopes });
+  it('predicts a callee once enough committed jobs observe the call', () => {
+    runJobs({
+      count: PREDICTION_THRESHOLD,
+      calls: [
+        { caller: account, callee: token },
+        { caller: account, callee: fpc },
+      ],
+    });
 
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual(addressStrings([token, fpc]));
+    expect(dependenciesOf(account)).toEqual(addressStrings([token, fpc]));
   });
 
-  it('does not share dependencies across different entry calls', () => {
-    runJobs({ count: PREDICTION_THRESHOLD, entryCall: accountEntryCall, uses: [token], scopes });
+  it('predicts only direct callees, not callees of callees', () => {
+    runJobs({
+      count: PREDICTION_THRESHOLD,
+      calls: [
+        { caller: account, callee: fpc },
+        { caller: fpc, callee: token },
+      ],
+    });
 
-    const otherEntryContract = { contract: token, functionToInvoke: entrypoint };
-    const otherEntryFunction = { contract: account, functionToInvoke: otherFunction };
-    expect(knownDependencies({ entryCall: otherEntryContract, scopes })).toEqual([]);
-    expect(knownDependencies({ entryCall: otherEntryFunction, scopes })).toEqual([]);
+    expect(dependenciesOf(account)).toEqual(addressStrings([fpc]));
+    expect(dependenciesOf(fpc)).toEqual(addressStrings([token]));
   });
 
-  it('does not share dependencies across different scope sets', () => {
-    runJobs({ count: PREDICTION_THRESHOLD, entryCall: accountEntryCall, uses: [token, fpc], scopes });
+  it("predicts a contract's callees even when its own callers rarely call it", () => {
+    runJob({
+      jobId: 'rare',
+      calls: [{ caller: account, callee: token }],
+    });
+    runJobs({ count: PREDICTION_THRESHOLD, calls: [{ caller: token, callee: fpc }] });
 
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes: [otherAccount] })).toEqual([]);
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes: [account, otherAccount] })).toEqual([]);
+    // The account rarely calls the token, so the account predicts nothing. But the token's own dependencies are known,
+    // ready for the moment a job actually uses it.
+    expect(dependenciesOf(account)).toEqual([]);
+    expect(dependenciesOf(token)).toEqual(addressStrings([fpc]));
   });
 
-  it('ignores scope order when identifying an entry call', () => {
-    const bothAccounts = [account, otherAccount];
-    runJobs({ count: PREDICTION_THRESHOLD, entryCall: accountEntryCall, uses: [token], scopes: bothAccounts });
+  it('ignores self-calls', () => {
+    runJobs({ count: PREDICTION_THRESHOLD, calls: [{ caller: token, callee: token }] });
 
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes: [otherAccount, account] })).toEqual(
-      addressStrings([token]),
-    );
-  });
-
-  it('distinguishes an entry call with no function from one with a function', () => {
-    const noFunctionEntryCall = { contract: account, functionToInvoke: null };
-    runJobs({ count: PREDICTION_THRESHOLD, entryCall: noFunctionEntryCall, uses: [token], scopes });
-
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual([]);
-    expect(knownDependencies({ entryCall: noFunctionEntryCall, scopes })).toEqual(addressStrings([token]));
+    expect(dependenciesOf(token)).toEqual([]);
   });
 
   it('does not learn from discarded jobs', () => {
-    runJobs({ count: PREDICTION_THRESHOLD - 1, entryCall: accountEntryCall, uses: [token], scopes });
-    callDependencies.onContractUsed('discarded', account, entrypoint, scopes);
-    callDependencies.onContractUsed('discarded', token, otherFunction, scopes);
+    runJobs({ count: PREDICTION_THRESHOLD - 1, calls: [{ caller: account, callee: token }] });
+    callDependencies.onContractUsed('discarded', token, account);
     callDependencies.discardJob('discarded');
 
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual([]);
+    expect(dependenciesOf(account)).toEqual([]);
   });
 
-  it('keeps returning a dependency at full confidence through every miss it tolerates', () => {
-    runJobs({ count: MAX_CONFIDENCE, entryCall: accountEntryCall, uses: [token, fpc], scopes });
-    runJobs({ count: TOLERATED_MISSES, entryCall: accountEntryCall, uses: [token], scopes });
+  it('leaves confidence untouched by jobs in which the caller makes no calls', () => {
+    runJobs({ count: PREDICTION_THRESHOLD, calls: [{ caller: account, callee: token }] });
 
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual(addressStrings([token, fpc]));
+    // The account calls no one in these jobs, so the confidence of the callees it did not call is unaffected.
+    for (const jobId of ['read1', 'read2']) {
+      callDependencies.onContractUsed(jobId, account, undefined);
+      callDependencies.commitJob(jobId);
+    }
+
+    expect(dependenciesOf(account)).toEqual(addressStrings([token]));
   });
 
-  it('caps confidence, so a heavily used dependency stops being returned one miss past that tolerance', () => {
-    runJobs({ count: MAX_CONFIDENCE * 2, entryCall: accountEntryCall, uses: [token, fpc], scopes });
-    runJobs({ count: TOLERATED_MISSES + 1, entryCall: accountEntryCall, uses: [token], scopes });
+  it('keeps predicting a dependency at full confidence through every miss it tolerates', () => {
+    runJobs({
+      count: MAX_CONFIDENCE,
+      calls: [
+        { caller: account, callee: token },
+        { caller: account, callee: fpc },
+      ],
+    });
+    runJobs({ count: MAX_CONFIDENCE - PREDICTION_THRESHOLD, calls: [{ caller: account, callee: token }] });
 
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual(addressStrings([token]));
+    expect(dependenciesOf(account)).toEqual(addressStrings([token, fpc]));
   });
 
-  it('stops returning a dependency whose confidence falls below the threshold', () => {
-    runJobs({ count: PREDICTION_THRESHOLD, entryCall: accountEntryCall, uses: [token, fpc], scopes });
-    runJob({ jobId: 'miss', entryCall: accountEntryCall, uses: [token], scopes });
+  it('caps confidence, so a heavily called dependency stops being predicted one miss past that tolerance', () => {
+    runJobs({
+      count: MAX_CONFIDENCE * 2,
+      calls: [
+        { caller: account, callee: token },
+        { caller: account, callee: fpc },
+      ],
+    });
+    runJobs({ count: MAX_CONFIDENCE - PREDICTION_THRESHOLD + 1, calls: [{ caller: account, callee: token }] });
 
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual(addressStrings([token]));
+    expect(dependenciesOf(account)).toEqual(addressStrings([token]));
   });
 
-  it('returns a dependency that fell below the threshold as soon as one job uses it again', () => {
-    runJobs({ count: PREDICTION_THRESHOLD, entryCall: accountEntryCall, uses: [token, fpc], scopes });
-    runJob({ jobId: 'miss', entryCall: accountEntryCall, uses: [token], scopes });
-    runJob({ jobId: 'refresh', entryCall: accountEntryCall, uses: [token, fpc], scopes });
+  it('drops a dependency below the threshold on a miss and predicts it again after one hit', () => {
+    runJobs({
+      count: PREDICTION_THRESHOLD,
+      calls: [
+        { caller: account, callee: token },
+        { caller: account, callee: fpc },
+      ],
+    });
+    expect(dependenciesOf(account)).toEqual(addressStrings([token, fpc]));
 
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual(addressStrings([token, fpc]));
+    runJob({ jobId: 'miss', calls: [{ caller: account, callee: token }] });
+    expect(dependenciesOf(account)).toEqual(addressStrings([token]));
+
+    runJob({
+      jobId: 'refresh',
+      calls: [
+        { caller: account, callee: token },
+        { caller: account, callee: fpc },
+      ],
+    });
+
+    expect(dependenciesOf(account)).toEqual(addressStrings([token, fpc]));
   });
 
-  it('stops returning a contract as soon as it is forgotten', () => {
-    runJobs({ count: PREDICTION_THRESHOLD, entryCall: accountEntryCall, uses: [token, fpc], scopes });
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual(addressStrings([token, fpc]));
+  it('stops predicting a forgotten contract from every caller that called it', () => {
+    runJobs({
+      count: PREDICTION_THRESHOLD,
+      calls: [
+        { caller: account, callee: token },
+        { caller: account, callee: fpc },
+        { caller: token, callee: fpc },
+      ],
+    });
+    expect(dependenciesOf(account)).toEqual(addressStrings([token, fpc]));
+    expect(dependenciesOf(token)).toEqual(addressStrings([fpc]));
 
-    // Forgetting needs an active job, since that is what identifies the entry call.
-    callDependencies.onContractUsed('forgetting', account, entrypoint, scopes);
-    callDependencies.forget('forgetting', fpc);
+    callDependencies.forget(fpc);
 
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual(addressStrings([token]));
+    expect(dependenciesOf(account)).toEqual(addressStrings([token]));
+    expect(dependenciesOf(token)).toEqual([]);
   });
 
-  it('ignores forget calls for unknown jobs', () => {
-    runJobs({ count: PREDICTION_THRESHOLD, entryCall: accountEntryCall, uses: [token], scopes });
-    callDependencies.forget('unknownJob', token);
-
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual(addressStrings([token]));
-  });
-
-  it('never returns or records dependencies when disabled', () => {
+  it('never records dependencies when disabled', () => {
     callDependencies = new ContractCallDependencies(false);
-    runJobs({ count: PREDICTION_THRESHOLD, entryCall: accountEntryCall, uses: [token, fpc], scopes });
+    runJobs({
+      count: PREDICTION_THRESHOLD,
+      calls: [
+        { caller: account, callee: token },
+        { caller: account, callee: fpc },
+      ],
+    });
 
-    expect(knownDependencies({ entryCall: accountEntryCall, scopes })).toEqual([]);
+    expect(dependenciesOf(account)).toEqual([]);
   });
 
-  /** Runs `count` whole jobs of the given entry call, each using the given contracts. */
-  function runJobs({ count, ...job }: { count: number } & Omit<JobRun, 'jobId'>) {
+  /** Runs `count` whole jobs, each observing the given direct calls. */
+  function runJobs({ count, calls }: { count: number; calls: Call[] }) {
     for (let i = 0; i < count; i++) {
-      runJob({ jobId: `job${i}`, ...job });
+      runJob({ jobId: `job${i}`, calls });
     }
   }
 
-  /** Runs a whole job: starts it with the given entry call, uses the given contracts, and commits. */
-  function runJob({ jobId, entryCall, uses, scopes: jobScopes }: JobRun) {
-    callDependencies.onContractUsed(jobId, entryCall.contract, entryCall.functionToInvoke, jobScopes);
-    for (const contract of uses) {
-      callDependencies.onContractUsed(jobId, contract, otherFunction, jobScopes);
+  /** Runs a whole job: uses the first caller as the entry, then each callee with its caller, and commits. */
+  function runJob({ jobId, calls }: { jobId: string; calls: Call[] }) {
+    callDependencies.onContractUsed(jobId, calls[0].caller, undefined);
+    for (const { caller, callee } of calls) {
+      callDependencies.onContractUsed(jobId, callee, caller);
     }
     callDependencies.commitJob(jobId);
   }
 
-  /**
-   * Returns the dependencies known for the given entry call, through a job that starts with it and uses nothing
-   * else. Committing such a job records no dependencies, so probing does not change what is known.
-   */
-  function knownDependencies({ entryCall, scopes: jobScopes }: JobStart): string[] {
-    const known = callDependencies.onContractUsed('probe', entryCall.contract, entryCall.functionToInvoke, jobScopes);
-    callDependencies.commitJob('probe');
-    return known.map(address => address.toString()).sort();
+  /** Returns the direct dependencies predicted for the given contract, as sorted address strings. */
+  function dependenciesOf(contract: AztecAddress): string[] {
+    return callDependencies
+      .predictDirectDependencies(contract)
+      .map(address => address.toString())
+      .sort();
   }
 });
 
-/** How a job starts: the entry call it makes first, and the scopes every one of its uses runs under. */
-type JobStart = {
-  entryCall: EntryCall;
-  scopes: AztecAddress[];
-};
-
-/** A job to run: how it starts, the id it runs under, and the contracts it uses after the start. */
-type JobRun = JobStart & {
-  jobId: string;
-  uses: AztecAddress[];
-};
-
-/** The (contract, function) a job starts with. */
-type EntryCall = { contract: AztecAddress; functionToInvoke: FunctionSelector | null };
+/** A direct call observed by a job. */
+type Call = { caller: AztecAddress; callee: AztecAddress };
 
 function makeAddress(index: number): AztecAddress {
   return AztecAddress.fromNumberUnsafe(0x1000 + index);
-}
-
-function makeSelector(value: number): FunctionSelector {
-  return FunctionSelector.fromField(new Fr(value));
 }
 
 function addressStrings(addresses: AztecAddress[]): string[] {

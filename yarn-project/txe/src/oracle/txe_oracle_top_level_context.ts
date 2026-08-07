@@ -218,17 +218,18 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       return;
     }
 
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
-    await this.stateMachine.contractSyncService.ensureContractSynced(
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    await this.stateMachine.contractSyncService.ensureContractSynced({
       contractAddress,
-      null,
-      async (call, execScopes) => {
+      functionToInvokeAfterSync: null,
+      utilityExecutor: async (call, execScopes) => {
         await this.executeUtilityCall(call, { scopes: execScopes, jobId });
       },
-      blockHeader,
+      anchorBlockHeader,
       jobId,
-      [scope],
-    );
+      scopes: [scope],
+      caller: undefined,
+    });
   }
 
   async getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
@@ -460,14 +461,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       await this.executeUtilityCall(call, { scopes: execScopes, jobId });
     };
 
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      targetContractAddress,
-      functionSelector,
+    await this.stateMachine.contractSyncService.ensureContractSynced({
+      contractAddress: targetContractAddress,
+      functionToInvokeAfterSync: functionSelector,
       utilityExecutor,
-      blockHeader,
+      anchorBlockHeader: blockHeader,
       jobId,
       scopes,
-    );
+      caller: undefined,
+    });
 
     const blockNumber = await this.getNextBlockNumber();
 
@@ -868,16 +870,17 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
 
     // Sync notes before executing utility function to discover notes from previous transactions
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      targetContractAddress,
-      functionSelector,
-      async (call, execScopes) => {
+    await this.stateMachine.contractSyncService.ensureContractSynced({
+      contractAddress: targetContractAddress,
+      functionToInvokeAfterSync: functionSelector,
+      utilityExecutor: async (call, execScopes) => {
         await this.executeUtilityCall(call, { scopes: execScopes, jobId });
       },
-      blockHeader,
+      anchorBlockHeader: blockHeader,
       jobId,
-      await this.keyStore.getAccounts(),
-    );
+      scopes: await this.keyStore.getAccounts(),
+      caller: undefined,
+    });
 
     const call = FunctionCall.from({
       name: artifact.name,

@@ -549,15 +549,16 @@ export class PXE {
     const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
-      await this.contractSyncService.ensureContractSynced(
+      await this.contractSyncService.ensureContractSynced({
         contractAddress,
-        functionSelector,
-        (privateSyncCall, execScopes) =>
+        functionToInvokeAfterSync: functionSelector,
+        utilityExecutor: (privateSyncCall, execScopes) =>
           this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
         scopes,
-      );
+        caller: undefined,
+      });
 
       const result = await contractFunctionSimulator.run(txRequest, {
         anchorBlockHeader,
@@ -1381,15 +1382,16 @@ export class PXE {
         const contractFunctionSimulator = this.#getSimulatorForTx();
 
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-        await this.contractSyncService.ensureContractSynced(
-          call.to,
-          call.selector,
-          (privateSyncCall, execScopes) =>
+        await this.contractSyncService.ensureContractSynced({
+          contractAddress: call.to,
+          functionToInvokeAfterSync: call.selector,
+          utilityExecutor: (privateSyncCall, execScopes) =>
             this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
           anchorBlockHeader,
           jobId,
           scopes,
-        );
+          caller: undefined,
+        });
 
         const { result: executionResult, offchainEffects } = await this.#executeUtility(
           contractFunctionSimulator,
@@ -1459,15 +1461,16 @@ export class PXE {
 
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
-      await this.contractSyncService.ensureContractSynced(
-        filter.contractAddress,
-        null,
-        async (privateSyncCall, execScopes) =>
+      await this.contractSyncService.ensureContractSynced({
+        contractAddress: filter.contractAddress,
+        functionToInvokeAfterSync: null,
+        utilityExecutor: async (privateSyncCall, execScopes) =>
           await this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
-        filter.scopes,
-      );
+        scopes: filter.scopes,
+        caller: undefined,
+      });
     });
 
     // anchorBlockNumber is set during the job and fixed to whatever it is after a block sync
