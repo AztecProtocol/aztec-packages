@@ -38,6 +38,7 @@ import {
   getRPCEndpoint,
   hasDeployedHelmRelease,
   installChaosMeshChart,
+  logGossipTxValidationMetrics,
   setupEnvironment,
   startPortForwardForPrometeheus,
   uninstallChaosMesh,
@@ -127,6 +128,15 @@ describe('sustained N TPS test', () => {
 
   afterAll(async () => {
     logger.info('Collecting benchmark metrics and cleaning up...');
+
+    // Log the gossip tx validation breakdown (per-stage timings, tx pool queue stats, chonk verifier
+    // timings) so slow gossip validations observed during the run can be attributed to a stage.
+    if (prometheusClient) {
+      await logGossipTxValidationMetrics(prometheusClient, config.NAMESPACE, TEST_DURATION_SECONDS + 60, logger).catch(
+        err => logger.warn(`Failed to scrape gossip validation metrics: ${err}`, { err }),
+      );
+    }
+
     if (process.env.BENCH_OUTPUT) {
       for (const topic of Object.values(TopicType)) {
         try {

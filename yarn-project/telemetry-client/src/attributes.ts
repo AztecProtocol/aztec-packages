@@ -133,6 +133,12 @@ export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';
 
 export const TOPIC_NAME = 'aztec.gossip.topic_name';
 
+/** Stage of gossiped tx validation (deserialize, stage1_setup, stage1, pool_precheck, proof_verify, pool_add) */
+export const TX_VALIDATION_STAGE = 'aztec.p2p.tx_validation_stage';
+
+/** Operation type enqueued on the mempool serial queue */
+export const MEMPOOL_OPERATION = 'aztec.mempool.operation';
+
 /** The reason a transaction was evicted from the tx pool */
 export const TX_POOL_EVICTION_REASON = 'aztec.mempool.eviction_reason';
 
