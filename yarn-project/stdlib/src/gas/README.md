@@ -168,7 +168,8 @@ The refresh runs four batched, pinned stages, each of whose inputs the previous 
 tips and governance values; the checkpoints those tips name; the current fee and prune-ability per candidate
 slot; the L1 fee oracle over the resulting prediction windows. A read serves the candidate for its wanted slot
 or triggers a refresh — it never substitutes another slot's answer. Concurrent reads and the poll loop share
-one in-flight refresh, which backs off exponentially on failure and keeps the last-good snapshot stored.
+one in-flight refresh, so a failing L1 sees at most one serial request chain regardless of RPC traffic; a
+failed refresh keeps the last-good snapshot stored and surfaces its error to the waiting readers.
 
 ### The two anchor rules
 

@@ -7,7 +7,7 @@ import type { FeeSnapshot, RefreshCause } from '../global_variable_builder/fee_s
 export type FeeSnapshotStats = {
   /** Total refreshes that published a snapshot. */
   refreshes: number;
-  /** Total refresh failures (kept last-good, retried with backoff). */
+  /** Total refresh failures (the last-good snapshot stays stored). */
   refreshFailures: number;
   /** Reads that had to trigger a refresh because the warm snapshot did not serve them (identity or coverage). */
   readTriggeredRefreshes: number;
@@ -20,9 +20,11 @@ export type FeeSnapshotStats = {
 export class TestFeeSnapshotService extends FeeSnapshotService {
   public readonly stats: FeeSnapshotStats = { refreshes: 0, refreshFailures: 0, readTriggeredRefreshes: 0 };
 
-  protected override refreshForRead(deadline: number): Promise<void> {
-    this.stats.readTriggeredRefreshes++;
-    return super.refreshForRead(deadline);
+  protected override refresh(cause: RefreshCause, deadline?: number): Promise<void> {
+    if (cause === 'read') {
+      this.stats.readTriggeredRefreshes++;
+    }
+    return super.refresh(cause, deadline);
   }
 
   protected override async runRefresh(identity: L1SyncSnapshot, cause: RefreshCause): Promise<FeeSnapshot> {

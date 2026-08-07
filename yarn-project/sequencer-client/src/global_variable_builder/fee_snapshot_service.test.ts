@@ -257,7 +257,7 @@ describe('FeeSnapshotService', () => {
     expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
   });
 
-  it('keeps serving the last-good snapshot when a refresh fails, then recovers', async () => {
+  it('keeps serving the last-good snapshot when a refresh fails, then recovers on the next read', async () => {
     await service.getCurrentMinFees();
     const good = service.getSnapshot();
     identity.snapshot = makeIdentity(2n, PINNED_SLOT);
@@ -265,33 +265,36 @@ describe('FeeSnapshotService', () => {
     await expect(service.getCurrentMinFees()).rejects.toThrow('L1 read failed');
     // Last-good snapshot is preserved (identity 1).
     expect(service.getSnapshot()).toBe(good);
-    // Recovery: once the failure backoff elapses, the next call refreshes successfully to the new identity.
-    dateProvider.advanceTimeMs(1_000);
+    // Recovery: the very next call refreshes successfully to the new identity.
     const fees = await service.getCurrentMinFees();
     expect(fees.feePerL2Gas).toBe(101n);
     expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
   });
 
-  it('read-triggered refreshes respect the failure backoff and do not hammer L1', async () => {
+  it('funnels reads during a failing L1 into one serial refresh chain', async () => {
     await service.getCurrentMinFees();
     identity.snapshot = makeIdentity(2n, PINNED_SLOT);
-    rollup.failNext = 1;
-    await expect(service.getCurrentMinFees()).rejects.toThrow('L1 read failed');
-    // During the backoff window, reads fail fast with a typed error and issue no L1 requests.
+    rollup.failNext = 2;
+
+    // Concurrent reads share the single failing refresh and all receive its error: one L1 request, not ten.
     const calls = rollup.callCount;
-    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeQuoteUnavailableError);
-    expect(rollup.callCount).toBe(calls);
-    // After the backoff elapses, reads refresh again.
-    dateProvider.advanceTimeMs(1_000);
+    const results = await Promise.allSettled(Array.from({ length: 10 }, () => service.getCurrentMinFees()));
+    expect(results.every(result => result.status === 'rejected')).toBe(true);
+    expect(rollup.callCount).toBe(calls + 1);
+
+    // Each subsequent read retries immediately with its own single refresh — serial, at most one at a time.
+    await expect(service.getCurrentMinFees()).rejects.toThrow('L1 read failed');
+    expect(rollup.callCount).toBe(calls + 2);
+
+    // Once L1 recovers, the next read succeeds with no waiting.
     const fees = await service.getCurrentMinFees();
     expect(fees.feePerL2Gas).toBe(101n);
+    expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
   });
 
   it('recovers when the very first refresh fails', async () => {
-    rollup.failNext = 100;
+    rollup.failNext = 1;
     await expect(service.getCurrentMinFees()).rejects.toThrow('L1 read failed');
-    rollup.failNext = 0;
-    dateProvider.advanceTimeMs(1_000);
     const fees = await service.getCurrentMinFees();
     expect(fees.feePerL2Gas).toBe(101n);
   });
@@ -343,17 +346,18 @@ describe('FeeSnapshotService', () => {
     expect(rollup.callCount).toBe(callsAfterGood);
 
     // (b) On a new identity the read must refresh, and that refresh fails on the tips comparison: the caller
-    // gets the refresh error rather than the superseded quote, and the stored snapshot is left alone.
+    // gets the refresh error rather than the superseded quote, and the stored snapshot is left alone. While the
+    // divergence persists, every read keeps failing the same way.
     identity.snapshot = makeIdentity(2n, PINNED_SLOT);
     await expect(service.getCurrentMinFees()).rejects.toThrow(/Chain tips changed/);
     expect(service.stats.refreshFailures).toBe(1);
     expect(service.getSnapshot()).toBe(stored);
-    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeQuoteUnavailableError);
+    await expect(service.getCurrentMinFees()).rejects.toThrow(/Chain tips changed/);
+    expect(service.stats.refreshFailures).toBe(2);
     expect(service.getSnapshot()).toBe(stored);
 
-    // (c) Once the divergence clears and the backoff elapses, the next read serves the new identity.
+    // (c) Once the divergence clears, the next read serves the new identity.
     rollup.tailTips = undefined;
-    dateProvider.advanceTimeMs(1_000);
     await expect(service.getCurrentMinFees()).resolves.toBeDefined();
     expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
   });

@@ -71,7 +71,7 @@ export class FeeSnapshotError extends Error {
   }
 }
 
-/** No fee quote can be produced right now: no identity, no snapshot, refresh failure backoff, or stopped. */
+/** No fee quote can be produced right now: no identity, no covering snapshot, refresh timeout, or stopped. */
 export class FeeQuoteUnavailableError extends FeeSnapshotError {
   constructor(reason: string) {
     super(`Fee quote is unavailable: ${reason}`);
@@ -106,6 +106,3 @@ export const CANDIDATE_HEADROOM_SLOTS = 2;
  * successful lookup. Identity churn beyond that inside a single call's deadline is reported as unavailable.
  */
 export const MAX_LOOKUP_ATTEMPTS = 3;
-
-export const BACKOFF_BASE_MS = 250;
-export const BACKOFF_MAX_MS = 8_000;

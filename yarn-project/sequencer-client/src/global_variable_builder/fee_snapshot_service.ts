@@ -17,8 +17,6 @@ import type { FeeProvider } from '@aztec/stdlib/tx';
 
 import { buildFeeOracleState, computePredictions, getPredictionWindowSlots } from './fee_prediction.js';
 import {
-  BACKOFF_BASE_MS,
-  BACKOFF_MAX_MS,
   CANDIDATE_HEADROOM_SLOTS,
   type FeeQuoteCandidate,
   FeeQuoteStaleError,
@@ -41,9 +39,6 @@ export class FeeSnapshotService implements FeeProvider {
 
   private readonly runningPromise: RunningPromise;
   private stopped = false;
-
-  private consecutiveFailures = 0;
-  private nextRetryAtMs = 0;
 
   private readonly constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
 
@@ -113,7 +108,7 @@ export class FeeSnapshotService implements FeeProvider {
       }
       const snapshot = this.snapshot;
       if (!snapshot) {
-        await this.refreshForRead(deadline);
+        await this.refresh('read', deadline);
         continue;
       }
 
@@ -123,7 +118,7 @@ export class FeeSnapshotService implements FeeProvider {
       // corrects a refresh that published while the identity was changing.
       const identity = this.identityProvider.getL1SyncSnapshot();
       if (identity && !identity.blockHash.equals(snapshot.l1.blockHash)) {
-        await this.refreshForRead(deadline);
+        await this.refresh('read', deadline);
         continue;
       }
 
@@ -131,7 +126,7 @@ export class FeeSnapshotService implements FeeProvider {
       const current = snapshot.candidates.get(this.wantedCurrentSlot(snapshot.pendingCheckpointSlot, nowSeconds));
       const prediction = snapshot.candidates.get(this.wantedPredictionSlot(snapshot.pinnedSlot, nowSeconds));
       if (!current || !prediction) {
-        await this.refreshForRead(deadline);
+        await this.refresh('read', deadline);
         continue;
       }
 
@@ -166,7 +161,7 @@ export class FeeSnapshotService implements FeeProvider {
 
   /** Refreshes when the archiver identity changed or the covered slots are about to be outrun by the clock. */
   private async tick(): Promise<void> {
-    if (this.stopped || this.dateProvider.now() < this.nextRetryAtMs) {
+    if (this.stopped) {
       return;
     }
     const identity = this.identityProvider.getL1SyncSnapshot();
@@ -193,16 +188,37 @@ export class FeeSnapshotService implements FeeProvider {
   }
 
   /**
-   * Awaits a refresh on behalf of a read, bounded by the remaining read deadline. On timeout only the wait is
-   * abandoned: the refresh keeps running and stays shared with the poll loop and any other waiter.
+   * Awaits the in-flight refresh, starting one if none is running: concurrent readers and the poll loop always
+   * share a single refresh, so a failing L1 sees at most one serial request chain regardless of RPC traffic.
+   * Fails without touching L1 when the service is stopped or the archiver has no identity to pin reads to.
+   * Reads pass their deadline: on expiry only the wait is abandoned — the refresh keeps running for the poll
+   * loop and any other waiter — and the read reports unavailable.
    */
-  protected async refreshForRead(deadline: number): Promise<void> {
-    const remaining = deadline - this.dateProvider.now();
-    if (remaining <= 0) {
+  protected async refresh(cause: RefreshCause, deadline?: number): Promise<void> {
+    if (this.stopped) {
+      throw new FeeQuoteUnavailableError('the service was stopped');
+    }
+    const remaining = deadline === undefined ? undefined : deadline - this.dateProvider.now();
+    if (remaining !== undefined && remaining <= 0) {
       throw new FeeQuoteUnavailableError('the read deadline elapsed before a refresh could complete');
     }
+    if (!this.inFlight) {
+      const identity = this.identityProvider.getL1SyncSnapshot();
+      if (!identity) {
+        throw new FeeQuoteUnavailableError('the archiver has no L1 identity yet');
+      }
+      // The slot is freed only once the refresh settles, and every waiter resumes after that, so a subsequent
+      // caller (e.g. a read that found this snapshot already superseded) starts a fresh refresh at a new identity.
+      const refresh = this.runRefresh(identity, cause).finally(() => (this.inFlight = undefined));
+      this.inFlight = refresh;
+    }
+    const inFlight = this.inFlight;
+    if (remaining === undefined) {
+      await inFlight;
+      return;
+    }
     try {
-      await executeTimeout(() => this.refresh('read'), remaining, 'fee snapshot refresh');
+      await executeTimeout(() => inFlight, remaining, 'fee snapshot refresh');
     } catch (err) {
       if (err instanceof TimeoutError) {
         throw new FeeQuoteUnavailableError(`no refresh completed within ${remaining}ms`);
@@ -211,36 +227,7 @@ export class FeeSnapshotService implements FeeProvider {
     }
   }
 
-  /**
-   * Returns the in-flight refresh, starting one if none is running: concurrent readers and the poll loop always
-   * share a single refresh. Rejects without touching L1 when the service is stopped, when refreshes are backing
-   * off after failures, or when the archiver has no identity to pin reads to.
-   */
-  private refresh(cause: RefreshCause): Promise<FeeSnapshot> {
-    if (this.stopped) {
-      return Promise.reject(new FeeQuoteUnavailableError('the service was stopped'));
-    }
-    if (this.inFlight) {
-      return this.inFlight;
-    }
-    // Reads must not bypass the failure backoff: with a failing L1, per-request refreshes would turn incoming
-    // RPC traffic directly into L1 load. Fail fast instead; the background loop retries once the backoff elapses.
-    if (this.dateProvider.now() < this.nextRetryAtMs) {
-      return Promise.reject(
-        new FeeQuoteUnavailableError(`refreshes are backing off after ${this.consecutiveFailures} failures`),
-      );
-    }
-    const identity = this.identityProvider.getL1SyncSnapshot();
-    if (!identity) {
-      return Promise.reject(new FeeQuoteUnavailableError('the archiver has no L1 identity yet'));
-    }
-    // The slot is freed only once the refresh settles, and every waiter resumes after that, so a subsequent
-    // caller (e.g. a read that found this snapshot already superseded) starts a fresh refresh at a new identity.
-    this.inFlight = this.runRefresh(identity, cause).finally(() => (this.inFlight = undefined));
-    return this.inFlight;
-  }
-
-  /** Builds and publishes a snapshot, resetting the backoff on success and recording failure + backoff on error. */
+  /** Builds and publishes a snapshot; on error keeps the last-good snapshot stored and rethrows to all waiters. */
   protected async runRefresh(identity: L1SyncSnapshot, cause: RefreshCause): Promise<FeeSnapshot> {
     try {
       const snapshot = await this.buildSnapshot(identity);
@@ -248,8 +235,6 @@ export class FeeSnapshotService implements FeeProvider {
       // the height can legitimately move backwards (reorg, or a lagging fallback backend). A height guard
       // would discard every rebuild after a rollback and wedge reads.
       this.snapshot = snapshot;
-      this.consecutiveFailures = 0;
-      this.nextRetryAtMs = 0;
       this.log.debug('Published fee snapshot', {
         cause,
         blockNumber: snapshot.l1.blockNumber,
@@ -259,20 +244,12 @@ export class FeeSnapshotService implements FeeProvider {
       });
       return snapshot;
     } catch (err) {
-      this.consecutiveFailures++;
-      this.nextRetryAtMs = this.dateProvider.now() + this.backoffMs();
       this.log.warn('Fee snapshot refresh failed; keeping last-good snapshot', {
         cause,
-        consecutiveFailures: this.consecutiveFailures,
         error: err instanceof Error ? err.message : String(err),
       });
       throw err;
     }
-  }
-
-  private backoffMs(): number {
-    const exp = Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** Math.min(this.consecutiveFailures, 10));
-    return exp / 2 + Math.floor(Math.random() * (exp / 2));
   }
 
   /**
@@ -326,7 +303,7 @@ export class FeeSnapshotService implements FeeProvider {
     if (tailTips.pending !== tips.pending || tailTips.proven !== tips.proven) {
       // Every stage is pinned to one block number, but a fallback transport can still serve two stages from
       // backends on different forks at that height. Failing the refresh keeps the last-good snapshot instead
-      // of publishing a quote assembled from two states; the backoff schedules the retry.
+      // of publishing a quote assembled from two states; a later read or poll tick retries.
       throw new FeeSnapshotError(
         `Chain tips changed across the fee refresh: pending ${tips.pending} -> ${tailTips.pending}, ` +
           `proven ${tips.proven} -> ${tailTips.proven}`,
