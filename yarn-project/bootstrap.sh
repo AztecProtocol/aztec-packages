@@ -176,8 +176,7 @@ function compile_all {
 # package cannot ship a platform binary), so the runtime forge deploy resolves it through
 # ~/.svm. The e2e containers run without network and inherit ~/.svm from the host's home
 # mount, so warm it at build time. The version is read from the installed bundle, so it
-# cannot drift from what the deploy will request. On the monorepo this is normally a no-op:
-# l1-contracts-solc has already populated ~/.svm by the time yarn-project builds.
+# cannot drift from what the deploy will request.
 function warm_solc_cache {
   local foundry_toml=node_modules/@aztec/l1-artifacts/l1-contracts/foundry.toml
   [ -f "$foundry_toml" ] || return 0
