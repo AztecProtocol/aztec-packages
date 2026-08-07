@@ -9,7 +9,6 @@ function bootstrap_all {
   ./cpp/bootstrap.sh $@
   ./ts/bootstrap.sh $@
   ./rust/bootstrap.sh $@
-  ./acir_tests/bootstrap.sh $@
   ./docs/bootstrap.sh $@
   ./sol/bootstrap.sh $@
 }

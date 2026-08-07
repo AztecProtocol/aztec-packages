@@ -48,18 +48,6 @@ Add GitHub labels to PRs to control what CI runs. Choose based on what changed:
 
 Comments must describe the code as it is, not relative to what it used to be. Never write comments like "replaces the old X", "no longer needs Y", "previously this was Z", or "eliminates the need for W". These become stale immediately after the commit lands. Instead, describe what the code does and why.
 
-## Handling noir/noir-repo submodule
-
-If `git status` shows `noir/noir-repo` as modified but your changes have nothing to do with updating noir, run:
-
-```bash
-git submodule update noir/noir-repo
-```
-
-This resets the submodule to the correct commit for the current branch. This commonly happens when switching branches.
-
-**Note:** If you're intentionally updating the noir submodule to a newer version, use the `noir-sync-update` skill instead, which handles the full update workflow including `Cargo.lock` and `yarn.lock` updates.
-
 # Modules
 
 ## ts/ => typescript code for bb.js

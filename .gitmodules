@@ -11,7 +11,3 @@
 	path = bb-pilcom/powdr
 	url = https://github.com/AztecProtocol/powdr
 	branch = avm-minimal
-[submodule "noir/noir-repo"]
-	path = noir/noir-repo
-	url = https://github.com/noir-lang/noir.git
-	shallow = true

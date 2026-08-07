@@ -185,8 +185,6 @@
     "**/barretenberg/docs/versioned_sidebars/**": true,
     "**/barretenberg/docs/static/**": true,
     "**/barretenberg/docs/build/**": true,
-    "**/noir/noir-repo/docs/versioned_docs/**": true,
-    "**/noir/noir-repo/docs/versioned_sidebars/**": true,
 
     // C++/Rust build
     "**/barretenberg/cpp/build*/**": true,
@@ -231,11 +229,7 @@
   "C_Cpp.formatting": "disabled",
   "C_Cpp.vcpkg.enabled": false,
   "C_Cpp.default.includePath": ["barretenberg/cpp/src"],
-  "rust-analyzer.linkedProjects": [
-    "noir/noir-repo/Cargo.toml",
-    "noir/noir-repo/acvm-repo/acvm_js/Cargo.toml",
-    "bb-pilcom/Cargo.toml"
-  ],
+  "rust-analyzer.linkedProjects": ["bb-pilcom/Cargo.toml"],
   "files.watcherExclude": {
     "**/.docusaurus/**": true,
     "**/.git/**": true,
@@ -255,7 +249,6 @@
     "**/docs/processed-docs/**": true,
     "**/docs/static/**": true,
     "**/node_modules/**": true,
-    "**/noir/noir-repo/docs/versioned_docs/**": true,
     "**/target/**": true
   },
   "files.trimTrailingWhitespace": true,
@@ -270,7 +263,7 @@
   "typescript.tsserver.maxTsServerMemory": 4096,
   "typescript.tsdk": "yarn-project/node_modules/typescript/lib",
   "markdown.extension.toc.levels": "2..6",
-  "noir.nargoPath": "${workspaceFolder}/noir/noir-repo/target/release/nargo",
+  "noir.nargoPath": "${workspaceFolder}/labs-aztec-toolchain/bin/nargo",
   "auto-close-tag.activationOnLanguage": [
     "xml",
     "markdown",

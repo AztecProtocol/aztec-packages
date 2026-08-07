@@ -367,15 +367,6 @@ function chonk_ivc_bench_cmds {
   done < <(pinned_chonk_bench_flow_names)
 }
 
-function chonk_browser_bench_cmds {
-  local flow flow_dir
-  while IFS= read -r flow; do
-    [[ -n "$flow" ]] || continue
-    flow_dir="chonk-pinned-flows/$flow"
-    echo "$hash:ISOLATE=1:NET=1:CPUS=8:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh $flow_dir"
-  done < <(pinned_chonk_bench_flow_names)
-}
-
 function ultrahonk_rollup_bench_cmds {
   local inputs_dir="../../yarn-project/end-to-end/ultrahonk-bench-inputs"
   local cpus
@@ -391,7 +382,6 @@ function bench_cmds {
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk_zk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
   chonk_ivc_bench_cmds
-  chonk_browser_bench_cmds
   ultrahonk_rollup_bench_cmds
 }
 

@@ -113,13 +113,11 @@ export default defineConfig(({ mode }) => {
         'Cross-Origin-Embedder-Policy': 'require-corp',
       },
       // Allow vite to serve files from these directories, since they are symlinked
-      // These are the protocol circuit artifacts, noir WASMs and bb WASMs.
+      // These are the protocol circuit artifacts and bb WASMs.
       fs: {
         allow: [
           searchForWorkspaceRoot(process.cwd()),
           '../yarn-project/noir-protocol-circuits-types/artifacts',
-          '../noir/packages/noirc_abi/web',
-          '../noir/packages/acvm_js/web',
           '../barretenberg/ts/bb.js/dest/browser',
         ],
       },

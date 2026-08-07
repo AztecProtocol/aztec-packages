@@ -308,7 +308,6 @@ function install_hooks {
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
 ./yarn-project/precommit.sh
-./noir/precommit.sh
 ./noir-projects/labs/precommit.sh
 ./docs/examples/ts/precommit.sh
 EOF
@@ -324,12 +323,7 @@ EOF
 
 function pull_submodules {
   echo_header "pull submodules"
-  # If it's an old standalone noir clone, nuke it.
-  if [ -d "noir/noir-repo/.git" ]; then
-    echo "Removing old noir clone..."
-    rm -rf noir/noir-repo
-  fi
-  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags &>/dev/null"
+  denoise "git submodule update --init --recursive --depth 1 --jobs 8"
 }
 
 function start_txes {
@@ -511,7 +505,7 @@ function bench {
 ### RELEASING ##########################################################################################################
 function versions {
   local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
-  noir_version=$(git -C noir/noir-repo describe --tags --always HEAD)
+  noir_version=$(labs-aztec-toolchain/bootstrap.sh noir_version)
   anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
   node_version=$(node --version | cut -d 'v' -f 2)
   cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
@@ -575,7 +569,6 @@ function release {
     wsdb
     barretenberg/ts
     barretenberg/rust
-    noir
     noir-projects/labs/aztec-nr
     yarn-project
     boxes
@@ -601,7 +594,7 @@ function release_dryrun {
 function private_release {
   # Release flow for the private repo, run on a (nightly) ci-private-release PR. We publish only to our
   # internal GCP Artifact Registry: the docker image (release-image -> INTERNAL_DOCKER_REGISTRY that
-  # GKE/staging pulls from) and the npm packages (barretenberg/ts, noir, ipc-runtime, wsdb,
+  # GKE/staging pulls from) and the npm packages (barretenberg/ts, ipc-runtime, wsdb,
   # yarn-project -> the INTERNAL_NPM_REGISTRY npm repo). We run the release
   # step for real on exactly those components and do not invoke the others — the remaining release
   # sources publish public artifacts (github releases, crates.io, the aztec-up/playground S3 installers)
@@ -620,8 +613,7 @@ function private_release {
   export NPM_TOKEN=$(gcloud auth print-access-token)
   # Route our scope to the internal npm registry; public deps still resolve from the default registry
   # (npmjs), so publishes and yarn-project's install smoke-test both work. Everything we publish is
-  # @aztec-scoped — the noir packages are renamed @noir-lang/* -> @aztec/noir-* on release. Exported so
-  # deploy_npm and that smoke-test share one config.
+  # @aztec-scoped. Exported so deploy_npm and that smoke-test share one config.
   local npmrc reg
   reg="${INTERNAL_NPM_REGISTRY%/}/"
   npmrc=$(mktemp)
@@ -656,12 +648,12 @@ function private_release {
     done
   fi
 
-  # Publish for real, in dependency order: bb.js, the noir packages, ipc-runtime, and wsdb must be on
+  # Publish for real, in dependency order: bb.js, ipc-runtime, and wsdb must be on
   # the registry before yarn-project's release smoke-tests installing the @aztec packages that depend on
   # them. @aztec/world-state has a runtime dependency on @aztec/wsdb, and the ipc-codegen-generated
   # @aztec/wsdb in turn has a runtime dependency on @aztec/ipc-runtime, so ipc-runtime must precede wsdb.
   # npm packages are platform-independent, so only the docker image is published on arm64.
-  local publish=(barretenberg/ts noir ipc-runtime wsdb yarn-project release-image)
+  local publish=(barretenberg/ts ipc-runtime wsdb yarn-project release-image)
   if [ $(arch) == arm64 ]; then
     publish=(release-image)
   fi
@@ -1194,7 +1186,6 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     pull_submodules
-    noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
     ;;
 

@@ -7,22 +7,18 @@ All paths below are relative to the git root. When working inside a component, a
 
 `barretenberg/` is the C++ ZK proving system (Honk, Chonk, ECCVM); see `barretenberg/CLAUDE.md` and `barretenberg/cpp/CLAUDE.md`. `barretenberg/cpp/src/barretenberg/vm2/` is the AVM (Aztec Virtual Machine) for public execution; see its `CLAUDE.md`. `barretenberg/sol/` is the Solidity on-chain verifier; see `barretenberg/sol/CLAUDE.md`. `barretenberg/ts/` contains the TypeScript bindings for barretenberg (bb.js).
 
-`noir/` is the Noir compiler, a git submodule pointing to noir-lang/noir. `noir-projects/` holds the contract libraries written in Noir; see `noir-projects/labs/aztec-nr/CLAUDE.md`.
+`noir-projects/` holds the contract libraries written in Noir; see `noir-projects/labs/aztec-nr/CLAUDE.md`.
 
 `l1-contracts/` holds the Solidity L1 rollup contracts (a Foundry project). `docs/` is the developer documentation site (Docusaurus); see `docs/CLAUDE.md`. `spartan/` holds Kubernetes deployment infrastructure (Helm charts + Terraform); see `spartan/CLAUDE.md`. `bb-pilcom/` is the PIL compiler for AVM relation codegen. `ci3/` contains CI infrastructure scripts.
 </components>
 
 <build_system>
-Dependencies flow barretenberg → noir → l1-contracts → yarn-project. From the git root, use `make <target>`: `make fast` builds everything needed for development, `make yarn-project` runs the full TS build chain (which builds bb, noir, and l1-contracts first), `make bb-cpp-native` builds barretenberg C++ native only, `make noir` builds the Noir compiler, and `make l1-contracts` builds the Solidity contracts via Foundry. For individual components, run `./bootstrap.sh` inside each directory.
+Dependencies flow barretenberg → yarn-project. From the git root, use `make <target>`: `make fast` builds everything needed for development, `make yarn-project` runs the full TS build chain, and `make bb-cpp-native` builds barretenberg C++ native only. For individual components, run `./bootstrap.sh` inside each directory.
 
-When a change spans multiple components, rebuild in dependency order: first `barretenberg/cpp/` with `cmake --preset default && cd build && ninja`, then `barretenberg/ts/` with `./bootstrap.sh` (which generates TS bindings from C++), then `noir/` with `./bootstrap.sh` if noir changes are needed, then `noir-projects/` to compile contracts, then `l1-contracts/` with `forge build`, and finally `yarn-project/` with `yarn build` from inside `yarn-project/` (not the git root).
+When a change spans multiple components, rebuild in dependency order: first `barretenberg/cpp/` with `cmake --preset default && cd build && ninja`, then `barretenberg/ts/` with `./bootstrap.sh` (which generates TS bindings from C++), then `noir-projects/` to compile contracts, and finally `yarn-project/` with `yarn build` from inside `yarn-project/` (not the git root).
 
-The noir-projects build scripts default `$NARGO` per side: `noir-projects/fnd/**` uses the submodule build at `noir/noir-repo/target/release/nargo`, while `noir-projects/labs/**` uses `labs-aztec-toolchain/bin/nargo`, which is provisioned from the versions pinned in `labs-aztec-toolchain/bootstrap.sh`. Do not override either with a globally installed nargo — version mismatches produce opaque bytecode failures in downstream components.
+The noir-projects build scripts default `$NARGO` to `labs-aztec-toolchain/bin/nargo`, which is provisioned from the versions pinned in `labs-aztec-toolchain/bootstrap.sh`. Do not override it with a globally installed nargo — version mismatches produce opaque bytecode failures in downstream components.
 </build_system>
-
-<bumping_noir>
-To bump the Noir compiler version (e.g. a request like "bump the noir compiler version to X"), run `noir/scripts/bump_noir_compiler.sh <ref>` — the single source of truth, also surfaced via the `noir-sync-update` skill. It bumps the `noir/noir-repo` submodule to `<ref>` (a noir-lang/noir ref: release tag `v1.0.0-beta.23`, nightly `nightly-2026-06-02`, branch, or commit), refreshes `avm-transpiler/Cargo.lock` and `yarn-project/yarn.lock`, reformats `noir-projects`, and stages everything. Do not bump the submodule by hand; skipping any of these leaves the tree inconsistent and fails CI. The script does not commit — verify with `git status` from the repo root, then commit as `chore: update Noir to <ref>`.
-</bumping_noir>
 
 <git_workflow>
 
@@ -52,7 +48,7 @@ Use the discovered base in `git diff origin/<base>...HEAD` and `git log origin/<
 </critical_never_assume_master>
 
 <commits_and_prs>
-Follow Conventional Commits: `fix:`, `feat:`, `chore:`, `refactor:`, `docs:`, `test:`. PRs are squashed to a single commit on merge, so during development just create normal commits — do not amend unless explicitly asked. If `noir/noir-repo` shows as modified unexpectedly, run `git submodule update noir/noir-repo` to reset it.
+Follow Conventional Commits: `fix:`, `feat:`, `chore:`, `refactor:`, `docs:`, `test:`. PRs are squashed to a single commit on merge, so during development just create normal commits — do not amend unless explicitly asked.
 </commits_and_prs>
 
 <git_staging>

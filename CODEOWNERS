@@ -5,9 +5,6 @@
 /build-images/ @charlielye
 /ci3/ @charlielye
 
-# Notify the Noir team of divergences to upstream
-/noir/noir-repo.patch @TomAFrench
-
 #####################################################
 # Notify the AVM team
 #

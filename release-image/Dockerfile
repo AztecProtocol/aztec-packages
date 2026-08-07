@@ -11,7 +11,7 @@ ENV UV_THREADPOOL_SIZE=8
 ENV BB_WORKING_DIRECTORY=/usr/src/bb
 ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb-avm
 ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
-ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
+ENV ACVM_BINARY_PATH=/usr/src/labs-aztec-toolchain/bin/acvm
 RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY && chmod 777 $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
 WORKDIR "/usr/src/yarn-project"
 

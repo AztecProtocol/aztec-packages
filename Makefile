@@ -50,7 +50,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
+.PHONY: barretenberg noir-projects release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -85,11 +85,9 @@ full-labs: fast-labs yarn-project-benches
 full: full-foundation full-labs
 
 # Everything required to run the full benchmark suite (see bootstrap.sh bench_cmds),
-# and nothing more. bb-acir builds barretenberg/acir_tests, whose headless-test
-# harness (ts-node) the bb browser memory bench (ci_benchmark_browser_memory.sh)
-# drives. bb-crs pre-downloads the CRS: the proof benches run in no-network
+# and nothing more. bb-crs pre-downloads the CRS: the proof benches run in no-network
 # containers, so bb.js must find it locally rather than fetch on demand.
-bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-crs bb-acir
+bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-crs
 
 # yarn-project-benches covers the e2e bench inputs and yarn-project's own benches;
 # noir-contracts was previously built transitively via yarn-project.
@@ -105,18 +103,11 @@ release-labs: fast-labs
 release: release-foundation release-labs
 
 #==============================================================================
-# Noir
-#==============================================================================
-
-noir:
-	$(call build,$@,noir)
-
-#==============================================================================
 # Barretenberg
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-avm-sim bb-rs bb-acir bb-docs bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-avm-sim bb-rs bb-docs bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -253,10 +244,6 @@ bb-avm-sim-cross-copy: bb-avm-sim bb-cpp-cross
 bb-rs: bb-ts bb-cpp-native
 	$(call build,$@,barretenberg/rust)
 
-# BB ACIR Tests - ACIR compatibility tests
-bb-acir: noir bb-cpp-native bb-ts
-	$(call build,$@,barretenberg/acir_tests)
-
 # BB Documentation
 bb-docs:
 	$(call build,$@,barretenberg/docs)
@@ -277,9 +264,6 @@ bb-cpp-asan-tests: bb-cpp-asan
 bb-cpp-smt-tests: bb-cpp-smt
 	$(call test,$@,barretenberg/cpp,smt)
 
-bb-acir-tests: bb-acir
-	$(call test,$@,barretenberg/acir_tests)
-
 bb-ts-tests: bb-ts
 	$(call test,$@,barretenberg/ts)
 
@@ -292,7 +276,7 @@ bb-bbup-tests: bb-bbup
 bb-rs-tests: bb-rs
 	$(call test,$@,barretenberg/rust)
 
-bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-bbup-tests bb-docs-tests bb-rs-tests
+bb-tests: bb-cpp-native-tests bb-ts-tests bb-bbup-tests bb-docs-tests bb-rs-tests
 
 bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 
@@ -349,10 +333,6 @@ claude-tests:
 labs-aztec-toolchain:
 	$(call build,$@,labs-aztec-toolchain)
 
-# If we are running on the monorepo, we need to additionally depend on targets
-# that generate/place the binaries.
-# labs-aztec-toolchain: noir bb-cpp-native
-
 #==============================================================================
 # Noir Projects
 #==============================================================================
@@ -362,10 +342,10 @@ labs-aztec-toolchain:
 noir-projects-labs-format-check: labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs,format_check)
 
-noir-contracts: noir bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchain
+noir-contracts: bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs/noir-contracts)
 
-aztec-nr: noir bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchain
+aztec-nr: bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs/aztec-nr)
 
 # These tests are not included in the dep tree.
@@ -374,7 +354,7 @@ noir-projects-txe-tests:
 	$(call test,$@,noir-projects/labs/aztec-nr)
 	$(call test,$@,noir-projects/labs/noir-contracts)
 
-contract-snapshots-tests: noir noir-projects-labs-format-check labs-aztec-toolchain
+contract-snapshots-tests: noir-projects-labs-format-check labs-aztec-toolchain
 	$(call test,$@,noir-projects/labs/contract-snapshots)
 
 # Noir Projects - Aggregate target

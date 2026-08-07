@@ -183,7 +183,7 @@ function validate-webapp-tutorial {
         }
       }
 
-      for (const base of [yp, path.join(repoRoot, 'barretenberg/ts'), path.join(repoRoot, 'noir/packages')]) {
+      for (const base of [yp, path.join(repoRoot, 'barretenberg/ts')]) {
         if (!fs.existsSync(base)) continue;
         addPackageDir(base);
         for (const entry of fs.readdirSync(base, { withFileTypes: true })) {

@@ -15,9 +15,8 @@
 !/wsdb/ts/build/
 !/wsdb/ts/package.json
 !/wsdb/ts/packages/
-!/noir/noir-repo/target/release/nargo
-!/noir/noir-repo/target/release/acvm
-!/noir/packages/
+!/labs-aztec-toolchain/bin/nargo
+!/labs-aztec-toolchain/bin/acvm
 !/yarn-project/package.json
 !/yarn-project/yarn.lock
 !/yarn-project/*/package.json
