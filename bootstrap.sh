@@ -716,13 +716,14 @@ function release_compat_e2e {
     node yarn-project/end-to-end/src/install_legacy_contracts.cjs "$ver"
   done
 
-  # Build and run the compat test commands in an isolated subshell so the bespoke test settings
-  # (no test cache, no fast-fail short-circuit) don't leak into the release build/publish that follows.
+  # Compat command cache keys include both the end-to-end build hash and CONTRACT_ARTIFACTS_VERSION,
+  # so successful results can only be reused for the same source and historical artifacts.
+  # Keep the bespoke test settings isolated from the release build/publish that follows.
   # set -e re-enables errexit inside this subshell: the caller invokes release_compat_e2e with errexit
   # disabled (to capture its exit code), so without this a failed build/install would be masked.
   (
     set -e
-    export USE_TEST_CACHE=0
+    export USE_TEST_CACHE=1
     export CI_FULL=0
     export NO_FAIL_FAST=1
     build
