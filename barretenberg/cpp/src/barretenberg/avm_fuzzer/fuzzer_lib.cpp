@@ -222,10 +222,18 @@ TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB
     BB_ASSERT(check_circuit_result,
               "check_circuit returned false in fuzzer with no exception, this indicates a failure");
 
-    // 6. Prove and verify
-    auto proof = avm_api.prove(proving_inputs);
-    bool verified = avm_api.verify(proof, proving_inputs.public_inputs);
-    BB_ASSERT(verified, "Proof verification failed");
+    // 6. Prove and verify, off by default.
+    //
+    // check_circuit already evaluates every relation against the trace, so proving finds nothing
+    // about the AVM that it does not; what it exercises beyond that is the proving system. It also
+    // repeats the witness generation and tracegen that check_circuit just did and then runs a full
+    // proof on top, which is what held the prover fuzzer under one execution per second. Run it
+    // periodically over a minimized corpus instead of on every input.
+    if (std::getenv("AVM_FUZZER_PROVE") != nullptr) {
+        auto proof = AVM_TRACK_TIME_V("fuzzer/prove", avm_api.prove(proving_inputs));
+        bool verified = avm_api.verify(proof, proving_inputs.public_inputs);
+        BB_ASSERT(verified, "Proof verification failed");
+    }
 #else
     // In coverage builds, run simulate_for_witgen and tracegen instead of check_circuit
     // This gives us coverage the the event and tracegen code paths without the overhead of check_circuit
@@ -325,8 +333,6 @@ size_t mutate_tx_data(FuzzerContext& context,
         tx_data = create_default_tx_data(rng, context);
     }
 
-    populate_context_from_tx_data(context, tx_data);
-
     // Build up bytecodes, contract classes and instances from the fuzzer data
     tx_data.contract_classes.clear();
     tx_data.contract_instances.clear();
@@ -353,6 +359,11 @@ size_t mutate_tx_data(FuzzerContext& context,
     }
 
     tx_data.contract_addresses = contract_addresses;
+
+    // Populated from the rebuilt artifacts rather than the deserialized ones, so that instruction
+    // generation resolves CALL and GETCONTRACTINSTANCE targets against the addresses this input
+    // actually registers. Done before the mutation below, which is what reads the context.
+    populate_context_from_tx_data(context, tx_data);
 
     // Ensure all enqueued calls have valid contract addresses (not placeholders)
     // We may add more advanced mutation to change contract addresses later, right now we just ensure they are valid
@@ -437,15 +448,27 @@ size_t mutate_tx_data(FuzzerContext& context,
     tx_data.tx.effective_gas_fees =
         compute_effective_gas_fees(tx_data.global_variables.gas_fees, tx_data.tx.gas_settings);
 
-    auto [mutated_serialized_fuzzer_data, mutated_serialized_fuzzer_data_size] = msgpack_encode_buffer(tx_data);
-    if (mutated_serialized_fuzzer_data_size > max_size) {
-        delete[] mutated_serialized_fuzzer_data;
-        return 0; // Can't fit mutated data in buffer, skip this mutation
+    // Drop programs until the encoding fits rather than discarding the mutation. Returning 0 here
+    // made libFuzzer run a zero length input, which fails to deserialize and silently executes the
+    // default program instead, so the execution was wasted and its coverage misattributed.
+    while (true) {
+        auto [encoded, encoded_size] = msgpack_encode_buffer(tx_data);
+        if (encoded_size <= max_size) {
+            memcpy(serialized_fuzzer_data, encoded, encoded_size);
+            delete[] encoded;
+            return encoded_size;
+        }
+        delete[] encoded;
+        if (tx_data.input_programs.size() > 1) {
+            tx_data.input_programs.pop_back();
+        } else if (tx_data.tx.app_logic_enqueued_calls.size() > 1) {
+            tx_data.tx.app_logic_enqueued_calls.pop_back();
+        } else {
+            // Nothing left to drop. Leave the input as it was rather than emitting an empty one.
+            fuzz_info("Mutated tx data does not fit in max_size, keeping the original input");
+            return serialized_fuzzer_data_size;
+        }
     }
-    memcpy(serialized_fuzzer_data, mutated_serialized_fuzzer_data, mutated_serialized_fuzzer_data_size);
-    delete[] mutated_serialized_fuzzer_data;
-
-    return mutated_serialized_fuzzer_data_size;
 }
 
 void populate_context_from_tx_data(FuzzerContext& context, const FuzzerTxData& tx_data)

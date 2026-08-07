@@ -204,8 +204,14 @@ mkdir -p "$SYNC_CORPUS_DIR"
 # Change to build directory
 cd "$BUILD_DIR"
 
-# Default fuzzer parameters
-TIMEOUT=10
+# Default fuzzer parameters.
+# The prover fuzzer runs check_circuit per input, so it needs a larger per-input budget than the
+# tx fuzzer. Neither should be large enough that one pathological input stalls a worker for long.
+if [ "$FUZZER_ALIAS" = "prover" ]; then
+    TIMEOUT=${TIMEOUT:-120}
+else
+    TIMEOUT=${TIMEOUT:-10}
+fi
 RSS_LIMIT_MB=4096
 # Each process gets its own world state directory, so these scale with the machine.
 WORKERS=${WORKERS:-$(nproc)}
