@@ -28,9 +28,6 @@
 # Notify fairies of changes to playground bundler config
 /playground/vite.config.ts @Thunkar
 
-# Notify the circuit team of changes to the protocol circuits
-/noir-projects/fnd/noir-protocol-circuits @LeilaWang
-
 # Notify nventuro of changes to aztec-nr
 /noir-projects/labs/aztec-nr @nventuro
 
