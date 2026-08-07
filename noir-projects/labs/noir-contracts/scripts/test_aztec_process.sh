@@ -4,7 +4,7 @@ set -euo pipefail
 
 cd $(dirname $0)/..
 
-bb=$(../../../barretenberg/cpp/scripts/find-bb)
+bb=$(realpath ../../../labs-aztec-toolchain/bin/bb)
 
 if [ ${AVM:-1} -eq 0 ]; then
   echo "Skipping aztec_process tests because AVM=0 was explicitly set."

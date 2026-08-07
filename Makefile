@@ -112,27 +112,6 @@ noir:
 	$(call build,$@,noir)
 
 #==============================================================================
-# AVM Transpiler
-#==============================================================================
-
-avm-transpiler-native:
-	$(call build,$@,avm-transpiler,build_native)
-
-avm-transpiler-cross-amd64-macos:
-	$(call build,$@,avm-transpiler,build_cross amd64-macos)
-
-avm-transpiler-cross-arm64-macos:
-	$(call build,$@,avm-transpiler,build_cross arm64-macos)
-
-avm-transpiler-cross-arm64-linux:
-	$(call build,$@,avm-transpiler,build_cross arm64-linux)
-
-avm-transpiler-cross-amd64-windows:
-	$(call build,$@,avm-transpiler,build_cross amd64-windows)
-
-avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux avm-transpiler-cross-amd64-windows
-
-#==============================================================================
 # Barretenberg
 #==============================================================================
 
@@ -159,12 +138,12 @@ bb-cpp-format-check:
 	$(call build,$@,barretenberg/cpp,build_format_check)
 
 # BB C++ Native - Split into compilation and linking phases
-# Compilation phase: Build barretenberg + vm2_sim objects (can run in parallel with avm-transpiler)
+# Compilation phase: Build barretenberg + vm2_sim objects
 bb-cpp-native-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_native_objects)
 
-# Linking phase: Link all native binaries (needs avm-transpiler)
-bb-cpp-native: bb-cpp-native-objects avm-transpiler-native bb-cpp-yarn bb-cpp-format-check
+# Linking phase: Link all native binaries
+bb-cpp-native: bb-cpp-native-objects bb-cpp-yarn bb-cpp-format-check
 	$(call build,$@,barretenberg/cpp,build_native)
 
 bb-cpp-chonk-inputs:
@@ -178,7 +157,7 @@ bb-cpp-wasm:
 bb-cpp-wasm-threads:
 	$(call build,$@,barretenberg/cpp,build_preset wasm-threads)
 
-# Cross-compile object phases (parallel with avm-transpiler cross-compile)
+# Cross-compile object phases
 bb-cpp-cross-arm64-linux-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-linux)
 
@@ -189,19 +168,19 @@ bb-cpp-cross-arm64-macos-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
 
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: bb-cpp-native bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux bb-cpp-yarn
+bb-cpp-cross-arm64-linux: bb-cpp-native bb-cpp-cross-arm64-linux-objects bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
-bb-cpp-cross-amd64-macos: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos bb-cpp-yarn
+bb-cpp-cross-amd64-macos: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos-objects bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset amd64-macos)
 
 # Cross-compile for ARM64 macOS (release or CI_FULL)
-bb-cpp-cross-arm64-macos: bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos bb-cpp-yarn
+bb-cpp-cross-arm64-macos: bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos-objects bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset arm64-macos)
 
 # Cross-compile for AMD64 Windows (release only)
-bb-cpp-cross-amd64-windows: bb-cpp-cross-arm64-macos avm-transpiler-cross-amd64-windows
+bb-cpp-cross-amd64-windows: bb-cpp-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_preset amd64-windows)
 
 # iOS SDK download (shared by all iOS cross-compile targets)

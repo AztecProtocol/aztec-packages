@@ -1178,14 +1178,12 @@ case "$cmd" in
     export CI=1
     export NATIVE_PRESET=debug
     export AVM=0
-    export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
     export AVM=0
-    export AVM_TRANSPILER=0
     barretenberg/ts/bb.js/bootstrap.sh formatting
     barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh ci
@@ -1195,7 +1193,6 @@ case "$cmd" in
     export CI_FULL=1
     export USE_TEST_CACHE=1
     export AVM=0
-    export AVM_TRANSPILER=0
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci

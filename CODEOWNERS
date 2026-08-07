@@ -21,8 +21,6 @@
 /noir-projects/labs/aztec-nr/aztec/src/context/public_context.nr @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to the AVM simulator and supporting modules
 /yarn-project/simulator/src/public @MirandaWood @jeanmon @IlyasRidhuan
-# on changes to the AVM transpiler
-/avm-transpiler/src @MirandaWood @jeanmon @IlyasRidhuan @sirasistant
 #####################################################
 
 # Notify fairies of changes to playground bundler config

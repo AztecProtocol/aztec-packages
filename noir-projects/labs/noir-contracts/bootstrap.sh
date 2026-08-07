@@ -288,7 +288,6 @@ function bench_cmds {
   local hash=$(hash_str \
     $AZTEC_TOOLCHAIN_HASH \
     $(cache_content_hash \
-      ../../../avm-transpiler/.rebuild_patterns \
       ../../../barretenberg/cpp/.rebuild_patterns \
       ../../../barretenberg/ts/.rebuild_patterns \
       "^noir-projects/labs/noir-contracts/" \

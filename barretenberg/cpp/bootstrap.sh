@@ -7,7 +7,7 @@ if [ "${AVM:-1}" -eq "1" ]; then
 else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
-export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(../../ipc-runtime/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+export hash=$(hash_str $(../../ipc-runtime/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 export native_build_dir=$(scripts/preset-build-dir $native_preset)
 
 # Injects version number into a given bb binary.
@@ -61,11 +61,7 @@ function inject_bb_versions {
 function cmake_build {
   local preset=$1
   shift
-  local cmake_args=()
-  if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
-    cmake_args+=(-DAVM_TRANSPILER_LIB=)
-  fi
-  cmake --preset "$preset" "${cmake_args[@]}"
+  cmake --preset "$preset"
   cmake --build --preset "$preset" "$@"
 }
 
@@ -112,7 +108,6 @@ function build_format_check {
   fi
 }
 
-# Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
 # Allow the build system to get a head start on compilation while building dependencies.
 # This is a noop if the final artifacts exist in the cache.
 function build_native_objects {
@@ -130,7 +125,7 @@ function download_chonk_inputs {
   scripts/chonk_inputs.sh download
 }
 
-# Builds object files early for cross compilation (parallel with avm-transpiler).
+# Builds object files early for cross compilation.
 function build_cross_objects {
   set -eu
   target=$1
