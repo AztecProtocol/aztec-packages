@@ -293,9 +293,6 @@ export class RollupContract {
     address: EthAddress;
     contract: GetContractReturnType<typeof EscapeHatchAbi, ViemClient>;
   };
-  /** Cached feature-detection of Multicall3 bytecode presence, used by the batched fee reads. */
-  private multicall3Available: boolean | undefined;
-
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
     if (asString === undefined) {
@@ -1179,15 +1176,6 @@ export class RollupContract {
     return this.rollup.read.getProvingCostPerManaInEth(options);
   }
 
-  /** Returns true iff Multicall3 bytecode is deployed at its canonical address (feature-detected once, cached). */
-  private async hasMulticall3(): Promise<boolean> {
-    if (this.multicall3Available === undefined) {
-      const code = await this.client.getCode({ address: MULTI_CALL_3_ADDRESS });
-      this.multicall3Available = !!code && code !== '0x';
-    }
-    return this.multicall3Available;
-  }
-
   /**
    * Shared parameters for the pinned fee multicalls below. `batchSize: 0` disables viem's calldata chunking so
    * every batch stays a single `eth_call`: a chunked batch would be several calls, which the fallback transport
@@ -1204,25 +1192,16 @@ export class RollupContract {
 
   /** Reads the chain tips together with the governance-settable fee parameters, pinned to one L1 block. */
   async getFeeGlobals(options: { blockNumber: bigint }): Promise<RollupFeeGlobals> {
-    if (await this.hasMulticall3()) {
-      const [tips, manaTarget, manaLimit, provingCostPerManaEth] = await this.client.multicall({
-        contracts: [
-          { address: this.address, abi: RollupAbi, functionName: 'getTips' },
-          { address: this.address, abi: RollupAbi, functionName: 'getManaTarget' },
-          { address: this.address, abi: RollupAbi, functionName: 'getManaLimit' },
-          { address: this.address, abi: RollupAbi, functionName: 'getProvingCostPerManaInEth' },
-        ],
-        ...this.multicallOptions(options.blockNumber),
-      });
-      return { tips: toChainTips(tips), manaTarget, manaLimit, provingCostPerManaEth };
-    }
-    const [tips, manaTarget, manaLimit, provingCostPerManaEth] = await Promise.all([
-      this.getTips(options),
-      this.readManaTarget(options),
-      this.readManaLimit(options),
-      this.readProvingCostPerManaInEth(options),
-    ]);
-    return { tips, manaTarget, manaLimit, provingCostPerManaEth };
+    const [tips, manaTarget, manaLimit, provingCostPerManaEth] = await this.client.multicall({
+      contracts: [
+        { address: this.address, abi: RollupAbi, functionName: 'getTips' },
+        { address: this.address, abi: RollupAbi, functionName: 'getManaTarget' },
+        { address: this.address, abi: RollupAbi, functionName: 'getManaLimit' },
+        { address: this.address, abi: RollupAbi, functionName: 'getProvingCostPerManaInEth' },
+      ],
+      ...this.multicallOptions(options.blockNumber),
+    });
+    return { tips: toChainTips(tips), manaTarget, manaLimit, provingCostPerManaEth };
   }
 
   /** Reads several checkpoint logs pinned to one L1 block, in the order requested. */
@@ -1230,55 +1209,45 @@ export class RollupContract {
     checkpointNumbers: CheckpointNumber[],
     options: { blockNumber: bigint },
   ): Promise<CheckpointLog[]> {
-    if (await this.hasMulticall3()) {
-      const results = await this.client.multicall({
-        contracts: checkpointNumbers.map(checkpointNumber => ({
-          address: this.address,
-          abi: RollupAbi,
-          functionName: 'getCheckpoint' as const,
-          args: [BigInt(checkpointNumber)] as const,
-        })),
-        ...this.multicallOptions(options.blockNumber),
-      });
-      return results.map(toCheckpointLog);
-    }
-    return Promise.all(checkpointNumbers.map(checkpointNumber => this.getCheckpoint(checkpointNumber, options)));
+    const results = await this.client.multicall({
+      contracts: checkpointNumbers.map(checkpointNumber => ({
+        address: this.address,
+        abi: RollupAbi,
+        functionName: 'getCheckpoint' as const,
+        args: [BigInt(checkpointNumber)] as const,
+      })),
+      ...this.multicallOptions(options.blockNumber),
+    });
+    return results.map(toCheckpointLog);
   }
 
   /** Reads the current min fee and prune-ability at each given timestamp, pinned to one L1 block. */
   async getSlotFeeInputs(timestamps: bigint[], options: { blockNumber: bigint }): Promise<RollupSlotFeeInputs[]> {
-    if (await this.hasMulticall3()) {
-      const results = await this.client.multicall({
-        contracts: [
-          ...timestamps.map(timestamp => ({
-            address: this.address,
-            abi: RollupAbi,
-            functionName: 'getManaMinFeeAt' as const,
-            args: [timestamp, true] as const,
-          })),
-          ...timestamps.map(timestamp => ({
-            address: this.address,
-            abi: RollupAbi,
-            functionName: 'canPruneAtTime' as const,
-            args: [timestamp] as const,
-          })),
-        ],
-        ...this.multicallOptions(options.blockNumber),
-      });
-      return timestamps.map((_, i) => {
-        const manaMinFee = results[i];
-        const canPrune = results[timestamps.length + i];
-        if (typeof manaMinFee !== 'bigint' || typeof canPrune !== 'boolean') {
-          throw new Error('Unexpected multicall result shapes for the per-slot fee reads');
-        }
-        return { manaMinFee, canPrune };
-      });
-    }
-    const [manaMinFees, prunes] = await Promise.all([
-      Promise.all(timestamps.map(timestamp => this.getManaMinFeeAt(timestamp, true, options))),
-      Promise.all(timestamps.map(timestamp => this.canPruneAtTime(timestamp, options))),
-    ]);
-    return timestamps.map((_, i) => ({ manaMinFee: manaMinFees[i], canPrune: prunes[i] }));
+    const results = await this.client.multicall({
+      contracts: [
+        ...timestamps.map(timestamp => ({
+          address: this.address,
+          abi: RollupAbi,
+          functionName: 'getManaMinFeeAt' as const,
+          args: [timestamp, true] as const,
+        })),
+        ...timestamps.map(timestamp => ({
+          address: this.address,
+          abi: RollupAbi,
+          functionName: 'canPruneAtTime' as const,
+          args: [timestamp] as const,
+        })),
+      ],
+      ...this.multicallOptions(options.blockNumber),
+    });
+    return timestamps.map((_, i) => {
+      const manaMinFee = results[i];
+      const canPrune = results[timestamps.length + i];
+      if (typeof manaMinFee !== 'bigint' || typeof canPrune !== 'boolean') {
+        throw new Error('Unexpected multicall result shapes for the per-slot fee reads');
+      }
+      return { manaMinFee, canPrune };
+    });
   }
 
   /**
@@ -1289,36 +1258,29 @@ export class RollupContract {
     timestamps: bigint[],
     options: { blockNumber: bigint },
   ): Promise<{ l1Fees: L1FeeData[]; tips: RollupChainTips }> {
-    if (await this.hasMulticall3()) {
-      const results = await this.client.multicall({
-        contracts: [
-          ...timestamps.map(timestamp => ({
-            address: this.address,
-            abi: RollupAbi,
-            functionName: 'getL1FeesAt' as const,
-            args: [timestamp] as const,
-          })),
-          { address: this.address, abi: RollupAbi, functionName: 'getTips' as const },
-        ],
-        ...this.multicallOptions(options.blockNumber),
-      });
-      const l1Fees = results.slice(0, timestamps.length).map(result => {
-        if (!('baseFee' in result)) {
-          throw new Error('Unexpected multicall result shape for an L1 fees read');
-        }
-        return { baseFee: result.baseFee, blobFee: result.blobFee };
-      });
-      const tail = results[timestamps.length];
-      if (!('pending' in tail)) {
-        throw new Error('Unexpected multicall result shape for the trailing tips read');
+    const results = await this.client.multicall({
+      contracts: [
+        ...timestamps.map(timestamp => ({
+          address: this.address,
+          abi: RollupAbi,
+          functionName: 'getL1FeesAt' as const,
+          args: [timestamp] as const,
+        })),
+        { address: this.address, abi: RollupAbi, functionName: 'getTips' as const },
+      ],
+      ...this.multicallOptions(options.blockNumber),
+    });
+    const l1Fees = results.slice(0, timestamps.length).map(result => {
+      if (!('baseFee' in result)) {
+        throw new Error('Unexpected multicall result shape for an L1 fees read');
       }
-      return { l1Fees, tips: toChainTips(tail) };
+      return { baseFee: result.baseFee, blobFee: result.blobFee };
+    });
+    const tail = results[timestamps.length];
+    if (!('pending' in tail)) {
+      throw new Error('Unexpected multicall result shape for the trailing tips read');
     }
-    const [l1Fees, tips] = await Promise.all([
-      Promise.all(timestamps.map(timestamp => this.getL1FeesAt(timestamp, options))),
-      this.getTips(options),
-    ]);
-    return { l1Fees, tips };
+    return { l1Fees, tips: toChainTips(tail) };
   }
 
   async getManaMinFeeComponentsAt(timestamp: bigint, inFeeAsset: boolean): Promise<ManaMinFeeComponents> {

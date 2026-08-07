@@ -3,6 +3,7 @@ import type {
   FeeHeader,
   L1FeeData,
   RollupChainTips,
+  RollupContract,
   RollupFeeGlobals,
   RollupSlotFeeInputs,
 } from '@aztec/ethereum/contracts';
@@ -16,14 +17,15 @@ import { sleep } from '@aztec/foundation/sleep';
 import { ManualDateProvider } from '@aztec/foundation/timer';
 import { FEE_ORACLE_LAG, ManaUsageEstimate } from '@aztec/stdlib/gas';
 
+import { mock } from 'jest-mock-extended';
+
+import { FeeSnapshotService } from './fee_snapshot_service.js';
 import {
   FeeQuoteStaleError,
   FeeQuoteUnavailableError,
-  FeeSnapshotService,
   type FeeSnapshotServiceConfig,
-  type RollupFeeReader,
   getDefaultFeeSnapshotServiceConfig,
-} from './fee_snapshot_service.js';
+} from './fee_snapshot_types.js';
 
 const L1_GENESIS_TIME = 0n;
 const SLOT_DURATION = 24;
@@ -58,7 +60,7 @@ function makeCheckpoint(slot: number): CheckpointLog {
 }
 
 /** Deterministic in-memory rollup reader. `manaMinFee` returns the slot number so current fees are identifiable. */
-class FakeRollup implements RollupFeeReader {
+class FakeRollup {
   /** Number of stage round trips made (one refresh is {@link STAGES_PER_REFRESH}). */
   public callCount = 0;
   public blockNumbers: bigint[] = [];
@@ -125,6 +127,18 @@ class FakeRollup implements RollupFeeReader {
   }
 }
 
+/** Wraps the fake in a {@link RollupContract} mock so the service can take the real contract type. */
+function asRollupContract(fake: FakeRollup): RollupContract {
+  const rollup = mock<RollupContract>();
+  rollup.getFeeGlobals.mockImplementation(options => fake.getFeeGlobals(options));
+  rollup.getCheckpoints.mockImplementation((checkpointNumbers, options) =>
+    fake.getCheckpoints(checkpointNumbers, options),
+  );
+  rollup.getSlotFeeInputs.mockImplementation((timestamps, options) => fake.getSlotFeeInputs(timestamps, options));
+  rollup.getL1FeesAndTips.mockImplementation((timestamps, options) => fake.getL1FeesAndTips(timestamps, options));
+  return rollup;
+}
+
 class FakeIdentityProvider implements L1SyncSnapshotProvider {
   public snapshot: L1SyncSnapshot | undefined;
   getL1SyncSnapshot(): L1SyncSnapshot | undefined {
@@ -160,7 +174,7 @@ describe('FeeSnapshotService', () => {
       pollIntervalMs: 10_000_000,
       ...overrides,
     };
-    return new FeeSnapshotService(rollup, identity, dateProvider, config);
+    return new FeeSnapshotService(asRollupContract(rollup), identity, dateProvider, config);
   }
 
   function coveredSlots(): number[] {

@@ -17,8 +17,6 @@ describe('RollupContract fee reads', () => {
   let rpcUrl: string;
   let publicClient: ViemClient;
   let rollup: RollupContract;
-  /** Same rollup read through a client that reports no Multicall3 bytecode, so it takes the fallback path. */
-  let rollupWithoutMulticall: RollupContract;
   let cheatCodes: EthCheatCodes;
   let slotDuration: number;
   let l1GenesisTime: bigint;
@@ -39,10 +37,6 @@ describe('RollupContract fee reads', () => {
 
     const rollupAddress = deployed.l1ContractAddresses.rollupAddress.toString();
     rollup = new RollupContract(publicClient, rollupAddress);
-    rollupWithoutMulticall = new RollupContract(
-      { ...publicClient, getCode: () => Promise.resolve(undefined) },
-      rollupAddress,
-    );
     slotDuration = await rollup.getSlotDuration();
     l1GenesisTime = await rollup.getL1GenesisTime();
   }, 60_000);
@@ -56,23 +50,35 @@ describe('RollupContract fee reads', () => {
     return l1GenesisTime + BigInt(slot) * BigInt(slotDuration);
   }
 
-  it('reads every fee stage via Multicall3 identically to the parallel individual fallback', async () => {
+  it('reads every batched fee stage identically to the individual pinned getters', async () => {
     const blockNumber = await publicClient.getBlockNumber();
     const options = { blockNumber };
     const { pending, proven } = await rollup.getTips(options);
     const currentSlot = await rollup.getSlotNumber(options);
     const timestamps = [tsForSlot(Number(currentSlot) + 1), tsForSlot(Number(currentSlot) + 2)];
 
-    expect(await rollup.getFeeGlobals(options)).toEqual(await rollupWithoutMulticall.getFeeGlobals(options));
-    expect(await rollup.getCheckpoints([pending, proven], options)).toEqual(
-      await rollupWithoutMulticall.getCheckpoints([pending, proven], options),
-    );
+    expect(await rollup.getFeeGlobals(options)).toEqual({
+      tips: await rollup.getTips(options),
+      manaTarget: await rollup.readManaTarget(options),
+      manaLimit: await rollup.readManaLimit(options),
+      provingCostPerManaEth: await rollup.readProvingCostPerManaInEth(options),
+    });
+    expect(await rollup.getCheckpoints([pending, proven], options)).toEqual([
+      await rollup.getCheckpoint(pending, options),
+      await rollup.getCheckpoint(proven, options),
+    ]);
     expect(await rollup.getSlotFeeInputs(timestamps, options)).toEqual(
-      await rollupWithoutMulticall.getSlotFeeInputs(timestamps, options),
+      await Promise.all(
+        timestamps.map(async timestamp => ({
+          manaMinFee: await rollup.getManaMinFeeAt(timestamp, true, options),
+          canPrune: await rollup.canPruneAtTime(timestamp, options),
+        })),
+      ),
     );
-    expect(await rollup.getL1FeesAndTips(timestamps, options)).toEqual(
-      await rollupWithoutMulticall.getL1FeesAndTips(timestamps, options),
-    );
+    expect(await rollup.getL1FeesAndTips(timestamps, options)).toEqual({
+      l1Fees: await Promise.all(timestamps.map(timestamp => rollup.getL1FeesAt(timestamp, options))),
+      tips: await rollup.getTips(options),
+    });
   }, 30_000);
 
   it('pins getManaMinFeeAt to a block number so later blocks do not change the read', async () => {

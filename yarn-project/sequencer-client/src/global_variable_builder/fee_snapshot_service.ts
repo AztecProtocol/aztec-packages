@@ -1,13 +1,6 @@
-import type {
-  CheckpointLog,
-  FeeHeader,
-  L1FeeData,
-  RollupChainTips,
-  RollupFeeGlobals,
-  RollupSlotFeeInputs,
-} from '@aztec/ethereum/contracts';
+import type { FeeHeader, L1FeeData, RollupContract, RollupFeeGlobals } from '@aztec/ethereum/contracts';
 import type { L1SyncSnapshot, L1SyncSnapshotProvider } from '@aztec/ethereum/l1-types';
-import { type CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
 import { TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -20,148 +13,30 @@ import {
   getTimestampForSlot,
 } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
+import type { FeeProvider } from '@aztec/stdlib/tx';
 
 import { buildFeeOracleState, computePredictions, getPredictionWindowSlots } from './fee_prediction.js';
-
-/** The subset of {@link RollupContract} the fee snapshot service depends on: one batched pinned read per stage. */
-export interface RollupFeeReader {
-  /** Chain tips plus the governance-settable fee parameters. */
-  getFeeGlobals(options: { blockNumber: bigint }): Promise<RollupFeeGlobals>;
-  /** Checkpoint logs for the given checkpoint numbers, in order. */
-  getCheckpoints(checkpointNumbers: CheckpointNumber[], options: { blockNumber: bigint }): Promise<CheckpointLog[]>;
-  /** Current min fee and prune-ability at each given timestamp, in order. */
-  getSlotFeeInputs(timestamps: bigint[], options: { blockNumber: bigint }): Promise<RollupSlotFeeInputs[]>;
-  /** L1 fee oracle values at each given timestamp plus a trailing re-read of the chain tips. */
-  getL1FeesAndTips(
-    timestamps: bigint[],
-    options: { blockNumber: bigint },
-  ): Promise<{ l1Fees: L1FeeData[]; tips: RollupChainTips }>;
-}
-
-/**
- * One complete, finished fee quote for a single candidate slot. Entries are outputs, never partially derived
- * state: both the current fee and all three prediction arrays are precomputed at refresh time so the read path
- * issues zero L1 requests.
- */
-export type FeeQuoteCandidate = {
-  /** The candidate L2 slot this quote is for. */
-  slot: SlotNumber;
-  /** Slot-start timestamp used for the pinned reads. */
-  timestamp: bigint;
-  /** Canonical current fee: Solidity `getManaMinFeeAt(timestamp)` at the pinned block. */
-  currentMinFee: GasFees;
-  /** Precomputed `FEE_ORACLE_LAG`-length prediction array per mana-usage estimate. */
-  predictions: Record<ManaUsageEstimate, GasFees[]>;
-};
-
-/**
- * Immutable, atomically-swapped view of the fee model at a single pinned L1 block. Selection floors come only
- * from the snapshot-level fields; coverage is map membership, so a wanted slot is either served exactly or
- * triggers a refresh.
- */
-export type FeeSnapshot = {
-  /** L1 identity this snapshot was built at (block number + hash + timestamp). */
-  l1: L1SyncSnapshot;
-  /** Raw pending checkpoint slot at the pinned block — floor for the current-fee anchor rule. */
-  pendingCheckpointSlot: SlotNumber;
-  /** Slot of the pinned block timestamp (TS arithmetic) — floor for the prediction anchor rule. */
-  pinnedSlot: SlotNumber;
-  /** One complete entry per materialized candidate slot, keyed by the primitive slot number. */
-  candidates: ReadonlyMap<number, FeeQuoteCandidate>;
-};
-
-/** Tuning and staleness configuration for the fee snapshot service. All durations use their stated units. */
-export type FeeSnapshotServiceConfig = {
-  slotDuration: number;
-  l1GenesisTime: bigint;
-  ethereumSlotDuration: number;
-  epochDuration: number;
-  /** Background poll interval (ms) for the refresh loop; only in-memory comparisons run per tick. */
-  pollIntervalMs: number;
-  /** Max age (seconds) of the pinned L1 head before reads fail closed. `0` disables. */
-  maxL1HeadAgeSeconds: number;
-  /** Bound (ms) a read waits for refreshes before failing closed with a typed error. */
-  refreshTimeoutMs: number;
-};
-
-/** Derives the default fee snapshot service config from the L1 timing constants. */
-export function getDefaultFeeSnapshotServiceConfig(base: {
-  slotDuration: number;
-  l1GenesisTime: bigint;
-  ethereumSlotDuration: number;
-  epochDuration: number;
-}): FeeSnapshotServiceConfig {
-  return {
-    ...base,
-    pollIntervalMs: 500,
-    maxL1HeadAgeSeconds: 300,
-    refreshTimeoutMs: 5_000,
-  };
-}
-
-/** Base class for all fee snapshot errors, so callers can catch the whole family. */
-export class FeeSnapshotError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'FeeSnapshotError';
-  }
-}
-
-/** No fee quote can be produced right now: no identity, no snapshot, refresh failure backoff, or stopped. */
-export class FeeQuoteUnavailableError extends FeeSnapshotError {
-  constructor(reason: string) {
-    super(`Fee quote is unavailable: ${reason}`);
-    this.name = 'FeeQuoteUnavailableError';
-  }
-}
-
-/** The pinned L1 head is older than the configured bound, so quotes fail closed instead of going stale. */
-export class FeeQuoteStaleError extends FeeSnapshotError {
-  constructor(
-    public readonly ageSeconds: number,
-    public readonly maxAgeSeconds: number,
-  ) {
-    super(`Fee quote is stale: pinned L1 head age ${ageSeconds}s exceeds max ${maxAgeSeconds}s`);
-    this.name = 'FeeQuoteStaleError';
-  }
-}
-
-/** Counters exposed for benchmarking and observability. */
-export type FeeSnapshotStats = {
-  /** Total refreshes that published a snapshot. */
-  refreshes: number;
-  /** Total refresh failures (kept last-good, retried with backoff). */
-  refreshFailures: number;
-  /** Reads that had to trigger a refresh because the warm snapshot did not serve them (identity or coverage). */
-  readTriggeredRefreshes: number;
-};
-
-/** Cause of a refresh, recorded on logs for observability. */
-type RefreshCause = 'poll-identity' | 'poll-coverage' | 'read';
-
-/**
- * Extra slots materialized above each anchor so quotes survive a run of empty Ethereum slots or a short L1
- * stall without a refresh. Two suffices only because the Aztec slot duration is a positive multiple of the
- * Ethereum slot duration, so one L1 block advances the wanted slot by at most one; together with the poll
- * tick's one-slot lookahead that leaves a full slot of margin to refresh in.
- */
-const CANDIDATE_HEADROOM_SLOTS = 2;
-
-/**
- * Attempts a read makes before giving up: one stale in-flight publication, one corrective refresh, and one
- * successful lookup. Identity churn beyond that inside a single call's deadline is reported as unavailable.
- */
-const MAX_LOOKUP_ATTEMPTS = 3;
-
-const BACKOFF_BASE_MS = 250;
-const BACKOFF_MAX_MS = 8_000;
+import {
+  BACKOFF_BASE_MS,
+  BACKOFF_MAX_MS,
+  CANDIDATE_HEADROOM_SLOTS,
+  type FeeQuoteCandidate,
+  FeeQuoteStaleError,
+  FeeQuoteUnavailableError,
+  type FeeSnapshot,
+  FeeSnapshotError,
+  type FeeSnapshotServiceConfig,
+  type FeeSnapshotStats,
+  MAX_LOOKUP_ATTEMPTS,
+  type RefreshCause,
+} from './fee_snapshot_types.js';
 
 /**
  * Serves current and predicted fee quotes from an in-memory snapshot refreshed in the background per L1 block,
  * so warm RPC calls issue zero L1 requests. Reads are served from a complete, immutable, atomically-swapped
  * {@link FeeSnapshot} whose every value was read at the archiver's synced L1 block.
  */
-export class FeeSnapshotService {
+export class FeeSnapshotService implements FeeProvider {
   private snapshot: FeeSnapshot | undefined;
   private inFlight: Promise<FeeSnapshot> | undefined;
 
@@ -179,7 +54,7 @@ export class FeeSnapshotService {
   };
 
   constructor(
-    private readonly rollup: RollupFeeReader,
+    private readonly rollup: RollupContract,
     private readonly identityProvider: L1SyncSnapshotProvider,
     private readonly dateProvider: DateProvider,
     private readonly config: FeeSnapshotServiceConfig,
@@ -230,14 +105,15 @@ export class FeeSnapshotService {
   }
 
   /** Returns current min fees first, followed by predicted min fees for each slot in the prediction window. */
-  public async getPredictedMinFees(manaUsage: ManaUsageEstimate): Promise<GasFees[]> {
+  public async getPredictedMinFees(manaUsage: ManaUsageEstimate = ManaUsageEstimate.Target): Promise<GasFees[]> {
     const { current, prediction } = await this.resolveLookup();
     return [current.currentMinFee, ...prediction.predictions[manaUsage]];
   }
 
   /**
-   * Resolves the two anchor candidates for the current wall clock, refreshing when the snapshot is missing, no
-   * longer matches the archiver identity, or does not cover a wanted slot. Issues no L1 request on the warm path.
+   * Resolves the two anchor candidates for the current wall clock. The loop makes up to three attempts under a
+   * single deadline: each attempt either serves from the published snapshot or identifies why it cannot (no
+   * snapshot, superseded identity, uncovered slot), triggers a refresh, awaits it, and tries again.
    */
   private async resolveLookup(): Promise<{ current: FeeQuoteCandidate; prediction: FeeQuoteCandidate }> {
     const deadline = this.dateProvider.now() + this.config.refreshTimeoutMs;
@@ -248,7 +124,7 @@ export class FeeSnapshotService {
       }
       const snapshot = this.snapshot;
       if (!snapshot) {
-        await this.readTriggeredRefresh(deadline);
+        await this.refreshForRead(deadline);
         continue;
       }
 
@@ -258,7 +134,7 @@ export class FeeSnapshotService {
       // corrects a refresh that published while the identity was changing.
       const identity = this.identityProvider.getL1SyncSnapshot();
       if (identity && !identity.blockHash.equals(snapshot.l1.blockHash)) {
-        await this.readTriggeredRefresh(deadline);
+        await this.refreshForRead(deadline);
         continue;
       }
 
@@ -266,7 +142,7 @@ export class FeeSnapshotService {
       const current = snapshot.candidates.get(this.wantedCurrentSlot(snapshot.pendingCheckpointSlot, nowSeconds));
       const prediction = snapshot.candidates.get(this.wantedPredictionSlot(snapshot.pinnedSlot, nowSeconds));
       if (!current || !prediction) {
-        await this.readTriggeredRefresh(deadline);
+        await this.refreshForRead(deadline);
         continue;
       }
 
@@ -299,26 +175,6 @@ export class FeeSnapshotService {
     }
   }
 
-  /**
-   * Awaits a refresh on behalf of a read, bounded by the remaining deadline. On timeout only the wait is
-   * abandoned: the shared refresh keeps running for the poll loop and any other waiter.
-   */
-  private async readTriggeredRefresh(deadline: number): Promise<void> {
-    this.stats.readTriggeredRefreshes++;
-    const remaining = deadline - this.dateProvider.now();
-    if (remaining <= 0) {
-      throw new FeeQuoteUnavailableError('the read deadline elapsed before a refresh could complete');
-    }
-    try {
-      await executeTimeout(() => this.triggerRefresh('read'), remaining, 'fee snapshot refresh');
-    } catch (err) {
-      if (err instanceof TimeoutError) {
-        throw new FeeQuoteUnavailableError(`no refresh completed within ${remaining}ms`);
-      }
-      throw err;
-    }
-  }
-
   /** Refreshes when the archiver identity changed or the covered slots are about to be outrun by the clock. */
   private async tick(): Promise<void> {
     if (this.stopped || this.dateProvider.now() < this.nextRetryAtMs) {
@@ -330,9 +186,9 @@ export class FeeSnapshotService {
     }
     const snapshot = this.snapshot;
     if (!snapshot || !identity.blockHash.equals(snapshot.l1.blockHash)) {
-      await this.triggerRefresh('poll-identity').catch(() => undefined);
+      await this.refresh('poll-identity').catch(() => undefined);
     } else if (!this.coversUpcomingSlots(snapshot)) {
-      await this.triggerRefresh('poll-coverage').catch(() => undefined);
+      await this.refresh('poll-coverage').catch(() => undefined);
     }
   }
 
@@ -348,12 +204,36 @@ export class FeeSnapshotService {
   }
 
   /**
-   * Single-flight refresh: concurrent callers and the poll loop share one in-flight refresh, which is cleared
-   * before its waiters resume so the next caller can start a fresh one against a newer identity.
+   * Awaits a refresh on behalf of a read, bounded by the remaining read deadline. On timeout only the wait is
+   * abandoned: the refresh keeps running and stays shared with the poll loop and any other waiter.
    */
-  private triggerRefresh(cause: RefreshCause): Promise<FeeSnapshot> {
+  private async refreshForRead(deadline: number): Promise<void> {
+    this.stats.readTriggeredRefreshes++;
+    const remaining = deadline - this.dateProvider.now();
+    if (remaining <= 0) {
+      throw new FeeQuoteUnavailableError('the read deadline elapsed before a refresh could complete');
+    }
+    try {
+      await executeTimeout(() => this.refresh('read'), remaining, 'fee snapshot refresh');
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        throw new FeeQuoteUnavailableError(`no refresh completed within ${remaining}ms`);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Returns the in-flight refresh, starting one if none is running: concurrent readers and the poll loop always
+   * share a single refresh. Rejects without touching L1 when the service is stopped, when refreshes are backing
+   * off after failures, or when the archiver has no identity to pin reads to.
+   */
+  private refresh(cause: RefreshCause): Promise<FeeSnapshot> {
     if (this.stopped) {
       return Promise.reject(new FeeQuoteUnavailableError('the service was stopped'));
+    }
+    if (this.inFlight) {
+      return this.inFlight;
     }
     // Reads must not bypass the failure backoff: with a failing L1, per-request refreshes would turn incoming
     // RPC traffic directly into L1 load. Fail fast instead; the background loop retries once the backoff elapses.
@@ -362,22 +242,17 @@ export class FeeSnapshotService {
         new FeeQuoteUnavailableError(`refreshes are backing off after ${this.consecutiveFailures} failures`),
       );
     }
-    if (this.inFlight) {
-      return this.inFlight;
-    }
     const identity = this.identityProvider.getL1SyncSnapshot();
     if (!identity) {
       return Promise.reject(new FeeQuoteUnavailableError('the archiver has no L1 identity yet'));
     }
-    const refresh: Promise<FeeSnapshot> = this.runRefresh(identity, cause).finally(() => {
-      if (this.inFlight === refresh) {
-        this.inFlight = undefined;
-      }
-    });
-    this.inFlight = refresh;
-    return refresh;
+    // The slot is freed only once the refresh settles, and every waiter resumes after that, so a subsequent
+    // caller (e.g. a read that found this snapshot already superseded) starts a fresh refresh at a new identity.
+    this.inFlight = this.runRefresh(identity, cause).finally(() => (this.inFlight = undefined));
+    return this.inFlight;
   }
 
+  /** Builds and publishes a snapshot, resetting the backoff on success and recording failure + backoff on error. */
   private async runRefresh(identity: L1SyncSnapshot, cause: RefreshCause): Promise<FeeSnapshot> {
     try {
       const snapshot = await this.buildSnapshot(identity);

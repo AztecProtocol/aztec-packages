@@ -19,7 +19,6 @@ import { type P2PClientDeps, createP2PClient } from '@aztec/p2p';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
 import {
-  FeeProviderImpl,
   FeeSnapshotService,
   GlobalVariableBuilder,
   SequencerClient,
@@ -260,7 +259,7 @@ export async function createAztecNodeService(
     );
     feeSnapshotService.start();
     started.push(feeSnapshotService);
-    const feeProvider = new FeeProviderImpl(feeSnapshotService);
+    const feeProvider = feeSnapshotService;
 
     const collectOffenses = !config.disableValidator || config.enableOffenseCollection;
 

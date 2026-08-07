@@ -23,11 +23,8 @@ import { FEE_ORACLE_LAG, GasFees, ManaUsageEstimate, computeExcessMana } from '@
 import { foundry } from 'viem/chains';
 
 import { type FeeOracleState, computePredictions } from './fee_prediction.js';
-import {
-  FeeSnapshotService,
-  type FeeSnapshotServiceConfig,
-  getDefaultFeeSnapshotServiceConfig,
-} from './fee_snapshot_service.js';
+import { FeeSnapshotService } from './fee_snapshot_service.js';
+import { type FeeSnapshotServiceConfig, getDefaultFeeSnapshotServiceConfig } from './fee_snapshot_types.js';
 
 type LegacyOracleConstants = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
 

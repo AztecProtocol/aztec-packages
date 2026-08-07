@@ -74,11 +74,6 @@ export class ArchiverL1Synchronizer implements Traceable {
   private l1BlockNumber: bigint | undefined;
   private l1BlockHash: Buffer32 | undefined;
   private l1Timestamp: bigint | undefined;
-  /**
-   * Atomic snapshot of the last fully-synced L1 identity. Published as a single object reference at the
-   * same point the three fields above are assigned, so a synchronous reader never observes a torn triple.
-   */
-  private l1SyncSnapshot: L1SyncSnapshot | undefined;
 
   private readonly updater: ArchiverDataStoreUpdater;
   public readonly tracer: Tracer;
@@ -134,9 +129,15 @@ export class ArchiverL1Synchronizer implements Traceable {
     return this.l1Timestamp;
   }
 
-  /** Returns the last fully-synced L1 identity as an atomic in-memory snapshot, or undefined before the first sync. */
+  /**
+   * Returns the last fully-synced L1 identity, or undefined before the first sync. The three backing fields are
+   * assigned together synchronously at the end of a sync pass, so the returned triple is never torn.
+   */
   public getL1SyncSnapshot(): L1SyncSnapshot | undefined {
-    return this.l1SyncSnapshot;
+    if (this.l1BlockNumber === undefined || this.l1BlockHash === undefined || this.l1Timestamp === undefined) {
+      return undefined;
+    }
+    return { blockNumber: this.l1BlockNumber, blockHash: this.l1BlockHash, blockTimestamp: this.l1Timestamp };
   }
 
   private getSignatureContext(): CoordinationSignatureContext {
@@ -250,11 +251,6 @@ export class ArchiverL1Synchronizer implements Traceable {
     this.l1Timestamp = currentL1Timestamp;
     this.l1BlockNumber = currentL1BlockNumber;
     this.l1BlockHash = currentL1BlockHash;
-    this.l1SyncSnapshot = {
-      blockNumber: currentL1BlockNumber,
-      blockHash: currentL1BlockHash,
-      blockTimestamp: currentL1Timestamp,
-    };
 
     const l1BlockNumberAtEnd = await this.publicClient.getBlockNumber();
     this.log.debug(`Archiver sync iteration complete`, {
