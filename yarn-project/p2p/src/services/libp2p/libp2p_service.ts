@@ -29,6 +29,7 @@ import { ConsensusTimetable, getDefaultCheckpointProposalSyncGrace } from '@azte
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
+import { InvalidBlockProposalTxsError } from '@aztec/stdlib/validators';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import {
   Attributes,
@@ -1401,14 +1402,29 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Mark the txs in this proposal as protected
     await this.mempools.txPool.protectTxs(block.txHashes, block.blockHeader);
 
-    // Call the block received callback to validate the proposal.
-    // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
-    const isValid = await this.blockReceivedCallback(block, sender);
-    if (!isValid) {
-      this.logger.info(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
+    if (!(await this.tryBlockReceivedCallback(block, sender))) {
       // Release the protections this proposal created so its txs return to pending. Only entries still
       // keyed to this slot are cleared, so a tx referenced by a live proposal at another slot stays protected.
       await this.mempools.txPool.unprotectTxs(block.txHashes, slot);
+    }
+  }
+
+  /**
+   * Runs the block received callback to validate a proposal, and returns whether it was accepted.
+   * A callback that throws is reported as a rejection: the proposal is no more usable than one explicitly
+   * rejected, and letting the error escape would leave the proposal's tx protections in place.
+   * Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
+   */
+  private async tryBlockReceivedCallback(block: BlockProposal, sender: PeerId): Promise<boolean> {
+    try {
+      const isValid = await this.blockReceivedCallback(block, sender);
+      if (!isValid) {
+        this.logger.info(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
+      }
+      return isValid;
+    } catch (err) {
+      this.logger.error(`Error validating block proposal for block ${block.blockNumber}`, err, block.toBlockInfo());
+      return false;
     }
   }
 
@@ -1751,13 +1767,15 @@ export class LibP2PService extends WithTracer implements P2PService {
     );
 
     const results = await Promise.all(
-      txs.map(async tx => {
-        const result = await validator.validateTx(tx);
-        return result.result !== 'invalid';
-      }),
+      txs.map(async tx => ({ txHash: tx.getTxHash(), result: await validator.validateTx(tx) })),
     );
-    if (results.some(value => value === false)) {
-      throw new Error('Invalid tx detected');
+
+    const invalidTxs = results.flatMap(({ txHash, result }) =>
+      result.result === 'invalid' ? [{ txHash, reasons: result.reason }] : [],
+    );
+
+    if (invalidTxs.length > 0) {
+      throw new InvalidBlockProposalTxsError(invalidTxs);
     }
   }
 
