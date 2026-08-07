@@ -717,7 +717,7 @@ function release_compat_e2e {
   done
 
   # Compat command cache keys include both the end-to-end build hash and CONTRACT_ARTIFACTS_VERSION,
-  # so successful results can only be reused for the same source and historical artifacts.
+  # so successful results can only be reused for the same build inputs and historical artifacts.
   # Keep the bespoke test settings isolated from the release build/publish that follows.
   # set -e re-enables errexit inside this subshell: the caller invokes release_compat_e2e with errexit
   # disabled (to capture its exit code), so without this a failed build/install would be masked.
