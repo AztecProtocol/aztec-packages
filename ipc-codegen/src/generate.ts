@@ -25,7 +25,7 @@ import {
   rmSync,
 } from "fs";
 import { execSync } from "child_process";
-import { dirname, join, resolve } from "path";
+import { basename, dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 import {
   SchemaVisitor,
@@ -38,6 +38,7 @@ import { TypeScriptCodegen } from "./typescript_codegen.ts";
 import {
   defaultBinaryEnvVar,
   TypeScriptPackageCodegen,
+  TypeScriptServerPackageCodegen,
 } from "./typescript_package_codegen.ts";
 import { RustCodegen } from "./rust_codegen.ts";
 import { ZigCodegen } from "./zig_codegen.ts";
@@ -85,7 +86,10 @@ Required:
 Optional:
   --server                 Generate server dispatch
   --client                 Generate client
-  --package <dir>          Generate a TS package shell around a spawned IPC service (ts only)
+  --package <dir>          Generate a TS package shell around a spawned IPC service (ts only).
+                           With --server and no --client, generates a server binding
+                           package instead: wire types + Handler/dispatch + the schema
+                           file, no binary or arch packages
   --package-name <name>    TS package name for --package
   --binary-name <name>     Native service binary name for --package
   --binary-env-var <name>  Env var overriding the binary path for --package
@@ -357,6 +361,9 @@ function generate(args: Args) {
 
   switch (args.lang) {
     case "ts": {
+      // --package with --server (and no --client) means a server binding
+      // package: no spawned binary, so no client APIs or arch packages.
+      const serverPackage = !!args.packageDir && args.server && !args.client;
       const gen = new TypeScriptCodegen({
         stripMethodPrefix: stripMethodPrefix ? prefix : undefined,
       });
@@ -366,7 +373,7 @@ function generate(args: Args) {
         // No transport template copy — consumers import UdsIpcServer from
         // '@aztec/ipc-runtime' (or hand a compatible byte-handler in).
       }
-      if (args.client || args.packageDir) {
+      if (args.client || (args.packageDir && !serverPackage)) {
         writeFile("async.ts", gen.generateAsyncApi(compiled));
         writeFile("sync.ts", gen.generateSyncApi(compiled));
         // No transport template copy — consumers import IpcClient from
@@ -377,25 +384,8 @@ function generate(args: Args) {
       }
       if (args.packageDir) {
         const packageDir = resolve(args.packageDir);
-        const binaryName =
-          args.binaryName || toSnakeCase(prefix).replace(/_/g, "-");
         const packageName =
           args.packageName || `${toSnakeCase(prefix).replace(/_/g, "-")}-ipc`;
-        const packageGen = new TypeScriptPackageCodegen({
-          prefix,
-          packageName,
-          binaryName,
-          binaryEnvVar: args.binaryEnvVar || defaultBinaryEnvVar(binaryName),
-          ipcRuntimeDependency: args.ipcRuntimeDependency,
-          transports: args.packageTransports
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-          ipcPathArgs: args.packageIpcPathArgs
-            .split(",")
-            .map((arg) => arg.trim())
-            .filter(Boolean),
-        });
         const writePackage = (
           name: string,
           content: string,
@@ -413,22 +403,55 @@ function generate(args: Args) {
           }
           console.log(`  ${path} (package)`);
         };
-        writePackage("package.json", packageGen.generatePackageJson());
-        writePackage("tsconfig.json", packageGen.generateTsconfig());
-        writePackage("README.md", packageGen.generateReadme());
-        writePackage("src/index.ts", packageGen.generateIndex());
-        writePackage("src/platform.ts", packageGen.generatePlatform());
-        if (binaryName) {
-          writePackage("src/bin.ts", packageGen.generateBin());
+        if (serverPackage) {
+          const schemaFileName = basename(absSchema);
+          const packageGen = new TypeScriptServerPackageCodegen({
+            prefix,
+            packageName,
+            schemaFileName,
+          });
+          writePackage("package.json", packageGen.generatePackageJson());
+          writePackage("tsconfig.json", packageGen.generateTsconfig());
+          writePackage("README.md", packageGen.generateReadme());
+          writePackage("src/index.ts", packageGen.generateIndex());
+          // Ship the schema itself: it is the wire contract the package was
+          // generated from, and lets consumers regenerate bindings.
+          writePackage(schemaFileName, readFileSync(absSchema, "utf-8"));
+        } else {
+          const binaryName =
+            args.binaryName || toSnakeCase(prefix).replace(/_/g, "-");
+          const packageGen = new TypeScriptPackageCodegen({
+            prefix,
+            packageName,
+            binaryName,
+            binaryEnvVar: args.binaryEnvVar || defaultBinaryEnvVar(binaryName),
+            ipcRuntimeDependency: args.ipcRuntimeDependency,
+            transports: args.packageTransports
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean),
+            ipcPathArgs: args.packageIpcPathArgs
+              .split(",")
+              .map((arg) => arg.trim())
+              .filter(Boolean),
+          });
+          writePackage("package.json", packageGen.generatePackageJson());
+          writePackage("tsconfig.json", packageGen.generateTsconfig());
+          writePackage("README.md", packageGen.generateReadme());
+          writePackage("src/index.ts", packageGen.generateIndex());
+          writePackage("src/platform.ts", packageGen.generatePlatform());
+          if (binaryName) {
+            writePackage("src/bin.ts", packageGen.generateBin());
+          }
+          for (const manifest of packageGen.generateArchPackageManifests()) {
+            writePackage(manifest.path, manifest.content);
+          }
+          writePackage(
+            "scripts/prepare_arch_packages.sh",
+            packageGen.generatePrepareArchPackagesScript(),
+            { executable: true },
+          );
         }
-        for (const manifest of packageGen.generateArchPackageManifests()) {
-          writePackage(manifest.path, manifest.content);
-        }
-        writePackage(
-          "scripts/prepare_arch_packages.sh",
-          packageGen.generatePrepareArchPackagesScript(),
-          { executable: true },
-        );
       }
       break;
     }

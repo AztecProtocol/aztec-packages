@@ -50,7 +50,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
+.PHONY: noir barretenberg noir-projects l1-contracts release-image playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -76,7 +76,6 @@ fast-labs: yarn-project yarn-project-tests \
 		noir-contracts \
 		contract-snapshots-tests \
 		spartan \
-		boxes boxes-tests \
 		playground playground-tests \
 		docs docs-tests \
 		release-image release-image-tests \
@@ -144,7 +143,7 @@ avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm6
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-avm-sim bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-avm-sim bb-cdb bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -276,6 +275,12 @@ bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native
 
 bb-avm-sim-cross-copy: bb-avm-sim bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy_bb_avm_sim)
+
+# Generated @aztec/cdb server bindings. Ordered after bb-avm-sim rather than run
+# alongside it: both regenerate the same barretenberg/ts workspaces and install
+# into the same node_modules.
+bb-cdb: ipc-codegen ipc-runtime bb-avm-sim
+	$(call build,$@,barretenberg/ts,build_cdb)
 
 # BB Rust - barretenberg-rs FFI crate
 bb-rs: bb-ts bb-cpp-native
@@ -519,7 +524,7 @@ yarn-project: noir-projects-labs labs-aztec-toolchain
 # If we still in the monorepo, we need to additionally depend on everything else explicitly.
 # In the labs repo, we will consume them differently.
 # TODO(fcarreiro): comment this out when pinning binaries.
-yarn-project: bb-ts l1-contracts wsdb bb-avm-sim constants-codegen noir-projects-fnd
+yarn-project: bb-ts l1-contracts wsdb bb-avm-sim bb-cdb constants-codegen noir-projects-fnd
 
 yarn-project-tests: yarn-project
 	$(call test,$@,yarn-project/end-to-end)
@@ -538,12 +543,6 @@ release-image: yarn-project
 
 release-image-tests: release-image
 	$(call test,$@,release-image)
-
-boxes: yarn-project labs-aztec-toolchain
-	$(call build,$@,boxes)
-
-boxes-tests: boxes
-	$(call test,$@,boxes)
 
 playground: yarn-project
 	$(call build,$@,playground)

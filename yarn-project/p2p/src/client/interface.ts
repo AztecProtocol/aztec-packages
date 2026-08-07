@@ -241,7 +241,10 @@ export type P2P = P2PClient & {
 
   updateP2PConfig(config: Partial<P2PConfig>): Promise<void>;
 
-  /** Validates a set of txs received in a block proposal. */
+  /**
+   * Validates a set of txs received in a block proposal.
+   * @throws InvalidBlockProposalTxsError - If any tx fails minimum integrity validation.
+   */
   validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void>;
 
   /** Clears the db. */

@@ -9,7 +9,8 @@
   "workspaces": [
     "bb.js",
     "bb-avm-sim",
-    "bb-avm-sim/packages/*"
+    "bb-avm-sim/packages/*",
+    "cdb"
   ],
   "resolutions": {
     "@aztec/ipc-runtime": "portal:../../ipc-runtime/ts"

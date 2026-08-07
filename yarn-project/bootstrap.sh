@@ -146,7 +146,6 @@ function compile_all {
     noir-protocol-circuits-types \
     protocol-contracts \
     pxe \
-    simulator \
     standard-contracts
   cat joblog.txt
 

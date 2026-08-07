@@ -9,6 +9,8 @@
 !/barretenberg/ts/bb-avm-sim/build/
 !/barretenberg/ts/bb-avm-sim/package.json
 !/barretenberg/ts/bb-avm-sim/packages/
+!/barretenberg/ts/cdb/dest/
+!/barretenberg/ts/cdb/package.json
 !/ipc-runtime/ts/dest/
 !/ipc-runtime/ts/package.json
 !/wsdb/ts/dest/

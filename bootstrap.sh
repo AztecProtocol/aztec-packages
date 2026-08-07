@@ -582,7 +582,6 @@ function release {
     noir-projects/labs/aztec-nr
     protocol/constants-codegen
     yarn-project
-    boxes
     # aztec-up is omitted until the repo split is complete.
     playground
     release-image

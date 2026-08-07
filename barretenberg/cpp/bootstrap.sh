@@ -134,8 +134,10 @@ function download_chonk_inputs {
 function build_cross_objects {
   set -eu
   target=$1
+  # Of the cross targets, only arm64-linux builds bb-avm, which needs the full vm2.
+  local vm2_full=$([[ "$target" == arm64-linux ]] && echo vm2 || true)
   if ! cache_exists barretenberg-$target-$hash.zst; then
-    cmake_build $target --target barretenberg vm2_stub vm2_sim circuit_checker honk
+    cmake_build $target --target barretenberg vm2_stub vm2_sim circuit_checker honk $vm2_full
   fi
 }
 
@@ -228,6 +230,9 @@ function build_release_dir {
   tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-arm64-macos/bin bb
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-amd64-macos/bin bb
   tar -czf build-release/barretenberg-amd64-windows.tar.gz -C build-amd64-windows/bin bb.exe
+
+  # bb-avm cross-compiles.
+  tar -czf build-release/barretenberg-avm-arm64-linux.tar.gz -C build-arm64-linux/bin bb-avm
 
   # Package static libraries for FFI bindings (stripped at build time via CMake POST_BUILD).
   tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C $native_build_dir/lib libbb-external.a
