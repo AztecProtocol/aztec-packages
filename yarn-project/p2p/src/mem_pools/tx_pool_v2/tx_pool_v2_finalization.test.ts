@@ -53,11 +53,11 @@ describe('TxPoolV2 finalization stall', () => {
   let minedTxs: Tx[];
   let incomingTx: Tx;
 
-  const makeHeader = (blockNumber: number) =>
+  const makeHeader = (n: number) =>
     BlockHeader.empty({
       globalVariables: GlobalVariables.empty({
-        blockNumber: BlockNumber(blockNumber),
-        slotNumber: SlotNumber(blockNumber),
+        blockNumber: BlockNumber(n),
+        slotNumber: SlotNumber(n),
       }),
     });
 

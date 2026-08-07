@@ -108,13 +108,22 @@ export class TxArchive {
     return head - tail;
   }
 
+  // NOTE: these must consume the iterator via for-await so the underlying LMDB cursor is closed.
+  // Calling .next() once and abandoning the generator leaks a cursor slot: inside a write
+  // transaction the committed-state iterator is unbounded (the limit is applied by the wrapper),
+  // and the abandoned generator never runs its finally block, so CLOSE_CURSOR is never sent. The
+  // store has maxReaders - 1 cursor slots; leaking them deadlocks every later iteration on the store.
   private async getHeadIndex(): Promise<number> {
-    const entry = await this.#indices.entriesAsync({ limit: 1, reverse: true }).next();
-    return (entry.value?.[0] ?? -1) + 1;
+    for await (const [index] of this.#indices.entriesAsync({ limit: 1, reverse: true })) {
+      return index + 1;
+    }
+    return 0;
   }
 
   private async getTailIndex(): Promise<number> {
-    const entry = await this.#indices.entriesAsync({ limit: 1 }).next();
-    return entry.value?.[0] ?? 0;
+    for await (const [index] of this.#indices.entriesAsync({ limit: 1 })) {
+      return index;
+    }
+    return 0;
   }
 }
