@@ -8,6 +8,7 @@
 
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
+#include "barretenberg/avm_fuzzer/counters.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzzer_comparison_helper.hpp"
@@ -173,6 +174,8 @@ TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB
         fuzz_info("simulate_fast_internal threw an exception: ", e.what());
         return {};
     }
+
+    record_tx_result(fast_result, tx_data.tx.gas_settings.gas_limits);
 
     // 2. Run hint-collecting simulation against a fresh copy of the in-memory merkle DB.
     simulation::MemoryMerkleDB hint_merkle_db = ws_mgr.get_memory_merkle_db();

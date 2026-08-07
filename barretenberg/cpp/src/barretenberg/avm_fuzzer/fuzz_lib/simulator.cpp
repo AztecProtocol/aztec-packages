@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
+#include "barretenberg/avm_fuzzer/counters.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
@@ -65,6 +66,7 @@ SimulatorResult CppSimulator::simulate(
     AvmSimulationHelper helper;
     TxSimulationResult result =
         helper.simulate_fast_internal(contract_db, merkle_db, config, tx, globals, protocol_contracts);
+    record_tx_result(result, tx.gas_settings.gas_limits);
     bool reverted = result.revert_code != RevertCode::OK;
     // Just process the top level call's output
     vinfo(
