@@ -45,7 +45,19 @@ function setup_environment {
 function check_cache {
   echo_header "Cache Check"
   local tree_hash=$(git rev-parse HEAD^{tree})
-  local cache_name="ci-success-${CI_MODE}-${tree_hash}.tar.gz"
+  local cache_context=""
+  if [ "${TARGET_BRANCH:-}" = "v5-next" ]; then
+    local stable_tags
+    stable_tags=$(git ls-remote --tags --refs origin 'refs/tags/v5.*' |
+      awk '$2 ~ /^refs\/tags\/v5\.[0-9]+\.[0-9]+$/ { print }' |
+      sort -k2V)
+    if [ -z "$stable_tags" ]; then
+      echo "ERROR: no stable v5 tags found while constructing the compatibility cache key." >&2
+      return 1
+    fi
+    cache_context="-compat-$(printf '%s\n' "$stable_tags" | git hash-object --stdin | cut -c1-16)"
+  fi
+  local cache_name="ci-success-${CI_MODE}${cache_context}-${tree_hash}.tar.gz"
   # Export for use by ci3_success.sh
   echo "CI_CACHE_NAME=$cache_name" >> $GITHUB_ENV
   # Only whitelist some ci modes for cache.

@@ -1064,7 +1064,7 @@ case "$cmd" in
     ;;
   "ci-release")
     # Single command that tests and publishes a release. Runs the backwards-compatibility e2e
-    # checks (blocking for stable/RC, observational for nightlies), then builds and publishes.
+    # checks before building and publishing.
     # DRY_RUN=1 exercises the whole flow without publishing — this is how releases are tested in CI.
     export CI=1
     export USE_TEST_CACHE=1
@@ -1072,8 +1072,7 @@ case "$cmd" in
       exit 1
     fi
 
-    # Backwards-compatibility e2e checks. A failure blocks stable/RC releases, but only warns on
-    # nightlies (where compat coverage is observational) so the nightly publish still proceeds.
+    # Backwards-compatibility e2e checks must pass before any release is published.
     # Toggle errexit explicitly rather than `compat_e2e || compat_rc=$?`: calling under `||`
     # suspends errexit for the whole function (and its subshell), masking build/setup failures there.
     compat_rc=0
@@ -1085,11 +1084,9 @@ case "$cmd" in
       if [[ "${REF_NAME:-}" == *-nightly.* ]]; then
         run_url="https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}/actions/runs/${RUN_ID:-unknown}"
         "$ci3/slack_notify" "Backwards compatibility e2e tests FAILED on nightly tag <${run_url}|${REF_NAME}>" "#team-fairies" || true
-        echo "Compat e2e failed on nightly tag — continuing (non-blocking)."
-      else
-        echo "ERROR: backwards compatibility e2e tests failed — blocking release." >&2
-        exit 1
       fi
+      echo "ERROR: backwards compatibility e2e tests failed — blocking release." >&2
+      exit 1
     fi
 
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then

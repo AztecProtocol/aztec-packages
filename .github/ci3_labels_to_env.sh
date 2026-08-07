@@ -57,7 +57,7 @@ function main {
     echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
   fi
 
-  # Handle skip-compat-e2e label (escape hatch for backwards compat test failures on release PRs)
+  # Handle the escape hatch for release and v5-next PR compatibility checks.
   if has_label "ci-skip-compat-e2e"; then
     echo "SKIP_COMPAT_E2E=1" >> $GITHUB_ENV
   fi
