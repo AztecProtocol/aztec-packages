@@ -1621,7 +1621,7 @@ void ProgramBlock::process_write_terminating_condition_value()
         .value = value });
 }
 
-bool ProgramBlock::is_memory_address_set(uint16_t address)
+bool ProgramBlock::is_memory_address_set(uint32_t address)
 {
     return memory_manager.is_memory_address_set(address);
 }

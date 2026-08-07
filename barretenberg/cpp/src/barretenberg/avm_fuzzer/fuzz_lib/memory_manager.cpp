@@ -30,13 +30,22 @@ std::optional<std::ranges::range_value_t<Range>> get_nth_filtered(Range&& range,
     return *std::ranges::next(filtered.begin(), static_cast<long>(index % static_cast<size_t>(count)));
 }
 
+// Relative reach is base_offset + max_operand_address, which can run past the top of memory. It is
+// saturated rather than wrapped: wrapping would make the model record tags at low addresses that the
+// AVM never wrote, and every later operand resolved against that block would be based on it.
+uint32_t saturating_add(uint32_t a, uint32_t b)
+{
+    const uint64_t sum = static_cast<uint64_t>(a) + static_cast<uint64_t>(b);
+    return sum > AVM_HIGHEST_MEM_ADDRESS ? AVM_HIGHEST_MEM_ADDRESS : static_cast<uint32_t>(sum);
+}
+
 uint32_t get_max_variable_address(AddressingMode mode, uint32_t base_offset, uint32_t max_operand_address)
 {
     switch (mode) {
     case AddressingMode::Direct:
         return max_operand_address;
     case AddressingMode::Relative:
-        return base_offset + max_operand_address;
+        return saturating_add(base_offset, max_operand_address);
     case AddressingMode::Indirect:
     case AddressingMode::IndirectRelative:
         return AVM_HIGHEST_MEM_ADDRESS;
@@ -64,7 +73,7 @@ uint32_t trimmed_relative_pointer_address(uint32_t pointer_address_seed,
                                           uint32_t base_offset,
                                           uint32_t max_operand_address)
 {
-    return base_offset + (pointer_address_seed % (max_operand_address + 1));
+    return saturating_add(base_offset, pointer_address_seed % (max_operand_address + 1));
 }
 
 } // namespace
@@ -78,7 +87,7 @@ MemoryManager& MemoryManager::operator=(const MemoryManager& other)
     return *this;
 }
 
-bool MemoryManager::is_memory_address_set(uint16_t address)
+bool MemoryManager::is_memory_address_set(uint32_t address)
 {
     return memory_address_to_tag.find(address) != memory_address_to_tag.end();
 }

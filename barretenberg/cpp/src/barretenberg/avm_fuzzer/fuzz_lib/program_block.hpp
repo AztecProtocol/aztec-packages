@@ -176,7 +176,7 @@ class ProgramBlock {
     void process_write_terminating_condition_value();
     std::vector<bb::avm2::simulation::Instruction> get_instructions();
 
-    bool is_memory_address_set(uint16_t address);
+    bool is_memory_address_set(uint32_t address);
 
     /// @brief in `insert_internal_call`  we insert INTERNALCALL instruction with 0 offset, because we don't know the
     /// resulting block offsets this method patches the INTERNALCALL instructions with the actual offset

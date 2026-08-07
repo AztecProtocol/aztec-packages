@@ -40,7 +40,7 @@ class MemoryManager {
     void set_memory_address(bb::avm2::MemoryTag tag, uint32_t address);
     std::optional<uint16_t> get_memory_offset_16(bb::avm2::MemoryTag tag, uint32_t address_index);
     std::optional<uint8_t> get_memory_offset_8(bb::avm2::MemoryTag tag, uint32_t address_index);
-    bool is_memory_address_set(uint16_t address);
+    bool is_memory_address_set(uint32_t address);
 
     std::optional<std::pair<ResolvedAddress, bb::avm2::testing::OperandBuilder>> get_resolved_address_and_operand_8(
         ParamRef address);

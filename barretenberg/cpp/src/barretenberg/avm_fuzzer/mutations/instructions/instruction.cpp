@@ -77,9 +77,13 @@ void sanitize_address_ref(AddressRef& address_ref, uint32_t base_offset, uint32_
     if (address_ref.mode == AddressingMode::Direct) {
         address_ref.address = address_ref.address % (max_operand_value + 1);
     }
-    // For Relative mode, we can reach from base_pointer to base_pointer + max_operand_value
+    // For Relative mode, we can reach from base_pointer to base_pointer + max_operand_value.
+    // Saturating, so that a base offset near the top of memory does not wrap the address round to a
+    // low one that the block's memory model then treats as written.
     if (address_ref.mode == AddressingMode::Relative) {
-        address_ref.address = base_offset + (address_ref.address % (max_operand_value + 1));
+        const uint64_t absolute = static_cast<uint64_t>(base_offset) + (address_ref.address % (max_operand_value + 1));
+        address_ref.address =
+            absolute > AVM_HIGHEST_MEM_ADDRESS ? AVM_HIGHEST_MEM_ADDRESS : static_cast<uint32_t>(absolute);
     }
 }
 

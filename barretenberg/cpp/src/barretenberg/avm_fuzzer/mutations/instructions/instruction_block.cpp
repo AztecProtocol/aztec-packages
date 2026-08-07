@@ -11,10 +11,23 @@ namespace bb::avm2::fuzzer {
 
 constexpr uint16_t MAX_INSTRUCTION_BLOCK_SIZE_ON_GENERATION = 10;
 
+// A relative operand reaches base_offset + operand, and operands are at most 16 bits wide. Drawn
+// uniformly over the whole address space, almost every base offset puts that sum out of range, so
+// the first relative access in the block raises an addressing error and halts the enqueued call.
+// Keep the bulk of them within reach and visit the top of memory occasionally, which is enough to
+// exercise the addressing error path without making it the only thing that happens.
+uint32_t generate_base_offset(std::mt19937_64& rng)
+{
+    if (std::uniform_int_distribution<int>(0, 15)(rng) == 0) {
+        return AVM_HIGHEST_MEM_ADDRESS - std::uniform_int_distribution<uint32_t>(0, 65535)(rng);
+    }
+    return std::uniform_int_distribution<uint32_t>(0, 65535)(rng);
+}
+
 InstructionBlock generate_instruction_block(std::mt19937_64& rng, const FuzzerContext& context)
 {
     InstructionBlock instruction_block;
-    instruction_block.base_offset = std::uniform_int_distribution<uint32_t>(0, AVM_HIGHEST_MEM_ADDRESS)(rng);
+    instruction_block.base_offset = generate_base_offset(rng);
     InstructionMutator instruction_mutator(instruction_block, context);
     for (uint16_t i = 0; i < std::uniform_int_distribution<uint16_t>(1, MAX_INSTRUCTION_BLOCK_SIZE_ON_GENERATION)(rng);
          i++) {

@@ -2,11 +2,14 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/uint32_t.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 #include "barretenberg/common/serialize.hpp"
+
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
+#include <algorithm>
 
 using bb::avm2::AztecAddress;
 using bb::avm2::FF;
@@ -36,18 +39,23 @@ Gas generate_gas(std::mt19937_64& rng, const Gas& min, const Gas& max)
     return Gas{ l2_gas, da_gas };
 }
 
+// Perturb rather than resample. Resampling uniformly over the whole processable range means the
+// interesting cases, where the limit lands within an instruction or two of what the program actually
+// consumes, are never reached; the uint32 mutator's increment, decrement and boundary options walk
+// towards them from whatever the last run used.
 void mutate_gas(Gas& gas, std::mt19937_64& rng, const Gas& min, const Gas& max)
 {
-    auto choice = std::uniform_int_distribution<uint8_t>(0, 1)(rng);
+    auto clamp = [](uint32_t value, uint32_t low, uint32_t high) { return std::min(std::max(value, low), high); };
 
+    auto choice = std::uniform_int_distribution<uint8_t>(0, 1)(rng);
     switch (choice) {
     case 0:
-        // Mutate l2_gas
-        gas.l2_gas = std::uniform_int_distribution<uint32_t>(min.l2_gas, max.l2_gas)(rng);
+        mutate_uint32_t(gas.l2_gas, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
+        gas.l2_gas = clamp(gas.l2_gas, min.l2_gas, max.l2_gas);
         break;
     case 1:
-        // Mutate da_gas
-        gas.da_gas = std::uniform_int_distribution<uint32_t>(min.da_gas, max.da_gas)(rng);
+        mutate_uint32_t(gas.da_gas, rng, BASIC_UINT32_T_MUTATION_CONFIGURATION);
+        gas.da_gas = clamp(gas.da_gas, min.da_gas, max.da_gas);
         break;
     }
 }
@@ -100,8 +108,9 @@ void mutate_gas_settings(GasSettings& gas_settings, std::mt19937_64& rng)
 
     switch (choice) {
     case GasSettingsMutationOptions::GasLimits:
-        // Mutate gas_limits
-        mutate_gas(gas_settings.gas_limits, rng);
+        // Floored at the tx overhead: below it the transaction cannot start at all, so it is
+        // rejected as unprovable before any generated program runs.
+        mutate_gas(gas_settings.gas_limits, rng, GAS_USED_BY_PRIVATE, MAX_GAS_LIMIT);
         break;
     case GasSettingsMutationOptions::TeardownGasLimits:
         // Mutate teardown_gas_limits

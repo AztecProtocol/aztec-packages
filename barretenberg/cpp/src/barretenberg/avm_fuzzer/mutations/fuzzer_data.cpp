@@ -14,9 +14,24 @@ namespace bb::avm2::fuzzer {
 
 using ValueTag = bb::avm2::ValueTag;
 
+namespace {
+
+// Coverage feedback can only attribute a gain to the edit that produced it, so stacking up to twenty
+// structural mutations makes each input close to an independent sample rather than a step. Take one
+// or two most of the time, and occasionally a burst to escape a local optimum.
+uint8_t choose_mutation_count(std::mt19937_64& rng)
+{
+    if (std::uniform_int_distribution<int>(0, 15)(rng) == 0) {
+        return std::uniform_int_distribution<uint8_t>(1, MAX_MUTATION_NUM)(rng);
+    }
+    return std::uniform_int_distribution<uint8_t>(1, 4)(rng);
+}
+
+} // namespace
+
 void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng, const FuzzerContext& context)
 {
-    auto num_of_mutation = std::uniform_int_distribution<uint8_t>(0, MAX_MUTATION_NUM)(rng);
+    auto num_of_mutation = choose_mutation_count(rng);
     for (uint8_t i = 0; i < num_of_mutation; i++) {
         // Select mutation type each iteration for more variety
         auto mutation_config = BASIC_FUZZER_DATA_MUTATION_CONFIGURATION.select(rng);
