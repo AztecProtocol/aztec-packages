@@ -37,7 +37,6 @@ function print_usage {
   echo_cmd "network-tests-kind"    "Spin up an EC2 instance to run a KIND-based spartan test."
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
   echo_cmd "chonk-input-update"    "Spin up an EC2 instance to update pinned Chonk IVC inputs and push the diff."
-  echo_cmd "compat-e2e"            "Spin up an EC2 instance and run backwards compatibility e2e tests."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "ci-private-release"     "Locally dry-run the release of every project except release-image, then publish release-image to the internal GCP Artifact Registry."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
@@ -341,13 +340,6 @@ case "$cmd" in
     export CPUS=8
     export INSTANCE_POSTFIX="rollup-upgrade"
     bootstrap_ec2 "./bootstrap.sh ci-deploy-rollup-upgrade $*"
-    ;;
-
-  compat-e2e)
-    export CI_DASHBOARD="prs"
-    export JOB_ID="x-compat-e2e"
-    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-60}
-    bootstrap_ec2 "./bootstrap.sh ci-compat-e2e"
     ;;
 
   ############
