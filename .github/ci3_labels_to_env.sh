@@ -52,6 +52,14 @@ function main {
   echo "TARGET_BRANCH=$target_branch" >> $GITHUB_ENV
   echo "Target branch: $target_branch"
 
+  if { [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ] || [ "${GITHUB_EVENT_NAME:-}" = "pull_request_target" ]; } &&
+     [ "$target_branch" = "v5-next" ]; then
+    echo "RUN_COMPAT_E2E=1" >> $GITHUB_ENV
+    # The granular compatibility cache accounts for the historical artifact version; the whole-run
+    # success marker does not and must not bypass compatibility orchestration.
+    echo "SKIP_CI_SUCCESS_CACHE=1" >> $GITHUB_ENV
+  fi
+
   # Handle fail-fast override
   if has_label "ci-no-fail-fast"; then
     echo "NO_FAIL_FAST=1" >> $GITHUB_ENV

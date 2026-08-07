@@ -111,7 +111,7 @@ function multi_job_run {
 
 function bootstrap_pr_ci {
   local bootstrap_cmd="$1"
-  if [ "${TARGET_BRANCH:-}" = "v5-next" ]; then
+  if [ "${RUN_COMPAT_E2E:-0}" = "1" ]; then
     bootstrap_cmd+=" && ./bootstrap.sh ci-compat-e2e"
     # The normal suite and compatibility matrix run sequentially on the same instance.
     if [ "${AWS_SHUTDOWN_TIME:-0}" -lt 90 ]; then
