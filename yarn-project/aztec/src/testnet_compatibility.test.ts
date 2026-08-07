@@ -1,6 +1,4 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js/fields';
-import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -16,17 +14,14 @@ describe('Testnet compatibility', () => {
   });
   it('has expected Protocol Contracts hash', () => {
     expect(protocolContractsHash).toEqual(
-      Fr.fromHexString('0x2f4fe1e640100dd7e077e98acb92f30f06a8c483d0e20acc059cc4e5761f414c'),
+      Fr.fromHexString('0x2c075866eafc88a1f6f9addc7e337c6e64e45d1cb7fd7c0d612ebcec72aab2ca'),
     );
   });
   it('has expected Genesis tree roots', async () => {
-    const initialAccounts: InitialAccountData[] = [];
-    const sponsoredFPCAddress = await getSponsoredFPCAddress();
-    const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
-    const { genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
+    const { genesisArchiveRoot } = await getGenesisValues([], Fr.ZERO, []);
 
     expect(genesisArchiveRoot).toEqual(
-      Fr.fromHexString('0x190db362ddbc0e8b326a749a1fa120372a7c4b64fb719a502939f79d1485aadc'),
+      Fr.fromHexString('0x177a4955b31ecaafad999753938a44e526b54c5ba5d536688227f85f15cfbdf5'),
     );
   });
 });

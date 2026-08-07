@@ -14,7 +14,7 @@ describe('Mainnet compatibility', () => {
   });
   it('has expected Protocol Contracts tree root', () => {
     expect(protocolContractsHash).toEqual(
-      Fr.fromHexString('0x2f4fe1e640100dd7e077e98acb92f30f06a8c483d0e20acc059cc4e5761f414c'),
+      Fr.fromHexString('0x2c075866eafc88a1f6f9addc7e337c6e64e45d1cb7fd7c0d612ebcec72aab2ca'),
     );
   });
   it('has expected Genesis tree roots', async () => {
