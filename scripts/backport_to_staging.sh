@@ -156,7 +156,7 @@ if [[ $CONTINUE_MODE -eq 0 ]]; then
   # its subject marks it as such, or every file it touches is an artifact path.
   if [[ "$TARGET_BRANCH" == "next" ]]; then
     EXCLUDE_SUBJECTS='^chore\(release\)|regenerate pinned|re-pin standard contracts|regenerate standard-contract|resolve v[0-9]+ -> v[0-9]+-next|public-v[0-9]+-next merge|refresh pinned'
-    EXCLUDE_GLOBS=('l1-contracts/src/periphery/V*UpgradePayload*' 'l1-contracts/script/deploy/DeployRollupForUpgrade*' 'l1-contracts/*/V*_UPGRADE_RUNBOOK.md' '.github/workflows/*-v*-next.yml')
+    EXCLUDE_GLOBS=('.github/workflows/*-v*-next.yml')
     MERGE_SUBJECT=$(git show -s --format=%s "$MERGE_COMMIT")
     SKIP_ARTIFACT=0
     if [[ "$MERGE_SUBJECT" =~ $EXCLUDE_SUBJECTS ]]; then

@@ -7,14 +7,14 @@ export BB=${BB:-"$ROOT/labs-aztec-toolchain/bin/bb"}
 export NARGO=${NARGO:-"$ROOT/labs-aztec-toolchain/bin/nargo"}
 export AZTEC_TOOLCHAIN_HASH=${AZTEC_TOOLCHAIN_HASH:-$($ROOT/labs-aztec-toolchain/bootstrap.sh hash)}
 
-# TODO(fcarreiro): The dependencies on l1-contracts and BB should go away.
+# TODO(fcarreiro): The dependency on BB should go away.
 hash=$(hash_str \
   $AZTEC_TOOLCHAIN_HASH \
   $(../noir-projects/labs/aztec-nr/bootstrap.sh hash) \
   $(cache_content_hash \
     .rebuild_patterns \
     ../barretenberg/*/.rebuild_patterns \
-    ../{l1-contracts,yarn-project}/.rebuild_patterns))
+    ../yarn-project/.rebuild_patterns))
 
 function build_box {
   cd boxes/$1

@@ -50,7 +50,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
+.PHONY: noir barretenberg noir-projects release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -60,7 +60,6 @@ endef
 # wsdb belongs to foundation until disentangled.
 fast-foundation: barretenberg bb-tests \
 		wsdb \
-		l1-contracts l1-contracts-tests \
 		mock-protocol-circuits \
 		noir-protocol-circuits noir-protocol-circuits-tests \
 		noir-protocol-circuits-variants \
@@ -92,11 +91,12 @@ full-labs: fast-labs yarn-project-benches
 full: full-foundation full-labs
 
 # Everything required to run the full benchmark suite (see bootstrap.sh bench_cmds),
-# and nothing more. bb-sol adds the Solidity gas benchmark's generated verifier;
-# bb-acir builds barretenberg/acir_tests, whose headless-test harness (ts-node)
-# the bb browser memory bench (ci_benchmark_browser_memory.sh) drives.
-bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-sol bb-acir \
-		noir-protocol-circuits l1-contracts
+# and nothing more. bb-acir builds barretenberg/acir_tests, whose headless-test
+# harness (ts-node) the bb browser memory bench (ci_benchmark_browser_memory.sh)
+# drives. bb-crs pre-downloads the CRS: the proof benches run in no-network
+# containers, so bb.js must find it locally rather than fetch on demand.
+bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-crs bb-acir \
+		noir-protocol-circuits
 
 # yarn-project-benches covers the e2e bench inputs and yarn-project's own benches;
 # noir-contracts was previously built transitively via yarn-project.
@@ -144,7 +144,7 @@ avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm6
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-avm-sim bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-avm-sim bb-rs bb-acir bb-docs bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -289,13 +289,6 @@ bb-acir: noir bb-cpp-native bb-ts
 bb-docs:
 	$(call build,$@,barretenberg/docs)
 
-# BB Solidity - Solidity verifier contracts.
-# Depends on l1-contracts-solc so that the foundry build uses the solc binary
-# pulled in by l1-contracts (see barretenberg/sol/foundry.toml) rather than
-# triggering a parallel svm download.
-bb-sol: bb-cpp-native bb-crs l1-contracts-solc
-	$(call build,$@,barretenberg/sol)
-
 #==============================================================================
 # Barretenberg Tests
 #==============================================================================
@@ -318,9 +311,6 @@ bb-acir-tests: bb-acir
 bb-ts-tests: bb-ts
 	$(call test,$@,barretenberg/ts)
 
-bb-sol-tests: bb-sol
-	$(call test,$@,barretenberg/sol)
-
 bb-docs-tests: bb-docs
 	$(call test,$@,barretenberg/docs)
 
@@ -330,7 +320,7 @@ bb-bbup-tests: bb-bbup
 bb-rs-tests: bb-rs
 	$(call test,$@,barretenberg/rust)
 
-bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
+bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-bbup-tests bb-docs-tests bb-rs-tests
 
 bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 
@@ -473,43 +463,6 @@ noir-projects-labs: noir-contracts aztec-nr
 noir-projects: noir-projects-fnd noir-projects-labs
 
 #==============================================================================
-# L1 Contracts - Ethereum L1 smart contracts
-#==============================================================================
-
-# l1-contracts-solc: Download (or cache-hit) the pinned solc binary.
-# This is the single owner of the svm download. Other forge projects
-# (barretenberg/sol) point their foundry.toml at the same binary, so they
-# must wait on this target before invoking forge build, otherwise parallel
-# forge invocations race on ~/.svm. (docs/examples/solidity pins a plain
-# solc version and downloads via svm itself; it builds after l1-contracts
-# in the dependency graph, so the invocations never overlap.)
-l1-contracts-solc:
-	$(call build,$@,l1-contracts,download_solc)
-
-# l1-contracts-src: Build all src/ contracts (fully independent!)
-l1-contracts-src: l1-contracts-solc
-	$(call build,$@,l1-contracts,build_src)
-
-# l1-contracts-verifier: Build generated verifier and tests (depends on noir-protocol-circuits)
-l1-contracts-verifier: noir-protocol-circuits l1-contracts-src
-	$(call build,$@,l1-contracts,build_verifier)
-
-# l1-contracts-artifacts: Generate the @aztec/l1-artifacts TS package (ABIs/bytecode/storage) and the
-# self-contained foundry bundle used by the runtime forge deploy path. Must depend on the verifier, not
-# just build_src: the generated artifact list includes HonkVerifier, and its real implementation is only
-# produced by build_verifier (which compiles generated/HonkVerifier.sol, copied from noir-projects).
-# build_src only compiles the src/ coverage mock of the same name, which collides on the same out/ path
-# and would be published instead if the verifier had not run last.
-l1-contracts-artifacts: l1-contracts-verifier
-	$(call build,$@,l1-contracts,build_artifacts)
-
-# l1-contracts: Complete build (aggregate target)
-l1-contracts: l1-contracts-src l1-contracts-verifier l1-contracts-artifacts
-
-l1-contracts-tests: l1-contracts-verifier
-	$(call test,$@,l1-contracts)
-
-#==============================================================================
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
@@ -519,7 +472,7 @@ yarn-project: noir-projects-labs labs-aztec-toolchain
 # If we still in the monorepo, we need to additionally depend on everything else explicitly.
 # In the labs repo, we will consume them differently.
 # TODO(fcarreiro): comment this out when pinning binaries.
-yarn-project: bb-ts l1-contracts wsdb bb-avm-sim constants-codegen noir-projects-fnd
+yarn-project: bb-ts wsdb bb-avm-sim constants-codegen noir-projects-fnd
 
 yarn-project-tests: yarn-project
 	$(call test,$@,yarn-project/end-to-end)

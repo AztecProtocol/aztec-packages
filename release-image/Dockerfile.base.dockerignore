@@ -10,7 +10,5 @@
 !/yarn-project/package.json
 !/yarn-project/yarn.lock
 !/yarn-project/*/package.json
-# l1-artifacts is a portal dependency of @aztec/aztec but lives outside yarn-project.
-!/l1-contracts/l1-artifacts/package.json
 !/yarn-project/.yarn/
 !/yarn-project/.yarnrc.yml

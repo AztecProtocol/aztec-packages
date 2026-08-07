@@ -7,7 +7,7 @@
 # Options:
 #   --severity LEVEL   Minimum severity to fix: critical, high, medium, low (default: critical)
 #   --dry-run          Discover and report vulnerabilities without applying fixes or committing
-#   --workspaces LIST  Space-separated workspace roots (default: "yarn-project boxes docs l1-contracts playground")
+#   --workspaces LIST  Space-separated workspace roots (default: "yarn-project boxes docs playground")
 #
 # Prerequisites:
 #   - Socket CLI: npm install -g socket
@@ -43,7 +43,7 @@ gh_output() {
 # --- Defaults ---
 SEVERITY="critical"
 DRY_RUN=false
-WORKSPACES="yarn-project boxes docs l1-contracts playground"
+WORKSPACES="yarn-project boxes docs playground"
 
 # --- Parse args ---
 while [[ $# -gt 0 ]]; do

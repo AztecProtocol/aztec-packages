@@ -368,11 +368,6 @@ tests:
     owners:
       - *palla
 
-  - regex: "cd l1-contracts && forge test"
-    error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
-    owners:
-      - *lasse
-
   - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/single-node/fees/gas_estimation.parallel.test.ts"
     error_regex: "timeout: sending signal TERM to command 'bash'"
     owners:
