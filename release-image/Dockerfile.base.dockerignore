@@ -3,6 +3,7 @@
 !/barretenberg/ts/bb.js/package.json
 !/barretenberg/ts/bb-avm-sim/package.json
 !/barretenberg/ts/bb-avm-sim/packages/*/package.json
+!/barretenberg/ts/cdb/package.json
 !/noir/packages/*/package.json
 !/wsdb/ts/package.json
 !/wsdb/ts/packages/*/package.json

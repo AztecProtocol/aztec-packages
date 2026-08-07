@@ -44,8 +44,8 @@ import {
   mockTx,
 } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash } from '@aztec/stdlib/tx';
-import { AttestationTimeoutError } from '@aztec/stdlib/validators';
+import { BlockHeader, GlobalVariables, TX_ERROR_INVALID_PROOF, type Tx, TxEffect, TxHash } from '@aztec/stdlib/tx';
+import { AttestationTimeoutError, InvalidBlockProposalTxsError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -1362,6 +1362,84 @@ describe('ValidatorClient', () => {
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(false);
+    });
+
+    describe('with txs carried in the proposal failing integrity validation', () => {
+      beforeEach(() => {
+        txProvider.getTxsForBlockProposal.mockRejectedValue(
+          new InvalidBlockProposalTxsError([{ txHash: proposal.txHashes[0], reasons: [TX_ERROR_INVALID_PROOF] }]),
+        );
+      });
+
+      it('emits an invalid block proposal offense and marks the slot invalid', async () => {
+        const emitSpy = jest.spyOn(validatorClient, 'emit');
+
+        const isValid = await validatorClient.validateBlockProposal(proposal, sender);
+
+        expect(isValid).toBe(false);
+        expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+          {
+            validator: proposal.getSender()!,
+            amount: config.slashBroadcastedInvalidBlockPenalty,
+            offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+            epochOrSlot: BigInt(proposal.slotNumber),
+          },
+        ]);
+        expect(validatorClient.hasInvalidProposals(proposal.slotNumber)).toBe(true);
+      });
+
+      it('does not emit the offense while the escape hatch is open', async () => {
+        epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(true);
+        const emitSpy = jest.spyOn(validatorClient, 'emit');
+
+        const isValid = await validatorClient.validateBlockProposal(proposal, sender);
+
+        expect(isValid).toBe(false);
+        expect(emitSpy).not.toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, expect.anything());
+        expect(validatorClient.hasInvalidProposals(proposal.slotNumber)).toBe(false);
+      });
+    });
+
+    // A proposal listing the same tx hash twice can never be built into a block, so it is proposer
+    // misbehavior rather than a relaying-peer fault or a local failure.
+    it('emits an invalid block proposal offense for a proposal with duplicate tx hashes', async () => {
+      const signer = Secp256k1Signer.random();
+      const txHash = TxHash.random();
+      const duplicateProposal = await makeBlockProposal({
+        blockHeader: proposal.blockHeader,
+        inHash: proposal.inHash,
+        txHashes: [txHash, txHash],
+        signer,
+      });
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+
+      const isValid = await validatorClient.validateBlockProposal(duplicateProposal, sender);
+
+      expect(isValid).toBe(false);
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+        {
+          validator: duplicateProposal.getSender()!,
+          amount: config.slashBroadcastedInvalidBlockPenalty,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: BigInt(duplicateProposal.slotNumber),
+        },
+      ]);
+      expect(validatorClient.hasInvalidProposals(duplicateProposal.slotNumber)).toBe(true);
+      // The proposal is rejected on its signed contents alone, without spending a re-execution on it.
+      expect(mockCheckpointBuilder.buildBlock).not.toHaveBeenCalled();
+    });
+
+    // A tx collection failure that is not proposer misbehavior (pool error, network error) must not be
+    // classified as an invalid proposal, so it keeps propagating to the p2p caller.
+    it('propagates generic tx collection errors without slashing', async () => {
+      txProvider.getTxsForBlockProposal.mockRejectedValue(new Error('Tx pool unavailable'));
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+
+      await expect(validatorClient.validateBlockProposal(proposal, sender)).rejects.toThrow('Tx pool unavailable');
+
+      expect(emitSpy).not.toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, expect.anything());
+      expect(validatorClient.hasInvalidProposals(proposal.slotNumber)).toBe(false);
     });
 
     it('should still validate if no validators are in the committee', async () => {
