@@ -195,6 +195,12 @@ function build {
       tar xzf pinned-standard-contracts.tar.gz -C target
       contracts=$(echo "$contracts" | grep -vE "^standard/")
     fi
+
+    if [ -f pinned-protocol-contracts.tar.gz ]; then
+      echo_stderr "Using pinned-protocol-contracts.tar.gz for pinned protocol contracts."
+      tar xzf pinned-protocol-contracts.tar.gz -C target
+      contracts=$(echo "$contracts" | grep -vE "^protocol/")
+    fi
   else
     local contracts="$@"
   fi
@@ -316,6 +322,21 @@ function pin-standard-build {
   echo_stderr "Done. pinned-standard-contracts.tar.gz created. Commit it to pin these artifacts."
 }
 
+# Force-builds protocol contracts and tar-balls their artifacts into pinned-protocol-contracts.tar.gz.
+# Re-pinning changes the canonical protocol contract class ids and requires a coordinated governance upgrade.
+function pin-protocol-contracts {
+  rm -f pinned-protocol-contracts.tar.gz
+  local protocol_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^protocol/")
+  build $protocol_contracts || { echo_stderr "Build failed; refusing to create tarball."; return 1; }
+  local protocol_artifacts=$(jq -r '.[]' protocol_contracts.json | sed 's/$/.json/')
+  for a in $protocol_artifacts; do
+    [ -f "target/$a" ] || { echo_stderr "Missing artifact target/$a; refusing to create tarball."; return 1; }
+  done
+  echo_stderr "Creating pinned-protocol-contracts.tar.gz..."
+  (cd target && tar czf ../pinned-protocol-contracts.tar.gz $protocol_artifacts)
+  echo_stderr "Done. pinned-protocol-contracts.tar.gz created. Commit it to pin these artifacts."
+}
+
 case "$cmd" in
   "clean-keys")
     for artifact in target/*.json; do
@@ -332,6 +353,9 @@ case "$cmd" in
     ;;
   "pin-standard-build")
     pin-standard-build
+    ;;
+  "pin-protocol-contracts")
+    pin-protocol-contracts
     ;;
   *)
     default_cmd_handler "$@"
