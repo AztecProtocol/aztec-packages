@@ -90,6 +90,29 @@ Breaking changes:
 - `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
 - Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
 
+### [Aztec.nr] Note types declared inside a contract must be `pub`
+
+Noir v1.0.0-beta.25 enforces the caller's visibility when comptime code resolves a trait method into a typed expression. The `#[aztec]` macro resolves each note type's `NoteType::get_id` that way when it generates `compute_note_hash_and_nullifier`, so a note struct declared directly inside the `contract` module without `pub` no longer compiles:
+
+```
+error: Function `get_id` is private
+    ┌─ .../aztec/src/macros/utils.nr:152:5
+    │ `get_id` is declared in `MyContract`
+```
+
+Note types declared in their own module are unaffected, since they are already `pub` for the contract to reach them.
+
+**Migration:**
+
+```diff
+  #[derive(Packable, Eq)]
+  #[note]
+- struct MyNote {
++ pub struct MyNote {
+      owner: AztecAddress,
+  }
+```
+
 ## 5.0.1
 
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
