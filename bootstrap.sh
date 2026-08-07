@@ -642,7 +642,7 @@ function private_release {
   done
 }
 
-function compat_e2e {
+function release_compat_e2e {
   # Runs e2e tests with contract artifacts from every prior stable release since 5.0.1 (the version
   # where we committed to backwards compatibility). Validates that old contract artifacts work on the
   # current checkout.
@@ -1060,7 +1060,7 @@ case "$cmd" in
   ############
   "ci-compat-e2e")
     export CI=1
-    compat_e2e
+    release_compat_e2e
     ;;
   "ci-release")
     # Single command that tests and publishes a release. Runs the backwards-compatibility e2e
@@ -1074,11 +1074,11 @@ case "$cmd" in
 
     # Backwards-compatibility e2e checks. A failure blocks stable/RC releases, but only warns on
     # nightlies (where compat coverage is observational) so the nightly publish still proceeds.
-    # Toggle errexit explicitly rather than `compat_e2e || compat_rc=$?`: calling under `||`
+    # Toggle errexit explicitly rather than `release_compat_e2e || compat_rc=$?`: calling under `||`
     # suspends errexit for the whole function (and its subshell), masking build/setup failures there.
     compat_rc=0
     set +e
-    compat_e2e
+    release_compat_e2e
     compat_rc=$?
     set -e
     if [ "$compat_rc" -ne 0 ]; then
