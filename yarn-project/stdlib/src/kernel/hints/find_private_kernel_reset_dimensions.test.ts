@@ -246,5 +246,4 @@ describe('findPrivateKernelResetDimensions', () => {
       expect(dimensions.toValues()).toEqual(entry('inner_read_combo_md').dimensions);
     });
   });
-
 });
