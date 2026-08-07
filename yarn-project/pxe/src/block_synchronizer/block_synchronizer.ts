@@ -66,21 +66,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     switch (event.type) {
       case 'chain-proposed': {
         if (this.config.syncChainTip === undefined || this.config.syncChainTip === 'proposed') {
-          // Fetch the proposed tip header by hash. By-hash is safer than by-number against a same-height reorg.
-          const block = await this.node.getBlockData(BlockHash.fromString(event.block.hash));
-          if (!block) {
-            // The node served a proposed tip whose block data it cannot return — a node inconsistency, since the
-            // stream events and the block data come from the same node (same reasoning as the chain-pruned throw
-            // below). Throwing here propagates before the tips-store cursor advances, so the cursor stays put and the
-            // next sync re-emits chain-proposed (at-least-once). Were we to warn-and-skip, the cursor would advance and
-            // a quiet chain would never re-emit, leaving the anchor stale indefinitely.
-            throw new Error(
-              `Block header for proposed block ${event.block.number} and hash ${event.block.hash} not found. This ` +
-                `likely indicates a bug in the node, as we receive block stream events and fetch block headers from ` +
-                `the same node.`,
-            );
-          }
-          await this.updateAnchorBlockHeader(block.header);
+          await this.updateAnchorBlockHeader(event.header);
         }
         break;
       }

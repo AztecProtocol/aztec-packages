@@ -10,6 +10,7 @@ import {
   type L2TipId,
 } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { expect } from 'vitest';
 
@@ -132,6 +133,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-proposed',
       block: { number: BlockNumber(5), hash: new Fr(500).toString() },
+      header: BlockHeader.empty(),
     });
 
     const tips = await tipsStore.getL2Tips();
@@ -145,10 +147,12 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-proposed',
       block: { number: BlockNumber(4), hash: new Fr(400).toString() },
+      header: BlockHeader.empty(),
     });
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-proposed',
       block: { number: BlockNumber(9), hash: new Fr(900).toString() },
+      header: BlockHeader.empty(),
     });
 
     // Both recorded heights resolve; the heights between them were never seen and stay undefined.
@@ -165,6 +169,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({
       type: 'chain-proposed',
       block: { number: BlockNumber(9), hash: new Fr(900).toString() },
+      header: BlockHeader.empty(),
     });
 
     // Record sparse witnesses at heights below the tip (e.g. a consumer materializing per-height state).
