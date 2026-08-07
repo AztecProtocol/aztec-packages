@@ -9,21 +9,6 @@ project(
     LANGUAGES CXX C
 )
 
-# aztec_constants.hpp is generated from the protocol's Noir constant definitions. Generation
-# needs the surrounding monorepo; a checkout without it must provide the header by other means.
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../protocol/constants-codegen/src/cli.ts")
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr"
-    )
-    execute_process(
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/scripts/remake-constants.sh"
-        RESULT_VARIABLE AZTEC_CONSTANTS_GEN_RESULT
-    )
-    if(NOT AZTEC_CONSTANTS_GEN_RESULT EQUAL 0)
-        message(FATAL_ERROR "aztec_constants.hpp generation failed")
-    endif()
-endif()
-
 # === Platform Guard Reference ===
 # __wasm__  : Compiler-defined for WebAssembly. Guards threading, file I/O, networking.
 # _WIN32    : Compiler-defined for Windows. Guards POSIX APIs (mmap, signals, IPC).

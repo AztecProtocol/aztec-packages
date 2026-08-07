@@ -1,2 +1,0 @@
-pub mod merge_checkpoint_rollups;
-pub mod validate_consecutive_checkpoint_rollups;
