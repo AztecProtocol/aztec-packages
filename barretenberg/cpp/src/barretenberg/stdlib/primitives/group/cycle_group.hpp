@@ -6,12 +6,12 @@
 
 #pragma once
 
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_group_offset_generators.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_scalar.hpp"
 #include "barretenberg/stdlib/primitives/group/straus_lookup_table.hpp"
 #include "barretenberg/stdlib/primitives/group/straus_plookup_table.hpp"
@@ -48,7 +48,7 @@ template <typename Builder> class cycle_group {
     using Group = bb::grumpkin::g1;
     using Element = bb::grumpkin::g1::element;
     using AffineElement = bb::grumpkin::g1::affine_element;
-    using GeneratorContext = crypto::GeneratorContext<Curve>;
+    using OffsetGenerators = cycle_group_offset_generators<Curve>;
 
     using BigScalarField = stdlib::bigfield<Builder, bb::fq::Params>;
     using cycle_scalar = ::bb::stdlib::cycle_scalar<Builder>;
@@ -60,7 +60,6 @@ template <typename Builder> class cycle_group {
     static constexpr size_t ROM_TABLE_BITS = 4;
     static constexpr size_t NUM_BITS_FULL_FIELD_SIZE = bb::fq::modulus.get_msb() + 1;
     // Domain separator for generating offset generator points in the variable-base MSM algorithm
-    static constexpr std::string_view OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
 
     // Since the cycle_group base field is the circuit's native field, it can be stored using two public inputs.
     static constexpr size_t PUBLIC_INPUTS_SIZE = 2;
@@ -118,33 +117,28 @@ template <typename Builder> class cycle_group {
     cycle_group& operator+=(const cycle_group& other);
     cycle_group& operator-=(const cycle_group& other);
     static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
-                                 const std::vector<BigScalarField>& scalars,
-                                 GeneratorContext context = {})
+                                 const std::vector<BigScalarField>& scalars)
     {
         std::vector<cycle_scalar> cycle_scalars;
         for (auto scalar : scalars) {
             cycle_scalars.emplace_back(scalar);
         }
-        return batch_mul(base_points, cycle_scalars, context);
+        return batch_mul(base_points, cycle_scalars);
     }
-    static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
-                                 const std::vector<cycle_scalar>& scalars,
-                                 const GeneratorContext& context = {});
+    static cycle_group batch_mul(const std::vector<cycle_group>& base_points, const std::vector<cycle_scalar>& scalars);
 
     static cycle_group fixed_batch_mul(const std::vector<cycle_group>& constant_points,
                                        const std::vector<BigScalarField>& scalars,
-                                       GeneratorContext context = {},
                                        size_t table_bits = ROM_TABLE_BITS)
     {
         std::vector<cycle_scalar> cycle_scalars;
         for (auto scalar : scalars) {
             cycle_scalars.emplace_back(scalar);
         }
-        return fixed_batch_mul(constant_points, cycle_scalars, context, table_bits);
+        return fixed_batch_mul(constant_points, cycle_scalars, table_bits);
     }
     static cycle_group fixed_batch_mul(const std::vector<cycle_group>& constant_points,
                                        const std::vector<cycle_scalar>& scalars,
-                                       const GeneratorContext& context = {},
                                        size_t table_bits = ROM_TABLE_BITS);
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
