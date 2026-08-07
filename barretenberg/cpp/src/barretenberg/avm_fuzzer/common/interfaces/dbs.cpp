@@ -1,6 +1,10 @@
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 
 #include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <string>
+#include <unistd.h>
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
@@ -183,6 +187,7 @@ FuzzerWorldStateManager::FuzzerWorldStateManager()
     : mem_db(std::make_unique<simulation::MemoryMerkleDB>(
           /*nullifier_tree_prefill=*/128, /*public_data_tree_prefill=*/128))
 {}
+
 
 void FuzzerWorldStateManager::register_contract_address(const AztecAddress& contract_address)
 {

@@ -4,10 +4,10 @@ set -euo pipefail
 IFS=$'\n\t'
 
 timeout='2592000' # 1 month
-cpus='1'
+cpus="$(nproc)"
 mem="8G"
 jobs_="$cpus"
-workers='1'
+workers="$cpus"
 max_len='8192'
 
 show_help() {
@@ -15,7 +15,7 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $timeout - 1 month)"
-    echo "  -c, --cpus <cpus>           Set the amount of CPUs for container to use (default: $cpus)"
+    echo "  -c, --cpus <cpus>           Set the amount of CPUs for container to use (default: all)"
     echo "  --mem <memory>              Set the amount of memory for container to use (default: $mem)"
     echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs_)"
     echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"

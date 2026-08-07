@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <stack>
+#include <string>
 
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -63,6 +64,7 @@ class FuzzerWorldStateManager {
   public:
     FuzzerWorldStateManager();
 
+
     void register_contract_address(const AztecAddress& contract_address);
     void write_fee_payer_balance(const AztecAddress& fee_payer, const FF& balance);
     void public_data_write(const bb::crypto::merkle_tree::PublicDataLeafValue& public_data);
@@ -72,6 +74,7 @@ class FuzzerWorldStateManager {
     // transaction. The C++ simulator runs against a copy of this DB so the genesis state is preserved
     // across the fast and hint-collecting simulations.
     const simulation::MemoryMerkleDB& get_memory_merkle_db() const { return *mem_db; }
+
 
   private:
     std::unique_ptr<simulation::MemoryMerkleDB> mem_db;

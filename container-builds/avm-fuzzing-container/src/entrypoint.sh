@@ -6,8 +6,8 @@ IFS=$'\n\t'
 umask 000
 
 timeout='2592000' # 1 month
-jobs_='1'
-workers='1'
+jobs_="$(nproc)"
+workers="$(nproc)"
 max_len='8192'
 
 show_help() {

@@ -207,8 +207,9 @@ cd "$BUILD_DIR"
 # Default fuzzer parameters
 TIMEOUT=10
 RSS_LIMIT_MB=4096
-WORKERS=4
-JOBS=1 # EVERYTHING TUNED TO 1 BY DEFAULT UNTIL DIFFERENTIAL FUZZER WORKS IN PARALLEL
+# Each process gets its own world state directory, so these scale with the machine.
+WORKERS=${WORKERS:-$(nproc)}
+JOBS=${JOBS:-$(nproc)}
 ENTROPIC=1
 SHRINK=1
 ARTIFACT_PREFIX="$CRASHES_DIR/"
