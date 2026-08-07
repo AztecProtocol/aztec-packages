@@ -88,7 +88,7 @@ EnqueuedCallResult HybridExecution::execute(std::unique_ptr<ContextInterface> en
             // This is a coding error, we should not get here.
             // All exceptions should fall in the above catch blocks.
             important("An unhandled exception occurred: ", e.what());
-            throw;
+            throw AvmInternalError(e.what());
         }
 
         // We always do what follows. "Finally".

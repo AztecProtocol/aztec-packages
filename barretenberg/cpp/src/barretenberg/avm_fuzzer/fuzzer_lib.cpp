@@ -23,6 +23,8 @@
 #include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/gadgets/tx_execution.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
@@ -105,6 +107,21 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
     auto cpp_simulator = CppSimulator();
     SimulatorResult cpp_result;
 
+    // Only the two exception types below are part of simulate()'s contract. Anything else escaping
+    // it is a defect rather than a property of the generated program, so it is deliberately not
+    // caught here and takes the process down with a crash artifact. Catching std::exception instead
+    // used to record such defects as ordinary reverts.
+    auto record_unprovable = [&](UnprovableTxCause cause, const char* what) {
+        record_unprovable_tx(cause);
+        fuzz_info("CppSimulator rejected the tx as unprovable: ", what);
+        cpp_result = SimulatorResult{
+            .reverted = true,
+            .output = {},
+            .end_tree_snapshots = TreeSnapshots(),
+            .revert_reason = what,
+        };
+    };
+
     try {
         cpp_result = cpp_simulator.simulate(ws_mgr,
                                             contract_db,
@@ -115,14 +132,10 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
                                             tx_data.protocol_contracts);
         fuzz_info("CppSimulator completed without exception");
         fuzz_info("CppSimulator result: ", cpp_result);
-    } catch (const std::exception& e) {
-        fuzz_info("CppSimulator threw an exception: ", e.what());
-        cpp_result = SimulatorResult{
-            .reverted = true,
-            .output = {},
-            .end_tree_snapshots = TreeSnapshots(),
-            .revert_reason = e.what(),
-        };
+    } catch (const TxExecutionException& e) {
+        record_unprovable(UnprovableTxCause::TX_EXECUTION, e.what());
+    } catch (const NullifierCollisionException& e) {
+        record_unprovable(UnprovableTxCause::NULLIFIER_COLLISION, e.what());
     }
 
     return cpp_result;
@@ -155,11 +168,7 @@ TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB
         .collect_public_inputs = true,
     };
 
-    // Each simulation mutates its merkle DB, so we run each against a fresh copy of the
-    // genesis-seeded in-memory merkle DB to keep them all starting from the same state.
-
-    // 1. Run fast simulation against the in-memory merkle DB.
-    // It is the only one that may throw, so we wrap it in try-catch. If it fails, we do not proceed.
+    // Each simulation mutates its merkle DB, so each uses a fresh copy of the genesis-seeded state.
     TxSimulationResult fast_result;
     try {
         simulation::MemoryMerkleDB fast_merkle_db = ws_mgr.get_memory_merkle_db();
@@ -170,8 +179,13 @@ TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB
                                                                      tx_data.tx,
                                                                      tx_data.global_variables,
                                                                      protocol_contracts));
-    } catch (const std::exception& e) {
-        fuzz_info("simulate_fast_internal threw an exception: ", e.what());
+    } catch (const TxExecutionException& e) {
+        record_unprovable_tx(UnprovableTxCause::TX_EXECUTION);
+        fuzz_info("simulate_fast_internal rejected the tx as unprovable: ", e.what());
+        return {};
+    } catch (const NullifierCollisionException& e) {
+        record_unprovable_tx(UnprovableTxCause::NULLIFIER_COLLISION);
+        fuzz_info("simulate_fast_internal hit a nullifier collision: ", e.what());
         return {};
     }
 

@@ -8,16 +8,6 @@
 namespace bb::avm2::simulation {
 namespace {
 
-// A tx-level exception that is expected to be handled.
-// This is in contrast to other runtime exceptions that might occur and should be propagated.
-// Note, however, that we re-throw unrecoverable errors of this type (exceptions thrown in insert_non_revertibles()).
-class TxExecutionException : public std::runtime_error {
-  public:
-    TxExecutionException(const std::string& message)
-        : std::runtime_error(message)
-    {}
-};
-
 std::string get_halting_information(const EnqueuedCallResult& result)
 {
     std::string halting_message =

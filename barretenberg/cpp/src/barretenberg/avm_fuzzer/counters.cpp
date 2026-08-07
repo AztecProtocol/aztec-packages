@@ -36,6 +36,7 @@ AVM_FUZZER_COUNTER(bytecode_size, 24);
 
 // Execution outcome.
 AVM_FUZZER_COUNTER(revert_code, 4);
+AVM_FUZZER_COUNTER(unprovable_tx, 2);
 AVM_FUZZER_COUNTER(l2_gas_ratio, 18);
 AVM_FUZZER_COUNTER(da_gas_ratio, 18);
 AVM_FUZZER_COUNTER(max_call_depth, 16);
@@ -238,6 +239,7 @@ void reset_counters()
     AVM_FUZZER_CLEAR(cfg_instructions);
     AVM_FUZZER_CLEAR(bytecode_size);
     AVM_FUZZER_CLEAR(revert_code);
+    AVM_FUZZER_CLEAR(unprovable_tx);
     AVM_FUZZER_CLEAR(l2_gas_ratio);
     AVM_FUZZER_CLEAR(da_gas_ratio);
     AVM_FUZZER_CLEAR(max_call_depth);
@@ -281,6 +283,11 @@ void record_tx_shape(const FuzzerTxData& tx_data)
     }
 }
 
+void record_unprovable_tx(UnprovableTxCause cause)
+{
+    AVM_FUZZER_BUMP(unprovable_tx, static_cast<size_t>(cause));
+}
+
 void record_tx_result(const TxSimulationResult& result, const Gas& gas_limits)
 {
     AVM_FUZZER_BUMP(revert_code, static_cast<size_t>(result.revert_code));
@@ -299,15 +306,15 @@ void record_tx_result(const TxSimulationResult& result, const Gas& gas_limits)
 void dump_fuzzer_stats()
 {
     constexpr std::array HISTOGRAMS = {
-        AVM_FUZZER_HISTOGRAM(setup_calls),        AVM_FUZZER_HISTOGRAM(app_logic_calls),
-        AVM_FUZZER_HISTOGRAM(teardown_call),      AVM_FUZZER_HISTOGRAM(contracts),
-        AVM_FUZZER_HISTOGRAM(cfg_instructions),   AVM_FUZZER_HISTOGRAM(bytecode_size),
-        AVM_FUZZER_HISTOGRAM(revert_code),        AVM_FUZZER_HISTOGRAM(l2_gas_ratio),
-        AVM_FUZZER_HISTOGRAM(da_gas_ratio),       AVM_FUZZER_HISTOGRAM(max_call_depth),
-        AVM_FUZZER_HISTOGRAM(nested_calls),       AVM_FUZZER_HISTOGRAM(reverted_calls),
-        AVM_FUZZER_HISTOGRAM(public_data_writes), AVM_FUZZER_HISTOGRAM(note_hashes),
-        AVM_FUZZER_HISTOGRAM(nullifiers),         AVM_FUZZER_HISTOGRAM(l2_to_l1_msgs),
-        AVM_FUZZER_HISTOGRAM(public_logs),
+        AVM_FUZZER_HISTOGRAM(setup_calls),      AVM_FUZZER_HISTOGRAM(app_logic_calls),
+        AVM_FUZZER_HISTOGRAM(teardown_call),    AVM_FUZZER_HISTOGRAM(contracts),
+        AVM_FUZZER_HISTOGRAM(cfg_instructions), AVM_FUZZER_HISTOGRAM(bytecode_size),
+        AVM_FUZZER_HISTOGRAM(revert_code),      AVM_FUZZER_HISTOGRAM(unprovable_tx),
+        AVM_FUZZER_HISTOGRAM(l2_gas_ratio),     AVM_FUZZER_HISTOGRAM(da_gas_ratio),
+        AVM_FUZZER_HISTOGRAM(max_call_depth),   AVM_FUZZER_HISTOGRAM(nested_calls),
+        AVM_FUZZER_HISTOGRAM(reverted_calls),   AVM_FUZZER_HISTOGRAM(public_data_writes),
+        AVM_FUZZER_HISTOGRAM(note_hashes),      AVM_FUZZER_HISTOGRAM(nullifiers),
+        AVM_FUZZER_HISTOGRAM(l2_to_l1_msgs),    AVM_FUZZER_HISTOGRAM(public_logs),
     };
 
     info("=== AVM fuzzer stats after ", executions, " executions ===");
@@ -317,6 +324,7 @@ void dump_fuzzer_stats()
          GAS_RATIO_NO_LIMIT_BUCKET,
          " is no limit set");
     info("log2 buckets: 0 is none, n is [2^(n-1), 2^n)");
+    info("unprovable_tx buckets: 0 is a tx execution failure, 1 is a nullifier collision");
     for (const auto& histogram : HISTOGRAMS) {
         dump_histogram(histogram);
     }

@@ -51,4 +51,16 @@ class OpcodeExecutionException : public std::runtime_error {
     {}
 };
 
+// Thrown when an exception escapes an opcode handler without matching any of the modelled execution
+// errors. The set of failures that halt a context is closed, so anything else is a defect in the
+// simulator rather than a property of the program being executed. It gets its own type so that
+// callers can tell it apart from the failures they are expected to handle; previously the original
+// exception was rethrown and was indistinguishable from an expected one.
+class AvmInternalError : public std::runtime_error {
+  public:
+    AvmInternalError(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
 } // namespace bb::avm2::simulation

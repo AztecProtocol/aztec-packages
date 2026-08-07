@@ -23,6 +23,17 @@
 
 namespace bb::avm2::simulation {
 
+// A tx-level failure that TxExecution::simulate() raises as part of its contract, in contrast to
+// other runtime exceptions that indicate a defect. Depending on where it is raised it is either
+// handled internally (the transaction reverts and stays provable) or propagates to the caller (the
+// transaction is unprovable); see the documentation on simulate().
+class TxExecutionException : public std::runtime_error {
+  public:
+    TxExecutionException(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
 // TODO(fcarreiro): Create interface and move there.
 struct TxExecutionResult {
     GasUsed gas_used;
