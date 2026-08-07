@@ -642,10 +642,10 @@ function private_release {
   done
 }
 
-function release_compat_e2e {
-  # Runs e2e tests with contract artifacts from every prior stable release since 4.2.0 (the version
+function compat_e2e {
+  # Runs e2e tests with contract artifacts from every prior stable release since 5.0.1 (the version
   # where we committed to backwards compatibility). Validates that old contract artifacts work on the
-  # current release. Blocking for stable/RC releases; observational (non-blocking) for nightlies.
+  # current checkout.
   # Set SKIP_COMPAT_E2E=1 to bypass (escape hatch via the ci-skip-compat-e2e label).
   if [ "${SKIP_COMPAT_E2E:-0}" = "1" ]; then
     echo "SKIP_COMPAT_E2E=1, skipping backwards compatibility e2e tests."
@@ -658,12 +658,10 @@ function release_compat_e2e {
     return 0
   fi
 
-  # TODO: bump when v5 commits to backwards-compatible contract artifacts.
   #   compat_major:       major version that has compat guarantees today.
-  #   compat_min_version: earliest stable tag of that major to test against
-  #                       (artifacts before this are incompatible due to oracle interface changes).
-  local compat_major="4"
-  local compat_min_version="4.2.0"
+  #   compat_min_version: earliest stable tag covered by that guarantee.
+  local compat_major="5"
+  local compat_min_version="5.0.1"
 
   local current_version major
   current_version=$(jq -r '."."' .release-please-manifest.json)
@@ -719,8 +717,7 @@ function release_compat_e2e {
   # Compat command cache keys include both the end-to-end build hash and CONTRACT_ARTIFACTS_VERSION,
   # so successful results can only be reused for the same build inputs and historical artifacts.
   # Keep the bespoke test settings isolated from the release build/publish that follows.
-  # set -e re-enables errexit inside this subshell: the caller invokes release_compat_e2e with errexit
-  # disabled (to capture its exit code), so without this a failed build/install would be masked.
+  # set -e keeps failures fatal when the release caller temporarily disables errexit to capture them.
   (
     set -e
     export USE_TEST_CACHE=1
@@ -1061,6 +1058,10 @@ case "$cmd" in
   ############
   # RELEASES #
   ############
+  "ci-compat-e2e")
+    export CI=1
+    compat_e2e
+    ;;
   "ci-release")
     # Single command that tests and publishes a release. Runs the backwards-compatibility e2e
     # checks (blocking for stable/RC, observational for nightlies), then builds and publishes.
@@ -1073,11 +1074,11 @@ case "$cmd" in
 
     # Backwards-compatibility e2e checks. A failure blocks stable/RC releases, but only warns on
     # nightlies (where compat coverage is observational) so the nightly publish still proceeds.
-    # Toggle errexit explicitly rather than `release_compat_e2e || compat_rc=$?`: calling under `||`
+    # Toggle errexit explicitly rather than `compat_e2e || compat_rc=$?`: calling under `||`
     # suspends errexit for the whole function (and its subshell), masking build/setup failures there.
     compat_rc=0
     set +e
-    release_compat_e2e
+    compat_e2e
     compat_rc=$?
     set -e
     if [ "$compat_rc" -ne 0 ]; then

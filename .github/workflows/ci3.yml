@@ -127,7 +127,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_ACTOR: ${{ github.actor }}
-          # Forwarded to EC2 so release_compat_e2e's nightly-failure Slack alert can build a real run URL.
+          # Forwarded to EC2 so compat_e2e's nightly-failure Slack alert can build a real run URL.
           RUN_ID: ${{ github.run_id }}
           CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
           CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
