@@ -27,7 +27,7 @@ import { uploadSnapshot } from '@aztec/node-lib/actions';
 import { type P2P, createTxValidatorForAcceptingTxsOverRPC, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { ProverNode } from '@aztec/prover-node';
-import { type FeeSnapshotStats, SequencerClient } from '@aztec/sequencer-client';
+import { SequencerClient } from '@aztec/sequencer-client';
 import { AutomineSequencer } from '@aztec/sequencer-client/automine';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS } from '@aztec/standard-contracts/multi-call-entrypoint';
@@ -139,7 +139,7 @@ export interface AztecNodeServiceDeps {
   rollupContract: RollupContract | undefined;
   feeProvider: FeeProvider;
   /** Background fee snapshot service, stopped before the archiver so its final refresh sees a live identity. */
-  feeSnapshotService?: { stop(): Promise<void>; getStats(): FeeSnapshotStats };
+  feeSnapshotService?: { stop(): Promise<void> };
   epochCache: EpochCacheInterface;
   packageVersion: string;
   peerProofVerifier: ClientProtocolCircuitVerifier;
@@ -186,7 +186,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   protected readonly globalVariableBuilder: GlobalVariableBuilderInterface;
   protected readonly rollupContract: RollupContract | undefined;
   protected readonly feeProvider: FeeProvider;
-  private readonly feeSnapshotService?: { stop(): Promise<void>; getStats(): FeeSnapshotStats };
+  private readonly feeSnapshotService?: { stop(): Promise<void> };
   protected readonly epochCache: EpochCacheInterface;
   protected readonly packageVersion: string;
   private peerProofVerifier: ClientProtocolCircuitVerifier;
@@ -585,14 +585,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    */
   public getBlobClient(): BlobClientInterface | undefined {
     return this.blobClient;
-  }
-
-  /**
-   * Returns the background fee snapshot service counters, or undefined if the service is not wired.
-   * @internal - Exposed for benchmarking/testing purposes only.
-   */
-  public getFeeSnapshotStats(): FeeSnapshotStats | undefined {
-    return this.feeSnapshotService?.getStats();
   }
 
   /**

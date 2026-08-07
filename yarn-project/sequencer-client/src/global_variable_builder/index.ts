@@ -5,6 +5,5 @@ export {
   FeeQuoteUnavailableError,
   FeeSnapshotError,
   type FeeSnapshotServiceConfig,
-  type FeeSnapshotStats,
   getDefaultFeeSnapshotServiceConfig,
 } from './fee_snapshot_types.js';

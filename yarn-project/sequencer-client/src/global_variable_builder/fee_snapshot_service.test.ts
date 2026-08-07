@@ -19,7 +19,7 @@ import { FEE_ORACLE_LAG, ManaUsageEstimate } from '@aztec/stdlib/gas';
 
 import { mock } from 'jest-mock-extended';
 
-import { FeeSnapshotService } from './fee_snapshot_service.js';
+import { TestFeeSnapshotService } from '../test/test_fee_snapshot_service.js';
 import {
   FeeQuoteStaleError,
   FeeQuoteUnavailableError,
@@ -158,11 +158,11 @@ describe('FeeSnapshotService', () => {
   let rollup: FakeRollup;
   let identity: FakeIdentityProvider;
   let dateProvider: ManualDateProvider;
-  let service: FeeSnapshotService;
+  let service: TestFeeSnapshotService;
 
   const PINNED_SLOT = 100;
 
-  function makeService(overrides: Partial<FeeSnapshotServiceConfig> = {}): FeeSnapshotService {
+  function makeService(overrides: Partial<FeeSnapshotServiceConfig> = {}): TestFeeSnapshotService {
     const config: FeeSnapshotServiceConfig = {
       ...getDefaultFeeSnapshotServiceConfig({
         slotDuration: SLOT_DURATION,
@@ -174,7 +174,7 @@ describe('FeeSnapshotService', () => {
       pollIntervalMs: 10_000_000,
       ...overrides,
     };
-    return new FeeSnapshotService(asRollupContract(rollup), identity, dateProvider, config);
+    return new TestFeeSnapshotService(asRollupContract(rollup), identity, dateProvider, config);
   }
 
   function coveredSlots(): number[] {
@@ -250,10 +250,10 @@ describe('FeeSnapshotService', () => {
     await service.getCurrentMinFees();
     // The archiver publishes a new identity; the RPC lookup observes it before any poll tick.
     identity.snapshot = makeIdentity(2n, PINNED_SLOT);
-    const statsBefore = service.getStats().readTriggeredRefreshes;
+    const statsBefore = service.stats.readTriggeredRefreshes;
     await service.getCurrentMinFees();
     // The read triggered exactly one refresh (shared), and did not fan out its own read chain.
-    expect(service.getStats().readTriggeredRefreshes).toBe(statsBefore + 1);
+    expect(service.stats.readTriggeredRefreshes).toBe(statsBefore + 1);
     expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
   });
 
@@ -346,7 +346,7 @@ describe('FeeSnapshotService', () => {
     // gets the refresh error rather than the superseded quote, and the stored snapshot is left alone.
     identity.snapshot = makeIdentity(2n, PINNED_SLOT);
     await expect(service.getCurrentMinFees()).rejects.toThrow(/Chain tips changed/);
-    expect(service.getStats().refreshFailures).toBe(1);
+    expect(service.stats.refreshFailures).toBe(1);
     expect(service.getSnapshot()).toBe(stored);
     await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeQuoteUnavailableError);
     expect(service.getSnapshot()).toBe(stored);
@@ -375,7 +375,7 @@ describe('FeeSnapshotService', () => {
       expect(fees.feePerL2Gas).toBe(101n);
       expect(service.getSnapshot()!.l1.blockHash.equals(next.blockHash)).toBe(true);
       // One refresh for the old identity plus one corrective refresh: no fan-out per caller.
-      expect(service.getStats().refreshes).toBe(2);
+      expect(service.stats.refreshes).toBe(2);
     }
 
     it('lands on a higher block number published mid-refresh', async () => {
@@ -406,7 +406,7 @@ describe('FeeSnapshotService', () => {
       // background loop re-centres the window on the same pinned block.
       service.start();
       dateProvider.advanceTime(SLOT_DURATION);
-      await retryUntil(() => service.getStats().refreshes >= 2, 'coverage refresh', 10, 0.02);
+      await retryUntil(() => service.stats.refreshes >= 2, 'coverage refresh', 10, 0.02);
       expect(service.getSnapshot()!.l1.blockNumber).toBe(1n);
       expect(coveredSlots()).toEqual([103, 104, 105]);
     });
@@ -425,7 +425,7 @@ describe('FeeSnapshotService', () => {
 
       const fees = await service.getCurrentMinFees();
       expect(fees.feePerL2Gas).toBe(103n);
-      expect(service.getStats().refreshes).toBe(1);
+      expect(service.stats.refreshes).toBe(1);
 
       rollup.gate = undefined;
       gate.resolve();

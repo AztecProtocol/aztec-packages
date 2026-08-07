@@ -90,16 +90,6 @@ export class FeeQuoteStaleError extends FeeSnapshotError {
   }
 }
 
-/** Counters exposed for benchmarking and observability. */
-export type FeeSnapshotStats = {
-  /** Total refreshes that published a snapshot. */
-  refreshes: number;
-  /** Total refresh failures (kept last-good, retried with backoff). */
-  refreshFailures: number;
-  /** Reads that had to trigger a refresh because the warm snapshot did not serve them (identity or coverage). */
-  readTriggeredRefreshes: number;
-};
-
 /** Cause of a refresh, recorded on logs for observability. */
 export type RefreshCause = 'poll-identity' | 'poll-coverage' | 'read';
 

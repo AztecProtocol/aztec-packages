@@ -24,3 +24,5 @@ class TestSequencerClient_ extends SequencerClient {
 }
 
 export type TestSequencerClient = TestSequencerClient_;
+
+export { type FeeSnapshotStats, TestFeeSnapshotService } from './test_fee_snapshot_service.js';

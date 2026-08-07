@@ -26,7 +26,6 @@ import {
   type FeeSnapshot,
   FeeSnapshotError,
   type FeeSnapshotServiceConfig,
-  type FeeSnapshotStats,
   MAX_LOOKUP_ATTEMPTS,
   type RefreshCause,
 } from './fee_snapshot_types.js';
@@ -47,11 +46,6 @@ export class FeeSnapshotService implements FeeProvider {
   private nextRetryAtMs = 0;
 
   private readonly constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
-  private readonly stats: FeeSnapshotStats = {
-    refreshes: 0,
-    refreshFailures: 0,
-    readTriggeredRefreshes: 0,
-  };
 
   constructor(
     private readonly rollup: RollupContract,
@@ -86,11 +80,6 @@ export class FeeSnapshotService implements FeeProvider {
     await this.runningPromise.stop();
     await this.inFlight?.catch(() => undefined);
     this.log.verbose('Fee snapshot service stopped');
-  }
-
-  /** Returns a snapshot of the service counters. */
-  public getStats(): FeeSnapshotStats {
-    return { ...this.stats };
   }
 
   /** Returns the currently published snapshot, if any. Exposed for testing. */
@@ -207,8 +196,7 @@ export class FeeSnapshotService implements FeeProvider {
    * Awaits a refresh on behalf of a read, bounded by the remaining read deadline. On timeout only the wait is
    * abandoned: the refresh keeps running and stays shared with the poll loop and any other waiter.
    */
-  private async refreshForRead(deadline: number): Promise<void> {
-    this.stats.readTriggeredRefreshes++;
+  protected async refreshForRead(deadline: number): Promise<void> {
     const remaining = deadline - this.dateProvider.now();
     if (remaining <= 0) {
       throw new FeeQuoteUnavailableError('the read deadline elapsed before a refresh could complete');
@@ -253,14 +241,13 @@ export class FeeSnapshotService implements FeeProvider {
   }
 
   /** Builds and publishes a snapshot, resetting the backoff on success and recording failure + backoff on error. */
-  private async runRefresh(identity: L1SyncSnapshot, cause: RefreshCause): Promise<FeeSnapshot> {
+  protected async runRefresh(identity: L1SyncSnapshot, cause: RefreshCause): Promise<FeeSnapshot> {
     try {
       const snapshot = await this.buildSnapshot(identity);
       // No ordering guard on publish: refreshes are single-flight, and L1 identity is hash-authoritative, so
       // the height can legitimately move backwards (reorg, or a lagging fallback backend). A height guard
       // would discard every rebuild after a rollback and wedge reads.
       this.snapshot = snapshot;
-      this.stats.refreshes++;
       this.consecutiveFailures = 0;
       this.nextRetryAtMs = 0;
       this.log.debug('Published fee snapshot', {
@@ -272,7 +259,6 @@ export class FeeSnapshotService implements FeeProvider {
       });
       return snapshot;
     } catch (err) {
-      this.stats.refreshFailures++;
       this.consecutiveFailures++;
       this.nextRetryAtMs = this.dateProvider.now() + this.backoffMs();
       this.log.warn('Fee snapshot refresh failed; keeping last-good snapshot', {
