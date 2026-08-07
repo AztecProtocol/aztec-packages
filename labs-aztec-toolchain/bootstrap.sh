@@ -17,7 +17,7 @@ PIN_FILE=$TARGET_DIR/.pin
 # those. check_pin_drift detects any drift between this and those declarations.
 # The monorepo links the locally built binaries instead.
 # Note that BB is downloaded from the AztecProtocol/barretenberg mirror first (via bbup).
-BB_VERSION=6.0.0-nightly.20260804
+BB_VERSION=6.0.0-nightly.20260807
 # NOIR_VERSION must be the noir release the $BB_VERSION aztec-packages release was built
 # against (its noir submodule): the pinned nargo's output is consumed by tools from that
 # release (bb, and the @aztec/noir-* js packages, which are that submodule republished).
@@ -414,30 +414,20 @@ function hash {
     echo_stderr "noir-profiler: $(realpath -m "$noir_profiler")"
     exit 1
   fi
-  # The toolchain's identity is the SOURCE identity of its providers, not the bytes of the
-  # built binaries: bb/bb-avm get the current commit hash stamped into them on non-release
-  # builds (inject_version in barretenberg/cpp/bootstrap.sh), so hashing bytes makes every
-  # commit look like a new toolchain even when nothing changed — forcing downstream consumers
-  # (e.g. every noir-contracts cache key) to rebuild and mass-regenerate VKs per commit.
-  # Composing the upstream content hashes keys rebuilds on exactly the same inputs that decide
-  # whether the binaries themselves rebuild. (A future labs-repo provisioning mode should use
-  # the released toolchain's version string as its fixed identity instead.)
-  #
-  # The optional binaries contribute presence only: what the toolchain provides (including
-  # their absence) is part of its identity, but their content is already covered by the
-  # provider hashes.
-  local provided=""
+  # The optional binaries are hashed only when provisioned: what the toolchain
+  # provides (including their absence) is part of its identity.
+  local files=("$bb" "$nargo" "$noir_profiler")
   local optional
   for optional in "$TARGET_DIR/$BB_AVM_BINARY" "$TARGET_DIR/$ACVM_BINARY"; do
     if [ -f "$optional" ]; then
-      provided+=" $(basename "$optional")"
+      files+=("$optional")
     fi
   done
-  local root=${MONOREPO_ROOT:-$(git rev-parse --show-toplevel)}
-  hash_str \
-    $("$root"/barretenberg/cpp/bootstrap.sh hash) \
-    $("$root"/noir/bootstrap.sh hash) \
-    "$provided"
+  # The script itself is part of the identity: it defines the pins and the
+  # provisioning logic, and a pin bump must move the hash even before the
+  # binaries have been refreshed.
+  files+=("bootstrap.sh")
+  hash_str $(git hash-object "${files[@]}")
 }
 
 case "$cmd" in
