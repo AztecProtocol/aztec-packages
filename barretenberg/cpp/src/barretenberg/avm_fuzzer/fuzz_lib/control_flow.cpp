@@ -166,6 +166,11 @@ void ControlFlow::process_insert_internal_call(InsertInternalCall instruction)
     if (instruction_blocks->size() == 0) {
         return;
     }
+    // Appending an INTERNALCALL after a terminator would emit bytecode that can never be reached, and
+    // would make an unreachable block current so that everything generated afterwards is dead too.
+    if (this->current_block->terminator_type != TerminatorType::NONE) {
+        return;
+    }
     auto target_instruction_block =
         instruction_blocks->at(instruction.target_program_block_instruction_block_idx % instruction_blocks->size());
     ProgramBlock* target_block = new ProgramBlock();
@@ -180,7 +185,7 @@ std::vector<ProgramBlock*> ControlFlow::get_non_terminated_blocks()
     std::vector<ProgramBlock*> blocks = dfs_traverse(start_block);
     std::vector<ProgramBlock*> non_terminated_blocks;
     std::copy_if(blocks.begin(), blocks.end(), std::back_inserter(non_terminated_blocks), [](ProgramBlock* block) {
-        return block->terminator_type != TerminatorType::NONE;
+        return block->terminator_type == TerminatorType::NONE;
     });
     return non_terminated_blocks;
 }
