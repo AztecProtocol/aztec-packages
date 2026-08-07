@@ -79,6 +79,16 @@ struct SwitchToNonTerminatedBlock {
     SERIALIZATION_FIELDS(non_terminated_block_idx);
 };
 
+/// @brief emits a counted loop around the chosen instruction block
+/// The current block initialises the counter and jumps into the body; the body runs the block,
+/// decrements the counter and jumps back to itself while it is non-zero. The exit block becomes
+/// current. trip_count is taken modulo a small bound so the trace stays a workable size.
+struct InsertBoundedLoop {
+    uint16_t instruction_block_idx;
+    uint8_t trip_count;
+    SERIALIZATION_FIELDS(instruction_block_idx, trip_count);
+};
+
 /// @brief inserts INTERNALCALL instruction to the current block
 /// creates a new block and sets it as the current block
 struct InsertInternalCall {
@@ -94,7 +104,8 @@ using CFGInstruction = std::variant<InsertSimpleInstructionBlock,
                                     FinalizeWithReturn,
                                     FinalizeWithRevert,
                                     SwitchToNonTerminatedBlock,
-                                    InsertInternalCall>;
+                                    InsertInternalCall,
+                                    InsertBoundedLoop>;
 template <class... Ts> struct overloaded_cfg_instruction : Ts... {
     using Ts::operator()...;
 };
@@ -130,6 +141,9 @@ inline std::ostream& operator<<(std::ostream& os, const CFGInstruction& instruct
             },
             [&](InsertInternalCall arg) {
                 os << "InsertInternalCall " << arg.target_program_block_instruction_block_idx;
+            },
+            [&](InsertBoundedLoop arg) {
+                os << "InsertBoundedLoop " << arg.instruction_block_idx << " x" << static_cast<int>(arg.trip_count);
             },
         },
         instruction);
@@ -186,6 +200,9 @@ class ControlFlow {
     /// creates a new block and sets it as the current block
     /// @param instruction the instruction to process
     void process_insert_internal_call(InsertInternalCall instruction);
+
+    /// @brief emit a counted loop around the chosen instruction block and switch to its exit block
+    void process_insert_bounded_loop(InsertBoundedLoop instruction);
 
     /// @brief traverse the control flow graph using DFS
     /// @param start_block the start block

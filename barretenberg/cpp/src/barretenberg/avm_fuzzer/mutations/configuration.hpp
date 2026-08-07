@@ -339,7 +339,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::CALLDATACOPY, 1 },
     { InstructionGenerationOptions::SENDL2TOL1MSG, 1 },
     { InstructionGenerationOptions::EMITPUBLICLOG, 1 },
-    { InstructionGenerationOptions::CALL, 1 },
+    { InstructionGenerationOptions::CALL, 8 },
     { InstructionGenerationOptions::RETURNDATASIZE, 1 },
     { InstructionGenerationOptions::RETURNDATACOPY, 1 },
     { InstructionGenerationOptions::GETCONTRACTINSTANCE, 1 },
@@ -540,7 +540,11 @@ using FuzzerDataMutationConfig = WeightedSelectionConfig<FuzzerDataMutationOptio
 
 constexpr FuzzerDataMutationConfig BASIC_FUZZER_DATA_MUTATION_CONFIGURATION = FuzzerDataMutationConfig({
     { FuzzerDataMutationOptions::InstructionMutation, 20 },
-    { FuzzerDataMutationOptions::ControlFlowCommandMutation, 1 },
+    // The CFG instruction list is what decides how many basic blocks a program has, and therefore
+    // whether it can branch, loop or call at all. At weight 1 against 20 for instructions within a
+    // block, programs grew long inside a single block and never grew a shape: JUMP_32 and JUMPI_32
+    // were absent from the corpus entirely.
+    { FuzzerDataMutationOptions::ControlFlowCommandMutation, 10 },
     { FuzzerDataMutationOptions::ReturnOptionsMutation, 1 },
     { FuzzerDataMutationOptions::CalldataMutation, 5 },
 });
@@ -568,9 +572,10 @@ enum class CFGInstructionGenerationOptions {
     FinalizeWithRevert,
     SwitchToNonTerminatedBlock,
     InsertInternalCall,
+    InsertBoundedLoop,
 };
 
-using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 9>;
+using CFGInstructionGenerationConfig = WeightedSelectionConfig<CFGInstructionGenerationOptions, 10>;
 
 constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIGURATION =
     CFGInstructionGenerationConfig({
@@ -583,7 +588,16 @@ constexpr CFGInstructionGenerationConfig BASIC_CFG_INSTRUCTION_GENERATION_CONFIG
         { CFGInstructionGenerationOptions::FinalizeWithRevert, 3 },
         { CFGInstructionGenerationOptions::SwitchToNonTerminatedBlock, 8 },
         { CFGInstructionGenerationOptions::InsertInternalCall, 3 },
+        { CFGInstructionGenerationOptions::InsertBoundedLoop, 15 },
     });
+
+enum class BoundedLoopMutationOptions { instruction_block_idx, trip_count };
+using BoundedLoopMutationConfig = WeightedSelectionConfig<BoundedLoopMutationOptions, 2>;
+
+constexpr BoundedLoopMutationConfig BASIC_BOUNDED_LOOP_MUTATION_CONFIGURATION = BoundedLoopMutationConfig({
+    { BoundedLoopMutationOptions::instruction_block_idx, 1 },
+    { BoundedLoopMutationOptions::trip_count, 1 },
+});
 
 enum class JumpIfToBlockMutationOptions { target_then_block_idx, target_else_block_idx, condition_offset_index };
 using JumpIfToBlockMutationConfig = WeightedSelectionConfig<JumpIfToBlockMutationOptions, 3>;

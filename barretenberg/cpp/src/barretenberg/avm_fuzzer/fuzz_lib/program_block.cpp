@@ -1603,8 +1603,48 @@ void ProgramBlock::patch_internal_calls()
     internal_call_instruction_indicies_to_patch.clear();
 }
 
+namespace {
+
+// Kept near the top of the 16 bit operand range so that a generated instruction is unlikely to land
+// on them. A collision only changes how many times the loop runs; the gas limit still bounds it.
+constexpr uint32_t LOOP_COUNTER_ADDRESS = 65000;
+constexpr uint32_t LOOP_STEP_ADDRESS = 65001;
+constexpr uint32_t LOOP_ZERO_ADDRESS = 65002;
+constexpr uint32_t LOOP_CONDITION_ADDRESS = 65003;
+
+AddressRef direct(uint32_t address)
+{
+    return AddressRef{ .address = address, .mode = AddressingMode::Direct };
+}
+
+} // namespace
+
+void ProgramBlock::emit_loop_counter_init(uint32_t trip_count)
+{
+    process_set_32_instruction(SET_32_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U32, .result_address = direct(LOOP_COUNTER_ADDRESS), .value = trip_count });
+    process_set_32_instruction(SET_32_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U32, .result_address = direct(LOOP_STEP_ADDRESS), .value = 1 });
+    process_set_32_instruction(SET_32_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U32, .result_address = direct(LOOP_ZERO_ADDRESS), .value = 0 });
+}
+
+void ProgramBlock::emit_loop_counter_step()
+{
+    process_sub_16_instruction(SUB_16_Instruction{ .a_address = direct(LOOP_COUNTER_ADDRESS),
+                                                   .b_address = direct(LOOP_STEP_ADDRESS),
+                                                   .result_address = direct(LOOP_COUNTER_ADDRESS) });
+    process_lt_16_instruction(LT_16_Instruction{ .a_address = direct(LOOP_ZERO_ADDRESS),
+                                                 .b_address = direct(LOOP_COUNTER_ADDRESS),
+                                                 .result_address = direct(LOOP_CONDITION_ADDRESS) });
+    explicit_condition_address = static_cast<uint16_t>(LOOP_CONDITION_ADDRESS);
+}
+
 std::optional<uint16_t> ProgramBlock::get_terminating_condition_value()
 {
+    if (explicit_condition_address.has_value()) {
+        return explicit_condition_address;
+    }
     auto condition_addr = memory_manager.get_memory_offset_16(bb::avm2::MemoryTag::U1, condition_offset_index);
     if (!condition_addr.has_value()) {
         return std::nullopt;

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
@@ -162,6 +163,42 @@ TEST(ControlFlowStructureTest, EveryBranchOfNestedConditionalsIsPopulated)
     // Both branches of the second conditional draw on block 2.
     EXPECT_EQ(count_of(counts, WireOpCode::SET_64), 2);
     EXPECT_EQ(count_of(counts, WireOpCode::JUMPI_32), 2);
+}
+
+// A loop must emit a jump whose target is behind it. Everything else the builder produces is a
+// forward edge, so this is what distinguishes a loop from a branch.
+TEST(ControlFlowStructureTest, BoundedLoopEmitsABackwardEdge)
+{
+    auto instruction_blocks = std::vector<InstructionBlock>{ block_with(set_64_marker()) };
+
+    auto control_flow = ControlFlow(instruction_blocks);
+    control_flow.process_cfg_instruction(InsertBoundedLoop{ .instruction_block_idx = 0, .trip_count = 5 });
+
+    auto bytecode = control_flow.build_bytecode(default_return_options());
+
+    // Walk the decoded stream recording where each instruction starts, and find the JUMPI target.
+    std::optional<size_t> jumpi_position;
+    std::optional<uint32_t> jumpi_target;
+    size_t pos = 0;
+    while (pos < bytecode.size()) {
+        auto instruction = bb::avm2::simulation::deserialize_instruction(bytecode, pos);
+        if (instruction.opcode == WireOpCode::JUMPI_32) {
+            jumpi_position = pos;
+            jumpi_target = instruction.operands.at(1).as<uint32_t>();
+        }
+        pos += instruction.size_in_bytes();
+    }
+
+    ASSERT_TRUE(jumpi_position.has_value());
+    ASSERT_TRUE(jumpi_target.has_value());
+    EXPECT_LT(jumpi_target.value(), jumpi_position.value());
+
+    auto counts = count_opcodes(bytecode);
+    // The body is emitted once and revisited by the back edge, not unrolled.
+    EXPECT_EQ(count_of(counts, WireOpCode::SET_64), 1);
+    // Counter init, decrement and comparison.
+    EXPECT_EQ(count_of(counts, WireOpCode::SUB_16), 1);
+    EXPECT_EQ(count_of(counts, WireOpCode::LT_16), 1);
 }
 
 } // namespace

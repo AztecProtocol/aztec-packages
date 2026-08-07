@@ -150,9 +150,11 @@ void mutate_fuzzer_data_vec(const FuzzerContext& context,
         break;
     }
     case EnqueuedCallMutation::Remove:
-        // Remove an existing enqueued call
+        // Remove an existing enqueued call, but never the last one. An input with no programs has no
+        // bytecode to run, and since it is also the smallest possible input, -shrink steers the
+        // corpus towards it. Nothing restored one afterwards, so these accumulated.
         fuzz_info("Removing an existing enqueued call");
-        if (!enqueued_calls.empty()) {
+        if (enqueued_calls.size() > 1) {
             size_t idx = std::uniform_int_distribution<size_t>(0, enqueued_calls.size() - 1)(rng);
             enqueued_calls.erase(enqueued_calls.begin() + static_cast<std::ptrdiff_t>(idx));
         }

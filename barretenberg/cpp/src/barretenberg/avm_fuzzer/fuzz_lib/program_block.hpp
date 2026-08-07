@@ -46,6 +46,11 @@ class ProgramBlock {
     /// @brief the offset index of the condition variable (for JUMP_IF)
     uint16_t condition_offset_index = 0;
 
+    /// @brief a condition address chosen by the builder rather than looked up by index.
+    /// A loop needs its JUMPI to read the specific cell its counter comparison wrote, which an
+    /// index into the block's U1 variables cannot name.
+    std::optional<uint16_t> explicit_condition_address;
+
     // At first we insert INTERNALCALL instruction with 0 offset, because we don't know the resulting block offsets
     // when we insert instruction. On the step 3 of build bytecode we calculate the actual offsets, which will be used
     // for step 4 to patch the INTERNALCALL instruction with the actual offset.
@@ -171,6 +176,11 @@ class ProgramBlock {
 
     /// @brief insert INTERNALCALL instruction with 0 offset
     void insert_internal_call(ProgramBlock* target_block);
+
+    /// @brief initialise the loop counter, its decrement step and the zero it is compared against
+    void emit_loop_counter_init(uint32_t trip_count);
+    /// @brief decrement the loop counter and write "counter > 0" to the loop condition cell
+    void emit_loop_counter_step();
 
     std::optional<uint16_t> get_terminating_condition_value();
     void process_write_terminating_condition_value();

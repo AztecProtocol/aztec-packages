@@ -180,6 +180,36 @@ void ControlFlow::process_insert_internal_call(InsertInternalCall instruction)
     current_block = target_block;
 }
 
+void ControlFlow::process_insert_bounded_loop(InsertBoundedLoop instruction)
+{
+    if (instruction_blocks->size() == 0) {
+        return;
+    }
+    if (this->current_block->terminator_type != TerminatorType::NONE) {
+        return;
+    }
+    // Bounded so that one input cannot spend its whole gas limit spinning, and so the trace stays a
+    // workable size for the prover fuzzer.
+    constexpr uint32_t MAX_TRIP_COUNT = 16;
+    const uint32_t trip_count = (instruction.trip_count % MAX_TRIP_COUNT) + 2;
+
+    auto body_instruction_block =
+        instruction_blocks->at(instruction.instruction_block_idx % instruction_blocks->size());
+
+    ProgramBlock* body_block = new ProgramBlock();
+    ProgramBlock* exit_block = new ProgramBlock();
+
+    current_block->emit_loop_counter_init(trip_count);
+    current_block->finalize_with_jump(body_block);
+
+    body_block->process_instruction_block(body_instruction_block);
+    body_block->emit_loop_counter_step();
+    // The back edge: while the counter is non-zero, jump to the body itself.
+    body_block->finalize_with_jump_if(body_block, exit_block, /*condition_offset=*/0);
+
+    current_block = exit_block;
+}
+
 std::vector<ProgramBlock*> ControlFlow::get_non_terminated_blocks()
 {
     std::vector<ProgramBlock*> blocks = dfs_traverse(start_block);
@@ -226,7 +256,8 @@ void ControlFlow::process_cfg_instruction(CFGInstruction instruction)
                    [&](FinalizeWithReturn arg) { process_finalize_with_return(arg); },
                    [&](FinalizeWithRevert arg) { process_finalize_with_revert(arg); },
                    [&](SwitchToNonTerminatedBlock arg) { process_switch_to_non_terminated_block(arg); },
-                   [&](InsertInternalCall arg) { process_insert_internal_call(arg); } },
+                   [&](InsertInternalCall arg) { process_insert_internal_call(arg); },
+                   [&](InsertBoundedLoop arg) { process_insert_bounded_loop(arg); } },
                instruction);
 }
 

@@ -2,6 +2,7 @@
 
 #include "barretenberg/avm_fuzzer/mutations/basic_types/memory_tag.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint16_t.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/uint8_t.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 #include "barretenberg/avm_fuzzer/mutations/control_flow/return_options.hpp"
@@ -73,6 +74,19 @@ void mutate_insert_internal_call(InsertInternalCall& instr, std::mt19937_64& rng
     mutate_uint16_t(instr.target_program_block_instruction_block_idx, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
 }
 
+void mutate_insert_bounded_loop(InsertBoundedLoop& instr, std::mt19937_64& rng)
+{
+    BoundedLoopMutationOptions option = BASIC_BOUNDED_LOOP_MUTATION_CONFIGURATION.select(rng);
+    switch (option) {
+    case BoundedLoopMutationOptions::instruction_block_idx:
+        mutate_uint16_t(instr.instruction_block_idx, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
+        break;
+    case BoundedLoopMutationOptions::trip_count:
+        mutate_uint8_t(instr.trip_count, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
+        break;
+    }
+}
+
 CFGInstruction generate_cfg_instruction(std::mt19937_64& rng)
 {
     CFGInstructionGenerationOptions option = BASIC_CFG_INSTRUCTION_GENERATION_CONFIGURATION.select(rng);
@@ -99,6 +113,8 @@ CFGInstruction generate_cfg_instruction(std::mt19937_64& rng)
         return SwitchToNonTerminatedBlock(generate_random_uint16(rng));
     case CFGInstructionGenerationOptions::InsertInternalCall:
         return InsertInternalCall(generate_random_uint16(rng));
+    case CFGInstructionGenerationOptions::InsertBoundedLoop:
+        return InsertBoundedLoop(generate_random_uint16(rng), generate_random_uint8(rng));
     }
 }
 
@@ -113,7 +129,8 @@ void mutate_cfg_instruction(CFGInstruction& cfg_instruction, std::mt19937_64& rn
                    [&](FinalizeWithReturn& instr) { mutate_finalize_with_return(instr, rng); },
                    [&](FinalizeWithRevert& instr) { mutate_finalize_with_revert(instr, rng); },
                    [&](SwitchToNonTerminatedBlock& instr) { mutate_switch_to_non_terminated_block(instr, rng); },
-                   [&](InsertInternalCall& instr) { mutate_insert_internal_call(instr, rng); } },
+                   [&](InsertInternalCall& instr) { mutate_insert_internal_call(instr, rng); },
+                   [&](InsertBoundedLoop& instr) { mutate_insert_bounded_loop(instr, rng); } },
                cfg_instruction);
 }
 

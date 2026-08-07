@@ -821,24 +821,34 @@ std::vector<FuzzInstruction> InstructionMutator::generate_call_instruction(std::
                                                .result_address = contract_address_address,
                                                .value = context.get_contract_address(generate_random_uint16(rng)) });
 
+    // The child's gas is clamped to what the parent has left, so allocating generously is what lets
+    // it run far enough to nest further. A small allocation still creates the context, so keep some.
+    auto child_gas = [&rng]() {
+        return std::uniform_int_distribution<int>(0, 9)(rng) == 0 ? generate_random_uint32(rng) : 100000000U;
+    };
+
     auto l2_gas_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
-    instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                                               .result_address = l2_gas_address,
-                                               .value = generate_random_uint32(rng) });
+    instructions.push_back(SET_32_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U32, .result_address = l2_gas_address, .value = child_gas() });
 
     auto da_gas_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
-    instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
-                                               .result_address = da_gas_address,
-                                               .value = generate_random_uint32(rng) });
+    instructions.push_back(SET_32_Instruction{
+        .value_tag = bb::avm2::MemoryTag::U32, .result_address = da_gas_address, .value = child_gas() });
 
-    auto calldata_size = generate_random_uint16(rng);
+    // Only as many calldata fields as are actually written below. A 16 bit size over one written
+    // field made the callee read tens of thousands of cells the caller never set, which costs gas
+    // per field and fails the call long before it can nest.
+    auto calldata_size = static_cast<uint16_t>(std::uniform_int_distribution<int>(0, 4)(rng));
     auto calldata_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
 
     auto calldata_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
-    // Write one random FF in the calldata
-    instructions.push_back(SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
-                                               .result_address = calldata_address,
-                                               .value = generate_random_field(rng) });
+    for (uint16_t i = 0; i < calldata_size; ++i) {
+        auto field_address = calldata_address;
+        field_address.address += i;
+        instructions.push_back(SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
+                                                   .result_address = field_address,
+                                                   .value = generate_random_field(rng) });
+    }
 
     instructions.push_back(CALL_Instruction{ .l2_gas_address = l2_gas_address,
                                              .da_gas_address = da_gas_address,
