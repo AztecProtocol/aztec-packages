@@ -27,7 +27,6 @@ end-to-end/src/web/*.gz
 end-to-end/src/web/*.mjs
 end-to-end/src/web/*.mjs.LICENSE.txt
 l1-artifacts/generated
-l1-contracts/generated
 builder/target/
 builder/noir-protocol-circuits-types/.gitignore wow
 builder/proofs/

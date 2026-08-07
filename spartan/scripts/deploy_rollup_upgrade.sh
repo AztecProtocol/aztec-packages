@@ -9,7 +9,8 @@ set -euo pipefail
 #
 # Loads L1 contract defaults from network-defaults.yml (with YAML anchor inheritance),
 # infers L1 chain from L1_CHAIN_ID, fetches GCP secrets, builds yarn-project for
-# genesis values, then calls l1-contracts/scripts/run_rollup_upgrade.sh.
+# genesis values, then runs the DeployRollupForUpgrade forge script from the foundry
+# bundle shipped in @aztec/l1-artifacts (via run_rollup_upgrade.js).
 #
 # Usage:
 #   ./deploy_rollup_upgrade.sh <registry_address>
@@ -117,4 +118,13 @@ log "VK_TREE_ROOT: $VK_TREE_ROOT"
 log "PROTOCOL_CONTRACTS_HASH: $PROTOCOL_CONTRACTS_HASH"
 log "GENESIS_ARCHIVE_ROOT: $GENESIS_ARCHIVE_ROOT"
 
-exec "$repo_root/l1-contracts/scripts/run_rollup_upgrade.sh" "$registry_address"
+log "Deploying rollup upgrade"
+
+export REGISTRY_ADDRESS="$registry_address"
+export REAL_VERIFIER="${REAL_VERIFIER:-true}"
+exec node --no-warnings "$repo_root/spartan/scripts/run_rollup_upgrade.js" \
+  script/deploy/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade \
+  --rpc-url "$L1_RPC_URL" \
+  --private-key "$ROLLUP_DEPLOYMENT_PRIVATE_KEY" \
+  ${ETHERSCAN_API_KEY:+--verify} \
+  -vvv

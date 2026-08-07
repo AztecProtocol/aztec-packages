@@ -309,9 +309,7 @@ set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
 ./yarn-project/precommit.sh
 ./noir/precommit.sh
-./noir-projects/fnd/precommit.sh
 ./noir-projects/labs/precommit.sh
-./yarn-project/constants/precommit.sh
 ./docs/examples/ts/precommit.sh
 EOF
   chmod +x $hooks_dir/pre-commit
@@ -473,7 +471,7 @@ function build_and_test {
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/{fnd/noir-protocol-circuits,labs/noir-contracts} l1-contracts
+    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp} noir-projects/labs/noir-contracts
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
@@ -578,14 +576,11 @@ function release {
     barretenberg/ts
     barretenberg/rust
     noir
-    l1-contracts
     noir-projects/labs/aztec-nr
-    protocol/constants-codegen
     yarn-project
     # aztec-up is omitted until the repo split is complete.
     playground
     release-image
-    noir-projects/fnd
   )
   if [ $(arch) == arm64 ]; then
     projects=(
@@ -606,7 +601,7 @@ function private_release {
   # Release flow for the private repo, run on a (nightly) ci-private-release PR. We publish only to our
   # internal GCP Artifact Registry: the docker image (release-image -> INTERNAL_DOCKER_REGISTRY that
   # GKE/staging pulls from) and the npm packages (barretenberg/ts, noir, ipc-runtime, wsdb,
-  # protocol/constants-codegen, yarn-project -> the INTERNAL_NPM_REGISTRY npm repo). We run the release
+  # yarn-project -> the INTERNAL_NPM_REGISTRY npm repo). We run the release
   # step for real on exactly those components and do not invoke the others — the remaining release
   # sources publish public artifacts (github releases, crates.io, the aztec-up/playground S3 installers)
   # and are not interrelated with these.
@@ -660,19 +655,12 @@ function private_release {
     done
   fi
 
-  # Publish @aztec/l1-artifacts to the internal registry. 13 yarn-project packages depend on it at the
-  # release version, so it must exist before yarn-project's release smoke-test installs them. amd64
-  # only (npm packages are platform-independent; mirrors the publish guard below).
-  if [ $(arch) != arm64 ]; then
-    l1-contracts/bootstrap.sh release
-  fi
-
   # Publish for real, in dependency order: bb.js, the noir packages, ipc-runtime, and wsdb must be on
   # the registry before yarn-project's release smoke-tests installing the @aztec packages that depend on
   # them. @aztec/world-state has a runtime dependency on @aztec/wsdb, and the ipc-codegen-generated
   # @aztec/wsdb in turn has a runtime dependency on @aztec/ipc-runtime, so ipc-runtime must precede wsdb.
   # npm packages are platform-independent, so only the docker image is published on arm64.
-  local publish=(barretenberg/ts noir ipc-runtime wsdb protocol/constants-codegen yarn-project release-image)
+  local publish=(barretenberg/ts noir ipc-runtime wsdb yarn-project release-image)
   if [ $(arch) == arm64 ]; then
     publish=(release-image)
   fi

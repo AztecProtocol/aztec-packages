@@ -113,22 +113,6 @@
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],
-    },
-    {
-      // Debug bb write_vk for a protocol kernel circuit.
-      // Select a circuit by editing the artifact in the "Extract protocol circuit bytecode" task.
-      // If writing the vk of the hiding kernel, change the circuit kind to "hiding".
-      "name": "Debug BB write_vk kernel",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
-      "args": ["write_vk", "--scheme", "chonk", "--circuit_kind", "kernel", "-b", "./target/bytecode.bin", "-o", "./target/vk_output", "-v"],
-      "cwd": "${workspaceFolder}/noir-projects/fnd/noir-protocol-circuits",
-      "preLaunchTask": "Extract protocol circuit bytecode",
-      "postDebugTask": "Cleanup protocol circuit bytecode",
-      "initCommands": [
-        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
-      ],
     }
   ]
 }

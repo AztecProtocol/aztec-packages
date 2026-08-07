@@ -1,6 +1,0 @@
-SetScope
-├── when caller of setScope is not owner
-│   └── it reverts
-└── when caller of setScope is owner
-    ├── it sets the scope
-    └── it emits a {ScopeUpdated} event
