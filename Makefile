@@ -93,8 +93,9 @@ full: full-foundation full-labs
 # Everything required to run the full benchmark suite (see bootstrap.sh bench_cmds),
 # and nothing more. bb-acir builds barretenberg/acir_tests, whose headless-test
 # harness (ts-node) the bb browser memory bench (ci_benchmark_browser_memory.sh)
-# drives.
-bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-acir \
+# drives. bb-crs pre-downloads the CRS: the proof benches run in no-network
+# containers, so bb.js must find it locally rather than fetch on demand.
+bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-crs bb-acir \
 		noir-protocol-circuits
 
 # yarn-project-benches covers the e2e bench inputs and yarn-project's own benches;
