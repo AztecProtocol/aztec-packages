@@ -34,6 +34,8 @@ import { FINALIZE_BLOCK_CHUNK_SIZE, TxPoolV2Impl } from './tx_pool_v2_impl.js';
 export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitter<TxPoolV2Events>) implements TxPoolV2 {
   #queue: SerialQueue;
   #queueMetrics: TxPoolQueueInstrumentation;
+  /** Chains finalizations so their chunked queue items never interleave with each other. */
+  #finalizationChain: Promise<void> = Promise.resolve();
   #impl: TxPoolV2Impl;
   #metrics?: PoolInstrumentation<Tx>;
   #store: AztecAsyncKVStore;
@@ -153,9 +155,16 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
    * Handles a finalized block by archiving and deleting the mined txs it finalizes. The work is
    * split into chunk-sized serial-queue items rather than one long-running item, so gossip-driven
    * pool operations (canAddPendingTx / addPendingTxs) interleave with finalization instead of
-   * stalling behind an entire epoch's worth of tx processing.
+   * stalling behind an entire epoch's worth of tx processing. Finalizations are chained so two
+   * concurrent calls never interleave their chunks with each other.
    */
-  async handleFinalizedBlock(block: BlockHeader): Promise<void> {
+  handleFinalizedBlock(block: BlockHeader): Promise<void> {
+    const run = this.#finalizationChain.then(() => this.#handleFinalizedBlock(block));
+    this.#finalizationChain = run.catch(() => {});
+    return run;
+  }
+
+  async #handleFinalizedBlock(block: BlockHeader): Promise<void> {
     const { cutoffBlock, txHashes } = await this.#run('prepareFinalization', () =>
       this.#impl.prepareFinalization(block),
     );
@@ -164,7 +173,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
       await this.#run('archiveFinalizedTxs', () => this.#impl.archiveFinalizedTxs(batch));
     }
     for (const batch of batches) {
-      await this.#run('deleteFinalizedTxs', () => this.#impl.deleteFinalizedTxs(batch));
+      await this.#run('deleteFinalizedTxs', () => this.#impl.deleteFinalizedTxs(batch, cutoffBlock));
     }
     await this.#run('completeFinalization', () =>
       this.#impl.completeFinalization(txHashes, cutoffBlock, block.globalVariables.blockNumber),
