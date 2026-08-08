@@ -1,7 +1,9 @@
 #include "barretenberg/vm2/tracegen_helper.hpp"
 
 #include <array>
+#include <exception>
 #include <functional>
+#include <mutex>
 #include <span>
 #include <string>
 #include <vector>
@@ -119,7 +121,23 @@ auto build_public_inputs_columns_jobs(TraceContainer& trace, const PublicInputs&
 
 void execute_jobs(std::span<std::function<void()>> jobs)
 {
-    parallel_for(jobs.size(), [&](size_t i) { jobs[i](); });
+    std::exception_ptr first_exception = nullptr;
+    std::mutex exception_mutex;
+
+    parallel_for(jobs.size(), [&](size_t i) {
+        try {
+            jobs[i]();
+        } catch (...) {
+            std::lock_guard<std::mutex> lock(exception_mutex);
+            if (first_exception == nullptr) {
+                first_exception = std::current_exception();
+            }
+        }
+    });
+
+    if (first_exception != nullptr) {
+        std::rethrow_exception(first_exception);
+    }
 }
 
 template <typename T> inline void clear_events(T& c)

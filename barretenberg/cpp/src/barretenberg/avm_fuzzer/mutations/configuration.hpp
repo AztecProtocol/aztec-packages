@@ -593,3 +593,37 @@ constexpr JumpIfToBlockMutationConfig BASIC_JUMP_IF_TO_BLOCK_MUTATION_CONFIGURAT
     { JumpIfToBlockMutationOptions::target_else_block_idx, 1 },
     { JumpIfToBlockMutationOptions::condition_offset_index, 1 },
 });
+
+// ============== FAULT INJECTION CONFIGURATIONS ==============
+
+// TODO(defkit): Implement fault injection for all events
+enum class FaultInjectionEventOptions {
+    AluEvent,
+};
+using FaultInjectionEventConfig = WeightedSelectionConfig<FaultInjectionEventOptions, 1>;
+
+constexpr FaultInjectionEventConfig BASIC_FAULT_INJECTION_EVENT_CONFIGURATION = FaultInjectionEventConfig({
+    { FaultInjectionEventOptions::AluEvent, 1 },
+});
+
+enum class MemoryValueMutationOptions { Tag, Add1, Sub1, SetMin, SetMax };
+using MemoryValueMutationConfig = WeightedSelectionConfig<MemoryValueMutationOptions, 5>;
+
+constexpr MemoryValueMutationConfig BASIC_MEMORY_VALUE_MUTATION_CONFIGURATION = MemoryValueMutationConfig({
+    { MemoryValueMutationOptions::Tag, 1 },
+    { MemoryValueMutationOptions::Add1, 40 },
+    { MemoryValueMutationOptions::Sub1, 40 },
+    { MemoryValueMutationOptions::SetMin, 3 },
+    { MemoryValueMutationOptions::SetMax, 2 },
+});
+
+enum class FaultInjectionAluEventOptions { Operand, Result, Operation, FlipError };
+using FaultInjectionAluEventConfig = WeightedSelectionConfig<FaultInjectionAluEventOptions, 4>;
+
+constexpr FaultInjectionAluEventConfig BASIC_FAULT_INJECTION_ALU_EVENT_CONFIGURATION = FaultInjectionAluEventConfig({
+    { FaultInjectionAluEventOptions::Operand,
+      100 }, // Mutates a or b with 50% probability. If op is unary mutation will be on a.
+    { FaultInjectionAluEventOptions::Result, 80 }, // Mutates c
+    { FaultInjectionAluEventOptions::Operation, 7 },
+    { FaultInjectionAluEventOptions::FlipError, 3 },
+});
