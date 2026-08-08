@@ -351,10 +351,7 @@ jobs:
             timeout: 300
           - bench_type: proving-benchmark
             ci3_cmd: network-proving-bench
-            # TEMPORARY (A-1656 reproduction): run against the real-proof environment so gossiped
-            # txs carry real chonk proofs and nodes really verify them. Revert to prove-n-tps-fake
-            # before merging.
-            scenario: prove-n-tps-real
+            scenario: prove-n-tps-fake
             namespace_suffix: proving-bench
             download_cmd: gh-spartan-proving-bench
             timeout: 240
