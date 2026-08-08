@@ -308,10 +308,10 @@ describe('Private Execution test suite', () => {
     txResolver.resolveTxs.mockResolvedValue([]);
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
-      async ({ contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, scopes }) => {
+      async ({ contract, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, scopes }) => {
         for (const scope of scopes) {
           await syncScope(
-            contractAddress,
+            contract,
             contractStore,
             contractClassService,
             anchorBlockHeader,

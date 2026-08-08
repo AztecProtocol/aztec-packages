@@ -43,7 +43,9 @@ export interface ContractSyncConfig {
   /**
    * Whether PXE speculatively syncs contracts it predicts will follow the one requested, running them concurrently
    * with it instead of waiting for execution to reach them. When enabled, repeated flows sync faster, but a wrong
-   * prediction spends unnecessary node requests syncing contracts the job never uses. Experimental; off by default.
+   * prediction spends unnecessary node requests syncing contracts the job never uses.
+   *
+   * Experimental, off by default.
    */
   concurrentContractSyncEnabled: boolean;
 }
@@ -93,7 +95,7 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
   concurrentContractSyncEnabled: {
     env: 'PXE_CONCURRENT_CONTRACT_SYNC_ENABLED',
     description:
-      'Whether PXE speculatively syncs contracts it predicts will follow the one requested, running them concurrently with it. Repeated flows sync faster, but a wrong prediction spends unnecessary node requests. Experimental; off by default.',
+      'Whether PXE speculatively syncs contracts it predicts will follow the one requested, running them concurrently with it. Repeated flows sync faster, but a wrong prediction spends unnecessary node requests. Experimental, off by default.',
     ...booleanConfigHelper(false),
   },
 };

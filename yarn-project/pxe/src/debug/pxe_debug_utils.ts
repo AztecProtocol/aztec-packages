@@ -70,14 +70,14 @@ export class PXEDebugUtils {
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
       await this.contractSyncService.ensureContractSynced({
-        contractAddress: filter.contractAddress,
+        contract: filter.contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor: async (privateSyncCall, execScopes) =>
           await this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
         scopes: filter.scopes,
-        caller: undefined,
+        triggeredBy: undefined,
       });
 
       return this.noteStore.getNotes(filter, jobId);

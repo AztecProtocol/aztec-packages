@@ -82,7 +82,7 @@ export class TXEStateMachine {
       contractClassService,
       noteStore,
       createLogger('txe:contract_sync'),
-      false, // concurrentContractSyncEnabled
+      { concurrentContractSyncEnabled: false },
     );
 
     const txResolver = new TxResolverService(node);

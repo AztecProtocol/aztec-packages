@@ -220,7 +220,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
     await this.stateMachine.contractSyncService.ensureContractSynced({
-      contractAddress,
+      contract: contractAddress,
       functionToInvokeAfterSync: null,
       utilityExecutor: async (call, execScopes) => {
         await this.executeUtilityCall(call, { scopes: execScopes, jobId });
@@ -228,7 +228,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       anchorBlockHeader,
       jobId,
       scopes: [scope],
-      caller: undefined,
+      triggeredBy: undefined,
     });
   }
 
@@ -462,13 +462,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     };
 
     await this.stateMachine.contractSyncService.ensureContractSynced({
-      contractAddress: targetContractAddress,
+      contract: targetContractAddress,
       functionToInvokeAfterSync: functionSelector,
       utilityExecutor,
       anchorBlockHeader: blockHeader,
       jobId,
       scopes,
-      caller: undefined,
+      triggeredBy: undefined,
     });
 
     const blockNumber = await this.getNextBlockNumber();
@@ -871,7 +871,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     // Sync notes before executing utility function to discover notes from previous transactions
     await this.stateMachine.contractSyncService.ensureContractSynced({
-      contractAddress: targetContractAddress,
+      contract: targetContractAddress,
       functionToInvokeAfterSync: functionSelector,
       utilityExecutor: async (call, execScopes) => {
         await this.executeUtilityCall(call, { scopes: execScopes, jobId });
@@ -879,7 +879,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       anchorBlockHeader: blockHeader,
       jobId,
       scopes: await this.keyStore.getAccounts(),
-      caller: undefined,
+      triggeredBy: undefined,
     });
 
     const call = FunctionCall.from({

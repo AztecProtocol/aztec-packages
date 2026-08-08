@@ -12,7 +12,7 @@ import { mock } from 'jest-mock-extended';
 
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
-import { PREDICTION_THRESHOLD } from './contract_call_dependencies.js';
+import { type ContractFunction, PREDICTION_THRESHOLD } from './contract_call_graph.js';
 import type { ContractClassService } from './contract_class_service.js';
 import { ContractSyncService, MAX_CONCURRENT_SCOPE_SYNCS } from './contract_sync_service.js';
 
@@ -65,100 +65,100 @@ describe('ContractSyncService', () => {
       contractClassService,
       noteStore,
       createLogger('test:contract-sync'),
-      false, // concurrentContractSyncEnabled
+      { concurrentContractSyncEnabled: false },
     );
   });
 
   describe('ensureContractSynced', () => {
     it('syncs a contract when not yet cached', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA]);
     });
 
     it('re-syncs after wipe', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       service.wipe();
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA], [scopeA]);
     });
 
     it('skips scope-specific syncs after syncing with all scopes', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       // [scopeA, scopeB] syncs each scope individually
       expectSyncedScopes([scopeA], [scopeB]);
 
       // After syncing all scopes, scope-specific calls should be skipped
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA], [scopeB]);
     });
 
     it('only syncs unsynced scopes when requesting multiple', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       // scopeA is already cached, so only scopeB is synced
       expectSyncedScopes([scopeA], [scopeB]);
@@ -166,57 +166,57 @@ describe('ContractSyncService', () => {
 
     it('empty scopes array skips sync entirely', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectNoSync();
     });
 
     it('passes only unsynced scopes to the utility executor', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA], [scopeB]);
     });
 
     it('concurrent calls for same contract+scope share one sync promise', async () => {
       const p1 = service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       const p2 = service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       await Promise.all([p1, p2]);
       expectSyncedScopes([scopeA]);
@@ -224,22 +224,22 @@ describe('ContractSyncService', () => {
 
     it('concurrent calls for different scopes trigger separate syncs', async () => {
       const p1 = service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       const p2 = service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       await Promise.all([p1, p2]);
       expectSyncedScopes([scopeA], [scopeB]);
@@ -262,13 +262,13 @@ describe('ContractSyncService', () => {
         const nested = nestedByOuter.get(call.to.toString());
         if (nested) {
           await service.ensureContractSynced({
-            contractAddress: nested,
+            contract: nested,
             functionToInvokeAfterSync: null,
             utilityExecutor,
             anchorBlockHeader,
             jobId,
             scopes,
-            caller: undefined,
+            triggeredBy: undefined,
           });
         }
       });
@@ -276,13 +276,13 @@ describe('ContractSyncService', () => {
       const syncAll = Promise.all(
         outerContracts.map(outer =>
           service.ensureContractSynced({
-            contractAddress: outer,
+            contract: outer,
             functionToInvokeAfterSync: null,
             utilityExecutor,
             anchorBlockHeader,
             jobId,
             scopes: [scopeA],
-            caller: undefined,
+            triggeredBy: undefined,
           }),
         ),
       );
@@ -310,13 +310,13 @@ describe('ContractSyncService', () => {
       });
 
       const syncAll = service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes,
-        caller: undefined,
+        triggeredBy: undefined,
       });
 
       // The first wave saturates the limiter; the remaining scopes must queue rather than run.
@@ -338,25 +338,25 @@ describe('ContractSyncService', () => {
       utilityExecutor.mockRejectedValueOnce(new Error('sync failed'));
       await expect(
         service.ensureContractSynced({
-          contractAddress,
+          contract: contractAddress,
           functionToInvokeAfterSync: null,
           utilityExecutor,
           anchorBlockHeader,
           jobId,
           scopes: [scopeA],
-          caller: undefined,
+          triggeredBy: undefined,
         }),
       ).rejects.toThrow('sync failed');
 
       utilityExecutor.mockResolvedValueOnce(undefined);
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       // the following checks that we attempted sync twice
       expectSyncedScopes([scopeA], [scopeA]);
@@ -366,13 +366,13 @@ describe('ContractSyncService', () => {
       utilityExecutor.mockRejectedValue(new Error('boom'));
       await expect(
         service.ensureContractSynced({
-          contractAddress,
+          contract: contractAddress,
           functionToInvokeAfterSync: null,
           utilityExecutor,
           anchorBlockHeader,
           jobId,
           scopes: [scopeA],
-          caller: undefined,
+          triggeredBy: undefined,
         }),
       ).rejects.toThrow('boom');
     });
@@ -381,23 +381,23 @@ describe('ContractSyncService', () => {
   describe('commit', () => {
     it('does not clear sync cache', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       await service.commit(jobId);
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       // We check that the sync cache was not cleared by checking that the sync was triggered only once.
       expectSyncedScopes([scopeA]);
@@ -407,23 +407,23 @@ describe('ContractSyncService', () => {
   describe('discardStaged', () => {
     it('clears sync cache', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       await service.discardStaged(jobId);
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       // We check that the sync cache was cleared by checking that the sync was triggered twice.
       expectSyncedScopes([scopeA], [scopeA]);
@@ -433,13 +433,13 @@ describe('ContractSyncService', () => {
   describe('multi-scope sync batching', () => {
     it('batches nullifier sync across all unsynced scopes', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
       expect(noteStore.getNotes).toHaveBeenCalledWith(
@@ -450,13 +450,13 @@ describe('ContractSyncService', () => {
 
     it('only includes unsynced scopes in nullifier sync', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
       expect(noteStore.getNotes).toHaveBeenCalledWith(
@@ -466,13 +466,13 @@ describe('ContractSyncService', () => {
 
       noteStore.getNotes.mockClear();
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       // scopeA is already cached, so nullifier sync only runs for scopeB
       expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
@@ -484,25 +484,25 @@ describe('ContractSyncService', () => {
 
     it('re-runs nullifier sync after scope invalidation', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       noteStore.getNotes.mockClear();
 
       service.invalidateContractForScopes(contractAddress, [scopeA]);
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       // Only scopeA was invalidated, so nullifier sync runs for just scopeA
       expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
@@ -518,26 +518,26 @@ describe('ContractSyncService', () => {
 
     it('only invalidates the targeted scope', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA], [scopeB]);
 
       service.invalidateContractForScopes(contractAddress, [scopeA]);
 
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       // Only scopeA should be re-synced, scopeB is still cached.
       expectSyncedScopes([scopeA], [scopeB], [scopeA]);
@@ -545,26 +545,26 @@ describe('ContractSyncService', () => {
 
     it('invalidates multiple scopes at once', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA], [scopeB]);
 
       service.invalidateContractForScopes(contractAddress, [scopeA, scopeB]);
 
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       // Both scopes should be re-synced.
       expectSyncedScopes([scopeA], [scopeB], [scopeA], [scopeB]);
@@ -572,25 +572,25 @@ describe('ContractSyncService', () => {
 
     it('invalidating one scope does not affect the other', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA], [scopeB]);
 
       // Syncing scopeA is a no-op because it's already cached.
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA], [scopeB]);
 
@@ -599,38 +599,38 @@ describe('ContractSyncService', () => {
 
       // Now syncing scopeA triggers a re-sync.
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA], [scopeB], [scopeA]);
 
       // Syncing both scopes only re-syncs scopeA (already re-synced above is cached), scopeB is still cached.
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA], [scopeB], [scopeA]);
     });
 
     it('empty scopes is a no-op', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA], [scopeB]);
 
@@ -638,57 +638,57 @@ describe('ContractSyncService', () => {
 
       // Both scopes should still be cached since no scopes were invalidated.
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA, scopeB],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedScopes([scopeA], [scopeB]);
     });
 
     it('does not affect other contracts', async () => {
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       await service.ensureContractSynced({
-        contractAddress: contract2,
+        contract: contract2,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedContracts([contractAddress, [scopeA]], [contract2, [scopeA]]);
 
       service.invalidateContractForScopes(contractAddress, [scopeA]);
 
       await service.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       await service.ensureContractSynced({
-        contractAddress: contract2,
+        contract: contract2,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId,
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       expectSyncedContracts([contractAddress, [scopeA]], [contract2, [scopeA]], [contractAddress, [scopeA]]);
     });
@@ -696,6 +696,9 @@ describe('ContractSyncService', () => {
 
   describe('speculative sync', () => {
     const otherContract = AztecAddress.fromBigIntUnsafe(101n);
+    // Calls are recorded and predicted per function, so each contract gets its own function with a distinct selector.
+    const entryFn: ContractFunction = { address: contractAddress, selector: new FunctionSelector(0xe1) };
+    const otherFn: ContractFunction = { address: otherContract, selector: new FunctionSelector(0xe2) };
 
     beforeEach(() => {
       service = new ContractSyncService(
@@ -704,29 +707,30 @@ describe('ContractSyncService', () => {
         contractClassService,
         noteStore,
         createLogger('test:contract-sync'),
-        true, // concurrentContractSyncEnabled
+        { concurrentContractSyncEnabled: true },
       );
     });
 
     it('speculatively syncs the whole predicted call tree', async () => {
       const grandChild = AztecAddress.fromBigIntUnsafe(102n);
+      const grandChildFn: ContractFunction = { address: grandChild, selector: new FunctionSelector(0xe3) };
       await learnDependencies({
         count: PREDICTION_THRESHOLD,
         calls: [
-          { caller: contractAddress, callee: otherContract },
-          { caller: otherContract, callee: grandChild },
+          { caller: entryFn, callee: otherFn },
+          { caller: otherFn, callee: grandChildFn },
         ],
       });
 
       // A new job requests only contractAddress: its callee syncs, and so does its callee's callee.
       await service.ensureContractSynced({
-        contractAddress,
-        functionToInvokeAfterSync: null,
+        contract: contractAddress,
+        functionToInvokeAfterSync: entryFn.selector,
         utilityExecutor,
         anchorBlockHeader,
         jobId: 'job-3',
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       // The speculative syncs run in the background; yield so they reach the executor.
       await tick();
@@ -737,20 +741,20 @@ describe('ContractSyncService', () => {
       await learnDependencies({
         count: PREDICTION_THRESHOLD,
         calls: [
-          { caller: contractAddress, callee: otherContract },
-          { caller: otherContract, callee: contractAddress },
+          { caller: entryFn, callee: otherFn },
+          { caller: otherFn, callee: entryFn },
         ],
       });
 
       // Each contract syncs exactly once: the walk stops when it loops back to the already-syncing requester.
       await service.ensureContractSynced({
-        contractAddress,
-        functionToInvokeAfterSync: null,
+        contract: contractAddress,
+        functionToInvokeAfterSync: entryFn.selector,
         utilityExecutor,
         anchorBlockHeader,
         jobId: 'job-3',
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
       await tick();
       expectSyncedContracts([contractAddress, [scopeA]], [otherContract, [scopeA]]);
@@ -765,16 +769,18 @@ describe('ContractSyncService', () => {
         contractClassService,
         noteStore,
         createLogger('test:contract-sync'),
-        true, // concurrentContractSyncEnabled
+        { concurrentContractSyncEnabled: true },
       );
     });
 
     const otherContract = AztecAddress.fromBigIntUnsafe(101n);
+    const entryFn: ContractFunction = { address: contractAddress, selector: new FunctionSelector(0xe1) };
+    const otherFn: ContractFunction = { address: otherContract, selector: new FunctionSelector(0xe2) };
 
     it('waits for a speculative sync still in flight', async () => {
       await learnDependencies({
         count: PREDICTION_THRESHOLD,
-        calls: [{ caller: contractAddress, callee: otherContract }],
+        calls: [{ caller: entryFn, callee: otherFn }],
       });
 
       // otherContract's sync_state hangs until released, keeping its speculative sync in flight.
@@ -788,13 +794,13 @@ describe('ContractSyncService', () => {
 
       // The job only requests contractAddress, so nothing awaits otherContract's speculative sync.
       await service.ensureContractSynced({
-        contractAddress,
-        functionToInvokeAfterSync: null,
+        contract: contractAddress,
+        functionToInvokeAfterSync: entryFn.selector,
         utilityExecutor,
         anchorBlockHeader,
         jobId: 'job-3',
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
 
       let settled = false;
@@ -812,7 +818,7 @@ describe('ContractSyncService', () => {
       const lateContract = AztecAddress.fromBigIntUnsafe(102n);
       await learnDependencies({
         count: PREDICTION_THRESHOLD,
-        calls: [{ caller: contractAddress, callee: otherContract }],
+        calls: [{ caller: entryFn, callee: otherFn }],
       });
 
       // lateContract's sync_state hangs until released; every other contract syncs instantly.
@@ -820,13 +826,13 @@ describe('ContractSyncService', () => {
       utilityExecutor.mockImplementation(call => (call.to.equals(lateContract) ? lateSync : Promise.resolve()));
 
       await service.ensureContractSynced({
-        contractAddress,
-        functionToInvokeAfterSync: null,
+        contract: contractAddress,
+        functionToInvokeAfterSync: entryFn.selector,
         utilityExecutor,
         anchorBlockHeader,
         jobId: 'job-3',
         scopes: [scopeA],
-        caller: undefined,
+        triggeredBy: undefined,
       });
 
       let settled = false;
@@ -835,13 +841,13 @@ describe('ContractSyncService', () => {
       });
       // While the job settles, a nested call starts one more sync that nothing awaits, as sync_state can do.
       void service.ensureContractSynced({
-        contractAddress: lateContract,
+        contract: lateContract,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
         jobId: 'job-3',
         scopes: [scopeA],
-        caller: otherContract,
+        triggeredBy: otherFn,
       });
       await tick();
       expect(settled).toBe(false);
@@ -860,15 +866,15 @@ describe('ContractSyncService', () => {
    * wipes the sync cache (as an anchor block change would) so the next job's syncs run for real.
    */
   const learnDependencies = async ({ count, calls }: { count: number; calls: Call[] }) => {
-    const sync = (id: string, contractAddress: AztecAddress, caller: AztecAddress | undefined) =>
+    const sync = (id: string, { address, selector }: ContractFunction, triggeredBy: ContractFunction | undefined) =>
       service.ensureContractSynced({
-        contractAddress,
-        functionToInvokeAfterSync: null,
+        contract: address,
+        functionToInvokeAfterSync: selector,
         utilityExecutor,
         anchorBlockHeader,
         jobId: id,
         scopes: [scopeA],
-        caller,
+        triggeredBy,
       });
     for (let i = 0; i < count; i++) {
       const id = `learn-job-${i}`;
@@ -908,4 +914,4 @@ describe('ContractSyncService', () => {
 });
 
 /** A direct call observed by a job. */
-type Call = { caller: AztecAddress; callee: AztecAddress };
+type Call = { caller: ContractFunction; callee: ContractFunction };

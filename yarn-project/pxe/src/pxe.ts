@@ -326,7 +326,7 @@ export class PXE {
       contractClassService,
       noteStore,
       createLogger('pxe:contract_sync', bindings),
-      config.concurrentContractSyncEnabled,
+      config,
     );
     const txResolver = new TxResolverService(readCachedNode);
 
@@ -550,14 +550,14 @@ export class PXE {
 
     try {
       await this.contractSyncService.ensureContractSynced({
-        contractAddress,
+        contract: contractAddress,
         functionToInvokeAfterSync: functionSelector,
         utilityExecutor: (privateSyncCall, execScopes) =>
           this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
         scopes,
-        caller: undefined,
+        triggeredBy: undefined,
       });
 
       const result = await contractFunctionSimulator.run(txRequest, {
@@ -1383,14 +1383,14 @@ export class PXE {
 
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         await this.contractSyncService.ensureContractSynced({
-          contractAddress: call.to,
+          contract: call.to,
           functionToInvokeAfterSync: call.selector,
           utilityExecutor: (privateSyncCall, execScopes) =>
             this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
           anchorBlockHeader,
           jobId,
           scopes,
-          caller: undefined,
+          triggeredBy: undefined,
         });
 
         const { result: executionResult, offchainEffects } = await this.#executeUtility(
@@ -1462,14 +1462,14 @@ export class PXE {
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
       await this.contractSyncService.ensureContractSynced({
-        contractAddress: filter.contractAddress,
+        contract: filter.contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor: async (privateSyncCall, execScopes) =>
           await this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
         scopes: filter.scopes,
-        caller: undefined,
+        triggeredBy: undefined,
       });
     });
 
