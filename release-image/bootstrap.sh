@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(hash_str \
-  $(cache_content_hash ^release-image/Dockerfile ^release-image/Dockerfile.base.dockerignore ^release-image/Dockerfile.dockerignore ^build-images/src/Dockerfile ^ipc-runtime/ts/package.json ^yarn-project/yarn.lock) \
-  $(../wsdb/bootstrap.sh hash) \
-  $(../barretenberg/ts/bootstrap.sh hash))
+hash=$(cache_content_hash ^release-image/Dockerfile ^release-image/Dockerfile.base.dockerignore ^release-image/Dockerfile.dockerignore ^build-images/src/Dockerfile ^labs-aztec-toolchain/bootstrap.sh ^yarn-project/yarn.lock)
 
 function prepare_crs {
   echo_header "prepare crs for prover-agent image"
@@ -44,9 +41,32 @@ function build_prover_agent_image {
 }
 export -f build_prover_agent_image
 
+# The image runs these two, so a missing one fails the build rather than the container. Symlinks
+# are rejected too, since docker copies the link and not its target: even one that resolves here
+# would dangle in the image (build_monorepo provisions bin/ as symlinks).
+function check_toolchain_binaries {
+  local binary path
+  for binary in bb-avm acvm; do
+    path=$root/labs-aztec-toolchain/bin/$binary
+    if [ -L "$path" ]; then
+      echo "labs-aztec-toolchain/bin/$binary is a symlink and would dangle in the image. Run labs-aztec-toolchain/bootstrap.sh first."
+      exit 1
+    fi
+    if [ ! -f "$path" ]; then
+      echo "Missing labs-aztec-toolchain/bin/$binary. Run labs-aztec-toolchain/bootstrap.sh first."
+      if [ "$binary" = acvm ]; then
+        echo "Building acvm requires cargo to be installed."
+      fi
+      exit 1
+    fi
+  done
+}
+export -f check_toolchain_binaries
+
 function build_image {
   set -euo pipefail
   cd ..
+  check_toolchain_binaries
   if semver check $REF_NAME; then
     # We are a tagged release. Use the version from the tag.
     # We strip leading 'v' so that this is a valid semver.
