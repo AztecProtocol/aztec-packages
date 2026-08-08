@@ -761,11 +761,19 @@ export class TxPoolV2Impl {
    * Deletes a batch of finalized mined txs from the active pool. Callers may invoke this in
    * chunks: a crash between chunks leaves some finalized txs mined, and the next finalized-block
    * event lists and deletes them again (the operation is idempotent), so per-chunk atomicity is
-   * sufficient.
+   * sufficient. Since other pool operations may interleave between the finalization plan being
+   * computed and this call, each tx is re-checked to still be mined at or before the cutoff.
    */
-  async deleteFinalizedTxs(txHashes: string[]): Promise<void> {
+  async deleteFinalizedTxs(txHashes: string[], cutoffBlock: BlockNumber): Promise<void> {
+    const stillFinalized = txHashes.filter(txHash => {
+      const minedBlock = this.#indices.getMetadata(txHash)?.minedL2BlockId?.number;
+      return minedBlock !== undefined && minedBlock <= cutoffBlock;
+    });
+    if (stillFinalized.length === 0) {
+      return;
+    }
     await this.#store.transactionAsync(async () => {
-      await this.#deleteTxsBatch(txHashes);
+      await this.#deleteTxsBatch(stillFinalized);
     });
   }
 

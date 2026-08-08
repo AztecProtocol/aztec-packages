@@ -69,6 +69,14 @@ export class TxArchive {
         let tailIdx = await this.getTailIndex();
 
         for (const { txHash, buffer } of entries) {
+          // Skip txs that are already archived. Re-archiving (a retried finalization, or a crash
+          // between archiving and deleting) would append a second FIFO index entry pointing at the
+          // same stored value; evicting the older entry would then delete the value out from under
+          // the newer one.
+          if (await this.#txs.hasAsync(txHash)) {
+            continue;
+          }
+
           // Evict oldest entries if at capacity
           while (headIdx - tailIdx >= this.#limit) {
             const txHashToEvict = await this.#indices.getAsync(tailIdx);
