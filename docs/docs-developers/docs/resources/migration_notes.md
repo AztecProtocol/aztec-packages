@@ -58,8 +58,8 @@ Nine `DOM_SEP__*` domain separators that used to live in the protocol constants 
 
 Two remain public, at a new path:
 
-| Constant | Old path | New path |
-| --- | --- | --- |
+| Constant                           | Old path                     | New path                    |
+| ---------------------------------- | ---------------------------- | --------------------------- |
 | `DOM_SEP__PARTIAL_NOTE_COMMITMENT` | `aztec::protocol::constants` | `aztec::note::partial_note` |
 | `DOM_SEP__NOTE_COMPLETION_LOG_TAG` | `aztec::protocol::constants` | `aztec::note::partial_note` |
 
@@ -71,6 +71,39 @@ Two remain public, at a new path:
 The other seven are now crate-internal (`pub(crate)`) and can no longer be imported from outside the `aztec` crate: `DOM_SEP__AUTHWIT_NULLIFIER`, `DOM_SEP__TX_NULLIFIER`, `DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER`, `DOM_SEP__CONSTRAINED_MSG_NULLIFIER`, `DOM_SEP__ECDH_SUBKEY`, `DOM_SEP__ECDH_FIELD_MASK`, and `DOM_SEP__INITIALIZATION_NULLIFIER`.
 
 **Impact**: Contracts that use aztec-nr's high-level APIs (notes, authwit, state variables, message delivery, ECDH) are unaffected, since these separators are applied internally. A contract that imported one of these constants directly must either switch to the new `aztec::note::partial_note` path (for the two public ones) or, for the now-internal ones, call the corresponding aztec-nr helper instead of recomputing the hash by hand. The generated TypeScript `DomainSeparator` enum in `@aztec/constants` / `@aztec/stdlib` likewise no longer contains the seven removed members (their values were unused in TypeScript).
+
+### [Aztec Node] `GasPrice` renamed to `FeeCaps` in `@aztec/ethereum`
+
+The `GasPrice` interface exported from `@aztec/ethereum/l1-tx-utils` is now `FeeCaps`, and the methods and fields carrying it are renamed to match. These values were never a price paid: they are the EIP-1559 caps a transaction is sent with (`maxFeePerGas`, `maxPriorityFeePerGas`, `maxFeePerBlobGas`), and what the transaction actually pays is decided at inclusion. The fields inside the type are unchanged.
+
+| Old                                         | New                                        |
+| ------------------------------------------- | ------------------------------------------ |
+| `GasPrice`                                  | `FeeCaps`                                  |
+| `ReadOnlyL1TxUtils.getGasPrice()`           | `ReadOnlyL1TxUtils.getFeeCaps()`           |
+| `L1TxState.gasPrice`                        | `L1TxState.feeCaps`                        |
+| `L1TxState.gasPriceHistory`                 | `L1TxState.feeCapsHistory`                 |
+| `TimedOutTxState.gasPriceHistory`           | `TimedOutTxState.feeCapsHistory`           |
+| `TimedOutTxState.finalGasPrice`             | `TimedOutTxState.finalFeeCaps`             |
+| `L1Deployer.sendTransaction()` → `gasPrice` | `L1Deployer.sendTransaction()` → `feeCaps` |
+
+**Migration:**
+
+```diff
+- import type { GasPrice } from '@aztec/ethereum/l1-tx-utils';
++ import type { FeeCaps } from '@aztec/ethereum/l1-tx-utils';
+
+- const gasPrice = await l1TxUtils.getGasPrice(gasConfig, true, 0);
++ const feeCaps = await l1TxUtils.getFeeCaps(gasConfig, true, 0);
+
+  const { state } = await l1TxUtils.sendTransaction(request);
+- logger.info(`Sent at ${state.gasPrice.maxFeePerGas}`);
++ logger.info(`Sent at ${state.feeCaps.maxFeePerGas}`);
+```
+
+**Impact**: A rename with no behavior change. Two on-disk formats move with it, neither of which needs operator action:
+
+- The node's L1 transaction state store writes the new key but still reads states written under the old one, so a node restarting on this version keeps monitoring transactions it sent before the upgrade.
+- Failed-L1-transaction debug records (written when `L1_TX_FAILED_STORE` is set) now use `sentFeeCaps` and `sentFeeCapsLadder` instead of `sentGasPrice` and `sentGasPriceLadder`. Records written before the upgrade keep the old keys, and parsing one through `FailedL1TxSchema` returns it without fee caps — the values are still present in the stored JSON under the old names.
 
 ## 5.1.0
 
@@ -119,10 +152,10 @@ Note types declared in their own module are unaffected, since they are already `
 
 The `history::note` helpers that recompute a note's nullifier have been renamed with a `local_` prefix and now assert that the note belongs to the executing contract:
 
-| Old | New |
-| --- | --- |
-| `assert_note_was_valid_by` | `assert_local_note_was_valid_by` |
-| `assert_note_was_nullified_by` | `assert_local_note_was_nullified_by` |
+| Old                                | New                                      |
+| ---------------------------------- | ---------------------------------------- |
+| `assert_note_was_valid_by`         | `assert_local_note_was_valid_by`         |
+| `assert_note_was_nullified_by`     | `assert_local_note_was_nullified_by`     |
 | `assert_note_was_not_nullified_by` | `assert_local_note_was_not_nullified_by` |
 
 These helpers derive the note's nullifier from the executing contract's app-siloed nullifier key, and it is not possible for a contract to retrieve the app-siloed nullifier for a different contract, as this would constitute leakage of key material. These helpers incorrectly used the local contract's key siloing, which for a note of a different contract resulted in the non-inclusion check passing unconditionally and wrongly reporting a nullified note as not nullified. The helpers now assert `contract_address == context.this_address()` and fail with "Note nullification history is only supported for the executing contract's own notes" otherwise.
@@ -142,7 +175,7 @@ Previously, connecting a PXE or embedded wallet to a different or redeployed rol
 **Impact**: The first start after upgrading to this version begins with a fresh, empty store; the pre-upgrade data is not deleted. On Node.js environments (lmdb-v2) pre-upgrade data stays at `<dataDirectory>/<name>` while new per-identity `pxe_data` stores live under `<dataDirectory>/<name>-stores/`. The embedded Node.js wallet previously stored data in cwd-relative, rollup-address-suffixed directories instead (`pxe_data_<rollupAddress>/pxe_data` for the PXE store, `wallet_data_<rollupAddress>/wallet_data` for the wallet store): if you used it before this release, that is where the old data lives. The embedded wallet now defaults its data root to `aztec-wallet-data/`, with per-identity wallet stores under `<dataDirectory>/wallet_data-stores/` on Node.js and OPFS store names prefixed `wallet_data_` in the browser. Browser apps can enumerate and clean up `pxe_data` and `wallet_data` stores for networks no longer in use with the new `listStores()` / `deleteStore()` utilities:
 
 ```ts
-import { deleteStore, listStores } from '@aztec/kv-store/sqlite-opfs';
+import { deleteStore, listStores } from "@aztec/kv-store/sqlite-opfs";
 
 const names = await listStores();
 await deleteStore(names[0]);
@@ -262,7 +295,7 @@ Registering classes and instances are now separate, unvalidated operations. `reg
 + await pxe.registerContract(instance);
 ```
 
-  If you were calling it without an artifact, just drop the wrapping object: `pxe.registerContract({ instance })` becomes `pxe.registerContract(instance)`. The `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` convenience is unchanged and performs both registrations for you.
+If you were calling it without an artifact, just drop the wrapping object: `pxe.registerContract({ instance })` becomes `pxe.registerContract(instance)`. The `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` convenience is unchanged and performs both registrations for you.
 
 - To make a new class's code available after an onchain upgrade, register the new artifact instead of calling `updateContract`:
 
@@ -271,9 +304,10 @@ Registering classes and instances are now separate, unvalidated operations. `reg
 + await pxe.registerContractClass(newArtifact);
 ```
 
-  The new class is used automatically once the upgrade takes effect on chain; no further PXE action is needed. Registering it beforehand is harmless: until the update activates, the node still resolves the contract's current class to the previous one, so it keeps running its old code.
+The new class is used automatically once the upgrade takes effect on chain; no further PXE action is needed. Registering it beforehand is harmless: until the update activates, the node still resolves the contract's current class to the previous one, so it keeps running its old code.
 
 - `pxe.getContractInstance(address)` and `wallet.getContractMetadata(address).instance` now return the contract's **address preimage**, which no longer includes `currentContractClassId`.
+
 ### [Aztec.js] `AccountWithSecretKey` removed, read account keys from the `AccountManager` or PXE
 
 `AccountWithSecretKey` was a thin wrapper that bundled an account's transaction signer with its master secret key, used mainly to print or export the secret. It has been removed, and `AccountManager.getAccount()` now returns the plain `Account` signer. The wrapper's extra methods are no longer available on that value:
@@ -294,7 +328,7 @@ Registering classes and instances are now separate, unvalidated operations. `reg
 
 To do what `AccountWithSecretKey` was meant for (exporting an account into a separate PXE or wallet), account registration accepts a full set of master secret keys instead of only a single seed. `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` takes either an `Fr` seed (as before) or a `MasterSecretKeys` object (exported from `@aztec/aztec.js/keys`), for an account whose privacy keys were generated independently rather than from one seed.
 
-The PXE never receives the seed nor the message-signing and fallback secret keys: it is not trusted to hold them. The wallet derives the account's privacy keys and passes the PXE only the four privacy secret keys (nullifier-hiding, incoming-viewing, outgoing-viewing, tagging) plus the message-signing and fallback *public* keys. Accordingly, `pxe.getAccountSecretKeys(address)` returns only those four privacy secret keys.
+The PXE never receives the seed nor the message-signing and fallback secret keys: it is not trusted to hold them. The wallet derives the account's privacy keys and passes the PXE only the four privacy secret keys (nullifier-hiding, incoming-viewing, outgoing-viewing, tagging) plus the message-signing and fallback _public_ keys. Accordingly, `pxe.getAccountSecretKeys(address)` returns only those four privacy secret keys.
 
 **Impact**: Importing `AccountWithSecretKey`, or calling `getSecretKey()`/`getEncryptionSecret()` on the result of `getAccount()`, no longer compiles. The signer `getAccount()` returns is otherwise unchanged, and passing a single `Fr` or a `MasterSecretKeys` to `wallet.registerContract` keeps working.
 
@@ -393,21 +427,21 @@ If you must stay on IndexedDB for now, import from the deprecated entrypoint ins
 
 The PXE methods for registering tagging-secret sources have been replaced by a single set that takes a `TaggingSecretSource` discriminated union. `registerSender`/`getSenders`/`removeSender` and `registerSharedSecret`/`removeSharedSecret` are gone; use `registerTaggingSecretSource`/`removeTaggingSecretSource`/`getTaggingSecretSources` instead. The `Wallet` interface (`wallet.registerSender`, `getAddressBook`) is unchanged, so this only affects code that talks to a `PXE` instance directly.
 
-| Before | After |
-| --- | --- |
-| `pxe.registerSender(address)` | `pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address })` |
-| `pxe.removeSender(address)` | `pxe.removeTaggingSecretSource({ kind: 'address-derived', sender: address })` |
-| `pxe.getSenders()` | `pxe.getTaggingSecretSources({ kind: 'address-derived' })` |
+| Before                                        | After                                                                              |
+| --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `pxe.registerSender(address)`                 | `pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address })`    |
+| `pxe.removeSender(address)`                   | `pxe.removeTaggingSecretSource({ kind: 'address-derived', sender: address })`      |
+| `pxe.getSenders()`                            | `pxe.getTaggingSecretSources({ kind: 'address-derived' })`                         |
 | `pxe.registerSharedSecret(recipient, secret)` | `pxe.registerTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret })` |
-| `pxe.removeSharedSecret(recipient, secret)` | `pxe.removeTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret })` |
+| `pxe.removeSharedSecret(recipient, secret)`   | `pxe.removeTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret })`   |
 
 ### [Aztec.js] Unchecked `AztecAddress` constructors renamed with an `Unsafe` suffix
 
 The synchronous `AztecAddress` constructors that build an address from a raw value do not verify that the value is a valid address (the x-coordinate of a point on the Grumpkin curve, which is what allows it to be encrypted to). An invalid value is accepted silently and only fails later, when a transaction is sent. To make this obvious at the call site, they now carry an `Unsafe` suffix:
 
-| Before | After |
-| --- | --- |
-| `AztecAddress.fromField` | `AztecAddress.fromFieldUnsafe` |
+| Before                    | After                           |
+| ------------------------- | ------------------------------- |
+| `AztecAddress.fromField`  | `AztecAddress.fromFieldUnsafe`  |
 | `AztecAddress.fromBigInt` | `AztecAddress.fromBigIntUnsafe` |
 | `AztecAddress.fromNumber` | `AztecAddress.fromNumberUnsafe` |
 | `AztecAddress.fromString` | `AztecAddress.fromStringUnsafe` |
@@ -453,7 +487,7 @@ A client factory `createProverNodeAdminClient(url, versions?, fetch?, apiKey?)` 
 
 ### [Aztec.nr] `ContractInstance.contract_class_id` renamed to `original_contract_class_id`
 
-The `contract_class_id` field of the `ContractInstance` struct (returned by `get_contract_instance`) has been renamed to `original_contract_class_id`. The struct is the contract's *address preimage*, so this field is the class id the contract was deployed with: for contracts whose class was later updated via the `ContractInstanceRegistry`, it is NOT the class currently executing. The rename makes that explicit.
+The `contract_class_id` field of the `ContractInstance` struct (returned by `get_contract_instance`) has been renamed to `original_contract_class_id`. The struct is the contract's _address preimage_, so this field is the class id the contract was deployed with: for contracts whose class was later updated via the `ContractInstanceRegistry`, it is NOT the class currently executing. The rename makes that explicit.
 
 **Migration:**
 
@@ -467,7 +501,7 @@ Note that this value is not available during public execution, which only has ac
 
 ### [Aztec.nr] `get_contract_instance_class_id_avm` renamed to `get_contract_instance_current_class_id_avm`
 
-The AVM contract-instance class id getter has been renamed to make explicit that it returns the *current* class id, i.e. it reflects updates performed via the `ContractInstanceRegistry`.
+The AVM contract-instance class id getter has been renamed to make explicit that it returns the _current_ class id, i.e. it reflects updates performed via the `ContractInstanceRegistry`.
 
 **Migration:**
 
@@ -1581,7 +1615,6 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 ```
 
 `slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
-
 
 ### [Aztec Node] `getTxByHash`, `getTxsByHash` and `getPendingTxs` no longer return tx proofs by default
 
