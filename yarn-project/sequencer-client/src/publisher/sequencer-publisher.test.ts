@@ -209,7 +209,7 @@ describe('SequencerPublisher', () => {
 
     l1TxUtils.sendAndMonitorTransaction.mockResolvedValue({
       receipt: proposeTxReceipt,
-      state: { feeCaps: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } } as any,
+      state: { feesPerGas: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } } as any,
     });
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
     (l1TxUtils as any).simulate.mockResolvedValue({ gasUsed: 1_000_000n, result: '0x' });
@@ -1176,7 +1176,7 @@ describe('SequencerPublisher', () => {
     expect(governanceProposerContract.getPayloadProposalStatus).toHaveBeenCalledTimes(2);
   });
 
-  describe('failed-tx store: timeout fee-caps ladder (integration)', () => {
+  describe('failed-tx store: timeout fees-per-gas ladder (integration)', () => {
     let storeDir: string;
     let storedPublisher: SequencerPublisher;
 
@@ -1209,13 +1209,13 @@ describe('SequencerPublisher', () => {
       await rm(storeDir, { recursive: true, force: true });
     });
 
-    it('writes the fee-caps ladder into the failed-tx record when a propose times out', async () => {
+    it('writes the fees-per-gas ladder into the failed-tx record when a propose times out', async () => {
       const ladder = {
-        feeCapsHistory: [
+        feesPerGasHistory: [
           { maxFeePerGas: 100n, maxPriorityFeePerGas: 1n },
           { maxFeePerGas: 150n, maxPriorityFeePerGas: 3n },
         ],
-        finalFeeCaps: { maxFeePerGas: 150n, maxPriorityFeePerGas: 3n },
+        finalFeesPerGas: { maxFeePerGas: 150n, maxPriorityFeePerGas: 3n },
         attempts: 2,
         nonce: 5,
         gasLimit: 21_000n,
@@ -1234,7 +1234,7 @@ describe('SequencerPublisher', () => {
       const record = await waitForFailedTxRecord(join(storeDir, 'timeout'));
 
       expect(record.failureType).toBe('timeout');
-      expect(record.gasInfo?.sentFeeCapsLadder).toEqual([
+      expect(record.gasInfo?.sentFeesPerGasLadder).toEqual([
         { maxFeePerGas: 100n, maxPriorityFeePerGas: 1n },
         { maxFeePerGas: 150n, maxPriorityFeePerGas: 3n },
       ]);

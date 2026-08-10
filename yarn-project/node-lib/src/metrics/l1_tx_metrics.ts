@@ -92,11 +92,13 @@ export class L1TxMetrics implements IL1TxMetrics {
     const attempts = isCancelTx ? state.cancelTxHashes.length : state.txHashes.length;
     this.txAttemptsUntilMined.record(attempts, attributes);
 
-    // Record fee caps at end state, converted from wei to gwei to match metric unit definitions
+    // Record fees per gas at end state, converted from wei to gwei to match metric unit definitions
     const weiToGwei = 1e9;
-    const maxPriorityFeeGwei = Number(state.feeCaps.maxPriorityFeePerGas) / weiToGwei;
-    const maxFeeGwei = Number(state.feeCaps.maxFeePerGas) / weiToGwei;
-    const blobFeeGwei = state.feeCaps.maxFeePerBlobGas ? Number(state.feeCaps.maxFeePerBlobGas) / weiToGwei : undefined;
+    const maxPriorityFeeGwei = Number(state.feesPerGas.maxPriorityFeePerGas) / weiToGwei;
+    const maxFeeGwei = Number(state.feesPerGas.maxFeePerGas) / weiToGwei;
+    const blobFeeGwei = state.feesPerGas.maxFeePerBlobGas
+      ? Number(state.feesPerGas.maxFeePerBlobGas) / weiToGwei
+      : undefined;
 
     this.maxPriorityFeeHistogram.record(maxPriorityFeeGwei, attributes);
     this.maxFeeHistogram.record(maxFeeGwei, attributes);

@@ -16,9 +16,9 @@ interface SerializableL1TxRequest {
 }
 
 /**
- * Serializable version of FeeCaps for storage.
+ * Serializable version of FeesPerGas for storage.
  */
-interface SerializableFeeCaps {
+interface SerializableFeesPerGas {
   maxFeePerGas: string;
   maxPriorityFeePerGas: string;
   maxFeePerBlobGas?: string;
@@ -57,7 +57,7 @@ interface SerializableL1TxState {
   txHashes: string[];
   cancelTxHashes: string[];
   gasLimit: string;
-  feeCaps: SerializableFeeCaps;
+  feesPerGas: SerializableFeesPerGas;
   txConfigOverrides: SerializableL1TxConfig;
   request: SerializableL1TxRequest;
   status: number;
@@ -70,13 +70,13 @@ interface SerializableL1TxState {
 }
 
 /**
- * Shape accepted when reading a state back. States written before fee caps were named as such spelled `feeCaps`
- * as `gasPrice`, so both are optional here and `deserializeState` takes whichever is present. Nothing writes
- * `gasPrice` any more; drop it once no store can hold states predating the rename.
+ * Shape accepted when reading a state back. States written before the rename spelled `feesPerGas` as `gasPrice`, so
+ * both are optional here and `deserializeState` takes whichever is present. Nothing writes `gasPrice` any more; drop
+ * it once no store can hold states predating the rename.
  */
-type StoredL1TxState = Omit<SerializableL1TxState, 'feeCaps'> & {
-  feeCaps?: SerializableFeeCaps;
-  gasPrice?: SerializableFeeCaps;
+type StoredL1TxState = Omit<SerializableL1TxState, 'feesPerGas'> & {
+  feesPerGas?: SerializableFeesPerGas;
+  gasPrice?: SerializableFeesPerGas;
 };
 
 /**
@@ -310,10 +310,10 @@ export class L1TxStore implements IL1TxStore {
       txHashes: state.txHashes,
       cancelTxHashes: state.cancelTxHashes,
       gasLimit: state.gasLimit.toString(),
-      feeCaps: {
-        maxFeePerGas: state.feeCaps.maxFeePerGas.toString(),
-        maxPriorityFeePerGas: state.feeCaps.maxPriorityFeePerGas.toString(),
-        maxFeePerBlobGas: state.feeCaps.maxFeePerBlobGas?.toString(),
+      feesPerGas: {
+        maxFeePerGas: state.feesPerGas.maxFeePerGas.toString(),
+        maxPriorityFeePerGas: state.feesPerGas.maxPriorityFeePerGas.toString(),
+        maxFeePerBlobGas: state.feesPerGas.maxFeePerBlobGas?.toString(),
       },
       txConfigOverrides,
       request: {
@@ -336,9 +336,9 @@ export class L1TxStore implements IL1TxStore {
    * Deserializes a stored state back to L1TxState.
    */
   private deserializeState(stored: StoredL1TxState, blobInputs?: L1BlobInputs): L1TxState {
-    const feeCaps = stored.feeCaps ?? stored.gasPrice;
-    if (!feeCaps) {
-      throw new Error(`State ${stored.id} has no fee caps`);
+    const feesPerGas = stored.feesPerGas ?? stored.gasPrice;
+    if (!feesPerGas) {
+      throw new Error(`State ${stored.id} has no fees per gas`);
     }
 
     const txConfigOverrides: L1TxConfig = {
@@ -363,10 +363,10 @@ export class L1TxStore implements IL1TxStore {
       txHashes: stored.txHashes as `0x${string}`[],
       cancelTxHashes: stored.cancelTxHashes as `0x${string}`[],
       gasLimit: BigInt(stored.gasLimit),
-      feeCaps: {
-        maxFeePerGas: BigInt(feeCaps.maxFeePerGas),
-        maxPriorityFeePerGas: BigInt(feeCaps.maxPriorityFeePerGas),
-        maxFeePerBlobGas: feeCaps.maxFeePerBlobGas ? BigInt(feeCaps.maxFeePerBlobGas) : undefined,
+      feesPerGas: {
+        maxFeePerGas: BigInt(feesPerGas.maxFeePerGas),
+        maxPriorityFeePerGas: BigInt(feesPerGas.maxPriorityFeePerGas),
+        maxFeePerBlobGas: feesPerGas.maxFeePerBlobGas ? BigInt(feesPerGas.maxFeePerBlobGas) : undefined,
       },
       txConfigOverrides,
       request: {

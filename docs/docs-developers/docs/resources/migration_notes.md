@@ -72,38 +72,38 @@ The other seven are now crate-internal (`pub(crate)`) and can no longer be impor
 
 **Impact**: Contracts that use aztec-nr's high-level APIs (notes, authwit, state variables, message delivery, ECDH) are unaffected, since these separators are applied internally. A contract that imported one of these constants directly must either switch to the new `aztec::note::partial_note` path (for the two public ones) or, for the now-internal ones, call the corresponding aztec-nr helper instead of recomputing the hash by hand. The generated TypeScript `DomainSeparator` enum in `@aztec/constants` / `@aztec/stdlib` likewise no longer contains the seven removed members (their values were unused in TypeScript).
 
-### [Aztec Node] `GasPrice` renamed to `FeeCaps` in `@aztec/ethereum`
+### [Aztec Node] `GasPrice` renamed to `FeesPerGas` in `@aztec/ethereum`
 
-The `GasPrice` interface exported from `@aztec/ethereum/l1-tx-utils` is now `FeeCaps`, and the methods and fields carrying it are renamed to match. These values were never a price paid: they are the EIP-1559 caps a transaction is sent with (`maxFeePerGas`, `maxPriorityFeePerGas`, `maxFeePerBlobGas`), and what the transaction actually pays is decided at inclusion. The fields inside the type are unchanged.
+The `GasPrice` interface exported from `@aztec/ethereum/l1-tx-utils` is now `FeesPerGas`, matching viem's name for the same thing, and the methods and fields carrying it are renamed to match. These values were never a price paid: they are the EIP-1559 caps a transaction is sent with (`maxFeePerGas`, `maxPriorityFeePerGas`, `maxFeePerBlobGas`), and what the transaction actually pays is decided at inclusion. The fields inside the type are unchanged.
 
-| Old                                         | New                                        |
-| ------------------------------------------- | ------------------------------------------ |
-| `GasPrice`                                  | `FeeCaps`                                  |
-| `ReadOnlyL1TxUtils.getGasPrice()`           | `ReadOnlyL1TxUtils.getFeeCaps()`           |
-| `L1TxState.gasPrice`                        | `L1TxState.feeCaps`                        |
-| `L1TxState.gasPriceHistory`                 | `L1TxState.feeCapsHistory`                 |
-| `TimedOutTxState.gasPriceHistory`           | `TimedOutTxState.feeCapsHistory`           |
-| `TimedOutTxState.finalGasPrice`             | `TimedOutTxState.finalFeeCaps`             |
-| `L1Deployer.sendTransaction()` → `gasPrice` | `L1Deployer.sendTransaction()` → `feeCaps` |
+| Old                                         | New                                           |
+| ------------------------------------------- | --------------------------------------------- |
+| `GasPrice`                                  | `FeesPerGas`                                  |
+| `ReadOnlyL1TxUtils.getGasPrice()`           | `ReadOnlyL1TxUtils.getFeesPerGas()`           |
+| `L1TxState.gasPrice`                        | `L1TxState.feesPerGas`                        |
+| `L1TxState.gasPriceHistory`                 | `L1TxState.feesPerGasHistory`                 |
+| `TimedOutTxState.gasPriceHistory`           | `TimedOutTxState.feesPerGasHistory`           |
+| `TimedOutTxState.finalGasPrice`             | `TimedOutTxState.finalFeesPerGas`             |
+| `L1Deployer.sendTransaction()` → `gasPrice` | `L1Deployer.sendTransaction()` → `feesPerGas` |
 
 **Migration:**
 
 ```diff
 - import type { GasPrice } from '@aztec/ethereum/l1-tx-utils';
-+ import type { FeeCaps } from '@aztec/ethereum/l1-tx-utils';
++ import type { FeesPerGas } from '@aztec/ethereum/l1-tx-utils';
 
 - const gasPrice = await l1TxUtils.getGasPrice(gasConfig, true, 0);
-+ const feeCaps = await l1TxUtils.getFeeCaps(gasConfig, true, 0);
++ const feesPerGas = await l1TxUtils.getFeesPerGas(gasConfig, true, 0);
 
   const { state } = await l1TxUtils.sendTransaction(request);
 - logger.info(`Sent at ${state.gasPrice.maxFeePerGas}`);
-+ logger.info(`Sent at ${state.feeCaps.maxFeePerGas}`);
++ logger.info(`Sent at ${state.feesPerGas.maxFeePerGas}`);
 ```
 
 **Impact**: A rename with no behavior change. Two on-disk formats move with it, neither of which needs operator action:
 
 - The node's L1 transaction state store writes the new key but still reads states written under the old one, so a node restarting on this version keeps monitoring transactions it sent before the upgrade.
-- Failed-L1-transaction debug records (written when `L1_TX_FAILED_STORE` is set) now use `sentFeeCaps` and `sentFeeCapsLadder` instead of `sentGasPrice` and `sentGasPriceLadder`. Records written before the upgrade keep the old keys, and parsing one through `FailedL1TxSchema` returns it without fee caps, though the values are still present in the stored JSON under the old names.
+- Failed-L1-transaction debug records (written when `L1_TX_FAILED_STORE` is set) now use `sentFeesPerGas` and `sentFeesPerGasLadder` instead of `sentGasPrice` and `sentGasPriceLadder`. Records written before the upgrade keep the old keys, and parsing one through `FailedL1TxSchema` returns it without those fields, though the values are still present in the stored JSON under the old names.
 
 ## 5.1.0
 
