@@ -9,7 +9,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/zip_view.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 #include "./cycle_group.hpp"
@@ -1109,7 +1108,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::fixed_batch_mul(const std::vector<cycle_group>& constant_points,
                                                            const std::vector<cycle_scalar>& scalars,
-                                                           const GeneratorContext& context,
                                                            const size_t table_bits)
 {
     BB_ASSERT_EQ(scalars.size(), constant_points.size(), "Points/scalars size mismatch in fixed_batch_mul!");
@@ -1164,8 +1162,8 @@ cycle_group<Builder> cycle_group<Builder>::fixed_batch_mul(const std::vector<cyc
 
     // Compute offset generators
     const size_t num_offset_generators = plookup_points.size() + 1;
-    const std::span<AffineElement const> offset_generators =
-        context.generators->get(num_offset_generators, 0, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
+    const std::span<const AffineElement> offset_generators =
+        OffsetGenerators::default_generators().get(num_offset_generators);
 
     // Run the plookup-based Straus algorithm
     Element offset_accumulator = -constant_acc;
@@ -1224,8 +1222,7 @@ cycle_group<Builder> cycle_group<Builder>::fixed_batch_mul(const std::vector<cyc
  */
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_group>& base_points,
-                                                     const std::vector<cycle_scalar>& scalars,
-                                                     const GeneratorContext& context)
+                                                     const std::vector<cycle_scalar>& scalars)
 {
     BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in batch mul!");
 
@@ -1319,8 +1316,8 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     if (has_variable_points) {
         // Compute required offset generators; one per point plus one extra for the initial accumulator
         const size_t num_offset_generators = variable_base_points.size() + 1;
-        const std::span<AffineElement const> offset_generators =
-            context.generators->get(num_offset_generators, 0, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
+        const std::span<const AffineElement> offset_generators =
+            OffsetGenerators::default_generators().get(num_offset_generators);
 
         // Compute the result of the variable-base portion of the MSM and update the offset accumulator
         const auto [variable_accumulator, offset_generator_delta] = _variable_base_batch_mul_internal(
