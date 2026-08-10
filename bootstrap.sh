@@ -610,6 +610,11 @@ function private_release {
     local spec name ver td
     for spec in $({
         grep -rhoE 'npm:@aztec/[a-zA-Z0-9_.-]+@[0-9][^"]*' yarn-project --include=package.json | sed 's/^npm://'
+        # TODO: this mirrors only exact-version pins (^[0-9]), while release_prep_package_json
+        # writes any resolutions entry (range, npm: alias) into the published manifests; such a
+        # pin would be published but never mirrored, and installs from the internal registry
+        # would 404 on it. All current pins are exact versions. To be fixed when private
+        # releases get proper treatment.
         jq -r '.resolutions // {} | to_entries[]
                | select(.key | startswith("@aztec/")) | select(.value | test("^[0-9]"))
                | "\(.key)@\(.value)"' yarn-project/package.json

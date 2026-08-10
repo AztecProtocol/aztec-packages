@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
 # Used before releases to write version and rewrite 'workspace:^' URLs.
+# With --check as the first argument, only runs the scoped-mode validation below against
+# package.json and writes nothing, so a release can reject a bad manifest in any of its
+# packages before it has published a single one.
 set -euo pipefail
+check_only=0
+if [ "${1:-}" == "--check" ]; then
+  check_only=1
+  shift
+fi
 version=$1
 
 tmp=$(mktemp)
 
-jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
+if [ "$check_only" -eq 0 ]; then
+  jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
+fi
 
 # NPM_RELEASE_RESOLUTIONS (a JSON map: the enclosing workspace root's `resolutions` field)
 # selects scoped mode: only the @aztec packages local to the workspace being released are
@@ -32,9 +42,9 @@ if [ -n "${NPM_RELEASE_RESOLUTIONS:-}" ]; then
           else error(\"\(.key) is '\(.value)': neither workspace-local nor pinned in root resolutions\")
           end
         else . end) end" package.json >$tmp
-    mv $tmp package.json
+    [ "$check_only" -eq 1 ] || mv $tmp package.json
   done
-else
+elif [ "$check_only" -eq 0 ]; then
   # We update every category of dependency.
   # While we don't strictly need to update devDependencies, 'workspace:^' is not a valid URL in npm.
   for deps in dependencies devDependencies peerDependencies optionalDependencies; do
@@ -44,6 +54,10 @@ else
       mv $tmp package.json
     done
   done
+fi
+
+if [ "$check_only" -eq 1 ]; then
+  exit 0
 fi
 
 # Stamp aztec_version into any published noir contract artifacts in artifacts/*.json. The build-time stamp in
