@@ -407,6 +407,35 @@ describe('L1TxStore', () => {
     });
   });
 
+  describe('legacy fee caps key', () => {
+    const account = '0xabc123';
+
+    /** Rewrites a stored state into the pre-rename shape, where fee caps were spelled `gasPrice`. */
+    const storeUnderLegacyShape = async (stateId: number, dropFeeCaps = false) => {
+      const states = kvStore.openMap<string, string>('l1_tx_states');
+      const key = `${account}-${stateId.toString().padStart(10, '0')}`;
+      const { feeCaps, ...rest } = JSON.parse((await states.getAsync(key))!);
+      await states.set(key, JSON.stringify(dropFeeCaps ? rest : { ...rest, gasPrice: feeCaps }));
+    };
+
+    it('loads states written under the legacy gasPrice key', async () => {
+      const saved = await store.saveState(account, createMockState(1));
+      await storeUnderLegacyShape(saved.id);
+
+      const loaded = await store.loadStates(account);
+
+      expect(loaded).toHaveLength(1);
+      expect(loaded[0].feeCaps).toEqual(saved.feeCaps);
+    });
+
+    it('skips states carrying neither key', async () => {
+      const saved = await store.saveState(account, createMockState(1));
+      await storeUnderLegacyShape(saved.id, true);
+
+      expect(await store.loadStates(account)).toEqual([]);
+    });
+  });
+
   describe('serialize/deserialize roundtrip', () => {
     it('should preserve all state fields through serialization', async () => {
       const account = '0xabc123';

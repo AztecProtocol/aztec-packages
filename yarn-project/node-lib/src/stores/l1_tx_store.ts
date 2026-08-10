@@ -57,11 +57,7 @@ interface SerializableL1TxState {
   txHashes: string[];
   cancelTxHashes: string[];
   gasLimit: string;
-  /**
-   * Holds `L1TxState.feeCaps`. Named `gasPrice` and not `feeCaps` because this key is written to disk: states
-   * already in the store use `gasPrice`, and a renamed key makes them load without their fee caps.
-   */
-  gasPrice: SerializableFeeCaps;
+  feeCaps: SerializableFeeCaps;
   txConfigOverrides: SerializableL1TxConfig;
   request: SerializableL1TxRequest;
   status: number;
@@ -72,6 +68,16 @@ interface SerializableL1TxState {
   hasBlobInputs: boolean;
   blobMetadata?: SerializableBlobMetadata;
 }
+
+/**
+ * Shape accepted when reading a state back. States written before fee caps were named as such spelled `feeCaps`
+ * as `gasPrice`, so both are optional here and `deserializeState` takes whichever is present. Nothing writes
+ * `gasPrice` any more; drop it once no store can hold states predating the rename.
+ */
+type StoredL1TxState = Omit<SerializableL1TxState, 'feeCaps'> & {
+  feeCaps?: SerializableFeeCaps;
+  gasPrice?: SerializableFeeCaps;
+};
 
 /**
  * Serializable blob inputs for separate storage.
@@ -171,7 +177,7 @@ export class L1TxStore implements IL1TxStore {
       const stateId = parseInt(stateIdStr, 10);
 
       try {
-        const serialized: SerializableL1TxState = JSON.parse(stateJson);
+        const serialized: StoredL1TxState = JSON.parse(stateJson);
 
         // Load blobs if they exist
         let blobInputs: L1BlobInputs | undefined;
@@ -211,7 +217,7 @@ export class L1TxStore implements IL1TxStore {
     }
 
     try {
-      const serialized: SerializableL1TxState = JSON.parse(stateJson);
+      const serialized: StoredL1TxState = JSON.parse(stateJson);
 
       // Load blobs if they exist
       let blobInputs: L1BlobInputs | undefined;
@@ -304,7 +310,7 @@ export class L1TxStore implements IL1TxStore {
       txHashes: state.txHashes,
       cancelTxHashes: state.cancelTxHashes,
       gasLimit: state.gasLimit.toString(),
-      gasPrice: {
+      feeCaps: {
         maxFeePerGas: state.feeCaps.maxFeePerGas.toString(),
         maxPriorityFeePerGas: state.feeCaps.maxPriorityFeePerGas.toString(),
         maxFeePerBlobGas: state.feeCaps.maxFeePerBlobGas?.toString(),
@@ -329,7 +335,12 @@ export class L1TxStore implements IL1TxStore {
   /**
    * Deserializes a stored state back to L1TxState.
    */
-  private deserializeState(stored: SerializableL1TxState, blobInputs?: L1BlobInputs): L1TxState {
+  private deserializeState(stored: StoredL1TxState, blobInputs?: L1BlobInputs): L1TxState {
+    const feeCaps = stored.feeCaps ?? stored.gasPrice;
+    if (!feeCaps) {
+      throw new Error(`State ${stored.id} has no fee caps`);
+    }
+
     const txConfigOverrides: L1TxConfig = {
       ...stored.txConfigOverrides,
       gasLimit: stored.txConfigOverrides.gasLimit !== undefined ? BigInt(stored.txConfigOverrides.gasLimit) : undefined,
@@ -353,9 +364,9 @@ export class L1TxStore implements IL1TxStore {
       cancelTxHashes: stored.cancelTxHashes as `0x${string}`[],
       gasLimit: BigInt(stored.gasLimit),
       feeCaps: {
-        maxFeePerGas: BigInt(stored.gasPrice.maxFeePerGas),
-        maxPriorityFeePerGas: BigInt(stored.gasPrice.maxPriorityFeePerGas),
-        maxFeePerBlobGas: stored.gasPrice.maxFeePerBlobGas ? BigInt(stored.gasPrice.maxFeePerBlobGas) : undefined,
+        maxFeePerGas: BigInt(feeCaps.maxFeePerGas),
+        maxPriorityFeePerGas: BigInt(feeCaps.maxPriorityFeePerGas),
+        maxFeePerBlobGas: feeCaps.maxFeePerBlobGas ? BigInt(feeCaps.maxFeePerBlobGas) : undefined,
       },
       txConfigOverrides,
       request: {
