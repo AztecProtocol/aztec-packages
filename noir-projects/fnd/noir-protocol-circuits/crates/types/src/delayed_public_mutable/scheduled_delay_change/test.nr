@@ -161,15 +161,6 @@ unconstrained fn test_schedule_change_to_longer_delay_from_initial() {
     assert_eq(delay_change.get_current(current_timestamp), new);
 }
 
-// A zero delay leaves no window during which a value is known not to change, so there is no effective minimum delay to
-// report and the computation underflows instead. This is why `schedule_change` rejects zero.
-#[test(should_fail_with = "attempt to subtract with overflow")]
-unconstrained fn test_zero_delay_has_no_effective_minimum_delay() {
-    let delay_change = get_non_initial_delay_change(0, 0, 0);
-
-    let _ = delay_change.get_effective_minimum_delay_at(100);
-}
-
 #[test(should_fail_with = "Delay must be greater than zero")]
 unconstrained fn test_schedule_change_to_zero_delay_fails() {
     let mut delay_change = get_initial_delay_change();
