@@ -299,6 +299,11 @@ function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
 
+  # Scoped release (see ci3/release_prep_package_json): only the @aztec deps local to this
+  # workspace are co-published at $1; foundation deps keep the version the root resolutions
+  # field pins them to.
+  export NPM_RELEASE_RESOLUTIONS="$(jq -c '.resolutions // {}' package.json)"
+
   local package_list=()
   for package in $packages; do
     (cd $package && retry "deploy_npm $1")

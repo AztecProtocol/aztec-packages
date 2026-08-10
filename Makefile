@@ -101,7 +101,7 @@ release-foundation: fast-foundation bb-cpp-release-dir bb-ts-cross-copy bb-avm-s
 
 release-labs: fast-labs
 
-release: release-foundation release-labs
+release: release-labs
 
 #==============================================================================
 # Noir
