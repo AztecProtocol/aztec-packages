@@ -131,7 +131,10 @@ case "$cmd" in
   full|full-no-test-cache)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
-    export AWS_SHUTDOWN_TIME=75
+    # Sized for the arm's heaviest workload: full runs include the backwards-compat e2e sweep
+    # (yarn-project/end-to-end test_cmds under CI_FULL). The timer is a runaway backstop, so the
+    # headroom is free for runs that finish sooner.
+    export AWS_SHUTDOWN_TIME=90
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   chonk-input-update)

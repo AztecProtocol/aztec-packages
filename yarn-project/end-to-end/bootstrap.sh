@@ -164,6 +164,68 @@ function test_cmds {
     # Run at LOG_LEVEL=verbose so the captured local-network logs are detailed enough for diagnostics.
     echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=verbose $run_test_script compose $flow"
   done
+
+  # Backwards-compat sweep: rerun the artifact-consuming tests against each prior stable release's
+  # contract artifacts, committed as legacy-contracts/<version>.tar.gz (see legacy-contracts/README.md).
+  # The jest resolver swaps artifact JSON imports when CONTRACT_ARTIFACTS_VERSION is set. No tarballs
+  # (a line with no stable releases yet) means no sweep. Full CI only: the sweep multiplies e2e cost
+  # per version, and the merge queue's full run is the enforcement point.
+  # Only simple (jest-based) tests, since compose/docker tests don't use the legacy jest resolver.
+  # Excludes kernelless_simulation, which asserts on the exact number of nullifiers emitted and breaks
+  # whenever contracts add/remove nullifier emissions across versions (unrelated to the compat contract
+  # surface).
+  if [ "${CI_FULL:-0}" -eq 1 ]; then
+    local compat_tests=(
+      src/automine/*.test.ts
+      src/automine/contracts/*.test.ts
+      src/automine/contracts/deploy/*.test.ts
+      src/automine/contracts/nested/*.test.ts
+      src/automine/token/*.test.ts
+      src/automine/accounts/*.test.ts
+      src/automine/effects/*.test.ts
+      src/automine/simulation/!(kernelless_simulation).test.ts
+      src/single-node/fees/*.test.ts
+      src/single-node/cross-chain/*.test.ts
+      src/single-node/bot/*.test.ts
+      src/infra/*.test.ts
+      src/p2p/*.test.ts
+      src/p2p/reqresp/*.test.ts
+    )
+    local version tarball
+    for tarball in legacy-contracts/*.tar.gz; do
+      [ -e "$tarball" ] || continue
+      version=$(basename "$tarball" .tar.gz)
+      # Unpack on the host now: the isolated test containers share this checkout, so extracting once
+      # here saves every container doing it lazily. Status goes to stderr — stdout is the command
+      # stream.
+      node src/install_legacy_contracts.cjs "$version" 1>&2
+      for test in "${compat_tests[@]}"; do
+        local name
+        if [[ "$test" == src/p2p/* || "$test" == src/automine/* ]]; then
+          # The p2p/ and automine/ folders have no `e2e_` prefix to strip; flatten their path into an
+          # e2e_<path> name (matching the historical e2e_p2p/<file> names) by dropping "src/",
+          # ".test.ts", and slashes.
+          name=${test#src/}
+          name=e2e_${name%.test.ts}
+          name=${name//\//_}
+        else
+          name=${test#*e2e_}
+          name=e2e_${name%.test.ts}
+        fi
+
+        if [[ "$test" == *.parallel.test.ts ]]; then
+          while IFS= read -r test_name; do
+            # See the matching note near the top of test_cmds: collapse docker-illegal characters so
+            # NAME is a valid container name for docker_isolate.
+            local safe_test_name=$(echo "$test_name" | sed 's/[^a-zA-Z0-9_.-]/_/g')
+            echo "$prefix:NAME=compat_${version}_${name}_${safe_test_name} CONTRACT_ARTIFACTS_VERSION=$version $run_test_script simple $test \"$test_name\""
+          done < <(extract_test_names "$test")
+        else
+          echo "$prefix:NAME=compat_${version}_${name} CONTRACT_ARTIFACTS_VERSION=$version $run_test_script simple $test"
+        fi
+      done
+    done
+  fi
 }
 
 function test {
@@ -301,61 +363,6 @@ function avm_check_circuit {
 
   # Run check-circuit
   avm_check_circuit_cmds | parallelize
-}
-
-# Generates e2e test commands using contract artifacts from a prior release version.
-# Only includes simple (jest-based) tests since compose/docker tests don't use the legacy jest resolver.
-# Excludes kernelless_simulation, which asserts on the exact number of nullifiers emitted and breaks
-# whenever contracts add/remove nullifier emissions across versions (unrelated to the compat contract
-# surface).
-function compat_test_cmds {
-  local version=${1:?version is required}
-  local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-  local prefix="$hash:ISOLATE=1"
-  local compat_env="CONTRACT_ARTIFACTS_VERSION=$version"
-
-  local tests=(
-    src/automine/*.test.ts
-    src/automine/contracts/*.test.ts
-    src/automine/contracts/deploy/*.test.ts
-    src/automine/contracts/nested/*.test.ts
-    src/automine/token/*.test.ts
-    src/automine/accounts/*.test.ts
-    src/automine/effects/*.test.ts
-    src/automine/simulation/!(kernelless_simulation).test.ts
-    src/single-node/fees/*.test.ts
-    src/single-node/cross-chain/*.test.ts
-    src/single-node/bot/*.test.ts
-    src/infra/*.test.ts
-    src/p2p/*.test.ts
-    src/p2p/reqresp/*.test.ts
-  )
-  for test in "${tests[@]}"; do
-    local name
-    if [[ "$test" == src/p2p/* || "$test" == src/automine/* ]]; then
-      # The p2p/ and automine/ folders have no `e2e_` prefix to strip; flatten their path into an
-      # e2e_<path> name (matching the historical e2e_p2p/<file> names) by dropping "src/", ".test.ts",
-      # and slashes.
-      name=${test#src/}
-      name=e2e_${name%.test.ts}
-      name=${name//\//_}
-    else
-      name=${test#*e2e_}
-      name=e2e_${name%.test.ts}
-    fi
-
-    if [[ "$test" == *.parallel.test.ts ]]; then
-      while IFS= read -r test_name; do
-        # See the matching note in test_cmds: collapse docker-illegal characters so NAME is a valid
-        # container name for docker_isolate.
-        local safe_test_name=$(echo "$test_name" | sed 's/[^a-zA-Z0-9_.-]/_/g')
-        local full_name="compat_${version}_${name}_${safe_test_name}"
-        echo "$prefix:NAME=$full_name $compat_env $run_test_script simple $test \"$test_name\""
-      done < <(extract_test_names "$test")
-    else
-      echo "$prefix:NAME=compat_${version}_${name} $compat_env $run_test_script simple $test"
-    fi
-  done
 }
 
 case "$cmd" in

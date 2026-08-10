@@ -1,22 +1,19 @@
 // Custom Jest resolver. When CONTRACT_ARTIFACTS_VERSION is set, redirects *only* JSON artifact files under
-// @aztec/noir-contracts.js/artifacts/, @aztec/noir-test-contracts.js/artifacts/, and @aztec/accounts/artifacts/ to a local cache of the pinned
-// legacy versions. TypeScript wrapper classes (e.g. Token.ts) continue to load from the current workspace and use the
-// current @aztec/aztec.js — only the artifact JSON (the deployed-contract ABI / bytecode / notes surface) is swapped.
+// @aztec/noir-contracts.js/artifacts/, @aztec/noir-test-contracts.js/artifacts/, and @aztec/accounts/artifacts/ to
+// that version's historical artifacts, committed as legacy-contracts/<version>.tar.gz and unpacked on demand into
+// .legacy-contracts/<version>/ by install_legacy_contracts.cjs.
 //
 // Why JSON-only: the JSON artifact is the actual interchange surface a "deployed contract" exposes. The TS wrapper is
 // generated client-side ergonomics that's tightly coupled to the current @aztec/aztec.js API. Redirecting the wrapper
 // would couple this test to a moving aztec.js surface and break at import time on unrelated breaking changes; we want
 // to fail only on actual artifact-compat regressions.
 //
-// Cache population lives in install_legacy_contracts.cjs — invoked lazily here for local dev, and eagerly
-// by bootstrap.sh ci-compat-e2e before hermetic test containers (which run with --net=none) launch.
-//
-// Missing artifacts: legacy version directories are immutable, so an artifact missing from the cache means the
-// contract was added after the pinned release — there's nothing to compat-test. Rather than failing or silently
-// falling back to the workspace artifact (which would turn the compat run into a regular e2e run that always
-// passes), we log the miss and exit the process cleanly with code 0. The test never runs, but the per-test CI
-// log captures the explanatory line so the reason is auditable. This keeps the change scoped to this resolver,
-// avoiding a new exit-code contract in the shared ci3 test runner.
+// Missing artifacts: legacy version tarballs are immutable, so an artifact missing from the unpacked cache means the
+// contract was added after that release — there's nothing to compat-test. Rather than failing or silently falling
+// back to the workspace artifact (which would turn the compat run into a regular e2e run that always passes), we log
+// the miss and exit the process cleanly with code 0. The test never runs, but the per-test CI log captures the
+// explanatory line so the reason is auditable. This keeps the change scoped to this resolver, avoiding a new
+// exit-code contract in the shared ci3 test runner.
 //
 // Activated by env var; passthrough otherwise.
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -28,14 +25,8 @@ const { installLegacyContracts, REDIRECTED, cacheRoot } = require('./install_leg
 const version = process.env.CONTRACT_ARTIFACTS_VERSION;
 const cacheDir = version ? cacheRoot(version) : null;
 
-function pkgJsonPath(name) {
-  return path.join(cacheDir, 'node_modules', name, 'package.json');
-}
-
-// Kept in a separate module (not inlined) because bootstrap.sh ci-compat-e2e also calls it directly
-// via `node .../install_legacy_contracts.cjs <version>` to pre-populate the cache on the host before
-// hermetic --net=none test containers launch. Inlining here would force us to duplicate the logic
-// in bash or re-run jest just to trigger the install.
+// bootstrap.sh test_cmds normally pre-unpacks on the host before the hermetic test containers launch;
+// this lazy call covers local dev runs. Both are idempotent.
 if (version) {
   installLegacyContracts(version);
 }
@@ -49,12 +40,8 @@ function printBannerOnce() {
   }
   bannerPrinted = true;
   const lines = ['='.repeat(60), `[legacy-contracts][jest] CONTRACT_ARTIFACTS_VERSION=${version}`];
-  for (const p of REDIRECTED) {
-    const v = JSON.parse(fs.readFileSync(pkgJsonPath(p), 'utf8')).version;
-    if (v !== version) {
-      throw new Error(`[legacy-contracts] ${p} on disk is ${v}, expected ${version}`);
-    }
-    lines.push(`[legacy-contracts][jest] redirecting ${p}/artifacts/*.json -> .legacy-contracts/${version}/...`);
+  for (const pkg of REDIRECTED) {
+    lines.push(`[legacy-contracts][jest] redirecting ${pkg}/artifacts/*.json -> .legacy-contracts/${version}/...`);
   }
   lines.push('='.repeat(60));
   process.stderr.write(lines.join('\n') + '\n');
@@ -67,15 +54,14 @@ function legacyArtifactPath(resolved) {
     return null;
   }
   for (const pkg of REDIRECTED) {
-    // pkg = '@aztec/noir-contracts.js' -> match '/noir-contracts.js/artifacts/'
-    const dirName = pkg.split('/')[1];
-    const marker = `/${dirName}/artifacts/`;
+    // pkg = 'noir-contracts.js' -> match '/noir-contracts.js/artifacts/'
+    const marker = `/${pkg}/artifacts/`;
     const idx = resolved.indexOf(marker);
     if (idx === -1) {
       continue;
     }
     const basename = resolved.slice(idx + marker.length);
-    return path.join(cacheDir, 'node_modules', pkg, 'artifacts', basename);
+    return path.join(cacheDir, pkg, 'artifacts', basename);
   }
   return null;
 }

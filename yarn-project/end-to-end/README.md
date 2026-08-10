@@ -142,26 +142,28 @@ CI splits each `it` in a `.parallel.test.ts` file into its own docker job, runni
 
 ### CI test discovery — `bootstrap.sh`
 
-`end-to-end/bootstrap.sh` enumerates tests in two arrays, and a test must resolve through the relevant one
-or it **won't run in CI**:
+`end-to-end/bootstrap.sh` enumerates tests in two arrays inside `test_cmds`, and a test must resolve
+through the relevant one or it **won't run in CI**:
 
-- `test_cmds` — the standard run. Covers each category with a recursive glob (e.g.
+- The standard run. Covers each category with a recursive glob (e.g.
   `src/automine/!(simulation)/**/*.test.ts`, `src/multi-node/**/*.test.ts`), so a new file or sub-folder
   inside an existing category is picked up automatically; only a new top-level category needs its own glob
   line. Tests with bespoke handling sit outside the globs: the `single-node/prover/` lanes at the top of
   the function (real proofs and custom resources under `CI_FULL`, `FAKE_PROOFS=1` otherwise) and
   `avm_simulator` (below).
-- `compat_test_cmds` — the forward/legacy-compat run (a subset). This one enumerates **single-level leaf
-  globs** (e.g. `src/automine/token/*.test.ts`), so a new sub-folder whose tests should run against legacy
-  contract artifacts needs its own line here.
+- The backwards-compat sweep (`compat_tests`, a subset, emitted only under `CI_FULL`): reruns the
+  artifact-consuming tests once per prior stable release committed under `legacy-contracts/` (see that
+  directory's README), with `CONTRACT_ARTIFACTS_VERSION` set so the jest resolver swaps in the historical
+  artifact JSON. This one enumerates **single-level leaf globs** (e.g. `src/automine/token/*.test.ts`), so
+  a new sub-folder whose tests should run against legacy contract artifacts needs its own line here.
 
 Bespoke handling to be aware of:
 
-- **`avm_simulator`** (`automine/simulation/avm_simulator.test.ts`) has a dedicated line in `test_cmds`
-  that sets `DUMP_AVM_INPUTS_TO_DIR` (feeds the downstream `avm_check_circuit` job) and is therefore
-  excluded from the generic `simulation/` glob there (`!(avm_simulator)`). In `compat_test_cmds` it runs
+- **`avm_simulator`** (`automine/simulation/avm_simulator.test.ts`) has a dedicated line in the standard
+  run that sets `DUMP_AVM_INPUTS_TO_DIR` (feeds the downstream `avm_check_circuit` job) and is therefore
+  excluded from the generic `simulation/` glob there (`!(avm_simulator)`). In the compat sweep it runs
   as a regular test (no dump line), so it is **not** excluded there.
-- **`kernelless_simulation`** is excluded from `compat_test_cmds` only.
+- **`kernelless_simulation`** is excluded from the compat sweep only.
 
 After editing the arrays, confirm every `*.test.ts` resolves through exactly one line (no duplicate, no
 omission — anything excluded via `!(...)` must be matched by its dedicated line). Per-test bash `TIMEOUT`
