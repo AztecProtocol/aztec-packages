@@ -1,6 +1,0 @@
-[package]
-name = "init"
-type = "contract"
-
-[dependencies]
-aztec = { path = "../../../noir-projects/labs/aztec-nr/aztec" }

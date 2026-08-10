@@ -48,6 +48,7 @@ locals {
   release_prefix      = "ethereum"
   api_key_header_name = "apikey"
   storage_class_name  = "standard-rwo"
+  irm_metric_catalog  = yamldecode(file("${path.module}/../../metrics/irm-ethereum.yaml"))
 
   ethereum_chains = {
     sepolia = {
@@ -266,7 +267,8 @@ module "ethereum_metrics_collector" {
   source = "../modules/otel-metrics-collector"
 
   providers = {
-    helm = helm.gke-cluster
+    helm       = helm.gke-cluster
+    kubernetes = kubernetes.gke-cluster
   }
 
   NAMESPACE                               = local.namespace
@@ -337,6 +339,17 @@ module "ethereum_metrics_collector" {
     "network"         = local.release_prefix
     "aztec.component" = "ethereum-metrics"
   }
+  IRM_CONFIG = var.IRM_METRICS_ENABLED ? {
+    alloy_release_name = "${local.release_prefix}-irm-alloy"
+    job_name           = "ethereum"
+    grafana_cloud = {
+      secret_name      = var.IRM_GRAFANA_CLOUD_SECRET_NAME
+      remote_write_url = var.IRM_GRAFANA_CLOUD_REMOTE_WRITE_URL
+      username         = var.IRM_GRAFANA_CLOUD_USERNAME
+    }
+    metric_catalog  = local.irm_metric_catalog
+    alloy_resources = var.IRM_ALLOY_RESOURCES
+  } : null
   EXTERNAL_SECRET_STORE_NAME       = var.EXTERNAL_SECRET_STORE_NAME
   EXTERNAL_SECRET_STORE_KIND       = var.EXTERNAL_SECRET_STORE_KIND
   EXTERNAL_SECRET_REFRESH_INTERVAL = var.EXTERNAL_SECRET_REFRESH_INTERVAL

@@ -571,7 +571,6 @@ function release {
     barretenberg/rust
     noir-projects/labs/aztec-nr
     yarn-project
-    boxes
     # aztec-up is omitted until the repo split is complete.
     playground
     release-image

@@ -802,6 +802,7 @@
       "inheritConfigureEnvironment": true,
       "targets": [
         "bb",
+        "bb-avm",
         "nodejs_module",
         "bb-external",
         "aztec-wsdb",

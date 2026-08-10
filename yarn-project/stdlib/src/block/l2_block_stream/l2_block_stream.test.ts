@@ -32,6 +32,7 @@ describe('L2BlockStream', () => {
   const makeBlock = (number: number) =>
     ({
       number: BlockNumber(number),
+      header: makeHeader(number),
       checkpointNumber: CheckpointNumber(number),
       indexWithinCheckpoint: 0,
       hash: blockHashFromNumber,
@@ -44,8 +45,7 @@ describe('L2BlockStream', () => {
       indexWithinCheckpoint: 0,
     }) as unknown as BlockData;
 
-  const makeHeader = (number: number) =>
-    ({ hash: () => Promise.resolve(new BlockHash(new Fr(number))) }) as BlockHeader;
+  const makeHeader = (number: number) => ({ number, hash: blockHashFromNumber }) as unknown as BlockHeader;
 
   const makeBlockId = (number: number): L2BlockId => ({ number: BlockNumber(number), hash: makeHash(number) });
 
@@ -62,6 +62,9 @@ describe('L2BlockStream', () => {
     block: makeBlockId(number),
     checkpoint: makeCheckpointId(number),
   });
+
+  /** The chain-proposed payload (block id + header) for the tip at `number`. */
+  const makeProposedTip = (number: number) => ({ block: makeBlockId(number), header: makeHeader(number) });
 
   /** Sets the remote tips. All tips default to 0 except latest. */
   const setRemoteTips = (latest_: number, checkpointed_?: number, proven?: number, finalized?: number) => {
@@ -90,14 +93,22 @@ describe('L2BlockStream', () => {
         : Promise.resolve([]),
     );
 
-    // Returns block data for any known block that has not been pruned.
-    blockSource.getBlockData.mockImplementation(query => {
-      if (!('number' in query)) {
-        return Promise.resolve(undefined);
-      }
-      return Promise.resolve(query.number > latest ? undefined : makeBlockData(query.number, query.number));
-    });
+    blockSource.getBlockData.mockImplementation(serveBlockData);
   });
+
+  // Returns block data for any known block that has not been pruned. Hash queries (the chain-proposed data
+  // prefetch/fallback) resolve via the mock's number-derived hashes. Tests that need a different source behavior
+  // mock a delta over this (e.g. failing just the hash queries) rather than a full reimplementation.
+  const serveBlockData: L2BlockSource['getBlockData'] = query => {
+    if ('hash' in query) {
+      const number = Number(BigInt(query.hash.toString()));
+      return Promise.resolve(number > latest ? undefined : makeBlockData(number, number));
+    }
+    if (!('number' in query)) {
+      return Promise.resolve(undefined);
+    }
+    return Promise.resolve(query.number > latest ? undefined : makeBlockData(query.number, query.number));
+  };
 
   describe('with mock local data provider', () => {
     let localData: TestL2BlockStreamLocalDataProvider;
@@ -116,7 +127,7 @@ describe('L2BlockStream', () => {
       await blockStream.work();
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 1)) },
-        { type: 'chain-proposed', block: makeBlockId(5) },
+        { type: 'chain-proposed', ...makeProposedTip(5) },
       ] satisfies L2BlockStreamEvent[]);
     });
 
@@ -128,7 +139,7 @@ describe('L2BlockStream', () => {
       expect(blockSource.getBlocks).toHaveBeenCalledWith({ from: BlockNumber(11), limit: 5 });
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 11)) },
-        { type: 'chain-proposed', block: makeBlockId(15) },
+        { type: 'chain-proposed', ...makeProposedTip(15) },
       ] satisfies L2BlockStreamEvent[]);
     });
 
@@ -144,7 +155,7 @@ describe('L2BlockStream', () => {
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 21)) },
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 31)) },
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 41)) },
-        { type: 'chain-proposed', block: makeBlockId(45) },
+        { type: 'chain-proposed', ...makeProposedTip(45) },
       ] satisfies L2BlockStreamEvent[]);
     });
 
@@ -186,7 +197,7 @@ describe('L2BlockStream', () => {
       expect(handler.events).toEqual([
         { type: 'chain-pruned', block: makeBlockId(36), checkpointed: makeTipId(0), proven: makeTipId(0) },
         { type: 'blocks-added', blocks: times(9, i => makeBlock(i + 37)) },
-        { type: 'chain-proposed', block: makeBlockId(45) },
+        { type: 'chain-proposed', ...makeProposedTip(45) },
       ] satisfies L2BlockStreamEvent[]);
     });
 
@@ -199,7 +210,7 @@ describe('L2BlockStream', () => {
       await blockStream.work();
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 41)) },
-        { type: 'chain-proposed', block: makeBlockId(45) },
+        { type: 'chain-proposed', ...makeProposedTip(45) },
         { type: 'chain-proven', block: makeBlockId(40), checkpoint: makeCheckpointId(40) },
         { type: 'chain-finalized', block: makeBlockId(35), checkpoint: makeCheckpointId(35) },
       ] satisfies L2BlockStreamEvent[]);
@@ -214,7 +225,7 @@ describe('L2BlockStream', () => {
 
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 1)) },
-        { type: 'chain-proposed', block: makeBlockId(5) },
+        { type: 'chain-proposed', ...makeProposedTip(5) },
         checkpointedEvent(5),
       ]);
       // No checkpoint payloads are fetched anymore.
@@ -230,7 +241,7 @@ describe('L2BlockStream', () => {
       // Download all 5 blocks, then chain-proposed for the proposed tip (5), then a single checkpointed event for 3.
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 1)) },
-        { type: 'chain-proposed', block: makeBlockId(5) },
+        { type: 'chain-proposed', ...makeProposedTip(5) },
         checkpointedEvent(3),
       ]);
     });
@@ -358,7 +369,7 @@ describe('L2BlockStream', () => {
       await blockStream.work();
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(6, i => makeBlock(i + 30)) },
-        { type: 'chain-proposed', block: makeBlockId(35) },
+        { type: 'chain-proposed', ...makeProposedTip(35) },
         checkpointedEvent(30),
         { type: 'chain-proven', block: makeBlockId(25), checkpoint: makeCheckpointId(25) },
         { type: 'chain-finalized', block: makeBlockId(10), checkpoint: makeCheckpointId(10) },
@@ -371,7 +382,7 @@ describe('L2BlockStream', () => {
       await blockStream.work();
       expect(handler.events).toEqual([
         { type: 'chain-pruned', block: makeBlockId(25), checkpointed: makeTipId(25), proven: makeTipId(25) },
-        { type: 'chain-proposed', block: makeBlockId(25) },
+        { type: 'chain-proposed', ...makeProposedTip(25) },
       ]);
     });
 
@@ -389,7 +400,7 @@ describe('L2BlockStream', () => {
       await blockStream.work();
       expect(handler.events).toEqual([
         { type: 'chain-pruned', block: makeBlockId(6), checkpointed: makeTipId(5), proven: makeTipId(0) },
-        { type: 'chain-proposed', block: makeBlockId(6) },
+        { type: 'chain-proposed', ...makeProposedTip(6) },
       ]);
       handler.clearEvents();
 
@@ -517,7 +528,7 @@ describe('L2BlockStream', () => {
       // chain-proposed still fires (it is not a checkpoint event); only chain-checkpointed is suppressed.
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(6, i => makeBlock(i + 1)) },
-        { type: 'chain-proposed', block: makeBlockId(6) },
+        { type: 'chain-proposed', ...makeProposedTip(6) },
       ]);
     });
 
@@ -538,7 +549,7 @@ describe('L2BlockStream', () => {
 
       expect(handler.events).toEqual([
         { type: 'chain-pruned', block: makeBlockId(3), checkpointed: makeTipId(3), proven: makeTipId(0) },
-        { type: 'chain-proposed', block: makeBlockId(3) },
+        { type: 'chain-proposed', ...makeProposedTip(3) },
       ]);
     });
 
@@ -549,7 +560,7 @@ describe('L2BlockStream', () => {
 
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(9, i => makeBlock(i + 1)) },
-        { type: 'chain-proposed', block: makeBlockId(9) },
+        { type: 'chain-proposed', ...makeProposedTip(9) },
         { type: 'chain-proven', block: makeBlockId(6), checkpoint: makeCheckpointId(6) },
         { type: 'chain-finalized', block: makeBlockId(3), checkpoint: makeCheckpointId(3) },
       ]);
@@ -582,7 +593,7 @@ describe('L2BlockStream', () => {
       // Instead of fetching the next local block (6), we skip ahead to the latest finalized (35) and go from there.
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(6, i => makeBlock(i + 35)) },
-        { type: 'chain-proposed', block: makeBlockId(40) },
+        { type: 'chain-proposed', ...makeProposedTip(40) },
         { type: 'chain-proven', block: makeBlockId(38), checkpoint: makeCheckpointId(38) },
         { type: 'chain-finalized', block: makeBlockId(35), checkpoint: makeCheckpointId(35) },
       ] satisfies L2BlockStreamEvent[]);
@@ -601,7 +612,7 @@ describe('L2BlockStream', () => {
       // are emitted.
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(2, i => makeBlock(i + 39)) },
-        { type: 'chain-proposed', block: makeBlockId(40) },
+        { type: 'chain-proposed', ...makeProposedTip(40) },
       ] satisfies L2BlockStreamEvent[]);
     });
   });
@@ -627,7 +638,7 @@ describe('L2BlockStream', () => {
       // All 5 blocks are synced and no checkpoint events are emitted (chain-proposed is not a checkpoint event).
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 1)) },
-        { type: 'chain-proposed', block: makeBlockId(5) },
+        { type: 'chain-proposed', ...makeProposedTip(5) },
       ]);
       expect(handler.events.some(e => e.type === 'chain-checkpointed')).toBe(false);
     });
@@ -665,7 +676,7 @@ describe('L2BlockStream', () => {
 
       // No blocks-added, no download: only the proposed tip + the three tier events, in highest-to-lowest order.
       expect(handler.events).toEqual([
-        { type: 'chain-proposed', block: makeBlockId(9) },
+        { type: 'chain-proposed', ...makeProposedTip(9) },
         checkpointedEvent(9),
         { type: 'chain-proven', block: makeBlockId(6), checkpoint: makeCheckpointId(6) },
         { type: 'chain-finalized', block: makeBlockId(3), checkpoint: makeCheckpointId(3) },
@@ -729,6 +740,75 @@ describe('L2BlockStream', () => {
         (pruneEvents[0] as Extract<L2BlockStreamEvent, { type: 'chain-pruned' }>).block.number,
       ).toBeLessThanOrEqual(3);
       expect(blockSource.getBlocks).not.toHaveBeenCalled();
+    });
+
+    it('attaches the prefetched proposed-tip header to chain-proposed', async () => {
+      setRemoteTips(9);
+
+      await blockStream.work();
+
+      expect(handler.events[0]).toEqual({ type: 'chain-proposed', ...makeProposedTip(9) });
+      // The prefetch is the only by-hash header fetch: a successful one spares the emit site a second fetch.
+      expect(blockSource.getBlockData.mock.calls.filter(([query]) => 'hash' in query)).toHaveLength(1);
+    });
+
+    it('refetches the header when the post-prune re-read moved the proposed tip', async () => {
+      setRemoteTips(5);
+      await blockStream.work();
+      handler.clearEvents();
+
+      // The source keeps moving mid-pass: the pass snapshot reports a forked tip at block 4, which the prefetch
+      // targets, but by the post-prune re-read another same-height swap replaced it. The prefetched data no longer
+      // names the emitted tip, so the stream must refetch by the re-read hash instead.
+      const snapshotTipHash = new Fr(4000).toString();
+      const rereadTipHash = new Fr(5000).toString();
+      const tipsAt = (hash: string) => ({
+        proposed: { number: BlockNumber(4), hash },
+        checkpointed: makeTipId(0),
+        proven: makeTipId(0),
+        finalized: makeTipId(0),
+      });
+      blockSource.getL2Tips.mockResolvedValueOnce(tipsAt(snapshotTipHash)).mockResolvedValue(tipsAt(rereadTipHash));
+      blockSource.getBlockData.mockImplementation(query => {
+        // Serve hash-distinguishable data for any fork hash, so attaching the stale prefetch would be detected.
+        if ('hash' in query) {
+          return Promise.resolve(makeBlockData(Number(BigInt(query.hash.toString())), 4));
+        }
+        // The source no longer serves blocks above the new fork tip, so the walk-back sees the divergence.
+        return 'number' in query && query.number > 4 ? Promise.resolve(undefined) : serveBlockData(query);
+      });
+
+      await blockStream.work();
+
+      const proposed = handler.events.find(e => e.type === 'chain-proposed');
+      expect(proposed).toEqual({
+        type: 'chain-proposed',
+        block: { number: BlockNumber(4), hash: rereadTipHash },
+        header: makeHeader(5000),
+      });
+    });
+
+    it('skips the pass when the proposed tip header cannot be obtained, then recovers', async () => {
+      setRemoteTips(9, 9, 6, 3);
+      blockSource.getBlockData.mockImplementation(query =>
+        'hash' in query ? Promise.resolve(undefined) : serveBlockData(query),
+      );
+
+      await blockStream.work();
+
+      // Both the prefetch and the fallback fetch failed: no chain-proposed, and no tier events either (they must not
+      // advance a consumer's tier cursor past its proposed cursor).
+      expect(handler.events).toEqual([]);
+
+      // The local proposed cursor did not advance, so the next pass re-detects the tip movement and retries.
+      blockSource.getBlockData.mockImplementation(serveBlockData);
+      await blockStream.work();
+      expect(handler.events).toEqual([
+        { type: 'chain-proposed', ...makeProposedTip(9) },
+        checkpointedEvent(9),
+        { type: 'chain-proven', block: makeBlockId(6), checkpoint: makeCheckpointId(6) },
+        { type: 'chain-finalized', block: makeBlockId(3), checkpoint: makeCheckpointId(3) },
+      ]);
     });
 
     it('throws on construction when combined with startingBlock, batchSize, or skipFinalized', () => {
@@ -879,9 +959,11 @@ describe('L2BlockStream', () => {
 
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 1)) },
-        { type: 'chain-proposed', block: makeBlockId(5) },
+        { type: 'chain-proposed', ...makeProposedTip(5) },
         checkpointedEvent(5),
       ]);
+      // The event's header comes from the delivered tip block: no by-hash fetch happens in block mode.
+      expect(blockSource.getBlockData.mock.calls.some(([query]) => 'hash' in query)).toBe(false);
     });
 
     it('does not emit chain-proposed when the proposed tip did not change', async () => {
@@ -951,7 +1033,11 @@ describe('L2BlockStream', () => {
       // the time reconciliation runs.
       const proposedEvents = storeHandler.events.filter(e => e.type === 'chain-proposed');
       expect(proposedEvents).toEqual([
-        { type: 'chain-proposed', block: { number: BlockNumber(45), hash: new Fr(1045).toString() } },
+        {
+          type: 'chain-proposed',
+          block: { number: BlockNumber(45), hash: new Fr(1045).toString() },
+          header: makeHeader(45),
+        },
       ]);
       const pruneEvents = storeHandler.events.filter(e => e.type === 'chain-pruned');
       expect(pruneEvents).toHaveLength(1);
@@ -1514,7 +1600,7 @@ function collapseConsecutive<T>(items: T[]): T[] {
   return items.filter((item, i) => i === 0 || item !== items[i - 1]);
 }
 
-/** Shared block-hash function: hashes `this.number`. A single reference so makeBlock(n) objects compare equal. */
+/** Shared block-hash function: hashes `this.number`. A single reference so equal-numbered objects compare equal. */
 function blockHashFromNumber(this: { number: number }): Promise<BlockHash> {
   return Promise.resolve(new BlockHash(new Fr(this.number)));
 }
@@ -1528,6 +1614,7 @@ function forkedBlockHashFromNumber(this: { number: number }): Promise<BlockHash>
 function makeForkedBlock(number: number) {
   return {
     number: BlockNumber(number),
+    header: { number, hash: blockHashFromNumber },
     checkpointNumber: CheckpointNumber(number),
     indexWithinCheckpoint: 0,
     hash: forkedBlockHashFromNumber,

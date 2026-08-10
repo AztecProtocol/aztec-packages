@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+# Provisions the binaries the labs components build with (bb, nargo, noir-profiler, and
+# optionally bb-avm and acvm) into bin/, from one of two sources:
+#
+# - Foundation mode (FND_ROOT non-empty): symlink the binaries built inside the checkout at
+#   FND_ROOT (barretenberg/cpp and the noir submodule), and derive the toolchain identity
+#   from that tree's source hashes. This is the monorepo flow today; after the repo split it
+#   is how the foundation repo runs the labs components (as a submodule) against its own tree.
+# - Pinned mode (FND_ROOT empty): download released binaries at the versions pinned below,
+#   and derive the identity from this directory's committed content. This is the standalone
+#   labs repo flow.
+#
+# The committed default differs per line: the labs side (here) commits an empty default,
+# the monorepo/foundation side points at its own checkout. AZTEC_TOOLCHAIN_FND_ROOT overrides
+# either default — export it empty to force pinned mode, or set it to a foundation checkout
+# root, as the foundation repo does when driving its labs submodule.
+FND_ROOT=${AZTEC_TOOLCHAIN_FND_ROOT-}
+
 TARGET_DIR=bin
 BB_BINARY=bb
 BB_AVM_BINARY=bb-avm
@@ -12,12 +29,12 @@ NOIR_PROFILER_BINARY=noir-profiler
 # nargo only reports its base cargo version, never the nightly/release tag.
 PIN_FILE=$TARGET_DIR/.pin
 
-# Pinned versions installed in the labs repo (see build_labs). These versions are also
-# hardcoded in other files throughout the monorepo, so a change here requires also updating
-# those. check_pin_drift detects any drift between this and those declarations.
-# The monorepo links the locally built binaries instead.
+# Pinned versions installed in pinned mode (see build_pinned; foundation mode links the
+# locally built binaries instead and ignores these). These versions are also hardcoded in
+# other files throughout the repo, so a change here requires also updating those.
+# check_pin_drift detects any drift between this and those declarations.
 # Note that BB is downloaded from the AztecProtocol/barretenberg mirror first (via bbup).
-BB_VERSION=6.0.0-nightly.20260804
+BB_VERSION=6.0.0-nightly.20260807
 # NOIR_VERSION must be the noir release the $BB_VERSION aztec-packages release was built
 # against (its noir submodule): the pinned nargo's output is consumed by tools from that
 # release (bb, and the @aztec/noir-* js packages, which are that submodule republished).
@@ -31,7 +48,11 @@ NOIRUP_URL=${NOIRUP_URL:-https://raw.githubusercontent.com/noir-lang/noirup/324a
 # bbup's artifact name is hardcoded to the plain bb, so the AVM-enabled build is taken
 # straight from the release. The URLs are tried in order: the barretenberg mirror, which
 # bb is also published to first, then aztec-packages.
-BB_AVM_ARTIFACT=barretenberg-avm-amd64-linux.tar.gz
+# Empty on a machine ci3/arch does not recognize, which makes bb_avm_released_here skip bb-avm.
+# Letting arch fail here would abort every command this script offers instead, including the nargo
+# and acvm installs that have nothing to do with bb-avm.
+BB_AVM_ARCH=$(arch 2>/dev/null || true)
+BB_AVM_ARTIFACT=barretenberg-avm-$BB_AVM_ARCH-linux.tar.gz
 BB_AVM_URLS=${BB_AVM_URLS:-"
   https://github.com/AztecProtocol/barretenberg/releases/download/v$BB_VERSION/$BB_AVM_ARTIFACT
   https://github.com/AztecProtocol/aztec-packages/releases/download/v$BB_VERSION/$BB_AVM_ARTIFACT
@@ -51,15 +72,20 @@ function link_tool {
   echo "Created symlink: $TARGET_DIR/$name -> $full_path"
 }
 
-# Keeping this function in case it's useful for the foundation.
-function build_monorepo {
-  echo "Setting up labs' aztec toolchain..."
-  # Can be overridden by caller.
-  MONOREPO_ROOT=${MONOREPO_ROOT:-$(git rev-parse --show-toplevel)}
+function check_fnd_root {
+  if [ ! -f "$FND_ROOT/barretenberg/cpp/bootstrap.sh" ] || [ ! -f "$FND_ROOT/noir/bootstrap.sh" ]; then
+    echo_stderr "AZTEC_TOOLCHAIN_FND_ROOT does not point at a foundation checkout (no barretenberg/cpp and noir): $FND_ROOT"
+    exit 1
+  fi
+}
 
-  local bb_full_path="$MONOREPO_ROOT/barretenberg/cpp/build/bin/$BB_BINARY"
-  local nargo_full_path="$MONOREPO_ROOT/noir/noir-repo/target/release/$NARGO_BINARY"
-  local noir_profiler_full_path="$MONOREPO_ROOT/noir/noir-repo/target/release/$NOIR_PROFILER_BINARY"
+function build_fnd {
+  echo "Setting up labs' aztec toolchain from $FND_ROOT..."
+  check_fnd_root
+
+  local bb_full_path="$FND_ROOT/barretenberg/cpp/build/bin/$BB_BINARY"
+  local nargo_full_path="$FND_ROOT/noir/noir-repo/target/release/$NARGO_BINARY"
+  local noir_profiler_full_path="$FND_ROOT/noir/noir-repo/target/release/$NOIR_PROFILER_BINARY"
 
   if [ ! -f $bb_full_path ] || [ ! -f $nargo_full_path ] || [ ! -f $noir_profiler_full_path ]; then
     echo_stderr "Required binaries not found, exiting."
@@ -69,6 +95,8 @@ function build_monorepo {
     exit 1
   fi
 
+  # Start from an empty TARGET_DIR: a previous pinned-mode provisioning leaves real binaries
+  # (and a pin record attesting them) that the symlinks below must fully replace.
   clean
   mkdir -p "$TARGET_DIR"
   link_tool "$bb_full_path" "$BB_BINARY"
@@ -80,8 +108,8 @@ function build_monorepo {
   # absent binary fails at the point of use.
   local optional_path
   for optional_path in \
-    "$MONOREPO_ROOT/barretenberg/cpp/build/bin/$BB_AVM_BINARY" \
-    "$MONOREPO_ROOT/noir/noir-repo/target/release/$ACVM_BINARY"; do
+    "$FND_ROOT/barretenberg/cpp/build/bin/$BB_AVM_BINARY" \
+    "$FND_ROOT/noir/noir-repo/target/release/$ACVM_BINARY"; do
     if [ -f "$optional_path" ]; then
       link_tool "$optional_path" "$(basename "$optional_path")"
     fi
@@ -90,9 +118,9 @@ function build_monorepo {
   # Record the full noir version: the exact tag when the submodule sits on one,
   # otherwise the binary's base version (a bare commit is not installable, so
   # it is not a useful record). Tags may be missing in shallow CI checkouts.
-  git -C "$MONOREPO_ROOT/noir/noir-repo" fetch --tags --quiet 2>/dev/null || true
+  git -C "$FND_ROOT/noir/noir-repo" fetch --tags --quiet 2>/dev/null || true
   local noir_full_version
-  if ! noir_full_version=$(git -C "$MONOREPO_ROOT/noir/noir-repo" describe --tags --exact-match HEAD 2>/dev/null); then
+  if ! noir_full_version=$(git -C "$FND_ROOT/noir/noir-repo" describe --tags --exact-match HEAD 2>/dev/null); then
     noir_full_version=$("$nargo_full_path" --version | sed -n 's/^nargo version = //p')
   fi
   {
@@ -125,7 +153,8 @@ function pin_value {
 
 # A binary is current when it exists, was provisioned from the release we pin now, and
 # still hashes to what was recorded. A missing file, a moved pin, and a content mismatch
-# (corruption, manual overwrite) all mean it has to be fetched again.
+# (corruption, manual overwrite, a foundation-mode symlink) all mean it has to be fetched
+# again.
 function is_current {
   local name=$1 release_key=$2 pinned_version=$3
   local file=$TARGET_DIR/$name
@@ -135,7 +164,7 @@ function is_current {
 }
 
 # Drops a binary that cannot be provisioned on this machine. Whatever put it there (a
-# monorepo-style symlink, a manual copy) is unrelated to what this flow installs, and
+# foundation-mode symlink, a manual copy) is unrelated to what this flow installs, and
 # keeping it would leave the record attesting contents from a different provisioning.
 function drop_unprovisionable {
   if [ -e "$TARGET_DIR/$1" ]; then
@@ -153,9 +182,9 @@ function install_bb {
   BB_PATH="$PWD/$TARGET_DIR" "$tmp/bbup" -v "$BB_VERSION" --no-modify-path
 }
 
-# bb-avm is released for amd64 linux only, see build_release_dir in barretenberg/cpp/bootstrap.sh.
+# bb-avm is released for linux only, see build_release_dir in barretenberg/cpp/bootstrap.sh.
 function bb_avm_released_here {
-  [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]
+  [ "$(os)" = linux ] && [ -n "$BB_AVM_ARCH" ]
 }
 
 function install_bb_avm {
@@ -195,9 +224,15 @@ function install_acvm {
   local src=$tmp/noir
   local cargo_home=$tmp/cargo-home
   local cargo_root=$tmp/cargo-root
-  # The key carries the platform because this is a compiled binary; keys derived from
-  # cache_content_hash get that for free, this one is just the pinned version.
-  local cache_key=labs-acvm-$NOIR_VERSION-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m).zst
+  # The key carries the platform because this is a compiled binary, and a digest of this
+  # function because the recipe below decides the output bytes (path remapping,
+  # GIT_COMMIT/SOURCE_DATE_EPOCH, --locked): a recipe change must miss the cache rather
+  # than restore a binary built the old way. declare -f prints bash's normalized form, so
+  # the digest can differ across bash versions — the cost is a spurious rebuild, never a
+  # stale hit. Keys derived from cache_content_hash get all of this for free.
+  local recipe_hash
+  recipe_hash=$(hash_str "$(declare -f install_acvm)")
+  local cache_key=labs-acvm-$NOIR_VERSION-$recipe_hash-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m).zst
 
   rm -f "$TARGET_DIR/$ACVM_BINARY" # Remove the destination first.
 
@@ -252,7 +287,7 @@ function install_acvm {
   cache_upload "$cache_key" "$TARGET_DIR/$ACVM_BINARY"
 }
 
-function build_labs {
+function build_pinned {
   echo "Setting up labs' aztec toolchain..."
   echo "Pinned versions: bb $BB_VERSION, noir $NOIR_VERSION"
 
@@ -262,12 +297,26 @@ function build_labs {
   # bbup and noirup each install their whole release in one shot, so a stale nargo also
   # refetches noir-profiler, while bb-avm (its own release artifact) and acvm (a source
   # build) are provisioned individually.
+  # The optional binaries are only swept where they can be provisioned; elsewhere they are
+  # dropped (a leftover foundation-mode symlink must not survive a pinned build) rather
+  # than marked stale, which would put the no-op early return below permanently out of
+  # reach on those machines.
   local fetch_bb=false fetch_bb_avm=false fetch_noir=false fetch_acvm=false
   is_current "$BB_BINARY" bb "$BB_VERSION" || fetch_bb=true
-  is_current "$BB_AVM_BINARY" bb "$BB_VERSION" || fetch_bb_avm=true
   is_current "$NARGO_BINARY" noir "$NOIR_VERSION" || fetch_noir=true
   is_current "$NOIR_PROFILER_BINARY" noir "$NOIR_VERSION" || fetch_noir=true
-  is_current "$ACVM_BINARY" noir "$NOIR_VERSION" || fetch_acvm=true
+  if bb_avm_released_here; then
+    is_current "$BB_AVM_BINARY" bb "$BB_VERSION" || fetch_bb_avm=true
+  else
+    # Absence is tolerated: its consumers (AVM proving) only run on linux anyway.
+    drop_unprovisionable "$BB_AVM_BINARY"
+  fi
+  if command -v cargo &>/dev/null; then
+    is_current "$ACVM_BINARY" noir "$NOIR_VERSION" || fetch_acvm=true
+  else
+    # Absence is tolerated: acvm's consumers fall back to the wasm simulator without it.
+    drop_unprovisionable "$ACVM_BINARY"
+  fi
 
   if ! $fetch_bb && ! $fetch_bb_avm && ! $fetch_noir && ! $fetch_acvm; then
     echo "Toolchain matches pinned versions and hashes, nothing to download."
@@ -284,14 +333,8 @@ function build_labs {
   fi
 
   if $fetch_bb_avm; then
-    if bb_avm_released_here; then
-      install_bb_avm "$tmp"
-    else
-      # Absence is tolerated: its consumers (AVM proving) only run on amd64 linux anyway.
-      echo "Skipping $BB_AVM_BINARY: released for amd64 linux only."
-      drop_unprovisionable "$BB_AVM_BINARY"
-    fi
-  else
+    install_bb_avm "$tmp"
+  elif bb_avm_released_here; then
     echo "$BB_AVM_BINARY $BB_VERSION already provisioned."
   fi
 
@@ -311,14 +354,8 @@ function build_labs {
   labs_pin_record > "$PIN_FILE"
 
   if $fetch_acvm; then
-    if command -v cargo &>/dev/null; then
-      install_acvm "$tmp"
-    else
-      # Absence is tolerated: acvm's consumers fall back to the wasm simulator without it.
-      echo "Skipping $ACVM_BINARY: it has to be built and cargo is not installed."
-      drop_unprovisionable "$ACVM_BINARY"
-    fi
-  else
+    install_acvm "$tmp"
+  elif command -v cargo &>/dev/null; then
     echo "$ACVM_BINARY $NOIR_VERSION already provisioned."
   fi
 
@@ -386,48 +423,95 @@ function check_pin_drift {
 }
 
 function build {
-  check_pin_drift
-  build_labs
+  if [ -n "$FND_ROOT" ]; then
+    build_fnd
+  else
+    check_pin_drift
+    build_pinned
+  fi
 }
 
-# The full noir version as recorded at provisioning time (e.g. "1.0.0-beta.25"
-# or "nightly-2026-06-02"), read from the pin record: the binary only reports
-# its base cargo version, which cannot distinguish a nightly from the release
-# it was cut from.
+# The full noir version (e.g. "1.0.0-beta.26" or "nightly-2026-06-02"), read from the pin
+# record: the binary only reports its base cargo version, which cannot distinguish a
+# nightly from the release it was cut from. Falls back to the binary when no record exists
+# (a bin/ provisioned before the record was introduced).
 function noir_version {
   local pinned=$(pin_value noir)
-  if [ -z "$pinned" ]; then
-    echo_stderr "Cannot get noir version, no pin record at $PIN_FILE (build first)."
+  if [ -n "$pinned" ]; then
+    echo "${pinned#v}"
+    return
+  fi
+  local nargo="$TARGET_DIR/$NARGO_BINARY"
+  if [ ! -f "$nargo" ]; then
+    echo_stderr "Cannot get noir version, no pin record at $PIN_FILE and no nargo (build first)."
     exit 1
   fi
-  echo "${pinned#v}"
+  "$nargo" --version | sed -n 's/^nargo version = //p'
 }
 
 function hash {
-  local bb="$TARGET_DIR/$BB_BINARY"
-  local nargo="$TARGET_DIR/$NARGO_BINARY"
-  local noir_profiler="$TARGET_DIR/$NOIR_PROFILER_BINARY"
-  if [ ! -f "$bb" ] || [ ! -f "$nargo" ] || [ ! -f "$noir_profiler" ]; then
-    echo_stderr "Cannot compute toolchain hash, binaries not found (build first):"
-    echo_stderr "bb: $(realpath -m "$bb")"
-    echo_stderr "nargo: $(realpath -m "$nargo")"
-    echo_stderr "noir-profiler: $(realpath -m "$noir_profiler")"
-    exit 1
-  fi
-  # The optional binaries are hashed only when provisioned: what the toolchain
-  # provides (including their absence) is part of its identity.
-  local files=("$bb" "$nargo" "$noir_profiler")
-  local optional
-  for optional in "$TARGET_DIR/$BB_AVM_BINARY" "$TARGET_DIR/$ACVM_BINARY"; do
-    if [ -f "$optional" ]; then
-      files+=("$optional")
+  if [ -n "$FND_ROOT" ]; then
+    check_fnd_root
+    local bb="$TARGET_DIR/$BB_BINARY"
+    local nargo="$TARGET_DIR/$NARGO_BINARY"
+    local noir_profiler="$TARGET_DIR/$NOIR_PROFILER_BINARY"
+    if [ ! -f "$bb" ] || [ ! -f "$nargo" ] || [ ! -f "$noir_profiler" ]; then
+      echo_stderr "Cannot compute toolchain hash, binaries not found (build first):"
+      echo_stderr "bb: $(realpath -m "$bb")"
+      echo_stderr "nargo: $(realpath -m "$nargo")"
+      echo_stderr "noir-profiler: $(realpath -m "$noir_profiler")"
+      exit 1
     fi
-  done
-  # The script itself is part of the identity: it defines the pins and the
-  # provisioning logic, and a pin bump must move the hash even before the
-  # binaries have been refreshed.
-  files+=("bootstrap.sh")
-  hash_str $(git hash-object "${files[@]}")
+    # The toolchain's identity is the SOURCE identity of its providers, not the bytes of the
+    # built binaries: bb/bb-avm get the current commit hash stamped into them on non-release
+    # builds (inject_version in barretenberg/cpp/bootstrap.sh), so hashing bytes makes every
+    # commit look like a new toolchain even when nothing changed — forcing downstream consumers
+    # (e.g. every noir-contracts cache key) to rebuild and mass-regenerate VKs per commit.
+    # Composing the upstream content hashes keys rebuilds on exactly the same inputs that decide
+    # whether the binaries themselves rebuild.
+    #
+    # The optional binaries contribute presence only: what the toolchain provides (including
+    # their absence) is part of its identity, but their content is already covered by the
+    # provider hashes.
+    local provided=""
+    local optional
+    for optional in "$TARGET_DIR/$BB_AVM_BINARY" "$TARGET_DIR/$ACVM_BINARY"; do
+      if [ -f "$optional" ]; then
+        provided+=" $(basename "$optional")"
+      fi
+    done
+    hash_str \
+      $("$FND_ROOT"/barretenberg/cpp/bootstrap.sh hash) \
+      $("$FND_ROOT"/noir/bootstrap.sh hash) \
+      "$provided"
+  else
+    # Pinned mode: the identity is this directory's committed content — the pins name
+    # immutable releases and the provisioning logic decides what lands in bin/, so together
+    # they determine the toolchain without reading a single provisioned byte. That keeps the
+    # hash computable on a fresh checkout (before any build), commit-independent, and immune
+    # to a corrupted bin/ minting a fresh valid-looking cache key; byte verification against
+    # the pins happens at provision time instead (see labs_pin_record/is_current).
+    # cache_content_hash mixes in the platform tag, and dirty toolchain files must disable
+    # caching rather than being laundered into a stable-looking key.
+    local content_hash
+    content_hash=$(cache_content_hash "^labs-aztec-toolchain/")
+    if [ "$content_hash" == "disabled-cache" ]; then
+      echo disabled-cache
+      return
+    fi
+    # Mirror foundation mode: what the toolchain provides on this machine (including an
+    # optional binary's absence) is part of its identity. Both facts are known without
+    # provisioning: bb-avm is released for linux only, and acvm is compiled locally so it
+    # exists exactly where cargo does.
+    local expected=""
+    if bb_avm_released_here; then
+      expected+=" $BB_AVM_BINARY"
+    fi
+    if command -v cargo &>/dev/null; then
+      expected+=" $ACVM_BINARY"
+    fi
+    hash_str "$content_hash" "$expected"
+  fi
 }
 
 case "$cmd" in
@@ -442,6 +526,11 @@ case "$cmd" in
     ;;
   "hash")
     hash
+    ;;
+  bench|bench_cmds)
+    # Empty handling just to make this command valid.
+    ;;
+  test|test_cmds|test_download)
     ;;
   *)
     default_cmd_handler "$@"

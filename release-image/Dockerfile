@@ -9,7 +9,7 @@ ENV BUILD_METADATA=$BUILD_METADATA
 # Provide paths to bb and acvm for use in yarn-project, also create default working directories for each
 ENV UV_THREADPOOL_SIZE=8
 ENV BB_WORKING_DIRECTORY=/usr/src/bb
-ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb-avm
+ENV BB_BINARY_PATH=/usr/src/labs-aztec-toolchain/bin/bb-avm
 ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
 ENV ACVM_BINARY_PATH=/usr/src/labs-aztec-toolchain/bin/acvm
 RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY && chmod 777 $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY

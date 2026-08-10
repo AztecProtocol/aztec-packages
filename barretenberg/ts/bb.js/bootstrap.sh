@@ -9,7 +9,7 @@ hash=$(hash_str \
   $(semver check $REF_NAME && echo 1 || echo 0))
 
 function prepare_project {
-  (cd .. && ./bootstrap.sh generate_bb_avm_sim_package)
+  (cd .. && ./bootstrap.sh generate_packages)
   (cd .. && npm_install_deps)
 }
 

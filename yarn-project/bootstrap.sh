@@ -4,13 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 function hash {
   # Nothing under noir-projects/fnd is an input: everything it produces reaches us as a pinned
   # package, hashed via yarn.lock (covered by the yarn-project patterns).
-  # The ipc-codegen/cdb patterns cover the simulator's cdb server codegen, which
-  # runs ipc-codegen against barretenberg's cdb_schema.json on every build.
   hash_str \
     $(../labs-aztec-toolchain/bootstrap.sh hash) \
     $(../noir-projects/labs/noir-contracts/bootstrap.sh hash) \
     $(../noir-projects/labs/aztec-nr/bootstrap.sh hash) \
-    $(cache_content_hash "^ipc-codegen/" "^barretenberg/cpp/src/barretenberg/cdb/") \
     $(cache_content_hash ../yarn-project/.rebuild_patterns)
 }
 
@@ -146,7 +143,6 @@ function compile_all {
     noir-protocol-circuits-types \
     protocol-contracts \
     pxe \
-    simulator \
     standard-contracts
   cat joblog.txt
 
@@ -177,8 +173,7 @@ function compile_all {
 # package cannot ship a platform binary), so the runtime forge deploy resolves it through
 # ~/.svm. The e2e containers run without network and inherit ~/.svm from the host's home
 # mount, so warm it at build time. The version is read from the installed bundle, so it
-# cannot drift from what the deploy will request. On the monorepo this is normally a no-op:
-# l1-contracts-solc has already populated ~/.svm by the time yarn-project builds.
+# cannot drift from what the deploy will request.
 function warm_solc_cache {
   local foundry_toml=node_modules/@aztec/l1-artifacts/l1-contracts/foundry.toml
   [ -f "$foundry_toml" ] || return 0

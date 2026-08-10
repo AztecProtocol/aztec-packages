@@ -201,31 +201,10 @@ tests:
     owners:
       - *adam
 
-  # boxes
-  - regex: "vanilla-all-browsers box boxes"
-    error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
-    owners:
-      - *saleel
-
-  - regex: "run_compose_test vite-[a-z]* box boxes"
-    error_regex: "Test timeout of [0-9]+ms exceeded."
-    owners:
-      - *saleel
-
-  - regex: "run_compose_test react-[a-z]* box boxes"
-    error_regex: "Test timeout of [0-9]+ms exceeded."
-    owners:
-      - *saleel
-
   - regex: "tests/browser.spec.ts"
     error_regex: "Error: locator\\.click: Test timeout of"
     owners:
       - *saleel
-
-  - regex: "run_compose_test vanilla-all-browsers box boxes"
-    error_regex: "Tag mismatch at offset 0|app_logic_reverted|public bytecode has not been transpiled"
-    owners:
-      - *david
 
   - regex: "amm_flow.sh"
     owners:
