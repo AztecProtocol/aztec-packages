@@ -732,7 +732,7 @@ fn handle_emit_public_log(
     }
 
     // The fields are a slice, and this is represented as a (length: Field, slice: HeapVector).
-    // The length field is redundant and we skipt it.
+    // The length field is redundant and we skip it.
     let (message_offset, message_size_offset) = match &inputs[1] {
         ValueOrArray::HeapVector(vec) => (vec.pointer, vec.size),
         _ => panic!("Unexpected inputs for ForeignCall::EMITPUBLICLOG: {:?}", inputs),
@@ -1522,7 +1522,14 @@ fn handle_returndata_copy(
         _ => panic!("ReturndataCopy size should be a memory address"),
     };
 
-    // We skip the first destination, which is the size of the slice.
+    // The first destination is the semantic lenght of the slice.
+    // We set it to avoid leaving the memory uninitialized.
+    let semantic_length_offset = match destinations[0] {
+        ValueOrArray::MemoryAddress(address) => address,
+        _ => panic!("ReturndataCopy semantic length should be a memory address"),
+    };
+    // The second destination is the vector data structure itself:
+    // the pointer to the contents and its size.
     let (dest_offset, write_size_here_offset) = match destinations[1] {
         ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
         _ => panic!("ReturndataCopy destination should be a vector (slice)"),
@@ -1556,6 +1563,17 @@ fn handle_returndata_copy(
             ),
             copy_size_offset.to_u32(),
             write_size_here_offset.to_u32(),
+        ),
+        // Then we set the semantic length, which in this case also matches the input size.
+        generate_mov_instruction(
+            Some(
+                AddressingModeBuilder::default()
+                    .direct_operand(&copy_size_offset)
+                    .direct_operand(&semantic_length_offset)
+                    .build(),
+            ),
+            copy_size_offset.to_u32(),
+            semantic_length_offset.to_u32(),
         ),
     ]);
 }
