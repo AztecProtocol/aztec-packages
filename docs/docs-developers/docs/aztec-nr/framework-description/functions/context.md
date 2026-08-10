@@ -3,7 +3,7 @@ title: Understanding Function Context
 sidebar_position: 3
 tags: [functions, context]
 description: Learn about the execution context available to Aztec contract functions, including caller information and block data.
-references: ["noir-projects/labs/aztec-nr/aztec/src/context/*", "noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/*"]
+references: ["noir-projects/labs/aztec-nr/aztec/src/context/*"]
 ---
 
 import Image from '@theme/IdealImage';

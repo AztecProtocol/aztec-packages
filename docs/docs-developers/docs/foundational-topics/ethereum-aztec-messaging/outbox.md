@@ -2,7 +2,6 @@
 title: Outbox
 description: Learn about the outbox mechanism in Aztec portals for sending messages to L1.
 tags: [portals, contracts]
-references: ["l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol"]
 ---
 
 The `Outbox` is a contract deployed on L1 that handles message passing from L2 to L1. Portal contracts call `consume()` to receive and process messages that were sent from L2 contracts. The Rollup contract inserts message roots via `insert()` as proofs land. A proof can cover a prefix of an epoch's checkpoints (a partial proof), so an epoch can have several roots, one per number of checkpoints covered.

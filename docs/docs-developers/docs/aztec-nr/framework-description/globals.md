@@ -2,7 +2,6 @@
 title: Global Variables
 description: Access chain ID, block number, timestamps, and gas information in your Aztec contracts
 sidebar_position: 10
-references: ["noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/*"]
 ---
 
 # Global Variables
