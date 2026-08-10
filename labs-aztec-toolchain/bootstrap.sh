@@ -224,9 +224,15 @@ function install_acvm {
   local src=$tmp/noir
   local cargo_home=$tmp/cargo-home
   local cargo_root=$tmp/cargo-root
-  # The key carries the platform because this is a compiled binary; keys derived from
-  # cache_content_hash get that for free, this one is just the pinned version.
-  local cache_key=labs-acvm-$NOIR_VERSION-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m).zst
+  # The key carries the platform because this is a compiled binary, and a digest of this
+  # function because the recipe below decides the output bytes (path remapping,
+  # GIT_COMMIT/SOURCE_DATE_EPOCH, --locked): a recipe change must miss the cache rather
+  # than restore a binary built the old way. declare -f prints bash's normalized form, so
+  # the digest can differ across bash versions — the cost is a spurious rebuild, never a
+  # stale hit. Keys derived from cache_content_hash get all of this for free.
+  local recipe_hash
+  recipe_hash=$(hash_str "$(declare -f install_acvm)")
+  local cache_key=labs-acvm-$NOIR_VERSION-$recipe_hash-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m).zst
 
   rm -f "$TARGET_DIR/$ACVM_BINARY" # Remove the destination first.
 
@@ -291,12 +297,26 @@ function build_pinned {
   # bbup and noirup each install their whole release in one shot, so a stale nargo also
   # refetches noir-profiler, while bb-avm (its own release artifact) and acvm (a source
   # build) are provisioned individually.
+  # The optional binaries are only swept where they can be provisioned; elsewhere they are
+  # dropped (a leftover foundation-mode symlink must not survive a pinned build) rather
+  # than marked stale, which would put the no-op early return below permanently out of
+  # reach on those machines.
   local fetch_bb=false fetch_bb_avm=false fetch_noir=false fetch_acvm=false
   is_current "$BB_BINARY" bb "$BB_VERSION" || fetch_bb=true
-  is_current "$BB_AVM_BINARY" bb "$BB_VERSION" || fetch_bb_avm=true
   is_current "$NARGO_BINARY" noir "$NOIR_VERSION" || fetch_noir=true
   is_current "$NOIR_PROFILER_BINARY" noir "$NOIR_VERSION" || fetch_noir=true
-  is_current "$ACVM_BINARY" noir "$NOIR_VERSION" || fetch_acvm=true
+  if bb_avm_released_here; then
+    is_current "$BB_AVM_BINARY" bb "$BB_VERSION" || fetch_bb_avm=true
+  else
+    # Absence is tolerated: its consumers (AVM proving) only run on linux anyway.
+    drop_unprovisionable "$BB_AVM_BINARY"
+  fi
+  if command -v cargo &>/dev/null; then
+    is_current "$ACVM_BINARY" noir "$NOIR_VERSION" || fetch_acvm=true
+  else
+    # Absence is tolerated: acvm's consumers fall back to the wasm simulator without it.
+    drop_unprovisionable "$ACVM_BINARY"
+  fi
 
   if ! $fetch_bb && ! $fetch_bb_avm && ! $fetch_noir && ! $fetch_acvm; then
     echo "Toolchain matches pinned versions and hashes, nothing to download."
@@ -313,14 +333,8 @@ function build_pinned {
   fi
 
   if $fetch_bb_avm; then
-    if bb_avm_released_here; then
-      install_bb_avm "$tmp"
-    else
-      # Absence is tolerated: its consumers (AVM proving) only run on linux anyway.
-      echo "Skipping $BB_AVM_BINARY: released for linux amd64/arm64 only (this is $(os)/$(uname -m))."
-      drop_unprovisionable "$BB_AVM_BINARY"
-    fi
-  else
+    install_bb_avm "$tmp"
+  elif bb_avm_released_here; then
     echo "$BB_AVM_BINARY $BB_VERSION already provisioned."
   fi
 
@@ -340,14 +354,8 @@ function build_pinned {
   labs_pin_record > "$PIN_FILE"
 
   if $fetch_acvm; then
-    if command -v cargo &>/dev/null; then
-      install_acvm "$tmp"
-    else
-      # Absence is tolerated: acvm's consumers fall back to the wasm simulator without it.
-      echo "Skipping $ACVM_BINARY: it has to be built and cargo is not installed."
-      drop_unprovisionable "$ACVM_BINARY"
-    fi
-  else
+    install_acvm "$tmp"
+  elif command -v cargo &>/dev/null; then
     echo "$ACVM_BINARY $NOIR_VERSION already provisioned."
   fi
 
@@ -485,7 +493,8 @@ function hash {
     # the pins happens at provision time instead (see labs_pin_record/is_current).
     # cache_content_hash mixes in the platform tag, and dirty toolchain files must disable
     # caching rather than being laundered into a stable-looking key.
-    local content_hash=$(cache_content_hash "^labs-aztec-toolchain/")
+    local content_hash
+    content_hash=$(cache_content_hash "^labs-aztec-toolchain/")
     if [ "$content_hash" == "disabled-cache" ]; then
       echo disabled-cache
       return
