@@ -103,7 +103,7 @@ The `GasPrice` interface exported from `@aztec/ethereum/l1-tx-utils` is now `Fee
 **Impact**: A rename with no behavior change. Two on-disk formats move with it, neither of which needs operator action:
 
 - The node's L1 transaction state store writes the new key but still reads states written under the old one, so a node restarting on this version keeps monitoring transactions it sent before the upgrade.
-- Failed-L1-transaction debug records (written when `L1_TX_FAILED_STORE` is set) now use `sentFeeCaps` and `sentFeeCapsLadder` instead of `sentGasPrice` and `sentGasPriceLadder`. Records written before the upgrade keep the old keys, and parsing one through `FailedL1TxSchema` returns it without fee caps — the values are still present in the stored JSON under the old names.
+- Failed-L1-transaction debug records (written when `L1_TX_FAILED_STORE` is set) now use `sentFeeCaps` and `sentFeeCapsLadder` instead of `sentGasPrice` and `sentGasPriceLadder`. Records written before the upgrade keep the old keys, and parsing one through `FailedL1TxSchema` returns it without fee caps, though the values are still present in the stored JSON under the old names.
 
 ## 5.1.0
 
