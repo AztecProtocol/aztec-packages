@@ -21,7 +21,9 @@ if [ -n "${NPM_RELEASE_RESOLUTIONS:-}" ]; then
     # set -e, and the resolution errors below must abort the release.
     jq --arg v "$version" --argjson res "$NPM_RELEASE_RESOLUTIONS" "
       if .$deps == null then . else .$deps |= with_entries(
-        if (.key | startswith(\"@aztec/\") or startswith(\"@noir-lang/\")) then
+        if (.key | startswith(\"@noir-lang/\")) then
+          error(\"\(.key): noir packages are consumed via renamed @aztec/noir-* pins; an @noir-lang dependency cannot be released from here\")
+        elif (.key | startswith(\"@aztec/\")) then
           if (.value | test(\"^(workspace|portal|file):\")) then .value = \$v
           elif \$res[.key] then
             .value = (if (\$res[.key] | test(\"^(workspace|portal|file):\")) then \$v else \$res[.key] end)
