@@ -10,7 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
-import { EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from './epoch_cache.js';
+import { EpochCache, type EpochCommitteeInfo } from './epoch_cache.js';
+import { PROPOSER_PIPELINING_SLOT_OFFSET } from './epoch_slot_math.js';
 
 class TestEpochCache extends EpochCache {
   /** Seeds the cache with a finalized entry so tests don't need to hit the mock rollup for known epochs. */

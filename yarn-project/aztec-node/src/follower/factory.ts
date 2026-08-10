@@ -1,15 +1,12 @@
 import { createRpcSyncArchiver } from '@aztec/archiver';
-import { EpochCache } from '@aztec/epoch-cache';
-import { createEthereumChain } from '@aztec/ethereum/chain';
-import { makeL1HttpTransport } from '@aztec/ethereum/client';
-import { RollupContract } from '@aztec/ethereum/contracts';
+import { EpochSlotMath } from '@aztec/epoch-cache';
 import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import { FeeProviderImpl, GlobalVariableBuilder } from '@aztec/sequencer-client';
 import type { NodeInfo } from '@aztec/stdlib/contract';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { type AztecNode, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import { WorldStateRunningState, createArchiverClient, tryStop } from '@aztec/stdlib/interfaces/server';
 import { type DebugLogStore, InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
@@ -18,13 +15,13 @@ import { getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldState, createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { createPublicClient } from 'viem';
-
 import type { AztecNodeConfig } from '../aztec-node/config.js';
 import { AztecNodeService } from '../aztec-node/server.js';
 import type { CreateAztecNodeDeps, CreateAztecNodeOptions } from '../factory.js';
 import { checkConfigMatchesRollup } from '../modules/config_checks.js';
 import { assertValidFollowerConfig } from './config.js';
+import { UpstreamFeeProvider } from './upstream_fee_provider.js';
+import { UpstreamGlobalVariableBuilder } from './upstream_global_variable_builder.js';
 import { UpstreamTxGateway } from './upstream_tx_gateway.js';
 
 /**
@@ -33,8 +30,9 @@ import { UpstreamTxGateway } from './upstream_tx_gateway.js';
  * runs no p2p stack, no validator, no sequencer, no prover, no slashing watchers and no proof verifiers, so it
  * needs neither a public IP nor any signing key.
  *
- * It still opens an L1 connection for fee queries (`getCurrentMinFees`, public-call simulation) and for the
- * epoch cache; replacing those with upstream queries is the next step and would leave the follower L1-less.
+ * It opens no L1 connection at all: contract addresses, rollup constants and min fees all come from the
+ * upstream, and the slot/epoch clock is pure arithmetic over those constants. `l1RpcUrls` is therefore
+ * optional in follower mode, unlike for every other node role.
  */
 export async function createFollowerNodeService(
   config: AztecNodeConfig & { followerUpstreamUrl: string },
@@ -74,16 +72,17 @@ export async function createFollowerNodeService(
   ]);
   checkConfigMatchesRollup(config, l1Constants);
 
-  const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
-  if (config.l1ChainId !== ethereumChain.chainInfo.id) {
-    throw new Error(
-      `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.l1ChainId}`,
-    );
+  if (config.l1RpcUrls?.length) {
+    log.info(`Ignoring the configured L1 RPC URLs: a follower node reads all chain data from its upstream node`);
   }
 
   // Bootstrap the local stores from a snapshot when configured. The follower reconciles whatever tip the
-  // snapshot leaves it at against its upstream on the first replication pass.
-  await trySnapshotSync(config, log);
+  // snapshot leaves it at against its upstream on the first replication pass. Snapshot sync only uses the L1
+  // block number to gauge how stale the local stores are, so an estimate off the rollup constants stands in
+  // for the L1 query a full node makes.
+  await trySnapshotSync(config, log, {
+    getCurrentL1BlockNumber: () => Promise.resolve(estimateL1BlockNumber(l1Constants, dateProvider)),
+  });
 
   // Track started resources so we can clean up on partial failure during node creation.
   const started: { stop?(): Promise<void> | void }[] = [];
@@ -123,23 +122,18 @@ export async function createFollowerNodeService(
       debugLogStore = new NullDebugLogStore();
     }
 
-    // Everything below is the follower's remaining L1 coupling: min-fee queries and the slot/epoch clock.
-    const publicClient = createPublicClient({
-      chain: ethereumChain.chainInfo,
-      transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: config.l1HttpTimeoutMS }),
-      pollingInterval: config.viemPollingIntervalMS,
-    });
-    const rollupContract = new RollupContract(publicClient, config.rollupAddress.toString());
-    const globalVariableBuilderConfig = {
-      rollupAddress: config.rollupAddress,
-      ethereumSlotDuration: config.ethereumSlotDuration,
-      rollupVersion: BigInt(config.rollupVersion),
-      l1GenesisTime: l1Constants.l1GenesisTime,
+    // Fees come from the upstream's own L1 view, and the slot/epoch clock is pure arithmetic over the rollup
+    // constants the upstream reported, so none of the below touches L1. The fee provider is shared with the
+    // global variable builder so a simulation and a fee quote in the same L1 slot cost one upstream call.
+    const feeProvider = new UpstreamFeeProvider(upstreamNode, dateProvider, l1Constants);
+    const globalVariableBuilder = new UpstreamGlobalVariableBuilder(feeProvider, dateProvider, {
+      l1ChainId: config.l1ChainId,
+      rollupVersion: config.rollupVersion,
       slotDuration: l1Constants.slotDuration,
-    };
-    const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig);
-    const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
-    const epochCache = await EpochCache.create(config.rollupAddress, config, { dateProvider });
+      l1GenesisTime: l1Constants.l1GenesisTime,
+      ethereumSlotDuration: l1Constants.ethereumSlotDuration,
+    });
+    const epochCache = new EpochSlotMath(l1Constants, dateProvider);
 
     /**
      * A follower is ready once it has replicated the whole chain at least once and its world state is running.
@@ -172,10 +166,13 @@ export async function createFollowerNodeService(
       slasherClient: undefined,
       validatorsSentinel: undefined,
       stopStartedWatchers: () => Promise.resolve(),
-      l1ChainId: ethereumChain.chainInfo.id,
+      l1ChainId: config.l1ChainId,
       version: config.rollupVersion,
       globalVariableBuilder,
-      rollupContract,
+      // No rollup contract: the simulator's chain-state overrides can only be applied as an L1 `eth_call`
+      // state override, so the follower falls back to the same pinned-tips plan TXE uses (and the upstream
+      // fee RPCs ignore it anyway — see UpstreamGlobalVariableBuilder).
+      rollupContract: undefined,
       feeProvider,
       epochCache,
       packageVersion,
@@ -191,6 +188,19 @@ export async function createFollowerNodeService(
     }
     throw err;
   }
+}
+
+/**
+ * Estimates the current L1 block number from the rollup constants and the wall clock, assuming L1 produces a
+ * block every slot. Only used to decide whether the local stores are far enough behind (half a day of L1
+ * blocks, by default) to be worth replacing with a snapshot, where being off by the number of missed L1 slots
+ * is immaterial.
+ */
+function estimateL1BlockNumber(l1Constants: L1RollupConstants, dateProvider: DateProvider): bigint {
+  const { l1StartBlock, l1GenesisTime, ethereumSlotDuration } = l1Constants;
+  const now = BigInt(dateProvider.nowInSeconds());
+  const elapsed = now > l1GenesisTime ? now - l1GenesisTime : 0n;
+  return l1StartBlock + elapsed / BigInt(ethereumSlotDuration);
 }
 
 /** Reads the upstream node's info, turning an unreachable upstream into an actionable startup error. */

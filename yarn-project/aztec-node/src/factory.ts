@@ -59,7 +59,7 @@ import { type AztecNodeConfig, createKeyStoreForValidator } from './aztec-node/c
 import { AztecNodeService } from './aztec-node/server.js';
 import { isFollowerModeEnabled } from './follower/config.js';
 import { createFollowerNodeService } from './follower/factory.js';
-import { checkConfigMatchesRollup } from './modules/config_checks.js';
+import { assertL1ConnectionConfigured, checkConfigMatchesRollup } from './modules/config_checks.js';
 import { createSentinel } from './sentinel/factory.js';
 
 /** Dependencies that can be injected when creating a node, mostly to override defaults in tests. */
@@ -115,6 +115,7 @@ export async function createAztecNodeService(
   const packageVersion = getPackageVersion();
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const dateProvider = deps.dateProvider ?? new DateProvider();
+  assertL1ConnectionConfigured(config);
   const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
 
   // Build a key store from file if given or from environment otherwise.

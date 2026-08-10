@@ -8,13 +8,8 @@ import {
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 
-import {
-  type EpochAndSlot,
-  type EpochCacheInterface,
-  type EpochCommitteeInfo,
-  PROPOSER_PIPELINING_SLOT_OFFSET,
-  type SlotTag,
-} from '../epoch_cache.js';
+import type { EpochCacheInterface, EpochCommitteeInfo, SlotTag } from '../epoch_cache.js';
+import { type EpochAndSlot, PROPOSER_PIPELINING_SLOT_OFFSET } from '../epoch_slot_math.js';
 
 /** Default L1 constants for testing. */
 const DEFAULT_L1_CONSTANTS: L1RollupConstants = {

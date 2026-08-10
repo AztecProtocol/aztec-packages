@@ -1,3 +1,4 @@
+import { assertL1ConnectionConfigured } from '../modules/config_checks.js';
 import { assertValidFollowerConfig, isFollowerModeEnabled } from './config.js';
 
 /** Config of a well-formed follower node, which every test below perturbs one field at a time. */
@@ -49,6 +50,24 @@ describe('follower config', () => {
       expect(() =>
         assertValidFollowerConfig({ ...validFollowerConfig, disableValidator: false, p2pEnabled: true }),
       ).toThrow(/VALIDATOR_DISABLED.*P2P_ENABLED/s);
+    });
+
+    it('accepts a follower with no L1 connection configured', () => {
+      // A follower reads contract addresses, rollup constants and min fees from its upstream, so it never
+      // builds an L1 client and never runs the check every other node role runs.
+      const configWithoutL1 = { ...validFollowerConfig, l1RpcUrls: [] };
+      expect(() => assertValidFollowerConfig(configWithoutL1)).not.toThrow();
+    });
+  });
+
+  describe('assertL1ConnectionConfigured', () => {
+    it('rejects a node with no L1 RPC URLs', () => {
+      expect(() => assertL1ConnectionConfigured({ l1RpcUrls: [] })).toThrow(/ETHEREUM_HOSTS/);
+      expect(() => assertL1ConnectionConfigured({ l1RpcUrls: [] })).toThrow(/FOLLOWER_UPSTREAM_URL/);
+    });
+
+    it('accepts a node with L1 RPC URLs', () => {
+      expect(() => assertL1ConnectionConfigured({ l1RpcUrls: ['http://localhost:8545'] })).not.toThrow();
     });
   });
 });

@@ -9,28 +9,14 @@ import { DateProvider } from '@aztec/foundation/timer';
 import {
   type L1RollupConstants,
   getEpochAtSlot,
-  getEpochNumberAtTimestamp,
-  getNextL1SlotTimestamp,
-  getSlotAtNextL1Block,
-  getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getStartTimestampForEpoch,
-  getTimestampForSlot,
 } from '@aztec/stdlib/epoch-helpers';
 
 import { createPublicClient, encodeAbiParameters, keccak256 } from 'viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
-
-/** The proposer pipelines by building one slot ahead. */
-export const PROPOSER_PIPELINING_SLOT_OFFSET = 1;
-
-/** Flat return type for compound epoch/slot getters. */
-export type EpochAndSlot = {
-  slot: SlotNumber;
-  epoch: EpochNumber;
-  ts: bigint;
-};
+import { type EpochAndSlot, EpochSlotMath, type EpochSlotMathInterface } from './epoch_slot_math.js';
 
 export type EpochCommitteeInfo = {
   committee: EthAddress[] | undefined;
@@ -58,27 +44,30 @@ type CachedEpochEntry = {
   finalized: boolean;
 };
 
-export interface EpochCacheInterface {
+/**
+ * The full epoch cache contract: the L1-free slot/epoch arithmetic of {@link EpochSlotMathInterface} plus the
+ * committee lookups, which read the rollup contract. Only wire this into a component that is allowed to hold an
+ * L1 connection; components that just need the clock take {@link EpochSlotMathInterface} instead.
+ */
+export interface EpochCacheInterface extends EpochSlotMathInterface {
+  /** Returns the committee (plus sampling seed and escape-hatch flag) for the epoch containing the given slot. */
   getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
-  getSlotNow(): SlotNumber;
-  getTargetSlot(): SlotNumber;
-  getEpochNow(): EpochNumber;
-  getTargetEpoch(): EpochNumber;
-  getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint };
-  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint };
-  /** Returns epoch/slot info for the next L1 slot with pipeline offset applied. */
-  getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint };
+  /** Returns whether the escape hatch is open for the given epoch. */
   isEscapeHatchOpen(epoch: EpochNumber): Promise<boolean>;
+  /** Returns whether the escape hatch is open for the epoch containing the given slot. */
   isEscapeHatchOpenAtSlot(slot: SlotTag): Promise<boolean>;
+  /** Returns the ABI encoding hashed to derive a proposer index, matching ValidatorSelectionLib.sol. */
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}`;
+  /** Returns the index within a committee of the given size that proposes at the given slot. */
   computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint;
-  getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber };
-  getTargetAndNextSlot(): { targetSlot: SlotNumber; nextSlot: SlotNumber };
+  /** Returns the attester address proposing at the given slot, or undefined if anyone may propose. */
   getProposerAttesterAddressInSlot(slot: SlotNumber): Promise<EthAddress | undefined>;
+  /** Returns every validator registered on the rollup. */
   getRegisteredValidators(): Promise<EthAddress[]>;
+  /** Returns whether the given validator sits on the committee for the given slot. */
   isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
+  /** Returns the subset of the given validators that sit on the committee for the given slot. */
   filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]>;
-  getL1Constants(): L1RollupConstants;
 }
 
 /**
@@ -90,7 +79,10 @@ export interface EpochCacheInterface {
  *
  * Note: This class is very dependent on the system clock being in sync.
  */
-export class EpochCache implements EpochCacheInterface {
+export class EpochCache
+  extends EpochSlotMath<L1RollupConstants & { lagInEpochsForValidatorSet: number; lagInEpochsForRandao: number }>
+  implements EpochCacheInterface
+{
   /**
    * Single map holding both resolved entries and in-flight promises.
    * A `Promise` value means a fetch is in progress; concurrent callers await it.
@@ -102,13 +94,14 @@ export class EpochCache implements EpochCacheInterface {
 
   constructor(
     private rollup: RollupContract,
-    private readonly l1constants: L1RollupConstants & {
+    l1constants: L1RollupConstants & {
       lagInEpochsForValidatorSet: number;
       lagInEpochsForRandao: number;
     },
-    private readonly dateProvider: DateProvider = new DateProvider(),
+    dateProvider: DateProvider = new DateProvider(),
     protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60 },
   ) {
+    super(l1constants, dateProvider);
     this.log.debug(`Initialized EpochCache`, {
       l1constants,
     });
@@ -174,61 +167,6 @@ export class EpochCache implements EpochCacheInterface {
       cacheSize: 12,
       validatorRefreshIntervalSeconds: 60,
     });
-  }
-
-  public getL1Constants(): L1RollupConstants {
-    return this.l1constants;
-  }
-
-  public getSlotNow(): SlotNumber {
-    return this.getEpochAndSlotNow().slot;
-  }
-
-  public getTargetSlot(): SlotNumber {
-    const slotNow = this.getSlotNow();
-    const offset = PROPOSER_PIPELINING_SLOT_OFFSET;
-    return SlotNumber(slotNow + offset);
-  }
-
-  public getEpochNow(): EpochNumber {
-    return this.getEpochAndSlotNow().epoch;
-  }
-
-  public getTargetEpoch(): EpochNumber {
-    return getEpochAtSlot(this.getTargetSlot(), this.l1constants);
-  }
-
-  public getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
-    const nowMs = BigInt(this.dateProvider.now());
-    const nowSeconds = nowMs / 1000n;
-    return { ...this.getEpochAndSlotAtTimestamp(nowSeconds), nowMs };
-  }
-
-  private getEpochAndSlotAtSlot(slot: SlotNumber): EpochAndSlot {
-    return this.getEpochAndSlotAtTimestamp(getTimestampForSlot(slot, this.l1constants));
-  }
-
-  public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
-    const nowSeconds = this.dateProvider.nowInSeconds();
-    const nextSlotTs = getNextL1SlotTimestamp(nowSeconds, this.l1constants);
-    return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), nowSeconds: BigInt(nowSeconds) };
-  }
-
-  public getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
-    const result = this.getEpochAndSlotInNextL1Slot();
-    const offset = PROPOSER_PIPELINING_SLOT_OFFSET;
-    const targetSlot = SlotNumber(result.slot + offset);
-    return { ...result, slot: targetSlot, epoch: getEpochAtSlot(targetSlot, this.l1constants) };
-  }
-
-  private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
-    const slot = getSlotAtTimestamp(ts, this.l1constants);
-    const epoch = getEpochNumberAtTimestamp(ts, this.l1constants);
-    return {
-      slot,
-      epoch,
-      ts: getTimestampForSlot(slot, this.l1constants),
-    };
   }
 
   public getCommitteeForEpoch(epoch: EpochNumber): Promise<EpochCommitteeInfo> {
@@ -471,31 +409,6 @@ export class EpochCache implements EpochCacheInterface {
       return 0n;
     }
     return BigInt(keccak256(this.getProposerIndexEncoding(epoch, slot, seed))) % size;
-  }
-
-  /** Returns the current and next L2 slot in next eth L1 Slot. */
-  public getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber } {
-    const currentSlot = this.getSlotNow();
-    const next = this.getEpochAndSlotInNextL1Slot();
-
-    return {
-      currentSlot,
-      nextSlot: next.slot,
-    };
-  }
-
-  /** Returns the target and next L2 slot in the next L1 slot. */
-  public getTargetAndNextSlot(): { targetSlot: SlotNumber; nextSlot: SlotNumber } {
-    const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
-    const offset = PROPOSER_PIPELINING_SLOT_OFFSET;
-
-    const currentSlot = getSlotAtTimestamp(nowSeconds, this.l1constants);
-    const targetSlot = SlotNumber(currentSlot + offset);
-
-    const nextL2SlotOnL1 = getSlotAtNextL1Block(nowSeconds, this.l1constants);
-    const nextSlot = SlotNumber(nextL2SlotOnL1 + offset);
-
-    return { targetSlot, nextSlot };
   }
 
   /**

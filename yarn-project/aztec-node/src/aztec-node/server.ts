@@ -3,7 +3,7 @@ import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import type { EpochSlotMathInterface } from '@aztec/epoch-cache';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import {
@@ -148,7 +148,7 @@ export interface AztecNodeServiceDeps {
   globalVariableBuilder: GlobalVariableBuilderInterface;
   rollupContract: RollupContract | undefined;
   feeProvider: FeeProvider;
-  epochCache: EpochCacheInterface;
+  epochCache: EpochSlotMathInterface;
   packageVersion: string;
   /** Verifier for proofs received over p2p. Absent on a follower node, which has no p2p stack. */
   peerProofVerifier?: ClientProtocolCircuitVerifier;
@@ -203,7 +203,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   protected readonly globalVariableBuilder: GlobalVariableBuilderInterface;
   protected readonly rollupContract: RollupContract | undefined;
   protected readonly feeProvider: FeeProvider;
-  protected readonly epochCache: EpochCacheInterface;
+  protected readonly epochCache: EpochSlotMathInterface;
   protected readonly packageVersion: string;
   private peerProofVerifier: ClientProtocolCircuitVerifier | undefined;
   private rpcProofVerifier: ClientProtocolCircuitVerifier | undefined;
