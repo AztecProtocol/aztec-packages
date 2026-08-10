@@ -195,6 +195,38 @@ int execute_wsdb_server(const std::string& input_path,
         }
     }
 
+    // Create the IPC server and listen BEFORE the (potentially slow) WorldState
+    // construction: LMDB open and genesis prefill can take arbitrarily long on
+    // a loaded machine. With the socket already listening, clients connect into
+    // the accept backlog immediately and their first requests wait in the
+    // socket buffer until the reactor starts, so the client-side connect
+    // backstop only has to cover exec + linking + reaching listen() — it never
+    // races database initialization.
+    //
+    // Pick UDS vs MPSC-SHM by path suffix; install the runtime's default
+    // lifecycle signal handlers (SIGTERM/SIGINT → request_shutdown, SIGBUS/SIGSEGV
+    // → close+exit, plus parent-death monitoring via prctl/kqueue).
+    ipc::ServerOptions opts;
+    // TS backend (client 0) + the AVM simulator pool (one connection per
+    // bb-avm-sim process). Sized to cover a default-size pool with headroom so
+    // SHM isn't capped to a single AVM client. (UDS, the default transport, is
+    // unaffected — it admits connections via the listen backlog.)
+    opts.max_shm_clients = 8;
+    opts.shm_request_ring_size = request_ring_size;
+    opts.shm_response_ring_size = response_ring_size;
+    auto server = ipc::make_server(input_path, opts);
+    if (!server) {
+        std::cerr << "Error: --input path must end with .sock or .shm: " << input_path << '\n';
+        return 1;
+    }
+    ipc::install_default_signal_handlers(*server);
+
+    if (!server->listen()) {
+        std::cerr << "Error: Could not start IPC server" << '\n';
+        return 1;
+    }
+    std::cerr << "aztec-wsdb listening on " << input_path << '\n';
+
     // Parse prefilled public data: JSON array of ["slot_hex","value_hex"] pairs
     std::vector<PublicDataLeafValue> prefilled_public_data;
     if (!prefilled_public_data_json.empty()) {
@@ -223,30 +255,6 @@ int execute_wsdb_server(const std::string& input_path,
                                            genesis_timestamp);
 
     WsdbRequest request{ .world_state = *ws };
-
-    // Pick UDS vs MPSC-SHM by path suffix; install the runtime's default
-    // lifecycle signal handlers (SIGTERM/SIGINT → request_shutdown, SIGBUS/SIGSEGV
-    // → close+exit, plus parent-death monitoring via prctl/kqueue).
-    ipc::ServerOptions opts;
-    // TS backend (client 0) + the AVM simulator pool (one connection per
-    // bb-avm-sim process). Sized to cover a default-size pool with headroom so
-    // SHM isn't capped to a single AVM client. (UDS, the default transport, is
-    // unaffected — it admits connections via the listen backlog.)
-    opts.max_shm_clients = 8;
-    opts.shm_request_ring_size = request_ring_size;
-    opts.shm_response_ring_size = response_ring_size;
-    auto server = ipc::make_server(input_path, opts);
-    if (!server) {
-        std::cerr << "Error: --input path must end with .sock or .shm: " << input_path << '\n';
-        return 1;
-    }
-    std::cerr << "aztec-wsdb listening on " << input_path << '\n';
-    ipc::install_default_signal_handlers(*server);
-
-    if (!server->listen()) {
-        std::cerr << "Error: Could not start IPC server" << '\n';
-        return 1;
-    }
 
     std::cerr << "aztec-wsdb IPC server ready" << '\n';
 

@@ -807,7 +807,7 @@
       "name": "arm64-linux",
       "configurePreset": "arm64-linux",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "nodejs_module", "bb-external", "aztec-wsdb", "bb-avm-sim"]
+      "targets": ["bb", "bb-avm", "nodejs_module", "bb-external", "aztec-wsdb", "bb-avm-sim"]
     },
     {
       "name": "amd64-macos",
