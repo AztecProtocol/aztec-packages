@@ -23,6 +23,28 @@ import {
   dedupeStructsByName,
 } from "./naming.ts";
 
+// Emitted into both API files. Responses carry no request ids (correlation is positional), so
+// when a response fails to decode or fails a shape check, the raw frame is the only evidence of
+// what actually arrived — append a bounded hexdump so a single occurrence is diagnosable from
+// its error message alone. Mutates the original error to preserve its type and stack; the
+// createError (server error) path deliberately bypasses it, as those are well-formed frames
+// whose message already says everything.
+const FRAME_DUMP_HELPER = `function withFrameDump(err: unknown, raw: Uint8Array): Error {
+  const limit = 4096;
+  let hex = '';
+  const end = Math.min(raw.length, limit);
+  for (let i = 0; i < end; i++) {
+    hex += raw[i].toString(16).padStart(2, '0');
+  }
+  const size = raw.length > limit ? \`first \${limit} of \${raw.length} bytes\` : \`\${raw.length} bytes\`;
+  const dump = \`; response frame (\${size}): \${hex}\`;
+  if (err instanceof Error) {
+    err.message += dump;
+    return err;
+  }
+  return new Error(String(err) + dump);
+}`;
+
 export class TypeScriptCodegen {
   private errorTypeName: string = "ErrorResponse";
   /** Prefix to strip from command names when generating method names (e.g. "Bb" -> BbCircuitProve becomes circuitProve) */
@@ -446,14 +468,19 @@ ${syncApiMethods}
 
     return `  ${methodName}(command: ${cmdType}): Promise<${respType}> {
     const msgpackCommand = from${cmdType}(command);
-    return msgpackCall(this.backend, [["${command.name}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
+    return msgpackCall(this.backend, [["${command.name}", msgpackCommand]]).then(({ decoded, raw }) => {
+      const [variantName, result] = (Array.isArray(decoded) ? decoded : []) as [string, any];
       if (variantName === '${this.errorTypeName}') {
         throw this.createError(result.message || 'Unknown error from server');
       }
-      if (variantName !== '${command.responseType}') {
-        throw new Error(\`Expected variant name '${command.responseType}' but got '\${variantName}'\`);
+      try {
+        if (variantName !== '${command.responseType}') {
+          throw new Error(\`Expected variant name '${command.responseType}' but got '\${variantName}'\`);
+        }
+        return to${respType}(result);
+      } catch (err) {
+        throw withFrameDump(err, raw);
       }
-      return to${respType}(result);
     });
   }`;
   }
@@ -465,14 +492,19 @@ ${syncApiMethods}
 
     return `  ${methodName}(command: ${cmdType}): ${respType} {
     const msgpackCommand = from${cmdType}(command);
-    const [variantName, result] = msgpackCall(this.backend, [["${command.name}", msgpackCommand]]);
+    const { decoded, raw } = msgpackCall(this.backend, [["${command.name}", msgpackCommand]]);
+    const [variantName, result] = (Array.isArray(decoded) ? decoded : []) as [string, any];
     if (variantName === '${this.errorTypeName}') {
       throw this.createError(result.message || 'Unknown error from server');
     }
-    if (variantName !== '${command.responseType}') {
-      throw new Error(\`Expected variant name '${command.responseType}' but got '\${variantName}'\`);
+    try {
+      if (variantName !== '${command.responseType}') {
+        throw new Error(\`Expected variant name '${command.responseType}' but got '\${variantName}'\`);
+      }
+      return to${respType}(result);
+    } catch (err) {
+      throw withFrameDump(err, raw);
     }
-    return to${respType}(result);
   }`;
   }
 
@@ -496,10 +528,16 @@ export interface IpcClientAsync {
 
 export type IpcErrorFactory = (message: string) => Error;
 
-async function msgpackCall(backend: IpcClientAsync, input: any[]) {
+${FRAME_DUMP_HELPER}
+
+async function msgpackCall(backend: IpcClientAsync, input: any[]): Promise<{ decoded: any; raw: Uint8Array }> {
   const inputBuffer = new Encoder({ useRecords: false, variableMapSize: true }).pack(input);
-  const encodedResult = await backend.call(inputBuffer);
-  return new Decoder({ useRecords: false }).unpack(encodedResult);
+  const raw = await backend.call(inputBuffer);
+  try {
+    return { decoded: new Decoder({ useRecords: false }).unpack(raw), raw };
+  } catch (err) {
+    throw withFrameDump(err, raw);
+  }
 }
 
 export class AsyncApi implements AsyncApiBase {
@@ -537,10 +575,16 @@ export interface IpcClientSync {
 
 export type IpcErrorFactory = (message: string) => Error;
 
-function msgpackCall(backend: IpcClientSync, input: any[]) {
+${FRAME_DUMP_HELPER}
+
+function msgpackCall(backend: IpcClientSync, input: any[]): { decoded: any; raw: Uint8Array } {
   const inputBuffer = new Encoder({ useRecords: false, variableMapSize: true }).pack(input);
-  const encodedResult = backend.call(inputBuffer);
-  return new Decoder({ useRecords: false }).unpack(encodedResult);
+  const raw = backend.call(inputBuffer);
+  try {
+    return { decoded: new Decoder({ useRecords: false }).unpack(raw), raw };
+  } catch (err) {
+    throw withFrameDump(err, raw);
+  }
 }
 
 export class SyncApi implements SyncApiBase {
