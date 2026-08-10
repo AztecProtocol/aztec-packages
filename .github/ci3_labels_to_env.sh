@@ -155,13 +155,11 @@ function main {
   echo "CI mode: $ci_mode"
 
   # Runs targeting v5-next execute the backwards-compat e2e matrix after their normal suite.
-  # The whole-run success marker is keyed only on (mode, tree hash). It can't tell whether compat ran or
-  # which historical versions existed at the time, so it must not short-circuit these runs.
-  # The granular per-test cache still applies.
+  # .github/ci3.sh (success-cache read) and bootstrap.sh (the compat hook) derive their behavior
+  # from this flag.
   if [ "$target_branch" == "v5-next" ] &&
      { [ "$ci_mode" == "full" ] || [ "$ci_mode" == "full-no-test-cache" ]; }; then
     echo "RUN_COMPAT_E2E=1" >> $GITHUB_ENV
-    echo "SKIP_CI_SUCCESS_CACHE=1" >> $GITHUB_ENV
   fi
 
   # Private-repo safety gate. The release flow can publish to DockerHub/npmjs/crates.io/github; that

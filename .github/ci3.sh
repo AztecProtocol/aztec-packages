@@ -48,6 +48,13 @@ function check_cache {
   local cache_name="ci-success-${CI_MODE}-${tree_hash}.tar.gz"
   # Export for use by ci3_success.sh
   echo "CI_CACHE_NAME=$cache_name" >> $GITHUB_ENV
+  # Compat-gated runs must not read the marker: its key is (mode, tree hash), which encodes neither
+  # the historical version matrix nor whether the compat gate ran, so a marker from a non-gated run
+  # or from before a new stable tag was published would skip the gate.
+  if [ "${RUN_COMPAT_E2E:-0}" = 1 ]; then
+    echo "Compat-gated run: not reading the CI success cache (write still enabled)."
+    return
+  fi
   # Only whitelist some ci modes for cache.
   # E.g. we skip cache for release builds - they must always produce versioned images
   cached_ci_modes=(
@@ -98,13 +105,7 @@ function main {
     handle_release_pr
     exit 0
   fi
-  if [ "${SKIP_CI_SUCCESS_CACHE:-0}" = "1" ]; then
-    echo_header "Cache Check"
-    echo "Skipping the whole-run CI success cache."
-    echo "CI_CACHE_NAME=" >> $GITHUB_ENV
-  else
-    check_cache
-  fi
+  check_cache
   echo_header "Run ${CI_MODE} CI"
   exec ./ci.sh "${CI_MODE}" "$@"
 }
