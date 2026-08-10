@@ -193,14 +193,14 @@ export class ReadOnlyL1TxUtils {
     }
 
     // Ensure we don't exceed maxBlobGwei
-    if (maxFeePerBlobGas && effectiveMaxBlobGwei > 0n) {
+    if (maxFeePerBlobGas !== undefined && effectiveMaxBlobGwei > 0n) {
       maxFeePerBlobGas = maxFeePerBlobGas > effectiveMaxBlobGwei ? effectiveMaxBlobGwei : maxFeePerBlobGas;
     }
 
     // Ensure priority fee doesn't exceed max fee
     const maxPriorityFeePerGas = priorityFee > maxFeePerGas ? maxFeePerGas : priorityFee;
 
-    if (attempt > 0 && previousGasPrice?.maxFeePerBlobGas) {
+    if (attempt > 0 && previousGasPrice?.maxFeePerBlobGas !== undefined) {
       const bumpPercentage =
         gasConfig.priorityFeeRetryBumpPercentage! > MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE
           ? gasConfig.priorityFeeRetryBumpPercentage!
@@ -228,7 +228,7 @@ export class ReadOnlyL1TxUtils {
     return {
       maxFeePerGas,
       maxPriorityFeePerGas,
-      ...(maxFeePerBlobGas && { maxFeePerBlobGas: maxFeePerBlobGas }),
+      ...(isBlobTx ? { maxFeePerBlobGas } : {}),
     };
   }
 
