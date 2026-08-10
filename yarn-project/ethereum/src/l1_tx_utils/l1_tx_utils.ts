@@ -271,13 +271,13 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       }
       this.logger.trace(`Computed gas limit ${gasLimit}`, { gasLimit, ...request });
 
-      const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
+      const feeCaps = await this.getFeeCaps(gasConfig, !!blobInputs);
 
       const now = await this.checkInterruptedOrTimedOut(gasConfig);
 
       let txHash: Hex;
       let nonce: number;
-      let baseState: Pick<L1TxState, 'request' | 'gasLimit' | 'blobInputs' | 'gasPrice' | 'nonce'>;
+      let baseState: Pick<L1TxState, 'request' | 'gasLimit' | 'blobInputs' | 'feeCaps' | 'nonce'>;
 
       await this.sendMutex.acquire();
       try {
@@ -287,7 +287,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         nonce =
           this.lastSentNonce !== undefined && chainNonce <= this.lastSentNonce ? this.lastSentNonce + 1 : chainNonce;
 
-        baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
+        baseState = { request, gasLimit, blobInputs, feeCaps, nonce };
         const txData = this.makeTxData(baseState, { isCancelTx: false });
 
         const signedRequest = await this.prepareSignedTransaction(txData);
@@ -307,7 +307,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         txConfigOverrides: gasConfigOverrides ?? {},
         sentAtL1Ts: now,
         lastSentAtL1Ts: now,
-        gasPriceHistory: [baseState.gasPrice],
+        feeCapsHistory: [baseState.feeCaps],
       };
 
       // And persist it
@@ -330,9 +330,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         account,
         sentAt: now,
         gasLimit,
-        maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
-        maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
-        ...(gasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(gasPrice.maxFeePerBlobGas) }),
+        maxFeePerGas: formatGwei(feeCaps.maxFeePerGas),
+        maxPriorityFeePerGas: formatGwei(feeCaps.maxPriorityFeePerGas),
+        ...(feeCaps.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(feeCaps.maxFeePerBlobGas) }),
         isBlobTx: !!blobInputs,
         txConfig: gasConfigOverrides,
       });
@@ -504,20 +504,20 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         // Speed up the transaction if it appears to be stuck (exceeded stall time and still have retry attempts)
         const attempts = txHashes.length;
         if (timePassed >= stallTimeMs && attempts <= maxSpeedUpAttempts) {
-          const newGasPrice = await this.getGasPrice(gasConfig, isBlobTx, attempts, state.gasPrice);
-          state.gasPrice = newGasPrice;
-          state.gasPriceHistory?.push(newGasPrice);
+          const newFeeCaps = await this.getFeeCaps(gasConfig, isBlobTx, attempts, state.feeCaps);
+          state.feeCaps = newFeeCaps;
+          state.feeCapsHistory?.push(newFeeCaps);
 
           this.logger.debug(
             `Tx ${currentTxHash} with nonce ${nonce} from ${account} appears stuck. ` +
               `Attempting speed-up ${attempts}/${maxSpeedUpAttempts} ` +
-              `with new priority fee ${formatGwei(newGasPrice.maxPriorityFeePerGas)} gwei.`,
+              `with new priority fee ${formatGwei(newFeeCaps.maxPriorityFeePerGas)} gwei.`,
             {
               account,
               nonce,
-              maxFeePerGas: formatGwei(newGasPrice.maxFeePerGas),
-              maxPriorityFeePerGas: formatGwei(newGasPrice.maxPriorityFeePerGas),
-              ...(newGasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(newGasPrice.maxFeePerBlobGas) }),
+              maxFeePerGas: formatGwei(newFeeCaps.maxFeePerGas),
+              maxPriorityFeePerGas: formatGwei(newFeeCaps.maxPriorityFeePerGas),
+              ...(newFeeCaps.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(newFeeCaps.maxFeePerBlobGas) }),
             },
           );
 
@@ -532,10 +532,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
               nonce,
               account,
               gasLimit,
-              maxFeePerGas: formatGwei(newGasPrice.maxFeePerGas),
-              maxPriorityFeePerGas: formatGwei(newGasPrice.maxPriorityFeePerGas),
+              maxFeePerGas: formatGwei(newFeeCaps.maxFeePerGas),
+              maxPriorityFeePerGas: formatGwei(newFeeCaps.maxPriorityFeePerGas),
               txConfig: state.txConfigOverrides,
-              ...(newGasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(newGasPrice.maxFeePerBlobGas) }),
+              ...(newFeeCaps.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(newFeeCaps.maxFeePerBlobGas) }),
             },
           );
 
@@ -558,7 +558,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             timePassed,
             isBlobTx,
             isCancelTx,
-            ...pick(state.gasPrice, 'maxFeePerGas', 'maxPriorityFeePerGas', 'maxFeePerBlobGas'),
+            ...pick(state.feeCaps, 'maxFeePerGas', 'maxPriorityFeePerGas', 'maxFeePerBlobGas'),
             ...pick(
               gasConfig,
               'txUnseenConsideredDroppedMs',
@@ -623,13 +623,13 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
    * and an empty blob input if the original tx also had blobs.
    */
   private makeTxData(
-    state: Pick<L1TxState, 'request' | 'gasLimit' | 'blobInputs' | 'gasPrice' | 'nonce'>,
+    state: Pick<L1TxState, 'request' | 'gasLimit' | 'blobInputs' | 'feeCaps' | 'nonce'>,
     opts: { isCancelTx: boolean },
   ): PrepareTransactionRequestRequest {
-    const { request, gasLimit, blobInputs, gasPrice, nonce } = state;
+    const { request, gasLimit, blobInputs, feeCaps, nonce } = state;
     const isBlobTx = blobInputs !== undefined;
 
-    const baseTxOpts = { nonce, ...pick(gasPrice, 'maxFeePerGas', 'maxPriorityFeePerGas') };
+    const baseTxOpts = { nonce, ...pick(feeCaps, 'maxFeePerGas', 'maxPriorityFeePerGas') };
 
     if (opts.isCancelTx) {
       const baseTxData = {
@@ -640,7 +640,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         ...baseTxOpts,
       };
 
-      return isBlobTx ? { ...baseTxData, ...this.makeEmptyBlobInputs(gasPrice.maxFeePerBlobGas!) } : baseTxData;
+      return isBlobTx ? { ...baseTxData, ...this.makeEmptyBlobInputs(feeCaps.maxFeePerBlobGas!) } : baseTxData;
     }
 
     const baseTxData = {
@@ -649,7 +649,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       gas: gasLimit,
     };
 
-    return blobInputs ? { ...baseTxData, ...blobInputs, maxFeePerBlobGas: gasPrice.maxFeePerBlobGas! } : baseTxData;
+    return blobInputs ? { ...baseTxData, ...blobInputs, maxFeePerBlobGas: feeCaps.maxFeePerBlobGas! } : baseTxData;
   }
 
   /** Returns when all monitor loops have stopped. */
@@ -680,10 +680,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       return { receipt, state };
     } catch (err) {
       if (err instanceof TimeoutError) {
-        // Snapshot the ladder now: the fire-and-forget cancellation mutates state.gasPrice moments later.
+        // Snapshot the ladder now: the fire-and-forget cancellation mutates state.feeCaps moments later.
         throw new L1TxTimeoutError(err.message, {
-          gasPriceHistory: state.gasPriceHistory ? [...state.gasPriceHistory] : undefined,
-          finalGasPrice: state.gasPrice,
+          feeCapsHistory: state.feeCapsHistory ? [...state.feeCapsHistory] : undefined,
+          finalFeeCaps: state.feeCaps,
           attempts: state.txHashes.length,
           nonce: state.nonce,
           gasLimit: state.gasLimit,
@@ -702,14 +702,14 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
     const blockOverrides = { ..._blockOverrides };
     const gasConfig = merge(this.config, _gasConfig);
-    const gasPrice = await this.getGasPrice(gasConfig, false);
+    const feeCaps = await this.getFeeCaps(gasConfig, false);
 
     const call: any = {
       to: request.to!,
       data: request.data,
       from: request.from ?? this.getSenderAddress().toString(),
-      maxFeePerGas: gasPrice.maxFeePerGas,
-      maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+      maxFeePerGas: feeCaps.maxFeePerGas,
+      maxPriorityFeePerGas: feeCaps.maxPriorityFeePerGas,
       gas: request.gas ?? MAX_L1_TX_LIMIT,
     };
 
@@ -728,7 +728,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
    */
   protected async attemptTxCancellation(state: L1TxState): Promise<void> {
     const isBlobTx = state.blobInputs !== undefined;
-    const { nonce, gasPrice: previousGasPrice } = state;
+    const { nonce, feeCaps: previousFeeCaps } = state;
     const account = this.getSenderAddress().toString();
 
     // Do not send cancellation if interrupted
@@ -741,18 +741,18 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       return;
     }
 
-    // Resolve the pending nonce and cancellation gas price up front. These are read-only RPC calls, so
+    // Resolve the pending nonce and cancellation fee caps up front. These are read-only RPC calls, so
     // they are safe to retry; a transient RPC failure here must not permanently abandon the cancellation
     // (which would leave the nonce stuck and the tx state stranded short of CANCELLED). We retry with a
-    // real backoff before giving up, unlike getGasPrice's tight internal retry which can be exhausted by
+    // real backoff before giving up, unlike getFeeCaps's tight internal retry which can be exhausted by
     // a brief node hiccup. The retried block performs no state-changing send, so retrying cannot
     // double-send the cancellation tx.
-    const { currentNonce, cancelGasPrice } = await retry(
+    const { currentNonce, cancelFeeCaps } = await retry(
       async () => {
         const currentNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
         if (currentNonce >= nonce) {
-          // Get gas price with higher priority fee for cancellation
-          const cancelGasPrice = await this.getGasPrice(
+          // Get fee caps with higher priority fee for cancellation
+          const cancelFeeCaps = await this.getFeeCaps(
             {
               ...this.config,
               // Use high bump for cancellation to ensure it replaces the original tx
@@ -760,18 +760,18 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             },
             isBlobTx,
             state.txHashes.length,
-            previousGasPrice,
+            previousFeeCaps,
           );
-          return { currentNonce, cancelGasPrice };
+          return { currentNonce, cancelFeeCaps };
         }
-        return { currentNonce, cancelGasPrice: undefined };
+        return { currentNonce, cancelFeeCaps: undefined };
       },
       `Preparing cancellation for L1 tx from account ${account} with nonce ${nonce}`,
       makeBackoff(CANCELLATION_PREP_RETRY_BACKOFF_S),
       this.logger,
     );
 
-    if (cancelGasPrice === undefined) {
+    if (cancelFeeCaps === undefined) {
       this.logger.verbose(
         `Not sending cancellation for L1 tx from account ${account} with nonce ${nonce} as it is dropped`,
         { nonce, account, currentNonce },
@@ -780,7 +780,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       return;
     }
 
-    const { maxFeePerGas, maxPriorityFeePerGas, maxFeePerBlobGas } = cancelGasPrice;
+    const { maxFeePerGas, maxPriorityFeePerGas, maxFeePerBlobGas } = cancelFeeCaps;
     this.logger.verbose(
       `Attempting to cancel L1 ${isBlobTx ? 'blob' : 'vanilla'} transaction from account ${account} with nonce ${nonce} after time out`,
       {
@@ -791,7 +791,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     );
 
     // Send 0-value tx to self with higher gas price
-    state.gasPrice = cancelGasPrice;
+    state.feeCaps = cancelFeeCaps;
     state.lastSentAtL1Ts = new Date(await this.getL1Timestamp());
 
     const txData = this.makeTxData(state, { isCancelTx: true });
@@ -803,7 +803,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     this.logger.warn(`Sent cancellation tx ${cancelTxHash} for timed out tx from ${account} with nonce ${nonce}`, {
       nonce,
-      cancelGasPrice,
+      cancelFeeCaps,
       isBlobTx,
       txHashes: state.txHashes,
     });

@@ -26,7 +26,7 @@ import { RegisterNewRollupVersionPayloadArtifact } from './l1_artifacts.js';
 import { type L1TxUtilsConfig, getL1TxUtilsConfigEnvVars } from './l1_tx_utils/config.js';
 import { createL1TxUtils } from './l1_tx_utils/factory.js';
 import type { L1TxUtils } from './l1_tx_utils/l1_tx_utils.js';
-import type { GasPrice, L1TxConfig, L1TxRequest } from './l1_tx_utils/types.js';
+import type { FeeCaps, L1TxConfig, L1TxRequest } from './l1_tx_utils/types.js';
 import type { ExtendedViemWalletClient } from './types.js';
 import { formatViemError } from './utils.js';
 
@@ -128,14 +128,11 @@ export class L1Deployer {
     this.logger.info('All transactions mined successfully', { txHashes: this.txHashes });
   }
 
-  sendTransaction(
-    tx: L1TxRequest,
-    options?: L1TxConfig,
-  ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
+  sendTransaction(tx: L1TxRequest, options?: L1TxConfig): Promise<{ txHash: Hex; gasLimit: bigint; feeCaps: FeeCaps }> {
     return this.l1TxUtils.sendTransaction(tx, options).then(({ txHash, state }) => ({
       txHash,
       gasLimit: state.gasLimit,
-      gasPrice: state.gasPrice,
+      feeCaps: state.feeCaps,
     }));
   }
 }

@@ -19,7 +19,7 @@ import { type L1TxRequest, L1TxTimeoutError } from './types.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const WEI_CONST = 1_000_000_000n;
-const logger = createLogger('ethereum:test:gas-price-ladder');
+const logger = createLogger('ethereum:test:fee-caps-ladder');
 
 const REQUEST: L1TxRequest = {
   to: '0x1234567890123456789012345678901234567890',
@@ -49,7 +49,7 @@ async function runUntilTimeout(gasUtils: L1TxUtils, cheatCodes: EthCheatCodes): 
   return promise;
 }
 
-describe('L1TxUtils gas-price ladder capture (integration)', () => {
+describe('L1TxUtils fee-caps ladder capture (integration)', () => {
   const initialBaseFee = WEI_CONST; // 1 gwei
   let l1Client: ExtendedViemWalletClient;
   let anvil: Anvil;
@@ -96,7 +96,7 @@ describe('L1TxUtils gas-price ladder capture (integration)', () => {
     await anvil.stop().catch(err => createLogger('cleanup').error(err));
   }, 10_000);
 
-  it('captures the escalating gas-price ladder and surfaces it on timeout', async () => {
+  it('captures the escalating fee-caps ladder and surfaces it on timeout', async () => {
     const gasUtils = makeGasUtils({ maxSpeedUpAttempts: 3 });
 
     const err = await runUntilTimeout(gasUtils, cheatCodes);
@@ -107,18 +107,18 @@ describe('L1TxUtils gas-price ladder capture (integration)', () => {
     const { txState } = err as L1TxTimeoutError;
 
     // Initial send plus at least one speed-up.
-    expect(txState.gasPriceHistory).toBeDefined();
-    expect(txState.gasPriceHistory!.length).toBeGreaterThanOrEqual(2);
+    expect(txState.feeCapsHistory).toBeDefined();
+    expect(txState.feeCapsHistory!.length).toBeGreaterThanOrEqual(2);
 
     // Priority fees strictly escalate across the ladder.
-    const priorityFees = txState.gasPriceHistory!.map(g => g.maxPriorityFeePerGas);
+    const priorityFees = txState.feeCapsHistory!.map(g => g.maxPriorityFeePerGas);
     for (let i = 1; i < priorityFees.length; i++) {
       expect(priorityFees[i]).toBeGreaterThan(priorityFees[i - 1]);
     }
 
     // attempts == number of sent txs == ladder length; other snapshot fields are populated.
-    expect(txState.attempts).toBe(txState.gasPriceHistory!.length);
-    expect(txState.finalGasPrice.maxPriorityFeePerGas).toBe(priorityFees[priorityFees.length - 1]);
+    expect(txState.attempts).toBe(txState.feeCapsHistory!.length);
+    expect(txState.finalFeeCaps.maxPriorityFeePerGas).toBe(priorityFees[priorityFees.length - 1]);
     expect(txState.gasLimit).toBeGreaterThan(0n);
     expect(txState.nonce).toBeGreaterThanOrEqual(0);
 

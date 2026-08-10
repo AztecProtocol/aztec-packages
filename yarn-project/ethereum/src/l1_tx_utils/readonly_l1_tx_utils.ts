@@ -34,7 +34,7 @@ import {
   WEI_CONST,
 } from './constants.js';
 import { P75AllTxsPriorityFeeStrategy, type PriorityFeeStrategy } from './fee-strategies/index.js';
-import type { GasPrice, L1BlobInputs, L1TxRequest, TransactionStats } from './types.js';
+import type { FeeCaps, L1BlobInputs, L1TxRequest, TransactionStats } from './types.js';
 import { getCalldataGasUsage, tryGetCustomErrorNameContractFunction } from './utils.js';
 
 // Change this to the current strategy we want to use
@@ -75,14 +75,14 @@ export class ReadOnlyL1TxUtils {
   }
 
   /**
-   * Gets the current gas price with bounds checking
+   * Gets the EIP-1559 fee caps to send with, derived from the current network fees and bounded by the config
    */
-  public async getGasPrice(
+  public async getFeeCaps(
     gasConfigOverrides?: L1TxUtilsConfig,
     isBlobTx: boolean = false,
     attempt: number = 0,
-    previousGasPrice?: typeof attempt extends 0 ? never : GasPrice,
-  ): Promise<GasPrice> {
+    previousFeeCaps?: typeof attempt extends 0 ? never : FeeCaps,
+  ): Promise<FeeCaps> {
     const gasConfig = merge(this.config, gasConfigOverrides);
 
     // Execute strategy - it handles all RPC calls internally and returns everything we need
@@ -148,8 +148,8 @@ export class ReadOnlyL1TxUtils {
       // Calculate minimum required fees based on previous attempt
       // multiply by 100 & divide by 100 to maintain some precision
       const minPriorityFee =
-        (previousGasPrice!.maxPriorityFeePerGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
-      const minMaxFee = (previousGasPrice!.maxFeePerGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
+        (previousFeeCaps!.maxPriorityFeePerGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
+      const minMaxFee = (previousFeeCaps!.maxFeePerGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
 
       // Apply bump percentage to competitive fee
       const competitivePriorityFee = (priorityFee * (100_00n + BigInt(configBump * 1_00))) / 100_00n;
@@ -200,14 +200,14 @@ export class ReadOnlyL1TxUtils {
     // Ensure priority fee doesn't exceed max fee
     const maxPriorityFeePerGas = priorityFee > maxFeePerGas ? maxFeePerGas : priorityFee;
 
-    if (attempt > 0 && previousGasPrice?.maxFeePerBlobGas) {
+    if (attempt > 0 && previousFeeCaps?.maxFeePerBlobGas) {
       const bumpPercentage =
         gasConfig.priorityFeeRetryBumpPercentage! > MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE
           ? gasConfig.priorityFeeRetryBumpPercentage!
           : MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE;
 
       // calculate min blob fee based on previous attempt
-      const minBlobFee = (previousGasPrice.maxFeePerBlobGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
+      const minBlobFee = (previousFeeCaps.maxFeePerBlobGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
 
       // use max between current network values and min required values
       maxFeePerBlobGas = maxFeePerBlobGas > minBlobFee ? maxFeePerBlobGas : minBlobFee;
@@ -248,12 +248,12 @@ export class ReadOnlyL1TxUtils {
       // Use 2x buffer for maxFeePerBlobGas to avoid stale fees and to pass EIP-4844 validation (even if it is a gas estimation call).
       // 1. maxFeePerBlobGas >= blobBaseFee
       // 2. account balance >= gas * maxFeePerGas + maxFeePerBlobGas * blobCount + value
-      const gasPrice = await this.getGasPrice(gasConfig, true, 0);
+      const feeCaps = await this.getFeeCaps(gasConfig, true, 0);
       initialEstimate = await this.client.estimateGas({
         account,
         ...request,
         ..._blobInputs,
-        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas! * 2n,
+        maxFeePerBlobGas: feeCaps.maxFeePerBlobGas! * 2n,
         gas: MAX_L1_TX_LIMIT,
         blockTag: 'latest',
       });

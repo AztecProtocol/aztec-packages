@@ -32,7 +32,7 @@ describe('L1TxStore', () => {
       txHashes: [`0xabc${nonce}` as Hex],
       cancelTxHashes: [],
       gasLimit: 21000n,
-      gasPrice: {
+      feeCaps: {
         maxFeePerGas: 1000000000n,
         maxPriorityFeePerGas: 1000000n,
       },
@@ -126,14 +126,14 @@ describe('L1TxStore', () => {
       const account = '0xabc123';
       const state = createMockState(1);
       state.gasLimit = 123456789012345n;
-      state.gasPrice.maxFeePerGas = 987654321098765n;
+      state.feeCaps.maxFeePerGas = 987654321098765n;
       state.request.value = 5000000000000000000n;
 
       await store.saveState(account, state);
 
       const loaded = await store.loadStates(account);
       expect(loaded[0].gasLimit).toBe(123456789012345n);
-      expect(loaded[0].gasPrice.maxFeePerGas).toBe(987654321098765n);
+      expect(loaded[0].feeCaps.maxFeePerGas).toBe(987654321098765n);
       expect(loaded[0].request.value).toBe(5000000000000000000n);
     });
 
@@ -417,7 +417,7 @@ describe('L1TxStore', () => {
         txHashes: ['0xhash1' as Hex, '0xhash2' as Hex],
         cancelTxHashes: ['0xcancel1' as Hex],
         gasLimit: 123456n,
-        gasPrice: {
+        feeCaps: {
           maxFeePerGas: 50000000000n,
           maxPriorityFeePerGas: 2000000000n,
           maxFeePerBlobGas: 1000000000n,

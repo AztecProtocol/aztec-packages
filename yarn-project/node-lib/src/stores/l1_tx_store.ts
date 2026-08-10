@@ -16,9 +16,9 @@ interface SerializableL1TxRequest {
 }
 
 /**
- * Serializable version of GasPrice for storage.
+ * Serializable version of FeeCaps for storage.
  */
-interface SerializableGasPrice {
+interface SerializableFeeCaps {
   maxFeePerGas: string;
   maxPriorityFeePerGas: string;
   maxFeePerBlobGas?: string;
@@ -57,7 +57,11 @@ interface SerializableL1TxState {
   txHashes: string[];
   cancelTxHashes: string[];
   gasLimit: string;
-  gasPrice: SerializableGasPrice;
+  /**
+   * Holds `L1TxState.feeCaps`. Named `gasPrice` and not `feeCaps` because this key is written to disk: states
+   * already in the store use `gasPrice`, and a renamed key makes them load without their fee caps.
+   */
+  gasPrice: SerializableFeeCaps;
   txConfigOverrides: SerializableL1TxConfig;
   request: SerializableL1TxRequest;
   status: number;
@@ -301,9 +305,9 @@ export class L1TxStore implements IL1TxStore {
       cancelTxHashes: state.cancelTxHashes,
       gasLimit: state.gasLimit.toString(),
       gasPrice: {
-        maxFeePerGas: state.gasPrice.maxFeePerGas.toString(),
-        maxPriorityFeePerGas: state.gasPrice.maxPriorityFeePerGas.toString(),
-        maxFeePerBlobGas: state.gasPrice.maxFeePerBlobGas?.toString(),
+        maxFeePerGas: state.feeCaps.maxFeePerGas.toString(),
+        maxPriorityFeePerGas: state.feeCaps.maxPriorityFeePerGas.toString(),
+        maxFeePerBlobGas: state.feeCaps.maxFeePerBlobGas?.toString(),
       },
       txConfigOverrides,
       request: {
@@ -348,7 +352,7 @@ export class L1TxStore implements IL1TxStore {
       txHashes: stored.txHashes as `0x${string}`[],
       cancelTxHashes: stored.cancelTxHashes as `0x${string}`[],
       gasLimit: BigInt(stored.gasLimit),
-      gasPrice: {
+      feeCaps: {
         maxFeePerGas: BigInt(stored.gasPrice.maxFeePerGas),
         maxPriorityFeePerGas: BigInt(stored.gasPrice.maxPriorityFeePerGas),
         maxFeePerBlobGas: stored.gasPrice.maxFeePerBlobGas ? BigInt(stored.gasPrice.maxFeePerBlobGas) : undefined,

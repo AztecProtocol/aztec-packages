@@ -1,5 +1,5 @@
 import type { WindowBlockFees } from '@aztec/ethereum/l1-fee-analysis';
-import type { GasPrice } from '@aztec/ethereum/l1-tx-utils';
+import type { FeeCaps } from '@aztec/ethereum/l1-tx-utils';
 import type { Branded } from '@aztec/foundation/branded-types';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
@@ -55,17 +55,22 @@ export type FailedL1Tx = {
   };
   /** Gas pricing info at time of failure for underpricing diagnosis. */
   gasInfo?: {
-    /** Gas prices the tx was sent with (present for revert/send-error/timeout, not simulation). */
-    sentGasPrice?: GasPrice;
+    /**
+     * Fee caps the tx was sent with (present for revert/send-error/timeout, not simulation). Named `sentGasPrice`
+     * and not `sentFeeCaps` because this key is written to disk: records already in the store use `sentGasPrice`,
+     * and a renamed key makes them fail to parse.
+     */
+    sentGasPrice?: FeeCaps;
     /** Gas limit used or estimated. */
     gasLimit?: bigint;
     /** Nonce used for the sent tx. */
     nonce?: number;
     /**
-     * For timeouts: the escalating gas prices used across the initial send and each speed-up retry,
-     * in order. Compare against windowBlocks[].minIncludedPriorityFee to see if any attempt cleared the bar.
+     * For timeouts: the escalating fee caps used across the initial send and each speed-up retry, in order.
+     * Compare against windowBlocks[].minIncludedPriorityFee to see if any attempt cleared the bar. Named
+     * `sentGasPriceLadder` and not `sentFeeCapsLadder` for the same on-disk reason as `sentGasPrice` above.
      */
-    sentGasPriceLadder?: GasPrice[];
+    sentGasPriceLadder?: FeeCaps[];
     /** Number of send attempts (initial send + speed-ups). */
     attempts?: number;
     /**
@@ -89,11 +94,11 @@ export type FailedL1Tx = {
 
 const hexSchema = schemas.HexStringWith0x;
 
-const gasPriceSchema = z.object({
+const feeCapsSchema = z.object({
   maxFeePerGas: schemas.BigInt,
   maxPriorityFeePerGas: schemas.BigInt,
   maxFeePerBlobGas: schemas.BigInt.optional(),
-}) satisfies ZodFor<GasPrice>;
+}) satisfies ZodFor<FeeCaps>;
 
 const windowBlockFeesSchema = z.object({
   blockNumber: schemas.BigInt,
@@ -138,10 +143,10 @@ export const FailedL1TxSchema: ZodFor<FailedL1Tx> = z.object({
   }),
   gasInfo: z
     .object({
-      sentGasPrice: gasPriceSchema.optional(),
+      sentGasPrice: feeCapsSchema.optional(),
       gasLimit: schemas.BigInt.optional(),
       nonce: z.number().optional(),
-      sentGasPriceLadder: z.array(gasPriceSchema).optional(),
+      sentGasPriceLadder: z.array(feeCapsSchema).optional(),
       attempts: z.number().optional(),
       windowBlocks: z.array(windowBlockFeesSchema).optional(),
     })

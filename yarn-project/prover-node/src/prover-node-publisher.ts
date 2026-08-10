@@ -220,14 +220,14 @@ export class ProverNodePublisher {
     const data = this.encodeSubmitEpochProofCalldata(args);
     const senderAddress = this.l1TxUtils.getSenderAddress();
 
-    const [gasLimit, gasPrice, latestBlock] = await Promise.all([
+    const [gasLimit, feeCaps, latestBlock] = await Promise.all([
       this.l1TxUtils.estimateGas(senderAddress.toString() as `0x${string}`, { to: this.proofSubmissionTarget, data }),
-      this.l1TxUtils.getGasPrice(),
+      this.l1TxUtils.getFeeCaps(),
       this.l1TxUtils.client.getBlock({ blockTag: 'latest' }),
     ]);
 
     const baseFeePerGas = latestBlock.baseFeePerGas ?? 0n;
-    const { maxPriorityFeePerGas } = gasPrice;
+    const { maxPriorityFeePerGas } = feeCaps;
 
     const effectiveFeePerGas = baseFeePerGas + maxPriorityFeePerGas;
     const estimatedTotalFee = gasLimit * effectiveFeePerGas;
