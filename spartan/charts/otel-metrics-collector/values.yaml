@@ -11,6 +11,24 @@ scrapeConfigs: []
 
 resourceAttributes: {}
 
+irm:
+  enabled: false
+  endpoint: ""
+  resourceAttributes: {}
+  metricCatalog:
+    schemaVersion: 1
+    resourceAttributes: []
+    metrics: []
+  exporter:
+    timeout: "10s"
+    retry:
+      initialInterval: "1s"
+      maxInterval: "10s"
+      maxElapsedTime: "300s"
+    queue:
+      numConsumers: 2
+      size: 500
+
 labels: {}
 
 image: "otel/opentelemetry-collector-contrib:0.154.0"
