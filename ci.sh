@@ -109,18 +109,6 @@ function multi_job_run {
     'run {1} {2} {3} {4}' ::: "$@" | DUP=1 cache_log "CI run" $RUN_ID
 }
 
-function bootstrap_pr_ci {
-  local bootstrap_cmd="$1"
-  if [ "${RUN_COMPAT_E2E:-0}" = "1" ]; then
-    bootstrap_cmd+=" && ./bootstrap.sh ci-compat-e2e"
-    # The normal suite and compatibility matrix run sequentially on the same instance.
-    if [ "${AWS_SHUTDOWN_TIME:-0}" -lt 90 ]; then
-      export AWS_SHUTDOWN_TIME=90
-    fi
-  fi
-  bootstrap_ec2 "$bootstrap_cmd"
-}
-
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
 export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
@@ -131,7 +119,7 @@ case "$cmd" in
   fast|docs|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
-    bootstrap_pr_ci "./bootstrap.sh ci-$cmd"
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   socket-fix)
     export CI_DASHBOARD="prs"
@@ -144,7 +132,9 @@ case "$cmd" in
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
     export AWS_SHUTDOWN_TIME=75
-    bootstrap_pr_ci "./bootstrap.sh ci-$cmd"
+    # The compat e2e matrix runs after the normal suite on the same instance; allow extra time.
+    [ "${RUN_COMPAT_E2E:-0}" = 1 ] && export AWS_SHUTDOWN_TIME=90
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   chonk-input-update)
     export CI_DASHBOARD="prs"

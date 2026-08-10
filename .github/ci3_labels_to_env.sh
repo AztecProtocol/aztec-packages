@@ -52,22 +52,9 @@ function main {
   echo "TARGET_BRANCH=$target_branch" >> $GITHUB_ENV
   echo "Target branch: $target_branch"
 
-  if { [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ] || [ "${GITHUB_EVENT_NAME:-}" = "pull_request_target" ]; } &&
-     [ "$target_branch" = "v5-next" ]; then
-    echo "RUN_COMPAT_E2E=1" >> $GITHUB_ENV
-    # The granular compatibility cache accounts for the historical artifact version; the whole-run
-    # success marker does not and must not bypass compatibility orchestration.
-    echo "SKIP_CI_SUCCESS_CACHE=1" >> $GITHUB_ENV
-  fi
-
   # Handle fail-fast override
   if has_label "ci-no-fail-fast"; then
     echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
-  fi
-
-  # Handle the escape hatch for release and v5-next PR compatibility checks.
-  if has_label "ci-skip-compat-e2e"; then
-    echo "SKIP_COMPAT_E2E=1" >> $GITHUB_ENV
   fi
 
   local chonk_input_update=0
@@ -151,6 +138,10 @@ function main {
     ci_mode="barretenberg-full"
   elif has_label "ci-barretenberg" || [ "$target_branch" == "merge-train/barretenberg" ]; then
     ci_mode="barretenberg"
+  elif [ "$target_branch" == "v5-next" ]; then
+    # Runs targeting v5-next default to the full suite so the backwards-compat e2e gate applies to
+    # every ingress.
+    ci_mode="full"
   elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
     # A pushed semver tag is a release; REF_NAME is the tag (see ci3/source_refname). In the private
     # repo this is the nightly path (nightly-release-tag*.yml push v<ver>-nightly.<date> tags on next and
@@ -163,6 +154,16 @@ function main {
   echo "CI_MODE=$ci_mode" >> $GITHUB_ENV
   echo "CI mode: $ci_mode"
 
+  # Runs targeting v5-next execute the backwards-compat e2e matrix after their normal suite.
+  # The whole-run success marker is keyed only on (mode, tree hash). It can't tell whether compat ran or
+  # which historical versions existed at the time, so it must not short-circuit these runs.
+  # The granular per-test cache still applies.
+  if [ "$target_branch" == "v5-next" ] &&
+     { [ "$ci_mode" == "full" ] || [ "$ci_mode" == "full-no-test-cache" ]; }; then
+    echo "RUN_COMPAT_E2E=1" >> $GITHUB_ENV
+    echo "SKIP_CI_SUCCESS_CACHE=1" >> $GITHUB_ENV
+  fi
+
   # Private-repo safety gate. The release flow can publish to DockerHub/npmjs/crates.io/github; that
   # MUST NEVER run in the private fork. So whenever this repo would release — for ANY trigger (a pushed
   # nightly tag, a ci-release-pr tag, anything future) — force the private path: publish only the docker
@@ -171,7 +172,6 @@ function main {
   if [ "$ci_mode" = "release" ] &&
      [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
     echo "PRIVATE_RELEASE=1" >> $GITHUB_ENV
-    echo "SKIP_COMPAT_E2E=1" >> $GITHUB_ENV
   fi
 
   # Determine if benchmarks should be uploaded (merge-queue, full, or full-no-test-cache modes)

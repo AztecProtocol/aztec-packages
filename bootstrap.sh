@@ -646,9 +646,10 @@ function compat_e2e {
   # Runs e2e tests with contract artifacts from every prior stable release since 5.0.1 (the version
   # where we committed to backwards compatibility). Validates that old contract artifacts work on the
   # current checkout.
-  # Set SKIP_COMPAT_E2E=1 to bypass (escape hatch via the ci-skip-compat-e2e label).
-  if [ "${SKIP_COMPAT_E2E:-0}" = "1" ]; then
-    echo "SKIP_COMPAT_E2E=1, skipping backwards compatibility e2e tests."
+  # Private-repo releases publish only to the internal Artifact Registry; the compat gate runs on
+  # the public release of the same tag.
+  if [ "${PRIVATE_RELEASE:-0}" = 1 ]; then
+    echo "PRIVATE_RELEASE=1, skipping backwards compatibility e2e tests."
     return 0
   fi
 
@@ -716,7 +717,7 @@ function compat_e2e {
 
   # Compat command cache keys include both the end-to-end build hash and CONTRACT_ARTIFACTS_VERSION,
   # so successful results can only be reused for the same build inputs and historical artifacts.
-  # Keep the bespoke test settings isolated from the release build/publish that follows.
+  # Keep the bespoke settings isolated from the surrounding run.
   # set -e keeps failures fatal when the release caller temporarily disables errexit to capture them.
   (
     set -e
@@ -728,6 +729,14 @@ function compat_e2e {
       yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
     done | filter_test_cmds | parallelize
   )
+}
+
+# PRs targeting v5-next run the compat matrix after their normal suite, on the same instance
+# (RUN_COMPAT_E2E is set by .github/ci3_labels_to_env.sh and forwarded by bootstrap_ec2).
+function compat_e2e_if_requested {
+  if [ "${RUN_COMPAT_E2E:-0}" = 1 ]; then
+    compat_e2e
+  fi
 }
 
 ### SELF TESTING #######################################################################################################
@@ -829,6 +838,7 @@ case "$cmd" in
     export CI_FULL=1
     build_and_test full
     bench
+    compat_e2e_if_requested
     ;;
   "ci-full-no-test-cache")
     export CI=1
@@ -836,6 +846,7 @@ case "$cmd" in
     export CI_FULL=1
     build_and_test full
     bench
+    compat_e2e_if_requested
     ;;
   "ci-chonk-input-update")
     export CI=1
@@ -1059,6 +1070,8 @@ case "$cmd" in
   # RELEASES #
   ############
   "ci-compat-e2e")
+    # Standalone entrypoint for running the compat matrix on its own (manual runs and debugging);
+    # CI runs it via compat_e2e_if_requested at the end of the PR modes above.
     export CI=1
     compat_e2e
     ;;
