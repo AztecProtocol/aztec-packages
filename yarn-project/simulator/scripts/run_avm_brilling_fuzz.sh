@@ -11,9 +11,12 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GIT_ROOT="$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel 2>/dev/null || echo "")"
 
-# Default paths (relative to git root)
-DEFAULT_NOIR_ROOT="$GIT_ROOT/noir/noir-repo"
-DEFAULT_TRANSPILER_BIN="$GIT_ROOT/avm-transpiler/target/release/avm-transpiler"
+# The ssa_fuzzer lives in noir's source tree and the avm-transpiler binary must be built
+# against that same tree, so both come from a foundation (aztec-packages) checkout: point
+# AZTEC_TOOLCHAIN_FND_ROOT at one, or pass --noir-path/--transpiler-path explicitly.
+FND_ROOT="${AZTEC_TOOLCHAIN_FND_ROOT-}"
+DEFAULT_NOIR_ROOT="${FND_ROOT:+$FND_ROOT/noir/noir-repo}"
+DEFAULT_TRANSPILER_BIN="${FND_ROOT:+$FND_ROOT/avm-transpiler/target/release/avm-transpiler}"
 DEFAULT_SIMULATOR_BIN="$GIT_ROOT/yarn-project/simulator/dest/public/fuzzing/avm_simulator_bin.js"
 
 # Usage information
@@ -22,10 +25,10 @@ usage() {
     echo ""
     echo "Options:"
     echo "  --noir-path PATH        Path to the Noir repository root"
-    echo "                          Default: $DEFAULT_NOIR_ROOT"
+    echo "                          Default: \$AZTEC_TOOLCHAIN_FND_ROOT/noir/noir-repo"
     echo ""
     echo "  --transpiler-path PATH  Path to the avm_transpiler binary"
-    echo "                          Default: $DEFAULT_TRANSPILER_BIN"
+    echo "                          Default: \$AZTEC_TOOLCHAIN_FND_ROOT/avm-transpiler/target/release/avm-transpiler"
     echo ""
     echo "  --simulator-path PATH   Path to the avm_simulator_bin.cjs file"
     echo "                          Default: $DEFAULT_SIMULATOR_BIN"
@@ -33,9 +36,8 @@ usage() {
     echo "  -h, --help             Show this help message"
     echo ""
     echo "Example:"
-    echo "  $0"
-    echo "  $0 --noir-path /path/to/noir"
-    echo "  $0 --transpiler-path /path/to/avm_transpiler --simulator-path /path/to/simulator.cjs"
+    echo "  AZTEC_TOOLCHAIN_FND_ROOT=/path/to/aztec-packages $0"
+    echo "  $0 --noir-path /path/to/noir --transpiler-path /path/to/avm_transpiler"
     exit 1
 }
 
@@ -71,6 +73,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate paths
+if [ -z "$NOIR_ROOT_DIR" ] || [ -z "$TRANSPILER_BIN" ]; then
+    echo -e "${RED}Error: noir/transpiler paths not set.${NC}"
+    echo -e "${YELLOW}Set AZTEC_TOOLCHAIN_FND_ROOT to a foundation (aztec-packages) checkout, or pass --noir-path and --transpiler-path.${NC}"
+    exit 1
+fi
+
 if [ ! -d "$NOIR_ROOT_DIR" ]; then
     echo -e "${RED}Error: Noir root directory does not exist: $NOIR_ROOT_DIR${NC}"
     exit 1
@@ -90,7 +98,7 @@ fi
 FUZZER_DIR="$NOIR_ROOT_DIR/tooling/ssa_fuzzer/fuzzer"
 if [ ! -d "$FUZZER_DIR" ]; then
     echo -e "${RED}Error: Fuzzer directory does not exist: $FUZZER_DIR${NC}"
-    echo -e "${YELLOW}Make sure PATH_TO_NOIR_ROOT_DIR points to the Noir repository root.${NC}"
+    echo -e "${YELLOW}Make sure --noir-path points to the Noir repository root.${NC}"
     exit 1
 fi
 
