@@ -1,6 +1,6 @@
 use crate::context::PrivateContext;
 
-use crate::protocol::{hash::poseidon2_hash_with_separator, traits::Hash};
+use crate::protocol::{address::AztecAddress, hash::poseidon2_hash_with_separator, traits::{Hash, ToField}};
 
 use crate::authwit::auth::{compute_authwit_message_hash, IS_VALID_SELECTOR};
 use crate::authwit::entrypoint::app::AppPayload;
@@ -16,6 +16,15 @@ pub(crate) global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
 /// them together.
 pub(crate) global DOM_SEP__ENTRYPOINT_PAYLOAD: u32 = 3045079954;
 
+/// Domain separator for the account entrypoint authorization message.
+///
+/// The entrypoint authorizes `compute_entrypoint_message_hash`, which wraps the payload hash with this separator
+/// rather than the generic authwit outer separator. Sharing the generic separator would place the entrypoint
+/// message in the image of the generic authwit path (`compute_authwit_message_hash` over an attacker-chosen inner
+/// hash), letting anyone able to request a generic authwit from the account mint an entrypoint authorization for a
+/// call list of their choosing.
+pub(crate) global DOM_SEP__ENTRYPOINT_MESSAGE: u32 = 3858756027;
+
 /// Computes the inner hash the account authorizes when invoked through its entrypoint.
 ///
 /// Binds the app payload together with the fee-payment selector and cancellation flag. Both drive fee-payer and
@@ -27,6 +36,22 @@ fn compute_entrypoint_payload_hash(app_payload: AppPayload, fee_payment_method: 
     poseidon2_hash_with_separator(
         [app_payload.hash(), fee_payment_method as Field, cancellable as Field],
         DOM_SEP__ENTRYPOINT_PAYLOAD,
+    )
+}
+
+/// Computes the message the account authorizes when invoked through its entrypoint.
+///
+/// Mirrors `compute_authwit_message_hash` but uses `DOM_SEP__ENTRYPOINT_MESSAGE`, so reproducing the entrypoint
+/// message through the generic authwit path would require a Poseidon2 collision.
+fn compute_entrypoint_message_hash(
+    consumer: AztecAddress,
+    chain_id: Field,
+    version: Field,
+    inner_hash: Field,
+) -> Field {
+    poseidon2_hash_with_separator(
+        [consumer.to_field(), chain_id, version, inner_hash],
+        DOM_SEP__ENTRYPOINT_MESSAGE,
     )
 }
 
@@ -62,7 +87,9 @@ impl AccountActions<&mut PrivateContext> {
     /// Verifies that the entrypoint payload is authorized and executes the `app_payload`.
     ///
     /// The authorized message binds the app payload together with `fee_payment_method` and `cancellable`, so the
-    /// account's approval covers the fee-payer and cancellation side effects rather than the call list alone.
+    /// account's approval covers the fee-payer and cancellation side effects rather than the call list alone. It is
+    /// domain-separated from generic authwits (see `DOM_SEP__ENTRYPOINT_MESSAGE`) so it cannot be minted through
+    /// the generic authwit path.
     ///
     /// @param app_payload The payload that contains the calls to be executed in the app phase.
     ///
@@ -84,7 +111,7 @@ impl AccountActions<&mut PrivateContext> {
         let valid_fn = self.is_valid_impl;
 
         let inner_hash = compute_entrypoint_payload_hash(app_payload, fee_payment_method, cancellable);
-        let message_hash = compute_authwit_message_hash(
+        let message_hash = compute_entrypoint_message_hash(
             self.context.this_address(),
             self.context.chain_id(),
             self.context.version(),

@@ -9,6 +9,20 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [aztec-nr / Aztec.js] Account entrypoint authorization is now domain-separated from generic authwits
+
+The account entrypoint previously wrapped its payload hash with the generic authwit outer hash
+(`compute_authwit_message_hash` / `computeOuterAuthWitHash`). That placed the authorized message in the image of the
+generic authwit path: a `createAuthWit` over `{ consumer: account, innerHash: <entrypoint payload hash> }` produces
+exactly the message the entrypoint validates, so anyone able to request a generic authwit from the account could mint
+an entrypoint authorization for a call list of their choosing. The entrypoint now wraps the payload hash with a
+dedicated `entrypoint_message` domain separator, so the message can no longer be produced through the generic path.
+
+This changes the authorized message preimage again, so it is a breaking change with the same upgrade requirements as
+above: client and account bytecode must be upgraded together. **Third-party wallets or tooling** that build the
+entrypoint authorization witness themselves must wrap the payload hash with the new `entrypoint_message` domain
+separator instead of the generic outer authwit hash.
+
 ### [aztec-nr / Aztec.js] Account entrypoint authorization now binds the fee-payment method and cancellation flag
 
 The account entrypoint (`AccountActions::entrypoint`) previously authorized only the app payload hash. It now

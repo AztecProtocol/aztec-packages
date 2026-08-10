@@ -8,7 +8,7 @@
 //! that the whole set (every aztec-nr separator plus every protocol separator) is collision-free. The protocol enforces
 //! the same for its own separators in its own tests.
 
-use crate::authwit::account::{DOM_SEP__ENTRYPOINT_PAYLOAD, DOM_SEP__TX_NULLIFIER};
+use crate::authwit::account::{DOM_SEP__ENTRYPOINT_MESSAGE, DOM_SEP__ENTRYPOINT_PAYLOAD, DOM_SEP__TX_NULLIFIER};
 use crate::authwit::auth::DOM_SEP__AUTHWIT_NULLIFIER;
 use crate::keys::ecdh_shared_secret::{DOM_SEP__ECDH_FIELD_MASK, DOM_SEP__ECDH_SUBKEY};
 use crate::macros::functions::initialization_utils::DOM_SEP__INITIALIZATION_NULLIFIER;
@@ -124,6 +124,7 @@ unconstrained fn domain_separators_are_valid() {
         );
     all = all.push_back(derived(DOM_SEP__TX_NULLIFIER, "tx_nullifier"));
     all = all.push_back(derived(DOM_SEP__ENTRYPOINT_PAYLOAD, "entrypoint_payload"));
+    all = all.push_back(derived(DOM_SEP__ENTRYPOINT_MESSAGE, "entrypoint_message"));
     all = all.push_back(derived(DOM_SEP__AUTHWIT_NULLIFIER, "authwit_nullifier"));
     all = all.push_back(derived(DOM_SEP__ECDH_SUBKEY, "ecdh_subkey"));
     all = all.push_back(derived(DOM_SEP__ECDH_FIELD_MASK, "ecdh_field_mask"));

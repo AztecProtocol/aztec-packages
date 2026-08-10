@@ -7,7 +7,6 @@ import {
   encodeArguments,
   getFunctionReturnType,
 } from '@aztec/stdlib/abi';
-import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
@@ -36,6 +35,31 @@ export async function computeEntrypointPayloadHash(
   return poseidon2HashWithSeparator(
     [await encodedCalls.hash(), new Fr(feePaymentMethod), new Fr(cancellable)],
     ENTRYPOINT_PAYLOAD_DOMAIN_SEPARATOR,
+  );
+}
+
+/**
+ * Domain separator for the account entrypoint authorization message. Mirrors DOM_SEP__ENTRYPOINT_MESSAGE in
+ * noir-projects/labs/aztec-nr/aztec/src/authwit/account.nr. Derived from the poseidon hash of
+ * "az_dom_sep__entrypoint_message" truncated to a u32; kept in TypeScript by hand because the generated constants
+ * package only carries protocol-circuit constants, and pinned by a drift test that re-derives it.
+ */
+export const ENTRYPOINT_MESSAGE_DOMAIN_SEPARATOR = 3858756027;
+
+/**
+ * Computes the message the account authorizes when invoked through its entrypoint. Wraps the entrypoint payload hash
+ * with a dedicated domain separator rather than the generic authwit outer hash, so the message cannot be reproduced
+ * through the generic authwit path (a `createAuthWit` over `{ consumer: account, innerHash }`).
+ */
+export function computeEntrypointMessageHash(
+  consumer: AztecAddress,
+  chainId: Fr,
+  version: Fr,
+  payloadHash: Fr,
+): Promise<Fr> {
+  return poseidon2HashWithSeparator(
+    [consumer.toField(), chainId, version, payloadHash],
+    ENTRYPOINT_MESSAGE_DOMAIN_SEPARATOR,
   );
 }
 
@@ -168,7 +192,12 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     const functionSelector = await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
 
     const payloadHash = await computeEntrypointPayloadHash(encodedCalls, feePaymentMethodOptions, !!cancellable);
-    const messageHash = await computeOuterAuthWitHash(this.address, chainInfo.chainId, chainInfo.version, payloadHash);
+    const messageHash = await computeEntrypointMessageHash(
+      this.address,
+      chainInfo.chainId,
+      chainInfo.version,
+      payloadHash,
+    );
     const payloadAuthWitness = await this.auth.createAuthWit(messageHash);
 
     return {

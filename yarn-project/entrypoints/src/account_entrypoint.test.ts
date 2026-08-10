@@ -1,6 +1,6 @@
 import { poseidon2HashBytes } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { AuthWitness, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
@@ -9,8 +9,12 @@ import {
   AccountFeePaymentMethodOptions,
   DefaultAccountEntrypoint,
   type DefaultAccountEntrypointOptions,
+  ENTRYPOINT_MESSAGE_DOMAIN_SEPARATOR,
   ENTRYPOINT_PAYLOAD_DOMAIN_SEPARATOR,
+  computeEntrypointMessageHash,
+  computeEntrypointPayloadHash,
 } from './account_entrypoint.js';
+import { EncodedAppEntrypointCalls } from './encoding.js';
 import type { AuthWitnessProvider, ChainInfo } from './interfaces.js';
 
 describe('DefaultAccountEntrypoint', () => {
@@ -80,5 +84,37 @@ describe('DefaultAccountEntrypoint', () => {
       (await poseidon2HashBytes(Buffer.from('az_dom_sep__entrypoint_payload'))).toBigInt() & 0xffffffffn,
     );
     expect(ENTRYPOINT_PAYLOAD_DOMAIN_SEPARATOR).toEqual(derived);
+  });
+
+  it('mirrors the Noir entrypoint message domain separator', async () => {
+    const derived = Number(
+      (await poseidon2HashBytes(Buffer.from('az_dom_sep__entrypoint_message'))).toBigInt() & 0xffffffffn,
+    );
+    expect(ENTRYPOINT_MESSAGE_DOMAIN_SEPARATOR).toEqual(derived);
+  });
+
+  // The entrypoint must authorize a message the generic authwit path cannot reproduce. Otherwise a party able to
+  // request a generic authwit from the account (a createAuthWit over { consumer: account, innerHash }) could mint an
+  // entrypoint authorization for a call list of its choosing.
+  it('domain-separates the entrypoint message from the generic authwit hash', async () => {
+    const hash = await getPayloadAuthWitnessHash(baseOptions);
+
+    const encodedCalls = await EncodedAppEntrypointCalls.create(ExecutionPayload.empty().calls, baseOptions.txNonce);
+    const payloadHash = await computeEntrypointPayloadHash(
+      encodedCalls,
+      baseOptions.feePaymentMethodOptions,
+      !!baseOptions.cancellable,
+    );
+
+    const entrypointMessage = await computeEntrypointMessageHash(
+      address,
+      chainInfo.chainId,
+      chainInfo.version,
+      payloadHash,
+    );
+    const genericAuthwit = await computeOuterAuthWitHash(address, chainInfo.chainId, chainInfo.version, payloadHash);
+
+    expect(hash.equals(entrypointMessage)).toBe(true);
+    expect(hash.equals(genericAuthwit)).toBe(false);
   });
 });
