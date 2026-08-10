@@ -11,11 +11,17 @@ fi
 
 mkdir -p $OUT_DIR
 
-# Extract contract names from Nargo.toml, excluding test contracts
-CONTRACTS=$(grep "contracts/" ../../noir-projects/noir-contracts/Nargo.toml | grep -v "contracts/test/" | sed 's/.*\/\([^/"]*\)_contract.*/\1/')
+# Extract contract names from Nargo.toml, excluding test contracts and protocol contracts.
+# Protocol contracts (FeeJuice, ContractClassRegistry, ContractInstanceRegistry) are distributed
+# via @aztec/protocol-contracts, with typed wrappers exported from @aztec/aztec.js/protocol.
+CONTRACTS=$(grep "contracts/" ../../noir-projects/labs/noir-contracts/Nargo.toml \
+  | grep -v "contracts/test/" \
+  | grep -v "contracts/protocol/" \
+  | grep -v "contracts/protocol_interface/" \
+  | sed 's/.*\/\([^/"]*\)_contract.*/\1/')
 
 # Check for .json files existence
-if ! ls ../../noir-projects/noir-contracts/target/*.json >/dev/null 2>&1; then
+if ! ls ../../noir-projects/labs/noir-contracts/target/*.json >/dev/null 2>&1; then
   echo "Error: No .json files found in noir-contracts/target folder."
   echo "Make sure noir-contracts is built before running this script."
   exit 1
@@ -38,7 +44,7 @@ EOF
 # Copy the artifacts to the artifacts folder
 for contract in $CONTRACTS; do
   # Find the matching ABI file for this contract
-  ABI=$(find "../../noir-projects/noir-contracts/target" -name "${contract}_contract-*.json" | head -n 1)
+  ABI=$(find "../../noir-projects/labs/noir-contracts/target" -name "${contract}_contract-*.json" | head -n 1)
   if [ -n "$ABI" ]; then
     # Extract the filename from the path
     filename=$(basename "$ABI")

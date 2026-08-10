@@ -9,9 +9,74 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-### [Aztec.nr] Standard contracts re-pinned at new addresses
+### [Aztec.js] A function's return type is a single `returnType`, not a `returnTypes` list
 
-The canonical `HandshakeRegistry` now protects handshake shared secrets from recipient forgery and includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. All standard contracts have been re-pinned and move to new addresses. Handshakes established with a previous registry instance are not visible to the new one and must be re-established.
+`FunctionAbi.returnTypes` is deprecated in favor of the single optional `FunctionAbi.returnType`, since multiple return values are already expressed as one `tuple` type. Read it through `getFunctionReturnType(abi)`, which also resolves artifacts serialized before `returnType` existed. `FunctionCall.returnTypes` is likewise replaced by `FunctionCall.returnType`.
+
+`decodeFromAbi` now takes the single type a function returns (or `undefined`) instead of a list, and returns `undefined` for a function that returns nothing, where it previously returned `[]`. To decode a list of values, such as a function's arguments, use the new `decodeEachFromAbi`.
+
+**Migration:**
+
+```diff
+- decodeFromAbi(abi.returnTypes, values)
++ decodeFromAbi(getFunctionReturnType(abi), values)
+
+- decodeFromAbi(fn.parameters.map(param => param.type), args) as AbiDecoded[]
++ decodeEachFromAbi(fn.parameters.map(param => param.type), args)
+```
+
+### [Aztec.js] Protocol contracts removed from `@aztec/noir-contracts.js`
+
+`@aztec/noir-contracts.js` no longer includes the protocol contracts: the `FeeJuice`, `ContractClassRegistry`, and `ContractInstanceRegistry` artifacts and typed wrappers have been removed from the package, so imports such as `@aztec/noir-contracts.js/FeeJuice` no longer resolve. These names are also no longer available to the `aztec` CLI's contract-name lookup (e.g. in `aztec example-contracts`).
+
+Protocol contracts are distributed via `@aztec/protocol-contracts` (artifacts and canonical deployment data), and typed wrappers for them are exported from `@aztec/aztec.js/protocol`. The `aztec.js` wrappers are bound to the contract's canonical address, so attaching takes only the wallet: there is no address parameter.
+
+**Migration:**
+
+```diff
+- import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
++ import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
+
+- const feeJuice = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
++ const feeJuice = FeeJuiceContract.withWallet(wallet);
+```
+
+### [Aztec.js] Protocol contract wrappers: `at(wallet)` deprecated in favor of `withWallet(wallet)`
+
+The protocol contract wrappers exported from `@aztec/aztec.js/protocol` (`FeeJuiceContract`, `ContractClassRegistryContract`, `ContractInstanceRegistryContract`) rename their static `at(wallet)` to `withWallet(wallet)`. These wrappers are bound to the contract's canonical address, so their only parameter is the wallet to act through; `withWallet` states that directly and matches the existing `withWallet` instance method, whereas the one-argument `at` read as if it took an address. `at(wallet)` still works but is deprecated and will be removed in a future release.
+
+**Migration:**
+
+```diff
+- const feeJuice = FeeJuiceContract.at(wallet);
++ const feeJuice = FeeJuiceContract.withWallet(wallet);
+```
+
+### [Aztec.nr] Domain separators moved out of the protocol constants module
+
+Nine `DOM_SEP__*` domain separators that used to live in the protocol constants module (`aztec::protocol::constants`, generated from `noir-protocol-circuits`) have moved into the `aztec` crate, next to the code that uses them. None of them were ever protocol constants (each hash is computed per-contract), so they no longer belong on the protocol export.
+
+Two remain public, at a new path:
+
+| Constant | Old path | New path |
+| --- | --- | --- |
+| `DOM_SEP__PARTIAL_NOTE_COMMITMENT` | `aztec::protocol::constants` | `aztec::note::partial_note` |
+| `DOM_SEP__NOTE_COMPLETION_LOG_TAG` | `aztec::protocol::constants` | `aztec::note::partial_note` |
+
+```diff
+- use aztec::protocol::constants::{DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__PARTIAL_NOTE_COMMITMENT};
++ use aztec::note::partial_note::{DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__PARTIAL_NOTE_COMMITMENT};
+```
+
+The other seven are now crate-internal (`pub(crate)`) and can no longer be imported from outside the `aztec` crate: `DOM_SEP__AUTHWIT_NULLIFIER`, `DOM_SEP__TX_NULLIFIER`, `DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER`, `DOM_SEP__CONSTRAINED_MSG_NULLIFIER`, `DOM_SEP__ECDH_SUBKEY`, `DOM_SEP__ECDH_FIELD_MASK`, and `DOM_SEP__INITIALIZATION_NULLIFIER`.
+
+**Impact**: Contracts that use aztec-nr's high-level APIs (notes, authwit, state variables, message delivery, ECDH) are unaffected, since these separators are applied internally. A contract that imported one of these constants directly must either switch to the new `aztec::note::partial_note` path (for the two public ones) or, for the now-internal ones, call the corresponding aztec-nr helper instead of recomputing the hash by hand. The generated TypeScript `DomainSeparator` enum in `@aztec/constants` / `@aztec/stdlib` likewise no longer contains the seven removed members (their values were unused in TypeScript).
+
+## 5.1.0
+
+### [Aztec.nr] Canonical HandshakeRegistry re-pinned at a new address
+
+The canonical `HandshakeRegistry` has been re-pinned so that it includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. The registry moves to a new address. Handshakes established with the previous registry instance are not visible to the new one and must be re-established. The other standard contracts keep their addresses.
 
 ### [Aztec.nr] Note property selectors are typed and use packed-layout indices
 
@@ -24,6 +89,29 @@ Breaking changes:
 - `select` takes its value typed as the property's type. Cast the value if a mixed-type comparison was intentional.
 - `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
 - Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
+
+### [Aztec.nr] Note types declared inside a contract must be `pub`
+
+Noir v1.0.0-beta.25 enforces the caller's visibility when comptime code resolves a trait method into a typed expression. The `#[aztec]` macro resolves each note type's `NoteType::get_id` that way when it generates `compute_note_hash_and_nullifier`, so a note struct declared directly inside the `contract` module without `pub` no longer compiles:
+
+```
+error: Function `get_id` is private
+    ┌─ .../aztec/src/macros/utils.nr:152:5
+    │ `get_id` is declared in `MyContract`
+```
+
+Note types declared in their own module are unaffected, since they are already `pub` for the contract to reach them.
+
+**Migration:**
+
+```diff
+  #[derive(Packable, Eq)]
+  #[note]
+- struct MyNote {
++ pub struct MyNote {
+      owner: AztecAddress,
+  }
+```
 
 ## 5.0.1
 

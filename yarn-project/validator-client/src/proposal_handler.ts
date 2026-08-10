@@ -18,6 +18,7 @@ import type { LogData } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { isErrorClass } from '@aztec/foundation/types';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
@@ -25,7 +26,12 @@ import type { CheckpointReexecutionTracker, ReexecutionOutcome } from '@aztec/st
 import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
-import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  ITxProvider,
+  MerkleTreeWriteOperations,
+  ValidatorClientFullConfig,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import {
   type L1ToL2MessageSource,
   accumulateCheckpointOutHashes,
@@ -34,8 +40,9 @@ import {
 import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { CheckpointGlobalVariables, FailedTx, Tx } from '@aztec/stdlib/tx';
+import type { CheckpointGlobalVariables, FailedTx, Tx, TxHash } from '@aztec/stdlib/tx';
 import {
+  InvalidBlockProposalTxsError,
   ReExFailedTxsError,
   ReExInitialStateMismatchError,
   ReExStateMismatchError,
@@ -56,6 +63,8 @@ export type BlockProposalValidationFailureReason =
   | 'global_variables_mismatch'
   | 'block_number_already_exists'
   | 'txs_not_available'
+  | 'duplicate_txs'
+  | 'invalid_embedded_txs'
   | 'state_mismatch'
   | 'failed_txs'
   | 'initial_state_mismatch'
@@ -91,10 +100,12 @@ export type CheckpointProposalValidationFailureReason =
   | 'invalid_fee_asset_price_modifier'
   | 'last_block_not_found'
   | 'block_fetch_error'
+  | 'world_state_not_synced'
   | 'checkpoint_already_published'
   | 'no_blocks_for_slot'
   | 'last_block_archive_mismatch'
   | 'too_many_blocks_in_checkpoint'
+  | 'initial_archive_mismatch'
   | 'checkpoint_header_mismatch'
   | 'archive_mismatch'
   | 'out_hash_mismatch'
@@ -115,6 +126,8 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   checkpoint_already_published: undefined,
   last_block_not_found: 'unvalidated',
   block_fetch_error: 'unvalidated',
+  world_state_not_synced: 'unvalidated',
+  initial_archive_mismatch: 'unvalidated',
   no_blocks_for_slot: 'unvalidated',
   last_block_archive_mismatch: 'invalid',
   too_many_blocks_in_checkpoint: 'invalid',
@@ -163,6 +176,8 @@ export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidation
   'invalid_proposal',
   'parent_block_wrong_slot',
   'in_hash_mismatch',
+  'duplicate_txs',
+  'invalid_embedded_txs',
 ];
 
 /** Checkpoint-proposal validation failures that constitute a slashable invalid-checkpoint offense. */
@@ -186,6 +201,9 @@ export const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<
   ['invalid_signature']: false,
   ['last_block_not_found']: false,
   ['block_fetch_error']: false,
+  ['world_state_not_synced']: false,
+  // A reorg / divergent local chain, not a proposer offense (mirrors the block path's initial_state_mismatch).
+  ['initial_archive_mismatch']: false,
   ['checkpoint_already_published']: false,
 };
 
@@ -462,6 +480,20 @@ export class ProposalHandler {
       return { isValid: false, reason: 'invalid_proposal' };
     }
 
+    // A tx can only appear once in a block: the second copy would emit nullifiers already emitted by the
+    // first. This is not a relaying-peer fault, so it passes gossip validation and is classified here as
+    // proposer misbehavior. Tx collection also reconciles a deduplicated hash set against the full list,
+    // so it must not be handed a proposal with repeated hashes.
+    const uniqueTxHashes = new Set(proposal.txHashes.map(txHash => txHash.toString()));
+    if (uniqueTxHashes.size !== proposal.txHashes.length) {
+      this.log.warn(`Proposal lists duplicate tx hashes, skipping processing`, {
+        ...proposalInfo,
+        txCount: proposal.txHashes.length,
+        uniqueTxCount: uniqueTxHashes.size,
+      });
+      return { isValid: false, reason: 'duplicate_txs' };
+    }
+
     const retainedSlotValidation = await this.validateNewBlockInSlot(proposal);
     if (!retainedSlotValidation.isValid) {
       this.log.info(`Block proposal conflicts with retained proposals, skipping archiver processing`, {
@@ -515,10 +547,11 @@ export class ProposalHandler {
 
     // Collect txs from the proposal. We start doing this as early as possible,
     // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
-    const { txs, missingTxs } = await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
-      pinnedPeer: proposalSender,
-      deadline: this.getReexecutionDeadline(slotNumber),
-    });
+    const collected = await this.collectProposalTxs(proposal, blockNumber, proposalSender, proposalInfo);
+    if (collected === 'invalid_embedded_txs') {
+      return { isValid: false, blockNumber, reason: collected };
+    }
+    const { txs, missingTxs } = collected;
 
     // Record the tx-collection outcome on the re-execution tracker
     this.reexecutionTracker.recordTxsCollected(slotNumber, proposal.indexWithinCheckpoint, missingTxs.length === 0);
@@ -601,6 +634,36 @@ export class ProposalHandler {
     );
 
     return { isValid: true, blockNumber, reexecutionResult };
+  }
+
+  /**
+   * Collects the txs for a proposal, returning `invalid_embedded_txs` if the proposal carries a tx that fails
+   * minimum integrity validation. That is proposer misbehavior — the proposal signs both the tx hashes and the
+   * tx objects — so the caller turns it into an invalid-proposal result that reaches slashing and invalid-slot
+   * accounting, rather than letting it escape as an exception. Any other collection error is a local failure
+   * and keeps propagating.
+   */
+  private async collectProposalTxs(
+    proposal: BlockProposal,
+    blockNumber: BlockNumber,
+    proposalSender: PeerId,
+    proposalInfo: LogData,
+  ): Promise<{ txs: Tx[]; missingTxs: TxHash[] } | 'invalid_embedded_txs'> {
+    try {
+      return await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
+        pinnedPeer: proposalSender,
+        deadline: this.getReexecutionDeadline(proposal.slotNumber),
+      });
+    } catch (error) {
+      if (!isErrorClass(error, InvalidBlockProposalTxsError)) {
+        throw error;
+      }
+      this.log.warn(`Block proposal carries ${error.invalidTxs.length} invalid txs`, {
+        ...proposalInfo,
+        invalidTxs: error.invalidTxs.map(({ txHash, reasons }) => ({ txHash: txHash.toString(), reasons })),
+      });
+      return 'invalid_embedded_txs';
+    }
   }
 
   private async validateNewBlockInSlot(blockProposal: BlockProposal): Promise<BlockProposalSlotValidationResult> {
@@ -1161,9 +1224,41 @@ export class ProposalHandler {
       log: this.log,
     });
 
-    // Fork world state at the block before the first block
+    // Fork world state at the block before the first block. getFork syncs world state to the parent block
+    // first (see its doc): the block source (archiver) can already hold the block while world state still
+    // trails it by one, and forking a not-yet-applied block throws a raw tree error that would otherwise
+    // escape as an uncaught gossipsub error. We pass the parent's expected block hash so the sync detects a
+    // world-state reorg (undefined for the genesis parent, where no block exists to pin). On failure we map
+    // to a clean validation result rather than letting it escape.
     const parentBlockNumber = BlockNumber(firstBlock.number - 1);
-    await using fork = await this.checkpointsBuilder.getFork(parentBlockNumber);
+    let forkResult: MerkleTreeWriteOperations;
+    try {
+      const parentBlockHash = (await this.blockSource.getBlockData({ number: parentBlockNumber }))?.blockHash;
+      forkResult = await this.checkpointsBuilder.getFork(parentBlockNumber, parentBlockHash);
+    } catch (err) {
+      this.log.warn(`Failed to fork world state at block ${parentBlockNumber} for checkpoint proposal`, {
+        ...proposalInfo,
+        parentBlockNumber,
+        err,
+      });
+      return { isValid: false, reason: 'world_state_not_synced', checkpointNumber };
+    }
+    await using fork = forkResult;
+
+    // Verify the fork's archive root matches the checkpoint's expected starting archive (the archive after
+    // the parent block). A mismatch means world state forked from a different chain than the proposal was
+    // built on (e.g. a reorg), so recomputing the checkpoint against it would be meaningless. This mirrors
+    // the block-proposal re-execution check and fails fast with a clean, non-slashable result instead of a
+    // confusing downstream mismatch.
+    const forkArchiveRoot = new Fr((await fork.getTreeInfo(MerkleTreeId.ARCHIVE)).root);
+    if (!forkArchiveRoot.equals(proposal.checkpointHeader.lastArchiveRoot)) {
+      this.log.warn(`Fork archive root does not match checkpoint proposal's last archive`, {
+        ...proposalInfo,
+        forkArchiveRoot: forkArchiveRoot.toString(),
+        expectedLastArchiveRoot: proposal.checkpointHeader.lastArchiveRoot.toString(),
+      });
+      return { isValid: false, reason: 'initial_archive_mismatch', checkpointNumber };
+    }
 
     // Create checkpoint builder with all existing blocks
     const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(

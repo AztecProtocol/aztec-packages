@@ -6,6 +6,9 @@ variable "API_KEY_SECRET_NAMES" {
     "eth-sepolia-rpc-consumer-client2",
     "eth-sepolia-rpc-consumer-client3",
     "eth-sepolia-rpc-consumer-client4",
+    "eth-sepolia-rpc-consumer-client5",
+
+    "eth-mainnet-rpc-consumer-client1",
   ]
 }
 
@@ -89,6 +92,48 @@ variable "EXTERNAL_SECRET_REFRESH_INTERVAL" {
   description = "ExternalSecret refresh interval."
   type        = string
   default     = "1m"
+}
+
+variable "IRM_METRICS_ENABLED" {
+  description = "Whether to forward the mainnet L1 health metric allowlist to Grafana Cloud through Alloy."
+  type        = bool
+  default     = true
+}
+
+variable "IRM_GRAFANA_CLOUD_SECRET_NAME" {
+  description = "GCP Secret Manager secret name containing the Grafana Cloud remote-write password/token."
+  type        = string
+  default     = "grafana-cloud-password"
+}
+
+variable "IRM_GRAFANA_CLOUD_REMOTE_WRITE_URL" {
+  description = "Grafana Cloud Prometheus remote-write endpoint for L1 IRM metrics."
+  type        = string
+  default     = "https://prometheus-prod-55-prod-gb-south-1.grafana.net/api/prom/push"
+}
+
+variable "IRM_GRAFANA_CLOUD_USERNAME" {
+  description = "Grafana Cloud Prometheus remote-write username for L1 IRM metrics."
+  type        = string
+  default     = "2476101"
+}
+
+variable "IRM_ALLOY_RESOURCES" {
+  description = "Resource requests and limits for the L1 IRM Alloy deployment."
+  type = object({
+    requests = map(string)
+    limits   = map(string)
+  })
+  default = {
+    requests = {
+      cpu    = "50m"
+      memory = "64Mi"
+    }
+    limits = {
+      cpu    = "100m"
+      memory = "128Mi"
+    }
+  }
 }
 
 variable "CREATE_DNS" {

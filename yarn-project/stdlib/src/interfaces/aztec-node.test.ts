@@ -46,6 +46,7 @@ import { NullifierMembershipWitness } from '../trees/nullifier_membership_witnes
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
+import { SimulationOverrides } from '../tx/simulated_tx.js';
 import { Tx } from '../tx/tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -61,7 +62,7 @@ import {
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import type { AllowedElement } from './allowed_element.js';
-import { MAX_RPC_LEN } from './api_limit.js';
+import { MAX_RPC_CHECKPOINTS_DATA_LEN, MAX_RPC_LEN, MAX_RPC_PUBLIC_STORAGE_OVERRIDES_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema, type GetTxByHashOptions } from './aztec-node.js';
 import type { BlockIncludeOptions, BlockResponse, BlocksIncludeOptions } from './block_response.js';
 import type { CheckpointTag } from './chain_tips.js';
@@ -280,11 +281,22 @@ describe('AztecNodeApiSchema', () => {
   it('getCheckpointsData (range)', async () => {
     const response = await context.client.getCheckpointsData({ from: CheckpointNumber(1), limit: 1 });
     expect(response).toEqual([]);
+
+    await expect(
+      context.client.getCheckpointsData({ from: CheckpointNumber(1), limit: MAX_RPC_CHECKPOINTS_DATA_LEN }),
+    ).resolves.toEqual([]);
+    await expect(
+      context.client.getCheckpointsData({ from: CheckpointNumber(1), limit: MAX_RPC_CHECKPOINTS_DATA_LEN + 1 }),
+    ).rejects.toThrow();
   });
 
   it('getCheckpointsData (fromSlot)', async () => {
     const response = await context.client.getCheckpointsData({ fromSlot: SlotNumber(1), limit: 1, reverse: true });
     expect(response).toEqual([]);
+
+    await expect(
+      context.client.getCheckpointsData({ fromSlot: SlotNumber(1), limit: MAX_RPC_CHECKPOINTS_DATA_LEN + 1 }),
+    ).rejects.toThrow();
   });
 
   it('getNodeVersion', async () => {
@@ -518,6 +530,19 @@ describe('AztecNodeApiSchema', () => {
   it('simulatePublicCalls', async () => {
     const response = await context.client.simulatePublicCalls(Tx.random());
     expect(response).toBeInstanceOf(PublicSimulationOutput);
+
+    const contract = await AztecAddress.random();
+    const overrides = (count: number) =>
+      new SimulationOverrides({
+        publicStorage: times(count, () => ({ contract, slot: Fr.random(), value: Fr.random() })),
+      });
+
+    await expect(
+      context.client.simulatePublicCalls(Tx.random(), false, overrides(MAX_RPC_PUBLIC_STORAGE_OVERRIDES_LEN)),
+    ).resolves.toBeInstanceOf(PublicSimulationOutput);
+    await expect(
+      context.client.simulatePublicCalls(Tx.random(), false, overrides(MAX_RPC_PUBLIC_STORAGE_OVERRIDES_LEN + 1)),
+    ).rejects.toThrow();
   });
 
   it('isValidTx(valid)', async () => {

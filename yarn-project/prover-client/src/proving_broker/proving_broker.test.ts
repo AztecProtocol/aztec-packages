@@ -175,11 +175,15 @@ describe.each([
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       });
+      // Re-enqueuing the same id with different metadata (here, a different type) is a caller bug and
+      // must throw. The identity check is metadata-level: `inputsUri` lives in the database now, not the
+      // in-memory cache, and job ids are content-addressed so genuinely different content yields a
+      // different id (it would not reach this same-id branch at all).
       await expect(
         broker.enqueueProvingJob({
           id,
           epochNumber: EpochNumber(1),
-          type: ProvingRequestType.PARITY_BASE,
+          type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
           inputsUri: makeInputsUri(),
         }),
       ).rejects.toThrow('Duplicate proving job ID');
@@ -201,7 +205,7 @@ describe.each([
       await assertJobStatus(id, 'in-queue');
 
       await broker.cancelProvingJob(id);
-      await assertJobStatus(id, 'rejected');
+      await assertJobStatus(id, 'aborted');
     });
 
     it('cancels jobs in-progress', async () => {
@@ -216,7 +220,135 @@ describe.each([
       await broker.getProvingJob();
       await assertJobStatus(id, 'in-progress');
       await broker.cancelProvingJob(id);
-      await assertJobStatus(id, 'rejected');
+      await assertJobStatus(id, 'aborted');
+    });
+
+    it('revives an aborted job when its producer re-requests it', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      await broker.enqueueProvingJob(provingJob);
+      await broker.getProvingJob();
+      await assertJobStatus(provingJob.id, 'in-progress');
+
+      await broker.cancelProvingJob(provingJob.id);
+      await assertJobStatus(provingJob.id, 'aborted');
+
+      // Re-requesting the same job (a retry without a restart) revives it rather than returning the
+      // cached abort. The job stays cached through the revive, so the start-of-call status is
+      // 'in-queue', and it can then be completed.
+      await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'in-queue' });
+      await assertJobStatus(provingJob.id, 'in-queue');
+      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      expect(returnedJob?.job).toEqual(provingJob);
+
+      const retryValue = makeOutputsUri();
+      await broker.reportProvingJobSuccess(provingJob.id, retryValue);
+      await assertJobStatus(provingJob.id, 'fulfilled');
+    });
+
+    it('persists the aborted state across a restart and revives on re-request', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      await broker.enqueueProvingJob(provingJob);
+      await broker.cancelProvingJob(provingJob.id);
+      await assertJobStatus(provingJob.id, 'aborted');
+
+      // A deploy restarts both the prover node and the broker. The aborted state is persisted, so it
+      // survives the restart rather than being lost or restored as a permanent rejection.
+      await broker.stop();
+      broker = new ProvingBroker(database, {
+        proverBrokerJobTimeoutMs: jobTimeoutMs,
+        proverBrokerPollIntervalMs: brokerIntervalMs,
+        proverBrokerJobMaxRetries: maxRetries,
+        proverBrokerMaxEpochsToKeepResultsFor: 1,
+        proverBrokerDebugReplayEnabled: false,
+      });
+      await broker.start();
+      await assertJobStatus(provingJob.id, 'aborted');
+
+      // The prover re-requests the job after the restart, which revives it (returning the cached
+      // 'in-queue' status), and it can be completed.
+      await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'in-queue' });
+      await assertJobStatus(provingJob.id, 'in-queue');
+      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      expect(returnedJob?.job).toEqual(provingJob);
+
+      const value = makeOutputsUri();
+      await broker.reportProvingJobSuccess(provingJob.id, value);
+      await assertJobStatus(provingJob.id, 'fulfilled');
+    });
+
+    it('persists the revived (non-aborted) state, so a restart mid-revival stays revived', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      await broker.enqueueProvingJob(provingJob);
+      await broker.cancelProvingJob(provingJob.id);
+      await assertJobStatus(provingJob.id, 'aborted');
+
+      // Revive the job but do not complete it before the broker restarts.
+      await broker.enqueueProvingJob(provingJob);
+      await assertJobStatus(provingJob.id, 'in-queue');
+
+      await broker.stop();
+      broker = new ProvingBroker(database, {
+        proverBrokerJobTimeoutMs: jobTimeoutMs,
+        proverBrokerPollIntervalMs: brokerIntervalMs,
+        proverBrokerJobMaxRetries: maxRetries,
+        proverBrokerMaxEpochsToKeepResultsFor: 1,
+        proverBrokerDebugReplayEnabled: false,
+      });
+      await broker.start();
+
+      // Reviving cleared the persisted aborted state, so the job comes back pending rather than
+      // aborted and keeps being proven without needing another re-request.
+      await assertJobStatus(provingJob.id, 'in-queue');
+    });
+
+    it('revives once when the producer re-requests an aborted job concurrently', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      await broker.enqueueProvingJob(provingJob);
+      await broker.cancelProvingJob(provingJob.id);
+      await assertJobStatus(provingJob.id, 'aborted');
+
+      // Two overlapping re-requests race through the revive. jobsCache stays populated as the enqueue
+      // lock throughout, so exactly one of them re-enqueues the job and both observe it as in-queue
+      // rather than the stale abort. The revived job is then delivered once and completes normally.
+      const [first, second] = await Promise.all([
+        broker.enqueueProvingJob(provingJob),
+        broker.enqueueProvingJob(provingJob),
+      ]);
+      expect(first).toEqual({ status: 'in-queue' });
+      expect(second).toEqual({ status: 'in-queue' });
+      await assertJobStatus(provingJob.id, 'in-queue');
+
+      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      expect(returnedJob?.job).toEqual(provingJob);
+      await assertJobStatus(provingJob.id, 'in-progress');
+      await expect(broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] })).resolves.toBeUndefined();
+
+      await broker.reportProvingJobSuccess(provingJob.id, makeOutputsUri());
+      await assertJobStatus(provingJob.id, 'fulfilled');
     });
 
     it('returns job result if successful', async () => {
@@ -523,7 +655,7 @@ describe.each([
       await broker.getProvingJob();
       await assertJobStatus(id, 'in-progress');
       await broker.cancelProvingJob(id);
-      await assertJobStatus(id, 'rejected');
+      await assertJobStatus(id, 'aborted');
 
       const id2 = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
@@ -925,7 +1057,7 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
 
-      const jobPromise = (broker as any).promises.get(id)?.promise;
+      const jobPromise: Promise<void> | undefined = (broker as any).promises.get(id)?.promise;
       expect(jobPromise).toBeDefined();
 
       // Advance the epoch height so epoch 1 becomes stale (oldestEpochToKeep = 3 - 1 = 2)
@@ -940,8 +1072,9 @@ describe.each([
       await sleep(brokerIntervalMs * 2);
       await assertJobStatus(id, 'not-found');
 
-      // The promise must have been settled (resolved with a rejected status) rather than left pending
-      await expect(jobPromise).resolves.toEqual({ status: 'rejected', reason: 'Proving job cleaned up' });
+      // The promise must have been settled (resolved rather than left pending) on clean-up. It carries no
+      // payload now — settled status/results are read from resultsCache/pendingResults/DB, not the promise.
+      await expect(jobPromise).resolves.toBeUndefined();
     });
 
     it('keeps the jobs in progress while it is alive', async () => {
@@ -1079,6 +1212,40 @@ describe.each([
       await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
         status: 'not-found',
       });
+    });
+  });
+
+  describe('off-heap payloads', () => {
+    it('keeps only metadata/status in memory and serves inputs & result from the database', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(EpochNumber(1)),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+      await broker.enqueueProvingJob(provingJob);
+
+      // The in-memory job cache holds metadata only — no inputsUri.
+      expect((broker as any).jobsCache.get(provingJob.id)).toEqual({
+        id: provingJob.id,
+        type: provingJob.type,
+        epochNumber: provingJob.epochNumber,
+      });
+
+      // Dispatch reconstructs the full job by reading inputsUri back from the database.
+      const dispatched = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      expect(dispatched?.job).toEqual(provingJob);
+
+      const value = makeOutputsUri();
+      await broker.reportProvingJobSuccess(provingJob.id, value);
+
+      // The fulfilled proof value is not retained in memory: resultsCache holds status only, and the
+      // transient pendingResults hold was evicted once the database write committed.
+      expect((broker as any).resultsCache.get(provingJob.id)).toEqual({ status: 'fulfilled' });
+      expect((broker as any).pendingResults.has(provingJob.id)).toBe(false);
+
+      // ...yet the status endpoint still returns the full result, read back from the database.
+      await expect(broker.getProvingJobStatus(provingJob.id)).resolves.toEqual({ status: 'fulfilled', value });
     });
   });
 

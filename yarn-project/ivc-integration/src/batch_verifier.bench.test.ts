@@ -22,7 +22,7 @@ const logger = createLogger('ivc-integration:bench:batch-verifier');
 
 const REPO_ROOT = resolve('../..');
 const INPUTS_DIR = resolve(REPO_ROOT, 'barretenberg/cpp/chonk-pinned-flows');
-const BB_PATH = process.env.BB_BINARY_PATH ?? resolve('../../barretenberg/cpp/build/bin/bb');
+const BB_PATH = process.env.BB_BINARY_PATH ?? resolve(REPO_ROOT, 'labs-aztec-toolchain/bin/bb');
 const CHONK_INPUTS_SCRIPT = resolve(REPO_ROOT, 'barretenberg/cpp/scripts/chonk_inputs.sh');
 const CHONK_INPUTS_HASH_FILE = resolve(REPO_ROOT, 'barretenberg/cpp/scripts/chonk-inputs.hash');
 const CHONK_INPUTS_MARKER_FILE = resolve(INPUTS_DIR, '.chonk-inputs.hash');

@@ -268,7 +268,7 @@ describe('findPrivateKernelResetDimensions', () => {
     };
     const configPath = resolve(
       dirname(fileURLToPath(import.meta.url)),
-      '../../../../../noir-projects/noir-protocol-circuits/private_kernel_reset_config.json',
+      '../../../../../noir-projects/fnd/noir-protocol-circuits/private_kernel_reset_config.json',
     );
     const shipped = JSON.parse(readFileSync(configPath, 'utf8')) as ShippedConfig;
     const allEntries: ShippedEntry[] = [...shipped.inner, ...shipped.finalTail, ...shipped.finalTailToPublic];

@@ -18,14 +18,16 @@ function download_solc {
   echo_stderr "Downloading solc $solc_version via svm..."
   # svm-rs always uses ~/.svm if it exists. Make sure it does for a consistent path across OS/architecture.
   mkdir -p "$HOME/.svm"
-  # We build a minimal file to trigger svm download of solc. svm fetches the
+  # We build a minimal file to trigger svm download of solc. It must be a committed
+  # file, not a generated one: this target has no build prerequisites, so generated
+  # sources (e.g. ConstantsGen.sol) may not exist yet when it runs. svm fetches the
   # binary from binaries.soliditylang.org, which intermittently fails to resolve
   # under heavy parallel CI load; retry every 10s for ~5 min to ride out transient
   # DNS drops, but only on connection/DNS failures so a genuine build error fails
   # fast. (The merge queue disables the cache above, so this download path runs
   # every time. stderr is kept so retry can see the DNS error and match on it.)
   RETRY_ATTEMPTS=30 RETRY_SLEEP=10 retry -p 'dns error|Temporary failure in name resolution|error sending request|failed to lookup address|Connection refused|connection reset' \
-    "forge build --use \"$solc_version\" src/core/libraries/ConstantsGen.sol"
+    "forge build --use \"$solc_version\" src/core/interfaces/IVerifier.sol"
 
   # Copy from svm cache to local path
   local svm_path="$HOME/.svm/$solc_version/solc-$solc_version"
@@ -42,12 +44,14 @@ function download_solc {
 export hash=$(cache_content_hash \
   .rebuild_patterns \
   ../noir/.rebuild_patterns \
-  ../noir-projects/noir-protocol-circuits \
+  ../noir-projects/fnd/noir-protocol-circuits \
   ../barretenberg/cpp/.rebuild_patterns
 )
 
 function build_src {
   echo_header "l1-contracts build_src"
+
+  scripts/remake-constants.sh
 
   # Download solc binary
   download_solc
@@ -88,7 +92,7 @@ function build_verifier {
     mkdir -p generated
 
     # Copy from noir-projects. Bootstrap must have ran in noir-projects.
-    local rollup_verifier_path=../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
+    local rollup_verifier_path=../noir-projects/fnd/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
     if [ -f "$rollup_verifier_path" ]; then
       cp "$rollup_verifier_path" generated/HonkVerifier.sol
     else
@@ -282,79 +286,6 @@ function validator_costs {
   python3 scripts/process_gas_reports.py no_validators.json 100_validators.json 100_validators_slashing.json
 }
 
-# First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
-# Second argument is the tag name (e.g. v1.2.3, or commit-<hash>).
-# Third argument is the semver for package.json (e.g. 1.2.3 or 1.2.3-commit.<hash>)
-#
-#   v1.2.3    commit-123cafebabe
-#      |     /
-#   v1.2.2  commit-123deadbeef
-#      |   /
-#   v1.2.1
-#
-function release_git_push {
-  local branch_name=$1
-  local tag_name=$2
-  local version=$3
-  local mirrored_repo_url="https://github.com/AztecProtocol/l1-contracts.git"
-
-  # Clean up our release directory.
-  rm -rf release-out && mkdir release-out
-
-  # Copy our git files to our release directory.
-  git archive HEAD | tar -x -C release-out
-
-  # Copy from noir-projects. Bootstrap must have ran in noir-projects.
-  cp ../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol release-out/src/HonkVerifier.sol
-
-  # Push the release from the clean export of HEAD, in a subshell so the caller's working directory
-  # is preserved. Later release steps (e.g. release_l1_artifacts_npm) rely on the gitignored build
-  # outputs that live in the working tree, outside this git-archive copy.
-  (
-    cd release-out
-
-    # Update the package version in package.json.
-    # TODO remove package.json.
-    release_prep_package_json $version
-
-    # CI needs to authenticate from GITHUB_TOKEN.
-    gh auth setup-git &>/dev/null || true
-
-    git init &>/dev/null
-    git remote add origin "$mirrored_repo_url" &>/dev/null
-    git fetch origin --quiet
-
-    # Checkout the existing branch or create it if it doesn't exist.
-    if git ls-remote --heads origin "$branch_name" | grep -q "$branch_name"; then
-      # Update branch reference without checkout.
-      git branch -f "$branch_name" origin/"$branch_name"
-      # Point HEAD to the branch.
-      git symbolic-ref HEAD refs/heads/"$branch_name"
-      # Move to latest commit, keep working tree.
-      git reset --soft origin/"$branch_name"
-    else
-      git checkout -b "$branch_name"
-    fi
-
-    if git rev-parse "$tag_name" >/dev/null 2>&1; then
-      echo "Tag $tag_name already exists. Skipping release."
-    else
-      git add .
-      git commit -m "Release $tag_name." >/dev/null
-      git tag -a "$tag_name" -m "Release $tag_name."
-      do_or_dryrun git push origin "$branch_name" --quiet
-      do_or_dryrun git push origin --quiet --force "$tag_name" --tags
-
-      echo "Release complete ($tag_name) on branch $branch_name."
-    fi
-
-    do_or_dryrun git push origin "$branch_name" --quiet
-    do_or_dryrun git push origin --quiet --force "$tag_name" --tags
-
-    echo "Release complete ($tag_name) on branch $branch_name."
-  )
-}
-
 function coverage {
   echo_header "l1-contracts coverage"
   forge --version
@@ -507,8 +438,8 @@ function coverage_serve {
 # by the runtime forge deploy path). yarn-project consumes this via portal in-repo and via the
 # published version downstream, so it must publish before yarn-project's release (whose smoke test
 # installs packages that depend on @aztec/l1-artifacts@<version>).
-function release_l1_artifacts_npm {
-  echo_header "l1-contracts release l1-artifacts npm"
+function release {
+  echo_header "l1-contracts release"
   local version=${REF_NAME#v}
 
   # dest/ and the bundled foundry subtree are gitignored build outputs left in the working tree by
@@ -527,17 +458,6 @@ function release_l1_artifacts_npm {
   sed -i 's|^solc = "\./solc-\(.*\)"|solc_version = "\1"|' "$bundle/foundry.toml"
 
   (cd l1-artifacts && retry "deploy_npm $version")
-}
-
-function release {
-  echo_header "l1-contracts release"
-  local branch=$(dist_tag)
-  if [ $branch = latest ]; then
-    branch=master
-  fi
-
-  release_git_push $branch $REF_NAME ${REF_NAME#v}
-  release_l1_artifacts_npm
 }
 
 case "$cmd" in

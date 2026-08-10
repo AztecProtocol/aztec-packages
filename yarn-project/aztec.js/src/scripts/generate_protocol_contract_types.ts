@@ -8,6 +8,7 @@ import {
   type FunctionAbi,
   FunctionType,
   getAllFunctionAbis,
+  getFunctionReturnType,
   loadContractArtifact,
 } from '@aztec/stdlib/abi';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
@@ -17,7 +18,7 @@ import path from 'path';
 
 const log = console.log;
 
-const noirContractsRoot = path.join(import.meta.dirname, '../../../../noir-projects/noir-contracts');
+const noirContractsRoot = path.join(import.meta.dirname, '../../../../noir-projects/fnd/noir-contracts');
 const srcPath = path.join(noirContractsRoot, 'target');
 const outputDir = path.join(import.meta.dirname, '../contract/protocol_contracts');
 
@@ -43,7 +44,7 @@ function generateFunctionAbiJson(abi: FunctionAbi): string {
     isStatic: abi.isStatic,
     isInitializer: abi.isInitializer,
     parameters: abi.parameters,
-    returnTypes: abi.returnTypes,
+    returnType: getFunctionReturnType(abi),
     errorTypes: abi.errorTypes,
   };
   const jsonStr = JSON.stringify(baseObj);
@@ -112,8 +113,14 @@ export class ${contractName} extends ContractBase {
     super(ProtocolContractAddress.${protocolContractName}, ${contractName}Artifact, wallet);
   }
 
-  public static at(wallet: Wallet): ${contractName} {
+  /** Returns an interface to the canonical ${contractName} instance, bound to the given wallet. */
+  public static withWallet(wallet: Wallet): ${contractName} {
     return new ${contractName}(wallet);
+  }
+
+  /** @deprecated Use \`withWallet\` instead. */
+  public static at(wallet: Wallet): ${contractName} {
+    return ${contractName}.withWallet(wallet);
   }
 
   public declare methods: {${methodsMatch[1]}

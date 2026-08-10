@@ -18,7 +18,6 @@ import {
   NestedProcessReturnValues,
   OFFCHAIN_MESSAGE_IDENTIFIER,
   type OffchainEffect,
-  PendingTxReceipt,
   PrivateExecutionResult,
   Tx,
   TxEffect,
@@ -68,7 +67,7 @@ async function makeFunctionCall(type: FunctionType, isStatic: boolean, name: str
     hideMsgSender: false,
     isStatic,
     args: [Fr.random()],
-    returnTypes: [{ kind: 'field' as const }],
+    returnType: { kind: 'field' as const },
   });
 }
 
@@ -399,7 +398,6 @@ describe('BaseWallet', () => {
     pxe.getSyncedBlockHeader.mockResolvedValue(BlockHeader.empty());
     wallet.mockAccount.createTxExecutionRequest.mockResolvedValue(mock());
     pxe.proveTx.mockResolvedValue(provenTx);
-    node.getTxReceipt.mockResolvedValue(new PendingTxReceipt(TxHash.random(), undefined));
     node.sendTx.mockResolvedValue();
 
     const payload = new ExecutionPayload([await makeFunctionCall(FunctionType.PRIVATE, false, 'transfer')], [], []);

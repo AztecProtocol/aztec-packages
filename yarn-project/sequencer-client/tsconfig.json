@@ -34,12 +34,6 @@
       "path": "../node-keystore"
     },
     {
-      "path": "../noir-contracts.js"
-    },
-    {
-      "path": "../noir-protocol-circuits-types"
-    },
-    {
       "path": "../p2p"
     },
     {
@@ -74,6 +68,9 @@
     },
     {
       "path": "../kv-store"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
     }
   ],
   "include": ["src"]

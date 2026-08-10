@@ -165,22 +165,14 @@ jobs:
               --data "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')"
           fi
 
+      # Uses ci3/upload_benchmarks rather than github-action-benchmark: the action full-clones
+      # the multi-GB data repo per upload; the script does a shallow sparse clone instead.
       - name: Upload benchmarks
         if: env.BENCH_UPLOAD == '1'
-        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
-        with: &ci_benchmark_args
-          name: Aztec Benchmarks
-          benchmark-data-dir-path: "bench/${{ env.BENCH_BRANCH }}"
-          tool: "customSmallerIsBetter"
-          output-file-path: ./bench-out/bench.json
-          gh-repository: github.com/AztecProtocol/benchmark-page-data
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          auto-push: true
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          alert-threshold: "105%"
-          comment-on-alert: false
-          fail-on-alert: false
-          max-items-in-chart: 100
+        env: &ci_benchmark_env
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: &ci_benchmark_run ./ci3/upload_benchmarks "Aztec Benchmarks" "bench/${BENCH_BRANCH:-}" ./bench-out/bench.json "$COMMIT_SHA"
 
   # Validates that a nightly tag's embedded date matches today's UTC date.
   # Prevents stale or replayed nightly tags from triggering scenario tests.
@@ -323,8 +315,8 @@ jobs:
 
       - name: Upload benchmarks
         if: env.ENABLE_DEPLOY_BENCH == '1'
-        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
-        with: *ci_benchmark_args
+        env: *ci_benchmark_env
+        run: *ci_benchmark_run
 
       - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure() && startsWith(github.ref, 'refs/tags/v')
@@ -422,20 +414,11 @@ jobs:
 
       - name: Upload benchmarks
         if: always() && env.ENABLE_DEPLOY_BENCH == '1'
-        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
-        with:
-          name: Spartan
-          benchmark-data-dir-path: "bench/pr-${{ github.event.pull_request.number }}"
-          tool: "customSmallerIsBetter"
-          output-file-path: ./bench-out/bench.json
-          gh-repository: github.com/AztecProtocol/benchmark-page-data
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          auto-push: true
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          alert-threshold: "120%"
-          comment-on-alert: false
-          fail-on-alert: false
-          max-items-in-chart: 100
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: ./ci3/upload_benchmarks "Spartan" "bench/pr-$PR_NUMBER" ./bench-out/bench.json "$COMMIT_SHA"
 
   # KIND-based e2e tests that run on a local Kubernetes cluster.
   # One-time use: label is removed after the job runs.

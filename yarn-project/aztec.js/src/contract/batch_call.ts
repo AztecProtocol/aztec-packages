@@ -59,6 +59,16 @@ export class BatchCall extends BaseContractInteraction {
    * @returns The results of all the interactions that make up the batch
    */
   public async simulate(options: SimulateInteractionOptions): Promise<SimulationResult> {
+    const feeExecutionPayload = options.fee?.paymentMethod
+      ? await options.fee.paymentMethod.getExecutionPayload()
+      : undefined;
+    // A call-contributing fee payment method prepends its calls in front of the batch (see the merge below). Those
+    // calls shift the return-value indices, and the wallet-side app-call offset does not absorb them: it only counts
+    // the wallet's own fee payment method, not one supplied through options.fee. We offset each app call's result
+    // index by the number of prepended fee calls of the matching type.
+    const feePrivateCallCount = feeExecutionPayload?.calls.filter(c => c.type === FunctionType.PRIVATE).length ?? 0;
+    const feePublicCallCount = feeExecutionPayload?.calls.filter(c => c.type === FunctionType.PUBLIC).length ?? 0;
+
     const { indexedExecutionPayloads, utility } = (await this.getExecutionPayloads()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
@@ -98,12 +108,15 @@ export class BatchCall extends BaseContractInteraction {
     // Add tx simulation to batch if there are any private/public calls
     if (indexedExecutionPayloads.length > 0) {
       const payloads = indexedExecutionPayloads.map(([request]) => request);
-      const combinedPayload = mergeExecutionPayloads(payloads);
+      const combinedPayload = mergeExecutionPayloads(
+        feeExecutionPayload ? [feeExecutionPayload, ...payloads] : payloads,
+      );
       const executionPayload = new ExecutionPayload(
         combinedPayload.calls,
         combinedPayload.authWitnesses.concat(options.authWitnesses ?? []),
         combinedPayload.capsules.concat(options.capsules ?? []),
         combinedPayload.extraHashedArgs,
+        combinedPayload.feePayer,
       );
 
       batchRequests.push({
@@ -125,7 +138,7 @@ export class BatchCall extends BaseContractInteraction {
         const rawReturnValues = utilityResult.result;
         const offchainOutput = extractOffchainOutput(utilityResult.offchainEffects, utilityResult.anchorBlockTimestamp);
         results[resultIndex] = {
-          result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+          result: rawReturnValues ? decodeFromAbi(call.returnType, rawReturnValues) : undefined,
           ...offchainOutput,
         };
       }
@@ -139,14 +152,15 @@ export class BatchCall extends BaseContractInteraction {
         simulatedTx = txResultWrapper.result as TxSimulationResultWithAppOffset;
         indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
           const call = request.calls[0];
-          // For public functions we retrieve the values directly from the public output.
+          // For public functions we retrieve the values directly from the public output. Both indices are offset by
+          // the fee payment method's own calls, which are prepended ahead of the batch.
           const rawReturnValues =
             call.type == FunctionType.PRIVATE
-              ? simulatedTx!.getPrivateReturnValuesOfAppCall(resultIndex)?.values
-              : simulatedTx!.getPublicReturnValues()?.[resultIndex].values;
+              ? simulatedTx!.getPrivateReturnValuesOfAppCall(feePrivateCallCount + resultIndex)?.values
+              : simulatedTx!.getPublicReturnValues()?.[feePublicCallCount + resultIndex].values;
 
           results[callIndex] = {
-            result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+            result: rawReturnValues ? decodeFromAbi(call.returnType, rawReturnValues) : undefined,
             ...extractOffchainOutput(
               simulatedTx!.offchainEffects,
               simulatedTx!.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,

@@ -8,6 +8,7 @@ import {
   canBeMappedFromNullOrUndefined,
   decodeFromAbi,
   encodeArguments,
+  getFunctionReturnType,
   isOptionStruct,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -84,7 +85,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       hideMsgSender: false /** Only set to `true` for enqueued public function calls */,
       isStatic: this.functionDao.isStatic,
       args,
-      returnTypes: this.functionDao.returnTypes,
+      returnType: getFunctionReturnType(this.functionDao),
     });
   }
 
@@ -139,7 +140,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       });
 
       // Decode the raw field elements to the actual return type
-      const returnValue = utilityResult.result ? decodeFromAbi(this.functionDao.returnTypes, utilityResult.result) : [];
+      const returnValue = utilityResult.result
+        ? decodeFromAbi(getFunctionReturnType(this.functionDao), utilityResult.result)
+        : undefined;
       const offchainOutput = extractOffchainOutput(utilityResult.offchainEffects, utilityResult.anchorBlockTimestamp);
 
       if (options.includeMetadata) {
@@ -157,13 +160,21 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
     let rawReturnValues;
     if (this.functionDao.functionType == FunctionType.PRIVATE) {
-      rawReturnValues = simulatedTx.getPrivateReturnValuesOfAppCall(0)?.values;
+      // request() prepends the fee payment method's calls (if any) before this interaction's single call, so the app
+      // call is the last call of its type in the payload. Its position among the private return values is the number
+      // of private calls that precede it.
+      const appCallIndex = executionPayload.calls.filter(c => c.type === FunctionType.PRIVATE).length - 1;
+      rawReturnValues = simulatedTx.getPrivateReturnValuesOfAppCall(appCallIndex)?.values;
     } else {
-      // For public functions we retrieve the first values directly from the public output.
-      rawReturnValues = simulatedTx.getPublicReturnValues()?.[0]?.values;
+      // For public functions we retrieve the values directly from the public output, offset by any public fee calls
+      // that request() prepended ahead of the app call.
+      const appCallIndex = executionPayload.calls.filter(c => c.type === FunctionType.PUBLIC).length - 1;
+      rawReturnValues = simulatedTx.getPublicReturnValues()?.[appCallIndex]?.values;
     }
 
-    const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+    const returnValue = rawReturnValues
+      ? decodeFromAbi(getFunctionReturnType(this.functionDao), rawReturnValues)
+      : undefined;
     const offchainOutput = extractOffchainOutput(
       simulatedTx.offchainEffects,
       simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,

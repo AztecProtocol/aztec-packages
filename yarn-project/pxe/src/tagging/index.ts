@@ -13,7 +13,12 @@ export { syncTaggedPrivateLogs } from './recipient_sync/sync_tagged_private_logs
 export { syncSenderTaggingIndexes } from './sender_sync/sync_sender_tagging_indexes.js';
 export { persistSenderTaggingIndexRangesForTx } from './persist_sender_tagging_index_ranges.js';
 export { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, INITIAL_CONSTRAINED_PROBE_LEN } from './constants.js';
-export { getAllPrivateLogsByTags, getAllPublicLogsByTagsFromContract } from './get_all_logs_by_tags.js';
+export {
+  type LogQueryAnchor,
+  getAllPrivateLogsByTags,
+  getAllPublicLogsByTagsFromContract,
+  logQueryAnchorOf,
+} from './get_all_logs_by_tags.js';
 
 // Re-export tagging-related types from stdlib
 export { AppTaggingSecret, Tag, SiloedTag } from '@aztec/stdlib/logs';

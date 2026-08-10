@@ -1,4 +1,10 @@
-import { DA_GAS_PER_FIELD, TX_DA_GAS_OVERHEAD } from '@aztec/constants';
+import {
+  DA_GAS_PER_FIELD,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
+  MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS,
+  TX_DA_GAS_OVERHEAD,
+} from '@aztec/constants';
 import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
@@ -32,6 +38,14 @@ import { TxHash } from './tx_hash.js';
 // exceed this still serialize correctly — the sink falls back to its standard doubling growth — just
 // with the existing cost.
 const TX_SINK_PRESIZE_BYTES = 131072;
+
+/**
+ * Upper bound on the calldata entries a tx can carry: one per enqueued call, plus one for the teardown call.
+ * The revertible and non-revertible call request arrays are each sized `MAX_ENQUEUED_CALLS_PER_TX`, but the
+ * private tail circuit fills them by partitioning a single array of that size, so their lengths sum to it. The
+ * teardown request is propagated separately and can only be set once.
+ */
+export const MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX = MAX_ENQUEUED_CALLS_PER_TX + 1;
 
 /**
  * The interface of an L2 transaction.
@@ -172,8 +186,10 @@ export class Tx extends Gossipable {
       .object({
         data: PrivateKernelTailCircuitPublicInputs.schema,
         chonkProof: ChonkProof.schema,
-        contractClassLogFields: z.array(ContractClassLogFields.schema),
-        publicFunctionCalldata: z.array(HashedValues.schema),
+        contractClassLogFields: z.array(ContractClassLogFields.schema).max(MAX_CONTRACT_CLASS_LOGS_PER_TX),
+        publicFunctionCalldata: z
+          .array(HashedValues.schemaFor(MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS))
+          .max(MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX),
       })
       .transform(Tx.create);
   }

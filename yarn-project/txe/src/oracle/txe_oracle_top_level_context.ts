@@ -887,7 +887,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       hideMsgSender: false,
       isStatic: false,
       args,
-      returnTypes: [],
     });
 
     return this.executeUtilityCall(call, {

@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
- * See `noir-projects/noir-protocol-circuits/crates/blob/src/abis/final_blob_batching_challenges.nr` for documentation.
+ * See `noir-projects/fnd/noir-protocol-circuits/crates/blob/src/abis/final_blob_batching_challenges.nr` for documentation.
  */
 export class FinalBlobBatchingChallenges {
   constructor(

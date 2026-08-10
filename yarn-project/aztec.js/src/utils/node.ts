@@ -1,5 +1,6 @@
 import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import { SortedTxStatuses, TxStatus } from '@aztec/stdlib/tx';
@@ -47,9 +48,20 @@ function hasReachedStatus(receipt: TxReceipt, desiredStatus: TxStatus): boolean 
  * @throws If the transaction fails and dontThrowOnRevert is not set
  */
 export async function waitForTx(node: AztecNode, txHash: TxHash, opts?: WaitOpts): Promise<TxReceipt> {
-  const startTime = Date.now();
   const ignoreDroppedReceiptsFor = opts?.ignoreDroppedReceiptsFor ?? DefaultWaitOpts.ignoreDroppedReceiptsFor;
   const waitForStatus = opts?.waitForStatus ?? TxStatus.CHECKPOINTED;
+  const timeout = opts?.timeout ?? DefaultWaitOpts.timeout;
+  // The initial delay counts against the timeout: the deadline is fixed before sleeping, and the sleep never
+  // exceeds it.
+  const deadline = timeout ? { deadline: new Date(Date.now() + timeout * 1000) } : undefined;
+
+  if (opts?.initialDelay) {
+    const delay = Math.min(opts.initialDelay, timeout ?? Infinity);
+    await sleep(delay * 1000);
+  }
+
+  // The grace period for DROPPED receipts starts at the first poll, so the initial delay does not consume it.
+  const startTime = Date.now();
 
   const receipt = await retryUntil(
     async () => {
@@ -75,7 +87,7 @@ export async function waitForTx(node: AztecNode, txHash: TxHash, opts?: WaitOpts
       return txReceipt;
     },
     'isMined',
-    opts?.timeout ?? DefaultWaitOpts.timeout,
+    deadline,
     opts?.interval ?? DefaultWaitOpts.interval,
   );
 

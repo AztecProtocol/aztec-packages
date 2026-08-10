@@ -186,7 +186,7 @@ export async function lookupValidity(
       },
       { name: 'inner_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
     ],
-    returnTypes: [{ kind: 'boolean' }],
+    returnType: { kind: 'boolean' },
     errorTypes: {},
   } as FunctionAbi;
   try {
@@ -219,7 +219,7 @@ export async function lookupValidity(
       },
       { name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
     ],
-    returnTypes: [{ kind: 'boolean' }],
+    returnType: { kind: 'boolean' },
     errorTypes: {},
   } as FunctionAbi;
   results.isValidInPublic = (
@@ -321,7 +321,6 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
           visibility: 'private' as ABIParameterVisibility,
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
   }

@@ -19,7 +19,7 @@ export async function publishContractClass(
 ): Promise<ContractFunctionInteraction> {
   const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode } =
     await getContractClassFromArtifact(artifact);
-  const classRegistry = ContractClassRegistryContract.at(wallet);
+  const classRegistry = ContractClassRegistryContract.withWallet(wallet);
 
   const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
   return classRegistry.methods.publish(artifactHash, privateFunctionsRoot, publicBytecodeCommitment).with({

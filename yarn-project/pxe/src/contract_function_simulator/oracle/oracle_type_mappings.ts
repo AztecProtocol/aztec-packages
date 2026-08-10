@@ -714,8 +714,23 @@ export function BOUNDED_VEC<T>(inner: TypeMapping<T>): BoundedVecMapping<T> {
           fn: ([storageReader, lengthReader]) => {
             // slot 0 is the padded storage, slot 1 the actual length. Parse only the first `length` elements out of
             // storage, then drain the trailing zero-padding so the storage reader is fully consumed.
-            const maxLength = storageReader.remainingFields() / fieldWidth(inner.shape);
+            const elementWidth = fieldWidth(inner.shape);
+            const storageFields = storageReader.remainingFields();
+            if (storageFields % elementWidth !== 0) {
+              throw new Error(
+                `Malformed BoundedVec: storage array holds ${storageFields} field(s), which is not a whole number of ` +
+                  `${elementWidth}-field elements`,
+              );
+            }
+            // The BoundedVec's maximum length is determined by the size of the storage array, so its length is bounded
+            // by it.
+            const maxLength = storageFields / elementWidth;
             const length = lengthReader.readField().toNumber();
+            if (length > maxLength) {
+              throw new Error(
+                `Malformed BoundedVec: length ${length} exceeds the ${maxLength} element(s) its storage array holds`,
+              );
+            }
             const elements = unpackElements(inner, storageReader, length);
             storageReader.skip(storageReader.remainingFields());
             return BoundedVec.from<T>({ data: elements, maxLength });

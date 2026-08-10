@@ -3,7 +3,7 @@ title: Partial notes
 sidebar_position: 1
 tags: [Developers, Contracts, Notes]
 description: How partial notes work, how they are completed, and how they enable use cases like AMM swaps and payment endpoints.
-references: ["noir-projects/aztec-nr/uint-note/src/uint_note.nr"]
+references: ["noir-projects/labs/aztec-nr/uint-note/src/uint_note.nr"]
 ---
 
 import Image from "@theme/IdealImage";
@@ -18,7 +18,7 @@ Partial notes are notes created with incomplete data, usually during private exe
 
 Let's say, for example, we have a `UintNote`:
 
-#include_code uint_note_def /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+#include_code uint_note_def /noir-projects/labs/aztec-nr/uint-note/src/uint_note.nr rust
 
 The `UintNote` struct itself only contains the `value` field. Additional fields including `owner`, `randomness`, and `storage_slot` are passed as parameters during note hash computation.
 
@@ -88,7 +88,7 @@ All notes in Aztec use the partial note format internally. This ensures that not
 
 The `UintNote` struct contains only the `value` field:
 
-#include_code uint_note_def /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+#include_code uint_note_def /noir-projects/labs/aztec-nr/uint-note/src/uint_note.nr rust
 
 ### Two-phase commitment process
 
@@ -96,7 +96,7 @@ The `UintNote` struct contains only the `value` field:
 
 The private fields (`owner` and `randomness`) are committed during local, private execution:
 
-#include_code compute_partial_commitment /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+#include_code compute_partial_commitment /noir-projects/labs/aztec-nr/uint-note/src/uint_note.nr rust
 
 This creates a partial note commitment:
 
@@ -108,7 +108,7 @@ partial_commitment = H(owner, randomness)
 
 The note is completed by hashing the partial commitment with the public value:
 
-#include_code compute_complete_note_hash /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+#include_code compute_complete_note_hash /noir-projects/labs/aztec-nr/uint-note/src/uint_note.nr rust
 
 The resulting structure is a nested commitment:
 
@@ -126,12 +126,12 @@ When a note is created with all fields known (including `owner`, `storage_slot`,
 1. A partial commitment is computed from the private fields (`owner`, `randomness`)
 2. The partial commitment is immediately completed with the `storage_slot` and `value` fields
 
-#include_code compute_note_hash /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+#include_code compute_note_hash /noir-projects/labs/aztec-nr/uint-note/src/uint_note.nr rust
 
 This two-step process ensures that notes with identical field values produce identical note hashes, regardless of whether they were created as partial notes or complete notes.
 
 ## Partial notes in practice
 
-To understand how to use partial notes in practice, [this AMM contract](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/amm_contract) uses partial notes to initiate and complete the swap of `token1` to `token2`. Since the exchange rate is onchain, it cannot be known ahead of time while executing in private so a full note cannot be created. Instead, a partial note is created for the `owner` swapping the tokens. This partial note is then completed during public execution once the exchange rate can be read.
+To understand how to use partial notes in practice, [this AMM contract](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/labs/noir-contracts/contracts/app/amm_contract) uses partial notes to initiate and complete the swap of `token1` to `token2`. Since the exchange rate is onchain, it cannot be known ahead of time while executing in private so a full note cannot be created. Instead, a partial note is created for the `owner` swapping the tokens. This partial note is then completed during public execution once the exchange rate can be read.
 
 For a different application of the same primitive, where the partial note represents an offer to be paid rather than a deferred DeFi settlement, see [partial notes as payment endpoints](./partial_notes_as_payment_endpoints.md).

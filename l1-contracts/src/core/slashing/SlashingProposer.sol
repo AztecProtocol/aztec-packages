@@ -257,9 +257,12 @@ contract SlashingProposer is EIP712 {
   /**
    * @notice Emitted when a proposer casts a vote in a slashing round
    * @param round The round number in which the vote was cast
+   * @param slot The slot in which the vote was cast
    * @param proposer The address of the proposer who cast the vote
+   * @param voteIndex The position of the vote within the round, from 0 to the round's vote count (exclusive), as
+   * accepted by getVotes
    */
-  event VoteCast(SlashRound indexed round, Slot indexed slot, address indexed proposer);
+  event VoteCast(SlashRound indexed round, Slot indexed slot, address indexed proposer, uint256 voteIndex);
 
   /**
    * @notice Emitted when a slashing round is executed and validators are slashed
@@ -375,7 +378,7 @@ contract SlashingProposer is EIP712 {
    *             Signature covers the vote data and current slot number.
    *
    * Emits:
-   * - VoteCast: When the vote is successfully recorded
+   * - VoteCast: When the vote is successfully recorded, carrying the vote's index within the round
    *
    * Reverts with:
    * - SlashingProposer__VotingNotOpen: If current round is less than SLASH_OFFSET_IN_ROUNDS
@@ -415,7 +418,7 @@ contract SlashingProposer is EIP712 {
     // Increment the vote count for this round (all other fields remain unchanged)
     _setRoundData(round, slot, voteCount + 1, roundData.executed);
 
-    emit VoteCast(round, slot, proposer);
+    emit VoteCast(round, slot, proposer, voteCount);
   }
 
   /**

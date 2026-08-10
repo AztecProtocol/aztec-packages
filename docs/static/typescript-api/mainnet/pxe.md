@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: 5.0.1
+Version: 5.1.0
 
 ## Quick Import Reference
 
@@ -548,6 +548,12 @@ Opens the persistent browser (sqlite-opfs) store selected by `name` and identity
 function openStore(name: string, schemaVersion: number, config: IdentityStoreConfig, bindings?: LoggerBindings) => Promise<AztecLMDBStoreV2>
 ```
 Opens the persistent LMDB store selected by `name` and identity triple `(l1ChainId, rollupAddress, schemaVersion)`. A store exists per identity: reopening with the same identity returns the same data, a different identity selects a different (possibly fresh) store. Callers wanting an ephemeral store use `openTmpStore` explicitly instead.
+
+### originBlockStateFromNumber
+```typescript
+function originBlockStateFromNumber(value: number) => OriginBlockState
+```
+Parses a numeric origin-block-state discriminant, rejecting unknown values.
 
 ### stripAztecnrLogPrefix
 ```typescript

@@ -13,7 +13,7 @@ hash=$(hash_str \
   ${AVM_TRANSPILER:-1})
 
 function prepare_project {
-  (cd .. && ./bootstrap.sh generate_bb_avm_sim_package)
+  (cd .. && ./bootstrap.sh generate_packages)
   (cd .. && npm_install_deps)
 }
 

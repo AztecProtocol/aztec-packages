@@ -13,7 +13,7 @@ import { type TokenContract, TokenContractArtifact } from '@aztec/noir-contracts
 import { AuthWitTestContract, AuthWitTestContractArtifact } from '@aztec/noir-test-contracts.js/AuthWitTest';
 import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
 import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
-import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
+import { decodeEachFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
 import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -149,10 +149,10 @@ describe('automine/simulation/kernelless_simulation', () => {
         TokenContractArtifact,
         token0CallAuthorizationRequest.functionSelector,
       );
-      const token0CallArgs = decodeFromAbi(
+      const token0CallArgs = decodeEachFromAbi(
         functionAbi.parameters.map(param => param.type),
         token0CallAuthorizationRequest.args,
-      ) as AbiDecoded[];
+      );
 
       expect(token0CallArgs).toHaveLength(4);
       expect(token0CallArgs[0]).toEqual(liquidityProviderAddress);
@@ -160,10 +160,10 @@ describe('automine/simulation/kernelless_simulation', () => {
       expect(token0CallArgs[2]).toEqual(amount0Max);
       expect(token0CallArgs[3]).toEqual(nonceForAuthwits.toBigInt());
 
-      const token1CallArgs = decodeFromAbi(
+      const token1CallArgs = decodeEachFromAbi(
         functionAbi.parameters.map(param => param.type),
         token1CallAuthorizationRequest.args,
-      ) as AbiDecoded[];
+      );
 
       expect(token1CallArgs).toHaveLength(4);
       expect(token1CallArgs[0]).toEqual(liquidityProviderAddress);
@@ -383,10 +383,10 @@ describe('automine/simulation/kernelless_simulation', () => {
       expect(callAuthRequest.msgSender).toEqual(proxy.address);
 
       const functionAbi = await getFunctionArtifact(AuthWitTestContractArtifact, callAuthRequest.functionSelector);
-      const decodedArgs = decodeFromAbi(
+      const decodedArgs = decodeEachFromAbi(
         functionAbi.parameters.map(param => param.type),
         callAuthRequest.args,
-      ) as AbiDecoded[];
+      );
 
       expect(decodedArgs).toHaveLength(4);
       expect(decodedArgs[0]).toEqual(adminAddress);

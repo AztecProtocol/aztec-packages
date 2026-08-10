@@ -27,6 +27,7 @@ import {
   encodeArguments,
   getFunctionArtifact,
   getFunctionArtifactByName,
+  getFunctionReturnType,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type BlockParameter, type L2TipsProvider } from '@aztec/stdlib/block';
@@ -329,7 +330,7 @@ describe('Private Execution test suite', () => {
     // Mock sender tagging data provider methods
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
     senderTaggingStore.getLastUsedIndex.mockResolvedValue(undefined);
-    senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
+    senderTaggingStore.getPendingTxs.mockResolvedValue([]);
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
 
     taggingSecretSourcesStore.getSenders.mockResolvedValue([]);
@@ -461,7 +462,7 @@ describe('Private Execution test suite', () => {
         hideMsgSender: false,
         isStatic: functionArtifact.isStatic,
         args: encodeArguments(functionArtifact, args),
-        returnTypes: functionArtifact.returnTypes,
+        returnType: getFunctionReturnType(functionArtifact),
       });
     });
 

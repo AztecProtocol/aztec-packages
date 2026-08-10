@@ -79,6 +79,7 @@ export interface EpochCacheInterface {
   isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
   filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]>;
   getL1Constants(): L1RollupConstants;
+  getLagInEpochsForValidatorSet(): number;
 }
 
 /**
@@ -178,6 +179,16 @@ export class EpochCache implements EpochCacheInterface {
 
   public getL1Constants(): L1RollupConstants {
     return this.l1constants;
+  }
+
+  /**
+   * The number of epochs by which validator-set sampling lags. The committee for epoch `E` samples the
+   * validator set as of `lagInEpochsForValidatorSet` epochs before `E` (see
+   * `ValidatorSelectionLib.stableEpochToValidatorSetSampleTime` on L1), so a newly staked validator only
+   * becomes eligible for a committee this many epochs after staking.
+   */
+  public getLagInEpochsForValidatorSet(): number {
+    return this.l1constants.lagInEpochsForValidatorSet;
   }
 
   public getSlotNow(): SlotNumber {

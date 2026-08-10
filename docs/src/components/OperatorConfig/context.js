@@ -282,14 +282,14 @@ export function maskSecret(val) {
 // from https://docs.aztec.network/networks. Rollup and Slasher addresses change when
 // governance migrates contracts; Registry and GSE addresses are stable anchors and
 // rotate only on major upgrades. Resync this block from /networks on each major release.
-// Last synced: 2026-04-27.
+// Last synced: 2026-07-29 (V5).
 const NETWORK_TOKENS = {
   testnet: {
     REGISTRY_ADDR: '0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba',
-    ROLLUP_ADDR: '0xf6D0D42aCE06829bECB78C74F49879528fC632c1',
+    ROLLUP_ADDR: '0xD73A91bdcF6891C7642F3e460036e1ef2CC23178',
     GSE_ADDR: '0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac',
     STAKING_REGISTRY_ADDR: '0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2',
-    SLASHER_ADDR: '0xCF750B724558098E5db67B651f03a31AE2b252f4',
+    SLASHER_ADDR: '0xBFa3625CfC7cdDAbF29961e12C4399c5bd8D8763',
     L1_CHAIN_ID: '11155111',
     NETWORK_NAME: 'testnet',
     TOKEN_SYMBOL: 'STK',
@@ -298,10 +298,10 @@ const NETWORK_TOKENS = {
   },
   mainnet: {
     REGISTRY_ADDR: '0x35b22e09ee0390539439e24f06da43d83f90e298',
-    ROLLUP_ADDR: '0xae2001f7e21d5ecabf6234e9fdd1e76f50f74962',
+    ROLLUP_ADDR: '0x91fF8bbD8Ebb07893010D50A48A1609e5EBd8E34',
     GSE_ADDR: '0xa92ecFD0E70c9cd5E5cd76c50Af0F7Da93567a4f',
     STAKING_REGISTRY_ADDR: '0x042dF8f42790d6943F41C25C2132400fd727f452',
-    SLASHER_ADDR: '0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb',
+    SLASHER_ADDR: '0xCD6855470A01aBcd989126A1183Fb50673952548',
     L1_CHAIN_ID: '1',
     NETWORK_NAME: 'mainnet',
     TOKEN_SYMBOL: 'AZTEC',

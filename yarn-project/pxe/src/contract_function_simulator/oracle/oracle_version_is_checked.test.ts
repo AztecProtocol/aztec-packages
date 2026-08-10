@@ -3,7 +3,13 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { KeyStore } from '@aztec/key-store';
 import { OracleVersionCheckContractArtifact } from '@aztec/noir-test-contracts.js/OracleVersionCheck';
 import { WASMSimulator } from '@aztec/simulator/client';
-import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
+import {
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
+  encodeArguments,
+  getFunctionReturnType,
+} from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -84,7 +90,7 @@ describe('Oracle Version Check test suite', () => {
     capsuleStore.readCapsuleArray.mockResolvedValue([]);
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
     senderTaggingStore.getLastUsedIndex.mockResolvedValue(undefined);
-    senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
+    senderTaggingStore.getPendingTxs.mockResolvedValue([]);
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
 
     noteStore.getNotes.mockResolvedValue([]);
@@ -195,7 +201,7 @@ describe('Oracle Version Check test suite', () => {
         hideMsgSender: false,
         isStatic: false,
         args: encodeArguments(utilityFunctionArtifact, []),
-        returnTypes: utilityFunctionArtifact.returnTypes,
+        returnType: getFunctionReturnType(utilityFunctionArtifact),
       });
 
       // Call the utility function

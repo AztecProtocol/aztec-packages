@@ -866,7 +866,8 @@ module "rpc_gateway_metrics_collector" {
   source = "../modules/otel-metrics-collector"
 
   providers = {
-    helm = helm.gke-cluster
+    helm       = helm.gke-cluster
+    kubernetes = kubernetes.gke-cluster
   }
 
   NAMESPACE                               = module.rpc_gateway[0].metrics_service_namespace

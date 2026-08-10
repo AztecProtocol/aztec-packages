@@ -45,7 +45,7 @@ class CalldataHashingTest : public ::testing::Test {
 
 TEST_F(CalldataHashingTest, SimpleHash)
 {
-    // The hardcoded value is taken from noir-projects/aztec-nr/aztec/src/hash.nr:
+    // The hardcoded value is taken from noir-projects/labs/aztec-nr/aztec/src/hash.nr:
     FF hash = FF("0x14a1539bdb1d26e03097cf4d40c87e02ca03f0bb50a3e617ace5a7bfd3943944");
 
     std::vector<FF> calldata_fields = {};

@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "contracts/protocol/contract_class_registry_contract",
+    "contracts/protocol/contract_instance_registry_contract",
+    "contracts/protocol/fee_juice_contract",
+]

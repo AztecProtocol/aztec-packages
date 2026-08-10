@@ -3,6 +3,7 @@ import type { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { chunkBy } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CheckpointData } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
@@ -56,6 +57,7 @@ export class OutboxTreesResolver {
   constructor(
     private readonly outbox: OutboxContract,
     private readonly archiver: OutboxTreesArchiverView,
+    private readonly store: AztecAsyncKVStore,
     private readonly getSyncedL1BlockNumber: () => Promise<bigint | undefined>,
     private readonly epochDuration: number,
     private readonly log: Logger = createLogger('archiver:outbox'),
@@ -73,6 +75,9 @@ export class OutboxTreesResolver {
     message: Fr,
     messageIndexInTx?: number,
   ): Promise<L2ToL1MembershipWitness | undefined> {
+    // Read the tx effect once up front only to learn which epoch's Outbox roots to fetch. The roots
+    // read hits L1, so it stays outside the store transaction below: holding the archiver's writer
+    // lock across a network round-trip would stall block sync.
     const indexed = await this.archiver.getTxEffect(txHash);
     if (!indexed) {
       this.log.trace(`No tx effect for tx, no witness available`, { txHash });
@@ -87,23 +92,39 @@ export class OutboxTreesResolver {
       return undefined;
     }
 
-    const receipt = {
-      txHash,
-      epochNumber,
-      blockNumber: indexed.l2BlockNumber,
-      txIndexInBlock: indexed.txIndexInBlock,
-    };
-
     const syncedBefore = await this.getSyncedL1BlockNumber();
     try {
-      return await computeL2ToL1MembershipWitness(this.#node, roots, message, receipt, messageIndexInTx);
+      // Assemble the witness inside a single store transaction so every archiver read it depends on
+      // (the tx effect, the epoch's blocks, the target block and the checkpoint metadata) observes one
+      // consistent snapshot. `transactionAsync` serializes against writers, and the substore reads
+      // below bind to it automatically, so no store commit can land mid-assembly and splice together
+      // two different chain states — which would otherwise surface as a spurious "message does not
+      // exist" error even when the tx-effect index is healthy.
+      return await this.store.transactionAsync(async () => {
+        // Re-read the tx effect within the snapshot so the receipt's block number and tx index stay
+        // consistent with the block and checkpoint data read while building the witness. The epoch is
+        // reused from the pre-transaction read (it selected the roots above); if a reorg moved the tx
+        // to a different epoch in between, the block lookups simply miss and the helper returns
+        // undefined for the caller to retry.
+        const indexedInSnapshot = await this.archiver.getTxEffect(txHash);
+        if (!indexedInSnapshot) {
+          return undefined;
+        }
+        const receipt = {
+          txHash,
+          epochNumber,
+          blockNumber: indexedInSnapshot.l2BlockNumber,
+          txIndexInBlock: indexedInSnapshot.txIndexInBlock,
+        };
+        return await computeL2ToL1MembershipWitness(this.#node, roots, message, receipt, messageIndexInTx);
+      });
     } catch (err) {
       // The helper throws if the locally-assembled epoch root disagrees with the cached Outbox root.
-      // The cached roots are pinned to the node's synced L1 block, but the helper reads block /
-      // checkpoint data live, so if the archiver advanced mid-assembly the two can momentarily reflect
-      // different heights and produce a transient mismatch. When the synced block moved during
-      // assembly we treat the mismatch as transient and return undefined so the caller can retry; a
-      // mismatch at a stable synced block is a genuine node/L1 disagreement and must surface.
+      // The cached roots are pinned to the node's synced L1 block, but the block / checkpoint data is
+      // read from a store snapshot taken after that fetch, so if the archiver advanced in between the
+      // two can reflect different heights and produce a transient mismatch. When the synced block moved
+      // during assembly we treat the mismatch as transient and return undefined so the caller can
+      // retry; a mismatch at a stable synced block is a genuine node/L1 disagreement and must surface.
       const syncedAfter = await this.getSyncedL1BlockNumber();
       if (syncedBefore !== syncedAfter && err instanceof Error && err.message.includes('does not match Outbox')) {
         this.log.debug(`Transient outbox root mismatch during sync, returning no witness`, {

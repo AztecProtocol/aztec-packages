@@ -13,7 +13,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import path from 'path';
 
-import { BenchmarkedNodeFactory } from '../../contract_function_simulator/benchmarked_node.js';
+import { withRecording } from '../../node/benchmarked_node.js';
 import { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, syncTaggedPrivateLogs } from '../index.js';
 import { computeSiloedTagForIndex, extractTags } from '../testing/tag_query_test_utils.js';
@@ -35,7 +35,7 @@ import { computeSiloedTagForIndex, extractTags } from '../testing/tag_query_test
  *
  * Metrics, per scenario:
  * - `tag-queries`: total tags queried, the throughput win.
- * - `rpc-round-trips`: sequential blocking waits on the node, via `BenchmarkedNodeFactory`. The latency axis: this
+ * - `rpc-round-trips`: sequential blocking waits on the node, via `withRecording`. The latency axis: this
  *    grows with K per the complexity analysis on `INITIAL_CONSTRAINED_PROBE_LEN`, and depends only on K, not on secret
  *    count. A round's tags are chunked at MAX_RPC_LEN (=100) into parallel calls internally, but those overlap, so a
  *    wide round is still one round-trip; that is why round-trips, not raw call count, is the latency axis.
@@ -193,7 +193,8 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
 
     // Wrap the node so we capture round-trips and blocking time the same way the client_flows app benches do. The
     // Proxy delegates to the underlying mock, so `mock.calls` still records every query for tag counting.
-    const benchmarkedNode = BenchmarkedNodeFactory.create(aztecNode);
+    const benchmarkedNode = withRecording(aztecNode);
+    const recording = benchmarkedNode.startRecording();
 
     const logs = await syncTaggedPrivateLogs(
       secrets,
@@ -209,7 +210,7 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
 
     // Round-trips and blocking time from the same instrumentation the app benches use. `syncTaggedPrivateLogs` only
     // ever calls `getPrivateLogsByTags`, so every round-trip is that method.
-    const { roundTrips } = benchmarkedNode.getStats();
+    const { roundTrips } = recording.stop();
     const rpcRoundTrips = roundTrips.roundTrips;
     const rpcBlockingTimeMs = roundTrips.totalBlockingTime;
 

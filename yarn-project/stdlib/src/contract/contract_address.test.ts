@@ -43,7 +43,6 @@ describe('ContractAddress', () => {
       isStatic: false,
       name: 'fun',
       parameters: [{ name: 'param1', type: { kind: 'boolean' }, visibility: 'private' }],
-      returnTypes: [],
       errorTypes: {},
     };
     const mockArgs: any[] = [true];

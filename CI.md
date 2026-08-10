@@ -106,9 +106,9 @@ However this will run _the entire repository test suite_. This isn't recommended
 
 You can provide one or more projects (a folder with another `./bootstrap.sh` script) as arguments. e.g.
 
-`./bootstrap.sh test yarn-project boxes`
+`./bootstrap.sh test yarn-project playground`
 
-This will run the tests for `yarn-project` and `boxes`.
+This will run the tests for `yarn-project` and `playground`.
 
 Tests for all projects are run in parallel. At present it's limited to half the number of vcpus (usually the number of physical cores).
 

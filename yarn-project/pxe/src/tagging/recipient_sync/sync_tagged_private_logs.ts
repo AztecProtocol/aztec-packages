@@ -1,14 +1,17 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { isDefined } from '@aztec/foundation/types';
-import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { AppTaggingSecret, LogResult } from '@aztec/stdlib/logs';
 import { AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import { INITIAL_CONSTRAINED_PROBE_LEN, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
-import { getAllPrivateLogsByTags } from '../get_all_logs_by_tags.js';
+import {
+  INITIAL_CONSTRAINED_PROBE_LEN,
+  UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
+  unfinalizedTaggingIndexesWindowEnd,
+} from '../constants.js';
+import { type LogQueryAnchor, getAllPrivateLogsByTags, logQueryAnchorOf } from '../get_all_logs_by_tags.js';
 import { findHighestIndexes } from './utils/find_highest_indexes.js';
 
 /**
@@ -90,8 +93,7 @@ export async function syncTaggedPrivateLogs(
     return [];
   }
 
-  const anchorBlockNumber = anchorBlockHeader.getBlockNumber();
-  const anchorBlockHash = await anchorBlockHeader.hash();
+  const anchor = await logQueryAnchorOf(anchorBlockHeader);
   const currentTimestamp = anchorBlockHeader.globalVariables.timestamp;
 
   // Read stored indexes from the db and compute the initial [start, end) range for each secret
@@ -100,7 +102,7 @@ export async function syncTaggedPrivateLogs(
 
   while (pending.length > 0) {
     // Compute tags for all pending secrets and fetch logs in batched RPC calls
-    const logsPerSecret = await fetchLogsForSecrets(pending, aztecNode, anchorBlockNumber, anchorBlockHash);
+    const logsPerSecret = await fetchLogsForSecrets(pending, aztecNode, anchor);
 
     const nextRound = await Promise.all(
       pending.map(async (pendingSecret, i) => {
@@ -149,7 +151,7 @@ function getIndexRangesForSecrets(
   return Promise.all(
     secrets.map(async (secret): Promise<PendingSecret> => {
       const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret, jobId);
-      const boundEnd = (currentHighestFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+      const boundEnd = unfinalizedTaggingIndexesWindowEnd(currentHighestFinalizedIndex);
 
       if (secret.kind === AppTaggingSecretKind.CONSTRAINED) {
         // Constrained streams are gapless and resume at the finalized index, so probe a small initial window and stop
@@ -181,8 +183,7 @@ function getIndexRangesForSecrets(
 async function fetchLogsForSecrets(
   pending: PendingSecret[],
   aztecNode: AztecNode,
-  anchorBlockNumber: BlockNumber,
-  anchorBlockHash: BlockHash,
+  anchor: LogQueryAnchor,
 ): Promise<LogWithIndex[][]> {
   // Determine the index range for each secret
   const indexesPerSecret = pending.map(({ start, end }) => Array.from({ length: end - start }, (_, i) => start + i));
@@ -196,14 +197,10 @@ async function fetchLogsForSecrets(
 
   const allTags = tagsPerSecret.flat();
 
-  // getAllPrivateLogsByTags handles MAX_RPC_LEN chunking internally. Recipient sync builds `PendingTaggedLog` from
-  // each log's note hashes and first nullifier, so we opt into effects. The `toBlock` cap (anchor block + 1,
-  // exclusive) tells the node to skip any logs in blocks past the anchor — the same guard previously enforced
-  // by an in-memory filter on the response.
-  const allResults = await getAllPrivateLogsByTags(aztecNode, allTags, anchorBlockHash, {
-    includeEffects: true,
-    toBlock: BlockNumber(anchorBlockNumber + 1),
-  });
+  // getAllPrivateLogsByTags handles MAX_RPC_LEN chunking internally, and bounds the query at the anchor block so
+  // logs from later blocks are never returned. Recipient sync builds `PendingTaggedLog` from each log's note hashes
+  // and first nullifier, so we opt into effects.
+  const allResults = await getAllPrivateLogsByTags(aztecNode, allTags, anchor, { includeEffects: true });
 
   // Split flat results back per secret using the known lengths
   const logsPerSecret: LogWithIndex[][] = [];
@@ -257,7 +254,7 @@ async function processConstrainedResults(
   const probeFullyConsumed = firstMissingIndex >= pending.end;
   const boundEnd =
     highestFinalizedIndex !== undefined
-      ? Math.max(pending.boundEnd, highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1)
+      ? Math.max(pending.boundEnd, unfinalizedTaggingIndexesWindowEnd(highestFinalizedIndex))
       : pending.boundEnd;
 
   // Double the probe each round, capped at the window (see INITIAL_CONSTRAINED_PROBE_LEN in ../constants.ts).
@@ -319,7 +316,7 @@ async function processUnconstrainedResults(
 
   // For the next iteration we want to look only at indexes for which we have not yet fetched logs while
   // ensuring that we do not look further than WINDOW_LEN ahead of the highest finalized index.
-  const end = highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+  const end = unfinalizedTaggingIndexesWindowEnd(highestFinalizedIndex);
   return {
     kind: AppTaggingSecretKind.UNCONSTRAINED,
     secret: pending.secret,
@@ -338,8 +335,8 @@ type PendingSecretBase = {
 /** Constrained scan state, carrying the doubling-probe bookkeeping that only the gapless constrained scan uses. */
 type PendingConstrained = PendingSecretBase & {
   kind: typeof AppTaggingSecretKind.CONSTRAINED;
-  // Exclusive upper bound on the indexes this secret may probe this sync (highest finalized index + WINDOW_LEN + 1, the
-  // protocol bound on how far ahead of finalized a log can sit). `end` grows toward it each round.
+  // Exclusive upper bound on the indexes this secret may probe this sync, from `unfinalizedTaggingIndexesWindowEnd`:
+  // the protocol bound on how far ahead of finalized a log can sit. `end` grows toward it each round.
   boundEnd: number;
   // Intended probe length for the round that produced `end`. The queried span can be smaller when boundEnd caps it.
   probeLen: number;

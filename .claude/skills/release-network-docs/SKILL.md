@@ -290,6 +290,24 @@ Verify the results:
 **Note:** At this point `network_versions.json` may still list the old version
 as an unmapped extra (its directory still exists). This is cleaned up in Step 8.
 
+#### Reconcile newer operator docs from `next`
+
+The release tag may predate docs-only work already merged into `next`. Compare both
+the operator pages and their sidebar before finalizing the snapshot:
+
+```bash
+git fetch origin
+git diff v<new_version>..origin/next -- \
+  docs/docs-operate/ docs/sidebars-operate.js
+```
+
+Port release-valid page changes into `network_versioned_docs/version-v<new_version>/`.
+If a layout or navigation change is ported, update
+`network_versioned_sidebars/version-v<new_version>-sidebars.json` from the same final
+sidebar source. Never combine reconciled `next` pages with the tag-generated sidebar.
+When adopting the `next` sidebar wholesale, load both configs in Node and assert deep
+semantic equality; the build can pass with a stale sidebar while legacy pages still exist.
+
 ### Step 8: Clean Up Old Network Version
 
 Use the old version recorded at the start of Step 7.
@@ -360,6 +378,9 @@ Check for stash conflicts. Then report to the user:
   before making content changes to operator docs.
 - **Changes land on `next`**: All changes are stashed and moved to the `next`
   branch at the end, ready for a PR.
+- **Reconcile pages and sidebars together**: A tag cut can predate docs-only work on
+  `next`. If operator pages are ported after the cut, port the matching sidebar and
+  verify the versioned JSON reflects the same final structure.
 - **Network version config only**: This skill modifies
   `network_version_config.json` and `network_versions.json`. It does not touch
   `developer_version_config.json` or `developer_versions.json`.

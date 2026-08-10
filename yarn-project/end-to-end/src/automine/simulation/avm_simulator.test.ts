@@ -57,11 +57,11 @@ describe('automine/simulation/avm_simulator', () => {
          * Expect an error like:
          * Assertion failed: This assertion should fail! 'assert(not_true == true, "This assertion should fail!")'
          * ...
-         * at assert(not_true == true, "This assertion should fail!") (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:5)
-         * at inner_helper_with_failed_assertion() (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:228:9)
+         * at assert(not_true == true, "This assertion should fail!") (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/labs/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:5)
+         * at inner_helper_with_failed_assertion() (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/labs/noir-contracts/contracts/test/avm_test_contract/src/main.nr:228:9)
          * at quote { $self } (../std/meta/expr.nr:269:9)
          * at function.name();
-         * let call = quote { $name($args) (/home/aztec-dev/aztec-packages/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:59:20)
+         * let call = quote { $name($args) (/home/aztec-dev/aztec-packages/noir-projects/labs/aztec-nr/aztec/src/macros/dispatch.nr:59:20)
          * at AvmTest.0xc3515746
          */
         // Direct (non-nested) assertion failures on AvmTestContract.

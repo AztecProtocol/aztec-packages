@@ -50,11 +50,9 @@ export class InvalidTxsAfterMiningRule implements EvictionRule {
       }
 
       if (txsToEvict.length > 0) {
-        this.log.info(`Evicted ${txsToEvict.length} invalid txs after block mined`);
+        this.log.info(`Evicted ${txsToEvict.length} invalid txs after block mined`, { txsToEvict });
         await pool.deleteTxs(txsToEvict, this.name);
       }
-
-      this.log.debug(`Evicted ${txsToEvict.length} invalid txs after block mined`, { txHashes: txsToEvict });
 
       return {
         reason: 'block_mined_invalid_txs',

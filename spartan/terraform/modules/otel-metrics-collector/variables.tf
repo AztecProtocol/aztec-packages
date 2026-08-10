@@ -38,6 +38,38 @@ variable "RESOURCE_ATTRIBUTES" {
   default     = {}
 }
 
+variable "IRM_CONFIG" {
+  description = "Optional Grafana IRM fan-out configuration. Null preserves the collector-only deployment."
+  type = object({
+    alloy_release_name = optional(string)
+    job_name           = string
+    grafana_cloud = object({
+      secret_name      = string
+      remote_write_url = string
+      username         = string
+    })
+    resource_attributes = optional(map(string), {})
+    metric_catalog = object({
+      schemaVersion      = number
+      resourceAttributes = list(string)
+      metrics = list(object({
+        otelName             = string
+        allowedAttributes    = list(string)
+        includeAttributeSets = optional(list(map(string)), [])
+        aggregation = optional(object({
+          function   = string
+          attributes = list(string)
+        }))
+      }))
+    })
+    alloy_resources = object({
+      requests = map(string)
+      limits   = map(string)
+    })
+  })
+  default = null
+}
+
 variable "LABELS" {
   description = "Additional Kubernetes labels for collector resources."
   type        = map(string)

@@ -16,7 +16,7 @@ const TX_COUNT_SIMPLE = 8;
 
 // Verifies that 3 validator nodes can build blocks without sequencer errors. Lightweight RPC-only
 // initial node (skipInitialSequencer), mockGossipSubNetwork, no prover. Timing: ethSlot=12s,
-// aztecSlot=36s, epoch=default 6, proofSubmissionEpochs=1024, blockDurationMs=6s. Pre-proved txs sent
+// aztecSlot=24s, epoch=default 6, proofSubmissionEpochs=1024, blockDurationMs=4s. Pre-proved txs sent
 // from the hardcoded genesis-funded account (no on-chain account deploy needed).
 describe('multi-node/block-production/simple', () => {
   let context: EndToEndContext;

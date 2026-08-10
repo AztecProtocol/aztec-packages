@@ -37,6 +37,20 @@ export function truncate(str: string, length: number = 64): string {
   return str.length > length ? str.slice(0, length) + '...' : str;
 }
 
+/** Formats a duration in seconds into a compact human-readable string (e.g. `45s`, `12m`, `2h 5m`). */
+export function formatSeconds(seconds: number): string {
+  if (seconds < 60) {
+    return `${Math.round(seconds)}s`;
+  }
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remMinutes = minutes % 60;
+  return remMinutes > 0 ? `${hours}h ${remMinutes}m` : `${hours}h`;
+}
+
 export function isoDate(date?: Date) {
   return (date ?? new Date()).toISOString().replace(/[-:T]/g, '').replace(/\..+$/, '');
 }

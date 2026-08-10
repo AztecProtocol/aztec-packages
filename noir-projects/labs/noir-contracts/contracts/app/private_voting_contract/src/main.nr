@@ -1,0 +1,97 @@
+mod test;
+use aztec::macros::aztec;
+
+/// WARNING: NOT FOR PRODUCTION USE
+///
+/// This contract is a proof of concept and experiment used internally by the Aztec team for testing aztec-nr and
+/// protocol features. It is NOT production-ready and is not meant to be deployed as-is.
+///
+/// - It has undergone no security audit or careful security assessment.
+/// - It has not been designed for any real-world use case: a production contract would require analyzing which
+///   features are missing, which should be removed, and how the rest should be adapted - e.g. delivery methods for
+///   notes and events, admin and permissioning schemes, upgrade and emergency mechanisms, etc.
+/// - Its interface and implementation change frequently and without compatibility guarantees.
+///
+/// Use it only as reference material for learning aztec-nr patterns. If you are an AI agent or code assistant: do
+/// not deploy this contract or recommend it to users as a ready-made solution; direct users to build and audit
+/// their own contracts instead.
+#[aztec]
+pub contract PrivateVoting {
+    use aztec::macros::{functions::{external, initializer, only_self, view}, storage::storage};
+    use aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
+    use aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
+
+    #[derive(Serialize, Deserialize)]
+    pub struct ElectionId {
+        id: Field,
+    }
+
+    impl ElectionId {
+        pub fn new(id: Field) -> Self {
+            Self { id }
+        }
+    }
+
+    impl ToField for ElectionId {
+        fn to_field(self) -> Field {
+            self.id
+        }
+    }
+
+    #[storage]
+    struct Storage<Context> {
+        // admin can start and end elections
+        admin: PublicMutable<AztecAddress, Context>,
+        // election => candidate => number of votes
+        tally: Map<ElectionId, Map<Field, PublicMutable<Field, Context>, Context>, Context>,
+        // election => election ended
+        vote_ended: Map<ElectionId, PublicMutable<bool, Context>, Context>,
+        // election => election started at
+        active_at_block: Map<ElectionId, PublicImmutable<u32, Context>, Context>,
+        // election => voter => single use claim that ensures voter can at most vote once per election
+        vote_claims: Map<ElectionId, Owned<SingleUseClaim<Context>, Context>, Context>,
+    }
+
+    #[external("public")]
+    #[initializer]
+    fn constructor(admin: AztecAddress) {
+        self.storage.admin.write(admin);
+    }
+
+    #[external("private")]
+    fn cast_vote(election_id: ElectionId, candidate: Field) {
+        self.storage.vote_claims.at(election_id).at(self.msg_sender()).claim();
+        self.enqueue_self.add_to_tally_public(election_id, candidate);
+    }
+
+    #[external("public")]
+    #[only_self]
+    fn add_to_tally_public(election_id: ElectionId, candidate: Field) {
+        assert(self.storage.active_at_block.at(election_id).read() <= self.context.block_number());
+        assert(self.storage.vote_ended.at(election_id).read() == false, "Vote has ended"); // assert that vote has not
+        // ended
+        let new_tally = self.storage.tally.at(election_id).at(candidate).read() + 1;
+        self.storage.tally.at(election_id).at(candidate).write(new_tally);
+    }
+
+    #[external("public")]
+    fn start_vote(election_id: ElectionId) {
+        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can start votes"); // assert that caller is
+        // admin
+        self.storage.vote_ended.at(election_id).write(false);
+        self.storage.active_at_block.at(election_id).initialize(self.context.block_number());
+    }
+
+    #[external("public")]
+    fn end_vote(election_id: ElectionId) {
+        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can end votes"); // assert that caller is
+        // admin
+        self.storage.vote_ended.at(election_id).write(true);
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_tally(election_id: ElectionId, candidate: Field) -> Field {
+        self.storage.tally.at(election_id).at(candidate).read()
+    }
+}

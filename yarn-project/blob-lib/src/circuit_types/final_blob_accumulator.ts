@@ -5,7 +5,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { inspect } from 'util';
 
 /**
- * See `noir-projects/noir-protocol-circuits/crates/blob/src/abis/final_blob_accumulator.nr` for documentation.
+ * See `noir-projects/fnd/noir-protocol-circuits/crates/blob/src/abis/final_blob_accumulator.nr` for documentation.
  */
 export class FinalBlobAccumulator {
   constructor(

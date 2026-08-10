@@ -7,9 +7,8 @@
   "folders": [
     "docs/docs",
     "docs/docs-developers",
-    "noir-projects/aztec-nr",
-    "yarn-project/aztec.js",
-    "boxes"
+    "noir-projects/labs/aztec-nr",
+    "yarn-project/aztec.js"
   ],
   "excludeFolders": [
     "spartan",

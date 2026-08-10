@@ -725,8 +725,8 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "npm:0.1.0-dummy"
-    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
@@ -1117,6 +1117,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/cdb@portal:../barretenberg/ts/cdb::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/cdb@portal:../barretenberg/ts/cdb::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  dependencies:
+    msgpackr: "npm:^1.11.2"
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
 "@aztec/cli-wallet@workspace:cli-wallet":
   version: 0.0.0-use.local
   resolution: "@aztec/cli-wallet@workspace:cli-wallet"
@@ -1216,10 +1225,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/constants-codegen@portal:../../protocol/constants-codegen::locator=%40aztec%2Fconstants%40workspace%3Aconstants":
+  version: 0.0.0-use.local
+  resolution: "@aztec/constants-codegen@portal:../../protocol/constants-codegen::locator=%40aztec%2Fconstants%40workspace%3Aconstants"
+  bin:
+    constants-codegen: ./dest/cli.js
+  languageName: node
+  linkType: soft
+
 "@aztec/constants@workspace:^, @aztec/constants@workspace:constants":
   version: 0.0.0-use.local
   resolution: "@aztec/constants@workspace:constants"
   dependencies:
+    "@aztec/constants-codegen": "portal:../../protocol/constants-codegen"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
@@ -1675,7 +1693,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.25"
+    "@aztec/noir-types": "npm:1.0.0-beta.26"
     glob: "npm:^13.0.6"
     ts-command-line-args: "npm:^2.5.1"
   bin:
@@ -1684,14 +1702,14 @@ __metadata:
   linkType: soft
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 1.0.0-beta.25
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=a013f4&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 1.0.0-beta.26
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=695d7d&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-acvm_js": "npm:1.0.0-beta.25"
-    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.25"
-    "@aztec/noir-types": "npm:1.0.0-beta.25"
-    pako: "npm:^2.1.0"
-  checksum: 10/2bcad9b29f57968fa3ffe92b648eeec9515995867f3841fca4aa506f522424090b1783db8c54abe094b2dd2f3bdc65ea1cfb40c5272065eba96b62554ad6fc5f
+    "@aztec/noir-acvm_js": "npm:1.0.0-beta.26"
+    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.26"
+    "@aztec/noir-types": "npm:1.0.0-beta.26"
+    pako: "npm:^3.0.1"
+  checksum: 10/c98b2db755ce21c96b1de4e9ab94ae48c7ccab63d31c41eb2d903cfb591d780b87d891461768a77d531e6482a8a9ebb4ca4e539243a6f4e77b920c387aa6702f
   languageName: node
   linkType: hard
 
@@ -1699,7 +1717,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.25"
+    "@aztec/noir-types": "npm:1.0.0-beta.26"
   languageName: node
   linkType: soft
 
@@ -1785,7 +1803,6 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/simulator": "workspace:^"
@@ -2015,7 +2032,6 @@ __metadata:
     "@aztec/l1-artifacts": "npm:0.1.0-dummy"
     "@aztec/node-keystore": "workspace:^"
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
-    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/noir-types": "portal:../../noir/packages/types"
     "@aztec/p2p": "workspace:^"
@@ -2055,6 +2071,7 @@ __metadata:
   resolution: "@aztec/simulator@workspace:simulator"
   dependencies:
     "@aztec/bb-avm-sim": "npm:0.1.0"
+    "@aztec/cdb": "npm:0.1.0"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/ipc-runtime": "npm:0.1.0"
@@ -2063,7 +2080,6 @@ __metadata:
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
-    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/noir-test-contracts.js": "workspace:^"
     "@aztec/noir-types": "portal:../../noir/packages/types"
     "@aztec/protocol-contracts": "workspace:^"
@@ -17680,6 +17696,13 @@ __metadata:
   version: 2.1.0
   resolution: "pako@npm:2.1.0"
   checksum: 10/38a04991d0ec4f4b92794a68b8c92bf7340692c5d980255c92148da96eb3e550df7a86a7128b5ac0c65ecddfe5ef3bbe9c6dab13e1bc315086e759b18f7c1401
+  languageName: node
+  linkType: hard
+
+"pako@npm:^3.0.1":
+  version: 3.0.1
+  resolution: "pako@npm:3.0.1"
+  checksum: 10/44cf92d0f46d66d09da18cb570a8a39851970fce39cf4880ae3e322878d6aa283a6b63411fad655a21d32bbcb46921a78a8948588f71475c181ac2bec668435b
   languageName: node
   linkType: hard
 

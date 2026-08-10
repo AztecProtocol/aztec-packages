@@ -18,7 +18,7 @@
 # on changes to AVM C++ code
 /barretenberg/cpp/src/barretenberg/vm2 @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to public context in aztec-nr
-/noir-projects/aztec-nr/aztec/src/context/public_context.nr @MirandaWood @jeanmon @IlyasRidhuan
+/noir-projects/labs/aztec-nr/aztec/src/context/public_context.nr @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to the AVM simulator and supporting modules
 /yarn-project/simulator/src/public @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to the AVM transpiler
@@ -32,10 +32,10 @@
 /l1-contracts/src @just-mitch
 
 # Notify the circuit team of changes to the protocol circuits
-/noir-projects/noir-protocol-circuits @LeilaWang
+/noir-projects/fnd/noir-protocol-circuits @LeilaWang
 
 # Notify nventuro of changes to aztec-nr
-/noir-projects/aztec-nr @nventuro
+/noir-projects/labs/aztec-nr @nventuro
 
 # Notify devrel of changes to docs examples
 /docs/examples @AztecProtocol/devrel

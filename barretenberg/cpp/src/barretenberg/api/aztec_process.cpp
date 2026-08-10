@@ -15,6 +15,12 @@
 #include <sstream>
 #include <thread>
 
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+#endif
+
 #ifdef ENABLE_AVM_TRANSPILER
 // Include avm_transpiler header
 #include <avm_transpiler.h>
@@ -91,6 +97,49 @@ bool is_private_constrained_function(const nlohmann::json& function)
 }
 
 /**
+ * @brief Exclusive advisory lock on `<entry>.lock`, held for the object's lifetime.
+ *
+ * The on-disk VK cache is shared by concurrent bb processes (the noir-projects builds run one per
+ * contract in parallel), and distinct contracts can carry byte-identical functions (e.g. the
+ * simulated account contracts), so several processes can want the same cache entry at once. The
+ * lock gives each entry generate-once semantics: the first process generates while the rest block,
+ * then read the completed entry.
+ */
+class VkCacheEntryLock {
+  public:
+    explicit VkCacheEntryLock(const std::filesystem::path& entry_path)
+    {
+#ifndef _WIN32
+        std::filesystem::path lock_path = entry_path;
+        lock_path += ".lock";
+        fd = open(lock_path.c_str(), O_CREAT | O_RDWR, 0644);
+        if (fd != -1) {
+            flock(fd, LOCK_EX);
+        }
+#else
+        static_cast<void>(entry_path);
+#endif
+    }
+    ~VkCacheEntryLock()
+    {
+#ifndef _WIN32
+        if (fd != -1) {
+            close(fd); // Releases the flock.
+        }
+#endif
+    }
+    VkCacheEntryLock(const VkCacheEntryLock&) = delete;
+    VkCacheEntryLock& operator=(const VkCacheEntryLock&) = delete;
+    VkCacheEntryLock(VkCacheEntryLock&&) = delete;
+    VkCacheEntryLock& operator=(VkCacheEntryLock&&) = delete;
+
+  private:
+#ifndef _WIN32
+    int fd = -1;
+#endif
+};
+
+/**
  * @brief Get cached VK or generate if missing, for a user-contract private function.
  */
 std::vector<uint8_t> get_or_generate_cached_app_vk(const std::filesystem::path& cache_dir,
@@ -100,6 +149,10 @@ std::vector<uint8_t> get_or_generate_cached_app_vk(const std::filesystem::path& 
 {
     std::string hash_str = compute_bytecode_hash(bytecode);
     std::filesystem::path vk_cache_path = cache_dir / (hash_str + ".vk");
+
+    // Serialise per entry across processes, so at most one process generates a given VK and no
+    // process can observe another's write in progress.
+    VkCacheEntryLock lock(vk_cache_path);
 
     // Check cache unless force is true
     if (!force && std::filesystem::exists(vk_cache_path)) {
@@ -113,8 +166,18 @@ std::vector<uint8_t> get_or_generate_cached_app_vk(const std::filesystem::path& 
         bbapi::ChonkComputeVk{ .circuit = { .name = circuit_name, .bytecode = bytecode }, .kind = CircuitKind::App }
             .execute();
 
-    // Cache the VK
-    write_file(vk_cache_path, response.bytes);
+    // Cache the VK via temp file + rename, so a partially written entry is never visible under the
+    // final name even to lockless readers (e.g. platforms where the advisory lock is unavailable).
+    std::filesystem::path tmp_path = vk_cache_path;
+    tmp_path += ".tmp";
+    write_file(tmp_path, response.bytes);
+    std::error_code ec;
+    std::filesystem::rename(tmp_path, vk_cache_path, ec);
+    if (ec) {
+        // Lost a benign race with another process that completed the same entry (only possible
+        // without the advisory lock); its content is equivalent, so keep it and drop ours.
+        std::filesystem::remove(tmp_path, ec);
+    }
 
     return response.bytes;
 }

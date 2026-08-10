@@ -28,6 +28,16 @@ app.kubernetes.io/component: metrics
 {{- toYaml $result -}}
 {{- end -}}
 
+{{- define "otel-metrics-collector.irmResourceAttributes" -}}
+{{- $defaults := dict "service.name" (include "otel-metrics-collector.fullname" .) "service.namespace" .Release.Namespace "k8s.namespace.name" .Release.Namespace -}}
+{{- $attrs := mergeOverwrite $defaults (.Values.resourceAttributes | default dict) (.Values.irm.resourceAttributes | default dict) -}}
+{{- $result := list -}}
+{{- range $key, $value := $attrs -}}
+{{- $result = append $result (dict "action" "upsert" "key" $key "value" $value) -}}
+{{- end -}}
+{{- toYaml $result -}}
+{{- end -}}
+
 {{- define "otel-metrics-collector.scrapeConfigs" -}}
 {{- $result := list -}}
 {{- range $config := .Values.scrapeConfigs -}}

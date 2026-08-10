@@ -4,6 +4,7 @@ import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { type FeePaymentMethod, PrivateFeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes, getTokenAllowedSetupFunctions } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -19,11 +20,8 @@ import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TestTokenContract as BananaCoin, TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
@@ -218,8 +216,7 @@ export class ClientFlowsBenchmark {
     this.adminAddress = adminAddress;
     this.sequencerAddress = sequencerAddress;
 
-    const canonicalFeeJuice = await getCanonicalFeeJuice();
-    this.feeJuiceContract = FeeJuiceContract.at(canonicalFeeJuice.address, this.adminWallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.adminWallet);
     this.coinbase = EthAddress.random();
 
     const userPXEConfig = getPXEConfig();
@@ -250,7 +247,7 @@ export class ClientFlowsBenchmark {
 
   async applySetupFeeJuice() {
     this.logger.info('Applying fee juice setup');
-    this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.adminWallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.adminWallet);
 
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: this.context.aztecNodeService,
