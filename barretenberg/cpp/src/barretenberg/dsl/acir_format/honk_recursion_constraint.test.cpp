@@ -456,7 +456,9 @@ TYPED_TEST_SUITE(HonkRecursionConstraintTestWithoutPredicate, HonkRecursionTypes
 TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GenerateVKFromConstraints)
 {
     if constexpr (TypeParam::IsRootRollup) {
-        TestFixture::template test_vk_independence<UltraZKFlavor>();
+        // The root rollup closes its IPA accumulator in-circuit, so it is proved as a standard (non-rollup,
+        // non-zk) UltraHonk.
+        TestFixture::template test_vk_independence<UltraFlavor>();
     } else {
         // The flavor with which we prove the outer circuit (the one verifying F_1, .., F_{s_1}) depends on what type of
         // data the inner circuits have propagated and the builder.
@@ -474,28 +476,14 @@ TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, Tampering)
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }
 
-TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GateCountRootRollup)
+// Pinned vk hash and gate count of the root rollup circuit, which is too large to construct more than once within
+// the per-test timeout. GenerateVKFromConstraints and Tampering cover it nightly (see barretenberg/cpp/bootstrap.sh).
+TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, PinnedVKRootRollup)
 {
-    using Builder = TestFixture::Builder;
-
     if constexpr (!TestFixture::IsRootRollup) {
-        GTEST_SKIP(); // We have already pinned the gate counts in this situation
+        GTEST_SKIP(); // The other circuits are small enough for the full checks above
+    } else {
+        TestFixture::template test_pinned_vk<UltraFlavor>(
+            root_rollup_vk_hash(), ROOT_ROLLUP_GATE_COUNT, /*expected_num_opcodes=*/2);
     }
-
-    typename TestFixture::AcirConstraint constraint;
-    WitnessVector witness_values;
-    TestFixture::Base::generate_constraints(constraint, witness_values);
-
-    AcirFormat constraint_system = constraint_to_acir_format(constraint);
-
-    AcirProgram program{ constraint_system, witness_values };
-    ProgramMetadata metadata = TestFixture::Base::generate_metadata();
-    metadata.collect_gates_per_opcode = true;
-    auto builder = create_circuit<Builder>(program, metadata);
-
-    // Verify the gate count was recorded
-    EXPECT_EQ(program.constraints.gates_per_opcode.size(), 2);
-
-    // Assert gate count
-    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(), ROOT_ROLLUP_GATE_COUNT);
 }

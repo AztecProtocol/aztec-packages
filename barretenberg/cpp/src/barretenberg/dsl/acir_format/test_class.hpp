@@ -6,6 +6,7 @@
 #include "barretenberg/dsl/acir_format/serde/index.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "gtest/gtest.h"
+#include <memory>
 #include <type_traits>
 #include <vector>
 
@@ -687,28 +688,83 @@ template <TestBase Base_> class TestClass {
         std::shared_ptr<VerificationKey> vk_from_witness;
         {
             AcirProgram program{ constraint_system, witness_values };
-            auto builder = create_circuit<Builder>(program, Base::generate_metadata());
-            num_gates = builder.get_num_finalized_gates_inefficient();
+            auto builder = std::make_unique<Builder>(create_circuit<Builder>(program, Base::generate_metadata()));
+            num_gates = builder->get_num_finalized_gates_inefficient();
 
-            auto prover_instance = std::make_shared<ProverInstance>(builder);
+            // Validate before allocating prover polynomials; for large recursion tests this avoids overlapping
+            // the builder, prover polynomials, commitment key, and circuit checker memory.
+            EXPECT_TRUE(CircuitChecker::check(*builder));
+            EXPECT_FALSE(builder->failed());
+
+            auto prover_instance = std::make_shared<ProverInstance>(*builder);
+            builder.reset();
             vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-
-            // Validate the builder
-            EXPECT_TRUE(CircuitChecker::check(builder));
-            EXPECT_FALSE(builder.failed());
         }
 
         std::shared_ptr<VerificationKey> vk_from_constraint;
         {
             AcirProgram program{ constraint_system, /*witness=*/{} };
-            auto builder = create_circuit<Builder>(program, Base::generate_metadata());
-            auto prover_instance = std::make_shared<ProverInstance>(builder);
+            auto builder = std::make_unique<Builder>(create_circuit<Builder>(program, Base::generate_metadata()));
+            auto prover_instance = std::make_shared<ProverInstance>(*builder);
+            builder.reset();
             vk_from_constraint = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         }
 
         EXPECT_EQ(*vk_from_witness, *vk_from_constraint) << "Mismatch in the vks";
 
         return num_gates;
+    }
+
+    /**
+     * @brief Check the outer circuit against a pinned vk hash and gate count.
+     *
+     * @details Constructs the outer circuit once and compares its vk hash, finalized gate count and number of
+     * gate-counted opcodes against pinned values. The vk commits to the selectors, copy constraints and lookup
+     * tables of a circuit, so an unchanged hash means an unchanged circuit. Building once and skipping the circuit
+     * checker keeps this cheap enough for outer circuits too large to construct repeatedly.
+     *
+     * @param expected_vk_hash Pinned hash of the outer circuit's verification key.
+     * @param expected_num_gates Pinned finalized gate count of the outer circuit.
+     * @param expected_num_opcodes Number of opcodes expected to have a recorded gate count.
+     */
+    template <typename Flavor>
+    static void test_pinned_vk(const bb::fr& expected_vk_hash,
+                               const size_t expected_num_gates,
+                               const size_t expected_num_opcodes)
+    {
+        using ProverInstance = ProverInstance_<Flavor>;
+        using VerificationKey = Flavor::VerificationKey;
+
+        // Generate the constraint system
+        AcirConstraint constraint;
+        WitnessVector witness_values;
+        Base::generate_constraints(constraint, witness_values);
+
+        // Use the full ACIR flow: constraint -> Acir::Opcode -> Acir::Circuit -> circuit_serde_to_acir_format
+        AcirFormat constraint_system = constraint_to_acir_format(constraint);
+
+        AcirProgram program{ constraint_system, witness_values };
+        ProgramMetadata metadata = Base::generate_metadata();
+        metadata.collect_gates_per_opcode = true;
+        auto builder = std::make_unique<Builder>(create_circuit<Builder>(program, metadata));
+
+        EXPECT_EQ(program.constraints.gates_per_opcode.size(), expected_num_opcodes);
+        const size_t num_gates = builder->get_num_finalized_gates_inefficient();
+
+        // Release the builder before the vk is constructed: for large circuits this avoids overlapping the
+        // builder, prover polynomials and commitment key memory.
+        auto prover_instance = std::make_shared<ProverInstance>(*builder);
+        builder.reset();
+        VerificationKey vk{ prover_instance->get_precomputed() };
+        const bb::fr vk_hash = vk.hash();
+
+        // Report both current values whenever either drifts, so that neither is re-pinned while the other is left
+        // stale.
+        EXPECT_TRUE(num_gates == expected_num_gates && vk_hash == expected_vk_hash)
+            << "The circuit changed: gate count " << num_gates << " (pinned " << expected_num_gates << "), vk hash "
+            << vk_hash << " (pinned " << expected_vk_hash
+            << "). If this is intended, re-pin both values, and run the full vk independence and tampering tests "
+               "for this circuit.";
     }
 
     /**
