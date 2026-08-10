@@ -190,6 +190,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     configToFlag('--rpcMaxBatchSize', nodeRpcConfigMappings.rpcMaxBatchSize),
     configToFlag('--rpcMaxBodySize', nodeRpcConfigMappings.rpcMaxBodySize),
+    configToFlag('--rpcLatencyMs', nodeRpcConfigMappings.rpcLatencyMs),
   ],
   ETHEREUM: [
     configToFlag('--l1-chain-id', l1ReaderConfigMappings.l1ChainId),

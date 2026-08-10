@@ -84,6 +84,29 @@ describe('aztec_start_options commander integration', () => {
     expect(opts.adminPort).toBe(8880);
   });
 
+  it('parses --rpcLatencyMs to a number', () => {
+    const cmd = buildCommandWith(['API']);
+    cmd.parse(['node', 'cli', '--rpcLatencyMs', '600']);
+    const opts = cmd.opts();
+    expect(opts.rpcLatencyMs).toBe(600);
+    expect(typeof opts.rpcLatencyMs).toBe('number');
+  });
+
+  it('defaults rpcLatencyMs to 0', () => {
+    const cmd = buildCommandWith(['API']);
+    cmd.parse(['node', 'cli']);
+    const opts = cmd.opts();
+    expect(opts.rpcLatencyMs).toBe(0);
+  });
+
+  it('reads rpcLatencyMs from the RPC_LATENCY_MS env var', () => {
+    process.env.RPC_LATENCY_MS = '600';
+    const cmd = buildCommandWith(['API']);
+    cmd.parse(['node', 'cli']);
+    const opts = cmd.opts();
+    expect(opts.rpcLatencyMs).toBe(600);
+  });
+
   it('uses environment variables when flags are missing', () => {
     process.env.AZTEC_PORT = '9090';
     const cmd = buildCommandWith(['API']);

@@ -24,6 +24,12 @@ export const nodeRpcConfigMappings: ConfigMappingsType<NodeRPCConfig> = {
     description: 'Maximum allowed batch size for JSON RPC batch requests.',
     defaultValue: '1mb',
   },
+  rpcLatencyMs: {
+    env: 'RPC_LATENCY_MS',
+    description:
+      'Artificial delay in milliseconds before processing JSON-RPC requests. Intended for local/dev UX testing. A batch request incurs a single delay. Defaults to 0 (disabled).',
+    ...numberConfigHelper(0),
+  },
 };
 
 export type NodeRPCConfig = {
@@ -35,4 +41,6 @@ export type NodeRPCConfig = {
   rpcMaxBatchSize: number;
   /** The maximum body size the RPC server will accept */
   rpcMaxBodySize: string;
+  /** Artificial delay in milliseconds before processing JSON-RPC requests. Intended for local/dev UX testing. */
+  rpcLatencyMs: number;
 };

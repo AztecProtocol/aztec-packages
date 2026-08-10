@@ -17,6 +17,7 @@ import {
   parseWithOptionals,
   schemaHasMethod,
 } from '../../schemas/index.js';
+import { sleep } from '../../sleep/index.js';
 import { jsonStringify } from '../convert.js';
 import { assert } from '../js_utils.js';
 
@@ -36,12 +37,19 @@ export type SafeJsonRpcServerConfig = {
   http200OnError: boolean;
   /** The maximum body size the server will accept */
   maxBodySizeBytes: string;
+  /**
+   * Artificial delay in milliseconds applied once before processing each incoming JSON-RPC request (a batch counts as
+   * one request, so it incurs a single delay). Intended for local/dev UX testing to mimic remote node latency. A value
+   * of 0 (the default) or less disables the delay.
+   */
+  rpcLatencyMs: number;
 };
 
 const defaultServerConfig: SafeJsonRpcServerConfig = {
   http200OnError: false,
   maxBatchSize: 100,
   maxBodySizeBytes: '1mb',
+  rpcLatencyMs: 0,
 };
 
 export class SafeJsonRpcServer {
@@ -150,6 +158,10 @@ export class SafeJsonRpcServer {
     const router = new Router({ prefix });
     // "JSON RPC mode" where a single endpoint is used and the method is given in the request body
     router.post('/', async (ctx: Koa.Context) => {
+      // Optionally simulate network latency once per HTTP request, before processing (a batch is one round trip).
+      if (this.config.rpcLatencyMs > 0) {
+        await sleep(this.config.rpcLatencyMs);
+      }
       if (Array.isArray(ctx.request.body)) {
         if (ctx.request.body.length > this.config.maxBatchSize) {
           ctx.status = this.config.http200OnError ? 200 : 400;

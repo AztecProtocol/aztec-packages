@@ -96,6 +96,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)],
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,
+      rpcLatencyMs: options.rpcLatencyMs,
     });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
     debugLogger.info(`Aztec Server listening on port ${port}`, versions);
@@ -128,6 +129,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       middlewares: adminMiddlewares,
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,
+      rpcLatencyMs: options.rpcLatencyMs,
     });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.adminPort });
     debugLogger.info(`Aztec Server admin API listening on port ${port}`, versions);
