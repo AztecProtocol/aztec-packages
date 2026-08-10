@@ -1,0 +1,44 @@
+name: Nightly Slow Tests
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-slow-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  slow-tests:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: next
+
+      - name: Run slow tests
+        timeout-minutes: 120
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          ./.github/ci3.sh barretenberg-nightly
+
+      - name: Notify Slack and dispatch ClaudeBox on failure
+        if: failure() && github.event_name != 'workflow_dispatch'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          export CI=1
+          ./ci3/slack_notify_with_claudebox_kickoff "#honk-team" \
+            "Nightly slow tests FAILED: <${RUN_URL}|View Run> (🤖)" \
+            "Nightly barretenberg slow tests failed. CI run: ${RUN_URL}. These are the bb tests excluded from the merge queue for being too slow (barretenberg/cpp/bootstrap.sh test_cmds_nightly). Investigate the failure, identify the root cause, and create a fix PR targeting next." \
+            --link "$RUN_URL"
