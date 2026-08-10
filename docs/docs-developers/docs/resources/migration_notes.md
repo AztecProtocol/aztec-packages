@@ -9,6 +9,27 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [aztec-nr / Aztec.js] Account entrypoint authorization now binds the fee-payment method and cancellation flag
+
+The account entrypoint (`AccountActions::entrypoint`) previously authorized only the app payload hash. It now
+authorizes a combined hash over the app payload, the `fee_payment_method` selector, and the `cancellable` flag, so
+the account's approval covers the fee-payer and cancellation side effects rather than the call list alone. This
+prevents a party holding an account's authorization witness (for example a relayer or delegated prover) from
+reusing it while switching the fee-payment mode or cancellation flag.
+
+This changes the authorized message preimage, so it is a breaking change:
+
+- **In-repo account contracts** all delegate to `AccountActions::entrypoint`, so they pick up the change on
+  recompilation with no source edits. Recompile and redeploy account contracts against the new library.
+- **Old deployed account bytecode** does not authenticate against witnesses produced by the updated client, and
+  the updated bytecode does not accept witnesses produced by an old client. Client and account bytecode must be
+  upgraded together.
+- **Third-party wallets or tooling** that build the account entrypoint authorization witness themselves (mirroring
+  `DefaultAccountEntrypoint`) must include the fee-payment method and cancellation flag in the witnessed hash,
+  using the new `entrypoint_payload` domain separator, instead of hashing the encoded calls alone.
+
+Gas settings are not yet bound; that is planned as a follow-up.
+
 ### [Aztec.js] A function's return type is a single `returnType`, not a `returnTypes` list
 
 `FunctionAbi.returnTypes` is deprecated in favor of the single optional `FunctionAbi.returnType`, since multiple return values are already expressed as one `tuple` type. Read it through `getFunctionReturnType(abi)`, which also resolves artifacts serialized before `returnType` existed. `FunctionCall.returnTypes` is likewise replaced by `FunctionCall.returnType`.

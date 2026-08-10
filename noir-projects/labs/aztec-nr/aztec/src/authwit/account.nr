@@ -10,6 +10,26 @@ use crate::authwit::entrypoint::app::AppPayload;
 /// Used to produce cancellable (replaceable) transactions.
 pub(crate) global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
 
+/// Domain separator for the account entrypoint payload authorization message.
+///
+/// Binds the fee-payment selector and cancellation flag alongside the app payload so that the account authorizes
+/// them together.
+pub(crate) global DOM_SEP__ENTRYPOINT_PAYLOAD: u32 = 3045079954;
+
+/// Computes the inner hash the account authorizes when invoked through its entrypoint.
+///
+/// Binds the app payload together with the fee-payment selector and cancellation flag. Both drive fee-payer and
+/// cancellation side effects, so authorizing the app payload alone would let a party holding the witness switch the
+/// fee-payment mode or cancellation flag while keeping the account's approval valid. The gas settings are not yet
+/// bound: doing so requires the self-paid-deploy flow to build this witness with the settings resolved during send
+/// preparation.
+fn compute_entrypoint_payload_hash(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) -> Field {
+    poseidon2_hash_with_separator(
+        [app_payload.hash(), fee_payment_method as Field, cancellable as Field],
+        DOM_SEP__ENTRYPOINT_PAYLOAD,
+    )
+}
+
 pub struct AccountActions<Context> {
     context: Context,
     is_valid_impl: fn(&mut PrivateContext, Field) -> bool,
@@ -39,7 +59,10 @@ pub global AccountFeePaymentMethodOptions: AccountFeePaymentMethodOptionsEnum =
 /// Implements logic to verify authorization and execute payloads.
 impl AccountActions<&mut PrivateContext> {
 
-    /// Verifies that the `app_hash` is authorized and executes the `app_payload`.
+    /// Verifies that the entrypoint payload is authorized and executes the `app_payload`.
+    ///
+    /// The authorized message binds the app payload together with `fee_payment_method` and `cancellable`, so the
+    /// account's approval covers the fee-payer and cancellation side effects rather than the call list alone.
     ///
     /// @param app_payload The payload that contains the calls to be executed in the app phase.
     ///
@@ -60,11 +83,12 @@ impl AccountActions<&mut PrivateContext> {
     pub fn entrypoint(self, app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         let valid_fn = self.is_valid_impl;
 
+        let inner_hash = compute_entrypoint_payload_hash(app_payload, fee_payment_method, cancellable);
         let message_hash = compute_authwit_message_hash(
             self.context.this_address(),
             self.context.chain_id(),
             self.context.version(),
-            app_payload.hash(),
+            inner_hash,
         );
         assert(valid_fn(self.context, message_hash));
 
