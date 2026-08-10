@@ -2,7 +2,7 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
-import type { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
+import type { InboxContract, OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -11,19 +11,28 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2BlockSourceEvents } from '@aztec/stdlib/block';
+import {
+  type ArchiverEmitter,
+  type BlockHash,
+  type L2Block,
+  L2BlockSourceEvents,
+  type L2TipId,
+} from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { EventEmitter } from 'events';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { Archiver, type ArchiverEmitter } from './archiver.js';
+import { Archiver } from './archiver.js';
+import { L1ToL2MessagesNotReadyError } from './errors.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
-import { RpcSyncArchiver } from './rpc_sync_archiver.js';
-import { KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { RpcSyncArchiver, type RpcSyncArchiverSource } from './rpc_sync_archiver.js';
+import { type ArchiverDataStores, createArchiverDataStores } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 import { FakeL1State } from './test/fake_l1_state.js';
 
@@ -33,6 +42,13 @@ describe('RpcSyncArchiver', () => {
   const registryAddress = EthAddress.random();
   const governanceProposerAddress = EthAddress.random();
   const slashingProposerAddress = EthAddress.random();
+  const l1Addresses = {
+    rollupAddress,
+    registryAddress,
+    inboxAddress,
+    governanceProposerAddress,
+    slashingProposerAddress,
+  };
 
   let fake: FakeL1State;
   let publicClient: MockProxy<ViemPublicClient>;
@@ -40,20 +56,113 @@ describe('RpcSyncArchiver', () => {
   let epochCache: MockProxy<EpochCache>;
   let rollupContract: MockProxy<RollupContract>;
   let inboxContract: MockProxy<InboxContract>;
-  let upstreamInstrumentation: MockProxy<ArchiverInstrumentation>;
+  let instrumentation: MockProxy<ArchiverInstrumentation>;
   let dateProvider: TestDateProvider;
-  let upstreamStore: KVArchiverDataStore;
-  let followerStore: KVArchiverDataStore;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr };
+
+  let initialHeader: BlockHeader;
+  let initialBlockHash: BlockHash;
+
   let upstream: Archiver;
+  let upstreamStores: ArchiverDataStores;
   let follower: RpcSyncArchiver;
-  let synchronizer: ArchiverL1Synchronizer;
+  let followerStores: ArchiverDataStores;
+  let followerEvents: ArchiverEmitter;
+
+  /** Flips the wrapper source below into failing mode, so tests can simulate an unreachable upstream. */
+  let upstreamUnavailable: boolean;
 
   const GENESIS_ROOT = new Fr(GENESIS_ARCHIVE_ROOT);
+  const FOLLOWER_CONFIG = { pollingIntervalMs: 50, batchSize: 50 };
+
+  /** Builds the upstream archiver (a real Archiver over the fake L1 state) with its own store. */
+  const buildUpstream = async (): Promise<Archiver> => {
+    const stores = createArchiverDataStores(await openTmpStore('rpc_sync_upstream'), initialBlockHash);
+    upstreamStores = stores;
+    const config = {
+      pollingIntervalMs: 1000,
+      batchSize: 1000,
+      maxAllowedEthClientDriftSeconds: 300,
+      ethereumAllowNoDebugHosts: true,
+      skipHistoricalLogsCheck: true,
+      checkpointProposalSyncGrace: 4,
+      orphanPruneNoProposalTolerance: 1,
+      skipOrphanProposedBlockPruning: true,
+      blockDuration: 2,
+    };
+    const events = new EventEmitter() as ArchiverEmitter;
+    const l2TipsCache = new L2TipsCache(stores.blocks, initialBlockHash);
+
+    const synchronizer = new ArchiverL1Synchronizer(
+      publicClient,
+      publicClient,
+      rollupContract,
+      inboxContract,
+      stores,
+      config,
+      blobClient,
+      epochCache,
+      dateProvider,
+      instrumentation,
+      l1Constants,
+      events,
+      instrumentation.tracer,
+      l2TipsCache,
+      createLogger('archiver:upstream-l1-sync:test'),
+    );
+
+    return new Archiver(
+      publicClient,
+      publicClient,
+      rollupContract,
+      mock<OutboxContract>(),
+      l1Addresses,
+      stores,
+      config,
+      blobClient,
+      instrumentation,
+      l1Constants,
+      synchronizer,
+      events,
+      initialHeader,
+      initialBlockHash,
+      l2TipsCache,
+      dateProvider,
+    );
+  };
+
+  /** Wraps the upstream so tests can make it unreachable without touching the archiver itself. */
+  const makeSource = (): RpcSyncArchiverSource => ({
+    getL2Tips: () => (upstreamUnavailable ? Promise.reject(new Error('upstream unavailable')) : upstream.getL2Tips()),
+    getBlocks: query => upstream.getBlocks(query),
+    getBlockData: query => upstream.getBlockData(query),
+    getCheckpoints: query => upstream.getCheckpoints(query),
+    getL1ToL2Messages: checkpointNumber => upstream.getL1ToL2Messages(checkpointNumber),
+    getL2ToL1MembershipWitness: (txHash, message, messageIndexInTx) =>
+      upstream.getL2ToL1MembershipWitness(txHash, message, messageIndexInTx),
+  });
+
+  /** Builds a follower over the given stores, so warm-restart tests can reuse a populated store. */
+  const buildFollower = (stores: ArchiverDataStores, events: ArchiverEmitter): RpcSyncArchiver =>
+    new RpcSyncArchiver(
+      makeSource(),
+      stores,
+      l1Addresses,
+      l1Constants,
+      FOLLOWER_CONFIG,
+      events,
+      initialHeader,
+      initialBlockHash,
+      new L2TipsCache(stores.blocks, initialBlockHash),
+      dateProvider,
+      getTelemetryClient(),
+      createLogger('archiver:rpc-sync:test'),
+    );
 
   beforeEach(async () => {
     const now = Math.floor(Date.now() / 1000);
     dateProvider = new TestDateProvider();
+    upstreamUnavailable = false;
 
     l1Constants = {
       l1GenesisTime: BigInt(now),
@@ -68,78 +177,33 @@ describe('RpcSyncArchiver', () => {
       genesisArchiveRoot: GENESIS_ROOT,
     };
 
+    initialHeader = BlockHeader.empty();
+    initialBlockHash = await initialHeader.hash();
+
     fake = new FakeL1State({ ...l1Constants, rollupAddress, inboxAddress });
     publicClient = fake.createMockPublicClient();
     blobClient = fake.createMockBlobClient();
     epochCache = mock<EpochCache>();
     epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
-
-    const tracer = getTelemetryClient().getTracer('');
-    upstreamInstrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-
-    upstreamStore = new KVArchiverDataStore(await openTmpStore('rpc_sync_upstream'), 1000);
-    followerStore = new KVArchiverDataStore(await openTmpStore('rpc_sync_follower'), 1000);
-
+    instrumentation = mock<ArchiverInstrumentation>({
+      isEnabled: () => true,
+      tracer: getTelemetryClient().getTracer(''),
+    });
     rollupContract = fake.createMockRollupContract(publicClient);
     inboxContract = fake.createMockInboxContract(publicClient);
 
-    const upstreamConfig = {
-      pollingIntervalMs: 1000,
-      batchSize: 1000,
-      maxAllowedEthClientDriftSeconds: 300,
-      ethereumAllowNoDebugHosts: true,
-      skipHistoricalLogsCheck: true,
-    };
-
-    const events = new EventEmitter() as ArchiverEmitter;
-    const l2TipsCache = new L2TipsCache(upstreamStore.blockStore);
-
-    synchronizer = new ArchiverL1Synchronizer(
-      publicClient,
-      publicClient,
-      rollupContract,
-      inboxContract,
-      upstreamStore,
-      upstreamConfig,
-      blobClient,
-      epochCache,
-      dateProvider,
-      upstreamInstrumentation,
-      l1Constants,
-      events,
-      upstreamInstrumentation.tracer,
-      l2TipsCache,
-      createLogger('archiver:upstream-sync:test'),
-    );
-
-    upstream = new Archiver(
-      publicClient,
-      publicClient,
-      rollupContract,
-      { rollupAddress, registryAddress, inboxAddress, governanceProposerAddress, slashingProposerAddress },
-      upstreamStore,
-      upstreamConfig,
-      blobClient,
-      upstreamInstrumentation,
-      l1Constants,
-      synchronizer,
-      events,
-      l2TipsCache,
-    );
-
-    follower = new RpcSyncArchiver(
-      upstream,
-      followerStore,
-      { rollupAddress, registryAddress, inboxAddress, governanceProposerAddress, slashingProposerAddress },
-      l1Constants,
-      { pollingIntervalMs: 1000, batchSize: 1000 },
-      new EventEmitter() as ArchiverEmitter,
-    );
+    upstream = await buildUpstream();
+    followerStores = createArchiverDataStores(await openTmpStore('rpc_sync_follower'), initialBlockHash);
+    followerEvents = new EventEmitter() as ArchiverEmitter;
+    follower = buildFollower(followerStores, followerEvents);
   });
 
   afterEach(async () => {
+    // The follower deliberately does not close the stores it did not open, so the test owns them.
     await follower?.stop();
     await upstream?.stop();
+    await followerStores?.db.close();
+    await upstreamStores?.db.close();
   });
 
   /** Syncs the upstream from L1 and then triggers the follower to sync from the upstream. */
@@ -147,6 +211,12 @@ describe('RpcSyncArchiver', () => {
     await upstream.syncImmediate();
     await follower.syncImmediate();
   };
+
+  /** Builds a chain-pruned event payload targeting the given block, with both tiers pinned to that block. */
+  const prunedEventTips = (checkpointNumber: CheckpointNumber, blockNumber: BlockNumber): L2TipId => ({
+    block: { number: blockNumber, hash: '' },
+    checkpoint: { number: checkpointNumber, hash: '' },
+  });
 
   it('syncs checkpoints and messages from an upstream archiver', async () => {
     const { messages: msgs1 } = await fake.addCheckpoint(CheckpointNumber(1), {
@@ -163,15 +233,37 @@ describe('RpcSyncArchiver', () => {
 
     await syncBoth();
 
-    expect(await follower.getSynchedCheckpointNumber()).toBe(CheckpointNumber(2));
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(2));
     expect(await follower.getL1ToL2Messages(CheckpointNumber(1))).toEqual(msgs1);
     expect(await follower.getL1ToL2Messages(CheckpointNumber(2))).toEqual(msgs2);
 
     const upstreamTips = await upstream.getL2Tips();
     const followerTips = await follower.getL2Tips();
-    expect(followerTips.proposed.number).toBe(upstreamTips.proposed.number);
-    expect(followerTips.proposed.hash).toBe(upstreamTips.proposed.hash);
-    expect(followerTips.checkpointed.block.number).toBe(upstreamTips.checkpointed.block.number);
+    expect(followerTips.proposed).toEqual(upstreamTips.proposed);
+    expect(followerTips.checkpointed).toEqual(upstreamTips.checkpointed);
+    expect(follower.getHealth().caughtUp).toBe(true);
+    expect(follower.isInitialSyncComplete()).toBe(true);
+  });
+
+  it('persists L1 to L2 messages locally so they can be looked up by index', async () => {
+    const { messages } = await fake.addCheckpoint(CheckpointNumber(1), {
+      l1BlockNumber: 101n,
+      messagesL1BlockNumber: 98n,
+      numL1ToL2Messages: 2,
+    });
+    fake.setL1BlockNumber(200n);
+
+    await syncBoth();
+
+    // Messages are replicated into the local store, not proxied, so the index lookup works locally.
+    const firstIndex = InboxLeaf.smallestIndexForCheckpoint(CheckpointNumber(1));
+    expect(await followerStores.messages.getTotalL1ToL2MessageCount()).toBe(2n);
+    expect(await follower.getL1ToL2MessageIndex(messages[0])).toBe(firstIndex);
+    expect(await follower.getL1ToL2MessageIndex(messages[1])).toBe(firstIndex + 1n);
+    expect(await follower.getL1ToL2MessageIndex(Fr.random())).toBeUndefined();
+
+    // A checkpoint we have not replicated yet is reported as not-ready rather than as an empty message set.
+    await expect(follower.getL1ToL2Messages(CheckpointNumber(2))).rejects.toThrow(L1ToL2MessagesNotReadyError);
   });
 
   it('propagates chain-proven updates', async () => {
@@ -188,10 +280,14 @@ describe('RpcSyncArchiver', () => {
     fake.markCheckpointAsProven(CheckpointNumber(2));
     fake.setL1BlockNumber(2520n);
 
+    const onProven = jest.fn();
+    followerEvents.on(L2BlockSourceEvents.L2BlockProven, onProven);
+
     await syncBoth();
 
     expect(await upstream.getProvenCheckpointNumber()).toBe(CheckpointNumber(2));
     expect(await follower.getProvenCheckpointNumber()).toBe(CheckpointNumber(2));
+    expect(onProven).toHaveBeenCalledTimes(1);
   });
 
   it('handles chain-pruned when the upstream reorgs a checkpoint', async () => {
@@ -208,7 +304,7 @@ describe('RpcSyncArchiver', () => {
     fake.setL1BlockNumber(2520n);
 
     await syncBoth();
-    expect(await follower.getSynchedCheckpointNumber()).toBe(CheckpointNumber(2));
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(2));
 
     // Unwind checkpoint 2 on the upstream (simulating an L1 reorg that removed it).
     fake.removeCheckpoint(CheckpointNumber(2));
@@ -216,13 +312,14 @@ describe('RpcSyncArchiver', () => {
 
     await syncBoth();
 
-    expect(await upstream.getSynchedCheckpointNumber()).toBe(CheckpointNumber(1));
-    expect(await follower.getSynchedCheckpointNumber()).toBe(CheckpointNumber(1));
+    expect(await upstream.getCheckpointNumber()).toBe(CheckpointNumber(1));
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(1));
+    // The messages of the rolled-back checkpoint are dropped along with it.
+    await expect(follower.getL1ToL2Messages(CheckpointNumber(2))).rejects.toThrow(L1ToL2MessagesNotReadyError);
 
     const upstreamTips = await upstream.getL2Tips();
     const followerTips = await follower.getL2Tips();
-    expect(followerTips.checkpointed.block.number).toBe(upstreamTips.checkpointed.block.number);
-    expect(followerTips.checkpointed.block.hash).toBe(upstreamTips.checkpointed.block.hash);
+    expect(followerTips.checkpointed).toEqual(upstreamTips.checkpointed);
   });
 
   it('is idempotent on repeated syncs with no upstream changes', async () => {
@@ -239,8 +336,8 @@ describe('RpcSyncArchiver', () => {
     await follower.syncImmediate();
     await follower.syncImmediate();
 
-    const tipsAfterIdempotent = await follower.getL2Tips();
-    expect(tipsAfterIdempotent).toEqual(tipsAfterFirst);
+    expect(await follower.getL2Tips()).toEqual(tipsAfterFirst);
+    expect(await followerStores.messages.getTotalL1ToL2MessageCount()).toBe(2n);
   });
 
   it('marks initial sync complete via polling when started with blockUntilSync=false', async () => {
@@ -250,17 +347,15 @@ describe('RpcSyncArchiver', () => {
       numL1ToL2Messages: 1,
     });
     fake.setL1BlockNumber(200n);
-
-    // Ensure the upstream has the checkpoint visible to the follower.
     await upstream.syncImmediate();
 
     expect(follower.isInitialSyncComplete()).toBe(false);
 
-    // Start without blocking. The background stream must eventually flip the flag.
     await follower.start(false);
     await follower.waitForInitialSync();
 
     expect(follower.isInitialSyncComplete()).toBe(true);
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(1));
   });
 
   it('syncs multi-block checkpoints', async () => {
@@ -279,8 +374,10 @@ describe('RpcSyncArchiver', () => {
     expect(followerTips.proposed.number).toBe(upstreamTips.proposed.number);
     expect(followerTips.proposed.number).toBeGreaterThanOrEqual(3);
     for (let n = 1; n <= followerTips.proposed.number; n++) {
-      const upstreamBlock = await upstream.getBlock(BlockNumber(n));
-      const followerBlock = await follower.getBlock(BlockNumber(n));
+      const [upstreamBlock, followerBlock] = await Promise.all([
+        upstream.getBlock({ number: BlockNumber(n) }),
+        follower.getBlock({ number: BlockNumber(n) }),
+      ]);
       expect(followerBlock).toBeDefined();
       expect(followerBlock!.archive.root.toString()).toBe(upstreamBlock!.archive.root.toString());
     }
@@ -296,11 +393,11 @@ describe('RpcSyncArchiver', () => {
 
     await syncBoth();
 
-    expect(await follower.getSynchedCheckpointNumber()).toBe(CheckpointNumber(1));
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(1));
     expect(await follower.getL1ToL2Messages(CheckpointNumber(1))).toEqual([]);
   });
 
-  it('handles a synthetic chain-pruned event targeting block 0', async () => {
+  it('wipes local state on a chain-pruned event targeting block 0', async () => {
     await fake.addCheckpoint(CheckpointNumber(1), {
       l1BlockNumber: 101n,
       messagesL1BlockNumber: 98n,
@@ -308,25 +405,148 @@ describe('RpcSyncArchiver', () => {
     });
     fake.setL1BlockNumber(200n);
     await syncBoth();
-    expect(await follower.getSynchedCheckpointNumber()).toBe(CheckpointNumber(1));
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(1));
 
-    const emitter = (follower as unknown as { events: EventEmitter }).events;
     const onPrune = jest.fn();
-    emitter.on(L2BlockSourceEvents.L2PruneUnproven, onPrune);
+    followerEvents.on(L2BlockSourceEvents.L2PruneUnproven, onPrune);
 
-    // Drive a synthetic chain-pruned event targeting block 0. This should wipe everything and not throw.
     await follower.handleBlockStreamEvent({
       type: 'chain-pruned',
-      block: { number: BlockNumber(0), hash: '' },
-      checkpoint: { number: CheckpointNumber(0), hash: '' },
+      block: { number: BlockNumber.ZERO, hash: '' },
+      checkpointed: prunedEventTips(CheckpointNumber.ZERO, BlockNumber.ZERO),
+      proven: prunedEventTips(CheckpointNumber.ZERO, BlockNumber.ZERO),
     });
 
-    expect(await follower.getSynchedCheckpointNumber()).toBe(CheckpointNumber(0));
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(0));
     expect(await follower.getBlockNumber()).toBe(0);
     expect(onPrune).toHaveBeenCalledTimes(1);
   });
 
-  it('advances the finalized tip on a synthetic chain-finalized event', async () => {
+  it('classifies a prune of the uncheckpointed tail as an uncheckpointed prune', async () => {
+    await fake.addCheckpoint(CheckpointNumber(1), {
+      l1BlockNumber: 101n,
+      messagesL1BlockNumber: 98n,
+      numBlocks: 2,
+      numL1ToL2Messages: 1,
+    });
+    fake.setL1BlockNumber(200n);
+    await syncBoth();
+
+    const checkpointedTip = await follower.getBlockNumber({ tag: 'checkpointed' });
+    expect(checkpointedTip).toBe(2);
+
+    // Deliver two blocks of the not-yet-checkpointed next checkpoint, so the follower holds an uncheckpointed tail.
+    const proposedBlocks: L2Block[] = await fake.makeBlocks(CheckpointNumber(2), { numBlocks: 2, l1BlockNumber: 210n });
+    await follower.handleBlockStreamEvent({ type: 'blocks-added', blocks: proposedBlocks });
+    expect(await follower.getBlockNumber()).toBe(4);
+
+    const onPruneUncheckpointed = jest.fn();
+    const onPruneUnproven = jest.fn();
+    followerEvents.on(L2BlockSourceEvents.L2PruneUncheckpointed, onPruneUncheckpointed);
+    followerEvents.on(L2BlockSourceEvents.L2PruneUnproven, onPruneUnproven);
+
+    await follower.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: { number: BlockNumber(2), hash: '' },
+      checkpointed: prunedEventTips(CheckpointNumber(1), BlockNumber(2)),
+      proven: prunedEventTips(CheckpointNumber.ZERO, BlockNumber.ZERO),
+    });
+
+    expect(await follower.getBlockNumber()).toBe(2);
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(1));
+    expect(onPruneUncheckpointed).toHaveBeenCalledTimes(1);
+    expect(onPruneUnproven).not.toHaveBeenCalled();
+  });
+
+  it('rolls back to the previous checkpoint boundary when the prune target is mid-checkpoint', async () => {
+    await fake.addCheckpoint(CheckpointNumber(1), {
+      l1BlockNumber: 101n,
+      messagesL1BlockNumber: 98n,
+      numBlocks: 2,
+      numL1ToL2Messages: 1,
+    });
+    await fake.addCheckpoint(CheckpointNumber(2), {
+      l1BlockNumber: 2507n,
+      messagesL1BlockNumber: 2504n,
+      numBlocks: 2,
+      numL1ToL2Messages: 1,
+    });
+    fake.setL1BlockNumber(2520n);
+    await syncBoth();
+    expect(await follower.getBlockNumber()).toBe(4);
+
+    const onPruneUnproven = jest.fn();
+    followerEvents.on(L2BlockSourceEvents.L2PruneUnproven, onPruneUnproven);
+
+    // Block 3 is the first block of checkpoint 2, so rolling back to it must drop checkpoint 2 entirely.
+    await follower.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: { number: BlockNumber(3), hash: '' },
+      checkpointed: prunedEventTips(CheckpointNumber(1), BlockNumber(2)),
+      proven: prunedEventTips(CheckpointNumber.ZERO, BlockNumber.ZERO),
+    });
+
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(1));
+    expect(await follower.getBlockNumber()).toBe(2);
+    expect(onPruneUnproven).toHaveBeenCalledTimes(1);
+  });
+
+  it('advances the finalized tip on a chain-finalized event', async () => {
+    await fake.addCheckpoint(CheckpointNumber(1), {
+      l1BlockNumber: 101n,
+      messagesL1BlockNumber: 98n,
+      numL1ToL2Messages: 1,
+    });
+    fake.markCheckpointAsProven(CheckpointNumber(1));
+    fake.setL1BlockNumber(200n);
+    await syncBoth();
+
+    const checkpointedBlockNumber = await follower.getBlockNumber({ tag: 'checkpointed' });
+    expect(await followerStores.blocks.getFinalizedCheckpointNumber()).toBe(CheckpointNumber(0));
+
+    await follower.handleBlockStreamEvent({
+      type: 'chain-finalized',
+      block: { number: BlockNumber(checkpointedBlockNumber!), hash: '' },
+      checkpoint: { number: CheckpointNumber(1), hash: '' },
+    });
+
+    expect(await followerStores.blocks.getFinalizedCheckpointNumber()).toBe(CheckpointNumber(1));
+  });
+
+  it('reports an unreachable upstream through the health surface and recovers', async () => {
+    await fake.addCheckpoint(CheckpointNumber(1), {
+      l1BlockNumber: 101n,
+      messagesL1BlockNumber: 98n,
+      numL1ToL2Messages: 1,
+    });
+    fake.setL1BlockNumber(200n);
+    await upstream.syncImmediate();
+
+    upstreamUnavailable = true;
+    await follower.syncImmediate();
+
+    let health = follower.getHealth();
+    expect(health.consecutiveFailures).toBe(1);
+    expect(health.caughtUp).toBe(false);
+    expect(health.initialSyncComplete).toBe(false);
+    expect(health.lastError).toContain('upstream unavailable');
+    expect(health.lastSuccessfulSyncAt).toBeUndefined();
+
+    await follower.syncImmediate();
+    expect(follower.getHealth().consecutiveFailures).toBe(2);
+
+    upstreamUnavailable = false;
+    await follower.syncImmediate();
+
+    health = follower.getHealth();
+    expect(health.consecutiveFailures).toBe(0);
+    expect(health.lastError).toBeUndefined();
+    expect(health.caughtUp).toBe(true);
+    expect(health.lastSuccessfulSyncAt).toBeDefined();
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(1));
+  });
+
+  it('resolves initial sync on a warm store with no new upstream events', async () => {
     await fake.addCheckpoint(CheckpointNumber(1), {
       l1BlockNumber: 101n,
       messagesL1BlockNumber: 98n,
@@ -334,32 +554,17 @@ describe('RpcSyncArchiver', () => {
     });
     fake.setL1BlockNumber(200n);
     await syncBoth();
+    await follower.stop();
 
-    const checkpointedBlockNumber = await follower.getCheckpointedL2BlockNumber();
-    const header = await follower.getBlockHeader(checkpointedBlockNumber);
-    const blockHash = (await header!.hash()).toString();
-
-    expect(await followerStore.getFinalizedCheckpointNumber()).toBe(CheckpointNumber(0));
-
-    await follower.handleBlockStreamEvent({
-      type: 'chain-finalized',
-      block: { number: BlockNumber(checkpointedBlockNumber), hash: blockHash },
-    });
-
-    expect(await followerStore.getFinalizedCheckpointNumber()).toBe(CheckpointNumber(1));
-  });
-
-  it('forwards getL1ToL2Messages queries directly to the source', async () => {
-    const { messages } = await fake.addCheckpoint(CheckpointNumber(1), {
-      l1BlockNumber: 101n,
-      messagesL1BlockNumber: 98n,
-      numL1ToL2Messages: 2,
-    });
-    fake.setL1BlockNumber(200n);
-    await syncBoth();
-
-    // Messages are served from the upstream, not the local store, so the follower store is empty.
-    expect(await followerStore.getTotalL1ToL2MessageCount()).toBe(0n);
-    expect(await follower.getL1ToL2Messages(CheckpointNumber(1))).toEqual(messages);
+    // Restart over the already-populated store: no events are emitted, so initial sync must be decided by the
+    // end-of-cycle catch-up check rather than by observing an event.
+    const restarted = buildFollower(followerStores, new EventEmitter() as ArchiverEmitter);
+    try {
+      await restarted.start(true);
+      expect(restarted.isInitialSyncComplete()).toBe(true);
+      expect(await restarted.getCheckpointNumber()).toBe(CheckpointNumber(1));
+    } finally {
+      await restarted.stop();
+    }
   });
 });

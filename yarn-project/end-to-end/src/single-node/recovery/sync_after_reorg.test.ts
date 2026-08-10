@@ -98,7 +98,7 @@ describe('single-node/recovery/sync_after_reorg', () => {
    */
   async function assertRpcSyncArchiverAtCheckpoint(checkpoint: CheckpointNumber) {
     await rpcSyncArchiver.syncImmediate();
-    const [primaryTips, followerTips] = await Promise.all([primaryNode.getL2Tips(), rpcSyncArchiver.getL2Tips()]);
+    const [primaryTips, followerTips] = await Promise.all([primaryNode.getChainTips(), rpcSyncArchiver.getL2Tips()]);
     expect(followerTips.checkpointed.checkpoint.number).toBeGreaterThanOrEqual(checkpoint);
     expect(followerTips.checkpointed.block.number).toEqual(primaryTips.checkpointed.block.number);
     expect(followerTips.checkpointed.block.hash).toEqual(primaryTips.checkpointed.block.hash);
@@ -106,13 +106,11 @@ describe('single-node/recovery/sync_after_reorg', () => {
 
   /**
    * Creates an RpcSyncArchiver pointed at the given primary node, reusing the primary archiver's
-   * L1 constants and addresses (the RPC-sync archiver does not read L1 on its own). The source
-   * passed to the factory is the `AztecNode` itself, proving the subset relationship expressed by
-   * `RpcSyncArchiverSource`.
+   * L1 constants and addresses (the RPC-sync archiver does not read L1 on its own). The source is the
+   * primary's own archiver, which satisfies `RpcSyncArchiverSource` in-process the same way an
+   * `ArchiverApi` RPC client does over the wire.
    */
   async function createRpcSyncArchiverFromPrimary(primary: AztecNode): Promise<RpcSyncArchiver> {
-    // L1 constants and addresses are not part of the `AztecNode` interface, so we reach into the
-    // primary's underlying archiver to obtain them for test wiring.
     const primaryArchiver = (primary as AztecNodeService).getBlockSource() as Archiver;
     const [l1Constants, genesisValues, rollupAddress, registryAddress] = await Promise.all([
       primaryArchiver.getL1Constants(),
@@ -123,15 +121,12 @@ describe('single-node/recovery/sync_after_reorg', () => {
     const followerConfig = {
       ...test.context.config,
       dataDirectory: `${test.context.config.dataDirectory}/rpc-sync-follower`,
-      l1Contracts: {
-        ...test.context.config.l1Contracts,
-        rollupAddress,
-        registryAddress,
-      },
+      rollupAddress,
+      registryAddress,
     };
     return createRpcSyncArchiver(
       followerConfig,
-      primary,
+      primaryArchiver,
       { ...l1Constants, genesisArchiveRoot: genesisValues.genesisArchiveRoot },
       {},
       { blockUntilSync: false },

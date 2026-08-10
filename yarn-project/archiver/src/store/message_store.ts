@@ -45,6 +45,8 @@ export class MessageStore {
   #inboxTreeInProgress: AztecAsyncSingleton<bigint>;
   /** Stores the L1 finalized block as of the last successful message sync. */
   #messagesFinalizedL1Block: AztecAsyncSingleton<Buffer>;
+  /** Highest checkpoint whose messages were replicated from an upstream node. Only written by the RPC-sync archiver. */
+  #messagesSyncedToCheckpoint: AztecAsyncSingleton<number>;
 
   #log = createLogger('archiver:message_store');
 
@@ -55,6 +57,52 @@ export class MessageStore {
     this.#totalMessageCount = db.openSingleton('archiver_l1_to_l2_message_count');
     this.#inboxTreeInProgress = db.openSingleton('archiver_inbox_tree_in_progress');
     this.#messagesFinalizedL1Block = db.openSingleton('archiver_messages_finalized_l1_block');
+    this.#messagesSyncedToCheckpoint = db.openSingleton('archiver_messages_synced_to_checkpoint');
+  }
+
+  /**
+   * Highest checkpoint whose L1-to-L2 messages have been replicated from an upstream node, or 0 if none.
+   * Used by the RPC-sync archiver as its replication cursor: unlike the L1 sync point, it distinguishes
+   * "checkpoint fetched and it had no messages" from "checkpoint never fetched". Falls back to the checkpoint
+   * of the last stored message so a store bootstrapped by an L1-syncing archiver (e.g. from a snapshot) does
+   * not re-fetch its whole message history.
+   */
+  public async getMessagesSyncedToCheckpoint(): Promise<CheckpointNumber> {
+    const stored = await this.#messagesSyncedToCheckpoint.getAsync();
+    if (stored !== undefined) {
+      return CheckpointNumber(stored);
+    }
+    const lastMessage = await this.getLastMessage();
+    return lastMessage?.checkpointNumber ?? CheckpointNumber.ZERO;
+  }
+
+  /**
+   * Persists the L1-to-L2 message leaves of a single checkpoint as reported by an upstream node, reconstructing
+   * the index and rolling-hash bookkeeping that an L1-syncing archiver would have read from the inbox. Callers
+   * must supply checkpoints in ascending order with no gaps, otherwise the reconstructed rolling hash diverges
+   * from the canonical one and the insert is rejected.
+   * @param checkpointNumber - Checkpoint the leaves belong to.
+   * @param leaves - Message leaves for the checkpoint, in insertion order.
+   */
+  public async addL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber, leaves: Fr[]): Promise<void> {
+    const lastMessage = await this.getLastMessage();
+    const startIndex = InboxLeaf.smallestIndexForCheckpoint(checkpointNumber);
+    let rollingHash = lastMessage?.rollingHash ?? Buffer16.ZERO;
+    const messages: InboxMessage[] = [];
+    for (const [position, leaf] of leaves.entries()) {
+      rollingHash = updateRollingHash(rollingHash, leaf);
+      messages.push({
+        index: startIndex + BigInt(position),
+        leaf,
+        checkpointNumber,
+        // The follower never reads the inbox, so it has no L1 provenance for these messages.
+        l1BlockNumber: 0n,
+        l1BlockHash: Buffer32.ZERO,
+        rollingHash,
+      });
+    }
+    await this.addL1ToL2Messages(messages);
+    await this.#messagesSyncedToCheckpoint.set(checkpointNumber);
   }
 
   public async getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -285,10 +333,16 @@ export class MessageStore {
     });
   }
 
-  public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
+  public async rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
     this.#log.debug(`Deleting L1 to L2 messages up to target checkpoint ${targetCheckpointNumber}`);
     const startIndex = InboxLeaf.smallestIndexForCheckpoint(CheckpointNumber(targetCheckpointNumber + 1));
-    return this.removeL1ToL2Messages(startIndex);
+    await this.removeL1ToL2Messages(startIndex);
+    // Keep the replication cursor consistent with what is left in the store, so a follower re-fetches the
+    // messages of any checkpoint it rolled back.
+    const syncedTo = await this.#messagesSyncedToCheckpoint.getAsync();
+    if (syncedTo !== undefined && syncedTo > targetCheckpointNumber) {
+      await this.#messagesSyncedToCheckpoint.set(targetCheckpointNumber);
+    }
   }
 
   private indexToKey(index: bigint): number {
