@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dest",
-    "test": "tsc -p tsconfig.json && node --test dest/uds.test.js"
+    "test": "tsc -p tsconfig.json && node --test dest/*.test.js"
   },
   "files": [
     "dest",

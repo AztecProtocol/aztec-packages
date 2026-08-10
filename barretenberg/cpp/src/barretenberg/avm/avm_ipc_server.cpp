@@ -18,9 +18,49 @@ namespace bb::avm {
 
 int execute_avm_server(const std::string& input_path, const std::string& wsdb_path, const std::string& cdb_path)
 {
-    info("Connecting to aztec-wsdb at ", wsdb_path);
-    constexpr int max_retries = 50;
+    // Create our own IPC server and listen BEFORE connecting to the upstream
+    // wsdb/CDB servers: the owning TS process connects the moment we listen
+    // (its first request waits in the socket buffer until the reactor starts),
+    // so its connect backstop only covers exec + linking + reaching listen(),
+    // never the upstream waits below. It also installs the lifecycle handlers
+    // — including parent-death monitoring — before any potentially long wait.
+    ipc::ServerOptions opts;
+    opts.max_shm_clients = 1;
+    auto server = ipc::make_server(input_path, opts);
+    if (!server) {
+        info("Error: --input path must end with .sock or .shm: ", input_path);
+        return 1;
+    }
+    ipc::install_default_signal_handlers(*server);
+
+    auto cancel_simulation_handler = [](int /*signal*/) {
+        auto* token = g_active_cancellation_token.load(std::memory_order_acquire);
+        if (token) {
+            token->cancel();
+        }
+    };
+    // Installed before listen(): once the socket is up the parent may send
+    // SIGUSR1 (simulation cancellation) at any time, and the default action
+    // for an unhandled SIGUSR1 is process termination.
+    (void)std::signal(SIGUSR1, cancel_simulation_handler);
+
+    if (!server->listen()) {
+        info("Error: Could not start IPC server");
+        return 1;
+    }
+    info("bb-avm-sim listening on ", input_path);
+
+    // Upstream connect retries. The upstream servers also listen before their
+    // heavy initialization, so waiting here normally means draining a
+    // momentarily-full accept backlog, not waiting out init. The budget is a
+    // generous backstop matching the TS client's connect backstop; on failure
+    // we exit and the parent surfaces the exit as the failure cause. If the
+    // parent dies while we wait, parent-death monitoring (installed above)
+    // reaps us.
+    constexpr int max_retries = 600;
     constexpr int retry_delay_ms = 100;
+
+    info("Connecting to aztec-wsdb at ", wsdb_path);
     std::unique_ptr<wsdb::WsdbIpcClient> wsdb_client;
     for (int attempt = 0; attempt < max_retries; ++attempt) {
         try {
@@ -51,30 +91,6 @@ int execute_avm_server(const std::string& input_path, const std::string& wsdb_pa
     }
 
     AvmRequest request{ .cdb_client = *cdb_client, .wsdb_client = *wsdb_client };
-
-    ipc::ServerOptions opts;
-    opts.max_shm_clients = 1;
-    auto server = ipc::make_server(input_path, opts);
-    if (!server) {
-        info("Error: --input path must end with .sock or .shm: ", input_path);
-        return 1;
-    }
-
-    info("bb-avm-sim listening on ", input_path);
-    ipc::install_default_signal_handlers(*server);
-    auto cancel_simulation_handler = [](int /*signal*/) {
-        auto* token = g_active_cancellation_token.load(std::memory_order_acquire);
-        if (token) {
-            token->cancel();
-        }
-    };
-
-    (void)std::signal(SIGUSR1, cancel_simulation_handler);
-
-    if (!server->listen()) {
-        info("Error: Could not start IPC server");
-        return 1;
-    }
 
     info("bb-avm-sim IPC server ready");
 

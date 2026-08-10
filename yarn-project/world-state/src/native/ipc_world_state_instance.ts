@@ -370,7 +370,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
 
   /**
    * Spawn an `aztec-wsdb` subprocess and return an IPC-backed world state wrapping it.
-   * Encapsulates wsdb binary discovery, service construction, and readiness wait.
+   * Encapsulates wsdb binary discovery, service construction, and connection. wsdb listens before it
+   * initializes its database, so spawn resolves as soon as the socket is up and the first calls block
+   * until initialization completes.
    */
   static async spawn(
     dataDir: string,
