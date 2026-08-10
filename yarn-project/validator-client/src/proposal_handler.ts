@@ -16,7 +16,7 @@ import { TimeoutError } from '@aztec/foundation/error';
 import { FifoSet } from '@aztec/foundation/fifo-set';
 import type { LogData } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
-import { Semaphore } from '@aztec/foundation/queue';
+import { KeyedGate } from '@aztec/foundation/queue';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
@@ -165,37 +165,10 @@ type BlockProposalSlotValidationResult =
 
 const MAX_TRACKED_INVALID_PROPOSAL_SLOTS = 1000;
 
-/** A single-key semaphore together with the number of holders and waiters using it. */
-type Gate = {
-  semaphore: Semaphore;
-  users: number;
-};
-
-/** Provides mutually exclusive access per key and removes idle gates. */
-class KeyedGate<Key> {
-  private readonly gates = new Map<Key, Gate>();
-
-  /** Acquires the gate for `key` and returns its idempotent release function. */
-  public async acquire(key: Key): Promise<() => void> {
-    const gate = this.gates.get(key) ?? { semaphore: new Semaphore(1), users: 0 };
-    this.gates.set(key, gate);
-    gate.users++;
-    await gate.semaphore.acquire();
-
-    let released = false;
-    return () => {
-      if (released) {
-        return;
-      }
-      released = true;
-      gate.semaphore.release();
-      gate.users--;
-      if (gate.users === 0) {
-        this.gates.delete(key);
-      }
-    };
-  }
-}
+/** Result of attempting work that requires a block number to remain unoccupied. */
+type BlockNumberGateAttempt<Result> =
+  | { status: 'completed'; result: Result }
+  | { status: 'occupied'; block: BlockData };
 
 /** Block-proposal validation failures that constitute a slashable invalid-block offense. */
 export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailureReason[] = [
@@ -620,77 +593,78 @@ export class ProposalHandler {
       log: this.log,
     });
 
-    while (true) {
-      const releaseBlockNumberGate = await this.blockNumberGates.acquire(blockNumber);
-      let blockObservedWhileHoldingGate: BlockData | undefined;
+    const reexecutionDeadline = this.getReexecutionDeadline(slotNumber).getTime();
+
+    const reexecuteAndInsert = async (): Promise<BlockProposalValidationResult> => {
+      if (reexecutionDeadline - this.dateProvider.now() <= 0) {
+        return { isValid: false, blockNumber, reason: 'timeout' };
+      }
+
+      let reexecutionResult;
       try {
-        blockObservedWhileHoldingGate = await this.blockSource.getBlockData({ number: blockNumber });
-        if (!blockObservedWhileHoldingGate) {
-          if (this.getReexecutionDeadline(slotNumber).getTime() - this.dateProvider.now() <= 0) {
-            return { isValid: false, blockNumber, reason: 'timeout' };
+        this.log.verbose(`Re-executing transactions in the proposal`, proposalInfo);
+        reexecutionResult = await this.reexecuteTransactions(
+          proposal,
+          blockNumber,
+          checkpointNumber,
+          txs,
+          l1ToL2Messages,
+          previousCheckpointOutHashes,
+        );
+      } catch (error) {
+        this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
+        const reason = this.getReexecuteFailureReason(error);
+        return { isValid: false, blockNumber, reason, reexecutionResult };
+      }
+
+      if (reexecutionResult.block && !this.config.skipPushProposedBlocksToArchiver) {
+        try {
+          await this.blockSource.addBlock(reexecutionResult.block);
+        } catch (error) {
+          const competingBlock = await this.blockSource.getBlockData({ number: blockNumber });
+          if (!competingBlock) {
+            throw error;
           }
-
-          // Keep the block-number gate from this final absence check through re-execution and insertion.
-          let reexecutionResult;
-          try {
-            this.log.verbose(`Re-executing transactions in the proposal`, proposalInfo);
-            reexecutionResult = await this.reexecuteTransactions(
-              proposal,
-              blockNumber,
-              checkpointNumber,
-              txs,
-              l1ToL2Messages,
-              previousCheckpointOutHashes,
-            );
-          } catch (error) {
-            this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
-            const reason = this.getReexecuteFailureReason(error);
-            return { isValid: false, blockNumber, reason, reexecutionResult };
-          }
-
-          if (reexecutionResult.block && !this.config.skipPushProposedBlocksToArchiver) {
-            try {
-              await this.blockSource.addBlock(reexecutionResult.block);
-            } catch (error) {
-              const competingBlock = await this.blockSource.getBlockData({ number: blockNumber });
-              if (!competingBlock) {
-                throw error;
-              }
-              this.log.warn(`Another block was inserted while processing block proposal`, {
-                ...proposalInfo,
-                existingSlot: competingBlock.header.getSlot(),
-                existingArchive: competingBlock.archive.root.toString(),
-                outcome: 'concurrent_block_insert',
-              });
-              return { isValid: false, blockNumber, reason: 'block_number_already_exists', reexecutionResult };
-            }
-          }
-
-          this.log.info(
-            `Successfully re-executed block ${blockNumber} proposal at index ${proposal.indexWithinCheckpoint} on slot ${slotNumber}`,
-            { ...proposalInfo, ...pick(reexecutionResult, 'reexecutionTimeMs', 'totalManaUsed') },
-          );
-
-          return { isValid: true, blockNumber, reexecutionResult };
+          this.log.warn(`Another block was inserted while processing block proposal`, {
+            ...proposalInfo,
+            existingSlot: competingBlock.header.getSlot(),
+            existingArchive: competingBlock.archive.root.toString(),
+            outcome: 'concurrent_block_insert',
+          });
+          return { isValid: false, blockNumber, reason: 'block_number_already_exists', reexecutionResult };
         }
-      } finally {
-        releaseBlockNumberGate();
       }
 
-      // A competing proposal populated the height while this handler was queued. Do not hold the gate while
-      // waiting for that block to be pruned; after the wait, loop to reacquire and re-check atomically.
-      const existingBlockAfterPrune = await this.resolveExistingBlockAtNumber(
-        blockNumber,
-        proposal.archive,
-        slotNumber,
+      this.log.info(
+        `Successfully re-executed block ${blockNumber} proposal at index ${proposal.indexWithinCheckpoint} on slot ${slotNumber}`,
+        { ...proposalInfo, ...pick(reexecutionResult, 'reexecutionTimeMs', 'totalManaUsed') },
       );
-      if (existingBlockAfterPrune) {
-        this.log.warn(`Block number ${blockNumber} already exists, skipping processing`, {
-          ...proposalInfo,
-          existingArchive: blockObservedWhileHoldingGate?.archive.root.toString(),
-        });
-        return { isValid: false, blockNumber, reason: 'block_number_already_exists' };
+
+      return { isValid: true, blockNumber, reexecutionResult };
+    };
+
+    while (true) {
+      const attempt = await this.runWithAvailableBlockNumber(blockNumber, reexecuteAndInsert);
+      if (attempt.status === 'completed') {
+        return attempt.result;
       }
+
+      // This is the only place this loop waits. runWithAvailableBlockNumber has already released the gate, so
+      // another proposal at this height can finish while resolveExistingBlockAtNumber forces archiver sync and
+      // waits, bounded by the re-execution deadline, for that proposal to be pruned.
+      const existingBlock = await this.resolveExistingBlockAtNumber(blockNumber, proposal.archive, slotNumber);
+      if (!existingBlock) {
+        // A prune was observed. Reacquire the gate and atomically re-check the height before re-executing. If a
+        // different block won that race, the next iteration waits for that block under the same deadline.
+        continue;
+      }
+
+      // A matching block appeared, or a different block remained until the deadline. Both are safe rejections.
+      this.log.warn(`Block number ${blockNumber} already exists, skipping processing`, {
+        ...proposalInfo,
+        existingArchive: existingBlock.archive.root.toString(),
+      });
+      return { isValid: false, blockNumber, reason: 'block_number_already_exists' };
     }
   }
 
@@ -802,6 +776,23 @@ export class ProposalHandler {
         return existingBlock;
       }
       throw err;
+    }
+  }
+
+  /**
+   * Runs `action` while holding the block-number gate only if the target height is empty. The gate remains held
+   * through the action, coupling the final absence check to re-execution and insertion.
+   */
+  private async runWithAvailableBlockNumber<Result>(
+    blockNumber: BlockNumber,
+    action: () => Promise<Result>,
+  ): Promise<BlockNumberGateAttempt<Result>> {
+    const releaseBlockNumberGate = await this.blockNumberGates.acquire(blockNumber);
+    try {
+      const block = await this.blockSource.getBlockData({ number: blockNumber });
+      return block ? { status: 'occupied', block } : { status: 'completed', result: await action() };
+    } finally {
+      releaseBlockNumberGate();
     }
   }
 

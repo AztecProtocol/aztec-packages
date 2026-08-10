@@ -809,6 +809,22 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(blockSource.syncImmediate).toHaveBeenCalled();
     });
 
+    it('rejects a proposal if its block appears while waiting for a stale fork to be pruned', async () => {
+      const proposalArchive = Fr.random();
+      const { proposal, blockHandler } = await setupGenesisProposal(proposalArchive);
+      dateProvider.setTime(1_000);
+      blockSource.getBlockData.mockResolvedValueOnce(blockAt(Fr.random())).mockResolvedValue(blockAt(proposalArchive));
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'block_number_already_exists',
+      });
+      expect(blockSource.syncImmediate).toHaveBeenCalled();
+    });
+
     it('falls back to block_number_already_exists when the stale fork is not pruned before the deadline', async () => {
       const { proposal, blockHandler } = await setupGenesisProposal(Fr.random());
       // A different block keeps occupying this number and never gets pruned.
@@ -901,6 +917,38 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(reexecute.mock.calls.filter(([proposal]) => proposal === proposalB)).toHaveLength(1);
       expect(targetHeight.insertedArchives).toEqual([archiveA.toString(), archiveB.toString()]);
       expect(targetHeight.getBlockData()?.archive.root.equals(archiveB)).toBe(true);
+    });
+
+    it('waits again if another stale block repopulates the height after the awaited prune', async () => {
+      dateProvider.setTime(1_000);
+      const { proposal, blockHandler } = await setupGenesisProposal(Fr.random());
+      const staleBlock = blockAt(Fr.random());
+      const repopulatedBlock = blockAt(Fr.random());
+      blockSource.getBlockData
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(staleBlock)
+        .mockResolvedValueOnce(staleBlock)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(repopulatedBlock)
+        .mockResolvedValueOnce(repopulatedBlock)
+        .mockResolvedValue(undefined);
+      const proposalBlock = {
+        archive: new AppendOnlyTreeSnapshot(proposal.archive, 1),
+        header: proposal.blockHeader,
+      } as unknown as L2Block;
+      const reexecute = jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({
+        block: proposalBlock,
+        failedTxs: [],
+        reexecutionTimeMs: 1,
+        totalManaUsed: 0,
+      });
+
+      const result = await blockHandler.handleBlockProposal(proposal, mock<PeerId>(), true);
+
+      expect(result).toEqual(expect.objectContaining({ isValid: true }));
+      expect(blockSource.syncImmediate).toHaveBeenCalledTimes(2);
+      expect(reexecute).toHaveBeenCalledTimes(1);
+      expect(blockSource.addBlock).toHaveBeenCalledWith(proposalBlock);
     });
 
     it('returns block_number_already_exists when an external insert wins the addBlock race', async () => {

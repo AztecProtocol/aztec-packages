@@ -887,13 +887,18 @@ describe('ValidatorClient', () => {
       // is still in the future, leaving a retry window for the parent-block archive lookup.
       const buildSlotTime = 1n + BigInt(proposal.slotNumber - 1) * BigInt(checkpointsBuilder.getConfig().slotDuration);
       dateProvider.setTime(Number(buildSlotTime * 1000n));
-      blockSource.getBlockData.mockResolvedValueOnce(undefined);
-      blockSource.getBlockData.mockResolvedValueOnce(undefined);
-      blockSource.getBlockData.mockResolvedValueOnce(undefined);
+      let parentSynced = false;
+      blockSource.getBlockData.mockImplementation(query =>
+        Promise.resolve('number' in query || !parentSynced ? undefined : parentBlockData),
+      );
+      blockSource.syncImmediate.mockImplementation(() => {
+        parentSynced = true;
+        return Promise.resolve();
+      });
+
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-      // Archive lookups: 1 direct + 2 retryUntil (undefined) + 1 retryUntil (success) = 4
-      // Plus 1 number-based existence check after parent block is found = 5 total
-      expect(blockSource.getBlockData).toHaveBeenCalledTimes(5);
+
+      expect(blockSource.syncImmediate).toHaveBeenCalled();
       expect(isValid).toBe(true);
     });
 
