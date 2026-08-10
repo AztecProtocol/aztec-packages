@@ -3,14 +3,10 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # We mix if we're a release into the hash, as releases have all architectures built.
-# Include AVM_TRANSPILER setting to prevent cache poisoning: ci-barretenberg-full builds
-# with AVM_TRANSPILER=0, producing a bb binary without AVM transpiler support. Without this,
-# that build can populate the bb.js cache with a non-AVM bb, which ci-fast then downloads.
 hash=$(hash_str \
   $(../../cpp/bootstrap.sh hash) \
   $(cache_content_hash ../.rebuild_patterns) \
-  $(semver check $REF_NAME && echo 1 || echo 0) \
-  ${AVM_TRANSPILER:-1})
+  $(semver check $REF_NAME && echo 1 || echo 0))
 
 function prepare_project {
   (cd .. && ./bootstrap.sh generate_packages)

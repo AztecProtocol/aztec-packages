@@ -50,7 +50,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects release-image playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
+.PHONY: barretenberg noir-projects release-image playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -84,11 +84,9 @@ full-labs: fast-labs yarn-project-benches
 full: full-foundation full-labs
 
 # Everything required to run the full benchmark suite (see bootstrap.sh bench_cmds),
-# and nothing more. bb-acir builds barretenberg/acir_tests, whose headless-test
-# harness (ts-node) the bb browser memory bench (ci_benchmark_browser_memory.sh)
-# drives. bb-crs pre-downloads the CRS: the proof benches run in no-network
+# and nothing more. bb-crs pre-downloads the CRS: the proof benches run in no-network
 # containers, so bb.js must find it locally rather than fetch on demand.
-bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-crs bb-acir
+bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-crs
 
 # yarn-project-benches covers the e2e bench inputs and yarn-project's own benches;
 # noir-contracts was previously built transitively via yarn-project.
@@ -104,39 +102,11 @@ release-labs: fast-labs
 release: release-labs
 
 #==============================================================================
-# Noir
-#==============================================================================
-
-noir:
-	$(call build,$@,noir)
-
-#==============================================================================
-# AVM Transpiler
-#==============================================================================
-
-avm-transpiler-native:
-	$(call build,$@,avm-transpiler,build_native)
-
-avm-transpiler-cross-amd64-macos:
-	$(call build,$@,avm-transpiler,build_cross amd64-macos)
-
-avm-transpiler-cross-arm64-macos:
-	$(call build,$@,avm-transpiler,build_cross arm64-macos)
-
-avm-transpiler-cross-arm64-linux:
-	$(call build,$@,avm-transpiler,build_cross arm64-linux)
-
-avm-transpiler-cross-amd64-windows:
-	$(call build,$@,avm-transpiler,build_cross amd64-windows)
-
-avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux avm-transpiler-cross-amd64-windows
-
-#==============================================================================
 # Barretenberg
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-avm-sim bb-cdb bb-rs bb-acir bb-docs bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-avm-sim bb-cdb bb-rs bb-docs bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -158,12 +128,12 @@ bb-cpp-format-check:
 	$(call build,$@,barretenberg/cpp,build_format_check)
 
 # BB C++ Native - Split into compilation and linking phases
-# Compilation phase: Build barretenberg + vm2_sim objects (can run in parallel with avm-transpiler)
+# Compilation phase: Build barretenberg + vm2_sim objects
 bb-cpp-native-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_native_objects)
 
-# Linking phase: Link all native binaries (needs avm-transpiler)
-bb-cpp-native: bb-cpp-native-objects avm-transpiler-native bb-cpp-yarn bb-cpp-format-check
+# Linking phase: Link all native binaries
+bb-cpp-native: bb-cpp-native-objects bb-cpp-yarn bb-cpp-format-check
 	$(call build,$@,barretenberg/cpp,build_native)
 
 bb-cpp-chonk-inputs:
@@ -177,7 +147,7 @@ bb-cpp-wasm:
 bb-cpp-wasm-threads:
 	$(call build,$@,barretenberg/cpp,build_preset wasm-threads)
 
-# Cross-compile object phases (parallel with avm-transpiler cross-compile)
+# Cross-compile object phases
 bb-cpp-cross-arm64-linux-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-linux)
 
@@ -188,19 +158,19 @@ bb-cpp-cross-arm64-macos-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
 
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: bb-cpp-native bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux bb-cpp-yarn
+bb-cpp-cross-arm64-linux: bb-cpp-native bb-cpp-cross-arm64-linux-objects bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
-bb-cpp-cross-amd64-macos: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos bb-cpp-yarn
+bb-cpp-cross-amd64-macos: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos-objects bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset amd64-macos)
 
 # Cross-compile for ARM64 macOS (release or CI_FULL)
-bb-cpp-cross-arm64-macos: bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos bb-cpp-yarn
+bb-cpp-cross-arm64-macos: bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos-objects bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset arm64-macos)
 
 # Cross-compile for AMD64 Windows (release only)
-bb-cpp-cross-amd64-windows: bb-cpp-cross-arm64-macos avm-transpiler-cross-amd64-windows
+bb-cpp-cross-amd64-windows: bb-cpp-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_preset amd64-windows)
 
 # iOS SDK download (shared by all iOS cross-compile targets)
@@ -279,10 +249,6 @@ bb-cdb: ipc-codegen ipc-runtime bb-avm-sim
 bb-rs: bb-ts bb-cpp-native
 	$(call build,$@,barretenberg/rust)
 
-# BB ACIR Tests - ACIR compatibility tests
-bb-acir: noir bb-cpp-native bb-ts
-	$(call build,$@,barretenberg/acir_tests)
-
 # BB Documentation
 bb-docs:
 	$(call build,$@,barretenberg/docs)
@@ -303,9 +269,6 @@ bb-cpp-asan-tests: bb-cpp-asan
 bb-cpp-smt-tests: bb-cpp-smt
 	$(call test,$@,barretenberg/cpp,smt)
 
-bb-acir-tests: bb-acir
-	$(call test,$@,barretenberg/acir_tests)
-
 bb-ts-tests: bb-ts
 	$(call test,$@,barretenberg/ts)
 
@@ -318,7 +281,7 @@ bb-bbup-tests: bb-bbup
 bb-rs-tests: bb-rs
 	$(call test,$@,barretenberg/rust)
 
-bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-bbup-tests bb-docs-tests bb-rs-tests
+bb-tests: bb-cpp-native-tests bb-ts-tests bb-bbup-tests bb-docs-tests bb-rs-tests
 
 bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 
@@ -375,10 +338,6 @@ claude-tests:
 labs-aztec-toolchain:
 	$(call build,$@,labs-aztec-toolchain)
 
-# If we are running on the monorepo, we need to additionally depend on targets
-# that generate/place the binaries.
-# labs-aztec-toolchain: noir bb-cpp-native
-
 #==============================================================================
 # Noir Projects
 #==============================================================================
@@ -400,7 +359,7 @@ noir-projects-txe-tests:
 	$(call test,$@,noir-projects/labs/aztec-nr)
 	$(call test,$@,noir-projects/labs/noir-contracts)
 
-contract-snapshots-tests: noir noir-projects-labs-format-check labs-aztec-toolchain
+contract-snapshots-tests: noir-projects-labs-format-check labs-aztec-toolchain
 	$(call test,$@,noir-projects/labs/contract-snapshots)
 
 # Noir Projects - Aggregate target

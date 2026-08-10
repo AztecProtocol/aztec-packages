@@ -166,28 +166,27 @@ This creates/updates the API docs in:
 **Prerequisites — you MUST build dependencies before generating API docs:**
 
 1. **Initialize submodules.** A fresh checkout or a `git worktree` does NOT
-   populate them, and the noir portal deps won't resolve without it:
+   populate them:
    ```bash
    git submodule update --init --recursive
    ```
 2. **Build the TS dependency chain** with `make yarn-project` from the repo root.
-   It builds bb → noir → l1-contracts → yarn-project, which is what TypeDoc needs
-   to resolve cross-package types. Two traps that waste a lot of time:
+   It provisions the labs toolchain and compiles the contract artifacts before
+   building yarn-project, which is what TypeDoc needs to resolve cross-package
+   types. A trap that wastes a lot of time:
    - Do **not** run the repo-root `./bootstrap.sh` for this: it also builds the
      `spartan` target (k8s infra) which fails without helm/terraform and aborts
      the whole build. `make yarn-project` skips spartan.
-   - `cd yarn-project && yarn && yarn build` on its own fails with `Manifest not
-     found` for `../noir/packages/acvm_js`, because noir's TS packages aren't
-     built yet. `make yarn-project` builds them first.
    ```bash
    make yarn-project
    ```
 3. **Use the release-matched nargo for the aztec-nr docs.** `generate:aztec-nr-api`
    runs `nargo doc`; a mismatched/older `nargo` on PATH fails with cryptic errors
-   (e.g. `error: Non-ASCII character in comment`). Use the tag-matched compiler:
-   `aztec-nargo` from the installed CLI (step 4), or the `noir-repo` build at the
-   tag, not a stray global `nargo`. The script prefers a `nargo` found on PATH,
-   so put the right one first (e.g. prepend the installed CLI's bin dir).
+   (e.g. `error: Non-ASCII character in comment`). Use the pin-matched compiler:
+   `labs-aztec-toolchain/bin/nargo` (provisioned by the build, and the script's
+   default when no `nargo` is on PATH), or `aztec-nargo` from the installed CLI
+   (step 4). The script prefers a `nargo` found on PATH, so make sure a stray
+   global `nargo` doesn't shadow the right one.
 4. **Install the aztec CLI** matching the release version (provides `aztec-nargo`):
    ```bash
    VERSION=<nodeVersion> bash -i <(curl -sL https://install.aztec.network/<nodeVersion>)

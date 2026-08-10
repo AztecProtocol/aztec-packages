@@ -308,7 +308,6 @@ function install_hooks {
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
 ./yarn-project/precommit.sh
-./noir/precommit.sh
 ./noir-projects/labs/precommit.sh
 ./docs/examples/ts/precommit.sh
 EOF
@@ -324,12 +323,7 @@ EOF
 
 function pull_submodules {
   echo_header "pull submodules"
-  # If it's an old standalone noir clone, nuke it.
-  if [ -d "noir/noir-repo/.git" ]; then
-    echo "Removing old noir clone..."
-    rm -rf noir/noir-repo
-  fi
-  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags &>/dev/null"
+  denoise "git submodule update --init --recursive --depth 1 --jobs 8"
 }
 
 function start_txes {
@@ -511,7 +505,7 @@ function bench {
 ### RELEASING ##########################################################################################################
 function versions {
   local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
-  noir_version=$(git -C noir/noir-repo describe --tags --always HEAD)
+  noir_version=$(labs-aztec-toolchain/bootstrap.sh noir_version)
   anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
   node_version=$(node --version | cut -d 'v' -f 2)
   cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
@@ -1153,14 +1147,12 @@ case "$cmd" in
     export CI=1
     export NATIVE_PRESET=debug
     export AVM=0
-    export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
     export AVM=0
-    export AVM_TRANSPILER=0
     barretenberg/ts/bb.js/bootstrap.sh formatting
     barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh ci
@@ -1170,9 +1162,7 @@ case "$cmd" in
     export CI_FULL=1
     export USE_TEST_CACHE=1
     export AVM=0
-    export AVM_TRANSPILER=0
     pull_submodules
-    noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
     ;;
 

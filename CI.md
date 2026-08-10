@@ -137,19 +137,16 @@ Also note that all projects tend to have a `scripts/run_test.sh` which is the ac
 
 ### Skipping flakey tests.
 
-These are now managed in a single place, the file in the repository root `.test_skip_patterns`. Note the following examples:
+These are managed in a single place, the file in the repository root `.test_patterns.yml`. Note the following example:
 
-```
-# noir
-noir_lsp-.* notifications::notification_tests::test_caches_open_files
-noir_lsp-.* requests::
-
-# noir-contracts
-# "The number -0.000015046493062592755 cannot be converted to a BigInt because it is not an integer"
-counter_contract Counter::extended_incrementing_and_decrementing
+```yaml
+  - regex: "aztec-nr noir_aztec test::helpers::test_environment::test::events::"
+    error_regex: "Failed to solve brillig function"
+    owners:
+      - *nico
 ```
 
-Note you can add comments using `#`. Otherwise lines are regexes that are used by `grep` to filter the `test_cmds`. This allows us to clearly see and manage which tests are currently disabled due to flakey behaviour.
+Each entry's `regex` is matched against the test command. A matching failure alerts the listed owners in Slack (#aztec3-ci) instead of failing the build; with `error_regex`, only failures whose output matches are treated as flakes. `skip: true` disables a test outright — reserve it for tests that fail constantly. This allows us to clearly see and manage which tests are currently disabled due to flakey behaviour.
 
 If you run into a flakey test (which should be _much_ less common once the grinder is running), disable it here and notify the relevant team.
 
@@ -302,8 +299,8 @@ When a CI run is taking place and it has a redis cache available, you will see l
 --- pull submodules ---
 Executing: git submodule update --init --recursive
    0 ........................................... done (7s) (http://ci.aztec-labs.com/e6b8532f0c020b44)
---- noir build ---
-Executing: ./noir-repo/.github/scripts/wasm-bindgen-install.sh
+--- bb.js build ---
+Executing: yarn install --immutable
    0 .......................................... done (3s) (http://ci.aztec-labs.com/cf3cc1cde7f5dbc0)
 ```
 
@@ -345,7 +342,7 @@ All projects have at least a "build hash". This is computed using `cache_content
 
 Some projects will also have a "test hash". The test hash is part of the input to deciding if a test should be re-run. So this might also include files that don't make up the build hash, but are used as part of testing.
 
-To give a concrete example, take `barretenberg/acir_tests`. Here we have a build hash that consists of what makes up `nargo` (`../../noir/.rebuild_patterns` and `../noir/.noir-repo.rebuild_patterns`, but do make use of `../../noir/bootstrap.sh hash` to compute it correctly), and the test programs themselves (`../../noir/.noir-repo.rebuild_patterns_tests`) as they are actually compiled using nargo with the results stored in the build cache. The "test hash" then additionally adds barretenbergs cpp and ts code, because both are used in the actual _running_ of the tests.
+To give a concrete example, take `noir-projects/labs/noir-contracts`. Here we have a build hash that consists of the labs toolchain (the pinned nargo/bb binaries, via `labs-aztec-toolchain/bootstrap.sh hash`), the aztec-nr library, and the contract sources themselves, as the contracts are compiled with those binaries and the results stored in the build cache. The "test hash" then additionally adds yarn-project's hash, because the contract tests run against the TXE server built from it.
 
 If a test successfully runs in CI, it won't be run again unless its redis key changes. This key consists of the "test hash" and the "test command". Here's an example:
 

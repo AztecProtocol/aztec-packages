@@ -175,10 +175,6 @@ if (NOT WASM AND NOT BB_LITE)
     include(cmake/lmdb.cmake)
 endif()
 
-if(AVM_TRANSPILER_LIB)
-    include(cmake/avm-transpiler.cmake)
-endif()
-
 include(cmake/backward-cpp.cmake)
 
 add_subdirectory(src)

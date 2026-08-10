@@ -18,10 +18,6 @@ if (NOT(FUZZING))
         libdeflate::libdeflate_static
         tracy_mem
     )
-    # Link avm_transpiler when library is provided
-    if(AVM_TRANSPILER_LIB)
-        target_link_libraries(bb PRIVATE avm_transpiler)
-    endif()
     if(NOT WASM AND NOT BB_LITE)
         target_link_libraries(bb PRIVATE ipc)
     endif()
@@ -58,10 +54,6 @@ if (NOT(FUZZING))
             libdeflate::libdeflate_static
             tracy_mem
         )
-        # Link avm_transpiler when library is provided
-        if(AVM_TRANSPILER_LIB)
-            target_link_libraries(bb-avm PRIVATE avm_transpiler)
-        endif()
         if(NOT WASM AND NOT BB_LITE)
             target_link_libraries(bb-avm PRIVATE ipc)
         endif()
