@@ -99,7 +99,7 @@ release-foundation: fast-foundation bb-cpp-release-dir bb-ts-cross-copy bb-avm-s
 
 release-labs: fast-labs
 
-release: release-foundation release-labs
+release: release-labs
 
 #==============================================================================
 # Barretenberg
@@ -347,10 +347,10 @@ labs-aztec-toolchain:
 noir-projects-labs-format-check: labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs,format_check)
 
-noir-contracts: bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchain
+noir-contracts: noir-projects-labs-format-check labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs/noir-contracts)
 
-aztec-nr: bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchain
+aztec-nr: noir-projects-labs-format-check labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs/aztec-nr)
 
 # These tests are not included in the dep tree.
@@ -373,11 +373,6 @@ noir-projects: noir-projects-labs
 
 yarn-project: noir-projects-labs labs-aztec-toolchain
 	$(call build,$@,yarn-project)
-
-# If we still in the monorepo, we need to additionally depend on everything else explicitly.
-# In the labs repo, we will consume them differently.
-# TODO(fcarreiro): comment this out when pinning binaries.
-yarn-project: bb-ts wsdb bb-avm-sim bb-cdb
 
 yarn-project-tests: yarn-project
 	$(call test,$@,yarn-project/end-to-end)

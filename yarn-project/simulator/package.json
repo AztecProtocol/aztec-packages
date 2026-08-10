@@ -63,11 +63,11 @@
     ]
   },
   "dependencies": {
-    "@aztec/bb-avm-sim": "0.1.0",
-    "@aztec/cdb": "0.1.0",
+    "@aztec/bb-avm-sim": "0.1.0-dummy",
+    "@aztec/cdb": "0.1.0-dummy",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/ipc-runtime": "0.1.0",
+    "@aztec/ipc-runtime": "0.1.0-dummy",
     "@aztec/native": "workspace:^",
     "@aztec/noir-acvm_js": "0.1.0-dummy",
     "@aztec/noir-noirc_abi": "0.1.0-dummy",

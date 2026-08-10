@@ -299,6 +299,21 @@ function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
 
+  # Scoped release (see ci3/release_prep_package_json): only the @aztec deps local to this
+  # workspace are co-published at $1; foundation deps keep the version the root resolutions
+  # field pins them to.
+  local resolutions
+  resolutions="$(jq -c '.resolutions // {}' package.json)"
+  export NPM_RELEASE_RESOLUTIONS="$resolutions"
+
+  # Validate every manifest before anything is published: deploy_npm applies the same
+  # scoped-release rules per package inside the loop below, where a failure would abort
+  # the release with earlier packages already live on npm.
+  echo "Validating package manifests..."
+  for package in $packages; do
+    (cd $package && release_prep_package_json --check "$1")
+  done
+
   local package_list=()
   for package in $packages; do
     (cd $package && retry "deploy_npm $1")
