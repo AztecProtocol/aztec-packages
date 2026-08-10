@@ -102,6 +102,13 @@ export class BlockAlreadyCheckpointedError extends Error {
   }
 }
 
+/**
+ * Marker embedded in every {@link L1ToL2MessagesNotReadyError} message. A JSON-RPC round trip keeps only the
+ * error message (the class and the `name` are lost), so a client that needs to recognise the error has nothing
+ * else to match on. See {@link isL1ToL2MessagesNotReadyError}.
+ */
+const L1_TO_L2_MESSAGES_NOT_READY_MARKER = 'messages not yet sealed';
+
 /** Thrown when L1 to L2 messages are requested for a checkpoint whose message tree hasn't been sealed yet. */
 export class L1ToL2MessagesNotReadyError extends Error {
   constructor(
@@ -110,10 +117,21 @@ export class L1ToL2MessagesNotReadyError extends Error {
   ) {
     super(
       `Cannot get L1 to L2 messages for checkpoint ${checkpointNumber}: ` +
-        `inbox tree in progress is ${inboxTreeInProgress}, messages not yet sealed`,
+        `inbox tree in progress is ${inboxTreeInProgress}, ${L1_TO_L2_MESSAGES_NOT_READY_MARKER}`,
     );
     this.name = 'L1ToL2MessagesNotReadyError';
   }
+}
+
+/**
+ * Recognises a {@link L1ToL2MessagesNotReadyError} raised locally or by a remote node. The remote case is matched
+ * on the message alone, since the JSON-RPC client rehydrates every server-side failure as a plain `Error`.
+ */
+export function isL1ToL2MessagesNotReadyError(err: unknown): err is Error {
+  return (
+    err instanceof Error &&
+    (err.name === 'L1ToL2MessagesNotReadyError' || err.message.includes(L1_TO_L2_MESSAGES_NOT_READY_MARKER))
+  );
 }
 
 /** Thrown when a proposed checkpoint number is stale (already processed). */

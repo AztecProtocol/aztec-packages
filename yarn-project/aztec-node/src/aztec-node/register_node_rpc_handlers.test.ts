@@ -8,7 +8,7 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import type { L2Tips } from '@aztec/stdlib/block';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, AztecNodeDebugApiSchema } from '@aztec/stdlib/interfaces/client';
-import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
+import { ArchiverApiSchema, P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 
 import { registerAztecNodeRpcHandlers } from './register_node_rpc_handlers.js';
@@ -21,9 +21,11 @@ const GetChainTipsOnlySchema: ApiSchemaFor<GetChainTipsOnly> = {
 };
 
 const p2p = {};
+const archiver = {};
 
 const mockNode = {
-  getP2P: () => p2p,
+  tryGetP2P: () => p2p,
+  getArchiverApi: () => archiver,
   getChainTips(): Promise<L2Tips> {
     const tipId = {
       block: { number: BlockNumber(1), hash: `0x01` },
@@ -48,10 +50,31 @@ describe('registerAztecNodeRpcHandlers', () => {
     expect(services.aztec).toEqual([mockNode, AztecNodeApiSchema]);
     expect(services.node).toBe(services.aztec);
     expect(services.p2p).toEqual([p2p, P2PApiSchema]);
+    expect(services.archiver).toEqual([archiver, ArchiverApiSchema]);
     expect(services.aztecDebug).toEqual([mockNode, AztecNodeDebugApiSchema]);
     expect(services.nodeDebug).toBe(services.aztecDebug);
     expect(adminServices.aztecAdmin).toEqual([mockNode, AztecNodeAdminApiSchema]);
     expect(adminServices.nodeAdmin).toBe(adminServices.aztecAdmin);
+  });
+
+  it('skips the p2p namespace on a node with no p2p stack', () => {
+    const followerNode = { ...mockNode, tryGetP2P: () => undefined } as unknown as AztecNodeService;
+    const services: NamespacedApiHandlers = {};
+
+    registerAztecNodeRpcHandlers(followerNode, services);
+
+    expect(services.p2p).toBeUndefined();
+    expect(services.aztec).toEqual([followerNode, AztecNodeApiSchema]);
+    expect(services.archiver).toEqual([archiver, ArchiverApiSchema]);
+  });
+
+  it('skips the archiver namespace on a node with no archiver', () => {
+    const remoteArchiverNode = { ...mockNode, getArchiverApi: () => undefined } as unknown as AztecNodeService;
+    const services: NamespacedApiHandlers = {};
+
+    registerAztecNodeRpcHandlers(remoteArchiverNode, services);
+
+    expect(services.archiver).toBeUndefined();
   });
 
   it('skips debug namespaces unless requested', () => {

@@ -51,6 +51,31 @@ describe('aztec_start_options commander integration', () => {
     expect(opts['p2p.listenAddress']).toBe('1.2.3.4');
   });
 
+  it('maps follower flags to the node config keys they configure', () => {
+    const cmd = buildCommandWith(['FOLLOWER']);
+    cmd.parse([
+      'node',
+      'cli',
+      '--follower-upstream-url',
+      'http://upstream:8080',
+      '--followerSyncPollingIntervalMS',
+      '250',
+      '--followerSyncBatchSize',
+      '20',
+    ]);
+    const opts = cmd.opts();
+    expect(opts.followerUpstreamUrl).toBe('http://upstream:8080');
+    expect(opts.followerSyncPollingIntervalMS).toBe(250);
+    expect(opts.followerSyncBatchSize).toBe(20);
+  });
+
+  it('reads the follower upstream url from the env', () => {
+    process.env.FOLLOWER_UPSTREAM_URL = 'http://upstream:8080';
+    const cmd = buildCommandWith(['FOLLOWER']);
+    cmd.parse(['node', 'cli']);
+    expect(cmd.opts().followerUpstreamUrl).toBe('http://upstream:8080');
+  });
+
   it('parses array values for comma-separated flags', () => {
     const cmd = buildCommandWith(['ETHEREUM']);
     cmd.parse(['node', 'cli', '--l1-rpc-urls', 'http://a, http://b']);

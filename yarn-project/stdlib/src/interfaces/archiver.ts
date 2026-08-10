@@ -1,4 +1,5 @@
 import { BlockNumberSchema, CheckpointNumberSchema, EpochNumberSchema } from '@aztec/foundation/branded-types';
+import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -30,6 +31,7 @@ import { L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.
 import { optional, schemas } from '../schemas/schemas.js';
 import { indexedTxSchema } from '../tx/indexed_tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
+import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import type { L2LogsSource } from './l2_logs_source.js';
 
 /**
@@ -157,3 +159,22 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockData: z.function({ input: z.tuple([BlockQuerySchema]), output: BlockDataSchema.optional() }),
   getBlocksData: z.function({ input: z.tuple([BlocksQuerySchema]), output: z.array(BlockDataSchema) }),
 };
+
+/**
+ * Creates a client for the `archiver_*` namespace of a node's RPC interface. Used by a follower node to
+ * replicate chain data from its upstream node: unlike the `aztec_*` namespace, this one returns the archiver's
+ * own domain objects (`L2Block`, `PublishedCheckpoint`) rather than the client-facing projections of them.
+ */
+export function createArchiverClient(
+  url: string,
+  versions: Partial<ComponentsVersions> = {},
+  fetch = makeFetch([1, 2, 3], false),
+  batchWindowMS = 0,
+): ArchiverApi {
+  return createSafeJsonRpcClient<ArchiverApi>(url, ArchiverApiSchema, {
+    namespaceMethods: 'archiver',
+    fetch,
+    batchWindowMS,
+    onResponse: getVersioningResponseHandler(versions),
+  });
+}

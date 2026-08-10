@@ -27,7 +27,7 @@ import type { L1ToL2MessageSource, L2ToL1MembershipWitness } from '@aztec/stdlib
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Traceable, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { L1ToL2MessagesNotReadyError } from './errors.js';
+import { L1ToL2MessagesNotReadyError, isL1ToL2MessagesNotReadyError } from './errors.js';
 import { ArchiverDataSourceBase } from './modules/data_source_base.js';
 import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
 import { type ArchiverDataStores, backupArchiverDataStores } from './store/data_stores.js';
@@ -38,9 +38,6 @@ import type { L2TipsCache } from './store/l2_tips_cache.js';
  * RPC ceiling because a `PublishedCheckpoint` carries every block body it contains.
  */
 const CHECKPOINT_FETCH_BATCH_SIZE = 10;
-
-/** `name` of {@link L1ToL2MessagesNotReadyError}, used to recognise it after it crosses an RPC boundary. */
-const L1_TO_L2_MESSAGES_NOT_READY_ERROR_NAME = 'L1ToL2MessagesNotReadyError';
 
 /**
  * Read surface the {@link RpcSyncArchiver} needs from its upstream node. Deliberately expressed in
@@ -545,9 +542,9 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
       try {
         messages = await this.callUpstream(() => this.source.getL1ToL2Messages(next));
       } catch (err) {
-        // Matched by name rather than by class so it is still recognised after crossing an RPC boundary, where
-        // the error is rehydrated as a plain Error.
-        if (err instanceof Error && err.name === L1_TO_L2_MESSAGES_NOT_READY_ERROR_NAME) {
+        // Matched structurally rather than by class so it is still recognised after crossing an RPC boundary,
+        // where the error is rehydrated as a plain Error.
+        if (isL1ToL2MessagesNotReadyError(err)) {
           this.log.debug(`Upstream has not sealed the message tree for checkpoint ${next} yet`);
           return;
         }

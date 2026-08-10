@@ -13,7 +13,7 @@ import {
   EpochNumber,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
-import { compactArray, pick, unique } from '@aztec/foundation/collection';
+import { pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -71,6 +71,7 @@ import type {
 import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
   type AllowedElement,
+  type ArchiverApi,
   type ClientProtocolCircuitVerifier,
   type L2LogsSource,
   type Service,
@@ -108,6 +109,7 @@ import {
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 
 import { NodeBlockProvider } from '../modules/node_block_provider.js';
+import { type NodeTxGateway, P2PTxGateway } from '../modules/node_tx_gateway.js';
 import { NodeTxReceiptBuilder } from '../modules/node_tx_receipt.js';
 import { NodeWorldStateQueries } from '../modules/node_world_state_queries.js';
 import { Sentinel } from '../sentinel/sentinel.js';
@@ -122,7 +124,15 @@ import { NodePublicCallsSimulator } from './node_public_calls_simulator.js';
  */
 export interface AztecNodeServiceDeps {
   config: AztecNodeConfig;
-  p2pClient: P2P;
+  /**
+   * The node's p2p stack. Absent on a follower node, which replicates from an upstream node instead of
+   * gossiping; every tx-related call then goes through {@link txGateway}.
+   */
+  p2pClient?: P2P;
+  /** Source of not-yet-mined txs. Defaults to a {@link P2PTxGateway} over {@link p2pClient}. */
+  txGateway?: NodeTxGateway;
+  /** The archiver behind this node, exposed over the `archiver_*` RPC namespace for follower nodes. */
+  archiverApi?: ArchiverApi;
   blockSource: L2BlockSource & Partial<Service>;
   logsSource: L2LogsSource;
   contractDataSource: ContractDataSource;
@@ -140,8 +150,15 @@ export interface AztecNodeServiceDeps {
   feeProvider: FeeProvider;
   epochCache: EpochCacheInterface;
   packageVersion: string;
-  peerProofVerifier: ClientProtocolCircuitVerifier;
-  rpcProofVerifier: ClientProtocolCircuitVerifier;
+  /** Verifier for proofs received over p2p. Absent on a follower node, which has no p2p stack. */
+  peerProofVerifier?: ClientProtocolCircuitVerifier;
+  /** Verifier for proofs received over RPC. Absent on a follower node, which does not validate txs locally. */
+  rpcProofVerifier?: ClientProtocolCircuitVerifier;
+  /**
+   * Answers `isReady`. Defaults to the p2p client's own readiness; a follower node supplies a probe over its
+   * replication health instead.
+   */
+  readinessProbe?: () => Promise<boolean>;
   telemetry?: TelemetryClient;
   log?: Logger;
   blobClient?: BlobClientInterface;
@@ -168,7 +185,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   public readonly tracer: Tracer;
 
   protected config: AztecNodeConfig;
-  protected readonly p2pClient: P2P;
+  protected readonly p2pClient: P2P | undefined;
+  protected readonly txGateway: NodeTxGateway;
+  protected readonly archiverApi: ArchiverApi | undefined;
   protected readonly blockSource: L2BlockSource & Partial<Service>;
   protected readonly logsSource: L2LogsSource;
   protected readonly contractDataSource: ContractDataSource;
@@ -186,8 +205,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   protected readonly feeProvider: FeeProvider;
   protected readonly epochCache: EpochCacheInterface;
   protected readonly packageVersion: string;
-  private peerProofVerifier: ClientProtocolCircuitVerifier;
-  private rpcProofVerifier: ClientProtocolCircuitVerifier;
+  private peerProofVerifier: ClientProtocolCircuitVerifier | undefined;
+  private rpcProofVerifier: ClientProtocolCircuitVerifier | undefined;
+  private readonly readinessProbe: () => Promise<boolean>;
   private telemetry: TelemetryClient;
   private log: Logger;
   private blobClient?: BlobClientInterface;
@@ -199,6 +219,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   constructor(deps: AztecNodeServiceDeps) {
     this.config = deps.config;
     this.p2pClient = deps.p2pClient;
+    const txGateway = deps.txGateway ?? (deps.p2pClient && new P2PTxGateway(deps.p2pClient));
+    if (!txGateway) {
+      throw new Error('An Aztec node needs either a p2p client or a tx gateway to handle transactions');
+    }
+    this.txGateway = txGateway;
+    this.archiverApi = deps.archiverApi;
     this.blockSource = deps.blockSource;
     this.logsSource = deps.logsSource;
     this.contractDataSource = deps.contractDataSource;
@@ -218,6 +244,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.packageVersion = deps.packageVersion;
     this.peerProofVerifier = deps.peerProofVerifier;
     this.rpcProofVerifier = deps.rpcProofVerifier;
+    this.readinessProbe = deps.readinessProbe ?? (() => Promise.resolve(this.p2pClient?.isReady() ?? false));
     this.telemetry = deps.telemetry ?? getTelemetryClient();
     this.log = deps.log ?? createLogger('node');
     this.blobClient = deps.blobClient;
@@ -255,7 +282,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.blockProvider = new NodeBlockProvider(this.blockSource);
 
     this.txReceiptBuilder = new NodeTxReceiptBuilder({
-      p2pClient: this.p2pClient,
+      txGateway: this.txGateway,
       blockSource: this.blockSource,
       debugLogStore: this.debugLogStore,
     });
@@ -271,8 +298,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     }
   }
 
-  /** @internal Exposed for testing — returns the RPC proof verifier. */
-  public getProofVerifier(): ClientProtocolCircuitVerifier {
+  /** @internal Exposed for testing — returns the RPC proof verifier, if this node runs one. */
+  public getProofVerifier(): ClientProtocolCircuitVerifier | undefined {
     return this.rpcProofVerifier;
   }
 
@@ -385,8 +412,25 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.contractDataSource;
   }
 
+  /**
+   * Returns the p2p client backing this node.
+   * @throws If the node runs without a p2p stack (follower mode) — use {@link tryGetP2P} to handle that case.
+   */
   public getP2P(): P2P {
+    if (!this.p2pClient) {
+      throw new Error('This node runs without a p2p stack');
+    }
     return this.p2pClient;
+  }
+
+  /** Returns the p2p client backing this node, or undefined if it runs without a p2p stack (follower mode). */
+  public tryGetP2P(): P2P | undefined {
+    return this.p2pClient;
+  }
+
+  /** Returns the archiver behind this node, for serving the `archiver_*` RPC namespace to follower nodes. */
+  public getArchiverApi(): ArchiverApi | undefined {
+    return this.archiverApi;
   }
 
   /**
@@ -398,7 +442,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public getEncodedEnr(): Promise<string | undefined> {
-    return Promise.resolve(this.p2pClient.getEnr()?.encodeTxt());
+    return this.txGateway.getEncodedEnr();
   }
 
   public async getAllowedPublicSetup(): Promise<AllowedElement[]> {
@@ -406,11 +450,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   /**
-   * Method to determine if the node is ready to accept transactions.
+   * Method to determine if the node is ready to accept transactions. A full node reports its p2p client's
+   * readiness; a follower node reports its replication and world-state health (see `createFollowerNodeService`).
    * @returns - Flag indicating the readiness for tx submission.
    */
-  public isReady() {
-    return Promise.resolve(this.p2pClient.isReady() ?? false);
+  public isReady(): Promise<boolean> {
+    return this.readinessProbe();
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
@@ -454,12 +499,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return await this.feeProvider.getPredictedMinFees(manaUsage);
   }
 
-  public async getMaxPriorityFees(): Promise<GasFees> {
-    for await (const tx of this.p2pClient.iteratePendingTxs({ includeProof: false })) {
-      return tx.getGasSettings().maxPriorityFeesPerGas;
-    }
-
-    return GasFees.from({ feePerDaGas: 0n, feePerL2Gas: 0n });
+  public getMaxPriorityFees(): Promise<GasFees> {
+    return this.txGateway.getMaxPriorityFees();
   }
 
   /**
@@ -512,7 +553,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   /**
-   * Method to submit a transaction to the p2p pool.
+   * Method to submit a transaction to the p2p pool, or to the upstream node when running as a follower.
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
@@ -523,16 +564,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     const timer = new Timer();
     const txHash = tx.getTxHash().toString();
 
-    const valid = await this.isValidTx(tx);
-    if (valid.result !== 'valid') {
-      const reason = valid.reason.join(', ');
-      this.metrics.receivedTx(timer.ms(), false);
-      this.log.warn(`Received invalid tx ${txHash}: ${reason}`, { txHash });
-      throw new Error(`Invalid tx: ${reason}`);
+    // A follower node forwards the tx verbatim and lets its upstream validate it; see `requiresLocalTxValidation`.
+    if (this.txGateway.requiresLocalTxValidation) {
+      const valid = await this.isValidTx(tx);
+      if (valid.result !== 'valid') {
+        const reason = valid.reason.join(', ');
+        this.metrics.receivedTx(timer.ms(), false);
+        this.log.warn(`Received invalid tx ${txHash}: ${reason}`, { txHash });
+        throw new Error(`Invalid tx: ${reason}`);
+      }
     }
 
     try {
-      await this.p2pClient!.sendTx(tx);
+      await this.txGateway.sendTx(tx);
     } catch (err) {
       this.metrics.receivedTx(timer.ms(), false);
       this.log.warn(`Mempool rejected tx ${txHash}: ${(err as Error).message}`, { txHash });
@@ -565,7 +609,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await tryStop(this.sequencer);
     await tryStop(this.automineSequencer);
     await tryStop(this.proverNode);
-    await tryStop(this.p2pClient);
+    await tryStop(this.txGateway);
     await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
     await tryStop(this.blobClient);
@@ -588,26 +632,26 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @returns - The pending txs.
    */
   public getPendingTxs(limit?: number, after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]> {
-    return this.p2pClient!.getPendingTxs(limit, after, options);
+    return this.txGateway.getPendingTxs(limit, after, options);
   }
 
   public getPendingTxCount(): Promise<number> {
-    return this.p2pClient!.getPendingTxCount();
+    return this.txGateway.getPendingTxCount();
   }
 
   public getPeers(includePending?: boolean): Promise<PeerInfo[]> {
-    return this.p2pClient!.getPeers(includePending);
+    return this.txGateway.getPeers(includePending);
   }
 
   public getCheckpointAttestationsForSlot(
     slot: SlotNumber,
     proposalPayloadHash?: CheckpointProposalHash,
   ): Promise<CheckpointAttestation[]> {
-    return this.p2pClient!.getCheckpointAttestationsForSlot(slot, proposalPayloadHash);
+    return this.txGateway.getCheckpointAttestationsForSlot(slot, proposalPayloadHash);
   }
 
   public getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot> {
-    return this.p2pClient!.getProposalsForSlot(slot);
+    return this.txGateway.getProposalsForSlot(slot);
   }
 
   /**
@@ -618,7 +662,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @returns - The tx if it exists.
    */
   public getTxByHash(txHash: TxHash, options?: GetTxByHashOptions): Promise<Tx | undefined> {
-    return this.p2pClient!.getTxByHashFromPool(txHash, { includeProof: !!options?.includeProof });
+    return this.txGateway.getTxByHash(txHash, options);
   }
 
   /**
@@ -628,9 +672,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @param options - Options for the returned txs (eg whether to include their proofs).
    * @returns - The txs if it exists.
    */
-  public async getTxsByHash(txHashes: TxHash[], options?: GetTxByHashOptions): Promise<Tx[]> {
-    const txs = await this.p2pClient!.getTxsByHashFromPool(txHashes, { includeProof: !!options?.includeProof });
-    return compactArray(txs);
+  public getTxsByHash(txHashes: TxHash[], options?: GetTxByHashOptions): Promise<Tx[]> {
+    return this.txGateway.getTxsByHash(txHashes, options);
   }
 
   public findLeavesIndexes(
@@ -738,6 +781,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     { isSimulation, skipFeeEnforcement }: { isSimulation?: boolean; skipFeeEnforcement?: boolean } = {},
   ): Promise<TxValidationResult> {
     const db = this.worldStateSynchronizer.getCommitted();
+    // A follower node has no verifier, so its answer covers everything but the proof; it does not gate tx
+    // submission on this call either, since the upstream node re-validates whatever it forwards.
     const verifier = isSimulation ? undefined : this.rpcProofVerifier;
 
     // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
@@ -795,12 +840,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.automineSequencer?.updateConfig(sequencerUpdate);
     this.slasherClient?.updateConfig(config);
     this.validatorsSentinel?.updateConfig(config);
-    await this.p2pClient.updateP2PConfig(config);
+    await this.txGateway.updateConfig(config);
     const archiver = this.blockSource as Archiver;
     if ('updateConfig' in archiver) {
       archiver.updateConfig(config);
     }
-    if (newConfig.realProofs !== this.config.realProofs) {
+    // Only nodes that run verifiers swap them: a follower has none, since it does not validate txs locally.
+    if (newConfig.realProofs !== this.config.realProofs && (this.peerProofVerifier || this.rpcProofVerifier)) {
       await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
       if (newConfig.realProofs) {
         this.peerProofVerifier = await BatchChonkVerifier.new(newConfig, newConfig.bbChonkVerifyMaxBatch, 'peer');
@@ -895,7 +941,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       if (force) {
         this.log.warn(`Clearing world state database to allow rolling back behind finalized block ${finalizedBlock}`);
         await this.worldStateSynchronizer.clear();
-        await this.p2pClient.clear();
+        await this.txGateway.clear();
       } else {
         throw new Error(`Cannot rollback to block ${targetBlock} as it is before finalized ${finalizedBlock}`);
       }
@@ -925,16 +971,30 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async pauseSync(): Promise<void> {
+    const archiver = this.assertArchiverSupportsPausing();
     this.log.info(`Pausing archiver and world state sync`);
-    await (this.blockSource as Archiver).stop();
+    await archiver.stop();
     await this.worldStateSynchronizer.stopSync();
   }
 
   public resumeSync(): Promise<void> {
+    const archiver = this.assertArchiverSupportsPausing();
     this.log.info(`Resuming world state and archiver sync.`);
     this.worldStateSynchronizer.resumeSync();
-    (this.blockSource as Archiver).resume();
+    archiver.resume();
     return Promise.resolve();
+  }
+
+  /**
+   * Returns the block source as a pausable archiver. A follower node's replicating archiver cannot be resumed
+   * once stopped, so pausing is rejected outright rather than leaving the node stuck with sync switched off.
+   */
+  private assertArchiverSupportsPausing(): Archiver {
+    const archiver = this.blockSource as Archiver;
+    if (!('resume' in archiver)) {
+      throw new BadRequestError('Archiver implementation does not support pausing and resuming sync.');
+    }
+    return archiver;
   }
 
   public pauseSequencer(): Promise<void> {
