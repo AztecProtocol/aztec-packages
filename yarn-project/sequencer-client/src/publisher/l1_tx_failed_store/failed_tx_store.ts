@@ -55,7 +55,10 @@ export type FailedL1Tx = {
   };
   /** Gas pricing info at time of failure for underpricing diagnosis. */
   gasInfo?: {
-    /** Fee caps the tx was sent with (present for revert/send-error/timeout, not simulation). */
+    /**
+     * Fee caps the tx was sent with (present for revert/send-error/timeout, not simulation). Records written before
+     * this field was renamed spell it `sentGasPrice`, and parse back without it.
+     */
     sentFeeCaps?: FeeCaps;
     /** Gas limit used or estimated. */
     gasLimit?: bigint;
@@ -105,29 +108,6 @@ const windowBlockFeesSchema = z.object({
   includedBlobCount: z.number(),
 }) satisfies ZodFor<WindowBlockFees>;
 
-/**
- * Records written before fee caps were named as such spelled the fee cap fields `sentGasPrice` and
- * `sentGasPriceLadder`. They are read back into the current field names here so old records stay usable; nothing
- * writes them any more. Without this the legacy keys would be silently stripped (zod drops unknown keys) and the
- * fee caps would vanish from records that did have them. Drop once no records predating the rename are worth reading.
- */
-const gasInfoSchema = z
-  .object({
-    sentFeeCaps: feeCapsSchema.optional(),
-    sentGasPrice: feeCapsSchema.optional(),
-    gasLimit: schemas.BigInt.optional(),
-    nonce: z.number().optional(),
-    sentFeeCapsLadder: z.array(feeCapsSchema).optional(),
-    sentGasPriceLadder: z.array(feeCapsSchema).optional(),
-    attempts: z.number().optional(),
-    windowBlocks: z.array(windowBlockFeesSchema).optional(),
-  })
-  .transform(({ sentGasPrice, sentGasPriceLadder, ...rest }) => ({
-    ...rest,
-    sentFeeCaps: rest.sentFeeCaps ?? sentGasPrice,
-    sentFeeCapsLadder: rest.sentFeeCapsLadder ?? sentGasPriceLadder,
-  }));
-
 /** Parses a stored failed-tx record, coercing the on-disk decimal strings back to bigints. */
 export const FailedL1TxSchema: ZodFor<FailedL1Tx> = z.object({
   id: hexSchema,
@@ -159,7 +139,16 @@ export const FailedL1TxSchema: ZodFor<FailedL1Tx> = z.object({
     slot: z.number().optional(),
     sender: hexSchema,
   }),
-  gasInfo: gasInfoSchema.optional(),
+  gasInfo: z
+    .object({
+      sentFeeCaps: feeCapsSchema.optional(),
+      gasLimit: schemas.BigInt.optional(),
+      nonce: z.number().optional(),
+      sentFeeCapsLadder: z.array(feeCapsSchema).optional(),
+      attempts: z.number().optional(),
+      windowBlocks: z.array(windowBlockFeesSchema).optional(),
+    })
+    .optional(),
   timing: z
     .object({
       targetL2Slot: z.number().optional(),
