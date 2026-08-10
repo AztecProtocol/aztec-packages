@@ -10,7 +10,11 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
-import { getOtelJsonRpcDiagnosticsMiddleware, getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
+import {
+  getOtelJsonRpcDiagnosticsMiddleware,
+  getOtelJsonRpcPropagationMiddleware,
+  getOtelJsonRpcServerMetricsMiddleware,
+} from '@aztec/telemetry-client';
 
 import { createLocalNetwork } from '../local-network/index.js';
 import { github, splash } from '../splash.js';
@@ -93,7 +97,11 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       diagnostic: getOtelJsonRpcDiagnosticsMiddleware(),
       http200OnError: false,
       log: debugLogger,
-      middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)],
+      middlewares: [
+        getOtelJsonRpcServerMetricsMiddleware(),
+        getOtelJsonRpcPropagationMiddleware(),
+        getVersioningMiddleware(versions, versioningOpts),
+      ],
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,
     });
@@ -103,7 +111,11 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   // If there are any admin services, start a separate JSON-RPC server for them
   if (Object.entries(adminServices).length > 0) {
-    const adminMiddlewares = [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)];
+    const adminMiddlewares = [
+      getOtelJsonRpcServerMetricsMiddleware(),
+      getOtelJsonRpcPropagationMiddleware(),
+      getVersioningMiddleware(versions, versioningOpts),
+    ];
 
     // Resolve the admin API key (auto-generated and persisted, or opt-out)
     const apiKeyResolution = await resolveAdminApiKey(
@@ -116,7 +128,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       debugLogger,
     );
     if (apiKeyResolution) {
-      adminMiddlewares.unshift(getApiKeyAuthMiddleware(apiKeyResolution.apiKeyHash));
+      adminMiddlewares.splice(1, 0, getApiKeyAuthMiddleware(apiKeyResolution.apiKeyHash));
     } else {
       debugLogger.warn('No admin API key set — admin endpoint is unauthenticated');
     }

@@ -5,7 +5,11 @@ import {
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
 import { createLogger } from '@aztec/foundation/log';
-import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
+import {
+  getOtelJsonRpcDiagnosticsMiddleware,
+  getOtelJsonRpcPropagationMiddleware,
+  getOtelJsonRpcServerMetricsMiddleware,
+} from '@aztec/telemetry-client';
 
 import {
   type AztecNodeConfig,
@@ -49,7 +53,8 @@ async function main() {
   const services: NamespacedApiHandlers = {};
   registerAztecNodeRpcHandlers(aztecNode, services);
   const rpcServer = createNamespacedSafeJsonRpcServer(services, {
-    middlewares: [getOtelJsonRpcPropagationMiddleware()],
+    diagnostic: getOtelJsonRpcDiagnosticsMiddleware(),
+    middlewares: [getOtelJsonRpcServerMetricsMiddleware(), getOtelJsonRpcPropagationMiddleware()],
   });
   await startHttpRpcServer(rpcServer, { port: +AZTEC_NODE_PORT, apiPrefix: API_PREFIX });
   logger.info(`Aztec Node JSON-RPC Server listening on port ${AZTEC_NODE_PORT}`);

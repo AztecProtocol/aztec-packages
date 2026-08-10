@@ -18,6 +18,8 @@
 export const HTTP_REQUEST_HOST = 'http.header.request.host';
 export const HTTP_RESPONSE_STATUS_CODE = 'http.response.status_code';
 
+export const JSON_RPC_REJECTION_REASON = 'aztec.json_rpc.rejection_reason';
+
 /** The Aztec network identifier */
 export const NETWORK_NAME = 'aztec.network_name';
 

@@ -17,6 +17,7 @@ import {
   parseWithOptionals,
   schemaHasMethod,
 } from '../../schemas/index.js';
+import { Timer } from '../../timer/index.js';
 import { jsonStringify } from '../convert.js';
 import { assert } from '../js_utils.js';
 
@@ -25,6 +26,8 @@ export type DiagnosticsData = {
   method: string;
   params: any[];
   headers: http.IncomingHttpHeaders;
+  requestValidationDurationMs?: number;
+  requestValidationSucceeded?: boolean;
 };
 
 export type DiagnosticsMiddleware = (ctx: DiagnosticsData, next: () => Promise<void>) => Promise<void>;
@@ -217,8 +220,12 @@ export class SafeJsonRpcServer {
         let result: any;
 
         if (this.diagnosticsMiddleware) {
-          await this.diagnosticsMiddleware({ id: id ?? null, method, params, headers }, async () => {
-            result = await this.proxy.call(method, params);
+          const diagnosticsData: DiagnosticsData = { id: id ?? null, method, params, headers };
+          await this.diagnosticsMiddleware(diagnosticsData, async () => {
+            result = await this.proxy.call(method, params, (durationMs, succeeded) => {
+              diagnosticsData.requestValidationDurationMs = durationMs;
+              diagnosticsData.requestValidationSucceeded = succeeded;
+            });
           });
         } else {
           result = await this.proxy.call(method, params);
@@ -299,7 +306,11 @@ export type StatusCheckFn = () => boolean | Promise<boolean>;
 
 interface Proxy {
   hasMethod(methodName: string): boolean;
-  call(methodName: string, jsonParams?: any[]): Promise<any>;
+  call(
+    methodName: string,
+    jsonParams?: any[],
+    onRequestValidated?: (durationMs: number, succeeded: boolean) => void,
+  ): Promise<any>;
 }
 
 /**
@@ -323,14 +334,26 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
    * @param jsonParams - The RPC parameters.
    * @returns The remote result.
    */
-  public async call(methodName: string, jsonParams: any[] = []) {
+  public async call(
+    methodName: string,
+    jsonParams: any[] = [],
+    onRequestValidated?: (durationMs: number, succeeded: boolean) => void,
+  ) {
     this.log.debug(format(`request`, methodName, jsonParams));
 
     assert(Array.isArray(jsonParams), `Params to ${methodName} is not an array: ${jsonParams}`);
     assert(schemaHasMethod(this.schema, methodName), `Method ${methodName} not found in schema`);
     const method = this.handler[methodName as keyof T];
     assert(typeof method === 'function', `Method ${methodName} is not a function`);
-    const args = await parseWithOptionals(jsonParams, getSchemaParameters(this.schema[methodName]));
+    const validationTimer = new Timer();
+    let args: any[];
+    try {
+      args = await parseWithOptionals(jsonParams, getSchemaParameters(this.schema[methodName]));
+      onRequestValidated?.(validationTimer.ms(), true);
+    } catch (error) {
+      onRequestValidated?.(validationTimer.ms(), false);
+      throw error;
+    }
     const ret = await method.apply(this.handler, args);
     this.log.debug(format('response', methodName, ret));
     return ret;
@@ -350,12 +373,16 @@ class NamespacedSafeJsonProxy implements Proxy {
     }
   }
 
-  public call(namespacedMethodName: string, jsonParams: any[] = []) {
+  public call(
+    namespacedMethodName: string,
+    jsonParams: any[] = [],
+    onRequestValidated?: (durationMs: number, succeeded: boolean) => void,
+  ) {
     const [namespace, methodName] = namespacedMethodName.split('_', 2);
     assert(namespace && methodName, `Invalid namespaced method name: ${namespacedMethodName}`);
     const handler = this.proxies[namespace];
     assert(handler, `Namespace not found: ${namespace}`);
-    return handler.call(methodName, jsonParams);
+    return handler.call(methodName, jsonParams, onRequestValidated);
   }
 
   public hasMethod(namespacedMethodName: string): boolean {
