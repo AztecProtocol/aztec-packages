@@ -14,6 +14,10 @@ static constexpr size_t NO_CIRCUIT_CC = SIZE_MAX;
 template <typename Builder> std::vector<Error> ComponentsChecker_<Builder>::check()
 {
     build_acir_component_map();
+    auto missing_witness_errors = find_missing_witness_errors();
+    if (!missing_witness_errors.empty()) {
+        return missing_witness_errors;
+    }
     build_circuit_component_map();
     return compare_components();
 }
@@ -44,6 +48,9 @@ template <typename Builder> void ComponentsChecker_<Builder>::build_circuit_comp
     // Collect range_list variables
     for (const auto& [_, range_list] : builder_.range_lists) {
         for (auto var_idx : range_list.variable_indices) {
+            if (var_idx >= builder_.real_variable_index.size()) {
+                continue;
+            }
             range_list_vars_.insert(builder_.real_variable_index[var_idx]);
         }
     }
@@ -146,6 +153,28 @@ template <typename Builder> std::vector<Error> ComponentsChecker_<Builder>::comp
         }
     }
 
+    return errors;
+}
+
+template <typename Builder> std::vector<Error> ComponentsChecker_<Builder>::find_missing_witness_errors() const
+{
+    std::unordered_map<size_t, std::vector<uint32_t>> missing_by_acir_component;
+    for (const auto& [witness, acir_comp] : acir_witness_map_) {
+        if (witness >= builder_.real_variable_index.size()) {
+            missing_by_acir_component[acir_comp].push_back(witness);
+        }
+    }
+
+    std::vector<Error> errors;
+    errors.reserve(missing_by_acir_component.size());
+    for (const auto& [acir_comp, witnesses] : missing_by_acir_component) {
+        std::string msg = "ACIR component " + std::to_string(acir_comp) + " has " + std::to_string(witnesses.size()) +
+                          " witness(es) missing from circuit: ";
+        for (auto w : witnesses) {
+            msg += format_witness_debug(w) + " ";
+        }
+        errors.push_back({ Error::Type::UNCONSTRAINED, acir_comp, msg });
+    }
     return errors;
 }
 
