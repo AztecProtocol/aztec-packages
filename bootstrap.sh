@@ -529,24 +529,6 @@ function versions {
   echo "wasi-sdk: $wasi_sdk_version"
 }
 
-function release_bb_github {
-  # Create a GitHub release in AztecProtocol/barretenberg for bb artifacts.
-  # Users can manually create releases in aztec-packages via the GitHub UI if needed.
-  local bb_repo="AztecProtocol/barretenberg"
-  if gh release view "$REF_NAME" --repo "$bb_repo" &>/dev/null; then
-    return
-  fi
-  local prerelease_flag=""
-  if [ -n "$(semver prerelease $REF_NAME)" ]; then
-    prerelease_flag="--prerelease"
-  fi
-  do_or_dryrun gh release create "$REF_NAME" \
-    --repo "$bb_repo" \
-    $prerelease_flag \
-    --title "$REF_NAME" \
-    --notes "Release $REF_NAME — see https://github.com/AztecProtocol/aztec-packages/commits/$COMMIT_HASH"
-}
-
 function release {
   # Releases are triggered when REF_NAME is a valid semver (but can have a leading v).
   # We ensure there is a github release for our REF_NAME.
@@ -565,18 +547,7 @@ function release {
     return
   fi
 
-  # Ensure we have a github release in AztecProtocol/barretenberg for bb artifacts.
-  # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
-  release_bb_github
-
   projects=(
-    barretenberg/cpp
-    ipc-runtime
-    wsdb
-    barretenberg/ts
-    barretenberg/rust
-    noir
-    noir-projects/labs/aztec-nr
     yarn-project
     # aztec-up is omitted until the repo split is complete.
     playground
@@ -600,11 +571,10 @@ function release_dryrun {
 function private_release {
   # Release flow for the private repo, run on a (nightly) ci-private-release PR. We publish only to our
   # internal GCP Artifact Registry: the docker image (release-image -> INTERNAL_DOCKER_REGISTRY that
-  # GKE/staging pulls from) and the npm packages (barretenberg/ts, noir, ipc-runtime, wsdb,
-  # yarn-project -> the INTERNAL_NPM_REGISTRY npm repo). We run the release
-  # step for real on exactly those components and do not invoke the others — the remaining release
-  # sources publish public artifacts (github releases, crates.io, the aztec-up/playground S3 installers)
-  # and are not interrelated with these.
+  # GKE/staging pulls from) and the yarn-project npm packages (-> the INTERNAL_NPM_REGISTRY npm repo).
+  # We run the release step for real on exactly those components and do not invoke the others — the
+  # remaining release sources publish public artifacts (github releases, the aztec-up/playground S3
+  # installers) and are not interrelated with these.
   echo_header "private release"
 
   # Default to the private staging Artifact Registry; override via the INTERNAL_*_REGISTRY env vars.
@@ -619,8 +589,7 @@ function private_release {
   export NPM_TOKEN=$(gcloud auth print-access-token)
   # Route our scope to the internal npm registry; public deps still resolve from the default registry
   # (npmjs), so publishes and yarn-project's install smoke-test both work. Everything we publish is
-  # @aztec-scoped — the noir packages are renamed @noir-lang/* -> @aztec/noir-* on release. Exported so
-  # deploy_npm and that smoke-test share one config.
+  # @aztec-scoped. Exported so deploy_npm and that smoke-test share one config.
   local npmrc reg
   reg="${INTERNAL_NPM_REGISTRY%/}/"
   npmrc=$(mktemp)
@@ -631,15 +600,25 @@ function private_release {
   export NPM_CONFIG_GLOBALCONFIG="$npmrc"
   set -x
 
-  # Mirror external @aztec-scoped fork dependencies (e.g. the vendored "viem": "npm:@aztec/viem@x")
-  # from public npm into our internal registry. Because we scope ALL of @aztec to the internal registry,
-  # these forks — which we don't build/publish ourselves — must also live there, or installs of our
-  # published packages 404 (this is what yarn-project's release smoke-test exercises). amd64 only; the
-  # registry is shared across arches.
+  # Mirror external @aztec-scoped dependencies from public npm into our internal registry: fork
+  # dependencies (e.g. the vendored "viem": "npm:@aztec/viem@x") and the foundation packages that
+  # yarn-project consumes at the versions pinned in its root resolutions field. Because we scope ALL
+  # of @aztec to the internal registry, these packages — which we don't build/publish ourselves —
+  # must also live there, or installs of our published packages 404 (this is what yarn-project's
+  # release smoke-test exercises). amd64 only; the registry is shared across arches.
   if [ "$(arch)" != arm64 ]; then
     local spec name ver td
-    for spec in $(grep -rhoE 'npm:@aztec/[a-zA-Z0-9_.-]+@[0-9][^"]*' yarn-project --include=package.json \
-                  | sed 's/^npm://' | sort -u); do
+    for spec in $({
+        grep -rhoE 'npm:@aztec/[a-zA-Z0-9_.-]+@[0-9][^"]*' yarn-project --include=package.json | sed 's/^npm://'
+        # TODO: this mirrors only exact-version pins (^[0-9]), while release_prep_package_json
+        # writes any resolutions entry (range, npm: alias) into the published manifests; such a
+        # pin would be published but never mirrored, and installs from the internal registry
+        # would 404 on it. All current pins are exact versions. To be fixed when private
+        # releases get proper treatment.
+        jq -r '.resolutions // {} | to_entries[]
+               | select(.key | startswith("@aztec/")) | select(.value | test("^[0-9]"))
+               | "\(.key)@\(.value)"' yarn-project/package.json
+      } | sort -u); do
       name="${spec%@*}"; ver="${spec##*@}"
       if npm view "${name}@${ver}" version >/dev/null 2>&1; then
         echo "Mirror: ${spec} already present in internal registry; skipping."
@@ -655,12 +634,11 @@ function private_release {
     done
   fi
 
-  # Publish for real, in dependency order: bb.js, the noir packages, ipc-runtime, and wsdb must be on
-  # the registry before yarn-project's release smoke-tests installing the @aztec packages that depend on
-  # them. @aztec/world-state has a runtime dependency on @aztec/wsdb, and the ipc-codegen-generated
-  # @aztec/wsdb in turn has a runtime dependency on @aztec/ipc-runtime, so ipc-runtime must precede wsdb.
+  # Publish for real. The foundation packages yarn-project depends on are not published from
+  # here — they resolve at the versions pinned in yarn-project's root resolutions, mirrored into
+  # the internal registry above, so yarn-project's release smoke-test can install them.
   # npm packages are platform-independent, so only the docker image is published on arm64.
-  local publish=(barretenberg/ts noir ipc-runtime wsdb yarn-project release-image)
+  local publish=(yarn-project release-image)
   if [ $(arch) == arm64 ]; then
     publish=(release-image)
   fi
@@ -1129,8 +1107,6 @@ case "$cmd" in
 
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
       echo_header "Private fork release: $REF_NAME"
-      echo "Creating GitHub release from public repo context (COMMIT_HASH=$COMMIT_HASH)..."
-      release_bb_github
       echo "Fetching private source from aztec-packages-private..."
       git remote add private "https://x-access-token:${GITHUB_TOKEN}@github.com/AztecProtocol/aztec-packages-private.git"
       git fetch --depth 1 private "refs/tags/$REF_NAME"

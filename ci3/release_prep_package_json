@@ -1,27 +1,64 @@
 #!/usr/bin/env bash
 # Used before releases to write version and rewrite 'workspace:^' URLs.
+# With --check as the first argument, only runs the scoped-mode validation below against
+# package.json and writes nothing, so a release can reject a bad manifest in any of its
+# packages before it has published a single one.
 set -euo pipefail
+check_only=0
+if [ "${1:-}" == "--check" ]; then
+  check_only=1
+  shift
+fi
 version=$1
 
 tmp=$(mktemp)
 
-jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
+if [ "$check_only" -eq 0 ]; then
+  jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
+fi
 
-# We update every category of dependency.
-# While we don't strictly need to update devDependencies, 'workspace:^' is not a valid URL in npm.
-for deps in dependencies devDependencies peerDependencies optionalDependencies; do
-  # Update each dependency @aztec package version in package.json.
-  for pkg in $(jq --raw-output "(.$deps // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
-    jq --arg v $version ".$deps[\"$pkg\"] = \$v" package.json >$tmp
-    mv $tmp package.json
+# NPM_RELEASE_RESOLUTIONS (a JSON map: the enclosing workspace root's `resolutions` field)
+# selects scoped mode: only the @aztec packages local to the workspace being released are
+# co-published right now and get $version; every other @aztec dependency is an external pin
+# and gets the version the root resolutions field decides. A resolutions entry takes
+# precedence over the declared specifier — resolutions override manifest declarations at
+# install time too, so a mis-declared specifier (e.g. workspace:* for a package that is not
+# a workspace) must not decide the published version. Only when there is no entry does a
+# workspace:/portal:/file: specifier mark the dependency as workspace-local; anything else
+# is a hard error — the manifests declare pins as placeholders (0.1.0-dummy), and one with
+# no resolutions entry would be published as an uninstallable placeholder. Without the
+# variable, every @aztec dependency gets $version (all packages released simultaneously
+# with one version).
+if [ -n "${NPM_RELEASE_RESOLUTIONS:-}" ]; then
+  for deps in dependencies devDependencies peerDependencies optionalDependencies; do
+    # No && between jq and mv: a failing non-final command in an && list doesn't trip
+    # set -e, and the resolution errors below must abort the release.
+    jq --arg v "$version" --argjson res "$NPM_RELEASE_RESOLUTIONS" "
+      if .$deps == null then . else .$deps |= with_entries(
+        if (.key | startswith(\"@aztec/\")) then
+          if \$res[.key] then
+            .value = (if (\$res[.key] | test(\"^(workspace|portal|file):\")) then \$v else \$res[.key] end)
+          elif (.value | test(\"^(workspace|portal|file):\")) then .value = \$v
+          else error(\"\(.key) is '\(.value)': neither workspace-local nor pinned in root resolutions\")
+          end
+        else . end) end" package.json >$tmp
+    [ "$check_only" -eq 1 ] || mv $tmp package.json
   done
-  # Update each dependency @noir-lang package version in package.json to point to renamed packages and versions.
-  for pkg in $(jq --raw-output '(.'$deps' // {}) | keys[] | select(startswith("@noir-lang/"))' package.json); do
-    new_pkg="@aztec/noir-${pkg#@noir-lang/}"
-    jq --arg v "$version" --arg old "$pkg" --arg new "$new_pkg" '.'$deps'[$new] = $v | del(.'$deps'[$old])' package.json > tmp.json
-    mv tmp.json package.json
+elif [ "$check_only" -eq 0 ]; then
+  # We update every category of dependency.
+  # While we don't strictly need to update devDependencies, 'workspace:^' is not a valid URL in npm.
+  for deps in dependencies devDependencies peerDependencies optionalDependencies; do
+    # Update each dependency @aztec package version in package.json.
+    for pkg in $(jq --raw-output "(.$deps // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
+      jq --arg v $version ".$deps[\"$pkg\"] = \$v" package.json >$tmp
+      mv $tmp package.json
+    done
   done
-done
+fi
+
+if [ "$check_only" -eq 1 ]; then
+  exit 0
+fi
 
 # Stamp aztec_version into any published noir contract artifacts in artifacts/*.json. The build-time stamp in
 # noir-projects/labs/noir-contracts/bootstrap.sh writes "dev"; $version here is the authoritative release version about to
