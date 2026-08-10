@@ -8,13 +8,17 @@ tmp=$(mktemp)
 jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
 
 # NPM_RELEASE_RESOLUTIONS (a JSON map: the enclosing workspace root's `resolutions` field)
-# selects scoped mode: only the @aztec packages local to the workspace being released
-# (declared with a workspace:/portal:/file: specifier, or resolved to one at the root) are
+# selects scoped mode: only the @aztec packages local to the workspace being released are
 # co-published right now and get $version; every other @aztec dependency is an external pin
-# and gets the version the root resolutions field decides. The manifests declare those pins
-# as placeholders (0.1.0-dummy), so a pin with no resolutions entry is a hard error — it
-# would otherwise be published as an uninstallable placeholder. Without the variable, every
-# @aztec dependency gets $version (all packages released simultaneously with one version).
+# and gets the version the root resolutions field decides. A resolutions entry takes
+# precedence over the declared specifier — resolutions override manifest declarations at
+# install time too, so a mis-declared specifier (e.g. workspace:* for a package that is not
+# a workspace) must not decide the published version. Only when there is no entry does a
+# workspace:/portal:/file: specifier mark the dependency as workspace-local; anything else
+# is a hard error — the manifests declare pins as placeholders (0.1.0-dummy), and one with
+# no resolutions entry would be published as an uninstallable placeholder. Without the
+# variable, every @aztec dependency gets $version (all packages released simultaneously
+# with one version).
 if [ -n "${NPM_RELEASE_RESOLUTIONS:-}" ]; then
   for deps in dependencies devDependencies peerDependencies optionalDependencies; do
     # No && between jq and mv: a failing non-final command in an && list doesn't trip
@@ -22,9 +26,9 @@ if [ -n "${NPM_RELEASE_RESOLUTIONS:-}" ]; then
     jq --arg v "$version" --argjson res "$NPM_RELEASE_RESOLUTIONS" "
       if .$deps == null then . else .$deps |= with_entries(
         if (.key | startswith(\"@aztec/\")) then
-          if (.value | test(\"^(workspace|portal|file):\")) then .value = \$v
-          elif \$res[.key] then
+          if \$res[.key] then
             .value = (if (\$res[.key] | test(\"^(workspace|portal|file):\")) then \$v else \$res[.key] end)
+          elif (.value | test(\"^(workspace|portal|file):\")) then .value = \$v
           else error(\"\(.key) is '\(.value)': neither workspace-local nor pinned in root resolutions\")
           end
         else . end) end" package.json >$tmp

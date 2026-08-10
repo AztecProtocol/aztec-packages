@@ -2001,7 +2001,7 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/noir-test-contracts.js": "workspace:^"
-    "@aztec/noir-types": "workspace:*"
+    "@aztec/noir-types": "npm:0.1.0-dummy"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/standard-contracts": "workspace:^"

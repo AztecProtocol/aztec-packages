@@ -80,7 +80,7 @@
     "@aztec/key-store": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
-    "@aztec/noir-types": "workspace:*",
+    "@aztec/noir-types": "0.1.0-dummy",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/standard-contracts": "workspace:^",
