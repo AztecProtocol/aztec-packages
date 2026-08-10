@@ -6,6 +6,17 @@ export {
   SOCKET_BACKLOG,
   DEFAULT_CALL_TIMEOUT_NS,
 } from "./types.js";
+export {
+  IpcError,
+  IpcTransportError,
+  IpcProcessExitedError,
+  IpcSpawnError,
+} from "./errors.js";
+export {
+  SpawnedProcessBackend,
+  type SpawnedProcessBackendOptions,
+  type SpawnedTransport,
+} from "./spawned_backend.js";
 export { UdsIpcClient, type UdsIpcClientConnectOptions } from "./uds_client.js";
 export { UdsIpcServer, type IpcServerHandler } from "./uds_server.js";
 export {
