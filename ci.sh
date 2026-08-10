@@ -48,6 +48,7 @@ function print_usage {
   echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"                 "Mark the current PR as ready (enable automatic CI runs when pushing)."
   echo_cmd "pr-url"                "Print the URL of the current PR associated with the branch."
+  echo_cmd "barretenberg-nightly"  "Spin up an EC2 instance and run the bb tests that are too slow for the merge queue."
   echo_cmd "avm-inputs-collection" "Run e2e tests, dump AVM circuit inputs, upload to cache."
   echo_cmd "avm-check-circuit"     "Download cached AVM inputs, run check-circuit on each."
   echo_cmd "help"                  "Display this help message."
@@ -218,7 +219,7 @@ case "$cmd" in
     export AWS_SHUTDOWN_TIME=90
     multi_job_run "x-$cmd amd64 ci-chonk-input-update"
     ;;
-  barretenberg-debug)
+  barretenberg-debug|barretenberg-nightly)
     export CI_DASHBOARD="nightly"
     export JOB_ID="x-$cmd"
     export CPUS=192

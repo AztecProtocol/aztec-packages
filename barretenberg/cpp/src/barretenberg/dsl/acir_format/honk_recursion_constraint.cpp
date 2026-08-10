@@ -124,7 +124,11 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
 
 #ifndef NDEBUG
-    native_verification_debug<Flavor, IO>(vkey, vk_hash.get_value(), proof_fields);
+    // Write-VK mode uses structurally valid mock proofs/VKs; native verification is expected to fail and is very
+    // expensive for root-rollup recursion constraints.
+    if (!builder.is_write_vk_mode()) {
+        native_verification_debug<Flavor, IO>(vkey, vk_hash.get_value(), proof_fields);
+    }
 #endif
 
     return verifier_output;

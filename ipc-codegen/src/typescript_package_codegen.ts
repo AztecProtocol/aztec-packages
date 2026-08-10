@@ -286,15 +286,7 @@ process.exit(result.status ?? 1);
       ? "uds"
       : this.opts.transports[0]!;
 
-    return `import { spawn, type ChildProcess } from 'node:child_process';
-import { closeSync, existsSync, openSync, unlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { threadId } from 'node:worker_threads';
-import {
-  ${supportsShm ? "createNapiShmAsyncClient,\n  " : ""}UdsIpcClient,
-  type IpcClientAsync,
-} from '@aztec/ipc-runtime';
+    return `import { IpcSpawnError, SpawnedProcessBackend } from '@aztec/ipc-runtime';
 import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
 import { ${findBinary} } from './platform.js';
 
@@ -312,209 +304,44 @@ export interface ${serviceOptions} {
   env?: NodeJS.ProcessEnv;
   extraArgs?: string[];
   createError?: IpcErrorFactory;
+  /**
+   * Respawn the server on the next call after it dies, instead of failing all
+   * subsequent calls. Only enable for stateless servers: a respawned process
+   * remembers nothing, so any server-side session state held by callers would
+   * silently dangle.
+   */
+  respawn?: boolean;
 ${supportsShm ? "  napiPath?: string;\n  clientId?: number;\n" : ""}}
 
-let instanceCounter = 0;
-const DEFAULT_CONNECT_TIMEOUT_MS = 30_000;
-
-class SpawnedBackend implements IpcClientAsync {
-  private destroying = false;
-  private exitError?: Error;
-
-  private constructor(
-    private child: ChildProcess,
-    private client: IpcClientAsync,
-    private ipcPath: string,
-    private transport: ${serviceTransport},
-    private exitPromise: Promise<void>,
-    private logPath: string | undefined,
-  ) {
-${
-  supportsShm
-    ? `    // Detect unexpected server death. Over SHM there is no connection to break,
-    // so without this an in-flight call waits forever for a reply that will
-    // never arrive. Reject in-flight calls and point at the log file.`
-    : `    // Detect unexpected server death and reject in-flight calls with the
-    // child log path included in the error.`
-}
-    this.child.on('exit', (code, signal) => {
-      if (this.destroying) {
-        return;
-      }
-      this.exitError = new Error(
-        '${this.opts.binaryName} exited unexpectedly (code=' + code + ', signal=' + signal + ')' +
-          (this.logPath ? '; see logs: ' + this.logPath : ''),
-      );
-      console.error(this.exitError.message);
-      void this.client.destroy();
-    });
-  }
-
-  static async spawn(options: ${serviceOptions} = {}): Promise<SpawnedBackend> {
-    const binaryPath = ${findBinary}(options.binaryPath);
-    if (!binaryPath) {
-      throw new Error('${this.opts.binaryName} binary not found');
-    }
-
-    const transport = options.transport ?? '${defaultTransport}';
-    const instanceId = '${toSnakeCase(prefix)}-' + process.pid + '-' + threadId + '-' + instanceCounter++;
-    const ipcPath = ${
-      supportsShm
-        ? `transport === 'shm'
-      ? instanceId + '.shm'
-      : join(tmpdir(), instanceId + '.sock')`
-        : `join(tmpdir(), instanceId + '.sock')`
-    };
-
-    if (transport === 'uds' && existsSync(ipcPath)) {
-      unlinkSync(ipcPath);
-    }
-
-    // Without a live logger, capture the child's stdout/stderr to a temp file
-    // (a plain fd, not a pipe — a pipe would keep the libuv loop referenced and
-    // break clean process exit). The path is surfaced if the child dies, so its
-    // errors are recoverable instead of vanishing into an ignored stream.
-    const logPath = options.logger ? undefined : join(tmpdir(), instanceId + '.log');
-    const logFd = logPath !== undefined ? openSync(logPath, 'a') : undefined;
-
-    const ipcPathArgs = ${ipcPathArgs}.map((arg: string) => arg === '{path}' ? ipcPath : arg);
-    const child = spawn(binaryPath, [...ipcPathArgs, ...(options.extraArgs ?? [])], {
-      stdio: [
-        'ignore',
-        options.logger ? 'pipe' : (logFd as number),
-        options.logger ? 'pipe' : (logFd as number),
-      ],
-      env: { ...process.env, ...(options.env ?? {}) },
-    });
-    if (logFd !== undefined) {
-      // The child holds its own dup of the fd; the parent's copy isn't needed.
-      closeSync(logFd);
-    }
-
-    if (options.logger) {
-      child.stdout?.on('data', (data: Buffer) => options.logger?.('[${this.opts.binaryName} stdout] ' + data.toString().trimEnd()));
-      child.stderr?.on('data', (data: Buffer) => options.logger?.('[${this.opts.binaryName} stderr] ' + data.toString().trimEnd()));
-    }
-
-    const exitPromise = new Promise<void>(resolve => {
-      child.on('exit', () => resolve());
-    });
-
-    const childReadyFailure = new Promise<never>((_, reject) => {
-      child.once('error', reject);
-      child.once('exit', (code, signal) => {
-        reject(
-          new Error('${this.opts.binaryName} exited before IPC connection was ready (code=' + code + ', signal=' + signal + ')'),
-        );
-      });
-    });
-
-    const client = await Promise.race([connectClient(child, ipcPath, transport, options), childReadyFailure]);
-    return new SpawnedBackend(child, client, ipcPath, transport, exitPromise, logPath);
-  }
-
-  getIpcPath(): string {
-    return this.ipcPath;
-  }
-
-  call(input: Uint8Array): Promise<Uint8Array> {
-    if (this.exitError) {
-      return Promise.reject(this.exitError);
-    }
-    return this.client.call(input);
-  }
-
-  sendProcessSignal(signal: NodeJS.Signals): void {
-    if (this.child.exitCode === null) {
-      this.child.kill(signal);
-    }
-  }
-
-  async destroy(): Promise<void> {
-    // Mark intentional teardown so the exit handler doesn't report it as an
-    // unexpected death.
-    this.destroying = true;
-    await this.client.destroy();
-    if (this.child.exitCode === null) {
-      this.child.kill('SIGTERM');
-    }
-    await this.exitPromise;
-    this.child.stdout?.destroy();
-    this.child.stderr?.destroy();
-    this.child.removeAllListeners();
-    cleanupIpcPath(this.ipcPath, this.transport);
-  }
-}
-
-async function connectClient(
-  child: ChildProcess,
-  ipcPath: string,
-  transport: ${serviceTransport},
-  options: ${serviceOptions},
-): Promise<IpcClientAsync> {
-  const timeoutMs = options.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
-  const deadline = Date.now() + timeoutMs;
-  let lastError: unknown;
-
-  while (Date.now() <= deadline) {
-    if (child.exitCode !== null) {
-      throw new Error('${this.opts.binaryName} exited before IPC connection was ready');
-    }
-    try {
-      if (transport === 'uds') {
-        return await UdsIpcClient.connect(ipcPath, { connectTimeoutMs: Math.max(1, deadline - Date.now()) });
-      }
-${
-  supportsShm
-    ? `      if (transport === 'shm') {
-        return createNapiShmAsyncClient(ipcPath.replace(/\\.shm$/, ''), {
-          // Pass clientId through as-is: when unset, the client self-allocates a
-          // free producer slot (don't default to 0, which aliases every client).
-          clientId: options.clientId,
-          customAddonPath: options.napiPath,
-        });
-      }
-`
-    : ""
-}      throw new Error('Unsupported transport: ' + transport);
-    } catch (err) {
-      lastError = err;
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
-  }
-
-  throw new Error('Timed out connecting to ${this.opts.binaryName}: ' + (lastError instanceof Error ? lastError.message : String(lastError)));
-}
-
-function cleanupIpcPath(ipcPath: string, transport: ${serviceTransport}) {
-  try {
-    if (transport === 'uds' && existsSync(ipcPath)) {
-      unlinkSync(ipcPath);
-    }
-${
-  supportsShm
-    ? `    if (transport === 'shm') {
-      const shmName = ipcPath.replace(/\\.shm$/, '');
-      for (const suffix of ['_request', '_response']) {
-        const shmPath = '/dev/shm/' + shmName + suffix;
-        if (existsSync(shmPath)) {
-          unlinkSync(shmPath);
-        }
-      }
-    }
-`
-    : ""
-}
-  } catch {}
-}
-
+/**
+ * Spawns and talks to a '${this.opts.binaryName}' server process. Process
+ * lifecycle — connectivity, death detection, optional respawn, teardown — is
+ * owned by the backend (see SpawnedProcessBackend in ipc-runtime); it never
+ * leaks onto this API. Failed calls carry a 'retry' property set to true when
+ * the failure was environmental and the operation may be retried.
+ */
 export class ${serviceClass} extends AsyncApi {
-  private constructor(private spawnedBackend: SpawnedBackend, createError?: IpcErrorFactory) {
+  private constructor(private spawnedBackend: SpawnedProcessBackend, createError?: IpcErrorFactory) {
     super(spawnedBackend, createError);
   }
 
   static async spawn(options: ${serviceOptions} = {}): Promise<${serviceClass}> {
-    const backend = await SpawnedBackend.spawn(options);
+    const binaryPath = ${findBinary}(options.binaryPath);
+    if (!binaryPath) {
+      throw new IpcSpawnError('${this.opts.binaryName} binary not found', /*retry=*/ false);
+    }
+    const backend = await SpawnedProcessBackend.spawn({
+      binaryPath,
+      binaryName: '${this.opts.binaryName}',
+      instancePrefix: '${toSnakeCase(prefix)}',
+      ipcPathArgs: ${ipcPathArgs},
+      transport: options.transport ?? '${defaultTransport}',
+      logger: options.logger,
+      connectTimeoutMs: options.connectTimeoutMs,
+      env: options.env,
+      extraArgs: options.extraArgs,
+      respawn: options.respawn,
+${supportsShm ? "      clientId: options.clientId,\n      napiPath: options.napiPath,\n" : ""}    });
     return new ${serviceClass}(backend, options.createError);
   }
 

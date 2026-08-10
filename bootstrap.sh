@@ -1192,6 +1192,17 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
+  "ci-barretenberg-nightly")
+    # Nightly job: bb tests that are too slow to run per merge (barretenberg/cpp/bootstrap.sh test_cmds_nightly).
+    # No test cache, so the nightly signal does not depend on what an earlier run happened to cover.
+    # AVM stays enabled: the AVM recursive verifier tests in the nightly set live in binaries that are only
+    # built with it, and the resulting build hash matches the per-merge one, so the build is a cache pull.
+    export CI=1
+    export USE_TEST_CACHE=0
+    barretenberg/crs/bootstrap.sh
+    barretenberg/cpp/bootstrap.sh build
+    barretenberg/cpp/bootstrap.sh test nightly
+    ;;
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
