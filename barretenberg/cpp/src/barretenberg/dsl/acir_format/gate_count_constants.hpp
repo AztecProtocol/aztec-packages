@@ -2,6 +2,7 @@
 
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -61,7 +62,16 @@ template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE 
 // Honk Recursion Constants
 // ========================================
 
+// Re-pin together with root_rollup_vk_hash below; PinnedVKRootRollup checks both off one circuit construction.
 inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 6350020;
+
+// Hash of the verification key of the root rollup circuit. That circuit closes its IPA accumulator in-circuit, so it
+// is proved as a standard (non-rollup, non-zk) UltraHonk and the vk is the UltraFlavor one. Pinned so that any change
+// to the circuit has to be acknowledged. Re-pin together with ROOT_ROLLUP_GATE_COUNT above.
+inline bb::fr root_rollup_vk_hash()
+{
+    return bb::fr(uint256_t("0x0eca46c04c2f9b7c105074bf3be01afa46077eba76e9ca7bab9cb68c3fe9cff4"));
+}
 
 template <typename RecursiveFlavor>
 constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(

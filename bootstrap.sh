@@ -1192,6 +1192,17 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
+  "ci-barretenberg-nightly")
+    # Nightly job: bb tests that are too slow to run per merge (barretenberg/cpp/bootstrap.sh test_cmds_nightly).
+    # No test cache, so the nightly signal does not depend on what an earlier run happened to cover.
+    export CI=1
+    export USE_TEST_CACHE=0
+    export AVM=0
+    export AVM_TRANSPILER=0
+    barretenberg/crs/bootstrap.sh
+    barretenberg/cpp/bootstrap.sh build
+    barretenberg/cpp/bootstrap.sh test nightly
+    ;;
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1

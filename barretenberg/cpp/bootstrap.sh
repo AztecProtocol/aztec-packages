@@ -290,6 +290,11 @@ function test_cmds_native {
         if [[ "${CI_FULL:-0}" -eq 0 && "$test" == "ChonkKernelCapacity.MaxCapacityPassing" ]]; then
           continue
         fi
+        # These construct the ~6.35M-gate root rollup circuit repeatedly, which exceeds the per-test timeout on a
+        # loaded box. They run in test_cmds_nightly; PinnedVKRootRollup covers the circuit here.
+        if [[ "$test" =~ ^HonkRecursionConstraintTestWithoutPredicate/2\.(GenerateVKFromConstraints|Tampering)$ ]]; then
+          continue
+        fi
         # Heavy provers get more cores/memory so they finish within the default per-test timeout;
         # these circuits parallelize, so more cores lowers wall-time. Specific tests before family.
         if [[ "$test" == "ChonkKernelCapacity.MaxCapacityPassing" ]]; then
@@ -338,6 +343,18 @@ function test_cmds_smt {
   echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
 }
 
+# Tests too slow to run per merge, but that we still want a daily signal on.
+# Run by the ci-barretenberg-nightly job (see the repo root bootstrap.sh).
+function test_cmds_nightly {
+  # Full checks on the ~6.35M-gate root rollup circuit: vk independence (constructs it with and without a
+  # witness, then compares the two vks) and tampering (checks each witness invalidation is caught).
+  local prefix="$hash:CPUS=16:MEM=32g:TIMEOUT=60m"
+  local case_name
+  for case_name in GenerateVKFromConstraints Tampering; do
+    echo -e "$prefix barretenberg/cpp/scripts/run_test.sh dsl_tests HonkRecursionConstraintTestWithoutPredicate/2.$case_name"
+  done
+}
+
 # Print every individual test command. Can be fed into gnu parallel.
 # Paths are relative to repo root.
 # We prefix the hash. This ensures the test harness and cache and skip future runs.
@@ -354,10 +371,10 @@ function test_cmds {
   fi
 }
 
-# This is not called in ci. It is just for a developer to run the tests.
+# Takes an optional test group (e.g. nightly), otherwise runs the default set.
 function test {
   echo_header "bb test"
-  test_cmds | filter_test_cmds | parallelize
+  test_cmds "${1:-}" | filter_test_cmds | parallelize
 }
 
 function pinned_chonk_bench_flow_names {
