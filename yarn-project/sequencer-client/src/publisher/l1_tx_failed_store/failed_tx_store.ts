@@ -55,27 +55,22 @@ export type FailedL1Tx = {
   };
   /** Gas pricing info at time of failure for underpricing diagnosis. */
   gasInfo?: {
-    /**
-     * Fee caps the tx was sent with (present for revert/send-error/timeout, not simulation). Named `sentGasPrice`
-     * and not `sentFeeCaps` because this key is written to disk: records already in the store use `sentGasPrice`,
-     * and a renamed key makes them fail to parse.
-     */
-    sentGasPrice?: FeeCaps;
+    /** Fee caps the tx was sent with (present for revert/send-error/timeout, not simulation). */
+    sentFeeCaps?: FeeCaps;
     /** Gas limit used or estimated. */
     gasLimit?: bigint;
     /** Nonce used for the sent tx. */
     nonce?: number;
     /**
      * For timeouts: the escalating fee caps used across the initial send and each speed-up retry, in order.
-     * Compare against windowBlocks[].minIncludedPriorityFee to see if any attempt cleared the bar. Named
-     * `sentGasPriceLadder` and not `sentFeeCapsLadder` for the same on-disk reason as `sentGasPrice` above.
+     * Compare against windowBlocks[].minIncludedPriorityFee to see if any attempt cleared the bar.
      */
-    sentGasPriceLadder?: FeeCaps[];
+    sentFeeCapsLadder?: FeeCaps[];
     /** Number of send attempts (initial send + speed-ups). */
     attempts?: number;
     /**
      * Per-block fee data for the L1 blocks the tx could have been included in (the target L2 slot's
-     * inclusion window), in chronological order. Compare sentGasPrice against these to see whether
+     * inclusion window), in chronological order. Compare sentFeeCaps against these to see whether
      * the tx was underpriced for each block it competed for. May be a partial or empty list if the
      * window was not yet mined when the failure was recorded (e.g. an early send failure).
      */
@@ -110,6 +105,29 @@ const windowBlockFeesSchema = z.object({
   includedBlobCount: z.number(),
 }) satisfies ZodFor<WindowBlockFees>;
 
+/**
+ * Records written before fee caps were named as such spelled the fee cap fields `sentGasPrice` and
+ * `sentGasPriceLadder`. They are read back into the current field names here so old records stay usable; nothing
+ * writes them any more. Without this the legacy keys would be silently stripped (zod drops unknown keys) and the
+ * fee caps would vanish from records that did have them. Drop once no records predating the rename are worth reading.
+ */
+const gasInfoSchema = z
+  .object({
+    sentFeeCaps: feeCapsSchema.optional(),
+    sentGasPrice: feeCapsSchema.optional(),
+    gasLimit: schemas.BigInt.optional(),
+    nonce: z.number().optional(),
+    sentFeeCapsLadder: z.array(feeCapsSchema).optional(),
+    sentGasPriceLadder: z.array(feeCapsSchema).optional(),
+    attempts: z.number().optional(),
+    windowBlocks: z.array(windowBlockFeesSchema).optional(),
+  })
+  .transform(({ sentGasPrice, sentGasPriceLadder, ...rest }) => ({
+    ...rest,
+    sentFeeCaps: rest.sentFeeCaps ?? sentGasPrice,
+    sentFeeCapsLadder: rest.sentFeeCapsLadder ?? sentGasPriceLadder,
+  }));
+
 /** Parses a stored failed-tx record, coercing the on-disk decimal strings back to bigints. */
 export const FailedL1TxSchema: ZodFor<FailedL1Tx> = z.object({
   id: hexSchema,
@@ -141,16 +159,7 @@ export const FailedL1TxSchema: ZodFor<FailedL1Tx> = z.object({
     slot: z.number().optional(),
     sender: hexSchema,
   }),
-  gasInfo: z
-    .object({
-      sentGasPrice: feeCapsSchema.optional(),
-      gasLimit: schemas.BigInt.optional(),
-      nonce: z.number().optional(),
-      sentGasPriceLadder: z.array(feeCapsSchema).optional(),
-      attempts: z.number().optional(),
-      windowBlocks: z.array(windowBlockFeesSchema).optional(),
-    })
-    .optional(),
+  gasInfo: gasInfoSchema.optional(),
   timing: z
     .object({
       targetL2Slot: z.number().optional(),

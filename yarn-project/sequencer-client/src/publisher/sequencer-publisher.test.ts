@@ -1234,7 +1234,7 @@ describe('SequencerPublisher', () => {
       const record = await waitForFailedTxRecord(join(storeDir, 'timeout'));
 
       expect(record.failureType).toBe('timeout');
-      expect(record.gasInfo?.sentGasPriceLadder).toEqual([
+      expect(record.gasInfo?.sentFeeCapsLadder).toEqual([
         { maxFeePerGas: 100n, maxPriorityFeePerGas: 1n },
         { maxFeePerGas: 150n, maxPriorityFeePerGas: 3n },
       ]);
