@@ -131,9 +131,7 @@ case "$cmd" in
   full|full-no-test-cache)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
-    export AWS_SHUTDOWN_TIME=75
-    # The compat e2e matrix runs after the normal suite on the same instance; allow extra time.
-    [ "${RUN_COMPAT_E2E:-0}" = 1 ] && export AWS_SHUTDOWN_TIME=90
+    export AWS_SHUTDOWN_TIME=90
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   chonk-input-update)
