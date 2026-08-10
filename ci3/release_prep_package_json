@@ -21,9 +21,7 @@ if [ -n "${NPM_RELEASE_RESOLUTIONS:-}" ]; then
     # set -e, and the resolution errors below must abort the release.
     jq --arg v "$version" --argjson res "$NPM_RELEASE_RESOLUTIONS" "
       if .$deps == null then . else .$deps |= with_entries(
-        if (.key | startswith(\"@noir-lang/\")) then
-          error(\"\(.key): noir packages are consumed via renamed @aztec/noir-* pins; an @noir-lang dependency cannot be released from here\")
-        elif (.key | startswith(\"@aztec/\")) then
+        if (.key | startswith(\"@aztec/\")) then
           if (.value | test(\"^(workspace|portal|file):\")) then .value = \$v
           elif \$res[.key] then
             .value = (if (\$res[.key] | test(\"^(workspace|portal|file):\")) then \$v else \$res[.key] end)
@@ -40,12 +38,6 @@ else
     for pkg in $(jq --raw-output "(.$deps // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
       jq --arg v $version ".$deps[\"$pkg\"] = \$v" package.json >$tmp
       mv $tmp package.json
-    done
-    # Update each dependency @noir-lang package version in package.json to point to renamed packages and versions.
-    for pkg in $(jq --raw-output '(.'$deps' // {}) | keys[] | select(startswith("@noir-lang/"))' package.json); do
-      new_pkg="@aztec/noir-${pkg#@noir-lang/}"
-      jq --arg v "$version" --arg old "$pkg" --arg new "$new_pkg" '.'$deps'[$new] = $v | del(.'$deps'[$old])' package.json > tmp.json
-      mv tmp.json package.json
     done
   done
 fi
