@@ -7,7 +7,7 @@ import {
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import type { ChainConfig } from '@aztec/stdlib/config';
+import { type ChainConfig, getRpcCorsAllowedOrigins } from '@aztec/stdlib/config';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import {
@@ -104,6 +104,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       ],
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,
+      corsAllowedOrigins: getRpcCorsAllowedOrigins(options),
     });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
     debugLogger.info(`Aztec Server listening on port ${port}`, versions);
