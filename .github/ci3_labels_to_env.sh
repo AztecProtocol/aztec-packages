@@ -170,6 +170,9 @@ function main {
   if [ "$ci_mode" = "release" ] &&
      [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
     echo "PRIVATE_RELEASE=1" >> $GITHUB_ENV
+    # Private releases publish only to the internal Artifact Registry; the compat gate runs on the
+    # public release of the same tag.
+    echo "RUN_COMPAT_E2E=0" >> $GITHUB_ENV
   fi
 
   # Determine if benchmarks should be uploaded (merge-queue, full, or full-no-test-cache modes)

@@ -646,10 +646,12 @@ function compat_e2e {
   # Runs e2e tests with contract artifacts from every prior stable release since 5.0.1 (the version
   # where we committed to backwards compatibility). Validates that old contract artifacts work on the
   # current checkout.
-  # Private-repo releases publish only to the internal Artifact Registry; the compat gate runs on
-  # the public release of the same tag.
-  if [ "${PRIVATE_RELEASE:-0}" = 1 ]; then
-    echo "PRIVATE_RELEASE=1, skipping backwards compatibility e2e tests."
+  # RUN_COMPAT_E2E is tri-state: unset runs (releases and manual invocations include the gate by
+  # default), 1 is the PR opt-in consumed by compat_e2e_if_requested, and 0 is the explicit
+  # opt-out (private releases via the ci3_labels_to_env.sh gate, local release dry-runs,
+  # emergencies).
+  if [ "${RUN_COMPAT_E2E:-1}" = 0 ]; then
+    echo "RUN_COMPAT_E2E=0, skipping backwards compatibility e2e tests."
     return 0
   fi
 
