@@ -1,7 +1,7 @@
 import type { Logger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
 import { isProtocolContract } from '@aztec/protocol-contracts';
-import type { FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
+import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
@@ -20,6 +20,13 @@ import { syncScope } from './helpers.js';
  * on non-ACIR work (node RPC, note store reads) against memory pressure from concurrent circuit execution.
  */
 export const MAX_CONCURRENT_SCOPE_SYNCS = 5;
+
+/**
+ * Selector of the macro-generated `sync_state` utility function. It is the same for every contract: the macro fixes
+ * the signature to `sync_state(scope: AztecAddress)` and rejects user-defined overrides. Pinned against a compiled
+ * artifact in tests, so a macro signature change fails there instead of predictions keying on a stale selector.
+ */
+export const SYNC_STATE_SELECTOR = FunctionSelector.fromString('0x418ef5da');
 
 /**
  * Service for syncing the private state of contracts. It uses a cache to avoid redundant sync operations - the cache
@@ -133,8 +140,9 @@ export class ContractSyncService implements StagedStore {
    * For each unsynced scope, creates a promise that waits on:
    *  1. Note nullifier sync (shared, batched across all unsynced scopes).
    *  2. Per-scope sync (individual, semaphore-bounded).
-   * When concurrent contract sync is enabled, the invoked function's predicted direct callees start speculatively
-   * too, once the contract's own syncs have started (see {@link #speculativelySync}).
+   * When concurrent contract sync is enabled, the predicted direct callees of the invoked function and of the
+   * contract's `sync_state` start speculatively too, once the contract's own syncs have started (see
+   * {@link #speculativelySync}).
    * @returns A promise that resolves once every requested scope is synced, including syncs already in flight from
    * concurrent calls. Speculative syncs are not included: those are only awaited by a later request that needs
    * their contract, or by the job's {@link settle}.
@@ -185,6 +193,10 @@ export class ContractSyncService implements StagedStore {
         }
         syncs.push(promise);
       }
+
+      // `sync_state` itself calls other contracts (e.g. most contract syncs query the handshake registry), so its
+      // predicted callees start syncing alongside the contract's own syncs.
+      this.#speculativelySync(contractAddress, SYNC_STATE_SELECTOR, utilityExecutor, anchorBlockHeader, jobId, scopes);
 
       this.#speculativelySync(
         contractAddress,

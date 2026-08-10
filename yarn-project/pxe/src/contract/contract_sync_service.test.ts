@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { executeTimeout } from '@aztec/foundation/timer';
+import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -14,7 +15,7 @@ import type { ContractStore } from '../storage/contract_store/contract_store.js'
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import { type ContractFunction, PREDICTION_THRESHOLD } from './contract_call_graph.js';
 import type { ContractClassService } from './contract_class_service.js';
-import { ContractSyncService, MAX_CONCURRENT_SCOPE_SYNCS } from './contract_sync_service.js';
+import { ContractSyncService, MAX_CONCURRENT_SCOPE_SYNCS, SYNC_STATE_SELECTOR } from './contract_sync_service.js';
 
 describe('ContractSyncService', () => {
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
@@ -737,6 +738,29 @@ describe('ContractSyncService', () => {
       expectSyncedContracts([contractAddress, [scopeA]], [otherContract, [scopeA]], [grandChild, [scopeA]]);
     });
 
+    it('speculatively syncs the dependencies of the contract sync itself', async () => {
+      // `sync_state` is only ever invoked by PXE, so its callees (e.g. most contract syncs query the handshake registry)
+      // are learned and predicted under the universal sync_state selector, not under a requested function.
+      const syncStateFn: ContractFunction = { address: contractAddress, selector: SYNC_STATE_SELECTOR };
+      await learnDependencies({
+        count: PREDICTION_THRESHOLD,
+        calls: [{ caller: syncStateFn, callee: otherFn }],
+      });
+
+      // A direct read syncs the contract without invoking any function, yet sync_state's learned callee still syncs.
+      await service.ensureContractSynced({
+        contract: contractAddress,
+        functionToInvokeAfterSync: null,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId: 'job-3',
+        scopes: [scopeA],
+        triggeredBy: undefined,
+      });
+      await tick();
+      expectSyncedContracts([contractAddress, [scopeA]], [otherContract, [scopeA]]);
+    });
+
     it('stops recursing when the known calls form a cycle', async () => {
       await learnDependencies({
         count: PREDICTION_THRESHOLD,
@@ -911,6 +935,17 @@ describe('ContractSyncService', () => {
 
   /** Yields to the macrotask queue, draining all pending microtasks (semaphore acquires/releases) in between. */
   const tick = () => new Promise<void>(resolve => setImmediate(resolve));
+});
+
+describe('SYNC_STATE_SELECTOR', () => {
+  // Pins the hardcoded selector to the macro's actual output: if the macro ever changes `sync_state`'s signature,
+  // this fails instead of predictions silently keying on a stale selector.
+  it('matches the selector of a compiled artifact', async () => {
+    const syncState = TestContractArtifact.functions.find(f => f.name === 'sync_state');
+    expect(syncState).toBeDefined();
+    const expected = await FunctionSelector.fromNameAndParameters(syncState!.name, syncState!.parameters);
+    expect(SYNC_STATE_SELECTOR).toEqual(expected);
+  });
 });
 
 /** A direct call observed by a job. */
