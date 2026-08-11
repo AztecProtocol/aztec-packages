@@ -101,8 +101,16 @@ export class SafeJsonRpcServer {
     }
   }
 
+  /** Returns the status of this server, including per-component health when the health check reports it. */
+  public getStatus(): Promise<ServerStatus> {
+    return Promise.resolve(this.healthCheck()).then(result => {
+      const { healthy, details } = normalizeStatusCheckResult(result);
+      return { ok: healthy, ...details };
+    });
+  }
+
   public isHealthy(): boolean | Promise<boolean> {
-    return this.healthCheck();
+    return this.getStatus().then(status => status.ok);
   }
 
   /**
@@ -352,7 +360,34 @@ export class SafeJsonRpcServer {
   }
 }
 
-export type StatusCheckFn = () => boolean | Promise<boolean>;
+/** Health of a single component, along with any details worth surfacing to whoever queries the status endpoint. */
+export type StatusCheckResult = {
+  /** Whether the component is healthy. */
+  healthy: boolean;
+  /** Component-specific information, reported next to the healthy flag. */
+  details?: object;
+};
+
+/** Health check for a component. Returning a plain boolean is shorthand for `{ healthy: <boolean> }`. */
+export type StatusCheckFn = () => boolean | StatusCheckResult | Promise<boolean | StatusCheckResult>;
+
+/** Health of a component as reported on the status endpoint: its healthy flag flattened with its details. */
+export type ComponentStatus = { healthy: boolean } & Record<string, unknown>;
+
+/** Status of a server as reported on the status endpoint. */
+export type ServerStatus = {
+  /** Whether every checked component reported healthy. */
+  ok: boolean;
+  /** Health of each component keyed by namespace, when the server has component-level health checks. */
+  components?: Record<string, ComponentStatus>;
+};
+
+/** Returns the status of a server. */
+export type ServerStatusFn = () => ServerStatus | Promise<ServerStatus>;
+
+function normalizeStatusCheckResult(result: boolean | StatusCheckResult): StatusCheckResult {
+  return typeof result === 'boolean' ? { healthy: result } : result;
+}
 
 interface Proxy {
   hasMethod(methodName: string): boolean;
@@ -451,23 +486,23 @@ export function makeHandler<T extends object>(handler: T, schema: ApiSchemaFor<T
 }
 
 function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Logger): StatusCheckFn {
-  return async () => {
+  return async (): Promise<StatusCheckResult> => {
     try {
-      const results = await Promise.all(
-        Object.entries(namedHandlers).map(async ([name, [, , healthCheck]]) => [
-          name,
-          healthCheck ? await healthCheck() : true,
-        ]),
+      const entries = await Promise.all(
+        Object.entries(namedHandlers).map(async ([name, [, , healthCheck]]): Promise<[string, ComponentStatus]> => {
+          const { healthy, details } = normalizeStatusCheckResult(healthCheck ? await healthCheck() : true);
+          return [name, { healthy, ...details }];
+        }),
       );
-      const failed = results.filter(([_, result]) => !result);
+      const components = Object.fromEntries(entries);
+      const failed = entries.filter(([, status]) => !status.healthy).map(([name]) => name);
       if (failed.length > 0) {
-        log?.warn(`Health check failed for ${failed.map(([name]) => name).join(', ')}`);
-        return false;
+        log?.warn(`Health check failed for ${failed.join(', ')}`, { components });
       }
-      return true;
+      return { healthy: failed.length === 0, details: { components } };
     } catch (err) {
       log?.error(`Error during health check`, err);
-      return false;
+      return { healthy: false };
     }
   };
 }
@@ -507,34 +542,38 @@ export function createSafeJsonRpcServer<T extends object = any>(
 }
 
 /**
- * Creates a router for handling a plain status request that will return 200 status when running.
- * @param getCurrentStatus - List of health check functions to run.
+ * Creates a router for handling a status request that returns a 200 status code when healthy and a 500 otherwise,
+ * along with the reported status as a JSON body.
+ * @param getCurrentStatus - Function returning the current status of the server.
  * @param apiPrefix - The prefix to use for all api requests
  * @returns - The router for handling status requests.
  */
-export function createStatusRouter(getCurrentStatus: StatusCheckFn, apiPrefix = '') {
+export function createStatusRouter(getCurrentStatus: ServerStatusFn, apiPrefix = '') {
   const router = new Router({ prefix: `${apiPrefix}` });
   router.get('/status', async (ctx: Koa.Context) => {
-    let ok: boolean;
+    let status: ServerStatus;
     try {
-      ok = (await getCurrentStatus()) === true;
+      status = await getCurrentStatus();
     } catch {
-      ok = false;
+      status = { ok: false };
     }
 
-    ctx.status = ok ? 200 : 500;
+    ctx.status = status.ok === true ? 200 : 500;
+    ctx.type = 'application/json';
+    ctx.body = status;
   });
   return router;
 }
 
 /**
  * Wraps a JsonRpcServer in a nodejs http server and starts it.
- * Installs a status router that calls to the isHealthy method to the server.
+ * Installs a status router that reports the status of the server, using its getStatus method when available so that
+ * per-component health is included, and falling back to isHealthy otherwise.
  * Returns once starts listening unless noWait is set.
  * @returns A running http server.
  */
 export async function startHttpRpcServer(
-  rpcServer: Pick<SafeJsonRpcServer, 'getApp' | 'isHealthy'>,
+  rpcServer: Pick<SafeJsonRpcServer, 'getApp' | 'isHealthy'> & Partial<Pick<SafeJsonRpcServer, 'getStatus'>>,
   options: {
     host?: string;
     port?: number | string;
@@ -545,7 +584,11 @@ export async function startHttpRpcServer(
 ): Promise<http.Server & { port: number }> {
   const app = rpcServer.getApp(options.apiPrefix);
 
-  const statusRouter = createStatusRouter(rpcServer.isHealthy.bind(rpcServer), options.apiPrefix);
+  const getStatus: ServerStatusFn = rpcServer.getStatus
+    ? rpcServer.getStatus.bind(rpcServer)
+    : async () => ({ ok: (await rpcServer.isHealthy()) === true });
+
+  const statusRouter = createStatusRouter(getStatus, options.apiPrefix);
   app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
