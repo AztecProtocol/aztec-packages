@@ -1,3 +1,4 @@
+import { first } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -47,6 +48,10 @@ export class TxArchive {
    * Evicts oldest transactions if the limit is exceeded.
    */
   archiveTxs(txs: Tx[]): Promise<void> {
+    if (!this.isEnabled()) {
+      return Promise.resolve();
+    }
+
     return this.archiveTxBuffers(
       txs.map(tx => ({ txHash: tx.getTxHash().toString(), buffer: tx.withoutProof().toBuffer() })),
     );
@@ -69,10 +74,7 @@ export class TxArchive {
         let tailIdx = await this.getTailIndex();
 
         for (const { txHash, buffer } of entries) {
-          // Skip txs that are already archived. Re-archiving (a retried finalization, or a crash
-          // between archiving and deleting) would append a second FIFO index entry pointing at the
-          // same stored value; evicting the older entry would then delete the value out from under
-          // the newer one.
+          // Skip txs that are already archived
           if (await this.#txs.hasAsync(txHash)) {
             continue;
           }
@@ -116,22 +118,13 @@ export class TxArchive {
     return head - tail;
   }
 
-  // NOTE: these must consume the iterator via for-await so the underlying LMDB cursor is closed.
-  // Calling .next() once and abandoning the generator leaks a cursor slot: inside a write
-  // transaction the committed-state iterator is unbounded (the limit is applied by the wrapper),
-  // and the abandoned generator never runs its finally block, so CLOSE_CURSOR is never sent. The
-  // store has maxReaders - 1 cursor slots; leaking them deadlocks every later iteration on the store.
   private async getHeadIndex(): Promise<number> {
-    for await (const [index] of this.#indices.entriesAsync({ limit: 1, reverse: true })) {
-      return index + 1;
-    }
-    return 0;
+    const entry = await first(this.#indices.entriesAsync({ limit: 1, reverse: true }));
+    return entry === undefined ? 0 : entry[0] + 1;
   }
 
   private async getTailIndex(): Promise<number> {
-    for await (const [index] of this.#indices.entriesAsync({ limit: 1 })) {
-      return index;
-    }
-    return 0;
+    const entry = await first(this.#indices.entriesAsync({ limit: 1 }));
+    return entry === undefined ? 0 : entry[0];
   }
 }
