@@ -373,7 +373,7 @@ export const KEY_VALIDATION_REQUEST: TypeMapping<KeyValidationRequest> = STRUCT<
   { name: 'skApp', type: FIELD },
 ]);
 
-const PUBLIC_KEYS: TypeMapping<PublicKeys> = STRUCT<PublicKeys>([
+export const PUBLIC_KEYS: TypeMapping<PublicKeys> = STRUCT([
   { name: 'npkMHash', type: FIELD },
   { name: 'ivpkM', type: POINT },
   { name: 'ovpkMHash', type: FIELD },

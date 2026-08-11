@@ -193,11 +193,11 @@ export interface TXESessionStateHandler {
   getLastCallOffchainEffects(): { effects: Fr[][] };
 
   /**
-   * Returns the context of the last top-level call: its tx hash (`Fr.ZERO` if the call was tx-less) and the anchor
+   * Returns the context of the last top-level call: its tx hash (absent if the call was tx-less) and the anchor
    * block timestamp captured at the start of the call. Does *not* mark the buffer as queried — context reads are
    * metadata, not effect consumption.
    */
-  getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint };
+  getLastCallContext(): { txHash: Option<Fr>; anchorBlockTimestamp: bigint };
 }
 
 /**
@@ -218,10 +218,10 @@ interface LastCallState {
    */
   queried: boolean;
   /**
-   * Tx hash of the most recently completed top-level call, or `Fr.ZERO` if the call was tx-less (context setters,
-   * utility execution). Populated by call executor handlers after execution completes.
+   * Tx hash of the most recently completed top-level call, absent if the call was tx-less (context setters, utility
+   * execution). Populated by call executor handlers after execution completes.
    */
-  txHash: Fr;
+  txHash: Option<Fr>;
   /**
    * Anchor block timestamp of the most recently completed top-level call, captured from the anchor block header that
    * was active when the call started. Populated by call executor handlers after execution completes.
@@ -230,7 +230,7 @@ interface LastCallState {
 }
 
 function emptyLastCallState(): LastCallState {
-  return { offchainEffects: [], queried: false, txHash: Fr.ZERO, anchorBlockTimestamp: 0n };
+  return { offchainEffects: [], queried: false, txHash: Option.none(), anchorBlockTimestamp: 0n };
 }
 
 /**
@@ -495,7 +495,7 @@ export class TXESession implements TXESessionStateHandler {
     this.lastCallInfo.offchainEffects.push(data);
   }
 
-  private setLastCallContext(txHash: Fr, anchorBlockTimestamp: bigint): void {
+  private setLastCallContext(txHash: Option<Fr>, anchorBlockTimestamp: bigint): void {
     this.lastCallInfo.txHash = txHash;
     this.lastCallInfo.anchorBlockTimestamp = anchorBlockTimestamp;
   }
@@ -507,7 +507,7 @@ export class TXESession implements TXESessionStateHandler {
     const anchorBlockTimestamp = (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables
       .timestamp;
     const { result, txHash } = await work();
-    this.setLastCallContext(txHash ?? Fr.ZERO, anchorBlockTimestamp);
+    this.setLastCallContext(txHash ? Option.some(txHash) : Option.none(), anchorBlockTimestamp);
     return result;
   }
 
@@ -525,7 +525,7 @@ export class TXESession implements TXESessionStateHandler {
     return { effects };
   }
 
-  getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint } {
+  getLastCallContext(): { txHash: Option<Fr>; anchorBlockTimestamp: bigint } {
     const { txHash, anchorBlockTimestamp } = this.lastCallInfo;
     return { txHash, anchorBlockTimestamp };
   }
@@ -794,7 +794,7 @@ export class TXESession implements TXESessionStateHandler {
 
     // Record the *resolved* anchor's timestamp — if the caller pinned the anchor to a past block
     // via `anchorBlockNumber`, "latest" would be the wrong anchor for offchain-message semantics.
-    this.setLastCallContext(Fr.ZERO, anchorBlock!.globalVariables.timestamp);
+    this.setLastCallContext(Option.none(), anchorBlock!.globalVariables.timestamp);
 
     return (this.oracleHandler as TXEPrivateExecutionOracle).getPrivateContextInputs();
   }
@@ -826,7 +826,7 @@ export class TXESession implements TXESessionStateHandler {
     this.logger.debug(`Entered state ${this.state.name}`);
 
     // Public state is anchored at the latest block.
-    this.setLastCallContext(Fr.ZERO, latestHeader.globalVariables.timestamp);
+    this.setLastCallContext(Option.none(), latestHeader.globalVariables.timestamp);
   }
 
   async enterUtilityState(contractAddressOpt: Option<AztecAddress>) {
@@ -889,7 +889,7 @@ export class TXESession implements TXESessionStateHandler {
     this.logger.debug(`Entered state ${this.state.name}`);
 
     // Utility state anchors at whatever the anchor block store is pointing to (tracked as latest).
-    this.setLastCallContext(Fr.ZERO, anchorBlockHeader.globalVariables.timestamp);
+    this.setLastCallContext(Option.none(), anchorBlockHeader.globalVariables.timestamp);
   }
 
   private exitTopLevelState() {
