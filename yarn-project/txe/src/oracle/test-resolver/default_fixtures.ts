@@ -107,7 +107,7 @@ const COMPOSITE_IMPLS: CompositeImpl[] = [
   // DEFAULT_ARRAY_LENGTH.
   composite(isFixedArrayMapping, (type, seed) => [unnamed(collectionData(type.inner, seed, type.length))]),
   // Same for a fixed-capacity bounded vec: real capacity, DEFAULT_ARRAY_LENGTH elements (its value type is a plain
-  // element array, unlike the two-slot BOUNDED_VEC), clamped to the capacity so small vecs stay valid.
+  // element array, unlike BOUNDED_VEC), clamped to the capacity so small vecs stay valid.
   composite(isFixedBoundedVecMapping, (type, seed) => [
     unnamed(collectionData(type.inner, seed, Math.min(DEFAULT_ARRAY_LENGTH, type.maxLength))),
   ]),
