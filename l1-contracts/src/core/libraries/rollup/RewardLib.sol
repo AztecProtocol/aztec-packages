@@ -5,7 +5,9 @@ pragma solidity >=0.8.27;
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
+import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -89,7 +91,7 @@ library RewardLib {
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
   /// @dev Enough for a getter behind a proxy (2 cold account accesses + a few SLOADs), while
-  ///      bounding how much gas a hostile coinbase can burn per checkpoint during proof submission.
+  ///      bounding how much gas a hostile withdrawer can burn per checkpoint during proof submission.
   uint256 private constant ELIGIBILITY_PROBE_GAS = 50_000;
 
   /// @notice One-shot writer used during rollup construction. Writes every field of
@@ -197,7 +199,7 @@ library RewardLib {
         uint256 added = length - $er.longestProvenLength;
         uint256 eligibleCount = 0;
         for (uint256 i = $er.longestProvenLength; i < length; i++) {
-          eligible[i] = isEligible(_args.headers[i].coinbase);
+          eligible[i] = isWithdrawerEligible(_args.start + i);
           if (eligible[i]) {
             eligibleCount++;
           }
@@ -207,8 +209,9 @@ library RewardLib {
         uint256 sequencerShare = BpsLib.mul(getCheckpointReward(), rewardStorage.config.sequencerBps);
 
         // Only claim what is owed from the distributor: the prover share for every added
-        // checkpoint, plus the sequencer share for checkpoints with an eligible coinbase.
-        // The sequencer share of ineligible checkpoints never leaves the distributor.
+        // checkpoint, plus the sequencer share for checkpoints proposed by a validator with an
+        // eligible withdrawer. The sequencer share of ineligible checkpoints never leaves the
+        // distributor.
         uint256 checkpointRewardsDesired = added * getCheckpointReward() - (added - eligibleCount) * sequencerShare;
         uint256 checkpointRewardsAvailable = 0;
 
@@ -280,14 +283,26 @@ library RewardLib {
     }
   }
 
-  /// @dev Placeholder eligibility test for the checkpoint reward: the coinbase qualifies only if
-  ///      it is a contract answering true to {IEligible.isEligible}. The coinbase is an arbitrary
-  ///      proposer-chosen address, so the probe is a gas-capped staticcall whose failure modes
-  ///      (no code, revert, wrong return shape) all read as ineligible -- it must never revert,
-  ///      or a hostile coinbase could block epoch proof submission.
-  function isEligible(address _coinbase) private view returns (bool) {
+  /// @dev Placeholder eligibility test for the checkpoint reward: the proposer of the checkpoint
+  ///      is recomputed from the checkpoint's slot, its withdrawer looked up in the GSE, and the
+  ///      checkpoint qualifies only if the withdrawer is a contract answering true to
+  ///      {IEligible.isEligible}. The withdrawer is an arbitrary staker-chosen address, so the
+  ///      probe is a gas-capped staticcall whose failure modes (no code, revert, wrong return
+  ///      shape) all read as ineligible -- it must never revert, or a hostile withdrawer could
+  ///      block epoch proof submission.
+  function isWithdrawerEligible(uint256 _checkpointNumber) private returns (bool) {
+    (address proposer,) = ValidatorSelectionLib.getProposerAt(STFLib.getSlotNumber(_checkpointNumber));
+    if (proposer == address(0)) {
+      return false;
+    }
+
+    address withdrawer = StakingLib.getStorage().gse.getWithdrawer(proposer);
+    if (withdrawer == address(0)) {
+      return false;
+    }
+
     (bool success, bytes memory returnData) =
-      _coinbase.staticcall{gas: ELIGIBILITY_PROBE_GAS}(abi.encodeCall(IEligible.isEligible, ()));
+      withdrawer.staticcall{gas: ELIGIBILITY_PROBE_GAS}(abi.encodeCall(IEligible.isEligible, ()));
     return success && returnData.length == 32 && uint256(bytes32(returnData)) == 1;
   }
 
