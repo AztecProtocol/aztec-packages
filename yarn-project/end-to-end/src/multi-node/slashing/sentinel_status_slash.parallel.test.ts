@@ -1,5 +1,4 @@
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import type { EthAddress } from '@aztec/aztec.js/addresses';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -226,10 +225,9 @@ describe('multi-node/slashing/sentinel_status_slash', () => {
    * ahead, so the landing warp can never go backwards.
    */
   async function warpToSlotBeforeTargetProposer(targetAddress: EthAddress): Promise<void> {
-    const epochCache = (nodes[0] as TestAztecNodeService).epochCache;
     const cheatCodes = test.context.cheatCodes.rollup;
     const targetSlot = await findUpcomingProposerSlot({
-      epochCache,
+      epochCache: test.epochCache,
       cheatCodes,
       targetProposer: targetAddress,
       logger: test.logger,

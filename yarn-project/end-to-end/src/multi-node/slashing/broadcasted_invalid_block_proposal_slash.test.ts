@@ -1,5 +1,4 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -119,9 +118,8 @@ describe('multi-node/slashing/broadcasted_invalid_block_proposal_slash', () => {
 
     // Find an epoch where the invalid proposer is selected, stopping one epoch before so
     // we have time to start sequencers before the target epoch arrives.
-    const epochCache = (honestNodes[0] as TestAztecNodeService).epochCache;
     const { targetEpoch } = await advanceToEpochBeforeProposer({
-      epochCache,
+      epochCache: test.epochCache,
       cheatCodes: test.context.cheatCodes.rollup,
       targetProposer: invalidProposerAddress,
       logger: test.logger,

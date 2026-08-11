@@ -99,7 +99,19 @@ export type ArchiverApi = Omit<
   'start' | 'stop' | 'getGenesisBlockHash'
 >;
 
-export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
+/**
+ * Methods of {@link ArchiverApi} that are deliberately kept off the RPC namespace: they are not reads, and the
+ * `archiver_*` namespace is registered unauthenticated on every node that owns an archiver.
+ * - `syncImmediate` drives the archiver's sync loop, so an unauthenticated caller could defeat the polling
+ *   interval and pin the node to L1 (or fan out calls to a follower's upstream).
+ * - `registerContractFunctionSignatures` is an unbounded write into the debug function-name cache.
+ */
+export type ArchiverPrivateMethods = 'syncImmediate' | 'registerContractFunctionSignatures';
+
+/** The read-only subset of {@link ArchiverApi} exposed over the `archiver_*` RPC namespace. */
+export type ArchiverPublicApi = Omit<ArchiverApi, ArchiverPrivateMethods>;
+
+export const ArchiverPublicApiSchema: ApiSchemaFor<ArchiverPublicApi> = {
   getRollupAddress: z.function({ input: z.tuple([]), output: schemas.EthAddress }),
   getRegistryAddress: z.function({ input: z.tuple([]), output: schemas.EthAddress }),
   getBlockNumber: z.function({ input: z.tuple([optional(BlockQuerySchema)]), output: BlockNumberSchema.optional() }),
@@ -136,7 +148,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     output: ContractInstanceWithAddressSchema.optional(),
   }),
   getContractClassIds: z.function({ input: z.tuple([]), output: z.array(schemas.Fr) }),
-  registerContractFunctionSignatures: z.function({ input: z.tuple([z.array(z.string())]), output: z.void() }),
   getL1ToL2Messages: z.function({ input: z.tuple([CheckpointNumberSchema]), output: z.array(schemas.Fr) }),
   getL1ToL2MessageIndex: z.function({ input: z.tuple([schemas.Fr]), output: schemas.BigInt.optional() }),
   getDebugFunctionName: z.function({
@@ -151,7 +162,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     input: z.tuple([optional(ProposedCheckpointQuerySchema)]),
     output: ProposedCheckpointDataSchema.optional(),
   }),
-  syncImmediate: z.function({ input: z.tuple([]), output: z.void() }),
   isPendingChainInvalid: z.function({ input: z.tuple([]), output: z.boolean() }),
   getPendingChainValidationStatus: z.function({ input: z.tuple([]), output: ValidateCheckpointResultSchema }),
   getBlock: z.function({ input: z.tuple([BlockQuerySchema]), output: L2Block.schema.optional() }),
@@ -161,17 +171,28 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
 };
 
 /**
+ * The full archiver API, including the methods withheld from the RPC namespace. Only used in-process (and by
+ * the schema conformance tests); see {@link ArchiverPublicApiSchema} for what a node actually serves.
+ */
+export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
+  ...ArchiverPublicApiSchema,
+  syncImmediate: z.function({ input: z.tuple([]), output: z.void() }),
+  registerContractFunctionSignatures: z.function({ input: z.tuple([z.array(z.string())]), output: z.void() }),
+};
+
+/**
  * Creates a client for the `archiver_*` namespace of a node's RPC interface. Used by a follower node to
  * replicate chain data from its upstream node: unlike the `aztec_*` namespace, this one returns the archiver's
  * own domain objects (`L2Block`, `PublishedCheckpoint`) rather than the client-facing projections of them.
+ * Limited to the read-only methods the namespace actually serves.
  */
 export function createArchiverClient(
   url: string,
   versions: Partial<ComponentsVersions> = {},
   fetch = makeFetch([1, 2, 3], false),
   batchWindowMS = 0,
-): ArchiverApi {
-  return createSafeJsonRpcClient<ArchiverApi>(url, ArchiverApiSchema, {
+): ArchiverPublicApi {
+  return createSafeJsonRpcClient<ArchiverPublicApi>(url, ArchiverPublicApiSchema, {
     namespaceMethods: 'archiver',
     fetch,
     batchWindowMS,

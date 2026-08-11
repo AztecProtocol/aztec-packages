@@ -120,6 +120,9 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
   /** Blocks delivered during the in-flight sync cycle, reported by the aggregate update event. */
   private blocksAddedThisCycle: L2Block[] = [];
 
+  /** Whether {@link stop} closes the data stores. Off unless the opener hands ownership over. */
+  private ownsDataStores = false;
+
   constructor(
     private readonly source: RpcSyncArchiverSource,
     stores: ArchiverDataStores,
@@ -186,13 +189,24 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
   }
 
   /**
-   * Stops the replication loop. The data stores are owned by whoever opened them (the factory), so they are
-   * deliberately left open here.
+   * Hands ownership of the data stores to this archiver, so {@link stop} closes them. Called by the factory that
+   * opens them; callers that construct the archiver over stores of their own (tests) keep ownership.
+   */
+  public takeOwnershipOfDataStores(): void {
+    this.ownsDataStores = true;
+  }
+
+  /**
+   * Stops the replication loop, closing the data stores if their ownership was handed over via
+   * {@link takeOwnershipOfDataStores}, and leaving them open otherwise.
    */
   public async stop(): Promise<void> {
     this.log.debug('Stopping RPC-sync archiver');
     await this.runningPromise.stop();
     await this.blockStream.stop();
+    if (this.ownsDataStores) {
+      await this.stores.db.close();
+    }
     this.log.info('Stopped RPC-sync archiver');
   }
 
@@ -272,7 +286,31 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
       }
     }
 
+    await this.retryPendingMessages();
     await this.emitSourceUpdated(fromTips);
+  }
+
+  /**
+   * Re-attempts message replication for blocks that are already stored. Message catch-up otherwise only runs off
+   * blocks-added and checkpoint events, so blocks that landed while the upstream had not sealed their inbox tree
+   * yet would keep world state stuck for as long as the chain stays idle. Failures are logged and left for the
+   * next cycle rather than folded into the block-stream outcome.
+   */
+  private async retryPendingMessages(): Promise<void> {
+    try {
+      const latestBlock = await this.getBlockData({ tag: 'proposed' });
+      if (!latestBlock) {
+        return;
+      }
+      const needed = latestBlock.checkpointNumber;
+      if ((await this.stores.messages.getMessagesSyncedToCheckpoint()) >= needed) {
+        return;
+      }
+      this.log.debug(`Retrying L1 to L2 message replication up to checkpoint ${needed}`);
+      await this.syncMessagesUpTo(needed);
+    } catch (err) {
+      this.log.warn(`Failed to retry L1 to L2 message replication: ${err}`);
+    }
   }
 
   /** Emits the aggregate update event so downstream streams reconcile without waiting for their next poll. */
@@ -405,9 +443,27 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
     return true;
   }
 
-  /** Catches the checkpointed tier up to the tip the upstream advertised. */
-  private handleChainCheckpointed(event: Extract<L2BlockStreamEvent, { type: 'chain-checkpointed' }>): Promise<void> {
-    return this.catchUpCheckpoints(event.checkpoint.number);
+  /**
+   * Moves the checkpointed tier to the tip the upstream advertised. The stream reports any difference between
+   * the local and the upstream tier, so this also covers a regression: the upstream can un-checkpoint without
+   * changing a single block (an L1 reorg drops the checkpoint transaction and the blocks go back to proposed),
+   * which produces no prune event. Following it down re-delivers the affected blocks on a later pass, whereas
+   * ignoring it leaves the follower permanently ahead and never caught up.
+   */
+  private async handleChainCheckpointed(
+    event: Extract<L2BlockStreamEvent, { type: 'chain-checkpointed' }>,
+  ): Promise<void> {
+    const target = event.checkpoint.number;
+    const localCheckpointed = await this.stores.blocks.getLatestCheckpointNumber();
+    if (target < localCheckpointed) {
+      this.log.warn(`Upstream rolled its checkpointed tier back to ${target} from ${localCheckpointed}; unwinding`, {
+        target,
+        localCheckpointed,
+      });
+      await this.rollbackToCheckpoint(target, this.upstreamTips?.proven.checkpoint.number);
+      return;
+    }
+    await this.catchUpCheckpoints(target);
   }
 
   /**
@@ -455,6 +511,13 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
         target,
         checkpointedTip,
       });
+      // No checkpoint was unwound, so the reorg happened inside the checkpoint the inbox is still filling. Its
+      // message leaves are not final either, and the follower replicated them eagerly (`syncMessagesUpTo` is
+      // called with the checkpoint of the last block in a batch, which is routinely uncheckpointed). Drop every
+      // replicated checkpoint above the checkpointed tier so they are re-fetched: keeping stale leaves would
+      // silently diverge world state from the upstream.
+      const checkpointedCheckpoint = await this.stores.blocks.getLatestCheckpointNumber();
+      await this.stores.messages.rollbackL1ToL2MessagesToCheckpoint(checkpointedCheckpoint);
       if (removed.length > 0) {
         this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
           type: L2BlockSourceEvents.L2PruneUncheckpointed,
@@ -470,21 +533,8 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
       return;
     }
 
-    const blocksRemoved = await this.getBlocksAfterCheckpoint(targetCheckpoint);
-    this.log.info(`Pruning ${blocksRemoved.length} blocks after checkpoint ${targetCheckpoint}`, {
-      target,
-      targetCheckpoint,
-      checkpointedTip,
-    });
-    await this.updater.removeCheckpointsAfter(targetCheckpoint);
-    await this.stores.messages.rollbackL1ToL2MessagesToCheckpoint(targetCheckpoint);
-
-    // Clamp the proven cursor down to the upstream's own proven tip when it leads it. The checkpointed cursor
-    // needs no clamping: it is derived from the checkpoints still in the store, which we just truncated.
-    const localProven = await this.stores.blocks.getProvenCheckpointNumber();
-    if (localProven > event.proven.checkpoint.number) {
-      await this.updater.setProvenCheckpointNumber(event.proven.checkpoint.number);
-    }
+    this.log.info(`Pruning blocks after checkpoint ${targetCheckpoint}`, { target, targetCheckpoint, checkpointedTip });
+    const blocksRemoved = await this.rollbackToCheckpoint(targetCheckpoint, event.proven.checkpoint.number);
 
     // Any removal here drops at least one checkpointed block, so it is always an unproven-chain prune;
     // L2PruneUncheckpointed is reserved for the uncheckpointed-tail branch above.
@@ -495,6 +545,28 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
         blocks: blocksRemoved,
       });
     }
+  }
+
+  /**
+   * Unwinds the local chain to `targetCheckpoint`, dropping every checkpoint, block and replicated L1-to-L2
+   * message above it. Shared by the prune handler and by the checkpointed-tier regression path.
+   * @param upstreamProven - The upstream's proven checkpoint, used to clamp the local proven cursor when it
+   * leads it. The checkpointed cursor needs no clamping: it is derived from the checkpoints left in the store.
+   * @returns The blocks removed, in ascending order.
+   */
+  private async rollbackToCheckpoint(
+    targetCheckpoint: CheckpointNumber,
+    upstreamProven: CheckpointNumber | undefined,
+  ): Promise<L2Block[]> {
+    const blocksRemoved = await this.getBlocksAfterCheckpoint(targetCheckpoint);
+    await this.updater.removeCheckpointsAfter(targetCheckpoint);
+    await this.stores.messages.rollbackL1ToL2MessagesToCheckpoint(targetCheckpoint);
+
+    const localProven = await this.stores.blocks.getProvenCheckpointNumber();
+    if (upstreamProven !== undefined && localProven > upstreamProven) {
+      await this.updater.setProvenCheckpointNumber(upstreamProven);
+    }
+    return blocksRemoved;
   }
 
   /**
@@ -534,9 +606,24 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
     return latest < from ? [] : this.stores.blocks.getBlocks({ from, limit: latest - from + 1 });
   }
 
+  /**
+   * Tracks the upstream's proven tip in both directions. The stream reports any difference between the local and
+   * the upstream tier, and the upstream's proven tip genuinely regresses when an L1 reorg drops the proof
+   * transaction — the blocks are untouched, so no prune event accompanies it. Ignoring the regression would
+   * leave the follower permanently ahead: never caught up, and reporting receipts for checkpoints that are no
+   * longer proven as proven.
+   */
   private async handleChainProven(event: Extract<L2BlockStreamEvent, { type: 'chain-proven' }>): Promise<void> {
     const checkpointNumber = event.checkpoint.number;
-    if (checkpointNumber === 0 || checkpointNumber <= (await this.stores.blocks.getProvenCheckpointNumber())) {
+    const localProven = await this.stores.blocks.getProvenCheckpointNumber();
+    if (checkpointNumber === localProven) {
+      return;
+    }
+    if (checkpointNumber < localProven) {
+      await this.updater.setProvenCheckpointNumber(checkpointNumber);
+      this.log.warn(`Rolled proven checkpoint back to ${checkpointNumber} from ${localProven}`, {
+        blockNumber: event.block.number,
+      });
       return;
     }
     const checkpointData = await this.stores.blocks.getCheckpointData(checkpointNumber);
@@ -554,13 +641,21 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
     });
   }
 
+  /** Tracks the upstream's finalized tip in both directions, for the same reason as {@link handleChainProven}. */
   private async handleChainFinalized(event: Extract<L2BlockStreamEvent, { type: 'chain-finalized' }>): Promise<void> {
     const checkpointNumber = event.checkpoint.number;
-    if (checkpointNumber === 0 || checkpointNumber <= (await this.stores.blocks.getFinalizedCheckpointNumber())) {
+    const localFinalized = await this.stores.blocks.getFinalizedCheckpointNumber();
+    if (checkpointNumber === localFinalized) {
       return;
     }
     await this.updater.setFinalizedCheckpointNumber(checkpointNumber);
-    this.log.verbose(`Advanced finalized checkpoint to ${checkpointNumber}`, { blockNumber: event.block.number });
+    if (checkpointNumber < localFinalized) {
+      this.log.warn(`Rolled finalized checkpoint back to ${checkpointNumber} from ${localFinalized}`, {
+        blockNumber: event.block.number,
+      });
+    } else {
+      this.log.verbose(`Advanced finalized checkpoint to ${checkpointNumber}`, { blockNumber: event.block.number });
+    }
   }
 
   /**

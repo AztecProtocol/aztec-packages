@@ -79,7 +79,7 @@ import { join } from 'path';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
-import { AztecNodeService } from './server.js';
+import { AztecNodeService, type AztecNodeServiceDeps } from './server.js';
 
 // Arbitrary fixed timestamp for the mock date provider. DateProvider.now() returns milliseconds but ExpirationTimestamp
 // is denominated in seconds.
@@ -130,6 +130,7 @@ describe('aztec node', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let lastBlockNumber: BlockNumber;
   let node: TestAztecNodeService;
+  let nodeDeps: AztecNodeServiceDeps;
   let feePayer: AztecAddress;
   let epochCache: EpochCache;
   let nodeConfig: AztecNodeConfig;
@@ -258,7 +259,7 @@ describe('aztec node', () => {
       new MockDateProvider(),
     );
 
-    node = new TestAztecNodeService({
+    nodeDeps = {
       config: nodeConfig,
       p2pClient: p2p,
       blockSource: l2BlockSource,
@@ -280,7 +281,9 @@ describe('aztec node', () => {
       packageVersion: getPackageVersion(),
       peerProofVerifier: new TestCircuitVerifier(),
       rpcProofVerifier: new TestCircuitVerifier(),
-    });
+    };
+
+    node = new TestAztecNodeService(nodeDeps);
   });
 
   describe('tx validation', () => {
@@ -1172,6 +1175,32 @@ describe('aztec node', () => {
         // reload rejected before mutation
         expect(validatorClient.reloadKeystore).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('admin operations on a follower node', () => {
+    let followerNode: TestAztecNodeService;
+
+    beforeEach(() => {
+      // A follower node's block source is an RpcSyncArchiver: it can back up its stores and report its initial
+      // sync, but it never reads L1 and cannot be rolled back nor resumed once stopped.
+      const followerBlockSource = Object.assign(mock<L2BlockSource>(), {
+        backupTo: () => Promise.resolve('/tmp/snapshot'),
+        isInitialSyncComplete: () => true,
+      });
+      followerNode = new TestAztecNodeService({ ...nodeDeps, blockSource: followerBlockSource });
+    });
+
+    it('rejects snapshot uploads', async () => {
+      await expect(followerNode.startSnapshotUpload('gs://bucket/snapshot')).rejects.toThrow(BadRequestError);
+    });
+
+    it('rejects rollbacks', async () => {
+      await expect(followerNode.rollbackTo(BlockNumber(1))).rejects.toThrow(BadRequestError);
+    });
+
+    it('rejects pausing sync', async () => {
+      await expect(followerNode.pauseSync()).rejects.toThrow(BadRequestError);
     });
   });
 

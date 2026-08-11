@@ -58,14 +58,14 @@ describe('aztec_start_options commander integration', () => {
       'cli',
       '--follower-upstream-url',
       'http://upstream:8080',
-      '--followerSyncPollingIntervalMS',
+      '--follower-sync-polling-interval-ms',
       '250',
-      '--followerSyncBatchSize',
+      '--follower-sync-batch-size',
       '20',
     ]);
     const opts = cmd.opts();
     expect(opts.followerUpstreamUrl).toBe('http://upstream:8080');
-    expect(opts.followerSyncPollingIntervalMS).toBe(250);
+    expect(opts.followerSyncPollingIntervalMs).toBe(250);
     expect(opts.followerSyncBatchSize).toBe(20);
   });
 

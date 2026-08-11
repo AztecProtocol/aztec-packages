@@ -230,8 +230,8 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ],
   FOLLOWER: [
     configToFlag('--follower-upstream-url', followerConfigMappings.followerUpstreamUrl),
-    configToFlag('--followerSyncPollingIntervalMS', followerConfigMappings.followerSyncPollingIntervalMS),
-    configToFlag('--followerSyncBatchSize', followerConfigMappings.followerSyncBatchSize),
+    configToFlag('--follower-sync-polling-interval-ms', followerConfigMappings.followerSyncPollingIntervalMs),
+    configToFlag('--follower-sync-batch-size', followerConfigMappings.followerSyncBatchSize),
   ],
   SEQUENCER: [
     {

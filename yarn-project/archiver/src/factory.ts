@@ -220,8 +220,8 @@ export async function createArchiver(
  * The genesis block is read from the upstream rather than rebuilt locally: a follower that disagreed with its
  * upstream about block 0 could never reconcile, so taking it from the source makes the mismatch impossible.
  *
- * The caller owns the returned archiver's lifecycle but not its stores: `stop()` leaves them open, and this
- * factory opens them, so the caller must close them (via the returned `dataStores`) when tearing down.
+ * This factory opens the data stores and hands their ownership to the archiver, so `stop()` closes them and the
+ * caller only has to manage the archiver's lifecycle.
  *
  * @param config - Store configuration plus the L1 contract addresses the follower reports.
  * @param source - Upstream data source (an in-process `Archiver` or an `ArchiverApi` RPC client).
@@ -242,35 +242,43 @@ export async function createRpcSyncArchiver(
   }
 
   const archiverStore = await createArchiverStore(config, genesis.blockHash);
-  await registerProtocolContracts(archiverStore);
-  if (config.testPreloadStandardContracts) {
-    await registerStandardContracts(archiverStore);
+  try {
+    await registerProtocolContracts(archiverStore);
+    if (config.testPreloadStandardContracts) {
+      await registerStandardContracts(archiverStore);
+    }
+
+    const events = new EventEmitter() as ArchiverEmitter;
+    const telemetry = deps.telemetry ?? getTelemetryClient();
+    const l2TipsCache = new L2TipsCache(archiverStore.blocks, genesis.blockHash);
+
+    // The slashing proposer address is read from the rollup contract by the L1 factory. A follower does not hit
+    // L1, so it is left zero; nothing in the follower's read surface depends on it.
+    const l1Addresses = { ...pickL1ContractAddresses(config), slashingProposerAddress: EthAddress.ZERO };
+
+    const archiver = new RpcSyncArchiver(
+      source,
+      archiverStore,
+      l1Addresses,
+      l1Constants,
+      mapRpcSyncArchiverConfig(config),
+      events,
+      genesis.header,
+      genesis.blockHash,
+      l2TipsCache,
+      deps.dateProvider ?? new DateProvider(),
+      telemetry,
+    );
+    archiver.takeOwnershipOfDataStores();
+
+    await archiver.start(opts.blockUntilSync);
+    return archiver;
+  } catch (err) {
+    // The archiver only closes the stores once it is started and later stopped, so anything that goes wrong
+    // before that leaves them for this factory to close.
+    await archiverStore.db.close();
+    throw err;
   }
-
-  const events = new EventEmitter() as ArchiverEmitter;
-  const telemetry = deps.telemetry ?? getTelemetryClient();
-  const l2TipsCache = new L2TipsCache(archiverStore.blocks, genesis.blockHash);
-
-  // The slashing proposer address is read from the rollup contract by the L1 factory. A follower does not hit
-  // L1, so it is left zero; nothing in the follower's read surface depends on it.
-  const l1Addresses = { ...pickL1ContractAddresses(config), slashingProposerAddress: EthAddress.ZERO };
-
-  const archiver = new RpcSyncArchiver(
-    source,
-    archiverStore,
-    l1Addresses,
-    l1Constants,
-    mapRpcSyncArchiverConfig(config),
-    events,
-    genesis.header,
-    genesis.blockHash,
-    l2TipsCache,
-    deps.dateProvider ?? new DateProvider(),
-    telemetry,
-  );
-
-  await archiver.start(opts.blockUntilSync);
-  return archiver;
 }
 
 /** Registers protocol contracts in the archiver store. Idempotent — skips contracts that already exist (e.g. on node restart). */

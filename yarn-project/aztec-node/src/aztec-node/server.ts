@@ -895,6 +895,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       throw new Error('Archiver implementation does not support backups. Cannot generate snapshot.');
     }
 
+    // A follower node's replicating archiver never reads L1, so it cannot stamp the snapshot with the L1 block
+    // it corresponds to. Reject up front: otherwise the metadata build fails asynchronously inside
+    // uploadSnapshot (after the caller has already been told the upload started), and the snapshot would be
+    // unusable by anyone restoring from it anyway.
+    if (!('getL1BlockNumber' in archiver)) {
+      this.metrics.recordSnapshotError();
+      throw new BadRequestError('Archiver implementation does not sync from L1. Cannot generate snapshot.');
+    }
+
     // Test that the archiver has done an initial sync.
     if (!archiver.isInitialSyncComplete()) {
       this.metrics.recordSnapshotError();
@@ -933,7 +942,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   public async rollbackTo(targetBlock: BlockNumber, force?: boolean, resumeSync = true): Promise<void> {
     const archiver = this.blockSource as Archiver;
     if (!('rollbackTo' in archiver)) {
-      throw new Error('Archiver implementation does not support rollbacks.');
+      throw new BadRequestError('Archiver implementation does not support rollbacks.');
     }
 
     const finalizedBlock = await archiver.getL2Tips().then(tips => tips.finalized.block.number);

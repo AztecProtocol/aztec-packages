@@ -17,7 +17,7 @@ Compared to a [full node](./overview.md), a follower needs:
 - no public IP address or open p2p ports,
 - no keys of any kind.
 
-It answers every read — blocks, logs, contracts, public storage, membership witnesses, transaction effects — from its own local database, and forwards the transactions it receives to its upstream.
+It answers almost every read — blocks, logs, contracts, public storage, note-hash and nullifier membership witnesses, transaction effects — from its own local database, and forwards the transactions it receives to its upstream. The one exception is the L2-to-L1 message membership witness (`getL2ToL1MembershipWitness`), which is built from Outbox roots that only an L1-connected node can read: a follower forwards that call to its upstream, so it is the one read that fails while the upstream is unreachable.
 
 ## Trust model
 
@@ -30,9 +30,9 @@ Run a follower only against an upstream you operate, or one you trust as much as
 Setting `FOLLOWER_UPSTREAM_URL` puts the node in follower mode.
 
 ```bash
---follower-upstream-url <url>            ($FOLLOWER_UPSTREAM_URL)
---followerSyncPollingIntervalMS <ms>     ($FOLLOWER_SYNC_POLLING_INTERVAL_MS)
---followerSyncBatchSize <n>              ($FOLLOWER_SYNC_BATCH_SIZE)
+--follower-upstream-url <url>                ($FOLLOWER_UPSTREAM_URL)
+--follower-sync-polling-interval-ms <ms>     ($FOLLOWER_SYNC_POLLING_INTERVAL_MS)
+--follower-sync-batch-size <n>               ($FOLLOWER_SYNC_BATCH_SIZE)
 ```
 
 - `FOLLOWER_UPSTREAM_URL` — the upstream node's RPC URL. Any Aztec node can act as an upstream with no extra configuration.
@@ -62,13 +62,15 @@ The node refuses to start if any of these subsystems is enabled alongside `FOLLO
 | `ENABLE_PROVER_NODE` | `false` |
 | `OFFENSE_COLLECTION_ENABLED` | `false` |
 | `FISHERMAN_MODE` | `false` |
+| `USE_AUTOMINE_SEQUENCER` | `false` |
 
-A follower also has no p2p stack, so the `p2p_*` RPC namespace is not served and peer, ENR and attestation queries return this node's own — empty — view. The admin `pauseSync` and `rollbackTo` endpoints are rejected: a follower's chain is whatever its upstream's chain is.
+A follower also has no p2p stack, so the `p2p_*` RPC namespace is not served and peer, ENR and attestation queries return this node's own — empty — view. The admin `pauseSync`, `rollbackTo` and `startSnapshotUpload` endpoints are rejected: a follower's chain is whatever its upstream's chain is, and it has no L1 block number to stamp a snapshot with.
 
-Two behaviors differ subtly from a full node and are worth knowing about:
+Three behaviors differ subtly from a full node and are worth knowing about:
 
 - **Transaction receipts.** A transaction the upstream has already mined is reported as `pending` until the follower has replicated the block that mined it. This keeps a receipt from ever pointing at a block this node cannot serve.
 - **Public simulation.** `simulatePublicCalls` derives its gas fees from the upstream's predicted-minimum-fee window rather than from an Ethereum `eth_call`, and cannot apply chain-state overrides. Simulation is advisory, and it tracks the node that will actually receive the forwarded transaction.
+- **Transaction validation.** `aztec_isValidTx` runs every state-dependent check (nullifiers, metadata, gas limits, fees, expiration) but **skips client proof verification**, since a follower carries no verifier. A transaction it reports as valid can still be rejected by the upstream for a bad proof; the upstream re-validates everything the follower forwards to it.
 
 ## Startup checks
 

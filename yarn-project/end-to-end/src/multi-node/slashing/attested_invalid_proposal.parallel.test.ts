@@ -1,5 +1,4 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
@@ -219,9 +218,8 @@ describe('multi-node/slashing/attested_invalid_proposal', () => {
 
     await awaitCommitteeExists({ rollup, logger: test.logger });
 
-    const epochCache = (honestValidatorNode as TestAztecNodeService).epochCache;
     const { targetEpoch, targetSlot } = await advanceToEpochBeforePipelinedTargetSlot({
-      epochCache,
+      epochCache: test.epochCache,
       cheatCodes: test.context.cheatCodes.rollup,
       targetProposer: badProposer,
       logger: test.logger,

@@ -115,7 +115,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
  */
 export type RpcSyncArchiverSpecificConfig = {
   /** How often the follower polls its upstream node for new chain state. */
-  followerSyncPollingIntervalMS?: number;
+  followerSyncPollingIntervalMs?: number;
   /** Number of L2 blocks the follower requests per upstream call. Capped at the RPC limit of 50. */
   followerSyncBatchSize?: number;
 };
@@ -127,7 +127,7 @@ export const DEFAULT_FOLLOWER_SYNC_POLLING_INTERVAL_MS = 1_000;
 export const DEFAULT_FOLLOWER_SYNC_BATCH_SIZE = MAX_RPC_BLOCKS_LEN;
 
 export const rpcSyncArchiverConfigMappings: ConfigMappingsType<RpcSyncArchiverSpecificConfig> = {
-  followerSyncPollingIntervalMS: {
+  followerSyncPollingIntervalMs: {
     env: 'FOLLOWER_SYNC_POLLING_INTERVAL_MS',
     description: 'How often the follower archiver polls its upstream node for new chain state.',
     ...numberConfigHelper(DEFAULT_FOLLOWER_SYNC_POLLING_INTERVAL_MS),
@@ -142,7 +142,7 @@ export const rpcSyncArchiverConfigMappings: ConfigMappingsType<RpcSyncArchiverSp
 /** Extracts the follower-specific configuration, applying defaults for anything unset. */
 export function mapRpcSyncArchiverConfig(config: Partial<RpcSyncArchiverSpecificConfig>) {
   return {
-    pollingIntervalMs: config.followerSyncPollingIntervalMS ?? DEFAULT_FOLLOWER_SYNC_POLLING_INTERVAL_MS,
+    pollingIntervalMs: config.followerSyncPollingIntervalMs ?? DEFAULT_FOLLOWER_SYNC_POLLING_INTERVAL_MS,
     batchSize: config.followerSyncBatchSize ?? DEFAULT_FOLLOWER_SYNC_BATCH_SIZE,
   };
 }

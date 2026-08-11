@@ -1,4 +1,4 @@
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import type { EpochSlotMathInterface } from '@aztec/epoch-cache';
 import type { P2P } from '@aztec/p2p';
 import { SequencerClient } from '@aztec/sequencer-client';
 import { DataWithholdingWatcher, type SlasherClientInterface } from '@aztec/slasher';
@@ -27,6 +27,9 @@ export declare class TestAztecNodeService extends AztecNodeService {
   declare public l1ChainId: number;
   declare public version: number;
   declare public globalVariableBuilder: GlobalVariableBuilderInterface;
-  declare public epochCache: EpochCacheInterface;
+  // Matches the base class: a follower node only gets the L1-free slot/epoch arithmetic, so widening this to
+  // the full EpochCacheInterface here would be unsound. Tests that need committee lookups take the real
+  // EpochCache from the test context instead.
+  declare public epochCache: EpochSlotMathInterface;
   declare public packageVersion: string;
 }

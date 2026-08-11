@@ -72,13 +72,17 @@ describe('RpcSyncArchiver', () => {
   /** Flips the wrapper source below into failing mode, so tests can simulate an unreachable upstream. */
   let upstreamUnavailable: boolean;
 
+  /** Lowest checkpoint whose message tree the wrapper source reports as not sealed yet. */
+  let messagesNotReadyFrom: number | undefined;
+
   const GENESIS_ROOT = new Fr(GENESIS_ARCHIVE_ROOT);
   const FOLLOWER_CONFIG = { pollingIntervalMs: 50, batchSize: 50 };
 
-  /** Builds the upstream archiver (a real Archiver over the fake L1 state) with its own store. */
-  const buildUpstream = async (): Promise<Archiver> => {
-    const stores = createArchiverDataStores(await openTmpStore('rpc_sync_upstream'), initialBlockHash);
-    upstreamStores = stores;
+  /**
+   * Builds an L1-syncing archiver over the given stores. Used for the upstream, and for bootstrapping a store
+   * the way a snapshot taken from a full node would.
+   */
+  const buildL1Archiver = (stores: ArchiverDataStores): Archiver => {
     const config = {
       pollingIntervalMs: 1000,
       batchSize: 1000,
@@ -131,14 +135,23 @@ describe('RpcSyncArchiver', () => {
     );
   };
 
-  /** Wraps the upstream so tests can make it unreachable without touching the archiver itself. */
+  /** Builds the upstream archiver (a real Archiver over the fake L1 state) with its own store. */
+  const buildUpstream = async (): Promise<Archiver> => {
+    upstreamStores = createArchiverDataStores(await openTmpStore('rpc_sync_upstream'), initialBlockHash);
+    return buildL1Archiver(upstreamStores);
+  };
+
+  /** Wraps the upstream so tests can make it unreachable, or withhold message trees, without touching it. */
   const makeSource = (): RpcSyncArchiverSource => ({
     getL2Tips: () => (upstreamUnavailable ? Promise.reject(new Error('upstream unavailable')) : upstream.getL2Tips()),
     getBlocks: query => upstream.getBlocks(query),
     getBlockData: query => upstream.getBlockData(query),
     getCheckpoints: query => upstream.getCheckpoints(query),
     getProposedCheckpointData: query => upstream.getProposedCheckpointData(query),
-    getL1ToL2Messages: checkpointNumber => upstream.getL1ToL2Messages(checkpointNumber),
+    getL1ToL2Messages: checkpointNumber =>
+      messagesNotReadyFrom !== undefined && checkpointNumber >= messagesNotReadyFrom
+        ? Promise.reject(new L1ToL2MessagesNotReadyError(checkpointNumber, BigInt(messagesNotReadyFrom)))
+        : upstream.getL1ToL2Messages(checkpointNumber),
     getL2ToL1MembershipWitness: (txHash, message, messageIndexInTx) =>
       upstream.getL2ToL1MembershipWitness(txHash, message, messageIndexInTx),
   });
@@ -164,6 +177,7 @@ describe('RpcSyncArchiver', () => {
     const now = Math.floor(Date.now() / 1000);
     dateProvider = new TestDateProvider();
     upstreamUnavailable = false;
+    messagesNotReadyFrom = undefined;
 
     l1Constants = {
       l1GenesisTime: BigInt(now),
@@ -587,6 +601,197 @@ describe('RpcSyncArchiver', () => {
     expect(health.caughtUp).toBe(true);
     expect(health.lastSuccessfulSyncAt).toBeDefined();
     expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(1));
+  });
+
+  it('takes over a store bootstrapped by an L1-syncing archiver mid-tree', async () => {
+    await fake.addCheckpoint(CheckpointNumber(1), {
+      l1BlockNumber: 101n,
+      messagesL1BlockNumber: 98n,
+      numL1ToL2Messages: 2,
+    });
+    fake.setL1BlockNumber(200n);
+
+    // Stands in for a snapshot bootstrap: a store filled by a real L1-syncing archiver, which leaves behind the
+    // inbox tree-in-progress marker of the checkpoint L1 was still filling when the snapshot was taken.
+    const snapshotStores = createArchiverDataStores(await openTmpStore('rpc_sync_snapshot'), initialBlockHash);
+    const bootstrap = buildL1Archiver(snapshotStores);
+    await bootstrap.syncImmediate();
+    await bootstrap.stop();
+    expect(await snapshotStores.messages.getInboxTreeInProgress()).toEqual(2n);
+
+    // The chain moves on well past the frozen marker.
+    await fake.addCheckpoint(CheckpointNumber(2), {
+      l1BlockNumber: 2507n,
+      messagesL1BlockNumber: 2504n,
+      numL1ToL2Messages: 1,
+    });
+    await fake.addCheckpoint(CheckpointNumber(3), {
+      l1BlockNumber: 5000n,
+      messagesL1BlockNumber: 4990n,
+      numL1ToL2Messages: 2,
+    });
+    fake.setL1BlockNumber(5100n);
+    await upstream.syncImmediate();
+
+    const bootstrapped = buildFollower(snapshotStores, new EventEmitter() as ArchiverEmitter);
+    try {
+      await bootstrapped.start(true);
+
+      expect(await bootstrapped.getCheckpointNumber()).toBe(CheckpointNumber(3));
+      expect(await bootstrapped.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
+      expect(await bootstrapped.getL1ToL2Messages(CheckpointNumber(2))).toHaveLength(1);
+      expect(await bootstrapped.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(2);
+      expect(bootstrapped.getHealth().lastError).toBeUndefined();
+    } finally {
+      await bootstrapped.stop();
+      await snapshotStores.db.close();
+    }
+  });
+
+  it('follows the upstream proven tip back down when an L1 reorg drops the proof', async () => {
+    await fake.addCheckpoint(CheckpointNumber(1), {
+      l1BlockNumber: 101n,
+      messagesL1BlockNumber: 98n,
+      numL1ToL2Messages: 1,
+    });
+    await fake.addCheckpoint(CheckpointNumber(2), {
+      l1BlockNumber: 2507n,
+      messagesL1BlockNumber: 2504n,
+      numL1ToL2Messages: 1,
+    });
+    fake.markCheckpointAsProven(CheckpointNumber(2));
+    fake.setL1BlockNumber(2520n);
+    await syncBoth();
+    expect(await follower.getProvenCheckpointNumber()).toBe(CheckpointNumber(2));
+
+    // The proof transaction is reorged out of L1. The blocks are untouched, so the stream reports no prune —
+    // only a chain-proven event carrying a lower checkpoint.
+    fake.markCheckpointAsProven(CheckpointNumber(1));
+    fake.setL1BlockNumber(2530n);
+    await syncBoth();
+
+    expect(await upstream.getProvenCheckpointNumber()).toBe(CheckpointNumber(1));
+    expect(await follower.getProvenCheckpointNumber()).toBe(CheckpointNumber(1));
+    // The chain itself is unaffected, and the follower reports itself caught up again.
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(2));
+    expect(follower.getHealth().caughtUp).toBe(true);
+  });
+
+  it('follows the finalized tip back down', async () => {
+    await fake.addCheckpoint(CheckpointNumber(1), {
+      l1BlockNumber: 101n,
+      messagesL1BlockNumber: 98n,
+      numL1ToL2Messages: 1,
+    });
+    await fake.addCheckpoint(CheckpointNumber(2), {
+      l1BlockNumber: 2507n,
+      messagesL1BlockNumber: 2504n,
+      numL1ToL2Messages: 1,
+    });
+    // The store clamps the finalized tip to the proven one, so the chain has to be proven to be finalizable.
+    fake.markCheckpointAsProven(CheckpointNumber(2));
+    fake.setL1BlockNumber(2520n);
+    await syncBoth();
+
+    const finalize = (checkpointNumber: CheckpointNumber, blockNumber: BlockNumber) =>
+      follower.handleBlockStreamEvent({
+        type: 'chain-finalized',
+        block: { number: blockNumber, hash: '' },
+        checkpoint: { number: checkpointNumber, hash: '' },
+      });
+
+    await finalize(CheckpointNumber(2), BlockNumber(2));
+    expect(await followerStores.blocks.getFinalizedCheckpointNumber()).toBe(CheckpointNumber(2));
+
+    await finalize(CheckpointNumber(1), BlockNumber(1));
+    expect(await followerStores.blocks.getFinalizedCheckpointNumber()).toBe(CheckpointNumber(1));
+  });
+
+  it('unwinds the checkpointed tier when the upstream de-checkpoints without changing a block', async () => {
+    await fake.addCheckpoint(CheckpointNumber(1), {
+      l1BlockNumber: 101n,
+      messagesL1BlockNumber: 98n,
+      numL1ToL2Messages: 1,
+    });
+    await fake.addCheckpoint(CheckpointNumber(2), {
+      l1BlockNumber: 2507n,
+      messagesL1BlockNumber: 2504n,
+      numL1ToL2Messages: 1,
+    });
+    fake.setL1BlockNumber(2520n);
+    await syncBoth();
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(2));
+
+    await follower.handleBlockStreamEvent({
+      type: 'chain-checkpointed',
+      block: { number: BlockNumber(1), hash: '' },
+      checkpoint: { number: CheckpointNumber(1), hash: '' },
+    });
+
+    expect(await follower.getCheckpointNumber()).toBe(CheckpointNumber(1));
+    expect(await follower.getBlockNumber()).toBe(1);
+    await expect(follower.getL1ToL2Messages(CheckpointNumber(2))).rejects.toThrow(L1ToL2MessagesNotReadyError);
+  });
+
+  it('rolls the message cursor back on a prune of the uncheckpointed tail', async () => {
+    await fake.addCheckpoint(CheckpointNumber(1), {
+      l1BlockNumber: 101n,
+      messagesL1BlockNumber: 98n,
+      numBlocks: 2,
+      numL1ToL2Messages: 1,
+    });
+    fake.setL1BlockNumber(200n);
+    await syncBoth();
+    expect(await followerStores.messages.getMessagesSyncedToCheckpoint()).toBe(CheckpointNumber(1));
+
+    // Stands in for the eager replication `syncMessagesUpTo` performs when the last block of a batch belongs to
+    // a checkpoint that is not checkpointed yet: those leaves are not final on L1 either.
+    await followerStores.messages.addL1ToL2MessagesForCheckpoint(CheckpointNumber(2), [Fr.random()]);
+    expect(await follower.getL1ToL2Messages(CheckpointNumber(2))).toHaveLength(1);
+
+    await follower.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: { number: BlockNumber(2), hash: '' },
+      checkpointed: prunedEventTips(CheckpointNumber(1), BlockNumber(2)),
+      proven: prunedEventTips(CheckpointNumber.ZERO, BlockNumber.ZERO),
+    });
+
+    expect(await followerStores.messages.getMessagesSyncedToCheckpoint()).toBe(CheckpointNumber(1));
+    await expect(follower.getL1ToL2Messages(CheckpointNumber(2))).rejects.toThrow(L1ToL2MessagesNotReadyError);
+  });
+
+  it('retries message replication on a later cycle when the chain has gone idle', async () => {
+    await fake.addCheckpoint(CheckpointNumber(1), {
+      l1BlockNumber: 101n,
+      messagesL1BlockNumber: 98n,
+      numL1ToL2Messages: 2,
+    });
+    fake.setL1BlockNumber(200n);
+    await upstream.syncImmediate();
+
+    // The blocks land while the upstream still reports checkpoint 1's message tree as unsealed.
+    messagesNotReadyFrom = 1;
+    await follower.syncImmediate();
+    expect(await follower.getBlockNumber()).toBe(1);
+    expect(await followerStores.messages.getMessagesSyncedToCheckpoint()).toBe(CheckpointNumber(0));
+
+    // Nothing further happens on the chain: no blocks, no checkpoints, so no stream event to hang a retry off.
+    messagesNotReadyFrom = undefined;
+    await follower.syncImmediate();
+
+    expect(await followerStores.messages.getMessagesSyncedToCheckpoint()).toBe(CheckpointNumber(1));
+    expect(await follower.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
+  });
+
+  it('closes the data stores on stop once their ownership is handed over', async () => {
+    const ownedStores = createArchiverDataStores(await openTmpStore('rpc_sync_owned'), initialBlockHash);
+    const owner = buildFollower(ownedStores, new EventEmitter() as ArchiverEmitter);
+    owner.takeOwnershipOfDataStores();
+
+    await owner.start(false);
+    await owner.stop();
+
+    await expect(ownedStores.messages.getTotalL1ToL2MessageCount()).rejects.toThrow();
   });
 
   it('resolves initial sync on a warm store with no new upstream events', async () => {

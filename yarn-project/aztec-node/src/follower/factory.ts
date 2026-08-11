@@ -8,7 +8,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { NodeInfo } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { type AztecNode, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
-import { WorldStateRunningState, createArchiverClient, tryStop } from '@aztec/stdlib/interfaces/server';
+import { createArchiverClient, tryStop } from '@aztec/stdlib/interfaces/server';
 import { type DebugLogStore, InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
@@ -20,6 +20,7 @@ import { AztecNodeService } from '../aztec-node/server.js';
 import type { CreateAztecNodeDeps, CreateAztecNodeOptions } from '../factory.js';
 import { checkConfigMatchesRollup } from '../modules/config_checks.js';
 import { assertValidFollowerConfig } from './config.js';
+import { createFollowerReadinessProbe } from './readiness_probe.js';
 import { UpstreamFeeProvider } from './upstream_fee_provider.js';
 import { UpstreamGlobalVariableBuilder } from './upstream_global_variable_builder.js';
 import { UpstreamTxGateway } from './upstream_tx_gateway.js';
@@ -131,7 +132,7 @@ export async function createFollowerNodeService(
     // constants the upstream reported, so none of the below touches L1. The fee provider is shared with the
     // global variable builder so a simulation and a fee quote in the same L1 slot cost one upstream call.
     const feeProvider = new UpstreamFeeProvider(upstreamNode, dateProvider, l1Constants);
-    const globalVariableBuilder = new UpstreamGlobalVariableBuilder(feeProvider, dateProvider, {
+    const globalVariableBuilder = new UpstreamGlobalVariableBuilder(feeProvider, archiver, dateProvider, {
       l1ChainId: config.l1ChainId,
       rollupVersion: config.rollupVersion,
       slotDuration: l1Constants.slotDuration,
@@ -140,16 +141,7 @@ export async function createFollowerNodeService(
     });
     const epochCache = new EpochSlotMath(l1Constants, dateProvider);
 
-    /**
-     * A follower is ready once it has replicated the whole chain at least once and its world state is running.
-     * Deliberately latched on the initial sync rather than on the archiver's `caughtUp` flag: `caughtUp` goes
-     * false whenever the upstream is a block ahead mid-cycle, which would flap a load balancer's health check
-     * on every block. Ongoing staleness is reported by the archiver's health surface instead.
-     */
-    const readinessProbe = async () => {
-      const { state } = await worldStateSynchronizer.status();
-      return archiver.getHealth().initialSyncComplete && state === WorldStateRunningState.RUNNING;
-    };
+    const readinessProbe = createFollowerReadinessProbe(archiver, worldStateSynchronizer);
 
     log.info(`Aztec node running in follower mode, replicating from ${upstreamUrl}`, {
       upstreamUrl,

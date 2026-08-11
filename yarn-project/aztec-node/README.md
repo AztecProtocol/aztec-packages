@@ -15,17 +15,17 @@ The Aztec Node integrates the components that make up a node on the network — 
 
 A follower node is a read-only replica of a single **trusted upstream node**. It exists to scale out RPC serving: one full node (L1 + p2p) can back a fleet of followers, none of which needs a public IP, an L1 RPC endpoint, or a signing key.
 
-It replicates every block, checkpoint and L1-to-L2 message from the upstream through an [`RpcSyncArchiver`](../archiver/README.md#rpcsyncarchiver), which the world-state synchronizer then follows exactly as it follows an L1-syncing archiver. Every read the node serves — blocks, logs, contracts, storage, witnesses, tx effects — is answered from those local stores.
+It replicates every block, checkpoint and L1-to-L2 message from the upstream through an [`RpcSyncArchiver`](../archiver/README.md#rpcsyncarchiver), which the world-state synchronizer then follows exactly as it follows an L1-syncing archiver. Almost every read the node serves — blocks, logs, contracts, storage, note-hash and nullifier witnesses, tx effects — is answered from those local stores. The exception is `getL2ToL1MembershipWitness`, which needs Outbox roots that only an L1-connected node can read and is therefore forwarded upstream: it is the one read that depends on upstream liveness.
 
 **Trust model.** A follower does not re-validate or re-execute its upstream's data: no attestation checks, no proof verification, no tx validation. It only gets the cheap consistency checks that come for free — the block stream reconciles block hashes and world state verifies archive roots per block — so a divergent upstream surfaces as a loud sync failure rather than as silently wrong data. Run a follower only against an upstream you operate or otherwise trust, over a link you control. Authentication, mTLS and rate limiting between follower and upstream are the operator's responsibility; the node does not provide them.
 
-**Transactions.** `sendTx` is forwarded to the upstream verbatim and validated there; the follower keeps no mempool and runs no proof verifier. Pending-tx queries and tx lookups proxy the upstream. A receipt is only ever reported as mined once the follower has replicated the block that mined it — until then the tx reads as pending — so a caller that follows a receipt with a query at its block number never asks for a block this node cannot serve.
+**Transactions.** `sendTx` is forwarded to the upstream verbatim and validated there; the follower keeps no mempool and runs no proof verifier. Consequently `aztec_isValidTx` runs every state-dependent check (nullifiers, metadata, gas limits, fees, expiration) but skips client proof verification, so a tx it calls valid may still be rejected upstream for a bad proof. Pending-tx queries and tx lookups proxy the upstream. A receipt is only ever reported as mined once the follower has replicated the block that mined it — until then the tx reads as pending — so a caller that follows a receipt with a query at its block number never asks for a block this node cannot serve.
 
 **No L1.** Contract addresses, rollup version and rollup constants come from the upstream's `getNodeInfo`/`getL1Constants`; the slot and epoch clock is arithmetic over those constants; min fees come from the upstream's fee RPCs. `ETHEREUM_HOSTS` is ignored in follower mode (and required in every other mode). The one approximation this buys: `simulatePublicCalls` picks its gas fees from the upstream's predicted-min-fee window rather than from an L1 `eth_call`, and cannot apply the simulator's chain-state overrides. Simulation is advisory, and it tracks the node that will receive the forwarded transaction.
 
 **Startup checks.** The node fails fast when the upstream is unreachable, when its L1 chain id or rollup version disagrees with the local configuration, when the rollup constants disagree with the configured slot/epoch durations, or when the local genesis state hashes differently from the upstream's.
 
-**Not supported.** The validator, sequencer, prover-node, offense-collection, fisherman and automine-sequencer subsystems must all be off — `assertValidFollowerConfig` refuses to start otherwise. There is no p2p stack, so the `p2p_*` namespace is not registered and peer/ENR/attestation queries answer with this node's own (empty) view. The admin `pauseSync` and `rollbackTo` APIs are rejected: the replicating archiver cannot be resumed once stopped, and its chain is whatever the upstream's is.
+**Not supported.** The validator, sequencer, prover-node, offense-collection, fisherman and automine-sequencer subsystems must all be off — `assertValidFollowerConfig` refuses to start otherwise. There is no p2p stack, so the `p2p_*` namespace is not registered and peer/ENR/attestation queries answer with this node's own (empty) view. The admin `pauseSync`, `rollbackTo` and `startSnapshotUpload` APIs are rejected: the replicating archiver cannot be resumed once stopped, its chain is whatever the upstream's is, and it has no L1 block number to stamp a snapshot with.
 
 **Being an upstream.** Any node that owns an archiver serves the read-only `archiver_*` namespace, so no extra configuration is needed to point a follower at an existing node.
 
@@ -34,8 +34,8 @@ It replicates every block, checkpoint and L1-to-L2 message from the upstream thr
 | Flag | Env var | Meaning |
 |---|---|---|
 | `--follower-upstream-url` | `FOLLOWER_UPSTREAM_URL` | URL of the upstream node. Setting it selects follower mode. |
-| `--followerSyncPollingIntervalMS` | `FOLLOWER_SYNC_POLLING_INTERVAL_MS` | How often to poll the upstream for new chain state (default 1000). |
-| `--followerSyncBatchSize` | `FOLLOWER_SYNC_BATCH_SIZE` | Blocks requested per upstream call, capped at the RPC ceiling of 50. |
+| `--follower-sync-polling-interval-ms` | `FOLLOWER_SYNC_POLLING_INTERVAL_MS` | How often to poll the upstream for new chain state (default 1000). |
+| `--follower-sync-batch-size` | `FOLLOWER_SYNC_BATCH_SIZE` | Blocks requested per upstream call, capped at the RPC ceiling of 50. |
 
 Snapshot sync (`SYNC_MODE` / `SYNC_SNAPSHOTS_URLS`) works in follower mode: the follower reconciles whatever tip the snapshot leaves it at against its upstream on the first replication pass.
 

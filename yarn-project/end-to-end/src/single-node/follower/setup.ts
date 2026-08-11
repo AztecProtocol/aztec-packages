@@ -84,7 +84,7 @@ export function createFollowerNode(
       dataDirectory: join(config.dataDirectory!, `follower-${randomBytes(8).toString('hex')}`),
       nodeId: 'follower-1',
       followerUpstreamUrl: upstreamUrl,
-      followerSyncPollingIntervalMS: FOLLOWER_SYNC_POLLING_INTERVAL_MS,
+      followerSyncPollingIntervalMs: FOLLOWER_SYNC_POLLING_INTERVAL_MS,
       l1RpcUrls: [],
       p2pEnabled: false,
       disableValidator: true,

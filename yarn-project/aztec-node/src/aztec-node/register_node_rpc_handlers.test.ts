@@ -8,7 +8,7 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import type { L2Tips } from '@aztec/stdlib/block';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, AztecNodeDebugApiSchema } from '@aztec/stdlib/interfaces/client';
-import { ArchiverApiSchema, P2PApiSchema } from '@aztec/stdlib/interfaces/server';
+import { ArchiverApiSchema, ArchiverPublicApiSchema, P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 
 import { registerAztecNodeRpcHandlers } from './register_node_rpc_handlers.js';
@@ -50,7 +50,7 @@ describe('registerAztecNodeRpcHandlers', () => {
     expect(services.aztec).toEqual([mockNode, AztecNodeApiSchema]);
     expect(services.node).toBe(services.aztec);
     expect(services.p2p).toEqual([p2p, P2PApiSchema]);
-    expect(services.archiver).toEqual([archiver, ArchiverApiSchema]);
+    expect(services.archiver).toEqual([archiver, ArchiverPublicApiSchema]);
     expect(services.aztecDebug).toEqual([mockNode, AztecNodeDebugApiSchema]);
     expect(services.nodeDebug).toBe(services.aztecDebug);
     expect(adminServices.aztecAdmin).toEqual([mockNode, AztecNodeAdminApiSchema]);
@@ -65,7 +65,7 @@ describe('registerAztecNodeRpcHandlers', () => {
 
     expect(services.p2p).toBeUndefined();
     expect(services.aztec).toEqual([followerNode, AztecNodeApiSchema]);
-    expect(services.archiver).toEqual([archiver, ArchiverApiSchema]);
+    expect(services.archiver).toEqual([archiver, ArchiverPublicApiSchema]);
   });
 
   it('skips the archiver namespace on a node with no archiver', () => {
@@ -75,6 +75,18 @@ describe('registerAztecNodeRpcHandlers', () => {
     registerAztecNodeRpcHandlers(remoteArchiverNode, services);
 
     expect(services.archiver).toBeUndefined();
+  });
+
+  it('does not expose the archiver write and sync-control methods', () => {
+    const services: NamespacedApiHandlers = {};
+
+    registerAztecNodeRpcHandlers(mockNode, services);
+
+    const [, schema] = services.archiver!;
+    // The namespace is served unauthenticated next to aztec_*, so it must stay read-only.
+    expect(Object.keys(schema)).not.toContain('syncImmediate');
+    expect(Object.keys(schema)).not.toContain('registerContractFunctionSignatures');
+    expect(Object.keys(ArchiverApiSchema)).toContain('syncImmediate');
   });
 
   it('skips debug namespaces unless requested', () => {
