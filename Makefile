@@ -139,7 +139,9 @@ noir-projects: noir-projects-labs
 yarn-project: noir-projects-labs labs-aztec-toolchain
 	$(call build,$@,yarn-project)
 
-yarn-project-tests: yarn-project
+# crs: the prover e2e tests run in no-network containers, so bb and bb.js must find the
+# CRS on disk rather than fetch on demand.
+yarn-project-tests: yarn-project crs
 	$(call test,$@,yarn-project/end-to-end)
 	$(call test,$@,yarn-project)
 
