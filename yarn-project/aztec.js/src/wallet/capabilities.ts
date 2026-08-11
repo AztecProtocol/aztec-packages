@@ -64,10 +64,9 @@ export interface AccountsCapability {
   /**
    * Can create auth witnesses for accounts. Maps to: createAuthWit
    *
-   * This is not a lesser capability than transaction authority. An account's entrypoint authorization shares a
-   * message space with generic auth witnesses, and a witness is a bearer capability with no expiry, so a holder able
-   * to request witnesses of its choosing can transact as the account. Grant it only to parties trusted with the
-   * account, regardless of any per-contract or per-function restrictions applied to the transaction capability.
+   * Not a lesser capability than transaction authority: a holder able to request witnesses of its choosing can
+   * transact as the account. Grant only to parties trusted with the account, regardless of any per-contract or
+   * per-function restriction applied to the transaction capability.
    */
   canCreateAuthWit?: boolean;
 }
