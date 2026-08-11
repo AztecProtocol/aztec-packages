@@ -21,10 +21,10 @@ import type { Tx, TxHash } from '@aztec/stdlib/tx';
  */
 export interface NodeTxGateway {
   /**
-   * Whether the node must validate a tx itself before handing it to {@link sendTx}. True for the p2p-backed
-   * gateway, whose mempool accepts whatever it is given. False for the upstream-backed gateway: the upstream
-   * node re-runs the full validation, and duplicating it on a follower would need a local proof verifier and
-   * risks rejecting txs over a stale view of state or fees.
+   * Whether the node must validate a tx itself before handing it to {@link sendTx}. Always true for the
+   * p2p-backed gateway, whose mempool accepts whatever it is given. Configurable on the upstream-backed
+   * gateway, where validation only shields the upstream and fails the client faster — the upstream re-validates
+   * whatever is forwarded to it either way — so a follower may be run as a pure relay instead.
    */
   readonly requiresLocalTxValidation: boolean;
 

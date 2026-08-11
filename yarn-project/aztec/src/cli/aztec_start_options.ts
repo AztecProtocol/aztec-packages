@@ -232,6 +232,9 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     configToFlag('--follower-upstream-url', followerConfigMappings.followerUpstreamUrl),
     configToFlag('--follower-sync-polling-interval-ms', followerConfigMappings.followerSyncPollingIntervalMs),
     configToFlag('--follower-sync-batch-size', followerConfigMappings.followerSyncBatchSize),
+    // Declared with an optional value, like `--p2p-enabled`, so both `--follower-skip-tx-validation` and an
+    // explicit `--follower-skip-tx-validation false` parse: commander ignores the coercion on a bare flag.
+    configToFlag('--follower-skip-tx-validation [value]', followerConfigMappings.followerSkipTxValidation),
   ],
   SEQUENCER: [
     {

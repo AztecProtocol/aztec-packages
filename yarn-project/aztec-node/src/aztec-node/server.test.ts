@@ -78,6 +78,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
+import type { NodeTxGateway } from '../modules/node_tx_gateway.js';
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService, type AztecNodeServiceDeps } from './server.js';
 
@@ -395,6 +396,56 @@ describe('aztec node', () => {
       });
       // Tx with expiration timestamp >= current block number should be valid
       expect(await node.isValidTx(validExpirationTimestampMetadata)).toEqual({ result: 'valid' });
+    });
+  });
+
+  describe('sendTx', () => {
+    /** Builds a node over a gateway that records what reaches it, so tests assert on forwarding, not on spies. */
+    const makeNodeOverGateway = (requiresLocalTxValidation: boolean) => {
+      const forwarded: Tx[] = [];
+      const txGateway = mock<NodeTxGateway>({ requiresLocalTxValidation });
+      txGateway.sendTx.mockImplementation(tx => {
+        forwarded.push(tx);
+        return Promise.resolve();
+      });
+      return { node: new TestAztecNodeService({ ...nodeDeps, p2pClient: undefined, txGateway }), forwarded };
+    };
+
+    /** A tx that fails a state-independent check, so it is rejected regardless of the node's view of state. */
+    const mockTxWithWrongChainId = async () => {
+      const tx = await mockTxForRollup(0x10000);
+      tx.data.constants.txContext.chainId = new Fr(1n + chainId.toBigInt());
+      await tx.recomputeHash();
+      return tx;
+    };
+
+    it('hands a valid tx to a validating gateway', async () => {
+      const { node: validatingNode, forwarded } = makeNodeOverGateway(true);
+      const tx = await mockTxForRollup(0x10000);
+
+      await validatingNode.sendTx(tx);
+
+      expect(forwarded).toEqual([tx]);
+    });
+
+    it('rejects an invalid tx locally instead of handing it to a validating gateway', async () => {
+      const { node: validatingNode, forwarded } = makeNodeOverGateway(true);
+      const tx = await mockTxWithWrongChainId();
+
+      await expect(validatingNode.sendTx(tx)).rejects.toThrow(
+        new RegExp(`Invalid tx: .*${TX_ERROR_INCORRECT_L1_CHAIN_ID}`),
+      );
+
+      expect(forwarded).toEqual([]);
+    });
+
+    it('hands an invalid tx to a relaying gateway untouched', async () => {
+      const { node: relayingNode, forwarded } = makeNodeOverGateway(false);
+      const tx = await mockTxWithWrongChainId();
+
+      await relayingNode.sendTx(tx);
+
+      expect(forwarded).toEqual([tx]);
     });
   });
 

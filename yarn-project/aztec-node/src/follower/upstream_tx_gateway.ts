@@ -14,21 +14,28 @@ import { type Tx, type TxHash, TxStatus } from '@aztec/stdlib/tx';
 import { NO_PROPOSALS_FOR_SLOT, type NodeTxGateway } from '../modules/node_tx_gateway.js';
 
 /**
- * Backs a follower node's tx surface with its upstream node: transactions are forwarded there verbatim and
- * every query about a not-yet-mined tx is answered by it, since a follower keeps no mempool of its own.
+ * Backs a follower node's tx surface with its upstream node: transactions are forwarded there and every query
+ * about a not-yet-mined tx is answered by it, since a follower keeps no mempool of its own.
+ *
+ * By default the node validates a tx — client proof included — before it reaches this gateway, so the upstream
+ * is shielded from work the follower can reject itself and the client hears about a bad tx without a round
+ * trip. That is a resource shield, never a security boundary: the upstream re-validates everything forwarded to
+ * it, so an operator may turn local validation off and run the follower as a pure relay.
  *
  * The p2p-only queries (peers, ENR, attestations, proposals) report this node's own — empty — view rather than
  * the upstream's: a follower is not a peer of anyone and holds no attestations, and reporting the upstream's
  * would misrepresent which node the caller is talking to.
  */
 export class UpstreamTxGateway implements NodeTxGateway {
-  /** The upstream node validates every tx it is sent, so the follower does not duplicate the work. */
-  public readonly requiresLocalTxValidation = false;
+  public readonly requiresLocalTxValidation: boolean;
 
   constructor(
     private readonly upstream: AztecNode,
+    opts: { validateTxs: boolean },
     private readonly log: Logger = createLogger('node:upstream-tx-gateway'),
-  ) {}
+  ) {
+    this.requiresLocalTxValidation = opts.validateTxs;
+  }
 
   public async sendTx(tx: Tx): Promise<void> {
     const txHash = tx.getTxHash().toString();

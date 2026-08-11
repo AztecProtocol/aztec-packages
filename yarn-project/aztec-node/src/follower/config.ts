@@ -1,5 +1,5 @@
 import { type RpcSyncArchiverSpecificConfig, rpcSyncArchiverConfigMappings } from '@aztec/archiver/config';
-import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { type ConfigMappingsType, booleanConfigHelper } from '@aztec/foundation/config';
 
 /**
  * Configuration of a follower node: a node that replicates all chain state from a single trusted upstream node
@@ -9,6 +9,13 @@ import type { ConfigMappingsType } from '@aztec/foundation/config';
 export type FollowerConfig = RpcSyncArchiverSpecificConfig & {
   /** URL of the upstream node's RPC interface. Setting it puts the node in follower mode. */
   followerUpstreamUrl?: string;
+  /**
+   * Whether the follower forwards transactions to its upstream without validating them itself first, returning
+   * it to pure-relay behaviour. The upstream re-validates whatever it is sent either way, so local validation
+   * only buys a faster rejection for the client and spares the upstream the work; turning it off suits a
+   * resource-constrained follower that would rather not spend CPU on client proof verification.
+   */
+  followerSkipTxValidation?: boolean;
 };
 
 export const followerConfigMappings: ConfigMappingsType<FollowerConfig> = {
@@ -18,6 +25,13 @@ export const followerConfigMappings: ConfigMappingsType<FollowerConfig> = {
     description:
       'URL of the upstream node to replicate chain state from and forward transactions to. Setting it starts ' +
       'the node in follower mode, which requires the validator, sequencer, prover and p2p subsystems to be off.',
+  },
+  followerSkipTxValidation: {
+    env: 'FOLLOWER_SKIP_TX_VALIDATION',
+    description:
+      'Whether a follower node forwards transactions to its upstream without validating them locally first. ' +
+      'The upstream validates everything it receives regardless.',
+    ...booleanConfigHelper(false),
   },
 };
 

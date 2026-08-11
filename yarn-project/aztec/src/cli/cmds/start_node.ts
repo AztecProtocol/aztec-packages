@@ -85,12 +85,16 @@ export async function startNode(
   const followsCanonicalRollup =
     typeof nodeConfig.rollupVersion !== 'number' || (nodeConfig.rollupVersion as unknown as string) === 'canonical';
 
-  // A follower node takes its L1 addresses and rollup constants from its upstream node and verifies no proofs,
-  // so the registry preflight, the L1 config fetch and the CRS download are all skipped for it. The node
-  // factory runs an equivalent handshake against the upstream instead.
+  // A follower node takes its L1 addresses and rollup constants from its upstream node, so the registry
+  // preflight and the L1 config fetch are skipped for it; the node factory runs an equivalent handshake against
+  // the upstream instead. It still verifies the client proofs of the txs it forwards, so it needs the same
+  // verifier CRS a full node does unless that validation is off.
   const followerMode = isFollowerModeEnabled(nodeConfig);
   if (followerMode) {
     userLog(`Starting Aztec Node in follower mode, replicating from ${nodeConfig.followerUpstreamUrl}`);
+    if (!nodeConfig.followerSkipTxValidation) {
+      await preloadCrsDataForVerifying(nodeConfig, userLog);
+    }
   } else {
     await preloadCrsDataForVerifying(nodeConfig, userLog);
 

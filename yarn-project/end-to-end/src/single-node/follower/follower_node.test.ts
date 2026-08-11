@@ -90,8 +90,8 @@ describe('single-node/follower/follower_node', () => {
 
   it('serves a PXE that deploys contracts and sends transactions through its upstream', async () => {
     // The account deploy is the first tx the follower forwards: the PXE proves it locally, the follower
-    // hands it to the upstream verbatim, and the receipt only reaches a mined status once the follower has
-    // replicated the block that mined it.
+    // validates it (proof included) and hands it to the upstream, and the receipt only reaches a mined status
+    // once the follower has replicated the block that mined it.
     const account = await followerWallet.createSchnorrAccount(
       fundedAccount.secret,
       fundedAccount.salt,
@@ -118,13 +118,22 @@ describe('single-node/follower/follower_node', () => {
     expect(await followerNode.getTxEffect(receipt.txHash)).toBeDefined();
   });
 
-  it('surfaces transaction rejections raised by its upstream', async () => {
+  it('rejects an invalid transaction locally instead of forwarding it upstream', async () => {
     const { receipt } = await testContract.methods.emit_nullifier_public(new Fr(8)).send({ from: accountAddress });
     const minedTx = await upstreamNode.getTxByHash(receipt.txHash, { includeProof: true });
     expect(minedTx).toBeDefined();
 
-    // A follower runs no tx validation of its own; the rejection has to travel back from the upstream.
-    await expect(followerNode.sendTx(minedTx!)).rejects.toThrow(/Existing nullifier/);
+    // Re-submitting a mined tx double-spends its nullifiers against the follower's own state. The follower
+    // runs the whole RPC validation pipeline before forwarding, so this is rejected here and the upstream
+    // never sees it. Never reaching the upstream is the point of the change, and a spy is the only way to
+    // observe it: a tx the follower rejects would be rejected upstream too, leaving no other trace.
+    const upstreamSendTx = jest.spyOn(context.aztecNodeService, 'sendTx');
+    try {
+      await expect(followerNode.sendTx(minedTx!)).rejects.toThrow(/Invalid tx: .*Existing nullifier/);
+      expect(upstreamSendTx).not.toHaveBeenCalled();
+    } finally {
+      upstreamSendTx.mockRestore();
+    }
   });
 
   it('follows the upstream when its chain is rolled back', async () => {

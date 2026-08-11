@@ -49,7 +49,7 @@ describe('NodeTxReceiptBuilder on a follower node', () => {
     blockSource.getL2Tips.mockResolvedValue(makeTips());
     blockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
     builder = new NodeTxReceiptBuilder({
-      txGateway: new UpstreamTxGateway(upstream),
+      txGateway: new UpstreamTxGateway(upstream, { validateTxs: true }),
       blockSource,
       debugLogStore: new NullDebugLogStore(),
     });

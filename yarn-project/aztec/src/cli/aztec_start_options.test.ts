@@ -62,11 +62,19 @@ describe('aztec_start_options commander integration', () => {
       '250',
       '--follower-sync-batch-size',
       '20',
+      '--follower-skip-tx-validation',
     ]);
     const opts = cmd.opts();
     expect(opts.followerUpstreamUrl).toBe('http://upstream:8080');
     expect(opts.followerSyncPollingIntervalMs).toBe(250);
     expect(opts.followerSyncBatchSize).toBe(20);
+    expect(opts.followerSkipTxValidation).toBe(true);
+  });
+
+  it('validates follower txs unless the skip flag is passed', () => {
+    const cmd = buildCommandWith(['FOLLOWER']);
+    cmd.parse(['node', 'cli', '--follower-upstream-url', 'http://upstream:8080']);
+    expect(cmd.opts().followerSkipTxValidation).toBe(false);
   });
 
   it('reads the follower upstream url from the env', () => {

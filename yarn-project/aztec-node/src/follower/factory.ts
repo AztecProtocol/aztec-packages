@@ -1,4 +1,6 @@
 import { createRpcSyncArchiver } from '@aztec/archiver';
+import { BBCircuitVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
+import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { EpochSlotMath } from '@aztec/epoch-cache';
 import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -8,7 +10,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { NodeInfo } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { type AztecNode, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
-import { createArchiverClient, tryStop } from '@aztec/stdlib/interfaces/server';
+import { type ClientProtocolCircuitVerifier, createArchiverClient, tryStop } from '@aztec/stdlib/interfaces/server';
 import { type DebugLogStore, InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
@@ -28,8 +30,9 @@ import { UpstreamTxGateway } from './upstream_tx_gateway.js';
 /**
  * Creates a follower node: a read-only node that replicates every block, checkpoint and L1-to-L2 message from a
  * single trusted upstream node over RPC and forwards the transactions it receives to that same upstream. It
- * runs no p2p stack, no validator, no sequencer, no prover, no slashing watchers and no proof verifiers, so it
- * needs neither a public IP nor any signing key.
+ * runs no p2p stack, no validator, no sequencer, no prover and no slashing watchers, so it needs neither a
+ * public IP nor any signing key. It does run the RPC-side proof verifier, since it validates the txs it
+ * forwards unless `followerSkipTxValidation` says otherwise.
  *
  * It opens no L1 connection at all: contract addresses, rollup constants and min fees all come from the
  * upstream, and the slot/epoch clock is pure arithmetic over those constants. `l1RpcUrls` is therefore
@@ -120,6 +123,21 @@ export async function createFollowerNodeService(
     started.push(worldStateSynchronizer);
     await worldStateSynchronizer.start();
 
+    // A follower validates the txs handed to it before forwarding them, which needs the same RPC-side verifier
+    // a full node builds. Left unbuilt when validation is off, so a pure relay pays nothing for it. There is no
+    // peer verifier to build: that one covers gossip, and a follower has no p2p stack.
+    const validateTxs = !config.followerSkipTxValidation;
+    let rpcProofVerifier: ClientProtocolCircuitVerifier | undefined;
+    if (validateTxs) {
+      rpcProofVerifier =
+        config.realProofs || config.debugForceTxProofVerification
+          ? new QueuedIVCVerifier(await BBCircuitVerifier.new(config), config.numConcurrentIVCVerifiers)
+          : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+      started.push(rpcProofVerifier);
+    } else {
+      log.warn(`Follower node is forwarding transactions to its upstream without validating them locally`);
+    }
+
     let debugLogStore: DebugLogStore;
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
@@ -151,7 +169,7 @@ export async function createFollowerNodeService(
 
     return new AztecNodeService({
       config,
-      txGateway: new UpstreamTxGateway(upstreamNode, log.createChild('upstream-tx-gateway')),
+      txGateway: new UpstreamTxGateway(upstreamNode, { validateTxs }, log.createChild('upstream-tx-gateway')),
       archiverApi: archiver,
       blockSource: archiver,
       logsSource: archiver,
@@ -173,6 +191,7 @@ export async function createFollowerNodeService(
       feeProvider,
       epochCache,
       packageVersion,
+      rpcProofVerifier,
       readinessProbe,
       telemetry,
       log,

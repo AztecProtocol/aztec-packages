@@ -24,7 +24,7 @@ describe('UpstreamTxGateway', () => {
 
   beforeEach(() => {
     upstream = mock<AztecNode>();
-    gateway = new UpstreamTxGateway(upstream);
+    gateway = new UpstreamTxGateway(upstream, { validateTxs: true });
     txHash = TxHash.random();
   });
 
@@ -42,8 +42,12 @@ describe('UpstreamTxGateway', () => {
       undefined,
     );
 
-  it('does not validate txs locally', () => {
-    expect(gateway.requiresLocalTxValidation).toBe(false);
+  it('validates txs locally when configured to', () => {
+    expect(gateway.requiresLocalTxValidation).toBe(true);
+  });
+
+  it('relays txs without validating them when configured to', () => {
+    expect(new UpstreamTxGateway(upstream, { validateTxs: false }).requiresLocalTxValidation).toBe(false);
   });
 
   it('forwards a tx to the upstream node verbatim', async () => {

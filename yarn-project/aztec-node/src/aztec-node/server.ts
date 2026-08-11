@@ -152,7 +152,7 @@ export interface AztecNodeServiceDeps {
   packageVersion: string;
   /** Verifier for proofs received over p2p. Absent on a follower node, which has no p2p stack. */
   peerProofVerifier?: ClientProtocolCircuitVerifier;
-  /** Verifier for proofs received over RPC. Absent on a follower node, which does not validate txs locally. */
+  /** Verifier for proofs received over RPC. Absent only on a follower node configured as a pure relay. */
   rpcProofVerifier?: ClientProtocolCircuitVerifier;
   /**
    * Answers `isReady`. Defaults to the p2p client's own readiness; a follower node supplies a probe over its
@@ -564,7 +564,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     const timer = new Timer();
     const txHash = tx.getTxHash().toString();
 
-    // A follower node forwards the tx verbatim and lets its upstream validate it; see `requiresLocalTxValidation`.
+    // The gateway decides: a p2p-backed one always validates here, and a follower does too unless it has been
+    // configured as a pure relay, in which case its upstream is the only thing standing between the tx and the
+    // mempool. See `requiresLocalTxValidation`.
     if (this.txGateway.requiresLocalTxValidation) {
       const valid = await this.isValidTx(tx);
       if (valid.result !== 'valid') {
@@ -781,8 +783,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     { isSimulation, skipFeeEnforcement }: { isSimulation?: boolean; skipFeeEnforcement?: boolean } = {},
   ): Promise<TxValidationResult> {
     const db = this.worldStateSynchronizer.getCommitted();
-    // A follower node has no verifier, so its answer covers everything but the proof; it does not gate tx
-    // submission on this call either, since the upstream node re-validates whatever it forwards.
+    // A follower node runs this same validator, verifier included, before forwarding a tx upstream, unless it
+    // was configured as a pure relay — in which case it has no verifier and this answer covers everything but
+    // the proof.
+    //
+    // The anchor-block check runs against the local archive tree either way. On a follower that assumes the
+    // client built its tx against this node's view (or a less-synced one), which holds for a client that reads
+    // from the node it submits to: an anchor ahead of the local tip is rejected rather than retried upstream.
     const verifier = isSimulation ? undefined : this.rpcProofVerifier;
 
     // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
