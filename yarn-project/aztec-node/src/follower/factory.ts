@@ -1,6 +1,4 @@
 import { createRpcSyncArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
-import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { EpochSlotMath } from '@aztec/epoch-cache';
 import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -21,6 +19,7 @@ import type { AztecNodeConfig } from '../aztec-node/config.js';
 import { AztecNodeService } from '../aztec-node/server.js';
 import type { CreateAztecNodeDeps, CreateAztecNodeOptions } from '../factory.js';
 import { checkConfigMatchesRollup } from '../modules/config_checks.js';
+import { createRpcProofVerifier } from '../modules/rpc_proof_verifier.js';
 import { assertValidFollowerConfig } from './config.js';
 import { createFollowerReadinessProbe } from './readiness_probe.js';
 import { UpstreamFeeProvider } from './upstream_fee_provider.js';
@@ -129,10 +128,7 @@ export async function createFollowerNodeService(
     const validateTxs = !config.followerSkipTxValidation;
     let rpcProofVerifier: ClientProtocolCircuitVerifier | undefined;
     if (validateTxs) {
-      rpcProofVerifier =
-        config.realProofs || config.debugForceTxProofVerification
-          ? new QueuedIVCVerifier(await BBCircuitVerifier.new(config), config.numConcurrentIVCVerifiers)
-          : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+      rpcProofVerifier = await createRpcProofVerifier(config);
       started.push(rpcProofVerifier);
     } else {
       log.warn(`Follower node is forwarding transactions to its upstream without validating them locally`);

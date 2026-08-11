@@ -280,10 +280,11 @@ export const extractRelevantOptions = <T>(
  * @param log - Logging function
  */
 export async function preloadCrsDataForVerifying(
-  { realProofs }: Pick<AztecNodeConfig, 'realProofs'>,
+  { realProofs, debugForceTxProofVerification }: Pick<AztecNodeConfig, 'realProofs' | 'debugForceTxProofVerification'>,
   log: LogFn,
 ): Promise<void> {
-  if (realProofs) {
+  // Forced verification builds the same BB verifier real proofs do, so it needs the same CRS.
+  if (realProofs || debugForceTxProofVerification) {
     const { Crs, GrumpkinCrs } = await import('@aztec/bb.js');
     await Promise.all([Crs.new(2 ** 1, undefined, log), GrumpkinCrs.new(2 ** 16, undefined, log)]);
   }

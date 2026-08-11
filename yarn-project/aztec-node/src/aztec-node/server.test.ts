@@ -109,6 +109,14 @@ class TestAztecNodeService extends AztecNodeService {
   public override getWorldState(block: BlockParameter) {
     return super.getWorldState(block);
   }
+
+  public getPeerProofVerifier() {
+    return this.peerProofVerifier;
+  }
+
+  public getRpcProofVerifier() {
+    return this.rpcProofVerifier;
+  }
 }
 
 /** Builds minimal block metadata for a given block number and hash, as returned by the block source. */
@@ -446,6 +454,39 @@ describe('aztec node', () => {
       await relayingNode.sendTx(tx);
 
       expect(forwarded).toEqual([tx]);
+    });
+  });
+
+  describe('setConfig proof verifier swaps', () => {
+    /** Builds a node shaped like a follower: an RPC verifier and an upstream-style gateway, no peer verifier. */
+    const makeFollowerShapedNode = (config: Partial<AztecNodeConfig>) =>
+      new TestAztecNodeService({
+        ...nodeDeps,
+        config: { ...nodeConfig, ...config },
+        p2pClient: undefined,
+        txGateway: mock<NodeTxGateway>({ requiresLocalTxValidation: true }),
+        peerProofVerifier: undefined,
+        rpcProofVerifier: new TestCircuitVerifier(),
+      });
+
+    it('swaps only the verifiers the node runs when leaving real proofs', async () => {
+      const followerShaped = makeFollowerShapedNode({ realProofs: true });
+      const originalVerifier = followerShaped.getRpcProofVerifier();
+
+      await followerShaped.setConfig({ realProofs: false });
+
+      expect(followerShaped.getRpcProofVerifier()).toBeInstanceOf(TestCircuitVerifier);
+      expect(followerShaped.getRpcProofVerifier()).not.toBe(originalVerifier);
+      expect(followerShaped.getPeerProofVerifier()).toBeUndefined();
+    });
+
+    it('keeps the verifiers when forced verification outlives a realProofs flip', async () => {
+      const followerShaped = makeFollowerShapedNode({ realProofs: true, debugForceTxProofVerification: true });
+      const originalVerifier = followerShaped.getRpcProofVerifier();
+
+      await followerShaped.setConfig({ realProofs: false });
+
+      expect(followerShaped.getRpcProofVerifier()).toBe(originalVerifier);
     });
   });
 

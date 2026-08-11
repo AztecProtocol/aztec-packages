@@ -1,5 +1,5 @@
 import { Archiver } from '@aztec/archiver';
-import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
+import { BatchChonkVerifier } from '@aztec/bb-prover';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
@@ -112,6 +112,7 @@ import { NodeBlockProvider } from '../modules/node_block_provider.js';
 import { type NodeTxGateway, P2PTxGateway } from '../modules/node_tx_gateway.js';
 import { NodeTxReceiptBuilder } from '../modules/node_tx_receipt.js';
 import { NodeWorldStateQueries } from '../modules/node_world_state_queries.js';
+import { createRpcProofVerifier, usesRealProofVerifiers } from '../modules/rpc_proof_verifier.js';
 import { Sentinel } from '../sentinel/sentinel.js';
 import type { AztecNodeConfig } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
@@ -205,8 +206,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   protected readonly feeProvider: FeeProvider;
   protected readonly epochCache: EpochSlotMathInterface;
   protected readonly packageVersion: string;
-  private peerProofVerifier: ClientProtocolCircuitVerifier | undefined;
-  private rpcProofVerifier: ClientProtocolCircuitVerifier | undefined;
+  protected peerProofVerifier: ClientProtocolCircuitVerifier | undefined;
+  protected rpcProofVerifier: ClientProtocolCircuitVerifier | undefined;
   private readonly readinessProbe: () => Promise<boolean>;
   private telemetry: TelemetryClient;
   private log: Logger;
@@ -852,16 +853,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     if ('updateConfig' in archiver) {
       archiver.updateConfig(config);
     }
-    // Only nodes that run verifiers swap them: a follower has none, since it does not validate txs locally.
-    if (newConfig.realProofs !== this.config.realProofs && (this.peerProofVerifier || this.rpcProofVerifier)) {
-      await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
-      if (newConfig.realProofs) {
-        this.peerProofVerifier = await BatchChonkVerifier.new(newConfig, newConfig.bbChonkVerifyMaxBatch, 'peer');
-        const rpcVerifier = await BBCircuitVerifier.new(newConfig);
-        this.rpcProofVerifier = new QueuedIVCVerifier(rpcVerifier, newConfig.numConcurrentIVCVerifiers);
-      } else {
-        this.peerProofVerifier = new TestCircuitVerifier();
-        this.rpcProofVerifier = new TestCircuitVerifier();
+    // Swap only the verifiers this node already runs, so a follower (RPC verifier only, or none as a pure
+    // relay) never gains the p2p-side verifier it has no use for. Keyed on the real-vs-test derivation rather
+    // than on `realProofs` alone, so forced verification stays in force across a `realProofs` flip.
+    if (usesRealProofVerifiers(newConfig) !== usesRealProofVerifiers(this.config)) {
+      if (this.peerProofVerifier) {
+        await tryStop(this.peerProofVerifier);
+        this.peerProofVerifier = usesRealProofVerifiers(newConfig)
+          ? await BatchChonkVerifier.new(newConfig, newConfig.bbChonkVerifyMaxBatch, 'peer')
+          : new TestCircuitVerifier(newConfig.proverTestVerificationDelayMs);
+      }
+      if (this.rpcProofVerifier) {
+        await tryStop(this.rpcProofVerifier);
+        this.rpcProofVerifier = await createRpcProofVerifier(newConfig);
       }
     }
 

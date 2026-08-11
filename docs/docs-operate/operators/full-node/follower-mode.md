@@ -90,6 +90,8 @@ A follower runs the same validation pipeline a full node runs on transactions re
 
 This is a resource shield and a faster failure for the client, **not** a security boundary: the upstream re-validates everything forwarded to it regardless, so a follower cannot admit a transaction its upstream would reject.
 
+State-dependent checks run against the follower's own replicated state, which trails the upstream by up to one polling interval. While the upstream chain only grows, that staleness is harmless: it can only let through a transaction the upstream then rejects. Immediately after an upstream reorg, however, the follower may briefly reject a transaction its upstream would accept — for example, re-submitting a transaction whose block was just pruned fails the double-spend check until the follower replicates the rollback. Retrying once the follower has caught up succeeds.
+
 Two things a follower cannot check are the state of the upstream's mempool: whether the transaction is already in the pool, and whether the pool has room for it. Those rejections still come back from the upstream.
 
 The anchor-block check runs against the follower's own archive tree, which assumes a client builds transactions against the same node it submits them to (or one that is equally or less synced). A transaction anchored on a block the follower has not replicated yet is rejected rather than forwarded.

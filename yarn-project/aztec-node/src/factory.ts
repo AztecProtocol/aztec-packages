@@ -1,5 +1,5 @@
 import { createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
+import { BatchChonkVerifier } from '@aztec/bb-prover';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob, getKzg } from '@aztec/blob-lib';
@@ -60,6 +60,7 @@ import { AztecNodeService } from './aztec-node/server.js';
 import { isFollowerModeEnabled } from './follower/config.js';
 import { createFollowerNodeService } from './follower/factory.js';
 import { assertL1ConnectionConfigured, checkConfigMatchesRollup } from './modules/config_checks.js';
+import { createRpcProofVerifier, usesRealProofVerifiers } from './modules/rpc_proof_verifier.js';
 import { createSentinel } from './sentinel/factory.js';
 
 /** Dependencies that can be injected when creating a node, mostly to override defaults in tests. */
@@ -226,17 +227,10 @@ export async function createAztecNodeService(
     // The synchronizer takes ownership of the native world-state from here
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, nativeWs, telemetry);
     started.push(worldStateSynchronizer);
-    const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
-    let peerProofVerifier: ClientProtocolCircuitVerifier;
-    let rpcProofVerifier: ClientProtocolCircuitVerifier;
-    if (useRealVerifiers) {
-      peerProofVerifier = await BatchChonkVerifier.new(config, config.bbChonkVerifyMaxBatch, 'peer');
-      const rpcVerifier = await BBCircuitVerifier.new(config);
-      rpcProofVerifier = new QueuedIVCVerifier(rpcVerifier, config.numConcurrentIVCVerifiers);
-    } else {
-      peerProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
-      rpcProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
-    }
+    const peerProofVerifier: ClientProtocolCircuitVerifier = usesRealProofVerifiers(config)
+      ? await BatchChonkVerifier.new(config, config.bbChonkVerifyMaxBatch, 'peer')
+      : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+    const rpcProofVerifier = await createRpcProofVerifier(config);
     started.push(peerProofVerifier, rpcProofVerifier);
 
     let debugLogStore: DebugLogStore;
