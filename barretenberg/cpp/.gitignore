@@ -20,6 +20,8 @@ src/barretenberg/cdb/generated/
 bench-out
 *.bak
 src/barretenberg/avm_fuzzer/corpus/**
+src/barretenberg/avm_fuzzer/sync_corpus/**
+src/barretenberg/avm_fuzzer/crashes/**
 src/barretenberg/avm_fuzzer/coverage/**
 out
 ios-sdk/

@@ -5,10 +5,15 @@ IFS=$'\n\t'
 
 timeout='2592000' # 1 month
 cpus="$(nproc)"
-mem="8G"
-jobs_="$cpus"
-workers="$cpus"
-max_len='8192'
+# The fuzzer allows each worker -rss_limit_mb before calling an input an OOM, so the container needs
+# room for every worker to reach it. Below that the cgroup kills the process first, and a kernel kill
+# leaves no artifact to reproduce from. Raise this alongside --workers.
+mem="16G"
+# Left empty, run_fuzzer.sh derives the worker and job counts from the cgroup limits --cpus and -m
+# impose, and applies its own input length default.
+jobs_=''
+workers=''
+max_len=''
 
 show_help() {
     echo "Usage: $0 [options]"
@@ -17,9 +22,9 @@ show_help() {
     echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $timeout - 1 month)"
     echo "  -c, --cpus <cpus>           Set the amount of CPUs for container to use (default: all)"
     echo "  --mem <memory>              Set the amount of memory for container to use (default: $mem)"
-    echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs_)"
-    echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
-    echo "  -m, --max-len <N>           Set the maximum input length in bytes (default: $max_len)"
+    echo "  -j, --jobs <N>              Set the amount of processes to run (default: derived from --cpus and --mem)"
+    echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: derived from --cpus and --mem)"
+    echo "  -m, --max-len <N>           Set the maximum input length in bytes (default: run_fuzzer.sh's own)"
     echo "  -h, --help                  Display this help and exit"
     echo "  --                          Pass additional arguments to the fuzzer"
     echo ""
@@ -103,10 +108,18 @@ docker_args+=("$image_name")
 
 entrypoint_args=(
     --timeout "$timeout"
-    --workers "$workers"
-    --jobs "$jobs_"
-    --max-len "$max_len"
 )
+
+# Forwarded only when asked for, so the container's limits remain the single source of truth
+if [ -n "$workers" ]; then
+    entrypoint_args+=(--workers "$workers")
+fi
+if [ -n "$jobs_" ]; then
+    entrypoint_args+=(--jobs "$jobs_")
+fi
+if [ -n "$max_len" ]; then
+    entrypoint_args+=(--max-len "$max_len")
+fi
 
 # Add extra arguments after --
 if [ ${#EXTRA_ARGS[@]} -gt 0 ]; then

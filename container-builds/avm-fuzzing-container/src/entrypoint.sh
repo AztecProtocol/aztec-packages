@@ -6,18 +6,20 @@ IFS=$'\n\t'
 umask 000
 
 timeout='2592000' # 1 month
-jobs_="$(nproc)"
-workers="$(nproc)"
-max_len='8192'
+# Left empty, run_fuzzer.sh derives these. It reads the cgroup CPU quota and memory limit that
+# --cpus and -m impose, which nproc inside the container cannot see.
+jobs_=''
+workers=''
+max_len=''
 
 show_help() {
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
     echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $timeout - 1 month)"
-    echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs_)"
-    echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
-    echo "  -m, --max-len <N>           Set the maximum input length in bytes (default: $max_len)"
+    echo "  -j, --jobs <N>              Set the amount of processes to run (default: derived from the container's limits)"
+    echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: derived from the container's limits)"
+    echo "  -m, --max-len <N>           Set the maximum input length in bytes (default: run_fuzzer.sh's own)"
     echo "  -h, --help                  Display this help and exit"
     echo "  --                          Pass additional arguments to the fuzzer"
     echo ""
@@ -83,17 +85,19 @@ fi
 mkdir -p "$(dirname "$FUZZER_CORPUS")"
 ln -sf "$CORPUS" "$FUZZER_CORPUS" 2>/dev/null || true
 
-# Build fuzzer arguments
+# Only what is specific to running in a container. Per-input timeout, worker and job counts, input
+# length, entropic and shrink are run_fuzzer.sh's, and passing them here would override its defaults.
+# The artifact prefix has to point at the mounted volume so crashes survive the container.
 FUZZER_ARGS=(
-    -timeout=60
-    -workers="$workers"
-    -jobs="$jobs_"
-    -entropic=1
-    -shrink=1
-    -max_len="$max_len"
     -max_total_time="$timeout"
     -artifact_prefix="$CRASHES/"
 )
+
+# Overrides are handed to run_fuzzer.sh through the environment rather than appended as libFuzzer
+# flags, so its own bounds checks still apply.
+[ -n "$workers" ] && export WORKERS="$workers"
+[ -n "$jobs_" ] && export JOBS="$jobs_"
+[ -n "$max_len" ] && export MAX_LEN="$max_len"
 
 # Add extra arguments
 if [ ${#EXTRA_ARGS[@]} -gt 0 ]; then
@@ -107,10 +111,10 @@ log "Corpus directory: $CORPUS"
 log "Output directory: $OUTPUT"
 log "Crashes directory: $CRASHES"
 log "Parameters:"
-log "  timeout=$timeout"
-log "  jobs=$jobs_"
-log "  workers=$workers"
-log "  max_len=$max_len"
+log "  max_total_time=$timeout"
+log "  jobs=${jobs_:-derived by run_fuzzer.sh}"
+log "  workers=${workers:-derived by run_fuzzer.sh}"
+log "  max_len=${max_len:-run_fuzzer.sh default}"
 if [ ${#EXTRA_ARGS[@]} -gt 0 ]; then
     log "Extra arguments: ${EXTRA_ARGS[*]}"
 fi

@@ -186,7 +186,8 @@ fi
 
 # Set corpus directory based on fuzzer type
 CORPUS_DIR="$SCRIPT_DIR/corpus/$FUZZER_ALIAS"
-# Sync corpus is used for parallel fuzzing - allows multiple workers to share discovered inputs
+# Read once at startup. libFuzzer writes new units into, and reloads from, only the first corpus
+# directory, so this is a seed source rather than a channel workers share findings through.
 SYNC_CORPUS_DIR="$SCRIPT_DIR/sync_corpus/$FUZZER_ALIAS"
 
 # Prover fuzzer shares corpus with tx fuzzer
@@ -195,9 +196,13 @@ if [ "$FUZZER_ALIAS" = "prover" ]; then
     SYNC_CORPUS_DIR="$SCRIPT_DIR/sync_corpus/tx"
 fi
 
-CRASHES_DIR="$CORPUS_DIR/crashes"
+# Artifacts must live outside the corpus. libFuzzer reads corpus directories recursively, so a
+# crash or slow-unit artifact stored under one is reloaded as a seed and the next run dies on it
+# during the initial corpus pass.
+CRASHES_DIR="$SCRIPT_DIR/crashes/$FUZZER_ALIAS"
 
 # Create corpus, sync_corpus, and crashes directories
+mkdir -p "$CORPUS_DIR"
 mkdir -p "$CRASHES_DIR"
 mkdir -p "$SYNC_CORPUS_DIR"
 
@@ -205,17 +210,99 @@ mkdir -p "$SYNC_CORPUS_DIR"
 cd "$BUILD_DIR"
 
 # Default fuzzer parameters.
-# The prover fuzzer runs check_circuit per input, so it needs a larger per-input budget than the
-# tx fuzzer. Neither should be large enough that one pathological input stalls a worker for long.
+# The prover fuzzer runs check_circuit per input, so it needs a larger per-input budget and more
+# memory than the tx fuzzer. Neither timeout may be 0: an input that never terminates would park a
+# worker for the rest of the campaign, and one that runs unbounded despite its gas limit is itself
+# a finding.
+# RSS_LIMIT_MB is the threshold at which an input is declared an OOM; WORKER_MEM_MB is what a worker
+# is expected to actually need, and is what workers are sized against. The tx fuzzer runs at about
+# 40MB, so its expectation is far below its limit. The prover fuzzer's peak has not been measured, so
+# it is assumed to approach its own limit.
 if [ "$FUZZER_ALIAS" = "prover" ]; then
-    TIMEOUT=${TIMEOUT:-120}
+    TIMEOUT=${TIMEOUT:-300}
+    RSS_LIMIT_MB=${RSS_LIMIT_MB:-8192}
+    WORKER_MEM_MB=${WORKER_MEM_MB:-8192}
 else
-    TIMEOUT=${TIMEOUT:-10}
+    TIMEOUT=${TIMEOUT:-30}
+    RSS_LIMIT_MB=${RSS_LIMIT_MB:-4096}
+    WORKER_MEM_MB=${WORKER_MEM_MB:-512}
 fi
-RSS_LIMIT_MB=4096
-# Each process gets its own world state directory, so these scale with the machine.
-WORKERS=${WORKERS:-$(nproc)}
-JOBS=${JOBS:-$(nproc)}
+# Nothing in the generator caps the number of programs or instructions, so this is the only bound on
+# how large an input can grow. Left unset, libFuzzer would use 4096 on a fresh corpus and the
+# largest corpus file on a warm one, which silently changes the bound between runs.
+MAX_LEN=${MAX_LEN:-65536}
+
+# CPU allowance: a cgroup quota if one applies, otherwise the core count. nproc reflects the
+# affinity mask but not the quota, so on a shared or containerised host it can report the whole
+# machine while the process is confined to a fraction of it.
+cpu_allowance() {
+    local quota period
+    if [ -r /sys/fs/cgroup/cpu.max ]; then
+        read -r quota period < /sys/fs/cgroup/cpu.max
+    elif [ -r /sys/fs/cgroup/cpu/cpu.cfs_quota_us ] && [ -r /sys/fs/cgroup/cpu/cpu.cfs_period_us ]; then
+        quota=$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us)
+        period=$(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us)
+    fi
+    case "${quota:-}" in
+    '' | *[!0-9]*) quota= ;;
+    esac
+    case "${period:-}" in
+    '' | *[!0-9]* | 0) period= ;;
+    esac
+    if [ -n "$quota" ] && [ -n "$period" ]; then
+        echo $((quota / period))
+    else
+        nproc
+    fi
+}
+
+# Memory the fuzzer may assume, in MB: whatever a cgroup limit allows, bounded by what is actually
+# free on the host.
+available_mb() {
+    local avail_kb limit limit_kb
+    avail_kb=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+    for f in /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory/memory.limit_in_bytes; do
+        if [ -r "$f" ]; then
+            limit=$(cat "$f")
+            case "$limit" in
+            '' | *[!0-9]*) continue ;;
+            esac
+            limit_kb=$((limit / 1024))
+            if [ "$limit_kb" -lt "$avail_kb" ]; then
+                avail_kb=$limit_kb
+            fi
+        fi
+    done
+    echo $((avail_kb / 1024))
+}
+
+# Each process gets its own world state, so workers are bounded by memory as well as by CPU.
+# Oversubscribing memory is the worse failure: the kernel kills the process before libFuzzer can
+# report the OOM and write a reproducer.
+CPU_WORKERS=$(cpu_allowance)
+if [ "$CPU_WORKERS" -lt 1 ]; then
+    CPU_WORKERS=1
+fi
+AVAILABLE_MB=$(available_mb)
+MEM_WORKERS=$((AVAILABLE_MB * 8 / 10 / WORKER_MEM_MB))
+if [ "$MEM_WORKERS" -lt 1 ]; then
+    MEM_WORKERS=1
+fi
+# Default to a small share of the machine so a run on shared compute is not disruptive, lowered
+# further if the CPU or memory allowance cannot support even that. Raise it with WORKERS on a host
+# the campaign has to itself.
+DEFAULT_WORKERS=3
+if [ "$CPU_WORKERS" -lt "$DEFAULT_WORKERS" ]; then
+    DEFAULT_WORKERS=$CPU_WORKERS
+fi
+if [ "$MEM_WORKERS" -lt "$DEFAULT_WORKERS" ]; then
+    DEFAULT_WORKERS=$MEM_WORKERS
+fi
+WORKERS=${WORKERS:-$DEFAULT_WORKERS}
+# -jobs is how many jobs run in total, -workers how many at once. A job lost to a crash, an OOM or
+# a timeout is only replaced while jobs remain, so a campaign set to jobs == workers degrades
+# towards a single process without saying so.
+JOBS=${JOBS:-$((WORKERS * 100))}
 ENTROPIC=1
 SHRINK=1
 ARTIFACT_PREFIX="$CRASHES_DIR/"
@@ -231,11 +318,16 @@ if [ "$COMMAND" = "fuzz" ]; then
     echo "Parameters:"
     echo "  -timeout=$TIMEOUT"
     echo "  -rss_limit_mb=$RSS_LIMIT_MB"
-    echo "  -workers=$WORKERS"
+    echo "  -max_len=$MAX_LEN"
+    echo "  -workers=$WORKERS (cpu allowance $CPU_WORKERS, ${AVAILABLE_MB}MB free allows $MEM_WORKERS at ${WORKER_MEM_MB}MB each)"
+    echo "                    defaults to 3 regardless, so raise WORKERS on a dedicated host"
     echo "  -jobs=$JOBS"
     echo "  -entropic=$ENTROPIC"
     echo "  -shrink=$SHRINK"
     echo "  -artifact_prefix=$ARTIFACT_PREFIX"
+    echo ""
+    echo "Override with WORKERS, JOBS, TIMEOUT, RSS_LIMIT_MB, WORKER_MEM_MB or MAX_LEN in the"
+    echo "environment."
     if [ ${#EXTRA_ARGS[@]} -gt 0 ]; then
         echo "Extra arguments: ${EXTRA_ARGS[*]}"
     fi
@@ -246,7 +338,7 @@ echo ""
 # Set coverage environment variable if coverage command
 if [ "$COMMAND" = "coverage" ]; then
     mkdir -p "$COVERAGE_OUTPUT_DIR"
-    export LLVM_PROFILE_FILE="$COVERAGE_OUTPUT_DIR/fuzzer.profraw"
+    export LLVM_PROFILE_FILE="$COVERAGE_OUTPUT_DIR/fuzzer-%p.profraw"
     echo "Coverage profiling enabled: LLVM_PROFILE_FILE=$LLVM_PROFILE_FILE"
     echo "COVERAGE_AVM: check_circuit is skipped in coverage builds"
     echo ""
@@ -256,21 +348,25 @@ fi
 FUZZER_CMD=(./bin/$FUZZER_TYPE)
 
 if [ "$COMMAND" = "coverage" ]; then
-    # When running with coverage, run all corpus entries once (runs=0 means corpus only)
+    # When running with coverage, run all corpus entries once (runs=0 means corpus only).
+    # No -workers: it only takes effect alongside -jobs, and a forked run would have every child
+    # writing the same profraw path.
     FUZZER_CMD+=("$CORPUS_DIR" "$SYNC_CORPUS_DIR"
         -timeout=$TIMEOUT
         -rss_limit_mb=$RSS_LIMIT_MB
-        -workers=$WORKERS
+        -max_len=$MAX_LEN
         -runs=0)
 else
     # Normal fuzzing with full parameters
     FUZZER_CMD+=(
         -timeout=$TIMEOUT
         -rss_limit_mb=$RSS_LIMIT_MB
+        -max_len=$MAX_LEN
         -workers=$WORKERS
         -jobs=$JOBS
         -entropic=$ENTROPIC
         -shrink=$SHRINK
+        -print_final_stats=1
         -artifact_prefix=$ARTIFACT_PREFIX
         "$CORPUS_DIR"
         "$SYNC_CORPUS_DIR"
@@ -297,7 +393,7 @@ else
 fi
 
 # Process coverage data if coverage command was used
-if [ "$COMMAND" = "coverage" ] && [ -f "$LLVM_PROFILE_FILE" ]; then
+if [ "$COMMAND" = "coverage" ] && compgen -G "$COVERAGE_OUTPUT_DIR/*.profraw" >/dev/null; then
     echo ""
     echo "=========================================="
     echo "Processing coverage data..."

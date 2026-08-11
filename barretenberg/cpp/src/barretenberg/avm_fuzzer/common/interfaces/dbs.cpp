@@ -187,39 +187,3 @@ FuzzerWorldStateManager::FuzzerWorldStateManager()
     : mem_db(std::make_unique<simulation::MemoryMerkleDB>(
           /*nullifier_tree_prefill=*/128, /*public_data_tree_prefill=*/128))
 {}
-
-
-void FuzzerWorldStateManager::register_contract_address(const AztecAddress& contract_address)
-{
-    NullifierLeafValue contract_nullifier =
-        unconstrained_silo_nullifier(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_address);
-    fuzz_info("Registering contract address in world state: ", contract_nullifier.nullifier);
-    mem_db->insert_indexed_leaves_nullifier_tree(contract_nullifier);
-}
-
-void FuzzerWorldStateManager::write_fee_payer_balance(const AztecAddress& fee_payer, const FF& balance)
-{
-    if (fee_payer == 0) {
-        return;
-    }
-    FF fee_juice_balance_slot =
-        Poseidon2::hash({ DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, FEE_JUICE_BALANCES_SLOT, fee_payer });
-    FF leaf_slot = Poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT, FF(FEE_JUICE_ADDRESS), fee_juice_balance_slot });
-
-    mem_db->insert_indexed_leaves_public_data_tree(PublicDataLeafValue(leaf_slot, balance));
-}
-
-void FuzzerWorldStateManager::public_data_write(const bb::crypto::merkle_tree::PublicDataLeafValue& public_data)
-{
-    mem_db->insert_indexed_leaves_public_data_tree(public_data);
-}
-
-void FuzzerWorldStateManager::append_note_hashes(const std::vector<FF>& note_hashes)
-{
-    uint64_t padding_leaves = MAX_NOTE_HASHES_PER_TX - (note_hashes.size() % MAX_NOTE_HASHES_PER_TX);
-
-    mem_db->append_leaves(simulation::MerkleTreeId::NOTE_HASH_TREE, note_hashes);
-    mem_db->append_leaves(simulation::MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>(padding_leaves, FF(0)));
-}
-
-} // namespace bb::avm2::fuzzer
