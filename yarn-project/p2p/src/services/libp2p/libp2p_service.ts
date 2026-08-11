@@ -1091,7 +1091,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       }
 
       // Stage 1 setup: chain tip, epoch info, gas fees, and L1 constants reads
-      const { currentBlockNumber, firstStageValidators } = await timed('stage1_setup', async () => {
+      const { currentBlockNumber, firstStageValidators } = await timed('fast_validation_setup', async () => {
         const currentBlockNumber = await this.archiver.getBlockNumber();
         const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
         const firstStageValidators = await this.createFirstStageMessageValidators(
@@ -1102,7 +1102,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       });
 
       // Stage 1: fast validators (metadata, data, timestamps, double-spend, gas, phases, block header)
-      const firstStageOutcome = await timed('stage1', () => this.runValidations(tx, firstStageValidators));
+      const firstStageOutcome = await timed('fast_validation', () => this.runValidations(tx, firstStageValidators));
       if (!firstStageOutcome.allPassed) {
         const { name } = firstStageOutcome.failure;
         let { severity } = firstStageOutcome.failure;

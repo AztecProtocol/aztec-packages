@@ -34,8 +34,8 @@ import { FINALIZE_BLOCK_CHUNK_SIZE, TxPoolV2Impl } from './tx_pool_v2_impl.js';
 export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitter<TxPoolV2Events>) implements TxPoolV2 {
   #queue: SerialQueue;
   #queueMetrics: TxPoolQueueInstrumentation;
-  /** Chains finalizations so their chunked queue items never interleave with each other. */
-  #finalizationChain: Promise<void> = Promise.resolve();
+  /** Serializes finalizations so their chunked #queue items never interleave with each other. */
+  #finalizationQueue = new SerialQueue();
   #impl: TxPoolV2Impl;
   #metrics?: PoolInstrumentation<Tx>;
   #store: AztecAsyncKVStore;
@@ -155,13 +155,11 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
    * Handles a finalized block by archiving and deleting the mined txs it finalizes. The work is
    * split into chunk-sized serial-queue items rather than one long-running item, so gossip-driven
    * pool operations (canAddPendingTx / addPendingTxs) interleave with finalization instead of
-   * stalling behind an entire epoch's worth of tx processing. Finalizations are chained so two
-   * concurrent calls never interleave their chunks with each other.
+   * stalling behind an entire epoch's worth of tx processing. Finalizations run on their own serial
+   * queue so two concurrent calls never interleave their chunks with each other.
    */
   handleFinalizedBlock(block: BlockHeader): Promise<void> {
-    const run = this.#finalizationChain.then(() => this.#handleFinalizedBlock(block));
-    this.#finalizationChain = run.catch(() => {});
-    return run;
+    return this.#finalizationQueue.put(() => this.#handleFinalizedBlock(block));
   }
 
   async #handleFinalizedBlock(block: BlockHeader): Promise<void> {
@@ -260,8 +258,9 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
 
     this.#log.info('Starting transaction pool...');
 
-    // Start the serial queue
+    // Start the serial queues
     this.#queue.start();
+    this.#finalizationQueue.start();
     this.#started = true;
 
     // Setup metrics - created after queue is started so callbacks can safely queue
@@ -293,6 +292,8 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
 
   async stop(): Promise<void> {
     if (this.#started) {
+      // End the finalization queue first: an in-flight finalization still needs #queue to run its chunks.
+      await this.#finalizationQueue.end();
       await this.#queue.end();
       this.#started = false;
     }
