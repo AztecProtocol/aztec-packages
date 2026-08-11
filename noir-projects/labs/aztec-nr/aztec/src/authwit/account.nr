@@ -64,6 +64,11 @@ impl AccountActions<&mut PrivateContext> {
     /// The authorized message binds the app payload together with `fee_payment_method` and `cancellable`, so the
     /// account's approval covers the fee-payer and cancellation side effects rather than the call list alone.
     ///
+    /// The message is a generic authwit message (`compute_authwit_message_hash`) with the account itself as the
+    /// consumer. This shared message space is deliberate: authorizing a witness for a third party is equivalent to
+    /// authorizing that party to transact as the account, so the two are not separated. See the trust level section
+    /// in `crate::authwit::auth`.
+    ///
     /// @param app_payload The payload that contains the calls to be executed in the app phase.
     ///
     /// @param fee_payment_method The mechanism via which the account contract will pay for the transaction:
