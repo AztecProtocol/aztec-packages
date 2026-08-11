@@ -1,6 +1,6 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { P2PConnectivity, PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type {
   CheckpointAttestation,
   Gossipable,
@@ -142,6 +142,12 @@ export interface P2PService {
   getEnr(): ENR | undefined;
 
   getPeers(includePending?: boolean): PeerInfo[];
+
+  /**
+   * Returns whether this p2p service is a real p2p stack, and how many peers it is currently connected to.
+   * Implementations that do not run p2p at all report `enabled: false`.
+   */
+  getP2PConnectivity(): P2PConnectivity;
 
   /** Returns the number of peers in the GossipSub mesh for a given topic type. */
   getGossipMeshPeerCount(topicType: TopicType): number;

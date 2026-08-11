@@ -25,7 +25,7 @@ import {
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { type GetTxByHashOptions, type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
+import { type GetTxByHashOptions, type P2PConnectivity, type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
 import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, type TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -135,6 +135,10 @@ export class P2PClient extends WithTracer implements P2P {
 
   public getPeers(includePending?: boolean): Promise<PeerInfo[]> {
     return Promise.resolve(this.p2pService.getPeers(includePending));
+  }
+
+  public getP2PConnectivity(): Promise<P2PConnectivity> {
+    return Promise.resolve(this.p2pService.getP2PConnectivity());
   }
 
   public getGossipMeshPeerCount(topicType: TopicType): Promise<number> {
