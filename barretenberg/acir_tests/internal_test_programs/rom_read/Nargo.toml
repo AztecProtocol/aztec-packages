@@ -1,6 +1,0 @@
-[package]
-name = "rom_read"
-type = "bin"
-authors = [""]
-
-[dependencies]

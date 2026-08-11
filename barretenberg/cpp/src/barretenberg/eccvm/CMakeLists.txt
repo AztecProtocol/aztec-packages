@@ -1,1 +1,0 @@
-barretenberg_module(eccvm sumcheck commitment_schemes stdlib_eccvm_verifier)

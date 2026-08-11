@@ -1,1 +1,0 @@
-barretenberg_module(crypto_pedersen_hash ecc crypto_pedersen_commitment)

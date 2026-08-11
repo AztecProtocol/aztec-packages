@@ -1,1 +1,0 @@
-barretenberg_module(polynomials srs numeric ecc crypto_sha256 stdlib_primitives circuit_checker)

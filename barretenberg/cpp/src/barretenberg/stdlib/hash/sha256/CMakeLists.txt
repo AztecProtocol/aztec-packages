@@ -1,1 +1,0 @@
-barretenberg_module(stdlib_sha256 stdlib_primitives crypto_sha256)

@@ -1,1 +1,0 @@
-barretenberg_module(stdlib_hash_utils stdlib_primitives circuit_checker)

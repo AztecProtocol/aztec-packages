@@ -1,9 +1,0 @@
-barretenberg_module(
-    transcript
-    crypto_poseidon2
-    ext_starknet_crypto_poseidon
-    stdlib_circuit_builders
-    stdlib_primitives
-    stdlib_poseidon2
-    circuit_checker
-)

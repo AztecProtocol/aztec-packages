@@ -1,1 +1,0 @@
-barretenberg_module(ipa_bench commitment_schemes)

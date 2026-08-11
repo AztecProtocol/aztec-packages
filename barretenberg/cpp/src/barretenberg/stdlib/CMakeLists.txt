@@ -1,8 +1,0 @@
-add_subdirectory(hash)
-add_subdirectory(encryption)
-add_subdirectory(eccvm_verifier)
-add_subdirectory(primitives)
-add_subdirectory(honk_verifier)
-add_subdirectory(proof)
-add_subdirectory(translator_vm_verifier)
-add_subdirectory(special_public_inputs)

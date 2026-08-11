@@ -1,6 +1,0 @@
-[package]
-name = "ecdsa_invalid_signature_in_inactive_branch"
-type = "bin"
-authors = [""]
-
-[dependencies]
