@@ -1290,9 +1290,8 @@ export class RollupContract {
   }
 
   /**
-   * Watches for SlasherUpdated events. Events are delivered by polling `eth_getLogs`, so they are at-least-once
-   * triggers (a reorg may re-emit them and removals are never reported), and events mined within the first two
-   * polling intervals after subscribing are missed.
+   * Watches for SlasherUpdated events. Events are delivered by polling `eth_getLogs`: a reorg may re-emit them and
+   * removals are never reported, and events mined within roughly one polling interval of subscribing may be missed.
    */
   public listenToSlasherChanged(
     callback: (args: { oldSlasher: `0x${string}`; newSlasher: `0x${string}` }) => unknown,
@@ -1302,16 +1301,16 @@ export class RollupContract {
       makeWatchEventHandlers(this.logger, 'SlasherUpdated', log => {
         const args = log.args;
         if (args.oldSlasher && args.newSlasher) {
-          callback(args as { oldSlasher: `0x${string}`; newSlasher: `0x${string}` });
+          return callback(args as { oldSlasher: `0x${string}`; newSlasher: `0x${string}` });
         }
       }),
     );
   }
 
   /**
-   * Watches for CheckpointInvalidated events. Events are delivered by polling `eth_getLogs`, so they are
-   * at-least-once triggers (a reorg may re-emit them and removals are never reported), and events mined within the
-   * first two polling intervals after subscribing are missed.
+   * Watches for CheckpointInvalidated events. Events are delivered by polling `eth_getLogs`: a reorg may re-emit
+   * them and removals are never reported, and events mined within roughly one polling interval of subscribing may
+   * be missed.
    */
   public listenToCheckpointInvalidated(
     callback: (args: { checkpointNumber: CheckpointNumber; event: Log }) => unknown,
@@ -1321,7 +1320,7 @@ export class RollupContract {
       makeWatchEventHandlers(this.logger, 'CheckpointInvalidated', log => {
         const args = log.args;
         if (args.checkpointNumber !== undefined) {
-          callback({ checkpointNumber: CheckpointNumber.fromBigInt(args.checkpointNumber), event: log });
+          return callback({ checkpointNumber: CheckpointNumber.fromBigInt(args.checkpointNumber), event: log });
         }
       }),
     );
@@ -1336,9 +1335,8 @@ export class RollupContract {
   }
 
   /**
-   * Watches for Slashed events. Events are delivered by polling `eth_getLogs`, so they are at-least-once triggers
-   * (a reorg may re-emit them and removals are never reported), and events mined within the first two polling
-   * intervals after subscribing are missed.
+   * Watches for Slashed events. Events are delivered by polling `eth_getLogs`: a reorg may re-emit them and
+   * removals are never reported, and events mined within roughly one polling interval of subscribing may be missed.
    */
   public listenToSlash(
     callback: (args: { amount: bigint; attester: EthAddress }) => unknown,
@@ -1349,7 +1347,7 @@ export class RollupContract {
         strict: true,
         ...makeWatchEventHandlers(this.logger, 'Slashed', (log: { args: { amount?: bigint; attester?: Hex } }) => {
           const args = log.args;
-          callback({ amount: args.amount!, attester: EthAddress.fromString(args.attester!) });
+          return callback({ amount: args.amount!, attester: EthAddress.fromString(args.attester!) });
         }),
       },
     );

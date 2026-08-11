@@ -297,40 +297,38 @@ export class SlashingProposerContract {
   }
 
   /**
-   * Listen for VoteCast events. Events are delivered by polling `eth_getLogs`, so they are at-least-once triggers
-   * (a reorg may re-emit them and removals are never reported), and events mined within the first two polling
-   * intervals after subscribing are missed.
+   * Listen for VoteCast events. Events are delivered by polling `eth_getLogs`: a reorg may re-emit them and
+   * removals are never reported, and events mined within roughly one polling interval of subscribing may be missed.
    * @param callback - Callback function to handle vote cast events
    * @returns Unwatch function
    */
-  public listenToVoteCast(callback: (args: { round: bigint; proposer: string }) => void): () => void {
+  public listenToVoteCast(callback: (args: { round: bigint; proposer: string }) => unknown): () => void {
     return this.contract.watchEvent.VoteCast(
       {},
       makeWatchEventHandlers(this.logger, 'VoteCast', log => {
         const { round, proposer } = log.args;
         if (round !== undefined && proposer) {
-          callback({ round, proposer });
+          return callback({ round, proposer });
         }
       }),
     );
   }
 
   /**
-   * Listen for RoundExecuted events. Events are delivered by polling `eth_getLogs`, so they are at-least-once
-   * triggers (a reorg may re-emit them and removals are never reported), and events mined within the first two
-   * polling intervals after subscribing are missed.
+   * Listen for RoundExecuted events. Events are delivered by polling `eth_getLogs`: a reorg may re-emit them and
+   * removals are never reported, and events mined within roughly one polling interval of subscribing may be missed.
    * @param callback - Callback function to handle round executed events
    * @returns Unwatch function
    */
   public listenToRoundExecuted(
-    callback: (args: { round: bigint; slashCount: bigint; l1BlockHash: Hex }) => void,
+    callback: (args: { round: bigint; slashCount: bigint; l1BlockHash: Hex }) => unknown,
   ): () => void {
     return this.contract.watchEvent.RoundExecuted(
       {},
       makeWatchEventHandlers(this.logger, 'RoundExecuted', log => {
         const { round, slashCount } = log.args;
         if (round !== undefined && slashCount !== undefined) {
-          callback({ round, slashCount, l1BlockHash: log.blockHash });
+          return callback({ round, slashCount, l1BlockHash: log.blockHash });
         }
       }),
     );

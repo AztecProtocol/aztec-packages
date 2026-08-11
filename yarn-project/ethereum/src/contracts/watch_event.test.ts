@@ -27,6 +27,21 @@ describe('makeWatchEventHandlers', () => {
     expect(logger.error).toHaveBeenCalledTimes(1);
   });
 
+  it('logs rejections from async callbacks instead of leaving them unhandled', async () => {
+    const { onLogs } = makeWatchEventHandlers<number>(logger, 'SlasherUpdated', log =>
+      log === 1 ? Promise.reject(new Error('async callback blew up')) : Promise.resolve(),
+    );
+
+    onLogs([1, 2]);
+    await new Promise(setImmediate);
+
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('SlasherUpdated'),
+      expect.objectContaining({ message: 'async callback blew up' }),
+    );
+  });
+
   it('warns on the first error and throttles the ones that follow', () => {
     jest.useFakeTimers();
     try {
