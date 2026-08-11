@@ -523,6 +523,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     const timer = new Timer();
     const txHash = tx.getTxHash().toString();
 
+    const connectivity = await this.p2pClient.getP2PConnectivity();
+    if (connectivity.enabled && connectivity.connectedPeers === 0) {
+      this.metrics.receivedTx(timer.ms(), false);
+      this.log.warn(`Rejecting tx ${txHash}: node has no connected peers`, { txHash });
+      throw new Error('Cannot accept tx: node has no connected peers to propagate it');
+    }
+
     const valid = await this.isValidTx(tx);
     if (valid.result !== 'valid') {
       const reason = valid.reason.join(', ');
