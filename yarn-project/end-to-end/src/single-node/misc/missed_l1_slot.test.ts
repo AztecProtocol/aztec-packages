@@ -3,6 +3,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { sleep } from '@aztec/foundation/sleep';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import { registerPhantomGossipPeer } from '@aztec/p2p/test-helpers';
 import { SequencerState } from '@aztec/sequencer-client';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
@@ -102,6 +103,10 @@ describe('single-node/misc/missed_l1_slot', () => {
       // to verify against.
       perBlockAllocationMultiplier: 8,
     });
+
+    // This node is the only member of the mock gossip bus, so it would otherwise count zero connected peers:
+    // the node would reject the txs sent below and the proposer would skip its slots under minPeersToPropose.
+    await registerPhantomGossipPeer(test.context.mockGossipSubNetwork!);
 
     from = test.context.accounts[0];
     contract = await test.registerTestContract(test.context.wallet);
