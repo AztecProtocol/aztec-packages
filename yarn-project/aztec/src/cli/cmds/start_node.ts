@@ -154,7 +154,10 @@ export async function startNode(
   // Create and start Aztec Node
   const node = await createAztecNode(nodeConfig, { telemetry, proverBroker: broker }, { genesis });
 
-  registerAztecNodeRpcHandlers(node, services, adminServices, { debug: options.nodeDebug });
+  registerAztecNodeRpcHandlers(node, services, adminServices, {
+    debug: options.nodeDebug,
+    p2pHealthMinPeers: nodeConfig.p2pHealthMinPeers,
+  });
 
   // Register prover-node services if the prover node subsystem is running
   const proverNode = node.getProverNode();

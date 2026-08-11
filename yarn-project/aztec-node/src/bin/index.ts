@@ -19,21 +19,13 @@ const { AZTEC_NODE_PORT = 8081, API_PREFIX = '' } = process.env;
 const logger = createLogger('node');
 
 /**
- * Creates the node from provided config
- */
-async function createAndDeployAztecNode() {
-  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars() };
-
-  return await createAztecNodeService(aztecNodeConfig);
-}
-
-/**
  * Create and start a new Aztec Node HTTP Server
  */
 async function main() {
   logger.info(`Setting up Aztec Node...`);
 
-  const aztecNode = await createAndDeployAztecNode();
+  const config: AztecNodeConfig = { ...getConfigEnvVars() };
+  const aztecNode = await createAztecNodeService(config);
 
   const shutdown = async () => {
     logger.info('Shutting down...');
@@ -47,7 +39,7 @@ async function main() {
   process.once('SIGTERM', shutdown);
 
   const services: NamespacedApiHandlers = {};
-  registerAztecNodeRpcHandlers(aztecNode, services);
+  registerAztecNodeRpcHandlers(aztecNode, services, undefined, { p2pHealthMinPeers: config.p2pHealthMinPeers });
   const rpcServer = createNamespacedSafeJsonRpcServer(services, {
     middlewares: [getOtelJsonRpcPropagationMiddleware()],
   });
