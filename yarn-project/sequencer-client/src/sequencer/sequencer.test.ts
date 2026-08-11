@@ -268,6 +268,7 @@ describe('sequencer', () => {
     p2p = mock<P2P>({
       getStatus: mockFn().mockResolvedValue({ syncedToL2Block: { number: lastBlockNumber, hash } }),
       getCheckpointAttestationsForSlot: mockFn().mockResolvedValue([]),
+      getP2PConnectivity: mockFn().mockResolvedValue({ enabled: true, connectedPeers: 5 }),
     });
 
     worldState = mock<WorldStateSynchronizer>({
@@ -640,6 +641,63 @@ describe('sequencer', () => {
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
       expect(publisher.canProposeAt).not.toHaveBeenCalled();
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('does not build a block when no peers are connected', async () => {
+      await setupSingleTxBlock();
+      p2p.getP2PConnectivity.mockResolvedValue({ enabled: true, connectedPeers: 0 });
+
+      await sequencer.work();
+
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+      expect(publisher.canProposeAt).not.toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      // The slot is marked as attempted so the gate is not re-evaluated within the same slot.
+      expect(sequencer.getLastSlotForCheckpointProposalJob()).toEqual(SlotNumber(newSlotNumber));
+    });
+
+    it('votes without building when no peers are connected', async () => {
+      await setupSingleTxBlock();
+      p2p.getP2PConnectivity.mockResolvedValue({ enabled: true, connectedPeers: 0 });
+
+      const governancePayload = EthAddress.random();
+      sequencer.updateConfig({ governanceProposerPayload: governancePayload });
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalledWith(
+        governancePayload,
+        SlotNumber(newSlotNumber),
+        expect.any(EthAddress),
+        expect.any(Function),
+      );
+      expect(publisher.sendRequestsAt).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+    });
+
+    it('builds a block with zero peers when p2p is disabled', async () => {
+      await setupSingleTxBlock();
+      p2p.getP2PConnectivity.mockResolvedValue({ enabled: false, connectedPeers: 0 });
+
+      await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
+
+      expectPublisherProposeL2Block();
+    });
+
+    it('builds a block with zero peers when minPeersToPropose is zero', async () => {
+      await setupSingleTxBlock();
+      p2p.getP2PConnectivity.mockResolvedValue({ enabled: true, connectedPeers: 0 });
+      sequencer.updateConfig({ minPeersToPropose: 0 });
+
+      await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
+
+      expectPublisherProposeL2Block();
     });
 
     it('builds a checkpoint when it is their turn', async () => {
