@@ -6,9 +6,9 @@ argument-hint: <app-repo> <flow> e.g. "myapp checkout-lifecycle"
 
 # Capture an external app's flow as Chonk IVC inputs
 
-An external app (consuming published `@aztec/*` npm packages) proves its private txs client-side via Chonk IVC. To benchmark or debug that proving — or to find why it got slower after an Aztec version bump — capture the app's flow into `ivc-inputs.msgpack` files, then prove them with `bb` exactly like the pinned flows in `barretenberg/cpp/chonk-pinned-flows/`.
+An external app (consuming published `@aztec/*` npm packages) proves its private txs client-side via Chonk IVC. To benchmark or debug that proving — or to find why it got slower after an Aztec version bump — capture the app's flow into `ivc-inputs.msgpack` files, then prove them with `bb` exactly like the pinned flows in `labs-aztec-toolchain/chonk-pinned-flows/` (populated by `labs-aztec-toolchain/download_chonk_inputs.sh`).
 
-This skill covers the **capture** (the novel part). For the downstream proving/benchmarking, hand the resulting msgpack files to the **`benchmark-chonk`** skill; for the pinned-input machinery, see **`chonk-inputs`**.
+This skill covers the **capture** (the novel part). For the downstream proving/benchmarking, prove the resulting msgpack files with the toolchain `bb` (`bb prove --scheme chonk --ivc_inputs_path <file>`).
 
 **Two modes.** Capturing a flow (Steps 1–4) is **single-version**: point the toolchain at the app's pinned `@aztec/*` version, capture, and you have the msgpacks. Chasing a **regression** (Step 5) is an optional overlay — capture the *same* flow from two versions and compare. If you only need the msgpacks (e.g. adding a flow to the benchmark set), stop after Step 4.
 
@@ -82,7 +82,7 @@ Replace each lifecycle `await someInteraction.send(opts)` with `await captureThe
 Result: a directory tree matching the pinned-flow layout — `<flow>_<step>/ivc-inputs.msgpack` per step. (A 4-step lifecycle captured in ~80s with proofs on, and the instrumented test still passed.)
 
 **Checkpoints (verify, don't assume — these differ across versions):**
-- Confirm `serializePrivateExecutionSteps` is exported from `@aztec/stdlib/kernel` in the app's installed version. If it isn't, inline the encoding with `msgpackr` — it's just `new Encoder({ useRecords: false }).pack(steps.map(s => ({ bytecode: s.bytecode, witness: serializeWitness(s.witness), vk: s.vk, functionName: s.functionName, kind: s.kind })))`. The C++ side that decodes it is `barretenberg/cpp/src/barretenberg/chonk/private_execution_steps.hpp`.
+- Confirm `serializePrivateExecutionSteps` is exported from `@aztec/stdlib/kernel` in the app's installed version. If it isn't, inline the encoding with `msgpackr` — it's just `new Encoder({ useRecords: false }).pack(steps.map(s => ({ bytecode: s.bytecode, witness: serializeWitness(s.witness), vk: s.vk, functionName: s.functionName, kind: s.kind })))`. The decoding side is `private_execution_steps.hpp` in the barretenberg (foundation) repo.
 - Confirm the `profile()` signature: `profileMode` accepts `'gates' | 'execution-steps' | 'full'`; `'full'` is required to get `executionSteps`. The `from` field is required.
 
 ## Step 3 — Run the capture against a version-matched node (no docker needed)

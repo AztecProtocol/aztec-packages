@@ -13,8 +13,6 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 
 | Branch | Team / Domain | Slack Channel |
 |---|---|---|
-| `merge-train/avm` | AVM, barretenberg vm2 folder | `#team-bonobos` |
-| `merge-train/barretenberg` | Barretenberg folder, but not vm2 folder | `#honk-team` |
 | `merge-train/ci` | CI infrastructure / ci3 | `#help-ci` |
 | `merge-train/docs` | Documentation | `#dev-rels` |
 | `merge-train/fairies` | aztec-nr | `#team-fairies` |
@@ -29,7 +27,7 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 ### Targeting a Merge Train with Your PR
 
 1. Create your feature branch **off the appropriate merge-train branch** (not our default branch `next`).
-2. Open your PR targeting that merge-train branch (e.g., base: `merge-train/barretenberg`).
+2. Open your PR targeting that merge-train branch (e.g., base: `merge-train/spartan`).
 3. When your PR is approved and merged, it gets squashed into the merge-train branch.
 4. The merge-train PR (which targets `next`) automatically accumulates your commit.
 
@@ -37,12 +35,12 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 
 - **Base branch matters**: Always branch from the branch specified in the CI_BASE_BRANCH environment variable. If it is not set, then ask the user their intent and offer to set CI_BASE_BRANCH in their shell's RC file. 
 - **Your PR is squashed into the train**: Individual PRs targeting a merge-train branch are squash-merged as usual. You should not use the merge commit merge method, but the squash method.
-- **The train itself is NOT squashed**: The merge-train PR (e.g., `merge-train/barretenberg` -> `next`) is merged with a **merge commit**, preserving the individual squashed commits. This is why the `ci-no-squash` label is automatically applied.
+- **The train itself is NOT squashed**: The merge-train PR (e.g., `merge-train/spartan` -> `next`) is merged with a **merge commit**, preserving the individual squashed commits. This is why the `ci-no-squash` label is automatically applied.
 - **You generally don't need to worry about the train PR itself** -- it is fully automated (creation, body updates, approval, merge, and recreation). You only need to pay attention to it if an alert is sent to your team channel.
 
 ## CI Behavior for Merge Trains
 
-- **Specialized CI modes**: PRs targeting `merge-train/docs` run docs-only CI. PRs targeting `merge-train/barretenberg` run barretenberg-only CI. This avoids running the full test suite for domain-specific changes.
+- **Specialized CI modes**: PRs targeting `merge-train/docs` run docs-only CI. This avoids running the full test suite for domain-specific changes.
 - **Merge-queue mode**: When the merge-train PR enters GitHub's merge queue, it runs the full `merge-queue` CI mode (4 parallel grind runs on AMD64 + 1 ARM64). `merge-train/spartan-v5` uses the heavier `merge-queue-heavy` mode (10 grind runs).
 - **Full concurrency**: Merge-train PRs get unique CI concurrency groups (using `github.run_id`), so multiple CI runs can proceed in parallel without cancelling each other.
 - **Test history tracking**: Test results are tracked for merge-train PRs, same as merge-queue runs.

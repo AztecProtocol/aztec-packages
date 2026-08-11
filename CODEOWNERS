@@ -8,12 +8,6 @@
 #####################################################
 # Notify the AVM team
 #
-# on changes to PIL code-generator
-/bb-pilcom @MirandaWood @jeanmon @IlyasRidhuan
-# on changes to PIL code (AVM circuit)
-/barretenberg/cpp/pil @MirandaWood @jeanmon @IlyasRidhuan
-# on changes to AVM C++ code
-/barretenberg/cpp/src/barretenberg/vm2 @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to public context in aztec-nr
 /noir-projects/labs/aztec-nr/aztec/src/context/public_context.nr @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to the AVM simulator and supporting modules

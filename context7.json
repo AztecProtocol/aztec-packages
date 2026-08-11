@@ -16,7 +16,6 @@
     "ci3",
     "metrics",
     "build-images",
-    "container-builds",
     "release-image",
     "docs/internal_notes"
   ],

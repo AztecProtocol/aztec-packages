@@ -21,10 +21,10 @@ const execFileAsync = promisify(execFile);
 const logger = createLogger('ivc-integration:bench:batch-verifier');
 
 const REPO_ROOT = resolve('../..');
-const INPUTS_DIR = resolve(REPO_ROOT, 'barretenberg/cpp/chonk-pinned-flows');
+const INPUTS_DIR = resolve(REPO_ROOT, 'labs-aztec-toolchain/chonk-pinned-flows');
 const BB_PATH = process.env.BB_BINARY_PATH ?? resolve(REPO_ROOT, 'labs-aztec-toolchain/bin/bb');
-const CHONK_INPUTS_SCRIPT = resolve(REPO_ROOT, 'barretenberg/cpp/scripts/chonk_inputs.sh');
-const CHONK_INPUTS_HASH_FILE = resolve(REPO_ROOT, 'barretenberg/cpp/scripts/chonk-inputs.hash');
+const CHONK_INPUTS_SCRIPT = resolve(REPO_ROOT, 'labs-aztec-toolchain/download_chonk_inputs.sh');
+const CHONK_INPUTS_HASH_FILE = resolve(REPO_ROOT, 'labs-aztec-toolchain/chonk-inputs.hash');
 const CHONK_INPUTS_MARKER_FILE = resolve(INPUTS_DIR, '.chonk-inputs.hash');
 const CHONK_INPUTS_STATE_DIR = resolve(REPO_ROOT, '.cache/chonk-inputs');
 
@@ -52,7 +52,7 @@ async function ensurePinnedInputs(): Promise<void> {
   }
 
   logger.info(`Downloading pinned Chonk inputs ${expectedHash}...`);
-  await execFileAsync(CHONK_INPUTS_SCRIPT, ['download'], { cwd: REPO_ROOT, timeout: 180_000 });
+  await execFileAsync(CHONK_INPUTS_SCRIPT, [], { cwd: REPO_ROOT, timeout: 180_000 });
 }
 
 describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {

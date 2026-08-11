@@ -36,7 +36,7 @@ Instead of tagging artifacts by commit or branch, we compute a hash of the actua
 All logic is in shell scripts, grouped under the **ci3** folder. A minimal layer of environment detection handles toggling debug modes, caches, or ephemeral logs. This means the same build system can run on local machines, ephemeral Docker containers, or GitHub Actions.
 
 ### Rebuild Patterns
-Each project folder often contains a `.rebuild_patterns` file. This file has patterns that, if matched by changed files, triggers a new build. Typical patterns might include: `^barretenberg/cpp/src/.*.cpp` and other patterns from root.
+Each project folder often contains a `.rebuild_patterns` file. This file has patterns that, if matched by changed files, triggers a new build. Typical patterns might include: `^yarn-project/foundation/src/.*.ts` and other patterns from root.
 
 When `cache_content_hash` sees new changes in these paths, it regenerates a new hash which prevents a cache download until an S3 artifact with that hash is uploaded.
 

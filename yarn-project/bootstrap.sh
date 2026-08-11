@@ -344,7 +344,7 @@ case "$cmd" in
   "clean-lite")
     # Preserve gitignored fixture dirs that are populated by sibling builds and
     # consumed concurrently by parallel test commands. Wiping them mid-test
-    # yanks files out from under readers (see chonk_inputs.sh download path).
+    # yanks files out from under readers (e.g. the pinned Chonk inputs download).
     files=$(git ls-files --ignored --others --exclude-standard | grep -vE '(node_modules/|^\.yarn/|^tmp/|^end-to-end/example-app-ivc-inputs-out/|^end-to-end/ultrahonk-bench-inputs/|^end-to-end/dumped-avm-circuit-inputs/)' || true)
     if [ -n "$files" ]; then
       echo "$files" | xargs rm -rf

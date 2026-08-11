@@ -125,9 +125,8 @@ The test commands are filtered to not include matching patterns in the root `.te
 You can run this in the root to see all test commands, or provide project folders as arguments, or run it directly in a project folder. You might want to make sure this reflects what you expect when you add tests. Generally you shouldn't have to worry about it, the scripts are automated enough to find the tests if you're following the usual patterns. You'll get something like:
 
 ```
-699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests boomerang_ultra_circuit_constructor.test_graph_for_arithmetic_gates
-699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests boomerang_ultra_circuit_constructor.test_graph_for_arithmetic_gates_with_shifts
-699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests boomerang_ultra_circuit_constructor.test_graph_for_boolean_gates
+699e81f5e2f9e8a3 yarn-project/scripts/run_test.sh foundation/src/serialize/buffer_reader.test.ts
+699e81f5e2f9e8a3 yarn-project/scripts/run_test.sh foundation/src/json-rpc/convert.test.ts
 ```
 
 Note the first field before the actual command is the "test hash" discussed further below.
@@ -268,8 +267,6 @@ The following labels can be used to control CI behavior on pull requests:
 - **`ci-full`**: Forces a full CI run instead of the default fast run.
 
 - **`ci-docs`**: Runs only documentation-related CI checks.
-
-- **`ci-barretenberg`**: Runs only Barretenberg-related CI checks.
 
 - **`ci-no-cache`**: Disables build caching for this CI run.
 

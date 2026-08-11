@@ -62,11 +62,6 @@ function main {
     echo "SKIP_COMPAT_E2E=1" >> $GITHUB_ENV
   fi
 
-  local chonk_input_update=0
-  local chonk_input_update_requested=0
-  if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ] && { has_label "ci-refresh-chonk" || head_commit_has_marker "--ci-refresh-chonk"; }; then
-    chonk_input_update_requested=1
-  fi
   local ci_skip_requested=0
   if has_label "ci-skip" || head_commit_has_marker "--ci-skip"; then
     ci_skip_requested=1
@@ -74,7 +69,7 @@ function main {
 
   local explicit_ci_mode_labels=()
   local mode_label
-  for mode_label in ci-merge-queue ci-release-pr ci-full ci-full-no-test-cache ci-docs ci-barretenberg-full ci-barretenberg; do
+  for mode_label in ci-merge-queue ci-release-pr ci-full ci-full-no-test-cache ci-docs; do
     if has_label "$mode_label"; then
       explicit_ci_mode_labels+=("$mode_label")
     fi
@@ -85,25 +80,10 @@ function main {
     exit 1
   fi
 
-  if [ "$ci_skip_requested" -eq 0 ] && [ "$chonk_input_update_requested" -eq 1 ] && [ "${#explicit_ci_mode_labels[@]}" -gt 0 ]; then
-    echo "ERROR: ci-refresh-chonk cannot be combined with explicit CI mode labels: $(join_by ', ' "${explicit_ci_mode_labels[@]}"). Remove the mode label, or use ci-skip/--ci-skip to skip without refreshing inputs." >&2
-    exit 1
-  fi
-
-  # Chonk input updates are side-effecting internal PR-only work. The main CI
-  # run behaves like ci-skip until post-actions regenerate and push the diff.
-  if [ "$chonk_input_update_requested" -eq 1 ] && [ "$ci_skip_requested" -eq 0 ]; then
-    chonk_input_update=1
-  fi
-  echo "CHONK_INPUT_UPDATE_REQUESTED=$chonk_input_update" >> $GITHUB_ENV
-
   # Determine CI mode based on event, labels, and target branch
   local ci_mode
   if [ "$ci_skip_requested" -eq 1 ]; then
     echo "WARNING: Skipping CI because a ci-skip label or --ci-skip commit marker was present. Skip takes precedence over other CI signals." >&2
-    if [ "$chonk_input_update_requested" -eq 1 ]; then
-      echo "WARNING: Chonk input refresh was requested but ignored because CI skip was also requested." >&2
-    fi
     ci_mode="skip"
   elif [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || has_label "ci-merge-queue"; then
     ci_mode="merge-queue"
@@ -123,9 +103,6 @@ function main {
         fi
       fi
     fi
-  elif [ "$chonk_input_update" -eq 1 ]; then
-    echo "WARNING: Skipping main CI because Chonk input refresh was requested; the update step will run after this step succeeds." >&2
-    ci_mode="skip"
   elif has_label "ci-release-pr"; then
     # Release-PR mode creates and pushes a release tag for this PR's head (ci3.sh::handle_release_pr).
     # In the private repo that tag triggers a private release via the safety gate below — this is the
@@ -139,10 +116,6 @@ function main {
   #   ci_mode="full-no-test-cache"
   elif has_label "ci-docs" || [ "$target_branch" == "merge-train/docs" ]; then
     ci_mode="docs"
-  elif has_label "ci-barretenberg-full"; then
-    ci_mode="barretenberg-full"
-  elif has_label "ci-barretenberg" || [ "$target_branch" == "merge-train/barretenberg" ]; then
-    ci_mode="barretenberg"
   elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
     # A pushed semver tag is a release; REF_NAME is the tag (see ci3/source_refname). In the private
     # repo this is the nightly path (nightly-release-tag*.yml push v<ver>-nightly.<date> tags on next and

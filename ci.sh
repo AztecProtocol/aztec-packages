@@ -23,7 +23,6 @@ function print_usage {
   echo_cmd "full"                  "Spin up an EC2 instance and run bootstrap ci-full."
   echo_cmd "full-no-test-cache"    "Spin up an EC2 instance and run bootstrap ci-full-no-test-cache."
   echo_cmd "docs"                  "Spin up an EC2 instance and run docs-only CI."
-  echo_cmd "barretenberg"          "Spin up an EC2 instance and run barretenberg-only CI."
   echo_cmd "grind"                 "Spin up EC2 instances to run parallel full CI runs."
   echo_cmd "merge-queue"           "Spin up EC2 instances to run the merge-queue jobs."
   echo_cmd "grind-test"            "Spin up an EC2 and grind a given test command."
@@ -36,7 +35,6 @@ function print_usage {
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
   echo_cmd "network-tests-kind"    "Spin up an EC2 instance to run a KIND-based spartan test."
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
-  echo_cmd "chonk-input-update"    "Spin up an EC2 instance to update pinned Chonk IVC inputs and push the diff."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "ci-private-release"     "Locally dry-run the release of every project except release-image, then publish release-image to the internal GCP Artifact Registry."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
@@ -172,7 +170,7 @@ case "$cmd" in
   dash)
     watch_ci -s next,prs --user --watch
     ;;
-  fast|docs|barretenberg|barretenberg-full)
+  fast|docs)
     export CI_DASHBOARD="prs"
     # Route through multi_job_run (even for a single instance) so the runner-side
     # orchestration — including the spot/instance request — is captured into a
@@ -212,18 +210,6 @@ case "$cmd" in
     export CI_DASHBOARD="prs"
     export AWS_SHUTDOWN_TIME=75
     multi_job_run "x-$cmd amd64 ci-$cmd"
-    ;;
-  chonk-input-update)
-    export CI_DASHBOARD="prs"
-    export AWS_SHUTDOWN_TIME=90
-    multi_job_run "x-$cmd amd64 ci-chonk-input-update"
-    ;;
-  barretenberg-debug)
-    export CI_DASHBOARD="nightly"
-    export JOB_ID="x-$cmd"
-    export CPUS=192
-    export AWS_SHUTDOWN_TIME=120
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   avm-inputs-collection|avm-check-circuit)
     export CI_DASHBOARD="nightly"

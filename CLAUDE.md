@@ -5,17 +5,15 @@ All paths below are relative to the git root. When working inside a component, a
 <components>
 `yarn-project/` is the TypeScript monorepo containing the node, client SDK (`aztec.js`), PXE/wallet, sequencer, prover, p2p stack, and tooling — the main entrypoint for most day-to-day work; see `yarn-project/CLAUDE.md`.
 
-`barretenberg/` is the C++ ZK proving system (Honk, Chonk, ECCVM); see `barretenberg/CLAUDE.md` and `barretenberg/cpp/CLAUDE.md`. `barretenberg/cpp/src/barretenberg/vm2/` is the AVM (Aztec Virtual Machine) for public execution; see its `CLAUDE.md`. `barretenberg/sol/` is the Solidity on-chain verifier; see `barretenberg/sol/CLAUDE.md`. `barretenberg/ts/` contains the TypeScript bindings for barretenberg (bb.js).
-
 `noir-projects/` holds the contract libraries written in Noir; see `noir-projects/labs/aztec-nr/CLAUDE.md`.
 
-`l1-contracts/` holds the Solidity L1 rollup contracts (a Foundry project). `docs/` is the developer documentation site (Docusaurus); see `docs/CLAUDE.md`. `spartan/` holds Kubernetes deployment infrastructure (Helm charts + Terraform); see `spartan/CLAUDE.md`. `bb-pilcom/` is the PIL compiler for AVM relation codegen. `ci3/` contains CI infrastructure scripts.
+`docs/` is the developer documentation site (Docusaurus); see `docs/CLAUDE.md`. `spartan/` holds Kubernetes deployment infrastructure (Helm charts + Terraform); see `spartan/CLAUDE.md`. `ci3/` contains CI infrastructure scripts.
 </components>
 
 <build_system>
-Dependencies flow barretenberg → yarn-project. From the git root, use `make <target>`: `make fast` builds everything needed for development, `make yarn-project` runs the full TS build chain, and `make bb-cpp-native` builds barretenberg C++ native only. For individual components, run `./bootstrap.sh` inside each directory.
+From the git root, use `make <target>`: `make fast` builds everything needed for development, and `make yarn-project` runs the full TS build chain. For individual components, run `./bootstrap.sh` inside each directory.
 
-When a change spans multiple components, rebuild in dependency order: first `barretenberg/cpp/` with `cmake --preset default && cd build && ninja`, then `barretenberg/ts/` with `./bootstrap.sh` (which generates TS bindings from C++), then `noir-projects/` to compile contracts, and finally `yarn-project/` with `yarn build` from inside `yarn-project/` (not the git root).
+When a change spans multiple components, rebuild in dependency order: first `noir-projects/` to compile contracts, then `yarn-project/` with `yarn build` from inside `yarn-project/` (not the git root). Barretenberg is not built from this repo: the `bb` binaries come pre-built via `labs-aztec-toolchain`, and the `@aztec/bb.js` (and related) npm packages are consumed as published releases pinned in `yarn-project/package.json` resolutions.
 
 The noir-projects build scripts default `$NARGO` to `labs-aztec-toolchain/bin/nargo`, which is provisioned from the versions pinned in `labs-aztec-toolchain/bootstrap.sh`. Do not override it with a globally installed nargo — version mismatches produce opaque bytecode failures in downstream components.
 </build_system>
@@ -35,9 +33,7 @@ Otherwise infer from the component being worked in:
 
 | Component | Base branch |
 |---|---|
-| `barretenberg/**` | `merge-train/barretenberg` |
 | `yarn-project/**` | `merge-train/spartan` |
-| `barretenberg/cpp/src/barretenberg/vm2/**` | `merge-train/avm` |
 | everything else | `next` |
 
 The bases above target the `next` line. For work scoped to the v5 release line, use `merge-train/spartan-v5` (which targets `v5-next`) in place of `merge-train/spartan`.
@@ -66,7 +62,7 @@ Never run `noir-projects/labs/noir-contracts/bootstrap.sh pin-standard-build` on
 </git_workflow>
 
 <code_formatting>
-Each language's formatter is documented in the relevant subdir `CLAUDE.md` — C++ conventions live in `barretenberg/cpp/CLAUDE.md`, TypeScript in `yarn-project/CLAUDE.md`, and Noir in `noir-projects/labs/aztec-nr/CLAUDE.md`. A post-edit hook runs the appropriate formatter automatically, so there is normally no need to invoke one by hand.
+Each language's formatter is documented in the relevant subdir `CLAUDE.md` — TypeScript conventions live in `yarn-project/CLAUDE.md` and Noir in `noir-projects/labs/aztec-nr/CLAUDE.md`. A post-edit hook runs the appropriate formatter automatically, so there is normally no need to invoke one by hand.
 </code_formatting>
 
 <red_green_testing>

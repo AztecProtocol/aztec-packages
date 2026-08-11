@@ -306,7 +306,6 @@ function install_hooks {
   cat <<EOF >$hooks_dir/pre-commit
 #!/usr/bin/env bash
 set -euo pipefail
-(cd barretenberg/cpp && ./format.sh staged)
 ./yarn-project/precommit.sh
 ./noir-projects/labs/precommit.sh
 ./docs/examples/ts/precommit.sh
@@ -465,7 +464,7 @@ function build_and_test {
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp} noir-projects/labs/noir-contracts
+    set -- yarn-project/end-to-end yarn-project noir-projects/labs/noir-contracts
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
@@ -847,14 +846,6 @@ case "$cmd" in
     make bench
     bench
     ;;
-  "ci-chonk-input-update")
-    export CI=1
-    export USE_TEST_CACHE=1
-    export CI_FULL=0
-    prep
-    barretenberg/crs/bootstrap.sh
-    barretenberg/cpp/bootstrap.sh chonk_input_update
-    ;;
   "ci-grind-test")
     export CI=1
     export USE_TEST_CACHE=0
@@ -1143,29 +1134,6 @@ case "$cmd" in
     ./bootstrap.sh build yarn-project
     docs/bootstrap.sh ci
     ;;
-  "ci-barretenberg-debug")
-    export CI=1
-    export NATIVE_PRESET=debug
-    export AVM=0
-    barretenberg/cpp/bootstrap.sh ci
-    ;;
-  "ci-barretenberg")
-    export CI=1
-    export USE_TEST_CACHE=1
-    export AVM=0
-    barretenberg/ts/bb.js/bootstrap.sh formatting
-    barretenberg/crs/bootstrap.sh
-    barretenberg/cpp/bootstrap.sh ci
-    ;;
-  "ci-barretenberg-full")
-    export CI=1
-    export CI_FULL=1
-    export USE_TEST_CACHE=1
-    export AVM=0
-    pull_submodules
-    barretenberg/bootstrap.sh ci
-    ;;
-
   #######################
   # AVM QA ONE OFF JOBS #
   #######################
