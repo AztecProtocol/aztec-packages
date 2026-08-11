@@ -51,7 +51,7 @@ ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip '
 ssh -F build_instance_ssh_config -O exit ubuntu@$ip 2>/dev/null || true
 
 # Download uncompressed crs onto machine for fast cold starts (deletes compressed if present).
-ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip 'export CRS_FORMAT=uncompressed; bash -s' < ../../barretenberg/crs/bootstrap.sh
+ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip 'export CRS_FORMAT=uncompressed; bash -s' < download_crs.sh
 
 # Pull devbox onto host, and build into docker-in-docker volume.
 ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip "

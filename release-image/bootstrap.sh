@@ -10,7 +10,7 @@ function prepare_crs {
   if [ ! -f "$crs_src/bn254_g1_compressed.dat" ] || [ ! -f "$crs_src/grumpkin_g1_v2.flat.dat" ]; then
     # this assumes we pull the required number of points for proving the biggest circuit
     echo "CRS not found at $crs_src, downloading..."
-    $root/barretenberg/scripts/download_bb_crs.sh
+    $root/release-image/download_bb_crs.sh
     crs_src=$HOME/.bb-crs
   fi
 
