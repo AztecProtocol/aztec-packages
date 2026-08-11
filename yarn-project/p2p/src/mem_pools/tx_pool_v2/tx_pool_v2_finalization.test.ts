@@ -1,6 +1,7 @@
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
@@ -22,6 +23,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { TxMetaData } from './tx_metadata.js';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
+import { TxPoolV2Impl } from './tx_pool_v2_impl.js';
 
 const alwaysValidValidator: TxValidator<TxMetaData> = {
   validateTx: () => Promise.resolve({ result: 'valid' }),
@@ -147,16 +149,32 @@ describe('TxPoolV2 finalization stall', () => {
     );
   });
 
-  // Fills the pool with mined txs, then kicks off finalization and immediately issues the pool
-  // calls that gossip validation depends on. Returns how long each waited and the finalize time.
+  // Fills the pool with mined txs, kicks off finalization, and issues the pool calls that gossip
+  // validation depends on once finalization is executing on the serial queue. handleFinalizedBlock
+  // defers its first queue item to a later microtask, so without gating on an archive chunk having
+  // started the gossip ops would enter the queue ahead of finalization and measure nothing.
+  // Returns how long each waited, the finalize time, and which of the two finished first.
   const measureStallDuringFinalization = async (archivedTxLimit: number) => {
     const { pool, cleanup } = await createPool(archivedTxLimit);
+    // Resolved when the first archive chunk starts executing, i.e. finalization holds the queue.
+    // archiveFinalizedTxs runs per chunk even when archiving is disabled.
+    const archiveChunkStarted = promiseWithResolvers<void>();
+    const originalArchiveFinalizedTxs = TxPoolV2Impl.prototype.archiveFinalizedTxs;
+    const archiveSpy = jest.spyOn(TxPoolV2Impl.prototype, 'archiveFinalizedTxs').mockImplementation(function (
+      this: TxPoolV2Impl,
+      txHashes: string[],
+    ) {
+      archiveChunkStarted.resolve();
+      return originalArchiveFinalizedTxs.call(this, txHashes);
+    });
     try {
       await pool.addPendingTxs(minedTxs);
       await pool.handleMinedBlock(makeBlock(minedTxs, makeHeader(1)));
 
       const finalizeTimer = new Timer();
-      const finalizePromise = pool.handleFinalizedBlock(makeHeader(1));
+      const finalizeDone = pool.handleFinalizedBlock(makeHeader(1)).then(() => 'finalization' as const);
+
+      await archiveChunkStarted.promise;
 
       const precheckTimer = new Timer();
       const precheckPromise = pool.canAddPendingTx(incomingTx).then(() => precheckTimer.ms());
@@ -164,29 +182,36 @@ describe('TxPoolV2 finalization stall', () => {
       const addTimer = new Timer();
       const addPromise = pool.addPendingTxs([incomingTx], { source: 'gossip' }).then(() => addTimer.ms());
 
+      const gossipDone = Promise.all([precheckPromise, addPromise]).then(() => 'gossip ops' as const);
+      const finishedFirst = await Promise.race([gossipDone, finalizeDone]);
+
       const [precheckMs, addMs] = await Promise.all([precheckPromise, addPromise]);
-      await finalizePromise;
+      await finalizeDone;
       const finalizeMs = finalizeTimer.ms();
 
       logger.info(
         `Finalized ${MINED_TX_COUNT} txs in ${Math.round(finalizeMs)}ms with archivedTxLimit=${archivedTxLimit} ` +
-          `(canAddPendingTx waited ${Math.round(precheckMs)}ms, addPendingTxs waited ${Math.round(addMs)}ms)`,
-        { finalizeMs, precheckMs, addMs, archivedTxLimit },
+          `(canAddPendingTx waited ${Math.round(precheckMs)}ms, addPendingTxs waited ${Math.round(addMs)}ms, ` +
+          `${finishedFirst} finished first)`,
+        { finalizeMs, precheckMs, addMs, archivedTxLimit, finishedFirst },
       );
-      return { finalizeMs, precheckMs, addMs };
+      return { finalizeMs, precheckMs, addMs, finishedFirst };
     } finally {
+      archiveSpy.mockRestore();
       await cleanup();
     }
   };
 
   it('does not stall gossip pool operations while finalizing mined txs with archiving disabled', async () => {
-    const { precheckMs, addMs } = await measureStallDuringFinalization(0);
+    const { precheckMs, addMs, finishedFirst } = await measureStallDuringFinalization(0);
+    expect(finishedFirst).toEqual('gossip ops');
     expect(precheckMs).toBeLessThan(MAX_STALL_MS);
     expect(addMs).toBeLessThan(MAX_STALL_MS);
   });
 
   it('does not stall gossip pool operations while finalizing mined txs with archiving enabled', async () => {
-    const { precheckMs, addMs } = await measureStallDuringFinalization(10_000);
+    const { precheckMs, addMs, finishedFirst } = await measureStallDuringFinalization(10_000);
+    expect(finishedFirst).toEqual('gossip ops');
     expect(precheckMs).toBeLessThan(MAX_STALL_MS);
     expect(addMs).toBeLessThan(MAX_STALL_MS);
   });
