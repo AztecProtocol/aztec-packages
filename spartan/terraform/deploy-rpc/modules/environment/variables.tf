@@ -82,12 +82,6 @@ variable "IRM_GRAFANA_CLOUD_USERNAME" {
   default     = "2476101"
 }
 
-variable "IRM_ALLOY_SCRAPE_INTERVAL" {
-  description = "How often Alloy scrapes the RPC Kong metrics service."
-  type        = string
-  default     = "60s"
-}
-
 variable "IRM_ALLOY_RESOURCES" {
   description = "Resource requests and limits for the RPC IRM Alloy deployment."
   type = object({

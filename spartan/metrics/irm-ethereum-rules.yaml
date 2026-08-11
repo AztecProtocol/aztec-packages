@@ -1,0 +1,609 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: ethereum-mainnet
+    folder: Ethereum/irm-ethereum-rules.yaml
+    interval: 1m
+    rules:
+      - uid: ethereum-metrics-missing
+        title: EthereumMetricsMissing
+        condition: threshold
+        data:
+          - refId: query
+            queryType: prometheus
+            relativeTimeRange:
+              from: 660
+              to: 60
+            datasourceUid: grafanacloud-prom
+            model:
+              datasource:
+                type: prometheus
+                uid: grafanacloud-prom
+              expr: absent_over_time(up{job="ethereum"}[10m]) == 1
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              range: false
+              refId: query
+          - refId: prometheus_math
+            queryType: math
+            datasourceUid: __expr__
+            model:
+              datasource:
+                IsPrunable: false
+                access: ""
+                apiVersion: ""
+                basicAuth: false
+                basicAuthUser: ""
+                created: "0001-01-01T00:00:00Z"
+                database: ""
+                id: -100
+                isDefault: false
+                jsonData: {}
+                name: __expr__
+                readOnly: false
+                secureJsonData: {}
+                type: __expr__
+                uid: __expr__
+                updated: "0001-01-01T00:00:00Z"
+                url: ""
+                user: ""
+                withCredentials: false
+              expression: is_number($query) || is_nan($query) || is_inf($query)
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: prometheus_math
+              type: math
+          - refId: threshold
+            queryType: threshold
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+              datasource:
+                IsPrunable: false
+                access: ""
+                apiVersion: ""
+                basicAuth: false
+                basicAuthUser: ""
+                created: "0001-01-01T00:00:00Z"
+                database: ""
+                id: -100
+                isDefault: false
+                jsonData: {}
+                name: __expr__
+                readOnly: false
+                secureJsonData: {}
+                type: __expr__
+                uid: __expr__
+                updated: "0001-01-01T00:00:00Z"
+                url: ""
+                user: ""
+                withCredentials: false
+              expression: prometheus_math
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: threshold
+              type: threshold
+        dashboardUid: ethereum
+        panelId: 2
+        noDataState: OK
+        execErrState: OK
+        for: 5m
+        annotations:
+          __dashboardUid__: ethereum
+          __panelId__: "2"
+          description: No metrics from the ethereum Alloy pipeline have reached Grafana Cloud for at least 10 minutes.
+          summary: Ethereum metrics are missing from Grafana Cloud
+        labels:
+          __converted_prometheus_rule__: "true"
+          __grafana_alert_rule_uid__: ethereum-metrics-missing
+          environment: mainnet
+          service: ethereum
+          severity: critical
+        isPaused: false
+        missing_series_evals_to_resolve: 1
+      - uid: ethereum-target-down
+        title: EthereumMetricsTargetDown
+        condition: threshold
+        data:
+          - refId: query
+            relativeTimeRange:
+              from: 660
+              to: 60
+            datasourceUid: grafanacloud-prom
+            model:
+              datasource:
+                type: prometheus
+                uid: grafanacloud-prom
+              editorMode: code
+              expr: count(up{job="ethereum"})
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              range: false
+              refId: query
+          - refId: threshold
+            queryType: threshold
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 3
+                    type: lt
+              datasource:
+                IsPrunable: false
+                access: ""
+                apiVersion: ""
+                basicAuth: false
+                basicAuthUser: ""
+                created: "0001-01-01T00:00:00Z"
+                database: ""
+                id: -100
+                isDefault: false
+                jsonData: {}
+                name: __expr__
+                readOnly: false
+                secureJsonData: {}
+                type: __expr__
+                uid: __expr__
+                updated: "0001-01-01T00:00:00Z"
+                url: ""
+                user: ""
+                withCredentials: false
+              expression: query
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: threshold
+              type: threshold
+        dashboardUid: ethereum
+        panelId: 3
+        noDataState: OK
+        execErrState: OK
+        for: 5m
+        annotations:
+          __dashboardUid__: ethereum
+          __panelId__: "3"
+          description: The {{ $labels.eth_endpoint }} metrics target has been unavailable for at least 5 minutes.
+          summary: Ethereum {{ $labels.component }} metrics target is down
+        labels:
+          __converted_prometheus_rule__: "true"
+          __grafana_alert_rule_uid__: ethereum-target-down
+          environment: mainnet
+          service: ethereum
+          severity: warning
+        isPaused: false
+        missing_series_evals_to_resolve: 1
+      - uid: ethereum-reth-head-stalled
+        title: EthereumRethHeadStalled
+        condition: threshold
+        data:
+          - refId: query
+            queryType: prometheus
+            relativeTimeRange:
+              from: 660
+              to: 60
+            datasourceUid: grafanacloud-prom
+            model:
+              datasource:
+                type: prometheus
+                uid: grafanacloud-prom
+              expr: |
+                max by (eth_chain) (
+                  changes(reth_blockchain_tree_canonical_chain_height{job="ethereum",network="ethereum",eth_chain="mainnet",eth_client="reth"}[15m])
+                ) == 0
+                and on (eth_chain)
+                max by (eth_chain) (
+                  changes(beacon_head_slot{job="ethereum",network="ethereum",eth_chain="mainnet",eth_client="lighthouse"}[15m])
+                ) > 0
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              range: false
+              refId: query
+          - refId: prometheus_math
+            queryType: math
+            datasourceUid: __expr__
+            model:
+              datasource:
+                IsPrunable: false
+                access: ""
+                apiVersion: ""
+                basicAuth: false
+                basicAuthUser: ""
+                created: "0001-01-01T00:00:00Z"
+                database: ""
+                id: -100
+                isDefault: false
+                jsonData: {}
+                name: __expr__
+                readOnly: false
+                secureJsonData: {}
+                type: __expr__
+                uid: __expr__
+                updated: "0001-01-01T00:00:00Z"
+                url: ""
+                user: ""
+                withCredentials: false
+              expression: is_number($query) || is_nan($query) || is_inf($query)
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: prometheus_math
+              type: math
+          - refId: threshold
+            queryType: threshold
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+              datasource:
+                IsPrunable: false
+                access: ""
+                apiVersion: ""
+                basicAuth: false
+                basicAuthUser: ""
+                created: "0001-01-01T00:00:00Z"
+                database: ""
+                id: -100
+                isDefault: false
+                jsonData: {}
+                name: __expr__
+                readOnly: false
+                secureJsonData: {}
+                type: __expr__
+                uid: __expr__
+                updated: "0001-01-01T00:00:00Z"
+                url: ""
+                user: ""
+                withCredentials: false
+              expression: prometheus_math
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: threshold
+              type: threshold
+        dashboardUid: ethereum
+        panelId: 4
+        noDataState: OK
+        execErrState: OK
+        for: 15m
+        annotations:
+          __dashboardUid__: ethereum
+          __panelId__: "4"
+          description: Reth canonical chain height has not advanced while Lighthouse head slots continue advancing. Investigate execution sync, storage, and node health.
+          summary: Reth canonical head is stalled on mainnet
+        labels:
+          __converted_prometheus_rule__: "true"
+          __grafana_alert_rule_uid__: ethereum-reth-head-stalled
+          environment: mainnet
+          service: ethereum
+          severity: critical
+        isPaused: false
+        missing_series_evals_to_resolve: 1
+      - uid: ethereum-lighthouse-unsynced
+        title: EthereumLighthouseUnsynced
+        condition: threshold
+        data:
+          - refId: query
+            queryType: prometheus
+            relativeTimeRange:
+              from: 660
+              to: 60
+            datasourceUid: grafanacloud-prom
+            model:
+              datasource:
+                type: prometheus
+                uid: grafanacloud-prom
+              expr: max by (eth_chain) (sync_eth2_synced{job="ethereum",network="ethereum",eth_chain="mainnet",eth_client="lighthouse"}) < 1
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              range: false
+              refId: query
+          - refId: prometheus_math
+            queryType: math
+            datasourceUid: __expr__
+            model:
+              datasource:
+                IsPrunable: false
+                access: ""
+                apiVersion: ""
+                basicAuth: false
+                basicAuthUser: ""
+                created: "0001-01-01T00:00:00Z"
+                database: ""
+                id: -100
+                isDefault: false
+                jsonData: {}
+                name: __expr__
+                readOnly: false
+                secureJsonData: {}
+                type: __expr__
+                uid: __expr__
+                updated: "0001-01-01T00:00:00Z"
+                url: ""
+                user: ""
+                withCredentials: false
+              expression: is_number($query) || is_nan($query) || is_inf($query)
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: prometheus_math
+              type: math
+          - refId: threshold
+            queryType: threshold
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+              datasource:
+                IsPrunable: false
+                access: ""
+                apiVersion: ""
+                basicAuth: false
+                basicAuthUser: ""
+                created: "0001-01-01T00:00:00Z"
+                database: ""
+                id: -100
+                isDefault: false
+                jsonData: {}
+                name: __expr__
+                readOnly: false
+                secureJsonData: {}
+                type: __expr__
+                uid: __expr__
+                updated: "0001-01-01T00:00:00Z"
+                url: ""
+                user: ""
+                withCredentials: false
+              expression: prometheus_math
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: threshold
+              type: threshold
+        dashboardUid: ethereum
+        panelId: 5
+        noDataState: OK
+        execErrState: OK
+        for: 30m
+        annotations:
+          __dashboardUid__: ethereum
+          __panelId__: "5"
+          description: Lighthouse has reported an unsynced state for at least 30 minutes.
+          summary: Lighthouse is not synced on mainnet
+        labels:
+          __converted_prometheus_rule__: "true"
+          __grafana_alert_rule_uid__: ethereum-lighthouse-unsynced
+          environment: mainnet
+          service: ethereum
+          severity: critical
+        isPaused: false
+        missing_series_evals_to_resolve: 1
+      - uid: ethereum-lighthouse-head-stalled
+        title: EthereumLighthouseHeadStalled
+        condition: threshold
+        data:
+          - refId: query
+            queryType: prometheus
+            relativeTimeRange:
+              from: 660
+              to: 60
+            datasourceUid: grafanacloud-prom
+            model:
+              datasource:
+                type: prometheus
+                uid: grafanacloud-prom
+              expr: |
+                max by (eth_chain) (
+                  changes(beacon_head_slot{job="ethereum",network="ethereum",eth_chain="mainnet",eth_client="lighthouse"}[15m])
+                ) == 0
+                and on (eth_chain)
+                max by (eth_chain) (sync_eth2_synced{job="ethereum",network="ethereum",eth_chain="mainnet",eth_client="lighthouse"}) == 1
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              range: false
+              refId: query
+          - refId: prometheus_math
+            queryType: math
+            datasourceUid: __expr__
+            model:
+              datasource:
+                IsPrunable: false
+                access: ""
+                apiVersion: ""
+                basicAuth: false
+                basicAuthUser: ""
+                created: "0001-01-01T00:00:00Z"
+                database: ""
+                id: -100
+                isDefault: false
+                jsonData: {}
+                name: __expr__
+                readOnly: false
+                secureJsonData: {}
+                type: __expr__
+                uid: __expr__
+                updated: "0001-01-01T00:00:00Z"
+                url: ""
+                user: ""
+                withCredentials: false
+              expression: is_number($query) || is_nan($query) || is_inf($query)
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: prometheus_math
+              type: math
+          - refId: threshold
+            queryType: threshold
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+              datasource:
+                IsPrunable: false
+                access: ""
+                apiVersion: ""
+                basicAuth: false
+                basicAuthUser: ""
+                created: "0001-01-01T00:00:00Z"
+                database: ""
+                id: -100
+                isDefault: false
+                jsonData: {}
+                name: __expr__
+                readOnly: false
+                secureJsonData: {}
+                type: __expr__
+                uid: __expr__
+                updated: "0001-01-01T00:00:00Z"
+                url: ""
+                user: ""
+                withCredentials: false
+              expression: prometheus_math
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: threshold
+              type: threshold
+        dashboardUid: ethereum
+        panelId: 6
+        noDataState: OK
+        execErrState: OK
+        for: 15m
+        annotations:
+          __dashboardUid__: ethereum
+          __panelId__: "6"
+          description: Lighthouse reports that it is synced, but its beacon head slot has not advanced.
+          summary: Lighthouse head slot is stalled on mainnet
+        labels:
+          __converted_prometheus_rule__: "true"
+          __grafana_alert_rule_uid__: ethereum-lighthouse-head-stalled
+          environment: mainnet
+          service: ethereum
+          severity: critical
+        isPaused: false
+        missing_series_evals_to_resolve: 1
+      - uid: ethereum-rpc-5xx-high
+        title: EthereumRPC5xxRatioHigh
+        condition: threshold
+        data:
+          - refId: query
+            queryType: prometheus
+            relativeTimeRange:
+              from: 660
+              to: 60
+            datasourceUid: grafanacloud-prom
+            model:
+              datasource:
+                type: prometheus
+                uid: grafanacloud-prom
+              expr: |
+                (
+                  sum by (eth_chain, eth_endpoint) (
+                    rate(kong_http_requests_total{job="ethereum",network="ethereum",eth_chain="mainnet",code=~"5.."}[10m])
+                  )
+                  /
+                  sum by (eth_chain, eth_endpoint) (
+                    rate(kong_http_requests_total{job="ethereum",network="ethereum",eth_chain="mainnet"}[10m])
+                  )
+                ) > 0.05
+                and on (eth_chain, eth_endpoint)
+                sum by (eth_chain, eth_endpoint) (
+                  rate(kong_http_requests_total{job="ethereum",network="ethereum",eth_chain="mainnet"}[10m])
+                ) > 0.1
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              range: false
+              refId: query
+          - refId: prometheus_math
+            queryType: math
+            datasourceUid: __expr__
+            model:
+              datasource:
+                IsPrunable: false
+                access: ""
+                apiVersion: ""
+                basicAuth: false
+                basicAuthUser: ""
+                created: "0001-01-01T00:00:00Z"
+                database: ""
+                id: -100
+                isDefault: false
+                jsonData: {}
+                name: __expr__
+                readOnly: false
+                secureJsonData: {}
+                type: __expr__
+                uid: __expr__
+                updated: "0001-01-01T00:00:00Z"
+                url: ""
+                user: ""
+                withCredentials: false
+              expression: is_number($query) || is_nan($query) || is_inf($query)
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: prometheus_math
+              type: math
+          - refId: threshold
+            queryType: threshold
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+              datasource:
+                IsPrunable: false
+                access: ""
+                apiVersion: ""
+                basicAuth: false
+                basicAuthUser: ""
+                created: "0001-01-01T00:00:00Z"
+                database: ""
+                id: -100
+                isDefault: false
+                jsonData: {}
+                name: __expr__
+                readOnly: false
+                secureJsonData: {}
+                type: __expr__
+                uid: __expr__
+                updated: "0001-01-01T00:00:00Z"
+                url: ""
+                user: ""
+                withCredentials: false
+              expression: prometheus_math
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: threshold
+              type: threshold
+        dashboardUid: ethereum
+        panelId: 7
+        noDataState: OK
+        execErrState: OK
+        for: 10m
+        annotations:
+          __dashboardUid__: ethereum
+          __panelId__: "7"
+          description: More than 5% of requests have returned 5xx responses for at least 10 minutes while traffic exceeds 0.1 requests per second.
+          summary: Ethereum {{ $labels.eth_endpoint }} RPC 5xx ratio is high
+        labels:
+          __converted_prometheus_rule__: "true"
+          __grafana_alert_rule_uid__: ethereum-rpc-5xx-high
+          environment: mainnet
+          service: ethereum
+          severity: critical
+        isPaused: false
+        missing_series_evals_to_resolve: 1

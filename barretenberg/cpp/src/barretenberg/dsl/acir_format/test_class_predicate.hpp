@@ -4,6 +4,7 @@
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "gtest/gtest.h"
+#include <memory>
 #include <vector>
 
 namespace acir_format {
@@ -213,22 +214,25 @@ template <TestBaseWithPredicate Base_> class TestClassWithPredicate {
             std::shared_ptr<VerificationKey> vk_from_witness;
             {
                 AcirProgram program{ constraint_system, updated_witness_values };
-                auto builder = create_circuit<Builder>(program, Base::generate_metadata());
-                num_gates.emplace_back(builder.get_num_finalized_gates_inefficient());
+                auto builder = std::make_unique<Builder>(create_circuit<Builder>(program, Base::generate_metadata()));
+                num_gates.emplace_back(builder->get_num_finalized_gates_inefficient());
 
-                auto prover_instance = std::make_shared<ProverInstance>(builder);
+                // Validate before allocating prover polynomials; for large recursion tests this avoids overlapping
+                // the builder, prover polynomials, commitment key, and circuit checker memory.
+                EXPECT_TRUE(CircuitChecker::check(*builder));
+                EXPECT_FALSE(builder->failed());
+
+                auto prover_instance = std::make_shared<ProverInstance>(*builder);
+                builder.reset();
                 vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-
-                // Validate the builder
-                EXPECT_TRUE(CircuitChecker::check(builder));
-                EXPECT_FALSE(builder.failed());
             }
 
             std::shared_ptr<VerificationKey> vk_from_constraint;
             {
                 AcirProgram program{ constraint_system, /*witness=*/{} };
-                auto builder = create_circuit<Builder>(program, Base::generate_metadata());
-                auto prover_instance = std::make_shared<ProverInstance>(builder);
+                auto builder = std::make_unique<Builder>(create_circuit<Builder>(program, Base::generate_metadata()));
+                auto prover_instance = std::make_shared<ProverInstance>(*builder);
+                builder.reset();
                 vk_from_constraint = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
             }
 
