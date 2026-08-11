@@ -11,6 +11,20 @@ This changelog documents all configuration changes, new features, and breaking c
 
 ## Version history
 
+### [v5.x](./v5.md)
+
+Follower mode: a read-only node that replicates all chain state from a trusted upstream node.
+
+**Key changes:**
+- New `FOLLOWER_UPSTREAM_URL` node mode, which needs no Ethereum RPC endpoint, no public IP and no keys
+- `ETHEREUM_HOSTS` is now validated at startup for every other node role
+
+**Migration difficulty**: Low
+
+[View full changelog →](./v5.md)
+
+---
+
 ### [v4.3.x](./v4.3.md)
 
 Bundled binaries renamed under an `aztec-` prefix on `PATH`. v4.3.1 is a bug-fix release.

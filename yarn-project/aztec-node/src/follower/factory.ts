@@ -88,6 +88,10 @@ export async function createFollowerNodeService(
   const started: { stop?(): Promise<void> | void }[] = [];
   try {
     const nativeWs = await createWorldState(config, options.genesis);
+    // Owned here until the synchronizer takes over, so a failure in between (notably the genesis-hash check
+    // below) still closes the freshly-opened world-state databases.
+    let unownedNativeWs: typeof nativeWs | undefined = nativeWs;
+    started.push({ stop: () => unownedNativeWs?.close() });
     const localGenesisBlockHash = await nativeWs.getInitialHeader().hash();
 
     const archiver = await createRpcSyncArchiver(
@@ -111,6 +115,7 @@ export async function createFollowerNodeService(
 
     // The synchronizer takes ownership of the native world-state from here
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, nativeWs, telemetry);
+    unownedNativeWs = undefined;
     started.push(worldStateSynchronizer);
     await worldStateSynchronizer.start();
 

@@ -99,6 +99,10 @@ The Ethereum L1 execution client (e.g., Geth, Nethermind) that processes transac
 
 The Aztec address that receives unburnt transaction fees from blocks produced by a sequencer. Must be a deployed Aztec account.
 
+### Follower Node
+
+A read-only node that replicates all chain state from a single trusted [upstream node](#upstream-node) over RPC instead of syncing from L1 and the p2p network, and forwards the transactions it receives to that upstream. Used to scale out RPC capacity behind a full node. See [follower mode](../full-node/follower-mode.md).
+
 ### Full Node
 
 A node that maintains a complete copy of the Aztec blockchain state and provides RPC interfaces for users to interact with the network without relying on third parties.
@@ -270,6 +274,12 @@ A Merkle tree representing the current world state of all Aztec contracts and ac
 ### Transaction Receipt
 
 A record of a transaction's execution on Ethereum, including status, gas used, and emitted events. Aztec nodes poll for receipts to confirm L1 transaction inclusion.
+
+## U
+
+### Upstream Node
+
+The node a [follower node](#follower-node) replicates its chain state from and forwards transactions to. Any Aztec node that runs an archiver can act as an upstream, with no extra configuration.
 
 ## V
 

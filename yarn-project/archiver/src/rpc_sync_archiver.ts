@@ -46,7 +46,7 @@ const CHECKPOINT_FETCH_BATCH_SIZE = 10;
  * payloads are the domain objects (`L2Block`, `PublishedCheckpoint`) the store updater consumes.
  */
 export type RpcSyncArchiverSource = L2BlockStreamSource &
-  Pick<L2BlockSource, 'getCheckpoints' | 'getL2ToL1MembershipWitness'> &
+  Pick<L2BlockSource, 'getCheckpoints' | 'getProposedCheckpointData' | 'getL2ToL1MembershipWitness'> &
   Pick<L1ToL2MessageSource, 'getL1ToL2Messages'>;
 
 /** L1 contract addresses the follower reports without ever reading L1 itself. */
@@ -332,7 +332,8 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
         await this.handleChainFinalized(event);
         break;
       case 'chain-proposed':
-        // The proposed tip is already implied by the blocks delivered above; nothing extra to persist.
+        // Nothing to do: the proposed tip is implied by the blocks delivered above, and the proposed-checkpoint
+        // records the store needs are copied from the upstream as those blocks are ingested.
         break;
       default: {
         const _: never = event;
@@ -362,12 +363,46 @@ export class RpcSyncArchiver extends ArchiverDataSourceBase implements L2BlockSt
 
     // A checkpoint can extend past the end of this batch, so some delivered blocks are already stored.
     const latestStored = await this.stores.blocks.getLatestL2BlockNumber();
+    const inserted: L2Block[] = [];
     for (const block of event.blocks.filter(b => b.number > latestStored)) {
+      // The store keys its proposed tier off proposed-checkpoint records, which a full node writes from the
+      // checkpoint proposals it receives over p2p. A follower has none, so it copies the record from the
+      // upstream before inserting a block of the checkpoint that follows it. Under proposer pipelining the
+      // upstream routinely holds two uncheckpointed checkpoints at once, so this is the common path.
+      if (!(await this.ensureProposedCheckpoint(CheckpointNumber(block.checkpointNumber - 1)))) {
+        break;
+      }
       await this.updater.addProposedBlock(block);
+      inserted.push(block);
     }
 
-    this.blocksAddedThisCycle.push(...event.blocks);
-    this.log.debug(`Ingested blocks ${event.blocks[0].number} to ${event.blocks.at(-1)!.number} from upstream`);
+    this.blocksAddedThisCycle.push(...inserted);
+    if (inserted.length > 0) {
+      this.log.debug(`Ingested blocks ${inserted[0].number} to ${inserted.at(-1)!.number} from upstream`);
+    }
+  }
+
+  /**
+   * Makes sure the proposed-checkpoint record for `checkpointNumber` is in the store, copying it from the
+   * upstream when it is not. A checkpoint that is already confirmed locally needs no record.
+   * @returns Whether the record is now available. False means the upstream has not published the proposal yet,
+   * and the caller should leave the blocks that depend on it for a later replication pass.
+   */
+  private async ensureProposedCheckpoint(checkpointNumber: CheckpointNumber): Promise<boolean> {
+    if (checkpointNumber <= (await this.stores.blocks.getLatestCheckpointNumber())) {
+      return true;
+    }
+    if (await this.stores.blocks.getProposedCheckpointByNumber(checkpointNumber)) {
+      return true;
+    }
+    const proposed = await this.callUpstream(() => this.source.getProposedCheckpointData({ number: checkpointNumber }));
+    if (!proposed) {
+      this.log.debug(`Upstream has not proposed checkpoint ${checkpointNumber} yet; deferring its successors`);
+      return false;
+    }
+    await this.updater.addProposedCheckpoint(proposed);
+    this.log.debug(`Copied proposed checkpoint ${checkpointNumber} from upstream`);
+    return true;
   }
 
   /** Catches the checkpointed tier up to the tip the upstream advertised. */

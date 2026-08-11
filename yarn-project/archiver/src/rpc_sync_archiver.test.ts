@@ -137,6 +137,7 @@ describe('RpcSyncArchiver', () => {
     getBlocks: query => upstream.getBlocks(query),
     getBlockData: query => upstream.getBlockData(query),
     getCheckpoints: query => upstream.getCheckpoints(query),
+    getProposedCheckpointData: query => upstream.getProposedCheckpointData(query),
     getL1ToL2Messages: checkpointNumber => upstream.getL1ToL2Messages(checkpointNumber),
     getL2ToL1MembershipWitness: (txHash, message, messageIndexInTx) =>
       upstream.getL2ToL1MembershipWitness(txHash, message, messageIndexInTx),
@@ -381,6 +382,48 @@ describe('RpcSyncArchiver', () => {
       expect(followerBlock).toBeDefined();
       expect(followerBlock!.archive.root.toString()).toBe(upstreamBlock!.archive.root.toString());
     }
+  });
+
+  it('replicates the upstream proposed checkpoints to follow a pipelined chain', async () => {
+    await fake.addCheckpoint(CheckpointNumber(1), { l1BlockNumber: 101n, messagesL1BlockNumber: 98n });
+    // Checkpoints 2 and 3 are built here only to obtain well-chained blocks: their L1 blocks stay far ahead of
+    // the synced L1 tip, so neither is checkpointed as far as the upstream is concerned.
+    const { checkpoint: proposed2 } = await fake.addCheckpoint(CheckpointNumber(2), {
+      l1BlockNumber: 2001n,
+      messagesL1BlockNumber: 1998n,
+    });
+    const { checkpoint: proposed3 } = await fake.addCheckpoint(CheckpointNumber(3), {
+      l1BlockNumber: 3001n,
+      messagesL1BlockNumber: 2998n,
+    });
+    fake.setL1BlockNumber(110n);
+    await syncBoth();
+
+    // Under proposer pipelining the upstream holds two uncheckpointed checkpoints at once: it has already
+    // built checkpoint 3's blocks while checkpoint 2's L1 transaction is still in flight.
+    for (const block of proposed2.blocks) {
+      await upstream.addBlock(block);
+    }
+    await upstream.addProposedCheckpoint({
+      checkpointNumber: CheckpointNumber(2),
+      header: proposed2.header,
+      startBlock: proposed2.blocks[0].number,
+      blockCount: proposed2.blocks.length,
+      totalManaUsed: 0n,
+      feeAssetPriceModifier: 0n,
+    });
+    for (const block of proposed3.blocks) {
+      await upstream.addBlock(block);
+    }
+
+    await follower.syncImmediate();
+
+    // Without a local record of proposed checkpoint 2, the store rejects checkpoint 3's blocks outright and
+    // the follower wedges one checkpoint behind its upstream.
+    expect(await follower.getBlockNumber()).toEqual(proposed3.blocks.at(-1)!.number);
+    expect(await follower.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+    expect(await follower.getProposedCheckpointData({ number: CheckpointNumber(2) })).toBeDefined();
+    expect(follower.getHealth().lastError).toBeUndefined();
   });
 
   it('syncs checkpoints that carry zero messages', async () => {
