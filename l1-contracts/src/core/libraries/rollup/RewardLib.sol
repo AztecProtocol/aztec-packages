@@ -17,6 +17,10 @@ import {BitMaps} from "@oz/utils/structs/BitMaps.sol";
 
 type Bps is uint32;
 
+interface IEligible {
+  function isEligible() external view returns (bool);
+}
+
 library BpsLib {
   function mul(uint256 _a, Bps _b) internal pure returns (uint256) {
     return _a * uint256(Bps.unwrap(_b)) / 10_000;
@@ -83,6 +87,10 @@ library RewardLib {
   // offerings,
   // such as sacrificial hearts, during rituals performed within temples.
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
+
+  /// @dev Enough for a getter behind a proxy (2 cold account accesses + a few SLOADs), while
+  ///      bounding how much gas a hostile coinbase can burn per checkpoint during proof submission.
+  uint256 private constant ELIGIBILITY_PROBE_GAS = 50_000;
 
   /// @notice One-shot writer used during rollup construction. Writes every field of
   ///         {RewardConfig}, including the immutable `rewardDistributor` and `booster`.
@@ -183,9 +191,25 @@ library RewardLib {
       Values memory v;
       Totals memory t;
 
+      bool[] memory eligible = new bool[](length);
+
       {
         uint256 added = length - $er.longestProvenLength;
-        uint256 checkpointRewardsDesired = added * getCheckpointReward();
+        uint256 eligibleCount = 0;
+        for (uint256 i = $er.longestProvenLength; i < length; i++) {
+          eligible[i] = isEligible(_args.headers[i].coinbase);
+          if (eligible[i]) {
+            eligibleCount++;
+          }
+        }
+
+        // Per-checkpoint sequencer share of the checkpoint reward; the rest goes to the provers.
+        uint256 sequencerShare = BpsLib.mul(getCheckpointReward(), rewardStorage.config.sequencerBps);
+
+        // Only claim what is owed from the distributor: the prover share for every added
+        // checkpoint, plus the sequencer share for checkpoints with an eligible coinbase.
+        // The sequencer share of ineligible checkpoints never leaves the distributor.
+        uint256 checkpointRewardsDesired = added * getCheckpointReward() - (added - eligibleCount) * sequencerShare;
         uint256 checkpointRewardsAvailable = 0;
 
         if (checkpointRewardsDesired > 0) {
@@ -200,11 +224,14 @@ library RewardLib {
           }
         }
 
-        uint256 sequenceCheckpointRewards = BpsLib.mul(checkpointRewardsAvailable, rewardStorage.config.sequencerBps);
-        v.sequencerCheckpointReward = sequenceCheckpointRewards / added;
+        // If the distributor could not cover the full amount, both pots scale proportionally.
+        uint256 sequencerCheckpointRewards = checkpointRewardsDesired == 0
+          ? 0
+          : checkpointRewardsAvailable * (eligibleCount * sequencerShare) / checkpointRewardsDesired;
+        v.sequencerCheckpointReward = eligibleCount == 0 ? 0 : sequencerCheckpointRewards / eligibleCount;
 
-        uint256 dust = sequenceCheckpointRewards - (v.sequencerCheckpointReward * added);
-        uint256 proverCheckpointRewards = checkpointRewardsAvailable - sequenceCheckpointRewards + dust;
+        // Rounding dust from the sequencer pot lands with the provers.
+        uint256 proverCheckpointRewards = checkpointRewardsAvailable - v.sequencerCheckpointReward * eligibleCount;
         if (proverCheckpointRewards > 0) {
           $er.rewards += proverCheckpointRewards.toUint128();
         }
@@ -231,7 +258,10 @@ library RewardLib {
 
         {
           v.sequencer = _args.headers[i].coinbase;
-          uint256 toSequencer = v.sequencerCheckpointReward + v.sequencerFee;
+          uint256 toSequencer = v.sequencerFee;
+          if (eligible[i]) {
+            toSequencer += v.sequencerCheckpointReward;
+          }
           if (toSequencer > 0) {
             rewardStorage.sequencerRewards[v.sequencer] += toSequencer;
           }
@@ -248,6 +278,17 @@ library RewardLib {
         rollupStore.config.feeAsset.safeTransfer(BURN_ADDRESS, t.totalBurn);
       }
     }
+  }
+
+  /// @dev Placeholder eligibility test for the checkpoint reward: the coinbase qualifies only if
+  ///      it is a contract answering true to {IEligible.isEligible}. The coinbase is an arbitrary
+  ///      proposer-chosen address, so the probe is a gas-capped staticcall whose failure modes
+  ///      (no code, revert, wrong return shape) all read as ineligible -- it must never revert,
+  ///      or a hostile coinbase could block epoch proof submission.
+  function isEligible(address _coinbase) private view returns (bool) {
+    (bool success, bytes memory returnData) =
+      _coinbase.staticcall{gas: ELIGIBILITY_PROBE_GAS}(abi.encodeCall(IEligible.isEligible, ()));
+    return success && returnData.length == 32 && uint256(bytes32(returnData)) == 1;
   }
 
   function getSharesFor(address _prover) internal view returns (uint256) {
