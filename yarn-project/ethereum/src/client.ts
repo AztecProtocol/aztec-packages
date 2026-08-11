@@ -43,9 +43,34 @@ export class L1RpcError extends Error {
   }
 }
 
+/**
+ * JSON-RPC methods that create or read server-side filter state, rejected locally by our transports.
+ *
+ * Server-side filters are unusable against real-world endpoints: a load balancer routes polls to backends that never
+ * saw the filter, and providers report a purged filter with error codes viem does not recognize as "filter gone", so
+ * viem's watchers either churn recreating filters or poll a dead filter id forever while silently missing events.
+ * Excluding these methods keeps our transports stateless: viem rejects them locally without a network call, which
+ * flips `watchContractEvent` into its `eth_getLogs` polling strategy. The exclusion covers all six methods, not just
+ * `eth_newFilter`, so no future code path can reintroduce a dependency on server-side filter state.
+ */
+const EXCLUDED_FILTER_RPC_METHODS = [
+  'eth_newFilter',
+  'eth_newBlockFilter',
+  'eth_newPendingTransactionFilter',
+  'eth_getFilterChanges',
+  'eth_getFilterLogs',
+  'eth_uninstallFilter',
+];
+
 /** Creates a viem fallback HTTP transport for the given L1 RPC URLs. */
 export function makeL1HttpTransport(rpcUrls: string[], opts?: { timeout?: number }) {
-  return wrapL1RpcTransport(fallback(rpcUrls.map(url => http(url, { batch: false, timeout: opts?.timeout }))));
+  return wrapL1RpcTransport(
+    fallback(
+      rpcUrls.map(url =>
+        http(url, { batch: false, timeout: opts?.timeout, methods: { exclude: EXCLUDED_FILTER_RPC_METHODS } }),
+      ),
+    ),
+  );
 }
 
 /** Returns the HTTP status from an L1 RPC error's cause chain, if one is available. */

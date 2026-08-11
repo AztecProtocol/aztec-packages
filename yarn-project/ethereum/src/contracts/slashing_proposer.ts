@@ -6,6 +6,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { createLogger } from '@aztec/foundation/log';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 import { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
@@ -19,12 +20,15 @@ import {
   getContract,
 } from 'viem';
 
+import { makeWatchEventHandlers } from './watch_event.js';
+
 /**
  * Wrapper around the SlashingProposer contract that provides
  * a TypeScript interface for interacting with the consensus-based slashing system.
  */
 export class SlashingProposerContract {
   private readonly contract: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
+  private readonly logger = createLogger('ethereum:slashing_proposer');
 
   /**
    * Slash target validators of the last round asked for. Safe to cache because a round's targets are the committees
@@ -293,28 +297,28 @@ export class SlashingProposerContract {
   }
 
   /**
-   * Listen for VoteCast events
+   * Listen for VoteCast events. Events are delivered by polling `eth_getLogs`, so they are at-least-once triggers
+   * (a reorg may re-emit them and removals are never reported), and events mined within the first two polling
+   * intervals after subscribing are missed.
    * @param callback - Callback function to handle vote cast events
    * @returns Unwatch function
    */
   public listenToVoteCast(callback: (args: { round: bigint; proposer: string }) => void): () => void {
     return this.contract.watchEvent.VoteCast(
       {},
-      {
-        onLogs: logs => {
-          for (const log of logs) {
-            const { round, proposer } = log.args;
-            if (round !== undefined && proposer) {
-              callback({ round, proposer });
-            }
-          }
-        },
-      },
+      makeWatchEventHandlers(this.logger, 'VoteCast', log => {
+        const { round, proposer } = log.args;
+        if (round !== undefined && proposer) {
+          callback({ round, proposer });
+        }
+      }),
     );
   }
 
   /**
-   * Listen for RoundExecuted events
+   * Listen for RoundExecuted events. Events are delivered by polling `eth_getLogs`, so they are at-least-once
+   * triggers (a reorg may re-emit them and removals are never reported), and events mined within the first two
+   * polling intervals after subscribing are missed.
    * @param callback - Callback function to handle round executed events
    * @returns Unwatch function
    */
@@ -323,16 +327,12 @@ export class SlashingProposerContract {
   ): () => void {
     return this.contract.watchEvent.RoundExecuted(
       {},
-      {
-        onLogs: logs => {
-          for (const log of logs) {
-            const { round, slashCount } = log.args;
-            if (round !== undefined && slashCount !== undefined) {
-              callback({ round, slashCount, l1BlockHash: log.blockHash });
-            }
-          }
-        },
-      },
+      makeWatchEventHandlers(this.logger, 'RoundExecuted', log => {
+        const { round, slashCount } = log.args;
+        if (round !== undefined && slashCount !== undefined) {
+          callback({ round, slashCount, l1BlockHash: log.blockHash });
+        }
+      }),
     );
   }
 }
