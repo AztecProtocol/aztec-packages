@@ -343,7 +343,7 @@ const STATE_REFERENCE: TypeMapping<StateReference> = STRUCT<StateReference>([
   { name: 'partial', type: PARTIAL_STATE_REFERENCE },
 ]);
 
-const GAS_FEES: TypeMapping<GasFees> = STRUCT<GasFees>([
+export const GAS_FEES: TypeMapping<GasFees> = STRUCT([
   { name: 'feePerDaGas', type: U128 },
   { name: 'feePerL2Gas', type: U128 },
 ]);
