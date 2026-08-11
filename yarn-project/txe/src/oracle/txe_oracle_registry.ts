@@ -3,7 +3,6 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -13,6 +12,7 @@ import type { TaggingSecretStrategy } from '@aztec/pxe/server';
 import {
   ARRAY,
   AZTEC_ADDRESS,
+  BLOCK_HEADER,
   BLOCK_NUMBER,
   BOOL,
   ETH_ADDRESS,
@@ -34,7 +34,6 @@ import {
   SCALAR,
   STR,
   STRUCT,
-  type SlotShape,
   type TypeMapping,
   U32,
   U64,
@@ -43,9 +42,9 @@ import {
 } from '@aztec/pxe/simulator';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { CompleteAddress } from '@aztec/stdlib/contract';
-import { PrivateContextInputs } from '@aztec/stdlib/kernel';
+import type { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import type { PrivateLog } from '@aztec/stdlib/logs';
-import type { TxHash } from '@aztec/stdlib/tx';
+import type { CallContext, TxContext, TxHash } from '@aztec/stdlib/tx';
 
 import {
   MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY,
@@ -121,11 +120,26 @@ const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = LEAF({
   shape: ['scalar', 'scalar', 'scalar'],
 });
 
-const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = LEAF({
-  kind: 'private-context-inputs',
-  serialization: { fn: v => v.toFields() },
-  shape: Array<SlotShape>(PRIVATE_CONTEXT_INPUTS_LENGTH).fill('scalar'),
-});
+const CALL_CONTEXT: TypeMapping<CallContext> = STRUCT([
+  { name: 'msgSender', type: AZTEC_ADDRESS },
+  { name: 'contractAddress', type: AZTEC_ADDRESS },
+  { name: 'functionSelector', type: FUNCTION_SELECTOR },
+  { name: 'isStaticCall', type: BOOL },
+]);
+
+const TX_CONTEXT: TypeMapping<TxContext> = STRUCT([
+  { name: 'chainId', type: FIELD },
+  { name: 'version', type: FIELD },
+  { name: 'gasSettings', type: GAS_SETTINGS },
+]);
+
+const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = STRUCT([
+  { name: 'callContext', type: CALL_CONTEXT },
+  { name: 'anchorBlockHeader', type: BLOCK_HEADER },
+  { name: 'txContext', type: TX_CONTEXT },
+  { name: 'startSideEffectCounter', type: U32 },
+  { name: 'txRequestSalt', type: FIELD },
+]);
 
 const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = STRUCT([
   { name: 'address', type: AZTEC_ADDRESS },
