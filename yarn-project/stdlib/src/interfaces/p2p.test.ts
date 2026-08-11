@@ -5,7 +5,7 @@ import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { Tx } from '../tx/tx.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { GetTxByHashOptions } from './aztec-node.js';
-import { type P2PApi, P2PApiSchema, type PeerInfo } from './p2p.js';
+import { type P2PApi, P2PApiSchema, type P2PConnectivity, type PeerInfo } from './p2p.js';
 
 describe('P2PApiSchema', () => {
   let handler: MockP2P;
@@ -66,6 +66,11 @@ describe('P2PApiSchema', () => {
     const peers = await context.client.getPeers(true);
     expect(peers).toEqual(peers);
   });
+
+  it('getP2PConnectivity', async () => {
+    const connectivity = await context.client.getP2PConnectivity();
+    expect(connectivity).toEqual({ enabled: true, connectedPeers: 3 });
+  });
 });
 
 const peers: PeerInfo[] = [
@@ -100,5 +105,9 @@ class MockP2P implements P2PApi {
   getPeers(includePending?: boolean): Promise<PeerInfo[]> {
     expect(includePending === undefined || includePending === true).toBeTruthy();
     return Promise.resolve(peers);
+  }
+
+  getP2PConnectivity(): Promise<P2PConnectivity> {
+    return Promise.resolve({ enabled: true, connectedPeers: 3 });
   }
 }

@@ -17,7 +17,7 @@ import type {
   StatusMessage,
 } from '@aztec/p2p';
 import type { EthAddress, L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
-import type { ITxProvider, PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { ITxProvider, P2PConnectivity, PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type {
   BlockProposal,
   CheckpointAttestation,
@@ -50,6 +50,10 @@ export class DummyP2P implements P2P {
 
   public getGossipMeshPeerCount(_topicType: TopicType): Promise<number> {
     return Promise.resolve(0);
+  }
+
+  public getP2PConnectivity(): Promise<P2PConnectivity> {
+    return Promise.resolve({ enabled: false, connectedPeers: 0 });
   }
 
   public broadcastProposal(_proposal: BlockProposal): Promise<void> {
