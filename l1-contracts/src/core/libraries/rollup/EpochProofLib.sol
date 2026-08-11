@@ -114,7 +114,10 @@ library EpochProofLib {
     // Verify attestations for the last checkpoint in the epoch
     // -> This serves as training wheels for the public part of the system (proving systems used in public and AVM)
     // ensuring committee agreement on the epoch's validity alongside the cryptographic proof verification below.
-    verifyLastCheckpointAttestationsAndOutHash(_args.end, _args.attestations, _args.args.outHash);
+    // The committee reconstructed from the attestations is reused below to derive each
+    // checkpoint's proposer for the reward eligibility check, so it is not re-sampled.
+    address[] memory committee =
+      verifyLastCheckpointAttestationsAndOutHash(_args.end, _args.attestations, _args.args.outHash);
 
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
@@ -138,7 +141,7 @@ library EpochProofLib {
       }
     }
 
-    RewardLib.handleRewardsAndFees(_args, endEpoch);
+    RewardLib.handleRewardsAndFees(_args, endEpoch, committee);
 
     emit IRollupCore.L2ProofVerified(_args.end, _args.args.proverId);
   }
@@ -298,7 +301,7 @@ library EpochProofLib {
     uint256 _endCheckpointNumber,
     CommitteeAttestations memory _attestations,
     bytes32 _outHash
-  ) private {
+  ) private returns (address[] memory) {
     // Get the stored attestation hash and payload digest for the last checkpoint
     CompressedTempCheckpointLog storage checkpointLog = STFLib.getStorageTempCheckpointLog(_endCheckpointNumber);
 
@@ -323,12 +326,12 @@ library EpochProofLib {
         (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
         if (isOpen) {
           // Skip attestation verification for escape hatch epochs
-          return;
+          return new address[](0);
         }
       }
     }
 
-    ValidatorSelectionLib.verifyAttestations(epoch, _attestations, checkpointLog.payloadDigest);
+    return ValidatorSelectionLib.verifyAttestations(epoch, _attestations, checkpointLog.payloadDigest);
   }
 
   /**

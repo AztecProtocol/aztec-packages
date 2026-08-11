@@ -91,7 +91,7 @@ library RewardLib {
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
   /// @dev Enough for a getter behind a proxy (2 cold account accesses + a few SLOADs), while
-  ///      bounding how much gas a hostile withdrawer can burn per checkpoint during proof submission.
+  ///      bounding how much gas a hostile withdrawer can burn during proposal.
   uint256 private constant ELIGIBILITY_PROBE_GAS = 50_000;
 
   /// @notice One-shot writer used during rollup construction. Writes every field of
@@ -161,7 +161,9 @@ library RewardLib {
     return accumulatedRewards;
   }
 
-  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) internal {
+  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch, address[] memory _committee)
+    internal
+  {
     RollupStore storage rollupStore = STFLib.getStorage();
     RewardStorage storage rewardStorage = getStorage();
 
@@ -193,17 +195,11 @@ library RewardLib {
       Values memory v;
       Totals memory t;
 
-      bool[] memory eligible = new bool[](length);
+      (bool[] memory eligible, uint256 eligibleCount) =
+        computeEligibility(_args, _endEpoch, _committee, $er.longestProvenLength, length);
 
       {
         uint256 added = length - $er.longestProvenLength;
-        uint256 eligibleCount = 0;
-        for (uint256 i = $er.longestProvenLength; i < length; i++) {
-          eligible[i] = isWithdrawerEligible(_args.start + i);
-          if (eligible[i]) {
-            eligibleCount++;
-          }
-        }
 
         // Per-checkpoint sequencer share of the checkpoint reward; the rest goes to the provers.
         uint256 sequencerShare = BpsLib.mul(getCheckpointReward(), rewardStorage.config.sequencerBps);
@@ -283,20 +279,53 @@ library RewardLib {
     }
   }
 
-  /// @dev Placeholder eligibility test for the checkpoint reward: the proposer of the checkpoint
-  ///      is recomputed from the checkpoint's slot, its withdrawer looked up in the GSE, and the
-  ///      checkpoint qualifies only if the withdrawer is a contract answering true to
-  ///      {IEligible.isEligible}. The withdrawer is an arbitrary staker-chosen address, so the
-  ///      probe is a gas-capped staticcall whose failure modes (no code, revert, wrong return
-  ///      shape) all read as ineligible -- it must never revert, or a hostile withdrawer could
-  ///      block epoch proof submission.
-  function isWithdrawerEligible(uint256 _checkpointNumber) private returns (bool) {
-    (address proposer,) = ValidatorSelectionLib.getProposerAt(STFLib.getSlotNumber(_checkpointNumber));
-    if (proposer == address(0)) {
+  /// @notice Derives the proposer of every newly proven checkpoint from the committee and
+  ///         evaluates the checkpoint-reward eligibility of each proposer's withdrawer.
+  /// @dev The committee was already reconstructed from calldata and checked against the stored
+  ///      commitment during attestation verification, so each checkpoint's proposer is one index
+  ///      computation away -- no committee sampling and no extra storage reads. An empty
+  ///      committee (target committee size 0 or escape hatch) marks everything ineligible.
+  function computeEligibility(
+    SubmitEpochRootProofArgs calldata _args,
+    Epoch _endEpoch,
+    address[] memory _committee,
+    uint256 _from,
+    uint256 _to
+  ) private view returns (bool[] memory, uint256) {
+    bool[] memory eligible = new bool[](_to);
+    uint256 eligibleCount = 0;
+
+    if (_committee.length == 0) {
+      return (eligible, eligibleCount);
+    }
+
+    uint256 sampleSeed = ValidatorSelectionLib.getSampleSeed(_endEpoch);
+    for (uint256 i = _from; i < _to; i++) {
+      uint256 proposerIndex = ValidatorSelectionLib.computeProposerIndex(
+        _endEpoch, _args.headers[i].slotNumber, sampleSeed, _committee.length
+      );
+      eligible[i] = isWithdrawerEligible(_committee[proposerIndex]);
+      if (eligible[i]) {
+        eligibleCount++;
+      }
+    }
+
+    return (eligible, eligibleCount);
+  }
+
+  /// @notice Placeholder eligibility test for the checkpoint reward: the proposer's withdrawer is
+  ///         looked up in the GSE, and the checkpoint qualifies only if the withdrawer is a
+  ///         contract answering true to {IEligible.isEligible}.
+  /// @dev The withdrawer is an arbitrary staker-chosen address, so the probe is a gas-capped
+  ///      staticcall whose failure modes (no code, revert, wrong return shape) all read as
+  ///      ineligible -- it must never revert, or a hostile withdrawer could block proof
+  ///      submission.
+  function isWithdrawerEligible(address _proposer) internal view returns (bool) {
+    if (_proposer == address(0)) {
       return false;
     }
 
-    address withdrawer = StakingLib.getStorage().gse.getWithdrawer(proposer);
+    address withdrawer = StakingLib.getStorage().gse.getWithdrawer(_proposer);
     if (withdrawer == address(0)) {
       return false;
     }
