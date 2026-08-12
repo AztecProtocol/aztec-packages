@@ -144,11 +144,12 @@ export class UdsIpcClient implements IpcClientAsync {
 /**
  * Connect to `socketPath`, retrying "server not ready" errors until
  * `timeoutMs` elapses: ENOENT (socket file not created yet), ECONNREFUSED
- * (the window between the server's bind() and listen()), and EAGAIN (Linux
+ * (the window between the server's bind() and listen()), EAGAIN (Linux
  * reports this for a UDS connect when the accept backlog is momentarily
- * full). Other errors fail immediately. Each attempt is also capped at the
- * remaining budget, so a bound-but-never-accepting server cannot hang the
- * connect past the deadline.
+ * full), and ECONNRESET (a connect racing the server's accept loop under
+ * connection churn). Other errors fail immediately. Each attempt is also
+ * capped at the remaining budget, so a bound-but-never-accepting server
+ * cannot hang the connect past the deadline.
  */
 async function connectWithRetry(
   socketPath: string,
@@ -166,6 +167,7 @@ async function connectWithRetry(
       const code = (err as NodeJS.ErrnoException).code;
       if (
         code !== "ECONNREFUSED" &&
+        code !== "ECONNRESET" &&
         code !== "ENOENT" &&
         code !== "ETIMEDOUT" &&
         code !== "EAGAIN"

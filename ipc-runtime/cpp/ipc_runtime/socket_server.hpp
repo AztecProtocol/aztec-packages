@@ -6,6 +6,7 @@
 #include <string>
 #include <sys/types.h>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace ipc {
@@ -47,10 +48,12 @@ class SocketServer : public IpcServer {
         return CleanupPaths{ .unlink_paths = { socket_path_ }, .shm_unlink_names = {} };
     }
 
+    // Reactor-thread only, like disconnect_client() (which records the ids).
+    std::vector<int> drain_disconnected_clients() override { return std::exchange(disconnected_clients_, {}); }
+
   private:
     void close_internal();
     void disconnect_client(int client_id);
-    int find_free_slot();
     // Create the self-pipe and register its read end with the epoll/kqueue
     // instance. Returns false on failure. Called from listen().
     bool setup_wake_pipe();
@@ -60,12 +63,18 @@ class SocketServer : public IpcServer {
     std::string socket_path_;
     int initial_max_clients_;
     int listen_fd_ = -1;
-    int fd_ = -1;                                    // kqueue or epoll fd
-    int wake_read_fd_ = -1;                          // self-pipe read end (in the event set)
-    int wake_write_fd_ = -1;                         // self-pipe write end (poked by notify())
-    std::vector<int> client_fds_;                    // client_id -> fd
-    std::unordered_map<int, int> fd_to_client_id_;   // fd -> client_id (for fast lookup)
-    std::vector<std::vector<uint8_t>> recv_buffers_; // client_id -> recv buffer
+    int fd_ = -1;            // kqueue or epoll fd
+    int wake_read_fd_ = -1;  // self-pipe read end (in the event set)
+    int wake_write_fd_ = -1; // self-pipe write end (poked by notify())
+    // Client ids are monotonic and never reused: a connection's identity must not be
+    // inheritable by a later connection, or state addressed to a dead client (a late
+    // handler response, reorder bookkeeping) could reach its successor. Contrast with
+    // the SHM transport, whose ids are physical ring indices and must recycle.
+    int next_client_id_ = 0;
+    std::unordered_map<int, int> client_fds_;                    // client_id -> fd
+    std::unordered_map<int, int> fd_to_client_id_;               // fd -> client_id (for fast lookup)
+    std::unordered_map<int, std::vector<uint8_t>> recv_buffers_; // client_id -> recv buffer
+    std::vector<int> disconnected_clients_; // ids closed since the last drain (reactor thread only)
     int num_clients_ = 0;
 };
 

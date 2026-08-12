@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <future>
 #include <gtest/gtest.h>
 #include <mutex>
 #include <queue>
@@ -266,6 +267,198 @@ TEST(SocketTest, ClientRejectsOversizedLengthPrefix)
     fake_server.join();
     ::close(listen_fd);
     ::unlink(path.c_str());
+}
+
+// A connection that dies with a request still in flight leaves a late respond(). Client ids are
+// never reused, so that response has nowhere valid to go — the reactor must drop it, and the next
+// connection (a fresh id) must see only its own frames. Positional clients (the TS AsyncApi)
+// depend on this: a single leaked frame shifts every subsequent response onto the wrong caller.
+//
+// Protocol: request = [tag]; response = [tag, client_id]. Tag 'A' defers its response behind a
+// test-controlled gate (scripted completion order, no sleeps-as-sync); any other tag responds
+// inline. The client_id echo pins the never-reused-id invariant directly.
+TEST(SocketTest, ReactorDropsStaleResponsesAndNeverReusesIds)
+{
+    std::string path = test_socket_path("staleresp");
+    auto server = IpcServer::create_socket(path, 4);
+    ASSERT_TRUE(server->listen());
+
+    std::mutex gate_m;
+    std::condition_variable gate_cv;
+    bool gate_open = false;
+    auto release_gate = [&] {
+        {
+            std::lock_guard<std::mutex> lock(gate_m);
+            gate_open = true;
+        }
+        gate_cv.notify_all();
+    };
+
+    std::promise<int> a_request_seen; // fulfilled with the client_id that sent 'A'
+    TestPool pool(2);
+
+    std::thread server_thread([&] {
+        server->run_reactor([&](int client_id, std::span<const uint8_t> req, IpcServer::Respond respond) {
+            uint8_t tag = req[0];
+            if (tag == 'A') {
+                a_request_seen.set_value(client_id);
+                pool.enqueue([&gate_m, &gate_cv, &gate_open, client_id, respond = std::move(respond)]() mutable {
+                    std::unique_lock<std::mutex> lock(gate_m);
+                    gate_cv.wait(lock, [&] { return gate_open; });
+                    respond({ 'A', static_cast<uint8_t>(client_id) });
+                });
+            } else {
+                respond({ tag, static_cast<uint8_t>(client_id) });
+            }
+        });
+    });
+
+    // Connection A: send 'A' (its response is now in flight behind the gate), then vanish.
+    auto client_a = IpcClient::create_socket(path);
+    ASSERT_TRUE(client_a->connect());
+    uint8_t tag_a = 'A';
+    ASSERT_TRUE(client_a->send(&tag_a, 1, 1'000'000'000ULL));
+    auto a_seen = a_request_seen.get_future();
+    ASSERT_EQ(a_seen.wait_for(std::chrono::seconds(2)), std::future_status::ready) << "server never saw A's request";
+    int a_id = a_seen.get();
+    client_a->close();
+
+    // Let the reactor observe A's EOF before B connects — the window in which A's id would be
+    // freed for reuse if ids were recycled.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Connection B: sends 'B' (inline response), THEN A's zombie completes.
+    auto client_b = IpcClient::create_socket(path);
+    ASSERT_TRUE(client_b->connect());
+    uint8_t tag_b = 'B';
+    ASSERT_TRUE(client_b->send(&tag_b, 1, 1'000'000'000ULL));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50)); // let B's response reach the stash
+    release_gate();
+
+    auto first = client_b->receive(2'000'000'000ULL);
+    ASSERT_EQ(first.size(), 2U) << "no response frame reached connection B";
+    uint8_t first_tag = first[0];
+    uint8_t first_id = first[1];
+    client_b->release(first.size());
+
+    EXPECT_EQ(first_tag, 'B') << "connection B's first response frame carries the dead connection A's payload "
+                                 "(tag '"
+                              << static_cast<char>(first_tag) << "', id " << int(first_id)
+                              << ") — a stale response was delivered across connections";
+    EXPECT_NE(int(first_id), a_id) << "client id was reused across connections";
+
+    // And there must be exactly one frame: a leaked zombie shifts B's real response into a
+    // second frame (which a positional client would hand to the NEXT caller).
+    auto extra = client_b->receive(300'000'000ULL);
+    EXPECT_TRUE(extra.empty()) << "extra frame leaked to connection B (tag '"
+                               << static_cast<char>(extra.empty() ? '?' : extra[0]) << "')";
+    if (!extra.empty()) {
+        client_b->release(extra.size());
+    }
+
+    client_b->close();
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+}
+
+// Control for the scenario above: when the first connection's response completes and is read
+// BEFORE it disconnects, the second connection (fresh id) sees exactly its own response. Pins the
+// invariant and validates the harness.
+TEST(SocketTest, ReactorSequentialConnectionsAreIndependent)
+{
+    std::string path = test_socket_path("seq_conns");
+    auto server = IpcServer::create_socket(path, 4);
+    ASSERT_TRUE(server->listen());
+
+    std::thread server_thread([&] {
+        server->run_reactor([&](int client_id, std::span<const uint8_t> req, IpcServer::Respond respond) {
+            respond({ req[0], static_cast<uint8_t>(client_id) });
+        });
+    });
+
+    auto client_a = IpcClient::create_socket(path);
+    ASSERT_TRUE(client_a->connect());
+    uint8_t tag_a = 'A';
+    ASSERT_TRUE(client_a->send(&tag_a, 1, 1'000'000'000ULL));
+    auto resp_a = client_a->receive(2'000'000'000ULL);
+    ASSERT_EQ(resp_a.size(), 2U);
+    EXPECT_EQ(resp_a[0], 'A');
+    uint8_t a_id = resp_a[1];
+    client_a->release(resp_a.size());
+    client_a->close();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    auto client_b = IpcClient::create_socket(path);
+    ASSERT_TRUE(client_b->connect());
+    uint8_t tag_b = 'B';
+    ASSERT_TRUE(client_b->send(&tag_b, 1, 1'000'000'000ULL));
+    auto resp_b = client_b->receive(2'000'000'000ULL);
+    ASSERT_EQ(resp_b.size(), 2U);
+    EXPECT_EQ(resp_b[0], 'B');
+    EXPECT_NE(resp_b[1], a_id) << "client id was reused across connections";
+    client_b->release(resp_b.size());
+    auto extra = client_b->receive(300'000'000ULL);
+    EXPECT_TRUE(extra.empty());
+
+    client_b->close();
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+}
+
+// The reactor must survive a client that disconnects with responses still in flight: the
+// reactor drops the late responses (their connection's state is gone) instead of writing them
+// to the dead fd, and any
+// write that does hit a peer-closed fd yields EPIPE (MSG_NOSIGNAL / SO_NOSIGPIPE), never a
+// process-killing SIGPIPE. NOTE: an in-process peer-closed write can be absorbed by kernel
+// buffering, so this test alone cannot prove SIGPIPE immunity — the cross-process guard is
+// yarn-project/world-state's wsdb churn test, where the server lives in its own process.
+TEST(SocketTest, ReactorSurvivesResponseToDeadClient)
+{
+    std::string path = test_socket_path("sigpipe");
+    auto server = IpcServer::create_socket(path, 4);
+    ASSERT_TRUE(server->listen());
+
+    std::mutex gate_m;
+    std::condition_variable gate_cv;
+    bool gate_open = false;
+    TestPool pool(2);
+
+    std::thread server_thread([&] {
+        server->run_reactor([&](int, std::span<const uint8_t> req, IpcServer::Respond respond) {
+            std::vector<uint8_t> big(64 * 1024, req[0]); // big frames: force multiple send() calls
+            pool.enqueue([&gate_m, &gate_cv, &gate_open, big = std::move(big), respond = std::move(respond)]() mutable {
+                std::unique_lock<std::mutex> lock(gate_m);
+                gate_cv.wait(lock, [&] { return gate_open; });
+                respond(std::move(big));
+            });
+        });
+    });
+
+    // Pipeline several requests, then vanish without reading anything.
+    auto client = IpcClient::create_socket(path);
+    ASSERT_TRUE(client->connect());
+    for (uint8_t t = 0; t < 4; t++) {
+        ASSERT_TRUE(client->send(&t, 1, 1'000'000'000ULL));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // let the reactor ingest all four
+    client->close();
+
+    // Release all four responses; the reactor must drop or fail them without dying.
+    {
+        std::lock_guard<std::mutex> lock(gate_m);
+        gate_open = true;
+    }
+    gate_cv.notify_all();
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    // If we are still alive, the server survived its client's mid-flight death.
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+    SUCCEED();
 }
 
 } // namespace

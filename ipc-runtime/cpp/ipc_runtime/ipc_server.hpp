@@ -103,6 +103,21 @@ class IpcServer {
     virtual bool has_pending_request() { return wait_for_data(0) >= 0; }
 
     /**
+     * @brief Client ids whose connection ended since the last call.
+     *
+     * run_reactor() polls this each iteration and erases the per-connection
+     * reorder state for each returned id — garbage collection, plus late
+     * responses for an erased id are dropped instead of written to a dead fd.
+     * The socket transport never reuses client ids, so an id's state can never
+     * be inherited by a later connection. The default (transports that do not
+     * observe disconnects) returns nothing. NOTE: a transport that recycles ids
+     * (MPSC-SHM's are physical ring indices) must not adopt this hook as-is —
+     * erase-on-disconnect alone cannot stop a late response from landing in a
+     * recycled id's fresh state; it needs an occupancy guard on respond().
+     */
+    virtual std::vector<int> drain_disconnected_clients() { return {}; }
+
+    /**
      * @brief Receive next message from a specific client
      *
      * Blocks until a complete message is available. Returns a span pointing to
@@ -344,7 +359,20 @@ class IpcServer {
             }
         };
 
+        // Reactor-only: garbage-collect the reorder state of connections that
+        // ended. Client ids are never reused, so this is purely reclamation —
+        // and once erased, a late respond() for the dead connection finds no
+        // entry and is dropped instead of being written to a dead fd.
+        auto drain_disconnects = [&]() {
+            for (int dead : drain_disconnected_clients()) {
+                std::lock_guard<std::mutex> lock(mtx);
+                conns.erase(dead);
+                next_seq.erase(dead);
+            }
+        };
+
         while (!shutdown_requested_.load(std::memory_order_acquire)) {
+            drain_disconnects();
             accept();
 
             int client_id = wait_for_data_or_ready(100000000, have_ready); // 100ms shutdown backstop
@@ -365,6 +393,13 @@ class IpcServer {
             release(client_id, request.size());
 
             uint64_t seq = next_seq[client_id]++;
+            {
+                // Create the connection's reorder entry on the reactor thread; respond()
+                // only ever find()s, so a connection erased by drain_disconnects can
+                // never be resurrected by a late completion.
+                std::lock_guard<std::mutex> lock(mtx);
+                conns.try_emplace(client_id);
+            }
             inflight.fetch_add(1, std::memory_order_relaxed);
 
             // respond(): invoked exactly once, possibly on another thread. Stash
@@ -373,10 +408,15 @@ class IpcServer {
             // wake is never lost. Holds `buf` alive until invoked. Captures reactor
             // locals by reference, valid because run_reactor does not return until
             // inflight hits 0 (quiesce) and the final respond drives it there.
+            // A response for a connection that has since ended finds no entry
+            // (client ids are never reused) and is dropped.
             Respond respond = [this, client_id, seq, buf, &mtx, &conns, &inflight](std::vector<uint8_t> response) {
                 {
                     std::lock_guard<std::mutex> lock(mtx);
-                    conns[client_id].stash.emplace(seq, std::move(response));
+                    auto it = conns.find(client_id);
+                    if (it != conns.end()) {
+                        it->second.stash.emplace(seq, std::move(response));
+                    }
                 }
                 inflight.fetch_sub(1, std::memory_order_release);
                 notify();
@@ -390,9 +430,11 @@ class IpcServer {
         // (mtx, conns, inflight), so we must not unwind until every respond() has
         // fired.
         while (inflight.load(std::memory_order_acquire) > 0) {
+            drain_disconnects();
             drain_and_send();
             wait_for_data_or_ready(10000000, have_ready);
         }
+        drain_disconnects();
         drain_and_send();
     }
 

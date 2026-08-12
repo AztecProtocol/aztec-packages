@@ -137,6 +137,11 @@ void install_default_signal_handlers(IpcServer& server)
     (void)std::signal(SIGINT, graceful_shutdown_handler);
     (void)std::signal(SIGBUS, fatal_error_handler);
     (void)std::signal(SIGSEGV, fatal_error_handler);
+    // A client that disconnects with responses still in flight must produce
+    // EPIPE on the server's send(), never a process-killing SIGPIPE. send()
+    // already passes MSG_NOSIGNAL where available; this covers every other
+    // write to a peer-closed fd.
+    (void)std::signal(SIGPIPE, SIG_IGN);
     setup_parent_death_monitoring();
 }
 
