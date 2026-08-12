@@ -6,6 +6,8 @@
 
 namespace bb::avm2::testing {
 
+using namespace bb::crypto::merkle_tree;
+
 // This is a memory tree that can generate sibling paths of any size.
 // The standard memory tree only supports up to 20 layers
 // However in VM2 testing we sometimes need to generate sibling paths with real lengths.

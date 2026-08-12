@@ -16,6 +16,8 @@
 
 namespace bb::avm2::simulation {
 
+using namespace bb::crypto::merkle_tree;
+
 using ::testing::_;
 using ::testing::ElementsAre;
 using ::testing::Return;

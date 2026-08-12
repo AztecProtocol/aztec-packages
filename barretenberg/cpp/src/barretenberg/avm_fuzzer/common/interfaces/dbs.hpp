@@ -3,10 +3,10 @@
 #include <memory>
 #include <stack>
 
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
-#include "barretenberg/world_state/types.hpp"
-#include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/vm2/simulation/lib/memory_merkle_db.hpp"
 
 namespace bb::avm2::fuzzer {
 
@@ -55,63 +55,26 @@ class FuzzerContractDB : public simulation::ContractDBInterface {
     std::stack<Checkpoint> checkpoints;
 };
 
-// Set up and manage a world state for the fuzzer, the plan is to use this to set up different world states
-// This is a bit of hack since we need to access the world state in both cpp and ts. Normally, ws is instantiated
-// inside ts and we use napi to access it from cpp, but for the fuzzer we want to instantiate it in cpp and access it
-// from ts. The simplest way is to use the same database files from both cpp and ts, this is fine for now since we know
-// only one thing will be writing to it at a time.
-// FIXME(ilyas): This won't work with multiple concurrent fuzzing processes, but that's ok for now.
+// Seeds and manages the genesis state the fuzzer simulates against. The C++ simulator runs against a copy
+// of the in-memory MemoryMerkleDB seeded here, so the seed is never mutated by simulation. The genesis
+// uses a fixed 128 nullifier/public-data tree prefill so every input starts from the same state, with no
+// shared on-disk database. Construct a fresh manager per fuzzer input (or per test) to reset to genesis.
 class FuzzerWorldStateManager {
   public:
-    // Shared constants for C++ and TypeScript to use the same database
-    // Note: TypeScript expects trees in {DATA_DIR}/world_state/, so we include that subdirectory
-    static constexpr const char* DATA_DIR = "/tmp/avm_fuzzer_ws/world_state";
-    static constexpr uint64_t MAP_SIZE_KB = 10240; // 10 MB
+    FuzzerWorldStateManager();
 
-    // Static singleton instance management
-    static void initialize()
-    {
-        if (instance == nullptr) {
-            instance = new FuzzerWorldStateManager();
-            instance->initialize_world_state();
-        }
-    }
-
-    static FuzzerWorldStateManager* getInstance()
-    {
-        if (instance == nullptr) {
-            throw std::runtime_error("FuzzerWorldStateManager not initialized. Call initialize() first.");
-        }
-        return instance;
-    }
-
-    void reset_world_state();
     void register_contract_address(const AztecAddress& contract_address);
     void write_fee_payer_balance(const AztecAddress& fee_payer, const FF& balance);
     void public_data_write(const bb::crypto::merkle_tree::PublicDataLeafValue& public_data);
     void append_note_hashes(const std::vector<FF>& note_hashes);
 
-    world_state::WorldStateRevision get_current_revision() const;
-    world_state::WorldStateRevision fork();
-    world_state::WorldState& get_world_state() { return *ws; }
-
-    void checkpoint() { ws->checkpoint(fork_ids.top()); }
-
-    void commit() { ws->commit_checkpoint(fork_ids.top()); }
-
-    void revert() { ws->revert_checkpoint(fork_ids.top()); }
-
-    static const char* get_data_dir() { return DATA_DIR; }
-
-    static uint64_t get_map_size_kb() { return MAP_SIZE_KB; }
+    // The in-memory merkle DB holds the genesis state plus every mutation applied for the current
+    // transaction. The C++ simulator runs against a copy of this DB so the genesis state is preserved
+    // across the fast and hint-collecting simulations.
+    const simulation::MemoryMerkleDB& get_memory_merkle_db() const { return *mem_db; }
 
   private:
-    static FuzzerWorldStateManager* instance;
-
-    void initialize_world_state();
-
-    std::unique_ptr<world_state::WorldState> ws;
-    std::stack<uint64_t> fork_ids;
+    std::unique_ptr<simulation::MemoryMerkleDB> mem_db;
 };
 
 } // namespace bb::avm2::fuzzer

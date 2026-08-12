@@ -18,6 +18,8 @@
 #include <vector>
 
 namespace bb::avm2::simulation {
+
+using namespace bb::crypto::merkle_tree;
 namespace {
 
 class HintingDBsTest : public ::testing::Test {
