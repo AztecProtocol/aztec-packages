@@ -786,8 +786,7 @@ export class SequencerPublisher {
     const l1Constants = this.epochCache.getL1Constants();
     const ts = getLastL1SlotTimestampForL2Slot(header.slotNumber, l1Constants);
     const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
-    // The simulated call carries no gas price, so no funds are actually needed; the ample balance override
-    // keeps the simulation working on providers that still apply an upfront funds check.
+    // Balance override for compatibility with providers that apply an upfront funds check to simulated calls.
     stateOverrides.push({
       address: MULTI_CALL_3_ADDRESS,
       balance: 10n * WEI_CONST * WEI_CONST, // 10 ETH
