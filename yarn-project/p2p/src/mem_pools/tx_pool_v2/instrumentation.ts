@@ -1,5 +1,6 @@
 import {
   Attributes,
+  type Histogram,
   type Meter,
   Metrics,
   type ObservableGauge,
@@ -65,5 +66,31 @@ export class TxPoolV2Instrumentation {
 
   recordMissingPreviouslyEvicted(count: number) {
     this.#missingPreviouslyEvictedCounter.add(count);
+  }
+}
+
+/**
+ * Instrumentation for the tx pool serial queue: how long operations wait behind other queued work,
+ * how long they take to execute once running, and the current queue depth. All pool operations share
+ * a single serial queue, so contention here directly delays gossip tx validation.
+ */
+export class TxPoolQueueInstrumentation {
+  #queueWait: Histogram;
+  #queueExecution: Histogram;
+
+  constructor(telemetry: TelemetryClient, getQueueLength: () => number) {
+    const meter: Meter = telemetry.getMeter('TxPoolQueue');
+    this.#queueWait = meter.createHistogram(Metrics.MEMPOOL_TX_POOL_V2_QUEUE_WAIT);
+    this.#queueExecution = meter.createHistogram(Metrics.MEMPOOL_TX_POOL_V2_QUEUE_EXECUTION);
+    const queueLength = meter.createObservableGauge(Metrics.MEMPOOL_TX_POOL_V2_QUEUE_LENGTH);
+    queueLength.addCallback((result: ObservableResult) => {
+      result.observe(getQueueLength());
+    });
+  }
+
+  record(operation: string, waitMs: number, executionMs: number) {
+    const attributes = { [Attributes.MEMPOOL_OPERATION]: operation };
+    this.#queueWait.record(Math.ceil(waitMs), attributes);
+    this.#queueExecution.record(Math.ceil(executionMs), attributes);
   }
 }
