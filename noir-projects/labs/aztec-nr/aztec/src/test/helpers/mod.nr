@@ -5,7 +5,6 @@ pub mod test_environment;
     @[
         quote { get_last_tx_effects_oracle }, // TODO: implement once we support more complex types
         quote { deploy_oracle }, // TODO: implement once we support more complex types
-        quote { set_private_txe_context_oracle }, // TODO: implement once we support more complex types
         quote { set_tagging_secret_strategies }, // TODO: implement once we support more complex types
     ],
 )]
