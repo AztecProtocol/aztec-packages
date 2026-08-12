@@ -12,6 +12,9 @@ import { MAX_CONCURRENT_HOLDS, UnseenBlockHoldOff } from './unseen_block_hold_of
 const BY_NUMBER_WAIT_MS = 1000;
 const BY_HASH_WAIT_MS = 600;
 
+/** Keys by which a query can name a block. A query the block source can resolve carries exactly one of them. */
+const SELECTOR_KEYS = ['number', 'hash', 'archive', 'tag'];
+
 /** Builds minimal block metadata for a given block number and hash, as returned by the block source. */
 const makeBlockData = (blockNumber: BlockNumber, blockHash: BlockHash = BlockHash.random()): BlockData => ({
   header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber }) }),
@@ -61,6 +64,16 @@ describe('UnseenBlockHoldOff', () => {
       byNumberWaitMs: BY_NUMBER_WAIT_MS,
       byHashWaitMs: BY_HASH_WAIT_MS,
     });
+  });
+
+  // Runs for every test in this file: the anchored form is reduced here and must never reach the block source,
+  // whose archiver implementation reads `number` in preference to `hash` and would drop the fork the hash pins.
+  afterEach(() => {
+    for (const [query] of blockSource.getBlockData.mock.calls) {
+      if (query !== undefined) {
+        expect(Object.keys(query).filter(key => SELECTOR_KEYS.includes(key))).toHaveLength(1);
+      }
+    }
   });
 
   // A single read of the block source proves nothing was polled: holding always issues further reads. Wall-clock
@@ -143,6 +156,88 @@ describe('UnseenBlockHoldOff', () => {
 
     it('does not consult the tip when resolving a hash', async () => {
       await holdOff.getBlockData({ hash: BlockHash.random() });
+      expect(blockSource.getBlockNumber).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('anchored query by both number and hash', () => {
+    it('resolves a known anchor by its hash', async () => {
+      const blockHash = BlockHash.random();
+      addBlock(BlockNumber(4), blockHash);
+
+      const data = await holdOff.getBlockData({ number: BlockNumber(4), hash: blockHash });
+
+      expect(data?.blockHash).toEqual(blockHash);
+      expectResolvedWithoutHolding();
+    });
+
+    it('rejects an anchor whose hash sits at a different height', async () => {
+      const blockHash = BlockHash.random();
+      addBlock(BlockNumber(3), blockHash);
+
+      await expect(holdOff.getBlockData({ number: BlockNumber(4), hash: blockHash })).rejects.toThrow(
+        /is block 3, not the requested block 4/,
+      );
+    });
+
+    it('waits by number for an anchor one ahead of the tip and returns it when the hashes match', async () => {
+      const requested = BlockNumber(tip + 1);
+      const blockHash = BlockHash.random();
+      void sleep(300).then(() => addBlock(requested, blockHash));
+
+      const timer = new Timer();
+      const data = await holdOff.getBlockData({ number: requested, hash: blockHash });
+
+      expect(data?.blockHash).toEqual(blockHash);
+      expect(timer.ms()).toBeGreaterThanOrEqual(300);
+      // Polling by number is what lets the arriving block be compared against the anchor at all.
+      expect(blockSource.getBlockData).toHaveBeenCalledWith({ number: requested });
+    });
+
+    it('reports a miss as soon as a different block arrives at the anchor height', async () => {
+      const requested = BlockNumber(tip + 1);
+      void sleep(200).then(() => addBlock(requested, BlockHash.random()));
+
+      const timer = new Timer();
+      const data = await holdOff.getBlockData({ number: requested, hash: BlockHash.random() });
+
+      // A block at that height on another fork settles the question, so the rest of the budget is not waited out.
+      expect(data).toBeUndefined();
+      expect(timer.ms()).toBeGreaterThanOrEqual(200);
+      expect(timer.ms()).toBeLessThan(BY_NUMBER_WAIT_MS);
+    });
+
+    it('gives up after the by-number budget when the anchor never arrives', async () => {
+      const timer = new Timer();
+      const data = await holdOff.getBlockData({ number: BlockNumber(tip + 1), hash: BlockHash.random() });
+
+      expect(data).toBeUndefined();
+      expect(timer.ms()).toBeGreaterThanOrEqual(BY_NUMBER_WAIT_MS);
+    });
+
+    it('fails fast for an unknown anchor at or below the tip', async () => {
+      // The node holds some other block at that height, or pruned it: waiting cannot turn that into a hit.
+      const data = await holdOff.getBlockData({ number: BlockNumber(3), hash: BlockHash.random() });
+
+      expect(data).toBeUndefined();
+      expectResolvedWithoutHolding();
+    });
+
+    it('fails fast for an anchor more than one ahead of the tip', async () => {
+      const data = await holdOff.getBlockData({ number: BlockNumber(tip + 2), hash: BlockHash.random() });
+
+      expect(data).toBeUndefined();
+      expectResolvedWithoutHolding();
+    });
+
+    it('fails fast when the caller opts out of holding off', async () => {
+      const data = await holdOff.getBlockData(
+        { number: BlockNumber(tip + 1), hash: BlockHash.random() },
+        { holdOff: false },
+      );
+
+      expect(data).toBeUndefined();
+      expectResolvedWithoutHolding();
       expect(blockSource.getBlockNumber).not.toHaveBeenCalled();
     });
   });

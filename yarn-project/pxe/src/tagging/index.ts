@@ -17,7 +17,6 @@ export {
   type LogQueryAnchor,
   getAllPrivateLogsByTags,
   getAllPublicLogsByTagsFromContract,
-  logQueryAnchorOf,
 } from './get_all_logs_by_tags.js';
 
 // Re-export tagging-related types from stdlib

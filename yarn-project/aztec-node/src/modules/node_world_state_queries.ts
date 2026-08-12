@@ -7,6 +7,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { MembershipWitness, type SiblingPath } from '@aztec/foundation/trees';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type AnchoredBlockParameter,
   type BlockHash,
   type BlockParameter,
   type DataInBlock,
@@ -319,7 +320,7 @@ export class NodeWorldStateQueries {
    * Resolves `query` to a concrete (block number, block hash), syncs world state to that exact fork, and returns
    * the committed db (for `proposed` queries) or the fork-verified snapshot at the resolved block.
    */
-  async #resolveWorldState(query: NormalizedBlockParameter, holdOff: boolean) {
+  async #resolveWorldState(query: NormalizedBlockParameter | AnchoredBlockParameter, holdOff: boolean) {
     // User requests 'latest on the current fork', so the committed db is returned unverified
     if ('tag' in query && query.tag === 'proposed') {
       this.log.debug(`Using committed db for latest block`);
@@ -345,7 +346,7 @@ export class NodeWorldStateQueries {
    * briefly (unless `holdOff` is false) when it references a block the node is about to see.
    */
   async #resolveBlockNumberAndHash(
-    query: NormalizedBlockParameter,
+    query: NormalizedBlockParameter | AnchoredBlockParameter,
     holdOff: boolean,
   ): Promise<{ blockNumber: BlockNumber; blockHash: BlockHash }> {
     const blockData = await this.holdOff.getBlockData(query, { holdOff });
@@ -371,7 +372,7 @@ export class NodeWorldStateQueries {
    * arrived yet — and surface as {@link WorldStateSynchronizerError} so the retry loop re-resolves against the
    * current chain.
    */
-  #throwOnUndefinedBlockData(query: NormalizedBlockParameter): never {
+  #throwOnUndefinedBlockData(query: NormalizedBlockParameter | AnchoredBlockParameter): never {
     if ('hash' in query) {
       throw new Error(
         `Block hash ${query.hash.toString()} not found when resolving query. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,

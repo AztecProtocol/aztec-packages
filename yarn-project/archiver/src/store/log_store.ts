@@ -2,7 +2,13 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import type { BlockHash, L2Block } from '@aztec/stdlib/block';
+import {
+  type BlockHash,
+  type BlockParameter,
+  type L2Block,
+  blockParameterHash,
+  inspectBlockParameter,
+} from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import type {
   LogCursor,
@@ -213,14 +219,15 @@ export class LogStore {
     // genesis block is a valid anchor during early sync but is synthetic and never indexed in the block
     // store, so resolve it directly to the genesis block number rather than mistaking it for a reorg.
     let referenceBlockNumber: number | undefined;
-    if (query.referenceBlock) {
-      if (query.referenceBlock.equals(this.genesisBlockHash)) {
+    const referenceBlockHash = anchorHashOf(query.referenceBlock);
+    if (referenceBlockHash) {
+      if (referenceBlockHash.equals(this.genesisBlockHash)) {
         referenceBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
       } else {
-        const refBlk = await this.blockStore.getBlockData({ hash: query.referenceBlock });
+        const refBlk = await this.blockStore.getBlockData({ hash: referenceBlockHash });
         if (!refBlk) {
           throw new Error(
-            `Reference block ${query.referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
+            `Reference block ${referenceBlockHash.toString()} not found in the node. This might indicate a reorg has occurred.`,
           );
         }
         referenceBlockNumber = refBlk.header.globalVariables.blockNumber;
@@ -364,6 +371,28 @@ export class LogStore {
     }
     return results;
   }
+}
+
+/**
+ * The block hash a log query's `referenceBlock` pins, or `undefined` when the query carries no anchor.
+ *
+ * The store's anchor check is hash-based by nature: it answers on one fork or fails. So it takes the hash-bearing
+ * forms of a {@link BlockParameter} (a bare hash, `{ hash }`, or the anchored `{ number, hash }`) and rejects the
+ * ones that name a moving chain position, which the node RPC layer resolves to a concrete hash before it delegates
+ * here.
+ */
+function anchorHashOf(referenceBlock: BlockParameter | undefined): BlockHash | undefined {
+  if (referenceBlock === undefined) {
+    return undefined;
+  }
+  const hash = blockParameterHash(referenceBlock);
+  if (hash === undefined) {
+    throw new Error(
+      `Log query referenceBlock ${inspectBlockParameter(referenceBlock)} does not name a block hash. Block numbers ` +
+        `and tags are resolved to a hash by the node before the query reaches the log store.`,
+    );
+  }
+  return hash;
 }
 
 /** Pulls `{ tagHex, afterLog }` out of a {@link TagQuery}, normalizing the bare-tag form. */

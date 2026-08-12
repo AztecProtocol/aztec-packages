@@ -21,7 +21,12 @@ import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { BlockData } from '../block/block_data.js';
 import type { DataInBlock } from '../block/in_block.js';
-import { BlockHash, type BlockParameter } from '../block/index.js';
+import {
+  type AnchoredBlockParameter,
+  BlockHash,
+  type BlockParameter,
+  isAnchoredBlockParameter,
+} from '../block/index.js';
 import type { CheckpointsQuery, L2BlockTag, L2Tips } from '../block/l2_block_source.js';
 import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
 import {
@@ -72,6 +77,9 @@ import type { SequencerConfig } from './configs.js';
 import type { PeerInfo, ProposalsForSlot } from './p2p.js';
 import type { ProverConfig } from './prover-client.js';
 import type { WorldStateSyncStatus } from './world_state.js';
+
+/** Anchor naming a block by both number and hash, as a v6 client sends it. Shared by the tests and the mock node. */
+const ANCHORED_BLOCK_PARAMETER: AnchoredBlockParameter = { number: BlockNumber(1), hash: new BlockHash(new Fr(2)) };
 
 describe('AztecNodeApiSchema', () => {
   let handler: MockAztecNode;
@@ -148,6 +156,22 @@ describe('AztecNodeApiSchema', () => {
     await expect(
       context.client.findLeavesIndexes(BlockNumber(1), MerkleTreeId.ARCHIVE, times(MAX_RPC_LEN + 1, Fr.random)),
     ).rejects.toThrow();
+  });
+
+  it('findLeavesIndexes (anchored on both a block number and hash)', async () => {
+    const response = await context.client.findLeavesIndexes(ANCHORED_BLOCK_PARAMETER, MerkleTreeId.ARCHIVE, [
+      Fr.random(),
+      Fr.random(),
+    ]);
+    expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: new BlockHash(new Fr(1)) }, undefined]);
+  });
+
+  it('getPrivateLogsByTags (anchored on both a block number and hash)', async () => {
+    const response = await context.client.getPrivateLogsByTags({
+      tags: [SiloedTag.random()],
+      referenceBlock: ANCHORED_BLOCK_PARAMETER,
+    });
+    expect(response).toHaveLength(1);
   });
 
   it('getL1ToL2MessageMembershipWitness', async () => {
@@ -695,7 +719,10 @@ class MockAztecNode implements AztecNode {
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]> {
     expect(
-      referenceBlock === 'latest' || BlockHash.isBlockHash(referenceBlock) || typeof referenceBlock === 'number',
+      referenceBlock === 'latest' ||
+        BlockHash.isBlockHash(referenceBlock) ||
+        typeof referenceBlock === 'number' ||
+        isAnchoredBlockParameter(referenceBlock),
     ).toBe(true);
     expect(leafValues).toHaveLength(2);
     expect(leafValues[0]).toBeInstanceOf(Fr);
@@ -841,6 +868,10 @@ class MockAztecNode implements AztecNode {
   }
   getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
     expect(Array.isArray(query.tags)).toBe(true);
+    if (query.referenceBlock !== undefined) {
+      // The anchor arrives with both selectors: the schema neither rejects the combined form nor strips it to one.
+      expect(query.referenceBlock).toEqual(ANCHORED_BLOCK_PARAMETER);
+    }
     return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
   getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {

@@ -1,12 +1,15 @@
 import { TimeoutError } from '@aztec/foundation/error';
+import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { Timer } from '@aztec/foundation/timer';
 import {
+  type AnchoredBlockParameter,
   type BlockData,
   type L2BlockSource,
   type NormalizedBlockParameter,
   inspectBlockParameter,
+  isAnchoredBlockParameter,
 } from '@aztec/stdlib/block';
 
 /** How often a held request re-reads the block source while waiting. */
@@ -61,12 +64,27 @@ export class UnseenBlockHoldOff {
    * Returns undefined on a miss, so callers keep whatever behavior they had before (throwing or returning
    * undefined) — the hold-off only delays that outcome.
    *
+   * This is also the only place that understands the anchored `{ number, hash }` form, which it reduces to a
+   * single-selector query before it reads the block source. Callers holding a {@link BlockParameter} from the RPC
+   * boundary must therefore resolve it here before reading the block source themselves, even when they do not want
+   * to wait (`{ holdOff: false }`).
+   *
    * A budget is approximate: the poll loop sleeps a full interval before re-checking the deadline, so the actual
    * wait can exceed the configured budget by up to one poll interval plus the block source's own read latency.
    */
   public async getBlockData(
-    query: NormalizedBlockParameter,
+    query: NormalizedBlockParameter | AnchoredBlockParameter,
     opts: UnseenBlockHoldOffOptions = {},
+  ): Promise<BlockData | undefined> {
+    return isAnchoredBlockParameter(query)
+      ? await this.#getAnchoredBlockData(query, opts)
+      : await this.#getNormalizedBlockData(query, opts);
+  }
+
+  /** Resolution for a query naming a block one way: read it, and wait for it if it plausibly lies just ahead. */
+  async #getNormalizedBlockData(
+    query: NormalizedBlockParameter,
+    opts: UnseenBlockHoldOffOptions,
   ): Promise<BlockData | undefined> {
     const data = await this.blockSource.getBlockData(query);
     if (data !== undefined || opts.holdOff === false) {
@@ -74,10 +92,76 @@ export class UnseenBlockHoldOff {
     }
 
     const waitMs = await this.#resolveWaitBudgetMs(query);
+    return await this.#pollForBlockData(query, waitMs, inspectBlockParameter(query));
+  }
+
+  /**
+   * Resolution for an anchor pinned by both number and hash, which is precise enough to tell a client that raced one
+   * block ahead from one naming a block this node will never have.
+   *
+   * The hash is what resolves the anchor, so the fork it pins is honored exactly as a bare hash would be. The number
+   * only decides what a miss means: a height at or below the tip says this node holds a different block there (or
+   * pruned it), and a height further than one past the tip says the client is not merely a block ahead — neither is
+   * worth waiting for. At exactly one past the tip the wait runs by number, because that is the block the node is
+   * about to add; whether it turns out to be the anchored one is settled by comparing hashes once it lands.
+   */
+  async #getAnchoredBlockData(
+    query: AnchoredBlockParameter,
+    opts: UnseenBlockHoldOffOptions,
+  ): Promise<BlockData | undefined> {
+    const blockParameter = inspectBlockParameter(query);
+    const data = await this.blockSource.getBlockData({ hash: query.hash });
+    if (data !== undefined) {
+      if (data.header.getBlockNumber() !== query.number) {
+        throw new BadRequestError(
+          `Anchor block ${query.hash.toString()} is block ${data.header.getBlockNumber()}, not the requested ` +
+            `block ${query.number}`,
+        );
+      }
+      return data;
+    }
+    if (opts.holdOff === false) {
+      return undefined;
+    }
+
+    const tip = await this.blockSource.getBlockNumber();
+    if (query.number !== tip + 1) {
+      this.log.verbose(`Not holding off query for unseen anchor block, its height is not next after the tip`, {
+        blockParameter,
+        tip,
+      });
+      return undefined;
+    }
+    const arrived = await this.#pollForBlockData({ number: query.number }, this.config.byNumberWaitMs, blockParameter);
+    if (arrived === undefined) {
+      return undefined;
+    }
+    if (!arrived.blockHash.equals(query.hash)) {
+      // The node built a different block at that height, so the anchor names a fork this node is not on. That is a
+      // genuine miss and reporting it right away is more useful than waiting out the rest of the budget.
+      this.log.verbose(`Block at unseen anchor height arrived on a different fork`, {
+        blockParameter,
+        arrivedBlockHash: arrived.blockHash.toString(),
+      });
+      return undefined;
+    }
+    return arrived;
+  }
+
+  /**
+   * Polls `query` until it resolves or `waitMs` elapses, subject to the concurrent-hold cap. Returns undefined
+   * without waiting when the budget is empty or the cap is saturated, so a miss fails as fast as it would with the
+   * hold-off disabled. `blockParameter` describes the anchor the caller asked for, which for an anchored query is
+   * not the query being polled.
+   */
+  async #pollForBlockData(
+    query: NormalizedBlockParameter,
+    waitMs: number,
+    blockParameter: string,
+  ): Promise<BlockData | undefined> {
     if (!Number.isFinite(waitMs) || waitMs <= 0) {
       return undefined;
     }
-    const blockParameter = inspectBlockParameter(query);
     if (this.activeHolds >= MAX_CONCURRENT_HOLDS) {
       this.log.verbose(`Not holding off query for unseen block, too many requests already held`, {
         blockParameter,

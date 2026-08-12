@@ -4,7 +4,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
-import { BlockHash } from '../block/block_hash.js';
+import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { MAX_LOGS_PER_TAG, MAX_RPC_LEN } from '../interfaces/api_limit.js';
 import { type ZodFor, schemas, zodFor } from '../schemas/index.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -33,10 +33,15 @@ export type LogsQueryBase = {
    */
   txHash?: TxHash;
   /**
-   * Reorg-safety anchor: the latest block hash the caller has synced to. The call throws if that block is no longer
-   * present. Results are capped at that block, and `toBlock` can only narrow the range further, never past it.
+   * Reorg-safety anchor: the latest block the caller has synced to, named in any {@link BlockParameter} form. The
+   * call throws if that block is no longer present. Results are capped at that block, and `toBlock` can only narrow
+   * the range further, never past it.
+   *
+   * A hash-bearing form (a bare hash, `{ hash }`, or the anchored `{ number, hash }`) is what makes this an anchor:
+   * the node answers on that exact fork or fails. A number or a tag is resolved to whatever block the node holds
+   * there, which a reorg can change, so those forms bound the query without pinning a fork.
    */
-  referenceBlock?: BlockHash;
+  referenceBlock?: BlockParameter;
   /** When set, each log also carries `noteHashes` and all `nullifiers` for note-nonce discovery. */
   includeEffects?: boolean;
   /**
@@ -81,7 +86,7 @@ const logsQueryBaseShape = {
   fromBlock: BlockNumberSchema.optional(),
   toBlock: BlockNumberSchema.optional(),
   txHash: TxHash.schema.optional(),
-  referenceBlock: BlockHash.schema.optional(),
+  referenceBlock: BlockParameterSchema.optional(),
   includeEffects: z.boolean().optional(),
   limitPerTag: z
     .number()

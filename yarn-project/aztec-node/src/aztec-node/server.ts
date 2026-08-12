@@ -80,7 +80,7 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { DebugLogStore, LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
+import type { DebugLogStore, LogResult, LogsQueryBase, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
 import { NullDebugLogStore } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource, L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
@@ -109,6 +109,7 @@ import {
 } from '@aztec/telemetry-client';
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 
+import { normalizeBlockParameter } from '../modules/block_parameter.js';
 import { NodeBlockProvider } from '../modules/node_block_provider.js';
 import { NodeTxReceiptBuilder } from '../modules/node_tx_receipt.js';
 import { NodeWorldStateQueries } from '../modules/node_world_state_queries.js';
@@ -523,25 +524,28 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
-    await this.#awaitLogsReferenceBlock(query.referenceBlock);
-    return await this.logsSource.getPrivateLogsByTags(query);
+    return await this.logsSource.getPrivateLogsByTags(await this.#resolveLogsReferenceBlock(query));
   }
 
   public async getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
-    await this.#awaitLogsReferenceBlock(query.referenceBlock);
-    return await this.logsSource.getPublicLogsByTags(query);
+    return await this.logsSource.getPublicLogsByTags(await this.#resolveLogsReferenceBlock(query));
   }
 
   /**
-   * Waits briefly for a logs query's reorg-safety anchor when the node has not seen that block yet, so a client
-   * that synced one block ahead through another node is not failed over a transient skew. The result is discarded:
-   * the log store's own in-transaction anchor check stays authoritative and throws as before if the block never
-   * arrives.
+   * Resolves a logs query's reorg-safety anchor to the concrete block hash the log store checks against, holding the
+   * request briefly when the node has not seen that block yet — a client that synced one block ahead through another
+   * node is then answered instead of failed over a transient skew.
+   *
+   * On a miss the query is delegated with its anchor untouched: the log store's own in-transaction check is the
+   * authoritative one and raises the error it always did. It also recognizes the genesis anchor a client syncs from
+   * before any block exists, which is not a block the block source can resolve.
    */
-  async #awaitLogsReferenceBlock(referenceBlock: BlockHash | undefined): Promise<void> {
-    if (referenceBlock !== undefined) {
-      await this.unseenBlockHoldOff.getBlockData({ hash: referenceBlock });
+  async #resolveLogsReferenceBlock<T extends LogsQueryBase>(query: T): Promise<T> {
+    if (query.referenceBlock === undefined) {
+      return query;
     }
+    const anchor = await this.unseenBlockHoldOff.getBlockData(normalizeBlockParameter(query.referenceBlock));
+    return anchor === undefined ? query : { ...query, referenceBlock: anchor.blockHash };
   }
 
   /**

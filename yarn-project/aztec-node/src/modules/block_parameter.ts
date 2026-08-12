@@ -1,6 +1,7 @@
 import type { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import {
+  type AnchoredBlockParameter,
   BlockHash,
   type BlockParameter,
   BlockTag,
@@ -20,10 +21,15 @@ export function isCheckpointTag(value: unknown): value is CheckpointTag {
 }
 
 /**
- * Normalizes a {@link BlockParameter} (which may be a bare value) into a {@link NormalizedBlockParameter}
- * object form. Performs no chain-tip resolution — tag lookups are deferred to the underlying block source.
+ * Normalizes a {@link BlockParameter} (which may be a bare value) into a {@link NormalizedBlockParameter} object
+ * form, or into an {@link AnchoredBlockParameter} when it names a block by both number and hash. Performs no
+ * chain-tip resolution — tag lookups are deferred to the underlying block source.
+ *
+ * The anchored form is only understood by the unseen-block hold-off, which reduces it to a single-selector query
+ * before anything reads the block source. Nothing else may forward it: the archiver reads `number` in preference to
+ * `hash`, so an anchored query reaching it would resolve by height and lose the fork the hash pins.
  */
-export function normalizeBlockParameter(param: BlockParameter): NormalizedBlockParameter {
+export function normalizeBlockParameter(param: BlockParameter): NormalizedBlockParameter | AnchoredBlockParameter {
   if (BlockHash.isBlockHash(param)) {
     return { hash: param };
   }
@@ -37,11 +43,18 @@ export function normalizeBlockParameter(param: BlockParameter): NormalizedBlockP
     throw new BadRequestError(`Invalid BlockParameter tag: ${param}`);
   }
   if (typeof param === 'object' && param !== null) {
-    if ('number' in param) {
-      return { number: param.number };
+    // Read the selectors by value rather than by key presence: an in-process caller can hand over an object built
+    // from optional fields, where a selector it did not mean to set is present but undefined.
+    const number = 'number' in param ? param.number : undefined;
+    const hash = 'hash' in param ? param.hash : undefined;
+    if (number !== undefined && hash !== undefined) {
+      return { number, hash };
     }
-    if ('hash' in param) {
-      return { hash: param.hash };
+    if (number !== undefined) {
+      return { number };
+    }
+    if (hash !== undefined) {
+      return { hash };
     }
     if ('archive' in param) {
       return { archive: param.archive };

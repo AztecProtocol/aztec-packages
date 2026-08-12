@@ -11,7 +11,7 @@ import {
   UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
   unfinalizedTaggingIndexesWindowEnd,
 } from '../constants.js';
-import { type LogQueryAnchor, getAllPrivateLogsByTags, logQueryAnchorOf } from '../get_all_logs_by_tags.js';
+import { type LogQueryAnchor, getAllPrivateLogsByTags } from '../get_all_logs_by_tags.js';
 import { findHighestIndexes } from './utils/find_highest_indexes.js';
 
 /**
@@ -93,7 +93,7 @@ export async function syncTaggedPrivateLogs(
     return [];
   }
 
-  const anchor = await logQueryAnchorOf(anchorBlockHeader);
+  const anchor = await anchorBlockHeader.toBlockParameter();
   const currentTimestamp = anchorBlockHeader.globalVariables.timestamp;
 
   // Read stored indexes from the db and compute the initial [start, end) range for each secret

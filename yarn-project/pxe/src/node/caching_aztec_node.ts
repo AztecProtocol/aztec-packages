@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, type BlockParameter, type DataInBlock } from '@aztec/stdlib/block';
+import { type BlockHash, type BlockParameter, type DataInBlock, blockParameterHash } from '@aztec/stdlib/block';
 import type { BlockIncludeOptions } from '@aztec/stdlib/interfaces/client';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type {
@@ -256,8 +256,8 @@ class AztecNodeCache {
 }
 
 /**
- * The block hash `block` pins to (a `BlockHash` or `{ hash }` reference), or `undefined` for every other way of naming
- * a block.
+ * The block hash `block` pins to (a bare `BlockHash`, a `{ hash }` reference, or the anchored `{ number, hash }`
+ * form), or `undefined` for every other way of naming a block.
  *
  * A number or a tag names a moving chain position, as does naming no block at all: a reorg can put a different block
  * at the same number, and tags follow the growing chain. An `{ archive }` root is different, since it commits to every
@@ -266,13 +266,7 @@ class AztecNodeCache {
  * seen, and that holds for the references PXE actually builds.
  */
 function hashReferenceOf(block: BlockParameter | undefined): BlockHash | undefined {
-  if (block instanceof BlockHash) {
-    return block;
-  }
-  if (typeof block === 'object' && block !== null && 'hash' in block) {
-    return block.hash;
-  }
-  return undefined;
+  return block === undefined ? undefined : blockParameterHash(block);
 }
 
 /**
@@ -331,14 +325,15 @@ function readBatchedPerKey<T>(
 /**
  * Whether a tag query's answer can no longer change, and so can be cached.
  *
- * Two things would let it change, and the query has to rule out both. `referenceBlock` names the chain the answer
- * belongs to, so the call fails once that block is gone rather than answering from a chain that reorged. `toBlock`
+ * Two things would let it change, and the query has to rule out both. A hash-pinned `referenceBlock` names the chain
+ * the answer belongs to, so the call fails once that block is gone rather than answering from a chain that reorged —
+ * an anchor naming a block number or a tag instead is no such promise, since a reorg moves what sits there. `toBlock`
  * stops the query below the tip, so blocks yet to be produced cannot add logs to the answer. Where the query starts
  * does not matter: an open lower end reaches only blocks that are already behind it, which no longer move. PXE's tag
  * queries get both from the `getAll*LogsByTags` helpers, which take them from the anchor block the query is pinned to.
  */
 function hasImmutableAnswer(query: LogsQueryBase): boolean {
-  return query.referenceBlock !== undefined && query.toBlock !== undefined;
+  return hashReferenceOf(query.referenceBlock) !== undefined && query.toBlock !== undefined;
 }
 
 /** Cache-key segment for the parts of a private tag query that every tag in it shares. */
@@ -365,10 +360,16 @@ function publicLogsQueryKey(query: PublicLogsQuery): string {
  */
 type QueryKeyParts<T extends LogsQueryBase> = { [K in keyof Required<Omit<T, 'tags'>>]: unknown };
 
-/** The key parts {@link PrivateLogsQuery} and {@link PublicLogsQuery} have in common. */
+/**
+ * The key parts {@link PrivateLogsQuery} and {@link PublicLogsQuery} have in common.
+ *
+ * The anchor enters the key as the block hash it pins rather than as written, so the same anchor block keys the same
+ * entry however the caller spelled it. Only hash-pinned queries are cached (see {@link hasImmutableAnswer}), so that
+ * hash is always there to key on.
+ */
 function sharedQueryKeyParts(query: LogsQueryBase): QueryKeyParts<LogsQueryBase> {
   return {
-    referenceBlock: query.referenceBlock,
+    referenceBlock: hashReferenceOf(query.referenceBlock),
     fromBlock: query.fromBlock,
     toBlock: query.toBlock,
     txHash: query.txHash,

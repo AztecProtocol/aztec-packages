@@ -133,6 +133,27 @@ describe('withCache', () => {
       expect(aztecNode.getBlock).toHaveBeenCalledTimes(2);
     });
 
+    it('shares reads of a block pinned by an anchor naming both its number and hash', async () => {
+      const blockHash = BlockHash.random();
+      const block = makeBlockResponse(BlockNumber(1));
+      aztecNode.getBlock.mockResolvedValue(block);
+
+      // Both forms pin the same content, so they share one entry rather than each keeping its own.
+      await expect(cachedNode.getBlock({ number: BlockNumber(1), hash: blockHash })).resolves.toBe(block);
+      await expect(cachedNode.getBlock(blockHash)).resolves.toBe(block);
+
+      expect(aztecNode.getBlock).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps anchors on different blocks apart', async () => {
+      aztecNode.getBlock.mockResolvedValue(makeBlockResponse(BlockNumber(1)));
+
+      await cachedNode.getBlock({ number: BlockNumber(1), hash: BlockHash.random() });
+      await cachedNode.getBlock({ number: BlockNumber(1), hash: BlockHash.random() });
+
+      expect(aztecNode.getBlock).toHaveBeenCalledTimes(2);
+    });
+
     it('passes number-referenced reads through to the node uncached', async () => {
       aztecNode.getBlock.mockResolvedValue(makeBlockResponse(BlockNumber(1)));
 
@@ -479,6 +500,33 @@ describe('withCache', () => {
       await cachedNode.getPublicLogsByTags(query);
 
       expect(aztecNode.getPublicLogsByTags).toHaveBeenCalledTimes(2);
+    });
+
+    it('shares a tag query anchored by number and hash with the same query anchored by hash alone', async () => {
+      const tags = [new SiloedTag(Fr.random())];
+      const hash = BlockHash.random();
+      const results = [[randomLogResult()]];
+      aztecNode.getPrivateLogsByTags.mockResolvedValue(results);
+
+      const toBlock = BlockNumber(101);
+
+      await cachedNode.getPrivateLogsByTags({ tags, referenceBlock: { number: BlockNumber(100), hash }, toBlock });
+      await cachedNode.getPrivateLogsByTags({ tags, referenceBlock: hash, toBlock });
+
+      // The anchor keys the entry by the block it pins, so how the caller spelled it does not split the entry.
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(1);
+    });
+
+    it('passes a tag query whose anchor is only a block number through to the node', async () => {
+      const tags = [new SiloedTag(Fr.random())];
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
+      const query = { tags, referenceBlock: BlockNumber(100), toBlock: BlockNumber(101) };
+
+      // A number is no fork pin: a reorg can put another block there, so the answer can still change.
+      await cachedNode.getPrivateLogsByTags(query);
+      await cachedNode.getPrivateLogsByTags(query);
+
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
     });
 
     it('passes queries whose answer can still change through to the node', async () => {

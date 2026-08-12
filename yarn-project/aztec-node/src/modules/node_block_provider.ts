@@ -1,13 +1,6 @@
 import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
-import type {
-  BlockData,
-  BlockParameter,
-  CommitteeAttestation,
-  L2Block,
-  L2BlockSource,
-  NormalizedBlockParameter,
-} from '@aztec/stdlib/block';
+import type { BlockData, BlockParameter, CommitteeAttestation, L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointData, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   BlockIncludeOptions,
@@ -48,7 +41,10 @@ export class NodeBlockProvider {
     const wantContext = !!options.includeL1PublishInfo || !!options.includeAttestations;
 
     if (wantTxs) {
-      const block = (await this.blockSource.getBlock(query)) ?? (await this.#getBlockAfterHoldOff(query));
+      // Resolved to metadata first so the anchored form is reduced to a hash the block source understands, and so a
+      // block the node is about to see is waited for. The hash then pins the fork for the read that carries the txs.
+      const data = await this.holdOff.getBlockData(query);
+      const block = data === undefined ? undefined : await this.blockSource.getBlock({ hash: data.blockHash });
       if (!block) {
         return undefined;
       }
@@ -136,15 +132,6 @@ export class NodeBlockProvider {
     }
     const datas = await this.blockSource.getCheckpointsData({ from, limit });
     return datas.map(d => checkpointResponseFromCheckpointData(d, options)) as CheckpointResponse<Opts>[];
-  }
-
-  /**
-   * Waits briefly for a block the node is about to see, and re-reads it with transactions once it lands. Only
-   * called after a plain miss, so it costs nothing on the happy path.
-   */
-  async #getBlockAfterHoldOff(query: NormalizedBlockParameter): Promise<L2Block | undefined> {
-    const data = await this.holdOff.getBlockData(query);
-    return data === undefined ? undefined : await this.blockSource.getBlock(query);
   }
 
   /** Fetches checkpoint-level L1 and attestation data for use as block response context. */

@@ -31,6 +31,7 @@ import {
   L2Block,
   type L2BlockSource,
   type L2Tips,
+  inspectBlockParameter,
 } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -989,10 +990,13 @@ describe('aztec node', () => {
       expect(block?.hash).toEqual(unseenBlockHash);
     });
 
-    it('re-reads the block with transactions after holding off', async () => {
+    it('re-reads the block with transactions by hash after holding off', async () => {
+      // The block that carries the txs is read by hash, which pins the fork the resolved metadata came from.
       l2BlockSource.getBlock.mockImplementation(((query: BlockQuery) =>
         Promise.resolve(
-          'number' in query && query.number <= lastBlockNumber ? L2Block.empty() : undefined,
+          'hash' in query && query.hash.equals(unseenBlockHash) && lastBlockNumber >= unseenBlockNumber
+            ? L2Block.empty()
+            : undefined,
         )) as L2BlockSource['getBlock']);
       scheduleUnseenBlockArrival();
 
@@ -1005,7 +1009,7 @@ describe('aztec node', () => {
       // Stands in for the archiver's in-transaction anchor check: the reference block must be in the chain.
       l2LogsSource.getPrivateLogsByTags.mockImplementation(query =>
         query.referenceBlock !== undefined && lastBlockNumber < unseenBlockNumber
-          ? Promise.reject(new Error(`Block ${query.referenceBlock} is not present`))
+          ? Promise.reject(new Error(`Block ${inspectBlockParameter(query.referenceBlock)} is not present`))
           : Promise.resolve([[]]),
       );
       scheduleUnseenBlockArrival();
@@ -1021,7 +1025,7 @@ describe('aztec node', () => {
     it('holds a public logs query whose reference block has not arrived yet', async () => {
       l2LogsSource.getPublicLogsByTags.mockImplementation(query =>
         query.referenceBlock !== undefined && lastBlockNumber < unseenBlockNumber
-          ? Promise.reject(new Error(`Block ${query.referenceBlock} is not present`))
+          ? Promise.reject(new Error(`Block ${inspectBlockParameter(query.referenceBlock)} is not present`))
           : Promise.resolve([[]]),
       );
       scheduleUnseenBlockArrival();
@@ -1065,6 +1069,94 @@ describe('aztec node', () => {
 
       // A single block-source read proves the query was never held: holding always issues further reads.
       expect(l2BlockSource.getBlockData).toHaveBeenCalledTimes(1);
+    });
+
+    describe('anchored on both a block number and hash', () => {
+      /** The anchor a client that synced one block past this node sends. */
+      const unseenAnchor = (): BlockParameter => ({ number: unseenBlockNumber, hash: unseenBlockHash });
+
+      // The anchored form is reduced by the hold-off and must not reach the block source, which resolves `number` in
+      // preference to `hash` and would answer from whatever block sits at that height after a reorg.
+      afterEach(() => {
+        for (const [query] of l2BlockSource.getBlockData.mock.calls) {
+          if (query !== undefined) {
+            expect(Object.keys(query).filter(key => ['number', 'hash', 'archive', 'tag'].includes(key))).toHaveLength(
+              1,
+            );
+          }
+        }
+        for (const [query] of l2BlockSource.getBlock.mock.calls) {
+          expect(Object.keys(query).filter(key => ['number', 'hash', 'archive', 'tag'].includes(key))).toHaveLength(1);
+        }
+      });
+
+      it('serves findLeavesIndexes once the anchor arrives', async () => {
+        merkleTreeOps.findLeafIndices.mockResolvedValue([10n]);
+        merkleTreeOps.getBlockNumbersForLeafIndices.mockResolvedValue([unseenBlockNumber]);
+        merkleTreeOps.getLeafValue.mockResolvedValue(unseenBlockHash);
+        scheduleUnseenBlockArrival();
+
+        const result = await node.findLeavesIndexes(unseenAnchor(), MerkleTreeId.NOTE_HASH_TREE, [Fr.random()]);
+
+        expect(result).toEqual([{ l2BlockNumber: unseenBlockNumber, l2BlockHash: unseenBlockHash, data: 10n }]);
+      });
+
+      it('serves getContract once the anchor arrives', async () => {
+        const instance = await randomContractInstanceWithAddress();
+        contractSource.getContract.mockResolvedValue(instance);
+        scheduleUnseenBlockArrival();
+
+        expect(await node.getContract(instance.address, unseenAnchor())).toEqual(instance);
+      });
+
+      it('serves getBlock once the anchor arrives', async () => {
+        scheduleUnseenBlockArrival();
+
+        const block = await node.getBlock(unseenAnchor());
+
+        expect(block?.hash).toEqual(unseenBlockHash);
+      });
+
+      it('fails fast when the anchor names a block at or below the tip', async () => {
+        const timer = new Timer();
+
+        expect(await node.getBlock({ number: BlockNumber(3), hash: BlockHash.random() })).toBeUndefined();
+
+        // The precision win over a bare hash, which cannot tell this from a block that is about to arrive.
+        expect(timer.ms()).toBeLessThan(byHashWaitMs);
+      });
+
+      it('rejects an anchor whose number and hash disagree', async () => {
+        // The block is known, so the anchor resolves — to a height the client did not claim it was at.
+        lastBlockNumber = unseenBlockNumber;
+
+        await expect(node.getBlock({ number: BlockNumber(3), hash: unseenBlockHash })).rejects.toThrow(BadRequestError);
+      });
+
+      it('resolves a logs query anchor to a concrete hash before delegating', async () => {
+        l2LogsSource.getPrivateLogsByTags.mockResolvedValue([[]]);
+        scheduleUnseenBlockArrival();
+
+        await node.getPrivateLogsByTags({ tags: [SiloedTag.random()], referenceBlock: unseenAnchor() });
+
+        // The log store checks the anchor by hash inside its own transaction, so it is handed the resolved hash.
+        expect(l2LogsSource.getPrivateLogsByTags).toHaveBeenCalledWith(
+          expect.objectContaining({ referenceBlock: unseenBlockHash }),
+        );
+      });
+
+      it('delegates a logs query with an unresolvable anchor untouched', async () => {
+        // The log store recognizes anchors the block source cannot resolve, such as the genesis block a client syncs
+        // from before any block exists, and raises its own error otherwise.
+        l2LogsSource.getPrivateLogsByTags.mockResolvedValue([[]]);
+        const anchor = { number: BlockNumber(3), hash: BlockHash.random() };
+
+        await node.getPrivateLogsByTags({ tags: [SiloedTag.random()], referenceBlock: anchor });
+
+        expect(l2LogsSource.getPrivateLogsByTags).toHaveBeenCalledWith(
+          expect.objectContaining({ referenceBlock: anchor }),
+        );
+      });
     });
   });
 

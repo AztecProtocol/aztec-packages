@@ -494,13 +494,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
   public async doesNullifierExist(innerNullifier: Fr) {
-    const [nullifier, anchorBlockHash] = await Promise.all([
+    const [nullifier, anchor] = await Promise.all([
       siloNullifier(this.contractAddress, innerNullifier!),
-      this.anchorBlockHeader.hash(),
+      this.anchorBlockHeader.toBlockParameter(),
     ]);
-    const [leafIndex] = await this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, [
-      nullifier,
-    ]);
+    const [leafIndex] = await this.aztecNode.findLeavesIndexes(anchor, MerkleTreeId.NULLIFIER_TREE, [nullifier]);
     return leafIndex?.data !== undefined;
   }
 
@@ -516,7 +514,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.aztecNode,
       messageHash,
       nullifier.value,
-      await this.anchorBlockHeader.hash(),
+      await this.anchorBlockHeader.toBlockParameter(),
     );
 
     return { index: messageIndex, siblingPath };

@@ -38,7 +38,7 @@ import {
 import { NoteService } from '../../notes/note_service.js';
 import { assertAllowedScope } from '../../storage/allowed_scopes.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
-import { logQueryAnchorOf, syncSenderTaggingIndexes } from '../../tagging/index.js';
+import { syncSenderTaggingIndexes } from '../../tagging/index.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
@@ -377,7 +377,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // that'd be wasteful as most tagging secrets are not used in each tx.
       const [{ finalized }, anchor] = await Promise.all([
         this.l2TipsStore.getL2Tips(),
-        logQueryAnchorOf(this.anchorBlockHeader),
+        this.anchorBlockHeader.toBlockParameter(),
       ]);
       await syncSenderTaggingIndexes(
         secret,

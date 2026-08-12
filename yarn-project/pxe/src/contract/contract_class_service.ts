@@ -36,7 +36,7 @@ export class ContractClassService {
     // data tree. If the contract was upgraded the node returns a non-undefined instance; an undefined result means no
     // upgrade happened (or the node has no record of it, e.g. it was never publicly deployed), so the original class
     // is current.
-    const nodeInstance = await this.node.getContract(address, await anchorBlockHeader.hash());
+    const nodeInstance = await this.node.getContract(address, await anchorBlockHeader.toBlockParameter());
     if (nodeInstance) {
       return nodeInstance.currentContractClassId;
     }
