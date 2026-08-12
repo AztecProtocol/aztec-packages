@@ -8,7 +8,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client, makeL1HttpTransport } from '../client.js';
-import { makeWatchEventHandlers } from '../contracts/watch_event.js';
+import { watchContractEvent } from '../contracts/watch_event.js';
 import { deployL1Contract } from '../deploy_l1_contract.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { type RecordingRpcServer, startRecordingRpcServer } from './recording_rpc_server.js';
@@ -59,16 +59,17 @@ describe('watchContractEvent against anvil', () => {
     });
 
     const received: bigint[] = [];
-    const watchedToken = getContract({ address: tokenAddress, abi: TestERC20Abi, client: watcherClient });
-    const unwatch = watchedToken.watchEvent.Transfer(
-      {},
-      makeWatchEventHandlers(logger, 'Transfer', log => received.push(log.args.value!)),
-    );
+    const unwatch = watchContractEvent(watcherClient, logger, {
+      address: tokenAddress,
+      abi: TestERC20Abi,
+      eventName: 'Transfer',
+      onLog: log => received.push(log.args.value!),
+    });
 
     try {
-      // The getLogs strategy baselines its block cursor on its second tick, so only emit once it has ticked thrice.
+      // The watcher baselines its block cursor on its first tick, so only emit once it has ticked.
       await retryUntil(
-        () => recorder.methods.filter(method => method === 'eth_blockNumber').length >= 3,
+        () => recorder.methods.filter(method => method === 'eth_blockNumber').length >= 1,
         'watcher block cursor baseline',
         10,
         0.05,

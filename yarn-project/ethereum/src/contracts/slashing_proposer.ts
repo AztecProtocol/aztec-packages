@@ -20,7 +20,7 @@ import {
   getContract,
 } from 'viem';
 
-import { makeWatchEventHandlers } from './watch_event.js';
+import { type WatchContractEventOptions, watchContractEvent } from './watch_event.js';
 
 /**
  * Wrapper around the SlashingProposer contract that provides
@@ -302,15 +302,25 @@ export class SlashingProposerContract {
    * @param callback - Callback function to handle vote cast events
    * @returns Unwatch function
    */
-  public listenToVoteCast(callback: (args: { round: bigint; proposer: string }) => unknown): () => void {
-    return this.contract.watchEvent.VoteCast(
-      {},
-      makeWatchEventHandlers(this.logger, 'VoteCast', log => {
-        const { round, proposer } = log.args;
-        if (round !== undefined && proposer) {
-          return callback({ round, proposer });
-        }
-      }),
+  public listenToVoteCast(
+    callback: (args: { round: bigint; proposer: string }) => unknown,
+    options?: WatchContractEventOptions,
+  ): () => void {
+    return watchContractEvent(
+      this.client,
+      this.logger,
+      {
+        address: this.contract.address,
+        abi: SlashingProposerAbi,
+        eventName: 'VoteCast',
+        onLog: log => {
+          const { round, proposer } = log.args;
+          if (round !== undefined && proposer) {
+            return callback({ round, proposer });
+          }
+        },
+      },
+      options,
     );
   }
 
@@ -322,15 +332,23 @@ export class SlashingProposerContract {
    */
   public listenToRoundExecuted(
     callback: (args: { round: bigint; slashCount: bigint; l1BlockHash: Hex }) => unknown,
+    options?: WatchContractEventOptions,
   ): () => void {
-    return this.contract.watchEvent.RoundExecuted(
-      {},
-      makeWatchEventHandlers(this.logger, 'RoundExecuted', log => {
-        const { round, slashCount } = log.args;
-        if (round !== undefined && slashCount !== undefined) {
-          return callback({ round, slashCount, l1BlockHash: log.blockHash });
-        }
-      }),
+    return watchContractEvent(
+      this.client,
+      this.logger,
+      {
+        address: this.contract.address,
+        abi: SlashingProposerAbi,
+        eventName: 'RoundExecuted',
+        onLog: log => {
+          const { round, slashCount } = log.args;
+          if (round !== undefined && slashCount !== undefined) {
+            return callback({ round, slashCount, l1BlockHash: log.blockHash });
+          }
+        },
+      },
+      options,
     );
   }
 }

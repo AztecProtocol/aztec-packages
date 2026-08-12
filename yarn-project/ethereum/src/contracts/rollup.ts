@@ -41,7 +41,7 @@ import type { L1EventLog } from './log.js';
 import { SlasherContract } from './slasher_contract.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
-import { makeWatchEventHandlers } from './watch_event.js';
+import { type WatchContractEventOptions, watchContractEvent } from './watch_event.js';
 
 export type ViemCommitteeAttestation = {
   addr: `0x${string}`;
@@ -237,6 +237,9 @@ export type CheckpointProposedArgs = {
 export type CheckpointProposedLog = L1EventLog<CheckpointProposedArgs>;
 
 const INSUFFICIENT_VALIDATOR_SET_SIZE_ERROR = 'ValidatorSelection__InsufficientValidatorSetSize';
+
+/** SlasherUpdated events are rare governance operations, so their watcher polls well below the client's interval. */
+const SLASHER_UPDATED_POLLING_INTERVAL_MS = 60_000;
 
 function isValidatorSelectionError(err: unknown, errorName: string): boolean {
   return (
@@ -1292,18 +1295,27 @@ export class RollupContract {
   /**
    * Watches for SlasherUpdated events. Events are delivered by polling `eth_getLogs`: a reorg may re-emit them and
    * removals are never reported, and events mined within roughly one polling interval of subscribing may be missed.
+   * Slasher rotations are rare governance operations, so by default this polls much slower than the other watchers.
    */
   public listenToSlasherChanged(
     callback: (args: { oldSlasher: `0x${string}`; newSlasher: `0x${string}` }) => unknown,
+    options?: WatchContractEventOptions,
   ): WatchContractEventReturnType {
-    return this.rollup.watchEvent.SlasherUpdated(
-      {},
-      makeWatchEventHandlers(this.logger, 'SlasherUpdated', log => {
-        const args = log.args;
-        if (args.oldSlasher && args.newSlasher) {
-          return callback(args as { oldSlasher: `0x${string}`; newSlasher: `0x${string}` });
-        }
-      }),
+    return watchContractEvent(
+      this.client,
+      this.logger,
+      {
+        address: this.address,
+        abi: RollupAbi,
+        eventName: 'SlasherUpdated',
+        onLog: log => {
+          const { oldSlasher, newSlasher } = log.args;
+          if (oldSlasher && newSlasher) {
+            return callback({ oldSlasher, newSlasher });
+          }
+        },
+      },
+      { pollingIntervalMs: SLASHER_UPDATED_POLLING_INTERVAL_MS, ...options },
     );
   }
 
@@ -1314,15 +1326,23 @@ export class RollupContract {
    */
   public listenToCheckpointInvalidated(
     callback: (args: { checkpointNumber: CheckpointNumber; event: Log }) => unknown,
+    options?: WatchContractEventOptions,
   ): WatchContractEventReturnType {
-    return this.rollup.watchEvent.CheckpointInvalidated(
-      {},
-      makeWatchEventHandlers(this.logger, 'CheckpointInvalidated', log => {
-        const args = log.args;
-        if (args.checkpointNumber !== undefined) {
-          return callback({ checkpointNumber: CheckpointNumber.fromBigInt(args.checkpointNumber), event: log });
-        }
-      }),
+    return watchContractEvent(
+      this.client,
+      this.logger,
+      {
+        address: this.address,
+        abi: RollupAbi,
+        eventName: 'CheckpointInvalidated',
+        onLog: log => {
+          const { checkpointNumber } = log.args;
+          if (checkpointNumber !== undefined) {
+            return callback({ checkpointNumber: CheckpointNumber.fromBigInt(checkpointNumber), event: log });
+          }
+        },
+      },
+      options,
     );
   }
 
@@ -1340,16 +1360,19 @@ export class RollupContract {
    */
   public listenToSlash(
     callback: (args: { amount: bigint; attester: EthAddress }) => unknown,
+    options?: WatchContractEventOptions,
   ): WatchContractEventReturnType {
-    return this.rollup.watchEvent.Slashed(
-      {},
+    return watchContractEvent(
+      this.client,
+      this.logger,
       {
+        address: this.address,
+        abi: RollupAbi,
+        eventName: 'Slashed',
         strict: true,
-        ...makeWatchEventHandlers(this.logger, 'Slashed', (log: { args: { amount?: bigint; attester?: Hex } }) => {
-          const args = log.args;
-          return callback({ amount: args.amount!, attester: EthAddress.fromString(args.attester!) });
-        }),
+        onLog: log => callback({ amount: log.args.amount, attester: EthAddress.fromString(log.args.attester) }),
       },
+      options,
     );
   }
 
