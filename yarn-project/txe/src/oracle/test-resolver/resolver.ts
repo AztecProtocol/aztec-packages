@@ -32,8 +32,8 @@ export const SET_SCENARIO_ENTRY = makeEntry({ params: [{ name: 'name', type: BOU
  * Name of the meta-oracle that roundtrips one ephemeral-array element row. An `EphemeralArray` puts only its slot on
  * the wire, so the elements' serialization is tested separately: after calling the oracle under test, its generated
  * test sends each ephemeral position's canonical element through this oracle tagged with the element's type label,
- * the resolver decodes it with the registry's bidirectional codec for that label (see `bidirectionalMappingsByLabel`;
- * same label means same wire, pinned tree-wide by the oracle-kinds guard test), verifies
+ * the resolver decodes it with the registry's bidirectional codec for that label (see `bidirectionalMappingsByLabel`,
+ * where same label means same wire, pinned tree-wide by the oracle-kinds guard test), verifies
  * it, and serializes its own canonical element back. A label the two sides build differently fails loudly as
  * unknown instead of pairing the row with the wrong mapping.
  */

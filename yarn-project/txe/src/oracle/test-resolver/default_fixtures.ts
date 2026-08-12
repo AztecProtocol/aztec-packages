@@ -119,7 +119,7 @@ const COMPOSITE_IMPLS: CompositeImpl[] = [
   composite(isFixedBoundedVecMapping, (type, seed) => [
     unnamed(collectionData(type.inner, seed, Math.min(DEFAULT_ARRAY_LENGTH, type.maxLength))),
   ]),
-  // The wire value is only the handle's slot; element serialization is exercised through the element roundtrip.
+  // The wire value is only the handle's slot. Element serialization is exercised through the element roundtrip.
   composite(isEphemeralArrayMapping, (type, seed) => [unnamed(EphemeralArray.fromSlot(new Fr(seed), type.inner))]),
 ];
 
