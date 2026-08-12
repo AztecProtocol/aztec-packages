@@ -18,6 +18,7 @@ import {
   ETH_ADDRESS,
   FIELD,
   FIXED_ARRAY,
+  FIXED_BOUNDED_VEC,
   FUNCTION_SELECTOR,
   GAS_FEES,
   type InputSlot,
@@ -178,30 +179,10 @@ const TXE_TX_EFFECTS: TypeMapping<{
   ],
 });
 
-const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = LEAF({
-  kind: 'txe-offchain-effects',
-  serialization: {
-    fn: ({ effects }) => {
-      const rawArrayStorage = effects
-        .map(e => e.concat(Array(MAX_OFFCHAIN_EFFECT_LEN - e.length).fill(Fr.ZERO)))
-        .concat(
-          Array(MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY - effects.length).fill(Array(MAX_OFFCHAIN_EFFECT_LEN).fill(Fr.ZERO)),
-        )
-        .flat();
-      const effectLengths = effects
-        .map(e => new Fr(e.length))
-        .concat(Array(MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY - effects.length).fill(Fr.ZERO));
-
-      return [rawArrayStorage, effectLengths, new Fr(effects.length)] as (Fr | Fr[])[];
-    },
-  },
-  // Flattened effect storage, per-effect lengths, then the effect count.
-  shape: [
-    { len: MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY * MAX_OFFCHAIN_EFFECT_LEN },
-    { len: MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY },
-    'scalar',
-  ],
-});
+const TXE_OFFCHAIN_EFFECTS: TypeMapping<Fr[][]> = FIXED_BOUNDED_VEC(
+  FIXED_BOUNDED_VEC(FIELD, MAX_OFFCHAIN_EFFECT_LEN),
+  MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY,
+);
 
 const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Option<Fr>; anchorBlockTimestamp: bigint }> = STRUCT([
   { name: 'txHash', type: OPTION(FIELD) },
@@ -216,35 +197,16 @@ const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> =
   1,
 );
 
-const EVENT_SELECTOR: TypeMapping<EventSelector> = SCALAR({
+export const EVENT_SELECTOR: TypeMapping<EventSelector> = SCALAR({
   kind: 'event-selector',
   serialization: { fn: v => [v.toField()] },
   deserialization: { fn: ([reader]) => EventSelector.fromField(reader.readField()) },
 });
 
-const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = LEAF({
-  kind: 'txe-private-events',
-  serialization: {
-    fn: events => {
-      const rawArrayStorage = events
-        .map(e => e.concat(Array(MAX_PRIVATE_EVENT_LEN - e.length).fill(Fr.ZERO)))
-        .concat(
-          Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(Array(MAX_PRIVATE_EVENT_LEN).fill(Fr.ZERO)),
-        )
-        .flat();
-      const eventLengths = events
-        .map(e => new Fr(e.length))
-        .concat(Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(Fr.ZERO));
-      return [rawArrayStorage, eventLengths, new Fr(events.length)] as (Fr | Fr[])[];
-    },
-  },
-  // Flattened event storage, per-event lengths, then the event count.
-  shape: [
-    { len: MAX_PRIVATE_EVENTS_PER_TXE_QUERY * MAX_PRIVATE_EVENT_LEN },
-    { len: MAX_PRIVATE_EVENTS_PER_TXE_QUERY },
-    'scalar',
-  ],
-});
+const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = FIXED_BOUNDED_VEC(
+  FIXED_BOUNDED_VEC(FIELD, MAX_PRIVATE_EVENT_LEN),
+  MAX_PRIVATE_EVENTS_PER_TXE_QUERY,
+);
 
 export const TXE_ORACLE_REGISTRY = {
   ...ORACLE_REGISTRY,

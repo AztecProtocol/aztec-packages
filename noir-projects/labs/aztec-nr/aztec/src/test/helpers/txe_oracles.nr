@@ -21,7 +21,7 @@ use crate::protocol::{
 /// [`oracle::version`](crate::oracle::version), which covers oracles used during contract execution by PXE.
 ///
 /// The TypeScript counterparts are in `yarn-project/txe/src/oracle/txe_oracle_version.ts`.
-pub global TXE_ORACLE_VERSION_MAJOR: Field = 5;
+pub global TXE_ORACLE_VERSION_MAJOR: Field = 6;
 pub global TXE_ORACLE_VERSION_MINOR: Field = 0;
 
 /// Asserts that the TXE oracle interface version is compatible.
@@ -170,18 +170,8 @@ unconstrained fn get_last_tx_effects_oracle() -> (Field, TxNoteHashes, TxNullifi
 /// Returns the raw offchain effect payloads emitted by the last top-level call into TXE.
 /// Each effect is a variable-length field array (e.g. offchain messages have a different size
 /// than authwit authorization requests).
-pub unconstrained fn get_last_call_offchain_effects() -> BoundedVec<BoundedVec<Field, MAX_OFFCHAIN_EFFECT_LEN>, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> {
-    let (raw_storage, effect_lengths, count) = get_last_call_offchain_effects_oracle();
-
-    let mut effects = BoundedVec::new();
-    for i in 0..count {
-        effects.push(BoundedVec::from_parts(raw_storage[i], effect_lengths[i]));
-    }
-    effects
-}
-
 #[oracle(aztec_txe_getLastCallOffchainEffects)]
-unconstrained fn get_last_call_offchain_effects_oracle() -> ([[Field; MAX_OFFCHAIN_EFFECT_LEN]; MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY], [u32; MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY], u32) {}
+pub unconstrained fn get_last_call_offchain_effects() -> BoundedVec<BoundedVec<Field, MAX_OFFCHAIN_EFFECT_LEN>, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY> {}
 
 /// The context of the last top-level call into TXE, as captured by the call executor. Refreshed on
 /// every top-level call.
@@ -204,30 +194,12 @@ pub unconstrained fn get_last_call_context() -> TXECallContext {}
 pub unconstrained fn get_default_address() -> AztecAddress {}
 
 // experimental
+#[oracle(aztec_txe_getPrivateEvents)]
 pub(crate) unconstrained fn get_private_events(
     selector: EventSelector,
     contract_address: AztecAddress,
     scope: AztecAddress,
-) -> BoundedVec<BoundedVec<Field, MAX_EVENT_SERIALIZATION_LENGTH>, MAX_PRIVATE_EVENTS_PER_TXE_QUERY> {
-    // This is a workaround as Noir does not currently let us return nested structs with arrays. We instead return a
-    // raw multidimensional array in get_private_events_oracle and create the BoundedVecs here.
-
-    let (raw_array_storage, event_lengths, query_length) = get_private_events_oracle(selector, contract_address, scope);
-
-    let mut events = BoundedVec::new();
-    for i in 0..query_length {
-        events.push(BoundedVec::from_parts(raw_array_storage[i], event_lengths[i]));
-    }
-
-    events
-}
-
-#[oracle(aztec_txe_getPrivateEvents)]
-unconstrained fn get_private_events_oracle(
-    selector: EventSelector,
-    contract_address: AztecAddress,
-    scope: AztecAddress,
-    ) -> ([[Field; MAX_EVENT_SERIALIZATION_LENGTH]; MAX_PRIVATE_EVENTS_PER_TXE_QUERY], [u32; MAX_PRIVATE_EVENTS_PER_TXE_QUERY], u32) {}
+) -> BoundedVec<BoundedVec<Field, MAX_EVENT_SERIALIZATION_LENGTH>, MAX_PRIVATE_EVENTS_PER_TXE_QUERY> {}
 
 #[oracle(aztec_txe_advanceBlocksBy)]
 pub unconstrained fn advance_blocks_by(blocks: u32) {}

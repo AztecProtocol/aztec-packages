@@ -55,7 +55,7 @@ import { CallContext, GlobalVariables, OFFCHAIN_MESSAGE_IDENTIFIER, TxContext } 
 
 import { z } from 'zod';
 
-import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
+import { DEFAULT_ADDRESS } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { GasSettingsData } from './oracle/noir-structs/gas_settings_data.js';
 import {
@@ -191,7 +191,7 @@ export interface TXESessionStateHandler {
    * `OffchainMessage` structs happens on the Noir side of the test helper. Marks the buffer as queried so the
    * unqueried-messages warning doesn't fire on the next reset.
    */
-  getLastCallOffchainEffects(): { effects: Fr[][] };
+  getLastCallOffchainEffects(): Fr[][];
 
   /**
    * Returns the context of the last top-level call: its tx hash (absent if the call was tx-less) and the anchor
@@ -512,18 +512,11 @@ export class TXESession implements TXESessionStateHandler {
     return result;
   }
 
-  getLastCallOffchainEffects(): { effects: Fr[][] } {
+  getLastCallOffchainEffects(): Fr[][] {
     this.lastCallInfo.queried = true;
     const effects = this.lastCallInfo.offchainEffects;
 
-    if (effects.length > MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY) {
-      throw new Error(`${effects.length} offchain effects exceed max ${MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY}`);
-    }
-    if (effects.some(e => e.length > MAX_OFFCHAIN_EFFECT_LEN)) {
-      throw new Error(`Some offchain effect has length larger than max ${MAX_OFFCHAIN_EFFECT_LEN}`);
-    }
-
-    return { effects };
+    return effects;
   }
 
   getLastCallContext(): { txHash: Option<Fr>; anchorBlockTimestamp: bigint } {
