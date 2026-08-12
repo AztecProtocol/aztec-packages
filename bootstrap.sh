@@ -681,7 +681,7 @@ function check_compat_artifacts_tracked {
 
   if [ ${#missing[@]} -gt 0 ]; then
     echo "ERROR: stable release(s) missing committed compat artifacts: ${missing[*]}" >&2
-    echo "Add yarn-project/end-to-end/legacy-contracts/<version>.tar.gz for each (see that README)." >&2
+    echo "Run yarn-project/end-to-end/legacy-contracts/add_version.sh <version> for each and commit the result." >&2
     return 1
   fi
   echo "Compat artifacts tracked for all prior stable v${compat_major} releases."

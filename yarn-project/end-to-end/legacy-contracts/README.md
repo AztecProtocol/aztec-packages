@@ -16,19 +16,11 @@ These artifacts are used to test for backwards-compatibility during CI.
 
 ## Adding a version
 
+After a stable release `X.Y.Z` is published to npm, run:
 
 ```bash
-cd $(mktemp -d)
-for p in noir-contracts.js noir-test-contracts.js accounts; do
-  npm pack "@aztec/$p@X.Y.Z"
-  mkdir -p "X.Y.Z/$p"
-  tar -xzf aztec-$p-X.Y.Z.tgz
-  cp -r package/artifacts "X.Y.Z/$p/artifacts" && rm -rf package
-done
-find X.Y.Z -type f ! -name '*.json' -delete
-tar --sort=name --owner=0 --group=0 --numeric-owner --mtime='2000-01-01 00:00:00Z' \
-    -cf - X.Y.Z | gzip -n -9 > X.Y.Z.tar.gz
+./add_version.sh X.Y.Z
 ```
 
-Commit the resulting `X.Y.Z.tar.gz` in this directory. The tar/gzip flags make the output
-deterministic, so regenerating from the same npm packages yields a byte-identical file.
+and commit the resulting `X.Y.Z.tar.gz`. The script builds the tarball with deterministic tar/gzip
+flags, so regenerating from the same npm packages yields a byte-identical file.
