@@ -1,7 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
+import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS, NoCommitteeError } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -1430,6 +1430,31 @@ describe('ValidatorClient', () => {
       expect(mockCheckpointBuilder.buildBlock).not.toHaveBeenCalled();
     });
 
+    // The p2p layer already accepted this exact signed proposal on arrival, so a re-validation that now
+    // disagrees reflects a local view that changed (committee lookup, clock, config), not proposer
+    // misbehavior. Slashing on it would punish an honest proposer for this node's own inconsistency.
+    it('does not slash when downstream re-validation contradicts the accepted proposal', async () => {
+      epochCache.getProposerAttesterAddressInSlot.mockRejectedValue(new NoCommitteeError());
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+
+      const isValid = await validatorClient.validateBlockProposal(proposal, sender);
+
+      expect(isValid).toBe(false);
+      expect(emitSpy).not.toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, expect.anything());
+      expect(validatorClient.hasInvalidProposals(proposal.slotNumber)).toBe(false);
+    });
+
+    it('does not slash when no expected proposer is known at re-validation time', async () => {
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(undefined);
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+
+      const isValid = await validatorClient.validateBlockProposal(proposal, sender);
+
+      expect(isValid).toBe(false);
+      expect(emitSpy).not.toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, expect.anything());
+      expect(validatorClient.hasInvalidProposals(proposal.slotNumber)).toBe(false);
+    });
+
     // A tx collection failure that is not proposer misbehavior (pool error, network error) must not be
     // classified as an invalid proposal, so it keeps propagating to the p2p caller.
     it('propagates generic tx collection errors without slashing', async () => {
@@ -1470,37 +1495,32 @@ describe('ValidatorClient', () => {
       expect(isValid).toBe(true);
     });
 
-    it('should return false if the proposal is not for the current or next slot', async () => {
+    // Whether a proposal arrived in time is decided once, at p2p ingress (covered by the p2p proposal
+    // validator's receive-window tests). Re-applying that gate here would make the verdict depend on how
+    // long this node took to get around to the proposal, so validation past the window is expected to
+    // succeed and must never be treated as a proposer offense.
+    it('validates a proposal without slashing even once its receive window has closed', async () => {
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposal.getSender());
+      const staleSlot = SlotNumber(proposal.slotNumber + 20);
       epochCache.getTargetAndNextSlot.mockReturnValue({
-        targetSlot: SlotNumber(proposal.slotNumber + 20),
+        targetSlot: staleSlot,
         nextSlot: SlotNumber(proposal.slotNumber + 21),
       });
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
-        slot: SlotNumber(proposal.slotNumber + 20),
+        slot: staleSlot,
         ts: 0n,
-        nowMs: 0n,
+        nowMs: BigInt(staleSlot) * 24_000n,
       });
-      // Keep the wall-clock slot consistent with the "now" set above so the always-on pipelining
-      // acceptance window correctly treats the proposal's slot as stale (not the current slot).
-      epochCache.getSlotNow.mockReturnValue(SlotNumber(proposal.slotNumber + 20));
-      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(proposal.slotNumber + 20),
-        ts: 0n,
-        nowSeconds: 0n,
-      });
-      epochCache.getTargetSlot.mockReturnValue(SlotNumber(proposal.slotNumber + 20));
-      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(proposal.slotNumber + 21),
-        ts: 0n,
-        nowSeconds: 0n,
-      });
+      epochCache.getSlotNow.mockReturnValue(staleSlot);
+      epochCache.getTargetSlot.mockReturnValue(staleSlot);
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-      expect(isValid).toBe(false);
+
+      expect(isValid).toBe(true);
+      expect(emitSpy).not.toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, expect.anything());
+      expect(validatorClient.hasInvalidProposals(proposal.slotNumber)).toBe(false);
     });
 
     it('should return false if messages do not match', async () => {

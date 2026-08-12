@@ -2,14 +2,14 @@ import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS, NoCommitteeError } from '@aztec/ethereum/contracts';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
-import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
+import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
@@ -729,6 +729,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
     const blockProposalValidator = mock<BlockProposalValidator>();
     blockProposalValidator.validate.mockResolvedValue({ result: 'accept' } as any);
+    blockProposalValidator.validateStableFields.mockResolvedValue({ result: 'accept' } as any);
 
     const txProvider = mock<ITxProvider>();
     txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
@@ -865,6 +866,105 @@ describe('ProposalHandler checkpoint validation', () => {
         blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
         reason: 'block_number_already_exists',
       });
+    });
+  });
+
+  describe('handleBlockProposal downstream re-validation', () => {
+    /**
+     * Builds a genesis-parent proposal wired to a real p2p validator (rather than a mock), so the
+     * downstream re-validation exercises the same checks the p2p ingress layer runs.
+     */
+    async function setupWithRealValidator(signer: Secp256k1Signer) {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+        archiveRoot: Fr.random(),
+        signer,
+      });
+
+      blockSource.getGenesisValues.mockResolvedValue({
+        genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
+      } as any);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      const txProvider = mock<ITxProvider>();
+      txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
+
+      const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
+        txsPermitted: true,
+        signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+        clockDisparityMs: 0,
+      });
+
+      const blockHandler = new ProposalHandler(
+        checkpointsBuilder,
+        mock<WorldStateSynchronizer>(),
+        blockSource,
+        l1ToL2MessageSource,
+        txProvider,
+        blockProposalValidator,
+        epochCache,
+        consensusTimetable,
+        config,
+        mock<BlobClientInterface>(),
+        new CheckpointReexecutionTracker(),
+        metrics,
+        dateProvider,
+      );
+      return { proposal, blockHandler };
+    }
+
+    /** Sets the wall clock the p2p receive-window check reads (the epoch cache, not the date provider). */
+    function setValidatorClock(nowMs: number) {
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(0),
+        slot: SlotNumber(1),
+        ts: BigInt(Math.floor(nowMs / 1000)),
+        nowMs: BigInt(nowMs),
+      });
+    }
+
+    // The proposal was accepted at p2p ingress while its receive window was still open; the window having
+    // since closed says nothing about the proposal itself, so processing must not reject it on that basis.
+    it('processes a proposal whose receive window closed while it waited to be processed', async () => {
+      const signer = Secp256k1Signer.random();
+      const { proposal, blockHandler } = await setupWithRealValidator(signer);
+      // Slot 1's proposal receive window is [-4s, 17s]; 30s is well past its close.
+      setValidatorClock(30_000);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({ isValid: true, blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
+    });
+
+    it('reports proposal_revalidation_failed when the committee view is unavailable at processing time', async () => {
+      const signer = Secp256k1Signer.random();
+      const { proposal, blockHandler } = await setupWithRealValidator(signer);
+      setValidatorClock(10_000);
+      epochCache.getProposerAttesterAddressInSlot.mockRejectedValue(new NoCommitteeError());
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({ isValid: false, reason: 'proposal_revalidation_failed' });
+    });
+
+    it('reports proposal_revalidation_failed when no expected proposer is known at processing time', async () => {
+      const signer = Secp256k1Signer.random();
+      const { proposal, blockHandler } = await setupWithRealValidator(signer);
+      setValidatorClock(10_000);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(undefined);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({ isValid: false, reason: 'proposal_revalidation_failed' });
+    });
+
+    // Stable fields must still be re-checked downstream, so a proposal that does not match the expected
+    // proposer is rejected even though the arrival-window check no longer applies.
+    it('still rejects a proposal signed by the wrong proposer', async () => {
+      const signer = Secp256k1Signer.random();
+      const { proposal, blockHandler } = await setupWithRealValidator(signer);
+      setValidatorClock(10_000);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(Secp256k1Signer.random().address);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({ isValid: false, reason: 'proposal_revalidation_failed' });
     });
   });
 });

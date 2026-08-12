@@ -57,6 +57,7 @@ import type { ValidatorMetrics } from './metrics.js';
 export type BlockProposalValidationFailureReason =
   | 'invalid_signature'
   | 'invalid_proposal'
+  | 'proposal_revalidation_failed'
   | 'parent_block_not_found'
   | 'parent_block_wrong_slot'
   | 'in_hash_mismatch'
@@ -168,7 +169,14 @@ type BlockProposalSlotValidationResult =
 
 const MAX_TRACKED_INVALID_PROPOSAL_SLOTS = 1000;
 
-/** Block-proposal validation failures that constitute a slashable invalid-block offense. */
+/**
+ * Block-proposal validation failures that constitute a slashable invalid-block offense.
+ *
+ * `proposal_revalidation_failed` is deliberately absent: this node already accepted the exact signed payload
+ * when it arrived, so a contradictory answer on re-validation is a local consistency failure, not evidence
+ * against the proposer. `invalid_proposal` remains slashable because it now only comes from the structural
+ * checkpoint-consistency checks in `computeCheckpointNumber`, which are properties of the payload itself.
+ */
 export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailureReason[] = [
   'state_mismatch',
   'failed_txs',
@@ -472,12 +480,23 @@ export class ProposalHandler {
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
 
-    // Check that the proposal is from the current proposer, or the next proposer
-    // This should have been handled by the p2p layer, but we double check here out of caution
-    const validationResult = await this.blockProposalValidator.validate(proposal);
+    // Defense in depth over the p2p ingress checks: re-verify the signed payload's stable fields (signature
+    // context, signature, expected proposer, block index, transaction fields). Deliberately excludes the
+    // arrival-window check, which p2p already applied when this proposal was accepted; its outcome depends
+    // on the wall clock at evaluation time, so repeating it here would reject an on-time proposal purely
+    // because this node started processing it late.
+    //
+    // Since the same node already accepted this exact signed payload on arrival, a contradictory answer now
+    // is a local consistency failure (clock, epoch-cache view, or option drift), not fresh evidence of
+    // proposer misconduct — hence a non-slashable reason.
+    const validationResult = await this.blockProposalValidator.validateStableFields(proposal);
     if (validationResult.result !== 'accept') {
-      this.log.warn(`Proposal is not valid, skipping processing`, proposalInfo);
-      return { isValid: false, reason: 'invalid_proposal' };
+      this.log.warn(`Proposal is not valid, skipping processing`, {
+        ...proposalInfo,
+        validationResult: validationResult.result,
+        validationCode: validationResult.code,
+      });
+      return { isValid: false, reason: 'proposal_revalidation_failed' };
     }
 
     // A tx can only appear once in a block: the second copy would emit nullifiers already emitted by the

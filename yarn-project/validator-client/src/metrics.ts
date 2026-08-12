@@ -67,6 +67,7 @@ export class ValidatorMetrics {
           'txs_not_available',
           'timeout',
           'unknown_error',
+          'proposal_revalidation_failed',
         ],
         [Attributes.IS_COMMITTEE_MEMBER]: [true, false],
       },

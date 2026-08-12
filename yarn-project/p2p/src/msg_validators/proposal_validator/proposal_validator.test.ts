@@ -125,7 +125,11 @@ describe('ProposalValidator', () => {
       const proposal = await factory(currentSlot, Secp256k1Signer.random(), foreignSignatureContext);
 
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.LowToleranceError,
+        code: 'foreign_signature_context',
+      });
     });
 
     it('rejects with high tolerance error if slot is outside its receive window', async () => {
@@ -142,7 +146,11 @@ describe('ProposalValidator', () => {
 
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(EthAddress.random());
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.HighToleranceError,
+        code: 'outside_receive_window',
+      });
       expect(epochCache.getProposerAttesterAddressInSlot).not.toHaveBeenCalled();
     });
 
@@ -172,7 +180,11 @@ describe('ProposalValidator', () => {
 
       mockGetProposer(signer.address, EthAddress.random());
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.MidToleranceError,
+        code: 'invalid_signature',
+      });
       expect(epochCache.getProposerAttesterAddressInSlot).not.toHaveBeenCalled();
     });
 
@@ -181,7 +193,11 @@ describe('ProposalValidator', () => {
 
       mockGetProposer(EthAddress.random(), EthAddress.random());
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.MidToleranceError,
+        code: 'wrong_proposer',
+      });
     });
 
     it('rejects with mid tolerance error if proposer is wrong for next slot', async () => {
@@ -197,7 +213,11 @@ describe('ProposalValidator', () => {
       });
       mockGetProposer(EthAddress.random(), EthAddress.random());
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.MidToleranceError,
+        code: 'wrong_proposer',
+      });
     });
 
     it('rejects with mid tolerance error if current proposer sends for next slot', async () => {
@@ -212,7 +232,11 @@ describe('ProposalValidator', () => {
       });
       mockGetProposer(currentProposer.address, EthAddress.random());
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.MidToleranceError,
+        code: 'wrong_proposer',
+      });
     });
 
     it('rejects with high tolerance error when proposer is undefined (open committee)', async () => {
@@ -220,7 +244,11 @@ describe('ProposalValidator', () => {
 
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(undefined);
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.HighToleranceError,
+        code: 'no_expected_proposer',
+      });
     });
 
     it('rejects with low tolerance error on NoCommitteeError', async () => {
@@ -228,7 +256,11 @@ describe('ProposalValidator', () => {
 
       epochCache.getProposerAttesterAddressInSlot.mockRejectedValue(new NoCommitteeError());
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.LowToleranceError,
+        code: 'no_committee',
+      });
     });
 
     it('accepts valid proposal for current slot', async () => {
@@ -303,7 +335,11 @@ describe('ProposalValidator', () => {
 
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.HighToleranceError,
+        code: 'outside_receive_window',
+      });
     });
   });
 
@@ -332,7 +368,11 @@ describe('ProposalValidator', () => {
       });
 
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.HighToleranceError,
+        code: 'outside_receive_window',
+      });
     });
 
     it('accepts a checkpoint proposal for the target slot arriving within the receive window', async () => {
@@ -369,7 +409,11 @@ describe('ProposalValidator', () => {
       });
 
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.HighToleranceError,
+        code: 'outside_receive_window',
+      });
     });
   });
 
@@ -407,6 +451,7 @@ describe('ProposalValidator', () => {
       expect(await validateAt(buildFrameStart - deltaSeconds - 0.001)).toEqual({
         result: 'reject',
         severity: PeerErrorSeverity.HighToleranceError,
+        code: 'outside_receive_window',
       });
     });
 
@@ -418,6 +463,7 @@ describe('ProposalValidator', () => {
       expect(await validateAt(proposalDeadline + deltaSeconds + 0.001)).toEqual({
         result: 'reject',
         severity: PeerErrorSeverity.HighToleranceError,
+        code: 'outside_receive_window',
       });
     });
   });
@@ -439,7 +485,11 @@ describe('ProposalValidator', () => {
 
         const proposal = await makeBlockProposal({ txHashes: [TxHash.random(), TxHash.random()] });
         const result = await validator.validateTxs(proposal);
-        expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+        expect(result).toEqual({
+          result: 'reject',
+          severity: PeerErrorSeverity.MidToleranceError,
+          code: 'txs_not_permitted',
+        });
       });
 
       it('accepts proposal with no txHashes when txs not permitted', async () => {
@@ -476,7 +526,11 @@ describe('ProposalValidator', () => {
         Object.defineProperty(proposal, 'txs', { get: () => [fakeTx], configurable: true });
 
         const result = await validator.validateTxs(proposal);
-        expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+        expect(result).toEqual({
+          result: 'reject',
+          severity: PeerErrorSeverity.MidToleranceError,
+          code: 'embedded_tx_not_listed',
+        });
       });
 
       it('rejects if embedded tx has invalid tx hash', async () => {
@@ -487,7 +541,11 @@ describe('ProposalValidator', () => {
         Object.defineProperty(proposal, 'txs', { get: () => [fakeTx], configurable: true });
 
         const result = await validator.validateTxs(proposal);
-        expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
+        expect(result).toEqual({
+          result: 'reject',
+          severity: PeerErrorSeverity.LowToleranceError,
+          code: 'invalid_embedded_tx_hash',
+        });
       });
     });
 
@@ -507,7 +565,11 @@ describe('ProposalValidator', () => {
 
         const proposal = await makeBlockProposal({ txHashes: Array.from({ length: 3 }, () => TxHash.random()) });
         const result = await validator.validateTxs(proposal);
-        expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+        expect(result).toEqual({
+          result: 'reject',
+          severity: PeerErrorSeverity.MidToleranceError,
+          code: 'too_many_txs',
+        });
       });
 
       it('accepts when txHashes count equals maxTxsPerBlock', async () => {
@@ -583,7 +645,11 @@ describe('ProposalValidator', () => {
         signer,
       });
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.MidToleranceError,
+        code: 'index_beyond_attestable_ceiling',
+      });
     });
 
     it('accepts a block proposal whose indexWithinCheckpoint is below the cap (4 < 5)', async () => {
@@ -623,7 +689,11 @@ describe('ProposalValidator', () => {
         signer,
       });
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.MidToleranceError,
+        code: 'index_beyond_attestable_ceiling',
+      });
     });
 
     it('accepts the last block within the attestable limit', async () => {
@@ -663,7 +733,11 @@ describe('ProposalValidator', () => {
         },
       });
       const result = await checkpointValidator.validate(proposal);
-      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+      expect(result).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.MidToleranceError,
+        code: 'index_beyond_attestable_ceiling',
+      });
     });
 
     it('accepts when the embedded last block is within the attestable limit', async () => {

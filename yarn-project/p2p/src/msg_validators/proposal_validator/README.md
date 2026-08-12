@@ -38,7 +38,7 @@ Only runs on validator nodes. Non-validator nodes use a default handler that tri
 | # | Rule | Failure Reason |
 |---|------|----------------|
 | 12 | Signature re-check | `invalid_proposal` |
-| 13 | ProposalValidator re-run | `invalid_proposal` |
+| 13 | ProposalValidator re-run, via `validateStableFields` (rules 2-8; the rule 1 receive-window check is deliberately *not* repeated, since its outcome depends on the wall clock when it runs rather than on the proposal) | `proposal_revalidation_failed` |
 | 14 | Self-proposal filter | Ignored silently |
 | 15 | Parent block exists (`lastArchive.root` matches known block or genesis) | `parent_block_not_found` |
 | 16 | Parent block slot <= proposal slot | `parent_block_wrong_slot` |
@@ -55,7 +55,7 @@ Only runs on validator nodes. Non-validator nodes use a default handler that tri
 
 **Conditional re-execution**: rules 22-24 only run when at least one condition is true: `fishermanMode` enabled, `slashBroadcastedInvalidBlockPenalty > 0`, committee membership, `alwaysReexecuteBlockProposals`, or `blobClient.canUpload()`.
 
-**Slashing**: only `state_mismatch` and `failed_txs` trigger on-chain slashing (`OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL`, gated by `slashBroadcastedInvalidBlockPenalty > 0`). Unknown errors during re-execution do NOT slash.
+**Slashing**: only `state_mismatch` and `failed_txs` trigger on-chain slashing (`OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL`, gated by `slashBroadcastedInvalidBlockPenalty > 0`). Unknown errors during re-execution do NOT slash. `proposal_revalidation_failed` is likewise never slashable: this node already accepted the same signed proposal at Stage 1, so a re-check that now disagrees points at a changed local view (committee, clock, config), not at the proposer.
 
 **Embedded tx validation**: txs in `signedTxs` are validated via `createTxValidatorForBlockProposalReceivedTxs` (well-formedness only) when stored in the tx pool. Invalid embedded txs are rejected from the pool but do not cause the block proposal itself to be rejected at gossipsub level.
 

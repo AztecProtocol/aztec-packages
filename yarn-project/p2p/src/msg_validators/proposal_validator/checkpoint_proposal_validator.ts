@@ -1,13 +1,8 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import type {
-  CheckpointProposal,
-  CoordinationSignatureContext,
-  P2PValidator,
-  ValidationResult,
-} from '@aztec/stdlib/p2p';
+import type { CheckpointProposal, CoordinationSignatureContext, P2PValidator } from '@aztec/stdlib/p2p';
 import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 
-import { ProposalValidator } from '../proposal_validator/proposal_validator.js';
+import { type ProposalValidationResult, ProposalValidator } from '../proposal_validator/proposal_validator.js';
 
 export class CheckpointProposalValidator implements P2PValidator<CheckpointProposal> {
   private proposalValidator: ProposalValidator;
@@ -27,7 +22,7 @@ export class CheckpointProposalValidator implements P2PValidator<CheckpointPropo
     this.proposalValidator = new ProposalValidator(epochCache, timetable, opts, 'p2p:checkpoint_proposal_validator');
   }
 
-  async validate(proposal: CheckpointProposal): Promise<ValidationResult> {
+  async validate(proposal: CheckpointProposal): Promise<ProposalValidationResult> {
     const headerResult = await this.proposalValidator.validate(proposal);
     if (headerResult.result !== 'accept') {
       return headerResult;
