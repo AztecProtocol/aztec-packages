@@ -14,4 +14,4 @@ export const TXE_ORACLE_VERSION_MINOR = 1;
  *   - TXE_ORACLE_VERSION_MAJOR (and reset MINOR to 0) for breaking changes, or
  *   - TXE_ORACLE_VERSION_MINOR for additive changes (new oracle method added).
  */
-export const TXE_ORACLE_INTERFACE_HASH = '1a6c578d0a47cd8dd7dae07fd00abe781225a73920c596d873afcc061c0e4284';
+export const TXE_ORACLE_INTERFACE_HASH = '86d900da6ca21d8dee76b790175aaaee9e865bf99950844e2dc727250fe14a40';

@@ -189,6 +189,7 @@ unconstrained fn get_last_call_offchain_effects_oracle() -> ([[Field; MAX_OFFCHA
 
 /// The context of the last top-level call into TXE, as captured by the call executor. Refreshed on
 /// every top-level call.
+#[derive(Eq)]
 pub struct TXECallContext {
     /// Tx hash of the top-level call, or `None` if the call was tx-less (`execute_utility`, context
     /// setters, etc.).

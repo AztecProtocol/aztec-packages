@@ -25,8 +25,10 @@ import {
   type MaybePromise,
   OPTION,
   ORACLE_REGISTRY,
+  type Option,
   type OracleRegistryEntry,
   type OutputSlot,
+  PUBLIC_KEYS,
   type ParamTypes,
   SCALAR,
   STR,
@@ -120,11 +122,10 @@ const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = LEAF({
   shape: Array<SlotShape>(PRIVATE_CONTEXT_INPUTS_LENGTH).fill('scalar'),
 });
 
-const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = LEAF({
-  kind: 'complete-address',
-  serialization: { fn: v => [v.address.toField(), ...v.publicKeys.toFields()] },
-  shape: Array<SlotShape>(8).fill('scalar'), // address + 7 public-key fields
-});
+const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = STRUCT([
+  { name: 'address', type: AZTEC_ADDRESS },
+  { name: 'publicKeys', type: PUBLIC_KEYS },
+]);
 
 const TXE_TX_EFFECTS: TypeMapping<{
   txHash: TxHash;
@@ -198,16 +199,10 @@ const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = LEAF({
   ],
 });
 
-const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }> = LEAF({
-  kind: 'txe-call-context',
-  serialization: {
-    fn: ({ txHash, anchorBlockTimestamp }) => {
-      const isSome = txHash.isZero() ? 0 : 1;
-      return [new Fr(isSome), txHash, new Fr(anchorBlockTimestamp)];
-    },
-  },
-  shape: ['scalar', 'scalar', 'scalar'], // discriminant, txHash, anchor block timestamp
-});
+const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Option<Fr>; anchorBlockTimestamp: bigint }> = STRUCT([
+  { name: 'txHash', type: OPTION(FIELD) },
+  { name: 'anchorBlockTimestamp', type: U64 },
+]);
 
 const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> = FIXED_ARRAY(
   STRUCT([
