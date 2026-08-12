@@ -142,8 +142,7 @@ CI splits each `it` in a `.parallel.test.ts` file into its own docker job, runni
 
 ### CI test discovery — `bootstrap.sh`
 
-`end-to-end/bootstrap.sh` enumerates tests in two arrays — the standard run's in `test_cmds`, the
-compat sweep's in `compat_per_version_test_cmds` — and a test must resolve through the relevant one
+`end-to-end/bootstrap.sh` enumerates tests in two arrays, and a test must resolve through the relevant one
 or it **won't run in CI**:
 
 `test_cmds` — the standard run. Covers each category with a recursive glob (e.g.
