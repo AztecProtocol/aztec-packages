@@ -11,13 +11,11 @@ export const MAX_CONFIDENCE = 5;
  * A call graph over contract functions - who calls whom - learned from the direct calls observed in past jobs, so
  * a function's predicted callees can sync their contracts before execution reaches them.
  *
- * A function's direct calls are fixed along a given execution path: constrained delivery calls the handshake
- * registry, a transfer may call an authwit, an AMM calls its tokens. Calls are keyed per function, not per contract,
- * since different functions of a contract call different contracts. See {@link commitJob} for how each call's
- * confidence is learned from committed jobs.
- *
- * The graph is predictive, not ground truth: a function's calls vary with its arguments and with state, so it only
- * holds the calls observed often enough to bet on.
+ * A function's direct calls tend to repeat across jobs: constrained delivery calls the handshake registry, a transfer
+ * may call an authwit, an AMM calls its tokens. The same function does not always make the same calls, though: they
+ * can depend on context or storage state. A call must therefore repeat often enough to earn confidence before it is
+ * predicted. Calls are keyed per function, not per contract, since different functions of a contract call different
+ * contracts. See {@link commitJob} for how each call's confidence is learned from committed jobs.
  *
  * Purely in-memory bookkeeping: the graph is lost when PXE is rebuilt (e.g. on restart).
  */
@@ -59,9 +57,7 @@ export class ContractCallGraph {
   }
 
   /**
-   * Learns from the calls the committed job observed: each observed call gains a point of confidence (capped at
-   * {@link MAX_CONFIDENCE}), each of the caller's known callees it did not call loses one and is dropped at zero,
-   * and first-time callees enter below {@link PREDICTION_THRESHOLD}. A function that called nothing keeps its
+   * Commits the job so the calls it observed are recorded and learned from. A function that called nothing keeps its
    * callees untouched, so read-only uses (e.g. reading notes or events) erode nothing.
    */
   commitJob(jobId: JobId): void {
@@ -82,6 +78,7 @@ export class ContractCallGraph {
           callees.set(callee, updated);
         }
       }
+      // First-time callees enter at 1, below PREDICTION_THRESHOLD: a call must repeat before it is predicted.
       [...observed].filter(callee => !callees.has(callee)).forEach(callee => callees.set(callee, 1));
       this.callConfidence.set(caller, callees);
     }
@@ -104,9 +101,9 @@ export type ContractFunction = {
 type JobId = string;
 
 /** A {@link ContractFunction} flattened to a `contractAddress:selector` string, so maps can key on it. */
-type CallKey = `0x${string}:${string}`;
+export type CallKey = `0x${string}:${string}`;
 
-function toCallKey({ address, selector }: ContractFunction): CallKey {
+export function toCallKey({ address, selector }: ContractFunction): CallKey {
   return `${address.toString()}:${selector.toString()}`;
 }
 

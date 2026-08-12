@@ -343,6 +343,7 @@ export class TXESession implements TXESessionStateHandler {
     const archiver = new TXEArchiver(store);
     const anchorBlockStore = new AnchorBlockStore(store);
     const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
+    jobCoordinator.registerStore(stateMachine.contractSyncService);
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());

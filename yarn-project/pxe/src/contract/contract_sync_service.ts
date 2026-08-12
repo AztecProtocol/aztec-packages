@@ -11,7 +11,7 @@ import type { StagedStore } from '../job_coordinator/job_coordinator.js';
 import { NoteService } from '../notes/note_service.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
-import { ContractCallGraph, type ContractFunction } from './contract_call_graph.js';
+import { type CallKey, ContractCallGraph, type ContractFunction, toCallKey } from './contract_call_graph.js';
 import type { ContractClassService } from './contract_class_service.js';
 import { syncScope } from './helpers.js';
 
@@ -34,9 +34,10 @@ export class ContractSyncService implements StagedStore {
   // (`contractAddress:scopeAddress`). The value is a promise that resolves when the contract is synced.
   private readonly syncedContracts: Map<SyncKey, Promise<void>> = new Map();
 
-  // job -> sync promises triggered by it. A speculative sync is not awaited by any request unless the job actually
-  // uses its contract, so every sync is tracked here for `settle` to await before the job commits or discards.
-  private readonly syncsTriggeredByJob: Map<JobId, Promise<void>[]> = new Map();
+  // job -> sync bookkeeping, kept for the job's lifetime:
+  // - every sync the job triggered, so all of them can be awaited before committing or discarding.
+  // - the functions whose predictions have already fired, so cycles in the predicted graph are avoided.
+  private readonly jobState: Map<JobId, JobSyncState> = new Map();
 
   // Predicts a function's callees from the calls observed in past jobs, driving speculative sync.
   private readonly callGraph: ContractCallGraph;
@@ -85,19 +86,19 @@ export class ContractSyncService implements StagedStore {
   }
 
   /**
-   * Waits until every sync the job started has settled, so all its staged writes land before the job's stores
-   * commit or discard. Never rejects: sync failures are surfaced by the requests that await them, not here.
+   * Waits until every sync (speculative or not) the job started has settled, so all its staged writes land before
+   * the job's stores commit or discard. Never rejects: sync failures are surfaced by the requests that await them,
+   * not here.
    */
   async settle(jobId: JobId): Promise<void> {
-    const syncs = this.syncsTriggeredByJob.get(jobId);
-    if (!syncs) {
+    const state = this.jobState.get(jobId);
+    if (!state) {
       return;
     }
     // A settling sync can start more syncs, so drain until no new promises appear.
-    while (syncs.length > 0) {
-      await Promise.allSettled(syncs.splice(0));
+    while (state.syncs.length > 0) {
+      await Promise.allSettled(state.syncs.splice(0));
     }
-    this.syncsTriggeredByJob.delete(jobId);
   }
 
   /** Clears sync cache entries for the given scopes of a contract. */
@@ -116,7 +117,7 @@ export class ContractSyncService implements StagedStore {
 
   commit(jobId: JobId): Promise<void> {
     this.callGraph.commitJob(jobId);
-    this.syncsTriggeredByJob.delete(jobId);
+    this.jobState.delete(jobId);
     return Promise.resolve();
   }
 
@@ -125,7 +126,7 @@ export class ContractSyncService implements StagedStore {
     // the sync are also undone.
     this.syncedContracts.clear();
     this.callGraph.discardJob(jobId);
-    this.syncsTriggeredByJob.delete(jobId);
+    this.jobState.delete(jobId);
     return Promise.resolve();
   }
 
@@ -134,7 +135,7 @@ export class ContractSyncService implements StagedStore {
    *  1. Note nullifier sync (shared, batched across all unsynced scopes).
    *  2. Per-scope sync (individual, semaphore-bounded).
    * When concurrent contract sync is enabled, the invoked function's predicted direct callees start speculatively
-   * too, once the contract's own syncs have started (see {@link #speculativelySync}).
+   * too, even when the contract itself needs no syncing (see {@link #speculativelySync}).
    * @returns A promise that resolves once every requested scope is synced, including syncs already in flight from
    * concurrent calls. Speculative syncs are not included: those are only awaited by a later request that needs
    * their contract, or by the job's {@link settle}.
@@ -178,23 +179,18 @@ export class ContractSyncService implements StagedStore {
           });
         this.syncedContracts.set(key, promise);
 
-        let syncs = this.syncsTriggeredByJob.get(jobId);
-        if (!syncs) {
-          syncs = [];
-          this.syncsTriggeredByJob.set(jobId, syncs);
-        }
-        syncs.push(promise);
+        this.#stateForJob(jobId).syncs.push(promise);
       }
-
-      this.#speculativelySync(
-        contractAddress,
-        functionToInvokeAfterSync,
-        utilityExecutor,
-        anchorBlockHeader,
-        jobId,
-        scopes,
-      );
     }
+
+    this.#speculativelySync(
+      contractAddress,
+      functionToInvokeAfterSync,
+      utilityExecutor,
+      anchorBlockHeader,
+      jobId,
+      scopes,
+    );
 
     await this.#awaitSync(contractAddress, scopes);
   }
@@ -222,6 +218,15 @@ export class ContractSyncService implements StagedStore {
       return;
     }
     const caller = { address: contractAddress, selector: functionToInvokeAfterSync };
+
+    // Each function fires its predictions at most once per job, so a cycle in the predicted graph cannot recurse.
+    const { speculated } = this.#stateForJob(jobId);
+    const callerKey = toCallKey(caller);
+    if (speculated.has(callerKey)) {
+      return;
+    }
+    speculated.add(callerKey);
+
     // Callees are not de-duped: `#startSyncIfNeeded` is memoized per contract and scope, so a contract predicted by
     // several functions (or revisited by a cycle in the predicted tree) only syncs once.
     for (const callee of this.callGraph.predictDirectCallees(caller)) {
@@ -250,6 +255,15 @@ export class ContractSyncService implements StagedStore {
     // the note store handles concurrent operations.
     const noteService = new NoteService(this.noteStore, this.aztecNode, anchorBlockHeader, jobId);
     await noteService.syncNoteNullifiers(contractAddress, scopes);
+  }
+
+  #stateForJob(jobId: JobId): JobSyncState {
+    let state = this.jobState.get(jobId);
+    if (!state) {
+      state = { syncs: [], speculated: new Set() };
+      this.jobState.set(jobId, state);
+    }
+    return state;
   }
 
   /** Collects all relevant scope promises (including in-flight ones from concurrent calls) and awaits them. */
@@ -286,6 +300,8 @@ type ContractSyncRequest = {
 };
 
 type JobId = string;
+
+type JobSyncState = { syncs: Promise<void>[]; speculated: Set<CallKey> };
 
 /** Key of a contract's sync cache entry for a single scope: `contractAddress:scopeAddress`. */
 type SyncKey = `0x${string}:0x${string}`;

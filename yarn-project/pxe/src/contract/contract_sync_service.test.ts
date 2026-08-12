@@ -737,6 +737,37 @@ describe('ContractSyncService', () => {
       expectSyncedContracts([contractAddress, [scopeA]], [otherContract, [scopeA]], [grandChild, [scopeA]]);
     });
 
+    it('speculatively syncs the callees of a function of an already-synced contract', async () => {
+      const secondFn: ContractFunction = { address: contractAddress, selector: new FunctionSelector(0xe4) };
+      await learnDependencies({
+        count: PREDICTION_THRESHOLD,
+        calls: [{ caller: secondFn, callee: otherFn }],
+      });
+
+      // The first function syncs the contract; invoking a second function afterwards hits the sync cache, but its
+      // own predicted callees must still sync.
+      await service.ensureContractSynced({
+        contract: contractAddress,
+        functionToInvokeAfterSync: entryFn.selector,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId: 'job-3',
+        scopes: [scopeA],
+        triggeredBy: undefined,
+      });
+      await service.ensureContractSynced({
+        contract: contractAddress,
+        functionToInvokeAfterSync: secondFn.selector,
+        utilityExecutor,
+        anchorBlockHeader,
+        jobId: 'job-3',
+        scopes: [scopeA],
+        triggeredBy: undefined,
+      });
+      await tick();
+      expectSyncedContracts([contractAddress, [scopeA]], [otherContract, [scopeA]]);
+    });
+
     it('stops recursing when the known calls form a cycle', async () => {
       await learnDependencies({
         count: PREDICTION_THRESHOLD,
@@ -746,7 +777,8 @@ describe('ContractSyncService', () => {
         ],
       });
 
-      // Each contract syncs exactly once: the walk stops when it loops back to the already-syncing requester.
+      // Each contract syncs exactly once: a function fires its predictions at most once per job, so the walk stops
+      // when it loops back to a function that already fired.
       await service.ensureContractSynced({
         contract: contractAddress,
         functionToInvokeAfterSync: entryFn.selector,
