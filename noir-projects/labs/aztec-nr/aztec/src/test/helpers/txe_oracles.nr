@@ -21,7 +21,7 @@ use crate::protocol::{
 /// [`oracle::version`](crate::oracle::version), which covers oracles used during contract execution by PXE.
 ///
 /// The TypeScript counterparts are in `yarn-project/txe/src/oracle/txe_oracle_version.ts`.
-pub global TXE_ORACLE_VERSION_MAJOR: Field = 6;
+pub global TXE_ORACLE_VERSION_MAJOR: Field = 7;
 pub global TXE_ORACLE_VERSION_MINOR: Field = 0;
 
 /// Asserts that the TXE oracle interface version is compatible.
@@ -145,6 +145,7 @@ pub type TxPrivateLog = BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>;
 pub type TxPrivateLogs = BoundedVec<TxPrivateLog, MAX_PRIVATE_LOGS_PER_TX>;
 
 /// The side effects of a single transaction, as surfaced by [`get_last_tx_effects`].
+#[derive(Eq)]
 pub struct TxEffects {
     pub tx_hash: Field,
     pub note_hashes: TxNoteHashes,
@@ -153,19 +154,8 @@ pub struct TxEffects {
 }
 
 /// Returns the effects of the last transaction included by the TXE.
-pub unconstrained fn get_last_tx_effects() -> TxEffects {
-    let (tx_hash, note_hashes, nullifiers, raw_log_storage, log_lengths, log_count) = get_last_tx_effects_oracle();
-
-    let mut private_logs = BoundedVec::new();
-    for i in 0..log_count {
-        private_logs.push(BoundedVec::from_parts(raw_log_storage[i], log_lengths[i]));
-    }
-
-    TxEffects { tx_hash, note_hashes, nullifiers, private_logs }
-}
-
 #[oracle(aztec_txe_getLastTxEffects)]
-unconstrained fn get_last_tx_effects_oracle() -> (Field, TxNoteHashes, TxNullifiers, [[Field; PRIVATE_LOG_SIZE_IN_FIELDS]; MAX_PRIVATE_LOGS_PER_TX], [u32; MAX_PRIVATE_LOGS_PER_TX], u32) {}
+pub unconstrained fn get_last_tx_effects() -> TxEffects {}
 
 /// Returns the raw offchain effect payloads emitted by the last top-level call into TXE.
 /// Each effect is a variable-length field array (e.g. offchain messages have a different size
