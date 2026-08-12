@@ -701,7 +701,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       blockOverrides.gasLimit = MAX_L1_TX_LIMIT;
     }
 
-    return this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);
+    return await this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);
   }
 
   /**
