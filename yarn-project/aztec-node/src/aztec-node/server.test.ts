@@ -1071,6 +1071,40 @@ describe('aztec node', () => {
       expect(l2BlockSource.getBlockData).toHaveBeenCalledTimes(1);
     });
 
+    describe('logs query anchors that name no hash', () => {
+      it('resolves a block number to the concrete hash the log store checks', async () => {
+        l2LogsSource.getPrivateLogsByTags.mockResolvedValue([[]]);
+        scheduleUnseenBlockArrival();
+
+        await node.getPrivateLogsByTags({ tags: [SiloedTag.random()], referenceBlock: unseenBlockNumber });
+
+        expect(l2LogsSource.getPrivateLogsByTags).toHaveBeenCalledWith(
+          expect.objectContaining({ referenceBlock: unseenBlockHash }),
+        );
+      });
+
+      it('resolves a tag to the concrete hash the log store checks', async () => {
+        l2LogsSource.getPrivateLogsByTags.mockResolvedValue([[]]);
+
+        await node.getPrivateLogsByTags({ tags: [SiloedTag.random()], referenceBlock: 'latest' });
+
+        expect(l2LogsSource.getPrivateLogsByTags).toHaveBeenCalledWith(
+          expect.objectContaining({ referenceBlock: hashForBlock(lastBlockNumber) }),
+        );
+      });
+
+      it('reports a miss itself, since there is no hash to hand the log store', async () => {
+        await expect(
+          node.getPrivateLogsByTags({
+            tags: [SiloedTag.random()],
+            referenceBlock: BlockNumber(unseenBlockNumber + 1),
+          }),
+        ).rejects.toThrow(/not found in the node/);
+
+        expect(l2LogsSource.getPrivateLogsByTags).not.toHaveBeenCalled();
+      });
+    });
+
     describe('anchored on both a block number and hash', () => {
       /** The anchor a client that synced one block past this node sends. */
       const unseenAnchor = (): BlockParameter => ({ number: unseenBlockNumber, hash: unseenBlockHash });
@@ -1145,9 +1179,9 @@ describe('aztec node', () => {
         );
       });
 
-      it('delegates a logs query with an unresolvable anchor untouched', async () => {
-        // The log store recognizes anchors the block source cannot resolve, such as the genesis block a client syncs
-        // from before any block exists, and raises its own error otherwise.
+      it('delegates a logs query with an unresolved anchor untouched', async () => {
+        // An anchor that already names a hash is left for the log store, whose in-transaction check is the
+        // authoritative one and raises the error it always did.
         l2LogsSource.getPrivateLogsByTags.mockResolvedValue([[]]);
         const anchor = { number: BlockNumber(3), hash: BlockHash.random() };
 

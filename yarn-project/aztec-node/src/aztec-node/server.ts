@@ -43,6 +43,7 @@ import {
   type L2BlockSource,
   type L2BlockTag,
   type L2Tips,
+  blockParameterHash,
   inspectBlockParameter,
 } from '@aztec/stdlib/block';
 import type {
@@ -534,18 +535,30 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   /**
    * Resolves a logs query's reorg-safety anchor to the concrete block hash the log store checks against, holding the
    * request briefly when the node has not seen that block yet — a client that synced one block ahead through another
-   * node is then answered instead of failed over a transient skew.
+   * node is then answered instead of failed over a transient skew. Anchors naming a block by number, by tag, or by
+   * archive root are resolved here as well, since the store only understands a hash.
    *
-   * On a miss the query is delegated with its anchor untouched: the log store's own in-transaction check is the
-   * authoritative one and raises the error it always did. It also recognizes the genesis anchor a client syncs from
-   * before any block exists, which is not a block the block source can resolve.
+   * A miss is answered by whoever can describe it best. An anchor that already names a hash is delegated untouched,
+   * so the store's in-transaction check — the authoritative one, and the one that knows the genesis anchor a client
+   * syncs from before it has seen a block — raises the error it always did. Any other form has no hash to delegate,
+   * so the miss is reported here.
    */
   async #resolveLogsReferenceBlock<T extends LogsQueryBase>(query: T): Promise<T> {
-    if (query.referenceBlock === undefined) {
+    const { referenceBlock } = query;
+    if (referenceBlock === undefined) {
       return query;
     }
-    const anchor = await this.unseenBlockHoldOff.getBlockData(normalizeBlockParameter(query.referenceBlock));
-    return anchor === undefined ? query : { ...query, referenceBlock: anchor.blockHash };
+    const anchor = await this.unseenBlockHoldOff.getBlockData(normalizeBlockParameter(referenceBlock));
+    if (anchor !== undefined) {
+      return { ...query, referenceBlock: anchor.blockHash };
+    }
+    if (blockParameterHash(referenceBlock) === undefined) {
+      throw new Error(
+        `Reference block ${inspectBlockParameter(referenceBlock)} not found in the node. This might indicate a reorg ` +
+          `has occurred.`,
+      );
+    }
+    return query;
   }
 
   /**

@@ -119,6 +119,9 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlocksForSlot: z.function({ input: z.tuple([schemas.SlotNumber]), output: z.array(L2Block.schema) }),
   isEpochComplete: z.function({ input: z.tuple([EpochNumberSchema]), output: z.boolean() }),
   getL2Tips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
+  // The query schemas are shared with the node's API, so they accept every `referenceBlock` form a client may send
+  // there. The archiver serves only the forms that carry a block hash and rejects the rest, since resolving a number,
+  // a tag, or an archive root against the chain happens at the node (see `L2LogsSource`).
   getPrivateLogsByTags: z.function({
     input: z.tuple([PrivateLogsQuerySchema]),
     output: z.array(z.array(LogResultSchema)),

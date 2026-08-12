@@ -377,9 +377,9 @@ export class LogStore {
  * The block hash a log query's `referenceBlock` pins, or `undefined` when the query carries no anchor.
  *
  * The store's anchor check is hash-based by nature: it answers on one fork or fails. So it takes the hash-bearing
- * forms of a {@link BlockParameter} (a bare hash, `{ hash }`, or the anchored `{ number, hash }`) and rejects the
- * ones that name a moving chain position, which the node RPC layer resolves to a concrete hash before it delegates
- * here.
+ * forms of a {@link BlockParameter} — a bare hash, `{ hash }`, or the anchored `{ number, hash }` — and rejects the
+ * ones that do not carry a hash: a block number, a tag, and an archive root. Those are resolved to a concrete hash by
+ * the node RPC layer before a query reaches the store.
  */
 function anchorHashOf(referenceBlock: BlockParameter | undefined): BlockHash | undefined {
   if (referenceBlock === undefined) {
@@ -388,8 +388,8 @@ function anchorHashOf(referenceBlock: BlockParameter | undefined): BlockHash | u
   const hash = blockParameterHash(referenceBlock);
   if (hash === undefined) {
     throw new Error(
-      `Log query referenceBlock ${inspectBlockParameter(referenceBlock)} does not name a block hash. Block numbers ` +
-        `and tags are resolved to a hash by the node before the query reaches the log store.`,
+      `Log query referenceBlock ${inspectBlockParameter(referenceBlock)} does not name a block hash. Block numbers, ` +
+        `tags and archive roots are resolved to a hash by the node before the query reaches the log store.`,
     );
   }
   return hash;
