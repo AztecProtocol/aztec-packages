@@ -151,8 +151,9 @@ or it **won't run in CI**:
   line. Tests with bespoke handling sit outside the globs: the `single-node/prover/` lanes at the top of
   the function (real proofs and custom resources under `CI_FULL`, `FAKE_PROOFS=1` otherwise) and
   `avm_simulator` (below).
-- `compat_test_cmds` — the forward/legacy-compat run (a subset). This one enumerates **single-level leaf globs** (e.g. `src/automine/token/*.test.ts`), so
-  a new sub-folder whose tests should run against legacy contract artifacts needs its own line here.
+- `compat_test_cmds` — the forward/legacy-compat run (a subset). This one enumerates **single-level leaf 
+globs** (e.g. `src/automine/token/*.test.ts`), so a new sub-folder whose tests should run against legacy
+contract artifacts needs its own line here.
 
 Bespoke handling to be aware of:
 
