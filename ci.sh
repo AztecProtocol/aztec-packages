@@ -436,10 +436,9 @@ case "$cmd" in
       'a-release arm64 ci-release'
     ;;
   ci-private-release)
-    # Run the private release flow LOCALLY (no EC2): dry-run every project except release-image, then
-    # publish release-image for real to the internal GCP Artifact Registry. Override
-    # INTERNAL_DOCKER_REGISTRY / GOOGLE_APPLICATION_CREDENTIALS as needed; SKIP_BUILD=1 reuses a build.
-    export INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-us-west1-docker.pkg.dev/testnet-440309/aztec}
+    # Run the private release flow LOCALLY (no EC2): publish the foundation npm packages to the
+    # internal GCP Artifact Registry. Override INTERNAL_NPM_REGISTRY / GOOGLE_APPLICATION_CREDENTIALS
+    # as needed; SKIP_BUILD=1 reuses a build.
     # Default to the local SA key if no GCP creds are set (a no-op in CI, where GCP_SA_KEY is used).
     [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
       export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"

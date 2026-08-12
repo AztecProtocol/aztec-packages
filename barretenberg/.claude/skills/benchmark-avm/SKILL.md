@@ -42,12 +42,12 @@ On an already-provisioned machine this is ~5–8 min (the C++ relink and `yarn b
 
 Fast triage when the bulk test fails during setup:
 
-| Symptom | Cause | Fix |
-|---|---|---|
+| Symptom                                                                                                                                              | Cause                                                                                                                                                                                | Fix                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TypeError: NativeWorldState is not a constructor` (or `BaseNativeWorldState`), thrown from `world-state/dest/native/native_world_state_instance.js` | Stale `world-state`/`@aztec/native` `dest/` — merge-train changed the native world-state API (`@aztec/native` no longer exports `NativeWorldState`) but the compiled JS is pre-merge | `yarn build` (step 4) to recompile `dest/`. A cached `./bootstrap.sh build yarn-project` will **not** fix this — it restores the stale build. |
-| `Cannot find module '@aztec/wsdb'` / `'@aztec/ipc-runtime'` | The portal deps aren't installed | steps 2 + `yarn install` (step 4) |
-| `NAPI binary not found for current platform` | `nodejs_module.node` not where `findNapiBinary()` looks | `(cd barretenberg/ts && BUILD_CPP=0 ./scripts/copy_native.sh)` |
-| Test **reverts**: `expect(result.revertCode.isOK()).toBe(true)` fails, log shows `Reverted code: Reverted` and `Total instructions executed: 0` | Stale `AvmTest` artifact — pre-merge bytecode embeds old constants/gas vs the rebuilt bb-avm/simulator, so the call reverts at dispatch | step 3 (recompile `avm_test_contract`) + `yarn workspace @aztec/noir-test-contracts.js generate` + `yarn build` |
+| `Cannot find module '@aztec/wsdb'` / `'@aztec/ipc-runtime'`                                                                                          | The portal deps aren't installed                                                                                                                                                     | steps 2 + `yarn install` (step 4)                                                                                                             |
+| `NAPI binary not found for current platform`                                                                                                         | `nodejs_module.node` not where `findNapiBinary()` looks                                                                                                                              | `(cd barretenberg/ts && BUILD_CPP=0 ./scripts/copy_native.sh)`                                                                                |
+| Test **reverts**: `expect(result.revertCode.isOK()).toBe(true)` fails, log shows `Reverted code: Reverted` and `Total instructions executed: 0`      | Stale `AvmTest` artifact — pre-merge bytecode embeds old constants/gas vs the rebuilt bb-avm/simulator, so the call reverts at dispatch                                              | step 3 (recompile `avm_test_contract`) + `yarn workspace @aztec/noir-test-contracts.js generate` + `yarn build`                               |
 
 Note: `Total instructions executed: 0` prints even on a **healthy** passing run — that counter is a cosmetic metrics quirk, not a signal. The real health check is `revertCode` (OK vs Reverted) and a non-trivial `Proving (all)` time (a real bulk trace proves in ~4–5s; a truly empty one would be near-instant).
 
@@ -89,16 +89,16 @@ To just watch the pretty table without writing the GitHub-action JSON, drop `BEN
 
 Stage timings come from `bb-avm`'s `AvmStat[]` output (`generateAvmProof`), mapped in `avm_proving_tester.ts::recordProverMetrics` and rendered under **Proving:** by `TestExecutorMetrics`:
 
-| Pretty label | bb stat key | MSM-bound? |
-|---|---|---|
-| Simulation (all) | `simulation/all` | no |
-| Trace generation (all) | `tracegen/all` | no |
-| Proving (all) | `proving/all` | partially |
-| Sumcheck | `prove/sumcheck` | no |
-| PCS | `prove/pcs_rounds` | **yes** (opening MSMs) |
-| Log derivative inverse | `prove/log_derivative_inverse_round` | no |
-| Log derivative inverse commitments | `prove/log_derivative_inverse_commitments_round` | **yes** |
-| Wire commitments | `prove/wire_commitments_round` | **yes** |
+| Pretty label                       | bb stat key                                      | MSM-bound?             |
+| ---------------------------------- | ------------------------------------------------ | ---------------------- |
+| Simulation (all)                   | `simulation/all`                                 | no                     |
+| Trace generation (all)             | `tracegen/all`                                   | no                     |
+| Proving (all)                      | `proving/all`                                    | partially              |
+| Sumcheck                           | `prove/sumcheck`                                 | no                     |
+| PCS                                | `prove/pcs_rounds`                               | **yes** (opening MSMs) |
+| Log derivative inverse             | `prove/log_derivative_inverse_round`             | no                     |
+| Log derivative inverse commitments | `prove/log_derivative_inverse_commitments_round` | **yes**                |
+| Wire commitments                   | `prove/wire_commitments_round`                   | **yes**                |
 
 For a legacy-vs-new Pippenger comparison, the signal lives in the **commitment stages** — Wire commitments, PCS, and Log-derivative-inverse commitments. Sumcheck and trace generation should be unchanged across the toggle and act as a sanity check that the two runs are otherwise comparable.
 
@@ -147,4 +147,4 @@ So treat the output as **before/after deltas on this box**, not dashboard-absolu
 - **Timeout** is 180s for the proving step (`TIMEOUT` in the test). On a slow machine bump it via the test or env.
 - **Only changed AVM/ecc C++?** Just `ninja bb-avm` and rerun — no yarn-project rebuild needed. If the `AvmTest` contract, constants, or simulator fixtures changed, redo Setup step 3 (+ `generate` + `yarn build`) too.
 - **Verify the toggle took effect.** Run once each way; if the commitment stages are identical to the nanosecond, the env var didn't reach the subprocess — confirm you set `BB_MSM_LEGACY=1` on the same command (not exported in a way the spawned process doesn't inherit).
-- **Fastest input-only A/B (no jest, no world-state stack).** Dump a real input once with `BB_DEBUG_OUTPUT_DIR=/tmp/avm-dbg CPUS=15 yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_bulk.test.ts` → `/tmp/avm-dbg/avm-prove-001/avm_inputs.bin`, then run the prover directly against the same bin for each config: `HARDWARE_CONCURRENCY=15 [BB_MSM_LEGACY=1] ./barretenberg/cpp/build/bin/bb-avm avm_prove --avm-inputs <bin> -o /tmp/out`. This isolates exactly the binary + MSM toggle, but you lose the per-stage `TestExecutorMetrics` table (you get whole-prove wall time). The committed `vm2/testing/avm_inputs.testdata.bin` is a unit-test fixture and is **not** usable for full proving.
+- **Fastest input-only A/B (no jest, no world-state stack).** Dump a real input once with `BB_DEBUG_OUTPUT_DIR=/tmp/avm-dbg CPUS=15 yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_bulk.test.ts` → `/tmp/avm-dbg/avm-prove-001/avm_inputs.bin`, then run the prover directly against the same bin for each config: `HARDWARE_CONCURRENCY=15 [BB_MSM_LEGACY=1] ./barretenberg/cpp/build/bin/bb-avm avm_prove --avm-inputs <bin> -o /tmp/out`. This isolates exactly the binary + MSM toggle, but you lose the per-stage `TestExecutorMetrics` table (you get whole-prove wall time).
