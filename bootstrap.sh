@@ -643,13 +643,12 @@ function private_release {
 }
 
 function check_compat_artifacts_tracked {
-  # The backwards-compat e2e sweep runs as part of the normal e2e suite, driven by the artifact
-  # tarballs committed under yarn-project/end-to-end/legacy-contracts/ (see its README). This check
-  # runs on every full CI run and fails while any stable release of the compat major is missing its
+  # The backwards-compat e2e tests run as part of the normal e2e suite, driven by the artifact
+  # tarballs committed under yarn-project/end-to-end/legacy-contracts/. This check runs on
+  # every full CI run and fails while any stable release of the compat major is missing its
   # tarball, so the set can't silently fall behind. Releases deliberately don't run it: the release
-  # cutting X.Y.Z is what publishes the packages the X.Y.Z artifacts are built from, so they can't
-  # be vendored beforehand — instead the first full run after a stable release goes red until
-  # someone commits the new tarball.
+  # cutting X.Y.Z is what publishes the packages the X.Y.Z artifacts are built from, so the first
+  # full CI run after a stable release goes red until someone commits the new tarball.
   #   compat_major:       major version line with a backwards-compatibility guarantee.
   #   compat_min_version: earliest stable release covered by that guarantee.
   local compat_major="5"
@@ -664,7 +663,7 @@ function check_compat_artifacts_tracked {
   fi
 
   # Fetch tags (EC2 clone may not have them). Fail loud: a silent fetch failure plus an empty
-  # tag list would vacuously pass the check.
+  # tag list would incorrectly pass the check.
   if ! git fetch origin 'refs/tags/v*:refs/tags/v*'; then
     echo "ERROR: failed to fetch release tags." >&2
     return 1
