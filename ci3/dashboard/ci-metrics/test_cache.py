@@ -45,7 +45,7 @@ ENDPOINTS = [
 def _seed():
     """Insert one year of synthetic data covering all 6 ci-insights endpoints."""
     conn = db.get_db()
-    dashboards = ['next', 'prs', 'master']
+    dashboards = ['main', 'prs']
     start = date(2025, 2, 24)
     end = date(2026, 2, 24)
     ts_base = int(time.mktime(start.timetuple())) * 1000

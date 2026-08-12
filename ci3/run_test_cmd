@@ -55,8 +55,7 @@ if [ "$CI" -eq 1 ]; then
   # not just merge_group, so without these cases the spartan PR's flakes are never reported.
   [[ "$is_merge_queue" -eq 1 \
       || "$REF_NAME" == "backport-to-v2-staging" \
-      || "$REF_NAME" == "merge-train/spartan" \
-      || "$REF_NAME" == "merge-train/spartan-v5" ]] && slack_notify_flake=1
+      || "$REF_NAME" == "merge-train/spartan" ]] && slack_notify_flake=1
 
   # Notify on fails for scenario tests.
   [[ ${SCENARIO_TESTS:-0} -eq 1 ]] && slack_notify_fail=1
@@ -357,7 +356,7 @@ function flake_slack_channel {
   fi
   local channel=""
   case "$head_branch" in
-    merge-train/spartan | merge-train/spartan-v5) channel="#team-alpha-ci" ;;
+    merge-train/spartan) channel="#team-alpha-ci" ;;
   esac
   echo "$channel" > "$cache"
   echo "$channel"

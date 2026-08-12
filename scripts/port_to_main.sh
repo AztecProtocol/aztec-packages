@@ -2,22 +2,22 @@
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 # Keep a long-lived branch that accumulates everything from a source branch
-# (default v5-next) that is not yet in next, and open/update a single PR
-# against next. Intended to run daily to forward-port a release line into next.
+# that is not yet in main, and open/update a single PR against main. Intended
+# to run daily to forward-port a release line into main.
 #
-# The port branch is long-lived: each run checks it out and merges next and the
+# The port branch is long-lived: each run checks it out and merges main and the
 # source into it, so any manual conflict resolution pushed to the branch is
-# preserved. Once the PR is merged (branch fully contained in next), the next
-# run rebuilds the branch fresh from next.
+# preserved. Once the PR is merged (branch fully contained in main), the next
+# run rebuilds the branch fresh from main.
 #
 # Merge conflicts do NOT abandon the run: the conflicted merge is committed with
 # markers so the PR is still opened/updated as a resolution target, and the
 # conflicted files are reported (via step outputs) for a Slack notification.
 #
-# Usage: port_to_next.sh [source_branch]
+# Usage: port_to_main.sh <source_branch>
 
-SOURCE_BRANCH="${1:-v5-next}"
-TARGET_BRANCH="next"
+SOURCE_BRANCH="${1:?Usage: $0 <source_branch>}"
+TARGET_BRANCH="main"
 PORT_BRANCH="port-${SOURCE_BRANCH}-to-${TARGET_BRANCH}"
 PR_TITLE="chore: port $SOURCE_BRANCH to $TARGET_BRANCH"
 
@@ -64,7 +64,7 @@ echo "Fetching origin/$TARGET_BRANCH and origin/$SOURCE_BRANCH..."
 git fetch origin "$TARGET_BRANCH" "$SOURCE_BRANCH"
 
 # Decide whether to continue an existing port branch or start fresh. We start
-# fresh from next when the branch is absent or already fully merged into next
+# fresh from main when the branch is absent or already fully merged into main
 # (i.e. a prior PR landed); otherwise we keep accumulating so that any pushed
 # conflict resolution is preserved. A non-force push suffices while continuing;
 # a fresh rebuild diverges from the remote branch and needs a force push.
@@ -85,7 +85,7 @@ else
   FORCE_ARGS=(--force-with-lease)
 fi
 
-# Keep current with next (surfaces conflicts early, keeps the PR mergeable),
+# Keep current with main (surfaces conflicts early, keeps the PR mergeable),
 # then pull in the source branch.
 merge_ref "origin/$TARGET_BRANCH"
 merge_ref "origin/$SOURCE_BRANCH"

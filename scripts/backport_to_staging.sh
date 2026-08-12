@@ -68,7 +68,7 @@ fi
 
 # STAGING_BRANCH, STAGING_PR_TITLE and STAGING_PR_LABELS may be pre-set in the
 # environment to reuse this script for non-backport ports (e.g. the
-# port-to-next label, which targets next and needs ci-no-squash). They default
+# port-to-main label, which targets main and needs ci-no-squash). They default
 # to the backport naming with no extra labels.
 STAGING_BRANCH="${STAGING_BRANCH:-backport-to-${TARGET_BRANCH}-staging}"
 STAGING_PR_TITLE="${STAGING_PR_TITLE:-chore: Accumulated backports to $TARGET_BRANCH}"
@@ -149,14 +149,13 @@ if [[ $CONTINUE_MODE -eq 0 ]]; then
   echo "Merge commit: $MERGE_COMMIT"
   git fetch origin "$MERGE_COMMIT"
 
-  # When forward-porting into next, skip release-line artifacts that are
+  # When forward-porting into main, skip release-line artifacts that are
   # meaningless on the mainline: release-version bumps, per-release upgrade/deploy
-  # scripts, regenerated-fixture refreshes, and the plumbing commits a release
-  # line creates when it merges its own public snapshot. A PR is skipped only when
+  # scripts, and regenerated-fixture refreshes. A PR is skipped only when
   # its subject marks it as such, or every file it touches is an artifact path.
-  if [[ "$TARGET_BRANCH" == "next" ]]; then
-    EXCLUDE_SUBJECTS='^chore\(release\)|regenerate pinned|re-pin standard contracts|regenerate standard-contract|resolve v[0-9]+ -> v[0-9]+-next|public-v[0-9]+-next merge|refresh pinned'
-    EXCLUDE_GLOBS=('.github/workflows/*-v*-next.yml')
+  if [[ "$TARGET_BRANCH" == "main" ]]; then
+    EXCLUDE_SUBJECTS='^chore\(release\)|regenerate pinned|re-pin standard contracts|regenerate standard-contract|refresh pinned'
+    EXCLUDE_GLOBS=()
     MERGE_SUBJECT=$(git show -s --format=%s "$MERGE_COMMIT")
     SKIP_ARTIFACT=0
     if [[ "$MERGE_SUBJECT" =~ $EXCLUDE_SUBJECTS ]]; then
@@ -193,8 +192,8 @@ if [[ $CONTINUE_MODE -eq 0 ]]; then
   echo "Cherry-picking $MERGE_COMMIT..."
   if ! git cherry-pick $CHERRY_PICK_ARGS "$MERGE_COMMIT" --no-edit; then
     # No unmerged paths means the patch applied to nothing: the change is already
-    # present in the target (e.g. a fix that also reached next independently, or
-    # a next->release backport bounced back). Skip it quietly instead of treating
+    # present in the target (e.g. a fix that also reached main independently, or
+    # a main->release backport bounced back). Skip it quietly instead of treating
     # it as a conflict, so auto-forward-porting does not raise false alarms.
     if [[ -z "$(git diff --name-only --diff-filter=U)" ]]; then
       git cherry-pick --skip >/dev/null 2>&1 || git reset --hard >/dev/null

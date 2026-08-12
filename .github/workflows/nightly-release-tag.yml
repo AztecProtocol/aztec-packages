@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        branch: ${{ fromJSON('["next", "v5-next"]') }}
+        branch: ${{ fromJSON('["main"]') }}
     concurrency:
       group: ${{ github.workflow }}-${{ github.repository }}-${{ matrix.branch }}
     steps:

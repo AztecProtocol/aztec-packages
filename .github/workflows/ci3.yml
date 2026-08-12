@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - next
+      - main
     tags:
       - "v*"
   pull_request:
@@ -24,7 +24,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The main CI job for Aztec pull requests. It gatekeeps merges to next, intended for the merge queue.
+  # The main CI job for Aztec pull requests. It gatekeeps merges to main, intended for the merge queue.
   #
   # This orchestrates AWS EC2 spot instances then remotely runs ./bootstrap.sh
   # The ci-full label enables heavier tests. For other labels, see ci3.sh.
@@ -208,7 +208,7 @@ jobs:
       fail-fast: false
       matrix:
         test_set: ["1", "2"]
-    # We run on the current next (v6) public nightly tag, or when the ci-network-scenario label is present in a PR.
+    # We run on the current public nightly tag, or when the ci-network-scenario label is present in a PR.
     needs: [ci, validate-nightly-tag]
     if: |
       always()
@@ -334,7 +334,7 @@ jobs:
 
   # Spartan network benchmarks triggered on-demand from a PR label.
   # Runs TPS and proving benchmarks in parallel, uploads results to a PR-specific
-  # path on the benchmark dashboard so nightly (bench/next) is never affected.
+  # path on the benchmark dashboard so nightly (bench/main) is never affected.
   # One-time use: label is removed after the job runs.
   ci-network-bench:
     name: ${{ matrix.bench_type }}

@@ -8,8 +8,8 @@ on:
 jobs:
   check-squashed:
     runs-on: ubuntu-latest
-    # Only run if PR doesn't have ci-no-squash label AND is targeting 'next' branch
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'ci-no-squash') && github.event.pull_request.base.ref == 'next' }}
+    # Only run if PR doesn't have ci-no-squash label AND is targeting 'main' branch
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'ci-no-squash') && github.event.pull_request.base.ref == 'main' }}
     
     steps:
       - name: Check if PR is squashed

@@ -63,22 +63,21 @@ function get_meaningful_commits {
 }
 
 # Usage: merge-next.sh <train-branch> [source-branch]
-# source-branch defaults to "next"; the spartan-v5 train is fed from "v5-next".
+# source-branch defaults to "main".
 if [[ $# -lt 1 || $# -gt 2 ]]; then
   echo "Usage: $0 <train-branch> [source-branch]"
   echo "Example: $0 merge-train/docs"
-  echo "Example: $0 merge-train/spartan-v5 v5-next"
   exit 1
 fi
 
 TRAIN_BRANCH="$1"
-SOURCE_BRANCH="${2:-next}"
+SOURCE_BRANCH="${2:-main}"
 
 # Check if PR has auto-merge enabled
 pr_info=$(get_pr_for_branch "$TRAIN_BRANCH")
 pr_number=$(echo "$pr_info" | jq -r '.number // empty')
 if [[ -n "$pr_number" ]] && pr_has_auto_merge "$pr_number"; then
-  echo "PR #$pr_number has auto-merge enabled, skipping merge from next"
+  echo "PR #$pr_number has auto-merge enabled, skipping merge from $SOURCE_BRANCH"
   exit 0
 fi
 

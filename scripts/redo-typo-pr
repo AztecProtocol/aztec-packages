@@ -28,7 +28,7 @@ git push origin $NEW_BRANCH
 
 # Step 5: create a new pull request
 echo "Creating a new pull request for $NEW_BRANCH"
-gh pr create --base next --head $NEW_BRANCH --title "chore: redo typo PR by $AUTHOR" --body "Thanks $AUTHOR for https://github.com/$REPO/pull/$ORIGINAL_PR_NUMBER. Our policy is to redo typo changes to dissuade metric farming. This is an automated script."
+gh pr create --base main --head $NEW_BRANCH --title "chore: redo typo PR by $AUTHOR" --body "Thanks $AUTHOR for https://github.com/$REPO/pull/$ORIGINAL_PR_NUMBER. Our policy is to redo typo changes to dissuade metric farming. This is an automated script."
 
 # Step 6: Close the original PR
 echo "Closing original PR #$ORIGINAL_PR_NUMBER"

@@ -3,7 +3,7 @@ name: CI3 Dashboard Deploy
 on:
   push:
     branches:
-      - next
+      - main
     paths:
       - "ci3/dashboard/**"
       - ".github/workflows/ci3-dashboard-deploy.yml"

@@ -17,8 +17,8 @@ REPO = 'AztecProtocol/aztec-packages'
 _GH_API = 'https://api.github.com'
 
 BRANCH_PAIRS = [
-    ('next', 'staging-public'),
-    ('next', 'testnet'),
+    ('main', 'staging-public'),
+    ('main', 'testnet'),
     ('staging-public', 'testnet'),
 ]
 
@@ -755,7 +755,7 @@ query($owner: String!, $repo: String!, $branch: String!) {
   }
 }'''
 
-_MQ_BRANCH = 'next'
+_MQ_BRANCH = 'main'
 
 
 def poll_merge_queue_depth():
@@ -983,7 +983,7 @@ def get_pr_dirs(pr_number: int) -> list[str] | None:
     return None
 
 
-def get_recent_commits(branch: str = 'next', page: int = 1, per_page: int = 50) -> list[dict]:
+def get_recent_commits(branch: str = 'main', page: int = 1, per_page: int = 50) -> list[dict]:
     """Fetch a page of commits from GitHub API with 5-minute in-memory cache."""
     per_page = min(per_page, 100)
     cache_key = f'{branch}:{page}:{per_page}'

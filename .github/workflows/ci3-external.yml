@@ -78,11 +78,9 @@ jobs:
             echo "Error: External PRs can't contain CI changes (forbidden files: $forbidden_changes)."
             exit 1
           fi
-          if [[ "$PR_BASE_REF" != "master" && \
-                "$PR_BASE_REF" != "staging" && \
-                "$PR_BASE_REF" != "next" && \
+          if [[ "$PR_BASE_REF" != "main" && \
                 "$PR_BASE_REF" != merge-train/* ]]; then
-            echo "Error: External PRs can only target master, staging, next or merge-train/* branches. Targeted: $PR_BASE_REF."
+            echo "Error: External PRs can only target main or merge-train/* branches. Targeted: $PR_BASE_REF."
             exit 1
           fi
           if [ "$HAS_CI_LABEL" = false ]; then

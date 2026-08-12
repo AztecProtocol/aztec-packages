@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compare a PR commit's benchmark run against its merge-base on a baseline branch (default: next),
+# Compare a PR commit's benchmark run against its merge-base on a baseline branch (default: main),
 # optionally averaging a window of baseline runs, and emit the relative perf diffs as JSON.
 #
 # Per-run benchmark data lives in the CI build-cache keyed by the commit's *git tree hash*
@@ -11,18 +11,18 @@
 # benches relevant to what the PR changes and drops the noise.
 #
 # BASELINE BRANCH — read this. The cache is content-addressed by git *tree hash*, so branches with
-# different perf (next vs v5-next vs merge-train/*) already live under different keys and never cross-
-# contaminate. But you MUST merge-base against the PR's *actual* base branch: comparing a v5-next PR
-# against `next` would surface the whole v5-next-vs-next delta as bogus regressions. If --baseline is
+# different perf (main vs merge-train/*) already live under different keys and never cross-
+# contaminate. But you MUST merge-base against the PR's *actual* base branch: comparing a merge-train
+# PR against `main` would surface the whole train-vs-main delta as bogus regressions. If --baseline is
 # not given, this auto-detects the base of the current branch's PR via `gh` and falls back to
-# origin/next with a loud warning. The chosen baseline is always printed to stderr — check it.
+# origin/main with a loud warning. The chosen baseline is always printed to stderr — check it.
 # Caveat: the cache key carries no branch/repo/hardware provenance, so a tree benched under a different
 # environment (e.g. the private fork) yields whichever result was uploaded first; comparisons are only
 # trustworthy within one bench infrastructure.
 #
 # Usage: ci3/bench_compare [PR_REF] [--baseline REF] [--window N] [--out FILE]
 #   PR_REF        commit whose bench run to inspect (default: HEAD)
-#   --baseline    baseline branch/ref to merge-base against (default: auto-detect, else origin/next)
+#   --baseline    baseline branch/ref to merge-base against (default: auto-detect, else origin/main)
 #   --window N    average the merge-base + N-1 preceding baseline runs (default: 1)
 #   --out FILE    write JSON here (default: stdout); the human summary always goes to stderr
 #
@@ -60,7 +60,7 @@ command -v jq >/dev/null || die "jq not found"
 command -v python3 >/dev/null || die "python3 not found"
 
 # Resolve the baseline branch. Explicit --baseline (or $BASELINE) wins; otherwise auto-detect the base
-# of the current branch's PR via gh, and only then fall back to origin/next. Always announced — a wrong
+# of the current branch's PR via gh, and only then fall back to origin/main. Always announced — a wrong
 # baseline silently invalidates every number, so never let it be a silent default.
 if [ -z "$BASELINE" ]; then
   det=""
@@ -69,8 +69,8 @@ if [ -z "$BASELINE" ]; then
     BASELINE="origin/$det"
     echo "bench_compare: auto-detected PR base branch -> $BASELINE" >&2
   else
-    BASELINE="origin/next"
-    echo "bench_compare: WARNING baseline defaulted to origin/next (no PR base detected). Pass --baseline for v5-next / merge-train PRs." >&2
+    BASELINE="origin/main"
+    echo "bench_compare: WARNING baseline defaulted to origin/main (no PR base detected). Pass --baseline for merge-train PRs." >&2
   fi
 fi
 echo "bench_compare: baseline = $BASELINE" >&2

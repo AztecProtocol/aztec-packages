@@ -3,7 +3,7 @@ name: Auto-Close Issues from Merge Commits
 on:
   push:
     branches:
-      - next
+      - main
 
 jobs:
   auto-close-issues:

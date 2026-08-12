@@ -1,13 +1,13 @@
 name: Create Release Branch
 
-# Take the current version from the release-please-manifest.json file on `next`,
-# and create a release branch for it. Then update the release-please-manifest.json file on `next` to the next version.
+# Take the current version from the release-please-manifest.json file on `main`,
+# and create a release branch for it. Then update the release-please-manifest.json file on `main` to the next version.
 
 on:
   workflow_dispatch:
     inputs:
       source_commit:
-        description: "Source commit SHA from next branch"
+        description: "Source commit SHA from main branch"
         required: true
         type: string
 
@@ -57,10 +57,10 @@ jobs:
           NEXT_MAJOR_VERSION=$((CURRENT_MAJOR_VERSION + 1))
           NEXT_VERSION="${NEXT_MAJOR_VERSION}.0.0"
 
-          # update release-please-manifest.json on `next` branch
-          git fetch origin next
-          git checkout -B next origin/next
+          # update release-please-manifest.json on `main` branch
+          git fetch origin main
+          git checkout -B main origin/main
           jq --arg version "$NEXT_VERSION" '.["."] = $version' .release-please-manifest.json > temp.json && mv temp.json .release-please-manifest.json
           git add .release-please-manifest.json
           git commit -m "chore(release): update release-please-manifest.json to $NEXT_VERSION"
-          git push origin next
+          git push origin main

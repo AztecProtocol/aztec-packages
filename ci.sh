@@ -168,7 +168,7 @@ export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
 case "$cmd" in
   dash)
-    watch_ci -s next,prs --user --watch
+    watch_ci -s main,prs --user --watch
     ;;
   fast|docs)
     export CI_DASHBOARD="prs"

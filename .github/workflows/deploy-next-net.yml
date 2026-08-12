@@ -1,5 +1,5 @@
 # Deploy next-net environment
-# Deploys next-net from the public next (v6) nightly, or a manually supplied tag.
+# Deploys next-net from the public nightly, or a manually supplied tag.
 name: Deploy Next Net
 
 on:
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: main
           fetch-depth: 1
 
       - name: Determine image tag
@@ -81,6 +81,6 @@ jobs:
       network: next-net
       semver: ${{ needs.get-image-tag.outputs.semver }}
       source_tag: ${{ needs.get-image-tag.outputs.tag }}
-      ref: next
+      ref: main
       deploy_contracts: ${{ github.event_name == 'schedule' || inputs.deploy_contracts == true }}
     secrets: inherit

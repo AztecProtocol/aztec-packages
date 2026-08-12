@@ -14,14 +14,14 @@
 #
 # Optional env vars:
 #   STALE_HOURS — alert threshold in hours (default 24)
-#   BASE_BRANCH — PR base branch to filter on (default "next")
+#   BASE_BRANCH — PR base branch to filter on (default "main")
 
 set -euo pipefail
 
 REF_NAME="${1:?Usage: $0 <merge-train-branch> <slack-channel>}"
 CHANNEL="${2:?Usage: $0 <merge-train-branch> <slack-channel>}"
 STALE_HOURS="${STALE_HOURS:-24}"
-BASE_BRANCH="${BASE_BRANCH:-next}"
+BASE_BRANCH="${BASE_BRANCH:-main}"
 
 pr_json=$(gh api "repos/AztecProtocol/aztec-packages/pulls?head=AztecProtocol:${REF_NAME}&state=open&base=${BASE_BRANCH}" --jq '.[0] // empty')
 

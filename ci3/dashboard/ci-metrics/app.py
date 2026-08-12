@@ -1110,7 +1110,7 @@ def commits_page():
 @app.route('/api/commits')
 @auth.login_required
 def api_commits():
-    branch = request.args.get('branch', 'next')
+    branch = request.args.get('branch', 'main')
     page = max(1, int(request.args.get('page', 1)))
     per_page = min(int(request.args.get('per_page', 50)), 100)
     return _json(github_data.get_recent_commits(branch, page, per_page))

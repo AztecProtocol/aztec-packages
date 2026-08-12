@@ -5,7 +5,7 @@ on:
     branches:
       - 'merge-train/**'
       - 'backport-to-*-staging'
-      - 'port-to-next-staging'
+      - 'port-to-main-staging'
 
 jobs:
   update-pr-body:

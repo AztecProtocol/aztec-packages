@@ -188,7 +188,7 @@ def root() -> str:
         f"\n"
         f"Select a filter:\n"
         f"\n{YELLOW}"
-        f"{hyperlink('/section/next', 'next queue')}\n"
+        f"{hyperlink('/section/main', 'main queue')}\n"
         f"{hyperlink('/section/prs', 'prs')}\n"
         f"{hyperlink('/section/releases', 'releases')}\n"
         f"{hyperlink('/section/nightly', 'nightly')}\n"
@@ -198,7 +198,7 @@ def root() -> str:
         f"\n"
         f"Benchmarks:\n"
         f"\n{YELLOW}"
-        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=next', 'next')}\n"
+        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=main', 'main')}\n"
         f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=prs', 'prs')}\n"
         f"{hyperlink('/chonk-breakdowns', 'chonk breakdowns')}\n"
         f"{RESET}"
@@ -555,19 +555,19 @@ def trigger_grind():
     # Dashboard server needs local repo checkout at REPO_PATH
     repo_path = os.environ.get('REPO_PATH')
     if repo_path:
-        # Refresh the launcher checkout to current origin/next before launching.
+        # Refresh the launcher checkout to current origin/main before launching.
         # REPO_PATH only supplies the orchestration scripts (ci.sh/bootstrap_ec2);
         # the grind target commit is checked out on the remote box. The launcher
         # must stay current so grind uses the same transport (SSM) as the rest of
         # CI -- a drifted checkout silently falls back to the retired SSH path and
         # every instance times out waiting for SSH.
         refresh = subprocess.run(
-            ['git', '-C', repo_path, 'fetch', '--quiet', 'origin', 'next'],
+            ['git', '-C', repo_path, 'fetch', '--quiet', 'origin', 'main'],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
         )
         if refresh.returncode == 0:
             refresh = subprocess.run(
-                ['git', '-C', repo_path, 'checkout', '--quiet', '--force', 'origin/next'],
+                ['git', '-C', repo_path, 'checkout', '--quiet', '--force', 'origin/main'],
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
             )
         if refresh.returncode != 0:

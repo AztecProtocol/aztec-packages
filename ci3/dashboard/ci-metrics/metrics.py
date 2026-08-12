@@ -16,7 +16,7 @@ import db
 import github_data
 import ec2_pricing
 
-SECTIONS = ['next', 'prs', 'master', 'staging', 'releases', 'nightly', 'network', 'deflake', 'local']
+SECTIONS = ['main', 'prs', 'releases', 'nightly', 'network', 'deflake', 'local']
 
 _PR_RE = re.compile(r'(?:pr-|#)(\d+)', re.IGNORECASE)
 _ANSI_RE = re.compile(r'\x1b\[[^m]*m|\x1b\]8;;[^\x07]*\x07')

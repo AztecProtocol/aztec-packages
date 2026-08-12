@@ -3,7 +3,7 @@ name: AVM Circuit Inputs Collection and Check
 on:
   push:
     branches:
-      - next
+      - main
   schedule:
     # Also run nightly at 3:00 AM UTC as a safety net
     - cron: "0 3 * * *"
@@ -99,5 +99,5 @@ jobs:
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           ./ci3/slack_notify_with_claudebox_kickoff "#team-bonobos" \
             "🚨 AVM check-circuit failed. <${RUN_URL}|View Run> (🤖)" \
-            "AVM check-circuit failed. CI run: ${RUN_URL}. Investigate the failure, identify the root cause, and create a fix PR targeting next." \
+            "AVM check-circuit failed. CI run: ${RUN_URL}. Investigate the failure, identify the root cause, and create a fix PR targeting main." \
             --link "$RUN_URL"
