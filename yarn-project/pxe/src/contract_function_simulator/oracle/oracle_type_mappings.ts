@@ -741,8 +741,10 @@ export function BOUNDED_VEC<T>(inner: TypeMapping<T>): BoundedVecMapping<T> {
 }
 
 /**
- * Noir's `BoundedVec<T, MaxLen>` in its padded form (one fixed-width slot): `maxLength * elementWidth` storage fields
- * (zero-padded) followed by the actual length, with no length prefix, so the width is statically known. Serialize-only.
+ * Noir's `BoundedVec<T, MaxLen>` with the capacity fixed at construction.
+ *
+ * Two slots (zero-padded storage, then the length) whose widths are statically known from the fixed capacity.
+ *
  * Throws if the input exceeds `maxLength`.
  */
 export function FIXED_BOUNDED_VEC<T>(element: TypeMapping<T>, maxLength: number): FixedBoundedVecMapping<T> {
@@ -759,11 +761,11 @@ export function FIXED_BOUNDED_VEC<T>(element: TypeMapping<T>, maxLength: number)
               throw new Error(`Got ${values.length} items, but maxLength is ${maxLength}`);
             }
             const flat = padArrayEnd(packElements(element, values), Fr.ZERO, maxLength * width);
-            return [[...flat, new Fr(values.length)]];
+            return [flat, new Fr(values.length)];
           },
         }
       : undefined,
-    shape: [{ len: maxLength * width + 1 }],
+    shape: [{ len: maxLength * width }, 'scalar'],
   };
 }
 
