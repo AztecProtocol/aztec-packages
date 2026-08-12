@@ -227,11 +227,14 @@ export async function createAztecNodeService(
     // The synchronizer takes ownership of the native world-state from here
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, nativeWs, telemetry);
     started.push(worldStateSynchronizer);
+    // Register each verifier as soon as it exists: the peer verifier owns a native bb child process, so it must be
+    // reachable by the partial-start unwind before the (fallible) RPC verifier construction runs.
     const peerProofVerifier: ClientProtocolCircuitVerifier = usesRealProofVerifiers(config)
       ? await BatchChonkVerifier.new(config, config.bbChonkVerifyMaxBatch, 'peer')
       : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+    started.push(peerProofVerifier);
     const rpcProofVerifier = await createRpcProofVerifier(config);
-    started.push(peerProofVerifier, rpcProofVerifier);
+    started.push(rpcProofVerifier);
 
     let debugLogStore: DebugLogStore;
     if (!config.realProofs) {
