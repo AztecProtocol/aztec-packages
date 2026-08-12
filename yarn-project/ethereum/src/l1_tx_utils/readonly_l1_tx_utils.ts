@@ -17,6 +17,7 @@ import {
   type Hex,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
+  RpcRequestError,
   type StateOverride,
   decodeErrorResult,
   formatGwei,
@@ -24,6 +25,7 @@ import {
   hexToBytes,
 } from 'viem';
 
+import { getL1RpcErrorCode } from '../client.js';
 import type { ViemClient } from '../types.js';
 import { type L1TxUtilsConfig, defaultL1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';
 import {
@@ -39,6 +41,22 @@ import { getCalldataGasUsage, tryGetCustomErrorNameContractFunction } from './ut
 
 // Change this to the current strategy we want to use
 const CurrentStrategy: PriorityFeeStrategy = P75AllTxsPriorityFeeStrategy;
+
+/** Error code returned by eth_simulateV1 for `insufficient funds for gas * price + value`. */
+const INSUFFICIENT_FUNDS_RPC_ERROR_CODE = -38014;
+
+/**
+ * Returns true when a simulation was rejected by the node's upfront funds check
+ * (sender balance >= gasLimit * maxFeePerGas) rather than failing during execution. Matches on the message
+ * as well as the error code, since RPC gateways differ in how they wrap node errors.
+ */
+function isInsufficientFundsRpcError(err: unknown): boolean {
+  if (getL1RpcErrorCode(err) === INSUFFICIENT_FUNDS_RPC_ERROR_CODE) {
+    return true;
+  }
+  const messages = [err, getErrorCause(err, RpcRequestError)].map(e => (e instanceof Error ? e.message : '')).join(' ');
+  return /insufficient funds/i.test(messages);
+}
 
 export class ReadOnlyL1TxUtils {
   public config: Required<L1TxUtilsConfig>;
@@ -404,6 +422,14 @@ export class ReadOnlyL1TxUtils {
           return { gasUsed: gasConfig.fallbackGasEstimate, result: '0x' as `0x${string}` };
         }
         this.logger?.error('Node does not support eth_simulateV1 API');
+      }
+      if (isInsufficientFundsRpcError(err)) {
+        throw new Error(
+          `L1 node rejected the eth_simulateV1 request with insufficient funds: the balance of sender ` +
+            `${call?.from ?? 'unknown'} does not cover gas ${call?.gas ?? 'unset'} times maxFeePerGas, even after ` +
+            `state overrides. Simulated calls should omit fee fields so that this check is vacuous.`,
+          { cause: err },
+        );
       }
       throw err;
     }

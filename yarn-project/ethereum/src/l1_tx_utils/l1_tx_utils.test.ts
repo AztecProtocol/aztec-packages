@@ -1589,6 +1589,19 @@ describe('L1TxUtils', () => {
       }
     });
 
+    it('omits fee fields from the simulated call', async () => {
+      // Fee fields on a simulated call make the node enforce balance >= gas * maxFeePerGas, which rejects the
+      // whole eth_simulateV1 request when the sender cannot afford the worst-case gas cap.
+      using simulateBlocksSpy = jest.spyOn(l1Client, 'simulateBlocks');
+
+      await gasUtils.simulate(request);
+
+      const call = simulateBlocksSpy.mock.calls[0][0].blocks[0].calls[0];
+      expect(call).toHaveProperty('gas', MAX_L1_TX_LIMIT);
+      expect(call).not.toHaveProperty('maxFeePerGas');
+      expect(call).not.toHaveProperty('maxPriorityFeePerGas');
+    });
+
     it('transitions from sent to not-mined when tx drops without cancellation', async () => {
       await cheatCodes.setAutomine(false);
       await cheatCodes.setIntervalMining(0);
@@ -1914,6 +1927,24 @@ describe('L1TxUtils', () => {
           { fallbackGasEstimate: 123n },
         ),
       ).resolves.toEqual({ gasUsed: 123n, result: '0x' });
+    });
+
+    it('throws a descriptive error when the node rejects the simulation for insufficient funds', async () => {
+      const from: Hex = '0x1111111111111111111111111111111111111111';
+      const readOnlyUtils = new ReadOnlyL1TxUtils(publicClient, logger, dateProvider);
+      using _simulateBlocksSpy = jest.spyOn(publicClient, 'simulateBlocks').mockRejectedValue(
+        new L1RpcError('L1 RPC request failed', {
+          cause: new RpcRequestError({
+            body: {},
+            error: { code: -38014, message: 'insufficient funds for gas * price + value' },
+            url: rpcUrl,
+          }),
+        }),
+      );
+
+      await expect(
+        readOnlyUtils.simulate({ to: '0x1234567890123456789012345678901234567890', data: '0xabcdef', value: 0n, from }),
+      ).rejects.toThrow(new RegExp(`rejected the eth_simulateV1 request with insufficient funds.*${from}`, 'is'));
     });
 
     it('L1TxUtils can be instantiated with wallet client and has write methods', () => {

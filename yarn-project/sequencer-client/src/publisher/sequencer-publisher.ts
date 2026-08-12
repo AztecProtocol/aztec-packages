@@ -786,17 +786,11 @@ export class SequencerPublisher {
     const l1Constants = this.epochCache.getL1Constants();
     const ts = getLastL1SlotTimestampForL2Slot(header.slotNumber, l1Constants);
     const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
-    let balance = 0n;
-    if (this.config.fishermanMode) {
-      // In fisherman mode, we can't know where the proposer is publishing from
-      // so we just add sufficient balance to the multicall3 address
-      balance = 10n * WEI_CONST * WEI_CONST; // 10 ETH
-    } else {
-      balance = await this.l1TxUtils.getSenderBalance();
-    }
+    // The simulated call carries no gas price, so no funds are actually needed; the ample balance override
+    // keeps the simulation working on providers that still apply an upfront funds check.
     stateOverrides.push({
       address: MULTI_CALL_3_ADDRESS,
-      balance,
+      balance: 10n * WEI_CONST * WEI_CONST, // 10 ETH
     });
 
     await this.l1TxUtils.simulate(
