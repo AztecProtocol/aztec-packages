@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
+
 # Start local network and wait for port to open.
 aztec start --local-network &
 local_network_pid=$!
 trap 'set +e; kill $local_network_pid &>/dev/null; wait $local_network_pid' EXIT
-while ! curl -fs localhost:8080/status &>/dev/null; do sleep 1; done
+wait_for_local_network $local_network_pid
 
 # Execute wallet commands as per: https://docs.aztec.network/guides/getting_started
 aztec-wallet import-test-accounts
