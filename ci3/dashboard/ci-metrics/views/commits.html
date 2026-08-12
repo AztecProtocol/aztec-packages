@@ -117,9 +117,7 @@
 
   <div class="controls">
     <select id="branch-select" onchange="setBranch(this.value)">
-      <option value="next" selected>next</option>
-      <option value="master">master</option>
-      <option value="staging-public">staging-public</option>
+      <option value="main" selected>main</option>
     </select>
     <input id="search" type="text" placeholder="filter or SHA…" oninput="applyFilter()" onkeydown="searchKeydown(event)" />
     <button class="type-btn" data-t="feat"     onclick="toggleType('feat')">feat</button>
@@ -148,7 +146,7 @@
   let currentPage = 1;
   let totalPages  = 1;
   let totalCommits= 0;
-  let currentBranch = 'next';
+  let currentBranch = 'main';
   let activeTypes = new Set();
 
   const TYPE_CLASS = {
@@ -339,7 +337,7 @@
     loadPage(branch, 1);
   }
 
-  loadPage('next', 1);
+  loadPage('main', 1);
 </script>
 </body>
 </html>

@@ -12,9 +12,9 @@ AUTHOR=`gh pr view $ORIGINAL_PR_NUMBER --json author --jq '.author.login'`
 echo "Checking out PR #$ORIGINAL_PR_NUMBER"
 gh pr checkout $ORIGINAL_PR_NUMBER --branch "typo-pr-branch"
 
-# Step 2: Create squash commit on next
-echo "Squashing PR branch onto next"
-git checkout next
+# Step 2: Create squash commit on main
+echo "Squashing PR branch onto main"
+git checkout main
 git merge "typo-pr-branch" --squash
 
 # Step 3: Commit squash commit to new branch

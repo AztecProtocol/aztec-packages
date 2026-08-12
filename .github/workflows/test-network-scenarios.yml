@@ -14,7 +14,7 @@ on:
         description: Git ref to checkout for the scenario runner.
         required: false
         type: string
-        default: next
+        default: main
       namespace:
         description: Kubernetes namespace to use (will be sanitized for k8s naming)
         required: true

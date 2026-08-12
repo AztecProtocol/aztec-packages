@@ -190,8 +190,7 @@
         <select id="ttDashboard">
           <option value="">all</option>
           <option value="prs">prs</option>
-          <option value="next">next</option>
-          <option value="master">master</option>
+          <option value="main">main</option>
         </select>
         <label style="color:#888">status</label>
         <select id="ttStatus">
@@ -521,7 +520,7 @@
       const dbd = perfData?.duration_by_dashboard || {};
       const pipelines = Object.keys(dbd).sort();
       if (!pipelines.length) return;
-      const pipeColors = { 'prs': '#3fb950', 'next': '#58a6ff', 'master': '#d2a8ff', 'nightly': '#f0883e', 'releases': '#f85149', 'deflake': '#a5d6ff' };
+      const pipeColors = { 'prs': '#3fb950', 'main': '#58a6ff', 'nightly': '#f0883e', 'releases': '#f85149', 'deflake': '#a5d6ff' };
       const defaultColors = ['#56d364', '#79c0ff', '#d2a8ff', '#f0883e', '#ff7b72', '#a5d6ff', '#e3b341', '#8b949e'];
       // Collect all dates across pipelines
       const allDates = new Set();
@@ -569,7 +568,7 @@
       const dbd = perfData?.duration_by_dashboard || {};
       const pipelines = Object.keys(dbd).sort();
       if (!pipelines.length) return;
-      const pipeColors = { 'prs': '#3fb950', 'next': '#58a6ff', 'master': '#d2a8ff', 'nightly': '#f0883e', 'releases': '#f85149', 'deflake': '#a5d6ff' };
+      const pipeColors = { 'prs': '#3fb950', 'main': '#58a6ff', 'nightly': '#f0883e', 'releases': '#f85149', 'deflake': '#a5d6ff' };
       const defaultColors = ['#56d364', '#79c0ff', '#d2a8ff', '#f0883e', '#ff7b72', '#a5d6ff', '#e3b341', '#8b949e'];
       const allDates = new Set();
       pipelines.forEach(p => (dbd[p] || []).forEach(d => allDates.add(d.date)));

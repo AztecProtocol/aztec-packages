@@ -78,7 +78,7 @@ if [[ -n "${TS:-}" ]]; then
   extra_args+=(-f "slack_thread_ts=$TS")
 fi
 gh workflow run claudebox.yml \
-  -R "$REPO" --ref next \
+  -R "$REPO" --ref main \
   -f prompt="$prompt" \
   -f link="$link" \
   "${extra_args[@]}" || true

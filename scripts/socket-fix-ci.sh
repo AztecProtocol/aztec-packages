@@ -88,7 +88,7 @@ Each commit addresses a single advisory (GHSA) for easy review and revert.*"
       --repo "$REPO" \
       --title "$PR_TITLE" \
       --body "$PR_BODY" \
-      --base next \
+      --base main \
       --head "$BRANCH_NAME" \
       2>&1 | tail -1)
   else

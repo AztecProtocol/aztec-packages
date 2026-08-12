@@ -37,16 +37,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          # Get the tip of the public repo's next branch to tag
-          PUBLIC_NEXT_SHA=$(gh api repos/${{ github.repository }}/git/ref/heads/next --jq '.object.sha')
-          echo "Tagging public/next at $PUBLIC_NEXT_SHA"
+          # Get the tip of the public repo's main branch to tag
+          PUBLIC_MAIN_SHA=$(gh api repos/${{ github.repository }}/git/ref/heads/main --jq '.object.sha')
+          echo "Tagging public/main at $PUBLIC_MAIN_SHA"
 
           if gh release view "${{ inputs.tag }}" --repo ${{ github.repository }} &>/dev/null; then
             echo "Release ${{ inputs.tag }} already exists, skipping."
           else
             gh release create "${{ inputs.tag }}" \
               --repo ${{ github.repository }} \
-              --target "$PUBLIC_NEXT_SHA" \
+              --target "$PUBLIC_MAIN_SHA" \
               --title "${{ inputs.tag }}" \
               --prerelease \
               --notes "Private fork release from ${{ inputs.commit }}"
