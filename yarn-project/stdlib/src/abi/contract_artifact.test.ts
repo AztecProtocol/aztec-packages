@@ -99,6 +99,13 @@ describe('contract_artifact', () => {
       expect(getNamedContractGlobals(artifact, 'constants')).toEqual({});
     });
 
+    it('handles global names that collide with Object prototype properties', () => {
+      const artifact = loadContractArtifact(
+        contractWithGlobals({ constants: [{ name: 'toString', value: fieldValue }] }),
+      );
+      expect(getNamedContractGlobals(artifact, 'constants')).toEqual({ toString: fieldValue });
+    });
+
     it('throws on duplicate names under the same tag', () => {
       const artifact = loadContractArtifact(
         contractWithGlobals({

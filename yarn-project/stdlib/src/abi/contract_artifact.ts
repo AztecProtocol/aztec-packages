@@ -293,16 +293,18 @@ function getStorageLayout(contractName: string, globals: Record<string, AbiGloba
  * empty record. Throws if two globals under the same tag share a name.
  */
 export function getNamedContractGlobals(artifact: ContractArtifact, tag: string): Record<string, AbiValue> {
-  const globals: Record<string, AbiValue> = {};
+  // Collected in a Map so global names that collide with Object.prototype properties (e.g. `toString`)
+  // are neither flagged as duplicates nor mishandled (`__proto__`) when building the record.
+  const globals = new Map<string, AbiValue>();
   for (const entry of artifact.outputs.globals[tag] ?? []) {
     if (isAbiNamedValue(entry)) {
-      if (entry.name in globals) {
+      if (globals.has(entry.name)) {
         throw new Error(`Duplicate global '${entry.name}' exported under #[abi(${tag})] in contract ${artifact.name}`);
       }
-      globals[entry.name] = entry.value;
+      globals.set(entry.name, entry.value);
     }
   }
-  return globals;
+  return Object.fromEntries(globals);
 }
 
 /**
