@@ -23,7 +23,13 @@ jobs:
         run: |
             branch="${{ github.ref_name }}"
 
+            # Determine base branch. Most trains target main; trains suffixed
+            # with -v<N> (e.g. spartan-v6) target the matching release line
+            # (v6-next) instead.
             base_branch="main"
+            if [[ "$branch" =~ -v([0-9]+)$ ]]; then
+              base_branch="v${BASH_REMATCH[1]}-next"
+            fi
 
             # Skip if this is a merge commit (multiple parents) -- unless its
             # message references a PR (#123). A feature PR merged into the train
