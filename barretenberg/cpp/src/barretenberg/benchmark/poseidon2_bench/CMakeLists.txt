@@ -1,1 +1,0 @@
-barretenberg_module(poseidon2_bench crypto_poseidon2 ext_starknet_crypto_poseidon)

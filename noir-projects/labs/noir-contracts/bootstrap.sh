@@ -288,8 +288,6 @@ function bench_cmds {
   local hash=$(hash_str \
     $AZTEC_TOOLCHAIN_HASH \
     $(cache_content_hash \
-      ../../../barretenberg/cpp/.rebuild_patterns \
-      ../../../barretenberg/ts/.rebuild_patterns \
       "^noir-projects/labs/noir-contracts/" \
       "^noir-projects/labs/aztec-nr/" \
       "^noir-projects/labs/noir-contracts/scripts/bench_artifact_sizes.sh"))

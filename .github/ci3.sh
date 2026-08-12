@@ -55,7 +55,6 @@ function check_cache {
     "full"
     "full-no-test-cache"
     "docs"
-    "barretenberg"
     "ci-release-pr"
   )
   # Check if CI_MODE is in cached_ci_modes

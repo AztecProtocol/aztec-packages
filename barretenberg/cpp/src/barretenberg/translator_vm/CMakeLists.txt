@@ -1,1 +1,0 @@
-barretenberg_module(translator_vm sumcheck commitment_schemes)

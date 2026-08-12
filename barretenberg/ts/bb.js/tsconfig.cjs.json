@@ -1,9 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "module": "CommonJS",
-    "outDir": "dest/node-cjs",
-    "tsBuildInfoFile": "/dev/null",
-    "noEmit": false
-  }
-}

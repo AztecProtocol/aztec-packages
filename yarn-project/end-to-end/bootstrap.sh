@@ -198,7 +198,7 @@ function build_bench_capture {
 }
 
 # Builds benchmark fixtures that are still owned by yarn-project.
-# Chonk benchmark inputs are pinned and managed by barretenberg/cpp.
+# Chonk benchmark inputs are pinned and downloaded via labs-aztec-toolchain.
 function build_bench {
   rm -rf bench-out && mkdir -p bench-out
 

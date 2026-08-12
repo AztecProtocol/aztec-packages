@@ -43,35 +43,10 @@ flake_groups:
     flake_error_threshold: 5
 
 tests:
-  # barretenberg
-  #
-  # Rare. But I saw it happen twice in 10 CI runs. Then twice in 10000 mainframe runs. Today I can't reproduce.
-  # Grind with: seq 1 10000 | parallel --bar "barretenberg/cpp/scripts/run_test.sh join_split_example_tests join_split_tests.test_defi_deposit_second_bridge_output_in_use_and_same_virtual_bridge_output_asset_ids >/dev/null"
-  # Logic failed: field_t::range_constraint
-  # /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/examples/join_split/join_split.test.cpp:1735: Failure
-  # Value of: result.valid
-  #   Actual: false
-  # Expected: true
-  - regex: "join_split_example_tests"
-    error_regex: "field_t::range_constraint"
-    owners:
-      - *luke
-  - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
-    error_regex: "Aborted.*core dumped"
-    owners:
-      - *adam
-
   - regex: "aztec-nr noir_aztec test::helpers::test_environment::test::events::"
     error_regex: "Failed to solve brillig function"
     owners:
       - *nico
-
-  # Fails in CI: "No execution steps in ivc-inputs.msgpack" — pinned Chonk IVC
-  # inputs missing/stale. http://ci.aztec-labs.com/d7647a841ee811a0
-  - regex: "bbapi/chonk_pinned_inputs.test"
-    skip: true
-    owners:
-      - *palla
 
   # e2e tests skipped
   - regex: "testbench/port_change.test.ts"

@@ -16,7 +16,7 @@ on:
         required: false
         type: string
       target_ref:
-        description: 'Git ref the session should work against (e.g., origin/merge-train/barretenberg)'
+        description: 'Git ref the session should work against (e.g., origin/merge-train/spartan)'
         required: false
         type: string
       repo:

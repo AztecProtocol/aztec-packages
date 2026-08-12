@@ -35,7 +35,7 @@ jobs:
               ./scripts/merge-train/merge-next.sh "$branch" v5-next || true
             done
           else
-            for branch in merge-train/avm merge-train/barretenberg merge-train/ci merge-train/docs merge-train/fairies merge-train/spartan; do
+            for branch in merge-train/ci merge-train/docs merge-train/fairies merge-train/spartan; do
               ./scripts/merge-train/merge-next.sh "$branch" || true
             done
           fi

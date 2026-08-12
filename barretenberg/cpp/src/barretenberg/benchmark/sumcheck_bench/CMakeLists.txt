@@ -1,1 +1,0 @@
-barretenberg_module(sumcheck_bench sumcheck translator_vm eccvm ultra_honk stdlib_circuit_builders transcript)

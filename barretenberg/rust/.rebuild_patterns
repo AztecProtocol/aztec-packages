@@ -1,2 +1,0 @@
-^barretenberg/rust/.*\.(rs|toml)$
-^barretenberg/rust/bootstrap.sh

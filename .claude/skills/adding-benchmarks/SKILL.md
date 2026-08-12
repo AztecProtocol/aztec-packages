@@ -39,7 +39,6 @@ The dashboard splits names by `/` to create a collapsible tree. The **last segme
 |-----------|------------|------------|
 | `yarn-project/stdlib/Tx/private/getTxHash/avg` | `yarn-project/stdlib/Tx/private/getTxHash` | `avg` |
 | `yarn-project/kv-store/Map/Individual insertion` | `yarn-project/kv-store/Map` | `Individual insertion` |
-| `barretenberg/sol/Add2HonkVerifier` | `barretenberg/sol` | `Add2HonkVerifier` |
 
 ### Naming Best Practices
 

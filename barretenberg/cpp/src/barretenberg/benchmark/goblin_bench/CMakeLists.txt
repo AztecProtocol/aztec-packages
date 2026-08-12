@@ -1,1 +1,0 @@
-barretenberg_module(goblin_bench eccvm)

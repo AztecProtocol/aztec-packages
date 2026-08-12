@@ -115,11 +115,7 @@ export default defineConfig(({ mode }) => {
       // Allow vite to serve files from these directories, since they are symlinked
       // These are the protocol circuit artifacts and bb WASMs.
       fs: {
-        allow: [
-          searchForWorkspaceRoot(process.cwd()),
-          '../yarn-project/noir-protocol-circuits-types/artifacts',
-          '../barretenberg/ts/bb.js/dest/browser',
-        ],
+        allow: [searchForWorkspaceRoot(process.cwd()), '../yarn-project/noir-protocol-circuits-types/artifacts'],
       },
     },
     plugins: [
