@@ -7,6 +7,9 @@
 
 namespace bb::avm2::simulation {
 
+using crypto::merkle_tree::LeafUpdateWitnessData;
+using crypto::merkle_tree::MemoryTree;
+
 template <typename LeafType, typename HashingPolicy> class IndexedMemoryTree {
   public:
     IndexedMemoryTree(size_t depth, size_t num_default_values);

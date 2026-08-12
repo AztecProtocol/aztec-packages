@@ -42,11 +42,12 @@ import { type TxMetaData, type TxState, buildTxMetaData, checkNullifierConflict 
 import { TxPoolIndices } from './tx_pool_indices.js';
 
 /**
- * Maximum number of full transactions to load into memory at once when finalizing a block.
- * Bounds peak memory while archiving and hard-deleting mined txs (~23k txs/epoch at 10 TPS would
- * otherwise OOM the node).
+ * Maximum number of finalized txs to archive or hard-delete per serial-queue item. Bounds both
+ * peak memory (~23k txs/epoch at 10 TPS would otherwise OOM the node) and, more importantly, how
+ * long finalization occupies the pool's serial queue per item: gossip tx validation waits on that
+ * queue, so each item must stay well under the gossipsub mcache eviction window.
  */
-const FINALIZE_BLOCK_CHUNK_SIZE = 100;
+export const FINALIZE_BLOCK_CHUNK_SIZE = 16;
 
 /**
  * Callbacks for the implementation to notify the outer class about events and metrics.
@@ -725,45 +726,71 @@ export class TxPoolV2Impl {
     this.#log.info(`Deleted ${txHashes.length} failed txs`, { txHashes: txHashes.map(h => h.toString()) });
   }
 
-  async handleFinalizedBlock(block: BlockHeader): Promise<void> {
-    const blockNumber = block.globalVariables.blockNumber;
-
+  /**
+   * Resolves what a finalized block event should process: the cutoff block and the mined txs at or
+   * before it. The wrapper feeds the result to archiveFinalizedTxs / finalizeTxs in chunks, each as
+   * its own serial-queue item, so gossip-driven pool operations can interleave with finalization
+   * instead of stalling behind an entire epoch's worth of tx processing.
+   */
+  async prepareFinalization(block: BlockHeader): Promise<{ cutoffBlock: BlockNumber; txHashes: string[] }> {
     // Hold finalized txs for a configurable margin behind the finalized tip so a prover still
     // proving an epoch with already-finalized blocks isn't starved of its txs. 0 deletes at the finalized tip.
     const cutoffBlock = await this.#finalizationCutoffBlock(block);
+    return { cutoffBlock, txHashes: this.#indices.findTxsMinedAtOrBefore(cutoffBlock) };
+  }
 
-    // Step 1: Find mined txs at or before the cutoff block
-    const minedTxsToFinalize = this.#indices.findTxsMinedAtOrBefore(cutoffBlock);
-
-    // Step 2: Archive in chunks if archiving is enabled. Hydrating an entire epoch's worth of
-    // mined txs at once would OOM under load. When archiving is disabled there is no need to hydrate the txs at all.
-    if (this.#archive.isEnabled()) {
-      for (let i = 0; i < minedTxsToFinalize.length; i += FINALIZE_BLOCK_CHUNK_SIZE) {
-        const chunk = minedTxsToFinalize.slice(i, i + FINALIZE_BLOCK_CHUNK_SIZE);
-        const txsToArchive: Tx[] = [];
-        for (const txHashStr of chunk) {
-          const buffer = await this.#txsDB.getAsync(txHashStr);
-          if (buffer) {
-            txsToArchive.push(Tx.fromBuffer(buffer));
-          }
-        }
-        if (txsToArchive.length > 0) {
-          await this.#archive.archiveTxs(txsToArchive);
-        }
+  /**
+   * Copies the given finalized txs into the archive. The pool stores txs proof-stripped, which is
+   * exactly the archive format, so buffers are copied as-is without deserialization.
+   */
+  async archiveFinalizedTxs(txHashes: string[]): Promise<void> {
+    if (!this.#archive.isEnabled()) {
+      return;
+    }
+    const entries: { txHash: string; buffer: Buffer }[] = [];
+    for (const txHash of txHashes) {
+      const buffer = await this.#txsDB.getAsync(txHash);
+      if (buffer) {
+        entries.push({ txHash, buffer });
       }
     }
+    await this.#archive.archiveTxBuffers(entries);
+  }
 
-    // Step 3: Delete mined txs from the active pool and finalize soft-deleted txs in one
-    // transaction. Only tx hashes are touched here, so memory is bounded and atomicity is preserved.
+  /**
+   * Deletes a batch of finalized mined txs from the active pool. Callers may invoke this in
+   * chunks: a crash between chunks leaves some finalized txs mined, and the next finalized-block
+   * event lists and deletes them again (the operation is idempotent), so per-chunk atomicity is
+   * sufficient. Since other pool operations may interleave between the finalization plan being
+   * computed and this call, each tx is re-checked to still be mined at or before the cutoff.
+   */
+  async deleteFinalizedTxs(txHashes: string[], cutoffBlock: BlockNumber): Promise<void> {
+    const stillFinalized = txHashes.filter(txHash => {
+      const minedBlock = this.#indices.getMetadata(txHash)?.minedL2BlockId?.number;
+      return minedBlock !== undefined && minedBlock <= cutoffBlock;
+    });
+    if (stillFinalized.length === 0) {
+      return;
+    }
     await this.#store.transactionAsync(async () => {
-      await this.#deleteTxsBatch(minedTxsToFinalize);
+      await this.#deleteTxsBatch(stillFinalized);
+    });
+  }
+
+  /** Finalizes soft-deleted txs up to the cutoff and logs the completed finalization. */
+  async completeFinalization(
+    txHashes: string[],
+    cutoffBlock: BlockNumber,
+    finalizedBlockNumber: BlockNumber,
+  ): Promise<void> {
+    await this.#store.transactionAsync(async () => {
       await this.#deletedPool.finalizeBlock(cutoffBlock);
     });
 
-    if (minedTxsToFinalize.length > 0) {
-      this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${cutoffBlock}`, {
-        txHashes: minedTxsToFinalize,
-        finalizedBlockNumber: blockNumber,
+    if (txHashes.length > 0) {
+      this.#log.info(`Finalized ${txHashes.length} mined txs from blocks up to ${cutoffBlock}`, {
+        txHashes,
+        finalizedBlockNumber,
         cutoffBlock,
       });
     }

@@ -52,7 +52,7 @@ ContractInstance create_default_instance(const ContractClassId& class_id)
 
 } // anonymous namespace
 
-FF FuzzerContext::register_contract_from_bytecode(const std::vector<uint8_t>& bytecode)
+FF FuzzerContext::register_contract_from_bytecode(FuzzerWorldStateManager& ws_mgr, const std::vector<uint8_t>& bytecode)
 {
     auto default_class = create_default_class(bytecode);
     auto default_instance = create_default_instance(default_class.id);
@@ -63,7 +63,7 @@ FF FuzzerContext::register_contract_from_bytecode(const std::vector<uint8_t>& by
     contract_addresses_.push_back(contract_address);
 
     try {
-        FuzzerWorldStateManager::getInstance()->register_contract_address(contract_address);
+        ws_mgr.register_contract_address(contract_address);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         // Ignore duplicates, the contract is already registered

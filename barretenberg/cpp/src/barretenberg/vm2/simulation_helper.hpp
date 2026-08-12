@@ -11,26 +11,6 @@ namespace bb::avm2 {
 
 class AvmSimulationHelper {
   public:
-    // Fast simulation without event collection (used in block building, TXE, etc).
-    TxSimulationResult simulate_fast_with_existing_ws(simulation::ContractDBInterface& raw_contract_db,
-                                                      const world_state::WorldStateRevision& world_state_revision,
-                                                      world_state::WorldState& ws,
-                                                      const PublicSimulatorConfig& config,
-                                                      const Tx& tx,
-                                                      const GlobalVariables& global_variables,
-                                                      const ProtocolContracts& protocol_contracts,
-                                                      simulation::CancellationTokenPtr cancellation_token = nullptr);
-
-    // Simulation to collect hints (used by the prover node).
-    TxSimulationResult simulate_for_hint_collection(simulation::ContractDBInterface& raw_contract_db,
-                                                    const world_state::WorldStateRevision& world_state_revision,
-                                                    world_state::WorldState& ws,
-                                                    const PublicSimulatorConfig& config,
-                                                    const Tx& tx,
-                                                    const GlobalVariables& global_variables,
-                                                    const ProtocolContracts& protocol_contracts,
-                                                    simulation::CancellationTokenPtr cancellation_token = nullptr);
-
     // Simulation with event collection (used in witgen and proving).
     simulation::EventsContainer simulate_for_witgen(const ExecutionHints& hints);
 

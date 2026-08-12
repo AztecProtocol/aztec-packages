@@ -1,5 +1,4 @@
 #include "barretenberg/vm2/simulation/lib/hinting_dbs.hpp"
-#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
@@ -18,6 +17,8 @@
 #include <vector>
 
 namespace bb::avm2::simulation {
+
+using namespace bb::crypto::merkle_tree;
 namespace {
 
 class HintingDBsTest : public ::testing::Test {
@@ -57,38 +58,84 @@ class HintingDBsMinimalTest : public HintingDBsTest {
     {}
 };
 
-// A helper to reset the randomly generated values in avm_inputs.testdata.bin to avoid unrelated failures:
-AvmProvingInputs fix_hint_keys(AvmProvingInputs inputs)
+// Builds inputs with random hint values whose keys resolve against fresh hinted DBs: contract DB
+// hints are keyed by the initial action counter (0, no checkpoint actions happen before the reads)
+// and sibling path hints by the starting tree roots (no tree mutations happen before the reads).
+AvmProvingInputs make_random_proving_inputs()
 {
-    auto reset_action_counters = [&]<typename H>(std::vector<H>& hints) {
-        for (auto& hint : hints) {
-            hint.hint_key = 0;
-        }
+    AvmProvingInputs inputs;
+    ExecutionHints& hints = inputs.hints;
+
+    hints.starting_tree_roots = TreeSnapshots{
+        .l1_to_l2_message_tree = { FF::random_element(), 1 },
+        .note_hash_tree = { FF::random_element(), 2 },
+        .nullifier_tree = { FF::random_element(), 3 },
+        .public_data_tree = { FF::random_element(), 4 },
     };
-    auto reset_tree_id = [&]<typename H>(std::vector<H>& hints) {
-        for (auto& hint : hints) {
-            // The AVM handles treeIds 0 - 3:
-            hint.tree_id = MerkleTreeId(hint.tree_id % 4);
-            hint.hint_key = get_tree_info_helper(hint.tree_id, inputs.hints.starting_tree_roots);
-        }
-    };
-    reset_action_counters(inputs.hints.contract_instances);
-    reset_action_counters(inputs.hints.contract_classes);
-    reset_action_counters(inputs.hints.bytecode_commitments);
-    reset_tree_id(inputs.hints.get_sibling_path_hints);
+
+    for (uint64_t i = 0; i < 3; ++i) {
+        hints.contract_instances.push_back(ContractInstanceHint{
+            .hint_key = 0,
+            .address = FF::random_element(),
+            .salt = FF::random_element(),
+            .deployer = FF::random_element(),
+            .current_contract_class_id = FF::random_element(),
+            .original_contract_class_id = FF::random_element(),
+            .initialization_hash = FF::random_element(),
+            .immutables_hash = FF::random_element(),
+            .public_keys =
+                PublicKeysHint{
+                    .npk_m_hash = FF::random_element(),
+                    .ivpk_m = AffinePoint::random_element(),
+                    .ovpk_m_hash = FF::random_element(),
+                    .tpk_m_hash = FF::random_element(),
+                    .mspk_m_hash = FF::random_element(),
+                    .fbpk_m_hash = FF::random_element(),
+                },
+        });
+        hints.contract_classes.push_back(ContractClassHint{
+            .hint_key = 0,
+            .class_id = FF::random_element(),
+            .artifact_hash = FF::random_element(),
+            .private_functions_root = FF::random_element(),
+            .packed_bytecode = testing::random_bytes(40),
+        });
+        hints.bytecode_commitments.push_back(BytecodeCommitmentHint{
+            .hint_key = 0,
+            .class_id = FF::random_element(),
+            .commitment = FF::random_element(),
+        });
+        hints.debug_function_names.push_back(DebugFunctionNameHint{
+            .address = FF::random_element(),
+            .selector = FF::random_element(),
+            .name = "function_" + std::to_string(i),
+        });
+    }
+
+    uint64_t leaf_index = 0;
+    for (auto tree_id : { world_state::MerkleTreeId::PUBLIC_DATA_TREE,
+                          world_state::MerkleTreeId::NULLIFIER_TREE,
+                          world_state::MerkleTreeId::NOTE_HASH_TREE,
+                          world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE }) {
+        hints.get_sibling_path_hints.push_back(GetSiblingPathHint{
+            .hint_key = get_tree_info_helper(tree_id, hints.starting_tree_roots),
+            .tree_id = tree_id,
+            .index = leaf_index++,
+            .path = testing::random_fields(8),
+        });
+    }
 
     return inputs;
-};
+}
 
-class HintingDBsTestInputTest : public HintingDBsTest {
+class HintingDBsRandomInputTest : public HintingDBsTest {
   protected:
-    HintingDBsTestInputTest()
-        : HintingDBsTest(fix_hint_keys(
-              AvmProvingInputs::from(read_file("../src/barretenberg/vm2/testing/avm_inputs.testdata.bin"))))
+    HintingDBsRandomInputTest()
+        : HintingDBsTest(make_random_proving_inputs())
     {}
 };
 
-TEST_F(HintingDBsTestInputTest, GetContractInstance)
+TEST_F(HintingDBsRandomInputTest, GetContractInstance)
 {
     for (const auto& instance_hint : inputs.hints.contract_instances) {
         auto instance = hinting_contract_db.get_contract_instance(instance_hint.address);
@@ -101,7 +148,7 @@ TEST_F(HintingDBsTestInputTest, GetContractInstance)
     compare_hints(inputs.hints.contract_instances, collected_hints.contract_instances);
 }
 
-TEST_F(HintingDBsTestInputTest, GetContractClass)
+TEST_F(HintingDBsRandomInputTest, GetContractClass)
 {
     for (const auto& class_hint : inputs.hints.contract_classes) {
         auto klass = hinting_contract_db.get_contract_class(class_hint.class_id);
@@ -114,7 +161,7 @@ TEST_F(HintingDBsTestInputTest, GetContractClass)
     compare_hints(inputs.hints.contract_classes, collected_hints.contract_classes);
 }
 
-TEST_F(HintingDBsTestInputTest, GetBytecodeCommitment)
+TEST_F(HintingDBsRandomInputTest, GetBytecodeCommitment)
 {
     for (const auto& hint : inputs.hints.bytecode_commitments) {
         auto commitment = hinting_contract_db.get_bytecode_commitment(hint.class_id);
@@ -127,7 +174,7 @@ TEST_F(HintingDBsTestInputTest, GetBytecodeCommitment)
     compare_hints(inputs.hints.bytecode_commitments, collected_hints.bytecode_commitments);
 }
 
-TEST_F(HintingDBsTestInputTest, GetDebugFunctionName)
+TEST_F(HintingDBsRandomInputTest, GetDebugFunctionName)
 {
     for (const auto& hint : inputs.hints.debug_function_names) {
         auto name = hinting_contract_db.get_debug_function_name(hint.address, hint.selector);
@@ -160,7 +207,7 @@ TEST_F(HintingDBsMinimalTest, ContractDBCheckpoints)
                   collected_hints.contract_db_commit_checkpoint_hints);
 }
 
-TEST_F(HintingDBsTestInputTest, GetSiblingPath)
+TEST_F(HintingDBsRandomInputTest, GetSiblingPath)
 {
     for (const auto& hint : inputs.hints.get_sibling_path_hints) {
         auto path = hinting_merkle_db.get_sibling_path(hint.tree_id, hint.index);

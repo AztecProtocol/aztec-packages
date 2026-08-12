@@ -12,13 +12,11 @@
 
 using namespace bb::avm2::fuzzer;
 
-FuzzerWorldStateManager* ws_mgr = nullptr;
-
-void register_functions(FuzzerContext& context)
+void register_functions(FuzzerWorldStateManager& ws_mgr, FuzzerContext& context)
 {
     for (auto& function : PREDEFINED_FUNCTIONS) {
         try {
-            context.register_contract_from_bytecode(function);
+            context.register_contract_from_bytecode(ws_mgr, function);
         } catch (...) {
             std::cout << "Failed to register predefined function: " << function.size() << std::endl;
             continue;
@@ -30,16 +28,10 @@ class FuzzTest : public ::testing::Test {
   protected:
     void SetUp() override
     {
-        FuzzerWorldStateManager::initialize();
-        if (ws_mgr == nullptr) {
-            ws_mgr = FuzzerWorldStateManager::getInstance();
-        }
-        ws_mgr->fork();
+        ws_mgr = FuzzerWorldStateManager();
         context = FuzzerContext();
-        register_functions(context);
+        register_functions(ws_mgr, context);
     }
-
-    void TearDown() override { ws_mgr->reset_world_state(); }
 
     SimulatorResult simulate_with_default_tx(std::vector<uint8_t>& bytecode, std::vector<FF> calldata)
     {
@@ -50,21 +42,19 @@ class FuzzTest : public ::testing::Test {
                                              std::vector<FF> calldata,
                                              const std::vector<FF>& note_hashes)
     {
-        ws_mgr->checkpoint();
+        ws_mgr.append_note_hashes(note_hashes);
 
-        ws_mgr->append_note_hashes(note_hashes);
-
-        auto contract_address = context.register_contract_from_bytecode(bytecode);
+        auto contract_address = context.register_contract_from_bytecode(ws_mgr, bytecode);
         FuzzerContractDB contract_db = context.get_contract_db();
 
         auto tx = create_default_tx(contract_address, MSG_SENDER, calldata, TRANSACTION_FEE, IS_STATIC_CALL, GAS_LIMIT);
         FF fee_required_da = FF(tx.effective_gas_fees.fee_per_da_gas) * FF(tx.gas_settings.gas_limits.da_gas);
         FF fee_required_l2 = FF(tx.effective_gas_fees.fee_per_l2_gas) * FF(tx.gas_settings.gas_limits.l2_gas);
-        ws_mgr->write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
+        ws_mgr.write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
         auto cpp_simulator = CppSimulator();
         auto globals = create_default_globals();
 
-        auto result = cpp_simulator.simulate(*ws_mgr,
+        auto result = cpp_simulator.simulate(ws_mgr,
                                              contract_db,
                                              tx,
                                              globals,
@@ -72,11 +62,10 @@ class FuzzTest : public ::testing::Test {
                                              /*note_hashes=*/{},
                                              /*protocol_contracts=*/{});
 
-        ws_mgr->revert();
-
         return result;
     }
 
+    FuzzerWorldStateManager ws_mgr;
     FuzzerContext context;
 };
 

@@ -9,9 +9,11 @@
 
 using namespace benchmark;
 using namespace bb::avm2;
-using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+using RawPoseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
 namespace bb::avm2::simulation {
+
+using namespace bb::crypto::merkle_tree;
 
 static void BM_WrittenSlotsTreeStack(benchmark::State& state)
 {

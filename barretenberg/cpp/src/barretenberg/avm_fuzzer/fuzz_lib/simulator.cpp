@@ -16,14 +16,11 @@
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
-#include "barretenberg/world_state/types.hpp"
-#include "barretenberg/world_state/world_state.hpp"
 
 using bb::avm2::GlobalVariables;
 using namespace bb::avm2;
 using namespace bb::avm2::simulation;
 using namespace bb::avm2::fuzzer;
-using namespace bb::world_state;
 
 constexpr auto MAX_RETURN_DATA_SIZE_IN_FIELDS = 1024;
 
@@ -62,12 +59,12 @@ SimulatorResult CppSimulator::simulate(
         },
     };
 
-    WorldState& ws = ws_mgr.get_world_state();
-    WorldStateRevision ws_rev = ws_mgr.get_current_revision();
-
+    // Run against a fresh copy of the genesis-seeded in-memory merkle DB so the simulation's tree
+    // mutations don't leak into later simulations of the same transaction.
+    simulation::MemoryMerkleDB merkle_db = ws_mgr.get_memory_merkle_db();
     AvmSimulationHelper helper;
     TxSimulationResult result =
-        helper.simulate_fast_with_existing_ws(contract_db, ws_rev, ws, config, tx, globals, protocol_contracts);
+        helper.simulate_fast_internal(contract_db, merkle_db, config, tx, globals, protocol_contracts);
     bool reverted = result.revert_code != RevertCode::OK;
     // Just process the top level call's output
     vinfo(

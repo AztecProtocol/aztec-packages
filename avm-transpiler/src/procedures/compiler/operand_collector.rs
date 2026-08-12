@@ -1,14 +1,19 @@
+use std::ops::Range;
+
+use noirc_evaluator::brillig::brillig_ir::LayoutConfig;
+
 use crate::{
     instructions::AvmTypeTag,
     procedures::parser::{Label, Operand, ParsedOpcode, Symbol},
 };
 
-// We should probably pull these constants from the noir compiler
-const NUM_RESERVED_REGISTERS: usize = 3;
-const MAX_STACK_FRAME_SIZE: usize = 2048;
-const MAX_STACK_SIZE: usize = 16 * MAX_STACK_FRAME_SIZE;
-const MAX_SCRATCH_SPACE: usize = 64;
-pub(crate) const SCRATCH_SPACE_START: usize = NUM_RESERVED_REGISTERS + MAX_STACK_SIZE;
+/// Injected procedures keep their local variables in the Brillig scratch space, shared with
+/// Noir's own procedures — any changes to the semantics or structure of the scratch space
+/// should be made known to the AVM team. Assumes contracts are compiled with the default
+/// memory layout (the artifact does not record its layout, so it cannot be verified here).
+pub(crate) fn scratch_space_range() -> Range<usize> {
+    LayoutConfig::default().scratch_space_range()
+}
 
 pub(crate) enum Immediate {
     Numeric(u128),
@@ -70,10 +75,11 @@ impl OperandCollector {
     }
 
     fn convert_address(address: usize) -> Result<usize, String> {
-        if address >= MAX_SCRATCH_SPACE {
+        let scratch = scratch_space_range();
+        if address >= scratch.len() {
             return Err(format!("Address {} is out of bounds", address));
         }
-        let result = address + SCRATCH_SPACE_START;
+        let result = address + scratch.start;
         Ok(result)
     }
 

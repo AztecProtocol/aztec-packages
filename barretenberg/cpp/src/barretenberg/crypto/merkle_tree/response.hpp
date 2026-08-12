@@ -87,6 +87,21 @@ template <typename LeafType> struct LeafUpdateWitnessData {
     SERIALIZATION_FIELDS(leaf, index, path);
 };
 
+template <typename LeafValueType> struct BatchInsertionResult {
+    std::vector<LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
+    std::vector<std::pair<LeafValueType, index_t>> sorted_leaves;
+    fr_sibling_path subtree_path;
+
+    SERIALIZATION_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
+};
+
+template <typename LeafValueType> struct SequentialInsertionResult {
+    std::vector<LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
+    std::vector<LeafUpdateWitnessData<LeafValueType>> insertion_witness_data;
+
+    SERIALIZATION_FIELDS(low_leaf_witness_data, insertion_witness_data);
+};
+
 template <typename LeafValueType> struct AddIndexedDataResponse {
     AddDataResponse add_data_result;
     fr_sibling_path subtree_path;

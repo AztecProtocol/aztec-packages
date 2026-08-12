@@ -16,9 +16,9 @@ interface SerializableL1TxRequest {
 }
 
 /**
- * Serializable version of GasPrice for storage.
+ * Serializable version of FeesPerGas for storage.
  */
-interface SerializableGasPrice {
+interface SerializableFeesPerGas {
   maxFeePerGas: string;
   maxPriorityFeePerGas: string;
   maxFeePerBlobGas?: string;
@@ -57,7 +57,7 @@ interface SerializableL1TxState {
   txHashes: string[];
   cancelTxHashes: string[];
   gasLimit: string;
-  gasPrice: SerializableGasPrice;
+  feesPerGas: SerializableFeesPerGas;
   txConfigOverrides: SerializableL1TxConfig;
   request: SerializableL1TxRequest;
   status: number;
@@ -68,6 +68,16 @@ interface SerializableL1TxState {
   hasBlobInputs: boolean;
   blobMetadata?: SerializableBlobMetadata;
 }
+
+/**
+ * Shape accepted when reading a state back. States written before the rename spelled `feesPerGas` as `gasPrice`, so
+ * both are optional here and `deserializeState` takes whichever is present. Nothing writes `gasPrice` any more; drop
+ * it once no store can hold states predating the rename.
+ */
+type StoredL1TxState = Omit<SerializableL1TxState, 'feesPerGas'> & {
+  feesPerGas?: SerializableFeesPerGas;
+  gasPrice?: SerializableFeesPerGas;
+};
 
 /**
  * Serializable blob inputs for separate storage.
@@ -167,7 +177,7 @@ export class L1TxStore implements IL1TxStore {
       const stateId = parseInt(stateIdStr, 10);
 
       try {
-        const serialized: SerializableL1TxState = JSON.parse(stateJson);
+        const serialized: StoredL1TxState = JSON.parse(stateJson);
 
         // Load blobs if they exist
         let blobInputs: L1BlobInputs | undefined;
@@ -207,7 +217,7 @@ export class L1TxStore implements IL1TxStore {
     }
 
     try {
-      const serialized: SerializableL1TxState = JSON.parse(stateJson);
+      const serialized: StoredL1TxState = JSON.parse(stateJson);
 
       // Load blobs if they exist
       let blobInputs: L1BlobInputs | undefined;
@@ -300,10 +310,10 @@ export class L1TxStore implements IL1TxStore {
       txHashes: state.txHashes,
       cancelTxHashes: state.cancelTxHashes,
       gasLimit: state.gasLimit.toString(),
-      gasPrice: {
-        maxFeePerGas: state.gasPrice.maxFeePerGas.toString(),
-        maxPriorityFeePerGas: state.gasPrice.maxPriorityFeePerGas.toString(),
-        maxFeePerBlobGas: state.gasPrice.maxFeePerBlobGas?.toString(),
+      feesPerGas: {
+        maxFeePerGas: state.feesPerGas.maxFeePerGas.toString(),
+        maxPriorityFeePerGas: state.feesPerGas.maxPriorityFeePerGas.toString(),
+        maxFeePerBlobGas: state.feesPerGas.maxFeePerBlobGas?.toString(),
       },
       txConfigOverrides,
       request: {
@@ -325,7 +335,12 @@ export class L1TxStore implements IL1TxStore {
   /**
    * Deserializes a stored state back to L1TxState.
    */
-  private deserializeState(stored: SerializableL1TxState, blobInputs?: L1BlobInputs): L1TxState {
+  private deserializeState(stored: StoredL1TxState, blobInputs?: L1BlobInputs): L1TxState {
+    const feesPerGas = stored.feesPerGas ?? stored.gasPrice;
+    if (!feesPerGas) {
+      throw new Error(`State ${stored.id} has no fees per gas`);
+    }
+
     const txConfigOverrides: L1TxConfig = {
       ...stored.txConfigOverrides,
       gasLimit: stored.txConfigOverrides.gasLimit !== undefined ? BigInt(stored.txConfigOverrides.gasLimit) : undefined,
@@ -348,10 +363,10 @@ export class L1TxStore implements IL1TxStore {
       txHashes: stored.txHashes as `0x${string}`[],
       cancelTxHashes: stored.cancelTxHashes as `0x${string}`[],
       gasLimit: BigInt(stored.gasLimit),
-      gasPrice: {
-        maxFeePerGas: BigInt(stored.gasPrice.maxFeePerGas),
-        maxPriorityFeePerGas: BigInt(stored.gasPrice.maxPriorityFeePerGas),
-        maxFeePerBlobGas: stored.gasPrice.maxFeePerBlobGas ? BigInt(stored.gasPrice.maxFeePerBlobGas) : undefined,
+      feesPerGas: {
+        maxFeePerGas: BigInt(feesPerGas.maxFeePerGas),
+        maxPriorityFeePerGas: BigInt(feesPerGas.maxPriorityFeePerGas),
+        maxFeePerBlobGas: feesPerGas.maxFeePerBlobGas ? BigInt(feesPerGas.maxFeePerBlobGas) : undefined,
       },
       txConfigOverrides,
       request: {

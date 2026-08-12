@@ -9,13 +9,12 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/world_state/world_state.hpp" // For MSGPACK_ADD_ENUM(MerkleTreeId)
+#include "barretenberg/world_state_reference/merkle_tree_id.hpp" // For MerkleTreeId, WorldStateRevision and MSGPACK_ADD_ENUM(MerkleTreeId).
 
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/world_state/types.hpp"
 #include "msgpack/adaptor/define_decl.hpp"
 
 namespace bb::avm2 {

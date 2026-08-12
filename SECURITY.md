@@ -36,9 +36,17 @@ Keeping normal bugs and feature requests public helps the community track progre
 
 ## Vulnerabilities discovered in Aztec Network v4
 
-The following table contains a list of high and critical vulnerabilities discovered internally and through external audits by 11.05.2026
+The following table contains a list of high and critical vulnerabilities discovered internally and through external audits by 10.08.2026
 
 |Severity | Count |
 |----|----|
-| Critical | 8 |
-| High | 7 |
+| Critical | 13 |
+| High | 87 |
+
+## Vulnerabilities discovered in Aztec Network v5
+
+The following table contains a list of high and critical vulnerabilities discovered internally and through external audits by 10.08.2026
+
+|Severity | Count |
+|----|----|
+| Critical | 1 |
