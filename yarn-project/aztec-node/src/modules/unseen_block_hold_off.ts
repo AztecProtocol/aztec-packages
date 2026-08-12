@@ -60,6 +60,9 @@ export class UnseenBlockHoldOff {
    * Resolves `query` to block metadata, holding off briefly when it references a block the node is about to see.
    * Returns undefined on a miss, so callers keep whatever behavior they had before (throwing or returning
    * undefined) — the hold-off only delays that outcome.
+   *
+   * A budget is approximate: the poll loop sleeps a full interval before re-checking the deadline, so the actual
+   * wait can exceed the configured budget by up to one poll interval plus the block source's own read latency.
    */
   public async getBlockData(
     query: NormalizedBlockParameter,
@@ -96,13 +99,18 @@ export class UnseenBlockHoldOff {
       this.log.verbose(`Unseen block arrived after ${timer.ms()}ms`, {
         blockParameter,
         blockNumber: arrived.header.getBlockNumber(),
+        elapsedMs: timer.ms(),
       });
       return arrived;
     } catch (err) {
       if (!(err instanceof TimeoutError)) {
         throw err;
       }
-      this.log.verbose(`Gave up waiting for unseen block after ${timer.ms()}ms`, { blockParameter, waitMs });
+      this.log.verbose(`Gave up waiting for unseen block after ${timer.ms()}ms`, {
+        blockParameter,
+        waitMs,
+        elapsedMs: timer.ms(),
+      });
       return undefined;
     } finally {
       this.activeHolds--;
