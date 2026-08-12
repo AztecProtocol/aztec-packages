@@ -28,6 +28,7 @@ import type { TxHash } from '@aztec/stdlib/tx';
 import { WorldStateSynchronizerError } from '@aztec/world-state';
 
 import { normalizeBlockParameter } from './block_parameter.js';
+import type { UnseenBlockHoldOff } from './unseen_block_hold_off.js';
 
 /** Attempts at resolving a query and syncing world state to it before giving up (see {@link NodeWorldStateQueries.getWorldState}). */
 const WORLD_STATE_SYNC_ATTEMPTS = 3;
@@ -40,6 +41,7 @@ export interface NodeWorldStateQueriesDeps {
   worldStateSynchronizer: WorldStateSynchronizer;
   blockSource: L2BlockSource;
   l1ToL2MessageSource: L1ToL2MessageSource;
+  holdOff: UnseenBlockHoldOff;
   log?: Logger;
 }
 
@@ -52,12 +54,14 @@ export class NodeWorldStateQueries {
   private readonly worldStateSynchronizer: WorldStateSynchronizer;
   private readonly blockSource: L2BlockSource;
   private readonly l1ToL2MessageSource: L1ToL2MessageSource;
+  private readonly holdOff: UnseenBlockHoldOff;
   private readonly log: Logger;
 
   constructor(deps: NodeWorldStateQueriesDeps) {
     this.worldStateSynchronizer = deps.worldStateSynchronizer;
     this.blockSource = deps.blockSource;
     this.l1ToL2MessageSource = deps.l1ToL2MessageSource;
+    this.holdOff = deps.holdOff;
     this.log = deps.log ?? createLogger('node:world-state-queries');
   }
 
@@ -294,7 +298,10 @@ export class NodeWorldStateQueries {
 
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.#resolveWorldState(query);
+        // Only the first attempt waits for a block the node has not seen yet: re-entering the hold-off on every
+        // attempt would multiply the wait a client experiences by the attempt count, and by the second attempt the
+        // block has either arrived or the budget is spent.
+        return await this.#resolveWorldState(query, attempt === 1);
       } catch (err) {
         if (attempt >= WORLD_STATE_SYNC_ATTEMPTS || !(err instanceof WorldStateSynchronizerError)) {
           throw err;
@@ -312,7 +319,7 @@ export class NodeWorldStateQueries {
    * Resolves `query` to a concrete (block number, block hash), syncs world state to that exact fork, and returns
    * the committed db (for `proposed` queries) or the fork-verified snapshot at the resolved block.
    */
-  async #resolveWorldState(query: NormalizedBlockParameter) {
+  async #resolveWorldState(query: NormalizedBlockParameter, holdOff: boolean) {
     // User requests 'latest on the current fork', so the committed db is returned unverified
     if ('tag' in query && query.tag === 'proposed') {
       this.log.debug(`Using committed db for latest block`);
@@ -324,7 +331,7 @@ export class NodeWorldStateQueries {
     // that exact fork. Resolving after the sync races the block source: the resolved tip can advance past what world
     // state synced while the sync is in flight. Passing the hash makes the sync reorg-aware — it barriers until the
     // archive-tree commit for that block has landed and verifies it matches the requested fork, throwing otherwise.
-    const { blockNumber, blockHash } = await this.#resolveBlockNumberAndHash(query);
+    const { blockNumber, blockHash } = await this.#resolveBlockNumberAndHash(query, holdOff);
     const blockSyncedTo = await this.worldStateSynchronizer.syncImmediate(blockNumber, blockHash);
 
     // The fork could flip between it returning and the snapshot being read, so getVerifiedSnapshot pins the
@@ -333,11 +340,15 @@ export class NodeWorldStateQueries {
     return await this.worldStateSynchronizer.getVerifiedSnapshot(blockNumber, blockHash);
   }
 
-  /** Resolves any {@link BlockParameter} variant to its concrete `(blockNumber, blockHash)` via the block source. */
+  /**
+   * Resolves any {@link BlockParameter} variant to its concrete `(blockNumber, blockHash)`, holding the query
+   * briefly (unless `holdOff` is false) when it references a block the node is about to see.
+   */
   async #resolveBlockNumberAndHash(
     query: NormalizedBlockParameter,
+    holdOff: boolean,
   ): Promise<{ blockNumber: BlockNumber; blockHash: BlockHash }> {
-    const blockData = await this.blockSource.getBlockData(query);
+    const blockData = await this.holdOff.getBlockData(query, { holdOff });
     if (blockData === undefined) {
       this.#throwOnUndefinedBlockData(query);
     }
@@ -347,11 +358,11 @@ export class NodeWorldStateQueries {
   /** Resolves any {@link BlockParameter} variant to a concrete block number. */
   async #resolveBlockNumber(block: BlockParameter): Promise<BlockNumber> {
     const blockQuery = normalizeBlockParameter(block);
-    const blockNumber = await this.blockSource.getBlockNumber(blockQuery);
-    if (blockNumber === undefined) {
+    const blockData = await this.holdOff.getBlockData(blockQuery);
+    if (blockData === undefined) {
       this.#throwOnUndefinedBlockData(blockQuery);
     }
-    return blockNumber;
+    return blockData.header.getBlockNumber();
   }
 
   /**

@@ -1,6 +1,13 @@
 import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
-import type { BlockData, BlockParameter, CommitteeAttestation, L2BlockSource } from '@aztec/stdlib/block';
+import type {
+  BlockData,
+  BlockParameter,
+  CommitteeAttestation,
+  L2Block,
+  L2BlockSource,
+  NormalizedBlockParameter,
+} from '@aztec/stdlib/block';
 import type { CheckpointData, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   BlockIncludeOptions,
@@ -19,6 +26,7 @@ import {
   projectProposedToCheckpointResponse,
 } from '../aztec-node/block_response_helpers.js';
 import { normalizeBlockParameter, resolveCheckpointParameter } from './block_parameter.js';
+import type { UnseenBlockHoldOff } from './unseen_block_hold_off.js';
 
 /**
  * Serves the node's block and checkpoint read queries, assembling RPC responses (optionally including
@@ -26,7 +34,10 @@ import { normalizeBlockParameter, resolveCheckpointParameter } from './block_par
  * `AztecNodeService` to keep `server.ts` smaller.
  */
 export class NodeBlockProvider {
-  constructor(private readonly blockSource: L2BlockSource) {}
+  constructor(
+    private readonly blockSource: L2BlockSource,
+    private readonly holdOff: UnseenBlockHoldOff,
+  ) {}
 
   public async getBlock<Opts extends BlockIncludeOptions = {}>(
     param: BlockParameter,
@@ -37,14 +48,14 @@ export class NodeBlockProvider {
     const wantContext = !!options.includeL1PublishInfo || !!options.includeAttestations;
 
     if (wantTxs) {
-      const block = await this.blockSource.getBlock(query);
+      const block = (await this.blockSource.getBlock(query)) ?? (await this.#getBlockAfterHoldOff(query));
       if (!block) {
         return undefined;
       }
       const ctx = wantContext ? await this.#getCheckpointContext(block.checkpointNumber) : undefined;
       return (await blockResponseFromL2Block(block, options, ctx)) as BlockResponse<Opts>;
     }
-    const data = await this.blockSource.getBlockData(query);
+    const data = await this.holdOff.getBlockData(query);
     if (!data) {
       return undefined;
     }
@@ -54,7 +65,7 @@ export class NodeBlockProvider {
 
   public getBlockData(param: BlockParameter): Promise<BlockData | undefined> {
     const query = normalizeBlockParameter(param);
-    return this.blockSource.getBlockData(query);
+    return this.holdOff.getBlockData(query);
   }
 
   public async getBlocks<Opts extends BlocksIncludeOptions = {}>(
@@ -125,6 +136,15 @@ export class NodeBlockProvider {
     }
     const datas = await this.blockSource.getCheckpointsData({ from, limit });
     return datas.map(d => checkpointResponseFromCheckpointData(d, options)) as CheckpointResponse<Opts>[];
+  }
+
+  /**
+   * Waits briefly for a block the node is about to see, and re-reads it with transactions once it lands. Only
+   * called after a plain miss, so it costs nothing on the happy path.
+   */
+  async #getBlockAfterHoldOff(query: NormalizedBlockParameter): Promise<L2Block | undefined> {
+    const data = await this.holdOff.getBlockData(query);
+    return data === undefined ? undefined : await this.blockSource.getBlock(query);
   }
 
   /** Fetches checkpoint-level L1 and attestation data for use as block response context. */
