@@ -22,9 +22,8 @@ import { syncScope } from './helpers.js';
 export const MAX_CONCURRENT_SCOPE_SYNCS = 5;
 
 /**
- * Selector of the macro-generated `sync_state` utility function. It is the same for every contract: the macro fixes
- * the signature to `sync_state(scope: AztecAddress)` and rejects user-defined overrides. Pinned against a compiled
- * artifact in tests, so a macro signature change fails there instead of predictions keying on a stale selector.
+ * Selector of the macro-generated `sync_state` utility function, whichis the same for every contract.
+ * Pinned against a compiled artifact in tests, so a macro signature change fails there.
  */
 export const SYNC_STATE_SELECTOR = FunctionSelector.fromString('0x418ef5da');
 
