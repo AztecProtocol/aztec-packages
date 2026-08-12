@@ -19,8 +19,11 @@ matching historical files, unpacked on demand into the gitignored `../.legacy-co
 `../src/install_legacy_contracts.cjs`. An empty directory (a line with no stable releases yet)
 means no sweep — delete the tarballs to disable compat testing on a line, add one to extend it.
 
-The release flow (`bootstrap.sh ci-release` at the repo root) refuses to cut a release while any
-prior stable of the major is missing here, so the set can't silently fall behind.
+Every full CI run (`bootstrap.sh ci-full*` at the repo root) fails while any stable release of the
+major is missing here, so the set can't silently fall behind. Releases themselves aren't gated:
+the release cutting `X.Y.Z` is what publishes the packages the `X.Y.Z` artifacts are built from,
+so they can't be vendored beforehand — the first full run after a stable release goes red until
+the new tarball lands.
 
 ## Adding a version
 

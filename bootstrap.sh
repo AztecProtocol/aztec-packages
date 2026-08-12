@@ -645,8 +645,11 @@ function private_release {
 function check_compat_artifacts_tracked {
   # The backwards-compat e2e sweep runs as part of the normal e2e suite, driven by the artifact
   # tarballs committed under yarn-project/end-to-end/legacy-contracts/ (see its README). This check
-  # guards the history: cutting a release while a prior stable's artifacts are missing there would
-  # silently shrink compat coverage for every future run.
+  # runs on every full CI run and fails while any stable release of the compat major is missing its
+  # tarball, so the set can't silently fall behind. Releases deliberately don't run it: the release
+  # cutting X.Y.Z is what publishes the packages the X.Y.Z artifacts are built from, so they can't
+  # be vendored beforehand — instead the first full run after a stable release goes red until
+  # someone commits the new tarball.
   #   compat_major:       major version line with a backwards-compatibility guarantee.
   #   compat_min_version: earliest stable release covered by that guarantee.
   local compat_major="5"
@@ -673,14 +676,12 @@ function check_compat_artifacts_tracked {
     ver=${tag#v}
     # Include only versions >= compat_min_version (sort -V puts smaller first).
     [ "$(printf '%s\n%s' "$compat_min_version" "$ver" | sort -V | head -1)" = "$compat_min_version" ] || continue
-    # The tag being released right now can't have artifacts yet — they're published by this release.
-    [ "v$ver" = "${REF_NAME:-}" ] && continue
     [ -f "yarn-project/end-to-end/legacy-contracts/$ver.tar.gz" ] || missing+=("$ver")
   done < <(git tag -l "v${compat_major}.*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V)
 
   if [ ${#missing[@]} -gt 0 ]; then
     echo "ERROR: stable release(s) missing committed compat artifacts: ${missing[*]}" >&2
-    echo "Add yarn-project/end-to-end/legacy-contracts/<version>.tar.gz for each (see that README), then re-tag." >&2
+    echo "Add yarn-project/end-to-end/legacy-contracts/<version>.tar.gz for each (see that README)." >&2
     return 1
   fi
   echo "Compat artifacts tracked for all prior stable v${compat_major} releases."
@@ -783,6 +784,7 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=1
+    check_compat_artifacts_tracked
     build_and_test full
     bench
     ;;
@@ -790,6 +792,7 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
+    check_compat_artifacts_tracked
     build_and_test full
     bench
     ;;
@@ -1022,8 +1025,6 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       exit 1
     fi
-
-    check_compat_artifacts_tracked
 
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
       echo_header "Private fork release: $REF_NAME"
