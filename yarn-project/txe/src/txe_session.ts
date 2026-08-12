@@ -47,7 +47,7 @@ import { STANDARD_AUTH_REGISTRY_ADDRESS } from '@aztec/standard-contracts/auth-r
 import { EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { GasSettings } from '@aztec/stdlib/gas';
+import { GasSettings } from '@aztec/stdlib/gas';
 import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -57,6 +57,7 @@ import { z } from 'zod';
 
 import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
+import type { GasSettingsData } from './oracle/noir-structs/gas_settings_data.js';
 import {
   type TXETaggingSecretStrategies,
   makeResolveTaggingSecretStrategyHook,
@@ -134,7 +135,7 @@ export interface TXESessionStateHandler {
   enterPrivateState(
     contractAddress: Option<AztecAddress>,
     anchorBlockNumber: Option<BlockNumber>,
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress: Option<AztecAddress>): Promise<void>;
 
@@ -151,7 +152,7 @@ export interface TXESessionStateHandler {
     isStaticCall: boolean,
     additionalScopes: AztecAddress[],
     authorizedUtilityCallTargets: AztecAddress[],
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<Fr[]>;
 
   /** Executes a top-level utility function and commits the job. */
@@ -172,7 +173,7 @@ export interface TXESessionStateHandler {
     targetContractAddress: AztecAddress,
     calldata: Fr[],
     isStaticCall: boolean,
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<Fr[]>;
 
   /** Syncs the target contract and returns the private events it emitted matching the given selector and scope. */
@@ -539,7 +540,7 @@ export class TXESession implements TXESessionStateHandler {
     isStaticCall: boolean,
     additionalScopes: AztecAddress[],
     authorizedUtilityCallTargets: AztecAddress[],
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<Fr[]> {
     const handler = this.handlerAsTxe();
     return await this.withTopLevelCallTracking(async () => {
@@ -553,7 +554,7 @@ export class TXESession implements TXESessionStateHandler {
         additionalScopes,
         this.currentJobId,
         authorizedUtilityCallTargets,
-        gasSettings,
+        GasSettings.from(gasSettings),
       );
 
       // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than round-tripping
@@ -605,7 +606,7 @@ export class TXESession implements TXESessionStateHandler {
     targetContractAddress: AztecAddress,
     calldata: Fr[],
     isStaticCall: boolean,
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<Fr[]> {
     const handler = this.handlerAsTxe();
     return await this.withTopLevelCallTracking(async () => {
@@ -614,7 +615,7 @@ export class TXESession implements TXESessionStateHandler {
         targetContractAddress,
         calldata,
         isStaticCall,
-        gasSettings,
+        GasSettings.from(gasSettings),
       );
 
       await this.cycleJob();
@@ -714,7 +715,7 @@ export class TXESession implements TXESessionStateHandler {
   async enterPrivateState(
     contractAddressOpt: Option<AztecAddress>,
     anchorBlockNumberOpt: Option<BlockNumber>,
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<PrivateContextInputs> {
     const contractAddress = contractAddressOpt?.value ?? DEFAULT_ADDRESS;
     const anchorBlockNumber = anchorBlockNumberOpt?.value;
@@ -753,7 +754,7 @@ export class TXESession implements TXESessionStateHandler {
     );
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
-      txContext: new TxContext(this.chainId, this.version, gasSettings),
+      txContext: new TxContext(this.chainId, this.version, GasSettings.from(gasSettings)),
       txRequestSalt: Fr.ZERO,
       callContext: new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
       anchorBlockHeader: anchorBlock!,

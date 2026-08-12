@@ -1,6 +1,5 @@
 /* eslint-disable camelcase */
 import {
-  GAS_SETTINGS_LENGTH,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
@@ -20,6 +19,7 @@ import {
   FIELD,
   FIXED_ARRAY,
   FUNCTION_SELECTOR,
+  GAS_FEES,
   type InputSlot,
   LEAF,
   type MaybePromise,
@@ -42,7 +42,6 @@ import {
 } from '@aztec/pxe/simulator';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { CompleteAddress } from '@aztec/stdlib/contract';
-import { GasSettings } from '@aztec/stdlib/gas';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import type { PrivateLog } from '@aztec/stdlib/logs';
 import type { TxHash } from '@aztec/stdlib/tx';
@@ -54,6 +53,7 @@ import {
   MAX_PRIVATE_EVENT_LEN,
 } from '../constants.js';
 import type { ForeignCallArgs, ForeignCallResult } from '../utils/encoding.js';
+import type { GasData, GasSettingsData } from './noir-structs/gas_settings_data.js';
 
 // Spreading `ORACLE_REGISTRY` re-materializes its entries into `TXE_ORACLE_REGISTRY`'s inferred type, which names the
 // protocol types below. Re-exporting them gives tsc a portable path to each instead of falling back to a deep
@@ -63,13 +63,17 @@ export type { BlockHash } from '@aztec/stdlib/block';
 export type { MembershipWitness } from '@aztec/foundation/trees';
 export type { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 
-const GAS_SETTINGS: TypeMapping<GasSettings> = LEAF({
-  kind: 'gas-settings',
-  deserialization: {
-    fn: ([reader]) => GasSettings.fromFields(reader.readFieldArray(GAS_SETTINGS_LENGTH)),
-  },
-  shape: [{ len: GAS_SETTINGS_LENGTH }],
-});
+const GAS: TypeMapping<GasData> = STRUCT([
+  { name: 'daGas', type: U32 },
+  { name: 'l2Gas', type: U32 },
+]);
+
+const GAS_SETTINGS: TypeMapping<GasSettingsData> = STRUCT([
+  { name: 'gasLimits', type: GAS },
+  { name: 'teardownGasLimits', type: GAS },
+  { name: 'maxFeesPerGas', type: GAS_FEES },
+  { name: 'maxPriorityFeesPerGas', type: GAS_FEES },
+]);
 
 // Tagging secret strategy discriminants. Must match the Noir test helper `TaggingSecretStrategy` in
 // aztec-nr `test/helpers/tagging_secret_strategy.nr`. This is a test-only oracle (only `set_tagging_secret_strategies`
