@@ -18,7 +18,7 @@ list(FILTER VM2_SIM_SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$"
 barretenberg_module_with_sources(
   vm2_sim
   SOURCE_FILES ${VM2_SIM_SOURCE_FILES}
-  DEPENDENCIES world_state
+  DEPENDENCIES crypto_merkle_tree world_state_reference
 )
 
 # vm2_sim needs -fPIC because it's linked into the nodejs_module shared library
@@ -47,7 +47,7 @@ if(AVM)
     TEST_SOURCE_FILES ${TEST_SOURCE_FILES}
     BENCH_SOURCE_FILES ${BENCH_SOURCE_FILES}
     FUZZERS_SOURCE_FILES ${FUZZERS_SOURCE_FILES}
-    DEPENDENCIES sumcheck stdlib_honk_verifier goblin_avm world_state vm2_sim boomerang_value_detection
+    DEPENDENCIES sumcheck stdlib_honk_verifier goblin_avm vm2_sim boomerang_value_detection
   )
 
   # vm2_tests needs dsl for integration testing, but this creates circular dependency:

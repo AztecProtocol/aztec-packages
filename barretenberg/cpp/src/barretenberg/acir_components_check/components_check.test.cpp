@@ -564,7 +564,9 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
 
     acir_components_check::ComponentsChecker checker(circuit, builder);
     auto errors = checker.check();
-    expect_single_error_type(errors, acir_components_check::Error::Type::UNCONSTRAINED);
+    ASSERT_EQ(errors.size(), 1U);
+    EXPECT_EQ(errors[0].type, acir_components_check::Error::Type::UNCONSTRAINED);
+    EXPECT_NE(errors[0].message.find("w9(real=missing"), std::string::npos);
 }
 
 TEST_F(AcirComponentsCheckTest, TwoIndependentLinkedPairs)

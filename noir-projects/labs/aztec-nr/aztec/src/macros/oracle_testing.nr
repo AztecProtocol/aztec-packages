@@ -49,6 +49,7 @@
 //! produces two tests: `some+some` and `none+none`. Each scenario becomes its own `#[test]`, suffixed by index
 //! (`__0`, `__1`, …).
 
+use crate::event::EventSelector;
 use crate::messages::delivery::OnchainDeliveryMode;
 use crate::protocol::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
 
@@ -120,6 +121,13 @@ comptime fn scalars() -> [(Type, Quoted)] {
         scalar::<FunctionSelector>(
             quote {
             |seed: u32| <crate::protocol::abis::function_selector::FunctionSelector as crate::protocol::traits::FromField>::from_field(
+                seed as Field,
+            )
+        },
+        ),
+        scalar::<EventSelector>(
+            quote {
+            |seed: u32| <crate::event::EventSelector as crate::protocol::traits::FromField>::from_field(
                 seed as Field,
             )
         },

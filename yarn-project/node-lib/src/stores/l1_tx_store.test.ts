@@ -32,7 +32,7 @@ describe('L1TxStore', () => {
       txHashes: [`0xabc${nonce}` as Hex],
       cancelTxHashes: [],
       gasLimit: 21000n,
-      gasPrice: {
+      feesPerGas: {
         maxFeePerGas: 1000000000n,
         maxPriorityFeePerGas: 1000000n,
       },
@@ -126,14 +126,14 @@ describe('L1TxStore', () => {
       const account = '0xabc123';
       const state = createMockState(1);
       state.gasLimit = 123456789012345n;
-      state.gasPrice.maxFeePerGas = 987654321098765n;
+      state.feesPerGas.maxFeePerGas = 987654321098765n;
       state.request.value = 5000000000000000000n;
 
       await store.saveState(account, state);
 
       const loaded = await store.loadStates(account);
       expect(loaded[0].gasLimit).toBe(123456789012345n);
-      expect(loaded[0].gasPrice.maxFeePerGas).toBe(987654321098765n);
+      expect(loaded[0].feesPerGas.maxFeePerGas).toBe(987654321098765n);
       expect(loaded[0].request.value).toBe(5000000000000000000n);
     });
 
@@ -407,6 +407,24 @@ describe('L1TxStore', () => {
     });
   });
 
+  describe('legacy gasPrice key', () => {
+    it('loads states written under the legacy gasPrice key', async () => {
+      const account = '0xabc123';
+      const saved = await store.saveState(account, createMockState(1));
+
+      // Rewrite the stored state into the pre-rename shape, where fees per gas were spelled `gasPrice`.
+      const states = kvStore.openMap<string, string>('l1_tx_states');
+      const key = `${account}-${saved.id.toString().padStart(10, '0')}`;
+      const { feesPerGas, ...rest } = JSON.parse((await states.getAsync(key))!);
+      await states.set(key, JSON.stringify({ ...rest, gasPrice: feesPerGas }));
+
+      const loaded = await store.loadStates(account);
+
+      expect(loaded).toHaveLength(1);
+      expect(loaded[0].feesPerGas).toEqual(saved.feesPerGas);
+    });
+  });
+
   describe('serialize/deserialize roundtrip', () => {
     it('should preserve all state fields through serialization', async () => {
       const account = '0xabc123';
@@ -417,7 +435,7 @@ describe('L1TxStore', () => {
         txHashes: ['0xhash1' as Hex, '0xhash2' as Hex],
         cancelTxHashes: ['0xcancel1' as Hex],
         gasLimit: 123456n,
-        gasPrice: {
+        feesPerGas: {
           maxFeePerGas: 50000000000n,
           maxPriorityFeePerGas: 2000000000n,
           maxFeePerBlobGas: 1000000000n,

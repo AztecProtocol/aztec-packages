@@ -556,11 +556,10 @@ function release {
   echo_header "release all"
   set -x
 
-  # A private release publishes only to our internal GCP Artifact Registry (the docker image and our
-  # npm packages) — see private_release. ci3_labels_to_env.sh sets PRIVATE_RELEASE for every release in
-  # the private repo; we ALSO backstop on the repo name here so the public release flow (DockerHub,
-  # npmjs, crates.io, github) can never run in the private fork, even if that env var is missing or this
-  # is invoked outside ci3.yml.
+  # A private release publishes only our npm packages to the internal GCP Artifact Registry — see
+  # private_release. ci3_labels_to_env.sh sets PRIVATE_RELEASE for every release in the private repo;
+  # we ALSO backstop on the repo name here so the public release flow (npmjs, crates.io, github) can
+  # never run in the private fork, even if that env var is missing or this is invoked outside ci3.yml.
   if [ "${PRIVATE_RELEASE:-0}" = 1 ] ||
      [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
     private_release
@@ -571,6 +570,13 @@ function release {
   # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
   release_bb_github
 
+  # Only the foundation packages are published from here; the labs packages (yarn-project, playground,
+  # aztec-up, aztec-nr, the docker release-image) are published from the labs repo.
+  # All foundation artifacts are built or cross-compiled on the amd64 job; nothing publishes from arm64.
+  if [ $(arch) == arm64 ]; then
+    return
+  fi
+
   projects=(
     barretenberg/cpp
     ipc-runtime
@@ -579,19 +585,9 @@ function release {
     barretenberg/rust
     noir
     l1-contracts
-    noir-projects/labs/aztec-nr
     protocol/constants-codegen
-    yarn-project
-    aztec-up
-    playground
-    release-image
     noir-projects/fnd
   )
-  if [ $(arch) == arm64 ]; then
-    projects=(
-      release-image
-    )
-  fi
 
   for project in "${projects[@]}"; do
     $project/bootstrap.sh release
@@ -603,29 +599,33 @@ function release_dryrun {
 }
 
 function private_release {
-  # Release flow for the private repo, run on a (nightly) ci-private-release PR. We publish only to our
-  # internal GCP Artifact Registry: the docker image (release-image -> INTERNAL_DOCKER_REGISTRY that
-  # GKE/staging pulls from) and the npm packages (barretenberg/ts, noir, ipc-runtime, wsdb,
-  # protocol/constants-codegen, yarn-project -> the INTERNAL_NPM_REGISTRY npm repo). We run the release
-  # step for real on exactly those components and do not invoke the others — the remaining release
-  # sources publish public artifacts (github releases, crates.io, the aztec-up/playground S3 installers)
-  # and are not interrelated with these.
+  # Release flow for the private repo, run for any v* tag pushed there — routinely the nightly
+  # v<ver>-nightly.<date> tags (see ci3_labels_to_env.sh, which forces PRIVATE_RELEASE=1 for every
+  # release in that repo). We publish only our foundation npm packages (barretenberg/ts, noir,
+  # ipc-runtime, wsdb, protocol/constants-codegen, l1-contracts' l1-artifacts, the noir-projects/fnd
+  # artifacts packages) to the INTERNAL_NPM_REGISTRY npm repo in our internal GCP Artifact Registry.
+  # We run the release step for real on exactly those components and do not invoke the others — the
+  # remaining release sources publish public artifacts (github releases, crates.io) and are not
+  # interrelated with these.
   echo_header "private release"
 
-  # Default to the private staging Artifact Registry; override via the INTERNAL_*_REGISTRY env vars.
-  # Exported so the child project bootstraps and gcp_artifact_login inherit them.
-  export INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-us-west1-docker.pkg.dev/testnet-440309/aztec}
+  # npm packages are platform-independent; everything here publishes from the amd64 job.
+  if [ $(arch) == arm64 ]; then
+    return
+  fi
+
+  # Default to the private staging Artifact Registry npm repo; override via INTERNAL_NPM_REGISTRY.
+  # Exported so the child project bootstraps inherit it.
   export INTERNAL_NPM_REGISTRY=${INTERNAL_NPM_REGISTRY:-https://us-west1-npm.pkg.dev/testnet-440309/aztec-npm}
 
-  # Activate the CI service account (gcp_artifact_login registers the docker credential helper and
-  # activates the SA globally) and mint a short-lived access token for npm auth against the AR npm repo.
+  # Activate the CI service account (gcp_artifact_login activates the SA globally) and mint a
+  # short-lived access token for npm auth against the AR npm repo.
   ci3/gcp_artifact_login
   set +x  # Never echo the access token.
   export NPM_TOKEN=$(gcloud auth print-access-token)
   # Route our scope to the internal npm registry; public deps still resolve from the default registry
-  # (npmjs), so publishes and yarn-project's install smoke-test both work. Everything we publish is
-  # @aztec-scoped — the noir packages are renamed @noir-lang/* -> @aztec/noir-* on release. Exported so
-  # deploy_npm and that smoke-test share one config.
+  # (npmjs). Everything we publish is @aztec-scoped — the noir packages are renamed
+  # @noir-lang/* -> @aztec/noir-* on release. Exported so deploy_npm picks it up.
   local npmrc reg
   reg="${INTERNAL_NPM_REGISTRY%/}/"
   npmrc=$(mktemp)
@@ -636,46 +636,9 @@ function private_release {
   export NPM_CONFIG_GLOBALCONFIG="$npmrc"
   set -x
 
-  # Mirror external @aztec-scoped fork dependencies (e.g. the vendored "viem": "npm:@aztec/viem@x")
-  # from public npm into our internal registry. Because we scope ALL of @aztec to the internal registry,
-  # these forks — which we don't build/publish ourselves — must also live there, or installs of our
-  # published packages 404 (this is what yarn-project's release smoke-test exercises). amd64 only; the
-  # registry is shared across arches.
-  if [ "$(arch)" != arm64 ]; then
-    local spec name ver td
-    for spec in $(grep -rhoE 'npm:@aztec/[a-zA-Z0-9_.-]+@[0-9][^"]*' yarn-project --include=package.json \
-                  | sed 's/^npm://' | sort -u); do
-      name="${spec%@*}"; ver="${spec##*@}"
-      if npm view "${name}@${ver}" version >/dev/null 2>&1; then
-        echo "Mirror: ${spec} already present in internal registry; skipping."
-        continue
-      fi
-      echo "Mirror: copying ${spec} from public npm to internal registry."
-      td=$(mktemp -d)
-      # Override the @aztec scope registry for the fetch (our .npmrc points @aztec at the internal
-      # registry, which doesn't have the fork yet); publish then uses the inherited @aztec->internal config.
-      npm pack "${spec}" --@aztec:registry=https://registry.npmjs.org/ --pack-destination "$td" --quiet
-      npm publish "$td"/*.tgz
-      rm -rf "$td"
-    done
-  fi
-
-  # Publish @aztec/l1-artifacts to the internal registry. 13 yarn-project packages depend on it at the
-  # release version, so it must exist before yarn-project's release smoke-test installs them. amd64
-  # only (npm packages are platform-independent; mirrors the publish guard below).
-  if [ $(arch) != arm64 ]; then
-    l1-contracts/bootstrap.sh release
-  fi
-
-  # Publish for real, in dependency order: bb.js, the noir packages, ipc-runtime, and wsdb must be on
-  # the registry before yarn-project's release smoke-tests installing the @aztec packages that depend on
-  # them. @aztec/world-state has a runtime dependency on @aztec/wsdb, and the ipc-codegen-generated
-  # @aztec/wsdb in turn has a runtime dependency on @aztec/ipc-runtime, so ipc-runtime must precede wsdb.
-  # npm packages are platform-independent, so only the docker image is published on arm64.
-  local publish=(barretenberg/ts noir ipc-runtime wsdb protocol/constants-codegen yarn-project release-image)
-  if [ $(arch) == arm64 ]; then
-    publish=(release-image)
-  fi
+  # Publish for real, in dependency order: the ipc-codegen-generated @aztec/wsdb has a runtime
+  # dependency on @aztec/ipc-runtime, so ipc-runtime must precede wsdb.
+  local publish=(barretenberg/ts noir ipc-runtime wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
   for project in "${publish[@]}"; do
     $project/bootstrap.sh release
   done
@@ -691,7 +654,7 @@ function release_compat_e2e {
     return 0
   fi
 
-  # Compat e2e only runs on amd64 — the arm64 release job just builds and publishes release-image.
+  # Compat e2e only runs on amd64 — the arm64 release job publishes nothing.
   if [ "$(arch)" == arm64 ]; then
     echo "Skipping backwards compatibility e2e tests on arm64 (amd64 only)."
     return 0
@@ -1123,21 +1086,23 @@ case "$cmd" in
     # nightlies (where compat coverage is observational) so the nightly publish still proceeds.
     # Toggle errexit explicitly rather than `release_compat_e2e || compat_rc=$?`: calling under `||`
     # suspends errexit for the whole function (and its subshell), masking build/setup failures there.
-    compat_rc=0
-    set +e
-    release_compat_e2e
-    compat_rc=$?
-    set -e
-    if [ "$compat_rc" -ne 0 ]; then
-      if [[ "${REF_NAME:-}" == *-nightly.* ]]; then
-        run_url="https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}/actions/runs/${RUN_ID:-unknown}"
-        "$ci3/slack_notify" "Backwards compatibility e2e tests FAILED on nightly tag <${run_url}|${REF_NAME}>" "#team-fairies" || true
-        echo "Compat e2e failed on nightly tag — continuing (non-blocking)."
-      else
-        echo "ERROR: backwards compatibility e2e tests failed — blocking release." >&2
-        exit 1
-      fi
-    fi
+
+    # Backwards compatibility check disabled on the foundation repo.
+    # compat_rc=0
+    # set +e
+    # release_compat_e2e
+    # compat_rc=$?
+    # set -e
+    # if [ "$compat_rc" -ne 0 ]; then
+    #   if [[ "${REF_NAME:-}" == *-nightly.* ]]; then
+    #     run_url="https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}/actions/runs/${RUN_ID:-unknown}"
+    #     "$ci3/slack_notify" "Backwards compatibility e2e tests FAILED on nightly tag <${run_url}|${REF_NAME}>" "#team-fairies" || true
+    #     echo "Compat e2e failed on nightly tag — continuing (non-blocking)."
+    #   else
+    #     echo "ERROR: backwards compatibility e2e tests failed — blocking release." >&2
+    #     exit 1
+    #   fi
+    # fi
 
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
       echo_header "Private fork release: $REF_NAME"
@@ -1160,12 +1125,11 @@ case "$cmd" in
     ;;
 
   "ci-private-release")
-    # Local/dev entrypoint for the PRIVATE_RELEASE flow (see private_release): dry-run every project
-    # except release-image, then publish release-image for real to the internal GCP Artifact Registry.
+    # Local/dev entrypoint for the PRIVATE_RELEASE flow (see private_release): publish the foundation
+    # npm packages to the internal GCP Artifact Registry.
     # Same publishing path the private-release.yml workflow runs, minus EC2 and the compat-e2e gating.
-    # Build first so the release-image (and the artifacts the dry-runs pack) exist; set SKIP_BUILD=1 to
-    # reuse an existing build. Requires INTERNAL_DOCKER_REGISTRY + GCP creds (GCP_SA_KEY or
-    # GOOGLE_APPLICATION_CREDENTIALS) in the environment.
+    # Build first so the artifacts the publishes pack exist; set SKIP_BUILD=1 to reuse an existing
+    # build. Requires GCP creds (GCP_SA_KEY or GOOGLE_APPLICATION_CREDENTIALS) in the environment.
     export CI=${CI:-1}
     export PRIVATE_RELEASE=1
     export REF_NAME=${REF_NAME:-v0.0.1-commit.$(git rev-parse --short HEAD)}
@@ -1191,6 +1155,17 @@ case "$cmd" in
     export AVM=0
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
+    ;;
+  "ci-barretenberg-nightly")
+    # Nightly job: bb tests that are too slow to run per merge (barretenberg/cpp/bootstrap.sh test_cmds_nightly).
+    # No test cache, so the nightly signal does not depend on what an earlier run happened to cover.
+    # AVM stays enabled: the AVM recursive verifier tests in the nightly set live in binaries that are only
+    # built with it, and the resulting build hash matches the per-merge one, so the build is a cache pull.
+    export CI=1
+    export USE_TEST_CACHE=0
+    barretenberg/crs/bootstrap.sh
+    barretenberg/cpp/bootstrap.sh build
+    barretenberg/cpp/bootstrap.sh test nightly
     ;;
   "ci-barretenberg")
     export CI=1

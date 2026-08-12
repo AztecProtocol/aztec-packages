@@ -2,7 +2,7 @@ use compiler::{CompiledProcedure, compile};
 use msm::MSM_ASSEMBLY;
 use parser::parse;
 
-pub(crate) use compiler::SCRATCH_SPACE_START;
+pub(crate) use compiler::scratch_space_range;
 pub(crate) use parser::Label;
 
 mod compiler;

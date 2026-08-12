@@ -13,6 +13,10 @@ export interface ITxProvider {
    */
   hasTxs(txHashes: TxHash[]): Promise<boolean[]>;
 
+  /**
+   * Collects the txs for a block proposal from the tx pool, the proposal body, and the network.
+   * @throws InvalidBlockProposalTxsError - If a tx carried in the proposal fails minimum integrity validation.
+   */
   getTxsForBlockProposal(
     blockProposal: BlockProposal,
     blockNumber: number,

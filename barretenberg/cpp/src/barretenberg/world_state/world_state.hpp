@@ -33,20 +33,10 @@ namespace bb::world_state {
 
 using crypto::merkle_tree::index_t;
 
-template <typename LeafValueType> struct BatchInsertionResult {
-    std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
-    std::vector<std::pair<LeafValueType, index_t>> sorted_leaves;
-    crypto::merkle_tree::fr_sibling_path subtree_path;
-
-    SERIALIZATION_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
-};
-
-template <typename LeafValueType> struct SequentialInsertionResult {
-    std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
-    std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> insertion_witness_data;
-
-    SERIALIZATION_FIELDS(low_leaf_witness_data, insertion_witness_data);
-};
+// BatchInsertionResult and SequentialInsertionResult are defined in crypto/merkle_tree/response.hpp
+// (alongside LeafUpdateWitnessData) so the AVM can use them without depending on world_state.
+using crypto::merkle_tree::BatchInsertionResult;
+using crypto::merkle_tree::SequentialInsertionResult;
 
 const uint64_t DEFAULT_MIN_NUMBER_OF_READERS = 128;
 
@@ -768,4 +758,4 @@ SequentialInsertionResult<T> WorldState::insert_indexed_leaves(MerkleTreeId id,
 }
 } // namespace bb::world_state
 
-MSGPACK_ADD_ENUM(bb::world_state::MerkleTreeId)
+// MSGPACK_ADD_ENUM(MerkleTreeId) lives in world_state_reference/merkle_tree_id.hpp.

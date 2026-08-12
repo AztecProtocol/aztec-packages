@@ -74,6 +74,7 @@ output "kong_metrics_service" {
     service        = module.rpc_gateway.metrics_service_name
     port           = module.rpc_gateway.metrics_service_port
     otel_collector = try(module.ethereum_metrics_collector[0].deployment_name, null)
+    irm_alloy      = try(module.ethereum_metrics_collector[0].alloy_deployment_name, null)
   }
 }
 

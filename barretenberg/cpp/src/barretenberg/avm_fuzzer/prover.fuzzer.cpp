@@ -100,7 +100,6 @@ extern "C" int LLVMFuzzerInitialize(int*, char***)
     memset(public_logs_counter, 0, sizeof(public_logs_counter));
 
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    FuzzerWorldStateManager::initialize();
     return 0;
 }
 
@@ -117,9 +116,8 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* serialized_fuzzer_data,
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
+    FuzzerWorldStateManager ws_mgr;
     FuzzerContractDB contract_db;
-    ws_mgr->fork();
 
     FuzzerContext context;
 
@@ -140,16 +138,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     // Setup contracts and fund fee payer
     // Fuzzer state is dependent on the tx data
-    setup_fuzzer_state(*ws_mgr, contract_db, tx_data);
-    fund_fee_payer(*ws_mgr, tx_data.tx);
+    setup_fuzzer_state(ws_mgr, contract_db, tx_data);
+    fund_fee_payer(ws_mgr, tx_data.tx);
 
-    TxSimulationResult result = fuzz_prover(*ws_mgr, contract_db, tx_data);
+    TxSimulationResult result = fuzz_prover(ws_mgr, contract_db, tx_data);
     update_effects_counters(result);
 
     // Print timing stats for this iteration
     vinfo("Timing stats:\n", bb::avm2::Stats::get().to_string());
-
-    ws_mgr->reset_world_state();
 
     return 0;
 }

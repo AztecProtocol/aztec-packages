@@ -11,6 +11,8 @@
 
 namespace bb::avm2::simulation {
 
+using namespace bb::crypto::merkle_tree;
+
 namespace {
 
 using Poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;

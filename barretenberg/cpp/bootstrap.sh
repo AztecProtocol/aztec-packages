@@ -134,8 +134,10 @@ function download_chonk_inputs {
 function build_cross_objects {
   set -eu
   target=$1
+  # Of the cross targets, only arm64-linux builds bb-avm, which needs the full vm2.
+  local vm2_full=$([[ "$target" == arm64-linux ]] && echo vm2 || true)
   if ! cache_exists barretenberg-$target-$hash.zst; then
-    cmake_build $target --target barretenberg vm2_stub vm2_sim circuit_checker honk
+    cmake_build $target --target barretenberg vm2_stub vm2_sim circuit_checker honk $vm2_full
   fi
 }
 
@@ -229,6 +231,9 @@ function build_release_dir {
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-amd64-macos/bin bb
   tar -czf build-release/barretenberg-amd64-windows.tar.gz -C build-amd64-windows/bin bb.exe
 
+  # bb-avm cross-compiles.
+  tar -czf build-release/barretenberg-avm-arm64-linux.tar.gz -C build-arm64-linux/bin bb-avm
+
   # Package static libraries for FFI bindings (stripped at build time via CMake POST_BUILD).
   tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C $native_build_dir/lib libbb-external.a
   tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-arm64-linux/lib libbb-external.a
@@ -257,7 +262,31 @@ function build {
   fi
 }
 
+# Tests that dominate the suite's wall time, taking tens of seconds to minutes each: the recursive verifier
+# suites, whose cases build large recursion circuits, and the Chonk max capacity test, which accumulates and
+# proves CHONK_MAX_NUM_APPS apps. Emitted by test_cmds_nightly rather than per merge.
+nightly_only_tests='^(HonkRecursionConstraintTest|ChonkRecursionConstraintTest|AvmRecursionInnerCircuitTests|AvmRecursionConstraintTest|AvmRecursiveTests\.TwoLayer|PaddingVariants/AvmRecursiveTestsParameterized\.TwoLayer|BoomerangTwoLayerAvmRecursiveVerifierTests|ECCVMRecursiveTests|GoblinRecursiveVerifierTests|GoblinAvmRecursiveVerifierTests|BoomerangGoblinRecursiveVerifierTests|BoomerangGoblinAvmRecursiveVerifierTests|ChonkKernelCapacity\.MaxCapacityPassing)'
+
+# Whether a test is left to the nightly run rather than emitted per merge.
+function runs_nightly_only {
+  local test=$1
+  [[ "$test" =~ $nightly_only_tests ]] || return 1
+  # Keep per merge: PinnedVKRootRollup constructs the root rollup circuit once to check its pinned vk hash and
+  # gate count, and is the per-merge cover for the nightly checks on that circuit.
+  [[ "$test" == *.PinnedVKRootRollup ]] && return 1
+  # Keep per merge: the gate count cases build a circuit once to compare against a pinned count, cheap enough
+  # to serve as the per-merge detector of unintended changes to these circuits.
+  [[ "$test" == *.GateCount* ]] && return 1
+  # Keep in debug builds: WithoutPredicate/1.GenerateVKFromConstraints is the only case exercising the
+  # debug-only native_verification_debug path in honk_recursion_constraint.cpp.
+  [[ "$native_preset" == *debug* &&
+     "$test" == "HonkRecursionConstraintTestWithoutPredicate/1.GenerateVKFromConstraints" ]] && return 1
+  return 0
+}
+
 function test_cmds_native {
+  local mode=${1:-per_merge}
+
   # E.g. build, build-debug or build-coverage
   cd $native_build_dir
 
@@ -271,30 +300,23 @@ function test_cmds_native {
         if [[ "$test" == "ChonkPinnedIvcInputsTest.AllPinnedFlows" ]]; then
           continue
         fi
-        # Skip heavy recursion tests in debug builds — they take 400-600s+ and the same
-        # code paths are already exercised (with assertions) by faster tests in the suite.
-        # Keep WithoutPredicate/1.GenerateVKFromConstraints (241s) so that the debug-only
-        # native_verification_debug path in honk_recursion_constraint.cpp is still exercised.
-        # None of the other skipped suites exercise unique debug-only (#ifndef NDEBUG) code paths.
-        if [[ "$native_preset" == *debug* ]] && [[ "$test" =~ ^(HonkRecursionConstraintTest|ChonkRecursionConstraintTest|AvmRecursionInnerCircuitTests|AvmRecursionConstraintTest|AvmRecursiveTests\.TwoLayer|PaddingVariants/AvmRecursiveTestsParameterized\.TwoLayer|BoomerangTwoLayerAvmRecursiveVerifierTests|ECCVMRecursiveTests|GoblinRecursiveVerifierTests|GoblinAvmRecursiveVerifierTests|BoomerangGoblinRecursiveVerifierTests|BoomerangGoblinAvmRecursiveVerifierTests) ]]; then
-          if [[ "$test" != "HonkRecursionConstraintTestWithoutPredicate/1.GenerateVKFromConstraints" ]]; then
-            continue
+        if runs_nightly_only "$test"; then
+          if [ "$mode" == nightly ]; then
+            echo -e "$hash:CPUS=16:MEM=32g:TIMEOUT=60m barretenberg/cpp/scripts/run_test.sh $bin_name $test"
           fi
-        fi
-        local prefix=$hash
-        if [[ "${CI_FULL:-0}" -eq 0 && "$test" == "ChonkKernelCapacity.MaxCapacityPassing" ]]; then
           continue
         fi
+        if [ "$mode" == nightly ]; then
+          continue
+        fi
+        local prefix=$hash
         # Heavy provers get more cores/memory so they finish within the default per-test timeout;
         # these circuits parallelize, so more cores lowers wall-time. Specific tests before family.
-        if [[ "$test" == "ChonkKernelCapacity.MaxCapacityPassing" ]]; then
-          # Accumulates and proves CHONK_MAX_NUM_APPS apps.
-          prefix="$prefix:CPUS=8:MEM=16g"
-        elif [[ "$test" == HonkRecursionConstraintTestWithoutPredicate/2.* ]]; then
+        if [[ "$test" == HonkRecursionConstraintTestWithoutPredicate/2.* ]]; then
           # Root rollup circuit (HonkRecursionTypesWithoutPredicate index 2, IsRootRollup=true):
           # a ~6.35M-gate circuit whose VK generation is memory- and compute-heavy.
           prefix="$prefix:CPUS=8:MEM=16g"
-        elif [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
+        elif [[ "$test" =~ ^(AcirAvmRecursionConstraint|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
           # IPARecursiveTests fails with 2 threads.
           prefix="$prefix:CPUS=4:MEM=8g"
         fi
@@ -302,8 +324,10 @@ function test_cmds_native {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
-  echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
+  if [ "$mode" != nightly ]; then
+    echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+    echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
+  fi
 }
 
 function test_cmds_wasm_threads {
@@ -333,6 +357,12 @@ function test_cmds_smt {
   echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
 }
 
+# Tests too slow to run per merge, but that we still want a daily signal on: those matching
+# nightly_only_tests. Run by the ci-barretenberg-nightly job (see the repo root bootstrap.sh).
+function test_cmds_nightly {
+  test_cmds_native nightly
+}
+
 # Print every individual test command. Can be fed into gnu parallel.
 # Paths are relative to repo root.
 # We prefix the hash. This ensures the test harness and cache and skip future runs.
@@ -349,10 +379,10 @@ function test_cmds {
   fi
 }
 
-# This is not called in ci. It is just for a developer to run the tests.
+# Takes an optional test group (e.g. nightly), otherwise runs the default set.
 function test {
   echo_header "bb test"
-  test_cmds | filter_test_cmds | parallelize
+  test_cmds "${1:-}" | filter_test_cmds | parallelize
 }
 
 function pinned_chonk_bench_flow_names {

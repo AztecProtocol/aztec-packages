@@ -23,6 +23,7 @@
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
+using namespace bb;
 using namespace bb::avm2::simulation;
 using namespace bb::avm2::tracegen;
 using namespace bb::avm2::constraining;

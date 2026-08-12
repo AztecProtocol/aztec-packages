@@ -45,8 +45,6 @@ import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js
  */
 export class FuzzerSimulationRequest {
   constructor(
-    public readonly wsDataDir: string,
-    public readonly wsMapSizeKb: number,
     public readonly tx: AvmTxHint,
     public readonly globals: GlobalVariables,
     public readonly contractClasses: any[], // Raw, processed by addContractClassFromCpp
@@ -61,8 +59,6 @@ export class FuzzerSimulationRequest {
       return obj;
     }
     return new FuzzerSimulationRequest(
-      obj.wsDataDir,
-      obj.wsMapSizeKb,
       AvmTxHint.fromPlainObject(obj.tx),
       GlobalVariables.fromPlainObject(obj.globals),
       obj.contractClasses,

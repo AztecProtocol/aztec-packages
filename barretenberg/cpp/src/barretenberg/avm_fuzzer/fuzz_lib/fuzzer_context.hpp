@@ -21,10 +21,11 @@ class FuzzerContext {
     // ---- Mutable API (for top-level fuzzers) ----
 
     /// @brief Register a contract from its bytecode
+    /// @param ws_mgr The world state manager the contract address is registered into
     /// @param bytecode The bytecode of the contract
     /// @return The address of the registered contract
     /// @note This function will also register the contract address in the world state
-    FF register_contract_from_bytecode(const std::vector<uint8_t>& bytecode);
+    FF register_contract_from_bytecode(FuzzerWorldStateManager& ws_mgr, const std::vector<uint8_t>& bytecode);
 
     /// @brief Add a contract address to the context (without registering a contract)
     void add_contract_address(FF address) { contract_addresses_.push_back(address); }

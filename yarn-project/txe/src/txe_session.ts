@@ -47,7 +47,7 @@ import { STANDARD_AUTH_REGISTRY_ADDRESS } from '@aztec/standard-contracts/auth-r
 import { EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { GasSettings } from '@aztec/stdlib/gas';
+import { GasSettings } from '@aztec/stdlib/gas';
 import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -55,8 +55,9 @@ import { CallContext, GlobalVariables, OFFCHAIN_MESSAGE_IDENTIFIER, TxContext } 
 
 import { z } from 'zod';
 
-import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
+import { DEFAULT_ADDRESS } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
+import type { GasSettingsData } from './oracle/noir-structs/gas_settings_data.js';
 import {
   type TXETaggingSecretStrategies,
   makeResolveTaggingSecretStrategyHook,
@@ -134,7 +135,7 @@ export interface TXESessionStateHandler {
   enterPrivateState(
     contractAddress: Option<AztecAddress>,
     anchorBlockNumber: Option<BlockNumber>,
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress: Option<AztecAddress>): Promise<void>;
 
@@ -151,7 +152,7 @@ export interface TXESessionStateHandler {
     isStaticCall: boolean,
     additionalScopes: AztecAddress[],
     authorizedUtilityCallTargets: AztecAddress[],
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<Fr[]>;
 
   /** Executes a top-level utility function and commits the job. */
@@ -172,7 +173,7 @@ export interface TXESessionStateHandler {
     targetContractAddress: AztecAddress,
     calldata: Fr[],
     isStaticCall: boolean,
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<Fr[]>;
 
   /** Syncs the target contract and returns the private events it emitted matching the given selector and scope. */
@@ -190,14 +191,14 @@ export interface TXESessionStateHandler {
    * `OffchainMessage` structs happens on the Noir side of the test helper. Marks the buffer as queried so the
    * unqueried-messages warning doesn't fire on the next reset.
    */
-  getLastCallOffchainEffects(): { effects: Fr[][] };
+  getLastCallOffchainEffects(): Fr[][];
 
   /**
-   * Returns the context of the last top-level call: its tx hash (`Fr.ZERO` if the call was tx-less) and the anchor
+   * Returns the context of the last top-level call: its tx hash (absent if the call was tx-less) and the anchor
    * block timestamp captured at the start of the call. Does *not* mark the buffer as queried — context reads are
    * metadata, not effect consumption.
    */
-  getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint };
+  getLastCallContext(): { txHash: Option<Fr>; anchorBlockTimestamp: bigint };
 }
 
 /**
@@ -218,10 +219,10 @@ interface LastCallState {
    */
   queried: boolean;
   /**
-   * Tx hash of the most recently completed top-level call, or `Fr.ZERO` if the call was tx-less (context setters,
-   * utility execution). Populated by call executor handlers after execution completes.
+   * Tx hash of the most recently completed top-level call, absent if the call was tx-less (context setters, utility
+   * execution). Populated by call executor handlers after execution completes.
    */
-  txHash: Fr;
+  txHash: Option<Fr>;
   /**
    * Anchor block timestamp of the most recently completed top-level call, captured from the anchor block header that
    * was active when the call started. Populated by call executor handlers after execution completes.
@@ -230,7 +231,7 @@ interface LastCallState {
 }
 
 function emptyLastCallState(): LastCallState {
-  return { offchainEffects: [], queried: false, txHash: Fr.ZERO, anchorBlockTimestamp: 0n };
+  return { offchainEffects: [], queried: false, txHash: Option.none(), anchorBlockTimestamp: 0n };
 }
 
 /**
@@ -496,7 +497,7 @@ export class TXESession implements TXESessionStateHandler {
     this.lastCallInfo.offchainEffects.push(data);
   }
 
-  private setLastCallContext(txHash: Fr, anchorBlockTimestamp: bigint): void {
+  private setLastCallContext(txHash: Option<Fr>, anchorBlockTimestamp: bigint): void {
     this.lastCallInfo.txHash = txHash;
     this.lastCallInfo.anchorBlockTimestamp = anchorBlockTimestamp;
   }
@@ -508,25 +509,18 @@ export class TXESession implements TXESessionStateHandler {
     const anchorBlockTimestamp = (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables
       .timestamp;
     const { result, txHash } = await work();
-    this.setLastCallContext(txHash ?? Fr.ZERO, anchorBlockTimestamp);
+    this.setLastCallContext(txHash ? Option.some(txHash) : Option.none(), anchorBlockTimestamp);
     return result;
   }
 
-  getLastCallOffchainEffects(): { effects: Fr[][] } {
+  getLastCallOffchainEffects(): Fr[][] {
     this.lastCallInfo.queried = true;
     const effects = this.lastCallInfo.offchainEffects;
 
-    if (effects.length > MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY) {
-      throw new Error(`${effects.length} offchain effects exceed max ${MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY}`);
-    }
-    if (effects.some(e => e.length > MAX_OFFCHAIN_EFFECT_LEN)) {
-      throw new Error(`Some offchain effect has length larger than max ${MAX_OFFCHAIN_EFFECT_LEN}`);
-    }
-
-    return { effects };
+    return effects;
   }
 
-  getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint } {
+  getLastCallContext(): { txHash: Option<Fr>; anchorBlockTimestamp: bigint } {
     const { txHash, anchorBlockTimestamp } = this.lastCallInfo;
     return { txHash, anchorBlockTimestamp };
   }
@@ -540,7 +534,7 @@ export class TXESession implements TXESessionStateHandler {
     isStaticCall: boolean,
     additionalScopes: AztecAddress[],
     authorizedUtilityCallTargets: AztecAddress[],
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<Fr[]> {
     const handler = this.handlerAsTxe();
     return await this.withTopLevelCallTracking(async () => {
@@ -554,7 +548,7 @@ export class TXESession implements TXESessionStateHandler {
         additionalScopes,
         this.currentJobId,
         authorizedUtilityCallTargets,
-        gasSettings,
+        GasSettings.from(gasSettings),
       );
 
       // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than round-tripping
@@ -606,7 +600,7 @@ export class TXESession implements TXESessionStateHandler {
     targetContractAddress: AztecAddress,
     calldata: Fr[],
     isStaticCall: boolean,
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<Fr[]> {
     const handler = this.handlerAsTxe();
     return await this.withTopLevelCallTracking(async () => {
@@ -615,7 +609,7 @@ export class TXESession implements TXESessionStateHandler {
         targetContractAddress,
         calldata,
         isStaticCall,
-        gasSettings,
+        GasSettings.from(gasSettings),
       );
 
       await this.cycleJob();
@@ -715,7 +709,7 @@ export class TXESession implements TXESessionStateHandler {
   async enterPrivateState(
     contractAddressOpt: Option<AztecAddress>,
     anchorBlockNumberOpt: Option<BlockNumber>,
-    gasSettings: GasSettings,
+    gasSettings: GasSettingsData,
   ): Promise<PrivateContextInputs> {
     const contractAddress = contractAddressOpt?.value ?? DEFAULT_ADDRESS;
     const anchorBlockNumber = anchorBlockNumberOpt?.value;
@@ -754,7 +748,7 @@ export class TXESession implements TXESessionStateHandler {
     );
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
-      txContext: new TxContext(this.chainId, this.version, gasSettings),
+      txContext: new TxContext(this.chainId, this.version, GasSettings.from(gasSettings)),
       txRequestSalt: Fr.ZERO,
       callContext: new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
       anchorBlockHeader: anchorBlock!,
@@ -795,7 +789,7 @@ export class TXESession implements TXESessionStateHandler {
 
     // Record the *resolved* anchor's timestamp — if the caller pinned the anchor to a past block
     // via `anchorBlockNumber`, "latest" would be the wrong anchor for offchain-message semantics.
-    this.setLastCallContext(Fr.ZERO, anchorBlock!.globalVariables.timestamp);
+    this.setLastCallContext(Option.none(), anchorBlock!.globalVariables.timestamp);
 
     return (this.oracleHandler as TXEPrivateExecutionOracle).getPrivateContextInputs();
   }
@@ -827,7 +821,7 @@ export class TXESession implements TXESessionStateHandler {
     this.logger.debug(`Entered state ${this.state.name}`);
 
     // Public state is anchored at the latest block.
-    this.setLastCallContext(Fr.ZERO, latestHeader.globalVariables.timestamp);
+    this.setLastCallContext(Option.none(), latestHeader.globalVariables.timestamp);
   }
 
   async enterUtilityState(contractAddressOpt: Option<AztecAddress>) {
@@ -890,7 +884,7 @@ export class TXESession implements TXESessionStateHandler {
     this.logger.debug(`Entered state ${this.state.name}`);
 
     // Utility state anchors at whatever the anchor block store is pointing to (tracked as latest).
-    this.setLastCallContext(Fr.ZERO, anchorBlockHeader.globalVariables.timestamp);
+    this.setLastCallContext(Option.none(), anchorBlockHeader.globalVariables.timestamp);
   }
 
   private exitTopLevelState() {

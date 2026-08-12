@@ -29,6 +29,7 @@ import { ConsensusTimetable, getDefaultCheckpointProposalSyncGrace } from '@azte
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
+import { InvalidBlockProposalTxsError } from '@aztec/stdlib/validators';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import {
   Attributes,
@@ -1006,6 +1007,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     msgId: string,
     source: PeerId,
     topicType: TopicType,
+    stageTimings?: Record<string, number>,
   ): Promise<ReceivedMessageValidationResult<T, M>> {
     // Default to reject result with a penalty if validation function throws an error
     let resultAndObj: ReceivedMessageValidationResult<T, M> = {
@@ -1026,12 +1028,18 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.logger.warn(
         `Gossip validation for ${topicType} took ${validationTimeMs}ms, approaching mcache eviction window of ${mcacheWindowMs}ms. ` +
           `Message forwarding may be skipped if validation exceeds the window.`,
-        { msgId, source: source.toString(), topicType, validationTimeMs, mcacheWindowMs },
+        { msgId, source: source.toString(), topicType, validationTimeMs, mcacheWindowMs, stageTimings },
       );
     }
 
     if (resultAndObj.result === TopicValidatorResult.Accept) {
-      this.logger.debug(`Message ${topicType} accepted by validator`, { msgId, source: source.toString(), topicType });
+      this.logger.debug(`Message ${topicType} accepted by validator`, {
+        msgId,
+        source: source.toString(),
+        topicType,
+        validationTimeMs,
+        stageTimings,
+      });
       this.instrumentation.recordMessageValidation(topicType, timer);
     } else if (resultAndObj.result === TopicValidatorResult.Reject) {
       this.logger.warn(`Message ${topicType} rejected by validator with severity ${resultAndObj.severity}`, {
@@ -1063,18 +1071,38 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   protected async handleGossipedTx(payloadData: Buffer, msgId: string, source: PeerId) {
+    // Per-stage timings so slow validations can be attributed to a specific stage (see A-1656).
+    const stageTimings: Record<string, number> = {};
+    const timed = async <T>(stage: string, fn: () => T | Promise<T>): Promise<T> => {
+      const timer = new Timer();
+      try {
+        return await fn();
+      } finally {
+        const ms = timer.ms();
+        stageTimings[stage] = Math.ceil(ms);
+        this.instrumentation.recordTxValidationStage(stage, ms);
+      }
+    };
+
     const validationFunc: () => Promise<ReceivedMessageValidationResult<Tx>> = async () => {
-      const tx = this.tryDeserialize(() => Tx.fromBuffer(payloadData), msgId, source);
+      const tx = await timed('deserialize', () => this.tryDeserialize(() => Tx.fromBuffer(payloadData), msgId, source));
       if (!tx) {
         return { result: TopicValidatorResult.Reject, severity: PeerErrorSeverity.LowToleranceError };
       }
 
-      const currentBlockNumber = await this.archiver.getBlockNumber();
-      const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+      // Stage 1 setup: chain tip, epoch info, gas fees, and L1 constants reads
+      const { currentBlockNumber, firstStageValidators } = await timed('fast_validation_setup', async () => {
+        const currentBlockNumber = await this.archiver.getBlockNumber();
+        const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+        const firstStageValidators = await this.createFirstStageMessageValidators(
+          currentBlockNumber,
+          nextSlotTimestamp,
+        );
+        return { currentBlockNumber, firstStageValidators };
+      });
 
       // Stage 1: fast validators (metadata, data, timestamps, double-spend, gas, phases, block header)
-      const firstStageValidators = await this.createFirstStageMessageValidators(currentBlockNumber, nextSlotTimestamp);
-      const firstStageOutcome = await this.runValidations(tx, firstStageValidators);
+      const firstStageOutcome = await timed('fast_validation', () => this.runValidations(tx, firstStageValidators));
       if (!firstStageOutcome.allPassed) {
         const { name } = firstStageOutcome.failure;
         let { severity } = firstStageOutcome.failure;
@@ -1096,7 +1124,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       }
 
       // Pool pre-check: see if the pool would accept this tx before doing expensive proof verification
-      const canAdd = await this.mempools.txPool.canAddPendingTx(tx);
+      const canAdd = await timed('pool_precheck', () => this.mempools.txPool.canAddPendingTx(tx));
       if (canAdd === 'ignored') {
         this.logger.verbose(`Ignoring gossiped tx ${tx.getTxHash().toString()}: pool pre-check returned ignored`, {
           source: source.toString(),
@@ -1106,7 +1134,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
       // Stage 2: expensive proof verification
       const secondStageValidators = this.createSecondStageMessageValidators();
-      const secondStageOutcome = await this.runValidations(tx, secondStageValidators);
+      const secondStageOutcome = await timed('proof_verify', () => this.runValidations(tx, secondStageValidators));
       if (!secondStageOutcome.allPassed) {
         const { severity, name } = secondStageOutcome.failure;
         this.logger.verbose(`Rejecting gossiped tx ${tx.getTxHash().toString()}: stage 2 validation failed`, {
@@ -1119,7 +1147,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
       // Pool add: persist the tx
       const txHash = tx.getTxHash();
-      const addResult = await this.mempools.txPool.addPendingTxs([tx], { source: 'gossip' });
+      const addResult = await timed('pool_add', () => this.mempools.txPool.addPendingTxs([tx], { source: 'gossip' }));
 
       const wasAccepted = addResult.accepted.some(h => h.equals(txHash));
       const wasIgnored = addResult.ignored.some(h => h.equals(txHash));
@@ -1143,7 +1171,13 @@ export class LibP2PService extends WithTracer implements P2PService {
       }
     };
 
-    const { result, obj: tx } = await this.validateReceivedMessage<Tx>(validationFunc, msgId, source, TopicType.tx);
+    const { result, obj: tx } = await this.validateReceivedMessage<Tx>(
+      validationFunc,
+      msgId,
+      source,
+      TopicType.tx,
+      stageTimings,
+    );
     if (result !== TopicValidatorResult.Accept || !tx) {
       return;
     }
@@ -1401,14 +1435,29 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Mark the txs in this proposal as protected
     await this.mempools.txPool.protectTxs(block.txHashes, block.blockHeader);
 
-    // Call the block received callback to validate the proposal.
-    // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
-    const isValid = await this.blockReceivedCallback(block, sender);
-    if (!isValid) {
-      this.logger.info(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
+    if (!(await this.tryBlockReceivedCallback(block, sender))) {
       // Release the protections this proposal created so its txs return to pending. Only entries still
       // keyed to this slot are cleared, so a tx referenced by a live proposal at another slot stays protected.
       await this.mempools.txPool.unprotectTxs(block.txHashes, slot);
+    }
+  }
+
+  /**
+   * Runs the block received callback to validate a proposal, and returns whether it was accepted.
+   * A callback that throws is reported as a rejection: the proposal is no more usable than one explicitly
+   * rejected, and letting the error escape would leave the proposal's tx protections in place.
+   * Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
+   */
+  private async tryBlockReceivedCallback(block: BlockProposal, sender: PeerId): Promise<boolean> {
+    try {
+      const isValid = await this.blockReceivedCallback(block, sender);
+      if (!isValid) {
+        this.logger.info(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
+      }
+      return isValid;
+    } catch (err) {
+      this.logger.error(`Error validating block proposal for block ${block.blockNumber}`, err, block.toBlockInfo());
+      return false;
     }
   }
 
@@ -1751,13 +1800,15 @@ export class LibP2PService extends WithTracer implements P2PService {
     );
 
     const results = await Promise.all(
-      txs.map(async tx => {
-        const result = await validator.validateTx(tx);
-        return result.result !== 'invalid';
-      }),
+      txs.map(async tx => ({ txHash: tx.getTxHash(), result: await validator.validateTx(tx) })),
     );
-    if (results.some(value => value === false)) {
-      throw new Error('Invalid tx detected');
+
+    const invalidTxs = results.flatMap(({ txHash, result }) =>
+      result.result === 'invalid' ? [{ txHash, reasons: result.reason }] : [],
+    );
+
+    if (invalidTxs.length > 0) {
+      throw new InvalidBlockProposalTxsError(invalidTxs);
     }
   }
 

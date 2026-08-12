@@ -1,4 +1,5 @@
 import * as net from "node:net";
+import { IpcTransportError } from "./errors.js";
 import {
   IpcClientAsync,
   CONNECT_RETRY_BUDGET_MS,
@@ -39,8 +40,16 @@ export class UdsIpcClient implements IpcClientAsync {
 
   private constructor(private conn: net.Socket) {
     conn.on("data", (chunk) => this.onData(chunk));
-    conn.on("error", (err) => this.failAll(err));
-    conn.on("close", () => this.failAll(new Error("socket closed")));
+    conn.on("error", (err) =>
+      this.failAll(
+        new IpcTransportError(`UdsIpcClient: socket error: ${err.message}`, {
+          cause: err,
+        }),
+      ),
+    );
+    conn.on("close", () =>
+      this.failAll(new IpcTransportError("socket closed")),
+    );
   }
 
   static async connect(
@@ -68,10 +77,12 @@ export class UdsIpcClient implements IpcClientAsync {
 
   async call(input: Uint8Array): Promise<Uint8Array> {
     if (this.destroyed) {
-      throw new Error("UdsIpcClient: call() after destroy()");
+      throw new IpcTransportError("UdsIpcClient: call() after destroy()");
     }
     if (this.closed) {
-      throw new Error("UdsIpcClient: call() on a closed/errored socket");
+      throw new IpcTransportError(
+        "UdsIpcClient: call() on a closed/errored socket",
+      );
     }
     return new Promise<Uint8Array>((resolve, reject) => {
       this.pending.push({ resolve, reject });
@@ -86,7 +97,7 @@ export class UdsIpcClient implements IpcClientAsync {
     this.destroyed = true;
     this.conn.removeAllListeners();
     this.conn.destroy();
-    this.failAll(new Error("UdsIpcClient destroyed"));
+    this.failAll(new IpcTransportError("UdsIpcClient destroyed"));
   }
 
   private onData(chunk: Buffer): void {
@@ -101,7 +112,7 @@ export class UdsIpcClient implements IpcClientAsync {
         // claimed size.
         this.conn.destroy();
         this.failAll(
-          new Error(
+          new IpcTransportError(
             `UdsIpcClient: oversized frame (${len} bytes exceeds MAX_FRAME_SIZE)`,
           ),
         );
@@ -131,11 +142,13 @@ export class UdsIpcClient implements IpcClientAsync {
 }
 
 /**
- * Connect to `socketPath`, retrying on ECONNREFUSED until `timeoutMs`
- * elapses. ECONNREFUSED happens in the narrow window between the server's
- * bind() and listen(); other errors fail immediately. Each attempt is also
- * capped at the remaining budget, so a bound-but-never-accepting server
- * cannot hang the connect past the deadline.
+ * Connect to `socketPath`, retrying "server not ready" errors until
+ * `timeoutMs` elapses: ENOENT (socket file not created yet), ECONNREFUSED
+ * (the window between the server's bind() and listen()), and EAGAIN (Linux
+ * reports this for a UDS connect when the accept backlog is momentarily
+ * full). Other errors fail immediately. Each attempt is also capped at the
+ * remaining budget, so a bound-but-never-accepting server cannot hang the
+ * connect past the deadline.
  */
 async function connectWithRetry(
   socketPath: string,
@@ -154,12 +167,19 @@ async function connectWithRetry(
       if (
         code !== "ECONNREFUSED" &&
         code !== "ENOENT" &&
-        code !== "ETIMEDOUT"
+        code !== "ETIMEDOUT" &&
+        code !== "EAGAIN"
       ) {
-        throw new Error(`UdsIpcClient: connect failed: ${lastErr.message}`);
+        throw new IpcTransportError(
+          `UdsIpcClient: connect failed: ${lastErr.message}`,
+          { cause: lastErr },
+        );
       }
       if (Date.now() >= deadline) {
-        throw new Error(`UdsIpcClient: connect timed out: ${lastErr.message}`);
+        throw new IpcTransportError(
+          `UdsIpcClient: connect timed out: ${lastErr.message}`,
+          { cause: lastErr },
+        );
       }
       const delay = Math.min(50, 5 * 2 ** attempt++);
       await new Promise((resolve) => setTimeout(resolve, delay));
