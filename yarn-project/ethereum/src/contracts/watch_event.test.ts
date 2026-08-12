@@ -1,11 +1,10 @@
 import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
-import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { ViemPublicClient } from '../types.js';
-import { makeThrottledErrorLogger, watchContractEvent } from './watch_event.js';
+import { watchContractEvent } from './watch_event.js';
 
 const TEST_ABI = [
   {
@@ -165,27 +164,5 @@ describe('watchContractEvent', () => {
     const callsAfterStop = client.getBlockNumber.mock.calls.length;
     await new Promise(resolve => setTimeout(resolve, 20));
     expect(client.getBlockNumber.mock.calls.length).toEqual(callsAfterStop);
-  });
-});
-
-describe('makeThrottledErrorLogger', () => {
-  it('warns on the first error and throttles the ones that follow', () => {
-    jest.useFakeTimers();
-    try {
-      const logger = mock<Logger>();
-      const logError = makeThrottledErrorLogger(logger, 'watcher failed');
-
-      logError(new Error('first'));
-      logError(new Error('second'));
-      jest.advanceTimersByTime(59_000);
-      logError(new Error('third'));
-      jest.advanceTimersByTime(2_000);
-      logError(new Error('fourth'));
-
-      expect(logger.warn).toHaveBeenCalledTimes(2);
-      expect(logger.verbose).toHaveBeenCalledTimes(2);
-    } finally {
-      jest.useRealTimers();
-    }
   });
 });

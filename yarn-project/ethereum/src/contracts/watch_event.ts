@@ -5,9 +5,6 @@ import type { Abi, ContractEventName, GetContractEventsReturnType, Hex } from 'v
 
 import type { ViemClient } from '../types.js';
 
-/** Minimum time between warnings while a watcher keeps failing; failures in between are logged at verbose. */
-const WATCH_ERROR_WARN_INTERVAL_MS = 60_000;
-
 /** Default maximum number of blocks queried per `eth_getLogs` request. */
 const DEFAULT_MAX_BLOCK_RANGE = 100;
 
@@ -33,23 +30,6 @@ export type WatchContractEventParameters<
   /** Called once per event log. Errors, thrown or from a returned promise, are caught and logged. */
   onLog: (log: GetContractEventsReturnType<TAbi, TEventName, TStrict>[number]) => unknown;
 };
-
-/**
- * Returns an error logger that emits at most one warning per minute for the given message, logging at verbose in
- * between, so a persistent failure (e.g. an unreachable RPC endpoint) does not warn once per polling interval.
- */
-export function makeThrottledErrorLogger(logger: Logger, message: string): (err: unknown) => void {
-  let lastWarnedAt: number | undefined;
-  return err => {
-    const now = Date.now();
-    if (lastWarnedAt === undefined || now - lastWarnedAt >= WATCH_ERROR_WARN_INTERVAL_MS) {
-      lastWarnedAt = now;
-      logger.warn(message, { err });
-    } else {
-      logger.verbose(message, { err });
-    }
-  };
-}
 
 /**
  * Watches for contract events by polling `eth_blockNumber` (cached by viem per client) and fetching new logs with
@@ -120,7 +100,7 @@ export function watchContractEvent<
     }
   };
 
-  const handlePollError = makeThrottledErrorLogger(logger, `Error polling for ${eventName} L1 events`);
+  const handlePollError = (err: unknown) => logger.warn(`Error polling for ${eventName} L1 events`, { err });
   const runner = new RunningPromise(poll, logger, pollingIntervalMs, handlePollError).start();
 
   return () => {
