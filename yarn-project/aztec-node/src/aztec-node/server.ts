@@ -112,6 +112,7 @@ import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 import { NodeBlockProvider } from '../modules/node_block_provider.js';
 import { NodeTxReceiptBuilder } from '../modules/node_tx_receipt.js';
 import { NodeWorldStateQueries } from '../modules/node_world_state_queries.js';
+import { UnseenBlockHoldOff } from '../modules/unseen_block_hold_off.js';
 import { Sentinel } from '../sentinel/sentinel.js';
 import type { AztecNodeConfig } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
@@ -169,6 +170,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   private readonly nodePublicCallsSimulator: NodePublicCallsSimulator;
   private readonly worldStateQueries: NodeWorldStateQueries;
   private readonly blockProvider: NodeBlockProvider;
+  private readonly unseenBlockHoldOff: UnseenBlockHoldOff;
   private readonly txReceiptBuilder: NodeTxReceiptBuilder;
 
   public readonly tracer: Tracer;
@@ -254,14 +256,25 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       log: this.log.createChild('public-calls-simulator'),
     });
 
+    // Shared by every block-anchored read so the concurrent-hold cap applies across all of them.
+    this.unseenBlockHoldOff = new UnseenBlockHoldOff(
+      this.blockSource,
+      {
+        byNumberWaitMs: this.config.rpcUnseenBlockByNumberWaitMs ?? 2 * this.config.blockDurationMs,
+        byHashWaitMs: this.config.rpcUnseenBlockByHashWaitMs,
+      },
+      this.log.createChild('unseen-block-hold-off'),
+    );
+
     this.worldStateQueries = new NodeWorldStateQueries({
       worldStateSynchronizer: this.worldStateSynchronizer,
       blockSource: this.blockSource,
       l1ToL2MessageSource: this.l1ToL2MessageSource,
+      holdOff: this.unseenBlockHoldOff,
       log: this.log.createChild('world-state-queries'),
     });
 
-    this.blockProvider = new NodeBlockProvider(this.blockSource);
+    this.blockProvider = new NodeBlockProvider(this.blockSource, this.unseenBlockHoldOff);
 
     this.txReceiptBuilder = new NodeTxReceiptBuilder({
       p2pClient: this.p2pClient,
@@ -509,12 +522,26 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.contractDataSource.getContract(address, blockData.header.globalVariables.timestamp);
   }
 
-  public getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
-    return this.logsSource.getPrivateLogsByTags(query);
+  public async getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+    await this.#awaitLogsReferenceBlock(query.referenceBlock);
+    return await this.logsSource.getPrivateLogsByTags(query);
   }
 
-  public getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
-    return this.logsSource.getPublicLogsByTags(query);
+  public async getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+    await this.#awaitLogsReferenceBlock(query.referenceBlock);
+    return await this.logsSource.getPublicLogsByTags(query);
+  }
+
+  /**
+   * Waits briefly for a logs query's reorg-safety anchor when the node has not seen that block yet, so a client
+   * that synced one block ahead through another node is not failed over a transient skew. The result is discarded:
+   * the log store's own in-transaction anchor check stays authoritative and throws as before if the block never
+   * arrives.
+   */
+  async #awaitLogsReferenceBlock(referenceBlock: BlockHash | undefined): Promise<void> {
+    if (referenceBlock !== undefined) {
+      await this.unseenBlockHoldOff.getBlockData({ hash: referenceBlock });
+    }
   }
 
   /**
