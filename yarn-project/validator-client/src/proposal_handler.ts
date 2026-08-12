@@ -20,7 +20,6 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { isErrorClass } from '@aztec/foundation/types';
 import type { P2P, PeerId } from '@aztec/p2p';
-import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker, ReexecutionOutcome } from '@aztec/stdlib/checkpoint';
 import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -248,7 +247,6 @@ export class ProposalHandler {
     private blockSource: L2BlockSource & L2BlockSink,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private txProvider: ITxProvider,
-    private blockProposalValidator: BlockProposalValidator,
     private epochCache: EpochCache,
     private timetable: ConsensusTimetable,
     private config: ValidatorClientFullConfig,
@@ -472,13 +470,12 @@ export class ProposalHandler {
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
 
-    // Check that the proposal is from the current proposer, or the next proposer
-    // This should have been handled by the p2p layer, but we double check here out of caution
-    const validationResult = await this.blockProposalValidator.validate(proposal);
-    if (validationResult.result !== 'accept') {
-      this.log.warn(`Proposal is not valid, skipping processing`, proposalInfo);
-      return { isValid: false, reason: 'invalid_proposal' };
-    }
+    // Every proposal reaching this handler was already validated on arrival at p2p ingress (signature
+    // context, signature, expected proposer, index within checkpoint, tx fields) — including the
+    // receive-window check that decides whether it arrived in time. That window is deliberately not
+    // re-applied here: its outcome depends on the wall clock at evaluation time, so re-running it turned
+    // node-local processing latency into an invalid-proposal verdict against an honest proposer, which then
+    // fed the invalid-block slashing path. The checks below are all deterministic properties of the payload.
 
     // A tx can only appear once in a block: the second copy would emit nullifiers already emitted by the
     // first. This is not a relaying-peer fault, so it passes gossip validation and is classified here as
