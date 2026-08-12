@@ -59,7 +59,7 @@ function check_orphaned_urls {
   # diff. The committed snapshot only grows the protected set for future PRs;
   # the check a PR must satisfy is the base-branch version it cannot edit.
   local snapshot=snapshots/published-urls.txt
-  local base_ref="${GITHUB_BASE_REF:-${MERGE_GROUP_BASE_REF:-next}}"
+  local base_ref="${GITHUB_BASE_REF:-${MERGE_GROUP_BASE_REF:-main}}"
   base_ref="${base_ref#refs/heads/}"
   local tmp
   tmp=$(mktemp)

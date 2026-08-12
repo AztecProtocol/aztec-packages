@@ -297,7 +297,7 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
       const relativeCodeFilePath = path
         .resolve(rootDir, codeFilePath)
         .replace(/^\//, "");
-      const tag = process.env.COMMIT_TAG ? `${process.env.COMMIT_TAG}` : "next";
+      const tag = process.env.COMMIT_TAG ? `${process.env.COMMIT_TAG}` : "main";
       const { repoUrl, ref, displayPath } = resolveSnippetSource(
         relativeCodeFilePath,
         rootDir,

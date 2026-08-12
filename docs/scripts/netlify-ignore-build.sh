@@ -5,16 +5,16 @@
 # This script runs from the docs/ directory (Netlify base)
 #
 # Strategy:
-# - Production deploys (next branch): Compare against CACHED_COMMIT_REF (last deployed commit)
-# - PR previews (other branches): Compare against merge-base with next (changes introduced by PR)
+# - Production deploys (main branch): Compare against CACHED_COMMIT_REF (last deployed commit)
+# - PR previews (other branches): Compare against merge-base with main (changes introduced by PR)
 #
 # This ensures:
-# - Production builds when docs change on next (including nightly releases)
+# - Production builds when docs change on main (including nightly releases)
 # - PR previews only build when the PR has docs changes (no clutter on non-docs PRs)
 
 set -euo pipefail
 
-BASE_BRANCH="next"
+BASE_BRANCH="main"
 
 # Determine the comparison reference based on deploy context
 if [ "${BRANCH:-}" = "$BASE_BRANCH" ]; then
