@@ -13,7 +13,7 @@ import {
   type ABIParameter,
   type ABIParameterVisibility,
   ARTIFACT_VERSION_BEFORE_INJECTION,
-  type AbiGlobalValue,
+  type AbiNamedValue,
   type AbiType,
   type AbiValue,
   type BasicValue,
@@ -26,7 +26,6 @@ import {
   type IntegerValue,
   type StructValue,
   type TypedStructFieldValue,
-  isAbiNamedValue,
 } from './abi.js';
 
 /**
@@ -250,14 +249,14 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
 /**
  * Generates a storage layout for the contract artifact.
  * @param contractName - The name of the compiled Noir contract.
- * @param globals - The normalized globals exported by the contract.
+ * @param globals - The globals exported by the contract.
  * @returns A storage layout for the contract.
  */
-function getStorageLayout(contractName: string, globals: Record<string, AbiGlobalValue[]>) {
+function getStorageLayout(contractName: string, globals: Record<string, AbiNamedValue[]>) {
   // If another contract is imported by the main contract, its storage layout its going to also show up here.
   // The layout export includes the contract name, so here we can find the one that belongs to the current one and
   // ignore the rest.
-  const storageExports = (globals.storage ?? []).map(entry => (isAbiNamedValue(entry) ? entry.value : entry));
+  const storageExports = (globals.storage ?? []).map(entry => entry.value);
   const storageForContract = storageExports.find((storageExport): storageExport is StructValue => {
     if (storageExport.kind !== 'struct') {
       return false;
@@ -288,21 +287,18 @@ function getStorageLayout(contractName: string, globals: Record<string, AbiGloba
 }
 
 /**
- * Returns the named globals exported by the contract under an `#[abi(tag)]` attribute, keyed by global name.
- * Bare values emitted by Noir versions predating named global export are omitted; an unknown tag yields an
- * empty record. Throws if two globals under the same tag share a name.
+ * Returns the globals exported by the contract under an `#[abi(tag)]` attribute, keyed by global name.
+ * An unknown tag yields an empty record. Throws if two globals under the same tag share a name.
  */
 export function getNamedContractGlobals(artifact: ContractArtifact, tag: string): Record<string, AbiValue> {
   // Collected in a Map so global names that collide with Object.prototype properties (e.g. `toString`)
   // are neither flagged as duplicates nor mishandled (`__proto__`) when building the record.
   const globals = new Map<string, AbiValue>();
   for (const entry of artifact.outputs.globals[tag] ?? []) {
-    if (isAbiNamedValue(entry)) {
-      if (globals.has(entry.name)) {
-        throw new Error(`Duplicate global '${entry.name}' exported under #[abi(${tag})] in contract ${artifact.name}`);
-      }
-      globals.set(entry.name, entry.value);
+    if (globals.has(entry.name)) {
+      throw new Error(`Duplicate global '${entry.name}' exported under #[abi(${tag})] in contract ${artifact.name}`);
     }
+    globals.set(entry.name, entry.value);
   }
   return Object.fromEntries(globals);
 }

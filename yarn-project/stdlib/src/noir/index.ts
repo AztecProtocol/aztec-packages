@@ -2,7 +2,7 @@ import type {
   ABIParameter,
   ABIParameterVisibility,
   AbiErrorType,
-  AbiGlobalValue,
+  AbiNamedValue,
   AbiType,
   DebugFileMap,
   DebugInfo,
@@ -73,7 +73,7 @@ export interface NoirCompiledContract {
   /** The events of the contract */
   outputs: {
     structs: Record<string, AbiType[]>;
-    globals: Record<string, AbiGlobalValue[]>;
+    globals: Record<string, AbiNamedValue[]>;
   };
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;
