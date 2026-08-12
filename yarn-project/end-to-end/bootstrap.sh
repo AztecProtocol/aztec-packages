@@ -165,22 +165,7 @@ function test_cmds {
     echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=verbose $run_test_script compose $flow"
   done
 
-  # Backwards-compat sweep: rerun the artifact-consuming tests against each prior stable release's
-  # contract artifacts, committed as legacy-contracts/<version>.tar.gz (see legacy-contracts/README.md).
-  # No tarballs (a line with no stable releases yet) means no sweep. Full CI only: the sweep multiplies
-  # e2e cost per version, and the merge queue's full run is the enforcement point.
-  if [ "${CI_FULL:-0}" -eq 1 ]; then
-    local version tarball
-    for tarball in legacy-contracts/*.tar.gz; do
-      [ -e "$tarball" ] || continue
-      version=$(basename "$tarball" .tar.gz)
-      # Unpack on the host now: the isolated test containers share this checkout, so extracting once
-      # here saves every container doing it lazily. Status goes to stderr — stdout is the command
-      # stream.
-      node src/install_legacy_contracts.cjs "$version" 1>&2
-      compat_test_cmds "$version"
-    done
-  fi
+  compat_sweep_test_cmds
 }
 
 function test {
@@ -373,6 +358,24 @@ function compat_test_cmds {
     else
       echo "$prefix:NAME=compat_${version}_${name} $compat_env $run_test_script simple $test"
     fi
+  done
+}
+
+# Backwards-compat sweep: rerun the artifact-consuming tests against each prior stable release's
+# contract artifacts, committed as legacy-contracts/<version>.tar.gz (see legacy-contracts/README.md).
+# No tarballs (a line with no stable releases yet) means no sweep. Full CI only: the sweep multiplies
+# e2e cost per version, and the merge queue's full run is the enforcement point.
+function compat_sweep_test_cmds {
+  [ "${CI_FULL:-0}" -eq 1 ] || return 0
+  local version tarball
+  for tarball in legacy-contracts/*.tar.gz; do
+    [ -e "$tarball" ] || continue
+    version=$(basename "$tarball" .tar.gz)
+    # Unpack on the host now: the isolated test containers share this checkout, so extracting once
+    # here saves every container doing it lazily. Status goes to stderr — stdout is the command
+    # stream.
+    node src/install_legacy_contracts.cjs "$version" 1>&2
+    compat_test_cmds "$version"
   done
 }
 
