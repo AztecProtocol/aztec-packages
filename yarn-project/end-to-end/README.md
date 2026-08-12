@@ -146,7 +146,7 @@ CI splits each `it` in a `.parallel.test.ts` file into its own docker job, runni
 compat sweep's in `compat_per_version_test_cmds` — and a test must resolve through the relevant one
 or it **won't run in CI**:
 
-- The standard run. Covers each category with a recursive glob (e.g.
+`test_cmds` — the standard run. Covers each category with a recursive glob (e.g.
   `src/automine/!(simulation)/**/*.test.ts`, `src/multi-node/**/*.test.ts`), so a new file or sub-folder
   inside an existing category is picked up automatically; only a new top-level category needs its own glob
   line. Tests with bespoke handling sit outside the globs: the `single-node/prover/` lanes at the top of
