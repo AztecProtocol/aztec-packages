@@ -361,19 +361,15 @@ function compat_per_version_test_cmds {
   done
 }
 
-# Backwards-compat sweep: rerun the artifact-consuming tests against each prior stable release's
+# Backwards-compat testing: rerun the artifact-consuming tests against each prior stable release's
 # contract artifacts, committed as legacy-contracts/<version>.tar.gz (see legacy-contracts/README.md).
-# No tarballs (a line with no stable releases yet) means no sweep. Full CI only: the sweep multiplies
-# e2e cost per version, and the merge queue's full run is the enforcement point.
+# Full CI only: each stable release tested here increases e2e running time by around 5 minutes.
 function compat_test_cmds {
   [ "${CI_FULL:-0}" -eq 1 ] || return 0
   local version tarball
   for tarball in legacy-contracts/*.tar.gz; do
     [ -e "$tarball" ] || continue
     version=$(basename "$tarball" .tar.gz)
-    # Unpack on the host now: the isolated test containers share this checkout, so extracting once
-    # here saves every container doing it lazily. Status goes to stderr — stdout is the command
-    # stream.
     node src/install_legacy_contracts.cjs "$version" 1>&2
     compat_per_version_test_cmds "$version"
   done
