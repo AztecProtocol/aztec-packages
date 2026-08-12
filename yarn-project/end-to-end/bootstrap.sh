@@ -165,7 +165,7 @@ function test_cmds {
     echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=verbose $run_test_script compose $flow"
   done
 
-  compat_sweep_test_cmds
+  compat_test_cmds
 }
 
 function test {
@@ -311,7 +311,7 @@ function avm_check_circuit {
 # Excludes kernelless_simulation, which asserts on the exact number of nullifiers emitted and breaks
 # whenever contracts add/remove nullifier emissions across versions (unrelated to the compat contract
 # surface).
-function compat_test_cmds {
+function compat_per_version_test_cmds {
   local version=${1:?version is required}
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash:ISOLATE=1:TIMEOUT=20m"
@@ -365,7 +365,7 @@ function compat_test_cmds {
 # contract artifacts, committed as legacy-contracts/<version>.tar.gz (see legacy-contracts/README.md).
 # No tarballs (a line with no stable releases yet) means no sweep. Full CI only: the sweep multiplies
 # e2e cost per version, and the merge queue's full run is the enforcement point.
-function compat_sweep_test_cmds {
+function compat_test_cmds {
   [ "${CI_FULL:-0}" -eq 1 ] || return 0
   local version tarball
   for tarball in legacy-contracts/*.tar.gz; do
@@ -375,7 +375,7 @@ function compat_sweep_test_cmds {
     # here saves every container doing it lazily. Status goes to stderr — stdout is the command
     # stream.
     node src/install_legacy_contracts.cjs "$version" 1>&2
-    compat_test_cmds "$version"
+    compat_per_version_test_cmds "$version"
   done
 }
 
