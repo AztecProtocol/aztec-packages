@@ -103,7 +103,7 @@
     const sortedKeys = Object.keys(groups).sort().reverse();
     container.innerHTML = sortedKeys.map(key => {
       const rows = groups[key].map(pr => {
-        const ghUrl = `https://github.com/AztecProtocol/aztec-packages/pull/${pr.pr_number}`;
+        const ghUrl = `https://github.com/aztec-labs-eng/aztec-node/pull/${pr.pr_number}`;
         const adds = pr.additions != null ? `<span class="add">+${pr.additions}</span>` : '';
         const dels = pr.deletions != null ? `<span class="del">-${pr.deletions}</span>` : '';
         const diff = (adds || dels) ? `<span class="pr-diff">${adds} ${dels}</span>` : '';

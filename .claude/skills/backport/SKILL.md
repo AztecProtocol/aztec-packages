@@ -33,7 +33,7 @@ Supported target branches:
 ### Step 2: Validate PR State
 
 ```bash
-gh pr view <PR> --repo AztecProtocol/aztec-packages --json state,title
+gh pr view <PR> --repo aztec-labs-eng/aztec-node --json state,title
 ```
 
 **Abort if:**

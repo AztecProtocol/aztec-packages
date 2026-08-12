@@ -8,7 +8,7 @@
 #   arch    default $ARCH, else amd64. Normalised: x86_64->amd64, aarch64|arm64->arm64.
 #   postfix default $INSTANCE_POSTFIX (the per-job suffix, e.g. x-fast, bench); optional.
 #
-# The repo prefix is $GITHUB_REPOSITORY's basename (default aztec-packages) so that
+# The repo prefix is $GITHUB_REPOSITORY's basename (default aztec-node) so that
 # aztec-packages and aztec-packages-private don't collide on names.
 set -eu
 
@@ -22,7 +22,7 @@ case "$arch" in
   aarch64 | arm64) arch=arm64 ;;
 esac
 
-repo=${GITHUB_REPOSITORY:-aztec-packages}
+repo=${GITHUB_REPOSITORY:-aztec-node}
 repo=${repo##*/}
 
 # Merge-queue refs look like gh-readonly-queue/<target>/pr-<N>-<sha>; key on pr-<N>

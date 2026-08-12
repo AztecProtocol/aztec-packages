@@ -1,5 +1,5 @@
 [safe]
-	directory = /workspaces/aztec-packages
-	directory = /root/aztec-packages
+	directory = /workspaces/aztec-node
+	directory = /root/aztec-node
 [advice]
 	detachedHead = false

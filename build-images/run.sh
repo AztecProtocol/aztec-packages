@@ -35,8 +35,8 @@ else
     -e SSH_CONNECTION=' ' \
     -e DOCKER_CONFIG=/home/aztec-dev/.docker-devbox \
     ${ID_ARGS:-} \
-    -w/workspaces/aztec-packages \
-    -v$PWD/..:/workspaces/aztec-packages \
+    -w/workspaces/aztec-node \
+    -v$PWD/..:/workspaces/aztec-node \
     -vdevbox-home:/home/aztec-dev \
     -vdevbox-var-lib-docker:/var/lib/docker \
     -v$HOME/.ssh/id_rsa:/home/aztec-dev/.ssh/id_rsa:ro \

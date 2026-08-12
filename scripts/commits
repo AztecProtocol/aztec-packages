@@ -264,7 +264,7 @@ def process_commit(commit: str, indent: str = "", message: str = "",
     pr_num = get_pr_number(message)
     pr_link = ""
     if pr_num:
-        pr_url = f"https://github.com/AztecProtocol/aztec-packages/pull/{pr_num}"
+        pr_url = f"https://github.com/aztec-labs-eng/aztec-node/pull/{pr_num}"
         pr_link = f" ({term_link(pr_url, f'#{YELLOW}{pr_num}{RESET}')})"
 
     # Clean message (remove PR number from display)
@@ -290,7 +290,7 @@ def process_commit(commit: str, indent: str = "", message: str = "",
         commit_part = f"{DARK_GRAY}{visible_part}{RESET}{' ' * (8 - len(visible_part))}"
     else:
         # Make commit hash a clickable link
-        commit_url = f"https://github.com/AztecProtocol/aztec-packages/commit/{commit}"
+        commit_url = f"https://github.com/aztec-labs-eng/aztec-node/commit/{commit}"
         commit_part = f"{term_link(commit_url, f'{YELLOW}{commit[:7]}{RESET}')} "
 
     # Build the left part of the line
@@ -310,12 +310,12 @@ def process_commit_markdown(commit: str, indent: str = "", message: str = "",
     pr_num = get_pr_number(message)
     pr_md = ""
     if pr_num:
-        pr_url = f"https://github.com/AztecProtocol/aztec-packages/pull/{pr_num}"
+        pr_url = f"https://github.com/aztec-labs-eng/aztec-node/pull/{pr_num}"
         pr_md = f" ([#{pr_num}]({pr_url}))"
 
     clean_message = re.sub(r' \(#\d+\)$', '', message)
 
-    commit_url = f"https://github.com/AztecProtocol/aztec-packages/commit/{commit}"
+    commit_url = f"https://github.com/aztec-labs-eng/aztec-node/commit/{commit}"
     commit_md = md_link(commit_url, commit[:7])
 
     prefix = ""
@@ -486,9 +486,9 @@ Examples:
                     if args.markdown:
                         pr_md = ""
                         if pr_num:
-                            pr_url = f"https://github.com/AztecProtocol/aztec-packages/pull/{pr_num}"
+                            pr_url = f"https://github.com/aztec-labs-eng/aztec-node/pull/{pr_num}"
                             pr_md = f" ([#{pr_num}]({pr_url}))"
-                        commit_url = f"https://github.com/AztecProtocol/aztec-packages/commit/{commit}"
+                        commit_url = f"https://github.com/aztec-labs-eng/aztec-node/commit/{commit}"
                         commit_link = md_link(commit_url, commit[:7])
                         print(f"* {commit_link} merge-train{pr_md}")
                         for (train_commit, train_message, train_author, train_date) in filtered_children:
@@ -496,9 +496,9 @@ Examples:
                     else:
                         pr_link = ""
                         if pr_num:
-                            pr_url = f"https://github.com/AztecProtocol/aztec-packages/pull/{pr_num}"
+                            pr_url = f"https://github.com/aztec-labs-eng/aztec-node/pull/{pr_num}"
                             pr_link = f" ({term_link(pr_url, f'#{YELLOW}{pr_num}{RESET}')})"
-                        commit_url = f"https://github.com/AztecProtocol/aztec-packages/commit/{commit}"
+                        commit_url = f"https://github.com/aztec-labs-eng/aztec-node/commit/{commit}"
                         commit_link = term_link(commit_url, f'{YELLOW}{commit[:7]}{RESET}')
                         print(f"* {commit_link} {DIM}merge-train{RESET}{pr_link}")
                         for (train_commit, train_message, train_author, train_date) in filtered_children:

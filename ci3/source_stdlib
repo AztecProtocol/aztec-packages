@@ -66,7 +66,7 @@ function pr_link {
   local line=$1
   if [[ $line =~ \(#([0-9]+)\) ]]; then
     pr_number="${BASH_REMATCH[1]}"
-    link=$(term_link https://github.com/aztecprotocol/aztec-packages/pull/$pr_number $pr_number)
+    link=$(term_link https://github.com/aztec-labs-eng/aztec-node/pull/$pr_number $pr_number)
     echo -e "${line/\(#${pr_number}\)/(#${link})}"
   else
     echo -e "$line"

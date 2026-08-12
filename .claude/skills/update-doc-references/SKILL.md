@@ -20,12 +20,12 @@ Extract from the dispatch prompt:
 ### Step 2: Get PR Details
 
 ```bash
-gh pr view <PR_NUMBER> --repo AztecProtocol/aztec-packages --json title,body,baseRefName,files,url
+gh pr view <PR_NUMBER> --repo aztec-labs-eng/aztec-node --json title,body,baseRefName,files,url
 ```
 
 Get the diff for each changed source file:
 ```bash
-gh pr diff <PR_NUMBER> --repo AztecProtocol/aztec-packages
+gh pr diff <PR_NUMBER> --repo aztec-labs-eng/aztec-node
 ```
 
 ### Step 3: Identify Affected Documentation
@@ -79,7 +79,7 @@ If changes were made, create a PR:
 
 ```bash
 BRANCH="docs/update-refs-pr-<PR_NUMBER>"
-BASE_BRANCH=$(gh pr view <PR_NUMBER> --repo AztecProtocol/aztec-packages --json baseRefName -q .baseRefName)
+BASE_BRANCH=$(gh pr view <PR_NUMBER> --repo aztec-labs-eng/aztec-node --json baseRefName -q .baseRefName)
 git checkout -b "$BRANCH"
 git add -A
 git commit -m "docs: update references for PR #<PR_NUMBER>

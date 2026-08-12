@@ -17,7 +17,7 @@ set -euo pipefail
 #   GITHUB_TOKEN      Token with push access to the data repo (required unless BENCH_REPO_URL).
 #   BENCH_REPO        Data repo slug (default: AztecProtocol/benchmark-page-data).
 #   BENCH_REPO_URL    Full clone URL override; bypasses token auth (used by tests).
-#   SOURCE_REPO_URL   Repo the commit sha belongs to (default: https://github.com/AztecProtocol/aztec-packages).
+#   SOURCE_REPO_URL   Repo the commit sha belongs to (default: https://github.com/aztec-labs-eng/aztec-node).
 #   MAX_ITEMS         Datapoints kept per entry series (default: 100).
 #   RETRY_SLEEP       Base seconds between push retries (default: 5; tests set 0).
 
@@ -28,7 +28,7 @@ commit_sha=$4
 
 bench_repo=${BENCH_REPO:-AztecProtocol/benchmark-page-data}
 repo_url=${BENCH_REPO_URL:-https://x-access-token:${GITHUB_TOKEN:-}@github.com/$bench_repo}
-source_repo_url=${SOURCE_REPO_URL:-https://github.com/AztecProtocol/aztec-packages}
+source_repo_url=${SOURCE_REPO_URL:-https://github.com/aztec-labs-eng/aztec-node}
 max_items=${MAX_ITEMS:-100}
 retry_sleep=${RETRY_SLEEP:-5}
 

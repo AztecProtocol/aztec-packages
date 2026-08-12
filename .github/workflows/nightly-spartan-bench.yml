@@ -19,7 +19,7 @@ env:
 
 jobs:
   select-image:
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
     outputs:
       nightly_tag: ${{ steps.nightly-tag.outputs.nightly_tag }}
@@ -74,7 +74,7 @@ jobs:
   # so the deploys below don't race the build and hit ImagePullBackOff.
   wait-for-ci3:
     needs: select-image
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -95,7 +95,7 @@ jobs:
   # ---------------------------------------------------------------------------
   deploy-proving-network:
     needs: [select-image, wait-for-ci3]
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: prove-n-tps-fake
@@ -110,7 +110,7 @@ jobs:
     needs:
       - select-image
       - deploy-proving-network
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -141,7 +141,7 @@ jobs:
     needs:
       - select-image
       - wait-proving-l2-block
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -180,7 +180,7 @@ jobs:
           ./.github/ci3.sh network-proving-bench prove-n-tps-fake prove-n-tps-fake "${{ needs.select-image.outputs.docker_image }}"
 
   cleanup-proving:
-    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ always() && github.repository == 'aztec-labs-eng/aztec-node' }}
     needs:
       - select-image
       - deploy-proving-network
@@ -211,7 +211,7 @@ jobs:
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
   notify-proving:
-    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'aztec-labs-eng/aztec-node' }}
     needs:
       - select-image
       - deploy-proving-network
@@ -255,7 +255,7 @@ jobs:
   # ---------------------------------------------------------------------------
   deploy-block-capacity-network:
     needs: [select-image, wait-for-ci3]
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: block-capacity
@@ -270,7 +270,7 @@ jobs:
     needs:
       - select-image
       - deploy-block-capacity-network
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -301,7 +301,7 @@ jobs:
     needs:
       - select-image
       - wait-block-capacity-l2-block
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -339,7 +339,7 @@ jobs:
           ./.github/ci3.sh network-block-capacity-bench block-capacity nightly-block-capacity "${{ needs.select-image.outputs.docker_image }}"
 
   cleanup-block-capacity:
-    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ always() && github.repository == 'aztec-labs-eng/aztec-node' }}
     needs:
       - select-image
       - deploy-block-capacity-network
@@ -370,7 +370,7 @@ jobs:
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
   notify-block-capacity:
-    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'aztec-labs-eng/aztec-node' }}
     needs:
       - select-image
       - deploy-block-capacity-network
@@ -412,7 +412,7 @@ jobs:
   status:
     runs-on: ubuntu-latest
     needs: [proving-benchmark, block-capacity-benchmark]
-    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ always() && github.repository == 'aztec-labs-eng/aztec-node' }}
     steps:
       - name: Check benchmark results
         run: |

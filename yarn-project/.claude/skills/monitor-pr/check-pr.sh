@@ -14,7 +14,7 @@
 
 set -uo pipefail
 
-REPO="${MONITOR_PR_REPO:-AztecProtocol/aztec-packages}"
+REPO="${MONITOR_PR_REPO:-aztec-labs-eng/aztec-node}"
 PR="${1:-}"
 
 die() { echo "ERROR=$*"; exit 1; }

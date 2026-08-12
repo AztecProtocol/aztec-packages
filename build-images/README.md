@@ -8,17 +8,17 @@ If you use vscode, the simplest thing to do is install the "Dev Containers" plug
 You'll be prompted to reload in a dev container, at which point you can open a terminal and bootstrap.
 You can connect to your container from outside vscode with e.g.: `docker exec -ti <container_id> /bin/zsh`
 
-Your repo will be mounted at `/workspaces/aztec-packages`, and your home directory is persisted in a docker volume.
+Your repo will be mounted at `/workspaces/aztec-node`, and your home directory is persisted in a docker volume.
 
 ## Running Independently
 
 If you don't use vscode, you can simply run `./run.sh` to create and drop into the container.
 
-Your repo will be mounted at `/workspaces/aztec-packages`, and your home directory is persisted in a docker volume.
+Your repo will be mounted at `/workspaces/aztec-node`, and your home directory is persisted in a docker volume.
 
 ## GitHub Codespaces
 
-This is also compatible with GitHub codespaces. Visit the repo at `https://github.com/aztecprotocol/aztec-packages`.
+This is also compatible with GitHub codespaces. Visit the repo at `https://github.com/aztec-labs-eng/aztec-node`.
 Press `.`, and open a terminal window. You will be prompted to create a new machine.
 You can then continue to work within the browser, or reopen the codespace in your local vscode.
 

@@ -8,7 +8,7 @@
  *
  * Arguments:
  *   tag  - The git tag to wait for (e.g., v4.0.0-devnet.1-patch.0)
- *   repo - Optional GitHub repo (default: GITHUB_REPOSITORY or 'AztecProtocol/aztec-packages')
+ *   repo - Optional GitHub repo (default: GITHUB_REPOSITORY or 'aztec-labs-eng/aztec-node')
  *
  * The script resolves the tag's commit, finds the ci3.yml run for it, then
  * polls that run's `ci` job and exits 0 as soon as it completes successfully.
@@ -35,7 +35,7 @@ if (!tag) {
 const repo =
   positional[1] ||
   process.env.GITHUB_REPOSITORY ||
-  "AztecProtocol/aztec-packages";
+  "aztec-labs-eng/aztec-node";
 
 const gh = (args: string): string =>
   execSync(`gh ${args}`, { encoding: "utf-8" }).trim();

@@ -1081,7 +1081,7 @@ case "$cmd" in
     set -e
     if [ "$compat_rc" -ne 0 ]; then
       if [[ "${REF_NAME:-}" == *-nightly.* ]]; then
-        run_url="https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}/actions/runs/${RUN_ID:-unknown}"
+        run_url="https://github.com/${GITHUB_REPOSITORY:-aztec-labs-eng/aztec-node}/actions/runs/${RUN_ID:-unknown}"
         "$ci3/slack_notify" "Backwards compatibility e2e tests FAILED on nightly tag <${run_url}|${REF_NAME}>" "#team-fairies" || true
         echo "Compat e2e failed on nightly tag — continuing (non-blocking)."
       else

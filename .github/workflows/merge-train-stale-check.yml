@@ -9,7 +9,7 @@ on:
 jobs:
   spartan:
     name: Check merge-train/spartan
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.event_name != 'schedule' || github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

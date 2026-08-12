@@ -49,7 +49,7 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 
 ### When CI Fails on the Merge-Train PR
 
-Two options from the [merge-train-readme.md](https://github.com/AztecProtocol/aztec-packages/blob/next/.github/workflows/merge-train-readme.md):
+Two options from the [merge-train-readme.md](https://github.com/aztec-labs-eng/aztec-node/blob/main/.github/workflows/merge-train-readme.md):
 
 **Option 1: Direct Fix** -- Merge-train branches are protected, so you cannot push directly. Instead, create a PR targeting the merge-train branch with your fix, add the `ci-skip` label to skip CI, and use GitHub's "Merge without waiting for requirements to be met" button (bypass merge) to force-merge it. All users have bypass merge permission. **Important**: If your fix resolves a conflict from a `next` merge, use the **merge commit** method (not squash) to preserve the merge resolution.
 

@@ -28,7 +28,7 @@ commits will leak into the PR. **Always verify your branch before calling `creat
 ### 1. Validate PR State
 
 ```
-github_api(method="GET", path="repos/AztecProtocol/aztec-packages/pulls/<PR_NUMBER>")
+github_api(method="GET", path="repos/aztec-labs-eng/aztec-node/pulls/<PR_NUMBER>")
 ```
 
 Confirm `state` is `closed` and `merged` is `true`. Extract `merge_commit_sha`.
@@ -81,7 +81,7 @@ When the cherry-pick fails:
 1. Check `git status` and `git diff` to understand the conflict state
 2. Get the full PR diff for reference:
    ```
-   github_api(method="GET", path="repos/AztecProtocol/aztec-packages/pulls/<PR_NUMBER>",
+   github_api(method="GET", path="repos/aztec-labs-eng/aztec-node/pulls/<PR_NUMBER>",
               accept="application/vnd.github.v3.diff")
    ```
 3. For each conflicted file:
@@ -125,7 +125,7 @@ Then create the PR:
 create_pr(
   title="<PR_TITLE> (backport #<PR_NUMBER>)",
   body="## Summary
-Backport of https://github.com/AztecProtocol/aztec-packages/pull/<PR_NUMBER> to <TARGET_BRANCH>.
+Backport of https://github.com/aztec-labs-eng/aztec-node/pull/<PR_NUMBER> to <TARGET_BRANCH>.
 
 <Brief description of what was backported and any conflicts resolved>
 

@@ -21,7 +21,7 @@ Autonomous workflow to fix CI failures for a PR. Delegates failure identificatio
 Before doing anything, verify the PR is valid:
 
 ```bash
-gh pr view <PR> --repo AztecProtocol/aztec-packages --json state,baseRefName,headRefName
+gh pr view <PR> --repo aztec-labs-eng/aztec-node --json state,baseRefName,headRefName
 ```
 
 **Abort if:**

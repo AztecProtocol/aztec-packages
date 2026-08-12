@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Set your GitHub repository info and token if needed
-GH_OWNER="aztecprotocol"
-GH_REPO="aztec-packages"
+GH_OWNER="aztec-labs-eng"
+GH_REPO="aztec-node"
 
 # Fetch all releases with pagination
 page=1

@@ -9,7 +9,7 @@ set -euo pipefail
 
 SEVERITY="${1:-critical}"
 BRANCH_NAME="chore/socket-fix-updates"
-REPO="${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}"
+REPO="${GITHUB_REPOSITORY:-aztec-labs-eng/aztec-node}"
 
 # --- Install socket CLI ---
 echo "Installing socket CLI..."

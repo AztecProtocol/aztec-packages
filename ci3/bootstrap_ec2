@@ -176,11 +176,11 @@ container_script=$(
   # Note we use the "ci-started" file to determine if we're running on a CI machine in some cases (e.g. npm cache).
   while [ -f ci-started ]; do sleep 999; done
   touch ci-started
-  sudo chown aztec-dev:aztec-dev aztec-packages
+  sudo chown aztec-dev:aztec-dev aztec-node
   # Set up preferred commit attribution (used during releases).
   git config --global user.email "tech@aztecprotocol.com"
   git config --global user.name "AztecBot"
-  cd aztec-packages
+  cd aztec-node
   git config --global advice.detachedHead false
   git init .
   if [ -n "\${GITHUB_TOKEN:-}" ]; then
@@ -344,7 +344,7 @@ start_build() {
     --name aztec_build \
     --hostname $docker_hostname \
     -v bootstrap_ci_local_docker:/var/lib/docker \
-    -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
+    -v bootstrap_ci_repo:/home/aztec-dev/aztec-node \
     -v \$HOME/.ssh:/home/aztec-dev/.ssh:ro \
     -v \$HOME/.bb-crs:/home/aztec-dev/.bb-crs \
     -v /dev/kmsg:/dev/kmsg \

@@ -55,12 +55,12 @@ Do NOT:
 
 **If given PR number**:
 ```bash
-gh pr view <PR> --repo AztecProtocol/aztec-packages --json headRefName,baseRefName,statusCheckRollup
+gh pr view <PR> --repo aztec-labs-eng/aztec-node --json headRefName,baseRefName,statusCheckRollup
 ```
 Extract the `ci` job's `detailsUrl` and get the run ID (number after `runs/`).
 
 ```bash
-gh run view <RUN_ID> --repo AztecProtocol/aztec-packages --log 2>&1 | grep -i "CI run log id"
+gh run view <RUN_ID> --repo aztec-labs-eng/aztec-node --log 2>&1 | grep -i "CI run log id"
 ```
 
 **If given CI URL or hash**: Extract the hash directly.

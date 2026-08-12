@@ -133,7 +133,7 @@ def main():
         print("   or: auto_close_issues.py <commit_sha>", file=sys.stderr)
         sys.exit(1)
 
-    repo = os.environ.get('GITHUB_REPOSITORY', 'AztecProtocol/aztec-packages')
+    repo = os.environ.get('GITHUB_REPOSITORY', 'aztec-labs-eng/aztec-node')
     dry_run = os.environ.get('DRY_RUN', '0') == '1'
 
     # Get commits to process

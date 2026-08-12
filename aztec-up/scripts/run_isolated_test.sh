@@ -32,7 +32,7 @@ function install_node {
   # Install required node version.
   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
   source ~/.nvm/nvm.sh
-  node_version=$(grep node aztec-packages/aztec-up/bin/0.0.1/versions | cut -d' ' -f2)
+  node_version=$(grep node aztec-node/aztec-up/bin/0.0.1/versions | cut -d' ' -f2)
   echo $node_version
   nvm install $node_version
   nvm alias default $node_version
@@ -87,7 +87,7 @@ EOF
 
   # Install aztec.
   export NO_NEW_SHELL=1
-  export INSTALL_URI=file:///home/ubuntu/aztec-packages/aztec-up/bin
+  export INSTALL_URI=file:///home/ubuntu/aztec-node/aztec-up/bin
   if [ -t 0 ]; then
     bash_args="-i"
   else
@@ -109,7 +109,7 @@ EOF
 }
 
 # We want to use the locally built nargo, via the labs toolchain.
-export NARGO=/home/ubuntu/aztec-packages/labs-aztec-toolchain/bin/nargo
+export NARGO=/home/ubuntu/aztec-node/labs-aztec-toolchain/bin/nargo
 
 retry install_node
 source ~/.nvm/nvm.sh
@@ -118,4 +118,4 @@ start_verdaccio
 install_aztec
 
 # Run test. Force interactive to parse .bashrc.
-bash -i aztec-packages/aztec-up/test/$1.sh
+bash -i aztec-node/aztec-up/test/$1.sh

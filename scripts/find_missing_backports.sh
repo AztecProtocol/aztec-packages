@@ -7,7 +7,7 @@ set -euo pipefail
 #
 # Requires: gh, jq
 
-REPO="AztecProtocol/aztec-packages"
+REPO="aztec-labs-eng/aztec-node"
 SINCE="2026-02-22"
 TARGET_BRANCH="v4"
 

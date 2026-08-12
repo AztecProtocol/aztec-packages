@@ -218,7 +218,7 @@ jobs:
       && (
         (
           needs.validate-nightly-tag.outputs.is_current == 'true'
-          && github.repository == 'AztecProtocol/aztec-packages'
+          && github.repository == 'aztec-labs-eng/aztec-node'
           && startsWith(github.ref_name, 'v6.')
         )
         || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')

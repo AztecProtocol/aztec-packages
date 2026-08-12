@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 import db as _db
 
-REPO = 'AztecProtocol/aztec-packages'
+REPO = 'aztec-labs-eng/aztec-node'
 _GH_API = 'https://api.github.com'
 
 BRANCH_PAIRS = [

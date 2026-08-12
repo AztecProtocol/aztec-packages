@@ -27,7 +27,7 @@ env:
 
 jobs:
   get-image-tag:
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.determine_tag.outputs.TAG }}
@@ -58,7 +58,7 @@ jobs:
 
   wait-for-ci3:
     needs: get-image-tag
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -75,7 +75,7 @@ jobs:
 
   deploy-next-net:
     needs: [get-image-tag, wait-for-ci3]
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: next-net

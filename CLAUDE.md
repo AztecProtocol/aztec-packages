@@ -1,4 +1,4 @@
-# aztec-packages
+# aztec-node
 
 All paths below are relative to the git root. When working inside a component, also read that component's `CLAUDE.md` — each is self-contained and covers its own build, style, and test conventions.
 

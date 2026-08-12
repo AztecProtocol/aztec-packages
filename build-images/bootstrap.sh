@@ -54,10 +54,10 @@ function build_ec2 {
   ssh -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     set -euo pipefail
     export DOCKERHUB_PASSWORD=$DOCKERHUB_PASSWORD
-    mkdir aztec-packages
-    cd aztec-packages
+    mkdir aztec-node
+    cd aztec-node
     git init . &>/dev/null
-    git remote add origin https://github.com/aztecprotocol/aztec-packages
+    git remote add origin https://github.com/aztec-labs-eng/aztec-node
     git fetch --depth 1 origin $current_commit
     git checkout FETCH_HEAD
     ./build-images/bootstrap.sh

@@ -38,7 +38,7 @@ Every benchmark follows the same phases:
 7. **Notify** `#alerts-next-scenario` on Slack. Failures on scheduled runs also dispatch a ClaudeBox
    investigation; `workflow_dispatch` runs stay silent.
 
-All four workflows are guarded on `github.repository == 'AztecProtocol/aztec-packages'` so they only
+All four workflows are guarded on `github.repository == 'aztec-labs-eng/aztec-node'` so they only
 run there, and all use `concurrency` with `cancel-in-progress`.
 
 ### From workflow to test

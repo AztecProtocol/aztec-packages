@@ -41,7 +41,7 @@ Data comes from CI benchmark runs and is stored in `/logs-disk/bench/bb-breakdow
 4. **Test in browser:**
    - Open: http://localhost:8080/chonk-breakdowns
    - Enter credentials when prompted
-   - The SHA field will auto-populate with the latest commit from `aztec-packages` `next` branch
+   - The SHA field will auto-populate with the latest commit from `aztec-node` `main` branch
    - Select Runtime: `native` or `wasm`
    - The Flow dropdown will dynamically show flows available for the selected runtime and SHA
    - Click "Load Breakdown"

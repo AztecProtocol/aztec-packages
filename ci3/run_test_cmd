@@ -352,7 +352,7 @@ function flake_slack_channel {
   if [[ "$head_branch" =~ ^gh-readonly-queue/.+/pr-([0-9]+)- ]] \
       && [ -n "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
     head_branch=$(GH_TOKEN="$GITHUB_TOKEN" gh pr view "${BASH_REMATCH[1]}" \
-      --repo AztecProtocol/aztec-packages --json headRefName -q '.headRefName' 2>/dev/null || true)
+      --repo aztec-labs-eng/aztec-node --json headRefName -q '.headRefName' 2>/dev/null || true)
   fi
   local channel=""
   case "$head_branch" in

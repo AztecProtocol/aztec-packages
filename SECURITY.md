@@ -10,7 +10,7 @@ Please use [Aztec Network Bug Bounty](https://cantina.xyz/bounties/80e74370-10d8
 
 **Do not** open public GitHub issues or pull requests for suspected security vulnerabilities.
 
-Instead, please use the [Private Vulnerability Reporting](https://github.com/AztecProtocol/aztec-packages/security/advisories/new) process on GitHub.
+Instead, please use the [Private Vulnerability Reporting](https://github.com/aztec-labs-eng/aztec-node/security/advisories/new) process on GitHub.
 
 - Navigate to the "Security" tab of this repository.
 - Click "Report a vulnerability" on the left sidebar.

@@ -127,8 +127,8 @@ def main():
     )
     parser.add_argument(
         '--repo',
-        default='AztecProtocol/aztec-packages',
-        help='Repository in format owner/repo (default: AztecProtocol/aztec-packages)'
+        default='aztec-labs-eng/aztec-node',
+        help='Repository in format owner/repo (default: aztec-labs-eng/aztec-node)'
     )
 
     args = parser.parse_args()

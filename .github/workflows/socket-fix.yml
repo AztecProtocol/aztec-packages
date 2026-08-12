@@ -32,7 +32,7 @@ permissions:
 
 jobs:
   socket-fix:
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.event_name != 'schedule' || github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
 
     steps:

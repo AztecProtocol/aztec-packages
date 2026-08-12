@@ -31,7 +31,7 @@ Use MCP tools instead: `github_api`, `respond_to_user`.
 ### 1. Fetch the Failed Job
 
 ```
-github_api(method="GET", path="repos/AztecProtocol/aztec-packages/actions/runs/<RUN_ID>/jobs")
+github_api(method="GET", path="repos/aztec-labs-eng/aztec-node/actions/runs/<RUN_ID>/jobs")
 ```
 
 Find the job with `conclusion: "failure"`. Extract its `id` and note which step failed
@@ -40,7 +40,7 @@ Find the job with `conclusion: "failure"`. Extract its `id` and note which step 
 ### 2. Download GitHub Actions Job Logs
 
 ```
-github_api(method="GET", path="repos/AztecProtocol/aztec-packages/actions/jobs/<JOB_ID>/logs")
+github_api(method="GET", path="repos/aztec-labs-eng/aztec-node/actions/jobs/<JOB_ID>/logs")
 ```
 
 The GitHub Actions logs are a wrapper. The **actual detailed logs** are on

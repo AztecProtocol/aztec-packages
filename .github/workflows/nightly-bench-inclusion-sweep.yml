@@ -37,7 +37,7 @@ jobs:
   select-image:
     # Scheduled runs only fire on the public repo; on the private mirror this is a no-op
     # (matches the guard the prior nightly-bench-10tps.yml workflow carried on this line).
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
     outputs:
       docker_image: ${{ steps.docker-image.outputs.docker_image }}

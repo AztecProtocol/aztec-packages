@@ -32,8 +32,8 @@ fi
 # This is unfortunate as it makes the test worse but in CI setting the aztec version is 0.0.1 which doesn't exist as
 # a remote git tag, so we need to rewrite dependencies to use local aztec-nr.
 sed -i \
-  -e 's|aztec = .*git.*AztecProtocol/aztec-nr.*|aztec = { path="/home/ubuntu/aztec-packages/noir-projects/labs/aztec-nr/aztec" }|' \
-  -e 's|balance_set = .*git.*AztecProtocol/aztec-nr.*|balance_set = { path="/home/ubuntu/aztec-packages/noir-projects/labs/aztec-nr/balance-set" }|' \
+  -e 's|aztec = .*git.*AztecProtocol/aztec-nr.*|aztec = { path="/home/ubuntu/aztec-node/noir-projects/labs/aztec-nr/aztec" }|' \
+  -e 's|balance_set = .*git.*AztecProtocol/aztec-nr.*|balance_set = { path="/home/ubuntu/aztec-node/noir-projects/labs/aztec-nr/balance-set" }|' \
   my_workspace_contract/Nargo.toml my_workspace_test/Nargo.toml
 
 # Compile the Counter contract.
@@ -72,7 +72,7 @@ fi
 
 # Rewrite aztec deps for token crates too.
 sed -i \
-  's|aztec = .*git.*AztecProtocol/aztec-nr.*|aztec = { path="/home/ubuntu/aztec-packages/noir-projects/labs/aztec-nr/aztec" }|' \
+  's|aztec = .*git.*AztecProtocol/aztec-nr.*|aztec = { path="/home/ubuntu/aztec-node/noir-projects/labs/aztec-nr/aztec" }|' \
   token_contract/Nargo.toml token_test/Nargo.toml
 
 # Compile and test the full workspace (both contracts).

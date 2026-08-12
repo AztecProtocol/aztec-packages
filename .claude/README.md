@@ -1,6 +1,6 @@
 # `.claude/`
 
-Project-level Claude Code configuration for aztec-packages. This file documents layout decisions; the filesystem describes the contents.
+Project-level Claude Code configuration for aztec-node. This file documents layout decisions; the filesystem describes the contents.
 
 ## Layout rules
 

@@ -13,8 +13,8 @@ services:
     mem_limit: 8G
     tty: true
     volumes:
-      - ../:/root/aztec-packages
-    working_dir: /root/aztec-packages/yarn-project/aztec
+      - ../:/root/aztec-node
+    working_dir: /root/aztec-node/yarn-project/aztec
     command: 'node ./dest/bin start --local-network'
     environment:
       ETHEREUM_HOSTS: http://ethereum:8545
@@ -42,8 +42,8 @@ services:
     mem_limit: 8G
     tty: true
     volumes:
-      - ../:/root/aztec-packages
-    working_dir: /root/aztec-packages/playground
+      - ../:/root/aztec-node
+    working_dir: /root/aztec-node/playground
     command: 'yarn workspace @aztec/playground test --project=$BROWSER'
     environment:
       HARDWARE_CONCURRENCY: 4

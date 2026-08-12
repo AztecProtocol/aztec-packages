@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   nightly-release-tag:
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'aztec-labs-eng/aztec-node' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

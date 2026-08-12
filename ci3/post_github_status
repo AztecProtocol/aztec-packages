@@ -11,7 +11,7 @@
 # Environment:
 #   CI             - must be 1 (otherwise no-op)
 #   GITHUB_TOKEN   - GitHub API token
-#   GITHUB_REPOSITORY - owner/repo (e.g. AztecProtocol/aztec-packages)
+#   GITHUB_REPOSITORY - owner/repo (e.g. aztec-labs-eng/aztec-node)
 #   COMMIT_HASH    - the SHA to post status on
 set -euo pipefail
 

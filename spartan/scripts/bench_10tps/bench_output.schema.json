@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/AztecProtocol/aztec-packages/benchmark-design/benchmark-output.schema.json",
+  "$id": "https://github.com/aztec-labs-eng/aztec-node/benchmark-design/benchmark-output.schema.json",
   "title": "Aztec 10 TPS benchmark — per-run output",
   "description": "One JSON per benchmark run, self-contained. Produced by bench_scrape.ts after a run finishes. Two scrape paths, run independently so one failing does not prevent the other from populating: (a) PromQL query_range for continuous time-series; (b) gcloud log scrape for per-block records and discrete events.",
   "type": "object",

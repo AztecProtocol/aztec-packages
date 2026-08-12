@@ -23,7 +23,7 @@ CHANNEL="${2:?Usage: $0 <merge-train-branch> <slack-channel>}"
 STALE_HOURS="${STALE_HOURS:-24}"
 BASE_BRANCH="${BASE_BRANCH:-main}"
 
-pr_json=$(gh api "repos/AztecProtocol/aztec-packages/pulls?head=AztecProtocol:${REF_NAME}&state=open&base=${BASE_BRANCH}" --jq '.[0] // empty')
+pr_json=$(gh api "repos/aztec-labs-eng/aztec-node/pulls?head=aztec-labs-eng:${REF_NAME}&state=open&base=${BASE_BRANCH}" --jq '.[0] // empty')
 
 if [[ -z "$pr_json" ]]; then
   echo "$REF_NAME: no open PR targeting $BASE_BRANCH — nothing to alert."
@@ -45,7 +45,7 @@ if (( age_hours < STALE_HOURS )); then
   exit 0
 fi
 
-mergeable_state=$(gh api "repos/AztecProtocol/aztec-packages/pulls/$pr_number" --jq '.mergeable_state // "unknown"')
+mergeable_state=$(gh api "repos/aztec-labs-eng/aztec-node/pulls/$pr_number" --jq '.mergeable_state // "unknown"')
 days=$(( age_hours / 24 ))
 
 message=$(printf ':warning: `%s` has not merged into `%s` in %d day(s). <%s|PR #%d> is in state `%s`.' \

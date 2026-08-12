@@ -712,10 +712,10 @@
       }
     });
 
-    // Fetch latest commit SHA from aztec-packages next branch
+    // Fetch latest commit SHA from aztec-node main branch
     async function fetchLatestNextSha() {
       try {
-        const response = await fetch('https://api.github.com/repos/AztecProtocol/aztec-packages/commits/next');
+        const response = await fetch('https://api.github.com/repos/aztec-labs-eng/aztec-node/commits/main');
         if (!response.ok) throw new Error('Failed to fetch latest commit');
         const data = await response.json();
         return data.sha.substring(0, 7);

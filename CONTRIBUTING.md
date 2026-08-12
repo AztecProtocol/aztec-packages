@@ -12,7 +12,7 @@ Before opening an issue, be sure to search through the existing open and closed 
 
 When requesting a new feature, include as many details as you can, especially around the use cases that motivate it. Features are prioritized according to the impact they may have on the ecosystem, so we appreciate information showing that the impact could be high.
 
-[open an issue]: https://github.com/AztecProtocol/aztec-packages/issues/new
+[open an issue]: https://github.com/aztec-labs-eng/aztec-node/issues/new
 
 ## Submitting a pull request
 
@@ -22,7 +22,7 @@ If you would like to contribute code or documentation you may do so by forking t
 
 For non-trivial changes, start an issue first and discuss it with maintainers (see [Opening an issue](#opening-an-issue)).
 
-If you're looking for a good place to start, look for issues labeled ["good first issue"](https://github.com/AztecProtocol/aztec-packages/labels/good%20first%20issue). Please first communicate that you wish to take it on.
+If you're looking for a good place to start, look for issues labeled ["good first issue"](https://github.com/aztec-labs-eng/aztec-node/labels/good%20first%20issue). Please first communicate that you wish to take it on.
 
 ## Pull request checklist:
 
