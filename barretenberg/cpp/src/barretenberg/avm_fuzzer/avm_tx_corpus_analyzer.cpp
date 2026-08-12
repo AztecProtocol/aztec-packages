@@ -249,6 +249,11 @@ int main(int argc, char** argv)
     size_t files_processed = 0;
     size_t files_failed = 0;
     size_t total_input_programs = 0;
+    // Bytecode is only built by the fuzzer's custom mutator, so a program that fails to build kills
+    // the fuzzer with a crash artifact that does not reproduce: the artifact is the input the mutator
+    // was handed, and running a single input never builds anything. Reporting them here is what makes
+    // such a failure diagnosable from a corpus.
+    std::vector<std::pair<std::string, std::string>> programs_that_failed_to_build;
 
     // Iterate over all files in the corpus directory
     for (const auto& entry : fs::directory_iterator(corpus_dir)) {
@@ -324,8 +329,8 @@ int main(int argc, char** argv)
 
                 // Count opcodes in the bytecode
                 count_opcodes(bytecode, total_opcode_counts);
-            } catch (const std::exception&) {
-                // Skip invalid bytecode generation
+            } catch (const std::exception& e) {
+                programs_that_failed_to_build.emplace_back(path.filename().string(), e.what());
                 continue;
             }
         }
@@ -335,6 +340,10 @@ int main(int argc, char** argv)
     std::cout << "\nFiles processed: " << files_processed << "\n";
     std::cout << "Files failed: " << files_failed << "\n";
     std::cout << "Total input programs: " << total_input_programs << "\n";
+    std::cout << "Programs that failed to build: " << programs_that_failed_to_build.size() << "\n";
+    for (const auto& [filename, error] : programs_that_failed_to_build) {
+        std::cout << "  " << filename << ": " << error << "\n";
+    }
 
     // Print opcode histogram
     print_opcode_histogram(total_opcode_counts);

@@ -316,6 +316,64 @@ ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data)
     return { bytecode, contract_class, contract_instance };
 }
 
+namespace {
+
+// Register the contract classes, instances and addresses that the input's programs build to, on top of
+// whatever the input already carries. Called a second time after a program mutation, which leaves the
+// previous build's addresses registered: a program's address is a hash of its own bytecode, so the CALL
+// targets a mutated program carries were generated against the addresses of the build before it, and
+// keeping those registered is what lets them resolve instead of halting on an undeployed contract.
+// @return the addresses of the programs as they are now, in program order and without the duplicates
+// that identical programs derive to. Enqueued calls target these, so that a mutated program is the
+// version that runs rather than the copy kept for the stale targets.
+std::vector<AztecAddress> register_program_artifacts(FuzzerTxData& tx_data)
+{
+    std::vector<AztecAddress> program_addresses;
+    std::unordered_set<AztecAddress> registered(tx_data.contract_addresses.begin(), tx_data.contract_addresses.end());
+    std::unordered_set<AztecAddress> seen_programs;
+
+    for (auto& fuzzer_data : tx_data.input_programs) {
+        const auto [bytecode, contract_class, contract_instance] = build_bytecode_and_artifacts(fuzzer_data);
+
+        auto contract_address = simulation::compute_contract_address(contract_instance);
+
+        // Multiple input_programs can generate the same address
+        if (seen_programs.insert(contract_address).second) {
+            program_addresses.push_back(contract_address);
+        } else {
+            fuzz_info("Skipping duplicate contract address: ", contract_address);
+        }
+
+        if (registered.insert(contract_address).second) {
+            tx_data.contract_classes.push_back(contract_class);
+            tx_data.contract_instances.push_back(contract_instance);
+            tx_data.contract_addresses.push_back(contract_address);
+        }
+    }
+
+    return program_addresses;
+}
+
+// Ensure all enqueued calls have valid contract addresses (not placeholders)
+// We may add more advanced mutation to change contract addresses later, right now we just ensure they are valid
+void point_enqueued_calls_at_contracts(Tx& tx,
+                                       const std::vector<AztecAddress>& contract_addresses,
+                                       std::mt19937_64& rng)
+{
+    if (contract_addresses.empty()) {
+        return;
+    }
+    auto idx_dist = std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1);
+    for (auto& call : tx.setup_enqueued_calls) {
+        call.request.contract_address = contract_addresses[idx_dist(rng)];
+    }
+    for (auto& call : tx.app_logic_enqueued_calls) {
+        call.request.contract_address = contract_addresses[idx_dist(rng)];
+    }
+}
+
+} // namespace
+
 size_t mutate_tx_data(FuzzerContext& context,
                       uint8_t* serialized_fuzzer_data,
                       size_t serialized_fuzzer_data_size,
@@ -338,44 +396,14 @@ size_t mutate_tx_data(FuzzerContext& context,
     tx_data.contract_instances.clear();
     tx_data.contract_addresses.clear();
     tx_data.public_data_writes.clear();
-    std::vector<AztecAddress> contract_addresses;
-
-    std::unordered_set<AztecAddress> seen_addresses;
-    for (auto& fuzzer_data : tx_data.input_programs) {
-        const auto [bytecode, contract_class, contract_instance] = build_bytecode_and_artifacts(fuzzer_data);
-
-        auto contract_address = simulation::compute_contract_address(contract_instance);
-
-        // Skip duplicate addresses - multiple input_programs can generate the same address
-        if (seen_addresses.contains(contract_address)) {
-            fuzz_info("Skipping duplicate contract address: ", contract_address);
-            continue;
-        }
-        seen_addresses.insert(contract_address);
-
-        contract_addresses.push_back(contract_address);
-        tx_data.contract_classes.push_back(contract_class);
-        tx_data.contract_instances.push_back(contract_instance);
-    }
-
-    tx_data.contract_addresses = contract_addresses;
+    std::vector<AztecAddress> program_addresses = register_program_artifacts(tx_data);
 
     // Populated from the rebuilt artifacts rather than the deserialized ones, so that instruction
     // generation resolves CALL and GETCONTRACTINSTANCE targets against the addresses this input
     // actually registers. Done before the mutation below, which is what reads the context.
     populate_context_from_tx_data(context, tx_data);
 
-    // Ensure all enqueued calls have valid contract addresses (not placeholders)
-    // We may add more advanced mutation to change contract addresses later, right now we just ensure they are valid
-    if (!contract_addresses.empty()) {
-        auto idx_dist = std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1);
-        for (auto& call : tx_data.tx.setup_enqueued_calls) {
-            call.request.contract_address = contract_addresses[idx_dist(rng)];
-        }
-        for (auto& call : tx_data.tx.app_logic_enqueued_calls) {
-            call.request.contract_address = contract_addresses[idx_dist(rng)];
-        }
-    }
+    point_enqueued_calls_at_contracts(tx_data.tx, program_addresses, rng);
 
     // Select mutation type (weighted against bytecode mutations) -- todo
     FuzzerTxDataMutationType mutation_choice = FUZZER_TX_DATA_MUTATION_CONFIGURATION.select(rng);
@@ -383,9 +411,17 @@ size_t mutate_tx_data(FuzzerContext& context,
     switch (mutation_choice) {
     case FuzzerTxDataMutationType::TxFuzzerDataMutation:
         mutate_fuzzer_data_vec(context, tx_data.input_programs, rng, 64);
+        // The artifacts built above describe the programs as they were before this mutation, and it is
+        // the artifacts that get executed, not the programs. Without registering the mutated program
+        // it runs no earlier than the next time this input reaches the mutator, and since the input
+        // executes bytecode identical to its parent's it usually shows no new coverage and is dropped
+        // before that happens. Its address moves with its bytecode, so the enqueued calls have to be
+        // pointed at the new one.
+        program_addresses = register_program_artifacts(tx_data);
+        point_enqueued_calls_at_contracts(tx_data.tx, program_addresses, rng);
         break;
     case FuzzerTxDataMutationType::TxMutation:
-        mutate_tx(tx_data.tx, contract_addresses, rng);
+        mutate_tx(tx_data.tx, program_addresses, rng);
         break;
     case FuzzerTxDataMutationType::BytecodeMutation:
         mutate_bytecode(tx_data.contract_classes,
@@ -424,13 +460,13 @@ size_t mutate_tx_data(FuzzerContext& context,
 
     // Ensure at least 1 app_logic enqueued call exists (mutations may have deleted all), the public base kernel circuit
     // guarantees that there is at least 1 enqueued call in an public tx (so this is a valid assumption)
-    if (tx_data.tx.app_logic_enqueued_calls.empty() && !contract_addresses.empty()) {
-        auto idx = std::uniform_int_distribution<size_t>(0, contract_addresses.size() - 1)(rng);
+    if (tx_data.tx.app_logic_enqueued_calls.empty() && !program_addresses.empty()) {
+        auto idx = std::uniform_int_distribution<size_t>(0, program_addresses.size() - 1)(rng);
         std::vector<FF> calldata = {};
         auto calldata_hash = compute_calldata_hash(calldata);
         tx_data.tx.app_logic_enqueued_calls.push_back(
             PublicCallRequestWithCalldata{ .request = PublicCallRequest{ .msg_sender = MSG_SENDER,
-                                                                         .contract_address = contract_addresses[idx],
+                                                                         .contract_address = program_addresses[idx],
                                                                          .is_static_call = false,
                                                                          .calldata_hash = calldata_hash },
                                            .calldata = calldata });

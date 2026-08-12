@@ -70,6 +70,14 @@ std::optional<MemoryTag> get_param_ref_tag(const ParamRef& param)
                       param);
 }
 
+// Saturating, so that an address near the top of memory does not wrap round to a low one that the
+// block's memory model then treats as written.
+uint32_t address_add(uint32_t address, uint32_t offset)
+{
+    const uint64_t sum = static_cast<uint64_t>(address) + static_cast<uint64_t>(offset);
+    return sum > AVM_HIGHEST_MEM_ADDRESS ? AVM_HIGHEST_MEM_ADDRESS : static_cast<uint32_t>(sum);
+}
+
 void sanitize_address_ref(AddressRef& address_ref, uint32_t base_offset, uint32_t max_operand_value)
 {
 
@@ -78,13 +86,19 @@ void sanitize_address_ref(AddressRef& address_ref, uint32_t base_offset, uint32_
         address_ref.address = address_ref.address % (max_operand_value + 1);
     }
     // For Relative mode, we can reach from base_pointer to base_pointer + max_operand_value.
-    // Saturating, so that a base offset near the top of memory does not wrap the address round to a
-    // low one that the block's memory model then treats as written.
     if (address_ref.mode == AddressingMode::Relative) {
-        const uint64_t absolute = static_cast<uint64_t>(base_offset) + (address_ref.address % (max_operand_value + 1));
-        address_ref.address =
-            absolute > AVM_HIGHEST_MEM_ADDRESS ? AVM_HIGHEST_MEM_ADDRESS : static_cast<uint32_t>(absolute);
+        address_ref.address = address_add(base_offset, address_ref.address % (max_operand_value + 1));
     }
+}
+
+// A backfill writes to consecutive cells derived from one sanitized base ref. The base is generated
+// with enough headroom for the offset to keep the resulting operand in range, which is what makes
+// this safe to apply after sanitization. Indirect modes take the address from the pointer instead, so
+// the offset does not move them apart.
+AddressRef offset_address_ref(AddressRef address_ref, uint32_t offset)
+{
+    address_ref.address = address_add(address_ref.address, offset);
+    return address_ref;
 }
 
 uint32_t generate_address(std::mt19937_64& rng)
@@ -595,8 +609,7 @@ std::vector<FuzzInstruction> InstructionMutator::generate_keccakf_instruction(st
     // Keccak needs to backfill 25 U64 values, these need be contiguous in memory
     AddressRef src_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 24);
     for (size_t i = 0; i < 25; i++) {
-        AddressRef item_address = src_address;
-        item_address.address += static_cast<uint32_t>(i);
+        AddressRef item_address = offset_address_ref(src_address, static_cast<uint32_t>(i));
         instructions.push_back(SET_64_Instruction{ .value_tag = bb::avm2::MemoryTag::U64,
                                                    .result_address = item_address,
                                                    .value = generate_random_uint64(rng) });
@@ -625,8 +638,7 @@ std::vector<FuzzInstruction> InstructionMutator::generate_sha256compression_inst
     AddressRef state_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 7);
 
     for (size_t i = 0; i < 8; i++) {
-        AddressRef item_address = state_address;
-        item_address.address += static_cast<uint32_t>(i);
+        AddressRef item_address = offset_address_ref(state_address, static_cast<uint32_t>(i));
         instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
                                                    .result_address = item_address,
                                                    .value = generate_random_uint32(rng) });
@@ -636,8 +648,7 @@ std::vector<FuzzInstruction> InstructionMutator::generate_sha256compression_inst
     AddressRef input_address = generate_address_ref(rng, MAX_16BIT_OPERAND - 15);
 
     for (size_t i = 0; i < 16; i++) {
-        AddressRef item_address = input_address;
-        item_address.address += static_cast<uint32_t>(i);
+        AddressRef item_address = offset_address_ref(input_address, static_cast<uint32_t>(i));
         instructions.push_back(SET_32_Instruction{ .value_tag = bb::avm2::MemoryTag::U32,
                                                    .result_address = item_address,
                                                    .value = generate_random_uint32(rng) });
@@ -841,10 +852,10 @@ std::vector<FuzzInstruction> InstructionMutator::generate_call_instruction(std::
     auto calldata_size = static_cast<uint16_t>(std::uniform_int_distribution<int>(0, 4)(rng));
     auto calldata_size_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
 
-    auto calldata_address = generate_address_ref(rng, MAX_16BIT_OPERAND);
+    // Headroom for the fields written below, which sit one per cell above the base.
+    auto calldata_address = generate_address_ref(rng, MAX_16BIT_OPERAND - calldata_size);
     for (uint16_t i = 0; i < calldata_size; ++i) {
-        auto field_address = calldata_address;
-        field_address.address += i;
+        auto field_address = offset_address_ref(calldata_address, i);
         instructions.push_back(SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF,
                                                    .result_address = field_address,
                                                    .value = generate_random_field(rng) });
