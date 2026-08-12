@@ -1,3 +1,5 @@
+import { first } from '@aztec/foundation/iterable';
+
 import { hash } from 'ohash';
 
 import type { Key, Value } from '../../interfaces/common.js';
@@ -35,7 +37,7 @@ export class IndexedDBAztecMultiMap<K extends Key, V extends Value>
     // Instead, we iterate in reverse order to get the last inserted entry
     const index = this.db.index('keyCount');
     const rangeQuery = IDBKeyRange.upperBound([this.container, this.normalizeKey(key), Number.MAX_SAFE_INTEGER]);
-    const maxEntry = (await index.iterate(rangeQuery, 'prevunique').next()).value;
+    const maxEntry = await first(index.iterate(rangeQuery, 'prevunique'));
     const count = maxEntry?.value?.keyCount ?? 0;
     await this.db.put({
       value: val,

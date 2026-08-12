@@ -69,3 +69,6 @@ export { ChainHealth, type ChainHealthSnapshot } from './health.js';
 
 // Pod log extraction
 export { type BlockBuiltLogEntry, fetchBlockBuiltLogs } from './pod_logs.js';
+
+// Gossip validation metrics scraping
+export { logGossipTxValidationMetrics } from './gossip_metrics.js';

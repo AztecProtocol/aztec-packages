@@ -128,7 +128,7 @@ def send_and_monitor_tx(tx_request):
 
     # Speed up if stalled and have retries left
     if time_since_last_sent > stall_time and attempts < max_attempts:
-      replacement_tx = make_tx(tx_request, nonce, bump_gas_price(state.gasPrice))
+      replacement_tx = make_tx(tx_request, nonce, bump_fees_per_gas(state.feesPerGas))
       state.status = is_cancel_tx ? 'cancelled' : 'speed-up'
       state.tx_hashes.push(send_tx(replacement_tx))
       state.last_sent_at = now
@@ -144,7 +144,7 @@ def attempt_tx_cancellation(state):
     return
 
   # Send noop tx with same nonce but higher gas
-  cancel_tx = make_noop_tx(state.nonce, bump_gas_price(state.gasPrice))
+  cancel_tx = make_noop_tx(state.nonce, bump_fees_per_gas(state.feesPerGas))
   state.cancelTxHashes.push(send_tx(cancel_tx))
   state.status = 'cancelled'
 

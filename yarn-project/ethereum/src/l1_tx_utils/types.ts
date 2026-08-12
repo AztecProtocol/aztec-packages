@@ -22,7 +22,7 @@ export interface L1BlobInputs {
   maxFeePerBlobGas?: bigint;
 }
 
-export interface GasPrice {
+export interface FeesPerGas {
   maxFeePerGas: bigint;
   maxPriorityFeePerGas: bigint;
   maxFeePerBlobGas?: bigint;
@@ -55,13 +55,13 @@ export type L1TxState = {
   txHashes: Hex[];
   cancelTxHashes: Hex[];
   gasLimit: bigint;
-  gasPrice: GasPrice;
+  feesPerGas: FeesPerGas;
   /**
-   * Prices used for each attempt (initial send followed by each speed-up), in order. Always set on
+   * Fees per gas used for each attempt (initial send followed by each speed-up), in order. Always set on
    * newly sent txs; optional because states restored from the state store predate the field.
    * In-memory only — not persisted by the state store.
    */
-  gasPriceHistory?: GasPrice[];
+  feesPerGasHistory?: FeesPerGas[];
   txConfigOverrides: L1TxConfig;
   request: L1TxRequest;
   status: TxUtilsState;
@@ -93,10 +93,10 @@ export class DroppedTransactionError extends Error {
 
 /** Snapshot of what a timed-out L1 tx tried to pay, taken when the timeout is raised. */
 export type TimedOutTxState = {
-  /** Prices used across the initial send and each speed-up, in order (undefined only for restored states). */
-  gasPriceHistory?: GasPrice[];
-  /** The last price the tx was sent at before timing out. */
-  finalGasPrice: GasPrice;
+  /** Fees per gas used across the initial send and each speed-up, in order (undefined only for restored states). */
+  feesPerGasHistory?: FeesPerGas[];
+  /** The last fees per gas the tx was sent with before timing out. */
+  finalFeesPerGas: FeesPerGas;
   /** Number of send attempts (initial + speed-ups). */
   attempts: number;
   nonce: number;
@@ -105,7 +105,7 @@ export type TimedOutTxState = {
 
 /**
  * Thrown by sendAndMonitorTransaction when a tx times out. Subclasses TimeoutError so existing
- * `instanceof TimeoutError` checks keep working, while carrying the gas-price ladder for diagnostics.
+ * `instanceof TimeoutError` checks keep working, while carrying the fees-per-gas ladder for diagnostics.
  */
 export class L1TxTimeoutError extends TimeoutError {
   constructor(

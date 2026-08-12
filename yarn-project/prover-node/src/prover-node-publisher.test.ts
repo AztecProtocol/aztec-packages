@@ -256,7 +256,7 @@ describe('prover-node-publisher', () => {
     jest.spyOn(l1Utils, 'getSenderAddress').mockReturnValue(EthAddress.random());
     jest.spyOn(l1Utils, 'estimateGas').mockResolvedValue(500_000n);
     jest
-      .spyOn(l1Utils, 'getGasPrice')
+      .spyOn(l1Utils, 'getFeesPerGas')
       .mockResolvedValue({ maxFeePerGas: 20_000_000_000n, maxPriorityFeePerGas: 1_000_000_000n });
     (l1Utils as any).client = {
       getBlock: jest
@@ -284,7 +284,7 @@ describe('prover-node-publisher', () => {
     });
 
     expect(l1Utils.estimateGas).toHaveBeenCalled();
-    expect(l1Utils.getGasPrice).toHaveBeenCalled();
+    expect(l1Utils.getFeesPerGas).toHaveBeenCalled();
     expect(l1Utils.sendAndMonitorTransaction).not.toHaveBeenCalled();
   });
 
@@ -339,7 +339,7 @@ describe('prover-node-publisher', () => {
     jest.spyOn(l1Utils, 'getSenderAddress').mockReturnValue(EthAddress.random());
 
     jest.spyOn(l1Utils, 'sendAndMonitorTransaction').mockResolvedValue({
-      state: { gasPrice: {} as any } as any,
+      state: { feesPerGas: {} as any } as any,
       receipt: {
         status: 'reverted',
         effectiveGasPrice: 1n,
