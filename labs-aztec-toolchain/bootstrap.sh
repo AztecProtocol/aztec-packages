@@ -34,7 +34,7 @@ PIN_FILE=$TARGET_DIR/.pin
 # other files throughout the repo, so a change here requires also updating those.
 # check_pin_drift detects any drift between this and those declarations.
 # Note that BB is downloaded from the AztecProtocol/barretenberg mirror first (via bbup).
-BB_VERSION=6.0.0-nightly.20260807
+BB_VERSION=6.0.0-nightly.20260812
 # NOIR_VERSION must be the noir release the $BB_VERSION aztec-packages release was built
 # against (its noir submodule): the pinned nargo's output is consumed by tools from that
 # release (bb, and the @aztec/noir-* js packages, which are that submodule republished).
