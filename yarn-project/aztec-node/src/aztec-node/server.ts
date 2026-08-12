@@ -855,17 +855,28 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     }
     // Swap only the verifiers this node already runs, so a follower (RPC verifier only, or none as a pure
     // relay) never gains the p2p-side verifier it has no use for. Keyed on the real-vs-test derivation rather
-    // than on `realProofs` alone, so forced verification stays in force across a `realProofs` flip.
+    // than on `realProofs` alone, so forced verification stays in force across a `realProofs` flip. Both
+    // replacements are built before anything is stopped: a failed construction (e.g. a BB misconfiguration that
+    // only surfaces when leaving test verifiers) must leave the current verifiers running.
     if (usesRealProofVerifiers(newConfig) !== usesRealProofVerifiers(this.config)) {
-      if (this.peerProofVerifier) {
-        await tryStop(this.peerProofVerifier);
-        this.peerProofVerifier = usesRealProofVerifiers(newConfig)
+      const newPeerVerifier = this.peerProofVerifier
+        ? usesRealProofVerifiers(newConfig)
           ? await BatchChonkVerifier.new(newConfig, newConfig.bbChonkVerifyMaxBatch, 'peer')
-          : new TestCircuitVerifier(newConfig.proverTestVerificationDelayMs);
+          : new TestCircuitVerifier(newConfig.proverTestVerificationDelayMs)
+        : undefined;
+      let newRpcVerifier: ClientProtocolCircuitVerifier | undefined;
+      try {
+        newRpcVerifier = this.rpcProofVerifier ? await createRpcProofVerifier(newConfig) : undefined;
+      } catch (err) {
+        await tryStop(newPeerVerifier, this.log);
+        throw err;
       }
-      if (this.rpcProofVerifier) {
-        await tryStop(this.rpcProofVerifier);
-        this.rpcProofVerifier = await createRpcProofVerifier(newConfig);
+      await Promise.all([tryStop(this.peerProofVerifier, this.log), tryStop(this.rpcProofVerifier, this.log)]);
+      if (newPeerVerifier) {
+        this.peerProofVerifier = newPeerVerifier;
+      }
+      if (newRpcVerifier) {
+        this.rpcProofVerifier = newRpcVerifier;
       }
     }
 
