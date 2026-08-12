@@ -1,5 +1,6 @@
 import type { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
+import { first } from '@aztec/foundation/iterable';
 import type { P2P } from '@aztec/p2p';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
@@ -117,10 +118,8 @@ export class P2PTxGateway implements NodeTxGateway {
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {
-    for await (const tx of this.p2pClient.iteratePendingTxs({ includeProof: false })) {
-      return tx.getGasSettings().maxPriorityFeesPerGas;
-    }
-    return GasFees.from({ feePerDaGas: 0n, feePerL2Gas: 0n });
+    const tx = await first(this.p2pClient.iteratePendingTxs({ includeProof: false }));
+    return tx ? tx.getGasSettings().maxPriorityFeesPerGas : GasFees.from({ feePerDaGas: 0n, feePerL2Gas: 0n });
   }
 
   public getPeers(includePending?: boolean): Promise<PeerInfo[]> {
