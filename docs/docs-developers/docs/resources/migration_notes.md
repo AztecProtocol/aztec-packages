@@ -25,7 +25,7 @@ const { MY_CONSTANT } = getNamedContractGlobals(MyContractArtifact, 'constants')
 // MY_CONSTANT: { kind: 'string', value: 'exported' }
 ```
 
-Artifacts compiled before Noir exported names keep their bare (unnamed) entries unchanged, so their artifact hashes, class IDs, and addresses do not move. Since the artifact hash commits to the outputs, contracts compiled with a current toolchain get a new class ID (and thus new derived addresses) relative to the previous release.
+Since the artifact hash commits to the outputs, contracts compiled with a current toolchain get a new class ID (and thus new derived addresses) relative to the previous release.
 
 ### [Aztec.js] A function's return type is a single `returnType`, not a `returnTypes` list
 
