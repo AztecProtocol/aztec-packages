@@ -47,6 +47,25 @@ export const AbiValueSchema: z.ZodType<AbiValue> = z.discriminatedUnion('kind', 
   }),
 ]);
 
+export const AbiNamedValueSchema: z.ZodType<AbiNamedValue> = z.object({
+  name: z.string(),
+  value: z.lazy(() => AbiValueSchema),
+});
+
+/**
+ * An entry in the artifact's exported globals: named when emitted by current Noir versions, bare for artifacts
+ * compiled before Noir exported global names. Bare entries are preserved as-is because the artifact hash commits
+ * to `outputs`, and rewriting them would move the class ID (and thus address) of every legacy artifact.
+ */
+export type AbiGlobalValue = AbiNamedValue | AbiValue;
+
+export const AbiGlobalValueSchema: z.ZodType<AbiGlobalValue> = z.union([AbiNamedValueSchema, AbiValueSchema]);
+
+/** Type guard for distinguishing named global exports from bare legacy values. */
+export function isAbiNamedValue(value: AbiGlobalValue): value is AbiNamedValue {
+  return 'name' in value;
+}
+
 export type TypedStructFieldValue<T> = { name: string; value: T };
 
 export interface StructValue {
@@ -389,7 +408,7 @@ export interface ContractArtifact {
   /** The outputs of the contract. */
   outputs: {
     structs: Record<string, AbiType[]>;
-    globals: Record<string, AbiValue[]>;
+    globals: Record<string, AbiGlobalValue[]>;
   };
 
   /** Storage layout */
@@ -418,7 +437,7 @@ export const ContractArtifactSchema = zodFor<ContractArtifact>()(
         }
         return structs;
       }),
-      globals: z.record(z.string(), z.array(AbiValueSchema)),
+      globals: z.record(z.string(), z.array(AbiGlobalValueSchema)),
     }),
     storageLayout: z.record(z.string(), z.object({ slot: schemas.Fr })),
     fileMap: z.record(

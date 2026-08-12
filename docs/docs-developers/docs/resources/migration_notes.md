@@ -9,6 +9,24 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] Contract artifacts preserve the names of `#[abi(tag)]` globals
+
+Globals exported from a Noir contract with `#[abi(tag)]` now keep their names in the artifact: entries in `ContractArtifact.outputs.globals` are `{ name, value }` objects as emitted by the compiler, where the names used to be stripped on load. This lets TypeScript read contract constants by name instead of duplicating their values:
+
+```noir
+#[abi(constants)]
+pub global MY_CONSTANT: str<8> = "exported";
+```
+
+```typescript
+import { getNamedContractGlobals } from '@aztec/aztec.js';
+
+const { MY_CONSTANT } = getNamedContractGlobals(MyContractArtifact, 'constants');
+// MY_CONSTANT: { kind: 'string', value: 'exported' }
+```
+
+Artifacts compiled before Noir exported names keep their bare (unnamed) entries unchanged, so their artifact hashes, class IDs, and addresses do not move. Since the artifact hash commits to the outputs, contracts compiled with a current toolchain get a new class ID (and thus new derived addresses) relative to the previous release.
+
 ### [Aztec.js] A function's return type is a single `returnType`, not a `returnTypes` list
 
 `FunctionAbi.returnTypes` is deprecated in favor of the single optional `FunctionAbi.returnType`, since multiple return values are already expressed as one `tuple` type. Read it through `getFunctionReturnType(abi)`, which also resolves artifacts serialized before `returnType` existed. `FunctionCall.returnTypes` is likewise replaced by `FunctionCall.returnType`.

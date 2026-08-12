@@ -74,6 +74,13 @@ pub contract Test {
 
     global DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY: u64 = 2;
 
+    // Globals tagged with #[abi(tag)] are exported by name into the artifact's outputs.globals, letting TS
+    // consumers read them via getNamedContractGlobals instead of duplicating the values.
+    #[abi(constants)]
+    pub global EXPORTED_FIELD_CONSTANT: Field = 1234;
+    #[abi(constants)]
+    pub global EXPORTED_STRING_CONSTANT: str<8> = "exported";
+
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
     // test function must also be updated accordingly.
     #[storage]
