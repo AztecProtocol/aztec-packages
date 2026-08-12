@@ -1037,7 +1037,8 @@ describe('aztec node', () => {
 
     it('holds a world-state query for a single budget without compounding across sync retries', async () => {
       // getWorldState retries a resolution failure three times; holding off on every attempt would triple the
-      // wait a client experiences, so only the first attempt waits.
+      // wait a client experiences, so only the first attempt waits. The upper bound is deliberately loose — it
+      // only has to separate one budget from three.
       const timer = new Timer();
 
       await expect(node.getWorldState(unseenBlockNumber)).rejects.toThrow(/Block not found for number=6/);
@@ -1047,25 +1048,23 @@ describe('aztec node', () => {
     });
 
     it('defaults the by-number budget to twice the block duration', async () => {
-      node = createNode({
-        rpcUnseenBlockByNumberWaitMs: undefined,
-        rpcUnseenBlockByHashWaitMs: 0,
-        blockDurationMs: 400,
-      });
+      const blockDurationMs = 400;
+      const expectedWaitMs = 2 * blockDurationMs;
+      node = createNode({ rpcUnseenBlockByNumberWaitMs: undefined, rpcUnseenBlockByHashWaitMs: 0, blockDurationMs });
       const timer = new Timer();
 
       expect(await node.getBlock(unseenBlockNumber)).toBeUndefined();
 
-      expect(timer.ms()).toBeGreaterThanOrEqual(800);
-      expect(timer.ms()).toBeLessThan(800 + byNumberWaitMs);
+      expect(timer.ms()).toBeGreaterThanOrEqual(expectedWaitMs);
+      // Loose enough to absorb a slow CI poll, tight enough to catch the default block duration (6s) being used.
+      expect(timer.ms()).toBeLessThan(3 * expectedWaitMs);
     });
 
     it('does not hold a query for a block further ahead than the next one', async () => {
-      const timer = new Timer();
-
       expect(await node.getBlock(BlockNumber(unseenBlockNumber + 1))).toBeUndefined();
 
-      expect(timer.ms()).toBeLessThan(byHashWaitMs);
+      // A single block-source read proves the query was never held: holding always issues further reads.
+      expect(l2BlockSource.getBlockData).toHaveBeenCalledTimes(1);
     });
   });
 

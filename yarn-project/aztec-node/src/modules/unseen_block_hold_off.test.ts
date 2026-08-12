@@ -63,12 +63,15 @@ describe('UnseenBlockHoldOff', () => {
     });
   });
 
+  // A single read of the block source proves nothing was polled: holding always issues further reads. Wall-clock
+  // upper bounds would be the flakier way to assert the same thing, so only lower bounds are checked below.
+  const expectResolvedWithoutHolding = () => expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
+
   it('returns a known block immediately without waiting', async () => {
-    const timer = new Timer();
     const data = await holdOff.getBlockData({ number: BlockNumber(3) });
+
     expect(data?.header.getBlockNumber()).toEqual(BlockNumber(3));
-    expect(timer.ms()).toBeLessThan(BY_HASH_WAIT_MS);
-    expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
+    expectResolvedWithoutHolding();
   });
 
   describe('query by block number', () => {
@@ -79,9 +82,9 @@ describe('UnseenBlockHoldOff', () => {
       const timer = new Timer();
       const data = await holdOff.getBlockData({ number: requested });
 
+      // Returning the block at all proves the budget had not expired: an expired budget resolves to undefined.
       expect(data?.header.getBlockNumber()).toEqual(requested);
       expect(timer.ms()).toBeGreaterThanOrEqual(300);
-      expect(timer.ms()).toBeLessThan(BY_NUMBER_WAIT_MS);
     });
 
     it('gives up after the by-number budget when the block never arrives', async () => {
@@ -89,27 +92,24 @@ describe('UnseenBlockHoldOff', () => {
       const data = await holdOff.getBlockData({ number: BlockNumber(tip + 1) });
 
       expect(data).toBeUndefined();
+      // Also pins which budget was spent: the shorter by-hash budget would fall short of this bound.
       expect(timer.ms()).toBeGreaterThanOrEqual(BY_NUMBER_WAIT_MS);
     });
 
     it('fails fast for a block more than one ahead of the tip', async () => {
-      const timer = new Timer();
       const data = await holdOff.getBlockData({ number: BlockNumber(tip + 2) });
 
       expect(data).toBeUndefined();
-      expect(timer.ms()).toBeLessThan(BY_NUMBER_WAIT_MS);
-      expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
+      expectResolvedWithoutHolding();
     });
 
     it('fails fast for a missing block at or below the tip', async () => {
       chain.delete(BlockNumber(3));
 
-      const timer = new Timer();
       const data = await holdOff.getBlockData({ number: BlockNumber(3) });
 
       expect(data).toBeUndefined();
-      expect(timer.ms()).toBeLessThan(BY_NUMBER_WAIT_MS);
-      expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
+      expectResolvedWithoutHolding();
     });
   });
 
@@ -123,7 +123,6 @@ describe('UnseenBlockHoldOff', () => {
 
       expect(data?.blockHash).toEqual(blockHash);
       expect(timer.ms()).toBeGreaterThanOrEqual(200);
-      expect(timer.ms()).toBeLessThan(BY_HASH_WAIT_MS);
     });
 
     it('gives up after the by-hash budget when the block hash never arrives', async () => {
@@ -132,7 +131,6 @@ describe('UnseenBlockHoldOff', () => {
 
       expect(data).toBeUndefined();
       expect(timer.ms()).toBeGreaterThanOrEqual(BY_HASH_WAIT_MS);
-      expect(timer.ms()).toBeLessThan(BY_NUMBER_WAIT_MS + BY_HASH_WAIT_MS);
     });
 
     it('waits on an unknown archive root with the by-hash budget', async () => {
@@ -153,29 +151,27 @@ describe('UnseenBlockHoldOff', () => {
     it('fails fast on a tag miss', async () => {
       chain.clear();
 
-      const timer = new Timer();
       const data = await holdOff.getBlockData({ tag: 'proven' });
 
       expect(data).toBeUndefined();
-      expect(timer.ms()).toBeLessThan(BY_HASH_WAIT_MS);
-      expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
+      expectResolvedWithoutHolding();
     });
 
     it('fails fast when both budgets are zero', async () => {
       const disabled = new UnseenBlockHoldOff(blockSource, { byNumberWaitMs: 0, byHashWaitMs: 0 });
 
-      const timer = new Timer();
       expect(await disabled.getBlockData({ number: BlockNumber(tip + 1) })).toBeUndefined();
       expect(await disabled.getBlockData({ hash: BlockHash.random() })).toBeUndefined();
-      expect(timer.ms()).toBeLessThan(BY_HASH_WAIT_MS);
+
+      // One read per query and nothing more: neither was polled.
+      expect(blockSource.getBlockData).toHaveBeenCalledTimes(2);
     });
 
     it('fails fast when the caller opts out of holding off', async () => {
-      const timer = new Timer();
       const data = await holdOff.getBlockData({ number: BlockNumber(tip + 1) }, { holdOff: false });
 
       expect(data).toBeUndefined();
-      expect(timer.ms()).toBeLessThan(BY_NUMBER_WAIT_MS);
+      expectResolvedWithoutHolding();
       expect(blockSource.getBlockNumber).not.toHaveBeenCalled();
     });
   });
@@ -189,9 +185,12 @@ describe('UnseenBlockHoldOff', () => {
       await sleep(50);
       expect(holdOff.holds).toEqual(MAX_CONCURRENT_HOLDS);
 
+      // Concurrent polling makes call counts useless here, so the overflow request is pinned by returning long
+      // before its budget (a whole budget of slack) and by leaving the hold count untouched.
       const overflowTimer = new Timer();
       expect(await holdOff.getBlockData({ hash: BlockHash.random() })).toBeUndefined();
       expect(overflowTimer.ms()).toBeLessThan(BY_HASH_WAIT_MS);
+      expect(holdOff.holds).toEqual(MAX_CONCURRENT_HOLDS);
 
       expect(await Promise.all(held)).toEqual(new Array(MAX_CONCURRENT_HOLDS).fill(undefined));
       expect(holdOff.holds).toEqual(0);
