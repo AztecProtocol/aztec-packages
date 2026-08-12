@@ -157,11 +157,10 @@ or it **won't run in CI**:
 
 Bespoke handling to be aware of:
 
-- **`avm_simulator`** (`automine/simulation/avm_simulator.test.ts`) has a dedicated line in the standard
-  run that sets `DUMP_AVM_INPUTS_TO_DIR` (feeds the downstream `avm_check_circuit` job) and is therefore
-  excluded from the generic `simulation/` glob there (`!(avm_simulator)`). In the compat sweep it runs
-  as a regular test (no dump line), so it is **not** excluded there.
-- **`kernelless_simulation`** is excluded from the compat sweep only.
+- **`avm_simulator`** (`automine/simulation/avm_simulator.test.ts`) has a dedicated line in `test_cmds`
+  that sets `DUMP_AVM_INPUTS_TO_DIR` (feeds the downstream `avm_check_circuit` job) and is therefore
+  excluded from the generic `simulation/` glob there (`!(avm_simulator)`). In `compat_test_cmds` it runs
+- **`kernelless_simulation`** is excluded from `compat_test_cmds` only.
 
 After editing the arrays, confirm every `*.test.ts` resolves through exactly one line (no duplicate, no
 omission — anything excluded via `!(...)` must be matched by its dedicated line). Per-test bash `TIMEOUT`
