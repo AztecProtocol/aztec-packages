@@ -151,10 +151,7 @@ or it **won't run in CI**:
   line. Tests with bespoke handling sit outside the globs: the `single-node/prover/` lanes at the top of
   the function (real proofs and custom resources under `CI_FULL`, `FAKE_PROOFS=1` otherwise) and
   `avm_simulator` (below).
-- The backwards-compat sweep (a subset, emitted only under `CI_FULL` via `compat_test_cmds`): reruns the
-  artifact-consuming tests once per prior stable release committed under `legacy-contracts/` (see that
-  directory's README), with `CONTRACT_ARTIFACTS_VERSION` set so the jest resolver swaps in the historical
-  artifact JSON. This one enumerates **single-level leaf globs** (e.g. `src/automine/token/*.test.ts`), so
+- `compat_test_cmds` — the forward/legacy-compat run (a subset). This one enumerates **single-level leaf globs** (e.g. `src/automine/token/*.test.ts`), so
   a new sub-folder whose tests should run against legacy contract artifacts needs its own line here.
 
 Bespoke handling to be aware of:
