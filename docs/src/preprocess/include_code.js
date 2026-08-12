@@ -25,7 +25,7 @@ function resolveSnippetSource(relativeCodeFilePath, rootDir, defaultTag) {
   );
   if (!published) {
     return {
-      repoUrl: "https://github.com/AztecProtocol/aztec-packages",
+      repoUrl: "https://github.com/aztec-labs-eng/aztec-node",
       ref: defaultTag,
       displayPath: relativeCodeFilePath,
     };
