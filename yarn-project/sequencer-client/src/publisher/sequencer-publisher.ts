@@ -761,13 +761,13 @@ export class SequencerPublisher {
   }
 
   /**
-   * @notice  Will simulate `validateHeader` to make sure that the block header is valid
-   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header.
-   *          It will throw if the block header is invalid.
-   * @param header - The block header to validate
+   * @notice  Will simulate the rollup's `validateHeaderWithAttestations` to make sure the checkpoint header is valid
+   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header,
+   *          skipping the DA and signature checks. It will throw if the checkpoint header is invalid.
+   * @param header - The checkpoint header to validate
    */
-  @trackSpan('SequencerPublisher.validateBlockHeader')
-  public async validateBlockHeader(
+  @trackSpan('SequencerPublisher.validateCheckpointHeader')
+  public async validateCheckpointHeader(
     header: CheckpointHeader,
     simulationOverridesPlan?: SimulationOverridesPlan,
   ): Promise<void> {
