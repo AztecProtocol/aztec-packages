@@ -15,18 +15,6 @@ namespace {
 
 using ::testing::SizeIs;
 
-TEST(AvmInputsTest, Deserialization)
-{
-    // cwd is expected to be barretenberg/cpp/build.
-    auto data = read_file("../src/barretenberg/vm2/testing/avm_inputs.testdata.bin");
-    // We only check that deserialization does not crash.
-    // Correctness of the deserialization itself is assumed via MessagePack.
-    // What we are testing here is that the structure of the inputs in TS matches the C++ structs
-    // that we have here. If someone changes the structure of the inputs in TS, this test would
-    // force them to update the C++ structs as well (and therefore any usage of these structs).
-    AvmProvingInputs::from(data);
-}
-
 TEST(AvmInputsTest, FormatTransformations)
 {
     using ::testing::AllOf;

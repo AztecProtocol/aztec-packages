@@ -33,10 +33,11 @@ import {
   isStructMapping,
   tryFieldWidth,
 } from '@aztec/pxe/simulator';
-import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { BlockHash } from '@aztec/stdlib/block';
 import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
+import { EVENT_SELECTOR } from '../txe_oracle_registry.js';
 import type { OracleTestScenario } from './resolver.js';
 
 /**
@@ -76,6 +77,7 @@ const SCALAR_IMPLS: ScalarImpl[] = [
   scalar(AZTEC_ADDRESS, seed => AztecAddress.fromNumberUnsafe(seed)),
   scalar(ETH_ADDRESS, seed => EthAddress.fromField(new Fr(seed))),
   scalar(FUNCTION_SELECTOR, seed => FunctionSelector.fromField(new Fr(seed))),
+  scalar(EVENT_SELECTOR, seed => EventSelector.fromField(new Fr(seed))),
   scalar(NOTE_SELECTOR, seed => NoteSelector.fromField(new Fr(seed))),
   scalar(BLOCK_HASH, seed => new BlockHash(new Fr(seed))),
   scalar(SLOT_NUMBER, seed => SlotNumber(seed)),
@@ -107,7 +109,7 @@ const COMPOSITE_IMPLS: CompositeImpl[] = [
   // DEFAULT_ARRAY_LENGTH.
   composite(isFixedArrayMapping, (type, seed) => [unnamed(collectionData(type.inner, seed, type.length))]),
   // Same for a fixed-capacity bounded vec: real capacity, DEFAULT_ARRAY_LENGTH elements (its value type is a plain
-  // element array, unlike the two-slot BOUNDED_VEC), clamped to the capacity so small vecs stay valid.
+  // element array, unlike BOUNDED_VEC), clamped to the capacity so small vecs stay valid.
   composite(isFixedBoundedVecMapping, (type, seed) => [
     unnamed(collectionData(type.inner, seed, Math.min(DEFAULT_ARRAY_LENGTH, type.maxLength))),
   ]),
