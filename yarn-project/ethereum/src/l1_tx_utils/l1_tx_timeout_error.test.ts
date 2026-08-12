@@ -4,11 +4,11 @@ import { L1TxTimeoutError, type TimedOutTxState } from './types.js';
 
 describe('L1TxTimeoutError', () => {
   const txState: TimedOutTxState = {
-    gasPriceHistory: [
+    feesPerGasHistory: [
       { maxFeePerGas: 100n, maxPriorityFeePerGas: 1n },
       { maxFeePerGas: 120n, maxPriorityFeePerGas: 2n },
     ],
-    finalGasPrice: { maxFeePerGas: 120n, maxPriorityFeePerGas: 2n },
+    finalFeesPerGas: { maxFeePerGas: 120n, maxPriorityFeePerGas: 2n },
     attempts: 2,
     nonce: 7,
     gasLimit: 21_000n,
@@ -22,7 +22,7 @@ describe('L1TxTimeoutError', () => {
     expect(err instanceof Error).toBe(true);
   });
 
-  it('carries the gas-price ladder snapshot and message', () => {
+  it('carries the fees-per-gas ladder snapshot and message', () => {
     const err = new L1TxTimeoutError('timed out', txState);
     expect(err.message).toBe('timed out');
     expect(err.txState).toEqual(txState);

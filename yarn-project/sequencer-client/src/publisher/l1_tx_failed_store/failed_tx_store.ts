@@ -1,5 +1,5 @@
 import type { WindowBlockFees } from '@aztec/ethereum/l1-fee-analysis';
-import type { GasPrice } from '@aztec/ethereum/l1-tx-utils';
+import type { FeesPerGas } from '@aztec/ethereum/l1-tx-utils';
 import type { Branded } from '@aztec/foundation/branded-types';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
@@ -55,22 +55,25 @@ export type FailedL1Tx = {
   };
   /** Gas pricing info at time of failure for underpricing diagnosis. */
   gasInfo?: {
-    /** Gas prices the tx was sent with (present for revert/send-error/timeout, not simulation). */
-    sentGasPrice?: GasPrice;
+    /**
+     * Fees per gas the tx was sent with (present for revert/send-error/timeout, not simulation). Records written before
+     * this field was renamed spell it `sentGasPrice`, and parse back without it.
+     */
+    sentFeesPerGas?: FeesPerGas;
     /** Gas limit used or estimated. */
     gasLimit?: bigint;
     /** Nonce used for the sent tx. */
     nonce?: number;
     /**
-     * For timeouts: the escalating gas prices used across the initial send and each speed-up retry,
-     * in order. Compare against windowBlocks[].minIncludedPriorityFee to see if any attempt cleared the bar.
+     * For timeouts: the escalating fees per gas used across the initial send and each speed-up retry, in order.
+     * Compare against windowBlocks[].minIncludedPriorityFee to see if any attempt cleared the bar.
      */
-    sentGasPriceLadder?: GasPrice[];
+    sentFeesPerGasLadder?: FeesPerGas[];
     /** Number of send attempts (initial send + speed-ups). */
     attempts?: number;
     /**
      * Per-block fee data for the L1 blocks the tx could have been included in (the target L2 slot's
-     * inclusion window), in chronological order. Compare sentGasPrice against these to see whether
+     * inclusion window), in chronological order. Compare sentFeesPerGas against these to see whether
      * the tx was underpriced for each block it competed for. May be a partial or empty list if the
      * window was not yet mined when the failure was recorded (e.g. an early send failure).
      */
@@ -89,11 +92,11 @@ export type FailedL1Tx = {
 
 const hexSchema = schemas.HexStringWith0x;
 
-const gasPriceSchema = z.object({
+const feesPerGasSchema = z.object({
   maxFeePerGas: schemas.BigInt,
   maxPriorityFeePerGas: schemas.BigInt,
   maxFeePerBlobGas: schemas.BigInt.optional(),
-}) satisfies ZodFor<GasPrice>;
+}) satisfies ZodFor<FeesPerGas>;
 
 const windowBlockFeesSchema = z.object({
   blockNumber: schemas.BigInt,
@@ -138,10 +141,10 @@ export const FailedL1TxSchema: ZodFor<FailedL1Tx> = z.object({
   }),
   gasInfo: z
     .object({
-      sentGasPrice: gasPriceSchema.optional(),
+      sentFeesPerGas: feesPerGasSchema.optional(),
       gasLimit: schemas.BigInt.optional(),
       nonce: z.number().optional(),
-      sentGasPriceLadder: z.array(gasPriceSchema).optional(),
+      sentFeesPerGasLadder: z.array(feesPerGasSchema).optional(),
       attempts: z.number().optional(),
       windowBlocks: z.array(windowBlockFeesSchema).optional(),
     })

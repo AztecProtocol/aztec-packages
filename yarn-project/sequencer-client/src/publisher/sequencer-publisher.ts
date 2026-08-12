@@ -614,7 +614,7 @@ export class SequencerPublisher {
               timing: this.computeTimingInfo(currentL2Slot),
               gasInfo: timeoutState
                 ? {
-                    sentGasPriceLadder: timeoutState.gasPriceHistory,
+                    sentFeesPerGasLadder: timeoutState.feesPerGasHistory,
                     attempts: timeoutState.attempts,
                     gasLimit: timeoutState.gasLimit,
                     nonce: timeoutState.nonce,
@@ -790,7 +790,7 @@ export class SequencerPublisher {
         },
         gasInfo: err.txState
           ? {
-              sentGasPrice: err.txState.gasPrice,
+              sentFeesPerGas: err.txState.feesPerGas,
               gasLimit: err.txState.gasLimit,
               nonce: err.txState.nonce,
             }

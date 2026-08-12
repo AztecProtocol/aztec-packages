@@ -332,7 +332,7 @@ describe('L1TxUtils', () => {
         cancelTxHashes: [],
         status: TxUtilsState.SENT,
         gasLimit: estimatedGas,
-        gasPrice: {
+        feesPerGas: {
           maxFeePerGas: originalMaxFeePerGas,
           maxPriorityFeePerGas: originalMaxPriorityFeePerGas,
           maxFeePerBlobGas: WEI_CONST * 20n,
@@ -455,7 +455,7 @@ describe('L1TxUtils', () => {
       l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(mockBasePriorityFee);
 
       try {
-        const gasPrice = await gasUtils['getGasPrice']();
+        const feesPerGas = await gasUtils['getFeesPerGas']();
 
         // With default config, priority fee should be bumped by 20%
         const expectedPriorityFee = (mockBasePriorityFee * 120n) / 100n;
@@ -463,8 +463,8 @@ describe('L1TxUtils', () => {
         // Base fee should be bumped for potential stalls (1.125^(stallTimeMs/12000) = ~1.125 for default config)
         const expectedMaxFee = (WEI_CONST * 1125n) / 1000n + expectedPriorityFee;
 
-        expect(gasPrice.maxPriorityFeePerGas).toBe(expectedPriorityFee);
-        expect(gasPrice.maxFeePerGas).toBe(expectedMaxFee);
+        expect(feesPerGas.maxPriorityFeePerGas).toBe(expectedPriorityFee);
+        expect(feesPerGas.maxFeePerGas).toBe(expectedMaxFee);
       } finally {
         // Restore original method
         l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
@@ -489,11 +489,11 @@ describe('L1TxUtils', () => {
           minimumPriorityFeePerGas: 0,
         });
 
-        const gasPrice = await gasUtils['getGasPrice'](undefined, true);
+        const feesPerGas = await gasUtils['getFeesPerGas'](undefined, true);
 
         // With ceiling division: (1n * 1125n + 999n) / 1000n = 2n
-        expect(gasPrice.maxFeePerGas).toBe(2n);
-        expect(gasPrice.maxFeePerBlobGas).toBe(2n);
+        expect(feesPerGas.maxFeePerGas).toBe(2n);
+        expect(feesPerGas.maxFeePerBlobGas).toBe(2n);
 
         // Verify compounding works across multiple iterations
         gasUtils.updateConfig({
@@ -503,12 +503,12 @@ describe('L1TxUtils', () => {
           minimumPriorityFeePerGas: 0,
         });
 
-        const gasPrice2 = await gasUtils['getGasPrice'](undefined, true);
+        const feesPerGas2 = await gasUtils['getFeesPerGas'](undefined, true);
 
         // Iteration 1: ceil(1 * 1125 / 1000) = 2
         // Iteration 2: ceil(2 * 1125 / 1000) = ceil(2.25) = 3
-        expect(gasPrice2.maxFeePerGas).toBe(3n);
-        expect(gasPrice2.maxFeePerBlobGas).toBe(3n);
+        expect(feesPerGas2.maxFeePerGas).toBe(3n);
+        expect(feesPerGas2.maxFeePerBlobGas).toBe(3n);
       } finally {
         l1Client.getBlobBaseFee = originalGetBlobBaseFee;
         l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
@@ -519,17 +519,17 @@ describe('L1TxUtils', () => {
       await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
       await cheatCodes.evmMine();
 
-      const initialGasPrice = await gasUtils['getGasPrice']();
+      const initialFeesPerGas = await gasUtils['getFeesPerGas']();
 
       // Get retry gas price for 2nd attempt
-      const retryGasPrice = await gasUtils['getGasPrice'](undefined, false, 1, initialGasPrice);
+      const retryFeesPerGas = await gasUtils['getFeesPerGas'](undefined, false, 1, initialFeesPerGas);
 
       // With default config, retry should bump fees by 50%
-      const expectedPriorityFee = (initialGasPrice.maxPriorityFeePerGas * 150n) / 100n;
-      const expectedMaxFee = (initialGasPrice.maxFeePerGas * 150n) / 100n;
+      const expectedPriorityFee = (initialFeesPerGas.maxPriorityFeePerGas * 150n) / 100n;
+      const expectedMaxFee = (initialFeesPerGas.maxFeePerGas * 150n) / 100n;
 
-      expect(retryGasPrice.maxPriorityFeePerGas).toBe(expectedPriorityFee);
-      expect(retryGasPrice.maxFeePerGas).toBe(expectedMaxFee);
+      expect(retryFeesPerGas.maxPriorityFeePerGas).toBe(expectedPriorityFee);
+      expect(retryFeesPerGas.maxFeePerGas).toBe(expectedMaxFee);
     });
 
     it('handles minimum priority fee with fractional part', async () => {
@@ -550,12 +550,12 @@ describe('L1TxUtils', () => {
           priorityFeeBumpPercentage: 0, // No bump to make test clearer
         });
 
-        const gasPrice = await gasUtils['getGasPrice']();
+        const feesPerGas = await gasUtils['getFeesPerGas']();
 
         // Priority fee should be at least 1.5 gwei = 1_500_000_000 wei (the minimum)
         const expectedMinimumFee = BigInt(Math.trunc(1.5 * Number(WEI_CONST)));
-        expect(gasPrice.maxPriorityFeePerGas).toBe(expectedMinimumFee);
-        expect(gasPrice.maxPriorityFeePerGas).toBe(1_500_000_000n);
+        expect(feesPerGas.maxPriorityFeePerGas).toBe(expectedMinimumFee);
+        expect(feesPerGas.maxPriorityFeePerGas).toBe(1_500_000_000n);
 
         // Test with full 9 decimal places (2.123456789 gwei)
         gasUtils.updateConfig({
@@ -564,11 +564,11 @@ describe('L1TxUtils', () => {
           priorityFeeBumpPercentage: 0, // No bump to make test clearer
         });
 
-        const gasPrice2 = await gasUtils['getGasPrice']();
+        const feesPerGas2 = await gasUtils['getFeesPerGas']();
 
         const expectedMinimumFee2 = BigInt(Math.trunc(2.123456789 * Number(WEI_CONST)));
-        expect(gasPrice2.maxPriorityFeePerGas).toBe(expectedMinimumFee2);
-        expect(gasPrice2.maxPriorityFeePerGas).toBe(2_123_456_789n);
+        expect(feesPerGas2.maxPriorityFeePerGas).toBe(expectedMinimumFee2);
+        expect(feesPerGas2.maxPriorityFeePerGas).toBe(2_123_456_789n);
       } finally {
         // Restore original method
         l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
@@ -593,12 +593,12 @@ describe('L1TxUtils', () => {
           priorityFeeBumpPercentage: 0, // No bump to make test clearer
         });
 
-        const gasPrice = await gasUtils['getGasPrice']();
+        const feesPerGas = await gasUtils['getFeesPerGas']();
 
         // Network fee (5 gwei) should be used since it exceeds the minimum (1 gwei)
         const minimumFee = WEI_CONST; // 1 gwei
-        expect(gasPrice.maxPriorityFeePerGas).toBeGreaterThan(minimumFee);
-        expect(gasPrice.maxPriorityFeePerGas).toBe(mockHighPriorityFee);
+        expect(feesPerGas.maxPriorityFeePerGas).toBeGreaterThan(minimumFee);
+        expect(feesPerGas.maxPriorityFeePerGas).toBe(mockHighPriorityFee);
       } finally {
         // Restore original method
         l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
@@ -623,12 +623,12 @@ describe('L1TxUtils', () => {
           priorityFeeBumpPercentage: 20, // 20% bump
         });
 
-        const gasPrice = await gasUtils['getGasPrice']();
+        const feesPerGas = await gasUtils['getFeesPerGas']();
 
         // Expected: network fee (3 gwei) with 20% bump = 3.6 gwei
         const expectedFee = (mockNetworkFee * 120n) / 100n;
-        expect(gasPrice.maxPriorityFeePerGas).toBe(expectedFee);
-        expect(gasPrice.maxPriorityFeePerGas).toBe(3_600_000_000n);
+        expect(feesPerGas.maxPriorityFeePerGas).toBe(expectedFee);
+        expect(feesPerGas.maxPriorityFeePerGas).toBe(3_600_000_000n);
       } finally {
         // Restore original method
         l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
@@ -650,12 +650,12 @@ describe('L1TxUtils', () => {
       await cheatCodes.setNextBlockBaseFeePerGas(highBaseFee);
       await cheatCodes.evmMine();
 
-      const gasPrice = await gasUtils['getGasPrice']();
+      const feesPerGas = await gasUtils['getFeesPerGas']();
 
       // Max fee should be capped at 500.5 gwei = 500_500_000_000 wei
       const expectedMaxGwei = BigInt(Math.trunc(500.5 * Number(WEI_CONST)));
-      expect(gasPrice.maxFeePerGas).toBe(expectedMaxGwei);
-      expect(gasPrice.maxFeePerGas).toBe(500_500_000_000n);
+      expect(feesPerGas.maxFeePerGas).toBe(expectedMaxGwei);
+      expect(feesPerGas.maxFeePerGas).toBe(500_500_000_000n);
 
       // Test with more complex fractional value (123.456789 gwei)
       gasUtils.updateConfig({
@@ -663,12 +663,12 @@ describe('L1TxUtils', () => {
         maxGwei: 123.456789,
       });
 
-      const gasPrice2 = await gasUtils['getGasPrice']();
+      const feesPerGas2 = await gasUtils['getFeesPerGas']();
 
       // Should cap at 123.456789 gwei = 123_456_789_000 wei
       const expectedMaxGwei2 = BigInt(Math.trunc(123.456789 * Number(WEI_CONST)));
-      expect(gasPrice2.maxFeePerGas).toBe(expectedMaxGwei2);
-      expect(gasPrice2.maxFeePerGas).toBe(123_456_789_000n);
+      expect(feesPerGas2.maxFeePerGas).toBe(expectedMaxGwei2);
+      expect(feesPerGas2.maxFeePerGas).toBe(123_456_789_000n);
     });
 
     it('handles maxBlobGwei with fractional part', async () => {
@@ -690,12 +690,12 @@ describe('L1TxUtils', () => {
         // Mock high blob base fee to trigger the max cap (200 gwei > 100.5 gwei cap)
         l1Client.getBlobBaseFee = () => Promise.resolve(WEI_CONST * 200n);
 
-        const gasPrice = await gasUtils['getGasPrice'](undefined, true);
+        const feesPerGas = await gasUtils['getFeesPerGas'](undefined, true);
 
         // Max blob fee should be capped at 100.5 gwei = 100_500_000_000 wei
         const expectedMaxBlobGwei = BigInt(Math.trunc(100.5 * Number(WEI_CONST)));
-        expect(gasPrice.maxFeePerBlobGas).toBe(expectedMaxBlobGwei);
-        expect(gasPrice.maxFeePerBlobGas).toBe(100_500_000_000n);
+        expect(feesPerGas.maxFeePerBlobGas).toBe(expectedMaxBlobGwei);
+        expect(feesPerGas.maxFeePerBlobGas).toBe(100_500_000_000n);
 
         // Test with more complex fractional value (250.123456 gwei)
         gasUtils.updateConfig({
@@ -707,12 +707,12 @@ describe('L1TxUtils', () => {
         // Use higher base fee to trigger this cap (300 gwei > 250.123456 gwei cap)
         l1Client.getBlobBaseFee = () => Promise.resolve(WEI_CONST * 300n);
 
-        const gasPrice2 = await gasUtils['getGasPrice'](undefined, true);
+        const feesPerGas2 = await gasUtils['getFeesPerGas'](undefined, true);
 
         // Should cap at 250.123456 gwei = 250_123_456_000 wei
         const expectedMaxBlobGwei2 = BigInt(Math.trunc(250.123456 * Number(WEI_CONST)));
-        expect(gasPrice2.maxFeePerBlobGas).toBe(expectedMaxBlobGwei2);
-        expect(gasPrice2.maxFeePerBlobGas).toBe(250_123_456_000n);
+        expect(feesPerGas2.maxFeePerBlobGas).toBe(expectedMaxBlobGwei2);
+        expect(feesPerGas2.maxFeePerBlobGas).toBe(250_123_456_000n);
       } finally {
         // Restore original method
         l1Client.getBlobBaseFee = originalGetBlobBaseFee;
@@ -725,17 +725,17 @@ describe('L1TxUtils', () => {
         priorityFeeRetryBumpPercentage: 5, // Set lower than minimum 10%
       });
 
-      const initialGasPrice = await gasUtils['getGasPrice']();
+      const initialFeesPerGas = await gasUtils['getFeesPerGas']();
 
       // Get retry gas price with attempt = 1
-      const retryGasPrice = await gasUtils['getGasPrice'](undefined, false, 1, initialGasPrice);
+      const retryFeesPerGas = await gasUtils['getFeesPerGas'](undefined, false, 1, initialFeesPerGas);
 
       // Should use 10% minimum bump even though config specified 5%
-      const expectedPriorityFee = (initialGasPrice.maxPriorityFeePerGas * 110n) / 100n;
-      const expectedMaxFee = (initialGasPrice.maxFeePerGas * 110n) / 100n;
+      const expectedPriorityFee = (initialFeesPerGas.maxPriorityFeePerGas * 110n) / 100n;
+      const expectedMaxFee = (initialFeesPerGas.maxFeePerGas * 110n) / 100n;
 
-      expect(retryGasPrice.maxPriorityFeePerGas).toBe(expectedPriorityFee);
-      expect(retryGasPrice.maxFeePerGas).toBe(expectedMaxFee);
+      expect(retryFeesPerGas.maxPriorityFeePerGas).toBe(expectedPriorityFee);
+      expect(retryFeesPerGas.maxFeePerGas).toBe(expectedMaxFee);
     });
 
     it('uses competitive fee from pending txs and fee history on retry attempts', async () => {
@@ -776,21 +776,21 @@ describe('L1TxUtils', () => {
       l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(WEI_CONST); // 1 gwei
 
       try {
-        const initialGasPrice = await gasUtils['getGasPrice']();
+        const initialFeesPerGas = await gasUtils['getFeesPerGas']();
 
         // Get retry gas price - should use competitive fee from pending (3 gwei at 75th percentile)
-        const retryGasPrice = await gasUtils['getGasPrice'](undefined, false, 1, initialGasPrice);
+        const retryFeesPerGas = await gasUtils['getFeesPerGas'](undefined, false, 1, initialFeesPerGas);
 
         // Competitive fee should be: max(network=1gwei, historical=2gwei, pending=3gwei) = 3gwei, then bumped by 50%
         const expectedCompetitiveFee = (mockPendingFee * 150n) / 100n; // 4.5 gwei
 
         // The minimum bump from initial would be initialPriority * 1.5
-        const minBump = (initialGasPrice.maxPriorityFeePerGas * 150n) / 100n;
+        const minBump = (initialFeesPerGas.maxPriorityFeePerGas * 150n) / 100n;
 
         // Final should be max of competitive and minimum bump
         const expectedPriorityFee = expectedCompetitiveFee > minBump ? expectedCompetitiveFee : minBump;
 
-        expect(retryGasPrice.maxPriorityFeePerGas).toBeGreaterThanOrEqual(expectedPriorityFee);
+        expect(retryFeesPerGas.maxPriorityFeePerGas).toBeGreaterThanOrEqual(expectedPriorityFee);
       } finally {
         // Restore original methods
         l1Client.getBlock = originalGetBlock;
@@ -812,18 +812,18 @@ describe('L1TxUtils', () => {
       l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(mockBasePriorityFee);
 
       try {
-        const initialGasPrice = await gasUtils['getGasPrice']();
+        const initialFeesPerGas = await gasUtils['getFeesPerGas']();
 
         // Get retry gas price - should fallback to network estimate when fee history fails
-        const retryGasPrice = await gasUtils['getGasPrice'](undefined, false, 1, initialGasPrice);
+        const retryFeesPerGas = await gasUtils['getFeesPerGas'](undefined, false, 1, initialFeesPerGas);
 
         // Should still get a valid price using network estimate fallback
-        expect(retryGasPrice.maxPriorityFeePerGas).toBeGreaterThan(0n);
-        expect(retryGasPrice.maxFeePerGas).toBeGreaterThan(0n);
+        expect(retryFeesPerGas.maxPriorityFeePerGas).toBeGreaterThan(0n);
+        expect(retryFeesPerGas.maxFeePerGas).toBeGreaterThan(0n);
 
         // Should be at least the minimum bump
-        const minBump = (initialGasPrice.maxPriorityFeePerGas * 150n) / 100n;
-        expect(retryGasPrice.maxPriorityFeePerGas).toBeGreaterThanOrEqual(minBump);
+        const minBump = (initialFeesPerGas.maxPriorityFeePerGas * 150n) / 100n;
+        expect(retryFeesPerGas.maxPriorityFeePerGas).toBeGreaterThanOrEqual(minBump);
       } finally {
         // Restore original methods
         l1Client.getFeeHistory = originalGetFeeHistory;
@@ -1934,7 +1934,7 @@ describe('L1TxUtils', () => {
       // Verify all read-only methods are available
       expect(l1TxUtils.getBlock).toBeDefined();
       expect(l1TxUtils.getBlockNumber).toBeDefined();
-      expect(l1TxUtils.getGasPrice).toBeDefined();
+      expect(l1TxUtils.getFeesPerGas).toBeDefined();
       expect(l1TxUtils.estimateGas).toBeDefined();
       expect(l1TxUtils.getTransactionStats).toBeDefined();
       expect(l1TxUtils.simulate).toBeDefined();
