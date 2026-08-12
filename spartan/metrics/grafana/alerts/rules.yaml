@@ -188,7 +188,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_block_proposal_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*", aztec_error_type!="insufficient_txs"}[$__rate_interval]))
+                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_block_proposal_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*", aztec_error_type!~"insufficient_txs|insufficient_valid_txs"}[$__rate_interval]))
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
