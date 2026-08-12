@@ -6,6 +6,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { ClientProtocolCircuitVerifier, IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
 import type { Tx } from '@aztec/stdlib/tx';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Unpackr } from 'msgpackr';
 import { execFile } from 'node:child_process';
@@ -16,6 +17,7 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 
 import type { BBConfig } from '../config.js';
+import { IVCVerifierMetrics } from './queued_chonk_verifier.js';
 
 const execFileAsync = promisify(execFile);
 const RESULT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -58,6 +60,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
   private sendQueue: SerialQueue;
   private fifoReader: FifoFrameReader;
   private logger = createLogger('bb-prover:batch_chonk_verifier');
+  private metrics: IVCVerifierMetrics;
   /** Maps artifact name to VK index in the batch verifier. */
   private vkIndexMap = new Map<string, number>();
   /** Bound cleanup handler for process exit signals. */
@@ -75,6 +78,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     this.fifoReader = new FifoFrameReader();
     this.sendQueue = new SerialQueue();
     this.sendQueue.start(1);
+    this.metrics = new IVCVerifierMetrics(getTelemetryClient(), `BatchChonkVerifier-${label}`);
   }
 
   /** Create and start a BatchChonkVerifier using the protocol circuit VKs. */
@@ -311,6 +315,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     const totalDurationMs = pending.totalTimer.ms();
 
     const ivcResult: IVCProofVerificationResult = { valid, durationMs, totalDurationMs };
+    this.metrics.recordIVCVerification(ivcResult);
 
     if (!valid) {
       this.logger.warn(`Proof verification failed for request_id=${result.request_id}: ${result.error_message}`);

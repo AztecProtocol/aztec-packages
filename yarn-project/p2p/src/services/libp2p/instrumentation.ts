@@ -19,6 +19,7 @@ export class P2PInstrumentation {
   private messageLatency: Histogram;
   private txReceivedCount: UpDownCounter;
   private slowValidationCount: UpDownCounter;
+  private txValidationStageDuration: Histogram;
 
   private aggLatencyHisto = new Map<TopicType, RecordableHistogram>();
   private aggValidationHisto = new Map<TopicType, RecordableHistogram>();
@@ -46,6 +47,8 @@ export class P2PInstrumentation {
     );
 
     this.messageLatency = meter.createHistogram(Metrics.P2P_GOSSIP_MESSAGE_LATENCY);
+
+    this.txValidationStageDuration = meter.createHistogram(Metrics.P2P_GOSSIP_TX_VALIDATION_STAGE_DURATION);
 
     this.txReceivedCount = createUpDownCounterWithDefault(meter, Metrics.P2P_GOSSIP_TX_RECEIVED_COUNT);
 
@@ -99,6 +102,11 @@ export class P2PInstrumentation {
 
   public incSlowValidation(topicName: TopicType) {
     this.slowValidationCount.add(1, { [Attributes.TOPIC_NAME]: topicName });
+  }
+
+  /** Records the duration of a single stage of gossiped tx validation. */
+  public recordTxValidationStage(stage: string, ms: number) {
+    this.txValidationStageDuration.record(Math.ceil(ms), { [Attributes.TX_VALIDATION_STAGE]: stage });
   }
 
   public incMessagePrevalidationStatus(passed: boolean, topicName: TopicType | undefined) {
