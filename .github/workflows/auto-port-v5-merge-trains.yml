@@ -14,12 +14,25 @@ on:
     branches:
       - 'merge-train/*-v5'
 
+permissions: {}
+
 jobs:
   label:
     name: Add port-to-next label
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
+      # Labelling via the REST endpoint on the built-in token, rather than `gh pr
+      # edit`: that command resolves PR metadata over GraphQL, which reads org
+      # teams and so needs a personal token carrying `read:org`. `pull_request_target`
+      # runs against the base repo, so GITHUB_TOKEN can write here. The label it
+      # sets does not fire `labeled` events, which is fine — backport.yml only
+      # ports once the PR is merged.
       - name: Add port-to-next label
         env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --add-label port-to-next
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --method POST \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
+            -f "labels[]=port-to-next"
