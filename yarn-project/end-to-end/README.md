@@ -142,8 +142,9 @@ CI splits each `it` in a `.parallel.test.ts` file into its own docker job, runni
 
 ### CI test discovery — `bootstrap.sh`
 
-`end-to-end/bootstrap.sh` enumerates tests in two arrays inside `test_cmds`, and a test must resolve
-through the relevant one or it **won't run in CI**:
+`end-to-end/bootstrap.sh` enumerates tests in two arrays — the standard run's in `test_cmds`, the
+compat sweep's in `compat_per_version_test_cmds` — and a test must resolve through the relevant one
+or it **won't run in CI**:
 
 - The standard run. Covers each category with a recursive glob (e.g.
   `src/automine/!(simulation)/**/*.test.ts`, `src/multi-node/**/*.test.ts`), so a new file or sub-folder
@@ -151,7 +152,7 @@ through the relevant one or it **won't run in CI**:
   line. Tests with bespoke handling sit outside the globs: the `single-node/prover/` lanes at the top of
   the function (real proofs and custom resources under `CI_FULL`, `FAKE_PROOFS=1` otherwise) and
   `avm_simulator` (below).
-- The backwards-compat sweep (`compat_tests`, a subset, emitted only under `CI_FULL`): reruns the
+- The backwards-compat sweep (a subset, emitted only under `CI_FULL` via `compat_test_cmds`): reruns the
   artifact-consuming tests once per prior stable release committed under `legacy-contracts/` (see that
   directory's README), with `CONTRACT_ARTIFACTS_VERSION` set so the jest resolver swaps in the historical
   artifact JSON. This one enumerates **single-level leaf globs** (e.g. `src/automine/token/*.test.ts`), so
