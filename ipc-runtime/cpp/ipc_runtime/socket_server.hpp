@@ -33,9 +33,9 @@ class SocketServer : public IpcServer {
     bool listen() override;
     int accept() override;
     int wait_for_data(uint64_t timeout_ns) override;
-    std::span<const uint8_t> receive(int client_id) override;
+    std::span<const uint8_t> receive(int client_id, uint64_t& request_id) override;
     void release(int client_id, size_t message_size) override;
-    bool send(int client_id, const void* data, size_t len) override;
+    bool send(int client_id, uint64_t request_id, const void* data, size_t len) override;
     void close() override;
 
     // Wake a thread blocked in wait_for_data() by writing the self-pipe whose
@@ -47,9 +47,6 @@ class SocketServer : public IpcServer {
     {
         return CleanupPaths{ .unlink_paths = { socket_path_ }, .shm_unlink_names = {} };
     }
-
-    // Reactor-thread only, like disconnect_client() (which records the ids).
-    std::vector<int> drain_disconnected_clients() override { return std::exchange(disconnected_clients_, {}); }
 
   private:
     void close_internal();
@@ -74,7 +71,6 @@ class SocketServer : public IpcServer {
     std::unordered_map<int, int> client_fds_;                    // client_id -> fd
     std::unordered_map<int, int> fd_to_client_id_;               // fd -> client_id (for fast lookup)
     std::unordered_map<int, std::vector<uint8_t>> recv_buffers_; // client_id -> recv buffer
-    std::vector<int> disconnected_clients_; // ids closed since the last drain (reactor thread only)
     int num_clients_ = 0;
 };
 

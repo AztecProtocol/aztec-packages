@@ -119,7 +119,7 @@ int SocketClient::recv_exact(void* buf, size_t len, bool& partial)
     return 1;
 }
 
-bool SocketClient::send(const void* data, size_t len, uint64_t timeout_ns)
+bool SocketClient::send(uint64_t request_id, const void* data, size_t len, uint64_t timeout_ns)
 {
     if (fd_ < 0) {
         errno = EINVAL;
@@ -132,11 +132,12 @@ bool SocketClient::send(const void* data, size_t len, uint64_t timeout_ns)
 
     apply_timeout(SO_SNDTIMEO, applied_send_timeout_ns_, timeout_ns);
 
-    // Send length prefix (4 bytes, little-endian), then message data,
-    // looping on partial writes.
-    auto msg_len = static_cast<uint32_t>(len);
+    // Send length prefix (4 bytes, little-endian), request id (8 bytes,
+    // little-endian), then message data, looping on partial writes.
+    auto msg_len = static_cast<uint32_t>(FRAME_ID_SIZE + len);
     bool partial = false;
-    if (send_exact(&msg_len, sizeof(msg_len), partial) != 1 || send_exact(data, len, partial) != 1) {
+    if (send_exact(&msg_len, sizeof(msg_len), partial) != 1 || send_exact(&request_id, FRAME_ID_SIZE, partial) != 1 ||
+        send_exact(data, len, partial) != 1) {
         if (partial) {
             // Part of the frame is on the wire — the stream is desynced and
             // unusable. Close rather than silently corrupting later frames.
@@ -147,7 +148,7 @@ bool SocketClient::send(const void* data, size_t len, uint64_t timeout_ns)
     return true;
 }
 
-std::span<const uint8_t> SocketClient::receive(uint64_t timeout_ns)
+std::span<const uint8_t> SocketClient::receive(uint64_t timeout_ns, uint64_t& request_id)
 {
     if (fd_ < 0) {
         return {};
@@ -166,11 +167,21 @@ std::span<const uint8_t> SocketClient::receive(uint64_t timeout_ns)
         return {};
     }
 
-    // A corrupt/malicious prefix must not drive the allocation below.
-    if (msg_len > MAX_FRAME_SIZE) {
+    // A corrupt/malicious prefix must not drive the allocation below. A frame
+    // shorter than the request-id field means the peer speaks the id-less
+    // protocol — close rather than misparse.
+    if (msg_len > MAX_FRAME_SIZE || msg_len < FRAME_ID_SIZE) {
         close_internal();
         return {};
     }
+
+    // Read the echoed request id (8 bytes, little-endian).
+    request_id = 0;
+    if (recv_exact(&request_id, FRAME_ID_SIZE, partial) != 1) {
+        close_internal();
+        return {};
+    }
+    msg_len -= FRAME_ID_SIZE;
 
     // Ensure buffer is large enough. Keep at least one byte so data() is
     // non-null for zero-length messages (null data() signals failure).

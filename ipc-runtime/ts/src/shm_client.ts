@@ -13,9 +13,10 @@ import { IpcClientAsync, IpcClientSync } from "./types.js";
  * prebuilt addon shipped in this package's `build/<arch>-<os>/` directory.
  *
  * Note on the async contract: `MsgpackClientAsync.call` is *fire and
- * forget*. Responses arrive via `setResponseCallback` in FIFO order on a
- * background-thread → main-thread bridge (Napi::ThreadSafeFunction).
- * The TS wrapper below owns the request queue and matches responses.
+ * forget*. Responses arrive via `setResponseCallback` in COMPLETION order on
+ * a background-thread → main-thread bridge (Napi::ThreadSafeFunction), each
+ * carrying its echoed request id. The TS wrapper below owns the pending map
+ * and pairs responses to callers by id.
  */
 export interface NapiMsgpackClientSync {
   call(input: Buffer): Buffer;
@@ -23,8 +24,8 @@ export interface NapiMsgpackClientSync {
 }
 
 export interface NapiMsgpackClientAsync {
-  setResponseCallback(cb: (response: Buffer) => void): void;
-  call(input: Buffer): void;
+  setResponseCallback(cb: (requestId: bigint, response: Buffer) => void): void;
+  call(requestId: bigint, input: Buffer): void;
   acquire(): void;
   release(): void;
   /** Stop the native poll thread, release any held TSFN ref, close the client. */
@@ -55,36 +56,47 @@ interface PendingCallback {
 
 /**
  * Wraps the fire-and-forget async NAPI msgpack client behind the
- * `IpcClientAsync` interface. Owns a FIFO queue of pending calls; the C++
- * background polling thread invokes `setResponseCallback` once per
- * response, and this wrapper matches it to the next queued caller.
+ * `IpcClientAsync` interface. Owns a map of pending calls keyed by request
+ * id; the C++ background polling thread invokes `setResponseCallback` once
+ * per response (in completion order), and this wrapper pairs it to its
+ * caller by the echoed id. Ids start at a random point per client so a
+ * stale frame left in a recycled SHM ring slot by a previous occupant
+ * cannot pair with a live call.
  *
  * `acquire` / `release` are reference-count hooks the NAPI exposes so the
  * libuv loop is kept alive only while requests are outstanding — without
  * them a `node script.js` would never exit naturally.
  */
 export class NapiShmAsyncClient implements IpcClientAsync {
-  private readonly pending: PendingCallback[] = [];
+  private readonly pending = new Map<bigint, PendingCallback>();
+  private nextRequestId =
+    (BigInt(Math.floor(Math.random() * 0xffffffff)) << 16n) + 1n;
   private destroyed = false;
 
   constructor(private inner: NapiMsgpackClientAsync) {
-    this.inner.setResponseCallback((response: Buffer) => {
+    this.inner.setResponseCallback((requestId: bigint, response: Buffer) => {
       if (this.destroyed) {
         // Late response delivered after destroy(); the native close already
         // balanced the TSFN reference.
         return;
       }
-      const cb = this.pending.shift();
+      const cb = this.pending.get(requestId);
       if (cb) {
+        this.pending.delete(requestId);
         cb.resolve(new Uint8Array(response));
-        if (this.pending.length === 0) {
+        if (this.pending.size === 0) {
           this.inner.release();
         }
       } else {
-        // Protocol desync — every response should match a pending call.
-        // Don't release: no acquire was taken for an orphan response.
+        // SHM rings persist across occupants (slot reclaim / reattach), so a
+        // frame addressed to a previous occupant's id is an anticipated
+        // leftover — discard it and keep serving live calls. Log it so that if
+        // a genuinely lost pairing ever hangs a caller, the evidence is in the
+        // log rather than silently dropped. Don't release: no acquire was
+        // taken for an orphan response.
         console.warn(
-          "NapiShmAsyncClient: dropping response with no pending caller",
+          `NapiShmAsyncClient: discarding response for unknown request id ${requestId} ` +
+            "(stale frame from a previous ring occupant?)",
         );
       }
     });
@@ -100,16 +112,17 @@ export class NapiShmAsyncClient implements IpcClientAsync {
       ? input
       : Buffer.from(input.buffer, input.byteOffset, input.byteLength);
     return new Promise<Uint8Array>((resolve, reject) => {
-      if (this.pending.length === 0) {
+      const requestId = this.nextRequestId++;
+      if (this.pending.size === 0) {
         this.inner.acquire();
       }
-      this.pending.push({ resolve, reject });
+      this.pending.set(requestId, { resolve, reject });
       try {
-        this.inner.call(buf);
+        this.inner.call(requestId, buf);
       } catch (err: any) {
-        // Send failed — unwind the queue entry we just added.
-        this.pending.pop();
-        if (this.pending.length === 0) {
+        // Send failed — unwind the map entry we just added.
+        this.pending.delete(requestId);
+        if (this.pending.size === 0) {
           this.inner.release();
         }
         reject(
@@ -127,12 +140,13 @@ export class NapiShmAsyncClient implements IpcClientAsync {
     }
     this.destroyed = true;
     // Reject anything still in flight.
-    while (this.pending.length > 0) {
-      const cb = this.pending.shift();
-      cb?.reject(new Error("ipc-runtime SHM client destroyed before response"));
+    const err = new Error("ipc-runtime SHM client destroyed before response");
+    for (const cb of this.pending.values()) {
+      cb.reject(err);
     }
+    this.pending.clear();
     // Stops the native poll thread and releases the TSFN reference taken
-    // when the queue went 0 → 1 — without this, Node never exits when
+    // when the map went 0 → 1 — without this, Node never exits when
     // destroyed with calls in flight.
     this.inner.close();
   }

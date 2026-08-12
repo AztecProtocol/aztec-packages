@@ -14,9 +14,11 @@ export type IpcServerHandler = (
 ) => Promise<Uint8Array> | Uint8Array;
 
 /**
- * UDS server with the same 4-byte-LE-length-prefix wire as UdsIpcClient and
- * the C++ ipc::IpcServer socket transport. Accepts multiple concurrent
- * connections; handler invocations are serialised per-connection.
+ * UDS server with the same wire format as UdsIpcClient and the C++
+ * ipc::IpcServer socket transport: 4-byte LE length prefix, 8-byte LE request
+ * id (echoed on the response), then the payload; the length counts the id
+ * plus the payload. Accepts multiple concurrent connections; handler
+ * invocations are serialised per-connection.
  *
  * Signal handling is the caller's responsibility (unlike the C++ server's
  * install_default_signal_handlers); the socket file is unlinked on close()
@@ -119,10 +121,22 @@ export class UdsIpcServer {
           );
           return;
         }
+        if (len < 8) {
+          // Shorter than the request-id field: the peer speaks the id-less
+          // protocol. Drop the connection with a clear reason.
+          conn.destroy(
+            new Error(
+              `UdsIpcServer: ${len}-byte frame is shorter than the request-id field — ` +
+                "IPC protocol mismatch (envelope ids); update the peer binary/package",
+            ),
+          );
+          return;
+        }
         if (buffer.length < 4 + len) break;
+        const requestId = buffer.readBigUInt64LE(4);
         // Copy into a standalone Buffer (not a subarray view, and not a plain Uint8Array): handlers
         // decode with msgpackr, which relies on Buffer semantics for correct string/binary decoding.
-        const payload = Buffer.from(buffer.subarray(4, 4 + len));
+        const payload = Buffer.from(buffer.subarray(12, 4 + len));
         buffer = buffer.subarray(4 + len);
 
         const prev = chain;
@@ -130,9 +144,10 @@ export class UdsIpcServer {
           await prev;
           try {
             const resp = await handler(clientId, payload);
-            const lenBuf = Buffer.allocUnsafe(4);
-            lenBuf.writeUInt32LE(resp.length, 0);
-            conn.write(lenBuf);
+            const header = Buffer.allocUnsafe(12);
+            header.writeUInt32LE(resp.length + 8, 0); // length counts id + payload
+            header.writeBigUInt64LE(requestId, 4);
+            conn.write(header);
             conn.write(resp);
           } catch (err) {
             conn.destroy(err as Error);

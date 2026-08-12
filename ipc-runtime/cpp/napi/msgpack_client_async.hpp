@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 namespace ipc::napi {
 
@@ -25,6 +26,11 @@ namespace ipc::napi {
  * TS owns the queue (single-threaded JS makes that natural), so we don't need
  * a C++-side mutex/queue.
  */
+struct Completion {
+    uint64_t request_id;
+    std::vector<uint8_t> payload;
+};
+
 class MsgpackClientAsync : public Napi::ObjectWrap<MsgpackClientAsync> {
   public:
     MsgpackClientAsync(const Napi::CallbackInfo& info);

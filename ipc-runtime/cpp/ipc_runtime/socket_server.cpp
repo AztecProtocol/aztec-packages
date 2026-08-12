@@ -4,6 +4,7 @@
 #include <cerrno>
 #include <climits>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <fcntl.h>
 #include <span>
@@ -139,7 +140,7 @@ void SocketServer::notify()
     [[maybe_unused]] ssize_t n = ::write(wake_write_fd_, &one, 1);
 }
 
-bool SocketServer::send(int client_id, const void* data, size_t len)
+bool SocketServer::send(int client_id, uint64_t request_id, const void* data, size_t len)
 {
     auto fd_it = client_fds_.find(client_id);
     if (fd_it == client_fds_.end()) {
@@ -154,9 +155,9 @@ bool SocketServer::send(int client_id, const void* data, size_t len)
 
     int fd = fd_it->second;
 
-    // Send length prefix (4 bytes) then message data, looping on partial
-    // writes — a short write after the prefix would permanently desync the
-    // stream for this connection.
+    // Send length prefix (4 bytes), echoed request id (8 bytes), then message
+    // data, looping on partial writes — a short write after the prefix would
+    // permanently desync the stream for this connection.
     //
     // MSG_NOSIGNAL: a peer that closed with responses still in flight must
     // yield EPIPE here, not a process-killing SIGPIPE. macOS has no
@@ -166,10 +167,12 @@ bool SocketServer::send(int client_id, const void* data, size_t len)
 #else
     constexpr int send_flags = 0;
 #endif
-    auto msg_len = static_cast<uint32_t>(len);
-    const uint8_t* parts[2] = { reinterpret_cast<const uint8_t*>(&msg_len), static_cast<const uint8_t*>(data) };
-    size_t part_lens[2] = { sizeof(msg_len), len };
-    for (int part = 0; part < 2; part++) {
+    auto msg_len = static_cast<uint32_t>(FRAME_ID_SIZE + len);
+    const uint8_t* parts[3] = { reinterpret_cast<const uint8_t*>(&msg_len),
+                                reinterpret_cast<const uint8_t*>(&request_id),
+                                static_cast<const uint8_t*>(data) };
+    size_t part_lens[3] = { sizeof(msg_len), FRAME_ID_SIZE, len };
+    for (int part = 0; part < 3; part++) {
         size_t total_sent = 0;
         while (total_sent < part_lens[part]) {
             ssize_t n = ::send(fd, parts[part] + total_sent, part_lens[part] - total_sent, send_flags);
@@ -196,7 +199,7 @@ void SocketServer::release(int client_id, size_t message_size)
     (void)message_size;
 }
 
-std::span<const uint8_t> SocketServer::receive(int client_id)
+std::span<const uint8_t> SocketServer::receive(int client_id, uint64_t& request_id)
 {
     auto fd_it = client_fds_.find(client_id);
     if (fd_it == client_fds_.end()) {
@@ -228,11 +231,30 @@ std::span<const uint8_t> SocketServer::receive(int client_id)
         total_read += static_cast<size_t>(n);
     }
 
-    // A corrupt/malicious prefix must not drive the allocation below.
-    if (msg_len > MAX_FRAME_SIZE) {
+    // A corrupt/malicious prefix must not drive the allocation below. A frame
+    // shorter than the request-id field means the peer speaks the id-less
+    // protocol — disconnect rather than misparse.
+    if (msg_len > MAX_FRAME_SIZE || msg_len < FRAME_ID_SIZE) {
+        fprintf(stderr, "ipc: client %d sent an invalid frame (len=%u) — protocol mismatch?\n", client_id, msg_len);
         disconnect_client(client_id);
         return {};
     }
+
+    // Read the request id (8 bytes, little-endian).
+    request_id = 0;
+    total_read = 0;
+    while (total_read < FRAME_ID_SIZE) {
+        ssize_t n = ::recv(fd, reinterpret_cast<uint8_t*>(&request_id) + total_read, FRAME_ID_SIZE - total_read, 0);
+        if (n <= 0) {
+            if (n < 0 && errno == EINTR) {
+                continue; // Interrupted, retry
+            }
+            disconnect_client(client_id);
+            return {};
+        }
+        total_read += static_cast<size_t>(n);
+    }
+    msg_len -= FRAME_ID_SIZE;
 
     // Resize buffer if needed to fit length prefix + message
     size_t total_size = sizeof(uint32_t) + msg_len;
@@ -479,7 +501,6 @@ void SocketServer::disconnect_client(int client_id)
     fd_to_client_id_.erase(fd);
     client_fds_.erase(fd_it);
     recv_buffers_.erase(client_id);
-    disconnected_clients_.push_back(client_id);
     num_clients_--;
 }
 
@@ -681,7 +702,6 @@ void SocketServer::disconnect_client(int client_id)
     fd_to_client_id_.erase(fd);
     client_fds_.erase(fd_it);
     recv_buffers_.erase(client_id);
-    disconnected_clients_.push_back(client_id);
     num_clients_--;
 }
 

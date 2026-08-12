@@ -115,17 +115,35 @@ TEST(SocketTest, ReactorPipelinedConcurrencyAndOrder)
 
     auto t0 = std::chrono::steady_clock::now();
     for (uint32_t i = 0; i < N; i++) {
-        ASSERT_TRUE(client->send(&i, sizeof(i), 1'000'000'000ULL));
+        ASSERT_TRUE(client->send(i + 1, &i, sizeof(i), 1'000'000'000ULL));
     }
+    // Responses arrive in completion order (earlier indices sleep longer, so
+    // they arrive out of send order); the echoed request id pairs each frame
+    // with its request.
+    uint32_t seen_mask = 0;
+    bool in_send_order = true;
     for (uint32_t i = 0; i < N; i++) {
-        auto resp = client->receive(5'000'000'000ULL);
+        uint64_t rid = 0;
+        auto resp = client->receive(5'000'000'000ULL, rid);
         ASSERT_EQ(resp.size(), sizeof(uint32_t));
         uint32_t got = 0;
         std::memcpy(&got, resp.data(), sizeof(got));
-        EXPECT_EQ(got, i) << "responses must arrive in per-connection request order";
+        ASSERT_GE(rid, 1U);
+        ASSERT_LE(rid, N);
+        EXPECT_EQ(got, static_cast<uint32_t>(rid - 1)) << "response payload does not match its echoed request id";
+        EXPECT_EQ(seen_mask & (1U << got), 0U) << "duplicate response for index " << got;
+        seen_mask |= 1U << got;
+        if (got != i) {
+            in_send_order = false;
+        }
         client->release(resp.size());
     }
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+
+    EXPECT_EQ(seen_mask, (1U << N) - 1) << "not every request was answered exactly once";
+    // Reversed sleeps guarantee out-of-order completions; a fully in-order
+    // arrival would mean responses are being re-serialized somewhere.
+    EXPECT_FALSE(in_send_order) << "responses arrived strictly in send order — head-of-line blocking is back?";
 
     // Serial execution would be the sum of all sleeps (~456ms). With 8 workers
     // it should be a small multiple of the longest single sleep; allow headroom.
@@ -277,6 +295,53 @@ TEST(SocketTest, ClientRejectsOversizedLengthPrefix)
 // Protocol: request = [tag]; response = [tag, client_id]. Tag 'A' defers its response behind a
 // test-controlled gate (scripted completion order, no sleeps-as-sync); any other tag responds
 // inline. The client_id echo pins the never-reused-id invariant directly.
+// Sockets have no ring reuse: a frame whose id matches nothing the client sent
+// means the correlation is genuinely broken, and the serial convenience
+// receive() must close rather than skip (contrast the SHM stale-frame test).
+TEST(SocketTest, SerialClientClosesOnForeignFrame)
+{
+    std::string path = test_socket_path("foreign");
+    auto server = IpcServer::create_socket(path, 2);
+    ASSERT_TRUE(server->listen());
+
+    std::atomic<bool> server_running{ true };
+    std::thread server_thread([&]() {
+        while (server_running.load(std::memory_order_acquire)) {
+            server->accept();
+            int client_id = server->wait_for_data(10000000); // 10ms
+            if (client_id < 0) {
+                continue;
+            }
+            uint64_t request_id = 0;
+            auto request = server->receive(client_id, request_id);
+            if (request.data() == nullptr) {
+                continue;
+            }
+            std::vector<uint8_t> payload(request.begin(), request.end());
+            server->release(client_id, payload.size());
+            // Respond with a wrong id first: over UDS this is a protocol error,
+            // not a leftover, and the client must refuse the stream.
+            uint8_t junk[3] = { 0xBA, 0xAD, 0x02 };
+            server->send(client_id, 0xDEADBEEFULL, junk, sizeof(junk));
+            server->send(client_id, request_id, payload.data(), payload.size());
+        }
+    });
+
+    auto client = IpcClient::create_socket(path);
+    ASSERT_TRUE(client->connect());
+
+    uint8_t msg[4] = { 5, 6, 7, 8 };
+    ASSERT_TRUE(client->send(msg, sizeof(msg), 1'000'000'000ULL));
+    auto resp = client->receive(2'000'000'000ULL);
+    EXPECT_EQ(resp.data(), nullptr) << "foreign frame over UDS must fail the call, not be skipped";
+
+    client->close();
+    server_running.store(false);
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+}
+
 TEST(SocketTest, ReactorDropsStaleResponsesAndNeverReusesIds)
 {
     std::string path = test_socket_path("staleresp");

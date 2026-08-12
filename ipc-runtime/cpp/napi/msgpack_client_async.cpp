@@ -62,15 +62,17 @@ void MsgpackClientAsync::poll_responses()
     constexpr uint64_t TIMEOUT_NS = 1'000'000'000; // 1s
 
     while (!shutdown_.load(std::memory_order_acquire)) {
-        std::span<const uint8_t> response = client_->receive(TIMEOUT_NS);
+        uint64_t request_id = 0;
+        std::span<const uint8_t> response = client_->receive(TIMEOUT_NS, request_id);
         // data() == nullptr means timeout; a non-null empty span is a valid
         // zero-length response and must be delivered.
         if (response.data() == nullptr) {
             continue; // timeout — keep polling (and re-check shutdown)
         }
 
-        // Copy out — span is invalidated by release().
-        auto* response_data = new std::vector<uint8_t>(response.begin(), response.end());
+        // Copy out — span is invalidated by release(). The echoed request id
+        // travels with the payload so the TS side can pair it to its promise.
+        auto* response_data = new Completion{ request_id, { response.begin(), response.end() } };
         client_->release(response.size());
 
         std::lock_guard<std::mutex> lock(tsfn_mutex_);
@@ -82,11 +84,12 @@ void MsgpackClientAsync::poll_responses()
             delete response_data;
             continue;
         }
-        auto status = tsfn_.NonBlockingCall(
-            response_data, [](Napi::Env env, Napi::Function js_callback, std::vector<uint8_t>* data) {
-                auto js_buffer = Napi::Buffer<uint8_t>::Copy(env, data->data(), data->size());
-                js_callback.Call({ js_buffer });
-                delete data;
+        auto status =
+            tsfn_.NonBlockingCall(response_data, [](Napi::Env env, Napi::Function js_callback, Completion* completion) {
+                auto js_buffer =
+                    Napi::Buffer<uint8_t>::Copy(env, completion->payload.data(), completion->payload.size());
+                js_callback.Call({ Napi::BigInt::New(env, completion->request_id), js_buffer });
+                delete completion;
             });
         if (status != napi_ok) {
             // Failed to queue — likely process exiting. Drop the response.
@@ -99,20 +102,25 @@ Napi::Value MsgpackClientAsync::call(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
 
-    if (info.Length() < 1 || !info[0].IsBuffer()) {
-        throw Napi::TypeError::New(env, "First argument must be a Buffer");
+    if (info.Length() < 2 || !info[0].IsBigInt() || !info[1].IsBuffer()) {
+        throw Napi::TypeError::New(env, "Expected (request_id: bigint, payload: Buffer)");
     }
     if (shutdown_.load(std::memory_order_acquire)) {
         throw Napi::Error::New(env, "Client is closed");
     }
 
-    auto input_buffer = info[0].As<Napi::Buffer<uint8_t>>();
+    bool lossless = false;
+    uint64_t request_id = info[0].As<Napi::BigInt>().Uint64Value(&lossless);
+    if (!lossless) {
+        throw Napi::TypeError::New(env, "request_id must fit in an unsigned 64-bit integer");
+    }
+    auto input_buffer = info[1].As<Napi::Buffer<uint8_t>>();
     const uint8_t* input_data = input_buffer.Data();
     size_t input_len = input_buffer.Length();
 
     // Single non-blocking attempt: claim() treats timeout 1 as an immediate
-    // check (0 would be normalized to infinite). TS owns the promise queue.
-    if (!client_->send(input_data, input_len, 1)) {
+    // check (0 would be normalized to infinite). TS owns the promise map.
+    if (!client_->send(request_id, input_data, input_len, 1)) {
         throw Napi::Error::New(env, "Failed to send request, ring buffer full. Make it bigger?");
     }
 
