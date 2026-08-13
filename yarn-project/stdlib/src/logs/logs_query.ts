@@ -4,8 +4,10 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
+import { BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { MAX_LOGS_PER_TAG, MAX_RPC_LEN } from '../interfaces/api_limit.js';
+import type { ResolvedLogsQuery } from '../interfaces/l2_logs_source.js';
 import { type ZodFor, schemas, zodFor } from '../schemas/index.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { LogCursor } from './log_cursor.js';
@@ -117,27 +119,35 @@ export function refineTxHashAndRange<T extends TxHashAndRangeFields>(schema: z.Z
   });
 }
 
+const privateTagsSchema = z
+  .array(tagQuerySchema(SiloedTag.schema))
+  .min(1)
+  .max(MAX_RPC_LEN, { message: `tags must have at most ${MAX_RPC_LEN} entries` });
+
+const publicTagsSchema = z
+  .array(tagQuerySchema(Tag.schema))
+  .min(1)
+  .max(MAX_RPC_LEN, { message: `tags must have at most ${MAX_RPC_LEN} entries` });
+
 export const PrivateLogsQuerySchema: ZodFor<PrivateLogsQuery> = refineTxHashAndRange(
-  zodFor<PrivateLogsQuery>()(
-    z.object({
-      ...logsQueryBaseShape,
-      tags: z
-        .array(tagQuerySchema(SiloedTag.schema))
-        .min(1)
-        .max(MAX_RPC_LEN, { message: `tags must have at most ${MAX_RPC_LEN} entries` }),
-    }),
-  ),
+  zodFor<PrivateLogsQuery>()(z.object({ ...logsQueryBaseShape, tags: privateTagsSchema })),
 );
 
 export const PublicLogsQuerySchema: ZodFor<PublicLogsQuery> = refineTxHashAndRange(
   zodFor<PublicLogsQuery>()(
-    z.object({
-      ...logsQueryBaseShape,
-      contractAddress: schemas.AztecAddress,
-      tags: z
-        .array(tagQuerySchema(Tag.schema))
-        .min(1)
-        .max(MAX_RPC_LEN, { message: `tags must have at most ${MAX_RPC_LEN} entries` }),
-    }),
+    z.object({ ...logsQueryBaseShape, contractAddress: schemas.AztecAddress, tags: publicTagsSchema }),
+  ),
+);
+
+/** Shape of a query whose anchor the node has already resolved to a block hash (see {@link ResolvedLogsQuery}). */
+const resolvedLogsQueryBaseShape = { ...logsQueryBaseShape, referenceBlock: BlockHash.schema.optional() };
+
+export const ResolvedPrivateLogsQuerySchema: ZodFor<ResolvedLogsQuery<PrivateLogsQuery>> = refineTxHashAndRange(
+  zodFor<ResolvedLogsQuery<PrivateLogsQuery>>()(z.object({ ...resolvedLogsQueryBaseShape, tags: privateTagsSchema })),
+);
+
+export const ResolvedPublicLogsQuerySchema: ZodFor<ResolvedLogsQuery<PublicLogsQuery>> = refineTxHashAndRange(
+  zodFor<ResolvedLogsQuery<PublicLogsQuery>>()(
+    z.object({ ...resolvedLogsQueryBaseShape, contractAddress: schemas.AztecAddress, tags: publicTagsSchema }),
   ),
 );

@@ -215,19 +215,44 @@ describe('UnseenBlockHoldOff', () => {
       expect(timer.ms()).toBeGreaterThanOrEqual(BY_NUMBER_WAIT_MS);
     });
 
-    it('fails fast for an unknown anchor at or below the tip', async () => {
-      // The node holds some other block at that height, or pruned it: waiting cannot turn that into a hit.
+    it('waits by hash for an unknown anchor at or below the tip and returns it once it arrives', async () => {
+      // A prune this node is about to apply can put the client's block at a height it already holds, so an
+      // unknown hash there is waited for like any other unknown hash.
+      const requested = BlockNumber(3);
+      const blockHash = BlockHash.random();
+      void sleep(200).then(() => addBlock(requested, blockHash));
+
+      const data = await holdOff.getBlockData({ number: requested, hash: blockHash });
+
+      expect(data?.blockHash).toEqual(blockHash);
+      expect(data?.header.getBlockNumber()).toEqual(requested);
+    });
+
+    it('rejects an anchor whose hash arrives at a different height while held', async () => {
+      const blockHash = BlockHash.random();
+      void sleep(200).then(() => addBlock(BlockNumber(4), blockHash));
+
+      await expect(holdOff.getBlockData({ number: BlockNumber(3), hash: blockHash })).rejects.toThrow(
+        /is block 4, not the requested block 3/,
+      );
+    });
+
+    it('gives up after the by-hash budget for an anchor at or below the tip', async () => {
+      const timer = new Timer();
       const data = await holdOff.getBlockData({ number: BlockNumber(3), hash: BlockHash.random() });
 
       expect(data).toBeUndefined();
-      expectResolvedWithoutHolding();
+      expect(timer.ms()).toBeGreaterThanOrEqual(BY_HASH_WAIT_MS);
     });
 
-    it('fails fast for an anchor more than one ahead of the tip', async () => {
-      const data = await holdOff.getBlockData({ number: BlockNumber(tip + 2), hash: BlockHash.random() });
+    it('waits by hash for an anchor more than one ahead of the tip', async () => {
+      const requested = BlockNumber(tip + 2);
+      const blockHash = BlockHash.random();
+      void sleep(200).then(() => addBlock(requested, blockHash));
 
-      expect(data).toBeUndefined();
-      expectResolvedWithoutHolding();
+      const data = await holdOff.getBlockData({ number: requested, hash: blockHash });
+
+      expect(data?.blockHash).toEqual(blockHash);
     });
 
     it('fails fast when the caller opts out of holding off', async () => {

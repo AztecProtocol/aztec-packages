@@ -2,7 +2,7 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, type BlockParameter, GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
+import { BlockHash, GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import {
@@ -469,7 +469,7 @@ describe('LogStore', () => {
       );
     });
 
-    it('accepts every anchor form that pins a block hash', async () => {
+    it('caps results at the anchor block', async () => {
       const tag = new SiloedTag(new Fr(0x8888));
       const ckpts = await buildChainedCheckpointsWithLogs(2, {
         numTxsPerBlock: 1,
@@ -482,23 +482,10 @@ describe('LogStore', () => {
       await logStore.addLogs(ckpts.map(c => c.checkpoint.blocks[0]));
 
       // Anchored at block 1, so the log in block 2 is past the anchor and only the first one comes back.
-      const hash = await ckpts[0].checkpoint.blocks[0].hash();
-      for (const referenceBlock of [hash, { hash }, { number: BlockNumber(1), hash }]) {
-        const [res] = await logStore.getPrivateLogsByTags({ tags: [tag], referenceBlock });
-        expect(res.map(log => log.blockNumber)).toEqual([BlockNumber(1)]);
-      }
-    });
+      const referenceBlock = await ckpts[0].checkpoint.blocks[0].hash();
+      const [res] = await logStore.getPrivateLogsByTags({ tags: [tag], referenceBlock });
 
-    it.each<[string, BlockParameter]>([
-      ['a block number', BlockNumber(1)],
-      ['{ number }', { number: BlockNumber(1) }],
-      ['a tag', 'latest'],
-      ['{ tag }', { tag: 'proven' }],
-      ['{ archive }', { archive: Fr.random() }],
-    ])('rejects a referenceBlock naming %s, which the node resolves to a hash', async (_, referenceBlock) => {
-      await expect(logStore.getPrivateLogsByTags({ tags: [SiloedTag.random()], referenceBlock })).rejects.toThrow(
-        /does not name a block hash/,
-      );
+      expect(res.map(log => log.blockNumber)).toEqual([BlockNumber(1)]);
     });
 
     it('attaches noteHashes + nullifiers only when includeEffects is set', async () => {

@@ -24,7 +24,7 @@ import {
 } from '../contract/index.js';
 import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogResultSchema } from '../logs/log_result.js';
-import { PrivateLogsQuerySchema, PublicLogsQuerySchema } from '../logs/logs_query.js';
+import { ResolvedPrivateLogsQuerySchema, ResolvedPublicLogsQuerySchema } from '../logs/logs_query.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { optional, schemas } from '../schemas/schemas.js';
@@ -119,15 +119,12 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlocksForSlot: z.function({ input: z.tuple([schemas.SlotNumber]), output: z.array(L2Block.schema) }),
   isEpochComplete: z.function({ input: z.tuple([EpochNumberSchema]), output: z.boolean() }),
   getL2Tips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
-  // The query schemas are shared with the node's API, so they accept every `referenceBlock` form a client may send
-  // there. The archiver serves only the forms that carry a block hash and rejects the rest, since resolving a number,
-  // a tag, or an archive root against the chain happens at the node (see `L2LogsSource`).
   getPrivateLogsByTags: z.function({
-    input: z.tuple([PrivateLogsQuerySchema]),
+    input: z.tuple([ResolvedPrivateLogsQuerySchema]),
     output: z.array(z.array(LogResultSchema)),
   }),
   getPublicLogsByTags: z.function({
-    input: z.tuple([PublicLogsQuerySchema]),
+    input: z.tuple([ResolvedPublicLogsQuerySchema]),
     output: z.array(z.array(LogResultSchema)),
   }),
   getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),

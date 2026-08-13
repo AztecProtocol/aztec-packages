@@ -40,9 +40,9 @@ export type UnseenBlockHoldOffOptions = {
  *
  * Behind a load balancer a client can sync to block N+1 through one node and then anchor follow-up queries against
  * another node that is still at block N. Failing those queries aborts a whole client flow over a skew that resolves
- * in under a block time, so a miss on an anchor that plausibly lies just ahead of the tip is retried for a bounded
- * budget. Everything else — a tag, a number far past the tip, a budget of zero, or too many requests already held —
- * resolves exactly as the bare block source would.
+ * in under a block time, so a miss on an anchor that plausibly names a block this node is about to see is retried for
+ * a bounded budget. Anchors that carry no such promise — a tag, or a bare number that is not the next block — resolve
+ * exactly as the bare block source would, as does any miss once a budget is zero or too many requests are already held.
  */
 export class UnseenBlockHoldOff {
   private activeHolds = 0;
@@ -127,10 +127,11 @@ export class UnseenBlockHoldOff {
    * block ahead from one naming a block this node will never have.
    *
    * The hash is what resolves the anchor, so the fork it pins is honored exactly as a bare hash would be. The number
-   * only decides what a miss means: a height at or below the tip says this node holds a different block there (or
-   * pruned it), and a height further than one past the tip says the client is not merely a block ahead — neither is
-   * worth waiting for. At exactly one past the tip the wait runs by number, because that is the block the node is
-   * about to add; whether it turns out to be the anchored one is settled by comparing hashes once it lands.
+   * only decides how a miss is waited out. At exactly one past the tip the wait runs by number, because that is the
+   * block the node is about to add: once it lands, comparing hashes settles whether it is the anchored one, and a
+   * different block there means the client is on a fork this node is not building on, so the rest of the budget is not
+   * waited out. Any other height is waited out by hash on the shorter budget, as a bare hash would be — the node may
+   * be about to prune onto the client's fork, which can place the anchor at a height this node already holds.
    */
   async #getAnchoredBlockData(
     query: AnchoredBlockParameter,
@@ -139,13 +140,7 @@ export class UnseenBlockHoldOff {
     const blockParameter = inspectBlockParameter(query);
     const data = await this.blockSource.getBlockData({ hash: query.hash });
     if (data !== undefined) {
-      if (data.header.getBlockNumber() !== query.number) {
-        throw new BadRequestError(
-          `Anchor block ${query.hash.toString()} is block ${data.header.getBlockNumber()}, not the requested ` +
-            `block ${query.number}`,
-        );
-      }
-      return data;
+      return this.#verifyAnchorHeight(data, query);
     }
     if (opts.holdOff === false) {
       return undefined;
@@ -153,11 +148,8 @@ export class UnseenBlockHoldOff {
 
     const tip = await this.blockSource.getBlockNumber();
     if (query.number !== tip + 1) {
-      this.log.verbose(`Not holding off query for unseen anchor block, its height is not next after the tip`, {
-        blockParameter,
-        tip,
-      });
-      return undefined;
+      const arrived = await this.#pollForBlockData({ hash: query.hash }, this.config.byHashWaitMs, blockParameter);
+      return arrived === undefined ? undefined : this.#verifyAnchorHeight(arrived, query);
     }
     const arrived = await this.#pollForBlockData({ number: query.number }, this.config.byNumberWaitMs, blockParameter);
     if (arrived === undefined) {
@@ -173,6 +165,17 @@ export class UnseenBlockHoldOff {
       return undefined;
     }
     return arrived;
+  }
+
+  /** Rejects an anchor whose hash resolves to a block at a height other than the one it names. */
+  #verifyAnchorHeight(data: BlockData, query: AnchoredBlockParameter): BlockData {
+    if (data.header.getBlockNumber() !== query.number) {
+      throw new BadRequestError(
+        `Anchor block ${query.hash.toString()} is block ${data.header.getBlockNumber()}, not the requested ` +
+          `block ${query.number}`,
+      );
+    }
+    return data;
   }
 
   /**

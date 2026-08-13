@@ -2,14 +2,9 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import {
-  type BlockHash,
-  type BlockParameter,
-  type L2Block,
-  blockParameterHash,
-  inspectBlockParameter,
-} from '@aztec/stdlib/block';
+import type { BlockHash, L2Block } from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
+import type { ResolvedLogsQuery } from '@aztec/stdlib/interfaces/server';
 import type {
   LogCursor,
   LogResult,
@@ -193,13 +188,13 @@ export class LogStore {
   }
 
   /** Returns one inner array per element of `query.tags`, in input order. */
-  getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+  getPrivateLogsByTags(query: ResolvedLogsQuery<PrivateLogsQuery>): Promise<LogResult[][]> {
     LogStore.#validateQuery(query);
     return this.db.transactionAsync(() => this.#runQuery(query, /* contractHex */ undefined));
   }
 
   /** Returns one inner array per element of `query.tags`, in input order. */
-  getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+  getPublicLogsByTags(query: ResolvedLogsQuery<PublicLogsQuery>): Promise<LogResult[][]> {
     LogStore.#validateQuery(query);
     return this.db.transactionAsync(() => this.#runQuery(query, fieldHex(query.contractAddress)));
   }
@@ -210,7 +205,10 @@ export class LogStore {
     }
   }
 
-  async #runQuery(query: PrivateLogsQuery | PublicLogsQuery, contractHex: string | undefined): Promise<LogResult[][]> {
+  async #runQuery(
+    query: ResolvedLogsQuery<PrivateLogsQuery> | ResolvedLogsQuery<PublicLogsQuery>,
+    contractHex: string | undefined,
+  ): Promise<LogResult[][]> {
     const isPublic = contractHex !== undefined;
     const tags = (query.tags as ReadonlyArray<TagQuery<Tag | SiloedTag>>) ?? [];
     const primaryMap = isPublic ? this.#publicLogs : this.#privateLogs;
@@ -219,7 +217,7 @@ export class LogStore {
     // genesis block is a valid anchor during early sync but is synthetic and never indexed in the block
     // store, so resolve it directly to the genesis block number rather than mistaking it for a reorg.
     let referenceBlockNumber: number | undefined;
-    const referenceBlockHash = anchorHashOf(query.referenceBlock);
+    const referenceBlockHash = query.referenceBlock;
     if (referenceBlockHash) {
       if (referenceBlockHash.equals(this.genesisBlockHash)) {
         referenceBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
@@ -371,28 +369,6 @@ export class LogStore {
     }
     return results;
   }
-}
-
-/**
- * The block hash a log query's `referenceBlock` pins, or `undefined` when the query carries no anchor.
- *
- * The store's anchor check is hash-based by nature: it answers on one fork or fails. So it takes the hash-bearing
- * forms of a {@link BlockParameter} — a bare hash, `{ hash }`, or the anchored `{ number, hash }` — and rejects the
- * ones that do not carry a hash: a block number, a tag, and an archive root. Those are resolved to a concrete hash by
- * the node RPC layer before a query reaches the store.
- */
-function anchorHashOf(referenceBlock: BlockParameter | undefined): BlockHash | undefined {
-  if (referenceBlock === undefined) {
-    return undefined;
-  }
-  const hash = blockParameterHash(referenceBlock);
-  if (hash === undefined) {
-    throw new Error(
-      `Log query referenceBlock ${inspectBlockParameter(referenceBlock)} does not name a block hash. Block numbers, ` +
-        `tags and archive roots are resolved to a hash by the node before the query reaches the log store.`,
-    );
-  }
-  return hash;
 }
 
 /** Pulls `{ tagHex, afterLog }` out of a {@link TagQuery}, normalizing the bare-tag form. */

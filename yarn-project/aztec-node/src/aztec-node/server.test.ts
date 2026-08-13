@@ -31,14 +31,12 @@ import {
   L2Block,
   type L2BlockSource,
   type L2Tips,
-  inspectBlockParameter,
 } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -1005,40 +1003,6 @@ describe('aztec node', () => {
       expect(block?.body).toBeDefined();
     });
 
-    it('holds a private logs query whose reference block has not arrived yet', async () => {
-      // Stands in for the archiver's in-transaction anchor check: the reference block must be in the chain.
-      l2LogsSource.getPrivateLogsByTags.mockImplementation(query =>
-        query.referenceBlock !== undefined && lastBlockNumber < unseenBlockNumber
-          ? Promise.reject(new Error(`Block ${inspectBlockParameter(query.referenceBlock)} is not present`))
-          : Promise.resolve([[]]),
-      );
-      scheduleUnseenBlockArrival();
-
-      const result = await node.getPrivateLogsByTags({
-        tags: [SiloedTag.random()],
-        referenceBlock: unseenBlockHash,
-      });
-
-      expect(result).toEqual([[]]);
-    });
-
-    it('holds a public logs query whose reference block has not arrived yet', async () => {
-      l2LogsSource.getPublicLogsByTags.mockImplementation(query =>
-        query.referenceBlock !== undefined && lastBlockNumber < unseenBlockNumber
-          ? Promise.reject(new Error(`Block ${inspectBlockParameter(query.referenceBlock)} is not present`))
-          : Promise.resolve([[]]),
-      );
-      scheduleUnseenBlockArrival();
-
-      const result = await node.getPublicLogsByTags({
-        contractAddress: await AztecAddress.random(),
-        tags: [Tag.random()],
-        referenceBlock: unseenBlockHash,
-      });
-
-      expect(result).toEqual([[]]);
-    });
-
     it('holds a world-state query for a single budget and then fails', async () => {
       // getWorldState resolves the query once, before its sync-retry loop, so an anchor that never arrives costs
       // a client one budget rather than one per attempt. The upper bound is deliberately loose — it only has to
@@ -1088,40 +1052,6 @@ describe('aztec node', () => {
       expect(l2BlockSource.getBlockData).toHaveBeenCalledTimes(1);
     });
 
-    describe('logs query anchors that name no hash', () => {
-      it('resolves a block number to the concrete hash the log store checks', async () => {
-        l2LogsSource.getPrivateLogsByTags.mockResolvedValue([[]]);
-        scheduleUnseenBlockArrival();
-
-        await node.getPrivateLogsByTags({ tags: [SiloedTag.random()], referenceBlock: unseenBlockNumber });
-
-        expect(l2LogsSource.getPrivateLogsByTags).toHaveBeenCalledWith(
-          expect.objectContaining({ referenceBlock: unseenBlockHash }),
-        );
-      });
-
-      it('resolves a tag to the concrete hash the log store checks', async () => {
-        l2LogsSource.getPrivateLogsByTags.mockResolvedValue([[]]);
-
-        await node.getPrivateLogsByTags({ tags: [SiloedTag.random()], referenceBlock: 'latest' });
-
-        expect(l2LogsSource.getPrivateLogsByTags).toHaveBeenCalledWith(
-          expect.objectContaining({ referenceBlock: hashForBlock(lastBlockNumber) }),
-        );
-      });
-
-      it('reports a miss itself, since there is no hash to hand the log store', async () => {
-        await expect(
-          node.getPrivateLogsByTags({
-            tags: [SiloedTag.random()],
-            referenceBlock: BlockNumber(unseenBlockNumber + 1),
-          }),
-        ).rejects.toThrow(/not found in the node/);
-
-        expect(l2LogsSource.getPrivateLogsByTags).not.toHaveBeenCalled();
-      });
-    });
-
     describe('anchored on both a block number and hash', () => {
       /** The anchor a client that synced one block past this node sends. */
       const unseenAnchor = (): BlockParameter => ({ number: unseenBlockNumber, hash: unseenBlockHash });
@@ -1168,13 +1098,14 @@ describe('aztec node', () => {
         expect(block?.hash).toEqual(unseenBlockHash);
       });
 
-      it('fails fast when the anchor names a block at or below the tip', async () => {
+      it('waits by hash for an anchor naming a block at or below the tip', async () => {
+        // A prune this node has not applied yet can put the client's block at a height it already holds, so the
+        // anchor is waited for on the hash budget rather than dismissed.
         const timer = new Timer();
 
         expect(await node.getBlock({ number: BlockNumber(3), hash: BlockHash.random() })).toBeUndefined();
 
-        // The precision win over a bare hash, which cannot tell this from a block that is about to arrive.
-        expect(timer.ms()).toBeLessThan(byHashWaitMs);
+        expect(timer.ms()).toBeGreaterThanOrEqual(byHashWaitMs);
       });
 
       it('rejects an anchor whose number and hash disagree', async () => {
@@ -1182,31 +1113,6 @@ describe('aztec node', () => {
         lastBlockNumber = unseenBlockNumber;
 
         await expect(node.getBlock({ number: BlockNumber(3), hash: unseenBlockHash })).rejects.toThrow(BadRequestError);
-      });
-
-      it('resolves a logs query anchor to a concrete hash before delegating', async () => {
-        l2LogsSource.getPrivateLogsByTags.mockResolvedValue([[]]);
-        scheduleUnseenBlockArrival();
-
-        await node.getPrivateLogsByTags({ tags: [SiloedTag.random()], referenceBlock: unseenAnchor() });
-
-        // The log store checks the anchor by hash inside its own transaction, so it is handed the resolved hash.
-        expect(l2LogsSource.getPrivateLogsByTags).toHaveBeenCalledWith(
-          expect.objectContaining({ referenceBlock: unseenBlockHash }),
-        );
-      });
-
-      it('delegates a logs query with an unresolved anchor untouched', async () => {
-        // An anchor that already names a hash is left for the log store, whose in-transaction check is the
-        // authoritative one and raises the error it always did.
-        l2LogsSource.getPrivateLogsByTags.mockResolvedValue([[]]);
-        const anchor = { number: BlockNumber(3), hash: BlockHash.random() };
-
-        await node.getPrivateLogsByTags({ tags: [SiloedTag.random()], referenceBlock: anchor });
-
-        expect(l2LogsSource.getPrivateLogsByTags).toHaveBeenCalledWith(
-          expect.objectContaining({ referenceBlock: anchor }),
-        );
       });
     });
   });

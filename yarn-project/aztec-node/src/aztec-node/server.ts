@@ -43,7 +43,6 @@ import {
   type L2BlockSource,
   type L2BlockTag,
   type L2Tips,
-  blockParameterHash,
   inspectBlockParameter,
 } from '@aztec/stdlib/block';
 import type {
@@ -81,7 +80,7 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { DebugLogStore, LogResult, LogsQueryBase, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
+import type { DebugLogStore, LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
 import { NullDebugLogStore } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource, L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
@@ -110,8 +109,8 @@ import {
 } from '@aztec/telemetry-client';
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 
-import { normalizeBlockParameter } from '../modules/block_parameter.js';
 import { NodeBlockProvider } from '../modules/node_block_provider.js';
+import { NodeLogsProvider } from '../modules/node_logs_provider.js';
 import { NodeTxReceiptBuilder } from '../modules/node_tx_receipt.js';
 import { NodeWorldStateQueries } from '../modules/node_world_state_queries.js';
 import { UnseenBlockHoldOff } from '../modules/unseen_block_hold_off.js';
@@ -172,6 +171,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   private readonly nodePublicCallsSimulator: NodePublicCallsSimulator;
   private readonly worldStateQueries: NodeWorldStateQueries;
   private readonly blockProvider: NodeBlockProvider;
+  private readonly logsProvider: NodeLogsProvider;
   private readonly unseenBlockHoldOff: UnseenBlockHoldOff;
   private readonly txReceiptBuilder: NodeTxReceiptBuilder;
 
@@ -277,6 +277,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     });
 
     this.blockProvider = new NodeBlockProvider(this.blockSource, this.unseenBlockHoldOff);
+
+    this.logsProvider = new NodeLogsProvider(this.logsSource, this.unseenBlockHoldOff);
 
     this.txReceiptBuilder = new NodeTxReceiptBuilder({
       p2pClient: this.p2pClient,
@@ -524,41 +526,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.contractDataSource.getContract(address, blockData.header.globalVariables.timestamp);
   }
 
-  public async getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
-    return await this.logsSource.getPrivateLogsByTags(await this.#resolveLogsReferenceBlock(query));
+  public getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+    return this.logsProvider.getPrivateLogsByTags(query);
   }
 
-  public async getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
-    return await this.logsSource.getPublicLogsByTags(await this.#resolveLogsReferenceBlock(query));
-  }
-
-  /**
-   * Resolves a logs query's reorg-safety anchor to the concrete block hash the log store checks against, holding the
-   * request briefly when the node has not seen that block yet — a client that synced one block ahead through another
-   * node is then answered instead of failed over a transient skew. Anchors naming a block by number, by tag, or by
-   * archive root are resolved here as well, since the store only understands a hash.
-   *
-   * A miss is answered by whoever can describe it best. An anchor that already names a hash is delegated untouched,
-   * so the store's in-transaction check — the authoritative one, and the one that knows the genesis anchor a client
-   * syncs from before it has seen a block — raises the error it always did. Any other form has no hash to delegate,
-   * so the miss is reported here.
-   */
-  async #resolveLogsReferenceBlock<T extends LogsQueryBase>(query: T): Promise<T> {
-    const { referenceBlock } = query;
-    if (referenceBlock === undefined) {
-      return query;
-    }
-    const anchor = await this.unseenBlockHoldOff.getBlockData(normalizeBlockParameter(referenceBlock));
-    if (anchor !== undefined) {
-      return { ...query, referenceBlock: anchor.blockHash };
-    }
-    if (blockParameterHash(referenceBlock) === undefined) {
-      throw new Error(
-        `Reference block ${inspectBlockParameter(referenceBlock)} not found in the node. This might indicate a reorg ` +
-          `has occurred.`,
-      );
-    }
-    return query;
+  public getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+    return this.logsProvider.getPublicLogsByTags(query);
   }
 
   /**
