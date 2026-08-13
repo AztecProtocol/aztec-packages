@@ -75,6 +75,7 @@ describe('PXE', () => {
       l1ChainId: 31337,
       rollupVersion: 1,
       autoSync: true,
+      concurrentContractSyncEnabled: false,
     };
 
     // Mock getNodeInfo which is called during PXE creation

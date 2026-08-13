@@ -1,3 +1,4 @@
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
@@ -65,6 +66,50 @@ describe('JobCoordinator', () => {
 
       expect(commitMock).toHaveBeenCalledWith(jobId);
     });
+
+    it('waits for stores to settle before committing any of them', async () => {
+      const { promise: settling, resolve: finishSettling } = promiseWithResolvers<void>();
+      const commitMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      coordinator.registerStore({
+        storeName: 'settling_store',
+        commit: () => Promise.resolve(),
+        discardStaged: () => Promise.resolve(),
+        settle: () => settling,
+      });
+      coordinator.registerStore({
+        storeName: 'other_store',
+        commit: commitMock,
+        discardStaged: () => Promise.resolve(),
+      });
+
+      const jobId = coordinator.beginJob();
+      const commitPromise = coordinator.commitJob(jobId);
+      await tick();
+      expect(commitMock).not.toHaveBeenCalled();
+
+      finishSettling();
+      await commitPromise;
+      expect(commitMock).toHaveBeenCalledWith(jobId);
+    });
+
+    it('propagates a settle rejection without committing any store', async () => {
+      const commitMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      coordinator.registerStore({
+        storeName: 'failing_store',
+        commit: () => Promise.resolve(),
+        discardStaged: () => Promise.resolve(),
+        settle: () => Promise.reject(new Error('settle failed')),
+      });
+      coordinator.registerStore({
+        storeName: 'other_store',
+        commit: commitMock,
+        discardStaged: () => Promise.resolve(),
+      });
+
+      const jobId = coordinator.beginJob();
+      await expect(coordinator.commitJob(jobId)).rejects.toThrow('settle failed');
+      expect(commitMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('abortJob', () => {
@@ -93,6 +138,53 @@ describe('JobCoordinator', () => {
 
       expect(discardStagedMock).toHaveBeenCalledWith(jobId);
     });
+
+    it('waits for stores to settle before discarding any of them', async () => {
+      const { promise: settling, resolve: finishSettling } = promiseWithResolvers<void>();
+      const discardStagedMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      coordinator.registerStore({
+        storeName: 'settling_store',
+        commit: () => Promise.resolve(),
+        discardStaged: () => Promise.resolve(),
+        settle: () => settling,
+      });
+      coordinator.registerStore({
+        storeName: 'other_store',
+        commit: () => Promise.resolve(),
+        discardStaged: discardStagedMock,
+      });
+
+      const jobId = coordinator.beginJob();
+      const abortPromise = coordinator.abortJob(jobId);
+      await tick();
+      expect(discardStagedMock).not.toHaveBeenCalled();
+
+      finishSettling();
+      await abortPromise;
+      expect(discardStagedMock).toHaveBeenCalledWith(jobId);
+    });
+
+    it('discards all stores even when a settle rejects', async () => {
+      const failingDiscardMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const otherDiscardMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      coordinator.registerStore({
+        storeName: 'failing_store',
+        commit: () => Promise.resolve(),
+        discardStaged: failingDiscardMock,
+        settle: () => Promise.reject(new Error('settle failed')),
+      });
+      coordinator.registerStore({
+        storeName: 'other_store',
+        commit: () => Promise.resolve(),
+        discardStaged: otherDiscardMock,
+      });
+
+      const jobId = coordinator.beginJob();
+      await coordinator.abortJob(jobId);
+
+      expect(failingDiscardMock).toHaveBeenCalledWith(jobId);
+      expect(otherDiscardMock).toHaveBeenCalledWith(jobId);
+    });
   });
 
   describe('registerStore', () => {
@@ -110,4 +202,7 @@ describe('JobCoordinator', () => {
       expect(() => coordinator.registerStore(mockStore)).toThrow(/already registered/);
     });
   });
+
+  /** Yields to the macrotask queue, draining all pending microtasks in between. */
+  const tick = () => new Promise<void>(resolve => setImmediate(resolve));
 });

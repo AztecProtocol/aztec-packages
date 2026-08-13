@@ -24,6 +24,16 @@ export interface StagedStore {
    * @param jobId - The job identifier
    */
   discardStaged(jobId: string): Promise<void>;
+
+  /**
+   * A store may have pending work that must finish before the job's staged writes are committed or discarded, yet
+   * commits run inside a transaction that cannot wait for it. Such stores implement this method: it is called before
+   * every commit and discard, outside the transaction. If settling fails, the commit is cancelled, but a discard
+   * proceeds.
+   *
+   * @param jobId - The job identifier
+   */
+  settle?(jobId: string): Promise<void>;
 }
 
 /**
@@ -108,6 +118,9 @@ export class JobCoordinator {
 
     this.log.debug(`Committing job ${jobId}`);
 
+    // Settling must stay outside the transaction: it can take arbitrarily long.
+    await Promise.all([...this.#stores.values()].map(store => store.settle?.(jobId)));
+
     // Commit all stores atomically in a single transaction.
     // Each store's commit is a no-op if it has no staged data (but that's up to each store to handle).
     await this.kvStore.transactionAsync(async () => {
@@ -133,6 +146,8 @@ export class JobCoordinator {
 
     this.log.debug(`Aborting job ${jobId}`);
 
+    await this.#settleStoresLoggingFailures(jobId);
+
     for (const store of this.#stores.values()) {
       await store.discardStaged(jobId);
     }
@@ -146,5 +161,19 @@ export class JobCoordinator {
    */
   hasJobInProgress(): boolean {
     return this.#currentJobId !== undefined;
+  }
+
+  /**
+   * Settles every store, logging failures instead of propagating them. The abort must run to completion no matter what,
+   * so a store that fails to settle cannot stop the others from discarding or mask the error that aborted the job.
+   */
+  async #settleStoresLoggingFailures(jobId: string): Promise<void> {
+    await Promise.all(
+      [...this.#stores.values()].map(store =>
+        store.settle?.(jobId).catch(err => {
+          this.log.warn(`Store ${store.storeName} failed to settle while aborting job ${jobId}`, { jobId, err });
+        }),
+      ),
+    );
   }
 }
