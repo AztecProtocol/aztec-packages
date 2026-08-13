@@ -8,6 +8,9 @@ import path from 'path';
 import { generateTypescriptContractInterface } from './typescript.js';
 
 const cacheFilePath = './codegenCache.json';
+// Bump when the generated output changes (e.g. the typescript template), so caches written by older
+// generators are invalidated even though the artifact hashes they store are still current.
+const cacheVersion = 2;
 let cache: Record<string, { contractName: string; hash: string }> = {};
 
 /** Generate code options */
@@ -86,12 +89,15 @@ async function generateFileHash(filePath: string) {
 async function readCache() {
   if (await exists(cacheFilePath)) {
     const cacheRaw = await readFile(cacheFilePath, 'utf8');
-    cache = JSON.parse(cacheRaw);
+    const parsed = JSON.parse(cacheRaw);
+    cache = parsed.cacheVersion === cacheVersion ? parsed.contracts : {};
+  } else {
+    cache = {};
   }
 }
 
 async function writeCache() {
-  await writeFile(cacheFilePath, JSON.stringify(cache, null, 2), 'utf8');
+  await writeFile(cacheFilePath, JSON.stringify({ cacheVersion, contracts: cache }, null, 2), 'utf8');
 }
 
 function isCacheValid(contractName: string, currentHash: string) {
