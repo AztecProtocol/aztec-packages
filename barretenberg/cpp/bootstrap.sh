@@ -265,15 +265,17 @@ function build {
 # Tests that dominate the suite's wall time, taking tens of seconds to minutes each: the recursive verifier
 # suites, whose cases build large recursion circuits, and the Chonk max capacity test, which accumulates and
 # proves CHONK_MAX_NUM_APPS apps. Emitted by test_cmds_nightly rather than per merge.
+#
+# This includes every check on the root rollup circuit (HonkRecursionConstraintTestWithoutPredicate/2), whose
+# ~6.35M gates cost 261s per merge for the pinned vk/gate-count case alone — the longest bb test in the merge
+# queue for a circuit that already had its full checks deferred. Constructing it at all is the cost, so there
+# is no cheap per-merge detector to keep behind: that circuit is covered nightly only.
 nightly_only_tests='^(HonkRecursionConstraintTest|ChonkRecursionConstraintTest|AvmRecursionInnerCircuitTests|AvmRecursionConstraintTest|AvmRecursiveTests\.TwoLayer|PaddingVariants/AvmRecursiveTestsParameterized\.TwoLayer|BoomerangTwoLayerAvmRecursiveVerifierTests|ECCVMRecursiveTests|GoblinRecursiveVerifierTests|GoblinAvmRecursiveVerifierTests|BoomerangGoblinRecursiveVerifierTests|BoomerangGoblinAvmRecursiveVerifierTests|ChonkKernelCapacity\.MaxCapacityPassing)'
 
 # Whether a test is left to the nightly run rather than emitted per merge.
 function runs_nightly_only {
   local test=$1
   [[ "$test" =~ $nightly_only_tests ]] || return 1
-  # Keep per merge: PinnedVKRootRollup constructs the root rollup circuit once to check its pinned vk hash and
-  # gate count, and is the per-merge cover for the nightly checks on that circuit.
-  [[ "$test" == *.PinnedVKRootRollup ]] && return 1
   # Keep per merge: the gate count cases build a circuit once to compare against a pinned count, cheap enough
   # to serve as the per-merge detector of unintended changes to these circuits.
   [[ "$test" == *.GateCount* ]] && return 1
@@ -311,12 +313,8 @@ function test_cmds_native {
         fi
         local prefix=$hash
         # Heavy provers get more cores/memory so they finish within the default per-test timeout;
-        # these circuits parallelize, so more cores lowers wall-time. Specific tests before family.
-        if [[ "$test" == HonkRecursionConstraintTestWithoutPredicate/2.* ]]; then
-          # Root rollup circuit (HonkRecursionTypesWithoutPredicate index 2, IsRootRollup=true):
-          # a ~6.35M-gate circuit whose VK generation is memory- and compute-heavy.
-          prefix="$prefix:CPUS=8:MEM=16g"
-        elif [[ "$test" =~ ^(AcirAvmRecursionConstraint|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
+        # these circuits parallelize, so more cores lowers wall-time.
+        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
           # IPARecursiveTests fails with 2 threads.
           prefix="$prefix:CPUS=4:MEM=8g"
         fi
