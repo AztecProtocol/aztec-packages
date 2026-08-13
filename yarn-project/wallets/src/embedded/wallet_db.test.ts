@@ -184,14 +184,15 @@ describe('WalletDB', () => {
   });
 
   describe('atomicity', () => {
-    /** Wraps a store so map writes whose key matches `shouldCrash` fail, simulating a crash mid-operation. */
+    /** Wraps a store so map writes (set or delete) whose key matches `shouldCrash` fail, simulating a crash mid-operation. */
     function crashingStore(store: AztecAsyncKVStore, shouldCrash: (key: string) => boolean): AztecAsyncKVStore {
       const wrapMap = (map: AztecAsyncMap<string, Buffer>): AztecAsyncMap<string, Buffer> =>
         new Proxy(map, {
           get(target, prop) {
-            if (prop === 'set') {
-              return (key: string, value: Buffer) =>
-                shouldCrash(key) ? Promise.reject(new Error('simulated write failure')) : target.set(key, value);
+            if (prop === 'set' || prop === 'delete') {
+              const write = (target[prop] as (key: string, value?: Buffer) => Promise<void>).bind(target);
+              return (key: string, value?: Buffer) =>
+                shouldCrash(key) ? Promise.reject(new Error('simulated write failure')) : write(key, value);
             }
             const member = Reflect.get(target, prop);
             return typeof member === 'function' ? member.bind(target) : member;
@@ -225,6 +226,34 @@ describe('WalletDB', () => {
       await expect(dbAfterCrash.retrieveAccount(address)).rejects.toThrow('does not exist');
       expect(await dbAfterCrash.listAccounts()).toEqual([]);
       expect(await store.openMap<string, Buffer>('aliases').getAsync('accounts:alice')).toBeUndefined();
+    });
+
+    it('deletes no account data when a write fails midway through deleteAccount', async () => {
+      const store = await openTmpStore('wallet-db-atomicity-test');
+      const db = new WalletDB(store, () => {});
+      const address = await AztecAddress.random();
+      const data = makeAccountData('schnorr', 'alice');
+      await db.storeAccount(address, data);
+
+      // Fail the alias delete, which happens after all the account entry deletes
+      const failingDb = new WalletDB(
+        crashingStore(store, key => key.startsWith('accounts:')),
+        () => {},
+      );
+      await expect(failingDb.deleteAccount(address)).rejects.toThrow('simulated write failure');
+
+      // Inspect the same underlying store with a fresh WalletDB: the account must be fully intact
+      const dbAfterCrash = new WalletDB(store, () => {});
+      const retrieved = await dbAfterCrash.retrieveAccount(address);
+      expect(retrieved.secretKey).toEqual(data.secretKey);
+      expect(retrieved.salt).toEqual(data.salt);
+      expect(retrieved.type).toEqual('schnorr');
+      expect(retrieved.signingKey).toEqual(data.signingKey.toBuffer());
+
+      const accounts = await dbAfterCrash.listAccounts();
+      expect(accounts).toHaveLength(1);
+      expect(accounts[0].alias).toEqual('alice');
+      expect(accounts[0].item.toString()).toEqual(address.toString());
     });
   });
 

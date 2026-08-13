@@ -121,19 +121,25 @@ export class WalletDB {
     return addresses;
   }
 
+  /**
+   * Deletes an account's stored data and its alias atomically. Does not deregister the account
+   * from the PXE; callers must do that separately.
+   */
   async deleteAccount(address: AztecAddress) {
-    await Promise.all([
-      this.accounts.delete(accountKey('sk', address)),
-      this.accounts.delete(accountKey('salt', address)),
-      this.accounts.delete(accountKey('type', address)),
-      this.accounts.delete(accountKey('signingKey', address)),
-    ]);
-    // Clean up alias if one exists
-    const aliasesByAddress = await this.#readAccountAliases();
-    const alias = aliasesByAddress.get(address.toString());
-    if (alias) {
-      await this.aliases.delete(`accounts:${alias}`);
-    }
+    await this.store.transactionAsync(async () => {
+      await Promise.all([
+        this.accounts.delete(accountKey('sk', address)),
+        this.accounts.delete(accountKey('salt', address)),
+        this.accounts.delete(accountKey('type', address)),
+        this.accounts.delete(accountKey('signingKey', address)),
+      ]);
+      // Clean up alias if one exists
+      const aliasesByAddress = await this.#readAccountAliases();
+      const alias = aliasesByAddress.get(address.toString());
+      if (alias) {
+        await this.aliases.delete(`accounts:${alias}`);
+      }
+    });
   }
 
   async close() {
