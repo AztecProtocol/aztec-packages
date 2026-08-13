@@ -569,6 +569,7 @@ function release {
   # Releases run on a single amd64 job (see ci.sh release); every arm64 artifact is cross-compiled
   # there. Backstop against stray arm64 invocations.
   if [ $(arch) == arm64 ]; then
+    echo "Skipping release on arm64: everything publishes from the amd64 job (arm64 artifacts are cross-compiled there)."
     return
   fi
 
