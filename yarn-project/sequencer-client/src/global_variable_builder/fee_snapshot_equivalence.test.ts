@@ -78,7 +78,6 @@ async function fetchLegacyFeeOracleState(
   const l1FeesBySlot = await Promise.all(timestamps.map(ts => rollup.getL1FeesAt(ts, opts)));
 
   return {
-    lastSlot,
     excessMana: computeExcessMana(feeHeader.excessMana, feeHeader.manaUsed, manaTarget),
     ethPerFeeAsset: feeHeader.ethPerFeeAsset,
     manaTarget,

@@ -2,7 +2,6 @@ import type { FeeHeader, L1FeeData, RollupContract, RollupFeeGlobals } from '@az
 import type { L1SyncSnapshot, L1SyncSnapshotProvider } from '@aztec/ethereum/l1-types';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
-import { TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { type DateProvider, executeTimeout } from '@aztec/foundation/timer';
@@ -12,21 +11,34 @@ import {
   getSlotAtTimestamp,
   getTimestampForSlot,
 } from '@aztec/stdlib/epoch-helpers';
-import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
+import { GasFees, ManaUsageEstimate, computeExcessMana } from '@aztec/stdlib/gas';
 import type { FeeProvider } from '@aztec/stdlib/tx';
 
-import { buildFeeOracleState, computePredictions, getPredictionWindowSlots } from './fee_prediction.js';
+import { type FeeOracleState, computePredictions, getPredictionWindowSlots } from './fee_prediction.js';
 import {
-  CANDIDATE_HEADROOM_SLOTS,
   type FeeQuoteCandidate,
-  FeeQuoteStaleError,
   FeeQuoteUnavailableError,
   type FeeSnapshot,
   FeeSnapshotError,
   type FeeSnapshotServiceConfig,
-  MAX_LOOKUP_ATTEMPTS,
-  type RefreshCause,
 } from './fee_snapshot_types.js';
+
+/**
+ * Extra slots materialized above each anchor so quotes survive a run of empty Ethereum slots or a short L1
+ * stall without a refresh. Two suffices only because the Aztec slot duration is a positive multiple of the
+ * Ethereum slot duration, so one L1 block advances the wanted slot by at most one; together with the poll
+ * tick's one-slot lookahead that leaves a full slot of margin to refresh in.
+ */
+const CANDIDATE_HEADROOM_SLOTS = 2;
+
+/**
+ * Attempts a read makes before giving up: one stale in-flight publication, one corrective refresh, and one
+ * successful lookup. Identity churn beyond that inside a single call's deadline is reported as unavailable.
+ */
+const MAX_LOOKUP_ATTEMPTS = 3;
+
+/** The two candidates a read resolves, one per anchor rule. */
+type ResolvedLookup = { current: FeeQuoteCandidate; prediction: FeeQuoteCandidate };
 
 /**
  * Serves current and predicted fee quotes from an in-memory snapshot refreshed in the background per L1 block,
@@ -34,7 +46,7 @@ import {
  * {@link FeeSnapshot} whose every value was read at the archiver's synced L1 block.
  */
 export class FeeSnapshotService implements FeeProvider {
-  private snapshot: FeeSnapshot | undefined;
+  protected snapshot: FeeSnapshot | undefined;
   private inFlight: Promise<FeeSnapshot> | undefined;
 
   private readonly runningPromise: RunningPromise;
@@ -77,11 +89,6 @@ export class FeeSnapshotService implements FeeProvider {
     this.log.verbose('Fee snapshot service stopped');
   }
 
-  /** Returns the currently published snapshot, if any. Exposed for testing. */
-  public getSnapshot(): FeeSnapshot | undefined {
-    return this.snapshot;
-  }
-
   /** Returns the current minimum fees for inclusion in the next block. */
   public async getCurrentMinFees(): Promise<GasFees> {
     const { current } = await this.resolveLookup();
@@ -95,56 +102,65 @@ export class FeeSnapshotService implements FeeProvider {
   }
 
   /**
-   * Resolves the two anchor candidates for the current wall clock. The loop makes up to three attempts under a
-   * single deadline: each attempt either serves from the published snapshot or identifies why it cannot (no
-   * snapshot, superseded identity, uncovered slot), triggers a refresh, awaits it, and tries again.
+   * Resolves the two anchor candidates for the current wall clock, bounded by the read timeout. On timeout only
+   * the wait is abandoned — the shared refresh keeps running for the poll loop and any other waiter — and the
+   * read reports unavailable.
    */
-  private async resolveLookup(): Promise<{ current: FeeQuoteCandidate; prediction: FeeQuoteCandidate }> {
-    const deadline = this.dateProvider.now() + this.config.refreshTimeoutMs;
+  private resolveLookup(): Promise<ResolvedLookup> {
+    return executeTimeout(
+      () => this.lookupLoop(),
+      this.config.refreshTimeoutMs,
+      () => new FeeQuoteUnavailableError(`no refresh completed within ${this.config.refreshTimeoutMs}ms`),
+    );
+  }
 
+  /**
+   * Makes up to {@link MAX_LOOKUP_ATTEMPTS} attempts: each either serves from the published snapshot or
+   * identifies why it cannot (no snapshot, superseded identity, uncovered slot), triggers a shared refresh,
+   * awaits it, and tries again.
+   */
+  private async lookupLoop(): Promise<ResolvedLookup> {
     for (let attempt = 0; attempt < MAX_LOOKUP_ATTEMPTS; attempt++) {
       if (this.stopped) {
         throw new FeeQuoteUnavailableError('the service was stopped');
       }
-      const snapshot = this.snapshot;
-      if (!snapshot) {
-        await this.refresh('read', deadline);
-        continue;
+      const served = this.serveFromSnapshot();
+      if (served) {
+        return served;
       }
-
-      // Identity check before the staleness bound: a snapshot the archiver has already moved past is never
-      // served, and a refresh that cannot replace it surfaces its own error rather than a stale quote. This is
-      // also what preserves freshness parity with a per-call latest-block check, at zero L1 cost, and what
-      // corrects a refresh that published while the identity was changing.
-      const identity = this.identityProvider.getL1SyncSnapshot();
-      if (identity && !identity.blockHash.equals(snapshot.l1.blockHash)) {
-        await this.refresh('read', deadline);
-        continue;
-      }
-
-      const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
-      const current = snapshot.candidates.get(this.wantedCurrentSlot(snapshot.pendingCheckpointSlot, nowSeconds));
-      const prediction = snapshot.candidates.get(this.wantedPredictionSlot(snapshot.pinnedSlot, nowSeconds));
-      if (!current || !prediction) {
-        await this.refresh('read', deadline);
-        continue;
-      }
-
-      this.assertHeadFresh(snapshot, nowSeconds);
-      return { current, prediction };
+      await this.refresh();
     }
-
-    throw new FeeQuoteUnavailableError(`no snapshot covered the wanted slots within ${this.config.refreshTimeoutMs}ms`);
+    throw new FeeQuoteUnavailableError(`no snapshot covered the wanted slots after ${MAX_LOOKUP_ATTEMPTS} refreshes`);
   }
 
-  /** Anchor slot of the current-fee rule: the next proposable slot, floored on the pending checkpoint. */
-  private wantedCurrentSlot(pendingCheckpointSlot: SlotNumber, atSeconds: bigint): number {
-    return Math.max(pendingCheckpointSlot + 1, getSlotAtNextL1Block(atSeconds, this.constants));
+  /**
+   * Serves both anchors from the published snapshot, or returns undefined when a refresh is needed. The
+   * identity check runs before the staleness bound: a snapshot the archiver has already moved past is never
+   * served, which preserves freshness parity with a per-call latest-block check at zero L1 cost. Staleness
+   * itself throws — the archiver identity is frozen, so a refresh cannot help.
+   */
+  private serveFromSnapshot(): ResolvedLookup | undefined {
+    const snapshot = this.snapshot;
+    if (!snapshot) {
+      return undefined;
+    }
+    const identity = this.identityProvider.getL1SyncSnapshot();
+    if (identity && !identity.blockHash.equals(snapshot.l1.blockHash)) {
+      return undefined;
+    }
+    const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
+    const current = snapshot.candidates.get(this.wantedSlot(snapshot.currentFloorSlot, nowSeconds));
+    const prediction = snapshot.candidates.get(this.wantedSlot(snapshot.predictionFloorSlot, nowSeconds));
+    if (!current || !prediction) {
+      return undefined;
+    }
+    this.assertHeadFresh(snapshot, nowSeconds);
+    return { current, prediction };
   }
 
-  /** Anchor slot of the prediction rule: the next proposable slot, floored on the pinned block's slot. */
-  private wantedPredictionSlot(pinnedSlot: SlotNumber, atSeconds: bigint): number {
-    return Math.max(pinnedSlot, getSlotAtNextL1Block(atSeconds, this.constants));
+  /** The anchor rule shared by both quotes: the next proposable slot, floored per the snapshot field. */
+  private wantedSlot(floorSlot: number, atSeconds: bigint): number {
+    return Math.max(floorSlot, getSlotAtNextL1Block(atSeconds, this.constants));
   }
 
   /** Fails closed when the pinned L1 head is older than the bound, i.e. the archiver or provider is frozen. */
@@ -155,53 +171,41 @@ export class FeeSnapshotService implements FeeProvider {
     }
     const ageSeconds = Number(nowSeconds - snapshot.l1.blockTimestamp);
     if (ageSeconds > maxL1HeadAgeSeconds) {
-      throw new FeeQuoteStaleError(ageSeconds, maxL1HeadAgeSeconds);
+      throw new FeeQuoteUnavailableError(`pinned L1 head age ${ageSeconds}s exceeds max ${maxL1HeadAgeSeconds}s`);
     }
   }
 
   /** Refreshes when the archiver identity changed or the covered slots are about to be outrun by the clock. */
   private async tick(): Promise<void> {
-    if (this.stopped) {
-      return;
-    }
     const identity = this.identityProvider.getL1SyncSnapshot();
     if (!identity) {
       return;
     }
     const snapshot = this.snapshot;
-    if (!snapshot || !identity.blockHash.equals(snapshot.l1.blockHash)) {
-      await this.refresh('poll-identity').catch(() => undefined);
-    } else if (!this.coversUpcomingSlots(snapshot)) {
-      await this.refresh('poll-coverage').catch(() => undefined);
+    if (!snapshot || !identity.blockHash.equals(snapshot.l1.blockHash) || !this.coversUpcomingSlots(snapshot)) {
+      await this.refresh().catch(() => undefined);
     }
   }
 
-  /** True when the snapshot covers both anchors now and one slot ahead, so an L1 stall cannot freeze quotes. */
+  /**
+   * True when the snapshot covers both anchors one slot ahead of now. Wanted slots are nondecreasing in time
+   * and each anchor's candidates are contiguous from its floor, so lookahead coverage implies coverage now;
+   * refreshing a full slot early means an L1 stall cannot freeze quotes.
+   */
   private coversUpcomingSlots(snapshot: FeeSnapshot): boolean {
-    const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
-    const lookahead = nowSeconds + BigInt(this.config.slotDuration);
-    return [nowSeconds, lookahead].every(
-      atSeconds =>
-        snapshot.candidates.has(this.wantedCurrentSlot(snapshot.pendingCheckpointSlot, atSeconds)) &&
-        snapshot.candidates.has(this.wantedPredictionSlot(snapshot.pinnedSlot, atSeconds)),
+    const lookahead = BigInt(this.dateProvider.nowInSeconds() + this.config.slotDuration);
+    return (
+      snapshot.candidates.has(this.wantedSlot(snapshot.currentFloorSlot, lookahead)) &&
+      snapshot.candidates.has(this.wantedSlot(snapshot.predictionFloorSlot, lookahead))
     );
   }
 
   /**
    * Awaits the in-flight refresh, starting one if none is running: concurrent readers and the poll loop always
    * share a single refresh, so a failing L1 sees at most one serial request chain regardless of RPC traffic.
-   * Fails without touching L1 when the service is stopped or the archiver has no identity to pin reads to.
-   * Reads pass their deadline: on expiry only the wait is abandoned — the refresh keeps running for the poll
-   * loop and any other waiter — and the read reports unavailable.
+   * Fails without touching L1 when the archiver has no identity to pin reads to.
    */
-  protected async refresh(cause: RefreshCause, deadline?: number): Promise<void> {
-    if (this.stopped) {
-      throw new FeeQuoteUnavailableError('the service was stopped');
-    }
-    const remaining = deadline === undefined ? undefined : deadline - this.dateProvider.now();
-    if (remaining !== undefined && remaining <= 0) {
-      throw new FeeQuoteUnavailableError('the read deadline elapsed before a refresh could complete');
-    }
+  protected async refresh(): Promise<void> {
     if (!this.inFlight) {
       const identity = this.identityProvider.getL1SyncSnapshot();
       if (!identity) {
@@ -209,26 +213,13 @@ export class FeeSnapshotService implements FeeProvider {
       }
       // The slot is freed only once the refresh settles, and every waiter resumes after that, so a subsequent
       // caller (e.g. a read that found this snapshot already superseded) starts a fresh refresh at a new identity.
-      const refresh = this.runRefresh(identity, cause).finally(() => (this.inFlight = undefined));
-      this.inFlight = refresh;
+      this.inFlight = this.runRefresh(identity).finally(() => (this.inFlight = undefined));
     }
-    const inFlight = this.inFlight;
-    if (remaining === undefined) {
-      await inFlight;
-      return;
-    }
-    try {
-      await executeTimeout(() => inFlight, remaining, 'fee snapshot refresh');
-    } catch (err) {
-      if (err instanceof TimeoutError) {
-        throw new FeeQuoteUnavailableError(`no refresh completed within ${remaining}ms`);
-      }
-      throw err;
-    }
+    await this.inFlight;
   }
 
   /** Builds and publishes a snapshot; on error keeps the last-good snapshot stored and rethrows to all waiters. */
-  protected async runRefresh(identity: L1SyncSnapshot, cause: RefreshCause): Promise<FeeSnapshot> {
+  protected async runRefresh(identity: L1SyncSnapshot): Promise<FeeSnapshot> {
     try {
       const snapshot = await this.buildSnapshot(identity);
       // No ordering guard on publish: refreshes are single-flight, and L1 identity is hash-authoritative, so
@@ -236,16 +227,14 @@ export class FeeSnapshotService implements FeeProvider {
       // would discard every rebuild after a rollback and wedge reads.
       this.snapshot = snapshot;
       this.log.debug('Published fee snapshot', {
-        cause,
         blockNumber: snapshot.l1.blockNumber,
-        pendingCheckpointSlot: snapshot.pendingCheckpointSlot,
-        pinnedSlot: snapshot.pinnedSlot,
+        currentFloorSlot: snapshot.currentFloorSlot,
+        predictionFloorSlot: snapshot.predictionFloorSlot,
         candidateSlots: [...snapshot.candidates.keys()],
       });
       return snapshot;
     } catch (err) {
       this.log.warn('Fee snapshot refresh failed; keeping last-good snapshot', {
-        cause,
         error: err instanceof Error ? err.message : String(err),
       });
       throw err;
@@ -276,11 +265,11 @@ export class FeeSnapshotService implements FeeProvider {
     // Sampled here rather than at refresh entry: two round trips have already elapsed, and the candidate set
     // should be centred on the slot a read will want once this snapshot is published.
     const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
-    const pendingCheckpointSlot = pendingCheckpoint.slotNumber;
-    const pinnedSlot = getSlotAtTimestamp(identity.blockTimestamp, this.constants);
+    const currentFloorSlot = SlotNumber.add(pendingCheckpoint.slotNumber, 1);
+    const predictionFloorSlot = getSlotAtTimestamp(identity.blockTimestamp, this.constants);
     const candidateSlots = unique([
-      ...withHeadroom(this.wantedCurrentSlot(pendingCheckpointSlot, nowSeconds)),
-      ...withHeadroom(this.wantedPredictionSlot(pinnedSlot, nowSeconds)),
+      ...withHeadroom(this.wantedSlot(currentFloorSlot, nowSeconds)),
+      ...withHeadroom(this.wantedSlot(predictionFloorSlot, nowSeconds)),
     ]);
 
     const slotInputs = await this.rollup.getSlotFeeInputs(
@@ -289,15 +278,12 @@ export class FeeSnapshotService implements FeeProvider {
     );
     const effectiveParents = slotInputs.map(input => (input.canPrune ? provenCheckpoint : pendingCheckpoint));
 
-    const oracleSlots = new Set<number>();
-    candidateSlots.forEach((slot, i) => {
-      for (const oracleSlot of getPredictionWindowSlots(SlotNumber(slot), effectiveParents[i].slotNumber)) {
-        oracleSlots.add(oracleSlot);
-      }
-    });
-    const orderedOracleSlots = [...oracleSlots].sort((a, b) => a - b);
+    const windows = candidateSlots.map((slot, i) =>
+      getPredictionWindowSlots(SlotNumber(slot), effectiveParents[i].slotNumber),
+    );
+    const oracleSlots = unique(windows.flat()).sort((a, b) => a - b);
     const { l1Fees, tips: tailTips } = await this.rollup.getL1FeesAndTips(
-      orderedOracleSlots.map(slot => this.tsForSlot(slot)),
+      oracleSlots.map(slot => this.tsForSlot(slot)),
       options,
     );
     if (tailTips.pending !== tips.pending || tailTips.proven !== tips.proven) {
@@ -309,43 +295,41 @@ export class FeeSnapshotService implements FeeProvider {
           `proven ${tips.proven} -> ${tailTips.proven}`,
       );
     }
-    const l1FeesBySlot = new Map(orderedOracleSlots.map((slot, i) => [slot, l1Fees[i]]));
+    // The oracle slots are the union of the windows consumed below, so every window lookup hits.
+    const l1FeesBySlot = new Map(oracleSlots.map((slot, i): [number, L1FeeData] => [slot, l1Fees[i]]));
 
-    const candidates = new Map<number, FeeQuoteCandidate>();
-    candidateSlots.forEach((slot, i) => {
-      candidates.set(slot, {
-        slot: SlotNumber(slot),
-        timestamp: this.tsForSlot(slot),
-        currentMinFee: new GasFees(0, slotInputs[i].manaMinFee),
-        predictions: this.computePredictionsForSlot(SlotNumber(slot), effectiveParents[i], globals, l1FeesBySlot),
-      });
-    });
+    const candidates = new Map(
+      candidateSlots.map((slot, i): [number, FeeQuoteCandidate] => [
+        slot,
+        {
+          currentMinFee: new GasFees(0, slotInputs[i].manaMinFee),
+          predictions: this.computeCandidatePredictions(
+            effectiveParents[i].feeHeader,
+            globals,
+            windows[i].map(slot => l1FeesBySlot.get(slot)!),
+          ),
+        },
+      ]),
+    );
 
-    return { l1: identity, pendingCheckpointSlot, pinnedSlot, candidates };
+    return { l1: identity, currentFloorSlot, predictionFloorSlot, candidates };
   }
 
   /** Computes the complete prediction array for every mana-usage estimate at a single candidate slot. */
-  private computePredictionsForSlot(
-    anchorSlot: SlotNumber,
-    effectiveParent: { slotNumber: SlotNumber; feeHeader: FeeHeader },
+  private computeCandidatePredictions(
+    feeHeader: FeeHeader,
     globals: RollupFeeGlobals,
-    l1FeesBySlot: Map<number, L1FeeData>,
+    l1FeesBySlot: L1FeeData[],
   ): Record<ManaUsageEstimate, GasFees[]> {
-    const state = buildFeeOracleState({
-      anchorSlot,
-      effectiveParent,
+    const state: FeeOracleState = {
+      excessMana: computeExcessMana(feeHeader.excessMana, feeHeader.manaUsed, globals.manaTarget),
+      ethPerFeeAsset: feeHeader.ethPerFeeAsset,
       manaTarget: globals.manaTarget,
       manaLimit: globals.manaLimit,
       provingCostPerManaEth: globals.provingCostPerManaEth,
       epochDuration: BigInt(this.config.epochDuration),
-      l1FeesForSlot: slot => {
-        const fees = l1FeesBySlot.get(slot);
-        if (!fees) {
-          throw new FeeSnapshotError(`Fee refresh is missing the L1 fees for slot ${slot}`);
-        }
-        return fees;
-      },
-    });
+      l1FeesBySlot,
+    };
     return {
       [ManaUsageEstimate.None]: computePredictions(state, ManaUsageEstimate.None),
       [ManaUsageEstimate.Target]: computePredictions(state, ManaUsageEstimate.Target),

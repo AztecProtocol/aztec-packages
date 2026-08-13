@@ -21,7 +21,6 @@ import { mock } from 'jest-mock-extended';
 
 import { TestFeeSnapshotService } from '../test/test_fee_snapshot_service.js';
 import {
-  FeeQuoteStaleError,
   FeeQuoteUnavailableError,
   type FeeSnapshotServiceConfig,
   getDefaultFeeSnapshotServiceConfig,
@@ -246,17 +245,6 @@ describe('FeeSnapshotService', () => {
     expect(service.getSnapshot()!.l1.blockHash.equals(Buffer32.fromNumber(999))).toBe(true);
   });
 
-  it('the RPC path issues no L1 request itself during an identity transition', async () => {
-    await service.getCurrentMinFees();
-    // The archiver publishes a new identity; the RPC lookup observes it before any poll tick.
-    identity.snapshot = makeIdentity(2n, PINNED_SLOT);
-    const statsBefore = service.stats.readTriggeredRefreshes;
-    await service.getCurrentMinFees();
-    // The read triggered exactly one refresh (shared), and did not fan out its own read chain.
-    expect(service.stats.readTriggeredRefreshes).toBe(statsBefore + 1);
-    expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
-  });
-
   it('keeps serving the last-good snapshot when a refresh fails, then recovers on the next read', async () => {
     await service.getCurrentMinFees();
     const good = service.getSnapshot();
@@ -325,7 +313,7 @@ describe('FeeSnapshotService', () => {
     service = makeService({ maxL1HeadAgeSeconds: 60 });
     await service.getCurrentMinFees();
     dateProvider.advanceTime(120);
-    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeQuoteStaleError);
+    await expect(service.getCurrentMinFees()).rejects.toThrow('pinned L1 head age 120s exceeds max 60s');
   });
 
   it('serves an arbitrarily old pinned head when the age bound is disabled', async () => {

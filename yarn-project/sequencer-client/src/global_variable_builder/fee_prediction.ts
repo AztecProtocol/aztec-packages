@@ -1,4 +1,4 @@
-import { type FeeHeader, type L1FeeData, MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
+import { type L1FeeData, MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import {
@@ -16,8 +16,6 @@ import {
  * {@link computePredictions}.
  */
 export type FeeOracleState = {
-  /** Slot of the effective parent checkpoint (prune-aware) at the anchor timestamp. */
-  lastSlot: SlotNumber;
   /** Excess mana carried into the anchor slot. */
   excessMana: bigint;
   /** Fee-asset price (eth per fee asset) at the anchor. */
@@ -37,38 +35,6 @@ export type FeeOracleState = {
 export function getPredictionWindowSlots(anchorSlot: SlotNumber, effectiveParentSlot: SlotNumber): SlotNumber[] {
   const nextSlot = SlotNumber(Math.max(SlotNumber.add(effectiveParentSlot, 1), anchorSlot));
   return times(FEE_ORACLE_LAG, i => SlotNumber.add(nextSlot, i));
-}
-
-/**
- * Builds a {@link FeeOracleState} for a prediction anchored at `anchorSlot`, using the already-selected
- * prune-aware effective parent checkpoint, governance values, and L1 fees. Mirrors the state assembly
- * `FeePredictor.fetchState` used to do inline, but takes every input explicitly so it is a pure function.
- *
- * @param l1FeesForSlot - Resolves the L1 fees at a slot from the caller's pre-fetched map; throws if missing.
- */
-export function buildFeeOracleState(params: {
-  anchorSlot: SlotNumber;
-  effectiveParent: { slotNumber: SlotNumber; feeHeader: FeeHeader };
-  manaTarget: bigint;
-  manaLimit: bigint;
-  provingCostPerManaEth: bigint;
-  epochDuration: bigint;
-  l1FeesForSlot: (slot: SlotNumber) => L1FeeData;
-}): FeeOracleState {
-  const lastSlot = params.effectiveParent.slotNumber;
-  const feeHeader = params.effectiveParent.feeHeader;
-  const l1FeesBySlot = getPredictionWindowSlots(params.anchorSlot, lastSlot).map(params.l1FeesForSlot);
-
-  return {
-    lastSlot,
-    excessMana: computeExcessMana(feeHeader.excessMana, feeHeader.manaUsed, params.manaTarget),
-    ethPerFeeAsset: feeHeader.ethPerFeeAsset,
-    manaTarget: params.manaTarget,
-    manaLimit: params.manaLimit,
-    provingCostPerManaEth: params.provingCostPerManaEth,
-    epochDuration: params.epochDuration,
-    l1FeesBySlot,
-  };
 }
 
 /**

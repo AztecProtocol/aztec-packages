@@ -8,10 +8,6 @@ import type { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
  * issues zero L1 requests.
  */
 export type FeeQuoteCandidate = {
-  /** The candidate L2 slot this quote is for. */
-  slot: SlotNumber;
-  /** Slot-start timestamp used for the pinned reads. */
-  timestamp: bigint;
   /** Canonical current fee: Solidity `getManaMinFeeAt(timestamp)` at the pinned block. */
   currentMinFee: GasFees;
   /** Precomputed `FEE_ORACLE_LAG`-length prediction array per mana-usage estimate. */
@@ -26,10 +22,10 @@ export type FeeQuoteCandidate = {
 export type FeeSnapshot = {
   /** L1 identity this snapshot was built at (block number + hash + timestamp). */
   l1: L1SyncSnapshot;
-  /** Raw pending checkpoint slot at the pinned block — floor for the current-fee anchor rule. */
-  pendingCheckpointSlot: SlotNumber;
-  /** Slot of the pinned block timestamp (TS arithmetic) — floor for the prediction anchor rule. */
-  pinnedSlot: SlotNumber;
+  /** Floor of the current-fee anchor rule: the slot after the pending checkpoint at the pinned block. */
+  currentFloorSlot: SlotNumber;
+  /** Floor of the prediction anchor rule: the slot of the pinned block timestamp (TS arithmetic). */
+  predictionFloorSlot: SlotNumber;
   /** One complete entry per materialized candidate slot, keyed by the primitive slot number. */
   candidates: ReadonlyMap<number, FeeQuoteCandidate>;
 };
@@ -71,38 +67,13 @@ export class FeeSnapshotError extends Error {
   }
 }
 
-/** No fee quote can be produced right now: no identity, no covering snapshot, refresh timeout, or stopped. */
+/**
+ * No fee quote can be produced right now: no identity, no covering snapshot, stale pinned head, refresh
+ * timeout, or stopped.
+ */
 export class FeeQuoteUnavailableError extends FeeSnapshotError {
   constructor(reason: string) {
     super(`Fee quote is unavailable: ${reason}`);
     this.name = 'FeeQuoteUnavailableError';
   }
 }
-
-/** The pinned L1 head is older than the configured bound, so quotes fail closed instead of going stale. */
-export class FeeQuoteStaleError extends FeeSnapshotError {
-  constructor(
-    public readonly ageSeconds: number,
-    public readonly maxAgeSeconds: number,
-  ) {
-    super(`Fee quote is stale: pinned L1 head age ${ageSeconds}s exceeds max ${maxAgeSeconds}s`);
-    this.name = 'FeeQuoteStaleError';
-  }
-}
-
-/** Cause of a refresh, recorded on logs for observability. */
-export type RefreshCause = 'poll-identity' | 'poll-coverage' | 'read';
-
-/**
- * Extra slots materialized above each anchor so quotes survive a run of empty Ethereum slots or a short L1
- * stall without a refresh. Two suffices only because the Aztec slot duration is a positive multiple of the
- * Ethereum slot duration, so one L1 block advances the wanted slot by at most one; together with the poll
- * tick's one-slot lookahead that leaves a full slot of margin to refresh in.
- */
-export const CANDIDATE_HEADROOM_SLOTS = 2;
-
-/**
- * Attempts a read makes before giving up: one stale in-flight publication, one corrective refresh, and one
- * successful lookup. Identity churn beyond that inside a single call's deadline is reported as unavailable.
- */
-export const MAX_LOOKUP_ATTEMPTS = 3;
