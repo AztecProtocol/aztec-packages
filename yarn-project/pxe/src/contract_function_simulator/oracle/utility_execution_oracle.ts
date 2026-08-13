@@ -292,7 +292,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   ): Promise<EphemeralArray<boolean>> {
     const hashes = blockHashes.readAll(this.ephemeralArrayService);
     const memberships = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
-      Promise.all(
+      allToCompletion(
         hashes.map(blockHash =>
           this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash).then(Boolean),
         ),
@@ -498,7 +498,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
   public async doesNullifierExist(innerNullifier: Fr) {
-    const [nullifier, anchorBlockHash] = await Promise.all([
+    const [nullifier, anchorBlockHash] = await allToCompletion([
       siloNullifier(this.contractAddress, innerNullifier!),
       this.anchorBlockHeader.hash(),
     ]);
@@ -543,7 +543,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       const slots = Array(numberOfElements)
         .fill(0)
         .map((_, i) => new Fr(startStorageSlot.toBigInt() + BigInt(i)));
-      const values = await Promise.all(
+      const values = await allToCompletion(
         slots.map(storageSlot => this.aztecNode.getPublicStorageAt(blockHash, contractAddress, storageSlot)),
       );
 
@@ -715,7 +715,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
 
     const uniqueTxHashes = uniqueBy(hashes, h => h.toString());
-    const options = await Promise.all(uniqueTxHashes.map(txHash => this.#getTxEffectOption(txHash)));
+    const options = await allToCompletion(uniqueTxHashes.map(txHash => this.#getTxEffectOption(txHash)));
     const optionsByHash = new Map(uniqueTxHashes.map((txHash, i) => [txHash.toString(), options[i]]));
 
     return EphemeralArray.fromValues(
@@ -933,7 +933,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
 
     const ephPkPoints = ephPks.readAll(this.ephemeralArrayService);
-    const secrets = await Promise.all(
+    const secrets = await allToCompletion(
       ephPkPoints.map(({ x, y }) => appSiloEcdhSharedSecret(addressSecret, new Point(x, y), this.contractAddress)),
     );
 
@@ -1021,7 +1021,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     if (!targetContractAddress.equals(this.contractAddress)) {
       // Standard handshake registry reads are authorized by default; every other cross-contract call needs the hook.
       if (!(await isStandardHandshakeRegistryUtilityRead(targetContractAddress, functionSelector))) {
-        const [callerClassId, targetClassId] = await Promise.all([
+        const [callerClassId, targetClassId] = await allToCompletion([
           this.anchoredContractData.getCurrentClassId(this.contractAddress),
           this.anchoredContractData.getCurrentClassId(targetContractAddress),
         ]);
@@ -1148,7 +1148,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       }
     }
 
-    const fetched = await Promise.all(misses.map(h => this.#getTxReceiptWithEffect(h)));
+    const fetched = await allToCompletion(misses.map(h => this.#getTxReceiptWithEffect(h)));
     return new Map([
       ...known,
       ...misses
@@ -1222,7 +1222,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       return query();
     }
 
-    const [response] = await Promise.all([
+    const [response] = await allToCompletion([
       query(),
       (async () => {
         const block = await this.aztecNode.getBlock(blockHash);
@@ -1287,7 +1287,7 @@ async function isStandardHandshakeRegistryUtilityRead(
     return false;
   }
 
-  const matches = await Promise.all(
+  const matches = await allToCompletion(
     STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES.map(signature =>
       doesSelectorHaveSignature(functionSelector, signature),
     ),

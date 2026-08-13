@@ -1,4 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash } from '@aztec/stdlib/block';
 import { MAX_RPC_LEN } from '@aztec/stdlib/interfaces/api-limit';
@@ -77,7 +78,7 @@ async function getAllPagesInBatches<T extends Tag | SiloedTag, Opts extends LogI
   for (let i = 0; i < tags.length; i += MAX_RPC_LEN) {
     batches.push(tags.slice(i, i + MAX_RPC_LEN));
   }
-  const batchResults = await Promise.all(batches.map(fetchAllPagesForBatch));
+  const batchResults = await allToCompletion(batches.map(fetchAllPagesForBatch));
   return batchResults.flat();
 }
 

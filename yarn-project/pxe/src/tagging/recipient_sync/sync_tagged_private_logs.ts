@@ -149,7 +149,7 @@ function getIndexRangesForSecrets(
   taggingStore: RecipientTaggingStore,
   jobId: string,
 ): Promise<PendingSecret[]> {
-  return Promise.all(
+  return allToCompletion(
     secrets.map(async (secret): Promise<PendingSecret> => {
       const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret, jobId);
       const boundEnd = unfinalizedTaggingIndexesWindowEnd(currentHighestFinalizedIndex);
@@ -190,9 +190,9 @@ async function fetchLogsForSecrets(
   const indexesPerSecret = pending.map(({ start, end }) => Array.from({ length: end - start }, (_, i) => start + i));
 
   // Compute siloed tags for all indexes
-  const tagsPerSecret = await Promise.all(
+  const tagsPerSecret = await allToCompletion(
     pending.map(({ secret }, i) =>
-      Promise.all(indexesPerSecret[i].map(index => SiloedTag.compute({ extendedSecret: secret, index }))),
+      allToCompletion(indexesPerSecret[i].map(index => SiloedTag.compute({ extendedSecret: secret, index }))),
     ),
   );
 

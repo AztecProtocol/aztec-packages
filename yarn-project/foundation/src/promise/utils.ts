@@ -4,10 +4,15 @@
  * `Promise.all` rejects as soon as one input rejects, abandoning the still-running siblings. When those siblings have
  * side effects, the caller observes the rejection and reacts to the failure while the abandoned work is still
  * producing effects. This helper instead guarantees that by the time it rejects, no input is still running.
+ *
+ * The signature mirrors `Promise.all`'s declaration in TypeScript's standard library, so call sites type exactly as
+ * they did with `Promise.all` (in particular, heterogeneous tuples keep their per-position types).
  */
-export async function allToCompletion<T>(promises: readonly (T | Promise<T>)[]): Promise<T[]> {
-  const results = await Promise.allSettled(promises);
-  const failures = results.filter(result => result.status === 'rejected');
+export async function allToCompletion<T extends readonly unknown[] | []>(
+  promises: T,
+): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {
+  const results = await Promise.allSettled<unknown>(promises);
+  const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
   if (failures.length === 1) {
     // Rethrow a lone failure as-is so error identity is preserved for callers that inspect error types.
     throw failures[0].reason;
@@ -19,7 +24,9 @@ export async function allToCompletion<T>(promises: readonly (T | Promise<T>)[]):
         .join(' | ')}`,
     );
   }
-  return results.map(result => (result as PromiseFulfilledResult<T>).value);
+  return results.map(result => (result as PromiseFulfilledResult<unknown>).value) as {
+    -readonly [P in keyof T]: Awaited<T[P]>;
+  };
 }
 
 export type PromiseWithResolvers<T> = {

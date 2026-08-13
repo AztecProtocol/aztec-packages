@@ -41,4 +41,19 @@ describe('allToCompletion', () => {
     await expect(result).rejects.toThrow('fast failure');
     expect(settled).toBe(true);
   });
+
+  it('waits for a nested allToCompletion to run its branches to completion before settling', async () => {
+    const { promise: slow, resolve: finishSlow } = promiseWithResolvers<void>();
+    let settled = false;
+    const inner = allToCompletion([Promise.reject(new Error('inner failure')), slow]);
+    const outer = allToCompletion([inner, Promise.resolve()]);
+    outer.finally(() => (settled = true)).catch(() => {});
+
+    await sleep(1);
+    expect(settled).toBe(false);
+
+    finishSlow();
+    await expect(outer).rejects.toThrow('inner failure');
+    expect(settled).toBe(true);
+  });
 });
