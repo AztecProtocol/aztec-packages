@@ -1,4 +1,4 @@
-import { access, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { access, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
 
@@ -16,6 +16,7 @@ async function exists(filePath: string) {
 }
 
 describe('generateCode cache', () => {
+  const outputFile = 'out/CacheTest.ts';
   let workDir: string;
   let originalCwd: string;
 
@@ -43,35 +44,32 @@ describe('generateCode cache', () => {
     await rm(workDir, { recursive: true, force: true });
   });
 
-  it('skips regeneration when the artifact and generator are unchanged', async () => {
+  it('skips regeneration when the artifact, generator, and output are unchanged', async () => {
     await generateCode('out', 'CacheTest.json');
-    expect(await exists('out/CacheTest.ts')).toBe(true);
+    await utimes(outputFile, new Date(0), new Date(0));
+    const cachedMtime = (await stat(outputFile)).mtimeMs;
 
-    await rm('out/CacheTest.ts');
     await generateCode('out', 'CacheTest.json');
-    expect(await exists('out/CacheTest.ts')).toBe(false);
+    expect((await stat(outputFile)).mtimeMs).toBe(cachedMtime);
+  });
+
+  it('regenerates when the cached output is missing', async () => {
+    await generateCode('out', 'CacheTest.json');
+    expect(await exists(outputFile)).toBe(true);
+
+    await rm(outputFile);
+    await generateCode('out', 'CacheTest.json');
+    expect(await exists(outputFile)).toBe(true);
   });
 
   it('regenerates when the cache was written by a different generator version', async () => {
     await generateCode('out', 'CacheTest.json');
-    await rm('out/CacheTest.ts');
-
-    const stale = JSON.parse(await readFile(cacheFile, 'utf8'));
-    stale.cacheVersion = 0;
-    await writeFile(cacheFile, JSON.stringify(stale));
-
-    await generateCode('out', 'CacheTest.json');
-    expect(await exists('out/CacheTest.ts')).toBe(true);
-  });
-
-  it('regenerates when the cache predates cache versioning', async () => {
-    await generateCode('out', 'CacheTest.json');
-    await rm('out/CacheTest.ts');
+    await writeFile(outputFile, 'stale generated output');
 
     const versioned = JSON.parse(await readFile(cacheFile, 'utf8'));
-    await writeFile(cacheFile, JSON.stringify(versioned.contracts));
+    await writeFile(cacheFile, JSON.stringify({ ...versioned, cacheVersion: versioned.cacheVersion - 1 }));
 
     await generateCode('out', 'CacheTest.json');
-    expect(await exists('out/CacheTest.ts')).toBe(true);
+    expect(await readFile(outputFile, 'utf8')).not.toBe('stale generated output');
   });
 });

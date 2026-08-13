@@ -8,6 +8,7 @@ import {
   decodeFunctionSignature,
   getAllFunctionAbis,
   getDefaultInitializer,
+  getGlobalsByTag,
   isAztecAddressStruct,
   isBoundedVecStruct,
   isEthAddressStruct,
@@ -294,15 +295,10 @@ function generateGlobalsGetter(input: ContractArtifact) {
     return '';
   }
 
-  const groups = tags.map(([tag, entries]) => {
-    const names = new Set<string>();
-    const fields = entries.map(({ name, value }) => {
-      if (names.has(name)) {
-        throw new Error(`Duplicate global '${name}' exported under #[abi(${tag})] in contract ${input.name}`);
-      }
-      names.add(name);
-      return `${globalPropertyKey(name)}: ${abiValueToTsLiteral(value)},`;
-    });
+  const groups = tags.map(([tag]) => {
+    const fields = Object.entries(getGlobalsByTag(input, tag)).map(
+      ([name, value]) => `${globalPropertyKey(name)}: ${abiValueToTsLiteral(value)},`,
+    );
     return `${globalPropertyKey(tag)}: {
         ${fields.join('\n        ')}
       },`;

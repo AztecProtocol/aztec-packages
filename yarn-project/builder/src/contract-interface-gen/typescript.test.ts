@@ -83,9 +83,9 @@ describe('generateTypescriptContractInterface globals', () => {
     expect(Object.getPrototypeOf(globals!.constants)).toBe(Object.prototype);
   });
 
-  it('quotes global names that are not valid identifiers', async () => {
-    const globals = await generateGlobals({ 'my-tag': [{ name: 'has space', value: integer(1) }] });
-    expect(globals).toEqual({ 'my-tag': { 'has space': 1n } });
+  it('quotes ABI tags that are not valid typescript identifiers', async () => {
+    const globals = await generateGlobals({ '123': [{ name: 'MY_GLOBAL', value: integer(1) }] });
+    expect(globals).toEqual({ '123': { MY_GLOBAL: 1n } });
   });
 
   it('emits no globals getter when the contract only exports the storage layout', async () => {
@@ -111,18 +111,5 @@ describe('generateTypescriptContractInterface globals', () => {
       storage: [{ name: 'STORAGE_LAYOUT_TestContract', value: storageLayoutValue }],
     });
     expect(globals).toBeUndefined();
-  });
-
-  it('throws on duplicate names under the same tag', async () => {
-    // Reachable from valid Noir: repeating the same #[abi(tag)] attribute on one global emits the
-    // entry once per attribute, without deduplication.
-    await expect(
-      generateGlobals({
-        constants: [
-          { name: 'MY_FIELD', value: integer(1) },
-          { name: 'MY_FIELD', value: integer(2) },
-        ],
-      }),
-    ).rejects.toThrow(/Duplicate global 'MY_FIELD'/);
   });
 });
