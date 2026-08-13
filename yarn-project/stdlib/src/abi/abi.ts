@@ -49,7 +49,7 @@ export const AbiValueSchema: z.ZodType<AbiValue> = z.discriminatedUnion('kind', 
 
 export const AbiNamedValueSchema: z.ZodType<AbiNamedValue> = z.object({
   name: z.string(),
-  value: z.lazy(() => AbiValueSchema),
+  value: AbiValueSchema,
 });
 
 export type TypedStructFieldValue<T> = { name: string; value: T };

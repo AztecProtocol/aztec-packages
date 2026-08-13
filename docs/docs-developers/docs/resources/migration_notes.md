@@ -15,21 +15,20 @@ Globals exported from a Noir contract with `#[abi(tag)]` now keep their names in
 
 ```noir
 #[abi(constants)]
-pub global MY_CONSTANT: str<8> = "exported";
-#[abi(limits)]
-pub global MAX_ENTRIES: u32 = 100;
+pub global EXPORTED_FIELD_CONSTANT: Field = 1234;
+#[abi(constants)]
+pub global EXPORTED_STRING_CONSTANT: str<8> = "exported";
 ```
 
 ```typescript
-import { getGlobalsByTag } from '@aztec/aztec.js';
+import { getGlobalsByTag } from '@aztec/aztec.js/abi';
 
-const { MY_CONSTANT } = getGlobalsByTag(MyContractArtifact, 'constants');
-// MY_CONSTANT: { kind: 'string', value: 'exported' }
-const { MAX_ENTRIES } = getGlobalsByTag(MyContractArtifact, 'limits');
-// MAX_ENTRIES: { kind: 'integer', sign: false, value: '00...0064' }
+const { EXPORTED_FIELD_CONSTANT, EXPORTED_STRING_CONSTANT } = getGlobalsByTag(MyContractArtifact, 'constants');
 ```
 
-There is no backwards compatibility path: artifacts compiled before Noir exported global names (with bare, unnamed entries) are rejected on load and must be recompiled with the current toolchain. Since the artifact hash commits to the outputs, recompiled contracts get a new class ID (and thus new derived addresses) relative to the previous release. The PXE data schema version was bumped accordingly, so existing PXE databases resync on first open.
+There is no backwards compatibility path: artifacts compiled before Noir exported global names (with bare, unnamed entries) are rejected on load and must be recompiled with the current toolchain. The artifact hash commits to the contract artifact's ABI outputs (`ContractArtifact.outputs`), so adding names to `outputs.globals` changes the artifact hash, the contract class ID, and any addresses derived from it. The PXE data schema version was bumped accordingly, so existing PXE databases resync on first open.
+
+[Learn how to export globals under one or more tags and read them from TypeScript](../aztec-nr/framework-description/contract_artifact.md#exported-globals).
 
 ### [Aztec.js] A function's return type is a single `returnType`, not a `returnTypes` list
 

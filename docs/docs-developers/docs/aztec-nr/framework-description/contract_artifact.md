@@ -3,6 +3,7 @@ title: Contract Artifacts
 description: Understand the structure and contents of Aztec smart contract artifacts.
 tags: [contracts]
 sidebar_position: 13
+references: ["noir-projects/labs/noir-contracts/contracts/test/test_contract/src/main.nr", "yarn-project/stdlib/src/abi/contract_artifact.ts", "yarn-project/builder/src/contract-interface-gen/typescript.ts"]
 ---
 
 Compiling an Aztec contract produces a contract artifact file (`.json`) containing everything needed to interact with that contract: its name, functions, their interfaces, and compiled bytecode. Since private function bytecode is never published to the network, you need this artifact file to call private functions.
@@ -35,6 +36,51 @@ A contract artifact contains:
 - **`outputs`**: Exported structs and globals from the contract
 - **`storageLayout`**: Storage slot mappings for contract state
 - **`fileMap`**: Source file mappings for debugging
+
+## Exported globals
+
+Add `#[abi(tag)]` to a public Noir global to export its name and value in the contract artifact. A tag groups related globals, and you can apply the same tag to multiple globals:
+
+```noir
+use aztec::macros::aztec;
+
+#[aztec]
+pub contract Globals {
+    #[abi(constants)]
+    pub global EXPORTED_FIELD_CONSTANT: Field = 1234;
+    #[abi(constants)]
+    pub global EXPORTED_STRING_CONSTANT: str<8> = "exported";
+    #[abi(limits)]
+    pub global EXPORTED_LIMIT_CONSTANT: u32 = 100;
+    #[abi(constants)]
+    #[abi(limits)]
+    pub global EXPORTED_SHARED_CONSTANT: u32 = 7;
+}
+```
+
+The example creates two groups under `outputs.globals`: `constants` and `limits`. Each group is an array of `{ name, value }` entries. Stacking attributes on `EXPORTED_SHARED_CONSTANT` exports the same global under both tags.
+
+After you run `aztec codegen`, the generated contract class exposes the globals as decoded, read-only TypeScript values grouped by tag:
+
+```typescript
+GlobalsContract.globals.constants.EXPORTED_FIELD_CONSTANT; // 1234n
+GlobalsContract.globals.constants.EXPORTED_STRING_CONSTANT; // 'exported'
+GlobalsContract.globals.limits.EXPORTED_LIMIT_CONSTANT; // 100n
+GlobalsContract.globals.constants.EXPORTED_SHARED_CONSTANT; // 7n
+GlobalsContract.globals.limits.EXPORTED_SHARED_CONSTANT; // 7n
+```
+
+The generated `globals` getter omits the `storage` tag. Aztec.nr reserves that tag for the generated storage layout, which the contract class exposes through its `storage` getter.
+
+When working directly with an artifact, use `getGlobalsByTag` to return the named entries for one tag as raw `AbiValue` objects:
+
+```typescript
+import { getGlobalsByTag } from '@aztec/aztec.js/abi';
+
+const constants = getGlobalsByTag(GlobalsContract.artifact, 'constants');
+const exportedString = constants.EXPORTED_STRING_CONSTANT;
+// { kind: 'string', value: 'exported' }
+```
 
 ## Function Properties
 
