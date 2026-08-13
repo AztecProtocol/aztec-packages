@@ -41,10 +41,9 @@ export class NodeBlockProvider {
     const wantContext = !!options.includeL1PublishInfo || !!options.includeAttestations;
 
     if (wantTxs) {
-      // Resolved to metadata first so the anchored form is reduced to a hash the block source understands, and so a
-      // block the node is about to see is waited for. The hash then pins the fork for the read that carries the txs.
-      const data = await this.holdOff.getBlockData(query);
-      const block = data === undefined ? undefined : await this.blockSource.getBlock({ hash: data.blockHash });
+      // Resolved through the hold-off so the anchored form is reduced to a hash the block source understands, and so
+      // a block the node is about to see is waited for before the read that carries the txs.
+      const block = await this.holdOff.getBlock(query);
       if (!block) {
         return undefined;
       }

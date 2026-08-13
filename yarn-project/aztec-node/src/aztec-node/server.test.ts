@@ -1039,16 +1039,33 @@ describe('aztec node', () => {
       expect(result).toEqual([[]]);
     });
 
-    it('holds a world-state query for a single budget without compounding across sync retries', async () => {
-      // getWorldState retries a resolution failure three times; holding off on every attempt would triple the
-      // wait a client experiences, so only the first attempt waits. The upper bound is deliberately loose — it
-      // only has to separate one budget from three.
+    it('holds a world-state query for a single budget and then fails', async () => {
+      // getWorldState resolves the query once, before its sync-retry loop, so an anchor that never arrives costs
+      // a client one budget rather than one per attempt. The upper bound is deliberately loose — it only has to
+      // separate one budget from the three a per-attempt hold-off would spend.
       const timer = new Timer();
 
       await expect(node.getWorldState(unseenBlockNumber)).rejects.toThrow(/Block not found for number=6/);
 
       expect(timer.ms()).toBeGreaterThanOrEqual(byNumberWaitMs);
       expect(timer.ms()).toBeLessThan(2 * byNumberWaitMs);
+    });
+
+    it('does not hold off again when a sync retry re-resolves the query', async () => {
+      // The block resolves, world state fails to sync to it, and a prune removes it again before the retry
+      // re-resolves. That second miss must surface immediately instead of spending another hold-off budget.
+      lastBlockNumber = unseenBlockNumber;
+      worldState.syncImmediate.mockImplementation(() => {
+        lastBlockNumber = BlockNumber(unseenBlockNumber - 1);
+        return Promise.reject(
+          new WorldStateSynchronizerError(`Unable to sync to block number ${unseenBlockNumber} (last synced is 5)`),
+        );
+      });
+      const timer = new Timer();
+
+      await expect(node.getWorldState(unseenBlockNumber)).rejects.toThrow(/Block not found for number=6/);
+
+      expect(timer.ms()).toBeLessThan(byNumberWaitMs);
     });
 
     it('defaults the by-number budget to twice the block duration', async () => {
