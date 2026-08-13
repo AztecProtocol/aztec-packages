@@ -78,6 +78,8 @@ pub contract Test {
     pub global EXPORTED_FIELD_CONSTANT: Field = 1234;
     #[abi(constants)]
     pub global EXPORTED_STRING_CONSTANT: str<8> = "exported";
+    #[abi(limits)]
+    pub global EXPORTED_LIMIT_CONSTANT: u32 = 100;
 
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
     // test function must also be updated accordingly.

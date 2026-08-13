@@ -15,7 +15,7 @@ export {
   type AbiType,
   type AbiValue,
   type AbiNamedValue,
-  getNamedContractGlobals,
+  getGlobalsByTag,
   isAddressStruct,
   isAztecAddressStruct,
   isEthAddressStruct,

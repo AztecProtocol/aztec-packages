@@ -16,13 +16,17 @@ Globals exported from a Noir contract with `#[abi(tag)]` now keep their names in
 ```noir
 #[abi(constants)]
 pub global MY_CONSTANT: str<8> = "exported";
+#[abi(limits)]
+pub global MAX_ENTRIES: u32 = 100;
 ```
 
 ```typescript
-import { getNamedContractGlobals } from '@aztec/aztec.js';
+import { getGlobalsByTag } from '@aztec/aztec.js';
 
-const { MY_CONSTANT } = getNamedContractGlobals(MyContractArtifact, 'constants');
+const { MY_CONSTANT } = getGlobalsByTag(MyContractArtifact, 'constants');
 // MY_CONSTANT: { kind: 'string', value: 'exported' }
+const { MAX_ENTRIES } = getGlobalsByTag(MyContractArtifact, 'limits');
+// MAX_ENTRIES: { kind: 'integer', sign: false, value: '00...0064' }
 ```
 
 There is no backwards compatibility path: artifacts compiled before Noir exported global names (with bare, unnamed entries) are rejected on load and must be recompiled with the current toolchain. Since the artifact hash commits to the outputs, recompiled contracts get a new class ID (and thus new derived addresses) relative to the previous release. The PXE data schema version was bumped accordingly, so existing PXE databases resync on first open.

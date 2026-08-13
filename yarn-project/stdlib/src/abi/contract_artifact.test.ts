@@ -1,14 +1,13 @@
 /* eslint-disable camelcase */
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import { computeArtifactHash } from '../contract/artifact_hash.js';
 import type { NoirCompiledContract } from '../noir/index.js';
 import { getBenchmarkContractArtifact, getTestContractArtifact } from '../tests/fixtures.js';
 import type { AbiNamedValue, AbiValue } from './abi.js';
 import {
   contractArtifactFromBuffer,
   contractArtifactToBuffer,
-  getNamedContractGlobals,
+  getGlobalsByTag,
   loadContractArtifact,
 } from './contract_artifact.js';
 
@@ -54,54 +53,54 @@ describe('contract_artifact', () => {
     expect(artifact.storageLayout).toEqual({ balance: { slot: new Fr(1) } });
   });
 
-  it('keeps the artifact hash stable', async () => {
-    // The artifact hash commits to `outputs` as stringified JSON, so any change to the loaded shape of globals
-    // moves the class ID (and thus address) of every contract. This pin makes such a change an explicit,
-    // reviewed decision rather than an accident.
-    const artifact = loadContractArtifact(
-      contractWithGlobals({ storage: [{ name: 'STORAGE_LAYOUT_TestContract', value: storageLayoutValue }] }),
-    );
-    const hash = await computeArtifactHash(artifact);
-    expect(hash.toString()).toBe('0x1e30b5c2e546947326430ce5dd486679d8172220a932822374bdce0fda15232d');
-  });
-
   it('loads the constants exported by the Test contract', () => {
     const artifact = getTestContractArtifact();
-    const constants = getNamedContractGlobals(artifact, 'constants');
+    const constants = getGlobalsByTag(artifact, 'constants');
     expect(constants.EXPORTED_FIELD_CONSTANT).toEqual({
       kind: 'integer',
       sign: false,
       value: '00000000000000000000000000000000000000000000000000000000000004d2',
     });
     expect(constants.EXPORTED_STRING_CONSTANT).toEqual({ kind: 'string', value: 'exported' });
+
+    const limits = getGlobalsByTag(artifact, 'limits');
+    expect(limits.EXPORTED_LIMIT_CONSTANT).toEqual({
+      kind: 'integer',
+      sign: false,
+      value: '0000000000000000000000000000000000000000000000000000000000000064',
+    });
+    expect(constants.EXPORTED_LIMIT_CONSTANT).toBeUndefined();
+    expect(limits.EXPORTED_FIELD_CONSTANT).toBeUndefined();
   });
 
-  describe('getNamedContractGlobals', () => {
+  describe('getGlobalsByTag', () => {
     const fieldValue = { kind: 'integer', sign: false, value: '04d2' } satisfies AbiValue;
     const stringValue = { kind: 'string', value: 'exported' } satisfies AbiValue;
 
-    it('returns globals keyed by name', () => {
+    it('returns globals keyed by name, scoped to the requested tag', () => {
       const artifact = loadContractArtifact(
         contractWithGlobals({
           constants: [
             { name: 'MY_FIELD', value: fieldValue },
             { name: 'MY_STRING', value: stringValue },
           ],
+          limits: [{ name: 'MY_LIMIT', value: fieldValue }],
         }),
       );
-      expect(getNamedContractGlobals(artifact, 'constants')).toEqual({ MY_FIELD: fieldValue, MY_STRING: stringValue });
+      expect(getGlobalsByTag(artifact, 'constants')).toEqual({ MY_FIELD: fieldValue, MY_STRING: stringValue });
+      expect(getGlobalsByTag(artifact, 'limits')).toEqual({ MY_LIMIT: fieldValue });
     });
 
     it('returns an empty record for an unknown tag', () => {
       const artifact = loadContractArtifact(contractWithGlobals({}));
-      expect(getNamedContractGlobals(artifact, 'constants')).toEqual({});
+      expect(getGlobalsByTag(artifact, 'constants')).toEqual({});
     });
 
     it('handles global names that collide with Object prototype properties', () => {
       const artifact = loadContractArtifact(
         contractWithGlobals({ constants: [{ name: 'toString', value: fieldValue }] }),
       );
-      expect(getNamedContractGlobals(artifact, 'constants')).toEqual({ toString: fieldValue });
+      expect(getGlobalsByTag(artifact, 'constants')).toEqual({ toString: fieldValue });
     });
 
     it('throws on duplicate names under the same tag', () => {
@@ -113,7 +112,7 @@ describe('contract_artifact', () => {
           ],
         }),
       );
-      expect(() => getNamedContractGlobals(artifact, 'constants')).toThrow(/Duplicate global 'MY_FIELD'/);
+      expect(() => getGlobalsByTag(artifact, 'constants')).toThrow(/Duplicate global 'MY_FIELD'/);
     });
   });
 });

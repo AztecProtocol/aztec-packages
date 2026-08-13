@@ -290,7 +290,7 @@ function getStorageLayout(contractName: string, globals: Record<string, AbiNamed
  * Returns the globals exported by the contract under an `#[abi(tag)]` attribute, keyed by global name.
  * An unknown tag yields an empty record. Throws if two globals under the same tag share a name.
  */
-export function getNamedContractGlobals(artifact: ContractArtifact, tag: string): Record<string, AbiValue> {
+export function getGlobalsByTag(artifact: ContractArtifact, tag: string): Record<string, AbiValue> {
   // Collected in a Map so global names that collide with Object.prototype properties (e.g. `toString`)
   // are neither flagged as duplicates nor mishandled (`__proto__`) when building the record.
   const globals = new Map<string, AbiValue>();
