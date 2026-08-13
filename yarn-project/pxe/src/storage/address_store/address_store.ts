@@ -1,4 +1,5 @@
 import { toArray } from '@aztec/foundation/iterable';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAsyncArray, AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress } from '@aztec/stdlib/contract';
@@ -57,7 +58,7 @@ export class AddressStore {
 
   getCompleteAddresses(): Promise<CompleteAddress[]> {
     return this.#store.transactionAsync(async () => {
-      return await Promise.all(
+      return await allToCompletion(
         (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v)),
       );
     });

@@ -26,6 +26,7 @@ import {
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -321,7 +322,7 @@ export class ContractFunctionSimulator {
           .map(r => r.inner)
           .concat(r.publicInputs.publicTeardownCallRequest.isEmpty() ? [] : [r.publicInputs.publicTeardownCallRequest]),
       );
-      const publicFunctionsCalldata = await Promise.all(
+      const publicFunctionsCalldata = await allToCompletion(
         publicCallRequests.map(async r => {
           const calldata = await privateExecutionOracle.getHashPreimage(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
@@ -527,7 +528,7 @@ export async function generateSimulatedProvingResult(
     scopedNullifiers.push(...execution.publicInputs.nullifiers.getActiveItems().map(n => n.scope(contractAddress)));
 
     taggedPrivateLogs.push(
-      ...(await Promise.all(
+      ...(await allToCompletion(
         execution.publicInputs.privateLogs.getActiveItems().map(async metadata => {
           metadata.log.fields[0] = await computeSiloedPrivateLogFirstField(contractAddress, metadata.log.fields[0]);
           return new OrderedSideEffect(metadata, metadata.counter);
@@ -606,12 +607,12 @@ export async function generateSimulatedProvingResult(
     scopedNullifiersCLA,
   );
 
-  const siloedNoteHashes = await Promise.all(
+  const siloedNoteHashes = await allToCompletion(
     filteredNoteHashes
       .sort((a, b) => a.counter - b.counter)
       .map(async nh => new OrderedSideEffect(await siloNoteHash(nh.contractAddress, nh.value), nh.counter)),
   );
-  const siloedNullifiers = await Promise.all(
+  const siloedNullifiers = await allToCompletion(
     filteredNullifiers
       .sort((a, b) => a.counter - b.counter)
       .map(async n => new OrderedSideEffect(await siloNullifier(n.contractAddress, n.value), n.counter)),
@@ -648,7 +649,7 @@ export async function generateSimulatedProvingResult(
   if (isPrivateOnlyTx) {
     // We must make the note hashes unique by using the
     // nonce generator and their index in the tx.
-    const uniqueNoteHashes = await Promise.all(
+    const uniqueNoteHashes = await allToCompletion(
       siloedNoteHashes.map(async (orderedSideEffect, i) => {
         const siloedNoteHash = orderedSideEffect.sideEffect;
         const nonce = await computeNoteHashNonce(nonceGenerator, i);
@@ -678,7 +679,7 @@ export async function generateSimulatedProvingResult(
       siloedNoteHashes,
       minRevertibleSideEffectCounter,
     );
-    const nonRevertibleUniqueNoteHashes = await Promise.all(
+    const nonRevertibleUniqueNoteHashes = await allToCompletion(
       nonRevertibleNoteHashes.map(async (noteHash, i) => {
         const nonce = await computeNoteHashNonce(nonceGenerator, i);
         return await computeUniqueNoteHash(nonce, noteHash);
@@ -827,7 +828,7 @@ async function verifyReadRequests(
     }
   }
 
-  const [noteHashResults, nullifierResults] = await Promise.all([
+  const [noteHashResults, nullifierResults] = await allToCompletion([
     settledNoteHashReads.length > 0
       ? node.findLeavesIndexes(
           anchorBlockHash,

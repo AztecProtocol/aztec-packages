@@ -1,4 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { type AppTaggingSecret, type LogResult, SiloedTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -31,7 +32,7 @@ export async function loadAndStoreNewTaggingIndexes(
   jobId: string,
 ): Promise<Map<string, TxInLogs>> {
   // We compute the tags for the current window of indexes
-  const siloedTagsForWindow = await Promise.all(
+  const siloedTagsForWindow = await allToCompletion(
     Array.from({ length: end - start }, (_, i) => SiloedTag.compute({ extendedSecret, index: start + i })),
   );
 

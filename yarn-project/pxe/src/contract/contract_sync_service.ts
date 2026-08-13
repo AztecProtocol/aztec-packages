@@ -1,4 +1,5 @@
 import type { Logger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { Semaphore } from '@aztec/foundation/queue';
 import { isProtocolContract } from '@aztec/protocol-contracts';
 import type { FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
@@ -125,7 +126,9 @@ export class ContractSyncService implements StagedStore {
 
     for (const scope of scopesToSync) {
       const key = toKey(contractAddress, scope);
-      const promise = Promise.all([syncNullifiersPromise, runBounded(syncSlot, () => syncScopeFn(scope))])
+      // This cached promise is what every later request for this scope awaits, and both branches write staged data,
+      // so it must run both to completion even when one fails.
+      const promise = allToCompletion([syncNullifiersPromise, runBounded(syncSlot, () => syncScopeFn(scope))])
         .then(() => {})
         .catch(err => {
           this.syncedContracts.delete(key);
@@ -157,7 +160,7 @@ export class ContractSyncService implements StagedStore {
     const promises = scopes
       .map(scope => this.syncedContracts.get(toKey(contractAddress, scope)))
       .filter(p => p !== undefined);
-    await Promise.all(promises);
+    await allToCompletion(promises);
   }
 }
 
