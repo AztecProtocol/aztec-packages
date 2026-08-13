@@ -51,7 +51,7 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
     _txLabel: string,
     _gasUsed?: GasUsed,
     _revertedCode?: RevertCode,
-    _totalInstructionsExecuted?: number,
+    _stats?: Record<string, string>,
   ) {
     // do nothing (unimplemented)
   }

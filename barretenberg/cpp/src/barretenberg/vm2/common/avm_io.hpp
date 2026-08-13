@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <ostream>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "barretenberg/common/streams.hpp" // Derives operator<< from SERIALIZATION_FIELDS.
@@ -551,8 +553,6 @@ struct TxSimulationResult {
     // Simulation.
     GasUsed gas_used;
     RevertCode revert_code;
-    // Total AVM instructions executed by the tx, across all enqueued calls and their nested calls.
-    uint32_t total_instructions_executed = 0;
     PublicTxEffect public_tx_effect;
     // The following fields are only guaranteed to be present if the simulator is configured to collect them.
     std::vector<CallStackMetadata> call_stack_metadata; // One per enqueued call. All phases.
@@ -560,17 +560,15 @@ struct TxSimulationResult {
     // Proving request data.
     std::optional<PublicInputs> public_inputs;
     std::optional<ExecutionHints> hints;
+    // Simulation statistics, keyed by stat name with stringified values.
+    // E.g. "total_instructions_executed" -> number of AVM instructions the tx executed,
+    // across all enqueued calls and their nested calls.
+    std::unordered_map<std::string, std::string> stats;
 
     bool operator==(const TxSimulationResult& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(gas_used,
-                              revert_code,
-                              total_instructions_executed,
-                              public_tx_effect,
-                              call_stack_metadata,
-                              logs,
-                              public_inputs,
-                              hints);
+    MSGPACK_CAMEL_CASE_FIELDS(
+        gas_used, revert_code, public_tx_effect, call_stack_metadata, logs, public_inputs, hints, stats);
 };
 
 } // namespace bb::avm2

@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/simulation_helper.hpp"
 
 #include <cstdint>
+#include <string>
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
@@ -374,12 +375,13 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     TxSimulationResult tx_simulation_result = {
         .gas_used = tx_execution_result.gas_used,
         .revert_code = tx_execution_result.revert_code,
-        .total_instructions_executed = execution_id_manager.get_execution_id() - initial_execution_id,
         .public_tx_effect = extract_public_tx_effect(tx_execution_result, side_effect_tracker),
         .call_stack_metadata = call_stack_metadata_collector->dump_call_stack_metadata(),
         .logs = debug_log_component.dump_logs(),
         .public_inputs =
             config.collect_public_inputs ? std::make_optional(public_inputs_builder.build()) : std::nullopt,
+        .stats = { { "total_instructions_executed",
+                     std::to_string(execution_id_manager.get_execution_id() - initial_execution_id) } },
     };
 
     return { std::move(events), std::move(tx_simulation_result) };
@@ -545,7 +547,6 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
         // Simulation.
         .gas_used = tx_execution_result.gas_used,
         .revert_code = tx_execution_result.revert_code,
-        .total_instructions_executed = execution_id_manager.get_execution_id() - initial_execution_id,
         .public_tx_effect = extract_public_tx_effect(tx_execution_result, side_effect_tracker),
         .call_stack_metadata = call_stack_metadata_collector->dump_call_stack_metadata(),
         .logs = debug_log_component->dump_logs(),
@@ -553,6 +554,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
         .public_inputs =
             config.collect_public_inputs ? std::make_optional(public_inputs_builder.build()) : std::nullopt,
         .hints = std::nullopt, // NOTE: hints are injected by the caller.
+        .stats = { { "total_instructions_executed",
+                     std::to_string(execution_id_manager.get_execution_id() - initial_execution_id) } },
     };
 }
 

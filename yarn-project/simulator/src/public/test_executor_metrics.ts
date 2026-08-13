@@ -103,7 +103,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     txLabel: string,
     gasUsed?: GasUsed,
     revertedCode?: RevertCode,
-    totalInstructionsExecuted?: number,
+    stats?: Record<string, string>,
   ) {
     assert(this.currentTxLabel === txLabel, 'Cannot stop recording metrics for tx when another is live');
 
@@ -115,7 +115,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
 
     // manaUsed and totalInstructionsExecuted are tx-level totals reported by the simulator.
     txMetrics.manaUsed = gasUsed?.publicGas.l2Gas;
-    txMetrics.totalInstructionsExecuted = totalInstructionsExecuted ?? 0;
+    txMetrics.totalInstructionsExecuted = Number(stats?.['total_instructions_executed'] ?? 0);
     txMetrics.revertedCode = revertedCode;
 
     this.currentTxLabel = undefined;

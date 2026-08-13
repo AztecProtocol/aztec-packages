@@ -358,7 +358,15 @@ TEST_P(CustomBytecodeSimulation, SimulateAndProve)
     EXPECT_TRUE(api.check_circuit(proving_inputs));
 }
 
-// TxSimulationResult::total_instructions_executed counts one execution step per instruction the AVM
+// Non-throwing stats lookup: returns "" when the stat is absent (e.g. stats collection turned off),
+// so assertions fail with a readable message instead of crashing on std::out_of_range.
+std::string get_stat(const TxSimulationResult& result, const std::string& key)
+{
+    const auto it = result.stats.find(key);
+    return it == result.stats.end() ? "" : it->second;
+}
+
+// The "total_instructions_executed" stat counts one execution step per instruction the AVM
 // processes, matching the number of execution trace rows. The count is tx-wide: it spans every
 // enqueued call and every nested call underneath them. AvmMinimal is SET_8, SET_8, ADD_8, RETURN,
 // all of which execute, so the count is exactly four.
@@ -370,14 +378,14 @@ TEST(CustomBytecodeInstructionCount, CountsEveryExecutedInstruction)
     const TxSimulationResult fast_result =
         tester.simulate_tx({ TestEnqueuedCall{ .contract_address = deployed.address } });
     EXPECT_FALSE(fast_result.revert_code != RevertCode::OK);
-    EXPECT_EQ(fast_result.total_instructions_executed, 4u);
+    EXPECT_EQ(get_stat(fast_result, "total_instructions_executed"), "4");
 
     // Two enqueued calls of the same contract: the total accumulates across them.
     const TxSimulationResult two_calls =
         tester.simulate_tx({ TestEnqueuedCall{ .contract_address = deployed.address },
                              TestEnqueuedCall{ .contract_address = deployed.address } });
     EXPECT_FALSE(two_calls.revert_code != RevertCode::OK);
-    EXPECT_EQ(two_calls.total_instructions_executed, 8u);
+    EXPECT_EQ(get_stat(two_calls, "total_instructions_executed"), "8");
 
     // A nested call contributes its own instructions: six in the caller plus AvmMinimal's four.
     // Both simulators must agree on the nested count.
@@ -386,10 +394,10 @@ TEST(CustomBytecodeInstructionCount, CountsEveryExecutedInstruction)
                                                                           .calldata = { deployed.address } } };
     const TxSimulationResult nested_fast_result = tester.simulate_tx(nested_call);
     EXPECT_FALSE(nested_fast_result.revert_code != RevertCode::OK);
-    EXPECT_EQ(nested_fast_result.total_instructions_executed, 10u);
+    EXPECT_EQ(get_stat(nested_fast_result, "total_instructions_executed"), "10");
 
     const TxSimulationResult nested_hint_result = tester.simulate_tx(nested_call, proving_config());
-    EXPECT_EQ(nested_hint_result.total_instructions_executed, nested_fast_result.total_instructions_executed);
+    EXPECT_EQ(nested_hint_result.stats, nested_fast_result.stats);
 }
 
 INSTANTIATE_TEST_SUITE_P(CustomBytecode,

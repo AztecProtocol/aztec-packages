@@ -7,7 +7,7 @@ export interface ExecutorMetricsInterface {
     txLabel: string,
     gasUsed?: GasUsed,
     revertedCode?: RevertCode,
-    totalInstructionsExecuted?: number,
+    stats?: Record<string, string>,
   ): void;
   recordEnqueuedCallSimulation(fnName: string, durationMs: number, manaUsed: number, totalInstructions: number): void;
   recordEnqueuedCallSimulationFailure(
