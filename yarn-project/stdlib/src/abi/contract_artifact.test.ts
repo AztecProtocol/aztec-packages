@@ -71,6 +71,14 @@ describe('contract_artifact', () => {
     });
     expect(constants.EXPORTED_LIMIT_CONSTANT).toBeUndefined();
     expect(limits.EXPORTED_FIELD_CONSTANT).toBeUndefined();
+
+    // EXPORTED_SHARED_CONSTANT stacks #[abi(constants)] and #[abi(limits)], exporting it under both tags.
+    expect(constants.EXPORTED_SHARED_CONSTANT).toEqual({
+      kind: 'integer',
+      sign: false,
+      value: '0000000000000000000000000000000000000000000000000000000000000007',
+    });
+    expect(limits.EXPORTED_SHARED_CONSTANT).toEqual(constants.EXPORTED_SHARED_CONSTANT);
   });
 
   describe('getGlobalsByTag', () => {
@@ -90,6 +98,8 @@ describe('contract_artifact', () => {
     });
 
     it('throws on duplicate names under the same tag', () => {
+      // Reachable from valid Noir: repeating the same #[abi(tag)] attribute on one global emits the
+      // entry once per attribute, without deduplication.
       const artifact = loadContractArtifact(
         contractWithGlobals({
           constants: [

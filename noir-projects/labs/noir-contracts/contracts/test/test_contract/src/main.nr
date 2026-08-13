@@ -80,6 +80,10 @@ pub contract Test {
     pub global EXPORTED_STRING_CONSTANT: str<8> = "exported";
     #[abi(limits)]
     pub global EXPORTED_LIMIT_CONSTANT: u32 = 100;
+    // Stacking the attribute exports the same name under multiple tags.
+    #[abi(constants)]
+    #[abi(limits)]
+    pub global EXPORTED_SHARED_CONSTANT: u32 = 7;
 
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
     // test function must also be updated accordingly.
