@@ -1,5 +1,4 @@
 import { CompleteAddress } from '@aztec/aztec.js/addresses';
-import { TxHash } from '@aztec/aztec.js/tx';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -8,8 +7,9 @@ import type { Option } from '@aztec/pxe/simulator';
 import type { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import type { PrivateLog } from '@aztec/stdlib/logs';
 import type { UInt64 } from '@aztec/stdlib/types';
+
+import type { TxEffectsData } from './noir-structs/tx_effects_data.js';
 
 // These interfaces complement the ones defined in PXE, and combined with those contain the full list of oracles used by
 // aztec-nr. In particular, these include the ones needed to run Brillig code associated to #[external("public")] functions that has
@@ -86,12 +86,7 @@ export interface ITxeExecutionOracle {
    */
   setAuthorizeAllUtilityCallTargets(authorizeAll: boolean): void;
   getLastBlockTimestamp(): Promise<bigint>;
-  getLastTxEffects(): Promise<{
-    txHash: TxHash;
-    noteHashes: Fr[];
-    nullifiers: Fr[];
-    privateLogs: PrivateLog[];
-  }>;
+  getLastTxEffects(): Promise<TxEffectsData>;
   getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
   privateCallNewFlow(
     from: AztecAddress | undefined,

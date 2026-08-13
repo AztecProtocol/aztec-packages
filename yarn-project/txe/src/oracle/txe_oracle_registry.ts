@@ -1,10 +1,8 @@
 /* eslint-disable camelcase */
 import {
-  GAS_SETTINGS_LENGTH,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -14,24 +12,29 @@ import type { TaggingSecretStrategy } from '@aztec/pxe/server';
 import {
   ARRAY,
   AZTEC_ADDRESS,
+  BLOCK_HEADER,
   BLOCK_NUMBER,
   BOOL,
   ETH_ADDRESS,
   FIELD,
   FIXED_ARRAY,
+  FIXED_BOUNDED_VEC,
   FUNCTION_SELECTOR,
+  GAS_FEES,
   type InputSlot,
   LEAF,
   type MaybePromise,
   OPTION,
   ORACLE_REGISTRY,
+  type Option,
   type OracleRegistryEntry,
   type OutputSlot,
+  PUBLIC_KEYS,
   type ParamTypes,
   SCALAR,
   STR,
   STRUCT,
-  type SlotShape,
+  TX_HASH,
   type TypeMapping,
   U32,
   U64,
@@ -40,10 +43,8 @@ import {
 } from '@aztec/pxe/simulator';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { CompleteAddress } from '@aztec/stdlib/contract';
-import { GasSettings } from '@aztec/stdlib/gas';
-import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import type { PrivateLog } from '@aztec/stdlib/logs';
-import type { TxHash } from '@aztec/stdlib/tx';
+import type { PrivateContextInputs } from '@aztec/stdlib/kernel';
+import type { CallContext, TxContext } from '@aztec/stdlib/tx';
 
 import {
   MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY,
@@ -52,6 +53,8 @@ import {
   MAX_PRIVATE_EVENT_LEN,
 } from '../constants.js';
 import type { ForeignCallArgs, ForeignCallResult } from '../utils/encoding.js';
+import type { GasData, GasSettingsData } from './noir-structs/gas_settings_data.js';
+import type { TxEffectsData } from './noir-structs/tx_effects_data.js';
 
 // Spreading `ORACLE_REGISTRY` re-materializes its entries into `TXE_ORACLE_REGISTRY`'s inferred type, which names the
 // protocol types below. Re-exporting them gives tsc a portable path to each instead of falling back to a deep
@@ -61,13 +64,17 @@ export type { BlockHash } from '@aztec/stdlib/block';
 export type { MembershipWitness } from '@aztec/foundation/trees';
 export type { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 
-const GAS_SETTINGS: TypeMapping<GasSettings> = LEAF({
-  kind: 'gas-settings',
-  deserialization: {
-    fn: ([reader]) => GasSettings.fromFields(reader.readFieldArray(GAS_SETTINGS_LENGTH)),
-  },
-  shape: [{ len: GAS_SETTINGS_LENGTH }],
-});
+const GAS: TypeMapping<GasData> = STRUCT([
+  { name: 'daGas', type: U32 },
+  { name: 'l2Gas', type: U32 },
+]);
+
+const GAS_SETTINGS: TypeMapping<GasSettingsData> = STRUCT([
+  { name: 'gasLimits', type: GAS },
+  { name: 'teardownGasLimits', type: GAS },
+  { name: 'maxFeesPerGas', type: GAS_FEES },
+  { name: 'maxPriorityFeesPerGas', type: GAS_FEES },
+]);
 
 // Tagging secret strategy discriminants. Must match the Noir test helper `TaggingSecretStrategy` in
 // aztec-nr `test/helpers/tagging_secret_strategy.nr`. This is a test-only oracle (only `set_tagging_secret_strategies`
@@ -114,100 +121,51 @@ const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = LEAF({
   shape: ['scalar', 'scalar', 'scalar'],
 });
 
-const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = LEAF({
-  kind: 'private-context-inputs',
-  serialization: { fn: v => v.toFields() },
-  shape: Array<SlotShape>(PRIVATE_CONTEXT_INPUTS_LENGTH).fill('scalar'),
-});
+const CALL_CONTEXT: TypeMapping<CallContext> = STRUCT([
+  { name: 'msgSender', type: AZTEC_ADDRESS },
+  { name: 'contractAddress', type: AZTEC_ADDRESS },
+  { name: 'functionSelector', type: FUNCTION_SELECTOR },
+  { name: 'isStaticCall', type: BOOL },
+]);
 
-const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = LEAF({
-  kind: 'complete-address',
-  serialization: { fn: v => [v.address.toField(), ...v.publicKeys.toFields()] },
-  shape: Array<SlotShape>(8).fill('scalar'), // address + 7 public-key fields
-});
+const TX_CONTEXT: TypeMapping<TxContext> = STRUCT([
+  { name: 'chainId', type: FIELD },
+  { name: 'version', type: FIELD },
+  { name: 'gasSettings', type: GAS_SETTINGS },
+]);
 
-const TXE_TX_EFFECTS: TypeMapping<{
-  txHash: TxHash;
-  noteHashes: Fr[];
-  nullifiers: Fr[];
-  privateLogs: PrivateLog[];
-}> = LEAF({
-  kind: 'txe-tx-effects',
-  serialization: {
-    fn: ({ txHash, noteHashes, nullifiers, privateLogs }) => {
-      const emittedLogs = privateLogs.map(log => log.getEmittedFields());
-      const rawLogStorage = emittedLogs
-        .map(fields => fields.concat(Array(PRIVATE_LOG_SIZE_IN_FIELDS - fields.length).fill(Fr.ZERO)))
-        .concat(
-          Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(Array(PRIVATE_LOG_SIZE_IN_FIELDS).fill(Fr.ZERO)),
-        )
-        .flat();
-      const logLengths = emittedLogs
-        .map(fields => new Fr(fields.length))
-        .concat(Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(Fr.ZERO));
-      const paddedNoteHashes = noteHashes.concat(Array(MAX_NOTE_HASHES_PER_TX - noteHashes.length).fill(Fr.ZERO));
-      const paddedNullifiers = nullifiers.concat(Array(MAX_NULLIFIERS_PER_TX - nullifiers.length).fill(Fr.ZERO));
+const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = STRUCT([
+  { name: 'callContext', type: CALL_CONTEXT },
+  { name: 'anchorBlockHeader', type: BLOCK_HEADER },
+  { name: 'txContext', type: TX_CONTEXT },
+  { name: 'startSideEffectCounter', type: U32 },
+  { name: 'txRequestSalt', type: FIELD },
+]);
 
-      return [
-        txHash.hash,
-        paddedNoteHashes,
-        new Fr(noteHashes.length),
-        paddedNullifiers,
-        new Fr(nullifiers.length),
-        rawLogStorage,
-        logLengths,
-        new Fr(emittedLogs.length),
-      ] as (Fr | Fr[])[];
-    },
+const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = STRUCT([
+  { name: 'address', type: AZTEC_ADDRESS },
+  { name: 'publicKeys', type: PUBLIC_KEYS },
+]);
+
+const TXE_TX_EFFECTS: TypeMapping<TxEffectsData> = STRUCT([
+  { name: 'txHash', type: TX_HASH },
+  { name: 'noteHashes', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
+  { name: 'nullifiers', type: FIXED_BOUNDED_VEC(FIELD, MAX_NULLIFIERS_PER_TX) },
+  {
+    name: 'privateLogs',
+    type: FIXED_BOUNDED_VEC(FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS), MAX_PRIVATE_LOGS_PER_TX),
   },
-  // txHash, padded note hashes + count, padded nullifiers + count, flattened private-log storage + lengths + count.
-  shape: [
-    'scalar',
-    { len: MAX_NOTE_HASHES_PER_TX },
-    'scalar',
-    { len: MAX_NULLIFIERS_PER_TX },
-    'scalar',
-    { len: MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS },
-    { len: MAX_PRIVATE_LOGS_PER_TX },
-    'scalar',
-  ],
-});
+]);
 
-const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = LEAF({
-  kind: 'txe-offchain-effects',
-  serialization: {
-    fn: ({ effects }) => {
-      const rawArrayStorage = effects
-        .map(e => e.concat(Array(MAX_OFFCHAIN_EFFECT_LEN - e.length).fill(Fr.ZERO)))
-        .concat(
-          Array(MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY - effects.length).fill(Array(MAX_OFFCHAIN_EFFECT_LEN).fill(Fr.ZERO)),
-        )
-        .flat();
-      const effectLengths = effects
-        .map(e => new Fr(e.length))
-        .concat(Array(MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY - effects.length).fill(Fr.ZERO));
+const TXE_OFFCHAIN_EFFECTS: TypeMapping<Fr[][]> = FIXED_BOUNDED_VEC(
+  FIXED_BOUNDED_VEC(FIELD, MAX_OFFCHAIN_EFFECT_LEN),
+  MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY,
+);
 
-      return [rawArrayStorage, effectLengths, new Fr(effects.length)] as (Fr | Fr[])[];
-    },
-  },
-  // Flattened effect storage, per-effect lengths, then the effect count.
-  shape: [
-    { len: MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY * MAX_OFFCHAIN_EFFECT_LEN },
-    { len: MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY },
-    'scalar',
-  ],
-});
-
-const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }> = LEAF({
-  kind: 'txe-call-context',
-  serialization: {
-    fn: ({ txHash, anchorBlockTimestamp }) => {
-      const isSome = txHash.isZero() ? 0 : 1;
-      return [new Fr(isSome), txHash, new Fr(anchorBlockTimestamp)];
-    },
-  },
-  shape: ['scalar', 'scalar', 'scalar'], // discriminant, txHash, anchor block timestamp
-});
+const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Option<Fr>; anchorBlockTimestamp: bigint }> = STRUCT([
+  { name: 'txHash', type: OPTION(FIELD) },
+  { name: 'anchorBlockTimestamp', type: U64 },
+]);
 
 const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> = FIXED_ARRAY(
   STRUCT([
@@ -217,35 +175,16 @@ const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> =
   1,
 );
 
-const EVENT_SELECTOR: TypeMapping<EventSelector> = SCALAR({
+export const EVENT_SELECTOR: TypeMapping<EventSelector> = SCALAR({
   kind: 'event-selector',
   serialization: { fn: v => [v.toField()] },
   deserialization: { fn: ([reader]) => EventSelector.fromField(reader.readField()) },
 });
 
-const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = LEAF({
-  kind: 'txe-private-events',
-  serialization: {
-    fn: events => {
-      const rawArrayStorage = events
-        .map(e => e.concat(Array(MAX_PRIVATE_EVENT_LEN - e.length).fill(Fr.ZERO)))
-        .concat(
-          Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(Array(MAX_PRIVATE_EVENT_LEN).fill(Fr.ZERO)),
-        )
-        .flat();
-      const eventLengths = events
-        .map(e => new Fr(e.length))
-        .concat(Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(Fr.ZERO));
-      return [rawArrayStorage, eventLengths, new Fr(events.length)] as (Fr | Fr[])[];
-    },
-  },
-  // Flattened event storage, per-event lengths, then the event count.
-  shape: [
-    { len: MAX_PRIVATE_EVENTS_PER_TXE_QUERY * MAX_PRIVATE_EVENT_LEN },
-    { len: MAX_PRIVATE_EVENTS_PER_TXE_QUERY },
-    'scalar',
-  ],
-});
+const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = FIXED_BOUNDED_VEC(
+  FIXED_BOUNDED_VEC(FIELD, MAX_PRIVATE_EVENT_LEN),
+  MAX_PRIVATE_EVENTS_PER_TXE_QUERY,
+);
 
 export const TXE_ORACLE_REGISTRY = {
   ...ORACLE_REGISTRY,
