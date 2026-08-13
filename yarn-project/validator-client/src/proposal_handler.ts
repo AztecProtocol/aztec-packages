@@ -444,6 +444,13 @@ export class ProposalHandler {
     return this;
   }
 
+  /**
+   * Processes a block proposal: collects its txs and, if requested, re-executes them to check the resulting
+   * block against the proposal. Expects the proposal to have already passed p2p ingress validation (signature
+   * context, signature, expected proposer, index within checkpoint, tx field checks, and the receive-window
+   * timeliness check) — none of those are re-applied here, and only deterministic properties of the payload
+   * are validated before processing.
+   */
   async handleBlockProposal(
     proposal: BlockProposal,
     proposalSender: PeerId,
@@ -470,12 +477,9 @@ export class ProposalHandler {
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
 
-    // Every proposal reaching this handler was already validated on arrival at p2p ingress (signature
-    // context, signature, expected proposer, index within checkpoint, tx fields) — including the
-    // receive-window check that decides whether it arrived in time. That window is deliberately not
-    // re-applied here: its outcome depends on the wall clock at evaluation time, so re-running it turned
-    // node-local processing latency into an invalid-proposal verdict against an honest proposer, which then
-    // fed the invalid-block slashing path. The checks below are all deterministic properties of the payload.
+    // The receive-window check from p2p ingress is deliberately not re-applied here: its outcome depends on
+    // the wall clock at evaluation time, so re-running it turned node-local processing latency into an
+    // invalid-proposal verdict against an honest proposer, which then fed the invalid-block slashing path.
 
     // A tx can only appear once in a block: the second copy would emit nullifiers already emitted by the
     // first. This is not a relaying-peer fault, so it passes gossip validation and is classified here as
@@ -1051,6 +1055,8 @@ export class ProposalHandler {
    * Validates a checkpoint proposal, caches the result, and uploads blobs if configured.
    * Returns a cached result if the same proposal (archive + slot) was already validated.
    * Used by both the all-nodes callback (via register) and the validator client (via delegation).
+   * Expects the proposal to have already passed p2p ingress validation (expected proposer and receive-window
+   * timeliness); only deterministic properties of the signed payload are checked here.
    */
   async handleCheckpointProposal(
     proposal: CheckpointProposalCore,

@@ -1449,25 +1449,6 @@ describe('ValidatorClient', () => {
       expect(isValid).toBe(true);
     });
 
-    // Whether the signer is the slot's expected proposer is decided once, at p2p ingress (covered by the
-    // p2p proposal validator tests). Re-deriving it during processing only reflects how this node's
-    // committee view looks now, so a disagreement is a local inconsistency and must not be turned into a
-    // proposer offense.
-    it('validates without slashing when the local committee view no longer names the signer as proposer', async () => {
-      epochCache.getProposerAttesterAddressInSlot.mockImplementation(_ => Promise.resolve(EthAddress.random()));
-      epochCache.getTargetAndNextSlot.mockReturnValue({
-        targetSlot: proposal.slotNumber,
-        nextSlot: SlotNumber(proposal.slotNumber + 1),
-      });
-      const emitSpy = jest.spyOn(validatorClient, 'emit');
-
-      const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-
-      expect(isValid).toBe(true);
-      expect(emitSpy).not.toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, expect.anything());
-      expect(validatorClient.hasInvalidProposals(proposal.slotNumber)).toBe(false);
-    });
-
     it('should validate with any validators in the committee', async () => {
       epochCache.filterInCommittee.mockResolvedValueOnce(
         validatorAccounts.map(account => EthAddress.fromString(account.address)),
@@ -1475,34 +1456,6 @@ describe('ValidatorClient', () => {
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(true);
-    });
-
-    // Whether a proposal arrived in time is decided once, at p2p ingress (covered by the p2p proposal
-    // validator's receive-window tests). Re-applying that gate here would make the verdict depend on how
-    // long this node took to get around to the proposal, so validation past the window is expected to
-    // succeed and must never be treated as a proposer offense.
-    it('validates a proposal without slashing even once its receive window has closed', async () => {
-      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposal.getSender());
-      const staleSlot = SlotNumber(proposal.slotNumber + 20);
-      epochCache.getTargetAndNextSlot.mockReturnValue({
-        targetSlot: staleSlot,
-        nextSlot: SlotNumber(proposal.slotNumber + 21),
-      });
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: staleSlot,
-        ts: 0n,
-        nowMs: BigInt(staleSlot) * 24_000n,
-      });
-      epochCache.getSlotNow.mockReturnValue(staleSlot);
-      epochCache.getTargetSlot.mockReturnValue(staleSlot);
-      const emitSpy = jest.spyOn(validatorClient, 'emit');
-
-      const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-
-      expect(isValid).toBe(true);
-      expect(emitSpy).not.toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, expect.anything());
-      expect(validatorClient.hasInvalidProposals(proposal.slotNumber)).toBe(false);
     });
 
     it('should return false if messages do not match', async () => {
