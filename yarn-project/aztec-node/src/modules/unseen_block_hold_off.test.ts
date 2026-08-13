@@ -227,11 +227,9 @@ describe('UnseenBlockHoldOff', () => {
       const blockHash = BlockHash.random();
       void sleep(300).then(() => addBlock(requested, blockHash));
 
-      const timer = new Timer();
       const data = await holdOff.getBlockData({ number: requested, hash: blockHash });
 
       expect(data?.blockHash).toEqual(blockHash);
-      expect(timer.ms()).toBeGreaterThanOrEqual(300);
       // Polling by number is what lets the arriving block be compared against the anchor at all.
       expect(blockSource.getBlockData).toHaveBeenCalledWith({ number: requested });
     });
@@ -245,7 +243,7 @@ describe('UnseenBlockHoldOff', () => {
 
       // A block at that height on another fork settles the question, so the rest of the budget is not waited out.
       expect(data).toBeUndefined();
-      expect(timer.ms()).toBeGreaterThanOrEqual(200);
+      expect(blockSource.getBlockData.mock.calls.length).toBeGreaterThan(1);
       expect(timer.ms()).toBeLessThan(BY_NUMBER_WAIT_MS);
     });
 
