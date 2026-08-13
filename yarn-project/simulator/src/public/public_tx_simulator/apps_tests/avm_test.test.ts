@@ -33,6 +33,8 @@ describe('Public TX simulator apps tests: AvmTestContract', () => {
   it('bulk testing', async () => {
     const result = await bulkTest(simTester, logger, AvmTestContractArtifact);
     expect(result.revertCode.isOK()).toBe(true);
+    // The simulator reports how many AVM instructions the tx executed; the bulk test runs many.
+    expect(Number(result.stats['total_instructions_executed'])).toBeGreaterThan(0);
   });
 
   describe('unique contract class limit and exceptional halts', () => {

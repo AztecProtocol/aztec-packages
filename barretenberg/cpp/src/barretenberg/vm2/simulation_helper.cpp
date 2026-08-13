@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/simulation_helper.hpp"
 
 #include <cstdint>
+#include <string>
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
@@ -175,7 +176,8 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
     DefaultEventEmitter<EmitPublicLogEvent> emit_public_log_emitter;
 
-    ExecutionIdManager execution_id_manager(1);
+    constexpr uint32_t initial_execution_id = 1;
+    ExecutionIdManager execution_id_manager(initial_execution_id);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     GreaterThan greater_than(field_gt, range_check, greater_than_emitter);
@@ -378,6 +380,8 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
         .logs = debug_log_component.dump_logs(),
         .public_inputs =
             config.collect_public_inputs ? std::make_optional(public_inputs_builder.build()) : std::nullopt,
+        .stats = { { "total_instructions_executed",
+                     std::to_string(execution_id_manager.get_execution_id() - initial_execution_id) } },
     };
 
     return { std::move(events), std::move(tx_simulation_result) };
@@ -411,7 +415,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     NoopEventEmitter<UpdateCheckEvent> update_check_emitter;
     NoopEventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
 
-    ExecutionIdManager execution_id_manager(1);
+    constexpr uint32_t initial_execution_id = 1;
+    ExecutionIdManager execution_id_manager(initial_execution_id);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     PureGreaterThan greater_than;
@@ -549,6 +554,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
         .public_inputs =
             config.collect_public_inputs ? std::make_optional(public_inputs_builder.build()) : std::nullopt,
         .hints = std::nullopt, // NOTE: hints are injected by the caller.
+        .stats = { { "total_instructions_executed",
+                     std::to_string(execution_id_manager.get_execution_id() - initial_execution_id) } },
     };
 }
 
