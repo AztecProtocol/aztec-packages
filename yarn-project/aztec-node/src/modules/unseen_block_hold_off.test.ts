@@ -122,12 +122,13 @@ describe('UnseenBlockHoldOff', () => {
       const requested = BlockNumber(tip + 1);
       void sleep(300).then(() => addBlock(requested));
 
-      const timer = new Timer();
       const data = await holdOff.getBlockData({ number: requested });
 
-      // Returning the block at all proves the budget had not expired: an expired budget resolves to undefined.
+      // Returning the block at all proves the budget had not expired: an expired budget resolves to undefined. The
+      // extra reads prove it was waited for rather than served straight away — a wall-clock bound against the same
+      // delay races the clock the delay itself is scheduled on.
       expect(data?.header.getBlockNumber()).toEqual(requested);
-      expect(timer.ms()).toBeGreaterThanOrEqual(300);
+      expect(blockSource.getBlockData.mock.calls.length).toBeGreaterThan(1);
     });
 
     it('gives up after the by-number budget when the block never arrives', async () => {
@@ -161,11 +162,10 @@ describe('UnseenBlockHoldOff', () => {
       const blockHash = BlockHash.random();
       void sleep(200).then(() => addBlock(BlockNumber(tip + 1), blockHash));
 
-      const timer = new Timer();
       const data = await holdOff.getBlockData({ hash: blockHash });
 
       expect(data?.blockHash).toEqual(blockHash);
-      expect(timer.ms()).toBeGreaterThanOrEqual(200);
+      expect(blockSource.getBlockData.mock.calls.length).toBeGreaterThan(1);
     });
 
     it('gives up after the by-hash budget when the block hash never arrives', async () => {
