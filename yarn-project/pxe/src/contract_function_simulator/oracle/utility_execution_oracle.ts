@@ -5,6 +5,7 @@ import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import {
@@ -657,7 +658,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
 
-    await Promise.all([
+    await allToCompletion([
       noteService.validateAndStoreNotes(noteValidationRequests, scope, validationTxData),
       eventService.validateAndStoreEvents(eventValidationRequests, scope, validationTxData),
     ]);

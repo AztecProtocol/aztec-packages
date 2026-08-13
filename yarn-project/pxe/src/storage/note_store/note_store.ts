@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { Semaphore } from '@aztec/foundation/queue';
 import type { Fr } from '@aztec/foundation/schemas';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
@@ -98,7 +99,7 @@ export class NoteStore implements StagedStore {
   public addNotes(notes: NoteDao[], scope: AztecAddress, jobId: string): Promise<void[]> {
     return this.#withJobLock(jobId, () =>
       this.#store.transactionAsync(() =>
-        Promise.all(
+        allToCompletion(
           notes.map(async note => {
             const noteForJob =
               (await this.#readNote(note.siloedNullifier.toString(), jobId)) ?? new StoredNote(note, new Set());

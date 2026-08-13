@@ -1,4 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { isDefined } from '@aztec/foundation/types';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { AppTaggingSecret, LogResult } from '@aztec/stdlib/logs';
@@ -104,7 +105,7 @@ export async function syncTaggedPrivateLogs(
     // Compute tags for all pending secrets and fetch logs in batched RPC calls
     const logsPerSecret = await fetchLogsForSecrets(pending, aztecNode, anchor);
 
-    const nextRound = await Promise.all(
+    const nextRound = await allToCompletion(
       pending.map(async (pendingSecret, i) => {
         const logsFoundWithSecret = logsPerSecret[i];
         if (logsFoundWithSecret.length === 0) {

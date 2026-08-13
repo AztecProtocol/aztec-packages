@@ -1,3 +1,27 @@
+/**
+ * Like `Promise.all`, but runs every promise to completion before resolving or rejecting.
+ *
+ * `Promise.all` rejects as soon as one input rejects, abandoning the still-running siblings. When those siblings have
+ * side effects, the caller observes the rejection and reacts to the failure while the abandoned work is still
+ * producing effects. This helper instead guarantees that by the time it rejects, no input is still running.
+ */
+export async function allToCompletion<T>(promises: readonly (T | Promise<T>)[]): Promise<T[]> {
+  const results = await Promise.allSettled(promises);
+  const failures = results.filter(result => result.status === 'rejected');
+  if (failures.length === 1) {
+    // Rethrow a lone failure as-is so error identity is preserved for callers that inspect error types.
+    throw failures[0].reason;
+  } else if (failures.length > 1) {
+    throw new AggregateError(
+      failures.map(failure => failure.reason),
+      `${failures.length} of ${results.length} concurrent operations failed: ${failures
+        .map(failure => (failure.reason instanceof Error ? failure.reason.message : String(failure.reason)))
+        .join(' | ')}`,
+    );
+  }
+  return results.map(result => (result as PromiseFulfilledResult<T>).value);
+}
+
 export type PromiseWithResolvers<T> = {
   promise: Promise<T>;
   resolve: (value: T) => void;
