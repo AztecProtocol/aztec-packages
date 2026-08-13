@@ -52,7 +52,6 @@ jobs:
           static='[
             {"environment":"staging-public"},
             {"environment":"staging-internal"},
-            {"environment":"next-net"},
             {"environment":"testnet"}
           ]'
 
