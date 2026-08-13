@@ -6,7 +6,8 @@ use std::collections::BTreeMap;
 use acvm::FieldElement;
 use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
-    BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
+    BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapValueType, HeapVector, MemoryAddress,
+    ValueOrArray,
 };
 use noirc_artifacts::debug::DebugInfo;
 
@@ -14,7 +15,7 @@ use crate::bit_traits::{BitsQueryable, bits_needed_for};
 use crate::instructions::{AddressingModeBuilder, AvmInstruction, AvmOperand, AvmTypeTag};
 use crate::opcodes::AvmOpcode;
 use crate::procedures::{
-    Label as ProcedureLocalLabel, Procedure, SCRATCH_SPACE_START, compile_procedure,
+    Label as ProcedureLocalLabel, Procedure, compile_procedure, scratch_space_range,
 };
 use crate::utils::{
     UNRESOLVED_PC, UnresolvedPCLocation, dbg_print_avm_program, dbg_print_brillig_program,
@@ -450,9 +451,15 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 destinations,
                 inputs,
                 destination_value_types: _,
-                input_value_types: _,
+                input_value_types,
             } => {
-                handle_foreign_call(&mut avm_instrs, function, destinations, inputs);
+                handle_foreign_call(
+                    &mut avm_instrs,
+                    function,
+                    destinations,
+                    inputs,
+                    input_value_types,
+                );
             }
             BrilligOpcode::BlackBox(operation) => {
                 handle_black_box_function(
@@ -557,6 +564,7 @@ fn handle_foreign_call(
     function: &str,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
+    input_value_types: &[HeapValueType],
 ) {
     match function {
         "aztec_avm_call" => handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::CALL),
@@ -564,6 +572,7 @@ fn handle_foreign_call(
             handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::STATICCALL);
         }
         "aztec_avm_emitPublicLog" => {
+            assert_field_vector_input_type_layout(function, input_value_types);
             handle_emit_public_log(avm_instrs, destinations, inputs);
         }
         "aztec_avm_noteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
@@ -580,8 +589,14 @@ fn handle_foreign_call(
         "aztec_avm_successCopy" => handle_success_copy(avm_instrs, destinations, inputs),
         "aztec_avm_returndataSize" => handle_returndata_size(avm_instrs, destinations, inputs),
         "aztec_avm_returndataCopy" => handle_returndata_copy(avm_instrs, destinations, inputs),
-        "aztec_avm_return" => handle_return(avm_instrs, destinations, inputs),
-        "aztec_avm_revert" => handle_revert(avm_instrs, destinations, inputs),
+        "aztec_avm_return" => {
+            assert_field_vector_input_type_layout(function, input_value_types);
+            handle_return(avm_instrs, destinations, inputs);
+        }
+        "aztec_avm_revert" => {
+            assert_field_vector_input_type_layout(function, input_value_types);
+            handle_revert(avm_instrs, destinations, inputs);
+        }
         "aztec_avm_storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "aztec_avm_storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
         "aztec_misc_log" => handle_debug_log(avm_instrs, destinations, inputs),
@@ -596,6 +611,20 @@ fn handle_foreign_call(
         // Anything else.
         _ => panic!("Transpiler doesn't know how to process ForeignCall function {}", function),
     }
+}
+
+/// Validates the Brillig input-type layout for a `[Field]` argument: `[U32, Vector<Field>]`.
+fn assert_field_vector_input_type_layout(function: &str, input_value_types: &[HeapValueType]) {
+    assert!(
+        matches!(
+            input_value_types,
+            [
+                HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U32)),
+                HeapValueType::Vector { value_types },
+            ] if matches!(value_types.as_slice(), [HeapValueType::Simple(BitSize::Field)])
+        ),
+        "Transpiler expects ForeignCall::{function} input types to be [u32, Vector<Field>], got {input_value_types:?}"
+    );
 }
 
 /// Handle an AVM CALL
@@ -731,11 +760,16 @@ fn handle_emit_public_log(
         );
     }
 
-    // The fields are a slice, and this is represented as a (length: Field, slice: HeapVector).
-    // The length field is redundant and we skipt it.
-    let (message_offset, message_size_offset) = match &inputs[1] {
-        ValueOrArray::HeapVector(vec) => (vec.pointer, vec.size),
-        _ => panic!("Unexpected inputs for ForeignCall::EMITPUBLICLOG: {:?}", inputs),
+    // The fields are a vector, passed as (semantic length, HeapVector). Use the semantic length
+    // (inputs[0]) as the size, not HeapVector.size, which can exceed it after an SSA vector merge
+    // and would emit stale trailing fields.
+    let message_size_offset = match inputs[0] {
+        ValueOrArray::MemoryAddress(address) => address,
+        _ => panic!("EMITPUBLICLOG's first input should be a memory address: {:?}", inputs),
+    };
+    let message_offset = match &inputs[1] {
+        ValueOrArray::HeapVector(vec) => vec.pointer,
+        _ => panic!("EMITPUBLICLOG's second input should be a HeapVector: {:?}", inputs),
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::EMITPUBLICLOG,
@@ -1154,7 +1188,7 @@ fn generate_mov_instruction(
 }
 
 fn generate_mov_to_procedure(source: &MemoryAddress, index: usize) -> AvmInstruction {
-    let target_address = SCRATCH_SPACE_START + index;
+    let target_address = scratch_space_range().start + index;
     generate_mov_instruction(
         Some(
             AddressingModeBuilder::default()
@@ -1172,7 +1206,7 @@ fn generate_set_to_procedure(
     value: &FieldElement,
     index: usize,
 ) -> AvmInstruction {
-    let target_address = SCRATCH_SPACE_START + index;
+    let target_address = scratch_space_range().start + index;
     generate_set_instruction(tag, &MemoryAddress::direct(target_address as u32), value, false)
 }
 
@@ -1335,6 +1369,15 @@ fn handle_black_box_function(
                 "Output array size must be equal to 2"
             );
             assert_eq!(points.size.0 % 2, 0, "Points array size must be divisible by 2");
+            // The MSM procedure derives its iteration count from the points length and reads
+            // 2 scalar limbs per point, so a mismatch would let it read past the scalar array.
+            // Extra conservative: Noir-generated MSM always emits matching lengths, but this guards
+            // against hand-crafted Brillig or an upstream compiler bug. Also mirrors the native
+            // Brillig/ACVM checks that points and scalars are equal in length.
+            assert_eq!(
+                scalars.size, points.size,
+                "Scalars array size must equal points array size"
+            );
 
             avm_instrs.push(generate_mov_to_procedure(&points.pointer, 0));
             avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
@@ -1570,10 +1613,16 @@ fn handle_return(
     assert_eq!(inputs.len(), 2);
     assert!(destinations.is_empty());
 
-    // First arg is the size, which is ignored because it's redundant.
-    let (return_data_offset, return_data_size) = match inputs[1] {
-        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
-        _ => panic!("Revert instruction's args input should be a HeapVector"),
+    // The returndata vector is passed as (semantic length, HeapVector). Use the semantic length
+    // (inputs[0]) as the size, not HeapVector.size, which can exceed it after an SSA vector merge
+    // and would return stale trailing fields.
+    let return_data_size = match inputs[0] {
+        ValueOrArray::MemoryAddress(address) => address,
+        _ => panic!("Return instruction's first input should be a memory address"),
+    };
+    let return_data_offset = match inputs[1] {
+        ValueOrArray::HeapVector(HeapVector { pointer, .. }) => pointer,
+        _ => panic!("Return instruction's second input should be a HeapVector"),
     };
 
     generate_return_instruction(avm_instrs, &return_data_offset, &return_data_size);
@@ -1589,10 +1638,16 @@ fn handle_revert(
     assert_eq!(inputs.len(), 2);
     assert!(destinations.is_empty());
 
-    // First arg is the size, which is ignored because it's redundant.
-    let (revert_data_offset, revert_data_size_offset) = match inputs[1] {
-        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
-        _ => panic!("Revert instruction's args input should be a HeapVector"),
+    // The revertdata vector is passed as (semantic length, HeapVector). Use the semantic length
+    // (inputs[0]) as the size, not HeapVector.size, which can exceed it after an SSA vector merge
+    // and would return stale trailing fields.
+    let revert_data_size_offset = match inputs[0] {
+        ValueOrArray::MemoryAddress(address) => address,
+        _ => panic!("Revert instruction's first input should be a memory address"),
+    };
+    let revert_data_offset = match inputs[1] {
+        ValueOrArray::HeapVector(HeapVector { pointer, .. }) => pointer,
+        _ => panic!("Revert instruction's second input should be a HeapVector"),
     };
 
     generate_revert_instruction(avm_instrs, &revert_data_offset, &revert_data_size_offset);

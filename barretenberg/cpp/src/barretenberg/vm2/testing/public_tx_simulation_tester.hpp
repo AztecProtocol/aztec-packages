@@ -12,8 +12,7 @@
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
-#include "barretenberg/world_state/types.hpp"
-#include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/vm2/simulation/lib/memory_merkle_db.hpp"
 
 namespace bb::avm2::testing {
 
@@ -97,16 +96,15 @@ class PublicTxSimulationTester {
 
     static PublicSimulatorConfig default_config();
 
-    world_state::WorldState& world_state() { return *ws; }
     TestContractDB& contract_db() { return contract_db_; }
 
   private:
-    world_state::WorldStateRevision current_revision() const;
     void fund_fee_payer(const AztecAddress& fee_payer);
 
-    std::string data_dir;
-    std::unique_ptr<world_state::WorldState> ws;
-    uint64_t fork_id = 0;
+    // In-memory merkle DB backing the simulation; tests/fuzzers use this in place of an on-disk
+    // world state (prod uses the WSDB-IPC-backed DB). Seeded with the same 128/128 nullifier and
+    // public-data prefill the on-disk genesis used.
+    simulation::MemoryMerkleDB merkle_db_;
     TestContractDB contract_db_;
     uint64_t tx_count = 0;
 };

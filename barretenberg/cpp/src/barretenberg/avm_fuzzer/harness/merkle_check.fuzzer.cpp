@@ -1,4 +1,5 @@
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -239,7 +240,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     // Build the trace
 
-    auto trace = TestTraceContainer({ { { avm2::Column::precomputed_first_row, 1 } } });
+    auto trace = TestTraceContainer({ { { bb::avm2::Column::precomputed_first_row, 1 } } });
 
     Poseidon2TraceBuilder poseidon2_trace_builder;
     poseidon2_trace_builder.process_permutation(poseidon2_perm_emitter.dump_events(), trace);

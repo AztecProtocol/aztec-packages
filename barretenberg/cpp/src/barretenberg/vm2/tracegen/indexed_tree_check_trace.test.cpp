@@ -28,6 +28,8 @@
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::tracegen {
+
+using namespace bb::crypto::merkle_tree;
 namespace {
 
 using ::testing::NiceMock;

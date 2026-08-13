@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-# Authenticate docker against our internal GCP Artifact Registry, used by PRIVATE_RELEASE builds.
+# Authenticate against our internal GCP Artifact Registry, used by PRIVATE_RELEASE builds.
 #
-# A private release publishes only the docker image, to the same Artifact Registry that GKE/staging
-# pulls from (INTERNAL_DOCKER_REGISTRY, e.g. us-west1-docker.pkg.dev/<project>/<repo>). Auth reuses
-# the CI service-account key in the environment (GCP_SA_KEY -> GOOGLE_APPLICATION_CREDENTIALS), the
-# same key .github/ci3.sh stores.
+# Activates the CI service account (GCP_SA_KEY -> GOOGLE_APPLICATION_CREDENTIALS, the same key
+# .github/ci3.sh stores) so callers can mint access tokens for the AR npm repo. When
+# INTERNAL_DOCKER_REGISTRY is set (e.g. us-west1-docker.pkg.dev/<project>/<repo>), also registers
+# docker's gcloud credential helper for that registry host.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
-
-: "${INTERNAL_DOCKER_REGISTRY:?INTERNAL_DOCKER_REGISTRY required for a private release}"
 
 # Ensure a service-account key is on disk, mirroring .github/ci3.sh's setup_environment.
 if [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] || [ ! -f "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
@@ -18,10 +16,12 @@ fi
 
 set +x  # Never echo the access token.
 gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
-# Best-effort: the push target already encodes the project in INTERNAL_DOCKER_REGISTRY, and the CI SA
+# Best-effort: the push target already encodes the project in the registry paths, and the CI SA
 # may lack resourcemanager.projects.get, so don't let a failed/​warned project-set abort the login.
 [ -n "${GCP_PROJECT_ID:-}" ] && gcloud config set project "$GCP_PROJECT_ID" >/dev/null 2>&1 || true
 
 # docker: register the gcloud credential helper for the registry host (e.g. us-west1-docker.pkg.dev).
-registry_host=${INTERNAL_DOCKER_REGISTRY%%/*}
-gcloud auth configure-docker "$registry_host" --quiet >/dev/null
+if [ -n "${INTERNAL_DOCKER_REGISTRY:-}" ]; then
+  registry_host=${INTERNAL_DOCKER_REGISTRY%%/*}
+  gcloud auth configure-docker "$registry_host" --quiet >/dev/null
+fi

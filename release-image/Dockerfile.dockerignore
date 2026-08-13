@@ -30,6 +30,7 @@
 !/yarn-project/noir-protocol-circuits-types/artifacts/
 !/yarn-project/protocol-contracts/artifacts/
 !/yarn-project/standard-contracts/artifacts/
+!/yarn-project/standard-contracts/artifacts-historical/
 !/yarn-project/noir-contracts.js/artifacts/
 !/yarn-project/noir-test-contracts.js/artifacts/
 !/yarn-project/simulator/artifacts/

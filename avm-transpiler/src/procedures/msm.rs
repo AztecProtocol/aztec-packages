@@ -17,6 +17,8 @@ pub(crate) const MSM_ASSEMBLY: &str = "
                 SET d11, 1 u1; Initialize a constant true
                 SET d12, 0 u1; Initialize a constant false
                 SET d13, 2 u32; Initialize a constant 2 for computing pointers to point and scalar components
+                SET d29, 201385395114098847380338600778089168199 ff; Low 128 bits of the Grumpkin scalar field modulus
+                SET d30, 64323764613183177041862057485226039389 ff; High 126 bits of the Grumpkin scalar field modulus
                 ; Main loop: iterate over the points/scalars
 OUTER_HEAD:     LT d6, d2, d15 ; Check if we are done with the outer loop
                 JUMPI d15, OUTER_BODY
@@ -26,6 +28,16 @@ OUTER_BODY:     MUL d6, d13, d16; Compute the pointer to the point
                 MUL d6, d13, d17; Compute the pointer to the scalar lo
                 ADD d17, d1, d17
                 ADD d17, $2, d18; Compute the pointer to the scalar hi
+                ; Enforce scalar is in range before using it: lo + hi * 2^128 < Grumpkin scalar field modulus
+                ; as native Brillig/ACVM enforces. The TORADIXBE decompositions below already reject lo >= 2^128
+                ; and hi >= 2^126 via truncation errors, but on their own they accept scalars in [modulus, 2^254).
+                ; Check logic is: scalar < modulus iff scalar_hi < modulus_hi, or scalar_hi == modulus_hi && scalar_lo < modulus_lo
+                EQ i18, d30, d31; Check if the scalar_hi == modulus_hi
+                LT i17, d29, d32; Check if the scalar_lo < modulus_lo
+                AND d31, d32, d31; hi == modulus_hi && lo < modulus_lo
+                LT i18, d30, d32; Check if the scalar_hi < modulus_hi
+                OR d31, d32, d31; Check if scalar < modulus, i.e. (hi == modulus_hi && lo < modulus_lo) || scalar_hi < modulus_hi
+                DIV d11, d31, d31; Branchless assertion, d11 = 1, d31 = 0 if scalar >= modulus, d31 = 1 if scalar < modulus. Div-by-zero will throw if scalar >= modulus matching the native Brillig/ACVM behavior
                 EQ i17, d8, d19; Check if the scalar lo is zero
                 EQ i18, d8, d20; Check if the scalar hi is zero
                 AND d19, d20, d19; Check if both scalars are zero
@@ -76,7 +88,7 @@ OUTER_INC:      ADD d6, $2, d6; Increment the outer loop variable
                 ; After the outer loop we have computed the msm. We can return since we wrote the result in i3, i4
 OUTER_END:      INTERNALRETURN
 
-                ; A zero scalar skips the loop where point validation takes place (inside ECADD), but Brillig/native validates /before/ the loop. 
+                ; A zero scalar skips the loop where point validation takes place (inside ECADD), but Brillig/native validates /before/ the loop.
                 ; To mirror this we perform a 'dummy' ECADD (P + O = P) which throws if the point is not on the curve.
 VALIDATE_ZERO_SCALAR_POINT: MOV i16, d22; x
                 ADD d16, $2, d25; pointer to y

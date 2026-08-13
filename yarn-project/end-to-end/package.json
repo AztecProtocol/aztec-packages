@@ -96,7 +96,7 @@
     "msgpackr": "^1.11.2",
     "pg": "^8.17.1",
     "process": "^0.11.10",
-    "snappy": "^7.2.2",
+    "snappy": "7.2.2",
     "stream-browserify": "^3.0.0",
     "string-argv": "^0.3.2",
     "ts-loader": "^9.5.4",

@@ -98,7 +98,6 @@ extern "C" int LLVMFuzzerInitialize(int*, char***)
     memset(l2_to_l1_msgs_counter, 0, sizeof(l2_to_l1_msgs_counter));
     memset(public_logs_counter, 0, sizeof(public_logs_counter));
 
-    FuzzerWorldStateManager::initialize();
     return 0;
 }
 
@@ -115,9 +114,8 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* serialized_fuzzer_data,
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
-    FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
+    FuzzerWorldStateManager ws_mgr;
     FuzzerContractDB contract_db;
-    ws_mgr->fork();
 
     FuzzerContext context;
 
@@ -136,12 +134,11 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
 
     // Setup contracts and fund fee payer
-    setup_fuzzer_state(*ws_mgr, contract_db, tx_data);
-    fund_fee_payer(*ws_mgr, tx_data.tx);
+    setup_fuzzer_state(ws_mgr, contract_db, tx_data);
+    fund_fee_payer(ws_mgr, tx_data.tx);
 
-    auto simulation_result = fuzz_tx(*ws_mgr, contract_db, tx_data);
+    auto simulation_result = fuzz_tx(ws_mgr, contract_db, tx_data);
     update_effects_counters(simulation_result);
-    ws_mgr->reset_world_state();
 
     return 0;
 }

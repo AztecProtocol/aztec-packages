@@ -1,9 +1,6 @@
 #include "barretenberg/vm2/testing/public_tx_simulation_tester.hpp"
 
-#include <filesystem>
-
 #include "barretenberg/aztec/aztec_constants.hpp"
-#include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
@@ -18,34 +15,9 @@ using Poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 using bb::crypto::merkle_tree::NullifierLeafValue;
 using bb::crypto::merkle_tree::PublicDataLeafValue;
 using world_state::MerkleTreeId;
-using world_state::WorldState;
-using world_state::WorldStateRevision;
 
 // A balance large enough to cover the fee for any test transaction.
 const FF FEE_PAYER_BALANCE = FF(uint256_t(1) << 100);
-
-// WorldState is neither copyable nor movable (it holds a mutex), so it must be constructed
-// directly into the owning unique_ptr.
-std::unique_ptr<WorldState> make_world_state(const std::string& data_dir)
-{
-    const std::unordered_map<MerkleTreeId, uint32_t> tree_heights{
-        { MerkleTreeId::NULLIFIER_TREE, NULLIFIER_TREE_HEIGHT },
-        { MerkleTreeId::NOTE_HASH_TREE, NOTE_HASH_TREE_HEIGHT },
-        { MerkleTreeId::PUBLIC_DATA_TREE, PUBLIC_DATA_TREE_HEIGHT },
-        { MerkleTreeId::L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_TREE_HEIGHT },
-        { MerkleTreeId::ARCHIVE, ARCHIVE_HEIGHT },
-    };
-    const std::unordered_map<MerkleTreeId, index_t> tree_prefill{
-        { MerkleTreeId::NULLIFIER_TREE, 128 },
-        { MerkleTreeId::PUBLIC_DATA_TREE, 128 },
-    };
-    return std::make_unique<WorldState>(/*thread_pool_size=*/1,
-                                        data_dir,
-                                        /*map_size_kb=*/10240,
-                                        tree_heights,
-                                        tree_prefill,
-                                        /*initial_header_generator_point=*/DOM_SEP__BLOCK_HEADER_HASH);
-}
 
 } // namespace
 
@@ -139,24 +111,10 @@ PublicSimulatorConfig PublicTxSimulationTester::default_config()
 }
 
 PublicTxSimulationTester::PublicTxSimulationTester()
-    : data_dir(crypto::merkle_tree::random_temp_directory())
-{
-    std::filesystem::create_directories(data_dir);
-    ws = make_world_state(data_dir);
-    fork_id = ws->create_fork(std::nullopt);
-}
+    : merkle_db_(/*nullifier_tree_prefill=*/128, /*public_data_tree_prefill=*/128)
+{}
 
-PublicTxSimulationTester::~PublicTxSimulationTester()
-{
-    ws.reset();
-    std::error_code ec;
-    std::filesystem::remove_all(data_dir, ec);
-}
-
-WorldStateRevision PublicTxSimulationTester::current_revision() const
-{
-    return WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true };
-}
+PublicTxSimulationTester::~PublicTxSimulationTester() = default;
 
 DeployedContract PublicTxSimulationTester::deploy_contract(std::span<const uint8_t> bytecode, const FF& salt)
 {
@@ -197,7 +155,7 @@ DeployedContract PublicTxSimulationTester::deploy_contract(std::span<const uint8
     // Insert the deployment nullifier so the simulator can resolve this (non-protocol) contract.
     const NullifierLeafValue deployment_nullifier =
         simulation::unconstrained_silo_nullifier(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, address);
-    ws->insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { deployment_nullifier }, fork_id);
+    merkle_db_.insert_indexed_leaves_nullifier_tree(deployment_nullifier);
 
     return DeployedContract{ .address = address, .contract_class = contract_class, .instance = instance };
 }
@@ -205,23 +163,22 @@ DeployedContract PublicTxSimulationTester::deploy_contract(std::span<const uint8
 void PublicTxSimulationTester::set_public_storage(const AztecAddress& address, const FF& slot, const FF& value)
 {
     const FF leaf_slot = Poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT, address, slot });
-    ws->update_public_data(PublicDataLeafValue(leaf_slot, value), fork_id);
+    merkle_db_.insert_indexed_leaves_public_data_tree(PublicDataLeafValue(leaf_slot, value));
 }
 
 void PublicTxSimulationTester::insert_siloed_nullifier(const FF& siloed_nullifier)
 {
-    ws->insert_indexed_leaves<NullifierLeafValue>(
-        MerkleTreeId::NULLIFIER_TREE, { NullifierLeafValue(siloed_nullifier) }, fork_id);
+    merkle_db_.insert_indexed_leaves_nullifier_tree(NullifierLeafValue(siloed_nullifier));
 }
 
 void PublicTxSimulationTester::append_note_hash(const FF& note_hash)
 {
-    ws->append_leaves<FF>(MerkleTreeId::NOTE_HASH_TREE, { note_hash }, fork_id);
+    merkle_db_.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ note_hash });
 }
 
 void PublicTxSimulationTester::append_l1_to_l2_message(const FF& message)
 {
-    ws->append_leaves<FF>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { message }, fork_id);
+    merkle_db_.append_leaves(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, std::vector<FF>{ message });
 }
 
 void PublicTxSimulationTester::fund_fee_payer(const AztecAddress& fee_payer)
@@ -232,7 +189,7 @@ void PublicTxSimulationTester::fund_fee_payer(const AztecAddress& fee_payer)
     const FF fee_juice_balance_slot =
         Poseidon2::hash({ DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, FEE_JUICE_BALANCES_SLOT, fee_payer });
     const FF leaf_slot = Poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT, FF(FEE_JUICE_ADDRESS), fee_juice_balance_slot });
-    ws->update_public_data(PublicDataLeafValue(leaf_slot, FEE_PAYER_BALANCE), fork_id);
+    merkle_db_.insert_indexed_leaves_public_data_tree(PublicDataLeafValue(leaf_slot, FEE_PAYER_BALANCE));
 }
 
 TxSimulationResult PublicTxSimulationTester::simulate_tx(const std::vector<TestEnqueuedCall>& app_calls,
@@ -290,22 +247,18 @@ TxSimulationResult PublicTxSimulationTester::simulate_tx(const std::vector<TestE
 
     const ProtocolContracts protocol_contracts{};
 
+    // Simulate on a fresh copy of the seeded DB (the simulator manages its own checkpoints on the
+    // DB it is given, so wrapping it in an outer checkpoint desyncs the checkpoint-id tracking).
+    // Copying keeps deployments/seeding on merkle_db_ across calls while per-tx writes land only on
+    // the discarded copy — mirroring the fuzzer's copy-per-run isolation.
     AvmSimulationHelper helper;
-    ws->checkpoint(fork_id);
-    try {
-        // Hint collection wraps the DBs in hinting proxies and is required to produce proving
-        // inputs; the fast path is used otherwise.
-        TxSimulationResult result =
-            config.collect_hints ? helper.simulate_for_hint_collection(
-                                       contract_db_, current_revision(), *ws, config, tx, globals, protocol_contracts)
-                                 : helper.simulate_fast_with_existing_ws(
-                                       contract_db_, current_revision(), *ws, config, tx, globals, protocol_contracts);
-        ws->revert_checkpoint(fork_id);
-        return result;
-    } catch (...) {
-        ws->revert_checkpoint(fork_id);
-        throw;
-    }
+    simulation::MemoryMerkleDB tx_merkle_db = merkle_db_;
+    // Hint collection wraps the DBs in hinting proxies and is required to produce proving inputs;
+    // the fast path is used otherwise.
+    return config.collect_hints
+               ? helper.simulate_for_hint_collection_internal(
+                     contract_db_, tx_merkle_db, config, tx, globals, protocol_contracts)
+               : helper.simulate_fast_internal(contract_db_, tx_merkle_db, config, tx, globals, protocol_contracts);
 }
 
 } // namespace bb::avm2::testing

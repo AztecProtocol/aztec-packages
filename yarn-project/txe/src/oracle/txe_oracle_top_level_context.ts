@@ -1,8 +1,4 @@
-import {
-  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-  MAX_PRIVATE_LOGS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/constants';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -72,7 +68,6 @@ import {
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
 import { deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
-import type { PrivateLog } from '@aztec/stdlib/logs';
 import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
@@ -100,6 +95,7 @@ import type { TXEAccountStore } from '../utils/txe_account_store.js';
 import type { TXEArtifactResolver } from '../utils/txe_artifact_resolver.js';
 import { TXEPublicContractDataSource } from '../utils/txe_public_contract_data_source.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
+import type { TxEffectsData } from './noir-structs/tx_effects_data.js';
 import { type TXETaggingSecretStrategies, makeResolveTaggingSecretStrategyHook } from './tagging_secret_strategy.js';
 
 export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
@@ -188,7 +184,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables.timestamp;
   }
 
-  async getLastTxEffects(): Promise<{ txHash: TxHash; noteHashes: Fr[]; nullifiers: Fr[]; privateLogs: PrivateLog[] }> {
+  async getLastTxEffects(): Promise<TxEffectsData> {
     const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
     const block = await this.stateMachine.archiver.getBlock({ number: latestBlockNumber });
 
@@ -199,16 +195,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txEffects = block!.body.txEffects[0];
 
-    const privateLogs = txEffects.privateLogs;
-    if (privateLogs.length > MAX_PRIVATE_LOGS_PER_TX) {
-      throw new Error(`${privateLogs.length} private logs exceed max ${MAX_PRIVATE_LOGS_PER_TX}`);
-    }
-
     return {
       txHash: txEffects.txHash,
       noteHashes: txEffects.noteHashes,
       nullifiers: txEffects.nullifiers,
-      privateLogs,
+      privateLogs: txEffects.privateLogs.map(log => log.getEmittedFields()),
     };
   }
 

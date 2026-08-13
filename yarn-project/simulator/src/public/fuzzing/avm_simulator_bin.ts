@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import {
   AvmCircuitPublicInputs,
   type AvmTxHint,
@@ -27,31 +26,18 @@ function writeOutput(data: string): Promise<void> {
   });
 }
 
-// This cache holds opened world states to avoid reopening them for each invocation.
-// It's a map so that in the future we could support multiple world states (if we had multiple fuzzers).
-const worldStateCache = new Map<string, NativeWorldStateService>();
+// The fuzzer self-bootstraps its own world state instead of reading a shared on-disk database written by
+// the C++ side. A fresh NativeWorldStateService produces a genesis identical to the C++ MemoryMerkleDB by
+// construction (same 128 nullifier/public-data tree prefill and header-generator point), and the dynamic
+// state is applied per-input below. The instance is opened once and reused across inputs; each input forks
+// from it (in AvmFuzzerSimulator.create).
+let worldStatePromise: Promise<NativeWorldStateService> | undefined;
 
-async function openExistingWorldState(dataDir: string, mapSizeKb: number): Promise<NativeWorldStateService> {
-  const cached = worldStateCache.get(dataDir);
-  if (cached) {
-    return cached;
-  }
-
-  const ws = await NativeWorldStateService.new(EthAddress.ZERO, dataDir, {
-    archiveTreeMapSizeKb: mapSizeKb,
-    nullifierTreeMapSizeKb: mapSizeKb,
-    noteHashTreeMapSizeKb: mapSizeKb,
-    messageTreeMapSizeKb: mapSizeKb,
-    publicDataTreeMapSizeKb: mapSizeKb,
-  });
-
-  worldStateCache.set(dataDir, ws);
-  return ws;
+function getWorldState(): Promise<NativeWorldStateService> {
+  return (worldStatePromise ??= NativeWorldStateService.tmp());
 }
 
 async function simulateWithFuzzer(
-  dataDir: string,
-  mapSizeKb: number,
   txHint: AvmTxHint,
   globals: GlobalVariables,
   rawContractClasses: any[], // Replace these when we are moving contract classes to TS
@@ -65,7 +51,7 @@ async function simulateWithFuzzer(
   publicInputs: AvmCircuitPublicInputs;
   publicTxEffect: PublicTxEffect;
 }> {
-  const worldStateService = await openExistingWorldState(dataDir, mapSizeKb);
+  const worldStateService = await getWorldState();
 
   const simulator = await AvmFuzzerSimulator.create(worldStateService, globals);
 
@@ -109,8 +95,6 @@ async function execute(base64Line: string): Promise<void> {
 
     // Run the simulation on the C++ AVM simulator
     const result = await simulateWithFuzzer(
-      request.wsDataDir,
-      request.wsMapSizeKb,
       request.tx,
       request.globals,
       request.contractClasses,
