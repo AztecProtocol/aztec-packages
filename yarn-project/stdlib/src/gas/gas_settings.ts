@@ -26,7 +26,7 @@ export class GasSettings {
     public readonly teardownGasLimits: Gas,
     /** Maximum fees per gas unit the sender is willing to pay. */
     public readonly maxFeesPerGas: GasFees,
-    /** Priority fees per gas unit paid on top of the base fee for faster inclusion. */
+    /** Maximum priority fees per gas unit the sender is willing to pay on top of the base fee. */
     public readonly maxPriorityFeesPerGas: GasFees,
   ) {}
   // docs:end:gas_settings_vars

@@ -148,9 +148,9 @@ export const Gas_Settings_Components = () => (
         phases including teardown
       </li>
       <li>
-        teardownGasLimits: portion of gasLimits reserved for a txs optional
-        teardown operation. A tx with a teardown call is billed these limits in
-        full, regardless of actual teardown consumption
+        teardownGasLimits: portion of gasLimits reserved for an optional
+        teardown call. A tx with a teardown call is billed these limits in full,
+        regardless of actual teardown consumption
       </li>
       <li>maxFeesPerGas: maximum DA and L2 fees-per-gas</li>
       <li>maxPriorityFeesPerGas: maximum priority DA and L2 fees-per-gas</li>
