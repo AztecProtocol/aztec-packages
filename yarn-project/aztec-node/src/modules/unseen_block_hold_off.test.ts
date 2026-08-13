@@ -176,6 +176,67 @@ describe('UnseenBlockHoldOff', () => {
     });
   });
 
+  describe('getBlock', () => {
+    /** Mirrors the block source serving full blocks for the same chain the metadata reads see. */
+    const mockGetBlock = () =>
+      blockSource.getBlock.mockImplementation(((query: BlockQuery) =>
+        Promise.resolve(
+          'hash' in query && [...chain.values()].some(data => data.blockHash.equals(query.hash))
+            ? L2Block.empty()
+            : undefined,
+        )) as L2BlockSource['getBlock']);
+
+    it('returns a known block immediately', async () => {
+      mockGetBlock();
+
+      expect(await holdOff.getBlock({ number: BlockNumber(3) })).toBeDefined();
+    });
+
+    it('returns the block once it arrives while the query is held', async () => {
+      mockGetBlock();
+      const blockHash = BlockHash.random();
+      void sleep(200).then(() => addBlock(BlockNumber(tip + 1), blockHash));
+
+      expect(await holdOff.getBlock({ hash: blockHash })).toBeDefined();
+    });
+
+    it('reads the block pinned by the resolved hash rather than by the original query', async () => {
+      // A number query that resolves while held must be read back by hash, so a reorg between the last poll and
+      // the read cannot swap in a different block at the same height.
+      mockGetBlock();
+      const requested = BlockNumber(tip + 1);
+      const blockHash = BlockHash.random();
+      void sleep(200).then(() => addBlock(requested, blockHash));
+
+      await holdOff.getBlock({ number: requested });
+
+      expect(blockSource.getBlock).toHaveBeenCalledWith({ hash: blockHash });
+    });
+
+    it('returns undefined and never reads the block when the query is never resolved', async () => {
+      expect(await holdOff.getBlock({ hash: BlockHash.random() })).toBeUndefined();
+      expect(blockSource.getBlock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getBlockNumber', () => {
+    it('returns the number of a known block', async () => {
+      expect(await holdOff.getBlockNumber({ number: BlockNumber(3) })).toEqual(BlockNumber(3));
+    });
+
+    it('returns the number of a block that arrives while the query is held', async () => {
+      const requested = BlockNumber(tip + 1);
+      const blockHash = BlockHash.random();
+      void sleep(200).then(() => addBlock(requested, blockHash));
+
+      expect(await holdOff.getBlockNumber({ hash: blockHash })).toEqual(requested);
+    });
+
+    it('returns undefined when the query is never resolved', async () => {
+      expect(await holdOff.getBlockNumber({ hash: BlockHash.random() })).toBeUndefined();
+    });
+  });
+
   describe('concurrency cap', () => {
     it('fails fast once the cap is saturated and holds again after they release', async () => {
       const held = Array.from({ length: MAX_CONCURRENT_HOLDS }, () =>

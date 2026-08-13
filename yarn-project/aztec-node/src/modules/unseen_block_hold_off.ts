@@ -1,9 +1,11 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { Timer } from '@aztec/foundation/timer';
 import {
   type BlockData,
+  type L2Block,
   type L2BlockSource,
   type NormalizedBlockParameter,
   inspectBlockParameter,
@@ -23,7 +25,7 @@ export type UnseenBlockHoldOffConfig = {
   byHashWaitMs: number;
 };
 
-/** Options for a single {@link UnseenBlockHoldOff.getBlockData} call. */
+/** Options for a single {@link UnseenBlockHoldOff} query. */
 export type UnseenBlockHoldOffOptions = {
   /** Set to false to resolve without ever waiting (used by callers that already spent their budget). */
   holdOff?: boolean;
@@ -115,6 +117,31 @@ export class UnseenBlockHoldOff {
     } finally {
       this.activeHolds--;
     }
+  }
+
+  /**
+   * Resolves `query` to a full block with its transactions, holding off as {@link getBlockData} does. The wait runs
+   * on the cheaper metadata read, and the block is then read back pinned by the resolved hash, so a reorg between
+   * the last poll and the read cannot swap the block served for a different one at the same height.
+   */
+  public async getBlock(
+    query: NormalizedBlockParameter,
+    opts: UnseenBlockHoldOffOptions = {},
+  ): Promise<L2Block | undefined> {
+    const data = await this.getBlockData(query, opts);
+    return data === undefined ? undefined : await this.blockSource.getBlock({ hash: data.blockHash });
+  }
+
+  /**
+   * Resolves `query` to the number of the block it names, holding off as {@link getBlockData} does. Unlike
+   * {@link L2BlockSource.getBlockNumber} with no arguments, this never reports the node's tip: it answers "which
+   * block does this query point at", and returns undefined when the query resolves to no block.
+   */
+  public async getBlockNumber(
+    query: NormalizedBlockParameter,
+    opts: UnseenBlockHoldOffOptions = {},
+  ): Promise<BlockNumber | undefined> {
+    return (await this.getBlockData(query, opts))?.header.getBlockNumber();
   }
 
   /**
