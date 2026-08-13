@@ -197,7 +197,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
 
     context.halt();
 
-    // Such transactions should be filtered by GasTxValidator.
+    // Such transactions should be filtered by GasLimitsValidator.
     assert(
       context.getActualGasUsed().l2Gas <= MAX_PROCESSABLE_L2_GAS,
       `Transaction consumes ${context.getActualGasUsed().l2Gas} L2 gas, which exceeds the maximum processable gas of ${MAX_PROCESSABLE_L2_GAS}`,

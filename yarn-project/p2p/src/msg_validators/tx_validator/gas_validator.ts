@@ -58,7 +58,9 @@ export interface HasMaxFeePerGasData {
  * Generic over T so it can validate both full {@link Tx} objects and {@link TxMetaData}
  * (used during pending pool migration).
  *
- * Used by: pending pool migration (via factory), and indirectly by {@link GasTxValidator}.
+ * Sole owner of declared gas-limit admission. Used via the factory by: gossip (stage 1), RPC
+ * (except simulation — gas estimation submits limits above the per-tx maximum), block building,
+ * and pending pool migration.
  */
 export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidator<T> {
   #log: Logger;
@@ -86,7 +88,7 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
   }
 
   /** Checks gas limits are >= fixed minimums and <= effective max gas (L2 and DA). */
-  validateGasLimit(tx: T): TxValidationResult {
+  private validateGasLimit(tx: T): TxValidationResult {
     const gasLimits = tx.data.constants.txContext.gasSettings.gasLimits;
     const minGasLimits = new Gas(
       TX_DA_GAS_OVERHEAD,
@@ -181,14 +183,16 @@ export class MaxFeePerGasValidator<T extends HasMaxFeePerGasData> implements TxV
 /**
  * Validates that a transaction can pay its gas fees.
  *
- * Runs three checks in order:
- * 1. **Gas limits** (delegates to {@link GasLimitsValidator}) — rejects if limits are
- *    out of bounds.
- * 2. **Max fee per gas** — rejects the tx if its maxFeesPerGas is below
- *    the current block's gas fees.
- * 3. **Fee payer balance** — reads the fee payer's FeeJuice balance from public state,
+ * Runs two checks in order:
+ * 1. **Max fee per gas** (delegates to {@link MaxFeePerGasValidator}) — rejects the tx if its
+ *    maxFeesPerGas is below the current block's gas fees.
+ * 2. **Fee payer balance** — reads the fee payer's FeeJuice balance from public state,
  *    adds any pending claim from a setup-phase `_increase_public_balance` call, and
  *    rejects if the total is less than the tx's fee limit (gasLimits * maxFeePerGas).
+ *
+ * Declared gas-limit admission is deliberately not checked here: it is owned by {@link GasLimitsValidator},
+ * which factories include separately so that exemptions from it (e.g. gas estimation)
+ * can be expressed without changing fee enforcement.
  *
  * Used by: gossip (stage 1), RPC, and block building validators.
  */
@@ -197,30 +201,20 @@ export class GasTxValidator implements TxValidator<Tx> {
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
   #gasFees: GasFees;
-  #gasLimitOpts?: { maxTxL2Gas?: number; maxTxDAGas?: number };
 
   constructor(
     publicDataSource: PublicStateSource,
     feeJuiceAddress: AztecAddress,
     gasFees: GasFees,
     private bindings?: LoggerBindings,
-    opts?: { maxTxL2Gas?: number; maxTxDAGas?: number },
   ) {
     this.#log = createLogger('sequencer:tx_validator:tx_gas', bindings);
     this.#publicDataSource = publicDataSource;
     this.#feeJuiceAddress = feeJuiceAddress;
     this.#gasFees = gasFees;
-    this.#gasLimitOpts = opts;
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
-    const gasLimitValidation = new GasLimitsValidator({
-      ...this.#gasLimitOpts,
-      bindings: this.bindings,
-    }).validateGasLimit(tx);
-    if (gasLimitValidation.result === 'invalid') {
-      return gasLimitValidation;
-    }
     const maxFeeValidation = new MaxFeePerGasValidator(this.#gasFees, this.bindings).validateMaxFeePerGas(tx);
     if (maxFeeValidation.result === 'invalid') {
       return maxFeeValidation;

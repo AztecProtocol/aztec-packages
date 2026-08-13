@@ -1,14 +1,16 @@
+import { MAX_TX_DA_GAS } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { GasFees } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type {
   ClientProtocolCircuitVerifier,
   MerkleTreeReadOperations,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import type { GlobalVariables } from '@aztec/stdlib/tx';
+import { mockTx } from '@aztec/stdlib/testing';
+import { type GlobalVariables, TX_ERROR_GAS_LIMIT_TOO_HIGH } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -37,6 +39,17 @@ import { TxProofValidator } from './tx_proof_validator.js';
 /** Extract the constructor names from the validators inside an AggregateTxValidator. */
 function getValidatorNames(aggregate: AggregateTxValidator<unknown>): string[] {
   return aggregate.validators.map(v => v.constructor.name);
+}
+
+/** A tx with no public calls, carrying the given gas settings. */
+async function mockPrivateTxWithGasSettings(gasSettings: GasSettings) {
+  const tx = await mockTx(1, {
+    numberOfNonRevertiblePublicCallRequests: 0,
+    numberOfRevertiblePublicCallRequests: 0,
+    hasPublicTeardownCallRequest: false,
+  });
+  tx.data.constants.txContext.gasSettings = gasSettings;
+  return tx;
 }
 
 describe('Validator factory functions', () => {
@@ -72,10 +85,37 @@ describe('Validator factory functions', () => {
         'phasesValidator',
         'blockHeaderValidator',
         'doubleSpendValidator',
+        'gasLimitsValidator',
         'gasValidator',
         'dataValidator',
         'contractInstanceValidator',
       ]);
+    });
+
+    it('forwards the network admission limits to the gas limits validator', async () => {
+      const maxTxL2Gas = 1_000_000;
+      const validators = createFirstStageTxValidationsForGossipedTransactions(
+        0n,
+        BlockNumber(2),
+        synchronizer,
+        new GasFees(1, 1),
+        1,
+        2,
+        Fr.ZERO,
+        contractSource,
+        true,
+        [],
+        undefined,
+        { maxTxL2Gas },
+      );
+
+      // Over the network admission limit but under the protocol ceiling, so only forwarded opts can reject it.
+      const tx = await mockPrivateTxWithGasSettings(
+        GasSettings.fallback({ gasLimits: new Gas(MAX_TX_DA_GAS, maxTxL2Gas + 1), maxFeesPerGas: new GasFees(1, 1) }),
+      );
+      const result = await validators.gasLimitsValidator.validator.validateTx(tx);
+      expect(result.result).toBe('invalid');
+      expect((result as { reason: string[] }).reason[0]).toContain(TX_ERROR_GAS_LIMIT_TOO_HIGH);
     });
 
     it('does not include a proof validator', () => {
@@ -116,6 +156,7 @@ describe('Validator factory functions', () => {
       expect(validators.dataValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.metadataValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.doubleSpendValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
+      expect(validators.gasLimitsValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.gasValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.phasesValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
     });
@@ -270,6 +311,39 @@ describe('Validator factory functions', () => {
       expect(getValidatorNames(aggregate)).not.toContain(GasLimitsValidator.name);
     });
 
+    describe('gas-limit admission for estimation gas settings', () => {
+      // Estimation limits exceed the per-tx protocol maximum by construction, so whether the tx passes admission
+      // is decided solely by the isSimulation exemption. The aggregate collects reasons from every validator, so
+      // asserting on the specific error is robust to other validators failing on the mocked db.
+      const validateEstimationTx = async (isSimulation: boolean) => {
+        db.findLeafIndices.mockResolvedValue([]);
+        const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
+          l1ChainId: 1,
+          rollupVersion: 2,
+          setupAllowList: [],
+          gasFees: new GasFees(1, 1),
+          skipFeeEnforcement: false,
+          isSimulation,
+          timestamp: 100n,
+          blockNumber: BlockNumber(5),
+          txsPermitted: true,
+        });
+        const tx = await mockPrivateTxWithGasSettings(GasSettings.forEstimation({ maxFeesPerGas: new GasFees(1, 1) }));
+        const result = await validator.validateTx(tx);
+        return result.result === 'invalid' ? result.reason : [];
+      };
+
+      it('rejects estimation gas limits when not simulating', async () => {
+        const reasons = await validateEstimationTx(false);
+        expect(reasons.some(r => r.includes(TX_ERROR_GAS_LIMIT_TOO_HIGH))).toBe(true);
+      });
+
+      it('accepts estimation gas limits during simulation even with fee enforcement on', async () => {
+        const reasons = await validateEstimationTx(true);
+        expect(reasons.some(r => r.includes(TX_ERROR_GAS_LIMIT_TOO_HIGH))).toBe(false);
+      });
+    });
+
     it('excludes proof validator when no verifier is provided', () => {
       const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
         l1ChainId: 1,
@@ -309,8 +383,22 @@ describe('Validator factory functions', () => {
         PhasesTxValidator.name,
         BlockHeaderTxValidator.name,
         DoubleSpendTxValidator.name,
+        GasLimitsValidator.name,
         GasTxValidator.name,
       ]);
+    });
+
+    it('rejects declared gas limits above the protocol ceiling', async () => {
+      // Block proposal txs get only well-formedness checks on receipt; this is where an over-declared limit must
+      // be caught, or execution would trip the simulator's MAX_PROCESSABLE_L2_GAS assertion.
+      db.findLeafIndices.mockResolvedValue([]);
+      const result = createTxValidatorForBlockBuilding(db, contractSource, globalVariables, []);
+
+      const tx = await mockPrivateTxWithGasSettings(GasSettings.forEstimation({ maxFeesPerGas: new GasFees(1, 1) }));
+      const validationResult = await result.preprocessValidator!.validateTx(tx);
+      expect(validationResult.result).toBe('invalid');
+      const reasons = (validationResult as { reason: string[] }).reason;
+      expect(reasons.some(r => r.includes(TX_ERROR_GAS_LIMIT_TOO_HIGH))).toBe(true);
     });
 
     it('returns a nullifierCache alongside the preprocessValidator', () => {
