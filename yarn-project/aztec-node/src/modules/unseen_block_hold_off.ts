@@ -130,12 +130,21 @@ export class UnseenBlockHoldOff {
    * Reads an anchor pinned by both number and hash, which is precise enough to tell a client that raced one block
    * ahead from one naming a block this node will never have.
    *
+   * Every probe and poll here runs on block metadata rather than on `read`, because the anchor has to be checked
+   * against both the number and the hash it names before the caller's read is worth doing: a held `getBlock` request
+   * would otherwise reconstruct a whole block with its transactions on each poll, only to fail that check. `read`
+   * runs once, after the metadata has been verified.
+   *
    * The hash is what resolves the anchor, so the fork it pins is honored exactly as a bare hash would be. The number
    * only decides how a miss is waited out. At exactly one past the tip the wait runs by number, because that is the
-   * block the node is about to add: once it lands, reading the anchor by hash settles whether it is the anchored one,
-   * and an empty read there means the client is on a fork this node is not building on, so the rest of the budget is
-   * not waited out. Any other height is waited out by hash on the shorter budget, as a bare hash would be — the node
-   * may be about to prune onto the client's fork, which can place the anchor at a height this node already holds.
+   * block the node is about to add, and the hash of whatever lands settles whether it is the anchored one. Any other
+   * height is waited out by hash on the shorter budget, as a bare hash would be — the node may be about to prune onto
+   * the client's fork, which can place the anchor at a height this node already holds.
+   *
+   * The verified metadata does not make the final read atomic: the block source resolves a hash to a block number
+   * and then reads that block without a shared transaction, so a prune landing in between can still leave it
+   * answering for another fork or for nothing. That exposure belongs to the block source and is shared with every
+   * bare-hash read; this class can only avoid adding to it.
    */
   async #readAnchored<T extends ReadBlock>(
     query: AnchoredBlockParameter,
@@ -143,36 +152,42 @@ export class UnseenBlockHoldOff {
     opts: UnseenBlockHoldOffOptions,
   ): Promise<T | undefined> {
     const blockParameter = inspectBlockParameter(query);
-    const value = await read({ hash: query.hash });
-    if (value !== undefined) {
-      return this.#verifyAnchorHeight(value, query);
+    const data = await this.blockSource.getBlockData({ hash: query.hash });
+    if (data !== undefined) {
+      return await this.#readVerifiedAnchor(data, query, read, blockParameter);
     }
-    if (opts.holdOff === false) {
+    if (opts.holdOff === false || this.#isGenesisBlockHash(query.hash)) {
       return undefined;
     }
 
     const tip = await this.blockSource.getBlockNumber();
-    if (query.number !== tip + 1) {
-      const arrived = await this.#pollWithHoldOff({ hash: query.hash }, read, this.config.byHashWaitMs, blockParameter);
-      return arrived === undefined ? undefined : this.#verifyAnchorHeight(arrived, query);
-    }
-    const arrived = await this.#pollWithHoldOff(
-      { number: query.number },
-      read,
-      this.config.byNumberWaitMs,
-      blockParameter,
-    );
-    if (arrived === undefined) {
+    const polled: NormalizedBlockParameter = query.number === tip + 1 ? { number: query.number } : { hash: query.hash };
+    const waitMs = query.number === tip + 1 ? this.config.byNumberWaitMs : this.config.byHashWaitMs;
+    const arrived = await this.#pollWithHoldOff(polled, q => this.blockSource.getBlockData(q), waitMs, blockParameter);
+    return arrived === undefined ? undefined : await this.#readVerifiedAnchor(arrived, query, read, blockParameter);
+  }
+
+  /**
+   * Checks resolved metadata against the hash and the number the anchor names, and only then reads what the caller
+   * asked for. A hash mismatch is a miss rather than a bad request: it means the block source answered for another
+   * fork, either because a by-number wait landed on a block the node built itself, or because its own hash
+   * resolution raced a prune.
+   */
+  async #readVerifiedAnchor<T extends ReadBlock>(
+    data: BlockData,
+    query: AnchoredBlockParameter,
+    read: BlockReader<T>,
+    blockParameter: string,
+  ): Promise<T | undefined> {
+    if (!data.blockHash.equals(query.hash)) {
+      this.log.verbose(`Block resolved for unseen anchor is on a different fork`, {
+        blockParameter,
+        resolvedBlockHash: data.blockHash.toString(),
+      });
       return undefined;
     }
-    const anchored = await read({ hash: query.hash });
-    if (anchored === undefined) {
-      // The node built a different block at that height, so the anchor names a fork this node is not on. That is a
-      // genuine miss and reporting it right away is more useful than waiting out the rest of the budget.
-      this.log.verbose(`Block at unseen anchor height arrived on a different fork`, { blockParameter });
-      return undefined;
-    }
-    return this.#verifyAnchorHeight(anchored, query);
+    this.#verifyAnchorHeight(data, query);
+    return await read({ hash: query.hash });
   }
 
   /** Rejects an anchor whose hash resolves to a block at a height other than the one it names. */

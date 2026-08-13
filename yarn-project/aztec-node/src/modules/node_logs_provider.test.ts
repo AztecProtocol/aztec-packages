@@ -31,6 +31,8 @@ describe('NodeLogsProvider', () => {
   let tip: BlockNumber;
   let unseenBlockNumber: BlockNumber;
   let unseenBlockHash: BlockHash;
+  /** Hash of the synthetic genesis block, which the block source never serves — as the log store does not. */
+  let genesisBlockHash: BlockHash;
   let arrivalTimer: NodeJS.Timeout | undefined;
 
   const hashForBlock = (blockNumber: BlockNumber): BlockHash =>
@@ -52,8 +54,10 @@ describe('NodeLogsProvider', () => {
     tip = BlockNumber(5);
     unseenBlockNumber = BlockNumber(6);
     unseenBlockHash = BlockHash.random();
+    genesisBlockHash = BlockHash.random();
 
     blockSource = mock<L2BlockSource>();
+    blockSource.getGenesisBlockHash.mockImplementation(() => genesisBlockHash);
     blockSource.getBlockNumber.mockImplementation((() => Promise.resolve(tip)) as L2BlockSource['getBlockNumber']);
     blockSource.getBlockData.mockImplementation(((query?: BlockQuery) => {
       if (!query || 'tag' in query) {
@@ -78,6 +82,7 @@ describe('NodeLogsProvider', () => {
     provider = new NodeLogsProvider(
       logsSource,
       new UnseenBlockHoldOff(blockSource, { byNumberWaitMs: BY_NUMBER_WAIT_MS, byHashWaitMs: BY_HASH_WAIT_MS }),
+      genesisBlockHash,
     );
   });
 
@@ -182,6 +187,34 @@ describe('NodeLogsProvider', () => {
       await provider.getPrivateLogsByTags({ tags: [SiloedTag.random()], referenceBlock: { hash } });
 
       expect(logsSource.getPrivateLogsByTags).toHaveBeenCalledWith(expect.objectContaining({ referenceBlock: hash }));
+    });
+
+    it('reports an unresolved anchored form itself rather than handing on its hash', async () => {
+      // Handing on the bare hash would let the logs source resolve it at whatever height it really has, serving logs
+      // past the height the client claimed. The claim can only be checked here, so an unconfirmed one is rejected.
+      await expect(
+        provider.getPrivateLogsByTags({
+          tags: [SiloedTag.random()],
+          referenceBlock: { number: BlockNumber(3), hash: BlockHash.random() },
+        }),
+      ).rejects.toThrow(/not found in the node/);
+
+      expect(logsSource.getPrivateLogsByTags).not.toHaveBeenCalled();
+    });
+
+    it('hands a genesis anchor to the logs source without holding off', async () => {
+      // Genesis never lands in a store, so only the logs source can confirm it — and no wait can make it appear.
+      logsSource.getPrivateLogsByTags.mockResolvedValue([[]]);
+
+      await provider.getPrivateLogsByTags({
+        tags: [SiloedTag.random()],
+        referenceBlock: { number: BlockNumber.ZERO, hash: genesisBlockHash },
+      });
+
+      expect(logsSource.getPrivateLogsByTags).toHaveBeenCalledWith(
+        expect.objectContaining({ referenceBlock: genesisBlockHash }),
+      );
+      expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
     });
   });
 });

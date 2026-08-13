@@ -278,7 +278,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     this.blockProvider = new NodeBlockProvider(this.blockSource, this.unseenBlockHoldOff);
 
-    this.logsProvider = new NodeLogsProvider(this.logsSource, this.unseenBlockHoldOff);
+    this.logsProvider = new NodeLogsProvider(
+      this.logsSource,
+      this.unseenBlockHoldOff,
+      this.blockSource.getGenesisBlockHash(),
+    );
 
     this.txReceiptBuilder = new NodeTxReceiptBuilder({
       p2pClient: this.p2pClient,

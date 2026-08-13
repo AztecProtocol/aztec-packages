@@ -1,4 +1,5 @@
-import { blockParameterHash, inspectBlockParameter } from '@aztec/stdlib/block';
+import type { BlockHash } from '@aztec/stdlib/block';
+import { blockParameterHash, inspectBlockParameter, isAnchoredBlockParameter } from '@aztec/stdlib/block';
 import type { L2LogsSource, ResolvedLogsQuery } from '@aztec/stdlib/interfaces/server';
 import type { LogResult, LogsQueryBase, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
 
@@ -13,6 +14,7 @@ export class NodeLogsProvider {
   constructor(
     private readonly logsSource: L2LogsSource,
     private readonly holdOff: UnseenBlockHoldOff,
+    private readonly genesisBlockHash: BlockHash,
   ) {}
 
   public async getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
@@ -29,22 +31,27 @@ export class NodeLogsProvider {
    * of failed over a transient skew. Anchors naming a block by number, by tag, or by archive root are resolved here as
    * well, since the logs source only understands a hash.
    *
-   * A miss is answered by whoever can describe it best. An anchor that already names a hash is passed on as that bare
-   * hash, so the logs source's in-transaction check — the authoritative one, and the one that knows the genesis anchor
-   * a client syncs from before it has seen a block — raises the error it always did. Any other form has no hash to
-   * pass on, so the miss is reported here.
+   * A miss on an anchor that already names a hash is passed on as that bare hash, so the logs source's in-transaction
+   * check — the authoritative one — raises the error it always did. The anchored `{ number, hash }` form is the
+   * exception: it also claims a height, and the logs source resolves the hash on its own and would serve whatever
+   * height that block turns out to sit at, so a claim this node could not confirm is rejected here instead. The
+   * genesis anchor a client syncs from before it has seen a block is passed on even in anchored form, since only the
+   * logs source can confirm a block that never lands in a store.
    */
   async #resolveReferenceBlock<T extends LogsQueryBase>(query: T): Promise<ResolvedLogsQuery<T>> {
     const { referenceBlock, ...rest } = query;
     if (referenceBlock === undefined) {
       return rest;
     }
-    const anchor = await this.holdOff.getBlockData(normalizeBlockParameter(referenceBlock));
+    const anchorQuery = normalizeBlockParameter(referenceBlock);
+    const anchor = await this.holdOff.getBlockData(anchorQuery);
     if (anchor !== undefined) {
       return { ...rest, referenceBlock: anchor.blockHash };
     }
     const anchorHash = blockParameterHash(referenceBlock);
-    if (anchorHash === undefined) {
+    const canDelegateMiss =
+      anchorHash !== undefined && (!isAnchoredBlockParameter(anchorQuery) || anchorHash.equals(this.genesisBlockHash));
+    if (!canDelegateMiss) {
       throw new Error(
         `Reference block ${inspectBlockParameter(referenceBlock)} not found in the node. This might indicate a reorg ` +
           `has occurred.`,

@@ -88,6 +88,28 @@ describe('UnseenBlockHoldOff', () => {
   // upper bounds would be the flakier way to assert the same thing, so only lower bounds are checked below.
   const expectResolvedWithoutHolding = () => expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
 
+  /** Serves full blocks for the same chain the metadata reads see, for every query form. */
+  const mockGetBlock = () =>
+    blockSource.getBlock.mockImplementation(((query: BlockQuery) => {
+      const found =
+        'number' in query
+          ? chain.get(query.number)
+          : 'hash' in query
+            ? [...chain.values()].find(data => data.blockHash.equals(query.hash))
+            : undefined;
+      return Promise.resolve(
+        found === undefined
+          ? undefined
+          : new L2Block(
+              found.archive,
+              found.header,
+              L2Block.empty().body,
+              found.checkpointNumber,
+              found.indexWithinCheckpoint,
+            ),
+      );
+    }) as L2BlockSource['getBlock']);
+
   it('returns a known block immediately without waiting', async () => {
     const data = await holdOff.getBlockData({ number: BlockNumber(3) });
 
@@ -187,7 +209,8 @@ describe('UnseenBlockHoldOff', () => {
       const data = await holdOff.getBlockData({ number: BlockNumber(4), hash: blockHash });
 
       expect(data?.blockHash).toEqual(blockHash);
-      expectResolvedWithoutHolding();
+      // One read to check the anchor against the metadata, then the read the caller asked for. Nothing was polled.
+      expect(blockSource.getBlockData).toHaveBeenCalledTimes(2);
     });
 
     it('rejects an anchor whose hash sits at a different height', async () => {
@@ -284,6 +307,48 @@ describe('UnseenBlockHoldOff', () => {
       expectResolvedWithoutHolding();
       expect(blockSource.getBlockNumber).not.toHaveBeenCalled();
     });
+
+    it('fails fast on an anchor naming the genesis block hash', async () => {
+      const timer = new Timer();
+      const data = await holdOff.getBlockData({ number: BlockNumber.ZERO, hash: genesisBlockHash });
+
+      expect(data).toBeUndefined();
+      expectResolvedWithoutHolding();
+      expect(timer.ms()).toBeLessThan(BY_HASH_WAIT_MS);
+    });
+
+    it('treats a hash resolved to another fork as a miss', async () => {
+      // The block source resolves a hash to a block number and then reads that block without a shared transaction,
+      // so a prune in between can leave it answering with whatever block now sits at that height.
+      blockSource.getBlockData.mockResolvedValueOnce(makeBlockData(BlockNumber(3), BlockHash.random()));
+
+      const data = await holdOff.getBlockData({ number: BlockNumber(3), hash: BlockHash.random() }, { holdOff: false });
+
+      expect(data).toBeUndefined();
+    });
+
+    it('never reads the block when the block that arrives is on another fork', async () => {
+      // Held requests must not reconstruct the arriving block (body and all) just to fail the anchor's hash check.
+      mockGetBlock();
+      const requested = BlockNumber(tip + 1);
+      void sleep(200).then(() => addBlock(requested, BlockHash.random()));
+
+      expect(await holdOff.getBlock({ number: requested, hash: BlockHash.random() })).toBeUndefined();
+      expect(blockSource.getBlock).not.toHaveBeenCalled();
+    });
+
+    it('polls metadata while held and reads the block once, by hash, on arrival', async () => {
+      mockGetBlock();
+      const requested = BlockNumber(tip + 1);
+      const blockHash = BlockHash.random();
+      void sleep(400).then(() => addBlock(requested, blockHash));
+
+      expect(await holdOff.getBlock({ number: requested, hash: blockHash })).toBeDefined();
+
+      // Several metadata polls went by while the anchor was held, and the block itself was read exactly once.
+      expect(blockSource.getBlockData.mock.calls.length).toBeGreaterThan(2);
+      expect(blockSource.getBlock.mock.calls).toEqual([[{ hash: blockHash }]]);
+    });
   });
 
   describe('cases that never wait', () => {
@@ -316,28 +381,6 @@ describe('UnseenBlockHoldOff', () => {
   });
 
   describe('getBlock', () => {
-    /** Serves full blocks for the same chain the metadata reads see, for every query form. */
-    const mockGetBlock = () =>
-      blockSource.getBlock.mockImplementation(((query: BlockQuery) => {
-        const found =
-          'number' in query
-            ? chain.get(query.number)
-            : 'hash' in query
-              ? [...chain.values()].find(data => data.blockHash.equals(query.hash))
-              : undefined;
-        return Promise.resolve(
-          found === undefined
-            ? undefined
-            : new L2Block(
-                found.archive,
-                found.header,
-                L2Block.empty().body,
-                found.checkpointNumber,
-                found.indexWithinCheckpoint,
-              ),
-        );
-      }) as L2BlockSource['getBlock']);
-
     it('returns a known block immediately', async () => {
       mockGetBlock();
 
