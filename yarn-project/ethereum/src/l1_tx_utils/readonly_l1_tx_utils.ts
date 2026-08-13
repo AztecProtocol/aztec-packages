@@ -17,6 +17,7 @@ import {
   type Hex,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
+  RpcRequestError,
   type StateOverride,
   decodeErrorResult,
   formatGwei,
@@ -24,6 +25,7 @@ import {
   hexToBytes,
 } from 'viem';
 
+import { getL1RpcErrorCode } from '../client.js';
 import type { ViemClient } from '../types.js';
 import { type L1TxUtilsConfig, defaultL1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';
 import {
@@ -39,6 +41,23 @@ import { getCalldataGasUsage, tryGetCustomErrorNameContractFunction } from './ut
 
 // Change this to the current strategy we want to use
 const CurrentStrategy: PriorityFeeStrategy = P75AllTxsPriorityFeeStrategy;
+
+/** Error code returned by eth_simulateV1 for `insufficient funds for gas * price + value`. */
+const INSUFFICIENT_FUNDS_RPC_ERROR_CODE = -38014;
+
+/**
+ * Returns true when an RPC transport error reports the node's upfront funds check
+ * (sender balance >= gasLimit * maxFeePerGas) rejecting the request. Matches on the message as well as on the
+ * error code, since RPC gateways differ in how they wrap node errors. Apply this only to transport errors: an
+ * execution revert string can mention insufficient funds without being this kind of rejection.
+ */
+function isInsufficientFundsRpcError(err: unknown): boolean {
+  if (getL1RpcErrorCode(err) === INSUFFICIENT_FUNDS_RPC_ERROR_CODE) {
+    return true;
+  }
+  const messages = [err, getErrorCause(err, RpcRequestError)].map(e => (e instanceof Error ? e.message : '')).join(' ');
+  return /insufficient funds/i.test(messages);
+}
 
 export class ReadOnlyL1TxUtils {
   public config: Required<L1TxUtilsConfig>;
@@ -373,8 +392,8 @@ export class ReadOnlyL1TxUtils {
     gasConfig: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
     abi: Abi,
   ) {
-    try {
-      const result = await this.client.simulateBlocks({
+    const simulateBlocks = () =>
+      this.client.simulateBlocks({
         validation: false,
         blocks: [
           {
@@ -385,16 +404,11 @@ export class ReadOnlyL1TxUtils {
         ],
       });
 
-      if (result[0].calls[0].status === 'failure') {
-        this.logger?.error('L1 transaction simulation failed', result[0].calls[0].error);
-        const decodedError = decodeErrorResult({ abi, data: result[0].calls[0].data });
-
-        throw new Error(
-          `L1 transaction simulation failed with error ${decodedError.errorName}(${decodedError.args?.join(',')})`,
-        );
-      }
-      this.logger?.debug(`L1 transaction simulation succeeded`, { ...result[0].calls[0] });
-      return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data as `0x${string}` };
+    // Only the request itself is wrapped, so that transport-level rejections are never confused with an
+    // execution revert (whose decoded revert string could well mention insufficient funds too).
+    let result: Awaited<ReturnType<typeof simulateBlocks>>;
+    try {
+      result = await simulateBlocks();
     } catch (err) {
       if (getErrorCause(err, MethodNotFoundRpcError) || getErrorCause(err, MethodNotSupportedRpcError)) {
         if (gasConfig.fallbackGasEstimate) {
@@ -405,8 +419,29 @@ export class ReadOnlyL1TxUtils {
         }
         this.logger?.error('Node does not support eth_simulateV1 API');
       }
+      if (isInsufficientFundsRpcError(err)) {
+        const rpcError = getErrorCause(err, RpcRequestError);
+        const providerMessage = rpcError?.details ?? (err instanceof Error ? err.message : String(err));
+        const gas = call?.gas !== undefined ? `, gas ${call.gas}` : '';
+        throw new Error(
+          `L1 node rejected the eth_simulateV1 request with an insufficient funds error before executing it ` +
+            `(sender ${call?.from ?? 'unknown'}${gas}): ${providerMessage}`,
+          { cause: err },
+        );
+      }
       throw err;
     }
+
+    if (result[0].calls[0].status === 'failure') {
+      this.logger?.error('L1 transaction simulation failed', result[0].calls[0].error);
+      const decodedError = decodeErrorResult({ abi, data: result[0].calls[0].data });
+
+      throw new Error(
+        `L1 transaction simulation failed with error ${decodedError.errorName}(${decodedError.args?.join(',')})`,
+      );
+    }
+    this.logger?.debug(`L1 transaction simulation succeeded`, { ...result[0].calls[0] });
+    return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data as `0x${string}` };
   }
 
   public bumpGasLimit(gasLimit: bigint, _gasConfig?: L1TxUtilsConfig): bigint {

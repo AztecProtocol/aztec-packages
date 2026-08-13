@@ -22,6 +22,7 @@ import {
   TransactionNotFoundError,
   type TransactionSerializable,
   createPublicClient,
+  encodeErrorResult,
   encodeFunctionData,
   http,
 } from 'viem';
@@ -1589,6 +1590,19 @@ describe('L1TxUtils', () => {
       }
     });
 
+    it('omits fee fields from the simulated call', async () => {
+      // Fee fields on a simulated call make the node enforce balance >= gas * maxFeePerGas, which rejects the
+      // whole eth_simulateV1 request when the sender cannot afford the worst-case gas cap.
+      using simulateBlocksSpy = jest.spyOn(l1Client, 'simulateBlocks');
+
+      await gasUtils.simulate(request);
+
+      const call = simulateBlocksSpy.mock.calls[0][0].blocks[0].calls[0];
+      expect(call).toHaveProperty('gas', MAX_L1_TX_LIMIT);
+      expect(call).not.toHaveProperty('maxFeePerGas');
+      expect(call).not.toHaveProperty('maxPriorityFeePerGas');
+    });
+
     it('transitions from sent to not-mined when tx drops without cancellation', async () => {
       await cheatCodes.setAutomine(false);
       await cheatCodes.setIntervalMining(0);
@@ -1914,6 +1928,66 @@ describe('L1TxUtils', () => {
           { fallbackGasEstimate: 123n },
         ),
       ).resolves.toEqual({ gasUsed: 123n, result: '0x' });
+    });
+
+    it('throws a descriptive error when the node rejects the simulation for insufficient funds', async () => {
+      const from: Hex = '0x1111111111111111111111111111111111111111';
+      const readOnlyUtils = new ReadOnlyL1TxUtils(publicClient, logger, dateProvider);
+      using _simulateBlocksSpy = jest.spyOn(publicClient, 'simulateBlocks').mockRejectedValue(
+        new L1RpcError('L1 RPC request failed', {
+          cause: new RpcRequestError({
+            body: {},
+            error: { code: -38014, message: 'insufficient funds for gas * price + value' },
+            url: rpcUrl,
+          }),
+        }),
+      );
+
+      await expect(
+        readOnlyUtils.simulate({ to: '0x1234567890123456789012345678901234567890', data: '0xabcdef', value: 0n, from }),
+      ).rejects.toThrow(new RegExp(`insufficient funds error before executing it \\(sender ${from}\\)`, 'i'));
+    });
+
+    it('classifies an insufficient funds rejection reported without the dedicated error code', async () => {
+      const readOnlyUtils = new ReadOnlyL1TxUtils(publicClient, logger, dateProvider);
+      using _simulateBlocksSpy = jest.spyOn(publicClient, 'simulateBlocks').mockRejectedValue(
+        new L1RpcError('L1 RPC request failed', {
+          cause: new RpcRequestError({
+            body: {},
+            error: { code: -32000, message: 'insufficient funds for gas * price + value: have 1 want 2' },
+            url: rpcUrl,
+          }),
+        }),
+      );
+
+      await expect(
+        readOnlyUtils.simulate({ to: '0x1234567890123456789012345678901234567890', data: '0xabcdef', value: 0n }),
+      ).rejects.toThrow(/insufficient funds error before executing it.*have 1 want 2/s);
+    });
+
+    it('reports an execution revert mentioning insufficient funds as a simulation failure', async () => {
+      const readOnlyUtils = new ReadOnlyL1TxUtils(publicClient, logger, dateProvider);
+      const data = encodeErrorResult({
+        abi: [{ type: 'error', name: 'Error', inputs: [{ type: 'string', name: 'message' }] }],
+        errorName: 'Error',
+        args: ['insufficient funds for fee'],
+      });
+      // Only the fields _simulate reads; the full viem return type carries every block field.
+      const failedSimulation = [
+        { gasUsed: 1_000n, calls: [{ status: 'failure', error: undefined, data }] },
+      ] as unknown as Awaited<ReturnType<typeof publicClient.simulateBlocks>>;
+      using _simulateBlocksSpy = jest.spyOn(publicClient, 'simulateBlocks').mockResolvedValue(failedSimulation);
+
+      const promise = readOnlyUtils.simulate({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0xabcdef',
+        value: 0n,
+      });
+
+      await expect(promise).rejects.toThrow(
+        'L1 transaction simulation failed with error Error(insufficient funds for fee)',
+      );
+      await expect(promise).rejects.not.toThrow(/rejected the eth_simulateV1 request/);
     });
 
     it('L1TxUtils can be instantiated with wallet client and has write methods', () => {

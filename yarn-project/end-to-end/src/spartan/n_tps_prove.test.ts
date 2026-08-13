@@ -35,6 +35,7 @@ import {
   type ServiceEndpoint,
   getEthereumEndpoint,
   getExternalIP,
+  logGossipTxValidationMetrics,
   setupEnvironment,
   startPortForwardForPrometeheus,
 } from './utils.js';
@@ -144,6 +145,15 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       const prometheusClient = new PrometheusClient({
         server: new URL(`http://127.0.0.1:${freshPromForward.port}`),
       });
+
+      // Log the gossip tx validation breakdown (per-stage timings, tx pool queue stats, chonk
+      // verifier timings) so slow gossip validations during the run can be attributed to a stage.
+      await logGossipTxValidationMetrics(
+        prometheusClient,
+        config.NAMESPACE,
+        epochDurationSeconds + SLOTS_BUFFER * slotDurationSeconds,
+        logger,
+      ).catch(err => logger.warn(`Failed to scrape gossip validation metrics: ${err}`, { err }));
 
       const endSnapshot = await captureMetricsSnapshot(prometheusClient, logger);
 

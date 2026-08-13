@@ -204,6 +204,24 @@ export const MEMPOOL_TX_POOL_V2_METADATA_MEMORY: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
+export const MEMPOOL_TX_POOL_V2_QUEUE_WAIT: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.queue_wait',
+  description: 'Time an operation waits in the tx pool serial queue before executing, keyed by mempool.operation',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_QUEUE_EXECUTION: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.queue_execution',
+  description: 'Time an operation spends executing in the tx pool serial queue, keyed by mempool.operation',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_QUEUE_LENGTH: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.queue_length',
+  description: 'Number of operations waiting in the tx pool serial queue',
+  valueType: ValueType.INT,
+};
+
 export const MEMPOOL_TX_POOL_V2_DUPLICATE_ADD: MetricDefinition = {
   name: 'aztec.mempool.tx_pool_v2.duplicate_add',
   description: 'Transactions received via addPendingTxs that were already in the pool',
@@ -1019,6 +1037,13 @@ export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_AVG: MetricDefinition = 
 export const P2P_GOSSIP_SLOW_VALIDATION_COUNT: MetricDefinition = {
   name: 'aztec.p2p.gossip.slow_validation_count',
   description: 'Number of gossip validations that exceeded 75% of the mcache eviction window',
+  valueType: ValueType.INT,
+};
+
+export const P2P_GOSSIP_TX_VALIDATION_STAGE_DURATION: MetricDefinition = {
+  name: 'aztec.p2p.gossip.tx_validation_stage_duration',
+  description: 'Duration of each stage of gossiped tx validation, keyed by the tx_validation_stage attribute',
+  unit: 'ms',
   valueType: ValueType.INT,
 };
 

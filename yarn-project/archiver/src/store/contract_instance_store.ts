@@ -1,4 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import { first } from '@aztec/foundation/iterable';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { isProtocolContract } from '@aztec/protocol-contracts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -134,19 +135,18 @@ export class ContractInstanceStore {
 
   async getCurrentContractInstanceClassId(address: AztecAddress, timestamp: UInt64, originalClassId: Fr): Promise<Fr> {
     // We need to find the last update before the given timestamp
-    const queryResult = await this.#contractInstanceUpdates
-      .valuesAsync({
+    const serializedUpdate = await first(
+      this.#contractInstanceUpdates.valuesAsync({
         reverse: true,
         start: this.getUpdateKey(address, 0n), // Make sure we only look at updates for this contract
         end: this.getUpdateKey(address, timestamp + 1n), // No update can match this key since it doesn't have a log index. We want the highest key <= timestamp
         limit: 1,
-      })
-      .next();
-    if (queryResult.done) {
+      }),
+    );
+    if (serializedUpdate === undefined) {
       return originalClassId;
     }
 
-    const serializedUpdate = queryResult.value;
     const update = SerializableContractInstanceUpdate.fromBuffer(serializedUpdate);
     if (timestamp < update.timestampOfChange) {
       return update.prevContractClassId.isZero() ? originalClassId : update.prevContractClassId;
