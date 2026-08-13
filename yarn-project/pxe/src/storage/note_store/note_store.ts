@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { Semaphore } from '@aztec/foundation/queue';
 import type { Fr } from '@aztec/foundation/schemas';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
@@ -98,7 +99,7 @@ export class NoteStore implements StagedStore {
   public addNotes(notes: NoteDao[], scope: AztecAddress, jobId: string): Promise<void[]> {
     return this.#withJobLock(jobId, () =>
       this.#store.transactionAsync(() =>
-        Promise.all(
+        allToCompletion(
           notes.map(async note => {
             const noteForJob =
               (await this.#readNote(note.siloedNullifier.toString(), jobId)) ?? new StoredNote(note, new Set());
@@ -190,8 +191,10 @@ export class NoteStore implements StagedStore {
 
       // Await all DB reads together before the await-free tail.
       const entries = [...candidates.entries()];
-      const notes = await Promise.all(entries.map(([, { notePromise }]) => notePromise));
-      const nullifierEmissions = await Promise.all(entries.map(([, { nullificationPromise }]) => nullificationPromise));
+      const notes = await allToCompletion(entries.map(([, { notePromise }]) => notePromise));
+      const nullifierEmissions = await allToCompletion(
+        entries.map(([, { nullificationPromise }]) => nullificationPromise),
+      );
 
       // Await-free tail: filter and sort. No DB ops from here on.
       // Build a lookup: nullifier => emission block number
@@ -278,10 +281,10 @@ export class NoteStore implements StagedStore {
       this.#store.transactionAsync(async () => {
         // Kick off the note read and the existing-emission read together during the synchronous map so all are in
         // flight before the first await, which keeps the IndexedDB transaction alive.
-        const resolved = await Promise.all(
+        const resolved = await allToCompletion(
           siloedNullifiers.map(async nullifier => {
             const key = nullifier.data.toString();
-            const [storedNote, existingEmission] = await Promise.all([
+            const [storedNote, existingEmission] = await allToCompletion([
               this.#readNote(key, jobId),
               this.#readNullifierEmission(key, jobId),
             ]);
@@ -347,7 +350,7 @@ export class NoteStore implements StagedStore {
   /**
    * Functions run withJobLock are forced to wait for each other, i.e. if they share a `jobId`, they run serially
    * instead of concurrently. This is needed because staged data is stored in memory, and concurrent async operations
-   * (e.g., Promise.all in `validateAndStoreNote`) could otherwise interleave and corrupt state.
+   * (e.g., allToCompletion in `validateAndStoreNote`) could otherwise interleave and corrupt state.
    */
   async #withJobLock<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
     let lock = this.#jobLocks.get(jobId);
@@ -415,7 +418,7 @@ export class NoteStore implements StagedStore {
     }
 
     let removedNotes = 0;
-    await Promise.all(
+    await allToCompletion(
       orphanedNotes.map(async ({ block, siloedNullifier }) => {
         const buf = await this.#notes.getAsync(siloedNullifier);
         if (!buf) {
@@ -438,7 +441,7 @@ export class NoteStore implements StagedStore {
       orphanedEmissions.push({ block, siloedNullifier });
     }
 
-    await Promise.all(
+    await allToCompletion(
       orphanedEmissions.map(async ({ block, siloedNullifier }) => {
         await this.#nullifierEmissions.delete(siloedNullifier);
         await this.#nullifierEmissionsByBlockNumber.deleteValue(block, siloedNullifier);

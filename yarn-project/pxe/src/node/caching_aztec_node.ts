@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type BlockParameter, type DataInBlock } from '@aztec/stdlib/block';
 import type { BlockIncludeOptions } from '@aztec/stdlib/interfaces/client';
@@ -325,7 +326,7 @@ function readBatchedPerKey<T>(
   }
 
   // Every position is answered: a cache hit, or the entry its key's request seeded just above.
-  return Promise.all(keys.map((key, index) => cached[index] ?? fetchedByKey.get(key)!));
+  return allToCompletion(keys.map((key, index) => cached[index] ?? fetchedByKey.get(key)!));
 }
 
 /**

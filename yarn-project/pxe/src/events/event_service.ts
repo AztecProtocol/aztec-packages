@@ -1,5 +1,6 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock } from '@aztec/stdlib/block';
 import { computePrivateEventCommitment, siloNullifier } from '@aztec/stdlib/hash';
@@ -37,7 +38,7 @@ export class EventService {
 
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
 
-    await Promise.all(
+    await allToCompletion(
       requests.map(req => this.#validateAndStoreEvent(req, scope, validationTxData, anchorBlockNumber)),
     );
   }
