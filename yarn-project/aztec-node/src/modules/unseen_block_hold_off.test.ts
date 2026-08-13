@@ -25,6 +25,8 @@ describe('UnseenBlockHoldOff', () => {
   let blockSource: MockProxy<L2BlockSource>;
   let holdOff: UnseenBlockHoldOff;
   let tip: BlockNumber;
+  /** Hash of the synthetic genesis block, which this source never serves — as the block store does not. */
+  let genesisBlockHash: BlockHash;
   /** Blocks the source knows about, keyed by block number. Tests add entries to simulate a block arriving. */
   let chain: Map<BlockNumber, BlockData>;
 
@@ -37,12 +39,14 @@ describe('UnseenBlockHoldOff', () => {
 
   beforeEach(() => {
     tip = BlockNumber(5);
+    genesisBlockHash = BlockHash.random();
     chain = new Map();
     for (let i = 1; i <= tip; i++) {
       chain.set(BlockNumber(i), makeBlockData(BlockNumber(i)));
     }
 
     blockSource = mock<L2BlockSource>();
+    blockSource.getGenesisBlockHash.mockImplementation(() => genesisBlockHash);
     blockSource.getBlockNumber.mockImplementation((() => Promise.resolve(tip)) as L2BlockSource['getBlockNumber']);
     blockSource.getBlockData.mockImplementation(((query: BlockQuery) => {
       if ('number' in query) {
@@ -139,6 +143,17 @@ describe('UnseenBlockHoldOff', () => {
 
       expect(data).toBeUndefined();
       expect(timer.ms()).toBeGreaterThanOrEqual(BY_HASH_WAIT_MS);
+    });
+
+    it('fails fast on the genesis block hash, which no wait can make appear', async () => {
+      // A PXE anchors its early queries on the genesis block before it has synced a block. Genesis is synthetic,
+      // so a source that does not serve it now never will, and the query must not burn a whole budget.
+      const timer = new Timer();
+      const data = await holdOff.getBlockData({ hash: genesisBlockHash });
+
+      expect(data).toBeUndefined();
+      expectResolvedWithoutHolding();
+      expect(timer.ms()).toBeLessThan(BY_HASH_WAIT_MS);
     });
 
     it('does not consult the tip when resolving a hash', async () => {

@@ -4,6 +4,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { Timer } from '@aztec/foundation/timer';
 import {
   type BlockData,
+  type BlockHash,
   type L2Block,
   type L2BlockSource,
   type NormalizedBlockParameter,
@@ -143,6 +144,10 @@ export class UnseenBlockHoldOff {
    * next block: further ahead the client is not merely one block in front, and at or below the tip the block was
    * pruned or reorged away. A hash or archive root carries no height, so "one ahead" and "reorged away" are
    * indistinguishable and both get the shorter hash budget.
+   *
+   * The genesis block hash is the one hash never worth waiting on: a client anchors on it before it has synced any
+   * block (as a PXE does for its first tagged-log queries), and the block is synthetic, so a source that does not
+   * answer for it now never will.
    */
   async #resolveWaitBudgetMs(query: NormalizedBlockParameter): Promise<number> {
     if ('tag' in query) {
@@ -152,6 +157,14 @@ export class UnseenBlockHoldOff {
       const tip = await this.blockSource.getBlockNumber();
       return query.number === tip + 1 ? this.config.byNumberWaitMs : 0;
     }
+    if ('hash' in query && this.#isGenesisBlockHash(query.hash)) {
+      return 0;
+    }
     return this.config.byHashWaitMs;
+  }
+
+  /** True when `hash` names the synthetic genesis block, which never arrives and so is never waited for. */
+  #isGenesisBlockHash(hash: BlockHash): boolean {
+    return hash.equals(this.blockSource.getGenesisBlockHash());
   }
 }
