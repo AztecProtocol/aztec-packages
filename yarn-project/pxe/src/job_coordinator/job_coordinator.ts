@@ -1,5 +1,6 @@
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 
 /**
@@ -119,7 +120,7 @@ export class JobCoordinator {
     this.log.debug(`Committing job ${jobId}`);
 
     // Settling must stay outside the transaction: it can take arbitrarily long.
-    await Promise.all([...this.#stores.values()].map(store => store.settle?.(jobId)));
+    await allToCompletion([...this.#stores.values()].map(store => store.settle?.(jobId)));
 
     // Commit all stores atomically in a single transaction.
     // Each store's commit is a no-op if it has no staged data (but that's up to each store to handle).
@@ -168,7 +169,7 @@ export class JobCoordinator {
    * so a store that fails to settle cannot stop the others from discarding or mask the error that aborted the job.
    */
   async #settleStoresLoggingFailures(jobId: string): Promise<void> {
-    await Promise.all(
+    await allToCompletion(
       [...this.#stores.values()].map(store =>
         store.settle?.(jobId).catch(err => {
           this.log.warn(`Store ${store.storeName} failed to settle while aborting job ${jobId}`, { jobId, err });
