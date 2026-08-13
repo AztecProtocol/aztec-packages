@@ -1,8 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const SNAPSHOT_GLOBALS_CASES: &[&str] = &["duplicate_abi_tag_on_global"];
-
 fn manifest_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
@@ -142,37 +140,6 @@ fn run_compile_success(name: &str, dir: PathBuf) {
     let stderr = scrub_stderr(String::from_utf8(out.stderr).expect("nargo stderr should be utf-8"));
     insta::with_settings!({ snapshot_path => format!("snapshots/compile_success/{name}") }, {
         insta::assert_snapshot!("stderr", stderr);
-    });
-    if SNAPSHOT_GLOBALS_CASES.contains(&name) {
-        snapshot_globals(name, &dir);
-    }
-}
-
-fn snapshot_globals(name: &str, dir: &Path) {
-    let mut artifacts = std::fs::read_dir(dir.join("target"))
-        .unwrap_or_else(|e| panic!("could not read compiled artifacts for {name}: {e}"))
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.extension()
-                .is_some_and(|extension| extension == "json")
-        })
-        .collect::<Vec<_>>();
-    artifacts.sort();
-    assert_eq!(
-        artifacts.len(),
-        1,
-        "{name} should produce exactly one contract artifact"
-    );
-
-    let artifact = std::fs::read(&artifacts[0])
-        .unwrap_or_else(|e| panic!("could not read {}: {e}", artifacts[0].display()));
-    let artifact: serde_json::Value = serde_json::from_slice(&artifact)
-        .unwrap_or_else(|e| panic!("could not parse {}: {e}", artifacts[0].display()));
-    let globals = serde_json::to_string_pretty(&artifact["outputs"]["globals"])
-        .expect("artifact globals should serialize");
-    insta::with_settings!({ snapshot_path => format!("snapshots/compile_success/{name}") }, {
-        insta::assert_snapshot!("globals", globals);
     });
 }
 

@@ -14,4 +14,3 @@ harness = true
 
 [dev-dependencies]
 insta = "1"
-serde_json = "1"
