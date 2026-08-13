@@ -1,7 +1,9 @@
 #pragma once
 
+#ifndef ULTRAHONK_ONLY
 #include "barretenberg/bbapi/bbapi_avm.hpp"
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
+#endif
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
 #include "barretenberg/bbapi/bbapi_ecdsa.hpp"
@@ -14,13 +16,17 @@
 
 namespace bb::bbapi {
 
-using Command = NamedUnion<AvmProve,
+using Command = NamedUnion<
+#ifndef ULTRAHONK_ONLY
+                           AvmProve,
                            AvmVerify,
                            AvmCheckCircuit,
+#endif
                            CircuitProve,
                            CircuitComputeVk,
                            CircuitStats,
                            CircuitVerify,
+#ifndef ULTRAHONK_ONLY
                            ChonkComputeVk,
                            ChonkStart,
                            ChonkLoad,
@@ -29,13 +35,16 @@ using Command = NamedUnion<AvmProve,
                            ChonkVerify,
                            ChonkVerifyFromFields,
                            ChonkBatchVerify,
+#endif
                            VkAsFields,
-                           MegaVkAsFields,
                            CircuitWriteSolidityVerifier,
+#ifndef ULTRAHONK_ONLY
+                           MegaVkAsFields,
                            ChonkCheckPrecomputedVk,
                            ChonkStats,
                            ChonkCompressProof,
                            ChonkDecompressProof,
+#endif
                            Poseidon2Hash,
                            Poseidon2Permutation,
                            PedersenCommit,
@@ -71,21 +80,26 @@ using Command = NamedUnion<AvmProve,
                            EcdsaSecp256k1VerifySignature,
                            EcdsaSecp256r1VerifySignature,
                            SrsInitSrs,
+#ifndef ULTRAHONK_ONLY
                            ChonkBatchVerifierStart,
                            ChonkBatchVerifierQueue,
                            ChonkBatchVerifierStop,
+#endif
                            SrsInitGrumpkinSrs,
                            SetMsmLegacy,
                            Shutdown>;
 
 using CommandResponse = NamedUnion<ErrorResponse,
+#ifndef ULTRAHONK_ONLY
                                    AvmProve::Response,
                                    AvmVerify::Response,
                                    AvmCheckCircuit::Response,
+#endif
                                    CircuitProve::Response,
                                    CircuitComputeVk::Response,
                                    CircuitStats::Response,
                                    CircuitVerify::Response,
+#ifndef ULTRAHONK_ONLY
                                    ChonkComputeVk::Response,
                                    ChonkStart::Response,
                                    ChonkLoad::Response,
@@ -94,13 +108,16 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    ChonkVerify::Response,
                                    ChonkVerifyFromFields::Response,
                                    ChonkBatchVerify::Response,
+#endif
                                    VkAsFields::Response,
-                                   MegaVkAsFields::Response,
                                    CircuitWriteSolidityVerifier::Response,
+#ifndef ULTRAHONK_ONLY
+                                   MegaVkAsFields::Response,
                                    ChonkCheckPrecomputedVk::Response,
                                    ChonkStats::Response,
                                    ChonkCompressProof::Response,
                                    ChonkDecompressProof::Response,
+#endif
                                    Poseidon2Hash::Response,
                                    Poseidon2Permutation::Response,
                                    PedersenCommit::Response,
@@ -136,9 +153,11 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    EcdsaSecp256k1VerifySignature::Response,
                                    EcdsaSecp256r1VerifySignature::Response,
                                    SrsInitSrs::Response,
+#ifndef ULTRAHONK_ONLY
                                    ChonkBatchVerifierStart::Response,
                                    ChonkBatchVerifierQueue::Response,
                                    ChonkBatchVerifierStop::Response,
+#endif
                                    SrsInitGrumpkinSrs::Response,
                                    SetMsmLegacy::Response,
                                    Shutdown::Response>;
