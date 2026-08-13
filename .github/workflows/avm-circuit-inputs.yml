@@ -1,11 +1,11 @@
 name: AVM Circuit Inputs Collection and Check
 
 on:
-  push:
-    branches:
-      - next
-  # The nightly safety-net run is disabled until this flow is reworked for the repo split
+  # The per-push and nightly runs are disabled until this flow is reworked for the repo split
   # (the labs repo publishes the captured inputs; this repo checks them).
+  # push:
+  #   branches:
+  #     - next
   # schedule:
   #   - cron: "0 3 * * *"
   workflow_dispatch:
