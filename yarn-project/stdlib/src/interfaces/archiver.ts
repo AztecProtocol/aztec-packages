@@ -24,7 +24,7 @@ import {
 } from '../contract/index.js';
 import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogResultSchema } from '../logs/log_result.js';
-import { PrivateLogsQuerySchema, PublicLogsQuerySchema } from '../logs/logs_query.js';
+import { ResolvedPrivateLogsQuerySchema, ResolvedPublicLogsQuerySchema } from '../logs/logs_query.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { optional, schemas } from '../schemas/schemas.js';
@@ -120,11 +120,11 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   isEpochComplete: z.function({ input: z.tuple([EpochNumberSchema]), output: z.boolean() }),
   getL2Tips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
   getPrivateLogsByTags: z.function({
-    input: z.tuple([PrivateLogsQuerySchema]),
+    input: z.tuple([ResolvedPrivateLogsQuerySchema]),
     output: z.array(z.array(LogResultSchema)),
   }),
   getPublicLogsByTags: z.function({
-    input: z.tuple([PublicLogsQuerySchema]),
+    input: z.tuple([ResolvedPublicLogsQuerySchema]),
     output: z.array(z.array(LogResultSchema)),
   }),
   getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),

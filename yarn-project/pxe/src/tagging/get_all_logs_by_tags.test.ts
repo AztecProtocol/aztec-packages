@@ -50,7 +50,7 @@ describe('getAllPrivateLogsByTags', () => {
     expect(result).toEqual([[], [], []]);
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledWith({
       tags,
-      referenceBlock: MOCK_ANCHOR.hash,
+      referenceBlock: MOCK_ANCHOR,
       fromBlock: undefined,
       toBlock: MOCK_ANCHOR_TO_BLOCK,
       includeEffects: false,
@@ -82,7 +82,7 @@ describe('getAllPrivateLogsByTags', () => {
     // Round 1: all tags queried with bare tags
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenNthCalledWith(1, {
       tags,
-      referenceBlock: MOCK_ANCHOR.hash,
+      referenceBlock: MOCK_ANCHOR,
       fromBlock: undefined,
       toBlock: MOCK_ANCHOR_TO_BLOCK,
       includeEffects: false,
@@ -91,7 +91,7 @@ describe('getAllPrivateLogsByTags', () => {
     // Round 2: only tag[0] re-queried, with an afterLog cursor pointing at the last log of round 1
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenNthCalledWith(2, {
       tags: [{ tag: tags[0], afterLog: LogCursor.fromLog(lastLogOfFirstPage) }],
-      referenceBlock: MOCK_ANCHOR.hash,
+      referenceBlock: MOCK_ANCHOR,
       fromBlock: undefined,
       toBlock: MOCK_ANCHOR_TO_BLOCK,
       includeEffects: false,
@@ -119,7 +119,7 @@ describe('getAllPrivateLogsByTags', () => {
 
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledWith({
       tags,
-      referenceBlock: MOCK_ANCHOR.hash,
+      referenceBlock: MOCK_ANCHOR,
       fromBlock: BlockNumber(5),
       toBlock: BlockNumber(10),
       includeEffects: true,
@@ -161,14 +161,14 @@ describe('getAllPrivateLogsByTags', () => {
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenNthCalledWith(1, {
         tags: batch1Tags,
-        referenceBlock: MOCK_ANCHOR.hash,
+        referenceBlock: MOCK_ANCHOR,
         fromBlock: undefined,
         toBlock: MOCK_ANCHOR_TO_BLOCK,
         includeEffects: false,
       });
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenNthCalledWith(2, {
         tags: batch2Tags,
-        referenceBlock: MOCK_ANCHOR.hash,
+        referenceBlock: MOCK_ANCHOR,
         fromBlock: undefined,
         toBlock: MOCK_ANCHOR_TO_BLOCK,
         includeEffects: false,

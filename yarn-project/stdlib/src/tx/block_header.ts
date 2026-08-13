@@ -12,6 +12,7 @@ import { inspect } from 'util';
 import { z } from 'zod';
 
 import { BlockHash } from '../block/block_hash.js';
+import type { AnchoredBlockParameter } from '../block/block_parameter.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { GlobalVariables } from './global_variables.js';
 import { StateReference } from './state_reference.js';
@@ -174,6 +175,15 @@ export class BlockHeader {
       );
     }
     return this._cachedHash;
+  }
+
+  /**
+   * The {@link AnchoredBlockParameter} naming this block, for node queries anchored on it. Carrying the height
+   * alongside the hash lets a node that has not seen this block yet tell a client racing one block ahead from an
+   * anchor that is stale or reorged away.
+   */
+  public async toBlockParameter(): Promise<AnchoredBlockParameter> {
+    return { number: this.getBlockNumber(), hash: await this.hash() };
   }
 
   /** Manually set the hash for this block header if already computed */

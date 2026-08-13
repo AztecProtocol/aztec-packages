@@ -4,6 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { BlockHash, L2Block } from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
+import type { ResolvedLogsQuery } from '@aztec/stdlib/interfaces/server';
 import type {
   LogCursor,
   LogResult,
@@ -187,13 +188,13 @@ export class LogStore {
   }
 
   /** Returns one inner array per element of `query.tags`, in input order. */
-  getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+  getPrivateLogsByTags(query: ResolvedLogsQuery<PrivateLogsQuery>): Promise<LogResult[][]> {
     LogStore.#validateQuery(query);
     return this.db.transactionAsync(() => this.#runQuery(query, /* contractHex */ undefined));
   }
 
   /** Returns one inner array per element of `query.tags`, in input order. */
-  getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+  getPublicLogsByTags(query: ResolvedLogsQuery<PublicLogsQuery>): Promise<LogResult[][]> {
     LogStore.#validateQuery(query);
     return this.db.transactionAsync(() => this.#runQuery(query, fieldHex(query.contractAddress)));
   }
@@ -204,7 +205,10 @@ export class LogStore {
     }
   }
 
-  async #runQuery(query: PrivateLogsQuery | PublicLogsQuery, contractHex: string | undefined): Promise<LogResult[][]> {
+  async #runQuery(
+    query: ResolvedLogsQuery<PrivateLogsQuery> | ResolvedLogsQuery<PublicLogsQuery>,
+    contractHex: string | undefined,
+  ): Promise<LogResult[][]> {
     const isPublic = contractHex !== undefined;
     const tags = (query.tags as ReadonlyArray<TagQuery<Tag | SiloedTag>>) ?? [];
     const primaryMap = isPublic ? this.#publicLogs : this.#privateLogs;
@@ -213,14 +217,15 @@ export class LogStore {
     // genesis block is a valid anchor during early sync but is synthetic and never indexed in the block
     // store, so resolve it directly to the genesis block number rather than mistaking it for a reorg.
     let referenceBlockNumber: number | undefined;
-    if (query.referenceBlock) {
-      if (query.referenceBlock.equals(this.genesisBlockHash)) {
+    const referenceBlockHash = query.referenceBlock;
+    if (referenceBlockHash) {
+      if (referenceBlockHash.equals(this.genesisBlockHash)) {
         referenceBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
       } else {
-        const refBlk = await this.blockStore.getBlockData({ hash: query.referenceBlock });
+        const refBlk = await this.blockStore.getBlockData({ hash: referenceBlockHash });
         if (!refBlk) {
           throw new Error(
-            `Reference block ${query.referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
+            `Reference block ${referenceBlockHash.toString()} not found in the node. This might indicate a reorg has occurred.`,
           );
         }
         referenceBlockNumber = refBlk.header.globalVariables.blockNumber;

@@ -44,26 +44,112 @@ export const NormalizedBlockParameterSchema: z.ZodType<NormalizedBlockParameter,
 ]);
 
 /**
+ * Anchor naming a block by both its height and its hash.
+ *
+ * The hash pins the fork, exactly as a bare `{ hash }` does. The number additionally tells a server that has not
+ * seen the block whether the anchor is the block right after its tip — a client that raced ahead by one block —
+ * or a block it should already know, which means the anchor is stale or was reorged away. Only the RPC boundary
+ * consumes the number; every lookup past it goes by hash.
+ */
+export type AnchoredBlockParameter = { number: BlockNumber; hash: BlockHash };
+
+/**
  * Selector for a block in RPC calls.
  *
  * Accepts a block number, a {@link BlockHash}, a chain-tip name (e.g. `'proven'`, `'checkpointed'`),
- * `'latest'` (alias for `'proposed'`), or any of the {@link NormalizedBlockParameter} object variants
- * (`{ number }`, `{ hash }`, `{ archive }`, `{ tag }`).
+ * `'latest'` (alias for `'proposed'`), any of the {@link NormalizedBlockParameter} object variants
+ * (`{ number }`, `{ hash }`, `{ archive }`, `{ tag }`), or the {@link AnchoredBlockParameter} form
+ * (`{ number, hash }`).
  */
-export type BlockParameter = NormalizedBlockParameter | BlockNumber | BlockHash | BlockTag;
+export type BlockParameter = NormalizedBlockParameter | AnchoredBlockParameter | BlockNumber | BlockHash | BlockTag;
+
+export const AnchoredBlockParameterSchema: z.ZodType<AnchoredBlockParameter, unknown> = z
+  .object({ number: BlockNumberSchema, hash: BlockHash.schema })
+  .strict();
+
+/** The selector keys an object form of {@link BlockParameter} may carry. */
+const BLOCK_PARAMETER_SELECTORS = ['number', 'hash', 'archive', 'tag'] as const;
+
+/**
+ * Catch-all object form, tried only after every exact variant has been rejected: unknown keys are stripped rather
+ * than refused, so a client sending a key this version does not know about is still served. Selector keys are not
+ * treated so leniently — an object naming two blocks in two different ways is a client bug and says nothing about
+ * which one to answer, so it is rejected rather than silently resolved by whichever key is read first. The one
+ * combination that does name a single block, `number` + `hash`, is the anchored form. The result is transformed to
+ * an exact variant so nothing downstream ever sees a mixed object.
+ */
+const looseBlockParameterSchema: z.ZodType<NormalizedBlockParameter | AnchoredBlockParameter, unknown> = z
+  .object({
+    number: BlockNumberSchema.optional(),
+    hash: BlockHash.schema.optional(),
+    archive: schemas.Fr.optional(),
+    tag: BlockTagWithoutLatestSchema.optional(),
+  })
+  .transform((param, ctx) => {
+    const selectors = BLOCK_PARAMETER_SELECTORS.filter(key => param[key] !== undefined);
+    if (param.number !== undefined && param.hash !== undefined && selectors.length === 2) {
+      return { number: param.number, hash: param.hash };
+    }
+    if (selectors.length === 1) {
+      if (param.number !== undefined) {
+        return { number: param.number };
+      }
+      if (param.hash !== undefined) {
+        return { hash: param.hash };
+      }
+      if (param.archive !== undefined) {
+        return { archive: param.archive };
+      }
+      if (param.tag !== undefined) {
+        return { tag: param.tag };
+      }
+    }
+    ctx.addIssue({
+      code: 'custom',
+      message:
+        `A block parameter object must name exactly one block, via a single one of ` +
+        `${BLOCK_PARAMETER_SELECTORS.join(', ')} or via number and hash together, but got [${selectors.join(', ')}]`,
+    });
+    return z.NEVER;
+  });
 
 export const BlockParameterSchema: z.ZodType<BlockParameter, unknown> = z.union([
   NormalizedBlockParameterSchema,
   BlockHash.schema,
   BlockTagSchema,
   BlockNumberSchema,
+  AnchoredBlockParameterSchema,
+  looseBlockParameterSchema,
 ]);
+
+/** True when `param` is an {@link AnchoredBlockParameter}, naming a block by both its number and its hash. */
+export function isAnchoredBlockParameter(param: BlockParameter): param is AnchoredBlockParameter {
+  return typeof param === 'object' && param !== null && 'number' in param && 'hash' in param;
+}
+
+/**
+ * The block hash `param` pins, or `undefined` when it names a block in a way a reorg can move (a number or a tag) or
+ * by an archive root. Every hash-bearing form — a bare {@link BlockHash}, `{ hash }`, and the anchored
+ * `{ number, hash }` — pins the same block, so callers that only care which fork the answer belongs to treat them
+ * alike.
+ */
+export function blockParameterHash(param: BlockParameter): BlockHash | undefined {
+  if (BlockHash.isBlockHash(param)) {
+    return param;
+  }
+  if (typeof param === 'object' && param !== null && 'hash' in param) {
+    return param.hash;
+  }
+  return undefined;
+}
 
 export function inspectBlockParameter(param: BlockParameter) {
   if (typeof param === 'number') {
     return param.toString();
   } else if (typeof param === 'string') {
     return param;
+  } else if ('number' in param && 'hash' in param) {
+    return `number=${param.number.toString()},hash=${param.hash.toString()}`;
   } else if ('number' in param) {
     return `number=${param.number.toString()}`;
   } else if ('hash' in param) {

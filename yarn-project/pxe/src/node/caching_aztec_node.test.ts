@@ -133,6 +133,38 @@ describe('withCache', () => {
       expect(aztecNode.getBlock).toHaveBeenCalledTimes(2);
     });
 
+    it('shares repeated reads of a block pinned by an anchor naming both its number and hash', async () => {
+      const anchor = { number: BlockNumber(1), hash: BlockHash.random() };
+      const block = makeBlockResponse(BlockNumber(1));
+      aztecNode.getBlock.mockResolvedValue(block);
+
+      await expect(cachedNode.getBlock(anchor)).resolves.toBe(block);
+      await expect(cachedNode.getBlock(anchor)).resolves.toBe(block);
+
+      expect(aztecNode.getBlock).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps anchors on different blocks apart', async () => {
+      aztecNode.getBlock.mockResolvedValue(makeBlockResponse(BlockNumber(1)));
+
+      await cachedNode.getBlock({ number: BlockNumber(1), hash: BlockHash.random() });
+      await cachedNode.getBlock({ number: BlockNumber(1), hash: BlockHash.random() });
+
+      expect(aztecNode.getBlock).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not answer an anchor naming the wrong height from an entry cached for the right one', async () => {
+      const hash = BlockHash.random();
+      aztecNode.getBlock.mockResolvedValue(makeBlockResponse(BlockNumber(1)));
+
+      await cachedNode.getBlock({ number: BlockNumber(1), hash });
+      await cachedNode.getBlock({ number: BlockNumber(2), hash });
+
+      // The node rejects an anchor whose number is not the height of the block its hash names, so serving the second
+      // read from the first's entry would answer a request the node would have refused.
+      expect(aztecNode.getBlock).toHaveBeenCalledTimes(2);
+    });
+
     it('passes number-referenced reads through to the node uncached', async () => {
       aztecNode.getBlock.mockResolvedValue(makeBlockResponse(BlockNumber(1)));
 
@@ -479,6 +511,33 @@ describe('withCache', () => {
       await cachedNode.getPublicLogsByTags(query);
 
       expect(aztecNode.getPublicLogsByTags).toHaveBeenCalledTimes(2);
+    });
+
+    it('caches a tag query anchored by number and hash, keyed on both', async () => {
+      const tags = [new SiloedTag(Fr.random())];
+      const hash = BlockHash.random();
+      const toBlock = BlockNumber(101);
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[randomLogResult()]]);
+
+      const anchored = { tags, referenceBlock: { number: BlockNumber(100), hash }, toBlock };
+      await cachedNode.getPrivateLogsByTags(anchored);
+      await cachedNode.getPrivateLogsByTags(anchored);
+      // A different height for the same block is a different request, which the node answers with a rejection.
+      await cachedNode.getPrivateLogsByTags({ ...anchored, referenceBlock: { number: BlockNumber(99), hash } });
+
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+    });
+
+    it('passes a tag query whose anchor is only a block number through to the node', async () => {
+      const tags = [new SiloedTag(Fr.random())];
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
+      const query = { tags, referenceBlock: BlockNumber(100), toBlock: BlockNumber(101) };
+
+      // A number is no fork pin: a reorg can put another block there, so the answer can still change.
+      await cachedNode.getPrivateLogsByTags(query);
+      await cachedNode.getPrivateLogsByTags(query);
+
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
     });
 
     it('passes queries whose answer can still change through to the node', async () => {

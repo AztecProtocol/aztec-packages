@@ -19,6 +19,7 @@ import {
   projectProposedToCheckpointResponse,
 } from '../aztec-node/block_response_helpers.js';
 import { normalizeBlockParameter, resolveCheckpointParameter } from './block_parameter.js';
+import type { UnseenBlockHoldOff } from './unseen_block_hold_off.js';
 
 /**
  * Serves the node's block and checkpoint read queries, assembling RPC responses (optionally including
@@ -26,7 +27,10 @@ import { normalizeBlockParameter, resolveCheckpointParameter } from './block_par
  * `AztecNodeService` to keep `server.ts` smaller.
  */
 export class NodeBlockProvider {
-  constructor(private readonly blockSource: L2BlockSource) {}
+  constructor(
+    private readonly blockSource: L2BlockSource,
+    private readonly holdOff: UnseenBlockHoldOff,
+  ) {}
 
   public async getBlock<Opts extends BlockIncludeOptions = {}>(
     param: BlockParameter,
@@ -37,14 +41,16 @@ export class NodeBlockProvider {
     const wantContext = !!options.includeL1PublishInfo || !!options.includeAttestations;
 
     if (wantTxs) {
-      const block = await this.blockSource.getBlock(query);
+      // Resolved through the hold-off so the anchored form is reduced to a hash the block source understands, and so
+      // a block the node is about to see is waited for before the read that carries the txs.
+      const block = await this.holdOff.getBlock(query);
       if (!block) {
         return undefined;
       }
       const ctx = wantContext ? await this.#getCheckpointContext(block.checkpointNumber) : undefined;
       return (await blockResponseFromL2Block(block, options, ctx)) as BlockResponse<Opts>;
     }
-    const data = await this.blockSource.getBlockData(query);
+    const data = await this.holdOff.getBlockData(query);
     if (!data) {
       return undefined;
     }
@@ -54,7 +60,7 @@ export class NodeBlockProvider {
 
   public getBlockData(param: BlockParameter): Promise<BlockData | undefined> {
     const query = normalizeBlockParameter(param);
-    return this.blockSource.getBlockData(query);
+    return this.holdOff.getBlockData(query);
   }
 
   public async getBlocks<Opts extends BlocksIncludeOptions = {}>(

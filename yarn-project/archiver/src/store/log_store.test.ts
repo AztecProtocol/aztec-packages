@@ -469,6 +469,25 @@ describe('LogStore', () => {
       );
     });
 
+    it('caps results at the anchor block', async () => {
+      const tag = new SiloedTag(new Fr(0x8888));
+      const ckpts = await buildChainedCheckpointsWithLogs(2, {
+        numTxsPerBlock: 1,
+        privateLogs: { numLogsPerTx: 1 },
+      });
+      for (const ckpt of ckpts) {
+        ckpt.checkpoint.blocks[0].body.txEffects[0].privateLogs[0].fields[0] = tag.value;
+      }
+      await blockStore.addCheckpoints(ckpts);
+      await logStore.addLogs(ckpts.map(c => c.checkpoint.blocks[0]));
+
+      // Anchored at block 1, so the log in block 2 is past the anchor and only the first one comes back.
+      const referenceBlock = await ckpts[0].checkpoint.blocks[0].hash();
+      const [res] = await logStore.getPrivateLogsByTags({ tags: [tag], referenceBlock });
+
+      expect(res.map(log => log.blockNumber)).toEqual([BlockNumber(1)]);
+    });
+
     it('attaches noteHashes + nullifiers only when includeEffects is set', async () => {
       const tag = new SiloedTag(new Fr(0xeeee));
       const ckpt = await makeCheckpointWithLogs(1, { numTxsPerBlock: 1, privateLogs: { numLogsPerTx: 1 } });

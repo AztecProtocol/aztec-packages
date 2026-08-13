@@ -5,7 +5,9 @@ import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import { BlockHash } from '../block/block_hash.js';
+import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { MAX_LOGS_PER_TAG, MAX_RPC_LEN } from '../interfaces/api_limit.js';
+import type { ResolvedLogsQuery } from '../interfaces/l2_logs_source.js';
 import { type ZodFor, schemas, zodFor } from '../schemas/index.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { LogCursor } from './log_cursor.js';
@@ -33,10 +35,15 @@ export type LogsQueryBase = {
    */
   txHash?: TxHash;
   /**
-   * Reorg-safety anchor: the latest block hash the caller has synced to. The call throws if that block is no longer
-   * present. Results are capped at that block, and `toBlock` can only narrow the range further, never past it.
+   * Reorg-safety anchor: the latest block the caller has synced to, named in any {@link BlockParameter} form. The
+   * call throws if that block is no longer present. Results are capped at that block, and `toBlock` can only narrow
+   * the range further, never past it.
+   *
+   * A hash-bearing form (a bare hash, `{ hash }`, or the anchored `{ number, hash }`) is what makes this an anchor:
+   * the node answers on that exact fork or fails. A number or a tag is resolved to whatever block the node holds
+   * there, which a reorg can change, so those forms bound the query without pinning a fork.
    */
-  referenceBlock?: BlockHash;
+  referenceBlock?: BlockParameter;
   /** When set, each log also carries `noteHashes` and all `nullifiers` for note-nonce discovery. */
   includeEffects?: boolean;
   /**
@@ -81,7 +88,7 @@ const logsQueryBaseShape = {
   fromBlock: BlockNumberSchema.optional(),
   toBlock: BlockNumberSchema.optional(),
   txHash: TxHash.schema.optional(),
-  referenceBlock: BlockHash.schema.optional(),
+  referenceBlock: BlockParameterSchema.optional(),
   includeEffects: z.boolean().optional(),
   limitPerTag: z
     .number()
@@ -112,27 +119,35 @@ export function refineTxHashAndRange<T extends TxHashAndRangeFields>(schema: z.Z
   });
 }
 
+const privateTagsSchema = z
+  .array(tagQuerySchema(SiloedTag.schema))
+  .min(1)
+  .max(MAX_RPC_LEN, { message: `tags must have at most ${MAX_RPC_LEN} entries` });
+
+const publicTagsSchema = z
+  .array(tagQuerySchema(Tag.schema))
+  .min(1)
+  .max(MAX_RPC_LEN, { message: `tags must have at most ${MAX_RPC_LEN} entries` });
+
 export const PrivateLogsQuerySchema: ZodFor<PrivateLogsQuery> = refineTxHashAndRange(
-  zodFor<PrivateLogsQuery>()(
-    z.object({
-      ...logsQueryBaseShape,
-      tags: z
-        .array(tagQuerySchema(SiloedTag.schema))
-        .min(1)
-        .max(MAX_RPC_LEN, { message: `tags must have at most ${MAX_RPC_LEN} entries` }),
-    }),
-  ),
+  zodFor<PrivateLogsQuery>()(z.object({ ...logsQueryBaseShape, tags: privateTagsSchema })),
 );
 
 export const PublicLogsQuerySchema: ZodFor<PublicLogsQuery> = refineTxHashAndRange(
   zodFor<PublicLogsQuery>()(
-    z.object({
-      ...logsQueryBaseShape,
-      contractAddress: schemas.AztecAddress,
-      tags: z
-        .array(tagQuerySchema(Tag.schema))
-        .min(1)
-        .max(MAX_RPC_LEN, { message: `tags must have at most ${MAX_RPC_LEN} entries` }),
-    }),
+    z.object({ ...logsQueryBaseShape, contractAddress: schemas.AztecAddress, tags: publicTagsSchema }),
+  ),
+);
+
+/** Shape of a query whose anchor the node has already resolved to a block hash (see {@link ResolvedLogsQuery}). */
+const resolvedLogsQueryBaseShape = { ...logsQueryBaseShape, referenceBlock: BlockHash.schema.optional() };
+
+export const ResolvedPrivateLogsQuerySchema: ZodFor<ResolvedLogsQuery<PrivateLogsQuery>> = refineTxHashAndRange(
+  zodFor<ResolvedLogsQuery<PrivateLogsQuery>>()(z.object({ ...resolvedLogsQueryBaseShape, tags: privateTagsSchema })),
+);
+
+export const ResolvedPublicLogsQuerySchema: ZodFor<ResolvedLogsQuery<PublicLogsQuery>> = refineTxHashAndRange(
+  zodFor<ResolvedLogsQuery<PublicLogsQuery>>()(
+    z.object({ ...resolvedLogsQueryBaseShape, contractAddress: schemas.AztecAddress, tags: publicTagsSchema }),
   ),
 );

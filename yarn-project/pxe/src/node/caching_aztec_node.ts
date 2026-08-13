@@ -1,6 +1,12 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, type BlockParameter, type DataInBlock } from '@aztec/stdlib/block';
+import {
+  type BlockHash,
+  type BlockParameter,
+  type DataInBlock,
+  blockParameterHash,
+  isAnchoredBlockParameter,
+} from '@aztec/stdlib/block';
 import type { BlockIncludeOptions } from '@aztec/stdlib/interfaces/client';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type {
@@ -31,9 +37,9 @@ export interface CachingAztecNode extends BenchmarkedAztecNode {
  * Only hash-pinned reads are cached. A block hash names immutable content, so the same call can never correctly answer
  * differently, and even an `undefined` witness or leaf index is kept as a non-membership fact. That makes the wrapper
  * safe for any consumer, whatever its anchor block. Uncached methods, and reads that name a block any other way (see
- * {@link hashReferenceOf}), pass straight through. A few entries below opt out even when hash-pinned, where the answer
- * can still change, and the tag queries opt in only once the request also stops short of blocks yet to be produced
- * (see {@link hasImmutableAnswer}).
+ * {@link pinnedReferenceOf}), pass straight through. A few entries below opt out even when hash-pinned, where the
+ * answer can still change, and the tag queries opt in only once the request also stops short of blocks yet to be
+ * produced (see {@link hasImmutableAnswer}).
  *
  * Wiping (see {@link CachingAztecNode.wipeCache}) bounds memory. Correctness does not depend on it.
  */
@@ -47,12 +53,12 @@ export function withCache(node: AztecNode): CachingAztecNode {
   /** Runs `read` through `cache` when `block` pins a chain position by hash. Everything else goes to the node. */
   const readCachedIfBlockIsHashPinned = <T>(
     block: BlockParameter | undefined,
-    key: (blockHash: string) => string,
+    key: (blockReference: string) => string,
     read: () => Promise<T>,
     options?: { shouldCache?: (value: T) => boolean },
   ): Promise<T> => {
-    const blockHash = hashReferenceOf(block);
-    return blockHash === undefined ? read() : cache.fetch(key(blockHash.toString()), read, options);
+    const blockReference = pinnedReferenceOf(block);
+    return blockReference === undefined ? read() : cache.fetch(key(blockReference), read, options);
   };
 
   const cachedReads: { [K in keyof AztecNode]?: (...args: Parameters<AztecNode[K]>) => ReturnType<AztecNode[K]> } = {
@@ -133,13 +139,13 @@ export function withCache(node: AztecNode): CachingAztecNode {
     findLeavesIndexes: (referenceBlock: BlockParameter, treeId: MerkleTreeId, leafValues: Fr[]) => {
       // Cached per leaf: only leaves without a cached result are fetched, in a single batched node call. The per-leaf
       // keys don't fit single-key readCachedIfBlockIsHashPinned, so the hash gate is inline.
-      const referenceHash = hashReferenceOf(referenceBlock);
-      if (referenceHash === undefined) {
+      const reference = pinnedReferenceOf(referenceBlock);
+      if (reference === undefined) {
         return source.findLeavesIndexes(referenceBlock, treeId, leafValues);
       }
       return readBatchedPerKey<DataInBlock<bigint> | undefined>(
         cache,
-        leafValues.map(leaf => `leaf-index:${referenceHash.toString()}:${treeId}:${leaf.toString()}`),
+        leafValues.map(leaf => `leaf-index:${reference}:${treeId}:${leaf.toString()}`),
         missing =>
           source.findLeavesIndexes(
             referenceBlock,
@@ -256,23 +262,30 @@ class AztecNodeCache {
 }
 
 /**
- * The block hash `block` pins to (a `BlockHash` or `{ hash }` reference), or `undefined` for every other way of naming
- * a block.
+ * A cache-key segment naming the block `block` pins, or `undefined` for every way of naming a block that does not pin
+ * one: a bare `BlockHash` and a `{ hash }` reference key on the hash, and the anchored `{ number, hash }` form keys on
+ * both.
  *
  * A number or a tag names a moving chain position, as does naming no block at all: a reorg can put a different block
  * at the same number, and tags follow the growing chain. An `{ archive }` root is different, since it commits to every
  * block hash up to its own block and so pins content as tightly as a hash. It stays uncached because no PXE read uses
  * one: keeping an `undefined` answer as a non-membership fact is only sound because PXE pins blocks it has already
  * seen, and that holds for the references PXE actually builds.
+ *
+ * The anchored form keeps its number in the key even though the hash alone identifies the block, because the number is
+ * part of what the node answers: an anchor whose number does not match the block its hash names is rejected as a bad
+ * request. Dropping the number would let a cached answer stand in for that rejection. PXE sends the anchored form
+ * wherever it anchors on a header it holds, so entries stay uniform in practice and nothing is shared across forms.
  */
-function hashReferenceOf(block: BlockParameter | undefined): BlockHash | undefined {
-  if (block instanceof BlockHash) {
-    return block;
+function pinnedReferenceOf(block: BlockParameter | undefined): string | undefined {
+  if (block === undefined) {
+    return undefined;
   }
-  if (typeof block === 'object' && block !== null && 'hash' in block) {
-    return block.hash;
+  const hash = blockParameterHash(block);
+  if (hash === undefined) {
+    return undefined;
   }
-  return undefined;
+  return isAnchoredBlockParameter(block) ? `${hash.toString()}@${block.number}` : hash.toString();
 }
 
 /**
@@ -331,14 +344,15 @@ function readBatchedPerKey<T>(
 /**
  * Whether a tag query's answer can no longer change, and so can be cached.
  *
- * Two things would let it change, and the query has to rule out both. `referenceBlock` names the chain the answer
- * belongs to, so the call fails once that block is gone rather than answering from a chain that reorged. `toBlock`
+ * Two things would let it change, and the query has to rule out both. A hash-pinned `referenceBlock` names the chain
+ * the answer belongs to, so the call fails once that block is gone rather than answering from a chain that reorged —
+ * an anchor naming a block number or a tag instead is no such promise, since a reorg moves what sits there. `toBlock`
  * stops the query below the tip, so blocks yet to be produced cannot add logs to the answer. Where the query starts
  * does not matter: an open lower end reaches only blocks that are already behind it, which no longer move. PXE's tag
  * queries get both from the `getAll*LogsByTags` helpers, which take them from the anchor block the query is pinned to.
  */
 function hasImmutableAnswer(query: LogsQueryBase): boolean {
-  return query.referenceBlock !== undefined && query.toBlock !== undefined;
+  return pinnedReferenceOf(query.referenceBlock) !== undefined && query.toBlock !== undefined;
 }
 
 /** Cache-key segment for the parts of a private tag query that every tag in it shares. */
@@ -365,10 +379,16 @@ function publicLogsQueryKey(query: PublicLogsQuery): string {
  */
 type QueryKeyParts<T extends LogsQueryBase> = { [K in keyof Required<Omit<T, 'tags'>>]: unknown };
 
-/** The key parts {@link PrivateLogsQuery} and {@link PublicLogsQuery} have in common. */
+/**
+ * The key parts {@link PrivateLogsQuery} and {@link PublicLogsQuery} have in common.
+ *
+ * The anchor enters the key through {@link pinnedReferenceOf}, so an anchored form keeps its number and never shares
+ * an entry with a query naming a different anchor for the same block. Only hash-pinned queries are cached (see
+ * {@link hasImmutableAnswer}), so there is always a reference to key on.
+ */
 function sharedQueryKeyParts(query: LogsQueryBase): QueryKeyParts<LogsQueryBase> {
   return {
-    referenceBlock: query.referenceBlock,
+    referenceBlock: pinnedReferenceOf(query.referenceBlock),
     fromBlock: query.fromBlock,
     toBlock: query.toBlock,
     txHash: query.txHash,

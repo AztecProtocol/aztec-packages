@@ -1,6 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockHash } from '@aztec/stdlib/block';
+import type { AnchoredBlockParameter } from '@aztec/stdlib/block';
 import { MAX_RPC_LEN } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
@@ -11,31 +11,16 @@ import {
   queryAllPrivateLogsByTags,
   queryAllPublicLogsByTags,
 } from '@aztec/stdlib/logs';
-import type { BlockHeader } from '@aztec/stdlib/tx';
 
 /**
- * The block a tag query is anchored to.
+ * The block a tag query is anchored to, built from one header with `BlockHeader.toBlockParameter()` so the range
+ * bound and the reorg check talk about the same block.
  *
- * Both fields come from one header (see {@link logQueryAnchorOf}), which is what keeps the bound and the reorg check
- * talking about the same block.
+ * Its hash names the chain the query must be answered on: the node throws if that block is gone, which is how a
+ * reorg surfaces. Its height bounds the query to blocks at or below the anchor, and tells a node that has not seen
+ * the anchor yet whether the query is a block ahead of it or names a block it should already have.
  */
-export type LogQueryAnchor = {
-  /**
-   * Hash of the anchor block, naming the chain the query must be answered on: the node throws if that block is gone,
-   * which is how a reorg surfaces.
-   */
-  hash: BlockHash;
-  /** Height of the anchor block, bounding the query to blocks at or below it. */
-  number: BlockNumber;
-};
-
-/**
- * The {@link LogQueryAnchor} naming `anchorBlockHeader`: its hash and its height. Callers build it once and reuse
- * it across every query anchored to that block, so the header is hashed only once.
- */
-export async function logQueryAnchorOf(anchorBlockHeader: BlockHeader): Promise<LogQueryAnchor> {
-  return { hash: await anchorBlockHeader.hash(), number: anchorBlockHeader.getBlockNumber() };
-}
+export type LogQueryAnchor = AnchoredBlockParameter;
 
 /** Optional block-range, effects opt-in, and pagination cap shared by both wrappers. */
 export type GetAllLogsByTagsOptions = {
@@ -102,7 +87,7 @@ export function getAllPrivateLogsByTags<Opts extends GetAllLogsByTagsOptions = G
     batch =>
       queryAllPrivateLogsByTags(aztecNode, {
         tags: batch,
-        referenceBlock: anchor.hash,
+        referenceBlock: anchor,
         fromBlock: options.fromBlock,
         toBlock: exclusiveUpperBound(anchor, options.toBlock),
         includeEffects: options.includeEffects ?? false,
@@ -135,7 +120,7 @@ export function getAllPublicLogsByTagsFromContract<Opts extends GetAllLogsByTags
       queryAllPublicLogsByTags(aztecNode, {
         contractAddress,
         tags: batch,
-        referenceBlock: anchor.hash,
+        referenceBlock: anchor,
         fromBlock: options.fromBlock,
         toBlock: exclusiveUpperBound(anchor, options.toBlock),
         includeEffects: options.includeEffects ?? false,

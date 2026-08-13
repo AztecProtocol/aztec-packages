@@ -1,6 +1,9 @@
-import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
+import { type ConfigMappingsType, numberConfigHelper, optionalNumberConfigHelper } from '@aztec/foundation/config';
 
 import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '../avm/avm.js';
+
+/** Default max time an RPC query is held while waiting for an unknown anchor block hash or archive root. */
+export const DEFAULT_RPC_UNSEEN_BLOCK_BY_HASH_WAIT_MS = 3000;
 
 export const nodeRpcConfigMappings: ConfigMappingsType<NodeRPCConfig> = {
   rpcSimulatePublicMaxGasLimit: {
@@ -24,6 +27,20 @@ export const nodeRpcConfigMappings: ConfigMappingsType<NodeRPCConfig> = {
     description: 'Maximum allowed batch size for JSON RPC batch requests.',
     defaultValue: '1mb',
   },
+  rpcUnseenBlockByNumberWaitMs: {
+    env: 'RPC_UNSEEN_BLOCK_BY_NUMBER_WAIT_MS',
+    description:
+      'Max time in ms an RPC query anchored on a block number exactly one ahead of the node tip is held, waiting ' +
+      'for the block to arrive. Defaults to twice the block duration. Set to 0 to fail these queries immediately.',
+    ...optionalNumberConfigHelper(),
+  },
+  rpcUnseenBlockByHashWaitMs: {
+    env: 'RPC_UNSEEN_BLOCK_BY_HASH_WAIT_MS',
+    description:
+      'Max time in ms an RPC query anchored on an unknown block hash or archive root is held, waiting for the ' +
+      'block to arrive. Set to 0 to fail these queries immediately.',
+    ...numberConfigHelper(DEFAULT_RPC_UNSEEN_BLOCK_BY_HASH_WAIT_MS),
+  },
 };
 
 export type NodeRPCConfig = {
@@ -35,4 +52,14 @@ export type NodeRPCConfig = {
   rpcMaxBatchSize: number;
   /** The maximum body size the RPC server will accept */
   rpcMaxBodySize: string;
+  /**
+   * Max time in ms an RPC query anchored on a block number exactly one ahead of the node tip is held, waiting for
+   * the block to arrive. Defaults to twice the block duration when unset. 0 disables the hold-off.
+   */
+  rpcUnseenBlockByNumberWaitMs?: number;
+  /**
+   * Max time in ms an RPC query anchored on an unknown block hash or archive root is held, waiting for the block to
+   * arrive. 0 disables the hold-off.
+   */
+  rpcUnseenBlockByHashWaitMs: number;
 };

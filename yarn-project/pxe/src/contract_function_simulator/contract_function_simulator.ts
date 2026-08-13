@@ -601,7 +601,7 @@ export async function generateSimulatedProvingResult(
 
   await verifyReadRequests(
     node,
-    await privateExecutionResult.entrypoint.publicInputs.anchorBlockHeader.hash(),
+    await privateExecutionResult.entrypoint.publicInputs.anchorBlockHeader.toBlockParameter(),
     noteHashReadRequests,
     nullifierReadRequests,
     scopedNoteHashesCLA,
@@ -797,7 +797,7 @@ function squashTransientSideEffects(
  */
 async function verifyReadRequests(
   node: Pick<AztecNode, 'findLeavesIndexes'>,
-  anchorBlockHash: BlockParameter,
+  anchorBlock: BlockParameter,
   noteHashReadRequests: ScopedReadRequest[],
   nullifierReadRequests: ScopedReadRequest[],
   scopedNoteHashesCLA: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
@@ -832,14 +832,14 @@ async function verifyReadRequests(
   const [noteHashResults, nullifierResults] = await Promise.all([
     settledNoteHashReads.length > 0
       ? node.findLeavesIndexes(
-          anchorBlockHash,
+          anchorBlock,
           MerkleTreeId.NOTE_HASH_TREE,
           settledNoteHashReads.map(({ value }) => value),
         )
       : [],
     settledNullifierReads.length > 0
       ? node.findLeavesIndexes(
-          anchorBlockHash,
+          anchorBlock,
           MerkleTreeId.NULLIFIER_TREE,
           settledNullifierReads.map(({ value }) => value),
         )

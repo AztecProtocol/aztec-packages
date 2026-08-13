@@ -45,6 +45,7 @@ import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { MAX_RPC_CHECKPOINTS_DATA_LEN } from './api_limit.js';
 import { type ArchiverApi, ArchiverApiSchema } from './archiver.js';
+import type { ResolvedLogsQuery } from './l2_logs_source.js';
 
 describe('ArchiverApiSchema', () => {
   let handler: MockArchiver;
@@ -513,13 +514,16 @@ class MockArchiver implements ArchiverApi {
     expect(blockNumber).toEqual(BlockNumber(1));
     return Promise.resolve(`0x01`);
   }
-  getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+  getPrivateLogsByTags(query: ResolvedLogsQuery<PrivateLogsQuery>): Promise<LogResult[][]> {
     expect(Array.isArray(query.tags)).toBe(true);
+    // The node resolves every anchor form to a bare hash before delegating, and only that survives the wire.
+    expect(query.referenceBlock === undefined || query.referenceBlock instanceof BlockHash).toBe(true);
     return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
-  getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+  getPublicLogsByTags(query: ResolvedLogsQuery<PublicLogsQuery>): Promise<LogResult[][]> {
     expect(query.contractAddress).toBeInstanceOf(AztecAddress);
     expect(Array.isArray(query.tags)).toBe(true);
+    expect(query.referenceBlock === undefined || query.referenceBlock instanceof BlockHash).toBe(true);
     return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {

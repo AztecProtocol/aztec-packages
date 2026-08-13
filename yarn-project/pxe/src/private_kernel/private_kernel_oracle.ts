@@ -104,12 +104,12 @@ export class PrivateKernelOracle {
   async getNoteHashMembershipWitness(
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    return this.node.getNoteHashMembershipWitness(await this.blockHeader.hash(), noteHash);
+    return this.node.getNoteHashMembershipWitness(await this.blockHeader.toBlockParameter(), noteHash);
   }
 
   /** Returns a membership witness with the sibling path and leaf index in our nullifier indexed merkle tree. */
   async getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
-    return this.node.getNullifierMembershipWitness(await this.blockHeader.hash(), nullifier);
+    return this.node.getNullifierMembershipWitness(await this.blockHeader.toBlockParameter(), nullifier);
   }
 
   /** Returns the root of our note hash merkle tree. */
@@ -149,9 +149,9 @@ export class PrivateKernelOracle {
       ProtocolContractAddress.ContractInstanceRegistry,
       delayedPublicMutableHashSlot,
     );
-    const blockHash = await this.blockHeader.hash();
+    const anchor = await this.blockHeader.toBlockParameter();
 
-    const updatedClassIdWitness = await this.node.getPublicDataWitness(blockHash, hashLeafSlot);
+    const updatedClassIdWitness = await this.node.getPublicDataWitness(anchor, hashLeafSlot);
 
     if (!updatedClassIdWitness) {
       throw new Error(`No public data tree witness found for ${hashLeafSlot}`);
@@ -162,7 +162,7 @@ export class PrivateKernelOracle {
     // slot will differ. Most contracts are never updated, so we can skip the readFromTree call
     // (which triggers multiple RPC calls) and return empty values directly.
     const readStorage = (storageSlot: Fr) =>
-      this.node.getPublicStorageAt(blockHash, ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
+      this.node.getPublicStorageAt(anchor, ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
     const slotExists = updatedClassIdWitness.leafPreimage.leaf.slot.equals(hashLeafSlot);
     const delayedPublicMutableValues = slotExists
       ? await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, readStorage)
