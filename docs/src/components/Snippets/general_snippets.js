@@ -13,7 +13,10 @@ export const General = {
   InstallationInstructions: () => (
     <p>
       To use Aztec's suite of tools, run:{" "}
-      <code>VERSION=&lt;version&gt; bash -i &lt;(curl -sL https://install.aztec.network/&lt;version&gt;)</code>
+      <code>
+        VERSION=&lt;version&gt; bash -i &lt;(curl -sL
+        https://install.aztec.network/&lt;version&gt;)
+      </code>
     </p>
   ),
 
@@ -44,8 +47,8 @@ export const General = {
 
   AztecLocalNetwork: () => (
     <p>
-      <b>Aztec's Local network</b> - runs a set of Aztec tools for convenient local
-      development, it includes: an Ethereum node, an Aztec node, and PXE.
+      <b>Aztec's Local network</b> - runs a set of Aztec tools for convenient
+      local development, it includes: an Ethereum node, an Aztec node, and PXE.
     </p>
   ),
 
@@ -69,8 +72,8 @@ export const General = {
 
   AztecJSPrerequisites: ({ href = "how_to_connect_to_local_network" }) => (
     <>
-      <a href={href}>Connected to a network</a>{" "}
-      with an <code>EmbeddedWallet</code> instance and funded accounts
+      <a href={href}>Connected to a network</a> with an{" "}
+      <code>EmbeddedWallet</code> instance and funded accounts
     </>
   ),
 };
@@ -140,10 +143,14 @@ export const Gas_Settings_Components = () => (
     The <code>Gas</code> and <code>GasFees</code> types each specify Data
     availability and L2 cost components, so the settings are:
     <ul>
-      <li>gasLimits: DA and L2 gas limits</li>
       <li>
-        teardownGasLimits: DA and L2 gas limits for a txs optional teardown
-        operation
+        gasLimits: total DA and L2 gas limits for the transaction, covering all
+        phases including teardown
+      </li>
+      <li>
+        teardownGasLimits: portion of gasLimits reserved for a txs optional
+        teardown operation. A tx with a teardown call is billed these limits in
+        full, regardless of actual teardown consumption
       </li>
       <li>maxFeesPerGas: maximum DA and L2 fees-per-gas</li>
       <li>maxPriorityFeesPerGas: maximum priority DA and L2 fees-per-gas</li>

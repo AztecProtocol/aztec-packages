@@ -23,11 +23,11 @@ export function getGasLimits(
   pad = 0.1,
 ): {
   /**
-   * Gas limit for the tx, excluding teardown gas
+   * Total gas limit for the tx, including teardown gas
    */
   gasLimits: Gas;
   /**
-   * Gas limit for the teardown phase
+   * Portion of the total gas limit reserved for the teardown phase
    */
   teardownGasLimits: Gas;
 } {

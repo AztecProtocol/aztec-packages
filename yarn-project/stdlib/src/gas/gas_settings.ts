@@ -20,9 +20,13 @@ export const GAS_ESTIMATION_DA_GAS_LIMIT = GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT 
 /** Gas usage and fees limits set by the transaction sender for different dimensions and phases. */
 export class GasSettings {
   constructor(
+    /** Total gas the tx may consume across all phases, teardown included. */
     public readonly gasLimits: Gas,
+    /** Portion of gasLimits reserved for the teardown phase, billed in full when the tx has a teardown call. */
     public readonly teardownGasLimits: Gas,
+    /** Maximum fees per gas unit the sender is willing to pay. */
     public readonly maxFeesPerGas: GasFees,
+    /** Priority fees per gas unit paid on top of the base fee for faster inclusion. */
     public readonly maxPriorityFeesPerGas: GasFees,
   ) {}
   // docs:end:gas_settings_vars
