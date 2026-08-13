@@ -88,7 +88,7 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
   }
 
   /** Checks gas limits are >= fixed minimums and <= effective max gas (L2 and DA). */
-  private validateGasLimit(tx: T): TxValidationResult {
+  validateGasLimit(tx: T): TxValidationResult {
     const gasLimits = tx.data.constants.txContext.gasSettings.gasLimits;
     const minGasLimits = new Gas(
       TX_DA_GAS_OVERHEAD,

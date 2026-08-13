@@ -118,6 +118,32 @@ describe('Validator factory functions', () => {
       expect((result as { reason: string[] }).reason[0]).toContain(TX_ERROR_GAS_LIMIT_TOO_HIGH);
     });
 
+    it('forwards the network DA admission limit to the gas limits validator', async () => {
+      const maxTxDAGas = 100_000;
+      const validators = createFirstStageTxValidationsForGossipedTransactions(
+        0n,
+        BlockNumber(2),
+        synchronizer,
+        new GasFees(1, 1),
+        1,
+        2,
+        Fr.ZERO,
+        contractSource,
+        true,
+        [],
+        undefined,
+        { maxTxDAGas },
+      );
+
+      // Over the network DA admission limit but under the protocol DA ceiling.
+      const tx = await mockPrivateTxWithGasSettings(
+        GasSettings.fallback({ gasLimits: new Gas(maxTxDAGas + 1, 1_000_000), maxFeesPerGas: new GasFees(1, 1) }),
+      );
+      const result = await validators.gasLimitsValidator.validator.validateTx(tx);
+      expect(result.result).toBe('invalid');
+      expect((result as { reason: string[] }).reason[0]).toContain(TX_ERROR_GAS_LIMIT_TOO_HIGH);
+    });
+
     it('does not include a proof validator', () => {
       const validators = createFirstStageTxValidationsForGossipedTransactions(
         0n,
