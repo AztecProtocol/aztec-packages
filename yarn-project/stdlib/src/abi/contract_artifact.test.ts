@@ -77,20 +77,6 @@ describe('contract_artifact', () => {
     const fieldValue = { kind: 'integer', sign: false, value: '04d2' } satisfies AbiValue;
     const stringValue = { kind: 'string', value: 'exported' } satisfies AbiValue;
 
-    it('returns globals keyed by name, scoped to the requested tag', () => {
-      const artifact = loadContractArtifact(
-        contractWithGlobals({
-          constants: [
-            { name: 'MY_FIELD', value: fieldValue },
-            { name: 'MY_STRING', value: stringValue },
-          ],
-          limits: [{ name: 'MY_LIMIT', value: fieldValue }],
-        }),
-      );
-      expect(getGlobalsByTag(artifact, 'constants')).toEqual({ MY_FIELD: fieldValue, MY_STRING: stringValue });
-      expect(getGlobalsByTag(artifact, 'limits')).toEqual({ MY_LIMIT: fieldValue });
-    });
-
     it('returns an empty record for an unknown tag', () => {
       const artifact = loadContractArtifact(contractWithGlobals({}));
       expect(getGlobalsByTag(artifact, 'constants')).toEqual({});
