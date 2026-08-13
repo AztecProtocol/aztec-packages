@@ -4,9 +4,10 @@ on:
   push:
     branches:
       - next
-  schedule:
-    # Also run nightly at 3:00 AM UTC as a safety net
-    - cron: "0 3 * * *"
+  # The nightly safety-net run is disabled until this flow is reworked for the repo split
+  # (the labs repo publishes the captured inputs; this repo checks them).
+  # schedule:
+  #   - cron: "0 3 * * *"
   workflow_dispatch:
 
 concurrency:
