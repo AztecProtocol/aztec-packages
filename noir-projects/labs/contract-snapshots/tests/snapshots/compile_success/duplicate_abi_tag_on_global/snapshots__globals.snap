@@ -1,0 +1,24 @@
+---
+source: tests/snapshots.rs
+expression: globals
+---
+{
+  "constants": [
+    {
+      "name": "FOO",
+      "value": {
+        "kind": "integer",
+        "sign": false,
+        "value": "0000000000000000000000000000000000000000000000000000000000000001"
+      }
+    },
+    {
+      "name": "FOO",
+      "value": {
+        "kind": "integer",
+        "sign": false,
+        "value": "0000000000000000000000000000000000000000000000000000000000000001"
+      }
+    }
+  ]
+}
