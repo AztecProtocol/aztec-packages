@@ -25,7 +25,7 @@ const { MY_CONSTANT } = getNamedContractGlobals(MyContractArtifact, 'constants')
 // MY_CONSTANT: { kind: 'string', value: 'exported' }
 ```
 
-This is a hard cutover: artifacts compiled before Noir exported global names (with bare, unnamed entries) are rejected on load and must be recompiled with the current toolchain. Since the artifact hash commits to the outputs, recompiled contracts get a new class ID (and thus new derived addresses) relative to the previous release. The PXE data schema version was bumped accordingly, so existing PXE databases resync on first open.
+There is no backwards compatibility path: artifacts compiled before Noir exported global names (with bare, unnamed entries) are rejected on load and must be recompiled with the current toolchain. Since the artifact hash commits to the outputs, recompiled contracts get a new class ID (and thus new derived addresses) relative to the previous release. The PXE data schema version was bumped accordingly, so existing PXE databases resync on first open.
 
 ### [Aztec.js] A function's return type is a single `returnType`, not a `returnTypes` list
 
