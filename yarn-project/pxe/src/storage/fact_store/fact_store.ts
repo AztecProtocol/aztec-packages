@@ -1,5 +1,6 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { Semaphore } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 
@@ -217,7 +218,7 @@ export class FactStore implements StagedStore {
     for await (const [, factKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
       factReads.set(factKey, this.#facts.getAsync(factKey));
     }
-    await Promise.all(
+    await allToCompletion(
       Array.from(factReads, async ([factKey, read]) => {
         const buf = await read;
         if (!buf) {
@@ -299,7 +300,7 @@ export class FactStore implements StagedStore {
     reads: Map<FactKeyStr, Promise<FactBuffer | undefined>>,
   ): Promise<CollectionWithFacts> {
     const factKeys = [...reads.keys()];
-    const bufs = await Promise.all(reads.values());
+    const bufs = await allToCompletion([...reads.values()]);
 
     // Await-free tail: deserialize. No DB ops from here on.
     const facts = new Map<FactKeyStr, Fact>();
@@ -427,7 +428,7 @@ export class FactStore implements StagedStore {
     for await (const factKey of this.#factsByCollection.getValuesAsync(collectionKey)) {
       factReads.set(factKey, this.#facts.getAsync(factKey));
     }
-    await Promise.all(
+    await allToCompletion(
       Array.from(factReads, async ([factKey, read]) => {
         const buf = await read;
         if (!buf) {
