@@ -3,6 +3,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
@@ -398,7 +399,7 @@ export class PXE {
 
     pxe.jobQueue.start();
 
-    await Promise.all([pxe.#registerProtocolContracts(), pxe.#registerPreloadedContracts()]);
+    await allToCompletion([pxe.#registerProtocolContracts(), pxe.#registerPreloadedContracts()]);
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxe;
   }
@@ -500,7 +501,7 @@ export class PXE {
 
   async #registerProtocolContracts() {
     const registered = Object.fromEntries(
-      await Promise.all(
+      await allToCompletion(
         protocolContractNames.map(async name => {
           const { address, instance, artifact } =
             await this.protocolContractsProvider.getProtocolContractArtifact(name);
@@ -515,7 +516,7 @@ export class PXE {
 
   async #registerPreloadedContracts() {
     const contracts = await this.preloadedContractsProvider.getPreloadedContracts();
-    await Promise.all(
+    await allToCompletion(
       contracts.map(async ({ instance, artifact }) => {
         if (artifact) {
           await this.registerContractClass(artifact);
@@ -858,7 +859,7 @@ export class PXE {
   public async getTaggingSecretSources(filter?: {
     kind?: RegisteredTaggingSecretSource['kind'];
   }): Promise<RegisteredTaggingSecretSource[]> {
-    const [senders, secrets] = await Promise.all([
+    const [senders, secrets] = await allToCompletion([
       this.taggingSecretSourcesStore.getSenders(),
       this.taggingSecretSourcesStore.getAllSharedSecrets(),
     ]);

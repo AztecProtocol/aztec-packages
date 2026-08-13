@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 
@@ -66,7 +67,7 @@ export class ExecutionNoteCache {
     // They cannot be squashed by nullifiers emitted after minRevertibleSideEffectCounter is set.
     // Their indexes in the tx are known at this point and won't change. So we can assign a nonce to each one of them.
     // The nonces will be used to create the "unique" note hashes.
-    const updatedNotes = await Promise.all(
+    const updatedNotes = await allToCompletion(
       this.notes.map(async ({ note, counter }, i) => {
         const noteNonce = await computeNoteHashNonce(nonceGenerator, i);
         const uniqueNoteHash = await computeUniqueNoteHash(
