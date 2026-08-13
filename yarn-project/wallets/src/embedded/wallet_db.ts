@@ -122,8 +122,8 @@ export class WalletDB {
   }
 
   /**
-   * Deletes an account's stored data and its alias atomically. Does not deregister the account
-   * from the PXE; callers must do that separately.
+   * Deletes an account's stored data and its alias atomically. Deletion is local to this store;
+   * any state the PXE holds for the account is unaffected.
    */
   async deleteAccount(address: AztecAddress) {
     await this.store.transactionAsync(async () => {
