@@ -1,4 +1,4 @@
-import { access, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'fs/promises';
+import { access, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
 
@@ -44,15 +44,6 @@ describe('generateCode cache', () => {
     await rm(workDir, { recursive: true, force: true });
   });
 
-  it('skips regeneration when the artifact, generator, and output are unchanged', async () => {
-    await generateCode('out', 'CacheTest.json');
-    await utimes(outputFile, new Date(0), new Date(0));
-    const cachedMtime = (await stat(outputFile)).mtimeMs;
-
-    await generateCode('out', 'CacheTest.json');
-    expect((await stat(outputFile)).mtimeMs).toBe(cachedMtime);
-  });
-
   it('regenerates when the cached output is missing', async () => {
     await generateCode('out', 'CacheTest.json');
     expect(await exists(outputFile)).toBe(true);
@@ -65,6 +56,9 @@ describe('generateCode cache', () => {
   it('regenerates when the cache was written by a different generator version', async () => {
     await generateCode('out', 'CacheTest.json');
     await writeFile(outputFile, 'stale generated output');
+
+    await generateCode('out', 'CacheTest.json');
+    expect(await readFile(outputFile, 'utf8')).toBe('stale generated output');
 
     const versioned = JSON.parse(await readFile(cacheFile, 'utf8'));
     await writeFile(cacheFile, JSON.stringify({ ...versioned, cacheVersion: versioned.cacheVersion - 1 }));
