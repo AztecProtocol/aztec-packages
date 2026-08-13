@@ -1,4 +1,3 @@
-import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -10,6 +9,7 @@ import {
   type NormalizedBlockParameter,
   inspectBlockParameter,
 } from '@aztec/stdlib/block';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
 /** How often a held request re-reads the block source while waiting. */
 const POLL_INTERVAL_MS = 200;
@@ -62,17 +62,35 @@ export class UnseenBlockHoldOff {
    * Resolves `query` to block metadata, holding off briefly when it references a block the node is about to see.
    * Returns undefined on a miss, so callers keep whatever behavior they had before (throwing or returning
    * undefined) — the hold-off only delays that outcome.
-   *
-   * A budget is approximate: the poll loop sleeps a full interval before re-checking the deadline, so the actual
-   * wait can exceed the configured budget by up to one poll interval plus the block source's own read latency.
    */
-  public async getBlockData(
+  public getBlockData(
     query: NormalizedBlockParameter,
     opts: UnseenBlockHoldOffOptions = {},
   ): Promise<BlockData | undefined> {
-    const data = await this.blockSource.getBlockData(query);
-    if (data !== undefined || opts.holdOff === false) {
-      return data;
+    return this.#readWithHoldOff(query, q => this.blockSource.getBlockData(q), opts);
+  }
+
+  /** Resolves `query` to a full block with its transactions, holding off as {@link getBlockData} does. */
+  public getBlock(query: NormalizedBlockParameter, opts: UnseenBlockHoldOffOptions = {}): Promise<L2Block | undefined> {
+    return this.#readWithHoldOff(query, q => this.blockSource.getBlock(q), opts);
+  }
+
+  /**
+   * Reads `query` through `read`, and on a miss keeps re-reading it for the query's wait budget. Subject to the
+   * concurrent-hold cap: once it is saturated a miss resolves without waiting, as it would with the hold-off
+   * disabled.
+   *
+   * A budget is approximate: the poll loop sleeps a full interval before re-checking the deadline, so the actual
+   * wait can exceed the configured budget by up to one poll interval plus the read's own latency.
+   */
+  async #readWithHoldOff<T extends { header: BlockHeader }>(
+    query: NormalizedBlockParameter,
+    read: (query: NormalizedBlockParameter) => Promise<T | undefined>,
+    opts: UnseenBlockHoldOffOptions,
+  ): Promise<T | undefined> {
+    const value = await read(query);
+    if (value !== undefined || opts.holdOff === false) {
+      return value;
     }
 
     const waitMs = await this.#resolveWaitBudgetMs(query);
@@ -93,7 +111,7 @@ export class UnseenBlockHoldOff {
     try {
       this.log.verbose(`Holding off query for unseen block`, { blockParameter, waitMs, holds: this.activeHolds });
       const arrived = await retryUntil(
-        () => this.blockSource.getBlockData(query),
+        () => read(query),
         `block ${blockParameter}`,
         waitMs / 1000,
         POLL_INTERVAL_MS / 1000,
@@ -117,31 +135,6 @@ export class UnseenBlockHoldOff {
     } finally {
       this.activeHolds--;
     }
-  }
-
-  /**
-   * Resolves `query` to a full block with its transactions, holding off as {@link getBlockData} does. The wait runs
-   * on the cheaper metadata read, and the block is then read back pinned by the resolved hash, so a reorg between
-   * the last poll and the read cannot swap the block served for a different one at the same height.
-   */
-  public async getBlock(
-    query: NormalizedBlockParameter,
-    opts: UnseenBlockHoldOffOptions = {},
-  ): Promise<L2Block | undefined> {
-    const data = await this.getBlockData(query, opts);
-    return data === undefined ? undefined : await this.blockSource.getBlock({ hash: data.blockHash });
-  }
-
-  /**
-   * Resolves `query` to the number of the block it names, holding off as {@link getBlockData} does. Unlike
-   * {@link L2BlockSource.getBlockNumber} with no arguments, this never reports the node's tip: it answers "which
-   * block does this query point at", and returns undefined when the query resolves to no block.
-   */
-  public async getBlockNumber(
-    query: NormalizedBlockParameter,
-    opts: UnseenBlockHoldOffOptions = {},
-  ): Promise<BlockNumber | undefined> {
-    return (await this.getBlockData(query, opts))?.header.getBlockNumber();
   }
 
   /**
