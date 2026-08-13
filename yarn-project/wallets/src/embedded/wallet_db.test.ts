@@ -184,7 +184,7 @@ describe('WalletDB', () => {
   });
 
   describe('atomicity', () => {
-    /** Wraps a store so map writes (set or delete) whose key matches `shouldCrash` fail, simulating a crash mid-operation. */
+    /** Wraps a store so map writes whose key matches `shouldCrash` fail, simulating a crash mid-operation. */
     function crashingStore(store: AztecAsyncKVStore, shouldCrash: (key: string) => boolean): AztecAsyncKVStore {
       const wrapMap = (map: AztecAsyncMap<string, Buffer>): AztecAsyncMap<string, Buffer> =>
         new Proxy(map, {
