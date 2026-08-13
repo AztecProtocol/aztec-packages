@@ -308,7 +308,7 @@ function generateGlobalsGetter(input: ContractArtifact) {
       },`;
   });
 
-  return `/** Decoded values of the globals exported with \`#[abi(tag)]\`, grouped by tag. */
+  return `/** Decoded values of the globals exported in this contract artifact with \`#[abi(tag)]\`, grouped by tag. */
   public static get globals() {
     return {
       ${groups.join('\n      ')}

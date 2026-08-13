@@ -60,7 +60,7 @@ pub contract Globals {
 
 The example creates two groups under `outputs.globals`: `constants` and `limits`. Each group is an array of `{ name, value }` entries. Stacking attributes on `EXPORTED_SHARED_CONSTANT` exports the same global under both tags.
 
-After you run `aztec codegen`, the generated contract class exposes the globals as decoded, read-only TypeScript values grouped by tag:
+In TypeScript application code, run `aztec codegen` and read exported globals from the generated contract class. Codegen derives a static, read-only `globals` getter from `ContractArtifact.outputs.globals`, with decoded values grouped by tag:
 
 ```typescript
 GlobalsContract.globals.constants.EXPORTED_FIELD_CONSTANT; // 1234n
@@ -72,7 +72,7 @@ GlobalsContract.globals.limits.EXPORTED_SHARED_CONSTANT; // 7n
 
 The generated `globals` getter omits the `storage` tag. Aztec.nr reserves that tag for the generated storage layout, which the contract class exposes through its `storage` getter.
 
-When working directly with an artifact, use `getGlobalsByTag` to return the named entries for one tag as raw `AbiValue` objects:
+When building tooling that works directly with artifacts instead of generated contract classes, use `getGlobalsByTag` to return the named entries for one tag as raw `AbiValue` objects:
 
 ```typescript
 import { getGlobalsByTag } from '@aztec/aztec.js/abi';

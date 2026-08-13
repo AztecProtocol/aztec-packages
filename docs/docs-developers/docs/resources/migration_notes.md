@@ -9,9 +9,9 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-### [Aztec.js] Contract artifacts preserve the names of `#[abi(tag)]` globals
+### [Aztec.js] Generated contract classes expose `#[abi(tag)]` globals by name
 
-Globals exported from a Noir contract with `#[abi(tag)]` now keep their names in the artifact: entries in `ContractArtifact.outputs.globals` are `{ name, value }` objects as emitted by the compiler, where the names used to be stripped on load. This lets TypeScript read contract constants by name instead of duplicating their values:
+Globals exported from a Noir contract with `#[abi(tag)]` now keep their names in the artifact: entries in `ContractArtifact.outputs.globals` are `{ name, value }` objects as emitted by the compiler, where the names used to be stripped on load. After you run `aztec codegen`, the generated contract class exposes their decoded values through a read-only `globals` getter, grouped by tag:
 
 ```noir
 #[abi(constants)]
@@ -21,9 +21,7 @@ pub global EXPORTED_STRING_CONSTANT: str<8> = "exported";
 ```
 
 ```typescript
-import { getGlobalsByTag } from '@aztec/aztec.js/abi';
-
-const { EXPORTED_FIELD_CONSTANT, EXPORTED_STRING_CONSTANT } = getGlobalsByTag(MyContractArtifact, 'constants');
+const { EXPORTED_FIELD_CONSTANT, EXPORTED_STRING_CONSTANT } = MyContractContract.globals.constants;
 ```
 
 There is no backwards compatibility path: artifacts compiled before Noir exported global names (with bare, unnamed entries) are rejected on load and must be recompiled with the current toolchain. The artifact hash commits to the contract artifact's ABI outputs (`ContractArtifact.outputs`), so adding names to `outputs.globals` changes the artifact hash, the contract class ID, and any addresses derived from it. The PXE data schema version was bumped accordingly, so existing PXE databases resync on first open.
