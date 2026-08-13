@@ -988,13 +988,12 @@ describe('aztec node', () => {
       expect(block?.hash).toEqual(unseenBlockHash);
     });
 
-    it('re-reads the block with transactions by hash after holding off', async () => {
-      // The block that carries the txs is read by hash, which pins the fork the resolved metadata came from.
+    it('serves the block with transactions once it arrives', async () => {
+      // A query wanting transactions is held on the block-with-transactions read itself, so that is what the
+      // block source is polled for.
       l2BlockSource.getBlock.mockImplementation(((query: BlockQuery) =>
         Promise.resolve(
-          'hash' in query && query.hash.equals(unseenBlockHash) && lastBlockNumber >= unseenBlockNumber
-            ? L2Block.empty()
-            : undefined,
+          'number' in query && query.number <= lastBlockNumber ? L2Block.empty() : undefined,
         )) as L2BlockSource['getBlock']);
       scheduleUnseenBlockArrival();
 
