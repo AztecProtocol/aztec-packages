@@ -1,4 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { TxHash, TxStatus } from '@aztec/stdlib/tx';
 
@@ -53,7 +54,7 @@ export async function classifyPendingTxsFromReceipts(
   pending: TxHash[],
   aztecNode: AztecNode,
 ): Promise<ReceiptClassification> {
-  const receipts = await Promise.all(pending.map(pendingTxHash => aztecNode.getTxReceipt(pendingTxHash)));
+  const receipts = await allToCompletion(pending.map(pendingTxHash => aztecNode.getTxReceipt(pendingTxHash)));
 
   const txHashesFinalized: TxHash[] = [];
   const txHashesDropped: TxHash[] = [];
