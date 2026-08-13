@@ -256,7 +256,7 @@ function getStorageLayout(contractName: string, globals: Record<string, AbiNamed
   // If another contract is imported by the main contract, its storage layout its going to also show up here.
   // The layout export includes the contract name, so here we can find the one that belongs to the current one and
   // ignore the rest.
-  const storageExports = (globals.storage ?? []).map(entry => entry.value);
+  const storageExports = globals.storage?.map(entry => entry.value) ?? [];
   const storageForContract = storageExports.find((storageExport): storageExport is StructValue => {
     if (storageExport.kind !== 'struct') {
       return false;
@@ -291,8 +291,6 @@ function getStorageLayout(contractName: string, globals: Record<string, AbiNamed
  * An unknown tag yields an empty record. Throws if two globals under the same tag share a name.
  */
 export function getGlobalsByTag(artifact: ContractArtifact, tag: string): Record<string, AbiValue> {
-  // Collected in a Map so global names that collide with Object.prototype properties (e.g. `toString`)
-  // are neither flagged as duplicates nor mishandled (`__proto__`) when building the record.
   const globals = new Map<string, AbiValue>();
   for (const entry of artifact.outputs.globals[tag] ?? []) {
     if (globals.has(entry.name)) {
