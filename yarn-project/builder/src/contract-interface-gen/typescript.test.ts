@@ -53,6 +53,8 @@ describe('generateTypescriptContractInterface globals', () => {
             ],
           },
         },
+        // Also present under `limits` to pin that the same name may appear under different tags.
+        { name: 'MAX_ENTRIES', value: { kind: 'string', value: 'unlimited' } },
       ],
       limits: [{ name: 'MAX_ENTRIES', value: integer(100) }],
     });
@@ -66,19 +68,12 @@ describe('generateTypescriptContractInterface globals', () => {
         ARRAY_CONSTANT: [1n, 2n],
         TUPLE_CONSTANT: [3n, 'two'],
         STRUCT_CONSTANT: { inner: 7n, nested: { flag: 0n } },
+        MAX_ENTRIES: 'unlimited',
       },
       limits: {
         MAX_ENTRIES: 100n,
       },
     });
-  });
-
-  it('allows the same global name under different tags', async () => {
-    const globals = await generateGlobals({
-      constants: [{ name: 'SHARED', value: integer(1) }],
-      limits: [{ name: 'SHARED', value: integer(2) }],
-    });
-    expect(globals).toEqual({ constants: { SHARED: 1n }, limits: { SHARED: 2n } });
   });
 
   it('defines a global named __proto__ as a regular own property', async () => {
