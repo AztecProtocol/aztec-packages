@@ -6,7 +6,7 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: 'Environment to fund (e.g., staging-public, staging-internal, next-net, testnet)'
+        description: 'Environment to fund (e.g., staging-public, staging-internal, testnet)'
         required: true
         type: string
       low_watermark:
@@ -32,7 +32,6 @@ on:
         options:
         - staging-public
         - staging-internal
-        - next-net
         - testnet
         - devnet
         - tps-scenario
