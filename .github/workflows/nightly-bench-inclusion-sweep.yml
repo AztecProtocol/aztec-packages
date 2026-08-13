@@ -8,12 +8,13 @@ name: Nightly Bench Inclusion Sweep
 # don't overlap. Deploy / wait-for-first-block / teardown happen once.
 
 on:
-  schedule:
-    # 06:00 UTC, matching the other nightly consumer (spartan-bench).
-    # The nightly git tag + docker image this sweep resolves are produced by the
-    # Nightly Release Tag workflow at 04:00 UTC; running earlier races that job and
-    # fails "Verify source git ref" with "couldn't find remote ref".
-    - cron: "0 6 * * *"
+  # The nightly run is disabled for the repo split; trigger manually via workflow_dispatch.
+  # schedule:
+  #   # 06:00 UTC, matching the other nightly consumers (spartan-bench, deploy-next-net).
+  #   # The nightly git tag + docker image this sweep resolves are produced by the
+  #   # Nightly Release Tag workflow at 04:00 UTC; running earlier races that job and
+  #   # fails "Verify source git ref" with "couldn't find remote ref".
+  #   - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       docker_image:
