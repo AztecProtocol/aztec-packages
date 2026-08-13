@@ -42,6 +42,7 @@ export {
   SLOT_NUMBER,
   STR,
   STRUCT,
+  TX_HASH,
   U32,
   U64,
   U128,

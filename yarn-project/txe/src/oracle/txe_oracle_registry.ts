@@ -34,6 +34,7 @@ import {
   SCALAR,
   STR,
   STRUCT,
+  TX_HASH,
   type TypeMapping,
   U32,
   U64,
@@ -43,8 +44,7 @@ import {
 import { EventSelector } from '@aztec/stdlib/abi';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import type { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import type { PrivateLog } from '@aztec/stdlib/logs';
-import type { CallContext, TxContext, TxHash } from '@aztec/stdlib/tx';
+import type { CallContext, TxContext } from '@aztec/stdlib/tx';
 
 import {
   MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY,
@@ -54,6 +54,7 @@ import {
 } from '../constants.js';
 import type { ForeignCallArgs, ForeignCallResult } from '../utils/encoding.js';
 import type { GasData, GasSettingsData } from './noir-structs/gas_settings_data.js';
+import type { TxEffectsData } from './noir-structs/tx_effects_data.js';
 
 // Spreading `ORACLE_REGISTRY` re-materializes its entries into `TXE_ORACLE_REGISTRY`'s inferred type, which names the
 // protocol types below. Re-exporting them gives tsc a portable path to each instead of falling back to a deep
@@ -146,52 +147,15 @@ const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = STRUCT([
   { name: 'publicKeys', type: PUBLIC_KEYS },
 ]);
 
-const TXE_TX_EFFECTS: TypeMapping<{
-  txHash: TxHash;
-  noteHashes: Fr[];
-  nullifiers: Fr[];
-  privateLogs: PrivateLog[];
-}> = LEAF({
-  kind: 'txe-tx-effects',
-  serialization: {
-    fn: ({ txHash, noteHashes, nullifiers, privateLogs }) => {
-      const emittedLogs = privateLogs.map(log => log.getEmittedFields());
-      const rawLogStorage = emittedLogs
-        .map(fields => fields.concat(Array(PRIVATE_LOG_SIZE_IN_FIELDS - fields.length).fill(Fr.ZERO)))
-        .concat(
-          Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(Array(PRIVATE_LOG_SIZE_IN_FIELDS).fill(Fr.ZERO)),
-        )
-        .flat();
-      const logLengths = emittedLogs
-        .map(fields => new Fr(fields.length))
-        .concat(Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(Fr.ZERO));
-      const paddedNoteHashes = noteHashes.concat(Array(MAX_NOTE_HASHES_PER_TX - noteHashes.length).fill(Fr.ZERO));
-      const paddedNullifiers = nullifiers.concat(Array(MAX_NULLIFIERS_PER_TX - nullifiers.length).fill(Fr.ZERO));
-
-      return [
-        txHash.hash,
-        paddedNoteHashes,
-        new Fr(noteHashes.length),
-        paddedNullifiers,
-        new Fr(nullifiers.length),
-        rawLogStorage,
-        logLengths,
-        new Fr(emittedLogs.length),
-      ] as (Fr | Fr[])[];
-    },
+const TXE_TX_EFFECTS: TypeMapping<TxEffectsData> = STRUCT([
+  { name: 'txHash', type: TX_HASH },
+  { name: 'noteHashes', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
+  { name: 'nullifiers', type: FIXED_BOUNDED_VEC(FIELD, MAX_NULLIFIERS_PER_TX) },
+  {
+    name: 'privateLogs',
+    type: FIXED_BOUNDED_VEC(FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS), MAX_PRIVATE_LOGS_PER_TX),
   },
-  // txHash, padded note hashes + count, padded nullifiers + count, flattened private-log storage + lengths + count.
-  shape: [
-    'scalar',
-    { len: MAX_NOTE_HASHES_PER_TX },
-    'scalar',
-    { len: MAX_NULLIFIERS_PER_TX },
-    'scalar',
-    { len: MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS },
-    { len: MAX_PRIVATE_LOGS_PER_TX },
-    'scalar',
-  ],
-});
+]);
 
 const TXE_OFFCHAIN_EFFECTS: TypeMapping<Fr[][]> = FIXED_BOUNDED_VEC(
   FIXED_BOUNDED_VEC(FIELD, MAX_OFFCHAIN_EFFECT_LEN),

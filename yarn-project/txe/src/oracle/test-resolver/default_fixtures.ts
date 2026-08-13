@@ -20,6 +20,7 @@ import {
   type OracleRegistryEntry,
   SLOT_NUMBER,
   type StructMapping,
+  TX_HASH,
   type TypeMapping,
   U8,
   U32,
@@ -36,6 +37,7 @@ import {
 import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { BlockHash } from '@aztec/stdlib/block';
 import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { EVENT_SELECTOR } from '../txe_oracle_registry.js';
 import type { OracleTestScenario } from './resolver.js';
@@ -81,6 +83,7 @@ const SCALAR_IMPLS: ScalarImpl[] = [
   scalar(NOTE_SELECTOR, seed => NoteSelector.fromField(new Fr(seed))),
   scalar(BLOCK_HASH, seed => new BlockHash(new Fr(seed))),
   scalar(SLOT_NUMBER, seed => SlotNumber(seed)),
+  scalar(TX_HASH, seed => TxHash.fromField(new Fr(seed))),
   // Only two delivery modes are valid for tagging, so the seed alternates between them, matching the Noir impl.
   scalar(DELIVERY_MODE, seed =>
     seed % 2 === 0 ? AppTaggingSecretKind.UNCONSTRAINED : AppTaggingSecretKind.CONSTRAINED,
