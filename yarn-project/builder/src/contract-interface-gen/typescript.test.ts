@@ -53,7 +53,8 @@ describe('generateTypescriptContractInterface globals', () => {
             ],
           },
         },
-        // Also present under `limits` to pin that the same name may appear under different tags.
+        // Also present under `limits`: stacking #[abi(constants)] and #[abi(limits)] on one global
+        // exports the same name under both tags.
         { name: 'MAX_ENTRIES', value: { kind: 'string', value: 'unlimited' } },
       ],
       limits: [{ name: 'MAX_ENTRIES', value: integer(100) }],
@@ -113,6 +114,8 @@ describe('generateTypescriptContractInterface globals', () => {
   });
 
   it('throws on duplicate names under the same tag', async () => {
+    // Reachable from valid Noir: repeating the same #[abi(tag)] attribute on one global emits the
+    // entry once per attribute, without deduplication.
     await expect(
       generateGlobals({
         constants: [
