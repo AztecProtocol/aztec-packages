@@ -1,4 +1,4 @@
-import { MAX_TX_DA_GAS } from '@aztec/constants';
+import { MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -94,7 +94,7 @@ describe('Validator factory functions', () => {
     });
 
     it('forwards the network admission limits to the gas limits validator', async () => {
-      const maxTxL2Gas = 1_000_000;
+      const maxTxL2Gas = Math.floor(MAX_PROCESSABLE_L2_GAS / 2);
       const validators = createFirstStageTxValidationsForGossipedTransactions(
         0n,
         BlockNumber(2),
@@ -120,7 +120,7 @@ describe('Validator factory functions', () => {
     });
 
     it('forwards the network DA admission limit to the gas limits validator', async () => {
-      const maxTxDAGas = 100_000;
+      const maxTxDAGas = Math.floor(MAX_TX_DA_GAS / 2);
       const validators = createFirstStageTxValidationsForGossipedTransactions(
         0n,
         BlockNumber(2),
@@ -138,7 +138,10 @@ describe('Validator factory functions', () => {
 
       // Over the network DA admission limit but under the protocol DA ceiling.
       const tx = await mockPrivateTxWithGasSettings(
-        GasSettings.fallback({ gasLimits: new Gas(maxTxDAGas + 1, 1_000_000), maxFeesPerGas: new GasFees(1, 1) }),
+        GasSettings.fallback({
+          gasLimits: new Gas(maxTxDAGas + 1, MAX_PROCESSABLE_L2_GAS),
+          maxFeesPerGas: new GasFees(1, 1),
+        }),
       );
       const result = await validators.gasLimitsValidator.validator.validateTx(tx);
       expect(result.result).toBe('invalid');
