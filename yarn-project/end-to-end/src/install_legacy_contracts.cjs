@@ -1,74 +1,80 @@
 #!/usr/bin/env node
-// Installs pinned legacy @aztec/* contract-artifact packages into .legacy-contracts/<version>/.
+// Unpacks the committed legacy artifact tarballs (legacy-contracts/<version>.tar.gz) into the
+// gitignored .legacy-contracts/<version>/ cache. See legacy-contracts/README.md for the tarball
+// layout and how versions are added.
 //
-// Called from two places:
-//   - bootstrap.sh ci-compat-e2e: pre-populates the cache on the host before hermetic test
-//     containers launch. The containers run with --net=none (see ci3/docker_isolate), so on-demand
-//     installs from inside them fail with EAI_AGAIN.
-//   - legacy-jest-resolver.cjs: on-demand install for local dev, where jest runs with network.
+// Called from legacy-jest-resolver.cjs, which unpacks on demand at first use — both locally and in
+// the isolated CI test containers (which bind-mount the checkout read-write).
 //
-// Idempotent: no-op when all packages are already present.
+// Idempotent and concurrency-safe: extraction goes to a temp dir and is renamed into place, so
+// parallel callers (e.g. compat test containers starting together) race benignly.
 /* eslint-disable @typescript-eslint/no-require-imports */
 
 const path = require('path');
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 
-const REDIRECTED = ['@aztec/noir-contracts.js', '@aztec/noir-test-contracts.js', '@aztec/accounts'];
+// Package dir names whose artifacts/*.json the jest resolver redirects to historical versions.
+const REDIRECTED = ['noir-contracts.js', 'noir-test-contracts.js', 'accounts'];
 
 const e2eRoot = path.resolve(__dirname, '..');
+const tarballDir = path.join(e2eRoot, 'legacy-contracts');
+const cacheBase = path.join(e2eRoot, '.legacy-contracts');
 
 function cacheRoot(version) {
-  return path.join(e2eRoot, '.legacy-contracts', version);
+  return path.join(cacheBase, version);
 }
 
-function pkgJsonPath(version, pkg) {
-  return path.join(cacheRoot(version), 'node_modules', pkg, 'package.json');
+/** Versions with committed artifacts, derived from the tarballs present. */
+function listVersions() {
+  if (!fs.existsSync(tarballDir)) {
+    return [];
+  }
+  return fs
+    .readdirSync(tarballDir)
+    .filter(f => f.endsWith('.tar.gz'))
+    .map(f => f.slice(0, -'.tar.gz'.length))
+    .sort();
 }
 
 function installLegacyContracts(version) {
   if (!version) {
     throw new Error('installLegacyContracts: version is required');
   }
-  if (REDIRECTED.every(pkg => fs.existsSync(pkgJsonPath(version, pkg)))) {
+  const dest = cacheRoot(version);
+  if (fs.existsSync(dest)) {
     return;
   }
-
-  const cacheDir = cacheRoot(version);
-  fs.mkdirSync(cacheDir, { recursive: true });
-
-  // Seed a standalone package.json so `npm install --prefix` treats cacheRoot as its own project. Without this, npm
-  // walks up and finds the yarn-project workspace root, which breaks on `workspace:` protocol deps and risks
-  // clobbering the monorepo's node_modules.
-  const seed = path.join(cacheDir, 'package.json');
-  if (!fs.existsSync(seed)) {
-    fs.writeFileSync(seed, JSON.stringify({ name: 'legacy-contracts-cache', private: true }));
+  const tarball = path.join(tarballDir, `${version}.tar.gz`);
+  if (!fs.existsSync(tarball)) {
+    throw new Error(`[legacy-contracts] no committed artifacts for ${version} (expected ${tarball})`);
   }
 
-  const specs = REDIRECTED.map(pkg => `${pkg}@${version}`);
-  process.stderr.write(`[legacy-contracts] installing ${specs.join(' ')} into ${cacheDir}\n`);
-  // --prefix: install into cacheRoot instead of cwd, so the cache is isolated from the monorepo.
-  // --no-save: don't write the installed packages back to the seeded package.json.
-  // --ignore-scripts: skip lifecycle scripts (preinstall/postinstall) of the legacy packages and their transitive
-  //   deps; we only want the files on disk, not to run any build steps.
-  // --legacy-peer-deps: tolerate peer-dependency mismatches between the pinned legacy @aztec/* graph and whatever
-  //   current versions npm would otherwise try to reconcile.
-  execFileSync(
-    'npm',
-    ['install', '--prefix', cacheDir, '--no-save', '--ignore-scripts', '--legacy-peer-deps', ...specs],
-    { stdio: 'inherit' },
-  );
-
-  // Verify versions on disk match the requested version.
-  for (const pkg of REDIRECTED) {
-    const onDisk = JSON.parse(fs.readFileSync(pkgJsonPath(version, pkg), 'utf8')).version;
-    if (onDisk !== version) {
-      throw new Error(`[legacy-contracts] ${pkg} on disk is ${onDisk}, expected ${version}`);
+  fs.mkdirSync(cacheBase, { recursive: true });
+  // Extract to a temp sibling and rename into place: rename is atomic on the same filesystem, so a
+  // concurrent caller either sees the complete cache or none of it.
+  const tmp = fs.mkdtempSync(path.join(cacheBase, `.${version}.tmp-`));
+  try {
+    process.stderr.write(`[legacy-contracts] unpacking ${path.basename(tarball)} -> ${dest}\n`);
+    execFileSync('tar', ['-xzf', tarball, '-C', tmp], { stdio: ['ignore', 'ignore', 'inherit'] });
+    for (const pkg of REDIRECTED) {
+      if (!fs.existsSync(path.join(tmp, version, pkg, 'artifacts'))) {
+        throw new Error(`[legacy-contracts] ${path.basename(tarball)} is missing ${pkg}/artifacts`);
+      }
     }
+    try {
+      fs.renameSync(path.join(tmp, version), dest);
+    } catch (err) {
+      if (!fs.existsSync(dest)) {
+        throw err;
+      }
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
 
-module.exports = { installLegacyContracts, REDIRECTED, cacheRoot };
+module.exports = { installLegacyContracts, listVersions, cacheRoot, REDIRECTED };
 
 if (require.main === module) {
   installLegacyContracts(process.argv[2]);

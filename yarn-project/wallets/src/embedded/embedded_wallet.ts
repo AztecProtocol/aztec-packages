@@ -22,6 +22,7 @@ import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import type { JsonRpcFetch, JsonRpcFetchConfig } from '@aztec/foundation/json-rpc/client';
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
@@ -81,6 +82,15 @@ export type EmbeddedWalletOptions = {
   pxe?: EmbeddedWalletPXEOptions;
   /** Wallet DB dependency overrides (custom store). */
   walletDb?: EmbeddedWalletDBOptions;
+  /** JSON-RPC client options used when the wallet is created from a node URL. */
+  nodeClientOptions?: {
+    /** Custom JSON-RPC transport. Takes precedence over fetchOptions. */
+    fetch?: JsonRpcFetch;
+    /** Configuration for the default retrying fetch transport. */
+    fetchOptions?: JsonRpcFetchConfig;
+    /** Maximum number of calls sent in one JSON-RPC batch. */
+    maxBatchSize?: number;
+  };
   /**
    * Override PXE configuration.
    * @deprecated Use `pxe` instead.

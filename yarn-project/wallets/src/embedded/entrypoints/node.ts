@@ -1,4 +1,3 @@
-import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
@@ -10,6 +9,7 @@ import { BundleAccountContractsProvider } from '../account-contract-providers/bu
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
 import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
 import { WALLET_DATA_SCHEMA_VERSION, WalletDB } from '../wallet_db.js';
+import { resolveAztecNode } from './resolve_aztec_node.js';
 
 const DEFAULT_WALLET_DATA_DIRECTORY = 'aztec-wallet-data';
 
@@ -27,7 +27,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
   ): Promise<T> {
     const rootLogger = options.logger ?? createLogger('embedded-wallet');
 
-    const aztecNode = typeof nodeOrUrl === 'string' ? createAztecNodeClient(nodeOrUrl) : nodeOrUrl;
+    const aztecNode = resolveAztecNode(nodeOrUrl, options.nodeClientOptions);
 
     // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
     const { config: pxeConfigFromPxe, creation: pxeCreationFromPxe } = splitPxeOptions(options.pxe);

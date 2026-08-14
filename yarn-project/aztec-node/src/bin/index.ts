@@ -5,6 +5,7 @@ import {
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
 import { createLogger } from '@aztec/foundation/log';
+import { getRpcCorsAllowedOrigins } from '@aztec/stdlib/config';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
 import {
@@ -21,9 +22,7 @@ const logger = createLogger('node');
 /**
  * Creates the node from provided config
  */
-async function createAndDeployAztecNode() {
-  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars() };
-
+async function createAndDeployAztecNode(aztecNodeConfig: AztecNodeConfig) {
   return await createAztecNodeService(aztecNodeConfig);
 }
 
@@ -33,7 +32,8 @@ async function createAndDeployAztecNode() {
 async function main() {
   logger.info(`Setting up Aztec Node...`);
 
-  const aztecNode = await createAndDeployAztecNode();
+  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars() };
+  const aztecNode = await createAndDeployAztecNode(aztecNodeConfig);
 
   const shutdown = async () => {
     logger.info('Shutting down...');
@@ -50,6 +50,9 @@ async function main() {
   registerAztecNodeRpcHandlers(aztecNode, services);
   const rpcServer = createNamespacedSafeJsonRpcServer(services, {
     middlewares: [getOtelJsonRpcPropagationMiddleware()],
+    maxBatchSize: aztecNodeConfig.rpcMaxBatchSize,
+    maxBodySizeBytes: aztecNodeConfig.rpcMaxBodySize,
+    corsAllowedOrigins: getRpcCorsAllowedOrigins(aztecNodeConfig),
   });
   await startHttpRpcServer(rpcServer, { port: +AZTEC_NODE_PORT, apiPrefix: API_PREFIX });
   logger.info(`Aztec Node JSON-RPC Server listening on port ${AZTEC_NODE_PORT}`);
