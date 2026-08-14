@@ -322,7 +322,12 @@ export class SequencerMetrics {
   }
 
   recordCheckpointPrecheckFailed(
-    checkType: 'slot_already_taken' | 'rollup_contract_check_failed' | 'slot_mismatch' | 'block_number_mismatch',
+    checkType:
+      | 'slot_already_taken'
+      | 'rollup_contract_check_failed'
+      | 'slot_mismatch'
+      | 'block_number_mismatch'
+      | 'no_peers',
   ) {
     this.checkpointPrecheckFailed.add(1, { [Attributes.ERROR_TYPE]: checkType });
   }

@@ -1,5 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { P2PConnectivity, PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -45,6 +45,11 @@ export class DummyP2PService implements P2PService {
   /** Returns an empty array for peers. */
   getPeers(): PeerInfo[] {
     return [];
+  }
+
+  /** Reports p2p as disabled, since this service does not run a p2p stack. */
+  getP2PConnectivity(): P2PConnectivity {
+    return { enabled: false, connectedPeers: 0 };
   }
 
   getGossipMeshPeerCount(_topicType: TopicType): number {

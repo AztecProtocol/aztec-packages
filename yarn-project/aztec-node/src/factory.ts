@@ -402,16 +402,22 @@ export async function createAztecNodeService(
     }
 
     if (collectOffenses) {
-      dataWithholdingWatcher = new DataWithholdingWatcher(
-        epochCache,
-        archiver,
-        p2pClient.getTxProvider(),
-        p2pClient,
-        reexecutionTracker,
-        { chainId: config.l1ChainId, rollupAddress: config.rollupAddress },
-        config,
-      );
-      watchers.push(dataWithholdingWatcher);
+      // The watcher's only evidence is the absence of gossiped txs in the local pool, so it cannot make a
+      // valid claim on a node that runs no p2p stack at all. Skipped entirely rather than gated at runtime.
+      if (config.p2pEnabled) {
+        dataWithholdingWatcher = new DataWithholdingWatcher(
+          epochCache,
+          archiver,
+          p2pClient.getTxProvider(),
+          p2pClient,
+          reexecutionTracker,
+          { chainId: config.l1ChainId, rollupAddress: config.rollupAddress },
+          config,
+        );
+        watchers.push(dataWithholdingWatcher);
+      } else {
+        log.verbose('Skipping data-withholding watcher since p2p is disabled');
+      }
 
       broadcastedInvalidCheckpointProposalWatcher = new BroadcastedInvalidCheckpointProposalWatcher(
         p2pClient,

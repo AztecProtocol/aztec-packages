@@ -10,7 +10,12 @@ import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import { DEFAULT_MAX_BLOCKS_PER_CHECKPOINT } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { type BlockMinFeesProvider, GasFees, getNetworkTxGasLimits } from '@aztec/stdlib/gas';
-import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  ClientProtocolCircuitVerifier,
+  P2PConnectivity,
+  PeerInfo,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import {
   BlockProposal,
   CheckpointAttestation,
@@ -729,6 +734,11 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   public getPeers(includePending?: boolean): PeerInfo[] {
     return this.peerManager.getPeers(includePending);
+  }
+
+  public getP2PConnectivity(): P2PConnectivity {
+    const connectedPeers = this.peerManager.getPeers().filter(peer => peer.status === 'connected').length;
+    return { enabled: true, connectedPeers };
   }
 
   public getGossipMeshPeerCount(topicType: TopicType): number {
