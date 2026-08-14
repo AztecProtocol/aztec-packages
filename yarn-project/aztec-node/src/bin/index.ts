@@ -6,7 +6,11 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import { createLogger } from '@aztec/foundation/log';
 import { getRpcCorsAllowedOrigins } from '@aztec/stdlib/config';
-import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
+import {
+  getOtelJsonRpcDiagnosticsMiddleware,
+  getOtelJsonRpcPropagationMiddleware,
+  getOtelJsonRpcServerMetricsMiddleware,
+} from '@aztec/telemetry-client';
 
 import {
   type AztecNodeConfig,
@@ -49,7 +53,8 @@ async function main() {
   const services: NamespacedApiHandlers = {};
   registerAztecNodeRpcHandlers(aztecNode, services);
   const rpcServer = createNamespacedSafeJsonRpcServer(services, {
-    middlewares: [getOtelJsonRpcPropagationMiddleware()],
+    diagnostic: getOtelJsonRpcDiagnosticsMiddleware(),
+    middlewares: [getOtelJsonRpcServerMetricsMiddleware(), getOtelJsonRpcPropagationMiddleware()],
     maxBatchSize: aztecNodeConfig.rpcMaxBatchSize,
     maxBodySizeBytes: aztecNodeConfig.rpcMaxBodySize,
     corsAllowedOrigins: getRpcCorsAllowedOrigins(aztecNodeConfig),
