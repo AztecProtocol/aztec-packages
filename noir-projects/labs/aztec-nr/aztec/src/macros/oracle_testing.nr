@@ -277,7 +277,7 @@ comptime fn vector_synth() -> TestValueSynthesizer {
         scenarios: |t: Type, seed: Quoted| @[unnamed(vector_value_expr(t, seed))],
         // The `+ 1` is the length field that precedes the contents on the wire.
         width: |t: Type| TEST_COLLECTION_LEN * flat_width(t.as_vector().unwrap()) + 1,
-        // A vector carries no length of its own, so only the element type needs pinning.
+        // A vector type does not display a length as it is dynamic
         pinned: |t: Type| {
             let pinned_element = pinned_type(t.as_vector().unwrap());
             quote { [$pinned_element] }
