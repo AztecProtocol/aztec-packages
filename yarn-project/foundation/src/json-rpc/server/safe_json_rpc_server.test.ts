@@ -216,6 +216,34 @@ describe('SafeJsonRpcServer', () => {
       expect(calls).toEqual(['start:count:42:test-value', 'end:count']);
     });
 
+    it('reports request validation duration and outcome to diagnostics', async () => {
+      const validations: Array<{ durationMs: number | undefined; succeeded: boolean | undefined }> = [];
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        diagnostic: async (ctx, next) => {
+          try {
+            await next();
+          } finally {
+            validations.push({
+              durationMs: ctx.requestValidationDurationMs,
+              succeeded: ctx.requestValidationSucceeded,
+            });
+          }
+        },
+      });
+
+      await send({ method: 'count', params: [] });
+      await send({ method: 'getNote', params: ['invalid'] });
+      await send({ method: 'count', params: {} });
+
+      expect(validations).toHaveLength(3);
+      expect(validations[0]?.durationMs).toBeGreaterThanOrEqual(0);
+      expect(validations[0]?.succeeded).toBe(true);
+      expect(validations[1]?.durationMs).toBeGreaterThanOrEqual(0);
+      expect(validations[1]?.succeeded).toBe(false);
+      expect(validations[2]?.durationMs).toBeGreaterThanOrEqual(0);
+      expect(validations[2]?.succeeded).toBe(false);
+    });
+
     it('runs diagnostics for each request in a batch', async () => {
       const methods: string[] = [];
       server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
@@ -262,6 +290,20 @@ describe('SafeJsonRpcServer', () => {
     it('fails if calls non-existing method in handler', async () => {
       const response = await send({ jsonrpc: '2.0', method: 'invalid', params: [], id: 42 });
       expectError(response, 400, 'Method not found: invalid');
+    });
+
+    it('does not run diagnostics for non-existing methods', async () => {
+      const methods: string[] = [];
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        diagnostic: async (ctx, next) => {
+          methods.push(ctx.method);
+          await next();
+        },
+      });
+
+      await send({ jsonrpc: '2.0', method: 'invalid', params: [], id: 42 });
+
+      expect(methods).toEqual([]);
     });
 
     it('fails if calls method in handler non defined in schema', async () => {
@@ -329,6 +371,21 @@ describe('SafeJsonRpcServer', () => {
           { jsonrpc: '2.0', id: 43, result: null },
           { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null },
         ]),
+      );
+    });
+
+    it('reports unexpected batch dispatch failures as internal errors', async () => {
+      Object.defineProperty(testState, 'count', {
+        get: () => {
+          throw new Error('Unexpected dispatch failure');
+        },
+      });
+
+      const resp = await sendBatch({ jsonrpc: '2.0', method: 'count', params: [], id: 42 });
+
+      expect(resp.status).toEqual(200);
+      expect(resp.text).toEqual(
+        JSON.stringify([{ jsonrpc: '2.0', error: { code: -32603, message: 'Internal error' }, id: null }]),
       );
     });
   });
