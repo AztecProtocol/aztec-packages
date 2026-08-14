@@ -87,8 +87,7 @@ export interface TransactionValidator {
  *
  * The `doubleSpendValidator` failure is special-cased by the caller (`handleGossipedTx`)
  * to determine severity based on how recently the nullifier appeared. The caller reports the
- * first failing entry among equally severe ones, so `doubleSpendValidator` must stay ahead of
- * the other mid-tolerance entries for that special case to apply.
+ * first failing entry among equally severe ones.
  */
 export function createFirstStageTxValidationsForGossipedTransactions(
   timestamp: UInt64,
