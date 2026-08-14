@@ -3,14 +3,11 @@
 // gitignored .legacy-contracts/<version>/ cache. See legacy-contracts/README.md for the tarball
 // layout and how versions are added.
 //
-// Called from two places:
-//   - bootstrap.sh test_cmds: unpacks on the host while emitting the compat sweep commands, so the
-//     isolated test containers (which share the checkout) don't each pay the extraction.
-//   - legacy-jest-resolver.cjs: on-demand unpack for local dev.
+// Called from legacy-jest-resolver.cjs, which unpacks on demand at first use — both locally and in
+// the isolated CI test containers (which bind-mount the checkout read-write).
 //
 // Idempotent and concurrency-safe: extraction goes to a temp dir and is renamed into place, so
-// parallel callers race benignly. Writes status to stderr only — test_cmds' stdout is the command
-// stream consumed by the test engine.
+// parallel callers (e.g. compat test containers starting together) race benignly.
 /* eslint-disable @typescript-eslint/no-require-imports */
 
 const path = require('path');

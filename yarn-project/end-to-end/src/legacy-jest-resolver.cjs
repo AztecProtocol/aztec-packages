@@ -25,8 +25,8 @@ const { installLegacyContracts, REDIRECTED, cacheRoot } = require('./install_leg
 const version = process.env.CONTRACT_ARTIFACTS_VERSION;
 const cacheDir = version ? cacheRoot(version) : null;
 
-// bootstrap.sh test_cmds normally pre-unpacks on the host before the hermetic test containers launch;
-// this lazy call covers local dev runs. Both are idempotent.
+// Unpack on demand at first use. Idempotent and concurrency-safe, so parallel jest workers and
+// isolated test containers (which share the checkout) race benignly.
 if (version) {
   installLegacyContracts(version);
 }

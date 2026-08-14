@@ -370,7 +370,6 @@ function compat_test_cmds {
   for tarball in legacy-contracts/*.tar.gz; do
     [ -e "$tarball" ] || continue
     version=$(basename "$tarball" .tar.gz)
-    node src/install_legacy_contracts.cjs "$version" 1>&2
     compat_per_version_test_cmds "$version"
   done
 }
