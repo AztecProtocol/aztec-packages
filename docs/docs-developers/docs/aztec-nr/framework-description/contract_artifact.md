@@ -72,6 +72,10 @@ GlobalsContract.globals.limits.EXPORTED_SHARED_CONSTANT; // 7n
 
 The generated `globals` getter omits the `storage` tag. Aztec.nr reserves that tag for the generated storage layout, which the contract class exposes through its `storage` getter.
 
+:::warning
+Do not apply `#[abi(storage)]` to your own globals. Noir compiles the attribute without complaint, but the entry lands next to the generated storage layout and loading the artifact then fails with `Global '<name>' is exported under the reserved #[abi(storage)] tag`. Pick any other tag.
+:::
+
 When building tooling that works directly with artifacts instead of generated contract classes, use `getGlobalsByTag` to return the named entries for one tag as raw `AbiValue` objects:
 
 ```typescript

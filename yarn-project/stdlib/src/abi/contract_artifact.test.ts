@@ -11,27 +11,32 @@ import {
   loadContractArtifact,
 } from './contract_artifact.js';
 
-const storageLayoutValue = {
-  kind: 'struct',
-  fields: [
-    { name: 'contract_name', value: { kind: 'string', value: 'TestContract' } },
-    {
-      name: 'fields',
-      value: {
-        kind: 'struct',
-        fields: [
-          {
-            name: 'balance',
+function storageLayoutFor(contractName: string, fields: [name: string, slot: string][]): AbiValue {
+  return {
+    kind: 'struct',
+    fields: [
+      { name: 'contract_name', value: { kind: 'string', value: contractName } },
+      {
+        name: 'fields',
+        value: {
+          kind: 'struct',
+          fields: fields.map(([name, slot]) => ({
+            name,
             value: {
               kind: 'struct',
-              fields: [{ name: 'slot', value: { kind: 'integer', sign: false, value: '01' } }],
+              fields: [{ name: 'slot', value: { kind: 'integer', sign: false, value: slot } }],
             },
-          },
-        ],
+          })),
+        },
       },
-    },
-  ],
-} satisfies AbiValue;
+    ],
+  };
+}
+
+const storageLayoutValue = storageLayoutFor('TestContract', [['balance', '01']]);
+
+const fieldValue = { kind: 'integer', sign: false, value: '04d2' } satisfies AbiValue;
+const stringValue = { kind: 'string', value: 'exported' } satisfies AbiValue;
 
 describe('contract_artifact', () => {
   it('serializes and deserializes an instance', () => {
@@ -51,6 +56,88 @@ describe('contract_artifact', () => {
       value: storageLayoutValue,
     });
     expect(artifact.storageLayout).toEqual({ balance: { slot: new Fr(1) } });
+  });
+
+  it('preserves a global exported under a tag named __proto__', () => {
+    // `fromEntries` creates an own `__proto__` key, matching what `JSON.parse` of a compiled artifact produces;
+    // an object literal would set the prototype instead of defining the key.
+    const globals = Object.fromEntries([['__proto__', [{ name: 'MY_GLOBAL', value: fieldValue }]]]) as Record<
+      string,
+      AbiNamedValue[]
+    >;
+    const artifact = loadContractArtifact(contractWithGlobals(globals));
+
+    expect(Object.keys(artifact.outputs.globals)).toEqual(['__proto__']);
+    expect(Object.getPrototypeOf(artifact.outputs.globals)).toBe(Object.prototype);
+    expect(getGlobalsByTag(artifact, '__proto__')).toEqual({ MY_GLOBAL: fieldValue });
+  });
+
+  it('loads a storage layout field named __proto__ as a regular own property', () => {
+    const artifact = loadContractArtifact(
+      contractWithGlobals({
+        storage: [
+          {
+            name: 'STORAGE_LAYOUT_TestContract',
+            value: storageLayoutFor('TestContract', [
+              ['__proto__', '01'],
+              ['balance', '02'],
+            ]),
+          },
+        ],
+      }),
+    );
+
+    expect(Object.keys(artifact.storageLayout)).toEqual(['__proto__', 'balance']);
+    expect(Object.getOwnPropertyDescriptor(artifact.storageLayout, '__proto__')?.value).toEqual({ slot: new Fr(1) });
+    expect(Object.getPrototypeOf(artifact.storageLayout)).toBe(Object.prototype);
+  });
+
+  it('selects the layout matching the contract name over an imported contract layout', () => {
+    const artifact = loadContractArtifact(
+      contractWithGlobals({
+        storage: [
+          { name: 'STORAGE_LAYOUT_OtherContract', value: storageLayoutFor('OtherContract', [['dep_balance', '63']]) },
+          { name: 'STORAGE_LAYOUT_TestContract', value: storageLayoutValue },
+        ],
+      }),
+    );
+    expect(artifact.storageLayout).toEqual({ balance: { slot: new Fr(1) } });
+  });
+
+  it('throws when two storage layouts declare the same contract name', () => {
+    // Reachable from valid Noir: a dependency contract sharing this contract's unqualified name emits an
+    // identically named layout global with an identical contract_name, and the compiler exports both.
+    expect(() =>
+      loadContractArtifact(
+        contractWithGlobals({
+          storage: [
+            {
+              name: 'STORAGE_LAYOUT_TestContract',
+              value: storageLayoutFor('TestContract', [['dep_balance', '63']]),
+            },
+            { name: 'STORAGE_LAYOUT_TestContract', value: storageLayoutValue },
+          ],
+        }),
+      ),
+    ).toThrow(/Ambiguous storage layout/);
+  });
+
+  it('rejects a global exported under the reserved storage tag', () => {
+    // Reachable from valid Noir: `#[abi(storage)]` on a user global compiles, and the entry lands next to the
+    // layout the storage macro generates.
+    expect(() =>
+      loadContractArtifact(
+        contractWithGlobals({
+          storage: [
+            {
+              name: 'MY_GLOBAL',
+              value: { kind: 'struct', fields: [{ name: 'x', value: { kind: 'integer', sign: false, value: '2a' } }] },
+            },
+            { name: 'STORAGE_LAYOUT_TestContract', value: storageLayoutValue },
+          ],
+        }),
+      ),
+    ).toThrow(/Global 'MY_GLOBAL'.*reserved/);
   });
 
   it('loads the constants exported by the Test contract', () => {
@@ -82,19 +169,36 @@ describe('contract_artifact', () => {
   });
 
   describe('getGlobalsByTag', () => {
-    const fieldValue = { kind: 'integer', sign: false, value: '04d2' } satisfies AbiValue;
-    const stringValue = { kind: 'string', value: 'exported' } satisfies AbiValue;
-
     it('returns an empty record for an unknown tag', () => {
       const artifact = loadContractArtifact(contractWithGlobals({}));
       expect(getGlobalsByTag(artifact, 'constants')).toEqual({});
     });
+
+    it.each(Object.getOwnPropertyNames(Object.prototype))(
+      'returns an empty record for the absent tag %s inherited from Object.prototype',
+      tag => {
+        const artifact = loadContractArtifact(
+          contractWithGlobals({ constants: [{ name: 'MY_FIELD', value: fieldValue }] }),
+        );
+        expect(getGlobalsByTag(artifact, tag)).toEqual({});
+      },
+    );
 
     it('handles global names that collide with Object prototype properties', () => {
       const artifact = loadContractArtifact(
         contractWithGlobals({ constants: [{ name: 'toString', value: fieldValue }] }),
       );
       expect(getGlobalsByTag(artifact, 'constants')).toEqual({ toString: fieldValue });
+    });
+
+    it('reports a pre-cutover artifact when its globals carry no names', () => {
+      // Pre-cutover artifacts exported bare values without names. Already-processed artifacts are returned by
+      // `loadContractArtifact` without validation, so the stale shape must surface an accurate error at read time.
+      const artifact = {
+        ...loadContractArtifact(contractWithGlobals({})),
+        outputs: { structs: {}, globals: { constants: [fieldValue] } },
+      } as unknown as Parameters<typeof getGlobalsByTag>[0];
+      expect(() => getGlobalsByTag(artifact, 'constants')).toThrow(/predates named globals/);
     });
 
     it('throws on duplicate names under the same tag', () => {
