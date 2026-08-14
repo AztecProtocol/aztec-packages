@@ -30,6 +30,104 @@ describe('SafeJsonRpcServer', () => {
     expect(response.status).toBe(httpCode);
   };
 
+  describe('CORS', () => {
+    beforeEach(() => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
+    });
+
+    it('preserves wildcard non-credentialed CORS by default', async () => {
+      const response = await send({ method: 'count', params: [] }).set('origin', 'https://app.example.com');
+
+      expect(response.headers['access-control-allow-origin']).toBe('*');
+      expect(response.headers['access-control-allow-credentials']).toBeUndefined();
+    });
+
+    it('allows credentialed requests from configured origins', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedOrigins: ['https://app.example.com/'],
+      });
+
+      const response = await send({ method: 'count', params: [] }).set('origin', 'https://app.example.com');
+
+      expect(response.headers['access-control-allow-origin']).toBe('https://app.example.com');
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
+      expect(response.headers.vary).toContain('Origin');
+    });
+
+    it('reflects any request origin when the wildcard policy is configured', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedOrigins: ['*'],
+      });
+
+      const response = await send({ method: 'count', params: [] }).set('origin', 'https://public-app.example.com');
+
+      expect(response.headers['access-control-allow-origin']).toBe('https://public-app.example.com');
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
+      expect(response.headers.vary).toContain('Origin');
+    });
+
+    it('does not allow requests from origins outside the allowlist', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedOrigins: ['https://app.example.com'],
+      });
+
+      const response = await send({ method: 'count', params: [] }).set('origin', 'https://other.example.com');
+
+      expect(response.status).toBe(200);
+      expect(response.headers['access-control-allow-origin']).toBeUndefined();
+      expect(response.headers['access-control-allow-credentials']).toBeUndefined();
+    });
+
+    it('rejects invalid configured origins', () => {
+      expect(() =>
+        createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+          corsAllowedOrigins: ['https://app.example.com/path'],
+        }),
+      ).toThrow('CORS allowed origin must not include credentials, a path, query parameters, or a fragment');
+    });
+
+    it('handles allowed preflight requests before additional middleware', async () => {
+      let middlewareCalled = false;
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedOrigins: ['https://app.example.com'],
+        middlewares: [
+          async (_ctx, next) => {
+            middlewareCalled = true;
+            await next();
+          },
+        ],
+      });
+
+      const response = await request(server.getApp().callback())
+        .options('/')
+        .set('origin', 'https://app.example.com')
+        .set('access-control-request-method', 'POST')
+        .set('access-control-request-headers', 'content-type,x-api-key');
+
+      expect(response.status).toBe(204);
+      expect(response.headers['access-control-allow-origin']).toBe('https://app.example.com');
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
+      expect(response.headers['access-control-allow-headers']).toBe('content-type,x-api-key');
+      expect(middlewareCalled).toBe(false);
+    });
+
+    it('reflects any request origin on preflight under the wildcard policy', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedOrigins: ['*'],
+      });
+
+      const response = await request(server.getApp().callback())
+        .options('/')
+        .set('origin', 'https://public-app.example.com')
+        .set('access-control-request-method', 'POST')
+        .set('access-control-request-headers', 'content-type,x-api-key');
+
+      expect(response.status).toBe(204);
+      expect(response.headers['access-control-allow-origin']).toBe('https://public-app.example.com');
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
+    });
+  });
+
   describe('single', () => {
     beforeEach(() => {
       server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
