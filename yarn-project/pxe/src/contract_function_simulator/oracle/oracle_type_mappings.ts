@@ -654,6 +654,49 @@ export function ARRAY<T>(inner: TypeMapping<T>): ArrayMapping<T> {
 }
 
 /**
+ * Maps Noir's `[T]` ↔ TS `T[]` over 2 slots:
+ *   slot 0 — length scalar (count of elements)
+ *   slot 1 — the elements' fields, laid end to end
+ *
+ * The contents slot holds exactly `length` elements and is never padded, so deserializing rejects a length that
+ * disagrees with the fields present.
+ *
+ * @example Serializing `[{ x: 1, y: 2 }, { x: 3, y: 4 }]` with `VECTOR(POINT)`:
+ * ```
+ * slot 0: Fr(2)                          // element count, not field count
+ * slot 1: [Fr(1), Fr(2), Fr(3), Fr(4)]   // each element's fields end to end
+ * ```
+ */
+export function VECTOR<T>(inner: TypeMapping<T>): VectorMapping<T> {
+  return {
+    kind: 'vector',
+    label: `vector(${inner.label})`,
+    inner,
+    serialization: inner.serialization
+      ? { fn: values => [new Fr(values.length), packElements(inner, values)] }
+      : undefined,
+    deserialization: inner.deserialization
+      ? {
+          fn: ([lengthReader, contentsReader]) => {
+            const length = lengthReader.readField().toNumber();
+            const elementWidth = fieldWidth(inner.shape);
+            const contentsFields = contentsReader.remainingFields();
+            if (contentsFields !== length * elementWidth) {
+              throw new Error(
+                `Malformed vector: length ${length} implies ${length * elementWidth} field(s) but the contents slot ` +
+                  `holds ${contentsFields}`,
+              );
+            }
+            return unpackElements(inner, contentsReader, length);
+          },
+        }
+      : undefined,
+    // slot 0: the length scalar; slot 1: the contents, sized by that length.
+    shape: ['scalar', { lenFrom: (size: { length: number }) => size.length * fieldWidth(inner.shape) }],
+  };
+}
+
+/**
  * Noir's fixed-length array `[T; length]` in one slot: serializes `values` (each flattened via `element`)
  * zero-padded to exactly `length * elementWidth` fields, and deserializes all `length` elements back. An absent
  * element is the zero encoding, so the padding is derived from the shape.
@@ -889,11 +932,12 @@ export function STRUCT<T>(fields: readonly StructField[]): StructMapping<T> {
 }
 
 /**
- * The composite `TypeMapping`s (`ARRAY`/`BOUNDED_VEC`/`OPTION`/`STRUCT`/`FIXED_ARRAY`/`FIXED_BOUNDED_VEC`/
+ * The composite `TypeMapping`s (`ARRAY`/`VECTOR`/`BOUNDED_VEC`/`OPTION`/`STRUCT`/`FIXED_ARRAY`/`FIXED_BOUNDED_VEC`/
  * `EPHEMERAL_ARRAY`), discriminated by `kind`. The combinators attach `kind` plus the inner mapping(s) at construction;
  * the registry erases params to the base `TypeMapping`, so the guards below recover the structure for recursion.
  */
 export type ArrayMapping<T = any> = TypeMapping<T[]> & { kind: 'array'; inner: TypeMapping<T> };
+export type VectorMapping<T = any> = TypeMapping<T[]> & { kind: 'vector'; inner: TypeMapping<T> };
 export type BoundedVecMapping<T = any> = TypeMapping<BoundedVec<T>> & { kind: 'bounded-vec'; inner: TypeMapping<T> };
 export type OptionMapping<T = any> = TypeMapping<Option<T>> & { kind: 'option'; inner: TypeMapping<T> };
 export type StructMapping<T = any> = TypeMapping<T> & { kind: 'struct'; fields: readonly StructField[] };
@@ -913,6 +957,7 @@ export type EphemeralArrayMapping<T = any> = TypeMapping<EphemeralArray<T>> & {
 };
 export type CompositeMapping =
   | ArrayMapping
+  | VectorMapping
   | BoundedVecMapping
   | OptionMapping
   | StructMapping
@@ -922,6 +967,9 @@ export type CompositeMapping =
 
 export function isArrayMapping(type: TypeMapping<any>): type is ArrayMapping {
   return type.kind === 'array';
+}
+export function isVectorMapping(type: TypeMapping<any>): type is VectorMapping {
+  return type.kind === 'vector';
 }
 export function isBoundedVecMapping(type: TypeMapping<any>): type is BoundedVecMapping {
   return type.kind === 'bounded-vec';

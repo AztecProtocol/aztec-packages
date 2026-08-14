@@ -46,6 +46,7 @@ export {
   U32,
   U64,
   U128,
+  VECTOR,
   tryFieldWidth,
   isArrayMapping,
   isBoundedVecMapping,
@@ -54,6 +55,7 @@ export {
   isFixedBoundedVecMapping,
   isOptionMapping,
   isStructMapping,
+  isVectorMapping,
   type ArrayMapping,
   type BoundedVecMapping,
   type CompositeMapping,
@@ -68,6 +70,7 @@ export {
   type StructField,
   type StructMapping,
   type TypeMapping,
+  type VectorMapping,
 } from './oracle/oracle_type_mappings.js';
 export { ExecutionNoteCache } from './execution_note_cache.js';
 export { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';

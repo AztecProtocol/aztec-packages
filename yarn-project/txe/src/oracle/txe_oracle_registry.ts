@@ -38,6 +38,7 @@ import {
   type TypeMapping,
   U32,
   U64,
+  VECTOR,
   buildACIRCallback,
   makeEntry,
 } from '@aztec/pxe/simulator';
@@ -380,7 +381,7 @@ export const TXE_ORACLE_REGISTRY = {
   }),
 
   aztec_avm_emitPublicLog: makeEntry({
-    params: [{ name: 'message', type: ARRAY(FIELD) }],
+    params: [{ name: 'message', type: VECTOR(FIELD) }],
   }),
 
   aztec_avm_returndataSize: makeEntry({ returnType: U32 }),
@@ -390,7 +391,7 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'rdOffset', type: U32 },
       { name: 'copySize', type: U32 },
     ],
-    returnType: ARRAY(FIELD),
+    returnType: VECTOR(FIELD),
   }),
 
   aztec_avm_call: makeEntry({

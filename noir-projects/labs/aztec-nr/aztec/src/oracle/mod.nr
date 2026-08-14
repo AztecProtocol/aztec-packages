@@ -16,9 +16,6 @@ use crate::macros::oracle_testing::{generate_oracle_tests, generate_oracle_tests
         quote { calldata_copy_opcode },
         quote { return_opcode },
         quote { revert_opcode },
-        // TODO: implement once we support slices
-        quote { emit_public_log_opcode },
-        quote { returndata_copy_opcode },
     ],
 )]
 pub mod avm;
