@@ -1,4 +1,5 @@
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -179,6 +180,51 @@ describe('WalletDB', () => {
       expect(senders).toHaveLength(1);
       expect(accounts[0].alias).toEqual('alice');
       expect(senders[0].alias).toEqual('exchange');
+    });
+  });
+
+  describe('atomicity', () => {
+    /** Wraps a store so map writes whose key matches `shouldCrash` fail, simulating a crash mid-operation. */
+    function crashingStore(store: AztecAsyncKVStore, shouldCrash: (key: string) => boolean): AztecAsyncKVStore {
+      const wrapMap = (map: AztecAsyncMap<string, Buffer>): AztecAsyncMap<string, Buffer> =>
+        new Proxy(map, {
+          get(target, prop) {
+            if (prop === 'set') {
+              return (key: string, value: Buffer) =>
+                shouldCrash(key) ? Promise.reject(new Error('simulated write failure')) : target.set(key, value);
+            }
+            const member = Reflect.get(target, prop);
+            return typeof member === 'function' ? member.bind(target) : member;
+          },
+        });
+      return new Proxy(store, {
+        get(target, prop) {
+          if (prop === 'openMap') {
+            return (name: string) => wrapMap(target.openMap(name));
+          }
+          const member = Reflect.get(target, prop);
+          return typeof member === 'function' ? member.bind(target) : member;
+        },
+      });
+    }
+
+    it('persists no partial account data when a write fails midway through storeAccount', async () => {
+      const store = await openTmpStore('wallet-db-atomicity-test');
+      const failingDb = new WalletDB(
+        crashingStore(store, key => key.startsWith('signingKey:')),
+        () => {},
+      );
+      const address = await AztecAddress.random();
+
+      await expect(failingDb.storeAccount(address, makeAccountData('schnorr', 'alice'))).rejects.toThrow(
+        'simulated write failure',
+      );
+
+      // Inspect the same underlying store with a fresh WalletDB: no trace of the account may remain
+      const dbAfterCrash = new WalletDB(store, () => {});
+      await expect(dbAfterCrash.retrieveAccount(address)).rejects.toThrow('does not exist');
+      expect(await dbAfterCrash.listAccounts()).toEqual([]);
+      expect(await store.openMap<string, Buffer>('aliases').getAsync('accounts:alice')).toBeUndefined();
     });
   });
 

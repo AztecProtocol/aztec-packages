@@ -10,6 +10,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';
@@ -67,7 +68,7 @@ async function getMasterSecretKeysAndKeyTypeDomainSeparators(
   oracle: PrivateKernelOracle,
 ) {
   const numRequestsToProcess = Math.min(keyValidationRequests.claimedLength, numRequestsToVerify);
-  const keysHints = await Promise.all(
+  const keysHints = await allToCompletion(
     keyValidationRequests.array.slice(0, numRequestsToProcess).map(async ({ request }) => {
       const secretKeys = await oracle.getMasterSecretKey(request.request.pkMHash);
       return new KeyValidationHint(secretKeys);
@@ -168,7 +169,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
     // Execute all the expensive node querying operations in parallel.
     const [previousVkMembershipWitness, noteHashReadRequestHints, nullifierReadRequestHints, keyValidationHints] =
-      await Promise.all([
+      await allToCompletion([
         oracle.getVkMembershipWitness(this.previousKernelOutput.verificationKey.keyAsFields),
         buildNoteHashReadRequestHintsFromResetActions<
           typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX,

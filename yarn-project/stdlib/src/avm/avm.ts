@@ -1281,6 +1281,9 @@ export class PublicTxResult {
     // For the proving request.
     public hints: AvmExecutionHints | undefined,
     public publicInputs: AvmCircuitPublicInputs | undefined,
+    // Simulation statistics keyed by stat name, with stringified values.
+    // E.g. "total_instructions_executed" -> AVM instructions executed by the tx, across all enqueued and nested calls.
+    public stats: Record<string, string> = {},
   ) {}
 
   static empty() {
@@ -1309,12 +1312,17 @@ export class PublicTxResult {
         publicTxEffect: PublicTxEffect.schema,
         callStackMetadata: z.union([CallStackMetadata.schema.array(), NestedProcessReturnValues.schema.array()]),
         logs: NullishToUndefined(DebugLog.schema.array()),
+        // Missing/null coalesces to an empty map.
+        stats: z
+          .record(z.string(), z.string())
+          .nullish()
+          .transform(v => v ?? {}),
         // For the proving request.
         publicInputs: NullishToUndefined(AvmCircuitPublicInputs.schema),
         hints: NullishToUndefined(AvmExecutionHints.schema),
       })
       .transform(
-        ({ gasUsed, revertCode, publicTxEffect, callStackMetadata, logs, hints, publicInputs }) =>
+        ({ gasUsed, revertCode, publicTxEffect, callStackMetadata, logs, hints, publicInputs, stats }) =>
           new PublicTxResult(
             gasUsed,
             revertCode as RevertCode,
@@ -1323,6 +1331,7 @@ export class PublicTxResult {
             logs,
             hints,
             publicInputs,
+            stats,
           ),
       );
   }
@@ -1343,6 +1352,7 @@ export class PublicTxResult {
       obj.logs?.map(DebugLog.fromPlainObject),
       obj.hints ? AvmExecutionHints.fromPlainObject(obj.hints) : undefined,
       obj.publicInputs ? AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs) : undefined,
+      obj.stats ?? {},
     );
   }
 

@@ -1,5 +1,6 @@
 import { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness, type MerkleTree } from '@aztec/foundation/trees';
 import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
@@ -22,7 +23,7 @@ export class PrivateFunctionsTree {
   private constructor(private readonly privateFunctions: PrivateFunction[]) {}
 
   static async create(artifact: ContractArtifact) {
-    const privateFunctions = await Promise.all(
+    const privateFunctions = await allToCompletion(
       artifact.functions
         .filter(fn => fn.functionType === FunctionType.PRIVATE)
         .map(getContractClassPrivateFunctionFromArtifact),
