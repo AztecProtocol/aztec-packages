@@ -9,6 +9,7 @@ import {
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { MAX_RPC_BLOCKS_LEN } from '@aztec/stdlib/interfaces/api-limit';
 import type { ArchiverSpecificConfig } from '@aztec/stdlib/interfaces/server';
 import { DEFAULT_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE } from '@aztec/stdlib/timetable';
 
@@ -107,6 +108,44 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   },
   ...l1ContractsConfigMappings,
 };
+
+/**
+ * Configuration of the RPC-sync (follower) archiver. Deliberately separate from the L1 archiver knobs:
+ * `archiverPollingIntervalMS`/`archiverBatchSize` describe L1 log scanning, which a follower never does.
+ */
+export type RpcSyncArchiverSpecificConfig = {
+  /** How often the follower polls its upstream node for new chain state. */
+  followerSyncPollingIntervalMs?: number;
+  /** Number of L2 blocks the follower requests per upstream call. Capped at the RPC limit of 50. */
+  followerSyncBatchSize?: number;
+};
+
+/** Default follower polling interval, in ms. Tracks L2 block cadence rather than L1 block cadence. */
+export const DEFAULT_FOLLOWER_SYNC_POLLING_INTERVAL_MS = 1_000;
+
+/** Default follower block batch size. Matches the `getBlocks` RPC ceiling. */
+export const DEFAULT_FOLLOWER_SYNC_BATCH_SIZE = MAX_RPC_BLOCKS_LEN;
+
+export const rpcSyncArchiverConfigMappings: ConfigMappingsType<RpcSyncArchiverSpecificConfig> = {
+  followerSyncPollingIntervalMs: {
+    env: 'FOLLOWER_SYNC_POLLING_INTERVAL_MS',
+    description: 'How often the follower archiver polls its upstream node for new chain state.',
+    ...numberConfigHelper(DEFAULT_FOLLOWER_SYNC_POLLING_INTERVAL_MS),
+  },
+  followerSyncBatchSize: {
+    env: 'FOLLOWER_SYNC_BATCH_SIZE',
+    description: 'Number of L2 blocks the follower archiver requests per upstream call. Capped at the RPC limit of 50.',
+    ...numberConfigHelper(DEFAULT_FOLLOWER_SYNC_BATCH_SIZE),
+  },
+};
+
+/** Extracts the follower-specific configuration, applying defaults for anything unset. */
+export function mapRpcSyncArchiverConfig(config: Partial<RpcSyncArchiverSpecificConfig>) {
+  return {
+    pollingIntervalMs: config.followerSyncPollingIntervalMs ?? DEFAULT_FOLLOWER_SYNC_POLLING_INTERVAL_MS,
+    batchSize: config.followerSyncBatchSize ?? DEFAULT_FOLLOWER_SYNC_BATCH_SIZE,
+  };
+}
 
 /**
  * Returns the archiver configuration from the environment variables.

@@ -1,6 +1,6 @@
 import { L1ToL2MessagesNotReadyError } from '@aztec/archiver';
 import { PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import type { EpochSlotMathInterface } from '@aztec/epoch-cache';
 import {
   type RollupContract,
   SimulationOverridesBuilder,
@@ -56,7 +56,7 @@ export interface NodePublicCallsSimulatorDeps {
    * degrade to a pinned-tips plan (non-pipelined fees) instead.
    */
   rollupContract?: RollupContract;
-  epochCache: EpochCacheInterface;
+  epochCache: EpochSlotMathInterface;
   signatureContext: CoordinationSignatureContext;
   config: NodePublicCallsSimulatorConfig;
   telemetry?: TelemetryClient;
@@ -86,7 +86,7 @@ export class NodePublicCallsSimulator {
   private readonly contractDataSource: ContractDataSource;
   private readonly globalVariableBuilder: GlobalVariableBuilder;
   private readonly rollupContract: RollupContract | undefined;
-  private readonly epochCache: EpochCacheInterface;
+  private readonly epochCache: EpochSlotMathInterface;
   private readonly signatureContext: CoordinationSignatureContext;
   private readonly config: NodePublicCallsSimulatorConfig;
   private readonly telemetry: TelemetryClient;

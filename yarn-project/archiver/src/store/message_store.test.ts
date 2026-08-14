@@ -1,13 +1,14 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import '@aztec/stdlib/testing/jest';
 
 import { L1ToL2MessagesNotReadyError } from '../errors.js';
-import type { InboxMessage } from '../structs/inbox_message.js';
+import { type InboxMessage, updateRollingHash } from '../structs/inbox_message.js';
 import {
   makeInboxMessage,
   makeInboxMessages,
@@ -324,6 +325,87 @@ describe('MessageStore', () => {
 
         // No setMessageSyncState call — guard should be permissive
         await expect(messageStore.getL1ToL2Messages(CheckpointNumber(1))).resolves.toEqual([msgs[0].leaf]);
+      });
+    });
+
+    describe('replication from an upstream node', () => {
+      it('starts the cursor at zero on an empty store', async () => {
+        await expect(messageStore.getMessagesSyncedToCheckpoint()).resolves.toEqual(CheckpointNumber.ZERO);
+      });
+
+      it('advances the cursor and the tree-in-progress marker as checkpoints are replicated', async () => {
+        await messageStore.addL1ToL2MessagesForCheckpoint(CheckpointNumber(1), [Fr.random(), Fr.random()]);
+        await messageStore.addL1ToL2MessagesForCheckpoint(CheckpointNumber(2), []);
+
+        await expect(messageStore.getMessagesSyncedToCheckpoint()).resolves.toEqual(CheckpointNumber(2));
+        await expect(messageStore.getInboxTreeInProgress()).resolves.toEqual(3n);
+        // Both replicated checkpoints must be readable, including the empty one.
+        await expect(messageStore.getL1ToL2Messages(CheckpointNumber(1))).resolves.toHaveLength(2);
+        await expect(messageStore.getL1ToL2Messages(CheckpointNumber(2))).resolves.toEqual([]);
+      });
+
+      it('derives the cursor from the tree-in-progress marker left by an L1-syncing archiver', async () => {
+        // Simulates a snapshot taken from an L1-syncing archiver: checkpoints 5 and 6 are sealed and checkpoint 7
+        // is the tree the inbox was still filling, so only part of its leaves made it into the snapshot.
+        const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(5) });
+        await messageStore.addL1ToL2Messages(msgs);
+        await messageStore.setMessageSyncState({ l1BlockNumber: 1n, l1BlockHash: Buffer32.random() }, 7n);
+
+        await expect(messageStore.getMessagesSyncedToCheckpoint()).resolves.toEqual(CheckpointNumber(6));
+      });
+
+      it('falls back to the last stored message when no marker was left behind', async () => {
+        const msgs = makeInboxMessages(2, { initialCheckpointNumber: CheckpointNumber(4) });
+        await messageStore.addL1ToL2Messages(msgs);
+
+        await expect(messageStore.getMessagesSyncedToCheckpoint()).resolves.toEqual(CheckpointNumber(5));
+      });
+
+      it('replaces a partially replicated tree inherited from a snapshot', async () => {
+        // Checkpoint 6 is complete, checkpoint 7 only holds the leaves the upstream had published so far.
+        const sealed = makeInboxMessages(1, { initialCheckpointNumber: CheckpointNumber(6) });
+        await messageStore.addL1ToL2Messages(sealed);
+        const partial = makeInboxMessages(1, {
+          initialCheckpointNumber: CheckpointNumber(7),
+          initialHash: sealed[0].rollingHash,
+        });
+        await messageStore.addL1ToL2Messages(partial);
+        await messageStore.setMessageSyncState({ l1BlockNumber: 1n, l1BlockHash: Buffer32.random() }, 7n);
+        expect(await messageStore.getMessagesSyncedToCheckpoint()).toEqual(CheckpointNumber(6));
+
+        // The upstream sealed checkpoint 7 with one extra leaf; replicating it must not chain the rolling hash
+        // off the partial prefix already in the store.
+        const full = [partial[0].leaf, Fr.random()];
+        await messageStore.addL1ToL2MessagesForCheckpoint(CheckpointNumber(7), full);
+
+        await expect(messageStore.getL1ToL2Messages(CheckpointNumber(7))).resolves.toEqual(full);
+        await expect(messageStore.getTotalL1ToL2MessageCount()).resolves.toEqual(3n);
+        const last = await messageStore.getLastMessage();
+        expect(last!.rollingHash).toEqual(updateRollingHash(partial[0].rollingHash, full[1]));
+        await expect(messageStore.getMessagesSyncedToCheckpoint()).resolves.toEqual(CheckpointNumber(7));
+      });
+
+      it('rewinds the cursor and the marker together on rollback', async () => {
+        await messageStore.addL1ToL2MessagesForCheckpoint(CheckpointNumber(1), [Fr.random()]);
+        await messageStore.addL1ToL2MessagesForCheckpoint(CheckpointNumber(2), [Fr.random()]);
+        await messageStore.addL1ToL2MessagesForCheckpoint(CheckpointNumber(3), [Fr.random()]);
+
+        await messageStore.rollbackL1ToL2MessagesToCheckpoint(CheckpointNumber(1));
+
+        await expect(messageStore.getMessagesSyncedToCheckpoint()).resolves.toEqual(CheckpointNumber(1));
+        await expect(messageStore.getInboxTreeInProgress()).resolves.toEqual(2n);
+        await expect(messageStore.getTotalL1ToL2MessageCount()).resolves.toEqual(1n);
+        await expect(messageStore.getL1ToL2Messages(CheckpointNumber(2))).rejects.toThrow(L1ToL2MessagesNotReadyError);
+      });
+
+      it('leaves the marker alone when rolling back a store with no replication cursor', async () => {
+        const msgs = makeInboxMessagesWithFullBlocks(3, { initialCheckpointNumber: CheckpointNumber(1) });
+        await messageStore.addL1ToL2Messages(msgs);
+        await messageStore.setMessageSyncState({ l1BlockNumber: 1n, l1BlockHash: Buffer32.random() }, 4n);
+
+        await messageStore.rollbackL1ToL2MessagesToCheckpoint(CheckpointNumber(1));
+
+        await expect(messageStore.getInboxTreeInProgress()).resolves.toEqual(4n);
       });
     });
   });

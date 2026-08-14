@@ -1,4 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
+import { followerConfigMappings } from '@aztec/aztec-node';
 import { blobClientConfigMapping } from '@aztec/blob-client/client/config';
 import { botConfigMappings } from '@aztec/bot/config';
 import { l1ContractsConfigMappings } from '@aztec/ethereum/config';
@@ -226,6 +227,14 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       'archiver',
       omitConfigMappings(archiverConfigMappings, Object.keys(l1ContractsConfigMappings) as (keyof ArchiverConfig)[]),
     ),
+  ],
+  FOLLOWER: [
+    configToFlag('--follower-upstream-url', followerConfigMappings.followerUpstreamUrl),
+    configToFlag('--follower-sync-polling-interval-ms', followerConfigMappings.followerSyncPollingIntervalMs),
+    configToFlag('--follower-sync-batch-size', followerConfigMappings.followerSyncBatchSize),
+    // Declared with an optional value, like `--p2p-enabled`, so both `--follower-skip-tx-validation` and an
+    // explicit `--follower-skip-tx-validation false` parse: commander ignores the coercion on a bare flag.
+    configToFlag('--follower-skip-tx-validation [value]', followerConfigMappings.followerSkipTxValidation),
   ],
   SEQUENCER: [
     {

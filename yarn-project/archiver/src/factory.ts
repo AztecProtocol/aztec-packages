@@ -8,6 +8,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { merge } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { DateProvider } from '@aztec/foundation/timer';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
@@ -17,21 +18,28 @@ import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
 import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import {
   DEFAULT_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE,
   getDefaultCheckpointProposalSyncGrace,
 } from '@aztec/stdlib/timetable';
 import type { BlockHeader } from '@aztec/stdlib/tx';
-import { getTelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
 import { createPublicClient } from 'viem';
 
 import { Archiver, type ArchiverDeps } from './archiver.js';
-import { type ArchiverConfig, mapArchiverConfig } from './config.js';
+import {
+  type ArchiverConfig,
+  type RpcSyncArchiverSpecificConfig,
+  mapArchiverConfig,
+  mapRpcSyncArchiverConfig,
+} from './config.js';
 import { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
+import { RpcSyncArchiver, type RpcSyncArchiverSource } from './rpc_sync_archiver.js';
 import { ARCHIVER_DB_VERSION, type ArchiverDataStores, createArchiverDataStores } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 
@@ -202,6 +210,75 @@ export async function createArchiver(
 
   await archiver.start(opts.blockUntilSync);
   return archiver;
+}
+
+/**
+ * Creates a read-only RPC-sync (follower) archiver that replicates its local store from an upstream node via an
+ * `L2BlockStream`. Unlike `createArchiver`, this variant never connects to L1 — every block, checkpoint and
+ * L1-to-L2 message it holds is pulled from `source`.
+ *
+ * The genesis block is read from the upstream rather than rebuilt locally: a follower that disagreed with its
+ * upstream about block 0 could never reconcile, so taking it from the source makes the mismatch impossible.
+ *
+ * This factory opens the data stores and hands their ownership to the archiver, so `stop()` closes them and the
+ * caller only has to manage the archiver's lifecycle.
+ *
+ * @param config - Store configuration plus the L1 contract addresses the follower reports.
+ * @param source - Upstream data source (an in-process `Archiver` or an `ArchiverApi` RPC client).
+ * @param l1Constants - L1 rollup constants. Supplied by the caller since a follower cannot read them from L1.
+ * @param deps - Optional dependencies (telemetry, date provider).
+ * @param opts - Options.
+ */
+export async function createRpcSyncArchiver(
+  config: ArchiverConfig & RpcSyncArchiverSpecificConfig & DataStoreConfig,
+  source: RpcSyncArchiverSource,
+  l1Constants: L1RollupConstants & { genesisArchiveRoot: Fr },
+  deps: { telemetry?: TelemetryClient; dateProvider?: DateProvider } = {},
+  opts: { blockUntilSync: boolean } = { blockUntilSync: true },
+): Promise<RpcSyncArchiver> {
+  const genesis = await source.getBlockData({ number: BlockNumber.ZERO });
+  if (!genesis) {
+    throw new Error('Upstream node did not return a genesis block; cannot start the RPC-sync archiver');
+  }
+
+  const archiverStore = await createArchiverStore(config, genesis.blockHash);
+  try {
+    await registerProtocolContracts(archiverStore);
+    if (config.testPreloadStandardContracts) {
+      await registerStandardContracts(archiverStore);
+    }
+
+    const events = new EventEmitter() as ArchiverEmitter;
+    const telemetry = deps.telemetry ?? getTelemetryClient();
+    const l2TipsCache = new L2TipsCache(archiverStore.blocks, genesis.blockHash);
+
+    // The slashing proposer address is read from the rollup contract by the L1 factory. A follower does not hit
+    // L1, so it is left zero; nothing in the follower's read surface depends on it.
+    const l1Addresses = { ...pickL1ContractAddresses(config), slashingProposerAddress: EthAddress.ZERO };
+
+    const archiver = new RpcSyncArchiver(
+      source,
+      archiverStore,
+      l1Addresses,
+      l1Constants,
+      mapRpcSyncArchiverConfig(config),
+      events,
+      genesis.header,
+      genesis.blockHash,
+      l2TipsCache,
+      deps.dateProvider ?? new DateProvider(),
+      telemetry,
+    );
+    archiver.takeOwnershipOfDataStores();
+
+    await archiver.start(opts.blockUntilSync);
+    return archiver;
+  } catch (err) {
+    // The archiver only closes the stores once it is started and later stopped, so anything that goes wrong
+    // before that leaves them for this factory to close.
+    await archiverStore.db.close();
+    throw err;
+  }
 }
 
 /** Registers protocol contracts in the archiver store. Idempotent — skips contracts that already exist (e.g. on node restart). */

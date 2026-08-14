@@ -1,5 +1,4 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -102,9 +101,8 @@ async function runEquivocationScenario(
 
   // Find an epoch where the malicious proposer is selected, stopping one epoch before so we have time
   // to start sequencers before the target epoch arrives.
-  const epochCache = (honestNode1 as TestAztecNodeService).epochCache;
   const { targetEpoch, targetSlot } = await advanceToEpochBeforeProposer({
-    epochCache,
+    epochCache: test.epochCache,
     cheatCodes,
     targetProposer: maliciousAddress,
     logger: test.logger,
@@ -132,7 +130,7 @@ async function runEquivocationScenario(
     timeoutSeconds: AZTEC_SLOT_DURATION * 16,
   });
 
-  return { nodes, epochCache, maliciousAddress, honestNode: honestNode1 };
+  return { nodes, epochCache: test.epochCache, maliciousAddress, honestNode: honestNode1 };
 }
 
 describe('multi-node/slashing/duplicate_attestation', () => {

@@ -1,5 +1,5 @@
 import { createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
+import { BatchChonkVerifier } from '@aztec/bb-prover';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob, getKzg } from '@aztec/blob-lib';
@@ -57,6 +57,10 @@ import { createPublicClient } from 'viem';
 
 import { type AztecNodeConfig, createKeyStoreForValidator } from './aztec-node/config.js';
 import { AztecNodeService } from './aztec-node/server.js';
+import { isFollowerModeEnabled } from './follower/config.js';
+import { createFollowerNodeService } from './follower/factory.js';
+import { assertL1ConnectionConfigured, checkConfigMatchesRollup } from './modules/config_checks.js';
+import { createRpcProofVerifier, usesRealProofVerifiers } from './modules/rpc_proof_verifier.js';
 import { createSentinel } from './sentinel/factory.js';
 
 /** Dependencies that can be injected when creating a node, mostly to override defaults in tests. */
@@ -90,6 +94,12 @@ export async function createAztecNodeService(
   const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
   const log = deps.logger ?? createLogger('node');
 
+  // A follower node shares almost none of the assembly below (no keystore, no p2p, no validator, no sequencer,
+  // no prover, no watchers, and a replicating archiver instead of an L1-syncing one), so it is wired separately.
+  if (isFollowerModeEnabled(config)) {
+    return createFollowerNodeService(config, deps, options, log);
+  }
+
   // Initialise the bb.js sync WASM singleton here, before any subsystem runs.
   const { BarretenbergSync } = await import('@aztec/bb.js');
   await BarretenbergSync.initSingleton();
@@ -106,6 +116,7 @@ export async function createAztecNodeService(
   const packageVersion = getPackageVersion();
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const dateProvider = deps.dateProvider ?? new DateProvider();
+  assertL1ConnectionConfigured(config);
   const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
 
   // Build a key store from file if given or from environment otherwise.
@@ -216,18 +227,14 @@ export async function createAztecNodeService(
     // The synchronizer takes ownership of the native world-state from here
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, nativeWs, telemetry);
     started.push(worldStateSynchronizer);
-    const useRealVerifiers = config.realProofs || config.debugForceTxProofVerification;
-    let peerProofVerifier: ClientProtocolCircuitVerifier;
-    let rpcProofVerifier: ClientProtocolCircuitVerifier;
-    if (useRealVerifiers) {
-      peerProofVerifier = await BatchChonkVerifier.new(config, config.bbChonkVerifyMaxBatch, 'peer');
-      const rpcVerifier = await BBCircuitVerifier.new(config);
-      rpcProofVerifier = new QueuedIVCVerifier(rpcVerifier, config.numConcurrentIVCVerifiers);
-    } else {
-      peerProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
-      rpcProofVerifier = new TestCircuitVerifier(config.proverTestVerificationDelayMs);
-    }
-    started.push(peerProofVerifier, rpcProofVerifier);
+    // Register each verifier as soon as it exists: the peer verifier owns a native bb child process, so it must be
+    // reachable by the partial-start unwind before the (fallible) RPC verifier construction runs.
+    const peerProofVerifier: ClientProtocolCircuitVerifier = usesRealProofVerifiers(config)
+      ? await BatchChonkVerifier.new(config, config.bbChonkVerifyMaxBatch, 'peer')
+      : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+    started.push(peerProofVerifier);
+    const rpcProofVerifier = await createRpcProofVerifier(config);
+    started.push(rpcProofVerifier);
 
     let debugLogStore: DebugLogStore;
     if (!config.realProofs) {
@@ -617,6 +624,8 @@ export async function createAztecNodeService(
     const node = new AztecNodeService({
       config,
       p2pClient,
+      // Exposed over the read-only `archiver_*` RPC namespace so this node can act as the upstream of a follower.
+      archiverApi: archiver,
       blockSource: archiver,
       logsSource: archiver,
       contractDataSource: archiver,
@@ -652,31 +661,5 @@ export async function createAztecNodeService(
       await tryStop(resource);
     }
     throw err;
-  }
-}
-
-/**
- * Verifies the node's configured L1 timing matches the rollup contract it is pointed at, for the fields the
- * node's own config carries. Each comparison is guarded against an undefined config value, so a config that
- * does not carry a field is not checked. Throws a single error listing every mismatch. Runs in the shared
- * startup path for every node role.
- */
-function checkConfigMatchesRollup(
-  config: AztecNodeConfig,
-  rollup: { slotDuration: number; epochDuration: number },
-): void {
-  const mismatches: string[] = [];
-  if (config.aztecSlotDuration !== undefined && config.aztecSlotDuration !== rollup.slotDuration) {
-    mismatches.push(`aztecSlotDuration is ${config.aztecSlotDuration} but the rollup reports ${rollup.slotDuration}`);
-  }
-  if (config.aztecEpochDuration !== undefined && config.aztecEpochDuration !== rollup.epochDuration) {
-    mismatches.push(
-      `aztecEpochDuration is ${config.aztecEpochDuration} but the rollup reports ${rollup.epochDuration}`,
-    );
-  }
-  if (mismatches.length > 0) {
-    throw new Error(
-      `The node's configured L1 timing does not match the rollup contract it is pointed at: ${mismatches.join('; ')}`,
-    );
   }
 }

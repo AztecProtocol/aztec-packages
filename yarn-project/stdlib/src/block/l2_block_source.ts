@@ -19,7 +19,7 @@ import type { CheckpointData, ProposedCheckpointData, ProposedCheckpointInput } 
 import type { CheckpointInfo } from '../checkpoint/checkpoint_info.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
-import { MAX_RPC_CHECKPOINTS_DATA_LEN } from '../interfaces/api_limit.js';
+import { MAX_RPC_BLOCKS_LEN, MAX_RPC_CHECKPOINTS_DATA_LEN } from '../interfaces/api_limit.js';
 import type { L2ToL1MembershipWitness } from '../messaging/l2_to_l1_membership.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
@@ -53,7 +53,17 @@ export const BlockQuerySchema: z.ZodType<BlockQuery, unknown> = z.union([
 
 export const BlocksQuerySchema: z.ZodType<BlocksQuery, unknown> = z.union([
   z
-    .object({ from: BlockNumberSchema, limit: z.number().int().min(1), onlyCheckpointed: z.boolean().optional() })
+    .object({
+      from: BlockNumberSchema,
+      // Only ever parsed for requests arriving over RPC (in-process callers pass the plain object), so the page
+      // size is capped here to keep an unauthenticated caller from asking a node to stream the whole chain.
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(MAX_RPC_BLOCKS_LEN, { message: `limit must be at most ${MAX_RPC_BLOCKS_LEN}` }),
+      onlyCheckpointed: z.boolean().optional(),
+    })
     .strict(),
   z.object({ epoch: EpochNumberSchema, onlyCheckpointed: z.literal(true) }).strict(),
 ]);

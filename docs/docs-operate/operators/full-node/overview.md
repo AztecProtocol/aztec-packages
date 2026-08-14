@@ -13,6 +13,8 @@ A full node allows you to connect and interact with the network, providing an in
 
 You should run your own full node if you want to interact with the network in the most privacy-preserving way. It's also a great way to support the Aztec network and get involved with the community.
 
+If you are scaling out RPC capacity behind a node you already run, see [follower mode](./follower-mode.md): a read-only node that replicates all chain state from a trusted upstream node, and needs no Ethereum RPC endpoint, no public IP and no keys.
+
 ### Minimum Hardware Requirements
 
 - 8 core / 16 vCPU (Skylake or newer microarchitecture)

@@ -78,8 +78,9 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
+import type { NodeTxGateway } from '../modules/node_tx_gateway.js';
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
-import { AztecNodeService } from './server.js';
+import { AztecNodeService, type AztecNodeServiceDeps } from './server.js';
 
 // Arbitrary fixed timestamp for the mock date provider. DateProvider.now() returns milliseconds but ExpirationTimestamp
 // is denominated in seconds.
@@ -108,6 +109,14 @@ class TestAztecNodeService extends AztecNodeService {
   public override getWorldState(block: BlockParameter) {
     return super.getWorldState(block);
   }
+
+  public getPeerProofVerifier() {
+    return this.peerProofVerifier;
+  }
+
+  public getRpcProofVerifier() {
+    return this.rpcProofVerifier;
+  }
 }
 
 /** Builds minimal block metadata for a given block number and hash, as returned by the block source. */
@@ -130,6 +139,7 @@ describe('aztec node', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let lastBlockNumber: BlockNumber;
   let node: TestAztecNodeService;
+  let nodeDeps: AztecNodeServiceDeps;
   let feePayer: AztecAddress;
   let epochCache: EpochCache;
   let nodeConfig: AztecNodeConfig;
@@ -258,7 +268,7 @@ describe('aztec node', () => {
       new MockDateProvider(),
     );
 
-    node = new TestAztecNodeService({
+    nodeDeps = {
       config: nodeConfig,
       p2pClient: p2p,
       blockSource: l2BlockSource,
@@ -280,7 +290,9 @@ describe('aztec node', () => {
       packageVersion: getPackageVersion(),
       peerProofVerifier: new TestCircuitVerifier(),
       rpcProofVerifier: new TestCircuitVerifier(),
-    });
+    };
+
+    node = new TestAztecNodeService(nodeDeps);
   });
 
   describe('tx validation', () => {
@@ -392,6 +404,89 @@ describe('aztec node', () => {
       });
       // Tx with expiration timestamp >= current block number should be valid
       expect(await node.isValidTx(validExpirationTimestampMetadata)).toEqual({ result: 'valid' });
+    });
+  });
+
+  describe('sendTx', () => {
+    /** Builds a node over a gateway that records what reaches it, so tests assert on forwarding, not on spies. */
+    const makeNodeOverGateway = (requiresLocalTxValidation: boolean) => {
+      const forwarded: Tx[] = [];
+      const txGateway = mock<NodeTxGateway>({ requiresLocalTxValidation });
+      txGateway.sendTx.mockImplementation(tx => {
+        forwarded.push(tx);
+        return Promise.resolve();
+      });
+      return { node: new TestAztecNodeService({ ...nodeDeps, p2pClient: undefined, txGateway }), forwarded };
+    };
+
+    /** A tx that fails a state-independent check, so it is rejected regardless of the node's view of state. */
+    const mockTxWithWrongChainId = async () => {
+      const tx = await mockTxForRollup(0x10000);
+      tx.data.constants.txContext.chainId = new Fr(1n + chainId.toBigInt());
+      await tx.recomputeHash();
+      return tx;
+    };
+
+    it('hands a valid tx to a validating gateway', async () => {
+      const { node: validatingNode, forwarded } = makeNodeOverGateway(true);
+      const tx = await mockTxForRollup(0x10000);
+
+      await validatingNode.sendTx(tx);
+
+      expect(forwarded).toEqual([tx]);
+    });
+
+    it('rejects an invalid tx locally instead of handing it to a validating gateway', async () => {
+      const { node: validatingNode, forwarded } = makeNodeOverGateway(true);
+      const tx = await mockTxWithWrongChainId();
+
+      await expect(validatingNode.sendTx(tx)).rejects.toThrow(
+        new RegExp(`Invalid tx: .*${TX_ERROR_INCORRECT_L1_CHAIN_ID}`),
+      );
+
+      expect(forwarded).toEqual([]);
+    });
+
+    it('hands an invalid tx to a relaying gateway untouched', async () => {
+      const { node: relayingNode, forwarded } = makeNodeOverGateway(false);
+      const tx = await mockTxWithWrongChainId();
+
+      await relayingNode.sendTx(tx);
+
+      expect(forwarded).toEqual([tx]);
+    });
+  });
+
+  describe('setConfig proof verifier swaps', () => {
+    /** Builds a node shaped like a follower: an RPC verifier and an upstream-style gateway, no peer verifier. */
+    const makeFollowerShapedNode = (config: Partial<AztecNodeConfig>) =>
+      new TestAztecNodeService({
+        ...nodeDeps,
+        config: { ...nodeConfig, ...config },
+        p2pClient: undefined,
+        txGateway: mock<NodeTxGateway>({ requiresLocalTxValidation: true }),
+        peerProofVerifier: undefined,
+        rpcProofVerifier: new TestCircuitVerifier(),
+      });
+
+    it('swaps only the verifiers the node runs when leaving real proofs', async () => {
+      const followerShaped = makeFollowerShapedNode({ realProofs: true });
+      const originalVerifier = followerShaped.getRpcProofVerifier();
+
+      await followerShaped.setConfig({ realProofs: false });
+
+      expect(followerShaped.getRpcProofVerifier()).toBeInstanceOf(TestCircuitVerifier);
+      expect(followerShaped.getRpcProofVerifier()).not.toBe(originalVerifier);
+      expect(followerShaped.getPeerProofVerifier()).toBeUndefined();
+    });
+
+    it('keeps the verifiers when forced verification outlives a realProofs flip', async () => {
+      const followerShaped = makeFollowerShapedNode({ realProofs: true, debugForceTxProofVerification: true });
+      const originalVerifier = followerShaped.getRpcProofVerifier();
+
+      await followerShaped.setConfig({ realProofs: false });
+
+      expect(followerShaped.getRpcProofVerifier()).toBe(originalVerifier);
     });
   });
 
@@ -1172,6 +1267,32 @@ describe('aztec node', () => {
         // reload rejected before mutation
         expect(validatorClient.reloadKeystore).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('admin operations on a follower node', () => {
+    let followerNode: TestAztecNodeService;
+
+    beforeEach(() => {
+      // A follower node's block source is an RpcSyncArchiver: it can back up its stores and report its initial
+      // sync, but it never reads L1 and cannot be rolled back nor resumed once stopped.
+      const followerBlockSource = Object.assign(mock<L2BlockSource>(), {
+        backupTo: () => Promise.resolve('/tmp/snapshot'),
+        isInitialSyncComplete: () => true,
+      });
+      followerNode = new TestAztecNodeService({ ...nodeDeps, blockSource: followerBlockSource });
+    });
+
+    it('rejects snapshot uploads', async () => {
+      await expect(followerNode.startSnapshotUpload('gs://bucket/snapshot')).rejects.toThrow(BadRequestError);
+    });
+
+    it('rejects rollbacks', async () => {
+      await expect(followerNode.rollbackTo(BlockNumber(1))).rejects.toThrow(BadRequestError);
+    });
+
+    it('rejects pausing sync', async () => {
+      await expect(followerNode.pauseSync()).rejects.toThrow(BadRequestError);
     });
   });
 

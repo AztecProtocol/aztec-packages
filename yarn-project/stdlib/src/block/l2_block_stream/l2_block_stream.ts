@@ -35,11 +35,24 @@ export type L2BlockStreamOptions = {
   tipsOnly?: boolean;
 };
 
+/**
+ * Outcome of a {@link L2BlockStream} sync pass. `aborted` means the pass bailed out early because the source's own
+ * answers proved the pass snapshot stale (mid-reorg, transient read gap) and will be retried on the next poll;
+ * `failed` carries the error that broke the pass. The stream swallows both so a bad poll never kills the loop, so
+ * consumers that need a health signal must read {@link L2BlockStream.getLastPassOutcome} instead of relying on
+ * `sync()` resolving.
+ */
+export type L2BlockStreamPassOutcome =
+  | { status: 'completed' }
+  | { status: 'aborted' }
+  | { status: 'failed'; error: unknown };
+
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
   private isSyncing = false;
   private hasStarted = false;
+  private lastPassOutcome: L2BlockStreamPassOutcome | undefined;
 
   constructor(
     private l2BlockSource: L2BlockStreamSource,
@@ -72,6 +85,11 @@ export class L2BlockStream {
 
   public isRunning() {
     return this.runningPromise.isRunning();
+  }
+
+  /** Returns how the most recent sync pass ended, or undefined if no pass has run yet. */
+  public getLastPassOutcome(): L2BlockStreamPassOutcome | undefined {
+    return this.lastPassOutcome;
   }
 
   /**
@@ -234,10 +252,13 @@ export class L2BlockStream {
           checkpoint: sourceTips.finalized.checkpoint,
         });
       }
+      this.lastPassOutcome = { status: 'completed' };
     } catch (err: any) {
       if (err.name === 'AbortError') {
+        this.lastPassOutcome = { status: 'aborted' };
         return;
       }
+      this.lastPassOutcome = { status: 'failed', error: err };
       this.log.error(`Error processing block stream`, err);
     }
   }

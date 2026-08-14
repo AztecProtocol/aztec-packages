@@ -56,6 +56,7 @@ const fullNodeCategory = {
   },
   items: [
     "operators/full-node/setup",
+    "operators/full-node/follower-mode",
     "operators/full-node/verification",
     "operators/full-node/troubleshooting",
   ],
@@ -234,6 +235,7 @@ const referenceItems = [
       id: "operators/reference/changelog/changelog",
     },
     items: [
+      "operators/reference/changelog/v5",
       "operators/reference/changelog/v4.3",
       "operators/reference/changelog/v4.2",
       "operators/reference/changelog/v4",

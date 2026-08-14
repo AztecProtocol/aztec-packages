@@ -31,6 +31,7 @@ import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-st
 
 import { privateKeyToAddress } from 'viem/accounts';
 
+import { type FollowerConfig, followerConfigMappings } from '../follower/config.js';
 import { type SentinelConfig, sentinelConfigMappings } from '../sentinel/config.js';
 
 export { sequencerClientConfigMappings, type SequencerClientConfig };
@@ -51,6 +52,7 @@ export type AztecNodeConfig = ArchiverConfig &
   GenesisStateConfig &
   NodeRPCConfig &
   SlasherConfig &
+  FollowerConfig &
   ProverNodeConfig & {
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
@@ -93,6 +95,7 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...nodeRpcConfigMappings,
   ...slasherConfigMappings,
   ...specificProverNodeConfigMappings,
+  ...followerConfigMappings,
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',

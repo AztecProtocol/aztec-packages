@@ -45,11 +45,21 @@ type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
     minL1BlocksToTriggerReplace?: number;
   };
 
+/** Overrides for the environment snapshot sync inspects, so a node with no L1 connection can still use it. */
+export type SnapshotSyncDeps = {
+  /**
+   * Returns the current L1 block number, used only to decide whether the local stores are far enough behind to
+   * be worth replacing. Defaults to querying the configured L1 RPC; a follower node passes an estimate derived
+   * from the rollup constants instead, since it has no L1 connection.
+   */
+  getCurrentL1BlockNumber?: () => Promise<bigint>;
+};
+
 /**
  * Connects to a remote snapshot index and downloads the latest snapshot if the local archiver is behind.
  * Behaviour depends on syncing mode.
  */
-export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
+export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger, deps: SnapshotSyncDeps = {}) {
   const { syncMode, snapshotsUrls, dataDirectory, l1ChainId, rollupVersion, rollupAddress } = config;
   if (syncMode === 'full') {
     log.debug('Snapshot sync is disabled. Running full sync.', { syncMode: syncMode });
@@ -91,7 +101,8 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     return false;
   }
 
-  const currentL1BlockNumber = await getPublicClient(config).getBlockNumber();
+  const getCurrentL1BlockNumber = deps.getCurrentL1BlockNumber ?? (() => getPublicClient(config).getBlockNumber());
+  const currentL1BlockNumber = await getCurrentL1BlockNumber();
   if (
     archiverL1BlockNumber &&
     currentL1BlockNumber >= archiverL1BlockNumber &&

@@ -45,6 +45,8 @@ export class MessageStore {
   #inboxTreeInProgress: AztecAsyncSingleton<bigint>;
   /** Stores the L1 finalized block as of the last successful message sync. */
   #messagesFinalizedL1Block: AztecAsyncSingleton<Buffer>;
+  /** Highest checkpoint whose messages were replicated from an upstream node. Only written by the RPC-sync archiver. */
+  #messagesSyncedToCheckpoint: AztecAsyncSingleton<number>;
 
   #log = createLogger('archiver:message_store');
 
@@ -55,6 +57,77 @@ export class MessageStore {
     this.#totalMessageCount = db.openSingleton('archiver_l1_to_l2_message_count');
     this.#inboxTreeInProgress = db.openSingleton('archiver_inbox_tree_in_progress');
     this.#messagesFinalizedL1Block = db.openSingleton('archiver_messages_finalized_l1_block');
+    this.#messagesSyncedToCheckpoint = db.openSingleton('archiver_messages_synced_to_checkpoint');
+  }
+
+  /**
+   * Highest checkpoint whose L1-to-L2 messages have been replicated from an upstream node, or 0 if none.
+   * Used by the RPC-sync archiver as its replication cursor: unlike the L1 sync point, it distinguishes
+   * "checkpoint fetched and it had no messages" from "checkpoint never fetched". When the cursor was never
+   * written (a store bootstrapped by an L1-syncing archiver, e.g. from a snapshot) it is derived from what that
+   * archiver left behind, so the follower does not re-fetch the whole message history.
+   */
+  public async getMessagesSyncedToCheckpoint(): Promise<CheckpointNumber> {
+    const stored = await this.#messagesSyncedToCheckpoint.getAsync();
+    if (stored !== undefined) {
+      return CheckpointNumber(stored);
+    }
+    const treeInProgress = await this.#inboxTreeInProgress.getAsync();
+    if (treeInProgress !== undefined) {
+      // The tree in progress is not sealed on L1 yet, so its leaves may be an incomplete prefix no matter how
+      // many of them are stored. The last checkpoint known to be complete is therefore the one before it, and
+      // the follower re-fetches the in-progress one from its upstream.
+      return CheckpointNumber(Math.max(Number(treeInProgress) - 1, 0));
+    }
+    const lastMessage = await this.getLastMessage();
+    return lastMessage?.checkpointNumber ?? CheckpointNumber.ZERO;
+  }
+
+  /**
+   * Persists the L1-to-L2 message leaves of a single checkpoint as reported by an upstream node, reconstructing
+   * the index and rolling-hash bookkeeping that an L1-syncing archiver would have read from the inbox. Callers
+   * must supply checkpoints in ascending order with no gaps, otherwise the reconstructed rolling hash diverges
+   * from the canonical one and the insert is rejected. Leaves, cursor and tree-in-progress marker are written
+   * atomically, so an interrupted replication never leaves the cursor ahead of the messages it points at.
+   * @param checkpointNumber - Checkpoint the leaves belong to.
+   * @param leaves - Message leaves for the checkpoint, in insertion order.
+   */
+  public addL1ToL2MessagesForCheckpoint(checkpointNumber: CheckpointNumber, leaves: Fr[]): Promise<void> {
+    return this.db.transactionAsync(async () => {
+      const startIndex = InboxLeaf.smallestIndexForCheckpoint(checkpointNumber);
+
+      // A store bootstrapped from a snapshot can already hold a partially filled tree for this checkpoint (the
+      // tree the upstream was still filling when the snapshot was taken). Drop those leaves so the rolling hash
+      // is rebuilt from the last message of the preceding checkpoint instead of from a partial prefix of this one.
+      const stale = await this.getLastMessage();
+      if (stale && stale.index >= startIndex) {
+        this.#log.debug(`Dropping partial message tree for checkpoint ${checkpointNumber} before replicating it`);
+        await this.removeL1ToL2Messages(startIndex);
+      }
+
+      const lastMessage = await this.getLastMessage();
+      let rollingHash = lastMessage?.rollingHash ?? Buffer16.ZERO;
+      const messages: InboxMessage[] = [];
+      for (const [position, leaf] of leaves.entries()) {
+        rollingHash = updateRollingHash(rollingHash, leaf);
+        messages.push({
+          index: startIndex + BigInt(position),
+          leaf,
+          checkpointNumber,
+          // The follower never reads the inbox, so it has no L1 provenance for these messages.
+          l1BlockNumber: 0n,
+          l1BlockHash: Buffer32.ZERO,
+          rollingHash,
+        });
+      }
+      await this.addL1ToL2Messages(messages);
+      await this.#messagesSyncedToCheckpoint.set(checkpointNumber);
+      // The follower has no inbox to read, so it maintains the tree-in-progress marker itself: every checkpoint
+      // up to and including this one is now complete, so the tree still being filled is the next one. Without
+      // this, a store inherited from an L1-syncing archiver would keep that archiver's frozen marker and
+      // `getL1ToL2Messages` would reject every checkpoint at or above it forever.
+      await this.#inboxTreeInProgress.set(BigInt(checkpointNumber) + 1n);
+    });
   }
 
   public async getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -281,14 +354,31 @@ export class MessageStore {
         deleteCount++;
       }
       await this.increaseTotalMessageCount(-deleteCount);
-      this.#log.warn(`Deleted ${deleteCount} L1 to L2 messages from index ${startIndex} from the store`);
+      if (deleteCount > 0) {
+        this.#log.warn(`Deleted ${deleteCount} L1 to L2 messages from index ${startIndex} from the store`);
+      }
     });
   }
 
+  /**
+   * Deletes every L1-to-L2 message above `targetCheckpointNumber` and, on a follower store, rewinds the
+   * replication cursor and tree-in-progress marker along with them, atomically: a crash between the deletion and
+   * the cursor write would otherwise leave the cursor claiming messages that are no longer there.
+   */
   public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
     this.#log.debug(`Deleting L1 to L2 messages up to target checkpoint ${targetCheckpointNumber}`);
     const startIndex = InboxLeaf.smallestIndexForCheckpoint(CheckpointNumber(targetCheckpointNumber + 1));
-    return this.removeL1ToL2Messages(startIndex);
+    return this.db.transactionAsync(async () => {
+      await this.removeL1ToL2Messages(startIndex);
+      // Keep the replication cursor consistent with what is left in the store, so a follower re-fetches the
+      // messages of any checkpoint it rolled back. Only touched when the cursor exists, i.e. on a follower store:
+      // an L1-syncing archiver owns the marker itself and reads it back from the inbox contract.
+      const syncedTo = await this.#messagesSyncedToCheckpoint.getAsync();
+      if (syncedTo !== undefined && syncedTo > targetCheckpointNumber) {
+        await this.#messagesSyncedToCheckpoint.set(targetCheckpointNumber);
+        await this.#inboxTreeInProgress.set(BigInt(targetCheckpointNumber) + 1n);
+      }
+    });
   }
 
   private indexToKey(index: bigint): number {

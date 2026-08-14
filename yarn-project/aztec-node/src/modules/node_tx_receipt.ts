@@ -1,5 +1,4 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import type { P2P } from '@aztec/p2p';
 import type { L2BlockSource, L2Tips } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { DebugLogStore } from '@aztec/stdlib/logs';
@@ -16,25 +15,32 @@ import {
   TxStatus,
 } from '@aztec/stdlib/tx';
 
+import type { NodeTxGateway } from './node_tx_gateway.js';
+
 /** Dependencies required to build a {@link NodeTxReceiptBuilder}. */
 export interface NodeTxReceiptBuilderDeps {
-  p2pClient: P2P;
+  txGateway: NodeTxGateway;
   blockSource: L2BlockSource;
   debugLogStore: DebugLogStore;
 }
 
 /**
- * Builds transaction receipts by reconciling the archiver's mined tx effects with the tx pool's view,
- * deriving the finalization status from the cached L2 tips. Extracted from `AztecNodeService` to keep
- * `server.ts` smaller.
+ * Builds transaction receipts by reconciling the archiver's mined tx effects with the view of the node's tx
+ * gateway (its mempool, or its upstream node when running as a follower), deriving the finalization status
+ * from the cached L2 tips. Extracted from `AztecNodeService` to keep `server.ts` smaller.
+ *
+ * A mined receipt is only ever built from the local archiver, never from what the gateway reports: on a
+ * follower, a tx already mined upstream may reference a block this node has not replicated yet, and answering
+ * "mined in block N" for a block the node cannot serve would break every caller that follows the receipt up
+ * with a query at that block. Such a tx is reported as pending until the block is local.
  */
 export class NodeTxReceiptBuilder {
-  private readonly p2pClient: P2P;
+  private readonly txGateway: NodeTxGateway;
   private readonly blockSource: L2BlockSource;
   private readonly debugLogStore: DebugLogStore;
 
   constructor(deps: NodeTxReceiptBuilderDeps) {
-    this.p2pClient = deps.p2pClient;
+    this.txGateway = deps.txGateway;
     this.blockSource = deps.blockSource;
     this.debugLogStore = deps.debugLogStore;
   }
@@ -43,26 +49,21 @@ export class NodeTxReceiptBuilder {
     txHash: TxHash,
     options?: TGetTxReceiptOptions,
   ): Promise<TxReceipt<TGetTxReceiptOptions>> {
-    // Check the tx pool status first. If the tx is known to the pool (pending or mined), we'll use that
-    // as a fallback if we don't find a mined tx effect in the archiver.
-    const txPoolStatus = await this.p2pClient.getTxStatus(txHash);
-    const isKnownToPool = txPoolStatus === 'pending' || txPoolStatus === 'mined';
-
-    // Then get the raw tx effect from the archiver, which tracks every tx in a mined block.
+    // The archiver tracks every tx in a mined block, and is the only source a mined receipt is built from.
     const indexed = await this.blockSource.getTxEffect(txHash);
 
     let receipt: TxReceipt;
     if (indexed) {
       receipt = await this.#assembleMinedReceipt(indexed, options);
-    } else if (isKnownToPool) {
-      // If the tx is in the pool but not in the archiver, it's pending.
-      // This handles race conditions between archiver and p2p, where the archiver
-      // has pruned the block in which a tx was mined, but p2p has not caught up yet.
+    } else if (await this.txGateway.hasUnminedTx(txHash)) {
+      // The tx is known to the gateway but not to the archiver, so it is pending. On a full node this also
+      // covers the race where the archiver pruned the block a tx was mined in and the pool has not caught up
+      // yet; on a follower it covers a tx mined upstream in a block that is not replicated yet.
       let tx: Tx | undefined;
       if (options?.includePendingTx) {
-        // The tx may have left the pool since we checked its status (mined or dropped); in that case we
+        // The tx may have left the gateway since we checked its status (mined or dropped); in that case we
         // leave `tx` unset and still return a pending receipt.
-        tx = await this.p2pClient.getTxByHashFromPool(txHash, { includeProof: !!options.includeProof });
+        tx = await this.txGateway.getTxByHash(txHash, { includeProof: !!options.includeProof });
       }
       receipt = new PendingTxReceipt(txHash, tx);
     } else {

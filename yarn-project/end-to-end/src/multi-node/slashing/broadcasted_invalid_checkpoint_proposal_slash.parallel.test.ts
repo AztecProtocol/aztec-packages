@@ -1,5 +1,4 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import type { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { BlockNumber, EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
@@ -368,9 +367,8 @@ describe('multi-node/slashing/broadcasted_invalid_checkpoint_proposal_slash', ()
     await awaitCommitteeExists({ rollup, logger: test.logger });
 
     const invalidProposer = invalidProposerNodes[0].getSequencer()!.validatorAddresses![0];
-    const epochCache = (honestNodes[0] as TestAztecNodeService).epochCache;
     const { targetEpoch } = await advanceToEpochBeforeProposer({
-      epochCache,
+      epochCache: test.epochCache,
       cheatCodes: test.context.cheatCodes.rollup,
       targetProposer: invalidProposer,
       logger: test.logger,

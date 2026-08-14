@@ -43,8 +43,8 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { MAX_RPC_CHECKPOINTS_DATA_LEN } from './api_limit.js';
-import { type ArchiverApi, ArchiverApiSchema } from './archiver.js';
+import { MAX_RPC_BLOCKS_LEN, MAX_RPC_CHECKPOINTS_DATA_LEN } from './api_limit.js';
+import { type ArchiverApi, ArchiverApiSchema, ArchiverPublicApiSchema } from './archiver.js';
 
 describe('ArchiverApiSchema', () => {
   let handler: MockArchiver;
@@ -356,6 +356,31 @@ describe('BlocksQuerySchema', () => {
 
   it('rejects epoch query with onlyCheckpointed: false', () => {
     expect(BlocksQuerySchema.safeParse({ epoch: 1, onlyCheckpointed: false }).success).toBe(false);
+  });
+
+  it('caps the page size so an RPC caller cannot ask for the whole chain', () => {
+    expect(BlocksQuerySchema.safeParse({ from: 1, limit: MAX_RPC_BLOCKS_LEN }).success).toBe(true);
+    expect(BlocksQuerySchema.safeParse({ from: 1, limit: MAX_RPC_BLOCKS_LEN + 1 }).success).toBe(false);
+    expect(BlocksQuerySchema.safeParse({ from: 1, limit: 1e9 }).success).toBe(false);
+  });
+});
+
+describe('ArchiverPublicApiSchema', () => {
+  it('withholds the write and sync-control methods from the RPC namespace', () => {
+    // The namespace is registered unauthenticated on every node that owns an archiver, so it must expose reads
+    // only. `syncImmediate` would let a caller drive the sync loop; the signature registration is an unbounded
+    // write.
+    expect(ArchiverPublicApiSchema).not.toHaveProperty('syncImmediate');
+    expect(ArchiverPublicApiSchema).not.toHaveProperty('registerContractFunctionSignatures');
+  });
+
+  it('is otherwise identical to the full archiver API', () => {
+    const withheld = ['syncImmediate', 'registerContractFunctionSignatures'];
+    expect(Object.keys(ArchiverPublicApiSchema).sort()).toEqual(
+      Object.keys(ArchiverApiSchema)
+        .filter(method => !withheld.includes(method))
+        .sort(),
+    );
   });
 });
 

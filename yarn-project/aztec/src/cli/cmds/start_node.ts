@@ -2,6 +2,7 @@ import {
   type AztecNodeConfig,
   aztecNodeConfigMappings,
   getConfigEnvVars,
+  isFollowerModeEnabled,
   registerAztecNodeRpcHandlers,
 } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -78,47 +79,59 @@ export async function startNode(
     }
   }
 
-  await preloadCrsDataForVerifying(nodeConfig, userLog);
-
   const genesisConfig = getGenesisStateConfigEnvVars();
   const { genesisArchiveRoot, genesis } = await computeExpectedGenesisRoot(genesisConfig, userLog);
 
   const followsCanonicalRollup =
     typeof nodeConfig.rollupVersion !== 'number' || (nodeConfig.rollupVersion as unknown as string) === 'canonical';
 
-  if (!nodeConfig.registryAddress || nodeConfig.registryAddress.isZero()) {
-    throw new Error('L1 registry address is required to start Aztec Node');
-  }
+  // A follower node takes its L1 addresses and rollup constants from its upstream node, so the registry
+  // preflight and the L1 config fetch are skipped for it; the node factory runs an equivalent handshake against
+  // the upstream instead. It still verifies the client proofs of the txs it forwards, so it needs the same
+  // verifier CRS a full node does unless that validation is off.
+  const followerMode = isFollowerModeEnabled(nodeConfig);
+  if (followerMode) {
+    userLog(`Starting Aztec Node in follower mode, replicating from ${nodeConfig.followerUpstreamUrl}`);
+    if (!nodeConfig.followerSkipTxValidation) {
+      await preloadCrsDataForVerifying(nodeConfig, userLog);
+    }
+  } else {
+    await preloadCrsDataForVerifying(nodeConfig, userLog);
 
-  // Wait for a compatible rollup before proceeding with full L1 config fetch.
-  // This prevents crashes when the canonical rollup hasn't been upgraded yet.
-  await waitForCompatibleRollup(
-    nodeConfig,
-    { genesisArchiveRoot, vkTreeRoot: getVKTreeRoot(), protocolContractsHash },
-    options.port,
-    userLog,
-  );
+    if (!nodeConfig.registryAddress || nodeConfig.registryAddress.isZero()) {
+      throw new Error('L1 registry address is required to start Aztec Node');
+    }
 
-  const { addresses, config } = await getL1Config(
-    nodeConfig.registryAddress,
-    nodeConfig.l1RpcUrls,
-    nodeConfig.l1ChainId,
-    nodeConfig.rollupVersion,
-  );
-
-  process.env.ROLLUP_CONTRACT_ADDRESS ??= addresses.rollupAddress.toString();
-
-  if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
-    throw new Error(
-      `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
+    // Wait for a compatible rollup before proceeding with full L1 config fetch.
+    // This prevents crashes when the canonical rollup hasn't been upgraded yet.
+    await waitForCompatibleRollup(
+      nodeConfig,
+      { genesisArchiveRoot, vkTreeRoot: getVKTreeRoot(), protocolContractsHash },
+      options.port,
+      userLog,
     );
-  }
 
-  nodeConfig = {
-    ...nodeConfig,
-    ...addresses,
-    ...config,
-  };
+    const { addresses, config } = await getL1Config(
+      nodeConfig.registryAddress,
+      nodeConfig.l1RpcUrls,
+      nodeConfig.l1ChainId,
+      nodeConfig.rollupVersion,
+    );
+
+    process.env.ROLLUP_CONTRACT_ADDRESS ??= addresses.rollupAddress.toString();
+
+    if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
+      throw new Error(
+        `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
+      );
+    }
+
+    nodeConfig = {
+      ...nodeConfig,
+      ...addresses,
+      ...config,
+    };
+  }
 
   if (!options.sequencer && !nodeConfig.fishermanMode) {
     nodeConfig.disableValidator = true;
@@ -178,7 +191,8 @@ export async function startNode(
     await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);
   }
 
-  if (nodeConfig.enableAutoShutdown && networkName !== 'local' && followsCanonicalRollup) {
+  // Auto-shutdown watches the L1 registry for a canonical rollup upgrade, which a follower does not read.
+  if (!followerMode && nodeConfig.enableAutoShutdown && networkName !== 'local' && followsCanonicalRollup) {
     try {
       await setupAutoShutdown(
         nodeConfig,

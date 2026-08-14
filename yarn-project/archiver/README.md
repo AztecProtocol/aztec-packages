@@ -6,6 +6,33 @@ The archiver fetches onchain data from L1 and stores it locally in a queryable f
 
 The interfaces `L2BlockSource`, `L2LogsSource`, and `ContractDataSource` define how consumers access this data. Interface `L2BlockSink` allows other subsystems, such as the validator client, to push not-yet-checkpointed blocks into the archiver.
 
+## Variants
+
+This package exposes two archiver implementations. Both serve the same read interfaces (`L2BlockSource`, `L2LogsSource`, `ContractDataSource`, `L1ToL2MessageSource`) from the same local store, so world-state and every node read path are wired to them identically. They differ only in where the data comes from.
+
+- **`Archiver`** (`createArchiver`) — the standard archiver described in the rest of this document. Polls L1, implements `L2BlockSink`, and is the one a full node runs.
+- **`RpcSyncArchiver`** (`createRpcSyncArchiver`) — a read-only variant that replicates its store from a single **trusted upstream node** over RPC, used by a [follower node](../aztec-node/README.md#follower-mode). It never opens an L1 connection.
+
+### `RpcSyncArchiver`
+
+Instead of an L1 synchronizer, it drives an `L2BlockStream` over an `RpcSyncArchiverSource` — the read surface `getBlocks | getBlockData | getL2Tips | getCheckpoints | getProposedCheckpointData | getL2ToL1MembershipWitness | getL1ToL2Messages`, which is exactly what the `archiver_*` RPC namespace (`createArchiverClient`) exposes and what an in-process `Archiver` satisfies. A `RunningPromise` calls `blockStream.sync()` on a fixed interval (`FOLLOWER_SYNC_POLLING_INTERVAL_MS`, blocks per request capped by `FOLLOWER_SYNC_BATCH_SIZE` at the RPC ceiling of 50), and each stream event is mapped onto the same `ArchiverDataStoreUpdater` the standard archiver writes through:
+
+| Stream event | Handling |
+|---|---|
+| `blocks-added` | Catches the checkpointed tier up first (checkpoints are fetched on demand from the upstream, since the event only carries ids), then inserts whatever uncheckpointed tail remains as proposed blocks. A batch that spans a checkpoint boundary is therefore not inserted as a run of proposed blocks. |
+| `chain-proposed` | Nothing to persist directly; the proposed tip follows from the blocks delivered above. |
+| `chain-checkpointed` | Fetches the named checkpoints and stores them, syncing that checkpoint's L1-to-L2 messages first. |
+| `chain-pruned` | Classifies the prune from the `{ block, checkpointed, proven }` tips it carries: a rollback to a checkpoint boundary, a rollback of an uncheckpointed tail only, or (when nothing is checkpointed locally) a removal of the uncheckpointed blocks after the target. |
+| `chain-proven` / `chain-finalized` | Advances the local proven / finalized pointers. These are correctness, not bookkeeping: the block stream uses the local finalized tip as its reorg floor. |
+
+Notable behaviors:
+
+- **Proposed checkpoints are replicated too.** The store keys its proposed tier off proposed-checkpoint records, which a full node writes from the checkpoint proposals it receives over p2p; without them it rejects any proposed block whose checkpoint does not immediately follow the last *confirmed* one. A follower has no p2p, so it copies each record from the upstream (`getProposedCheckpointData`) as it ingests the first block of the checkpoint that follows it. Under proposer pipelining the upstream routinely holds two uncheckpointed checkpoints at once, so this is the common path, not an edge case. A record the upstream has not published yet simply defers its successors to the next pass.
+- **L1-to-L2 messages are persisted locally**, projected per checkpoint with a synced-to cursor, rather than proxied per query. Proxying would break `getL1ToL2MessageIndex` and would couple world-state advancement (which reads a checkpoint's messages as it applies blocks) to upstream liveness. Reading past the cursor throws `L1ToL2MessagesNotReadyError`, which survives an RPC round trip.
+- **Reorg handling is the block stream's**, not a bespoke reconciliation: a tip that moves backwards produces a `chain-pruned` event on the next pass, so a torn view assembled from several independent upstream calls self-heals. Block-hash continuity is checked by the stream and archive roots by world-state, so an upstream serving an inconsistent chain surfaces as a loud sync failure rather than silent divergence.
+- **`getHealth()`** reports `{ initialSyncComplete, caughtUp, lastSuccessfulSyncAt, lastUpstreamContactAt, consecutiveFailures, lastError, upstreamTips }`. `lastUpstreamContactAt` separates "upstream unreachable" from "upstream reachable but stale"; the outcome of each pass comes from `L2BlockStream.getLastPassOutcome()` rather than from `sync()` returning, which swallows errors.
+- **Not an `L2BlockSink`**, and no L1-specific surface: consumers needing `addBlock`, `rollbackTo`, `resume`, or `getL1BlockNumber` must use the standard `Archiver`. On a follower node the admin `rollbackTo`/`pauseSync` APIs reject with a clear error for this reason.
+
 ## Events
 
 The archiver emits events for other subsystems to react to state changes:
