@@ -1449,18 +1449,6 @@ describe('ValidatorClient', () => {
       expect(isValid).toBe(true);
     });
 
-    it('should return false if the proposer is not the current proposer', async () => {
-      epochCache.getProposerAttesterAddressInSlot.mockImplementation(_ => Promise.resolve(EthAddress.random()));
-
-      epochCache.getTargetAndNextSlot.mockReturnValue({
-        targetSlot: proposal.slotNumber,
-        nextSlot: SlotNumber(proposal.slotNumber + 1),
-      });
-
-      const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-      expect(isValid).toBe(false);
-    });
-
     it('should validate with any validators in the committee', async () => {
       epochCache.filterInCommittee.mockResolvedValueOnce(
         validatorAccounts.map(account => EthAddress.fromString(account.address)),
@@ -1468,39 +1456,6 @@ describe('ValidatorClient', () => {
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(true);
-    });
-
-    it('should return false if the proposal is not for the current or next slot', async () => {
-      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposal.getSender());
-      epochCache.getTargetAndNextSlot.mockReturnValue({
-        targetSlot: SlotNumber(proposal.slotNumber + 20),
-        nextSlot: SlotNumber(proposal.slotNumber + 21),
-      });
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(proposal.slotNumber + 20),
-        ts: 0n,
-        nowMs: 0n,
-      });
-      // Keep the wall-clock slot consistent with the "now" set above so the always-on pipelining
-      // acceptance window correctly treats the proposal's slot as stale (not the current slot).
-      epochCache.getSlotNow.mockReturnValue(SlotNumber(proposal.slotNumber + 20));
-      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(proposal.slotNumber + 20),
-        ts: 0n,
-        nowSeconds: 0n,
-      });
-      epochCache.getTargetSlot.mockReturnValue(SlotNumber(proposal.slotNumber + 20));
-      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(proposal.slotNumber + 21),
-        ts: 0n,
-        nowSeconds: 0n,
-      });
-
-      const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-      expect(isValid).toBe(false);
     });
 
     it('should return false if messages do not match', async () => {

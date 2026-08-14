@@ -12,7 +12,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
 import type { DuplicateAttestationInfo, DuplicateProposalInfo, OversizedProposalInfo, P2P, PeerId } from '@aztec/p2p';
-import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
+import { AuthRequest, AuthResponse, ReqRespSubProtocol } from '@aztec/p2p';
 import {
   OffenseType,
   WANT_TO_CLEAR_SLASH_EVENT,
@@ -58,7 +58,6 @@ import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
-import { DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
@@ -221,24 +220,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       l1Constants: epochCache.getL1Constants(),
       blockDuration: config.blockDurationMs / 1000,
     });
-    const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
-      txsPermitted: !config.disableTransactions,
-      maxTxsPerBlock: config.validateMaxTxsPerBlock,
-      maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
-      skipSlotValidation: config.skipProposalSlotValidation,
-      signatureContext: {
-        chainId: config.l1ChainId,
-        rollupAddress: config.rollupAddress,
-      },
-      clockDisparityMs: config.maxGossipClockDisparityMs ?? DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS,
-    });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,
       worldState,
       blockSource,
       l1ToL2MessageSource,
       txProvider,
-      blockProposalValidator,
       epochCache,
       consensusTimetable,
       config,
