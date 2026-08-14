@@ -7,6 +7,7 @@ export * from './gossipable.js';
 export * from './signature_utils.js';
 export * from './signed_txs.js';
 export * from './topic_type.js';
+export * from './validated_proposal.js';
 export * from './message_validator.js';
 export * from './peer_error.js';
 export * from './constants.js';
