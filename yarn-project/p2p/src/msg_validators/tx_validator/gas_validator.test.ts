@@ -131,7 +131,7 @@ describe('GasTxValidator', () => {
     await expectInvalid(tx, TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE);
   });
 
-  it('does not enforce gas-limit admission, which is owned by GasLimitsValidator', async () => {
+  it('does not enforce gas limits, which are owned by GasLimitsValidator', async () => {
     // Gas estimation submits limits above the per-tx protocol maximum (GasSettings.forEstimation); whether they
     // are admissible is decided by GasLimitsValidator wherever a factory includes it, never by fee enforcement.
     tx.data.constants.txContext.gasSettings = GasSettings.fallback({
@@ -233,7 +233,7 @@ describe('GasLimitsValidator', () => {
 
   it('rejects tx below both DA and L2 gas minimums', async () => {
     tx.data.constants.txContext.gasSettings = GasSettings.fallback({
-      gasLimits: new Gas(1, 1),
+      gasLimits: new Gas(TX_DA_GAS_OVERHEAD - 1, PUBLIC_TX_L2_GAS_OVERHEAD - 1),
       maxFeesPerGas: gasFees.clone(),
     });
     await expectInvalid(tx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);

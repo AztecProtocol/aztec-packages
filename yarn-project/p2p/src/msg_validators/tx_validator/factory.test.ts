@@ -312,14 +312,14 @@ describe('Validator factory functions', () => {
 
       const aggregate = validator as AggregateTxValidator<unknown>;
       const names = getValidatorNames(aggregate);
-      // Declared gas-limit admission is not fee enforcement, so it stays even with fees skipped.
+      // Gas-limit validation is not fee enforcement, so it stays even with fees skipped.
       expect(names).toContain(GasLimitsValidator.name);
       expect(names).not.toContain(GasTxValidator.name);
       expect(names).toContain(TxProofValidator.name);
     });
 
-    it('excludes the gas-limits admission validator during simulation', () => {
-      // Gas estimation submits intentionally-inflated forEstimation limits, so the admission limit must not
+    it('excludes the gas-limits validator during simulation', () => {
+      // Gas estimation submits intentionally-inflated forEstimation limits, so gas-limit validation must not
       // reject the estimation tx; the wallet clamps the real tx afterward.
       const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
         l1ChainId: 1,
@@ -337,37 +337,40 @@ describe('Validator factory functions', () => {
       expect(getValidatorNames(aggregate)).not.toContain(GasLimitsValidator.name);
     });
 
-    describe('gas-limit admission for estimation gas settings', () => {
-      // Estimation limits exceed the per-tx protocol maximum by construction, so whether the tx passes admission
-      // is decided solely by the isSimulation exemption. The aggregate collects reasons from every validator, so
-      // asserting on the specific error is robust to other validators failing on the mocked db.
-      const validateEstimationTx = async (isSimulation: boolean) => {
-        db.findLeafIndices.mockResolvedValue([]);
-        const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
-          l1ChainId: 1,
-          rollupVersion: 2,
-          setupAllowList: [],
-          gasFees: new GasFees(1, 1),
-          skipFeeEnforcement: false,
-          isSimulation,
-          timestamp: 100n,
-          blockNumber: BlockNumber(5),
-          txsPermitted: true,
-        });
-        const tx = await mockPrivateTxWithGasSettings(GasSettings.forEstimation({ maxFeesPerGas: new GasFees(1, 1) }));
-        const result = await validator.validateTx(tx);
-        return result.result === 'invalid' ? result.reason : [];
-      };
-
-      it('rejects estimation gas limits when not simulating', async () => {
-        const reasons = await validateEstimationTx(false);
-        expect(reasons.some(r => r.includes(TX_ERROR_GAS_LIMIT_TOO_HIGH))).toBe(true);
-      });
-
-      it('accepts estimation gas limits during simulation even with fee enforcement on', async () => {
-        const reasons = await validateEstimationTx(true);
-        expect(reasons.some(r => r.includes(TX_ERROR_GAS_LIMIT_TOO_HIGH))).toBe(false);
-      });
+    describe('gas-limit validation', () => {
+      // Estimation limits exceed the per-tx protocol maximum by construction, so whether the tx is rejected is
+      // decided solely by isSimulation; skipFeeEnforcement must not affect it. The aggregate collects reasons
+      // from every validator, so asserting on the specific error is robust to other validators failing on the
+      // mocked db.
+      it.each`
+        isSimulation | skipFeeEnforcement | rejected
+        ${false}     | ${false}           | ${true}
+        ${false}     | ${true}            | ${true}
+        ${true}      | ${false}           | ${false}
+        ${true}      | ${true}            | ${false}
+      `(
+        'isSimulation=$isSimulation, skipFeeEnforcement=$skipFeeEnforcement: over-limit tx rejected=$rejected',
+        async ({ isSimulation, skipFeeEnforcement, rejected }) => {
+          db.findLeafIndices.mockResolvedValue([]);
+          const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
+            l1ChainId: 1,
+            rollupVersion: 2,
+            setupAllowList: [],
+            gasFees: new GasFees(1, 1),
+            skipFeeEnforcement,
+            isSimulation,
+            timestamp: 100n,
+            blockNumber: BlockNumber(5),
+            txsPermitted: true,
+          });
+          const tx = await mockPrivateTxWithGasSettings(
+            GasSettings.forEstimation({ maxFeesPerGas: new GasFees(1, 1) }),
+          );
+          const result = await validator.validateTx(tx);
+          const reasons = result.result === 'invalid' ? result.reason : [];
+          expect(reasons.some(r => r.includes(TX_ERROR_GAS_LIMIT_TOO_HIGH))).toBe(rejected);
+        },
+      );
     });
 
     it('excludes proof validator when no verifier is provided', () => {

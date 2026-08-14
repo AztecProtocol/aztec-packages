@@ -58,9 +58,7 @@ export interface HasMaxFeePerGasData {
  * Generic over T so it can validate both full {@link Tx} objects and {@link TxMetaData}
  * (used during pending pool migration).
  *
- * Sole owner of declared gas-limit admission. Used via the factory by: gossip (stage 1), RPC
- * (except simulation — gas estimation submits limits above the per-tx maximum), block building,
- * and pending pool migration.
+ * Sole owner of declared gas-limit validation; factories include it explicitly wherever the check applies.
  */
 export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidator<T> {
   #log: Logger;
@@ -190,9 +188,8 @@ export class MaxFeePerGasValidator<T extends HasMaxFeePerGasData> implements TxV
  *    adds any pending claim from a setup-phase `_increase_public_balance` call, and
  *    rejects if the total is less than the tx's fee limit (gasLimits * maxFeePerGas).
  *
- * Declared gas-limit admission is deliberately not checked here: it is owned by {@link GasLimitsValidator},
- * which factories include separately so that exemptions from it (e.g. gas estimation)
- * can be expressed without changing fee enforcement.
+ * Gas limits are deliberately not checked here: they are owned by {@link GasLimitsValidator}, which factories
+ * include separately so that exemptions (e.g. gas estimation) don't change fee enforcement.
  *
  * Used by: gossip (stage 1), RPC, and block building validators.
  */

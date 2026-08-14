@@ -86,7 +86,9 @@ export interface TransactionValidator {
  * without consulting the pool or running proof verification.
  *
  * The `doubleSpendValidator` failure is special-cased by the caller (`handleGossipedTx`)
- * to determine severity based on how recently the nullifier appeared.
+ * to determine severity based on how recently the nullifier appeared. The caller reports the
+ * first failing entry among equally severe ones, so `doubleSpendValidator` must stay ahead of
+ * the other mid-tolerance entries for that special case to apply.
  */
 export function createFirstStageTxValidationsForGossipedTransactions(
   timestamp: UInt64,
@@ -156,8 +158,6 @@ export function createFirstStageTxValidationsForGossipedTransactions(
       ),
       severity: PeerErrorSeverity.MidToleranceError, // This is handled specifically at the point of rejection by considering a recent window where it may have been valid
     },
-    // Must stay after doubleSpendValidator: on equal severities the first failing entry is reported, and
-    // handleGossipedTx special-cases the doubleSpendValidator name to grade severity by nullifier recency.
     gasLimitsValidator: {
       validator: new GasLimitsValidator<Tx>({ ...gasLimitOpts, bindings }),
       severity: PeerErrorSeverity.MidToleranceError,
@@ -344,11 +344,8 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     new ContractInstanceTxValidator(bindings),
   ];
 
-  // Declared gas-limit admission is not fee enforcement, so it runs even when fees are skipped, but it is
-  // skipped during simulation: gas estimation submits intentionally-inflated `forEstimation` limits (above
-  // the per-tx max) and the wallet clamps the real tx to the admission limit afterward, so enforcing the
-  // limit on the estimation tx would reject a valid estimation. GasLimitsValidator is the sole owner of the
-  // limit check (GasTxValidator below performs none), so this guard fully expresses the exemption.
+  // Gas-limit validation runs even when fee enforcement is skipped, but not during simulation: gas estimation
+  // submits intentionally-inflated `forEstimation` limits and the wallet clamps the real tx afterward.
   if (!isSimulation) {
     validators.push(new GasLimitsValidator<Tx>({ maxTxL2Gas, maxTxDAGas, bindings }));
   }
@@ -420,10 +417,8 @@ function createTxValidatorForValidatingAgainstCurrentState(
     new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp, bindings),
     new BlockHeaderTxValidator(archiveSource, bindings),
     new DoubleSpendTxValidator(nullifierSource, bindings),
-    // No limit opts: block building enforces only the per-tx protocol ceiling. Network admission limits are
-    // relay policy; per-block capacity is enforced while packing, and applying them here could reject an
-    // otherwise valid proposed block. This is where over-declared limits on txs that entered via req/resp or
-    // block proposals are caught, before execution would trip the AVM's max-processable-gas assertion.
+    // No limit opts: enforce only the per-tx protocol ceiling. Network admission limits are relay policy and
+    // must not invalidate a proposed block.
     new GasLimitsValidator<Tx>({ bindings }),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees, bindings),
   );

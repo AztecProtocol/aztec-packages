@@ -93,7 +93,7 @@ The `AllowedSetupCallsMetaValidator` checks a precomputed boolean flag (`TxMetaD
 | `TimestampTxValidator` | Transaction has not expired (expiration timestamp vs next slot) | 1.56 us |
 | `DoubleSpendTxValidator` | Nullifiers do not already exist in the nullifier tree | 106.08 us |
 | `GasTxValidator` | Max fee per gas meets current block fees (delegates to `MaxFeePerGasValidator`), and fee payer has sufficient FeeJuice balance | 1.02 ms |
-| `GasLimitsValidator` | Gas limits are >= fixed minimums and <= AVM max processable L2 gas (optionally clamped further by network admission limits). Sole owner of declared gas-limit admission | 3–10 us |
+| `GasLimitsValidator` | Gas limits are >= fixed minimums and <= AVM max processable L2 gas (optionally clamped further by network admission limits). Sole owner of declared gas-limit validation | 3–10 us |
 | `MaxFeePerGasValidator` | Max fee per gas >= current block gas fees on both dimensions (DA and L2). Used standalone in pool migration; also called internally by `GasTxValidator` | 3–10 us |
 | `PhasesTxValidator` | Public function calls in setup phase are on the allow list | 10.12–13.12 us |
 | `AllowedSetupCallsMetaValidator` | Checks the precomputed `allowedSetupCalls` flag on `TxMetaData`. Used in pool migration instead of the full `PhasesTxValidator` | — |
@@ -118,7 +118,7 @@ The `AllowedSetupCallsMetaValidator` checks a precomputed boolean flag (`TxMetaD
 | BlockHeader | Stage 1 | Yes | — | Yes | Yes |
 | Proof | Stage 2 | Optional** | Yes | — | — |
 
-\* Gas balance check is skipped when `skipFeeEnforcement` is set (testing/dev). `GasTxValidator` internally delegates to `MaxFeePerGasValidator` as its first step, so fee-per-gas is checked wherever `GasTxValidator` runs. Pool migration uses `MaxFeePerGasValidator` standalone because it doesn't need the balance check. Declared gas-limit admission is owned solely by `GasLimitsValidator`.
+\* Gas balance check is skipped when `skipFeeEnforcement` is set (testing/dev). `GasTxValidator` internally delegates to `MaxFeePerGasValidator` as its first step, so fee-per-gas is checked wherever `GasTxValidator` runs. Pool migration uses `MaxFeePerGasValidator` standalone because it doesn't need the balance check. Declared gas-limit validation is owned solely by `GasLimitsValidator`.
 \** Proof verification is skipped for simulations (no verifier provided).
 \*** Skipped for simulations: gas estimation submits limits above the per-tx maximum, and the wallet clamps the real tx to the admission limit afterward.
 
