@@ -393,7 +393,7 @@ describe('DataWithholdingWatcher', () => {
     expect(captured[0][0].epochOrSlot).toEqual(BigInt(12));
   });
 
-  it('still slashes when p2p is disabled by configuration', async () => {
+  it('does not probe or slash when p2p is disabled by configuration', async () => {
     p2p.getP2PConnectivity.mockResolvedValue({ enabled: false, connectedPeers: 0 });
     await startAtSlot(10);
     setSyncedSlot(11 + TOLERANCE + 1);
@@ -401,17 +401,16 @@ describe('DataWithholdingWatcher', () => {
     const slot = 11;
     const published = makePublished(slot, 1);
     const missing = published.checkpoint.blocks[0].body.txEffects[0].txHash;
-    const attester = EthAddress.random();
     l2BlockSource.getCheckpoint.mockResolvedValue(published);
     mockMissing([missing]);
-    watcher.attestersBySlot.set(slot, [attester]);
+    watcher.attestersBySlot.set(slot, [EthAddress.random()]);
     const captured = captureEmits();
 
     await watcher.work();
 
-    expect(captured).toHaveLength(1);
-    expect(captured[0][0].validator).toEqual(attester);
-    expect(captured[0][0].offenseType).toBe(OffenseType.DATA_WITHHOLDING);
+    expect(l2BlockSource.getCheckpoint).not.toHaveBeenCalled();
+    expect(txProvider.hasTxs).not.toHaveBeenCalled();
+    expect(captured).toHaveLength(0);
   });
 
   it('sets epochOrSlot to the checkpoint slot, not its epoch (slot-keyed offense)', async () => {

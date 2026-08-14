@@ -35,8 +35,9 @@ type DataWithholdingWatcherConfig = Pick<SlasherConfig, (typeof DataWithholdingW
  * matching the Sentinel approach.
  *
  * Since the evidence for an offense is the absence of txs in the local pool, the probe is gated on
- * p2p connectivity: while p2p is enabled but has no connected peers, slots are skipped instead of
- * probed, since missing txs then say nothing about the attesters.
+ * p2p connectivity: while there are no connected peers, slots are skipped instead of probed, since
+ * missing txs then say nothing about the attesters. Nodes running with p2p disabled do not run this
+ * watcher at all.
  */
 export class DataWithholdingWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   private runningPromise: RunningPromise;
@@ -109,9 +110,10 @@ export class DataWithholdingWatcher extends (EventEmitter as new () => WatcherEm
     // Missing txs are only evidence of withholding if we could have received them. Slots probed
     // while gossip is down are skipped for good rather than deferred: once peers return, txs from
     // those checkpoints may already have been evicted from the pool as mined, so a late probe would
-    // still report them missing. An unknown must not turn into an offense.
+    // still report them missing. An unknown must not turn into an offense. Note this deliberately
+    // ignores whether p2p is enabled: a node with no p2p stack sees even less than a peerless one.
     const connectivity = await this.p2p.getP2PConnectivity();
-    if (connectivity.enabled && connectivity.connectedPeers === 0) {
+    if (connectivity.connectedPeers === 0) {
       if (!this.gossipDegraded) {
         this.gossipDegraded = true;
         this.log.warn(`Skipping data-withholding checks while no peers are connected`, {
