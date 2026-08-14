@@ -34,7 +34,7 @@ import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/k
 import { AppTaggingSecret, FlatPublicLogs, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { type UnsiloedMessageNullifier, getL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
-import { MerkleTreeId, type NullifierMembershipWitness, type PublicDataWitness } from '@aztec/stdlib/trees';
+import { MerkleTreeId, type NullifierMembershipWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
   CallContext,
@@ -361,7 +361,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${leafSlot} at block hash ${blockHash.toString()}.`);
     }
-    return toPublicDataWitnessData(witness);
+    return {
+      index: witness.index,
+      leafPreimage: witness.leafPreimage,
+      siblingPath: witness.siblingPath.toTuple(),
+    };
   }
 
   /**
@@ -1325,14 +1329,6 @@ function toLogRetrievalResponse(retrievedLog: RetrievedTaggedLog): LogRetrievalR
 
 function toNullifierMembershipWitnessData(witness: NullifierMembershipWitness): NullifierMembershipWitnessData {
   return { leafPreimage: witness.leafPreimage, witness: witness.withoutPreimage() };
-}
-
-function toPublicDataWitnessData(witness: PublicDataWitness): PublicDataWitnessData {
-  return {
-    index: witness.index,
-    leafPreimage: witness.leafPreimage,
-    siblingPath: witness.siblingPath.toTuple(),
-  };
 }
 
 function toValidationTxData(tx: TxOnchainContext): ValidationTxData {
