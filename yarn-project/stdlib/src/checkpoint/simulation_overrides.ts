@@ -45,7 +45,7 @@ type CheckpointSimulationOverridesPlanInput = {
 /**
  * Builds the SimulationOverridesPlan describing the simulated L1 rollup state for a checkpoint's
  * enqueue-time simulations: `canProposeAt` (in Sequencer.doWork) and the propose-related sims
- * (validateBlockHeader, simulateProposeTx). The plan reflects "as if our pipelined parent
+ * (validateCheckpointHeader, simulateProposeTx). The plan reflects "as if our pipelined parent
  * checkpoint has landed and any required invalidation has executed" — the gap that needs to be
  * bridged at enqueue time.
  *
@@ -81,7 +81,7 @@ export async function buildCheckpointSimulationOverridesPlan(
     // `getEffectivePendingCheckpointNumber` silently collapses pending back to proven — producing
     // a spurious `Rollup__InvalidArchive` against the on-chain genesis archive. The other fields
     // (headerHash, outHash, payloadDigest) are not strictly load-bearing for `canProposeAt` /
-    // `validateBlockHeader`, but mirroring the full cell keeps the simulation byte-faithful with
+    // `validateCheckpointHeader`, but mirroring the full cell keeps the simulation byte-faithful with
     // what the actual `propose()` send will observe, which is a defense against future reads
     // taking dependencies on them.
     builder.withPendingTempCheckpointLogFields({

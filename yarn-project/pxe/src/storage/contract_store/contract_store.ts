@@ -1,6 +1,7 @@
 import type { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -146,7 +147,7 @@ export class ContractStore {
     const privateFunctions = contract.functions.filter(
       functionArtifact => functionArtifact.functionType === FunctionType.PRIVATE,
     );
-    const privateSelectors = await Promise.all(
+    const privateSelectors = await allToCompletion(
       privateFunctions.map(async fn =>
         (await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)).toString(),
       ),

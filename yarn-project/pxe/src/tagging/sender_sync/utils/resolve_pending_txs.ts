@@ -1,4 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { type MinedTxReceipt, type TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
@@ -35,7 +36,7 @@ export async function resolvePendingTxs(
 ): Promise<ResolvedPendingTxs> {
   const statusFromLogs = classifyPendingTxsFromLogs(pendingTxs, txsInLogs, finalizedBlockNumber);
 
-  const [statusOfAbsent, receiptsOfRevertedInLogs] = await Promise.all([
+  const [statusOfAbsent, receiptsOfRevertedInLogs] = await allToCompletion([
     classifyPendingTxsFromReceipts(statusFromLogs.txHashesAbsent, aztecNode),
     getReceiptsWithEffect(statusFromLogs.txHashesWithExecutionReverted, aztecNode),
   ]);
@@ -54,7 +55,7 @@ export async function resolvePendingTxs(
 }
 
 function getReceiptsWithEffect(txHashes: TxHash[], aztecNode: AztecNode) {
-  return Promise.all(txHashes.map(txHash => aztecNode.getTxReceipt(txHash, { includeTxEffect: true })));
+  return allToCompletion(txHashes.map(txHash => aztecNode.getTxReceipt(txHash, { includeTxEffect: true })));
 }
 
 function isFinalized(

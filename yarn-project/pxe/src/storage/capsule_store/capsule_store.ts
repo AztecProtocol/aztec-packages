@@ -243,7 +243,7 @@ export class CapsuleStore implements StagedStore {
     jobId: string,
     scope: AztecAddress,
   ): Promise<void> {
-    // We wrap this in a transaction to serialize concurrent calls from Promise.all.
+    // We wrap this in a transaction to serialize concurrent calls from allToCompletion.
     // Without this, concurrent appends to the same array could race: both read length=0,
     // both write at the same slots, one overwrites the other.
     // Equally important: this in practice is expected to perform thousands of DB operations

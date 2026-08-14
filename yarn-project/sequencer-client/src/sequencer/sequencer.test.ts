@@ -230,7 +230,7 @@ describe('sequencer', () => {
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
-    publisher.validateBlockHeader.mockResolvedValue();
+    publisher.validateCheckpointHeader.mockResolvedValue();
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
@@ -708,12 +708,12 @@ describe('sequencer', () => {
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
     });
 
-    // TODO(palla/mbps): Reinstante the validateBlockHeader call
+    // TODO(palla/mbps): Reinstante the validateCheckpointHeader call
     it.skip('aborts building a block if the chain moves underneath it', async () => {
       await setupSingleTxBlock();
 
       // This could practically be for any reason, e.g., could also be that we have entered a new slot.
-      publisher.validateBlockHeader.mockRejectedValueOnce(new Error('No block for you'));
+      publisher.validateCheckpointHeader.mockRejectedValueOnce(new Error('No block for you'));
 
       await sequencer.work();
 
@@ -764,7 +764,7 @@ describe('sequencer', () => {
         const pub = mockDeep<SequencerPublisher>();
         pub.epochCache = epochCache;
         pub.getSenderAddress.mockImplementation(() => EthAddress.random());
-        pub.validateBlockHeader.mockResolvedValue();
+        pub.validateCheckpointHeader.mockResolvedValue();
         pub.enqueueProposeCheckpoint.mockResolvedValue(undefined);
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);

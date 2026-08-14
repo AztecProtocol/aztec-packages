@@ -1,4 +1,5 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { isDefined } from '@aztec/foundation/types';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { AppTaggingSecret, LogResult } from '@aztec/stdlib/logs';
@@ -104,7 +105,7 @@ export async function syncTaggedPrivateLogs(
     // Compute tags for all pending secrets and fetch logs in batched RPC calls
     const logsPerSecret = await fetchLogsForSecrets(pending, aztecNode, anchor);
 
-    const nextRound = await Promise.all(
+    const nextRound = await allToCompletion(
       pending.map(async (pendingSecret, i) => {
         const logsFoundWithSecret = logsPerSecret[i];
         if (logsFoundWithSecret.length === 0) {
@@ -148,7 +149,7 @@ function getIndexRangesForSecrets(
   taggingStore: RecipientTaggingStore,
   jobId: string,
 ): Promise<PendingSecret[]> {
-  return Promise.all(
+  return allToCompletion(
     secrets.map(async (secret): Promise<PendingSecret> => {
       const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret, jobId);
       const boundEnd = unfinalizedTaggingIndexesWindowEnd(currentHighestFinalizedIndex);
@@ -189,9 +190,9 @@ async function fetchLogsForSecrets(
   const indexesPerSecret = pending.map(({ start, end }) => Array.from({ length: end - start }, (_, i) => start + i));
 
   // Compute siloed tags for all indexes
-  const tagsPerSecret = await Promise.all(
+  const tagsPerSecret = await allToCompletion(
     pending.map(({ secret }, i) =>
-      Promise.all(indexesPerSecret[i].map(index => SiloedTag.compute({ extendedSecret: secret, index }))),
+      allToCompletion(indexesPerSecret[i].map(index => SiloedTag.compute({ extendedSecret: secret, index }))),
     ),
   );
 

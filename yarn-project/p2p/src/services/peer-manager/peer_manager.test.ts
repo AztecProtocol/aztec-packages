@@ -2134,6 +2134,84 @@ describe('PeerManager', () => {
     });
   });
 
+  describe('zero connected peers warning', () => {
+    // A 1s heartbeat means the once-a-minute throttle spans 60 heartbeats.
+    const peerCheckIntervalMS = 1000;
+    const heartbeatsPerWarning = 60;
+    const zeroPeerHeartbeatsThreshold = 3;
+
+    const createManager = () =>
+      createMockPeerManager('zero-peers', mockLibP2PNode, 3, undefined, undefined, undefined, { peerCheckIntervalMS });
+
+    const runHeartbeats = async (manager: PeerManager, count: number) => {
+      for (let i = 0; i < count; i++) {
+        await manager.heartbeat();
+      }
+    };
+
+    it('does not warn before the threshold of consecutive zero-peer heartbeats', async () => {
+      const manager = createManager();
+      const warnSpy = jest.spyOn((manager as any).logger, 'warn');
+
+      await runHeartbeats(manager, zeroPeerHeartbeatsThreshold - 1);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('warns once zero peers persists across consecutive heartbeats', async () => {
+      const manager = createManager();
+      const warnSpy = jest.spyOn((manager as any).logger, 'warn');
+
+      await runHeartbeats(manager, zeroPeerHeartbeatsThreshold);
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('no connected peers'),
+        expect.objectContaining({ zeroPeerHeartbeats: zeroPeerHeartbeatsThreshold }),
+      );
+    });
+
+    it('throttles repeated warnings while peers stay at zero', async () => {
+      const manager = createManager();
+      const warnSpy = jest.spyOn((manager as any).logger, 'warn');
+
+      await runHeartbeats(manager, zeroPeerHeartbeatsThreshold + heartbeatsPerWarning - 1);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+
+      await runHeartbeats(manager, 1);
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not warn while peers are connected', async () => {
+      const manager = createManager();
+      const warnSpy = jest.spyOn((manager as any).logger, 'warn');
+      mockLibP2PNode.getPeers.mockReturnValue([await createSecp256k1PeerId()]);
+
+      await runHeartbeats(manager, zeroPeerHeartbeatsThreshold + 5);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('logs once when connectivity is restored after a warning', async () => {
+      const manager = createManager();
+      const warnSpy = jest.spyOn((manager as any).logger, 'warn');
+      const infoSpy = jest.spyOn((manager as any).logger, 'info');
+
+      await runHeartbeats(manager, zeroPeerHeartbeatsThreshold);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+
+      mockLibP2PNode.getPeers.mockReturnValue([await createSecp256k1PeerId(), await createSecp256k1PeerId()]);
+      await runHeartbeats(manager, 3);
+
+      const restoredLogs = infoSpy.mock.calls.filter(([message]) =>
+        (message as string).includes('connectivity restored'),
+      );
+      expect(restoredLogs).toHaveLength(1);
+      expect(restoredLogs[0][1]).toEqual(expect.objectContaining({ connectedPeerCount: 2 }));
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
   function createMockLibP2PNode(peers?: PeerId[], connections?: any[]): any {
     return {
       addEventListener: jest.fn(),

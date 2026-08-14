@@ -761,13 +761,13 @@ export class SequencerPublisher {
   }
 
   /**
-   * @notice  Will simulate `validateHeader` to make sure that the block header is valid
-   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header.
-   *          It will throw if the block header is invalid.
-   * @param header - The block header to validate
+   * @notice  Will simulate the rollup's `validateHeaderWithAttestations` to make sure the checkpoint header is valid
+   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header,
+   *          skipping the DA and signature checks. It will throw if the checkpoint header is invalid.
+   * @param header - The checkpoint header to validate
    */
-  @trackSpan('SequencerPublisher.validateBlockHeader')
-  public async validateBlockHeader(
+  @trackSpan('SequencerPublisher.validateCheckpointHeader')
+  public async validateCheckpointHeader(
     header: CheckpointHeader,
     simulationOverridesPlan?: SimulationOverridesPlan,
   ): Promise<void> {
@@ -786,17 +786,10 @@ export class SequencerPublisher {
     const l1Constants = this.epochCache.getL1Constants();
     const ts = getLastL1SlotTimestampForL2Slot(header.slotNumber, l1Constants);
     const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
-    let balance = 0n;
-    if (this.config.fishermanMode) {
-      // In fisherman mode, we can't know where the proposer is publishing from
-      // so we just add sufficient balance to the multicall3 address
-      balance = 10n * WEI_CONST * WEI_CONST; // 10 ETH
-    } else {
-      balance = await this.l1TxUtils.getSenderBalance();
-    }
+    // Balance override for compatibility with providers that apply an upfront funds check to simulated calls.
     stateOverrides.push({
       address: MULTI_CALL_3_ADDRESS,
-      balance,
+      balance: 10n * WEI_CONST * WEI_CONST, // 10 ETH
     });
 
     await this.l1TxUtils.simulate(

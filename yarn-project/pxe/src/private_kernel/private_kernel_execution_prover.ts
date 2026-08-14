@@ -3,6 +3,7 @@ import { uniqueBy } from '@aztec/foundation/collection';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -384,7 +385,7 @@ export class PrivateKernelExecutionProver {
     ]);
     const uniqueAddresses = uniqueBy(allAddresses, a => a.toString());
     return new Map<string, UpdatedClassIdHints>(
-      await Promise.all(
+      await allToCompletion(
         uniqueAddresses.map(
           async addr =>
             [addr.toString(), await this.oracle.getUpdatedClassIdHints(addr)] as [string, UpdatedClassIdHints],
