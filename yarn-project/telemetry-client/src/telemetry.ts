@@ -19,6 +19,7 @@ import {
 import type * as Attributes from './attributes.js';
 import type { MetricDefinition } from './metrics.js';
 import { getTelemetryClient } from './start.js';
+import type * as VendorAttributes from './vendor/attributes.js';
 
 export { toMetricOptions, createUpDownCounterWithDefault } from './metric-utils.js';
 
@@ -27,6 +28,8 @@ export { type Span, SpanStatusCode, ValueType, type Context } from '@opentelemet
 type ValuesOf<T> = T extends Record<string, infer U> ? U : never;
 
 type AttributeNames = ValuesOf<typeof Attributes>;
+
+type AllowedVendorMetricAttributeNames = (typeof VendorAttributes)['ATTR_JSONRPC_METHOD' | 'ATTR_JSONRPC_SERVICE'];
 
 /**
  * This is a set of attributes that could lead to high cardinality in the metrics.
@@ -55,7 +58,9 @@ type BannedMetricAttributeNames = (typeof Attributes)[
 /** Global registry of attributes */
 export type AttributesType = Partial<Record<AttributeNames, AttributeValue>>;
 
-export type AllowedAttributeNames = Exclude<AttributeNames, BannedMetricAttributeNames>;
+export type AllowedAttributeNames =
+  | Exclude<AttributeNames, BannedMetricAttributeNames>
+  | AllowedVendorMetricAttributeNames;
 
 /** Subset of attributes allowed to be added to metrics */
 export type MetricAttributesType = Partial<Record<AllowedAttributeNames, AttributeValue>>;
