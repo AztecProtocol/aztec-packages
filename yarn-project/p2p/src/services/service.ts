@@ -2,11 +2,11 @@ import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type {
-  BlockProposal,
   CheckpointAttestation,
-  CheckpointProposalCore,
   Gossipable,
   TopicType,
+  ValidatedBlockProposal,
+  ValidatedCheckpointProposalCore,
 } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
 
@@ -28,18 +28,21 @@ export enum PeerDiscoveryState {
 /**
  * Callback for when a block proposal is received.
  * Validators validate but DO NOT attest to individual blocks - attestations are only for checkpoints.
+ * The proposal is passed as a ValidatedBlockProposal: it has already passed p2p ingress validation, and
+ * consumers are not expected to repeat it.
  * @returns true if the proposal is valid, false otherwise
  */
-export type P2PBlockReceivedCallback = (block: BlockProposal, sender: PeerId) => Promise<boolean>;
+export type P2PBlockReceivedCallback = (block: ValidatedBlockProposal, sender: PeerId) => Promise<boolean>;
 
 /**
  * Callback for when a checkpoint proposal is received.
- * The checkpoint proposal is passed as CheckpointProposalCore (without lastBlock) since
+ * The checkpoint proposal is passed as ValidatedCheckpointProposalCore (without lastBlock) since
  * the lastBlock is extracted and stored separately as a BlockProposal, and the block
- * callback is invoked and awaited before this checkpoint callback.
+ * callback is invoked and awaited before this checkpoint callback. As with block proposals, it has already
+ * passed p2p ingress validation.
  */
 export type P2PCheckpointReceivedCallback = (
-  checkpoint: CheckpointProposalCore,
+  checkpoint: ValidatedCheckpointProposalCore,
   sender: PeerId,
 ) => Promise<CheckpointAttestation[] | undefined>;
 

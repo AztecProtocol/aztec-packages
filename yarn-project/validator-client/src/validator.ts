@@ -40,6 +40,8 @@ import {
   type CheckpointProposalCore,
   type CheckpointProposalOptions,
   type CoordinationSignatureContext,
+  type ValidatedBlockProposal,
+  type ValidatedCheckpointProposalCore,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
@@ -374,7 +376,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.log.debug(`Registering validator handlers for p2p client`);
 
       // Block proposal handler - validates but does NOT attest (validators only attest to checkpoints)
-      const blockHandler = (block: BlockProposal, proposalSender: PeerId): Promise<boolean> =>
+      const blockHandler = (block: ValidatedBlockProposal, proposalSender: PeerId): Promise<boolean> =>
         this.validateBlockProposal(block, proposalSender);
       this.p2pClient.registerBlockProposalHandler(blockHandler);
 
@@ -382,7 +384,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       // The checkpoint is received as CheckpointProposalCore since the lastBlock is extracted
       // and processed separately via the block handler above.
       const checkpointHandler = (
-        checkpoint: CheckpointProposalCore,
+        checkpoint: ValidatedCheckpointProposalCore,
         proposalSender: PeerId,
       ): Promise<CheckpointAttestation[] | undefined> => this.attestToCheckpointProposal(checkpoint, proposalSender);
       this.p2pClient.registerValidatorCheckpointProposalHandler(checkpointHandler);
@@ -418,7 +420,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
    * Note: Validators do NOT attest to individual blocks - attestations are only for checkpoint proposals.
    * @returns true if the proposal is valid, false otherwise
    */
-  async validateBlockProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<boolean> {
+  async validateBlockProposal(proposal: ValidatedBlockProposal, proposalSender: PeerId): Promise<boolean> {
     const slotNumber = proposal.slotNumber;
 
     // Note: During escape hatch, we still want to "validate" proposals for observability,
@@ -516,7 +518,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
    * @returns Checkpoint attestations if valid, undefined otherwise
    */
   async attestToCheckpointProposal(
-    proposal: CheckpointProposalCore,
+    proposal: ValidatedCheckpointProposalCore,
     _proposalSender: PeerId,
   ): Promise<CheckpointAttestation[] | undefined> {
     const proposalSlotNumber = proposal.slotNumber;
