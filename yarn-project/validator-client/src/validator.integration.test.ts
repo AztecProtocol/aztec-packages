@@ -26,7 +26,12 @@ import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
-import { type BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
+import {
+  type BlockProposal,
+  CheckpointProposal,
+  ValidatedBlockProposal,
+  ValidatedCheckpointProposalCore,
+} from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { BlockHeader, type CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
@@ -355,7 +360,9 @@ describe('ValidatorClient Integration', () => {
   const attestorValidateBlocks = async (blocks: BlockProposalResult[]) => {
     for (const block of blocks) {
       logger.warn(`Validating block proposal ${block.proposal.blockNumber}`);
-      expect(await attestor.validator.validateBlockProposal(block.proposal, mockPeerId)).toBe(true);
+      expect(await attestor.validator.validateBlockProposal(ValidatedBlockProposal(block.proposal), mockPeerId)).toBe(
+        true,
+      );
     }
   };
 
@@ -423,7 +430,10 @@ describe('ValidatorClient Integration', () => {
 
       await attestorValidateBlocks(blocks);
 
-      const attestations = await attestor.validator.attestToCheckpointProposal(proposal, mockPeerId);
+      const attestations = await attestor.validator.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(proposal),
+        mockPeerId,
+      );
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
       expect(attestations![0].getSender()).toEqual(validatorSigner.address);
@@ -458,7 +468,10 @@ describe('ValidatorClient Integration', () => {
 
       await attestorValidateBlocks(blocks);
 
-      const attestations = await attestor.validator.attestToCheckpointProposal(proposal, mockPeerId);
+      const attestations = await attestor.validator.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(proposal),
+        mockPeerId,
+      );
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
       expect(attestations![0].getSender()).toEqual(validatorSigner.address);
@@ -514,7 +527,10 @@ describe('ValidatorClient Integration', () => {
 
       await attestorValidateBlocks(blocks2);
 
-      const attestations = await attestor.validator.attestToCheckpointProposal(proposal2, mockPeerId);
+      const attestations = await attestor.validator.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(proposal2),
+        mockPeerId,
+      );
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
 
@@ -551,7 +567,10 @@ describe('ValidatorClient Integration', () => {
 
       // Attestation should fail because block 3 wasn't validated
       // The validator will timeout waiting for block with matching archive
-      const attestations = await attestor.validator.attestToCheckpointProposal(proposal, mockPeerId);
+      const attestations = await attestor.validator.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(proposal),
+        mockPeerId,
+      );
       expect(attestations).toBeUndefined();
     });
 
@@ -585,7 +604,10 @@ describe('ValidatorClient Integration', () => {
       dateProvider.setTime(Number(getTimestampForSlot(SlotNumber(slotNumber + 1), l1Constants)) * 1000);
 
       // Attestation should fail because archive doesn't match any block
-      const attestations = await attestor.validator.attestToCheckpointProposal(badProposal, mockPeerId);
+      const attestations = await attestor.validator.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(badProposal),
+        mockPeerId,
+      );
       expect(attestations).toBeUndefined();
     });
 
@@ -606,7 +628,10 @@ describe('ValidatorClient Integration', () => {
       epochCache.setCurrentSlot(slot2);
 
       // Block proposal validator should reject the old proposal
-      const isValid = await attestor.validator.validateBlockProposal(blocks[0].proposal, mockPeerId);
+      const isValid = await attestor.validator.validateBlockProposal(
+        ValidatedBlockProposal(blocks[0].proposal),
+        mockPeerId,
+      );
       expect(isValid).toBe(false);
     });
 
@@ -635,7 +660,10 @@ describe('ValidatorClient Integration', () => {
 
       // Block 3 should fail: remaining checkpoint mana is 0, so the processor
       // stops after the first tx's actual gas exceeds the limit.
-      const isValid = await attestor.validator.validateBlockProposal(blocks[2].proposal, mockPeerId);
+      const isValid = await attestor.validator.validateBlockProposal(
+        ValidatedBlockProposal(blocks[2].proposal),
+        mockPeerId,
+      );
       expect(isValid).toBe(false);
     });
 
@@ -662,7 +690,10 @@ describe('ValidatorClient Integration', () => {
       epochCache.setCurrentSlot(slot2);
 
       // Block proposal validator should reject the old proposal
-      const isValid = await attestor.validator.validateBlockProposal(blocks[0].proposal, mockPeerId);
+      const isValid = await attestor.validator.validateBlockProposal(
+        ValidatedBlockProposal(blocks[0].proposal),
+        mockPeerId,
+      );
       expect(isValid).toBe(false);
     });
   });

@@ -16,6 +16,7 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
+import { ValidatedBlockProposal, ValidatedCheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
@@ -38,12 +39,14 @@ import { ProposalHandler } from './proposal_handler.js';
 
 /** Creates a checkpoint proposal core with the given overrides. */
 async function makeProposal(overrides: Parameters<typeof makeCheckpointProposal>[0] = {}) {
-  return (
-    await makeCheckpointProposal({
-      checkpointHeader: makeCheckpointHeader(0, { slotNumber: SlotNumber(1) }),
-      ...overrides,
-    })
-  ).toCore();
+  return ValidatedCheckpointProposalCore(
+    (
+      await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: SlotNumber(1) }),
+        ...overrides,
+      })
+    ).toCore(),
+  );
 }
 
 describe('ProposalHandler checkpoint validation', () => {
@@ -713,11 +716,13 @@ describe('ProposalHandler checkpoint validation', () => {
    * handler wired to accept it up to the block-number guard.
    */
   async function setupGenesisProposal(proposalArchive: Fr, txHashes?: TxHash[]) {
-    const proposal = await makeBlockProposal({
-      blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
-      archiveRoot: proposalArchive,
-      ...(txHashes ? { txHashes } : {}),
-    });
+    const proposal = ValidatedBlockProposal(
+      await makeBlockProposal({
+        blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+        archiveRoot: proposalArchive,
+        ...(txHashes ? { txHashes } : {}),
+      }),
+    );
 
     // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
     blockSource.getGenesisValues.mockResolvedValue({
@@ -867,11 +872,13 @@ describe('ProposalHandler checkpoint validation', () => {
     // local latency into a slashable invalid-proposal verdict against an honest proposer.
     it('processes a proposal whose receive window closed while it waited to be processed', async () => {
       const signer = Secp256k1Signer.random();
-      const proposal = await makeBlockProposal({
-        blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
-        archiveRoot: Fr.random(),
-        signer,
-      });
+      const proposal = ValidatedBlockProposal(
+        await makeBlockProposal({
+          blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+          archiveRoot: Fr.random(),
+          signer,
+        }),
+      );
 
       // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
       blockSource.getGenesisValues.mockResolvedValue({

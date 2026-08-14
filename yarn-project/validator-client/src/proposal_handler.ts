@@ -36,7 +36,13 @@ import {
   accumulateCheckpointOutHashes,
   computeInHashFromL1ToL2Messages,
 } from '@aztec/stdlib/messaging';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposalCore,
+  ValidatedBlockProposal,
+  ValidatedCheckpointProposalCore,
+} from '@aztec/stdlib/p2p';
 import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { CheckpointGlobalVariables, FailedTx, Tx, TxHash } from '@aztec/stdlib/tx';
@@ -326,7 +332,7 @@ export class ProposalHandler {
 
     // Non-validator handler that processes or re-executes for monitoring but does not attest.
     // Returns boolean indicating whether the proposal was valid.
-    const blockHandler = async (proposal: BlockProposal, proposalSender: PeerId): Promise<boolean> => {
+    const blockHandler = async (proposal: ValidatedBlockProposal, proposalSender: PeerId): Promise<boolean> => {
       try {
         const { slotNumber, blockNumber } = proposal;
         const result = await this.handleBlockProposal(proposal, proposalSender, shouldReexecute);
@@ -376,7 +382,7 @@ export class ProposalHandler {
     // Runs for all nodes (validators and non-validators). Validators get the cached result in the
     // validator-specific callback (attestToCheckpointProposal) which runs after this one.
     const checkpointHandler = async (
-      proposal: CheckpointProposalCore,
+      proposal: ValidatedCheckpointProposalCore,
       _sender: PeerId,
     ): Promise<CheckpointAttestation[] | undefined> => {
       try {
@@ -452,7 +458,7 @@ export class ProposalHandler {
    * are validated before processing.
    */
   async handleBlockProposal(
-    proposal: BlockProposal,
+    proposal: ValidatedBlockProposal,
     proposalSender: PeerId,
     shouldReexecute: boolean,
   ): Promise<BlockProposalValidationResult> {
@@ -1059,7 +1065,7 @@ export class ProposalHandler {
    * timeliness); only deterministic properties of the signed payload are checked here.
    */
   async handleCheckpointProposal(
-    proposal: CheckpointProposalCore,
+    proposal: ValidatedCheckpointProposalCore,
     proposalInfo: LogData,
   ): Promise<CheckpointProposalValidationResult> {
     const slot = proposal.slotNumber;
