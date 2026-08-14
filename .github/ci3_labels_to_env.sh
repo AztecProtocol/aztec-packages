@@ -57,11 +57,6 @@ function main {
     echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
   fi
 
-  # Handle skip-compat-e2e label (escape hatch for backwards compat test failures on release PRs)
-  if has_label "ci-skip-compat-e2e"; then
-    echo "SKIP_COMPAT_E2E=1" >> $GITHUB_ENV
-  fi
-
   local chonk_input_update=0
   local chonk_input_update_requested=0
   if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ] && { has_label "ci-refresh-chonk" || head_commit_has_marker "--ci-refresh-chonk"; }; then
@@ -163,7 +158,6 @@ function main {
   if [ "$ci_mode" = "release" ] &&
      [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
     echo "PRIVATE_RELEASE=1" >> $GITHUB_ENV
-    echo "SKIP_COMPAT_E2E=1" >> $GITHUB_ENV
   fi
 
   # Determine if benchmarks should be uploaded (merge-queue, full, or full-no-test-cache modes)

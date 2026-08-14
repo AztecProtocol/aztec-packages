@@ -164,6 +164,8 @@ function test_cmds {
     # Run at LOG_LEVEL=verbose so the captured local-network logs are detailed enough for diagnostics.
     echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=verbose $run_test_script compose $flow"
   done
+
+  compat_test_cmds
 }
 
 function test {
@@ -303,15 +305,16 @@ function avm_check_circuit {
   avm_check_circuit_cmds | parallelize
 }
 
-# Generates e2e test commands using contract artifacts from a prior release version.
+# Generates e2e test commands using contract artifacts from a prior release version: the jest resolver
+# swaps artifact JSON imports when CONTRACT_ARTIFACTS_VERSION is set.
 # Only includes simple (jest-based) tests since compose/docker tests don't use the legacy jest resolver.
 # Excludes kernelless_simulation, which asserts on the exact number of nullifiers emitted and breaks
 # whenever contracts add/remove nullifier emissions across versions (unrelated to the compat contract
 # surface).
-function compat_test_cmds {
+function compat_per_version_test_cmds {
   local version=${1:?version is required}
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-  local prefix="$hash:ISOLATE=1"
+  local prefix="$hash:ISOLATE=1:TIMEOUT=20m"
   local compat_env="CONTRACT_ARTIFACTS_VERSION=$version"
 
   local tests=(
@@ -355,6 +358,19 @@ function compat_test_cmds {
     else
       echo "$prefix:NAME=compat_${version}_${name} $compat_env $run_test_script simple $test"
     fi
+  done
+}
+
+# Backwards-compat testing: rerun the artifact-consuming tests against each prior stable release's
+# contract artifacts, committed as legacy-contracts/<version>.tar.gz (see legacy-contracts/README.md).
+# Full CI only: each stable release tested here increases e2e running time by around 5 minutes.
+function compat_test_cmds {
+  [ "${CI_FULL:-0}" -eq 1 ] || return 0
+  local version tarball
+  for tarball in legacy-contracts/*.tar.gz; do
+    [ -e "$tarball" ] || continue
+    version=$(basename "$tarball" .tar.gz)
+    compat_per_version_test_cmds "$version"
   done
 }
 
