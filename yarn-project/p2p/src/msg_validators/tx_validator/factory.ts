@@ -343,8 +343,11 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     new ContractInstanceTxValidator(bindings),
   ];
 
-  // Gas-limit validation runs even when fee enforcement is skipped, but not during simulation: gas estimation
-  // submits intentionally-inflated `forEstimation` limits and the wallet clamps the real tx afterward.
+  // Declared gas-limit admission is not fee enforcement, so it runs even when fees are skipped, but it is
+  // skipped during simulation: gas estimation submits intentionally-inflated `forEstimation` limits (above
+  // the per-tx max) and the wallet clamps the real tx to the admission limit afterward, so enforcing the
+  // limit on the estimation tx would reject a valid estimation. The fee-balance check below stays behind
+  // `skipFeeEnforcement`, and GasTxValidator does not re-run this same check.
   if (!isSimulation) {
     validators.push(new GasLimitsValidator<Tx>({ maxTxL2Gas, maxTxDAGas, bindings }));
   }
