@@ -28,7 +28,8 @@ import {
   createTxValidatorForOnDemandReceivedTxs,
   createTxValidatorForTransactionsEnteringPendingTxPool,
 } from './factory.js';
-import { GasLimitsValidator, GasTxValidator, MaxFeePerGasValidator } from './gas_validator.js';
+import { GasLimitsValidator } from './gas_limits_validator.js';
+import { GasTxValidator, MaxFeePerGasValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { AllowedSetupCallsMetaValidator, PhasesTxValidator } from './phases_validator.js';
 import { SizeTxValidator } from './size_validator.js';

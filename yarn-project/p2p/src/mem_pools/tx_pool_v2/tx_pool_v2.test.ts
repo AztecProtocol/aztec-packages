@@ -32,7 +32,8 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AggregateTxValidator } from '../../msg_validators/tx_validator/aggregate_tx_validator.js';
-import { GasLimitsValidator, MaxFeePerGasValidator } from '../../msg_validators/tx_validator/gas_validator.js';
+import { GasLimitsValidator } from '../../msg_validators/tx_validator/gas_limits_validator.js';
+import { MaxFeePerGasValidator } from '../../msg_validators/tx_validator/gas_validator.js';
 import { AllowedSetupCallsMetaValidator } from '../../msg_validators/tx_validator/phases_validator.js';
 import type { TxMetaData } from './tx_metadata.js';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
