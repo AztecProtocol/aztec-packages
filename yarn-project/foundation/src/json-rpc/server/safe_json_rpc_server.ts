@@ -36,13 +36,36 @@ export type SafeJsonRpcServerConfig = {
   http200OnError: boolean;
   /** The maximum body size the server will accept */
   maxBodySizeBytes: string;
+  /** Origins allowed to make credentialed cross-origin requests. An empty list preserves wildcard CORS. */
+  corsAllowedOrigins?: string[];
 };
 
-const defaultServerConfig: SafeJsonRpcServerConfig = {
+type ResolvedSafeJsonRpcServerConfig = Omit<SafeJsonRpcServerConfig, 'corsAllowedOrigins'> & {
+  corsAllowedOrigins: string[];
+};
+
+const defaultServerConfig: ResolvedSafeJsonRpcServerConfig = {
   http200OnError: false,
   maxBatchSize: 100,
   maxBodySizeBytes: '1mb',
+  corsAllowedOrigins: [],
 };
+
+function normalizeCorsOrigin(origin: string): string {
+  if (origin === '*') {
+    return origin;
+  }
+  const url = new URL(origin);
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error(`Invalid CORS origin protocol: ${origin}`);
+  }
+  if (url.username || url.password || (url.pathname !== '' && url.pathname !== '/') || url.search || url.hash) {
+    throw new Error(
+      `CORS allowed origin must not include credentials, a path, query parameters, or a fragment: ${origin}`,
+    );
+  }
+  return url.origin;
+}
 
 export class SafeJsonRpcServer {
   /**
@@ -51,7 +74,7 @@ export class SafeJsonRpcServer {
    */
   private httpServer?: http.Server;
 
-  private config: SafeJsonRpcServerConfig;
+  private config: ResolvedSafeJsonRpcServerConfig;
 
   constructor(
     /** The proxy object to delegate requests to */
@@ -67,6 +90,7 @@ export class SafeJsonRpcServer {
     private log = createLogger('json-rpc:server'),
   ) {
     this.config = { ...defaultServerConfig, ...config };
+    this.config.corsAllowedOrigins = this.config.corsAllowedOrigins.map(normalizeCorsOrigin);
 
     // handle empty string
     if (!this.config.maxBodySizeBytes) {
@@ -124,6 +148,33 @@ export class SafeJsonRpcServer {
 
     app.use(compress({ br: false }));
     app.use(jsonResponse);
+    if (this.config.corsAllowedOrigins.length === 0) {
+      app.use(cors());
+    } else {
+      const allowedOrigins = new Set(this.config.corsAllowedOrigins);
+      const allowAnyOrigin = allowedOrigins.has('*');
+      app.use(
+        cors({
+          origin: ctx => {
+            const origin = ctx.get('Origin');
+            if (!origin) {
+              return '';
+            }
+
+            if (allowAnyOrigin) {
+              return origin;
+            }
+
+            if (allowedOrigins.has(origin)) {
+              return origin;
+            }
+
+            return '';
+          },
+          credentials: true,
+        }),
+      );
+    }
     for (const middleware of this.extraMiddlewares) {
       app.use(middleware);
     }
@@ -134,7 +185,6 @@ export class SafeJsonRpcServer {
         enableTypes: ['json'],
       }),
     );
-    app.use(cors());
     app.use(router.routes());
     app.use(router.allowedMethods());
 

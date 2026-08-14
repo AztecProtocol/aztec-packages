@@ -1,5 +1,5 @@
 import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
-import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
+import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
 
 export const nodeRpcConfigMappings: ConfigMappingsType<NodeRPCConfig> = {
   rpcSimulatePublicMaxGasLimit: {
@@ -23,6 +23,21 @@ export const nodeRpcConfigMappings: ConfigMappingsType<NodeRPCConfig> = {
     description: 'Maximum allowed batch size for JSON RPC batch requests.',
     defaultValue: '1mb',
   },
+  rpcCorsAllowedOrigins: {
+    env: 'RPC_CORS_ALLOWED_ORIGINS',
+    description: 'Origins allowed to make credentialed cross-origin JSON RPC requests, separated by commas.',
+    parseEnv: (value: string) =>
+      value
+        .split(',')
+        .map(origin => origin.trim())
+        .filter(Boolean),
+    defaultValue: [],
+  },
+  rpcCorsAllowAnyOrigin: {
+    env: 'RPC_CORS_ALLOW_ANY_ORIGIN',
+    description: 'Allow credentialed cross-origin JSON RPC requests from any origin.',
+    ...booleanConfigHelper(false),
+  },
 };
 
 export type NodeRPCConfig = {
@@ -34,4 +49,15 @@ export type NodeRPCConfig = {
   rpcMaxBatchSize: number;
   /** The maximum body size the RPC server will accept */
   rpcMaxBodySize: string;
+  /** Origins allowed to make credentialed cross-origin requests to the RPC server. */
+  rpcCorsAllowedOrigins?: string[];
+  /** Whether to allow credentialed cross-origin requests from any origin. */
+  rpcCorsAllowAnyOrigin?: boolean;
 };
+
+/** Resolves the CORS origin policy for an RPC server. */
+export function getRpcCorsAllowedOrigins(
+  config: Pick<NodeRPCConfig, 'rpcCorsAllowedOrigins' | 'rpcCorsAllowAnyOrigin'>,
+): string[] {
+  return config.rpcCorsAllowAnyOrigin ? ['*'] : (config.rpcCorsAllowedOrigins ?? []);
+}
