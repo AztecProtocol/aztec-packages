@@ -71,27 +71,11 @@ pub mod execution;
 pub mod execution_cache;
 #[generate_oracle_tests]
 pub mod get_contract_instance;
-#[generate_oracle_tests_excluding(
-    @[
-        // TODO: cover once the sibling-path mapping is expressible as a plain fixed array
-        quote { get_l1_to_l2_membership_witness_oracle },
-    ],
-)]
+#[generate_oracle_tests]
 pub mod get_l1_to_l2_membership_witness;
-#[generate_oracle_tests_excluding(
-    @[
-        // TODO: cover once the sibling-path mapping is expressible as a plain fixed array
-        quote { get_low_nullifier_membership_witness_oracle },
-        quote { get_nullifier_membership_witness_oracle },
-    ],
-)]
+#[generate_oracle_tests]
 pub mod get_nullifier_membership_witness;
-#[generate_oracle_tests_excluding(
-    @[
-        // TODO: cover once the sibling-path mapping is expressible as a plain fixed array
-        quote { get_public_data_witness_oracle },
-    ],
-)]
+#[generate_oracle_tests]
 pub mod get_public_data_witness;
 #[generate_oracle_tests_excluding(
     @[

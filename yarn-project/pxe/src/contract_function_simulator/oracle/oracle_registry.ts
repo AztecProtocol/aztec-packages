@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { toACVMField } from '@aztec/simulator/client';
@@ -28,7 +28,6 @@ import {
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
-  MESSAGE_LOAD_ORACLE_INPUTS,
   type MaybePromise,
   NOTE,
   NOTE_SELECTOR,
@@ -205,7 +204,7 @@ export const ORACLE_REGISTRY = {
         ),
       },
     ],
-    returnType: MESSAGE_LOAD_ORACLE_INPUTS,
+    returnType: MEMBERSHIP_WITNESS(L1_TO_L2_MSG_TREE_HEIGHT),
   }),
 
   aztec_utl_getFromPublicStorage: makeEntry({
