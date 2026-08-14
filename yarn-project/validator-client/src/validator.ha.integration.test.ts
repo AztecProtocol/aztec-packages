@@ -14,7 +14,6 @@ import type { Hex } from '@aztec/foundation/string';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import type { P2P, TxProvider } from '@aztec/p2p';
-import { BlockProposalValidator } from '@aztec/p2p';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
@@ -223,19 +222,12 @@ describe('ValidatorClient HA Integration', () => {
       l1Constants: epochCache.getL1Constants(),
       blockDuration: 3,
     });
-    const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
-      txsPermitted: true,
-      maxTxsPerBlock: undefined,
-      signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
-      clockDisparityMs: 500,
-    });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,
       worldState,
       blockSource,
       l1ToL2MessageSource,
       txProvider,
-      blockProposalValidator,
       epochCache,
       consensusTimetable,
       config,
