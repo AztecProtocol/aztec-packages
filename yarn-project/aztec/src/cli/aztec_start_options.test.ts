@@ -58,6 +58,21 @@ describe('aztec_start_options commander integration', () => {
     expect(opts.l1RpcUrls).toEqual(['http://a', 'http://b']);
   });
 
+  it('parses the RPC CORS allowed origins flag', () => {
+    const cmd = buildCommandWith(['API']);
+    cmd.parse(['node', 'cli', '--rpc-cors-allowed-origins', 'https://app1.example.com, https://app2.example.com']);
+
+    expect(cmd.opts().rpcCorsAllowedOrigins).toEqual(['https://app1.example.com', 'https://app2.example.com']);
+  });
+
+  it('enables public credentialed CORS from the environment', () => {
+    process.env.RPC_CORS_ALLOW_ANY_ORIGIN = 'true';
+    const cmd = buildCommandWith(['API']);
+    cmd.parse(['node', 'cli']);
+
+    expect(cmd.opts().rpcCorsAllowAnyOrigin).toBe(true);
+  });
+
   it('parses SecretValue arrays from env for ETHEREUM consensus keys', () => {
     process.env.L1_CONSENSUS_HOST_API_KEYS = 'k1, k2';
     const cmd = buildCommandWith(['ETHEREUM']);
