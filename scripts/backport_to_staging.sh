@@ -202,6 +202,11 @@ if [[ $CONTINUE_MODE -eq 0 ]]; then
       exit 0
     fi
     git cherry-pick --abort 2>/dev/null || true
+    # Tell the workflow this was a genuine conflict, so it can distinguish it
+    # from any other way this script can fail.
+    if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+      echo "failure_reason=conflict" >> "$GITHUB_OUTPUT"
+    fi
     echo "Error: Failed to cherry-pick. Fix conflicts manually, then run: ./scripts/backport_to_staging.sh --continue $PR_NUMBER $TARGET_BRANCH" >&2
     exit 1
   fi
@@ -259,8 +264,13 @@ else
   fi
 fi
 
-# Update PR body with commit override markers (same mechanism as merge-trains)
+# Update PR body with commit override markers (same mechanism as merge-trains).
+# The branch is pushed and the staging PR exists by this point, so a failure
+# here must not fail the backport: the caller reports any non-zero exit as a
+# cherry-pick conflict, which would be a lie and would page #backports.
 echo "Updating PR body with commit list..."
-do_or_dryrun "$root/scripts/merge-train/update-pr-body.sh" "$STAGING_BRANCH"
+if ! do_or_dryrun "$root/scripts/merge-train/update-pr-body.sh" "$STAGING_BRANCH"; then
+  echo "Warning: could not update the staging PR body; the backport itself succeeded." >&2
+fi
 
 do_or_dryrun echo "Successfully backported PR #$PR_NUMBER to $STAGING_BRANCH"

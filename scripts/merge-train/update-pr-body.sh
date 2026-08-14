@@ -53,6 +53,10 @@ BEGIN_COMMIT_OVERRIDE
 $formatted_commits
 END_COMMIT_OVERRIDE"
 
-gh pr edit "$pr_number" --body "$new_body"
+# Update the body through the REST API rather than `gh pr edit`. gh's PR lookup
+# asks for reviewer fields (login/name/slug on teams) that require the read:org
+# scope; the bot PAT only carries repo+workflow, so `gh pr edit` dies with a
+# GraphQL scope error even though editing a body needs nothing beyond repo.
+gh api --method PATCH "repos/{owner}/{repo}/pulls/$pr_number" -f body="$new_body" --silent
 
 echo "PR #$pr_number body updated"

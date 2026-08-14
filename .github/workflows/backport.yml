@@ -117,9 +117,18 @@ jobs:
         run: |
           TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
           WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          REASON="${{ steps.backport.outputs.failure_reason }}"
 
-          gh pr comment "${{ github.event.pull_request.number }}" --body \
-            "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. (🤖) [View backport run]($WORKFLOW_URL)."
+          # Only the cherry-pick path sets failure_reason=conflict. Anything else
+          # (API errors, token scopes, push failures) must not be reported as a
+          # conflict, or people go looking for a merge conflict that never happened.
+          if [[ "$REASON" == "conflict" ]]; then
+            MESSAGE="❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. (🤖) [View backport run]($WORKFLOW_URL)."
+          else
+            MESSAGE="❌ Backport to \`$TARGET_BRANCH\` failed — not a cherry-pick conflict. (🤖) [View backport run]($WORKFLOW_URL)."
+          fi
+
+          gh pr comment "${{ github.event.pull_request.number }}" --body "$MESSAGE"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
         if: steps.backport.outcome == 'failure'
@@ -133,11 +142,20 @@ jobs:
           BRANCH: ${{ steps.extract-branch.outputs.target_branch }}
           STAGING_BRANCH: ${{ steps.extract-branch.outputs.staging_branch }}
           VERB: ${{ steps.extract-branch.outputs.verb }}
+          REASON: ${{ steps.backport.outputs.failure_reason }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          if [[ "$REASON" == "conflict" ]]; then
+            DETAIL="cherry-pick conflicts"
+            CLAUDE_PROMPT="${VERB^} PR #$PR ($TITLE) to $BRANCH (staging branch $STAGING_BRANCH). The automatic cherry-pick failed due to conflicts. Follow .claude/claudebox/backport.md to resolve conflicts and create a PR."
+          else
+            DETAIL="a script error, not a conflict"
+            CLAUDE_PROMPT="The automatic $VERB of PR #$PR ($TITLE) to $BRANCH (staging branch $STAGING_BRANCH) failed, but NOT because of a cherry-pick conflict. Read the failing run at $RUN_URL to find the real cause, check whether the staging branch and its PR were already created, and fix the underlying problem."
+          fi
 
           # Post single message to #backports, derive permalink from response
-          TEXT=$(printf '⚠️ %s failed: <%s|#%s %s> → `%s` (author: %s) (🤖)' \
-            "${VERB^}" "$URL" "$PR" "$TITLE" "$BRANCH" "$AUTHOR")
+          TEXT=$(printf '⚠️ %s failed (%s): <%s|#%s %s> → `%s` (author: %s) (🤖)' \
+            "${VERB^}" "$DETAIL" "$URL" "$PR" "$TITLE" "$BRANCH" "$AUTHOR")
           RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-type: application/json" \
@@ -152,7 +170,7 @@ jobs:
           fi
 
           gh workflow run claudebox.yml \
-            -f prompt="${VERB^} PR #$PR ($TITLE) to $BRANCH (staging branch $STAGING_BRANCH). The automatic cherry-pick failed due to conflicts. Follow .claude/claudebox/backport.md to resolve conflicts and create a PR." \
+            -f prompt="$CLAUDE_PROMPT" \
             -f link="${LINK:-$URL}" \
             -f target_ref="origin/$STAGING_BRANCH" \
             -f slack_channel="$CHANNEL_ID" \
