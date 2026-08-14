@@ -3,6 +3,7 @@
 {{- $agentDefaultName := ternary .Release.Name (printf "%s-%s" .Release.Name $agentChartName) (contains $agentChartName .Release.Name) }}
 {{- $agentName := default $agentDefaultName .Values.agent.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- $queueQuery := printf "sum(aztec_proving_queue_size{k8s_namespace_name=%q})" .Release.Namespace }}
+{{- $activeQuery := printf "sum(aztec_proving_queue_active_jobs_count{k8s_namespace_name=%q})" .Release.Namespace }}
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -37,4 +38,19 @@ spec:
         threshold: "1"
         activationThreshold: "0"
     {{- end }}
+    # A job leaves the pending queue the moment the broker hands it to an agent, so the
+    # queue-depth triggers above read zero while proofs are still running. On their own
+    # they scale the deployment down — and KEDA deactivates it to zero — mid-proof, which
+    # SIGTERMs the agent and aborts the job. This trigger asks for one replica per
+    # in-progress job so running proofs are never scaled out from under themselves.
+    # KEDA takes the largest replica count across triggers and only deactivates to zero
+    # when every trigger is inactive, so this acts purely as a floor. It assumes one
+    # concurrent job per agent pod (PROVER_AGENT_COUNT=1); with more, it over-provisions.
+    - type: prometheus
+      metadata:
+        serverAddress: {{ .Values.agent.autoscaling.keda.prometheus.serverAddress | quote }}
+        metricName: "aztec_proving_queue_active_jobs_count"
+        query: {{ printf "(%s or vector(0))" $activeQuery | quote }}
+        threshold: "1"
+        activationThreshold: "0"
 {{- end }}
