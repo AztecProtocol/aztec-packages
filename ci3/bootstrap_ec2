@@ -402,7 +402,6 @@ start_build() {
     -e DRY_RUN=${DRY_RUN:-} \
     -e PRIVATE_RELEASE=${PRIVATE_RELEASE:-} \
     -e INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-} \
-    -e SKIP_COMPAT_E2E=${SKIP_COMPAT_E2E:-} \
     --pids-limit=65536 \
     --shm-size=2g \
     --ulimit nofile=1048576:1048576 \
