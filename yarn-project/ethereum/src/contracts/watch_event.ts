@@ -38,8 +38,8 @@ export type WatchContractEventParameters<
  * purged filter with error codes viem does not recognize as "filter gone", so viem's own watchers either churn
  * recreating filters or poll a dead filter id forever while silently missing events.
  *
- * Only events mined after the first poll are reported, so events mined within roughly one polling interval of
- * subscribing may be missed. Requests never span more than `maxBlockRange` blocks: catching up after downtime is
+ * The block that is latest on the first poll becomes the starting cursor, so its events are reported and events from
+ * earlier blocks are not. Requests never span more than `maxBlockRange` blocks: catching up after downtime is
  * chunked into multiple requests, and the cursor advances per successful chunk so a failure retries from where it
  * left off on the next tick. A reorg may re-emit events and removals are never reported.
  *
@@ -77,7 +77,7 @@ export function watchContractEvent<
   const poll = async () => {
     const latestBlock = await client.getBlockNumber();
     if (nextBlock === undefined) {
-      nextBlock = latestBlock + 1n;
+      nextBlock = latestBlock;
       return;
     }
     let fromBlock: bigint = nextBlock;

@@ -35,6 +35,17 @@ describe('watchContractEvent', () => {
   const waitForCalls = (fn: { mock: { calls: unknown[] } }, count: number) =>
     retryUntil(() => fn.mock.calls.length >= count, `${count} calls`, 2, 0.005);
 
+  // The block latest at startup is the starting cursor, so it gets fetched on the following tick. Wait for that
+  // fetch and clear it so assertions only see the ranges under test.
+  const startWatcherPastFirstBlock = async (
+    onLog: (log: { args: { value?: bigint } }) => unknown,
+    maxBlockRange = 100,
+  ) => {
+    startWatcher(onLog, maxBlockRange);
+    await waitForCalls(client.getContractEvents, 1);
+    client.getContractEvents.mockClear();
+  };
+
   beforeEach(() => {
     logger = mock<Logger>();
     client = mock<ViemPublicClient>();
@@ -48,18 +59,21 @@ describe('watchContractEvent', () => {
     unwatch = undefined;
   });
 
-  it('only fetches logs mined after the baseline block', async () => {
+  it('fetches the block that was latest when it started, then only newer ones', async () => {
     startWatcher(() => {});
 
-    await waitForCalls(client.getBlockNumber, 3);
-    expect(client.getContractEvents).not.toHaveBeenCalled();
+    await waitForCalls(client.getContractEvents, 1);
+    expect(client.getContractEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ address: ADDRESS, eventName: 'Ping', fromBlock: 100n, toBlock: 100n }),
+    );
+
+    await waitForCalls(client.getBlockNumber, 4);
+    expect(client.getContractEvents).toHaveBeenCalledTimes(1);
 
     latestBlock = 102n;
-    await waitForCalls(client.getContractEvents, 1);
+    await waitForCalls(client.getContractEvents, 2);
 
-    expect(client.getContractEvents).toHaveBeenCalledWith(
-      expect.objectContaining({ address: ADDRESS, eventName: 'Ping', fromBlock: 101n, toBlock: 102n }),
-    );
+    expect(client.getContractEvents).toHaveBeenCalledWith(expect.objectContaining({ fromBlock: 101n, toBlock: 102n }));
   });
 
   it('chunks wide ranges into maxBlockRange requests and delivers their logs', async () => {
@@ -69,8 +83,8 @@ describe('watchContractEvent', () => {
       return Promise.resolve([{ args: { value: fromBlock } }] as never);
     });
 
-    startWatcher(log => received.push(log.args.value!), 100);
-    await waitForCalls(client.getBlockNumber, 1);
+    await startWatcherPastFirstBlock(log => received.push(log.args.value!), 100);
+    received.length = 0;
 
     latestBlock = 350n;
     await waitForCalls(client.getContractEvents, 3);
@@ -88,7 +102,7 @@ describe('watchContractEvent', () => {
   });
 
   it('retries a failed chunk from the same cursor without skipping blocks', async () => {
-    let failNext = true;
+    let failNext = false;
     client.getContractEvents.mockImplementation(() => {
       if (failNext) {
         failNext = false;
@@ -97,9 +111,9 @@ describe('watchContractEvent', () => {
       return Promise.resolve([]);
     });
 
-    startWatcher(() => {});
-    await waitForCalls(client.getBlockNumber, 1);
+    await startWatcherPastFirstBlock(() => {});
 
+    failNext = true;
     latestBlock = 110n;
     await waitForCalls(client.getContractEvents, 2);
 
@@ -124,9 +138,7 @@ describe('watchContractEvent', () => {
       }
       handled.push(log.args.value!);
     });
-    await waitForCalls(client.getBlockNumber, 1);
 
-    latestBlock = 101n;
     await retryUntil(() => handled.length >= 2, 'logs handled', 2, 0.005);
 
     expect(handled).toEqual([1n, 3n]);
@@ -141,9 +153,7 @@ describe('watchContractEvent', () => {
     startWatcher(log =>
       log.args.value === 1n ? Promise.reject(new Error('async callback blew up')) : Promise.resolve(),
     );
-    await waitForCalls(client.getBlockNumber, 1);
 
-    latestBlock = 101n;
     await retryUntil(() => logger.error.mock.calls.length >= 1, 'error logged', 2, 0.005);
 
     expect(logger.error).toHaveBeenCalledTimes(1);
