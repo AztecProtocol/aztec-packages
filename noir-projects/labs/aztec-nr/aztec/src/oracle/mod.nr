@@ -104,7 +104,7 @@ pub mod get_membership_witness;
 pub mod keys;
 #[generate_oracle_tests]
 pub mod key_validation_request;
-// TODO: cover with oracle tests once the two sides agree on the param grouping (TS wraps them in a single struct).
+#[generate_oracle_tests]
 pub mod logs;
 // TODO: cover with oracle tests once the test resolver can serve EphemeralArray contents.
 pub mod message_processing;
