@@ -69,6 +69,7 @@ export const DefaultSequencerConfig = {
   skipPushProposedBlocksToArchiver: false,
   skipPublishingCheckpointsPercent: 0,
   maxBlocksPerCheckpoint: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
+  minPeersToPropose: 1,
 } satisfies ResolvedSequencerConfig;
 
 /**
@@ -278,6 +279,13 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   pauseProposingForSlots: {
     description:
       'List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected.',
+  },
+  minPeersToPropose: {
+    env: 'SEQ_MIN_PEERS_TO_PROPOSE',
+    description:
+      'Minimum number of connected p2p peers required to build and propose a checkpoint (zero to disable the check).' +
+      ' Ignored when p2p is disabled by config.',
+    ...numberConfigHelper(DefaultSequencerConfig.minPeersToPropose),
   },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
 };
