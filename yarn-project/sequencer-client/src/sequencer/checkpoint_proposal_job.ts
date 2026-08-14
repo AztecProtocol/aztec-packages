@@ -1093,7 +1093,11 @@ export class CheckpointProposalJob implements Traceable {
       // Per-block limits are operator overrides (from SEQ_MAX_L2_BLOCK_GAS etc.) further capped
       // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
       // minValidTxs is passed into the builder so it can reject the block *before* updating state.
-      const minValidTxs = forceCreate ? 0 : (this.config.minValidTxsPerBlock ?? minTxs);
+      // Only the first block of a checkpoint may be empty, since this allows a checkpoint to be created
+      // even if there are no transactions. If an empty block appears after the first, it can't be proven
+      // (there is no rollup circuit shaped to allow this), so the floor for minValidTxs is 1.
+      const configuredMinValidTxs = forceCreate ? 0 : (this.config.minValidTxsPerBlock ?? minTxs);
+      const minValidTxs = indexWithinCheckpoint > 0 ? Math.max(configuredMinValidTxs, 1) : configuredMinValidTxs;
       const blockBuilderOptions: BlockBuilderOptions = {
         maxTransactions: this.config.maxTxsPerBlock,
         maxBlockGas:

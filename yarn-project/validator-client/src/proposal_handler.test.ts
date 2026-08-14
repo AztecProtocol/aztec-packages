@@ -645,6 +645,57 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(mockDispose).toHaveBeenCalled();
     });
 
+    // A zero-tx block at a non-zero index passes re-execution (nothing failed, 0 effects === 0 hashes, no state
+    // movement) but no approved block-root circuit can produce it, so the checkpoint would land on L1 attested
+    // and unprovable. The attester must refuse it instead.
+    it('returns checkpoint_validation_failed when a block after the first has no txs', async () => {
+      const lastArchiveRoot = Fr.random();
+      const firstBlockArchiveRoot = Fr.random();
+      const header = makeMatchingHeader({ lastArchiveRoot });
+
+      const makeMinimalBlock = (number: number, index: number, lastArchive: Fr, archive: Fr, numTxs: number) => {
+        const blockHeader = makeBlockHeader(number, {
+          slotNumber: SlotNumber(1),
+          coinbase: header.coinbase,
+          feeRecipient: header.feeRecipient,
+          gasFees: header.gasFees,
+          timestamp: header.timestamp,
+        });
+        unfreeze(blockHeader).lastArchive = new AppendOnlyTreeSnapshot(lastArchive, index);
+        return {
+          archive: new AppendOnlyTreeSnapshot(archive, index + 1),
+          number,
+          checkpointNumber: CheckpointNumber(1),
+          indexWithinCheckpoint: index,
+          slot: SlotNumber(1),
+          header: blockHeader,
+          body: { txEffects: Array.from({ length: numTxs }, () => ({})) },
+          computeDAGasUsed: () => 0,
+          toBlobFields: () => [],
+        } as unknown as L2Block;
+      };
+
+      setupDeepValidationMocks({
+        header,
+        archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+        blocks: [
+          makeMinimalBlock(1, 0, lastArchiveRoot, firstBlockArchiveRoot, 1),
+          makeMinimalBlock(2, 1, firstBlockArchiveRoot, archiveRoot, 0),
+        ],
+        number: CheckpointNumber(1),
+        slot: SlotNumber(1),
+        toBlobFields: () => [],
+      });
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_validation_failed',
+        checkpointNumber: CheckpointNumber(1),
+      });
+    });
+
     it('disposes fork even when validation fails', async () => {
       setupDeepValidationMocks({ header: CheckpointHeader.empty() });
 
