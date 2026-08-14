@@ -353,6 +353,11 @@ export interface L2BlockSourceEventEmitter extends L2BlockSource {
   events: ArchiverEmitter;
 }
 
+/** Returns the emitter of a source that exposes one, or undefined for a source that reports no updates. */
+export function getBlockSourceEmitter(source: L2BlockSource | L2BlockSourceEventEmitter): ArchiverEmitter | undefined {
+  return 'events' in source ? source.events : undefined;
+}
+
 /**
  * Identifier for L2 block tags. Internal counterpart to {@link BlockTag} that omits `latest`
  * (which is an alias for `proposed` accepted only at the public RPC surface).

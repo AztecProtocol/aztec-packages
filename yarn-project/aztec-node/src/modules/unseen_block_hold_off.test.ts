@@ -2,10 +2,20 @@ import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/fou
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { type BlockData, BlockHash, type BlockQuery, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import {
+  type ArchiverEmitter,
+  type BlockData,
+  BlockHash,
+  type BlockQuery,
+  L2Block,
+  type L2BlockSource,
+  type L2BlockSourceEventEmitter,
+  L2BlockSourceEvents,
+} from '@aztec/stdlib/block';
 import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { EventEmitter } from 'node:events';
 
 import { MAX_CONCURRENT_HOLDS, UnseenBlockHoldOff } from './unseen_block_hold_off.js';
 
@@ -22,7 +32,9 @@ const makeBlockData = (blockNumber: BlockNumber, blockHash: BlockHash = BlockHas
 });
 
 describe('UnseenBlockHoldOff', () => {
-  let blockSource: MockProxy<L2BlockSource>;
+  let blockSource: MockProxy<L2BlockSourceEventEmitter>;
+  /** Stands in for the archiver's emitter: the hold-off wakes held requests off the updates reported here. */
+  let events: EventEmitter;
   let holdOff: UnseenBlockHoldOff;
   let tip: BlockNumber;
   /** Hash of the synthetic genesis block, which this source never serves — as the block store does not. */
@@ -30,10 +42,18 @@ describe('UnseenBlockHoldOff', () => {
   /** Blocks the source knows about, keyed by block number. Tests add entries to simulate a block arriving. */
   let chain: Map<BlockNumber, BlockData>;
 
-  const addBlock = (blockNumber: BlockNumber, blockHash?: BlockHash) => {
+  /** Adds a block to the source without reporting it, as a source that never notifies would leave it. */
+  const addBlockSilently = (blockNumber: BlockNumber, blockHash?: BlockHash) => {
     const data = makeBlockData(blockNumber, blockHash);
     chain.set(blockNumber, data);
     tip = BlockNumber(Math.max(tip, blockNumber));
+    return data;
+  };
+
+  /** Adds a block and reports the update, as the archiver does after a sync pass that committed one. */
+  const addBlock = (blockNumber: BlockNumber, blockHash?: BlockHash) => {
+    const data = addBlockSilently(blockNumber, blockHash);
+    events.emit(L2BlockSourceEvents.L2BlockSourceUpdated);
     return data;
   };
 
@@ -45,7 +65,8 @@ describe('UnseenBlockHoldOff', () => {
       chain.set(BlockNumber(i), makeBlockData(BlockNumber(i)));
     }
 
-    blockSource = mock<L2BlockSource>();
+    events = new EventEmitter();
+    blockSource = mock<L2BlockSourceEventEmitter>({ events: events as ArchiverEmitter });
     blockSource.getGenesisBlockHash.mockImplementation(() => genesisBlockHash);
     blockSource.getBlockNumber.mockImplementation((() => Promise.resolve(tip)) as L2BlockSource['getBlockNumber']);
     blockSource.getBlockData.mockImplementation(((query: BlockQuery) => {
@@ -162,6 +183,38 @@ describe('UnseenBlockHoldOff', () => {
     });
   });
 
+  describe('waking held requests', () => {
+    it('reads the source when it reports an update and not on a schedule of its own', async () => {
+      const blockHash = BlockHash.random();
+      const query = holdOff.getBlockData({ hash: blockHash });
+      await sleep(BY_HASH_WAIT_MS / 4);
+      addBlockSilently(BlockNumber(tip + 1), blockHash);
+      await sleep(BY_HASH_WAIT_MS / 4);
+
+      // The block is there for the taking, but nothing has woken the request, so it has not read the source again.
+      expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
+
+      events.emit(L2BlockSourceEvents.L2BlockSourceUpdated);
+
+      expect((await query)?.blockHash).toEqual(blockHash);
+    });
+
+    it('does not hold off at all when the source reports no updates', async () => {
+      const sourceWithoutEvents = mock<L2BlockSource>();
+      sourceWithoutEvents.getGenesisBlockHash.mockImplementation(() => genesisBlockHash);
+      sourceWithoutEvents.getBlockData.mockResolvedValue(undefined);
+      const withoutEvents = new UnseenBlockHoldOff(sourceWithoutEvents, {
+        byNumberWaitMs: BY_NUMBER_WAIT_MS,
+        byHashWaitMs: BY_HASH_WAIT_MS,
+      });
+
+      const timer = new Timer();
+      expect(await withoutEvents.getBlockData({ hash: BlockHash.random() })).toBeUndefined();
+      expect(timer.ms()).toBeLessThan(BY_HASH_WAIT_MS);
+      expect(sourceWithoutEvents.getBlockData).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('cases that never wait', () => {
     it('fails fast on a tag miss', async () => {
       chain.clear();
@@ -212,14 +265,16 @@ describe('UnseenBlockHoldOff', () => {
       expect(blockSource.getBlockData).not.toHaveBeenCalled();
     });
 
-    it('polls the block read until the block arrives', async () => {
+    it('waits on block metadata and reads the block once it arrives', async () => {
       mockGetBlock();
       const blockHash = BlockHash.random();
       void sleep(200).then(() => addBlock(BlockNumber(tip + 1), blockHash));
 
       expect(await holdOff.getBlock({ hash: blockHash })).toBeDefined();
-      expect(blockSource.getBlock.mock.calls.length).toBeGreaterThan(1);
-      expect(blockSource.getBlockData).not.toHaveBeenCalled();
+      // Once to answer the query and once to serve it: waiting is done on metadata, so a held request never
+      // reconstructs a whole block just to check whether it has arrived.
+      expect(blockSource.getBlock).toHaveBeenCalledTimes(2);
+      expect(blockSource.getBlockData.mock.calls.length).toBeGreaterThan(0);
     });
 
     it('gives up after the budget when the block never arrives', async () => {

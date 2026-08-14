@@ -24,12 +24,15 @@ import type { SlasherClientInterface } from '@aztec/slasher';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type ArchiverEmitter,
   type BlockData,
   BlockHash,
   type BlockParameter,
   type BlockQuery,
   L2Block,
   type L2BlockSource,
+  type L2BlockSourceEventEmitter,
+  L2BlockSourceEvents,
   type L2Tips,
 } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
@@ -75,6 +78,7 @@ import { WorldStateSynchronizerError } from '@aztec/world-state';
 import { jest } from '@jest/globals';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { EventEmitter } from 'node:events';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
@@ -126,7 +130,9 @@ describe('aztec node', () => {
   let feeProvider: MockProxy<FeeProvider>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let worldState: MockProxy<WorldStateSynchronizer>;
-  let l2BlockSource: MockProxy<L2BlockSource>;
+  let l2BlockSource: MockProxy<L2BlockSourceEventEmitter>;
+  /** Stands in for the archiver's emitter: the node's hold-off wakes held requests off the updates reported here. */
+  let l2BlockSourceEvents: EventEmitter;
   let l2LogsSource: MockProxy<L2LogsSource>;
   let contractSource: MockProxy<ContractDataSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -212,7 +218,8 @@ describe('aztec node', () => {
         : Promise.resolve(lastBlockNumber),
     );
 
-    l2BlockSource = mock<L2BlockSource>();
+    l2BlockSourceEvents = new EventEmitter();
+    l2BlockSource = mock<L2BlockSourceEventEmitter>({ events: l2BlockSourceEvents as ArchiverEmitter });
     l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) => {
       if (!query || 'tag' in query) {
         return Promise.resolve(lastBlockNumber);
@@ -934,7 +941,7 @@ describe('aztec node', () => {
   });
 
   describe('unseen block hold-off', () => {
-    // Budgets small enough to keep the suite fast, but well above the hold-off's 200ms poll interval.
+    // Budgets small enough to keep the suite fast, but well above the delay each arrival below is scheduled after.
     const byNumberWaitMs = 1000;
     const byHashWaitMs = 600;
 
@@ -946,12 +953,13 @@ describe('aztec node', () => {
       blockNumber === unseenBlockNumber ? unseenBlockHash : new BlockHash(new Fr(1_000_000n + BigInt(blockNumber)));
 
     /**
-     * Makes the block the node had not seen available after `delayMs`, as if it had just arrived from the network.
-     * Cleared after each test so an arrival never lands in a later one.
+     * Makes the block the node had not seen available after `delayMs` and reports the update, as the archiver does
+     * when the block arrives from the network. Cleared after each test so an arrival never lands in a later one.
      */
     const scheduleUnseenBlockArrival = (delayMs = 200) => {
       arrivalTimer = setTimeout(() => {
         lastBlockNumber = unseenBlockNumber;
+        l2BlockSourceEvents.emit(L2BlockSourceEvents.L2BlockSourceUpdated);
       }, delayMs);
     };
 
@@ -1017,8 +1025,8 @@ describe('aztec node', () => {
     });
 
     it('serves the block with transactions once it arrives', async () => {
-      // A query wanting transactions is held on the block-with-transactions read itself, so that is what the
-      // block source is polled for.
+      // A query wanting transactions waits on block metadata like any other, and reads the block with its
+      // transactions once the metadata shows up.
       l2BlockSource.getBlock.mockImplementation(((query: BlockQuery) =>
         Promise.resolve(
           'number' in query && query.number <= lastBlockNumber ? L2Block.empty() : undefined,
