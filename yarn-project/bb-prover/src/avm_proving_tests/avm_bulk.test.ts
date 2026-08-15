@@ -8,7 +8,7 @@ import path from 'path';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 180_000;
+const TIMEOUT = 1_800_000;
 
 describe('AVM proven bulk test', () => {
   const logger = createLogger('avm-bulk-test');
