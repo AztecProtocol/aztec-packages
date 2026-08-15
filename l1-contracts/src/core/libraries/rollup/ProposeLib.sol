@@ -396,9 +396,9 @@ library ProposeLib {
    *      5. Mandatory consumption (the censorship assert): the first unconsumed bucket (`_bucketHint + 1`)
    *         must either not exist, sit past the consumption cutoff, or be cap-escaped — consuming through it
    *         would exceed MAX_L1_TO_L2_MSGS_PER_CHECKPOINT messages since the parent checkpoint's cumulative
-   *         total. The cutoff is the start of the checkpoint's build frame (`TimeLib.getBuildFrameStart`):
-   *         everything on L1 by then was visible to every node for the whole frame, while validators are not
-   *         required to have seen buckets that only appeared once building was under way.
+   *         total. The cutoff (`TimeLib.getInboxCutoffTimestamp`) sits one configured L1 slot before the
+   *         previous Aztec slot: everything on L1 by then was visible to every node for the entire previous
+   *         slot, while validators are not required to have seen buckets that appeared later than that.
    *
    *      No consumed-bucket pointer is written here. The caller (FI-14) stores the returned consumed
    *      position in the checkpoint's temp-log record, which is the authoritative consumed total: temp logs
@@ -449,7 +449,7 @@ library ProposeLib {
 
     if (_bucketHint < _inbox.getCurrentBucketSeq()) {
       IInbox.InboxBucket memory next = _inbox.getBucket(_bucketHint + 1);
-      Timestamp cutoff = TimeLib.getBuildFrameStart(_slotNumber);
+      Timestamp cutoff = TimeLib.getInboxCutoffTimestamp(_slotNumber);
       require(
         next.timestamp > Timestamp.unwrap(cutoff)
           || next.totalMsgCount - _parentTotalMsgCount > MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,

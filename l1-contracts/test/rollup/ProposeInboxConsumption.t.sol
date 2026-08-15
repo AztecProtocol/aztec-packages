@@ -47,7 +47,7 @@ contract ProposeInboxConsumptionTest is Test {
 
   // The checkpoint proposed in SLOT is built during the previous slot, whose start this is.
   uint256 internal previousSlotStart = GENESIS_TIME + (Slot.unwrap(SLOT) - 1) * SLOT_DURATION;
-  // Buckets at or before the cutoff (the build frame start) must be consumed by the checkpoint.
+  // Buckets at or before the inbox cutoff (one L1 slot before the previous slot) must be consumed.
   uint256 internal cutoff = previousSlotStart - ETHEREUM_SLOT_DURATION;
 
   function setUp() public {
@@ -105,7 +105,7 @@ contract ProposeInboxConsumptionTest is Test {
   }
 
   function testExactCutoffBucketMustBeConsumed() public {
-    // A bucket created exactly at the cutoff is the "latest bucket at/before build-frame start minus lag":
+    // A bucket created exactly at the cutoff is the latest bucket the checkpoint is required to consume:
     // consuming nothing is no longer allowed.
     vm.warp(cutoff);
     _send(0);
@@ -304,8 +304,8 @@ contract ProposeInboxConsumptionTest is Test {
   }
 
   function testShortEthereumSlotBucketBeforeCutoffMustBeConsumed() public {
-    // The cutoff tracks the configured L1 slot duration: on a 4 second L1 the build frame opens 4 seconds
-    // before the previous slot, so a bucket 6 seconds before it was already visible for the whole frame.
+    // The cutoff tracks the configured L1 slot duration: on a 4 second L1 the cutoff is 4 seconds before
+    // the previous slot, so a bucket 6 seconds before it was already visible for the whole previous slot.
     _useEthereumSlotDuration(4);
     vm.warp(previousSlotStart - 6);
     _send(0);
@@ -326,8 +326,8 @@ contract ProposeInboxConsumptionTest is Test {
   }
 
   function testLongEthereumSlotBucketAfterCutoffNeedNotBeConsumed() public {
-    // On a 24 second L1 the build frame opens 24 seconds before the previous slot, so a bucket 18 seconds
-    // before it appeared mid-frame and validators cannot be required to have seen it.
+    // On a 24 second L1 the cutoff is 24 seconds before the previous slot, so a bucket 18 seconds before
+    // it appeared after the cutoff and validators cannot be required to have seen it.
     _useEthereumSlotDuration(24);
     vm.warp(previousSlotStart - 18);
     _send(0);
