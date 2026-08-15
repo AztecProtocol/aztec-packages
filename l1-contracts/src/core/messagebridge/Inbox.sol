@@ -14,7 +14,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 // Number of buckets in the rolling-hash ring. Sized far beyond normal consumption lag (the censorship
-// cutoff bounds it to roughly one build frame); outages longer than the ring are handled by overwrite
+// cutoff bounds it to roughly one Aztec slot); outages longer than the ring are handled by overwrite
 // protection on unconsumed buckets, not by growing the ring.
 uint256 constant INBOX_BUCKET_RING_SIZE = 1024;
 

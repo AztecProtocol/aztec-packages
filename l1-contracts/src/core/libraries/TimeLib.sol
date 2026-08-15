@@ -46,17 +46,18 @@ library TimeLib {
   }
 
   /**
-   * @notice The timestamp at which the build frame of a checkpoint proposed in `_slot` opens
+   * @notice The Inbox consumption cutoff for a checkpoint proposed in `_slot`: the timestamp at or before which
+   *         an Inbox bucket becomes mandatory to consume
    *
-   * @dev A checkpoint proposed in slot S is built during slot S-1, and the frame opens one L1 slot before that
-   *      slot starts, since the builder works from the L1 state as of the preceding L1 block. Anything on L1 by
-   *      this timestamp has therefore been visible to every node for the entire build frame.
+   * @dev The cutoff is one configured L1 slot before slot S-1 starts. A bucket at or before it has been part of
+   *      the L1 state every node derives slot S-1 from, so the network had the full previous slot to observe it
+   *      and the checkpoint has no excuse not to consume it; anything newer may legitimately be unseen.
    *
    * @param _slot - The slot the checkpoint is proposed in
    *
-   * @return The timestamp the build frame opens at
+   * @return The Inbox consumption cutoff timestamp
    */
-  function getBuildFrameStart(Slot _slot) internal view returns (Timestamp) {
+  function getInboxCutoffTimestamp(Slot _slot) internal view returns (Timestamp) {
     TimeStorage storage store = getStorage();
     return toTimestamp(_slot - Slot.wrap(1)) - Timestamp.wrap(store.ethereumSlotDuration);
   }
