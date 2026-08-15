@@ -14,14 +14,26 @@ import type { ViemClient } from '../types.js';
 import type { L1EventLog } from './log.js';
 import { checkBlockTag } from './utils.js';
 
+/** The full L1-to-L2 message emitted by the Inbox, decoded from the event. Hashing it yields `leaf`. */
+export type MessageSentMessage = {
+  sender: { actor: `0x${string}`; chainId: bigint };
+  recipient: { actor: Fr; version: bigint };
+  content: Fr;
+  secretHash: Fr;
+  index: bigint;
+};
+
 /** Arguments for the MessageSent event. */
 export type MessageSentArgs = {
+  /** Compact cumulative index of the message in the Inbox insertion order (lifted from `message.index`). */
   index: bigint;
   leaf: Fr;
   /** Consensus rolling hash (truncated sha256 chain) after this message. */
   inboxRollingHash: Fr;
   /** Sequence number of the Inbox bucket this message was absorbed into. */
   bucketSeq: bigint;
+  /** The full message as emitted, making the event a self-contained record. */
+  message: MessageSentMessage;
 };
 
 /** Log type for MessageSent events, enriched with the emitting L1 block's timestamp (the bucket recency key). */
@@ -151,24 +163,38 @@ export class InboxContract {
       blockHash: `0x${string}` | null;
       transactionHash: `0x${string}` | null;
       args: {
-        index?: bigint;
         hash?: `0x${string}`;
         inboxRollingHash?: `0x${string}`;
         bucketSeq?: bigint;
+        message?: {
+          sender: { actor: `0x${string}`; chainId: bigint };
+          recipient: { actor: `0x${string}`; version: bigint };
+          content: `0x${string}`;
+          secretHash: `0x${string}`;
+          index: bigint;
+        };
       };
     },
     l1BlockTimestamp: bigint,
   ): MessageSentLog {
+    const message = log.args.message!;
     return {
       l1BlockNumber: log.blockNumber!,
       l1BlockHash: Buffer32.fromString(log.blockHash!),
       l1TransactionHash: log.transactionHash!,
       l1BlockTimestamp,
       args: {
-        index: log.args.index!,
+        index: message.index,
         leaf: Fr.fromString(log.args.hash!),
         inboxRollingHash: Fr.fromString(log.args.inboxRollingHash!),
         bucketSeq: log.args.bucketSeq!,
+        message: {
+          sender: message.sender,
+          recipient: { actor: Fr.fromString(message.recipient.actor), version: message.recipient.version },
+          content: Fr.fromString(message.content),
+          secretHash: Fr.fromString(message.secretHash),
+          index: message.index,
+        },
       },
     };
   }

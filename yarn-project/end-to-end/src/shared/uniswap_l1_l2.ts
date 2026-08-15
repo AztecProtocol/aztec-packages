@@ -320,7 +320,7 @@ export const uniswapL1L2TestSuite = (
       const inboxAddress = daiCrossChainHarness.l1ContractAddresses.inboxAddress.toString();
       const txLog = extractEvent(txReceipt.logs, inboxAddress, InboxAbi, 'MessageSent');
       const tokenOutMsgHash = Fr.fromHexString(txLog.args.hash);
-      const tokenOutMsgIndex = txLog.args.index;
+      const tokenOutMsgIndex = txLog.args.message.index;
 
       // weth was swapped to dai and send to portal
       const daiL1BalanceOfPortalAfter = await daiCrossChainHarness.getL1BalanceOf(

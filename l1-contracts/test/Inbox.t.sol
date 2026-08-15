@@ -69,7 +69,7 @@ contract InboxTest is Test {
     bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf);
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(globalLeafIndex, leaf, expectedInboxRollingHash, 1);
+    emit IInbox.MessageSent(leaf, expectedInboxRollingHash, 1, message);
     // event we will get
     (bytes32 insertedLeaf, uint256 insertedIndex) =
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);

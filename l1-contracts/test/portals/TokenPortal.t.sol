@@ -124,7 +124,7 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(expectedIndex, expectedLeaf, expectedInboxRollingHash, 1);
+    emit IInbox.MessageSent(expectedLeaf, expectedInboxRollingHash, 1, expectedMessage);
     // event we will get
 
     // Perform op
@@ -152,7 +152,7 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(expectedIndex, expectedLeaf, expectedInboxRollingHash, 1);
+    emit IInbox.MessageSent(expectedLeaf, expectedInboxRollingHash, 1, expectedMessage);
 
     // Perform op
     (bytes32 leaf, uint256 index) = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);

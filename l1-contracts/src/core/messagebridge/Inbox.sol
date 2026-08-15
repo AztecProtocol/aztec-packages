@@ -103,7 +103,7 @@ contract Inbox is IInbox {
 
     (uint64 bucketSeq, bytes32 inboxRollingHash) = _absorbIntoBucket(leaf);
 
-    emit MessageSent(index, leaf, inboxRollingHash, bucketSeq);
+    emit MessageSent(leaf, inboxRollingHash, bucketSeq, message);
 
     return (leaf, index);
   }

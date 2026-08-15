@@ -644,6 +644,7 @@ export class FakeL1State {
           leaf: msg.leaf,
           inboxRollingHash: msg.inboxRollingHash,
           bucketSeq: msg.bucketSeq,
+          message: this.makeFakeMessageSentMessage(msg.index),
         },
       }));
   }
@@ -668,7 +669,20 @@ export class FakeL1State {
         leaf: msg.leaf,
         inboxRollingHash: msg.inboxRollingHash,
         bucketSeq: msg.bucketSeq,
+        message: this.makeFakeMessageSentMessage(msg.index),
       },
+    };
+  }
+
+  // The fake tracks only leaves, so the emitted message carries placeholder fields; nothing in the archiver
+  // consumes them (it stores leaf and consensus metadata only).
+  private makeFakeMessageSentMessage(index: bigint) {
+    return {
+      sender: { actor: `0x${'0'.repeat(40)}` as `0x${string}`, chainId: 1n },
+      recipient: { actor: Fr.ZERO, version: 1n },
+      content: Fr.ZERO,
+      secretHash: Fr.ZERO,
+      index,
     };
   }
 
