@@ -65,11 +65,18 @@ export class InboxContract {
     return this.inbox;
   }
 
+  /**
+   * Returns the Inbox's live chain position in one atomic call: the consensus rolling hash and cumulative total
+   * after the most recent message, plus the current bucket sequence. Used by the archiver's message sync and
+   * L1-reorg detection.
+   */
   public async getState(opts: { blockTag?: BlockTag; blockNumber?: bigint } = {}): Promise<InboxContractState> {
     await checkBlockTag(opts.blockNumber, this.client);
     const state = await this.inbox.read.getState(opts);
     return {
+      rollingHash: Fr.fromString(state.rollingHash),
       totalMessagesInserted: state.totalMessagesInserted,
+      currentBucketSeq: state.currentBucketSeq,
     };
   }
 
@@ -92,17 +99,6 @@ export class InboxContract {
       timestamp: bucket.timestamp,
       msgCount: bucket.msgCount,
     };
-  }
-
-  /**
-   * Returns the Inbox bucket currently accumulating messages: its consensus rolling hash and cumulative message
-   * total are the Inbox's live chain position, used by the archiver's message sync and L1-reorg detection.
-   */
-  public async getCurrentBucket(
-    opts: { blockTag?: BlockTag; blockNumber?: bigint } = {},
-  ): Promise<InboxContractBucket> {
-    const seq = await this.getCurrentBucketSeq(opts);
-    return this.getBucket(seq, opts);
   }
 
   /** Fetches MessageSent events within the given block range. */
@@ -178,8 +174,14 @@ export class InboxContract {
   }
 }
 
+/** The Inbox's live chain position, read atomically from the contract's getState. */
 export type InboxContractState = {
+  /** Consensus rolling hash after the most recently inserted message (zero when none was ever inserted). */
+  rollingHash: Fr;
+  /** Cumulative number of messages inserted into the Inbox. */
   totalMessagesInserted: bigint;
+  /** Sequence number of the bucket currently accumulating messages. */
+  currentBucketSeq: bigint;
 };
 
 /** A snapshot of an on-chain Inbox rolling-hash bucket. */

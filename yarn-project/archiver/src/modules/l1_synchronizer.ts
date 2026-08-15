@@ -1,6 +1,6 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import { InboxContract, type InboxContractBucket, RollupContract } from '@aztec/ethereum/contracts';
+import { InboxContract, type InboxContractState, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import { getFinalizedL1Block } from '@aztec/ethereum/queries';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
@@ -431,11 +431,11 @@ export class ArchiverL1Synchronizer implements Traceable {
     }
 
     // Compare local message store state with the remote. If they match, we just advance the match pointer. The
-    // remote state is the Inbox's current bucket: its cumulative total and consensus rolling
-    // hash are the Inbox's live chain position.
-    const remoteBucket = await this.inbox.getCurrentBucket({ blockNumber: currentL1BlockNumber });
+    // remote state is the Inbox's live chain position (cumulative total and consensus rolling hash), read in a
+    // single atomic call.
+    const remoteState = await this.inbox.getState({ blockNumber: currentL1BlockNumber });
     const localLastMessage = await this.stores.messages.getLastMessage();
-    if (await this.localStateMatches(localLastMessage, remoteBucket)) {
+    if (await this.localStateMatches(localLastMessage, remoteState)) {
       this.log.trace(`Local L1 to L2 messages are already in sync with remote at L1 block ${currentL1BlockNumber}`);
       await this.stores.messages.setMessageSyncState(currentL1Block, finalizedL1Block);
       return true;
@@ -453,7 +453,7 @@ export class ArchiverL1Synchronizer implements Traceable {
           `Failed to store L1 to L2 messages retrieved from L1: ${error.message}. Rolling back syncpoint to retry.`,
           { inboxMessage: error.inboxMessage },
         );
-        await this.rollbackL1ToL2Messages(remoteBucket);
+        await this.rollbackL1ToL2Messages(remoteState);
         return false;
       }
       throw error;
@@ -463,12 +463,12 @@ export class ArchiverL1Synchronizer implements Traceable {
     // we'd notice by comparing our local state with the remote one again, and seeing they don't match even after
     // our sync attempt. In this case, we also rollback our syncpoint, and trigger a retry.
     const localLastMessageAfterSync = await this.stores.messages.getLastMessage();
-    if (!(await this.localStateMatches(localLastMessageAfterSync, remoteBucket))) {
+    if (!(await this.localStateMatches(localLastMessageAfterSync, remoteState))) {
       this.log.warn(
         `Local L1 to L2 messages state does not match remote after sync attempt. Rolling back syncpoint to retry.`,
-        { localLastMessageAfterSync, remoteBucket },
+        { localLastMessageAfterSync, remoteState },
       );
-      await this.rollbackL1ToL2Messages(remoteBucket);
+      await this.rollbackL1ToL2Messages(remoteState);
       return false;
     }
 
@@ -477,14 +477,14 @@ export class ArchiverL1Synchronizer implements Traceable {
     return true;
   }
 
-  /** Checks if the local consensus rolling hash and message count match the remote Inbox current bucket. */
-  private async localStateMatches(localLastMessage: InboxMessage | undefined, remoteBucket: InboxContractBucket) {
+  /** Checks if the local consensus rolling hash and message count match the remote Inbox live state. */
+  private async localStateMatches(localLastMessage: InboxMessage | undefined, remoteState: InboxContractState) {
     const localMessageCount = await this.stores.messages.getTotalL1ToL2MessageCount();
-    this.log.trace(`Comparing local and remote inbox state`, { localMessageCount, localLastMessage, remoteBucket });
+    this.log.trace(`Comparing local and remote inbox state`, { localMessageCount, localLastMessage, remoteState });
 
     return (
-      remoteBucket.totalMsgCount === localMessageCount &&
-      remoteBucket.rollingHash.equals(localLastMessage?.inboxRollingHash ?? Fr.ZERO)
+      remoteState.totalMessagesInserted === localMessageCount &&
+      remoteState.rollingHash.equals(localLastMessage?.inboxRollingHash ?? Fr.ZERO)
     );
   }
 
@@ -526,8 +526,8 @@ export class ArchiverL1Synchronizer implements Traceable {
    * Rolls back local L1 to L2 messages to the last common message with L1, and updates the syncpoint to the L1 block of that message.
    * If no common message is found, rolls back all messages and sets the syncpoint to the start block.
    */
-  private async rollbackL1ToL2Messages(remoteBucket: InboxContractBucket): Promise<L1BlockId> {
-    const remoteRollingHash = remoteBucket.rollingHash;
+  private async rollbackL1ToL2Messages(remoteState: InboxContractState): Promise<L1BlockId> {
+    const remoteRollingHash = remoteState.rollingHash;
 
     const messagesFinalizedL1Block = await this.stores.messages.getMessagesFinalizedL1Block();
     const finalizedL1BlockNumber = messagesFinalizedL1Block?.l1BlockNumber;
@@ -539,7 +539,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     let messagesToDelete = 0;
     this.log.verbose(`Searching most recent common L1 to L2 message`);
     for await (const localMsg of this.stores.messages.iterateL1ToL2Messages({ reverse: true })) {
-      const logCtx = { remoteMsg: undefined as InboxMessage | undefined, localMsg, remoteBucket };
+      const logCtx = { remoteMsg: undefined as InboxMessage | undefined, localMsg, remoteState };
 
       // First check if the local message rolling hash matches the current rolling hash of the inbox contract,
       // which means we just need to rollback some local messages and we should be back in sync. This means there

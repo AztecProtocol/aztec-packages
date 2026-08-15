@@ -117,6 +117,35 @@ contract InboxBucketsTest is Test {
     assertEq(bucket.msgCount, 3, "bucket msg count");
   }
 
+  function testStateReturnsCurrentPositionAtomically() public {
+    // Genesis: nothing inserted, bucket 0 current, zero rolling hash.
+    IInbox.InboxState memory state = inbox.getState();
+    assertEq(state.rollingHash, bytes32(0), "genesis rolling hash");
+    assertEq(state.totalMessagesInserted, 0, "genesis total");
+    assertEq(state.currentBucketSeq, 0, "genesis seq");
+
+    // One message: the state mirrors bucket 1's running values.
+    _send(inbox, 1);
+    state = inbox.getState();
+    assertEq(state.rollingHash, expectedRollingHash, "rolling hash after first message");
+    assertEq(state.totalMessagesInserted, 1, "total after first message");
+    assertEq(state.currentBucketSeq, 1, "seq after first message");
+
+    // A new L1 block opens a new bucket; the state keeps tracking the newest one.
+    vm.warp(block.timestamp + 12);
+    _send(inbox, 2);
+    _send(inbox, 3);
+    state = inbox.getState();
+    assertEq(state.rollingHash, expectedRollingHash, "rolling hash after rollover");
+    assertEq(state.totalMessagesInserted, 3, "total after rollover");
+    assertEq(state.currentBucketSeq, 2, "seq after rollover");
+
+    // The atomic read always equals the (seq, bucket) pair read through the two-call path.
+    IInbox.InboxBucket memory bucket = inbox.getBucket(state.currentBucketSeq);
+    assertEq(state.rollingHash, bucket.rollingHash, "state vs bucket rolling hash");
+    assertEq(state.totalMessagesInserted, bucket.totalMsgCount, "state vs bucket total");
+  }
+
   function testMessageSentEventCarriesBucketData() public {
     DataStructures.L2Actor memory recipient =
       DataStructures.L2Actor({actor: bytes32(uint256(0x1000)), version: version});

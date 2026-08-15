@@ -500,27 +500,16 @@ export class FakeL1State {
   createMockInboxContract(_publicClient: MockProxy<ViemPublicClient>): MockProxy<InboxContract> {
     const mockInbox = mock<InboxContract>();
 
+    // Mirror the on-chain Inbox live state: its consensus rolling hash and cumulative total are the chain
+    // position the archiver's message sync compares against, read atomically.
     mockInbox.getState.mockImplementation((opts: { blockTag?: string; blockNumber?: bigint } = {}) => {
       const blockNumber = opts.blockNumber ?? this.l1BlockNumber;
       const visibleMessages = this.messages.filter(m => m.l1BlockNumber <= blockNumber);
-      return Promise.resolve({ totalMessagesInserted: BigInt(visibleMessages.length) });
-    });
-
-    // Mirror the on-chain Inbox current bucket: its consensus rolling hash and cumulative total are the live chain
-    // position the archiver's message sync compares against.
-    mockInbox.getCurrentBucket.mockImplementation((opts: { blockTag?: string; blockNumber?: bigint } = {}) => {
-      const blockNumber = opts.blockNumber ?? this.l1BlockNumber;
-      const visibleMessages = this.messages.filter(m => m.l1BlockNumber <= blockNumber);
       const last = visibleMessages.at(-1);
-      if (last === undefined) {
-        return Promise.resolve({ rollingHash: Fr.ZERO, totalMsgCount: 0n, timestamp: 0n, msgCount: 0 });
-      }
-      const msgCount = visibleMessages.filter(m => m.bucketSeq === last.bucketSeq).length;
       return Promise.resolve({
-        rollingHash: last.inboxRollingHash,
-        totalMsgCount: BigInt(visibleMessages.length),
-        timestamp: this.getTimestampAtL1Block(last.l1BlockNumber),
-        msgCount,
+        rollingHash: last?.inboxRollingHash ?? Fr.ZERO,
+        totalMessagesInserted: BigInt(visibleMessages.length),
+        currentBucketSeq: last?.bucketSeq ?? 0n,
       });
     });
 
