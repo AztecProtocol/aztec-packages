@@ -161,8 +161,8 @@ export enum TempCheckpointLogField {
  * arbitrary `bytes32` value rather than a BN254 scalar. `slotNumber` carries the uint32 portion
  * of the on-chain `CompressedSlot`.
  *
- * `slotNumber`, `inboxMsgTotal` and `inboxConsumedBucket` share a single storage word, so supplying
- * any one of them rewrites all three; the ones left out land as zero.
+ * `slotNumber` and `inboxMsgTotal` share a single storage word, so supplying either rewrites both;
+ * the one left out lands as zero.
  */
 export type TempCheckpointLogOverrideFields = {
   headerHash?: Fr;
@@ -171,8 +171,6 @@ export type TempCheckpointLogOverrideFields = {
   slotNumber?: SlotNumber;
   /** Cumulative Inbox message count consumed as of this checkpoint. */
   inboxMsgTotal?: bigint;
-  /** Inbox bucket sequence number this checkpoint's rolling hash corresponds to. */
-  inboxConsumedBucket?: bigint;
   feeHeader?: FeeHeader;
 };
 
@@ -995,21 +993,16 @@ export class RollupContract {
         value: fields.payloadDigest.toString() as `0x${string}`,
       });
     }
-    if (
-      fields.slotNumber !== undefined ||
-      fields.inboxMsgTotal !== undefined ||
-      fields.inboxConsumedBucket !== undefined
-    ) {
-      // The L1 struct packs the slot number and the two inbox consumption counts into one word, so this
-      // diff always writes all three. Widths are enforced here because the L1 writers cast through
+    if (fields.slotNumber !== undefined || fields.inboxMsgTotal !== undefined) {
+      // The L1 struct packs the slot number and the inbox consumption count into one word, so this
+      // diff always writes both. Widths are enforced here because the L1 writers cast through
       // SafeCast and revert on overflow; a malformed override must surface rather than silently truncate
       // into a neighbouring field.
       const slotNumber = requireUintFits(BigInt(fields.slotNumber ?? 0), 32, 'slotNumber');
       const inboxMsgTotal = requireUintFits(fields.inboxMsgTotal ?? 0n, 64, 'inboxMsgTotal');
-      const inboxConsumedBucket = requireUintFits(fields.inboxConsumedBucket ?? 0n, 64, 'inboxConsumedBucket');
       stateDiff.push({
         slot: slotAt(TempCheckpointLogField.SlotNumber),
-        value: word(slotNumber | (inboxMsgTotal << 32n) | (inboxConsumedBucket << 96n)),
+        value: word(slotNumber | (inboxMsgTotal << 32n)),
       });
     }
     if (fields.feeHeader) {

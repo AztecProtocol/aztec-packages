@@ -136,8 +136,7 @@ library STFLib {
         // Genesis Inbox consumption base case, matching the Inbox's genesis bucket-0 sentinel {0, 0, 0}, so
         // checkpoint 1 validates its consumption against it.
         inboxRollingHash: bytes32(0),
-        inboxMsgTotal: 0,
-        inboxConsumedBucket: 0
+        inboxMsgTotal: 0
       }).compress();
   }
 

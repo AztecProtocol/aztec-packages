@@ -22,7 +22,6 @@ export type PendingCheckpointOverrideState = {
   payloadDigest?: Buffer32;
   slotNumber?: SlotNumber;
   inboxMsgTotal?: bigint;
-  inboxConsumedBucket?: bigint;
 };
 
 export type ChainTipsOverride = {
@@ -97,8 +96,8 @@ export class SimulationOverridesBuilder {
    * Overrides one or more `tempCheckpointLogs` cell fields for the configured pending checkpoint.
    * Any subset can be provided. The translator (`makeTempCheckpointLogOverride`) emits a stateDiff
    * entry per storage word touched, so fields in untouched words stay at their on-chain values;
-   * `slotNumber`, `inboxMsgTotal` and `inboxConsumedBucket` share a word, so setting any of them
-   * zeroes the others unless they are supplied too.
+   * `slotNumber` and `inboxMsgTotal` share a word, so setting either zeroes the other unless it is
+   * supplied too.
    *
    * `slotNumber` is required for `STFLib.canPruneAtTime`: when the simulation overrides `pending`
    * to a checkpoint that has no on-chain `tempCheckpointLogs` entry yet, the missing slotNumber falls
@@ -111,7 +110,6 @@ export class SimulationOverridesBuilder {
     payloadDigest?: Buffer32;
     slotNumber?: SlotNumber;
     inboxMsgTotal?: bigint;
-    inboxConsumedBucket?: bigint;
   }): this {
     this.assertPendingCheckpointNumber();
     this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), ...fields };
@@ -180,7 +178,6 @@ export async function buildSimulationOverridesStateOverride(
           payloadDigest: plan.pendingCheckpointState.payloadDigest,
           slotNumber: plan.pendingCheckpointState.slotNumber,
           inboxMsgTotal: plan.pendingCheckpointState.inboxMsgTotal,
-          inboxConsumedBucket: plan.pendingCheckpointState.inboxConsumedBucket,
           feeHeader: plan.pendingCheckpointState.feeHeader,
         }),
       ),
