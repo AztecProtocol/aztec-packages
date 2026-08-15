@@ -761,3 +761,134 @@ mod append_leaves_tests {
         let _ = append_leaves_to_snapshot::<4, 6>(snapshot, [0; 6], 0, [0; 4]);
     }
 }
+
+mod append_leaves_fuzz {
+    use crate::{
+        abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        merkle_tree::merkle_tree::MerkleTree,
+    };
+    use super::append_leaves_to_snapshot;
+
+    global HEIGHT: u32 = 5;
+    global CAPACITY: u32 = 32;
+    global MAX_PREFILL: u32 = 24;
+    global MAX_LEAVES: u32 = 8;
+
+    struct FuzzCase {
+        snapshot: AppendOnlyTreeSnapshot,
+        leaves: [Field; MAX_LEAVES],
+        num_leaves: u32,
+        frontier: [Field; HEIGHT],
+        expected_root: Field,
+    }
+
+    /// Builds a valid append case from arbitrary fuzzer input: a tree prefilled with `num_prefill` leaves, the
+    /// frontier at that fill level (only the lanes the merge may read are populated; the rest stay zero), and the
+    /// reference root after writing the appended leaves into the full leaf set. `MAX_PREFILL + MAX_LEAVES` equals the
+    /// tree capacity, so the exact-fill boundary is reachable.
+    fn build_case(
+        prefill: [Field; MAX_PREFILL],
+        num_prefill: u8,
+        leaves: [Field; MAX_LEAVES],
+        num_leaves: u8,
+    ) -> FuzzCase {
+        let num_prefill = (num_prefill as u32) % (MAX_PREFILL + 1);
+        let num_leaves = (num_leaves as u32) % (MAX_LEAVES + 1);
+
+        let mut before_leaves = [0; CAPACITY];
+        for i in 0..MAX_PREFILL {
+            if i < num_prefill {
+                before_leaves[i] = prefill[i];
+            }
+        }
+        let before = MerkleTree::<CAPACITY>::new(before_leaves);
+
+        // The frontier's populated lanes are exactly the sibling-path entries at levels where the start index is a
+        // right child (pending left siblings); every other lane is unread by a correct merge and left zero.
+        let sibling_path: [Field; HEIGHT] = before.get_sibling_path(num_prefill);
+        let mut frontier = [0; HEIGHT];
+        for level in 0..HEIGHT {
+            if ((num_prefill >> level) & 1) == 1 {
+                frontier[level] = sibling_path[level];
+            }
+        }
+
+        let mut masked_leaves = [0; MAX_LEAVES];
+        let mut after_leaves = before_leaves;
+        for i in 0..MAX_LEAVES {
+            if i < num_leaves {
+                masked_leaves[i] = leaves[i];
+                after_leaves[num_prefill + i] = leaves[i];
+            }
+        }
+        let expected_root = MerkleTree::<CAPACITY>::new(after_leaves).get_root();
+
+        FuzzCase {
+            snapshot: AppendOnlyTreeSnapshot {
+                root: before.get_root(),
+                next_available_leaf_index: num_prefill as Field,
+            },
+            leaves: masked_leaves,
+            num_leaves,
+            frontier,
+            expected_root,
+        }
+    }
+
+    #[fuzz]
+    fn append_matches_reference(
+        prefill: [Field; MAX_PREFILL],
+        num_prefill: u8,
+        leaves: [Field; MAX_LEAVES],
+        num_leaves: u8,
+    ) {
+        let case = build_case(prefill, num_prefill, leaves, num_leaves);
+        let result = append_leaves_to_snapshot::<HEIGHT, MAX_LEAVES>(
+            case.snapshot,
+            case.leaves,
+            case.num_leaves,
+            case.frontier,
+        );
+        assert_eq(result.root, case.expected_root);
+        assert_eq(
+            result.next_available_leaf_index,
+            case.snapshot.next_available_leaf_index + case.num_leaves as Field,
+        );
+    }
+
+    #[fuzz]
+    fn unpinned_frontier_lanes_cannot_change_the_result(
+        prefill: [Field; MAX_PREFILL],
+        num_prefill: u8,
+        leaves: [Field; MAX_LEAVES],
+        num_leaves: u8,
+        garbage: [Field; HEIGHT],
+    ) {
+        let case = build_case(prefill, num_prefill, leaves, num_leaves);
+        let clean = append_leaves_to_snapshot::<HEIGHT, MAX_LEAVES>(
+            case.snapshot,
+            case.leaves,
+            case.num_leaves,
+            case.frontier,
+        );
+
+        // Corrupt every lane the hint validation does not pin (levels where the start index is a left child) with
+        // arbitrary garbage. Validation must still pass — those lanes are outside the recomputed root — and the
+        // result must be bit-identical, which is the parity argument of the soundness review as an executable
+        // property.
+        let start_index = case.snapshot.next_available_leaf_index as u32;
+        let mut corrupted = case.frontier;
+        for level in 0..HEIGHT {
+            if ((start_index >> level) & 1) == 0 {
+                corrupted[level] = garbage[level];
+            }
+        }
+        let dirty = append_leaves_to_snapshot::<HEIGHT, MAX_LEAVES>(
+            case.snapshot,
+            case.leaves,
+            case.num_leaves,
+            corrupted,
+        );
+        assert_eq(dirty, clean);
+    }
+}
