@@ -267,14 +267,13 @@ library EpochProofLib {
         );
       }
 
-      // Boundary anchoring for the Inbox rolling-hash chain, mirroring previousArchive/endArchive:
-      // both ends of the claimed chain segment must match the rolling hashes recorded at propose for checkpoints
-      // _start - 1 and _end. The start needs this to be sound - the previous checkpoint's header is not among this
-      // proof's public inputs, so nothing else pins where the segment begins. The end is already pinned transitively
-      // (the checkpoint root binds end_inbox_rolling_hash to the last checkpoint header, whose hash verifyHeaders ties
-      // to storage), so checking it here only trades a bare proof-verification failure for a specific error.
-      // The end check is therefore a deliberate gas-for-diagnostics trade: it costs one cold SLOAD (2,100 gas per
-      // submission) and can be deleted if the submit path ever needs trimming.
+      // Start anchoring for the Inbox rolling-hash chain, mirroring previousArchive: the start of the claimed
+      // chain segment must match the rolling hash recorded at propose for checkpoint _start - 1. This check is
+      // required for soundness - the previous checkpoint's header is not among this proof's public inputs, so
+      // nothing else pins where the segment begins. The end boundary needs no storage check: the checkpoint root
+      // binds end_inbox_rolling_hash to the last checkpoint header, whose hash verifyHeaders ties to storage, so a
+      // wrong end value simply fails proof verification (a storage comparison here would only buy a nicer error at
+      // the cost of one cold SLOAD per submission).
       {
         bytes32 expectedPreviousInboxRollingHash = STFLib.getInboxRollingHash(_start - 1);
         require(
@@ -282,14 +281,6 @@ library EpochProofLib {
           Errors.Rollup__InvalidPreviousInboxRollingHash(
             expectedPreviousInboxRollingHash, _args.previousInboxRollingHash
           )
-        );
-      }
-
-      {
-        bytes32 expectedEndInboxRollingHash = STFLib.getInboxRollingHash(_end);
-        require(
-          expectedEndInboxRollingHash == _args.endInboxRollingHash,
-          Errors.Rollup__InvalidEndInboxRollingHash(expectedEndInboxRollingHash, _args.endInboxRollingHash)
         );
       }
     }
