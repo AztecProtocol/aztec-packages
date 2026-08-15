@@ -3,13 +3,12 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
-import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
@@ -102,7 +101,6 @@ describe('ProposalHandler checkpoint validation', () => {
       blockSource,
       l1ToL2MessageSource,
       mock<ITxProvider>(),
-      mock<BlockProposalValidator>(),
       epochCache,
       consensusTimetable,
       config,
@@ -173,7 +171,6 @@ describe('ProposalHandler checkpoint validation', () => {
         blockSource,
         l1ToL2MessageSource,
         mock<ITxProvider>(),
-        mock<BlockProposalValidator>(),
         epochCache,
         consensusTimetable,
         config,
@@ -727,9 +724,6 @@ describe('ProposalHandler checkpoint validation', () => {
       genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
     } as any);
 
-    const blockProposalValidator = mock<BlockProposalValidator>();
-    blockProposalValidator.validate.mockResolvedValue({ result: 'accept' } as any);
-
     const txProvider = mock<ITxProvider>();
     txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
 
@@ -739,7 +733,6 @@ describe('ProposalHandler checkpoint validation', () => {
       blockSource,
       l1ToL2MessageSource,
       txProvider,
-      blockProposalValidator,
       epochCache,
       consensusTimetable,
       config,
@@ -865,6 +858,54 @@ describe('ProposalHandler checkpoint validation', () => {
         blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
         reason: 'block_number_already_exists',
       });
+    });
+  });
+
+  describe('handleBlockProposal arrival window', () => {
+    // Whether a proposal arrived in time is decided once, at p2p ingress. Re-deciding it here would make
+    // the verdict depend on how long this node took to get around to processing the proposal, turning
+    // local latency into a slashable invalid-proposal verdict against an honest proposer.
+    it('processes a proposal whose receive window closed while it waited to be processed', async () => {
+      const signer = Secp256k1Signer.random();
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+        archiveRoot: Fr.random(),
+        signer,
+      });
+
+      // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
+      blockSource.getGenesisValues.mockResolvedValue({
+        genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
+      } as any);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      // Slot 1's proposal receive window is [-4s, 17s]; 30s is well past its close.
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(0),
+        slot: SlotNumber(1),
+        ts: 30n,
+        nowMs: 30_000n,
+      });
+
+      const txProvider = mock<ITxProvider>();
+      txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
+
+      const blockHandler = new ProposalHandler(
+        checkpointsBuilder,
+        mock<WorldStateSynchronizer>(),
+        blockSource,
+        l1ToL2MessageSource,
+        txProvider,
+        epochCache,
+        consensusTimetable,
+        config,
+        mock<BlobClientInterface>(),
+        new CheckpointReexecutionTracker(),
+        metrics,
+        dateProvider,
+      );
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({ isValid: true, blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
     });
   });
 });
