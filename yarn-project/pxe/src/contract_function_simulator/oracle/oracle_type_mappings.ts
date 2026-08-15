@@ -654,49 +654,6 @@ export function ARRAY<T>(inner: TypeMapping<T>): ArrayMapping<T> {
 }
 
 /**
- * Maps Noir's `[T]` ↔ TS `T[]` over 2 slots:
- *   slot 0 — length scalar (count of elements)
- *   slot 1 — the elements' fields, laid end to end
- *
- * The contents slot holds exactly `length` elements and is never padded, so deserializing rejects a length that
- * disagrees with the fields present.
- *
- * @example Serializing `[{ x: 1, y: 2 }, { x: 3, y: 4 }]` with `VECTOR(POINT)`:
- * ```
- * slot 0: Fr(2)                          // element count, not field count
- * slot 1: [Fr(1), Fr(2), Fr(3), Fr(4)]   // each element's fields end to end
- * ```
- */
-export function VECTOR<T>(inner: TypeMapping<T>): VectorMapping<T> {
-  return {
-    kind: 'vector',
-    label: `vector(${inner.label})`,
-    inner,
-    serialization: inner.serialization
-      ? { fn: values => [new Fr(values.length), packElements(inner, values)] }
-      : undefined,
-    deserialization: inner.deserialization
-      ? {
-          fn: ([lengthReader, contentsReader]) => {
-            const length = lengthReader.readField().toNumber();
-            const elementWidth = fieldWidth(inner.shape);
-            const contentsFields = contentsReader.remainingFields();
-            if (contentsFields !== length * elementWidth) {
-              throw new Error(
-                `Malformed vector: length ${length} implies ${length * elementWidth} field(s) but the contents slot ` +
-                  `holds ${contentsFields}`,
-              );
-            }
-            return unpackElements(inner, contentsReader, length);
-          },
-        }
-      : undefined,
-    // slot 0: the length scalar; slot 1: the contents, sized by that length.
-    shape: ['scalar', { lenFrom: (size: { length: number }) => size.length * fieldWidth(inner.shape) }],
-  };
-}
-
-/**
  * Noir's fixed-length array `[T; length]` in one slot: serializes `values` (each flattened via `element`)
  * zero-padded to exactly `length * elementWidth` fields, and deserializes all `length` elements back. An absent
  * element is the zero encoding, so the padding is derived from the shape.
@@ -932,6 +889,41 @@ export function STRUCT<T>(fields: readonly StructField[]): StructMapping<T> {
 }
 
 /**
+ * Maps Noir's `[T]` ↔ TS `T[]` over 2 slots:
+ *   slot 0 — length scalar (count of elements)
+ *   slot 1 — the elements' fields, laid end to end
+ *
+ * @example Serializing `[{ x: 1, y: 2 }, { x: 3, y: 4 }]` with `VECTOR(POINT)`:
+ * ```
+ * slot 0: Fr(2)                          // element count, not field count
+ * slot 1: [Fr(1), Fr(2), Fr(3), Fr(4)]   // each element's fields end to end
+ * ```
+ */
+export function VECTOR<T>(inner: TypeMapping<T>): VectorMapping<T> {
+  return {
+    kind: 'vector',
+    label: `vector(${inner.label})`,
+    inner,
+    serialization: inner.serialization
+      ? { fn: values => [new Fr(values.length), packElements(inner, values)] }
+      : undefined,
+    deserialization: inner.deserialization
+      ? {
+          fn: ([lengthReader, contentsReader]) => {
+            const length = lengthReader.readField().toNumber();
+            // If the shape does not fix a width, every element shares one unknown width, so dividing the contents by
+            // the count recovers it.
+            const elementWidth = tryFieldWidth(inner.shape) ?? contentsReader.remainingFields() / length;
+            return unpackElements(inner, contentsReader, length, elementWidth);
+          },
+        }
+      : undefined,
+    // slot 0: the length scalar; slot 1: the contents, sized by that length.
+    shape: ['scalar', { lenFrom: (size: { length: number }) => size.length * fieldWidth(inner.shape) }],
+  };
+}
+
+/**
  * The composite `TypeMapping`s (`ARRAY`/`VECTOR`/`BOUNDED_VEC`/`OPTION`/`STRUCT`/`FIXED_ARRAY`/`FIXED_BOUNDED_VEC`/
  * `EPHEMERAL_ARRAY`), discriminated by `kind`. The combinators attach `kind` plus the inner mapping(s) at construction;
  * the registry erases params to the base `TypeMapping`, so the guards below recover the structure for recursion.
@@ -1087,11 +1079,18 @@ function packElements<T>(element: TypeMapping<T>, values: T[]): Fr[] {
 }
 
 /**
- * Reads `count` fixed-width elements out of a packed run (the inverse of {@link packElements}). Element must be
- * deserializable.
+ * Reads `count` equal-width elements out of a packed run (the inverse of {@link packElements}). Element must be
+ * deserializable. `width` is for an element whose shape fixes no width; such an element must occupy a single slot,
+ * since nothing records how many of a chunk's fields belong to each slot.
  */
-function unpackElements<T>(element: TypeMapping<T>, reader: FieldReader, count: number): T[] {
-  const elementWidth = fieldWidth(element.shape);
+function unpackElements<T>(element: TypeMapping<T>, reader: FieldReader, count: number, width?: number): T[] {
+  if (tryFieldWidth(element.shape) === undefined && element.shape.length !== 1) {
+    throw new Error(
+      `Cannot unpack ${element.label} elements: their width is not fixed by the type, so we can't tell how many ` +
+        `fields each of their ${element.shape.length} slots holds`,
+    );
+  }
+  const elementWidth = width ?? fieldWidth(element.shape);
   return Array.from({ length: count }, () => deserializeElement(element, reader.readFieldArray(elementWidth)));
 }
 

@@ -287,15 +287,27 @@ describe('oracle type mappings', () => {
       expect(roundTrip(VECTOR(POINT), data)).toEqual(data);
     });
 
+    it('round-trips generic-length array elements', () => {
+      const data = [
+        [new Fr(1), new Fr(2), new Fr(3)],
+        [new Fr(4), new Fr(5), new Fr(6)],
+      ];
+      expect(roundTrip(VECTOR(ARRAY(FIELD)), data)).toEqual(data);
+    });
+
+    it('round-trips an empty vector of array elements', () => {
+      expect(roundTrip(VECTOR(ARRAY(FIELD)), [])).toEqual([]);
+    });
+
     it('serializes the length ahead of the contents', () => {
       expect(VECTOR(FIELD).serialization!.fn([new Fr(7), new Fr(9)])).toEqual([new Fr(2), [new Fr(7), new Fr(9)]]);
     });
 
-    it('rejects a length that disagrees with the contents', () => {
-      const length = new FieldReader([new Fr(3)]);
-      const contents = new FieldReader([new Fr(7), new Fr(9)]);
-      expect(() => VECTOR(FIELD).deserialization!.fn([length, contents])).toThrow(
-        'length 3 implies 3 field(s) but the contents slot holds 2',
+    it('rejects a multi-slot element of unfixed width, such as a nested vector', () => {
+      const length = new FieldReader([new Fr(1)]);
+      const contents = new FieldReader([new Fr(1), new Fr(7)]);
+      expect(() => VECTOR(VECTOR(FIELD)).deserialization!.fn([length, contents])).toThrow(
+        "their width is not fixed by the type, so we can't tell how many fields each of their 2 slots holds",
       );
     });
 
