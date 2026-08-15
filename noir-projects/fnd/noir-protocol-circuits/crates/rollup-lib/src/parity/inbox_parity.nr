@@ -20,7 +20,6 @@ pub struct InboxParityPrivateInputs<let S: u32> {
     // public inputs. See `ParityPublicInputs::in_hash`: the frontier tree is gone from this body, so the prover
     // supplies the value and the circuit does not recompute or bind it to `msgs`.
     pub(crate) in_hash: Field,
-    pub(crate) vk_tree_root: Field,
     pub(crate) prover_id: Field,
 }
 
@@ -54,7 +53,6 @@ pub fn execute<let S: u32>(inputs: InboxParityPrivateInputs<S>) -> ParityPublicI
         start_rolling_hash: inputs.start_rolling_hash,
         end_rolling_hash,
         end_sponge,
-        vk_tree_root: inputs.vk_tree_root,
         prover_id: inputs.prover_id,
     }
 }

@@ -19,7 +19,9 @@ pub struct ParityPublicInputs {
     // parity-committed message list to the leaves the blocks inserted into the L1-to-L2 tree. The sponge carries its
     // own absorbed count, so the message count needs no separate public output.
     pub end_sponge: L1ToL2MessageSponge,
-    pub vk_tree_root: Field,
+    // Binds the parity proof to the prover producing the checkpoint, making it non-transferable. There is no
+    // vk_tree_root alongside it: `InboxParity` verifies no proofs, so the checkpoint root checks this circuit's vk
+    // against its own constants' tree root and a pass-through here would add no binding.
     pub prover_id: Field,
 }
 
@@ -30,7 +32,6 @@ impl Empty for ParityPublicInputs {
             start_rolling_hash: 0,
             end_rolling_hash: 0,
             end_sponge: L1ToL2MessageSponge::empty(),
-            vk_tree_root: 0,
             prover_id: 0,
         }
     }

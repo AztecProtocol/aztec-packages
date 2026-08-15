@@ -479,7 +479,6 @@ function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): Pa
     start_rolling_hash: mapFieldToNoir(parityPublicInputs.startRollingHash),
     end_rolling_hash: mapFieldToNoir(parityPublicInputs.endRollingHash),
     end_sponge: mapL1ToL2MessageSpongeToNoir(parityPublicInputs.endSponge),
-    vk_tree_root: mapFieldToNoir(parityPublicInputs.vkTreeRoot),
     prover_id: mapFieldToNoir(parityPublicInputs.proverId),
   };
 }
@@ -516,7 +515,6 @@ export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicIn
     mapFieldFromNoir(parityPublicInputs.start_rolling_hash),
     mapFieldFromNoir(parityPublicInputs.end_rolling_hash),
     mapL1ToL2MessageSpongeFromNoir(parityPublicInputs.end_sponge),
-    mapFieldFromNoir(parityPublicInputs.vk_tree_root),
     mapFieldFromNoir(parityPublicInputs.prover_id),
   );
 }
@@ -727,7 +725,6 @@ export function mapInboxParityPrivateInputsToNoir(inputs: InboxParityPrivateInpu
     num_msgs: mapNumberToNoir(inputs.numMessages),
     start_rolling_hash: mapFieldToNoir(inputs.startRollingHash),
     in_hash: mapFieldToNoir(inputs.inHash),
-    vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
     prover_id: mapFieldToNoir(inputs.proverId),
   };
 }

@@ -19,8 +19,6 @@ export class ParityPublicInputs {
     public endRollingHash: Fr,
     /** Message-bundle sponge after absorbing the same real messages into the empty per-checkpoint sponge. */
     public endSponge: L1ToL2MessageSponge,
-    /** Root of the VK tree */
-    public vkTreeRoot: Fr,
     /** Prover identity committed to by the circuit, for sybil protection. */
     public proverId: Fr,
   ) {
@@ -34,14 +32,7 @@ export class ParityPublicInputs {
    * @returns The inputs serialized to a buffer.
    */
   toBuffer() {
-    return serializeToBuffer(
-      this.inHash,
-      this.startRollingHash,
-      this.endRollingHash,
-      this.endSponge,
-      this.vkTreeRoot,
-      this.proverId,
-    );
+    return serializeToBuffer(this.inHash, this.startRollingHash, this.endRollingHash, this.endSponge, this.proverId);
   }
 
   /**
@@ -72,14 +63,7 @@ export class ParityPublicInputs {
    * @returns The instance fields.
    */
   static getFields(fields: FieldsOf<ParityPublicInputs>) {
-    return [
-      fields.inHash,
-      fields.startRollingHash,
-      fields.endRollingHash,
-      fields.endSponge,
-      fields.vkTreeRoot,
-      fields.proverId,
-    ] as const;
+    return [fields.inHash, fields.startRollingHash, fields.endRollingHash, fields.endSponge, fields.proverId] as const;
   }
 
   /**
@@ -94,7 +78,6 @@ export class ParityPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(L1ToL2MessageSponge),
-      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );
   }

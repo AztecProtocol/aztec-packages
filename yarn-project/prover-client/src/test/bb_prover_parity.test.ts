@@ -4,7 +4,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/server';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { INBOX_PARITY_SIZES, InboxParityPrivateInputs, type InboxParitySize } from '@aztec/stdlib/parity';
 
@@ -52,7 +51,7 @@ describe('prover/bb_prover/parity', () => {
       // compute it from the messages rather than using a raw random field.
       const inHash = computeInHashFromL1ToL2Messages(messages);
 
-      const inputs = InboxParityPrivateInputs.fromMessages(messages, Fr.ZERO, inHash, getVKTreeRoot(), proverId);
+      const inputs = InboxParityPrivateInputs.fromMessages(messages, Fr.ZERO, inHash, proverId);
       expect(inputs.size).toBe(size);
 
       const output = await context.prover.getInboxParityProof(inputs);

@@ -48,18 +48,8 @@ fn inbox_parity_vk_not_in_vk_tree() {
     let mut new_vk_tree = VK_MERKLE_TREE;
     update_vk_hash(&mut new_vk_tree, builder.inbox_parity_vk_index, 999);
 
-    builder.inbox_parity.vk_tree_root = new_vk_tree.get_root();
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
     builder.right_rollup.constants.vk_tree_root = new_vk_tree.get_root();
-
-    builder.execute_with_mock_and_fail();
-}
-
-#[test(should_fail_with = "The vk tree root of the inbox parity does not match the rollup's vk tree root")]
-fn mismatched_vk_tree_root_from_parity() {
-    let mut builder = TestBuilder::default();
-
-    builder.inbox_parity.vk_tree_root += 1;
 
     builder.execute_with_mock_and_fail();
 }

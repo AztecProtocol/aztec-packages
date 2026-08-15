@@ -179,7 +179,6 @@ export class CheckpointProvingState {
       this.l1ToL2Messages,
       this.startInboxRollingHash,
       computeInHashFromL1ToL2Messages(this.l1ToL2Messages),
-      this.constants.vkTreeRoot,
       this.constants.proverId,
     );
   }

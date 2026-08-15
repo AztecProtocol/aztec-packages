@@ -822,7 +822,6 @@ export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
     new Fr(BigInt(seed + 0x400)),
     new Fr(BigInt(seed + 0x500)),
     makeL1ToL2MessageSponge(seed + 0x580),
-    new Fr(BigInt(seed + 0x700)),
     new Fr(BigInt(seed + 0x800)),
   );
 }
@@ -837,7 +836,6 @@ export function makeInboxParityPrivateInputs(seed = 0): InboxParityPrivateInputs
     numMsgs,
     new Fr(seed + 0x3500),
     new Fr(seed + 0x3900),
-    new Fr(seed + 0x4000),
     new Fr(seed + 0x5000),
   );
 }
