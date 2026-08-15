@@ -104,19 +104,19 @@ export class ArchiverDataStoreUpdater {
     },
     evictProposedFrom?: CheckpointNumber,
   ): Promise<ReconcileCheckpointsResult> {
-    // Checkpoints here are already accepted by L1, so tolerate up to the physical blob-capacity
-    // ceiling rather than the conservative attestable limit used when building/attesting.
+    // These checkpoints are already on L1, so ingest validates against the physical blob capacity rather than
+    // the conservative build/attest policy, and tolerates an empty non-first block. Both rules are enforced by
+    // proposers and attesters; rejecting an ingest would stall sync rather than undo the checkpoint.
+    const validateOpts = {
+      rollupManaLimit: this.opts?.rollupManaLimit,
+      maxBlocksPerCheckpoint: MAX_CAPACITY_BLOCKS_PER_CHECKPOINT,
+      allowEmptyNonFirstBlocks: true,
+    };
     for (const checkpoint of checkpoints) {
-      validateCheckpoint(checkpoint.checkpoint, {
-        rollupManaLimit: this.opts?.rollupManaLimit,
-        maxBlocksPerCheckpoint: MAX_CAPACITY_BLOCKS_PER_CHECKPOINT,
-      });
+      validateCheckpoint(checkpoint.checkpoint, validateOpts);
     }
     if (promoteProposed) {
-      validateCheckpoint(promoteProposed.checkpoint.checkpoint, {
-        rollupManaLimit: this.opts?.rollupManaLimit,
-        maxBlocksPerCheckpoint: MAX_CAPACITY_BLOCKS_PER_CHECKPOINT,
-      });
+      validateCheckpoint(promoteProposed.checkpoint.checkpoint, validateOpts);
     }
 
     const result = await this.stores.db.transactionAsync(async () => {

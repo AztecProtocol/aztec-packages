@@ -1142,6 +1142,26 @@ describe('CheckpointProposalJob', () => {
       );
     });
 
+    // Only the first block of a checkpoint may be empty (no block-root circuit can prove a zero-tx block at a
+    // later index), so minValidTxsPerBlock: 0 must not reach the builder for anything past index 0.
+    it('floors minValidTxs at 1 past the first block even when configured to 0', async () => {
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, false))
+        .mockReturnValueOnce(subslot(18, 1, true))
+        .mockReturnValue(noSubslot());
+
+      const { lastBlock } = await setupMultipleBlocks(2, [2, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      job.updateConfig({ minValidTxsPerBlock: 0 });
+      await job.executeAndAwait();
+
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
+      expect(checkpointBuilder.buildBlockCalls[0].opts.minValidTxs).toBe(0);
+      expect(checkpointBuilder.buildBlockCalls[1].opts.minValidTxs).toBe(1);
+    });
+
     it('builds multiple blocks with sufficient txs', async () => {
       // Mock timetable to allow 2 blocks
       jest

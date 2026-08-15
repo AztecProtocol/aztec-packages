@@ -51,7 +51,9 @@ async function main() {
   process.once('SIGTERM', shutdown);
 
   const services: NamespacedApiHandlers = {};
-  registerAztecNodeRpcHandlers(aztecNode, services);
+  registerAztecNodeRpcHandlers(aztecNode, services, undefined, {
+    p2pHealthMinPeers: aztecNodeConfig.p2pHealthMinPeers,
+  });
   const rpcServer = createNamespacedSafeJsonRpcServer(services, {
     diagnostic: getOtelJsonRpcDiagnosticsMiddleware(),
     middlewares: [getOtelJsonRpcServerMetricsMiddleware(), getOtelJsonRpcPropagationMiddleware()],

@@ -97,6 +97,11 @@ describe('P2P Client', () => {
     await kvStore.close();
   });
 
+  it('forwards p2p connectivity from the service', async () => {
+    p2pService.getP2PConnectivity.mockReturnValue({ enabled: true, connectedPeers: 4 });
+    await expect(client.getP2PConnectivity()).resolves.toEqual({ enabled: true, connectedPeers: 4 });
+  });
+
   it('can start & stop', async () => {
     expect(client.isReady()).toEqual(false);
 

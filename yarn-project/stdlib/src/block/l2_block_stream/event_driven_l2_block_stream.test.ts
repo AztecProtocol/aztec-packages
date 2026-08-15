@@ -104,12 +104,11 @@ describe('EventDrivenL2BlockStream', () => {
     getL2Tips.mockResolvedValue(makeTips(proposed));
   };
 
-  const emitUpdate = (fromProposed: number, toProposed: number, blocksAdded: L2Block[]) => {
+  const emitUpdate = (fromProposed: number, toProposed: number) => {
     const event: L2BlockSourceUpdatedEvent = {
       type: 'l2BlockSourceUpdated',
       fromTips: makeTips(fromProposed),
       toTips: makeTips(toProposed),
-      blocksAdded,
     };
     events.emit(L2BlockSourceEvents.L2BlockSourceUpdated, event);
   };
@@ -155,71 +154,46 @@ describe('EventDrivenL2BlockStream', () => {
     expect(handler.addedBlockNumbers()).toEqual([1, 2, 3, 4, 5]);
   });
 
-  it('serves a fully-covered block range from the hot cache without hitting the source', async () => {
+  it('runs a pass reading from the source as soon as an event arrives', async () => {
     // Start fully synced so start()'s immediate pass is a no-op (no getBlocks).
     setSourceTips(3);
     local.proposedNumber = BlockNumber(3);
     wrapper.start();
     await waitFor(() => getL2Tips.mock.calls.length > 0);
 
-    // Source advances to 6; the aggregate event begins at the stream's local tip (3) and carries the three new
-    // blocks 4-6, so the stream is caught up to its `fromTips` and the fast path is armed.
+    // The source advances to 6. The event carries no block data, so the triggered pass reads tips and blocks from
+    // the source itself.
     setSourceTips(6);
     getBlocks.mockClear();
     getL2Tips.mockClear();
     handler.events.length = 0;
-    emitUpdate(3, 6, [makeBlock(4), makeBlock(5), makeBlock(6)]);
+    emitUpdate(3, 6);
 
     await waitFor(() => handler.events.some(e => e.type === 'blocks-added'));
 
-    // The full 4-6 range was served from the cache and `toTips` short-circuits the tips read, so neither the
-    // source's getBlocks nor getL2Tips was called.
-    expect(getBlocks).not.toHaveBeenCalled();
-    expect(getL2Tips).not.toHaveBeenCalled();
-    expect(handler.addedBlockNumbers()).toEqual([4, 5, 6]);
-  });
-
-  it('delegates to the source when the cache only partially covers the requested range', async () => {
-    setSourceTips(3);
-    local.proposedNumber = BlockNumber(3);
-    wrapper.start();
-    await waitFor(() => getL2Tips.mock.calls.length > 0);
-
-    setSourceTips(6);
-    getBlocks.mockClear();
-    handler.events.length = 0;
-    // Event begins at the local tip (3) but only carries blocks 4-5, while the stream needs through block 6.
-    emitUpdate(3, 6, [makeBlock(4), makeBlock(5)]);
-
-    await waitFor(() => handler.events.some(e => e.type === 'blocks-added'));
-
+    expect(getL2Tips).toHaveBeenCalled();
     expect(getBlocks).toHaveBeenCalled();
     expect(handler.addedBlockNumbers()).toEqual([4, 5, 6]);
   });
 
-  it('delegates fully to the source when not caught up to the event start', async () => {
+  it('catches up even when the event begins ahead of the local tip', async () => {
     setSourceTips(3);
     local.proposedNumber = BlockNumber(3);
     wrapper.start();
     await waitFor(() => getL2Tips.mock.calls.length > 0);
 
     // The source has moved to 6, but the event began at proposed 5: the stream (local tip 3) missed intervening
-    // updates and is not caught up to the event's `fromTips`, so its blocks cannot be applied directly.
+    // updates. Reading from the source makes the pass catch up regardless of what the event reports.
     setSourceTips(6);
-    getBlocks.mockClear();
-    getL2Tips.mockClear();
     handler.events.length = 0;
-    emitUpdate(5, 6, [makeBlock(6)]);
+    emitUpdate(5, 6);
 
     await waitFor(() => handler.events.some(e => e.type === 'blocks-added'));
 
-    // Not caught up: the fast path is not armed, so the source is queried for both tips and blocks.
-    expect(getL2Tips).toHaveBeenCalled();
-    expect(getBlocks).toHaveBeenCalled();
     expect(handler.addedBlockNumbers()).toEqual([4, 5, 6]);
   });
 
-  it('coalesces several events arriving during a sync into a single follow-up pass', async () => {
+  it('runs a follow-up pass for an event arriving while a pass is in flight', async () => {
     // No-op passes (local == source) so each pass only reads getL2Tips.
     setSourceTips(3);
     local.proposedNumber = BlockNumber(3);
@@ -228,7 +202,7 @@ describe('EventDrivenL2BlockStream', () => {
     let calls = 0;
     getL2Tips.mockImplementation(() => {
       calls++;
-      // Block only the first pass so the events fired during it coalesce into one follow-up.
+      // Block only the first pass, so the event fired during it cannot be served by that same pass.
       return (calls === 1 ? gate.promise : Promise.resolve()).then(() => makeTips(3));
     });
 
@@ -236,11 +210,31 @@ describe('EventDrivenL2BlockStream', () => {
     wrapper.start();
     expect(calls).toBe(1);
 
-    // Three events arrive while the first pass is in flight. They begin at proposed 2 (≠ local 3) so each would
-    // take the source-backed slow path; the point is that they coalesce into a single follow-up pass regardless.
-    emitUpdate(2, 3, []);
-    emitUpdate(2, 3, []);
-    emitUpdate(2, 3, []);
+    emitUpdate(3, 3);
+    gate.resolve();
+
+    await waitFor(() => calls >= 2);
+    expect(calls).toBeGreaterThanOrEqual(2);
+  });
+
+  it('coalesces several events arriving during a sync into a single follow-up pass', async () => {
+    setSourceTips(3);
+    local.proposedNumber = BlockNumber(3);
+
+    const gate = promiseWithResolvers<void>();
+    let calls = 0;
+    getL2Tips.mockImplementation(() => {
+      calls++;
+      return (calls === 1 ? gate.promise : Promise.resolve()).then(() => makeTips(3));
+    });
+
+    wrapper.start();
+    expect(calls).toBe(1);
+
+    // Three events arrive while the first pass is in flight; they must coalesce into a single follow-up pass.
+    emitUpdate(3, 3);
+    emitUpdate(3, 3);
+    emitUpdate(3, 3);
 
     gate.resolve();
     await waitFor(() => calls >= 2);
@@ -271,5 +265,21 @@ describe('EventDrivenL2BlockStream', () => {
     }
 
     expect(calls).toBeGreaterThanOrEqual(3);
+  });
+
+  it('stops listening to source events once stopped', async () => {
+    setSourceTips(3);
+    local.proposedNumber = BlockNumber(3);
+    wrapper.start();
+    await waitFor(() => getL2Tips.mock.calls.length > 0);
+
+    await wrapper.stop();
+    expect(wrapper.isRunning()).toBe(false);
+
+    getL2Tips.mockClear();
+    emitUpdate(3, 6);
+    await sleep(30);
+
+    expect(getL2Tips).not.toHaveBeenCalled();
   });
 });
