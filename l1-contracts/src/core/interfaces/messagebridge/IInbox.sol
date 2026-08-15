@@ -15,10 +15,16 @@ uint256 constant MAX_MSGS_PER_BUCKET = 256;
  * @notice Lives on L1 and is used to pass messages into the rollup from L1.
  */
 interface IInbox {
+  // The Inbox's live position, read atomically in one call so a syncing node can compare its local view
+  // (count and consensus rolling hash) against L1 without cross-call tearing, and skip scanning for events
+  // when both match.
   struct InboxState {
-    // Cumulative number of messages inserted into the inbox. Useful for synching the node faster as it can
-    // more easily figure out if it can just skip looking for events for a time period.
+    // Consensus rolling hash after the most recently inserted message (zero when none was ever inserted).
+    bytes32 rollingHash;
+    // Cumulative number of messages inserted into the inbox.
     uint64 totalMessagesInserted;
+    // Sequence number of the bucket currently accumulating messages.
+    uint64 currentBucketSeq;
   }
 
   /**

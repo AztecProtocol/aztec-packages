@@ -441,27 +441,27 @@ describe('Archiver Sync', () => {
       logger.warn('Initial sync');
       await archiver.syncImmediate();
 
-      expect(inboxContract.getCurrentBucket).toHaveBeenCalledTimes(1);
+      expect(inboxContract.getState).toHaveBeenCalledTimes(1);
       expect(rollupContract.status).toHaveBeenCalledTimes(1);
-      inboxContract.getCurrentBucket.mockClear();
+      inboxContract.getState.mockClear();
       rollupContract.status.mockClear();
 
       // We sync again, but since chain didn't move, no new calls should be expected
       logger.warn('Sync with no L1 advancement');
       await archiver.syncImmediate();
-      expect(inboxContract.getCurrentBucket).toHaveBeenCalledTimes(0);
+      expect(inboxContract.getState).toHaveBeenCalledTimes(0);
       expect(rollupContract.status).toHaveBeenCalledTimes(0);
 
       // Advance the chain and we should see calls again
       fake.setL1BlockNumber(150n);
       logger.warn('Sync after L1 advancement');
       await archiver.syncImmediate();
-      expect(inboxContract.getCurrentBucket).toHaveBeenCalledTimes(1);
+      expect(inboxContract.getState).toHaveBeenCalledTimes(1);
       expect(rollupContract.status).toHaveBeenCalledTimes(1);
     });
 
     it('does not fetch messages when local and remote state both have zero messages', async () => {
-      // When there are no messages on L1, the remote Inbox current bucket is genesis (rolling hash Fr.ZERO,
+      // When there are no messages on L1, the remote Inbox live state is genesis (rolling hash Fr.ZERO,
       // total 0). The local store also returns 0 messages and undefined lastMessage, whose rolling-hash fallback
       // is Fr.ZERO — so local and remote state match and no message fetch is attempted.
       fake.setL1BlockNumber(100n);

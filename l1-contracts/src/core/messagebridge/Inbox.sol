@@ -113,7 +113,10 @@ contract Inbox is IInbox {
   }
 
   function getState() external view override(IInbox) returns (InboxState memory) {
-    return InboxState({totalMessagesInserted: _totalMessagesInserted()});
+    uint64 seq = currentBucketSeq;
+    InboxBucket storage bucket = buckets[seq % BUCKET_RING_SIZE];
+    return
+      InboxState({rollingHash: bucket.rollingHash, totalMessagesInserted: bucket.totalMsgCount, currentBucketSeq: seq});
   }
 
   function getTotalMessagesInserted() external view override(IInbox) returns (uint64) {
