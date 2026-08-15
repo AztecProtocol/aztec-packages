@@ -73,6 +73,12 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
         // roots. Together with the leftmost block starting from the empty sponge (checked in the inputs validator) and
         // the per-block continuity checks in the block merge circuit, this proves the blocks inserted exactly the
         // parity-committed message list, in order — no leaf arrays cross the circuit boundary.
+        //
+        // This equality is the ONLY link between the blocks and the rolling hashes: block public inputs carry no
+        // rolling hash (block headers dropped `in_hash` per the AZIP's Option 3), so there is deliberately no
+        // parity-vs-merged-rollup rolling-hash comparison to make. The start/end rolling hashes below come solely
+        // from the parity, whose message list this assert ties to the blocks; the checkpoint merge then asserts
+        // segment continuity across checkpoints and the epoch proof anchors both ends on L1.
         assert_eq(
             merged_rollup.end_msg_sponge,
             self.parity.end_sponge,
