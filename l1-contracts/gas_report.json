@@ -3,7 +3,7 @@
     "contract": "src/core/messagebridge/Inbox.sol:Inbox",
     "deployment": {
       "gas": 0,
-      "size": 6128
+      "size": 6140
     },
     "functions": {
       "getBucket(uint256)": {
@@ -29,10 +29,10 @@
       },
       "sendL2Message((bytes32,uint256),bytes32,bytes32)": {
         "calls": 37328,
-        "min": 43233,
-        "mean": 46549,
-        "median": 43233,
-        "max": 101986
+        "min": 43269,
+        "mean": 46585,
+        "median": 43269,
+        "max": 102022
       }
     }
   },
@@ -118,7 +118,7 @@
     "contract": "test/RollupWithPreheating.sol:RollupWithPreheating",
     "deployment": {
       "gas": 0,
-      "size": 42938
+      "size": 42950
     },
     "functions": {
       "archive()": {
