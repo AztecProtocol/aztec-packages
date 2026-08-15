@@ -14,7 +14,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Noir } from '@aztec/noir-noir_js';
 import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { InboxParityPrivateInputs } from '@aztec/stdlib/parity';
 
@@ -42,12 +41,10 @@ describe('Inbox Parity Benchmark Inputs', () => {
     const l1ToL2Messages = new Array(INBOX_PARITY_SIZE_MEDIUM).fill(null).map(() => Fr.random());
 
     // Create InboxParity inputs (picks the 256 rung for 256 messages).
-    const vkTreeRoot = getVKTreeRoot();
     const inputs = InboxParityPrivateInputs.fromMessages(
       l1ToL2Messages,
       Fr.ZERO,
       computeInHashFromL1ToL2Messages(l1ToL2Messages),
-      vkTreeRoot,
       Fr.random(),
     );
     logger.info('Created inbox parity inputs');
@@ -61,8 +58,6 @@ describe('Inbox Parity Benchmark Inputs', () => {
       start_rolling_hash: inputs.startRollingHash.toString(),
       // eslint-disable-next-line camelcase
       in_hash: inputs.inHash.toString(),
-      // eslint-disable-next-line camelcase
-      vk_tree_root: inputs.vkTreeRoot.toString(),
       // eslint-disable-next-line camelcase
       prover_id: inputs.proverId.toString(),
     };

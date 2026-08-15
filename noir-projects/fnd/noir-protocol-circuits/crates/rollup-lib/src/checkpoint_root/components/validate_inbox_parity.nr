@@ -4,9 +4,10 @@ use types::{
     proof::proof_data::UltraHonkProofData,
 };
 
-/// Verify the checkpoint's `InboxParity` proof and vk, and check that its vk tree root and prover_id equal the ones in
-/// the checkpoint's constants. The proof may be any rung of the size ladder, so the vk index is checked against the
-/// allowed `{64, 256, 1024}` set rather than a single value.
+/// Verify the checkpoint's `InboxParity` proof and vk, and check that its prover_id equals the one in the
+/// checkpoint's constants. The vk's membership is checked against the checkpoint's own vk tree root — `InboxParity`
+/// verifies no proofs itself, so it carries no vk_tree_root of its own. The proof may be any rung of the size
+/// ladder, so the vk index is checked against the allowed `{64, 256, 1024}` set rather than a single value.
 pub fn validate_inbox_parity(
     data: UltraHonkProofData<ParityPublicInputs>,
     vk_tree_root: Field,
@@ -15,14 +16,6 @@ pub fn validate_inbox_parity(
     if !::std::runtime::is_unconstrained() {
         data.verify_proof();
     }
-
-    // Check that the `vk_tree_root` in the public inputs matches the one in the checkpoint's constants, as it was used
-    // to verify the vk of the inbox parity proof.
-    assert_eq(
-        data.public_inputs.vk_tree_root,
-        vk_tree_root,
-        "The vk tree root of the inbox parity does not match the rollup's vk tree root",
-    );
 
     // Check that the `prover_id` in the public inputs matches the one in the checkpoint's constants, preventing sybil
     // attacks where the same prover submits an inbox parity proof under different identities.
