@@ -119,8 +119,7 @@ contract RewardLibWrapper {
         slotNumber: Slot.wrap(0),
         feeHeader: _feeHeader,
         inboxRollingHash: bytes32(0),
-        inboxMsgTotal: 0,
-        inboxConsumedBucket: 0
+        inboxMsgTotal: 0
       })
     );
   }

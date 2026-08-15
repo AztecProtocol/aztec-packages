@@ -85,8 +85,7 @@ export async function buildCheckpointSimulationOverridesPlan(
     // `Rollup__TooManyInboxMessagesConsumed`. The remaining fields (headerHash, outHash,
     // payloadDigest) are not read by `canProposeAt` / `validateBlockHeader`, but mirroring the full
     // cell keeps the simulation byte-faithful with what the actual `propose()` send will observe,
-    // which is a defense against future reads taking dependencies on them. The parent's
-    // `inboxConsumedBucket` shares the word and stays zero: no contract path reads it back.
+    // which is a defense against future reads taking dependencies on them.
     builder.withPendingTempCheckpointLogFields({
       headerHash: header.hash(),
       outHash: checkpointOutHash,
