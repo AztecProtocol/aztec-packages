@@ -165,10 +165,35 @@ const INBOX_ABI = [
     type: "event",
     name: "MessageSent",
     inputs: [
-      { name: "index", type: "uint256", indexed: false },
       { name: "hash", type: "bytes32", indexed: true },
       { name: "inboxRollingHash", type: "bytes32", indexed: false },
       { name: "bucketSeq", type: "uint256", indexed: false },
+      {
+        name: "message",
+        type: "tuple",
+        indexed: false,
+        components: [
+          {
+            name: "sender",
+            type: "tuple",
+            components: [
+              { name: "actor", type: "address" },
+              { name: "chainId", type: "uint256" },
+            ],
+          },
+          {
+            name: "recipient",
+            type: "tuple",
+            components: [
+              { name: "actor", type: "bytes32" },
+              { name: "version", type: "uint256" },
+            ],
+          },
+          { name: "content", type: "bytes32" },
+          { name: "secretHash", type: "bytes32" },
+          { name: "index", type: "uint256" },
+        ],
+      },
     ],
   },
 ] as const;
@@ -194,7 +219,7 @@ const messageSentLogs = depositReceipt.logs
       item !== null && (item.decoded as any).eventName === "MessageSent",
   );
 
-const messageLeafIndex = new Fr(messageSentLogs[0].decoded.args.index);
+const messageLeafIndex = new Fr(messageSentLogs[0].decoded.args.message.index);
 // docs:end:get_message_leaf_index
 
 // docs:start:mine_blocks

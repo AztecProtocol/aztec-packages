@@ -88,7 +88,7 @@ contract DepositToAztecPublic is Test {
 
     bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), expectedKey);
     vm.expectEmit(true, true, true, true, address(inbox));
-    emit IInbox.MessageSent(expectedIndex, expectedKey, expectedInboxRollingHash, 1);
+    emit IInbox.MessageSent(expectedKey, expectedInboxRollingHash, 1, message);
     vm.expectEmit(true, true, true, true, address(feeJuicePortal));
     emit IFeeJuicePortal.DepositToAztecPublic(to, amount, secretHash, expectedKey, expectedIndex);
 

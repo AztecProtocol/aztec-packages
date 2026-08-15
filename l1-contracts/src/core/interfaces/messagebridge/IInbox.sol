@@ -49,12 +49,17 @@ interface IInbox {
 
   /**
    * @notice Emitted when a message is sent
-   * @param index - The compact cumulative index of the message in the Inbox insertion order
-   * @param hash - The hash of the message
+   * @dev Carries the full message so the event is a self-contained record — reconstructing the fields from
+   * calldata is unreliable for portals sending via internal calls. Hashing `message` yields the indexed `hash`,
+   * and `message.index` is the compact cumulative index of the message in the Inbox insertion order.
+   * @param hash - The hash of the message (the L1-to-L2 tree leaf)
    * @param inboxRollingHash - The consensus rolling hash (truncated sha256 chain) after this message
    * @param bucketSeq - The sequence number of the bucket this message was absorbed into
+   * @param message - The full message
    */
-  event MessageSent(uint256 index, bytes32 indexed hash, bytes32 inboxRollingHash, uint256 bucketSeq);
+  event MessageSent(
+    bytes32 indexed hash, bytes32 inboxRollingHash, uint256 bucketSeq, DataStructures.L1ToL2Msg message
+  );
 
   // docs:start:send_l1_to_l2_message
   /**

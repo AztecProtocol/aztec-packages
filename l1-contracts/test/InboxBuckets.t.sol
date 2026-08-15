@@ -164,7 +164,7 @@ contract InboxBucketsTest is Test {
     bytes32 inboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf);
 
     vm.expectEmit(true, true, true, true, address(inbox));
-    emit IInbox.MessageSent(message.index, leaf, inboxRollingHash, 1);
+    emit IInbox.MessageSent(leaf, inboxRollingHash, 1, message);
     inbox.sendL2Message(recipient, content, secretHash);
   }
 

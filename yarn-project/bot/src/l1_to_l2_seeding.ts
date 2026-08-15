@@ -61,7 +61,7 @@ export async function seedL1ToL2Message(
   const event = messageSentLogs[0];
 
   const msgHash = event.args.hash;
-  const globalLeafIndex = event.args.index;
+  const globalLeafIndex = event.args.message.index;
 
   const msg: PendingL1ToL2Message = {
     content: content.toString(),
