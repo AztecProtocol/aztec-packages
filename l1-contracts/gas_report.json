@@ -3,7 +3,7 @@
     "contract": "src/core/messagebridge/Inbox.sol:Inbox",
     "deployment": {
       "gas": 0,
-      "size": 5932
+      "size": 6128
     },
     "functions": {
       "getBucket(uint256)": {
@@ -29,10 +29,10 @@
       },
       "sendL2Message((bytes32,uint256),bytes32,bytes32)": {
         "calls": 37328,
-        "min": 41480,
-        "mean": 44796,
-        "median": 41480,
-        "max": 100232
+        "min": 43233,
+        "mean": 46549,
+        "median": 43233,
+        "max": 101986
       }
     }
   },
@@ -76,7 +76,7 @@
     },
     "functions": {
       "getCanonicalRollup()": {
-        "calls": 1738,
+        "calls": 1780,
         "min": 1073,
         "mean": 4073,
         "median": 4073,
@@ -106,7 +106,7 @@
     },
     "functions": {
       "availableTo(address)": {
-        "calls": 869,
+        "calls": 890,
         "min": 20573,
         "mean": 20573,
         "median": 20573,
@@ -118,7 +118,7 @@
     "contract": "test/RollupWithPreheating.sol:RollupWithPreheating",
     "deployment": {
       "gas": 0,
-      "size": 42877
+      "size": 42938
     },
     "functions": {
       "archive()": {
@@ -136,11 +136,11 @@
         "max": 2509
       },
       "getCheckpoint(uint256)": {
-        "calls": 879,
-        "min": 27343,
-        "mean": 27343,
-        "median": 27343,
-        "max": 27343
+        "calls": 900,
+        "min": 27185,
+        "mean": 27185,
+        "median": 27185,
+        "max": 27185
       },
       "getCheckpointReward()": {
         "calls": 2589,
@@ -157,7 +157,7 @@
         "max": 5837
       },
       "getCurrentEpoch()": {
-        "calls": 870,
+        "calls": 891,
         "min": 915,
         "mean": 915,
         "median": 915,
@@ -180,9 +180,9 @@
       "getEpochProofPublicInputs(uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],bytes)": {
         "calls": 4,
         "min": 16751,
-        "mean": 35891,
-        "median": 26547,
-        "max": 73720
+        "mean": 45593,
+        "median": 47624,
+        "max": 70374
       },
       "getEthPerFeeAsset()": {
         "calls": 2,
@@ -292,9 +292,9 @@
       "propose((bytes32,(int256),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256),uint256),(bytes,bytes),address[],(uint8,bytes32,bytes32),bytes)": {
         "calls": 2339,
         "min": 0,
-        "mean": 266918,
-        "median": 284436,
-        "max": 325546
+        "mean": 266764,
+        "median": 284282,
+        "max": 325392
       },
       "prune()": {
         "calls": 6,
@@ -311,16 +311,16 @@
         "max": 52474
       },
       "submitEpochRootProof((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
-        "calls": 876,
+        "calls": 897,
         "min": 58286,
-        "mean": 376918,
-        "median": 382965,
-        "max": 421657
+        "mean": 374005,
+        "median": 379619,
+        "max": 418311
       },
       "updateManaTarget(uint256)": {
         "calls": 512,
         "min": 26051,
-        "mean": 28652,
+        "mean": 28651,
         "median": 27293,
         "max": 31299
       }
