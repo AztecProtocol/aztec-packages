@@ -965,10 +965,12 @@ contract RollupTest is RollupBase {
     rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
   }
 
-  // The end of the rolling-hash chain segment is pinned to the hash recorded at propose for the epoch's last
-  // checkpoint, mirroring endArchive. A wrong endInboxRollingHash must be rejected here rather
-  // than surfacing as a generic proof-verification failure.
-  function testGetEpochProofPublicInputsRejectsWrongEndInboxRollingHash() public setUpFor("empty_checkpoint_1") {
+  // The end of the rolling-hash chain segment needs no storage comparison: the supplied value is passed through to
+  // the root rollup public inputs verbatim, where the circuit binds end_inbox_rolling_hash to the last checkpoint
+  // header — whose hash verifyHeaders ties to storage — so a wrong end value fails proof verification. This test
+  // pins that pass-through: the wrong value must land in the public inputs (making the proof unsatisfiable), not be
+  // silently replaced by the stored one.
+  function testGetEpochProofPublicInputsPassesEndInboxRollingHashThrough() public setUpFor("empty_checkpoint_1") {
     _proposeCheckpoint("empty_checkpoint_1", 1);
 
     DecoderBase.Data memory data = load("empty_checkpoint_1").checkpoint;
@@ -977,8 +979,8 @@ contract RollupTest is RollupBase {
     ProposedHeader[] memory headers = new ProposedHeader[](1);
     headers[0] = proposedHeaders[1];
 
-    bytes32 expectedEnd = proposedHeaders[1].inboxRollingHash;
-    bytes32 wrongEnd = bytes32(uint256(expectedEnd) + 1);
+    bytes32 storedEnd = proposedHeaders[1].inboxRollingHash;
+    bytes32 wrongEnd = bytes32(uint256(storedEnd) + 1);
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: checkpoint.archive,
       endArchive: data.archive,
@@ -988,8 +990,10 @@ contract RollupTest is RollupBase {
       proverId: address(0)
     });
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidEndInboxRollingHash.selector, expectedEnd, wrongEnd));
-    rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
+    bytes32[] memory publicInputs = rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
+    // Public-input layout: [previousArchive, endArchive, outHash, previousInboxRollingHash, endInboxRollingHash, ...]
+    assertEq(publicInputs[4], wrongEnd, "supplied end rolling hash must pass through to the public inputs");
+    assertNotEq(publicInputs[4], storedEnd, "wrong end must not be replaced by the stored value");
   }
 
   function _submitEpochProof(
