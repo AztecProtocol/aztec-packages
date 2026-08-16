@@ -66,7 +66,7 @@ variable "PROVER_TEST_VERIFICATION_DELAY_MS" {
 variable "BB_CHONK_VERIFY_MAX_BATCH" {
   description = "Upper bound on proofs per batch for the peer chonk batch verifier"
   type        = number
-  default     = 16
+  default     = 18
 }
 
 variable "BB_CHONK_VERIFY_BATCH_CONCURRENCY" {

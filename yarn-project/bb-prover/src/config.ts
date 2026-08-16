@@ -14,7 +14,7 @@ export interface BBConfig {
    * Upper bound on proofs per batch for the peer chonk batch verifier.
    * Proofs are verified immediately as they arrive — this only caps how many
    * can accumulate while a batch is already being processed.
-   * Default 16: at 4 cores, a full batch of 16 verifies in ~245ms wall time.
+   * Default 18: 3 rounds of 6 workers. At 4 cores, a full batch of 16 verifies in ~245ms wall time.
    */
   bbChonkVerifyMaxBatch: number;
   /** Thread count for the peer batch verifier parallel reduce. Default 6 to leave cores for the rest of the node. */

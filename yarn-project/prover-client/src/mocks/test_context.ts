@@ -110,7 +110,7 @@ export class TestContext {
         bbSkipCleanup: config.bbSkipCleanup,
         numConcurrentIVCVerifiers: 8,
         bbIVCConcurrency: 1,
-        bbChonkVerifyMaxBatch: 16,
+        bbChonkVerifyMaxBatch: 18,
         bbChonkVerifyConcurrency: 6,
       };
       localProver = await createProver(bbConfig);
