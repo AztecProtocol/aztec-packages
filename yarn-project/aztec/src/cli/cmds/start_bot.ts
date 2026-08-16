@@ -33,7 +33,7 @@ export async function startBot(
     throw new Error('The bot requires access to a Node');
   }
 
-  const aztecNode = createAztecNodeClient(config.nodeUrl, getVersions(), fetch);
+  const aztecNode = createAztecNodeClient(config.nodeUrl, { versions: getVersions(), fetch });
 
   const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
   userLog(`Creating bot wallet with config ${stringifyConfig(pxeConfig)}`);
