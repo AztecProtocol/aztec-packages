@@ -20,5 +20,11 @@
  *
  * @packageDocumentation
  */
-export { createAztecNodeClient, waitForNode, waitForTx, type AztecNode } from '../utils/node.js';
+export {
+  createAztecNodeClient,
+  waitForNode,
+  waitForTx,
+  type AztecNode,
+  type AztecNodeClientOptions,
+} from '../utils/node.js';
 export { type NodeInfo } from '@aztec/stdlib/contract';

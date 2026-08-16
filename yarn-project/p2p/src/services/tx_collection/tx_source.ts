@@ -21,7 +21,10 @@ export class NodeRpcTxSource implements TxSource {
   ) {}
 
   public static fromUrl(nodeUrl: string, txValidator: TxValidator, versions: ComponentsVersions): NodeRpcTxSource {
-    const client = createAztecNodeClient(nodeUrl, versions, makeTracedFetch([1, 2, 3], false));
+    const client = createAztecNodeClient(nodeUrl, {
+      versions,
+      fetch: makeTracedFetch([1, 2, 3], false),
+    });
     return new NodeRpcTxSource(client, txValidator, nodeUrl);
   }
 
