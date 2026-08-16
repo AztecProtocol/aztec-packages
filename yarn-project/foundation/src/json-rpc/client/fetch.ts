@@ -36,6 +36,7 @@ export async function defaultFetch(
       method: 'POST',
       body: jsonStringify(body),
       headers: { 'content-type': 'application/json', ...extraHeaders },
+      signal: AbortSignal.timeout(60000),
     });
   } catch (err) {
     const errorMessage = `Error fetching from host ${host}: ${inspect(err)}`;
