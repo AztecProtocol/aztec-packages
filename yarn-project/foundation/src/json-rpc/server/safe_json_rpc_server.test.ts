@@ -1,3 +1,4 @@
+import http from 'http';
 import request from 'supertest';
 
 import { times } from '../../collection/array.js';
@@ -7,6 +8,7 @@ import {
   createNamespacedSafeJsonRpcServer,
   createSafeJsonRpcServer,
   makeHandler,
+  startHttpRpcServer,
 } from './safe_json_rpc_server.js';
 
 const jsonrpc = '2.0';
@@ -111,6 +113,21 @@ describe('SafeJsonRpcServer', () => {
       expect(middlewareCalled).toBe(false);
     });
 
+    it('restricts preflight requests to configured headers', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedHeaders: ['content-type', 'x-api-key'],
+      });
+
+      const response = await request(server.getApp().callback())
+        .options('/')
+        .set('origin', 'https://app.example.com')
+        .set('access-control-request-method', 'POST')
+        .set('access-control-request-headers', 'content-type,x-api-key,x-unauthorized');
+
+      expect(response.status).toBe(204);
+      expect(response.headers['access-control-allow-headers']).toBe('content-type,x-api-key');
+    });
+
     it('reflects any request origin on preflight under the wildcard policy', async () => {
       server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
         corsAllowedOrigins: ['*'],
@@ -125,6 +142,30 @@ describe('SafeJsonRpcServer', () => {
       expect(response.status).toBe(204);
       expect(response.headers['access-control-allow-origin']).toBe('https://public-app.example.com');
       expect(response.headers['access-control-allow-credentials']).toBe('true');
+    });
+  });
+
+  describe('HTTP timeouts', () => {
+    beforeEach(() => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
+    });
+
+    it('preserves the Node.js defaults', async () => {
+      const defaultHttpServer = http.createServer();
+      await using httpServer = await startHttpRpcServer(server);
+
+      expect(httpServer.keepAliveTimeout).toBe(defaultHttpServer.keepAliveTimeout);
+      expect(httpServer.headersTimeout).toBe(defaultHttpServer.headersTimeout);
+    });
+
+    it('configures keep-alive and headers timeouts', async () => {
+      await using httpServer = await startHttpRpcServer(server, {
+        keepAliveTimeoutMs: 65_000,
+        headersTimeoutMs: 66_000,
+      });
+
+      expect(httpServer.keepAliveTimeout).toBe(65_000);
+      expect(httpServer.headersTimeout).toBe(66_000);
     });
   });
 

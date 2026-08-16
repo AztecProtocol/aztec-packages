@@ -65,6 +65,32 @@ describe('aztec_start_options commander integration', () => {
     expect(cmd.opts().rpcCorsAllowedOrigins).toEqual(['https://app1.example.com', 'https://app2.example.com']);
   });
 
+  it('parses RPC CORS allowed headers from the environment', () => {
+    process.env.RPC_CORS_ALLOWED_HEADERS = 'content-type, x-api-key';
+    const cmd = buildCommandWith(['API']);
+    cmd.parse(['node', 'cli']);
+
+    expect(cmd.opts().rpcCorsAllowedHeaders).toEqual(['content-type', 'x-api-key']);
+  });
+
+  it('parses RPC HTTP timeouts from the environment', () => {
+    process.env.RPC_HTTP_KEEP_ALIVE_TIMEOUT_MS = '65000';
+    process.env.RPC_HTTP_HEADERS_TIMEOUT_MS = '66000';
+    const cmd = buildCommandWith(['API']);
+    cmd.parse(['node', 'cli']);
+
+    expect(cmd.opts().rpcHttpKeepAliveTimeoutMs).toBe(65_000);
+    expect(cmd.opts().rpcHttpHeadersTimeoutMs).toBe(66_000);
+  });
+
+  it('uses the Node.js defaults for RPC HTTP timeouts', () => {
+    const cmd = buildCommandWith(['API']);
+    cmd.parse(['node', 'cli']);
+
+    expect(cmd.opts().rpcHttpKeepAliveTimeoutMs).toBe(5_000);
+    expect(cmd.opts().rpcHttpHeadersTimeoutMs).toBe(60_000);
+  });
+
   it('enables public credentialed CORS from the environment', () => {
     process.env.RPC_CORS_ALLOW_ANY_ORIGIN = 'true';
     const cmd = buildCommandWith(['API']);
