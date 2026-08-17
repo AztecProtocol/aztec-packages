@@ -34,7 +34,7 @@ import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/k
 import { AppTaggingSecret, FlatPublicLogs, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { type UnsiloedMessageNullifier, getL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
-import { MerkleTreeId, type NullifierMembershipWitness } from '@aztec/stdlib/trees';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
   CallContext,
@@ -74,7 +74,10 @@ import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
-import type { NullifierMembershipWitnessData } from '../noir-structs/nullifier_membership_witness_data.js';
+import {
+  type NullifierMembershipWitnessData,
+  toNullifierMembershipWitnessData,
+} from '../noir-structs/nullifier_membership_witness_data.js';
 import { Option } from '../noir-structs/option.js';
 import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
@@ -1325,10 +1328,6 @@ function toLogRetrievalResponse(retrievedLog: RetrievedTaggedLog): LogRetrievalR
     blockTimestamp,
     blockHash,
   };
-}
-
-function toNullifierMembershipWitnessData(witness: NullifierMembershipWitness): NullifierMembershipWitnessData {
-  return { leafPreimage: witness.leafPreimage, witness: witness.withoutPreimage() };
 }
 
 function toValidationTxData(tx: TxOnchainContext): ValidationTxData {
