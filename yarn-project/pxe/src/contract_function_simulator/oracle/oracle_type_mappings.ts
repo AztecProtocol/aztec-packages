@@ -644,8 +644,11 @@ export function ARRAY<T>(inner: TypeMapping<T>): ArrayMapping<T> {
     serialization: inner.serialization ? { fn: values => [packElements(inner, values)] } : undefined,
     deserialization: inner.deserialization
       ? {
-          // The whole slot is the array, so read as many elements as its fields hold.
-          fn: ([reader]) => unpackElements(inner, reader, reader.remainingFields() / fieldWidth(inner.shape)),
+          fn: ([reader]) => {
+            // The whole slot is the array, so read as many elements as its fields hold.
+            const elementWidth = fieldWidth(inner.shape);
+            return unpackElements(inner, reader, reader.remainingFields() / elementWidth, elementWidth);
+          },
         }
       : undefined,
     // One slot of variable length (all elements flattened into it).
@@ -669,7 +672,7 @@ export function FIXED_ARRAY<T>(element: TypeMapping<T>, length: number): FixedAr
       ? { fn: values => [padArrayEnd(packElements(element, values), Fr.ZERO, length * elementWidth)] }
       : undefined,
     deserialization: element.deserialization
-      ? { fn: ([reader]) => unpackElements(element, reader, length) }
+      ? { fn: ([reader]) => unpackElements(element, reader, length, elementWidth) }
       : undefined,
     shape: [{ len: length * elementWidth }],
   };
@@ -729,7 +732,7 @@ export function BOUNDED_VEC<T>(inner: TypeMapping<T>): BoundedVecMapping<T> {
                 `Malformed BoundedVec: length ${length} exceeds the ${maxLength} element(s) its storage array holds`,
               );
             }
-            const elements = unpackElements(inner, storageReader, length);
+            const elements = unpackElements(inner, storageReader, length, elementWidth);
             storageReader.skip(storageReader.remainingFields());
             return BoundedVec.from<T>({ data: elements, maxLength });
           },
@@ -1079,18 +1082,17 @@ function packElements<T>(element: TypeMapping<T>, values: T[]): Fr[] {
 }
 
 /**
- * Reads `count` equal-width elements out of a packed run (the inverse of {@link packElements}). Element must be
- * deserializable. `width` is for an element whose shape fixes no width; such an element must occupy a single slot,
- * since nothing records how many of a chunk's fields belong to each slot.
+ * Reads `count` `elementWidth`-field elements out of a packed run (the inverse of {@link packElements}). Element must
+ * be deserializable. When the element's shape fixes no width, `elementWidth` comes from the run's own size, and such an
+ * element must occupy a single slot, since nothing records how many of a chunk's fields belong to each slot.
  */
-function unpackElements<T>(element: TypeMapping<T>, reader: FieldReader, count: number, width?: number): T[] {
+function unpackElements<T>(element: TypeMapping<T>, reader: FieldReader, count: number, elementWidth: number): T[] {
   if (tryFieldWidth(element.shape) === undefined && element.shape.length !== 1) {
     throw new Error(
       `Cannot unpack ${element.label} elements: their width is not fixed by the type, so we can't tell how many ` +
         `fields each of their ${element.shape.length} slots holds`,
     );
   }
-  const elementWidth = width ?? fieldWidth(element.shape);
   return Array.from({ length: count }, () => deserializeElement(element, reader.readFieldArray(elementWidth)));
 }
 
