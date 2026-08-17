@@ -35,8 +35,6 @@ function build_docs {
 }
 
 function check_generated_refs {
-  # Mirrors build_docs: the docs toolchain is not installed for arm64 in CI, and the
-  # generator needs docs/node_modules for the TypeScript compiler API.
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
     echo "Not checking generated docs for arm64 in CI."
     return

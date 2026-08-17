@@ -165,12 +165,8 @@ This creates/updates the API docs in:
 - `docs/static/typescript-api/<release_type>/`
 - `docs/docs-developers/docs/aztec-js/aztec_js_reference.md`
 
-The third command regenerates the hand-rolled Aztec.js reference, which is a
-separate pipeline from the TypeDoc output above and writes into the current-version
-docs (the snapshot in Step 11 then picks it up). Omitting it is how that page went
-eight months without a refresh. `docs/bootstrap.sh` now fails CI when it drifts, so
-in practice it should already be current; run it anyway so a release never ships a
-stale page.
+`docs/bootstrap.sh` fails CI when the Aztec.js reference drifts, so in practice it
+should already be current; run it anyway so a release never ships a stale page.
 
 **Prerequisites — you MUST build dependencies before generating API docs:**
 

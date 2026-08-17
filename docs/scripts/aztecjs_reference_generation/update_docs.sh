@@ -34,7 +34,7 @@ readonly TITLE="Reference"
 # The temp files are named per-run, so clean up whatever exists at exit. --check returns
 # before the deploy step, so it cannot rely on the cleanup at the end of the script.
 cleanup() {
-  rm -f "${TEMP_JSON:-}" "${TEMP_MD:-}" "${TEMP_WITH_FRONTMATTER:-}" "${DRIFT_DIFF:-}"
+  rm -f "${TEMP_JSON:-}" "${TEMP_MD:-}" "${TEMP_WITH_FRONTMATTER:-}"
 }
 trap cleanup EXIT
 
@@ -104,8 +104,7 @@ if [[ "$CHECK_ONLY" == true ]]; then
     sed 's/^\*Generated: .*\*$/*Generated: <ignored>*/' "$1"
   }
 
-  DRIFT_DIFF=$(mktemp)
-  if diff -u <(normalize "$COMMITTED") <(normalize "$TEMP_WITH_FRONTMATTER") > "$DRIFT_DIFF"; then
+  if diff <(normalize "$COMMITTED") <(normalize "$TEMP_WITH_FRONTMATTER") > /dev/null; then
     echo "  ✓ Reference matches aztec.js"
     exit 0
   fi
@@ -117,11 +116,7 @@ The committed Aztec.js reference no longer matches yarn-project/aztec.js/src.
 Regenerate it and commit the result:
 
   cd docs && ./scripts/aztecjs_reference_generation/update_docs.sh current
-
-First 100 lines of the difference (committed on the left, regenerated on the right):
-
 EOF
-  head -100 "$DRIFT_DIFF" >&2
   exit 1
 fi
 

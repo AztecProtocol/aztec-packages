@@ -27,7 +27,7 @@ A **two-phase pipeline** with complete control over output:
 # Generate to specific version
 ./scripts/aztecjs_reference_generation/update_docs.sh v2.0.2
 
-# Fail if the committed current-version page is out of date (what CI runs)
+# Fail if the committed current-version page is out of date
 ./scripts/aztecjs_reference_generation/update_docs.sh --check
 ```
 
