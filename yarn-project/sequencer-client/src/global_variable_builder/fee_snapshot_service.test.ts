@@ -303,6 +303,25 @@ describe('FeeSnapshotService', () => {
     await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeQuoteUnavailableError);
   });
 
+  it('does not continue refreshing after a read times out', async () => {
+    service = makeService({ refreshTimeoutMs: 20 });
+    const gate = promiseWithResolvers<void>();
+    rollup.gate = gate.promise;
+
+    const read = service.getCurrentMinFees();
+    identity.snapshot = makeIdentity(2n, PINNED_SLOT);
+    await expect(read).rejects.toBeInstanceOf(FeeQuoteUnavailableError);
+
+    rollup.gate = undefined;
+    gate.resolve();
+    await retryUntil(() => service.stats.refreshes === 1, 'timed-out refresh completion', 10, 0.02);
+    await sleep(0);
+
+    expect(service.stats.refreshes).toBe(1);
+    expect(rollup.callCount).toBe(STAGES_PER_REFRESH);
+    expect(service.getSnapshot()!.l1.blockNumber).toBe(1n);
+  });
+
   it('reports unavailable for reads after the service is stopped', async () => {
     await service.getCurrentMinFees();
     await service.stop();
