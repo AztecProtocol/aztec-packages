@@ -87,7 +87,15 @@ pub mod keys;
 pub mod key_validation_request;
 #[generate_oracle_tests]
 pub mod logs;
-// TODO: cover with oracle tests once the test resolver can serve EphemeralArray contents.
+#[generate_oracle_tests_excluding(
+    @[
+        // TODO: cover with oracle tests once the test resolver can serve EphemeralArray contents.
+        quote { get_pending_tagged_logs_oracle },
+        quote { validate_and_store_enqueued_notes_and_events_oracle },
+        quote { get_logs_by_tag_oracle },
+        quote { get_tx_effects_oracle },
+    ],
+)]
 pub mod message_processing;
 #[generate_oracle_tests_excluding(
     @[
