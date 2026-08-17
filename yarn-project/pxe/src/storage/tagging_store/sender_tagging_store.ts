@@ -1,3 +1,4 @@
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -188,7 +189,7 @@ export class SenderTaggingStore implements StagedStore {
       }));
 
       // Await all reads together
-      const rangeData = await Promise.all(
+      const rangeData = await allToCompletion(
         rangeReadPromises.map(async item => ({
           ...item,
           pendingData: await item.pending,
@@ -293,7 +294,7 @@ export class SenderTaggingStore implements StagedStore {
       const pendingPromise = this.#readPendingIndexes(jobId, secretStr);
       const finalizedPromise = this.#readLastFinalizedIndex(jobId, secretStr);
 
-      const [pendingEntries, lastFinalized] = await Promise.all([pendingPromise, finalizedPromise]);
+      const [pendingEntries, lastFinalized] = await allToCompletion([pendingPromise, finalizedPromise]);
 
       if (pendingEntries.length === 0) {
         return lastFinalized;
@@ -332,7 +333,7 @@ export class SenderTaggingStore implements StagedStore {
 
       // Await all reads together
       const secrets = [...secretReadPromises.keys()];
-      const pendingDataResults = await Promise.all(secretReadPromises.values());
+      const pendingDataResults = await allToCompletion([...secretReadPromises.values()]);
 
       // Process in memory
       for (let i = 0; i < secrets.length; i++) {
@@ -383,7 +384,7 @@ export class SenderTaggingStore implements StagedStore {
 
       // Await all reads together
       const secrets = [...secretDataPromises.keys()];
-      const dataResults = await Promise.all(
+      const dataResults = await allToCompletion(
         secrets.map(async secret => ({
           secret,
           pendingData: await secretDataPromises.get(secret)!.pending,

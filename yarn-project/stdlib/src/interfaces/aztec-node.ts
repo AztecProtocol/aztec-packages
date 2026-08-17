@@ -15,7 +15,12 @@ import {
 } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
+import {
+  type JsonRpcFetch,
+  type JsonRpcFetchConfig,
+  createSafeJsonRpcClient,
+  makeFetch,
+} from '@aztec/foundation/json-rpc/client';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
@@ -790,16 +795,28 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   }),
 };
 
-export function createAztecNodeClient(
-  url: string,
-  versions: Partial<ComponentsVersions> = {},
-  fetch = makeFetch([1, 2, 3], false),
-  batchWindowMS = 0,
-): AztecNode {
+/** Options for an Aztec node JSON-RPC client. */
+export type AztecNodeClientOptions = {
+  /** Expected component versions checked against response headers. */
+  versions?: Partial<ComponentsVersions>;
+  /** Custom JSON-RPC transport. Takes precedence over fetchOptions. */
+  fetch?: JsonRpcFetch;
+  /** Configuration for the default retrying fetch transport. */
+  fetchOptions?: JsonRpcFetchConfig;
+  /** Time in milliseconds to collect calls into a JSON-RPC batch. */
+  batchWindowMS?: number;
+  /** Maximum number of calls sent in one JSON-RPC batch. */
+  maxBatchSize?: number;
+};
+
+export function createAztecNodeClient(url: string, options: AztecNodeClientOptions = {}): AztecNode {
+  const fetch = options.fetch ?? makeFetch([1, 2, 3], false, undefined, options.fetchOptions);
+
   return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
     namespaceMethods: 'aztec',
     fetch,
-    batchWindowMS,
-    onResponse: getVersioningResponseHandler(versions),
+    batchWindowMS: options.batchWindowMS ?? 0,
+    maxBatchSize: options.maxBatchSize,
+    onResponse: getVersioningResponseHandler(options.versions ?? {}),
   });
 }

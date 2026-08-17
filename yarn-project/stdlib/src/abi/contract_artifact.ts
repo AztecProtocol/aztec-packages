@@ -249,14 +249,14 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
 /**
  * Generates a storage layout for the contract artifact.
  * @param contractName - The name of the compiled Noir contract.
- * @param globals - The normalized globals exported by the contract.
+ * @param globals - The globals exported by the contract.
  * @returns A storage layout for the contract.
  */
-function getStorageLayout(contractName: string, globals: Record<string, AbiValue[]>) {
+function getStorageLayout(contractName: string, globals: Record<string, AbiNamedValue[]>) {
   // If another contract is imported by the main contract, its storage layout its going to also show up here.
   // The layout export includes the contract name, so here we can find the one that belongs to the current one and
   // ignore the rest.
-  const storageExports = globals.storage ?? [];
+  const storageExports = globals.storage?.map(entry => entry.value) ?? [];
   const storageForContract = storageExports.find((storageExport): storageExport is StructValue => {
     if (storageExport.kind !== 'struct') {
       return false;
@@ -286,20 +286,19 @@ function getStorageLayout(contractName: string, globals: Record<string, AbiValue
   }, {});
 }
 
-function isAbiNamedValue(value: AbiNamedValue | AbiValue): value is AbiNamedValue {
-  return 'name' in value;
-}
-
-function normalizeContractOutputs(outputs: NoirCompiledContract['outputs']): ContractArtifact['outputs'] {
-  return {
-    structs: outputs.structs,
-    globals: Object.fromEntries(
-      Object.entries(outputs.globals).map(([tag, values]) => [
-        tag,
-        values.map(value => (isAbiNamedValue(value) ? value.value : value)),
-      ]),
-    ),
-  };
+/**
+ * Returns the globals exported by the contract under an `#[abi(tag)]` attribute, keyed by global name.
+ * An unknown tag yields an empty record. Throws if two globals under the same tag share a name.
+ */
+export function getGlobalsByTag(artifact: ContractArtifact, tag: string): Record<string, AbiValue> {
+  const globals = new Map<string, AbiValue>();
+  for (const entry of artifact.outputs.globals[tag] ?? []) {
+    if (globals.has(entry.name)) {
+      throw new Error(`Duplicate global '${entry.name}' exported under #[abi(${tag})] in contract ${artifact.name}`);
+    }
+    globals.set(entry.name, entry.value);
+  }
+  return Object.fromEntries(globals);
 }
 
 /**
@@ -312,7 +311,6 @@ function generateContractArtifact(contract: NoirCompiledContract): ContractArtif
     if (!contract.transpiled) {
       throw new Error("Contract's public bytecode has not been transpiled");
     }
-    const outputs = normalizeContractOutputs(contract.outputs);
     return ContractArtifactSchema.parse({
       name: contract.name,
       aztecVersion: contract.aztec_version,
@@ -320,8 +318,8 @@ function generateContractArtifact(contract: NoirCompiledContract): ContractArtif
       nonDispatchPublicFunctions: contract.functions
         .filter(f => !retainBytecode(f))
         .map(f => generateFunctionAbi(f, contract)),
-      outputs,
-      storageLayout: getStorageLayout(contract.name, outputs.globals),
+      outputs: contract.outputs,
+      storageLayout: getStorageLayout(contract.name, contract.outputs.globals),
       fileMap: contract.file_map,
     });
   } catch (err) {
@@ -336,7 +334,6 @@ function generateContractArtifact(contract: NoirCompiledContract): ContractArtif
  */
 function generateContractArtifactForPublic(contract: NoirCompiledContract): ContractArtifact {
   try {
-    const outputs = normalizeContractOutputs(contract.outputs);
     return ContractArtifactSchema.parse({
       name: contract.name,
       aztecVersion: contract.aztec_version,
@@ -344,8 +341,8 @@ function generateContractArtifactForPublic(contract: NoirCompiledContract): Cont
       nonDispatchPublicFunctions: contract.functions
         .filter(f => !retainBytecode(f))
         .map(f => generateFunctionAbi(f, contract)),
-      outputs,
-      storageLayout: getStorageLayout(contract.name, outputs.globals),
+      outputs: contract.outputs,
+      storageLayout: getStorageLayout(contract.name, contract.outputs.globals),
       fileMap: contract.file_map,
     });
   } catch (err) {

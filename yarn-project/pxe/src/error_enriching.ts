@@ -1,4 +1,5 @@
 import type { Logger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator/client';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -35,7 +36,7 @@ export async function enrichSimulationError(
     }
   });
 
-  await Promise.all(
+  await allToCompletion(
     [...mentionedFunctions.entries()].map(async ([contractAddress, fnSelectors]) => {
       const parsedContractAddress = AztecAddress.fromStringUnsafe(contractAddress);
       const classId = await contractClassService.getCurrentClassId(parsedContractAddress, anchorHeader);
@@ -44,7 +45,7 @@ export async function enrichSimulationError(
         err.enrichWithContractName(parsedContractAddress, artifact.name);
         // Map from function selector to function name. It uses a stringified key for the same reason as mentionedFunctions.
         const selectorToNameMap: Map<string, string> = new Map();
-        await Promise.all(
+        await allToCompletion(
           artifact.functions.map(async fn => {
             const selector = await FunctionSelector.fromNameAndParameters(fn);
             selectorToNameMap.set(selector.toString(), fn.name);

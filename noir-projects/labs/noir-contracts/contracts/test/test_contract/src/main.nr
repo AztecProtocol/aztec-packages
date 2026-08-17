@@ -74,6 +74,17 @@ pub contract Test {
 
     global DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY: u64 = 2;
 
+    #[abi(constants)]
+    pub global EXPORTED_FIELD_CONSTANT: Field = 1234;
+    #[abi(constants)]
+    pub global EXPORTED_STRING_CONSTANT: str<8> = "exported";
+    #[abi(limits)]
+    pub global EXPORTED_LIMIT_CONSTANT: u32 = 100;
+    // Stacking the attribute exports the same name under multiple tags.
+    #[abi(constants)]
+    #[abi(limits)]
+    pub global EXPORTED_SHARED_CONSTANT: u32 = 7;
+
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
     // test function must also be updated accordingly.
     #[storage]

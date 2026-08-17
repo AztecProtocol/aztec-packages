@@ -3,7 +3,12 @@ import type { GasUsed } from '@aztec/stdlib/gas';
 
 export interface ExecutorMetricsInterface {
   startRecordingTxSimulation(txLabel: string): void;
-  stopRecordingTxSimulation(txLabel: string, gasUsed?: GasUsed, revertedCode?: RevertCode): void;
+  stopRecordingTxSimulation(
+    txLabel: string,
+    gasUsed?: GasUsed,
+    revertedCode?: RevertCode,
+    stats?: Record<string, string>,
+  ): void;
   recordEnqueuedCallSimulation(fnName: string, durationMs: number, manaUsed: number, totalInstructions: number): void;
   recordEnqueuedCallSimulationFailure(
     fnName: string,

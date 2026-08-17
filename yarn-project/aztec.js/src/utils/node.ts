@@ -103,4 +103,4 @@ export async function waitForTx(node: AztecNode, txHash: TxHash, opts?: WaitOpts
   return receipt;
 }
 
-export { createAztecNodeClient, type AztecNode } from '@aztec/stdlib/interfaces/client';
+export { createAztecNodeClient, type AztecNode, type AztecNodeClientOptions } from '@aztec/stdlib/interfaces/client';

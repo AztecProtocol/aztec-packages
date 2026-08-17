@@ -231,8 +231,6 @@ export function makeTxContext(seed: number = 1): TxContext {
  */
 export function makeGasSettings() {
   return GasSettings.fallback({
-    // Arbitrary daGas pinned to the pre-existing fixture value so avm_inputs.testdata.bin (consumed by
-    // the C++ vm2 tests) stays byte-stable; teardown derives to the same values the old fallback produced.
     gasLimits: new Gas(196_608, MAX_PROCESSABLE_L2_GAS),
     maxFeesPerGas: new GasFees(10, 10),
   });

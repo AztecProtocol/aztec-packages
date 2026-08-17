@@ -2,11 +2,16 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { NoirCompiledContract } from '../noir/index.js';
-import { getBenchmarkContractArtifact } from '../tests/fixtures.js';
-import type { AbiValue } from './abi.js';
-import { contractArtifactFromBuffer, contractArtifactToBuffer, loadContractArtifact } from './contract_artifact.js';
+import { getBenchmarkContractArtifact, getTestContractArtifact } from '../tests/fixtures.js';
+import type { AbiNamedValue, AbiValue } from './abi.js';
+import {
+  contractArtifactFromBuffer,
+  contractArtifactToBuffer,
+  getGlobalsByTag,
+  loadContractArtifact,
+} from './contract_artifact.js';
 
-const bareStorageLayout = {
+const storageLayoutValue = {
   kind: 'struct',
   fields: [
     { name: 'contract_name', value: { kind: 'string', value: 'TestContract' } },
@@ -37,48 +42,84 @@ describe('contract_artifact', () => {
   });
 
   it('loads named global values emitted by Noir', () => {
-    const artifact = loadContractArtifact({
-      name: 'TestContract',
-      aztec_version: '1.0.0',
-      transpiled: true,
-      functions: [],
-      outputs: {
-        structs: {},
-        globals: {
-          storage: [
-            {
-              name: 'STORAGE_LAYOUT_TestContract',
-              value: bareStorageLayout,
-            },
-          ],
-        },
-      },
-      file_map: {},
-    } satisfies NoirCompiledContract);
+    const artifact = loadContractArtifact(
+      contractWithGlobals({ storage: [{ name: 'STORAGE_LAYOUT_TestContract', value: storageLayoutValue }] }),
+    );
 
     expect(artifact.outputs.globals.storage[0]).toEqual({
-      kind: 'struct',
-      fields: expect.any(Array),
+      name: 'STORAGE_LAYOUT_TestContract',
+      value: storageLayoutValue,
     });
     expect(artifact.storageLayout).toEqual({ balance: { slot: new Fr(1) } });
   });
 
-  it('loads bare global values emitted by older Noir versions', () => {
-    const artifact = loadContractArtifact({
-      name: 'TestContract',
-      aztec_version: '1.0.0',
-      transpiled: true,
-      functions: [],
-      outputs: {
-        structs: {},
-        globals: {
-          storage: [bareStorageLayout],
-        },
-      },
-      file_map: {},
-    } satisfies NoirCompiledContract);
+  it('loads the constants exported by the Test contract', () => {
+    const artifact = getTestContractArtifact();
+    const constants = getGlobalsByTag(artifact, 'constants');
+    expect(constants.EXPORTED_FIELD_CONSTANT).toEqual({
+      kind: 'integer',
+      sign: false,
+      value: '00000000000000000000000000000000000000000000000000000000000004d2',
+    });
+    expect(constants.EXPORTED_STRING_CONSTANT).toEqual({ kind: 'string', value: 'exported' });
 
-    expect(artifact.outputs.globals.storage).toEqual([bareStorageLayout]);
-    expect(artifact.storageLayout).toEqual({ balance: { slot: new Fr(1) } });
+    const limits = getGlobalsByTag(artifact, 'limits');
+    expect(limits.EXPORTED_LIMIT_CONSTANT).toEqual({
+      kind: 'integer',
+      sign: false,
+      value: '0000000000000000000000000000000000000000000000000000000000000064',
+    });
+    expect(constants.EXPORTED_LIMIT_CONSTANT).toBeUndefined();
+    expect(limits.EXPORTED_FIELD_CONSTANT).toBeUndefined();
+
+    // EXPORTED_SHARED_CONSTANT stacks #[abi(constants)] and #[abi(limits)], exporting it under both tags.
+    expect(constants.EXPORTED_SHARED_CONSTANT).toEqual({
+      kind: 'integer',
+      sign: false,
+      value: '0000000000000000000000000000000000000000000000000000000000000007',
+    });
+    expect(limits.EXPORTED_SHARED_CONSTANT).toEqual(constants.EXPORTED_SHARED_CONSTANT);
+  });
+
+  describe('getGlobalsByTag', () => {
+    const fieldValue = { kind: 'integer', sign: false, value: '04d2' } satisfies AbiValue;
+    const stringValue = { kind: 'string', value: 'exported' } satisfies AbiValue;
+
+    it('returns an empty record for an unknown tag', () => {
+      const artifact = loadContractArtifact(contractWithGlobals({}));
+      expect(getGlobalsByTag(artifact, 'constants')).toEqual({});
+    });
+
+    it('handles global names that collide with Object prototype properties', () => {
+      const artifact = loadContractArtifact(
+        contractWithGlobals({ constants: [{ name: 'toString', value: fieldValue }] }),
+      );
+      expect(getGlobalsByTag(artifact, 'constants')).toEqual({ toString: fieldValue });
+    });
+
+    it('throws on duplicate names under the same tag', () => {
+      // Reachable from valid Noir: repeating the same #[abi(tag)] attribute on one global emits the
+      // entry once per attribute, without deduplication.
+      const artifact = loadContractArtifact(
+        contractWithGlobals({
+          constants: [
+            { name: 'MY_FIELD', value: fieldValue },
+            { name: 'MY_FIELD', value: stringValue },
+          ],
+        }),
+      );
+      expect(() => getGlobalsByTag(artifact, 'constants')).toThrow(/Duplicate global 'MY_FIELD'/);
+    });
   });
 });
+
+function contractWithGlobals(globals: Record<string, AbiNamedValue[]>): NoirCompiledContract {
+  return {
+    name: 'TestContract',
+    aztec_version: '1.0.0',
+    transpiled: true,
+    functions: [],
+    outputs: { structs: {}, globals },
+    file_map: {},
+  };
+}

@@ -1,6 +1,7 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -19,7 +20,7 @@ export class TxResolverService {
   async resolveTxs(txHashes: Fr[], anchorBlockNumber: number): Promise<(TxOnchainContext | null)[]> {
     const nonZeroTxHashes = txHashes.filter(h => !h.isZero()).map(h => TxHash.fromField(h));
     const uniqueTxHashes = uniqueBy(nonZeroTxHashes, h => h.toString());
-    const fetched = await Promise.all(
+    const fetched = await allToCompletion(
       uniqueTxHashes.map(h => this.aztecNode.getTxReceipt(h, { includeTxEffect: true })),
     );
     const txEffects = new Map(

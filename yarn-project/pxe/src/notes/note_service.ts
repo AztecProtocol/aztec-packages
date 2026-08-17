@@ -1,5 +1,6 @@
 import { chunk } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type DataInBlock, type InBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -135,9 +136,9 @@ export class NoteService {
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
-    const computed = await Promise.all(
+    const computed = await allToCompletion(
       requests.map(async ({ contractAddress, noteHash, nullifier, noteNonce }) => {
-        const [siloedNoteHash, siloedNullifier] = await Promise.all([
+        const [siloedNoteHash, siloedNullifier] = await allToCompletion([
           siloNoteHash(contractAddress, noteHash),
           siloNullifier(contractAddress, nullifier),
         ]);
@@ -222,7 +223,7 @@ export class NoteService {
   async #findNullifierIndexes(anchorBlockHash: BlockHash, siloedNullifiers: Fr[]) {
     const batches = chunk(siloedNullifiers, MAX_RPC_LEN);
     return (
-      await Promise.all(
+      await allToCompletion(
         batches.map(batch => this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, batch)),
       )
     ).flat();
