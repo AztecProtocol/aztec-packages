@@ -615,8 +615,11 @@ export function ARRAY<T>(inner: TypeMapping<T>): ArrayMapping<T> {
     serialization: inner.serialization ? { fn: values => [packElements(inner, values)] } : undefined,
     deserialization: inner.deserialization
       ? {
-          // The whole slot is the array, so read as many elements as its fields hold.
-          fn: ([reader]) => unpackElements(inner, reader, reader.remainingFields() / fieldWidth(inner.shape)),
+          fn: ([reader]) => {
+            // The whole slot is the array, so read as many elements as its fields hold.
+            const elementWidth = fieldWidth(inner.shape);
+            return unpackElements(inner, reader, reader.remainingFields() / elementWidth, elementWidth);
+          },
         }
       : undefined,
     // One slot of variable length (all elements flattened into it).
@@ -640,7 +643,7 @@ export function FIXED_ARRAY<T>(element: TypeMapping<T>, length: number): FixedAr
       ? { fn: values => [padArrayEnd(packElements(element, values), Fr.ZERO, length * elementWidth)] }
       : undefined,
     deserialization: element.deserialization
-      ? { fn: ([reader]) => unpackElements(element, reader, length) }
+      ? { fn: ([reader]) => unpackElements(element, reader, length, elementWidth) }
       : undefined,
     shape: [{ len: length * elementWidth }],
   };
@@ -700,7 +703,7 @@ export function BOUNDED_VEC<T>(inner: TypeMapping<T>): BoundedVecMapping<T> {
                 `Malformed BoundedVec: length ${length} exceeds the ${maxLength} element(s) its storage array holds`,
               );
             }
-            const elements = unpackElements(inner, storageReader, length);
+            const elements = unpackElements(inner, storageReader, length, elementWidth);
             storageReader.skip(storageReader.remainingFields());
             return BoundedVec.from<T>({ data: elements, maxLength });
           },
@@ -860,11 +863,47 @@ export function STRUCT<T>(fields: readonly StructField[]): StructMapping<T> {
 }
 
 /**
- * The composite `TypeMapping`s (`ARRAY`/`BOUNDED_VEC`/`OPTION`/`STRUCT`/`FIXED_ARRAY`/`FIXED_BOUNDED_VEC`/
+ * Maps Noir's `[T]` ↔ TS `T[]` over 2 slots:
+ *   slot 0 — length scalar (count of elements)
+ *   slot 1 — the elements' fields, laid end to end
+ *
+ * @example Serializing `[{ x: 1, y: 2 }, { x: 3, y: 4 }]` with `VECTOR(POINT)`:
+ * ```
+ * slot 0: Fr(2)                          // element count, not field count
+ * slot 1: [Fr(1), Fr(2), Fr(3), Fr(4)]   // each element's fields end to end
+ * ```
+ */
+export function VECTOR<T>(inner: TypeMapping<T>): VectorMapping<T> {
+  return {
+    kind: 'vector',
+    label: `vector(${inner.label})`,
+    inner,
+    serialization: inner.serialization
+      ? { fn: values => [new Fr(values.length), packElements(inner, values)] }
+      : undefined,
+    deserialization: inner.deserialization
+      ? {
+          fn: ([lengthReader, contentsReader]) => {
+            const length = lengthReader.readField().toNumber();
+            // If the shape does not fix a width, every element shares one unknown width, so dividing the contents by
+            // the count recovers it.
+            const elementWidth = tryFieldWidth(inner.shape) ?? contentsReader.remainingFields() / length;
+            return unpackElements(inner, contentsReader, length, elementWidth);
+          },
+        }
+      : undefined,
+    // slot 0: the length scalar; slot 1: the contents, sized by that length.
+    shape: ['scalar', { lenFrom: (size: { length: number }) => size.length * fieldWidth(inner.shape) }],
+  };
+}
+
+/**
+ * The composite `TypeMapping`s (`ARRAY`/`VECTOR`/`BOUNDED_VEC`/`OPTION`/`STRUCT`/`FIXED_ARRAY`/`FIXED_BOUNDED_VEC`/
  * `EPHEMERAL_ARRAY`), discriminated by `kind`. The combinators attach `kind` plus the inner mapping(s) at construction;
  * the registry erases params to the base `TypeMapping`, so the guards below recover the structure for recursion.
  */
 export type ArrayMapping<T = any> = TypeMapping<T[]> & { kind: 'array'; inner: TypeMapping<T> };
+export type VectorMapping<T = any> = TypeMapping<T[]> & { kind: 'vector'; inner: TypeMapping<T> };
 export type BoundedVecMapping<T = any> = TypeMapping<BoundedVec<T>> & { kind: 'bounded-vec'; inner: TypeMapping<T> };
 export type OptionMapping<T = any> = TypeMapping<Option<T>> & { kind: 'option'; inner: TypeMapping<T> };
 export type StructMapping<T = any> = TypeMapping<T> & { kind: 'struct'; fields: readonly StructField[] };
@@ -884,6 +923,7 @@ export type EphemeralArrayMapping<T = any> = TypeMapping<EphemeralArray<T>> & {
 };
 export type CompositeMapping =
   | ArrayMapping
+  | VectorMapping
   | BoundedVecMapping
   | OptionMapping
   | StructMapping
@@ -893,6 +933,9 @@ export type CompositeMapping =
 
 export function isArrayMapping(type: TypeMapping<any>): type is ArrayMapping {
   return type.kind === 'array';
+}
+export function isVectorMapping(type: TypeMapping<any>): type is VectorMapping {
+  return type.kind === 'vector';
 }
 export function isBoundedVecMapping(type: TypeMapping<any>): type is BoundedVecMapping {
   return type.kind === 'bounded-vec';
@@ -1010,11 +1053,17 @@ function packElements<T>(element: TypeMapping<T>, values: T[]): Fr[] {
 }
 
 /**
- * Reads `count` fixed-width elements out of a packed run (the inverse of {@link packElements}). Element must be
- * deserializable.
+ * Reads `count` `elementWidth`-field elements out of a packed run (the inverse of {@link packElements}). Element must
+ * be deserializable. When the element's shape fixes no width, `elementWidth` comes from the run's own size, and such an
+ * element must occupy a single slot, since nothing records how many of a chunk's fields belong to each slot.
  */
-function unpackElements<T>(element: TypeMapping<T>, reader: FieldReader, count: number): T[] {
-  const elementWidth = fieldWidth(element.shape);
+function unpackElements<T>(element: TypeMapping<T>, reader: FieldReader, count: number, elementWidth: number): T[] {
+  if (tryFieldWidth(element.shape) === undefined && element.shape.length !== 1) {
+    throw new Error(
+      `Cannot unpack ${element.label} elements: their width is not fixed by the type, so we can't tell how many ` +
+        `fields each of their ${element.shape.length} slots holds`,
+    );
+  }
   return Array.from({ length: count }, () => deserializeElement(element, reader.readFieldArray(elementWidth)));
 }
 

@@ -32,6 +32,7 @@ import {
   isFixedBoundedVecMapping,
   isOptionMapping,
   isStructMapping,
+  isVectorMapping,
   tryFieldWidth,
 } from '@aztec/pxe/simulator';
 import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
@@ -99,6 +100,7 @@ const COMPOSITE_IMPLS: CompositeImpl[] = [
     named(Option.none(testValueFor(type.inner, seed)), 'none'),
   ]),
   composite(isArrayMapping, (type, seed) => [unnamed(collectionData(type.inner, seed, DEFAULT_ARRAY_LENGTH))]),
+  composite(isVectorMapping, (type, seed) => [unnamed(collectionData(type.inner, seed, DEFAULT_ARRAY_LENGTH))]),
   composite(isBoundedVecMapping, (type, seed) => [
     unnamed(
       BoundedVec.from({

@@ -28,7 +28,7 @@ import {
   makeEntry,
   slotsOf,
 } from './oracle_registry.js';
-import { FIXED_ARRAY, FIXED_BOUNDED_VEC, LEAF, SCALAR, STRUCT, TX_HASH } from './oracle_type_mappings.js';
+import { FIXED_ARRAY, FIXED_BOUNDED_VEC, LEAF, SCALAR, STRUCT, TX_HASH, VECTOR } from './oracle_type_mappings.js';
 
 /**
  * Tests for the oracle type mappings: how the PXE encodes values to, and decodes them from, the flat field arrays that
@@ -265,6 +265,57 @@ describe('oracle type mappings', () => {
     });
   });
 
+  // A vector carries its element count on the wire, so it takes a length slot ahead of its contents.
+  describe('VECTOR', () => {
+    it('round-trips a mix of Some and None elements', () => {
+      const data = [Option.some(new Fr(7)), Option.none<Fr>(), Option.some(new Fr(9))];
+      const out = roundTrip(VECTOR(OPTION(FIELD)), data);
+      expect(out.map(o => o.isSome())).toEqual([true, false, true]);
+      expect(out[0].value).toEqual(new Fr(7));
+      expect(out[2].value).toEqual(new Fr(9));
+    });
+
+    it('round-trips an empty vector', () => {
+      expect(roundTrip(VECTOR(FIELD), [])).toEqual([]);
+    });
+
+    it('round-trips multi-field elements', () => {
+      const data = [
+        { x: Fr.random(), y: Fr.random() },
+        { x: Fr.random(), y: Fr.random() },
+      ];
+      expect(roundTrip(VECTOR(POINT), data)).toEqual(data);
+    });
+
+    it('round-trips generic-length array elements', () => {
+      const data = [
+        [new Fr(1), new Fr(2), new Fr(3)],
+        [new Fr(4), new Fr(5), new Fr(6)],
+      ];
+      expect(roundTrip(VECTOR(ARRAY(FIELD)), data)).toEqual(data);
+    });
+
+    it('round-trips an empty vector of array elements', () => {
+      expect(roundTrip(VECTOR(ARRAY(FIELD)), [])).toEqual([]);
+    });
+
+    it('serializes the length ahead of the contents', () => {
+      expect(VECTOR(FIELD).serialization!.fn([new Fr(7), new Fr(9)])).toEqual([new Fr(2), [new Fr(7), new Fr(9)]]);
+    });
+
+    it('rejects a multi-slot element of unfixed width, such as a nested vector', () => {
+      const length = new FieldReader([new Fr(1)]);
+      const contents = new FieldReader([new Fr(1), new Fr(7)]);
+      expect(() => VECTOR(VECTOR(FIELD)).deserialization!.fn([length, contents])).toThrow(
+        "their width is not fixed by the type, so we can't tell how many fields each of their 2 slots holds",
+      );
+    });
+
+    it('reads two input slots', () => {
+      expect(slotsOf(VECTOR(FIELD))).toBe(2); // length + contents
+    });
+  });
+
   // An EphemeralArray param is a handle to a list of rows, each row being one flat slot of fields.
   describe('EPHEMERAL_ARRAY', () => {
     it('deserializes single-field rows', () => {
@@ -338,6 +389,7 @@ describe('oracle type mappings', () => {
       expect(FIXED_ARRAY(FIELD, 4).label).toBe('array(field,4)');
       expect(FIXED_BOUNDED_VEC(AZTEC_ADDRESS, 8).label).toBe('bounded-vec(aztec-address,8)');
       expect(EPHEMERAL_ARRAY(FIELD).label).toBe('ephemeral-array(field)');
+      expect(VECTOR(FIELD).label).toBe('vector(field)');
     });
 
     it('renders a struct namelessly, splicing nested structs into the parent', () => {
