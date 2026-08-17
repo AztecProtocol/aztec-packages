@@ -15,7 +15,12 @@ import {
 } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
+import {
+  type JsonRpcFetch,
+  type JsonRpcFetchConfig,
+  createSafeJsonRpcClient,
+  makeFetch,
+} from '@aztec/foundation/json-rpc/client';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
@@ -793,13 +798,18 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 export function createAztecNodeClient(
   url: string,
   versions: Partial<ComponentsVersions> = {},
-  fetch = makeFetch([1, 2, 3], false),
+  fetch?: JsonRpcFetch,
   batchWindowMS = 0,
+  maxBatchSize?: number,
+  fetchOptions: JsonRpcFetchConfig = {},
 ): AztecNode {
+  const rpcFetch = fetch ?? makeFetch([1, 2, 3], false, undefined, fetchOptions);
+
   return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
     namespaceMethods: 'aztec',
-    fetch,
+    fetch: rpcFetch,
     batchWindowMS,
+    maxBatchSize,
     onResponse: getVersioningResponseHandler(versions),
   });
 }

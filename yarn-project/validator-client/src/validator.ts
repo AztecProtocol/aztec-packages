@@ -12,7 +12,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
 import type { DuplicateAttestationInfo, DuplicateProposalInfo, OversizedProposalInfo, P2P, PeerId } from '@aztec/p2p';
-import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
+import { AuthRequest, AuthResponse, ReqRespSubProtocol } from '@aztec/p2p';
 import {
   OffenseType,
   WANT_TO_CLEAR_SLASH_EVENT,
@@ -40,6 +40,8 @@ import {
   type CheckpointProposalCore,
   type CheckpointProposalOptions,
   type CoordinationSignatureContext,
+  type ValidatedBlockProposal,
+  type ValidatedCheckpointProposalCore,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
@@ -58,7 +60,6 @@ import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
-import { DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
@@ -221,24 +222,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       l1Constants: epochCache.getL1Constants(),
       blockDuration: config.blockDurationMs / 1000,
     });
-    const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
-      txsPermitted: !config.disableTransactions,
-      maxTxsPerBlock: config.validateMaxTxsPerBlock,
-      maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
-      skipSlotValidation: config.skipProposalSlotValidation,
-      signatureContext: {
-        chainId: config.l1ChainId,
-        rollupAddress: config.rollupAddress,
-      },
-      clockDisparityMs: config.maxGossipClockDisparityMs ?? DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS,
-    });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,
       worldState,
       blockSource,
       l1ToL2MessageSource,
       txProvider,
-      blockProposalValidator,
       epochCache,
       consensusTimetable,
       config,
@@ -387,7 +376,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.log.debug(`Registering validator handlers for p2p client`);
 
       // Block proposal handler - validates but does NOT attest (validators only attest to checkpoints)
-      const blockHandler = (block: BlockProposal, proposalSender: PeerId): Promise<boolean> =>
+      const blockHandler = (block: ValidatedBlockProposal, proposalSender: PeerId): Promise<boolean> =>
         this.validateBlockProposal(block, proposalSender);
       this.p2pClient.registerBlockProposalHandler(blockHandler);
 
@@ -395,7 +384,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       // The checkpoint is received as CheckpointProposalCore since the lastBlock is extracted
       // and processed separately via the block handler above.
       const checkpointHandler = (
-        checkpoint: CheckpointProposalCore,
+        checkpoint: ValidatedCheckpointProposalCore,
         proposalSender: PeerId,
       ): Promise<CheckpointAttestation[] | undefined> => this.attestToCheckpointProposal(checkpoint, proposalSender);
       this.p2pClient.registerValidatorCheckpointProposalHandler(checkpointHandler);
@@ -431,7 +420,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
    * Note: Validators do NOT attest to individual blocks - attestations are only for checkpoint proposals.
    * @returns true if the proposal is valid, false otherwise
    */
-  async validateBlockProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<boolean> {
+  async validateBlockProposal(proposal: ValidatedBlockProposal, proposalSender: PeerId): Promise<boolean> {
     const slotNumber = proposal.slotNumber;
 
     // Note: During escape hatch, we still want to "validate" proposals for observability,
@@ -480,6 +469,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         'failed_txs',
         'in_hash_mismatch',
         'parent_block_wrong_slot',
+        'duplicate_txs',
+        'invalid_embedded_txs',
       ];
 
       if (badProposalReasons.includes(reason as BlockProposalValidationFailureReason)) {
@@ -527,7 +518,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
    * @returns Checkpoint attestations if valid, undefined otherwise
    */
   async attestToCheckpointProposal(
-    proposal: CheckpointProposalCore,
+    proposal: ValidatedCheckpointProposalCore,
     _proposalSender: PeerId,
   ): Promise<CheckpointAttestation[] | undefined> {
     const proposalSlotNumber = proposal.slotNumber;

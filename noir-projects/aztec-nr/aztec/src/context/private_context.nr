@@ -1225,7 +1225,11 @@ impl PrivateContext {
     /// user's tx. A single proof of the tx has been submitted to the Aztec network, and some time later a proposer has
     /// picked the tx up from the mempool and begun executing all of the enqueued public functions).
     ///
-    /// # Privacy warning Enqueueing a public function call is an inherently leaky action. Many interesting applications will require some interaction with public state, but smart contract developers should try to use public function calls sparingly, and carefully. _Internal_ public function calls are especially leaky, because they completely leak which private contract made the call. See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
+    /// # Privacy warning Enqueueing a public function call is an inherently leaky action. Many interesting applications
+    /// will require some interaction with public state, but smart contract developers should try to use public function
+    /// calls sparingly, and carefully. _Internal_ public function calls are especially leaky, because they completely
+    /// leak which private contract made the call. See also:
+    /// https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
     /// # Arguments
     /// * `contract_address` - Address of the contract containing the function

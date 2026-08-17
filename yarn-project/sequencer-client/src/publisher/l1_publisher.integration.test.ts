@@ -739,7 +739,7 @@ describe('L1Publisher integration', () => {
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(checkpoint.header);
+      await publisher.validateCheckpointHeader(checkpoint.header);
 
       const proposerSigner = validators.find(v => v.address.equals(proposer!));
 
@@ -760,7 +760,7 @@ describe('L1Publisher integration', () => {
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(checkpoint.header);
+      await publisher.validateCheckpointHeader(checkpoint.header);
 
       // Enqueue no longer simulates — the bundle simulate at send time drops the failing propose
       // and sendRequests returns undefined (no surviving actions). The drop is reported via a
@@ -789,7 +789,7 @@ describe('L1Publisher integration', () => {
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(checkpoint.header);
+      await publisher.validateCheckpointHeader(checkpoint.header);
 
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
       const attestationsAndSignersSignature = signAttestationsAndSigners(
@@ -826,7 +826,7 @@ describe('L1Publisher integration', () => {
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(checkpoint.header);
+      await publisher.validateCheckpointHeader(checkpoint.header);
 
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
       const attestationsAndSignersSignature = signAttestationsAndSigners(
@@ -913,9 +913,9 @@ describe('L1Publisher integration', () => {
       expect(canPropose?.slot).toEqual(block.header.getSlot());
 
       // Same for validation
-      logger.warn('Checking validate block header');
-      await expect(publisher.validateBlockHeader(checkpoint.header)).rejects.toThrow(/Rollup__InvalidArchive/);
-      await publisher.validateBlockHeader(checkpoint.header, invalidationSimulationOverridesPlan);
+      logger.warn('Checking validate checkpoint header');
+      await expect(publisher.validateCheckpointHeader(checkpoint.header)).rejects.toThrow(/Rollup__InvalidArchive/);
+      await publisher.validateCheckpointHeader(checkpoint.header, invalidationSimulationOverridesPlan);
 
       // At this point I'm gonna need to propose the correct signature ye? So confused actually here.
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());

@@ -64,10 +64,12 @@ export const DefaultSequencerConfig = {
   injectUnrecoverableSignatureAttestation: false,
   injectYParityAttestation: false,
   fishermanMode: false,
+  governanceProposerForcePayloadVote: false,
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
   skipPublishingCheckpointsPercent: 0,
   maxBlocksPerCheckpoint: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
+  minPeersToPropose: 1,
 } satisfies ResolvedSequencerConfig;
 
 /**
@@ -160,6 +162,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
     description: 'The address of the payload for the governanceProposer',
     parseEnv: (val: string) => EthAddress.fromString(val),
+  },
+  governanceProposerForcePayloadVote: {
+    env: 'GOVERNANCE_PROPOSER_FORCE_PAYLOAD_VOTE',
+    description:
+      'Keep signalling the configured governance payload even if a proposal referencing it was already executed.',
+    ...booleanConfigHelper(DefaultSequencerConfig.governanceProposerForcePayloadVote),
   },
   l1PublishingTime: {
     env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
@@ -271,6 +279,13 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   pauseProposingForSlots: {
     description:
       'List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected.',
+  },
+  minPeersToPropose: {
+    env: 'SEQ_MIN_PEERS_TO_PROPOSE',
+    description:
+      'Minimum number of connected p2p peers required to build and propose a checkpoint (zero to disable the check).' +
+      ' Ignored when p2p is disabled by config.',
+    ...numberConfigHelper(DefaultSequencerConfig.minPeersToPropose),
   },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
 };

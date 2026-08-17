@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 
 import { type Logger, createLogger } from '../log/pino-logger.js';
 import { type ErrorHandler, RunningPromise } from './running-promise.js';
+import { promiseWithResolvers } from './utils.js';
 
 jest.useFakeTimers();
 
@@ -48,6 +49,107 @@ describe('RunningPromise', () => {
       const promise = runningPromise.trigger();
       expect(counter).toEqual(1);
       await promise;
+      expect(counter).toEqual(2);
+    });
+
+    it('resolves only after a run that started after the call, even during a request-serving pass', async () => {
+      const gates = [promiseWithResolvers<void>(), promiseWithResolvers<void>()];
+      const log: string[] = [];
+      fn.mockImplementation(async () => {
+        const gate = gates[counter];
+        counter++;
+        const run = counter;
+        log.push(`start:${run}`);
+        await gate?.promise;
+        log.push(`end:${run}`);
+      });
+
+      runningPromise.start();
+      expect(counter).toEqual(1);
+
+      // The first trigger is served by the pass that starts once the initial (gated) pass returns.
+      const first = runningPromise.trigger().then(() => log.push('first'));
+      gates[0].resolve();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(counter).toEqual(2);
+      expect(log).not.toContain('first');
+
+      // The second trigger arrives while the pass serving the first one is in flight, so it must wait for a fresh
+      // third pass rather than resolving off the pass that was already running.
+      const second = runningPromise.trigger().then(() => log.push('second'));
+      gates[1].resolve();
+      await jest.advanceTimersByTimeAsync(0);
+      await Promise.all([first, second]);
+
+      expect(counter).toEqual(3);
+      expect(log.indexOf('first')).toBeGreaterThan(log.indexOf('end:2'));
+      expect(log.indexOf('second')).toBeGreaterThan(log.indexOf('end:3'));
+    });
+
+    it('rejects a pending trigger when stopped mid-pass', async () => {
+      const gate = promiseWithResolvers<void>();
+      fn.mockImplementation(() => {
+        counter++;
+        return counter === 1 ? gate.promise : Promise.resolve();
+      });
+
+      runningPromise.start();
+      expect(counter).toEqual(1);
+
+      const rejected = expect(runningPromise.trigger()).rejects.toThrow(
+        'RunningPromise stopped before serving trigger',
+      );
+      const stopped = runningPromise.stop();
+      gate.resolve();
+      await stopped;
+
+      await rejected;
+      expect(counter).toEqual(1);
+    });
+
+    it('rejects a pending trigger when the error handler requests an exit', async () => {
+      const gate = promiseWithResolvers<void>();
+      fn.mockImplementation(async () => {
+        counter++;
+        await gate.promise;
+        throw new Error('ouch');
+      });
+      errorHandler.mockReturnValue(RunningPromise.EXIT);
+
+      runningPromise.start();
+      expect(counter).toEqual(1);
+
+      const rejected = expect(runningPromise.trigger()).rejects.toThrow(
+        'RunningPromise stopped before serving trigger',
+      );
+      gate.resolve();
+      await jest.advanceTimersByTimeAsync(0);
+
+      await rejected;
+      expect(runningPromise.isRunning()).toBe(false);
+      expect(counter).toEqual(1);
+    });
+
+    it('resolves a trigger served by the pass in flight when stopped during that pass', async () => {
+      const gate = promiseWithResolvers<void>();
+      fn.mockImplementation(() => {
+        counter++;
+        return counter === 2 ? gate.promise : Promise.resolve();
+      });
+
+      runningPromise.start();
+      expect(counter).toEqual(1);
+
+      // The pass serving this trigger is already running when stop() is called, so the request is still served.
+      const pending = runningPromise.trigger();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(counter).toEqual(2);
+
+      const stopped = runningPromise.stop();
+      gate.resolve();
+      await stopped;
+
+      await expect(pending).resolves.toBeUndefined();
       expect(counter).toEqual(2);
     });
   });

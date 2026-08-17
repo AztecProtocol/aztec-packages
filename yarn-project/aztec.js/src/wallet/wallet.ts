@@ -333,6 +333,7 @@ export const WaitOptsSchema = z.object({
   timeout: optional(z.number()),
   interval: optional(z.number()),
   dontThrowOnRevert: optional(z.boolean()),
+  initialDelay: optional(z.number()),
 });
 
 const FromSchema = z.union([schemas.AztecAddress, z.literal(NO_FROM)]);

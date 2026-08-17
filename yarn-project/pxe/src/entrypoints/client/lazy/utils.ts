@@ -2,9 +2,7 @@ import { BBLazyPrivateKernelProver } from '@aztec/bb-prover/client/lazy';
 import { createLogger } from '@aztec/foundation/log';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { WASMSimulator } from '@aztec/simulator/client';
-import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
-import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry/lazy';
-import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint/lazy';
+import { getDefaultStandardPreloadedContracts } from '@aztec/standard-contracts/preloaded/lazy';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEConfig } from '../../../config/index.js';
@@ -65,11 +63,7 @@ export async function createPXE(
   }
   const protocolContractsProvider = new LazyProtocolContractsProvider();
   const preloadedContractsProvider = options.preloadedContractsProvider ?? {
-    getPreloadedContracts: async () => [
-      await getStandardMultiCallEntrypoint(),
-      await getStandardAuthRegistry(),
-      await getStandardHandshakeRegistry(),
-    ],
+    getPreloadedContracts: getDefaultStandardPreloadedContracts,
   };
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });

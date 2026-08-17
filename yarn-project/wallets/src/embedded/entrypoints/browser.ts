@@ -1,16 +1,15 @@
-import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/sqlite-opfs';
 import { type PXE, type PXECreationOptions, createPXE, openBrowserStore } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
-import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
-import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry/lazy';
-import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint/lazy';
+import { getDefaultStandardPreloadedContracts } from '@aztec/standard-contracts/preloaded/lazy';
 
 import { LazyAccountContractsProvider } from '../account-contract-providers/lazy.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
 import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
 import { WALLET_DATA_SCHEMA_VERSION, WalletDB } from '../wallet_db.js';
+import { resolveAztecNode } from './resolve_aztec_node.js';
 
 export class BrowserEmbeddedWallet extends EmbeddedWallet {
   static async create<T extends BrowserEmbeddedWallet = BrowserEmbeddedWallet>(
@@ -26,7 +25,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
   ): Promise<T> {
     const rootLogger = options.logger ?? createLogger('embedded-wallet');
 
-    const aztecNode = typeof nodeOrUrl === 'string' ? createAztecNodeClient(nodeOrUrl) : nodeOrUrl;
+    const aztecNode = resolveAztecNode(nodeOrUrl, options.nodeClientOptions);
 
     // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
     const { config: pxeConfigFromPxe, creation: pxeCreationFromPxe } = splitPxeOptions(options.pxe);
@@ -48,11 +47,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const pxeOptions: PXECreationOptions = {
       ...mergedCreationOverrides,
       preloadedContractsProvider: mergedCreationOverrides.preloadedContractsProvider ?? {
-        getPreloadedContracts: async () => [
-          await getStandardMultiCallEntrypoint(),
-          await getStandardAuthRegistry(),
-          await getStandardHandshakeRegistry(),
-        ],
+        getPreloadedContracts: getDefaultStandardPreloadedContracts,
       },
       loggers: {
         store: rootLogger.createChild('pxe:data'),

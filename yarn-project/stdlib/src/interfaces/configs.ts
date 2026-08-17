@@ -50,6 +50,11 @@ export interface SequencerConfig {
   /** Payload address to vote for */
   governanceProposerPayload?: EthAddress;
   /**
+   * Keep signalling the configured governance payload even if a proposal referencing it was already
+   * executed within the lookback window. For payloads deliberately designed to be re-executed.
+   */
+  governanceProposerForcePayloadVote?: boolean;
+  /**
    * Minimum block-building time (`min_block_duration`) still worth allocating if the proposer starts
    * late, in seconds.
    */
@@ -128,6 +133,11 @@ export interface SequencerConfig {
   skipBroadcastCheckpointProposal?: boolean;
   /** List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected. */
   pauseProposingForSlots?: SlotNumber[];
+  /**
+   * Minimum number of connected p2p peers required to build and propose a checkpoint. Zero disables the
+   * check. Ignored when p2p is disabled by config.
+   */
+  minPeersToPropose?: number;
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
@@ -150,6 +160,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     acvmBinaryPath: z.string().optional(),
     txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
     governanceProposerPayload: schemas.EthAddress.optional(),
+    governanceProposerForcePayloadVote: z.boolean().optional(),
     minBlockDuration: z.number().positive().optional(),
     checkpointProposalPrepareTime: z.number().nonnegative().optional(),
     l1PublishingTime: z.number().optional(),
@@ -180,6 +191,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     skipBroadcastProposals: z.boolean().optional(),
     skipBroadcastCheckpointProposal: z.boolean().optional(),
     pauseProposingForSlots: z.array(SlotNumberSchema).optional(),
+    minPeersToPropose: z.number().nonnegative().optional(),
   }),
 );
 

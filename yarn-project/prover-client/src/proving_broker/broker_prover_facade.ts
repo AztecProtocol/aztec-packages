@@ -145,7 +145,14 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
     try {
       const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
-      job.inputsUri = inputsUri;
+      // Only retain the inputs URI on the long-lived job when a failed-proof store is configured: it is
+      // read solely by `backupFailedProofInputs` on failure. With the default `InlineProofStore` the URI
+      // embeds the full circuit inputs, so retaining it for every in-flight job would pin those inputs in
+      // memory until the job settles for no purpose when no failed-proof store exists. The broker still
+      // receives the URI below regardless; this only governs what the facade holds onto.
+      if (this.failedProofStore) {
+        job.inputsUri = inputsUri;
+      }
 
       // Send the job to the broker
       const jobStatus = await this.broker.enqueueProvingJob({ id, type, inputsUri, epochNumber });

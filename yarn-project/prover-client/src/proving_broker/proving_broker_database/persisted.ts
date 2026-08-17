@@ -70,6 +70,16 @@ class SingleEpochDatabase {
     }
   }
 
+  async getProvingJobInputs(id: ProvingJobId): Promise<ProofUri | undefined> {
+    const jobStr = await this.jobs.getAsync(id);
+    return jobStr ? jsonParseWithSchema(jobStr, ProvingJob).inputsUri : undefined;
+  }
+
+  async getProvingJobResult(id: ProvingJobId): Promise<ProvingJobSettledResult | undefined> {
+    const resultStr = await this.jobResults.getAsync(id);
+    return resultStr ? jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
+  }
+
   async setProvingJobError(id: ProvingJobId, reason: string): Promise<void> {
     const result: ProvingJobSettledResult = { status: 'rejected', reason };
     await this.jobResults.set(id, jsonStringify(result));
@@ -219,8 +229,13 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
+  // Key jobs by the id-derived epoch, the same epoch results are written under (setProvingJobResult et
+  // al.). This keeps a job's inputs and its result co-located in one epoch database so both can be read
+  // back with a single keyed lookup (getProvingJobInputs/getProvingJobResult) rather than a scan. The id
+  // embeds the epoch and equals `job.epochNumber` at every construction site, so this matches the prior
+  // storage epoch while making the id the single source of truth for placement.
   addProvingJob(job: ProvingJob): Promise<void> {
-    return this.batchQueue.put(job, job.epochNumber);
+    return this.batchQueue.put(job, getEpochFromProvingJobId(job.id));
   }
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
@@ -228,6 +243,19 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     for (const it of iterators) {
       yield* it;
     }
+  }
+
+  // A job id is `${epochNumber}:${type}:${inputsHash}`, so its epoch is recoverable directly and maps to
+  // exactly one epoch database. Results are already written under this same id-derived epoch (see
+  // setProvingJobResult et al.), and a job's `epochNumber` equals its id-epoch at every construction site,
+  // so inputs live there too. Use `epochs.get` (not `getEpochDatabase`, which would create the store on a
+  // miss) so a read for an unknown id has no side effects.
+  getProvingJobInputs(id: ProvingJobId): Promise<ProofUri | undefined> {
+    return this.epochs.get(getEpochFromProvingJobId(id))?.getProvingJobInputs(id) ?? Promise.resolve(undefined);
+  }
+
+  getProvingJobResult(id: ProvingJobId): Promise<ProvingJobSettledResult | undefined> {
+    return this.epochs.get(getEpochFromProvingJobId(id))?.getProvingJobResult(id) ?? Promise.resolve(undefined);
   }
 
   setProvingJobError(id: ProvingJobId, reason: string): Promise<void> {

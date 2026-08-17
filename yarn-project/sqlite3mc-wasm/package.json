@@ -59,6 +59,7 @@
       ]
     },
     "moduleNameMapper": {
+      "^\\.\\./vendor/jswasm/(.*)$": "<rootDir>/../vendor/jswasm/$1",
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "reporters": [

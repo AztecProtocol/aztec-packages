@@ -123,7 +123,35 @@ function compile {
   local json_path="./target/$filename"
   local contract_hash=$(get_contract_hash $1 $2)
   if ! cache_download contract-$contract_hash.tar.gz; then
-    $NARGO compile --package $contract --inliner-aggressiveness 0 --deny-warnings
+    # Aztec private app circuits intentionally defer validation of some oracle outputs (including
+    # note-read requests) to the private kernels. Noir's local underconstrained and Brillig coverage
+    # checks cannot see those downstream constraints.
+    #
+    # beta.25 also recognizes constant fields in the fixed PrivateCircuitPublicInputs ABI and
+    # reports them as ReturnConstant warnings. Those fields cannot be removed from the protocol ABI,
+    # so allow that one diagnostic while continuing to reject every other compiler warning or bug.
+    local diagnostics_file=$(mktemp)
+    if ! $NARGO compile \
+      --package $contract \
+      --inliner-aggressiveness 0 \
+      --skip-underconstrained-check \
+      --skip-brillig-constraints-check \
+      2>"$diagnostics_file"; then
+      cat "$diagnostics_file" >&2
+      rm "$diagnostics_file"
+      return 1
+    fi
+    cat "$diagnostics_file" >&2
+
+    local unexpected_diagnostics
+    unexpected_diagnostics=$(grep -E '^(warning|bug):' "$diagnostics_file" \
+      | grep -Fvx 'warning: Return variable contains a constant value' || true)
+    rm "$diagnostics_file"
+    if [ -n "$unexpected_diagnostics" ]; then
+      echo_stderr "Unexpected Noir compiler diagnostics:"
+      echo_stderr "$unexpected_diagnostics"
+      return 1
+    fi
     $BB aztec_process -i $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
@@ -166,6 +194,12 @@ function build {
       echo_stderr "Using pinned-standard-contracts.tar.gz for pinned standard contracts."
       tar xzf pinned-standard-contracts.tar.gz -C target
       contracts=$(echo "$contracts" | grep -vE "^standard/")
+    fi
+
+    if [ -f pinned-protocol-contracts.tar.gz ]; then
+      echo_stderr "Using pinned-protocol-contracts.tar.gz for pinned protocol contracts."
+      tar xzf pinned-protocol-contracts.tar.gz -C target
+      contracts=$(echo "$contracts" | grep -vE "^protocol/")
     fi
   else
     local contracts="$@"
@@ -288,6 +322,21 @@ function pin-standard-build {
   echo_stderr "Done. pinned-standard-contracts.tar.gz created. Commit it to pin these artifacts."
 }
 
+# Force-builds protocol contracts and tar-balls their artifacts into pinned-protocol-contracts.tar.gz.
+# Re-pinning changes the canonical protocol contract class ids and requires a coordinated governance upgrade.
+function pin-protocol-contracts {
+  rm -f pinned-protocol-contracts.tar.gz
+  local protocol_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^protocol/")
+  build $protocol_contracts || { echo_stderr "Build failed; refusing to create tarball."; return 1; }
+  local protocol_artifacts=$(jq -r '.[]' protocol_contracts.json | sed 's/$/.json/')
+  for a in $protocol_artifacts; do
+    [ -f "target/$a" ] || { echo_stderr "Missing artifact target/$a; refusing to create tarball."; return 1; }
+  done
+  echo_stderr "Creating pinned-protocol-contracts.tar.gz..."
+  (cd target && tar czf ../pinned-protocol-contracts.tar.gz $protocol_artifacts)
+  echo_stderr "Done. pinned-protocol-contracts.tar.gz created. Commit it to pin these artifacts."
+}
+
 case "$cmd" in
   "clean-keys")
     for artifact in target/*.json; do
@@ -304,6 +353,9 @@ case "$cmd" in
     ;;
   "pin-standard-build")
     pin-standard-build
+    ;;
+  "pin-protocol-contracts")
+    pin-protocol-contracts
     ;;
   *)
     default_cmd_handler "$@"

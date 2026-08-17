@@ -3,13 +3,12 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
-import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
@@ -17,6 +16,7 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
+import { ValidatedBlockProposal, ValidatedCheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
@@ -27,7 +27,8 @@ import {
 } from '@aztec/stdlib/testing';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { GlobalVariables } from '@aztec/stdlib/tx';
+import { GlobalVariables, TX_ERROR_INVALID_PROOF, TxHash } from '@aztec/stdlib/tx';
+import { InvalidBlockProposalTxsError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -38,12 +39,14 @@ import { ProposalHandler } from './proposal_handler.js';
 
 /** Creates a checkpoint proposal core with the given overrides. */
 async function makeProposal(overrides: Parameters<typeof makeCheckpointProposal>[0] = {}) {
-  return (
-    await makeCheckpointProposal({
-      checkpointHeader: makeCheckpointHeader(0, { slotNumber: SlotNumber(1) }),
-      ...overrides,
-    })
-  ).toCore();
+  return ValidatedCheckpointProposalCore(
+    (
+      await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: SlotNumber(1) }),
+        ...overrides,
+      })
+    ).toCore(),
+  );
 }
 
 describe('ProposalHandler checkpoint validation', () => {
@@ -101,7 +104,6 @@ describe('ProposalHandler checkpoint validation', () => {
       blockSource,
       l1ToL2MessageSource,
       mock<ITxProvider>(),
-      mock<BlockProposalValidator>(),
       epochCache,
       consensusTimetable,
       config,
@@ -172,7 +174,6 @@ describe('ProposalHandler checkpoint validation', () => {
         blockSource,
         l1ToL2MessageSource,
         mock<ITxProvider>(),
-        mock<BlockProposalValidator>(),
         epochCache,
         consensusTimetable,
         config,
@@ -644,6 +645,59 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(mockDispose).toHaveBeenCalled();
     });
 
+    // A zero-tx block at a non-zero index passes re-execution (nothing failed, 0 effects === 0 hashes, no state
+    // movement), but no block-root circuit can prove it, so the attester has to reject it on structure alone.
+    it('returns checkpoint_validation_failed when a block after the first has no txs', async () => {
+      const lastArchiveRoot = Fr.random();
+      const firstBlockArchiveRoot = Fr.random();
+      const header = makeMatchingHeader({ lastArchiveRoot });
+
+      const makeMinimalBlock = (number: number, index: number, lastArchive: Fr, archive: Fr, numTxs: number) => {
+        const blockHeader = makeBlockHeader(number, {
+          slotNumber: SlotNumber(1),
+          coinbase: header.coinbase,
+          feeRecipient: header.feeRecipient,
+          gasFees: header.gasFees,
+          timestamp: header.timestamp,
+        });
+        unfreeze(blockHeader).lastArchive = new AppendOnlyTreeSnapshot(lastArchive, index);
+        return {
+          archive: new AppendOnlyTreeSnapshot(archive, index + 1),
+          number,
+          checkpointNumber: CheckpointNumber(1),
+          indexWithinCheckpoint: index,
+          slot: SlotNumber(1),
+          header: blockHeader,
+          body: { txEffects: Array.from({ length: numTxs }, () => ({})) },
+          computeDAGasUsed: () => 0,
+          toBlobFields: () => [],
+        } as unknown as L2Block;
+      };
+
+      setupDeepValidationMocks(
+        {
+          header,
+          archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+          blocks: [
+            makeMinimalBlock(1, 0, lastArchiveRoot, firstBlockArchiveRoot, 1),
+            makeMinimalBlock(2, 1, firstBlockArchiveRoot, archiveRoot, 0),
+          ],
+          number: CheckpointNumber(1),
+          slot: SlotNumber(1),
+          toBlobFields: () => [],
+        },
+        lastArchiveRoot,
+      );
+
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_validation_failed',
+        checkpointNumber: CheckpointNumber(1),
+      });
+    });
+
     it('disposes fork even when validation fails', async () => {
       setupDeepValidationMocks({ header: CheckpointHeader.empty() });
 
@@ -710,51 +764,117 @@ describe('ProposalHandler checkpoint validation', () => {
     });
   });
 
+  /**
+   * Builds a proposal whose parent resolves to genesis (so blockNumber = INITIAL_L2_BLOCK_NUM) and a
+   * handler wired to accept it up to the block-number guard.
+   */
+  async function setupGenesisProposal(proposalArchive: Fr, txHashes?: TxHash[]) {
+    const proposal = ValidatedBlockProposal(
+      await makeBlockProposal({
+        blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+        archiveRoot: proposalArchive,
+        ...(txHashes ? { txHashes } : {}),
+      }),
+    );
+
+    // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
+    blockSource.getGenesisValues.mockResolvedValue({
+      genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
+    } as any);
+
+    const txProvider = mock<ITxProvider>();
+    txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
+
+    const blockHandler = new ProposalHandler(
+      checkpointsBuilder,
+      mock<WorldStateSynchronizer>(),
+      blockSource,
+      l1ToL2MessageSource,
+      txProvider,
+      epochCache,
+      consensusTimetable,
+      config,
+      mock<BlobClientInterface>(),
+      new CheckpointReexecutionTracker(),
+      metrics,
+      dateProvider,
+    );
+    return { proposal, blockHandler, txProvider };
+  }
+
+  describe('handleBlockProposal duplicate txs', () => {
+    it('rejects a proposal that lists the same tx hash twice, without attempting collection', async () => {
+      const txHash = TxHash.random();
+      const { proposal, blockHandler, txProvider } = await setupGenesisProposal(Fr.random(), [
+        txHash,
+        TxHash.random(),
+        txHash,
+      ]);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+
+      expect(result).toEqual({ isValid: false, reason: 'duplicate_txs' });
+      // Collection reconciles a deduplicated hash set against the full list, so it must not be reached.
+      expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
+    });
+
+    it('accepts a proposal whose tx hashes are all distinct', async () => {
+      const { proposal, blockHandler } = await setupGenesisProposal(Fr.random(), [TxHash.random(), TxHash.random()]);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+
+      expect(result).toEqual({ isValid: true, blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
+    });
+  });
+
+  describe('handleBlockProposal tx collection', () => {
+    it('classifies txs that fail integrity validation as an invalid proposal', async () => {
+      const { proposal, blockHandler, txProvider } = await setupGenesisProposal(Fr.random());
+      txProvider.getTxsForBlockProposal.mockRejectedValue(
+        new InvalidBlockProposalTxsError([{ txHash: proposal.txHashes[0], reasons: [TX_ERROR_INVALID_PROOF] }]),
+      );
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'invalid_embedded_txs',
+      });
+    });
+
+    // The error is thrown in p2p and caught here, so recognizing it must not depend on `instanceof`
+    // resolving to the same class object.
+    it('classifies the error by name when it comes from another package instance', async () => {
+      const { proposal, blockHandler, txProvider } = await setupGenesisProposal(Fr.random());
+      const error = new Error('Validator Error: Invalid txs in block proposal');
+      error.name = 'InvalidBlockProposalTxsError';
+      Object.assign(error, { invalidTxs: [{ txHash: proposal.txHashes[0], reasons: [TX_ERROR_INVALID_PROOF] }] });
+      txProvider.getTxsForBlockProposal.mockRejectedValue(error);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'invalid_embedded_txs',
+      });
+    });
+
+    // Only proposer misbehavior gets a typed (and slashable) failure reason; a local collection failure
+    // must keep propagating so it is not mistaken for an invalid proposal.
+    it('propagates other tx collection errors', async () => {
+      const { proposal, blockHandler, txProvider } = await setupGenesisProposal(Fr.random());
+      txProvider.getTxsForBlockProposal.mockRejectedValue(new Error('Tx pool unavailable'));
+
+      await expect(blockHandler.handleBlockProposal(proposal, {} as any, false)).rejects.toThrow('Tx pool unavailable');
+    });
+  });
+
   // Regression for A-1218: during a reorg the archiver can still hold a stale block at the proposal's
   // number (a different archive, about to be pruned) while the proposal carries the rebuilt replacement.
   // The block-number guard used to key on number only and permanently drop the rebuilt proposal, so the
   // node never re-acquired the block and missed the later checkpoint attestation. The guard must reject
   // only genuine duplicates (same archive) and otherwise wait for the local prune.
   describe('handleBlockProposal block-number guard (reorg-aware)', () => {
-    /**
-     * Builds a proposal whose parent resolves to genesis (so blockNumber = INITIAL_L2_BLOCK_NUM) and a
-     * handler wired to accept it up to the block-number guard.
-     */
-    async function setupGenesisProposal(proposalArchive: Fr) {
-      const proposal = await makeBlockProposal({
-        blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
-        archiveRoot: proposalArchive,
-      });
-
-      // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
-      blockSource.getGenesisValues.mockResolvedValue({
-        genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
-      } as any);
-
-      const blockProposalValidator = mock<BlockProposalValidator>();
-      blockProposalValidator.validate.mockResolvedValue({ result: 'accept' } as any);
-
-      const txProvider = mock<ITxProvider>();
-      txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
-
-      const blockHandler = new ProposalHandler(
-        checkpointsBuilder,
-        mock<WorldStateSynchronizer>(),
-        blockSource,
-        l1ToL2MessageSource,
-        txProvider,
-        blockProposalValidator,
-        epochCache,
-        consensusTimetable,
-        config,
-        mock<BlobClientInterface>(),
-        new CheckpointReexecutionTracker(),
-        metrics,
-        dateProvider,
-      );
-      return { proposal, blockHandler };
-    }
-
     /** Block-data stub at the target number with the given archive root. */
     const blockAt = (archiveRoot: Fr) => ({ archive: new AppendOnlyTreeSnapshot(archiveRoot, 1) }) as BlockData;
 
@@ -796,6 +916,56 @@ describe('ProposalHandler checkpoint validation', () => {
         blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
         reason: 'block_number_already_exists',
       });
+    });
+  });
+
+  describe('handleBlockProposal arrival window', () => {
+    // Whether a proposal arrived in time is decided once, at p2p ingress. Re-deciding it here would make
+    // the verdict depend on how long this node took to get around to processing the proposal, turning
+    // local latency into a slashable invalid-proposal verdict against an honest proposer.
+    it('processes a proposal whose receive window closed while it waited to be processed', async () => {
+      const signer = Secp256k1Signer.random();
+      const proposal = ValidatedBlockProposal(
+        await makeBlockProposal({
+          blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+          archiveRoot: Fr.random(),
+          signer,
+        }),
+      );
+
+      // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
+      blockSource.getGenesisValues.mockResolvedValue({
+        genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
+      } as any);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      // Slot 1's proposal receive window is [-4s, 17s]; 30s is well past its close.
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(0),
+        slot: SlotNumber(1),
+        ts: 30n,
+        nowMs: 30_000n,
+      });
+
+      const txProvider = mock<ITxProvider>();
+      txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
+
+      const blockHandler = new ProposalHandler(
+        checkpointsBuilder,
+        mock<WorldStateSynchronizer>(),
+        blockSource,
+        l1ToL2MessageSource,
+        txProvider,
+        epochCache,
+        consensusTimetable,
+        config,
+        mock<BlobClientInterface>(),
+        new CheckpointReexecutionTracker(),
+        metrics,
+        dateProvider,
+      );
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({ isValid: true, blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
     });
   });
 });

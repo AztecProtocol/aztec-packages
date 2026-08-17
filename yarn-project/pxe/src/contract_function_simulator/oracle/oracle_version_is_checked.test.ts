@@ -84,7 +84,7 @@ describe('Oracle Version Check test suite', () => {
     capsuleStore.readCapsuleArray.mockResolvedValue([]);
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
     senderTaggingStore.getLastUsedIndex.mockResolvedValue(undefined);
-    senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
+    senderTaggingStore.getPendingTxs.mockResolvedValue([]);
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
 
     noteStore.getNotes.mockResolvedValue([]);

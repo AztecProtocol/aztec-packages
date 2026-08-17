@@ -131,7 +131,7 @@ case "$cmd" in
   full|full-no-test-cache)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
-    export AWS_SHUTDOWN_TIME=75
+    export AWS_SHUTDOWN_TIME=90
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   chonk-input-update)

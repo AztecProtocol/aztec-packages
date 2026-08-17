@@ -16,6 +16,7 @@ import {
 import { compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { first } from '@aztec/foundation/iterable';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -455,11 +456,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {
-    for await (const tx of this.p2pClient.iteratePendingTxs({ includeProof: false })) {
-      return tx.getGasSettings().maxPriorityFeesPerGas;
-    }
-
-    return GasFees.from({ feePerDaGas: 0n, feePerL2Gas: 0n });
+    const tx = await first(this.p2pClient.iteratePendingTxs({ includeProof: false }));
+    return tx ? tx.getGasSettings().maxPriorityFeesPerGas : GasFees.from({ feePerDaGas: 0n, feePerL2Gas: 0n });
   }
 
   /**
@@ -522,6 +520,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   async #sendTx(tx: Tx) {
     const timer = new Timer();
     const txHash = tx.getTxHash().toString();
+
+    const connectivity = await this.p2pClient.getP2PConnectivity();
+    if (connectivity.enabled && connectivity.connectedPeers === 0) {
+      this.metrics.receivedTx(timer.ms(), false);
+      this.log.warn(`Rejecting tx ${txHash}: node has no connected peers`, { txHash });
+      throw new Error('Cannot accept tx: node has no connected peers to propagate it');
+    }
 
     const valid = await this.isValidTx(tx);
     if (valid.result !== 'valid') {

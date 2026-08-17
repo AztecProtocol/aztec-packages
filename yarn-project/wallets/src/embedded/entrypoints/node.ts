@@ -1,17 +1,15 @@
-import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { type PXE, type PXECreationOptions, createPXE, openStore } from '@aztec/pxe/server';
-import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
-import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
-import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint';
+import { getDefaultStandardPreloadedContracts } from '@aztec/standard-contracts/preloaded';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { BundleAccountContractsProvider } from '../account-contract-providers/bundle.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
 import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
 import { WALLET_DATA_SCHEMA_VERSION, WalletDB } from '../wallet_db.js';
+import { resolveAztecNode } from './resolve_aztec_node.js';
 
 const DEFAULT_WALLET_DATA_DIRECTORY = 'aztec-wallet-data';
 
@@ -29,7 +27,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
   ): Promise<T> {
     const rootLogger = options.logger ?? createLogger('embedded-wallet');
 
-    const aztecNode = typeof nodeOrUrl === 'string' ? createAztecNodeClient(nodeOrUrl) : nodeOrUrl;
+    const aztecNode = resolveAztecNode(nodeOrUrl, options.nodeClientOptions);
 
     // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
     const { config: pxeConfigFromPxe, creation: pxeCreationFromPxe } = splitPxeOptions(options.pxe);
@@ -50,11 +48,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
     const pxeOptions: PXECreationOptions = {
       ...mergedCreationOverrides,
       preloadedContractsProvider: mergedCreationOverrides.preloadedContractsProvider ?? {
-        getPreloadedContracts: async () => [
-          await getStandardMultiCallEntrypoint(),
-          await getStandardAuthRegistry(),
-          await getStandardHandshakeRegistry(),
-        ],
+        getPreloadedContracts: getDefaultStandardPreloadedContracts,
       },
       loggers: {
         store: rootLogger.createChild('pxe:data'),

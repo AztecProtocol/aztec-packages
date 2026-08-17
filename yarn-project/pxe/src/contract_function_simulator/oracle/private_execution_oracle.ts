@@ -1,6 +1,7 @@
 import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { toACVMWitness } from '@aztec/simulator/client';
 import {
@@ -38,7 +39,7 @@ import {
 import { NoteService } from '../../notes/note_service.js';
 import { assertAllowedScope } from '../../storage/allowed_scopes.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
-import { syncSenderTaggingIndexes } from '../../tagging/index.js';
+import { logQueryAnchorOf, syncSenderTaggingIndexes } from '../../tagging/index.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
@@ -217,7 +218,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     recipient: AztecAddress,
     deliveryMode: AppTaggingSecretKind,
   ): Promise<ResolvedTaggingStrategy> {
-    const [isUnconstrainedSelfSend, chosenStrategy] = await Promise.all([
+    const [isUnconstrainedSelfSend, chosenStrategy] = await allToCompletion([
       this.#isUnconstrainedSelfSend(recipient, deliveryMode),
       this.#chooseTaggingSecretStrategy(sender, recipient, deliveryMode),
     ]);
@@ -375,11 +376,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
+      const [{ finalized }, anchor] = await allToCompletion([
+        this.l2TipsStore.getL2Tips(),
+        logQueryAnchorOf(this.anchorBlockHeader),
+      ]);
       await syncSenderTaggingIndexes(
         secret,
         this.aztecNode,
         this.senderTaggingStore,
-        await this.anchorBlockHeader.hash(),
+        finalized.block.number,
+        anchor,
         this.jobId,
       );
 

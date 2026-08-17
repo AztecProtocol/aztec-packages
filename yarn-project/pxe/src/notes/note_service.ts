@@ -1,12 +1,13 @@
 import { chunk } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, type DataInBlock } from '@aztec/stdlib/block';
+import { BlockHash, type DataInBlock, type InBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import { Note, NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { BlockHeader, IndexedTxEffect } from '@aztec/stdlib/tx';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { NoteValidationRequest } from '../contract_function_simulator/noir-structs/note_validation_request.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
@@ -96,7 +97,7 @@ export class NoteService {
   }
 
   /**
-   * Validates and stores a batch of notes against pre-fetched tx effects.
+   * Validates and stores a batch of notes against the pre-fetched onchain context of their txs.
    *
    * For each request we must verify that:
    *  - the note actually exists in the corresponding tx effect (and thus in the note hash tree), and
@@ -112,13 +113,13 @@ export class NoteService {
    *
    * @param requests - The notes to validate and store.
    * @param scope - The scope under which the notes are being stored.
-   * @param txEffects - Pre-fetched tx effects keyed by `TxHash.toString()`. Must contain entries for every request's
-   *                   txHash; missing entries are treated as a node bug and cause an error.
+   * @param validationTxData - The onchain context of each request's tx, keyed by `TxHash.toString()`. Must contain
+   * entries for every request's txHash; missing entries are treated as a node bug and cause an error.
    */
   public async validateAndStoreNotes(
     requests: NoteValidationRequest[],
     scope: AztecAddress,
-    txEffects: Map<string, IndexedTxEffect>,
+    validationTxData: ReadonlyMap<string, NoteValidationTxData>,
   ): Promise<void> {
     if (requests.length === 0) {
       return;
@@ -135,9 +136,9 @@ export class NoteService {
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
-    const computed = await Promise.all(
+    const computed = await allToCompletion(
       requests.map(async ({ contractAddress, noteHash, nullifier, noteNonce }) => {
-        const [siloedNoteHash, siloedNullifier] = await Promise.all([
+        const [siloedNoteHash, siloedNullifier] = await allToCompletion([
           siloNoteHash(contractAddress, noteHash),
           siloNullifier(contractAddress, nullifier),
         ]);
@@ -159,8 +160,8 @@ export class NoteService {
       const { uniqueNoteHash, siloedNullifier } = computed[i];
       const nullifierIndex = nullifierIndexes[i];
 
-      const txEffect = txEffects.get(txHash.toString());
-      if (!txEffect) {
+      const txData = validationTxData.get(txHash.toString());
+      if (!txData) {
         // We error out instead of just logging a warning and skipping the note because this would indicate a bug. This
         // is because the node has already served info about this tx either when obtaining the log (LogResult carries
         // the tx info) or when getting metadata for the offchain message (before the message got passed to
@@ -168,7 +169,7 @@ export class NoteService {
         throw new Error(`Could not find tx effect for tx hash ${txHash} when processing a note.`);
       }
 
-      if (txEffect.l2BlockNumber > anchorBlockNumber) {
+      if (txData.l2BlockNumber > anchorBlockNumber) {
         // If the message was delivered onchain, this would indicate a bug: log sync should never load logs from blocks
         // newer than the anchor block. If the note came via an offchain message, it would likely also be a bug, since
         // we sync a new anchor block before calling `process_message`. For this not to be a bug, the message would
@@ -181,7 +182,7 @@ export class NoteService {
       }
 
       // Find the index of the note hash in the noteHashes array to determine note ordering within the tx
-      const noteIndexInTx = txEffect.data.noteHashes.findIndex(nh => nh.equals(uniqueNoteHash));
+      const noteIndexInTx = txData.noteHashes.findIndex(nh => nh.equals(uniqueNoteHash));
       if (noteIndexInTx === -1) {
         // Similar to the comment above - we error out as this would indicate a bug in nonce discovery.
         throw new Error(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}`);
@@ -198,9 +199,9 @@ export class NoteService {
           noteHash,
           siloedNullifier,
           txHash,
-          txEffect.l2BlockNumber,
-          txEffect.l2BlockHash.toString(),
-          txEffect.txIndexInBlock,
+          txData.l2BlockNumber,
+          txData.l2BlockHash.toString(),
+          txData.txIndexInBlock,
           noteIndexInTx,
         ),
       );
@@ -222,9 +223,15 @@ export class NoteService {
   async #findNullifierIndexes(anchorBlockHash: BlockHash, siloedNullifiers: Fr[]) {
     const batches = chunk(siloedNullifiers, MAX_RPC_LEN);
     return (
-      await Promise.all(
+      await allToCompletion(
         batches.map(batch => this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, batch)),
       )
     ).flat();
   }
 }
+
+/** The onchain context of the tx a note validation request points at: where it was mined and its note hashes. */
+export type NoteValidationTxData = InBlock & {
+  noteHashes: Fr[];
+  txIndexInBlock: number;
+};

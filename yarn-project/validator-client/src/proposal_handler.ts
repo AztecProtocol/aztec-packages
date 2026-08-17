@@ -18,8 +18,8 @@ import type { LogData } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { isErrorClass } from '@aztec/foundation/types';
 import type { P2P, PeerId } from '@aztec/p2p';
-import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker, ReexecutionOutcome } from '@aztec/stdlib/checkpoint';
 import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -36,11 +36,18 @@ import {
   accumulateCheckpointOutHashes,
   computeInHashFromL1ToL2Messages,
 } from '@aztec/stdlib/messaging';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposalCore,
+  ValidatedBlockProposal,
+  ValidatedCheckpointProposalCore,
+} from '@aztec/stdlib/p2p';
 import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { CheckpointGlobalVariables, FailedTx, Tx } from '@aztec/stdlib/tx';
+import type { CheckpointGlobalVariables, FailedTx, Tx, TxHash } from '@aztec/stdlib/tx';
 import {
+  InvalidBlockProposalTxsError,
   ReExFailedTxsError,
   ReExInitialStateMismatchError,
   ReExStateMismatchError,
@@ -61,6 +68,8 @@ export type BlockProposalValidationFailureReason =
   | 'global_variables_mismatch'
   | 'block_number_already_exists'
   | 'txs_not_available'
+  | 'duplicate_txs'
+  | 'invalid_embedded_txs'
   | 'state_mismatch'
   | 'failed_txs'
   | 'initial_state_mismatch'
@@ -172,6 +181,8 @@ export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidation
   'invalid_proposal',
   'parent_block_wrong_slot',
   'in_hash_mismatch',
+  'duplicate_txs',
+  'invalid_embedded_txs',
 ];
 
 /** Checkpoint-proposal validation failures that constitute a slashable invalid-checkpoint offense. */
@@ -242,7 +253,6 @@ export class ProposalHandler {
     private blockSource: L2BlockSource & L2BlockSink,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private txProvider: ITxProvider,
-    private blockProposalValidator: BlockProposalValidator,
     private epochCache: EpochCache,
     private timetable: ConsensusTimetable,
     private config: ValidatorClientFullConfig,
@@ -322,7 +332,7 @@ export class ProposalHandler {
 
     // Non-validator handler that processes or re-executes for monitoring but does not attest.
     // Returns boolean indicating whether the proposal was valid.
-    const blockHandler = async (proposal: BlockProposal, proposalSender: PeerId): Promise<boolean> => {
+    const blockHandler = async (proposal: ValidatedBlockProposal, proposalSender: PeerId): Promise<boolean> => {
       try {
         const { slotNumber, blockNumber } = proposal;
         const result = await this.handleBlockProposal(proposal, proposalSender, shouldReexecute);
@@ -372,7 +382,7 @@ export class ProposalHandler {
     // Runs for all nodes (validators and non-validators). Validators get the cached result in the
     // validator-specific callback (attestToCheckpointProposal) which runs after this one.
     const checkpointHandler = async (
-      proposal: CheckpointProposalCore,
+      proposal: ValidatedCheckpointProposalCore,
       _sender: PeerId,
     ): Promise<CheckpointAttestation[] | undefined> => {
       try {
@@ -440,8 +450,15 @@ export class ProposalHandler {
     return this;
   }
 
+  /**
+   * Processes a block proposal: collects its txs and, if requested, re-executes them to check the resulting
+   * block against the proposal. Expects the proposal to have already passed p2p ingress validation (signature
+   * context, signature, expected proposer, index within checkpoint, tx field checks, and the receive-window
+   * timeliness check) — none of those are re-applied here, and only deterministic properties of the payload
+   * are validated before processing.
+   */
   async handleBlockProposal(
-    proposal: BlockProposal,
+    proposal: ValidatedBlockProposal,
     proposalSender: PeerId,
     shouldReexecute: boolean,
   ): Promise<BlockProposalValidationResult> {
@@ -466,12 +483,22 @@ export class ProposalHandler {
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
 
-    // Check that the proposal is from the current proposer, or the next proposer
-    // This should have been handled by the p2p layer, but we double check here out of caution
-    const validationResult = await this.blockProposalValidator.validate(proposal);
-    if (validationResult.result !== 'accept') {
-      this.log.warn(`Proposal is not valid, skipping processing`, proposalInfo);
-      return { isValid: false, reason: 'invalid_proposal' };
+    // The receive-window check from p2p ingress is deliberately not re-applied here: its outcome depends on
+    // the wall clock at evaluation time, so re-running it turned node-local processing latency into an
+    // invalid-proposal verdict against an honest proposer, which then fed the invalid-block slashing path.
+
+    // A tx can only appear once in a block: the second copy would emit nullifiers already emitted by the
+    // first. This is not a relaying-peer fault, so it passes gossip validation and is classified here as
+    // proposer misbehavior. Tx collection also reconciles a deduplicated hash set against the full list,
+    // so it must not be handed a proposal with repeated hashes.
+    const uniqueTxHashes = new Set(proposal.txHashes.map(txHash => txHash.toString()));
+    if (uniqueTxHashes.size !== proposal.txHashes.length) {
+      this.log.warn(`Proposal lists duplicate tx hashes, skipping processing`, {
+        ...proposalInfo,
+        txCount: proposal.txHashes.length,
+        uniqueTxCount: uniqueTxHashes.size,
+      });
+      return { isValid: false, reason: 'duplicate_txs' };
     }
 
     const retainedSlotValidation = await this.validateNewBlockInSlot(proposal);
@@ -527,10 +554,11 @@ export class ProposalHandler {
 
     // Collect txs from the proposal. We start doing this as early as possible,
     // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
-    const { txs, missingTxs } = await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
-      pinnedPeer: proposalSender,
-      deadline: this.getReexecutionDeadline(slotNumber),
-    });
+    const collected = await this.collectProposalTxs(proposal, blockNumber, proposalSender, proposalInfo);
+    if (collected === 'invalid_embedded_txs') {
+      return { isValid: false, blockNumber, reason: collected };
+    }
+    const { txs, missingTxs } = collected;
 
     // Record the tx-collection outcome on the re-execution tracker
     this.reexecutionTracker.recordTxsCollected(slotNumber, proposal.indexWithinCheckpoint, missingTxs.length === 0);
@@ -613,6 +641,36 @@ export class ProposalHandler {
     );
 
     return { isValid: true, blockNumber, reexecutionResult };
+  }
+
+  /**
+   * Collects the txs for a proposal, returning `invalid_embedded_txs` if the proposal carries a tx that fails
+   * minimum integrity validation. That is proposer misbehavior — the proposal signs both the tx hashes and the
+   * tx objects — so the caller turns it into an invalid-proposal result that reaches slashing and invalid-slot
+   * accounting, rather than letting it escape as an exception. Any other collection error is a local failure
+   * and keeps propagating.
+   */
+  private async collectProposalTxs(
+    proposal: BlockProposal,
+    blockNumber: BlockNumber,
+    proposalSender: PeerId,
+    proposalInfo: LogData,
+  ): Promise<{ txs: Tx[]; missingTxs: TxHash[] } | 'invalid_embedded_txs'> {
+    try {
+      return await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
+        pinnedPeer: proposalSender,
+        deadline: this.getReexecutionDeadline(proposal.slotNumber),
+      });
+    } catch (error) {
+      if (!isErrorClass(error, InvalidBlockProposalTxsError)) {
+        throw error;
+      }
+      this.log.warn(`Block proposal carries ${error.invalidTxs.length} invalid txs`, {
+        ...proposalInfo,
+        invalidTxs: error.invalidTxs.map(({ txHash, reasons }) => ({ txHash: txHash.toString(), reasons })),
+      });
+      return 'invalid_embedded_txs';
+    }
   }
 
   private async validateNewBlockInSlot(blockProposal: BlockProposal): Promise<BlockProposalSlotValidationResult> {
@@ -1003,9 +1061,11 @@ export class ProposalHandler {
    * Validates a checkpoint proposal, caches the result, and uploads blobs if configured.
    * Returns a cached result if the same proposal (archive + slot) was already validated.
    * Used by both the all-nodes callback (via register) and the validator client (via delegation).
+   * Expects the proposal to have already passed p2p ingress validation (expected proposer and receive-window
+   * timeliness); only deterministic properties of the signed payload are checked here.
    */
   async handleCheckpointProposal(
-    proposal: CheckpointProposalCore,
+    proposal: ValidatedCheckpointProposalCore,
     proposalInfo: LogData,
   ): Promise<CheckpointProposalValidationResult> {
     const slot = proposal.slotNumber;

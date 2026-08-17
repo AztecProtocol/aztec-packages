@@ -1,10 +1,11 @@
-import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockHash, L2TipsProvider } from '@aztec/stdlib/block';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
@@ -15,20 +16,22 @@ import {
   computeSharedTaggingSecret,
 } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import {
   type LogRetrievalRequest,
   LogSource,
 } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
-import type { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
-import type { PendingTaggedLog } from '../contract_function_simulator/noir-structs/pending_tagged_log.js';
+import type { TxOnchainContext } from '../messages/tx_resolver_service.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import { assertAllowedScope } from '../storage/allowed_scopes.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
 import {
+  type LogQueryAnchor,
   getAllPrivateLogsByTags,
   getAllPublicLogsByTagsFromContract,
+  logQueryAnchorOf,
   syncTaggedPrivateLogs,
 } from '../tagging/index.js';
 
@@ -58,7 +61,7 @@ export class LogService {
   public async fetchLogsByTag(
     contractAddress: AztecAddress,
     logRetrievalRequests: LogRetrievalRequest[],
-  ): Promise<LogRetrievalResponse[][]> {
+  ): Promise<RetrievedTaggedLog[][]> {
     for (const request of logRetrievalRequests) {
       if (!contractAddress.equals(request.contractAddress)) {
         throw new Error(`Got a log retrieval request from ${request.contractAddress}, expected ${contractAddress}`);
@@ -69,23 +72,23 @@ export class LogService {
       return [];
     }
 
-    const anchorBlockHash = await this.anchorBlockHeader.hash();
+    const anchor = await logQueryAnchorOf(this.anchorBlockHeader);
 
-    const [publicLogsPerRequest, privateLogsPerRequest] = await Promise.all([
-      this.#fetchPublicLogs(contractAddress, logRetrievalRequests, anchorBlockHash),
-      this.#fetchPrivateLogs(logRetrievalRequests, anchorBlockHash),
+    const [publicLogsPerRequest, privateLogsPerRequest] = await allToCompletion([
+      this.#fetchPublicLogs(contractAddress, logRetrievalRequests, anchor),
+      this.#fetchPrivateLogs(logRetrievalRequests, anchor),
     ]);
 
     return logRetrievalRequests.map((_request, i) => [
-      ...publicLogsPerRequest[i].map(LogService.#toLogRetrievalResponse),
-      ...privateLogsPerRequest[i].map(LogService.#toLogRetrievalResponse),
+      ...publicLogsPerRequest[i].map(LogService.#toRetrievedTaggedLog),
+      ...privateLogsPerRequest[i].map(LogService.#toRetrievedTaggedLog),
     ]);
   }
 
   async #fetchPublicLogs(
     contractAddress: AztecAddress,
     requests: LogRetrievalRequest[],
-    anchorBlockHash: BlockHash,
+    anchor: LogQueryAnchor,
   ): Promise<LogResult[][]> {
     const indices = requests.flatMap((r, i) => (r.source !== LogSource.PRIVATE ? [i] : []));
     if (indices.length === 0) {
@@ -95,16 +98,14 @@ export class LogService {
     const resultsPerRequest: LogResult[][] = requests.map(() => []);
     const groups = LogService.#groupByRange(indices.map(i => ({ index: i, request: requests[i] })));
 
-    await Promise.all(
+    await allToCompletion(
       Array.from(groups.values()).map(async group => {
         const tags = group.entries.map(e => e.request.tag);
-        const results = await getAllPublicLogsByTagsFromContract(
-          this.aztecNode,
-          contractAddress,
-          tags,
-          anchorBlockHash,
-          { fromBlock: group.fromBlock, toBlock: group.toBlock, includeEffects: true },
-        );
+        const results = await getAllPublicLogsByTagsFromContract(this.aztecNode, contractAddress, tags, anchor, {
+          fromBlock: group.fromBlock,
+          toBlock: group.toBlock,
+          includeEffects: true,
+        });
         group.entries.forEach((entry, i) => {
           resultsPerRequest[entry.index] = results[i];
         });
@@ -114,7 +115,7 @@ export class LogService {
     return resultsPerRequest;
   }
 
-  async #fetchPrivateLogs(requests: LogRetrievalRequest[], anchorBlockHash: BlockHash): Promise<LogResult[][]> {
+  async #fetchPrivateLogs(requests: LogRetrievalRequest[], anchor: LogQueryAnchor): Promise<LogResult[][]> {
     const indices = requests.flatMap((r, i) => (r.source !== LogSource.PUBLIC ? [i] : []));
     if (indices.length === 0) {
       return requests.map(() => []);
@@ -123,12 +124,12 @@ export class LogService {
     const resultsPerRequest: LogResult[][] = requests.map(() => []);
     const groups = LogService.#groupByRange(indices.map(i => ({ index: i, request: requests[i] })));
 
-    await Promise.all(
+    await allToCompletion(
       Array.from(groups.values()).map(async group => {
-        const siloedTags = await Promise.all(
+        const siloedTags = await allToCompletion(
           group.entries.map(e => SiloedTag.computeFromTagAndApp(e.request.tag, e.request.contractAddress)),
         );
-        const results = await getAllPrivateLogsByTags(this.aztecNode, siloedTags, anchorBlockHash, {
+        const results = await getAllPrivateLogsByTags(this.aztecNode, siloedTags, anchor, {
           fromBlock: group.fromBlock,
           toBlock: group.toBlock,
           includeEffects: true,
@@ -164,7 +165,7 @@ export class LogService {
     return groups;
   }
 
-  static #toLogRetrievalResponse(log: LogResult): LogRetrievalResponse {
+  static #toRetrievedTaggedLog(log: LogResult): RetrievedTaggedLog {
     // includeEffects: true was used, so noteHashes and nullifiers are populated. Every tx has at least one nullifier
     // (the first nullifier derived from the tx hash); empty here would indicate a buggy node.
     const noteHashes = log.noteHashes!;
@@ -173,23 +174,25 @@ export class LogService {
       throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
     }
     return {
-      // Skip the tag, and clip to the wire cap: public logs can exceed PRIVATE_LOG_CIPHERTEXT_LEN, which is the fixed
-      // size of the oracle's BoundedVec slot. A no-op for private logs, which are already within the cap.
-      logPayload: log.logData.slice(1, 1 + PRIVATE_LOG_CIPHERTEXT_LEN),
+      logData: log.logData,
       txHash: log.txHash,
-      uniqueNoteHashesInTx: noteHashes,
-      firstNullifierInTx: nullifiers[0],
+      noteHashes,
+      nullifiers,
       blockNumber: log.blockNumber,
       blockTimestamp: log.blockTimestamp,
       blockHash: log.blockHash,
+      // The log index and the tx receipt both count the tx's position in `block.body.txEffects`, so this is the same
+      // index a receipt reports. Note ordering depends on the two staying in agreement.
+      txIndexInBlock: log.txIndexWithinBlock,
     };
   }
 
+  /** Fetches the pending tagged logs for a recipient across all its tagging secrets for the contract. */
   public async fetchTaggedLogs(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     providedSecrets: AppTaggingSecret[],
-  ): Promise<PendingTaggedLog[]> {
+  ): Promise<RetrievedTaggedLog[]> {
     assertAllowedScope(recipient, this.scopes);
 
     this.log.verbose(
@@ -216,23 +219,7 @@ export class LogService {
       this.jobId,
     );
 
-    return logs.map(log => {
-      const noteHashes = log.noteHashes!;
-      const nullifiers = log.nullifiers!;
-      if (nullifiers.length === 0) {
-        throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
-      }
-      return {
-        log: log.logData,
-        context: {
-          txHash: log.txHash,
-          uniqueNoteHashesInTx: noteHashes,
-          firstNullifierInTx: nullifiers[0],
-          blockNumber: log.blockNumber,
-          blockHash: log.blockHash.toFr(),
-        },
-      };
-    });
+    return logs.map(log => LogService.#toRetrievedTaggedLog(log));
   }
 
   /**
@@ -252,11 +239,11 @@ export class LogService {
     }
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    const [senderPoints, registeredSecrets] = await Promise.all([
+    const [senderPoints, registeredSecrets] = await allToCompletion([
       this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk),
       this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient),
     ]);
-    return Promise.all([
+    return allToCompletion([
       ...senderPoints.map(secret => AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)),
       ...registeredSecrets.flatMap(({ kind, secret }) => {
         switch (kind) {
@@ -282,7 +269,7 @@ export class LogService {
     // (recipient = us, sender = us).
     const allSenders = [...(await this.taggingSecretSourcesStore.getSenders()), ...(await this.keyStore.getAccounts())];
 
-    return Promise.all(
+    return allToCompletion(
       allSenders.map(async sender => {
         const taggingSecretPoint = await computeSharedTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
 
@@ -298,3 +285,10 @@ export class LogService {
     );
   }
 }
+
+/** A tagged log fetched from the node, together with the onchain context of the tx that emitted it. */
+export type RetrievedTaggedLog = TxOnchainContext & {
+  /** The raw log payload, tag included. */
+  logData: Fr[];
+  blockTimestamp: UInt64;
+};

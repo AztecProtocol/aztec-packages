@@ -1,4 +1,5 @@
-import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash } from '@aztec/stdlib/block';
 import { MAX_RPC_LEN } from '@aztec/stdlib/interfaces/api-limit';
@@ -11,6 +12,31 @@ import {
   queryAllPrivateLogsByTags,
   queryAllPublicLogsByTags,
 } from '@aztec/stdlib/logs';
+import type { BlockHeader } from '@aztec/stdlib/tx';
+
+/**
+ * The block a tag query is anchored to.
+ *
+ * Both fields come from one header (see {@link logQueryAnchorOf}), which is what keeps the bound and the reorg check
+ * talking about the same block.
+ */
+export type LogQueryAnchor = {
+  /**
+   * Hash of the anchor block, naming the chain the query must be answered on: the node throws if that block is gone,
+   * which is how a reorg surfaces.
+   */
+  hash: BlockHash;
+  /** Height of the anchor block, bounding the query to blocks at or below it. */
+  number: BlockNumber;
+};
+
+/**
+ * The {@link LogQueryAnchor} naming `anchorBlockHeader`: its hash and its height. Callers build it once and reuse
+ * it across every query anchored to that block, so the header is hashed only once.
+ */
+export async function logQueryAnchorOf(anchorBlockHeader: BlockHeader): Promise<LogQueryAnchor> {
+  return { hash: await anchorBlockHeader.hash(), number: anchorBlockHeader.getBlockNumber() };
+}
 
 /** Optional block-range, effects opt-in, and pagination cap shared by both wrappers. */
 export type GetAllLogsByTagsOptions = {
@@ -52,7 +78,7 @@ async function getAllPagesInBatches<T extends Tag | SiloedTag, Opts extends LogI
   for (let i = 0; i < tags.length; i += MAX_RPC_LEN) {
     batches.push(tags.slice(i, i + MAX_RPC_LEN));
   }
-  const batchResults = await Promise.all(batches.map(fetchAllPagesForBatch));
+  const batchResults = await allToCompletion(batches.map(fetchAllPagesForBatch));
   return batchResults.flat();
 }
 
@@ -61,15 +87,15 @@ async function getAllPagesInBatches<T extends Tag | SiloedTag, Opts extends LogI
  *
  * @param aztecNode - The Aztec node to query.
  * @param tags - The siloed tags to search for.
- * @param anchorBlockHash - Reference block for the Aztec node query, throws if block is not found there (typically
- *   because of reorgs).
+ * @param anchor - Block the query is anchored to: results stop there, and the call throws if that block is not found
+ *   (typically because of reorgs).
  * @param options - Optional `fromBlock`/`toBlock` range and `includeEffects` opt-in.
  * @returns An array of log arrays, one per tag, containing all logs across all pages.
  */
 export function getAllPrivateLogsByTags<Opts extends GetAllLogsByTagsOptions = GetAllLogsByTagsOptions>(
   aztecNode: AztecNode,
   tags: SiloedTag[],
-  anchorBlockHash: BlockHash,
+  anchor: LogQueryAnchor,
   options: Opts = {} as Opts,
 ): Promise<LogResult<Opts>[][]> {
   return getAllPagesInBatches<SiloedTag, Opts>(
@@ -77,9 +103,9 @@ export function getAllPrivateLogsByTags<Opts extends GetAllLogsByTagsOptions = G
     batch =>
       queryAllPrivateLogsByTags(aztecNode, {
         tags: batch,
-        referenceBlock: anchorBlockHash,
+        referenceBlock: anchor.hash,
         fromBlock: options.fromBlock,
-        toBlock: options.toBlock,
+        toBlock: exclusiveUpperBound(anchor, options.toBlock),
         includeEffects: options.includeEffects ?? false,
         limitPerTag: options.limitPerTag,
       }) as Promise<LogResult<Opts>[][]>,
@@ -92,8 +118,8 @@ export function getAllPrivateLogsByTags<Opts extends GetAllLogsByTagsOptions = G
  * @param aztecNode - The Aztec node to query.
  * @param contractAddress - The contract address to search logs for.
  * @param tags - The tags to search for.
- * @param anchorBlockHash - Reference block for the Aztec node query, throws if block is not found there (typically
- *   because of reorgs).
+ * @param anchor - Block the query is anchored to: results stop there, and the call throws if that block is not found
+ *   (typically because of reorgs).
  * @param options - Optional `fromBlock`/`toBlock` range and `includeEffects` opt-in.
  * @returns An array of log arrays, one per tag, containing all logs across all pages.
  */
@@ -101,7 +127,7 @@ export function getAllPublicLogsByTagsFromContract<Opts extends GetAllLogsByTags
   aztecNode: AztecNode,
   contractAddress: AztecAddress,
   tags: Tag[],
-  anchorBlockHash: BlockHash,
+  anchor: LogQueryAnchor,
   options: Opts = {} as Opts,
 ): Promise<LogResult<Opts>[][]> {
   return getAllPagesInBatches<Tag, Opts>(
@@ -110,11 +136,22 @@ export function getAllPublicLogsByTagsFromContract<Opts extends GetAllLogsByTags
       queryAllPublicLogsByTags(aztecNode, {
         contractAddress,
         tags: batch,
-        referenceBlock: anchorBlockHash,
+        referenceBlock: anchor.hash,
         fromBlock: options.fromBlock,
-        toBlock: options.toBlock,
+        toBlock: exclusiveUpperBound(anchor, options.toBlock),
         includeEffects: options.includeEffects ?? false,
         limitPerTag: options.limitPerTag,
       }) as Promise<LogResult<Opts>[][]>,
   );
+}
+
+/**
+ * Exclusive upper block bound for a query anchored at `anchor`: one past the anchor block, or the caller's own
+ * `toBlock` when that is tighter.
+ *
+ * The bound is spelled out in the request rather than left implicit in `referenceBlock`, so the request itself
+ * names a fixed block range that no later block can widen.
+ */
+function exclusiveUpperBound(anchor: LogQueryAnchor, toBlock: BlockNumber | undefined): BlockNumber {
+  return BlockNumber(Math.min(toBlock ?? Infinity, anchor.number + 1));
 }

@@ -19,6 +19,7 @@ import type { CheckpointData, ProposedCheckpointData, ProposedCheckpointInput } 
 import type { CheckpointInfo } from '../checkpoint/checkpoint_info.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
+import { MAX_RPC_CHECKPOINTS_DATA_LEN } from '../interfaces/api_limit.js';
 import type { L2ToL1MembershipWitness } from '../messaging/l2_to_l1_membership.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
@@ -89,9 +90,20 @@ export const CheckpointQuerySchema: z.ZodType<CheckpointQuery, unknown> = z.unio
   z.object({ tag: z.union([z.literal('checkpointed'), z.literal('proven'), z.literal('finalized')]) }).strict(),
 ]);
 
+const checkpointsQueryLimitSchema = () =>
+  z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_RPC_CHECKPOINTS_DATA_LEN, {
+      message: `limit must be at most ${MAX_RPC_CHECKPOINTS_DATA_LEN}`,
+    });
+
 export const CheckpointsQuerySchema: z.ZodType<CheckpointsQuery, unknown> = z.union([
-  z.object({ from: CheckpointNumberSchema, limit: z.number().int().min(1) }).strict(),
-  z.object({ fromSlot: SlotNumberSchema, limit: z.number().int().min(1), reverse: z.boolean().optional() }).strict(),
+  z.object({ from: CheckpointNumberSchema, limit: checkpointsQueryLimitSchema() }).strict(),
+  z
+    .object({ fromSlot: SlotNumberSchema, limit: checkpointsQueryLimitSchema(), reverse: z.boolean().optional() })
+    .strict(),
   z.object({ epoch: EpochNumberSchema }).strict(),
 ]);
 
@@ -445,19 +457,16 @@ export enum L2BlockSourceEvents {
 
 /**
  * Aggregate event emitted once per committed archiver sync pass that mutated local state. Carries the chain tips
- * before and after the pass, and the blocks added during it. Consumers compare `fromTips` and `toTips` to learn what
- * moved; there is no separate `changed` section.
+ * before and after the pass; consumers compare `fromTips` and `toTips` to learn what moved, and read any data they
+ * need from the source itself.
  *
  * This is an optimization signal that lets a block stream reconcile immediately on an archiver update rather than
  * waiting for its next poll. Polling remains the correctness fallback, so a missed event only affects latency.
- * `blocksAdded` are hydrated blocks already in hand from the sync pass, so a triggered sync that is caught up to
- * `fromTips` can reuse them (and `toTips`) instead of re-reading the store.
  */
 export type L2BlockSourceUpdatedEvent = {
   type: 'l2BlockSourceUpdated';
   fromTips: L2Tips;
   toTips: L2Tips;
-  blocksAdded: readonly L2Block[];
 };
 
 export type L2BlockProvenEvent = {

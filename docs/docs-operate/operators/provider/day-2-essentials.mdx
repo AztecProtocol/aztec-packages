@@ -1,0 +1,105 @@
+---
+title: "Updates, alerts, rewards"
+description: "Set up version upgrades, monitoring alerts, reward distribution, and queue monitoring for your live provider, plus reference commands and links."
+displayed_sidebar: operatorsSidebar
+---
+
+# Updates, alerts, rewards
+
+**Time:** ~5 minutes. Your sequencers are running. Set up four things before you call it done: version upgrades, monitoring alerts, reward distribution, and queue monitoring. The rest of this page is reference material to keep handy.
+
+<TrackPicker compact hideStake />
+
+<ForceStakeMode mode="provider" />
+
+<OperatorConfig />
+
+## 1. Stay current on upgrades
+
+When a new version is released:
+
+```bash
+# Pull new image and restart
+docker compose pull && docker compose up -d
+
+# Verify version
+docker compose logs aztec-sequencer | head -20
+```
+
+:::warning Watch for upgrade announcements
+Some upgrades require action within a specific timeframe; a node left on an old version eventually stops attesting. Watch the channels in [Where to stay informed](#where-to-stay-informed) below, especially Discord, where time-sensitive upgrade notices are posted first.
+:::
+
+## 2. Set up monitoring and alerts
+
+Aztec exports metrics via **OpenTelemetry**. The full monitoring stack:
+
+- **OpenTelemetry Collector** receives metrics from the node via OTLP.
+- **Prometheus** stores time-series metrics.
+- **Grafana** renders dashboards and alerts.
+
+Key metrics to watch:
+
+- Attestation rate (target: 99%+)
+- Block proposals
+- Committee participation
+- Peer count
+- Disk usage
+
+:::tip Lightweight alternative
+Don't want to set up the full OTEL stack? [pittpv/aztec-monitoring-script](https://github.com/pittpv/aztec-monitoring-script) is a community tool that monitors your node and sends alerts to Telegram.
+:::
+
+See the full [monitoring setup guide](/operate/operators/monitoring) when you're ready for the proper stack.
+
+## 3. Claim rewards
+
+Two paths:
+
+- **[Aztec staking dashboard](https://stake.aztec.network/my-position)** — aggregates pending rewards across every sequencer you operate, claims in one wallet flow. Easiest for most operators.
+- **CLI claim** — see the [Claiming Rewards guide](/operate/operators/sequencer-management/claiming-rewards) for the full reference (pending-rewards check, `claimSequencerRewards` cast send, keystore-file and hardware-wallet variants, gas-limit troubleshooting).
+
+In the default flow, your `coinbase` for each delegated attester is the per-delegation Split contract (set in [Configure environment](./configure-environment#after-delegation-set-coinbase-to-the-split-contract)). Each delegation's Split is a Splits-V2 pull split, so getting rewards out to the final addresses is two steps. First, anyone calls `distribute()` on the Split contract, which moves the accumulated balance into the shared Splits warehouse and credits each recipient by their share. Second, each recipient calls `withdraw()` on the warehouse to move their credited balance to their own address: your commission share to the rewards-recipient address you set at registration, and the delegator's share to their vault. Both steps are permissionless and need no manual settlement script; just monitor that delegations are being distributed and withdrawn.
+
+:::info Alternative: EOA coinbase with the payout script
+The Split flow is the default, not the only option. A provider can set the coinbase to an address they control and run the [payout script](https://github.com/AztecProtocol/aztec-staking-payout) to calculate and distribute delegator rewards at a published commission and cadence. See [the configuration step](/operate/operators/provider/configure-environment#alternative-eoa-coinbase-with-the-payout-script) and the [forum announcement](https://forum.aztec.network/t/operator-commission-adjustments/8588).
+:::
+
+## 4. Keep your provider queue stocked
+
+Every delegation pulls one keystore off your queue. Empty queue = no new delegations can activate. Check queue length:
+
+<ConfigCode language="bash">{`cast call {{STAKING_REGISTRY_ADDR}} \\
+  "getProviderQueueLength(uint256)(uint256)" \\
+  {{PROVIDER_ID}} \\
+  --rpc-url {{ETH_RPC}}`}</ConfigCode>
+
+For a cron-driven alert that pings you below a threshold, see the [Monitoring Keystore Availability section](/operate/operators/setup/become_a_staking_provider#monitoring-keystore-availability) — copy that script verbatim, edit the placeholders, schedule with `crontab -e`.
+
+When you need to add more keystores, follow the same flow you used in [register as staking provider](./register-sequencer) (Step 2).
+
+For per-delegation Split-coinbase updates, provider config changes, queue recovery (`dripProviderQueue`), and admin rotation, see the dedicated [provider operations](./provider-operations) page.
+
+## Slashing awareness
+
+Slashing is tiered. Inactivity (failing to attest or propose when assigned) is slashed 2,000 AZTEC, and so is submitting a proposal with invalid attestations. Duplicate proposals and duplicate attestations are slashed 5,000 AZTEC. There is a 190,000 AZTEC ejection threshold below which the sequencer is ejected. See [Slashing](../concepts/slashing) for the full offense set and thresholds.
+
+## Where to stay informed
+
+- [Discord](https://discord.com/invite/aztec) — upgrade announcements and operator discussion. This is where version updates and time-sensitive notices are posted first.
+- [Forum](https://forum.aztec.network) — longer-form proposals, governance, and operator announcements.
+- [GitHub](https://github.com/AztecProtocol/aztec-packages) — source, issues, and [releases](https://github.com/AztecProtocol/aztec-packages/releases).
+- [Changelog](/operate/operators/reference/changelog) — per-version operator-facing changes and migration notes.
+
+## Key links
+
+- [Operator overview](/operate/operators) (the rest of this section)
+- [Network info and contract addresses](https://docs.aztec.network/networks)
+- [Dashtec — sequencer analytics](https://dashtec.xyz)
+- [AztecScan — block explorer](https://aztecscan.xyz)
+- [CLI reference (1000+ flags)](/operate/operators/reference/cli-reference)
+- [Node API reference (JSON-RPC)](/operate/operators/reference/node_api_reference)
+
+## You finished the guide
+
+Your sequencers are live. Focus on keeping the publisher funded, the L1 endpoints reliable, keeping your nodes on the latest recommended version, and keeping the queue stocked.

@@ -642,94 +642,48 @@ function private_release {
   done
 }
 
-function release_compat_e2e {
-  # Runs e2e tests with contract artifacts from every prior stable release since 4.2.0 (the version
-  # where we committed to backwards compatibility). Validates that old contract artifacts work on the
-  # current release. Blocking for stable/RC releases; observational (non-blocking) for nightlies.
-  # Set SKIP_COMPAT_E2E=1 to bypass (escape hatch via the ci-skip-compat-e2e label).
-  if [ "${SKIP_COMPAT_E2E:-0}" = "1" ]; then
-    echo "SKIP_COMPAT_E2E=1, skipping backwards compatibility e2e tests."
-    return 0
-  fi
-
-  # Compat e2e only runs on amd64 — the arm64 release job just builds and publishes release-image.
-  if [ "$(arch)" == arm64 ]; then
-    echo "Skipping backwards compatibility e2e tests on arm64 (amd64 only)."
-    return 0
-  fi
-
-  # TODO: bump when v5 commits to backwards-compatible contract artifacts.
-  #   compat_major:       major version that has compat guarantees today.
-  #   compat_min_version: earliest stable tag of that major to test against
-  #                       (artifacts before this are incompatible due to oracle interface changes).
-  local compat_major="4"
-  local compat_min_version="4.2.0"
+function check_compat_artifacts_tracked {
+  # The backwards-compat e2e tests run as part of the normal e2e suite, driven by the artifact
+  # tarballs committed under yarn-project/end-to-end/legacy-contracts/. This check runs on
+  # every full CI run and fails while any stable release of the compat major is missing its
+  # tarball, so the set can't silently fall behind. Releases deliberately don't run it: the release
+  # cutting X.Y.Z is what publishes the packages the X.Y.Z artifacts are built from, so the first
+  # full CI run after a stable release goes red until someone commits the new tarball.
+  #   compat_major:       major version line with a backwards-compatibility guarantee.
+  #   compat_min_version: earliest stable release covered by that guarantee.
+  local compat_major="5"
+  local compat_min_version="5.0.1"
 
   local current_version major
   current_version=$(jq -r '."."' .release-please-manifest.json)
   major=$(semver major "$current_version")
   if [ "$major" != "$compat_major" ]; then
-    echo "Compat e2e tests only apply to v${compat_major}. Current major: v${major}. Skipping."
+    echo "Compat artifact tracking only applies to v${compat_major}. Current major: v${major}. Skipping."
     return 0
   fi
 
   # Fetch tags (EC2 clone may not have them). Fail loud: a silent fetch failure plus an empty
-  # tag list would publish a real release with zero compat coverage.
+  # tag list would incorrectly pass the check.
   if ! git fetch origin 'refs/tags/v*:refs/tags/v*'; then
     echo "ERROR: failed to fetch release tags." >&2
     return 1
   fi
 
-  # Discover stable tags for this major version (no prerelease suffixes).
-  local versions=()
+  local missing=()
   local tag ver
   while IFS= read -r tag; do
     ver=${tag#v}
     # Include only versions >= compat_min_version (sort -V puts smaller first).
-    if [ "$(printf '%s\n%s' "$compat_min_version" "$ver" | sort -V | head -1)" = "$compat_min_version" ]; then
-      versions+=("$ver")
-    fi
-  done < <(git tag -l "v${major}.*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V)
+    [ "$(printf '%s\n%s' "$compat_min_version" "$ver" | sort -V | head -1)" = "$compat_min_version" ] || continue
+    [ -f "yarn-project/end-to-end/legacy-contracts/$ver.tar.gz" ] || missing+=("$ver")
+  done < <(git tag -l "v${compat_major}.*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V)
 
-  # Exclude the current tag when running on a release tag push.
-  if [[ "${REF_NAME:-}" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-    local current_tag="${BASH_REMATCH[1]}"
-    local filtered=()
-    local v
-    for v in "${versions[@]}"; do
-      [ "$v" != "$current_tag" ] && filtered+=("$v")
-    done
-    versions=("${filtered[@]}")
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "ERROR: stable release(s) missing committed compat artifacts: ${missing[*]}" >&2
+    echo "Run yarn-project/end-to-end/legacy-contracts/add_version.sh <version> for each and commit the result." >&2
+    return 1
   fi
-
-  if [ ${#versions[@]} -eq 0 ]; then
-    echo "No prior stable versions found for v${major}.x (>= $compat_min_version). Skipping compat tests."
-    return 0
-  fi
-
-  echo_header "Backwards compatibility e2e tests"
-  echo "Testing against ${#versions[@]} prior stable version(s): ${versions[*]}"
-
-  # Pre-populate the legacy contract cache on the host. Test containers run with --net=none, so the
-  # jest resolver's on-demand npm install would fail with EAI_AGAIN. Install here where we have network.
-  for ver in "${versions[@]}"; do
-    node yarn-project/end-to-end/src/install_legacy_contracts.cjs "$ver"
-  done
-
-  # Build and run the compat test commands in an isolated subshell so the bespoke test settings
-  # (no test cache, no fast-fail short-circuit) don't leak into the release build/publish that follows.
-  # set -e re-enables errexit inside this subshell: the caller invokes release_compat_e2e with errexit
-  # disabled (to capture its exit code), so without this a failed build/install would be masked.
-  (
-    set -e
-    export USE_TEST_CACHE=0
-    export CI_FULL=0
-    export NO_FAIL_FAST=1
-    build
-    for ver in "${versions[@]}"; do
-      yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
-    done | filter_test_cmds | parallelize
-  )
+  echo "Compat artifacts tracked for all prior stable v${compat_major} releases."
 }
 
 ### SELF TESTING #######################################################################################################
@@ -829,6 +783,7 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=1
+    check_compat_artifacts_tracked
     build_and_test full
     bench
     ;;
@@ -836,6 +791,7 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
+    check_compat_artifacts_tracked
     build_and_test full
     bench
     ;;
@@ -1061,33 +1017,12 @@ case "$cmd" in
   # RELEASES #
   ############
   "ci-release")
-    # Single command that tests and publishes a release. Runs the backwards-compatibility e2e
-    # checks (blocking for stable/RC, observational for nightlies), then builds and publishes.
+    # Single command that tests and publishes a release.
     # DRY_RUN=1 exercises the whole flow without publishing — this is how releases are tested in CI.
     export CI=1
     export USE_TEST_CACHE=1
     if ! semver check $REF_NAME; then
       exit 1
-    fi
-
-    # Backwards-compatibility e2e checks. A failure blocks stable/RC releases, but only warns on
-    # nightlies (where compat coverage is observational) so the nightly publish still proceeds.
-    # Toggle errexit explicitly rather than `release_compat_e2e || compat_rc=$?`: calling under `||`
-    # suspends errexit for the whole function (and its subshell), masking build/setup failures there.
-    compat_rc=0
-    set +e
-    release_compat_e2e
-    compat_rc=$?
-    set -e
-    if [ "$compat_rc" -ne 0 ]; then
-      if [[ "${REF_NAME:-}" == *-nightly.* ]]; then
-        run_url="https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}/actions/runs/${RUN_ID:-unknown}"
-        "$ci3/slack_notify" "Backwards compatibility e2e tests FAILED on nightly tag <${run_url}|${REF_NAME}>" "#team-fairies" || true
-        echo "Compat e2e failed on nightly tag — continuing (non-blocking)."
-      else
-        echo "ERROR: backwards compatibility e2e tests failed — blocking release." >&2
-        exit 1
-      fi
     fi
 
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then

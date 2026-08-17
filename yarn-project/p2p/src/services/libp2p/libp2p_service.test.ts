@@ -20,7 +20,8 @@ import {
   makeCheckpointProposal,
   mockTx,
 } from '@aztec/stdlib/testing';
-import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
+import { TX_ERROR_INCORRECT_VK_TREE_ROOT, TxArray, type TxHash, TxHashArray } from '@aztec/stdlib/tx';
+import { InvalidBlockProposalTxsError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { ServerWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -314,6 +315,42 @@ describe('LibP2PService', () => {
         source: 'gossip',
       });
       expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Accept);
+    });
+  });
+
+  describe('getP2PConnectivity', () => {
+    it('reports p2p as enabled and counts only connected peers', () => {
+      mockPeerManager.getPeers.mockReturnValue([
+        { status: 'connected', id: 'a', score: 0 },
+        { status: 'dialing', id: 'b', dialStatus: 'queued', addresses: [] },
+        { status: 'connected', id: 'c', score: 1 },
+        { status: 'cached', id: 'd', addresses: [], enr: 'enr', dialAttempts: 1 },
+      ]);
+
+      expect(service.getP2PConnectivity()).toEqual({ enabled: true, connectedPeers: 2 });
+    });
+
+    it('reports zero connected peers when there are none', () => {
+      mockPeerManager.getPeers.mockReturnValue([]);
+
+      expect(service.getP2PConnectivity()).toEqual({ enabled: true, connectedPeers: 0 });
+    });
+  });
+
+  describe('validateTxsReceivedInBlockProposal', () => {
+    it('throws with the offending tx hashes and reasons when a tx fails integrity validation', async () => {
+      // Carries a zero vk tree root, so it fails the metadata check in the minimum integrity validator.
+      const tx = await mockTx();
+
+      const error = await service.validateTxsReceivedInBlockProposal([tx]).catch(err => err);
+
+      expect(error).toBeInstanceOf(InvalidBlockProposalTxsError);
+      expect(error.invalidTxs.map((invalid: { txHash: TxHash }) => invalid.txHash.toString())).toEqual([
+        tx.getTxHash().toString(),
+      ]);
+      expect(error.invalidTxs[0].reasons).toEqual(
+        expect.arrayContaining([expect.stringContaining(TX_ERROR_INCORRECT_VK_TREE_ROOT)]),
+      );
     });
   });
 
@@ -806,6 +843,18 @@ describe('LibP2PService', () => {
 
       expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
       expect(mockTxPool.unprotectTxs).not.toHaveBeenCalled();
+    });
+
+    it('local validation throwing releases the protections it created', async () => {
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeBlockProposal({ signer, blockHeader: header });
+      blockReceivedCallback.mockImplementationOnce(() => Promise.reject(new Error('Validation blew up')));
+
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.unprotectTxs).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.unprotectTxs).toHaveBeenCalledWith(proposal.txHashes, targetSlot);
     });
 
     // Regression for A-1013: payloads sharing (slot, position, archive) but differing on another

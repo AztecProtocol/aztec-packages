@@ -16,7 +16,8 @@ import {
 
 import { createHistogram } from 'node:perf_hooks';
 
-class IVCVerifierMetrics {
+/** Records verification timing and failure metrics for an IVC (chonk) proof verifier. */
+export class IVCVerifierMetrics {
   private ivcVerificationHistogram: Histogram;
   private ivcTotalVerificationHistogram: Histogram;
   private ivcFailureCount: UpDownCounter;

@@ -27,8 +27,8 @@ function syncVersionsFromConfig(configFile, versionsFile, versionedDocsDir) {
   const configVersions = [
     ...new Set(
       Object.values(config).filter(
-        (v) => v && fs.existsSync(path.join(docsDir, `version-${v}`)),
-      ),
+        (v) => v && fs.existsSync(path.join(docsDir, `version-${v}`))
+      )
     ),
   ];
   const configVersionSet = new Set(Object.values(config).filter(Boolean));
@@ -41,7 +41,7 @@ function syncVersionsFromConfig(configFile, versionsFile, versionedDocsDir) {
     : [];
   fs.writeFileSync(
     path.join(__dirname, versionsFile),
-    JSON.stringify([...configVersions, ...extraVersions], null, 2) + "\n",
+    JSON.stringify([...configVersions, ...extraVersions], null, 2) + "\n"
   );
   return config;
 }
@@ -49,7 +49,7 @@ function syncVersionsFromConfig(configFile, versionsFile, versionedDocsDir) {
 const developerVersionConfig = syncVersionsFromConfig(
   "./developer_version_config.json",
   "developer_versions.json",
-  "developer_versioned_docs",
+  "developer_versioned_docs"
 );
 const mainnetDeveloperVersion = developerVersionConfig.mainnet || null;
 const developerTestnetVersion = developerVersionConfig.testnet || null;
@@ -57,7 +57,7 @@ const developerTestnetVersion = developerVersionConfig.testnet || null;
 const networkVersionConfig = syncVersionsFromConfig(
   "./network_version_config.json",
   "network_versions.json",
-  "network_versioned_docs",
+  "network_versioned_docs"
 );
 const mainnetNetworkVersion = networkVersionConfig.mainnet || null;
 const testnetVersion = networkVersionConfig.testnet || null;
@@ -131,6 +131,11 @@ const config = {
         // Enable pages for root-level content (index.mdx, networks, etc.)
         pages: {
           path: "src/pages",
+        },
+        // Keep utility routes out of the sitemap so they don't count against
+        // llms.txt coverage (they are also excluded from the llms.txt index).
+        sitemap: {
+          ignorePatterns: ["/search", "/**/tags", "/**/tags/**"],
         },
       },
     ],
@@ -275,20 +280,36 @@ const config = {
       },
     ],
     [
-      "docusaurus-plugin-llms",
+      "@signalwire/docusaurus-plugin-llms-txt",
       {
-        generateLLMsTxt: true,
-        generateLLMsFullTxt: true,
-        docsDir: `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}`,
-        title: "Aztec Protocol Documentation",
-        excludeImports: true,
-        version: mainnetDeveloperVersion || developerTestnetVersion,
-        addMdExtension: false,
-        pathTransformation: {
-          ignorePaths: [
-            `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}`,
+        siteTitle: "Aztec Protocol Documentation",
+        siteDescription:
+          "Build private smart contracts on Ethereum's leading privacy-first L2 zkRollup.",
+        content: {
+          // Emit a .md sibling for every route so agents can fetch clean
+          // markdown at PAGE.md, and a single-file llms-full.txt dump.
+          enableMarkdownFiles: true,
+          enableLlmsFullTxt: true,
+          includeDocs: true,
+          includePages: true,
+          includeBlog: false,
+          // In production the served docs ARE the versioned snapshots (the
+          // current version is excluded), so they must be included or the index
+          // covers nothing.
+          includeVersionedDocs: true,
+          // The auto-generated API reference (raw static HTML under
+          // /aztec-nr-api and markdown under /typescript-api) is not part of
+          // Docusaurus's routes. It is surfaced in llms.txt separately by
+          // scripts/append_api_docs_to_llms.js, and deliberately kept out of the
+          // sitemap, so exclude it here too. Utility routes are excluded for the
+          // same reason.
+          excludeRoutes: [
+            "/search",
+            "/**/tags",
+            "/**/tags/**",
+            "/aztec-nr-api/**",
+            "/typescript-api/**",
           ],
-          addPaths: ["developers"],
         },
       },
     ],
@@ -361,7 +382,7 @@ const config = {
             docId: "operators/index",
             docsPluginId: "network",
             position: "left",
-            label: "Operate",
+            label: "Run a Node",
           },
           // Participate section - educational content (non-versioned)
           {

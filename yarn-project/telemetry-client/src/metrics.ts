@@ -33,6 +33,46 @@ export interface MetricDefinition {
   readonly valueType?: ValueType;
 }
 
+export const JSON_RPC_SERVER_REQUEST_COUNT: MetricDefinition = {
+  name: 'aztec.json_rpc.server.request_count',
+  description: 'Number of completed JSON-RPC server requests',
+  valueType: ValueType.INT,
+};
+export const JSON_RPC_SERVER_REQUEST_DURATION: MetricDefinition = {
+  name: 'aztec.json_rpc.server.request_duration',
+  description: 'JSON-RPC server request handler duration',
+  unit: 'ms',
+  valueType: ValueType.DOUBLE,
+};
+export const JSON_RPC_SERVER_REQUEST_VALIDATION_DURATION: MetricDefinition = {
+  name: 'aztec.json_rpc.server.request_validation_duration',
+  description: 'JSON-RPC server request parameter validation duration',
+  unit: 'ms',
+  valueType: ValueType.DOUBLE,
+};
+export const JSON_RPC_SERVER_REJECTED_REQUEST_COUNT: MetricDefinition = {
+  name: 'aztec.json_rpc.server.rejected_request_count',
+  description: 'Number of JSON-RPC requests rejected before handler dispatch',
+  valueType: ValueType.INT,
+};
+export const JSON_RPC_SERVER_BATCH_COUNT: MetricDefinition = {
+  name: 'aztec.json_rpc.server.batch_count',
+  description: 'Number of JSON-RPC batches received',
+  valueType: ValueType.INT,
+};
+export const JSON_RPC_SERVER_BATCH_DURATION: MetricDefinition = {
+  name: 'aztec.json_rpc.server.batch_duration',
+  description: 'JSON-RPC batch processing duration',
+  unit: 'ms',
+  valueType: ValueType.DOUBLE,
+};
+export const JSON_RPC_SERVER_BATCH_SIZE: MetricDefinition = {
+  name: 'aztec.json_rpc.server.batch_size',
+  description: 'Number of requests in a JSON-RPC batch',
+  unit: 'requests',
+  valueType: ValueType.INT,
+};
+
 export const BLOB_SINK_STORE_REQUESTS: MetricDefinition = {
   name: 'aztec.blob_sink.store_request_count',
   description: 'Number of blob store requests',
@@ -201,6 +241,24 @@ export const MEMPOOL_TX_POOL_V2_METADATA_MEMORY: MetricDefinition = {
   name: 'aztec.mempool.tx_pool_v2.metadata_memory',
   description: 'Estimated total memory consumed by in-memory transaction metadata',
   unit: 'By',
+  valueType: ValueType.INT,
+};
+
+export const MEMPOOL_TX_POOL_V2_QUEUE_WAIT: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.queue_wait',
+  description: 'Time an operation waits in the tx pool serial queue before executing, keyed by mempool.operation',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_QUEUE_EXECUTION: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.queue_execution',
+  description: 'Time an operation spends executing in the tx pool serial queue, keyed by mempool.operation',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const MEMPOOL_TX_POOL_V2_QUEUE_LENGTH: MetricDefinition = {
+  name: 'aztec.mempool.tx_pool_v2.queue_length',
+  description: 'Number of operations waiting in the tx pool serial queue',
   valueType: ValueType.INT,
 };
 
@@ -547,6 +605,41 @@ export const SLASHER_ROUND_EXECUTED_COUNT: MetricDefinition = {
   name: 'aztec.slasher.round.executed_count',
   description: 'The number of slashing rounds executed',
   valueType: ValueType.INT,
+};
+export const SLASHER_OWN_VALIDATOR_TARGETED_COUNT: MetricDefinition = {
+  name: 'aztec.slasher.own_validator.targeted_count',
+  description:
+    "The number of times one of the node's own validators was named as a slash target by an onchain vote, counted " +
+    'once per vote per validator. Votes cast while the node is offline or starting up are not counted, and L1 ' +
+    'reorgs can cause small drift within a round.',
+  valueType: ValueType.INT,
+};
+export const SLASHER_OWN_VALIDATOR_CURRENT_ROUND_VOTES_MAX: MetricDefinition = {
+  name: 'aztec.slasher.own_validator.current_round_votes_max',
+  description:
+    "Highest number of votes cast against any committee position held by the node's own validators in the current " +
+    'slashing round, to compare against aztec.slasher.quorum_size (the contract tallies quorum per position). ' +
+    'Resets to zero when a new round starts. Votes cast while the node is offline or starting up are not counted, ' +
+    'and L1 reorgs can cause small drift within a round.',
+  valueType: ValueType.INT,
+};
+export const SLASHER_QUORUM_SIZE: MetricDefinition = {
+  name: 'aztec.slasher.quorum_size',
+  description: 'The number of votes a validator must receive in a round to be slashed',
+  valueType: ValueType.INT,
+};
+export const SLASHER_OWN_VALIDATOR_SLASHED_COUNT: MetricDefinition = {
+  name: 'aztec.slasher.own_validator.slashed_count',
+  description: "The number of times one of the node's own validators was slashed, from executed Slashed events",
+  valueType: ValueType.INT,
+};
+export const SLASHER_OWN_VALIDATOR_SLASHED_AMOUNT: MetricDefinition = {
+  name: 'aztec.slasher.own_validator.slashed_amount',
+  description:
+    "Cumulative amount slashed from the node's own validators in whole staking-asset tokens, from executed " +
+    'Slashed events',
+  unit: 'tokens',
+  valueType: ValueType.DOUBLE,
 };
 export const SEQUENCER_CHECKPOINT_SUCCESS_COUNT: MetricDefinition = {
   name: 'aztec.sequencer.checkpoint.success_count',
@@ -984,6 +1077,13 @@ export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_AVG: MetricDefinition = 
 export const P2P_GOSSIP_SLOW_VALIDATION_COUNT: MetricDefinition = {
   name: 'aztec.p2p.gossip.slow_validation_count',
   description: 'Number of gossip validations that exceeded 75% of the mcache eviction window',
+  valueType: ValueType.INT,
+};
+
+export const P2P_GOSSIP_TX_VALIDATION_STAGE_DURATION: MetricDefinition = {
+  name: 'aztec.p2p.gossip.tx_validation_stage_duration',
+  description: 'Duration of each stage of gossiped tx validation, keyed by the tx_validation_stage attribute',
+  unit: 'ms',
   valueType: ValueType.INT,
 };
 

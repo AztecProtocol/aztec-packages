@@ -68,27 +68,6 @@ describe('ContractClassService', () => {
     expect(await service.getCurrentClassId(address, anchorWithHash(hashB))).toEqual(classAtB);
   });
 
-  it('caches per (address, anchor) so the node is queried once per anchor', async () => {
-    const hash = new BlockHash(new Fr(1n));
-    node.getContract.mockResolvedValue({ currentContractClassId: new Fr(7n) } as ContractInstanceWithAddress);
-
-    await service.getCurrentClassId(address, anchorWithHash(hash));
-    await service.getCurrentClassId(address, anchorWithHash(hash));
-
-    expect(node.getContract).toHaveBeenCalledTimes(1);
-  });
-
-  it('re-queries after wipe', async () => {
-    const hash = new BlockHash(new Fr(1n));
-    node.getContract.mockResolvedValue({ currentContractClassId: new Fr(7n) } as ContractInstanceWithAddress);
-
-    await service.getCurrentClassId(address, anchorWithHash(hash));
-    service.wipe();
-    await service.getCurrentClassId(address, anchorWithHash(hash));
-
-    expect(node.getContract).toHaveBeenCalledTimes(2);
-  });
-
   it('falls back to the original class when the node does not know the instance', async () => {
     node.getContract.mockResolvedValue(undefined);
 

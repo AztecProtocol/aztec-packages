@@ -4,7 +4,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { downloadEpochProvingJob, rerunEpochProvingJob } from '@aztec/prover-node';
+import { downloadEpochProvingJob, rerunCheckpointProvingJob, rerunEpochProvingJob } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
 
 import { jest } from '@jest/globals';
@@ -61,11 +61,11 @@ describe('single-node/proving/upload_failed_proof', () => {
     await tryRmDir(rerunDownloadDir, logger);
   });
 
-  // Makes the prover's top-tree prove always throw (v5 uses the session's topTreeProveOverride hook;
-  // pre-v5 it patched finalizeEpoch), intercepts tryUploadSessionFailure (pre-v5 tryUploadEpochFailure)
-  // to capture the upload URL, then waits for epoch 1 to start and for the upload to complete. Tears
-  // down the live context, downloads the proving job data, and re-runs it via rerunEpochProvingJob with
-  // fake proofs on a fresh config.
+  // Makes the prover's top-tree prove always throw. Because every checkpoint prover still succeeds, the
+  // session fails on its own account (state 'failed'), which the session manager treats as a genuine,
+  // race-free failure and uploads a post-mortem eagerly via tryUploadEpochFailure(sessionId, checkpoints).
+  // Intercepts that to capture the upload URL, then tears down the live context, downloads the proving
+  // job data, and re-runs it via rerunEpochProvingJob with fake proofs on a fresh config.
   it('uploads failed proving job state and re-runs it on a fresh instance', async () => {
     // Make initial prover node fail to prove, via the session's top-tree-prove hook.
     const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
@@ -77,19 +77,20 @@ describe('single-node/proving/upload_failed_proof', () => {
       },
     });
 
-    // And track when the epoch failure upload is complete
+    // Track when the epoch failure upload is complete. It fires eagerly when a full session fails with
+    // healthy provers (a top-tree failure here).
     const { promise: epochUploaded, resolve: onEpochUploaded } = promiseWithResolvers<string>();
-    const origTryUploadEpochFailure = proverNode.tryUploadSessionFailure.bind(proverNode);
-    proverNode.tryUploadSessionFailure = async (session: any) => {
-      const url = await origTryUploadEpochFailure(session);
+    const origTryUploadEpochFailure = proverNode.tryUploadEpochFailure.bind(proverNode);
+    proverNode.tryUploadEpochFailure = async (id: any, checkpoints: any) => {
+      const url = await origTryUploadEpochFailure(id, checkpoints);
       if (url !== undefined) {
         onEpochUploaded(url);
       }
       return url;
     };
 
-    // Warp to the start of epoch one so prover node starts proving epoch 0,
-    // and wait for the data to be uploaded to the remote file store
+    // Warp to the start of epoch one so the prover node starts proving, fails at the top tree, and
+    // uploads the failed proving-job data to the remote file store.
     await test.warpToEpochStart(1);
     const epochUploadUrl = await epochUploaded;
 
@@ -105,6 +106,64 @@ describe('single-node/proving/upload_failed_proof', () => {
 
     logger.warn(`Rerunning proving job from ${rerunDownloadPath}`);
     await rerunEpochProvingJob(
+      rerunDownloadPath,
+      logger,
+      {
+        ...config,
+        realProofs: false,
+        dataStoreMapSizeKb: 1024 * 1024,
+        dataDirectory: rerunDataDir,
+        proverAgentCount: 2,
+        proverId: EthAddress.random(),
+        ...(await getACVMConfig(logger)),
+        ...(await getBBConfig(logger)),
+      },
+      context.genesis,
+    );
+
+    logger.info(`Test succeeded`);
+  });
+
+  // Same shape as above, one level down: forces a single checkpoint's sub-tree to fail (every checkpoint
+  // prover fails, via the test hook), which uploads that checkpoint's proving data on its own. Intercepts
+  // tryUploadCheckpointFailure for the URL, then downloads and re-proves just that checkpoint via
+  // rerunCheckpointProvingJob (no epoch top-tree / L1 submit).
+  it('uploads failed checkpoint proving state and re-proves it on a fresh instance', async () => {
+    const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
+    proverNode.setCheckpointHooks({
+      checkpointProveOverride: async () => {
+        await sleep(1000);
+        logger.warn(`Triggering error on checkpoint sub-tree prove`);
+        throw new Error(`Fake error while proving checkpoint`);
+      },
+    });
+
+    // The checkpoint post-mortem upload fires eagerly when a CheckpointProver's block proofs reject.
+    const { promise: checkpointUploaded, resolve: onCheckpointUploaded } = promiseWithResolvers<string>();
+    const origTryUploadCheckpointFailure = proverNode.tryUploadCheckpointFailure.bind(proverNode);
+    proverNode.tryUploadCheckpointFailure = async (prover: any) => {
+      const url = await origTryUploadCheckpointFailure(prover);
+      if (url !== undefined) {
+        onCheckpointUploaded(url);
+      }
+      return url;
+    };
+
+    // Warp so the prover node starts registering checkpoints; the first one's sub-tree fails and uploads.
+    await test.warpToEpochStart(1);
+    const checkpointUploadUrl = await checkpointUploaded;
+
+    await test.teardown();
+
+    const rerunDownloadPath = join(rerunDownloadDir, 'data.bin');
+    logger.warn(`Downloading checkpoint proving job data and state`, { rerunDataDir, rerunDownloadPath });
+    await downloadEpochProvingJob(checkpointUploadUrl, logger, {
+      dataDirectory: rerunDataDir,
+      jobDataDownloadPath: rerunDownloadPath,
+    });
+
+    logger.warn(`Rerunning checkpoint proving job from ${rerunDownloadPath}`);
+    await rerunCheckpointProvingJob(
       rerunDownloadPath,
       logger,
       {

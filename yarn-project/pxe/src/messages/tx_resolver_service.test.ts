@@ -98,10 +98,10 @@ describe('TxResolverService', () => {
     );
   });
 
-  it('resolves a valid tx hash into a ResolvedTx', async () => {
+  it('resolves a valid tx hash into its onchain context', async () => {
     const txHash = TxHash.random();
     const noteHashes = [Fr.random(), Fr.random()];
-    const firstNullifier = Fr.random();
+    const nullifiers = [Fr.random(), Fr.random()];
     const blockHash = BlockHash.random();
     const blockNumber = anchorBlockNumber - 1;
 
@@ -109,23 +109,16 @@ describe('TxResolverService', () => {
       await minedReceipt({
         txHash,
         noteHashes,
-        nullifiers: [firstNullifier, Fr.random()],
+        nullifiers,
         blockNumber,
         blockHash,
+        txIndexInBlock: 3,
       }),
     );
 
     const results = await service.resolveTxs([txHash.hash], anchorBlockNumber);
 
-    expect(results).toEqual([
-      {
-        txHash,
-        uniqueNoteHashesInTx: noteHashes,
-        firstNullifierInTx: firstNullifier,
-        blockNumber,
-        blockHash: blockHash.toFr(),
-      },
-    ]);
+    expect(results).toEqual([{ txHash, noteHashes, nullifiers, blockNumber, blockHash, txIndexInBlock: 3 }]);
   });
 
   it('resolves tx hashes in different situations', async () => {
@@ -164,7 +157,7 @@ describe('TxResolverService', () => {
     const results = await service.resolveTxs(
       [
         Fr.ZERO, // zero → null
-        validTxHash.hash, // valid → ResolvedTx
+        validTxHash.hash, // valid → resolved
         notFoundTxHash.hash, // not found → null
         futureTxHash.hash, // beyond anchor → null
       ],
@@ -175,10 +168,11 @@ describe('TxResolverService', () => {
       null,
       {
         txHash: validTxHash,
-        uniqueNoteHashesInTx: validNoteHashes,
-        firstNullifierInTx: validNullifier,
+        noteHashes: validNoteHashes,
+        nullifiers: [validNullifier],
         blockNumber: anchorBlockNumber,
-        blockHash: validBlockHash.toFr(),
+        blockHash: validBlockHash,
+        txIndexInBlock: 0,
       },
       null,
       null,
@@ -217,10 +211,11 @@ describe('TxResolverService', () => {
 
     const expected = {
       txHash: txEffect.txHash,
-      uniqueNoteHashesInTx: txEffect.noteHashes,
-      firstNullifierInTx: txEffect.nullifiers[0],
+      noteHashes: txEffect.noteHashes,
+      nullifiers: txEffect.nullifiers,
       blockNumber,
-      blockHash: blockHash.toFr(),
+      blockHash,
+      txIndexInBlock: 0,
     };
     expect(results).toEqual([expected, expected, expected]);
     expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);

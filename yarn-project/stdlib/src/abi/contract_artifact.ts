@@ -13,7 +13,9 @@ import {
   type ABIParameter,
   type ABIParameterVisibility,
   ARTIFACT_VERSION_BEFORE_INJECTION,
+  type AbiNamedValue,
   type AbiType,
+  type AbiValue,
   type BasicValue,
   type ContractArtifact,
   ContractArtifactSchema,
@@ -265,20 +267,24 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
 
 /**
  * Generates a storage layout for the contract artifact.
- * @param input - The compiled noir contract to get storage layout for
+ * @param contractName - The name of the compiled Noir contract.
+ * @param globals - The normalized globals exported by the contract.
  * @returns A storage layout for the contract.
  */
-function getStorageLayout(input: NoirCompiledContract) {
+function getStorageLayout(contractName: string, globals: Record<string, AbiValue[]>) {
   // If another contract is imported by the main contract, its storage layout its going to also show up here.
   // The layout export includes the contract name, so here we can find the one that belongs to the current one and
   // ignore the rest.
-  const storageExports = input.outputs.globals.storage ? (input.outputs.globals.storage as StructValue[]) : [];
-  const storageForContract = storageExports.find(storageExport => {
+  const storageExports = globals.storage ?? [];
+  const storageForContract = storageExports.find((storageExport): storageExport is StructValue => {
+    if (storageExport.kind !== 'struct') {
+      return false;
+    }
     const contractNameField = storageExport.fields.find(field => field.name === 'contract_name')?.value as BasicValue<
       'string',
       string
     >;
-    return contractNameField.value === input.name;
+    return contractNameField.value === contractName;
   });
   const storageFields = storageForContract
     ? ((storageForContract.fields.find(field => field.name == 'fields') as TypedStructFieldValue<StructValue>).value
@@ -299,6 +305,22 @@ function getStorageLayout(input: NoirCompiledContract) {
   }, {});
 }
 
+function isAbiNamedValue(value: AbiNamedValue | AbiValue): value is AbiNamedValue {
+  return 'name' in value;
+}
+
+function normalizeContractOutputs(outputs: NoirCompiledContract['outputs']): ContractArtifact['outputs'] {
+  return {
+    structs: outputs.structs,
+    globals: Object.fromEntries(
+      Object.entries(outputs.globals).map(([tag, values]) => [
+        tag,
+        values.map(value => (isAbiNamedValue(value) ? value.value : value)),
+      ]),
+    ),
+  };
+}
+
 /**
  * Given a post-processed Nargo output defined as `contract` generates an Aztec-compatible contract artifact.
  *
@@ -309,6 +331,7 @@ function generateContractArtifact(contract: NoirCompiledContract): ContractArtif
     if (!contract.transpiled) {
       throw new Error("Contract's public bytecode has not been transpiled");
     }
+    const outputs = normalizeContractOutputs(contract.outputs);
     return ContractArtifactSchema.parse({
       name: contract.name,
       aztecVersion: contract.aztec_version,
@@ -316,8 +339,8 @@ function generateContractArtifact(contract: NoirCompiledContract): ContractArtif
       nonDispatchPublicFunctions: contract.functions
         .filter(f => !retainBytecode(f))
         .map(f => generateFunctionAbi(f, contract)),
-      outputs: contract.outputs,
-      storageLayout: getStorageLayout(contract),
+      outputs,
+      storageLayout: getStorageLayout(contract.name, outputs.globals),
       fileMap: contract.file_map,
     });
   } catch (err) {
@@ -332,6 +355,7 @@ function generateContractArtifact(contract: NoirCompiledContract): ContractArtif
  */
 function generateContractArtifactForPublic(contract: NoirCompiledContract): ContractArtifact {
   try {
+    const outputs = normalizeContractOutputs(contract.outputs);
     return ContractArtifactSchema.parse({
       name: contract.name,
       aztecVersion: contract.aztec_version,
@@ -339,8 +363,8 @@ function generateContractArtifactForPublic(contract: NoirCompiledContract): Cont
       nonDispatchPublicFunctions: contract.functions
         .filter(f => !retainBytecode(f))
         .map(f => generateFunctionAbi(f, contract)),
-      outputs: contract.outputs,
-      storageLayout: getStorageLayout(contract),
+      outputs,
+      storageLayout: getStorageLayout(contract.name, outputs.globals),
       fileMap: contract.file_map,
     });
   } catch (err) {

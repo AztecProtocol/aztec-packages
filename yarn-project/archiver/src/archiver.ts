@@ -203,6 +203,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     this.outboxTreesResolver = new OutboxTreesResolver(
       this.outbox,
       this,
+      this.dataStores.db,
       () => Promise.resolve(this.getL1BlockNumber()),
       l1Constants.epochDuration,
     );
@@ -434,7 +435,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         type: L2BlockSourceEvents.L2BlockSourceUpdated,
         fromTips,
         toTips,
-        blocksAdded,
       });
     }
   }
