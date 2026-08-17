@@ -16,7 +16,7 @@ This is an auto-generated reference. For tutorials and guides, see the [Aztec.js
 
 *Package: @aztec/aztec.js*
 
-*Generated: 2025-12-10T22:27:41.987Z*
+*Generated: 2026-08-17T11:45:37.366Z*
 
 This document provides a comprehensive reference for all public APIs in the Aztec.js library.
 
@@ -27,11 +27,9 @@ Each section is organized by module, with classes, interfaces, types, and functi
 - [Account](#account)
   - [AccountContract](#accountcontract)
   - [getAccountContractAddress](#getaccountcontractaddress)
-  - [AccountWithSecretKey](#accountwithsecretkey)
+  - [AuthorizationProvider](#authorizationprovider)
   - [Account](#account)
   - [BaseAccount](#baseaccount)
-  - [AccountInterface](#accountinterface)
-  - [SignerlessAccount](#signerlessaccount)
 - [Authorization](#authorization)
   - [CallAuthorizationRequest](#callauthorizationrequest)
 - [Contract](#contract)
@@ -43,40 +41,56 @@ Each section is organized by module, with classes, interfaces, types, and functi
   - [ContractBase](#contractbase)
   - [ContractFunctionInteraction](#contractfunctioninteraction)
   - [Contract](#contract)
+  - [DeployInstantiationOptions](#deployinstantiationoptions)
+  - [BoundInstantiationOptions](#boundinstantiationoptions)
+  - [UniversalInstantiationOptions](#universalinstantiationoptions)
+  - [PendingInstantiationOptions](#pendinginstantiationoptions)
+  - [DeployMethodContract](#deploymethodcontract)
+  - [DeployMethodPayload](#deploymethodpayload)
   - [RequestDeployOptions](#requestdeployoptions)
+  - [DeployOptionsWithoutWait](#deployoptionswithoutwait)
   - [DeployOptions](#deployoptions)
   - [SimulateDeployOptions](#simulatedeployoptions)
+  - [DeployResultMined](#deployresultmined)
+  - [DeployReturn](#deployreturn)
   - [DeployMethod](#deploymethod)
-  - [DeployedWaitOpts](#deployedwaitopts)
-  - [DeployTxReceipt](#deploytxreceipt)
-  - [DeploySentTx](#deploysenttx)
-  - [getGasLimits](#getgaslimits)
-  - [FeeEstimationOptions](#feeestimationoptions)
+  - [BoundDeployMethod](#bounddeploymethod)
+  - [UniversalDeployMethod](#universaldeploymethod)
+  - [PendingDeployMethod](#pendingdeploymethod)
+  - [fastForwardContractUpdate](#fastforwardcontractupdate)
   - [FeePaymentMethodOption](#feepaymentmethodoption)
   - [GasSettingsOption](#gassettingsoption)
   - [InteractionFeeOptions](#interactionfeeoptions)
-  - [SimulationInteractionFeeOptions](#simulationinteractionfeeoptions)
   - [RequestInteractionOptions](#requestinteractionoptions)
+  - [NO_WAIT](#no_wait)
+  - [NoWait](#nowait)
+  - [NO_FROM](#no_from)
+  - [NoFrom](#nofrom)
+  - [InteractionWaitOptions](#interactionwaitoptions)
+  - [SendInteractionOptionsWithoutWait](#sendinteractionoptionswithoutwait)
   - [SendInteractionOptions](#sendinteractionoptions)
   - [SimulateInteractionOptions](#simulateinteractionoptions)
   - [ProfileInteractionOptions](#profileinteractionoptions)
-  - [SimulationReturn](#simulationreturn)
+  - [OffchainMessage](#offchainmessage)
+  - [OffchainOutput](#offchainoutput)
+  - [extractOffchainOutput](#extractoffchainoutput)
+  - [SimulationResult](#simulationresult)
+  - [TxSendResultImmediate](#txsendresultimmediate)
+  - [TxSendResultMined](#txsendresultmined)
+  - [SendReturn](#sendreturn)
   - [toSendOptions](#tosendoptions)
   - [toSimulateOptions](#tosimulateoptions)
   - [toProfileOptions](#toprofileoptions)
-  - [getClassRegistryContract](#getclassregistrycontract)
-  - [getInstanceRegistryContract](#getinstanceregistrycontract)
-  - [getFeeJuice](#getfeejuice)
-  - [WaitOpts](#waitopts)
-  - [DefaultWaitOpts](#defaultwaitopts)
-  - [SentTx](#senttx)
-  - [UnsafeContract](#unsafecontract)
   - [WaitForProvenOpts](#waitforprovenopts)
   - [DefaultWaitForProvenOpts](#defaultwaitforprovenopts)
   - [waitForProven](#waitforproven)
+  - [WaitOpts](#waitopts)
+  - [DefaultWaitOpts](#defaultwaitopts)
+- [Contract / Protocol_Contracts](#contract--protocol_contracts)
+  - [ContractClassRegistryContract](#contractclassregistrycontract)
+  - [ContractInstanceRegistryContract](#contractinstanceregistrycontract)
+  - [FeeJuiceContract](#feejuicecontract)
 - [Deployment](#deployment)
-  - [broadcastPrivateFunction](#broadcastprivatefunction)
-  - [broadcastUtilityFunction](#broadcastutilityfunction)
   - [ContractDeployer](#contractdeployer)
   - [publishContractClass](#publishcontractclass)
   - [publishInstance](#publishinstance)
@@ -103,9 +117,11 @@ Each section is organized by module, with classes, interfaces, types, and functi
   - [EventSelectorLike](#eventselectorlike)
   - [U128Like](#u128like)
   - [WrappedFieldLike](#wrappedfieldlike)
+  - [OptionLike](#optionlike)
   - [IntentInnerHash](#intentinnerhash)
   - [CallIntent](#callintent)
   - [ContractFunctionInteractionCallIntent](#contractfunctioninteractioncallintent)
+  - [isContractFunctionInteractionCallIntent](#iscontractfunctioninteractioncallintent)
   - [computeAuthWitMessageHash](#computeauthwitmessagehash)
   - [getMessageHashFromIntent](#getmessagehashfromintent)
   - [computeInnerAuthWitHashFromAction](#computeinnerauthwithashfromaction)
@@ -116,16 +132,39 @@ Each section is organized by module, with classes, interfaces, types, and functi
   - [getFeeJuiceBalance](#getfeejuicebalance)
   - [readFieldCompressedString](#readfieldcompressedstring)
   - [waitForNode](#waitfornode)
+  - [waitForTx](#waitfortx)
   - [createAztecNodeClient](#createaztecnodeclient)
   - [AztecNode](#aztecnode)
+  - [AztecNodeClientOptions](#aztecnodeclientoptions)
   - [generatePublicKey](#generatepublickey)
 - [Wallet](#wallet)
   - [AccountEntrypointMetaPaymentMethod](#accountentrypointmetapaymentmethod)
+  - [AccountManagerCreateOptions](#accountmanagercreateoptions)
   - [AccountManager](#accountmanager)
+  - [CAPABILITY_VERSION](#capability_version)
+  - [ContractFunctionPattern](#contractfunctionpattern)
+  - [AccountsCapability](#accountscapability)
+  - [GrantedAccountsCapability](#grantedaccountscapability)
+  - [ContractsCapability](#contractscapability)
+  - [GrantedContractsCapability](#grantedcontractscapability)
+  - [ContractClassesCapability](#contractclassescapability)
+  - [GrantedContractClassesCapability](#grantedcontractclassescapability)
+  - [SimulationCapability](#simulationcapability)
+  - [GrantedSimulationCapability](#grantedsimulationcapability)
+  - [TransactionCapability](#transactioncapability)
+  - [GrantedTransactionCapability](#grantedtransactioncapability)
+  - [DataCapability](#datacapability)
+  - [GrantedDataCapability](#granteddatacapability)
+  - [Capability](#capability)
+  - [GrantedCapability](#grantedcapability)
+  - [AppCapabilities](#appcapabilities)
+  - [WalletCapabilities](#walletcapabilities)
+  - [DeployAccountFeePaymentMethodOption](#deployaccountfeepaymentmethodoption)
   - [RequestDeployAccountOptions](#requestdeployaccountoptions)
   - [DeployAccountOptions](#deployaccountoptions)
   - [SimulateDeployAccountOptions](#simulatedeployaccountoptions)
   - [DeployAccountMethod](#deployaccountmethod)
+  - [TxSimulationResultWithAppOffset](#txsimulationresultwithappoffset)
   - [Aliased](#aliased)
   - [SimulateOptions](#simulateoptions)
   - [ProfileOptions](#profileoptions)
@@ -135,23 +174,49 @@ Each section is organized by module, with classes, interfaces, types, and functi
   - [BatchedMethodResult](#batchedmethodresult)
   - [BatchedMethodResultWrapper](#batchedmethodresultwrapper)
   - [BatchResults](#batchresults)
+  - [EventFilterBase](#eventfilterbase)
   - [PrivateEventFilter](#privateeventfilter)
+  - [PublicEventFilter](#publiceventfilter)
+  - [Event](#event)
   - [PrivateEvent](#privateevent)
+  - [PublicEvent](#publicevent)
+  - [ContractMetadata](#contractmetadata)
+  - [ContractClassMetadata](#contractclassmetadata)
+  - [ExecuteUtilityOptions](#executeutilityoptions)
   - [Wallet](#wallet)
-  - [FunctionCallSchema](#functioncallschema)
   - [ExecutionPayloadSchema](#executionpayloadschema)
   - [GasSettingsOptionSchema](#gassettingsoptionschema)
-  - [WalletSimulationFeeOptionSchema](#walletsimulationfeeoptionschema)
+  - [WaitOptsSchema](#waitoptsschema)
   - [SendOptionsSchema](#sendoptionsschema)
   - [SimulateOptionsSchema](#simulateoptionsschema)
   - [ProfileOptionsSchema](#profileoptionsschema)
   - [MessageHashOrIntentSchema](#messagehashorintentschema)
-  - [BatchedMethodSchema](#batchedmethodschema)
+  - [EventMetadataDefinitionSchema](#eventmetadatadefinitionschema)
+  - [PrivateEventFilterSchema](#privateeventfilterschema)
+  - [PublicEventFilterSchema](#publiceventfilterschema)
+  - [PrivateEventSchema](#privateeventschema)
+  - [PublicEventSchema](#publiceventschema)
   - [ContractMetadataSchema](#contractmetadataschema)
   - [ContractClassMetadataSchema](#contractclassmetadataschema)
-  - [EventMetadataDefinitionSchema](#eventmetadatadefinitionschema)
-  - [PrivateEventSchema](#privateeventschema)
-  - [PrivateEventFilterSchema](#privateeventfilterschema)
+  - [ContractFunctionPatternSchema](#contractfunctionpatternschema)
+  - [AccountsCapabilitySchema](#accountscapabilityschema)
+  - [GrantedAccountsCapabilitySchema](#grantedaccountscapabilityschema)
+  - [ContractsCapabilitySchema](#contractscapabilityschema)
+  - [GrantedContractsCapabilitySchema](#grantedcontractscapabilityschema)
+  - [ContractClassesCapabilitySchema](#contractclassescapabilityschema)
+  - [GrantedContractClassesCapabilitySchema](#grantedcontractclassescapabilityschema)
+  - [SimulationCapabilitySchema](#simulationcapabilityschema)
+  - [GrantedSimulationCapabilitySchema](#grantedsimulationcapabilityschema)
+  - [TransactionCapabilitySchema](#transactioncapabilityschema)
+  - [GrantedTransactionCapabilitySchema](#grantedtransactioncapabilityschema)
+  - [DataCapabilitySchema](#datacapabilityschema)
+  - [GrantedDataCapabilitySchema](#granteddatacapabilityschema)
+  - [CapabilitySchema](#capabilityschema)
+  - [GrantedCapabilitySchema](#grantedcapabilityschema)
+  - [AppCapabilitiesSchema](#appcapabilitiesschema)
+  - [WalletCapabilitiesSchema](#walletcapabilitiesschema)
+  - [BatchedMethodSchema](#batchedmethodschema)
+  - [BatchedResultSchema](#batchedresultschema)
   - [WalletSchema](#walletschema)
 
 ---
@@ -216,29 +281,38 @@ Promise<
   >
 ```
 
-##### getInterface
+##### getImmutablesHash
 
-Returns the account interface for this account contract given an instance at the provided address. The account interface is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
+The hash of this account's immutable instantiation params, committed into its address. Returns undefined for accounts that have no immutables (these are instead deployed via an onchain initializer, which contributes to the address through its initialization hash).
 
 **Signature:**
 
 ```typescript
-getInterface(
-  address: CompleteAddress,
-  chainInfo: ChainInfo
-): AccountInterface
+getImmutablesHash(): Promise<Fr | undefined>
+```
+
+**Returns:**
+
+`Promise<Fr | undefined>`
+
+##### getAccount
+
+Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
+
+**Signature:**
+
+```typescript
+getAccount(address: CompleteAddress): Account
 ```
 
 **Parameters:**
 
 - `address`: `CompleteAddress`
   - Address of this account contract.
-- `chainInfo`: `ChainInfo`
-  - Chain id and version of the rollup where the account contract is initialized / published.
 
 **Returns:**
 
-`AccountInterface` - An account interface instance for creating tx requests and authorizing actions.
+`Account` - An account instance for creating tx requests and authorizing actions.
 
 ##### getAuthWitnessProvider
 
@@ -263,7 +337,7 @@ getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider
 
 **Type:** Function
 
-Compute the address of an account contract from secret and salt.
+Compute the address of an account contract from secret, salt and optional immutables hash
 
 **Signature:**
 
@@ -271,7 +345,8 @@ Compute the address of an account contract from secret and salt.
 export async getAccountContractAddress(
   accountContract: AccountContract,
   secret: Fr,
-  salt: Fr
+  salt: Fr,
+  immutablesHash?: Fr
 )
 ```
 
@@ -280,91 +355,95 @@ export async getAccountContractAddress(
 - `accountContract`: `AccountContract`
 - `secret`: `Fr`
 - `salt`: `Fr`
+- `immutablesHash` (optional): `Fr`
 
 **Returns:**
 
-`Promise<any>`
-
----
-
-### `account/account_with_secret_key.ts`
-
-
-#### AccountWithSecretKey
-
-**Type:** Class
-
-Extends Account with the encryption private key. Not required for implementing the wallet interface but useful for testing purposes or exporting an account to another pxe.
-
-**Extends:** `BaseAccount`
-
-
-#### Constructor
-
-**Signature:**
-
-```typescript
-constructor(
-  account: AccountInterface,
-  private secretKey: Fr,
-  public readonly salt: Salt
-)
-```
-
-**Parameters:**
-
-- `account`: `AccountInterface`
-- `secretKey`: `Fr`
-- `salt`: `Salt`
-  - Deployment salt for this account contract.
-
-#### Methods
-
-
-##### getSecretKey
-
-Returns the encryption private key associated with this account.
-
-**Signature:**
-
-```typescript
-public getSecretKey()
-```
-
-**Returns:**
-
-`Fr`
-
-##### getEncryptionSecret
-
-Returns the encryption secret, the secret of the encryption point—the point that others use to encrypt messages to this account note - this ensures that the address secret always corresponds to an address point with y being positive dev - this is also referred to as the address secret, which decrypts payloads encrypted to an address point
-
-**Signature:**
-
-```typescript
-public async getEncryptionSecret()
-```
-
-**Returns:**
-
-`Promise<any>`
+`Promise<AztecAddress>`
 
 ---
 
 ### `account/account.ts`
 
 
-#### Account
+#### AuthorizationProvider
 
-**Type:** Type Alias
+**Type:** Interface
 
-A type defining an account, capable of both creating authwits and using them to authenticate transaction execution requests.
+Provides authorization for actions via the AuthWitness mechanism.
+
+
+#### Methods
+
+
+##### createAuthWit
+
+Creates an authentication witness from an inner hash with consumer, or a call intent
 
 **Signature:**
 
 ```typescript
-export type Account = AccountInterface & AuthwitnessIntentProvider;
+createAuthWit(
+  intent: IntentInnerHash | CallIntent,
+  chainInfo: ChainInfo
+): Promise<AuthWitness>
 ```
+
+**Parameters:**
+
+- `intent`: `IntentInnerHash | CallIntent`
+  - The action (or inner hash) to authorize
+- `chainInfo`: `ChainInfo`
+  - Chain information needed for message hash computation
+
+**Returns:**
+
+`Promise<AuthWitness>`
+
+#### Account
+
+**Type:** Type Alias
+
+Minimal interface for transaction execution and authorization.
+
+**Signature:**
+
+```typescript
+export type Account = EntrypointInterface &
+ AuthorizationProvider & {
+ getCompleteAddress(): CompleteAddress;
+ getAddress(): AztecAddress;
+ };
+```
+
+**Type Members:**
+
+##### getCompleteAddress
+
+Returns the complete address for this account.
+
+**Signature:**
+
+```typescript
+getCompleteAddress(): CompleteAddress
+```
+
+**Returns:**
+
+`CompleteAddress`
+##### getAddress
+
+Returns the address for this account.
+
+**Signature:**
+
+```typescript
+getAddress(): AztecAddress
+```
+
+**Returns:**
+
+`AztecAddress`
 
 #### BaseAccount
 
@@ -380,12 +459,18 @@ An account implementation that uses authwits as an authentication mechanism and 
 **Signature:**
 
 ```typescript
-constructor(protected account: AccountInterface)
+constructor(
+  private entrypoint: EntrypointInterface,
+  private authWitnessProvider: AuthWitnessProvider,
+  private completeAddress: CompleteAddress
+)
 ```
 
 **Parameters:**
 
-- `account`: `AccountInterface`
+- `entrypoint`: `EntrypointInterface`
+- `authWitnessProvider`: `AuthWitnessProvider`
+- `completeAddress`: `CompleteAddress`
 
 #### Methods
 
@@ -398,6 +483,7 @@ constructor(protected account: AccountInterface)
 createTxExecutionRequest(
   exec: ExecutionPayload,
   gasSettings: GasSettings,
+  chainInfo: ChainInfo,
   options: DefaultAccountEntrypointOptions
 ): Promise<TxExecutionRequest>
 ```
@@ -406,228 +492,54 @@ createTxExecutionRequest(
 
 - `exec`: `ExecutionPayload`
 - `gasSettings`: `GasSettings`
+- `chainInfo`: `ChainInfo`
 - `options`: `DefaultAccountEntrypointOptions`
 
 **Returns:**
 
 `Promise<TxExecutionRequest>`
 
-##### getChainId
+##### wrapExecutionPayload
 
 **Signature:**
 
 ```typescript
-getChainId(): Fr
-```
-
-**Returns:**
-
-`Fr`
-
-##### getVersion
-
-**Signature:**
-
-```typescript
-getVersion(): Fr
-```
-
-**Returns:**
-
-`Fr`
-
-##### getCompleteAddress
-
-Returns the complete address of the account that implements this wallet.
-
-**Signature:**
-
-```typescript
-public getCompleteAddress()
-```
-
-**Returns:**
-
-`CompleteAddress`
-
-##### getAddress
-
-Returns the address of the account that implements this wallet.
-
-**Signature:**
-
-```typescript
-public getAddress()
-```
-
-**Returns:**
-
-`any`
-
-##### createAuthWit
-
-Computes an authentication witness from either a message hash or an intent. If a message hash is provided, it will create a witness for the hash directly. Otherwise, it will compute the message hash using the intent, along with the chain id and the version values provided by the wallet.
-
-**Signature:**
-
-```typescript
-async createAuthWit(messageHashOrIntent: Fr | Buffer | CallIntent | IntentInnerHash): Promise<AuthWitness>
-```
-
-**Parameters:**
-
-- `messageHashOrIntent`: `Fr | Buffer | CallIntent | IntentInnerHash`
-  - The message hash of the intent to approve
-
-**Returns:**
-
-`Promise<AuthWitness>` - The authentication witness
-
----
-
-### `account/interface.ts`
-
-
-#### AccountInterface
-
-**Type:** Interface
-
-Handler for interfacing with an account. Knows how to create transaction execution requests and authorize actions for its corresponding account.
-
-**Extends:** `EntrypointInterface`, `AuthWitnessProvider`
-
-
-#### Methods
-
-
-##### getCompleteAddress
-
-Returns the complete address for this account.
-
-**Signature:**
-
-```typescript
-getCompleteAddress(): CompleteAddress
-```
-
-**Returns:**
-
-`CompleteAddress`
-
-##### getAddress
-
-Returns the address for this account.
-
-**Signature:**
-
-```typescript
-getAddress(): AztecAddress
-```
-
-**Returns:**
-
-`AztecAddress`
-
-##### getChainId
-
-Returns the chain id for this account
-
-**Signature:**
-
-```typescript
-getChainId(): Fr
-```
-
-**Returns:**
-
-`Fr`
-
-##### getVersion
-
-Returns the rollup version for this account
-
-**Signature:**
-
-```typescript
-getVersion(): Fr
-```
-
-**Returns:**
-
-`Fr`
-
----
-
-### `account/signerless_account.ts`
-
-
-#### SignerlessAccount
-
-**Type:** Class
-
-Account implementation which creates a transaction using the multicall protocol contract as entrypoint.
-
-**Implements:** `Account`
-
-
-#### Constructor
-
-**Signature:**
-
-```typescript
-constructor(chainInfo: ChainInfo)
-```
-
-**Parameters:**
-
-- `chainInfo`: `ChainInfo`
-
-#### Methods
-
-
-##### createTxExecutionRequest
-
-**Signature:**
-
-```typescript
-createTxExecutionRequest(
+wrapExecutionPayload(
   exec: ExecutionPayload,
-  gasSettings: GasSettings
-): Promise<TxExecutionRequest>
+  chainInfo: ChainInfo,
+  options?: any
+): Promise<ExecutionPayload>
 ```
 
 **Parameters:**
 
 - `exec`: `ExecutionPayload`
-- `gasSettings`: `GasSettings`
+- `chainInfo`: `ChainInfo`
+- `options` (optional): `any`
 
 **Returns:**
 
-`Promise<TxExecutionRequest>`
+`Promise<ExecutionPayload>`
 
-##### getChainId
+##### createAuthWit
 
 **Signature:**
 
 ```typescript
-getChainId(): Fr
+async createAuthWit(
+  messageHashOrIntent: CallIntent | IntentInnerHash,
+  chainInfo: ChainInfo
+): Promise<AuthWitness>
 ```
+
+**Parameters:**
+
+- `messageHashOrIntent`: `CallIntent | IntentInnerHash`
+- `chainInfo`: `ChainInfo`
 
 **Returns:**
 
-`Fr`
-
-##### getVersion
-
-**Signature:**
-
-```typescript
-getVersion(): Fr
-```
-
-**Returns:**
-
-`Fr`
+`Promise<AuthWitness>`
 
 ##### getCompleteAddress
 
@@ -652,22 +564,6 @@ getAddress(): AztecAddress
 **Returns:**
 
 `AztecAddress`
-
-##### createAuthWit
-
-**Signature:**
-
-```typescript
-createAuthWit(_intent: Fr | Buffer | IntentInnerHash | CallIntent): Promise<AuthWitness>
-```
-
-**Parameters:**
-
-- `_intent`: `Fr | Buffer | IntentInnerHash | CallIntent`
-
-**Returns:**
-
-`Promise<AuthWitness>`
 
 ## Authorization
 
@@ -689,9 +585,10 @@ An authwit request for a function call. Includes the preimage of the data to be 
 **Signature:**
 
 ```typescript
-constructor(
+private constructor(
   public selector: AuthorizationSelector,
   public innerHash: Fr,
+  public onBehalfOf: AztecAddress,
   public msgSender: AztecAddress,
   public functionSelector: FunctionSelector,
   public argsHash: Fr,
@@ -705,6 +602,8 @@ constructor(
   - The selector of the authwit type, used to identify it when emitted from `emit_offchain_effect`oracle. Computed as poseidon2("CallAuthwit((Field),(u32),Field)".to_bytes())
 - `innerHash`: `Fr`
   - The inner hash of the authwit, computed as poseidon2([msg_sender, selector, args_hash])
+- `onBehalfOf`: `AztecAddress`
+  - The address on whose behalf the auth witness should be created. This is the account that must sign the authorization.
 - `msgSender`: `AztecAddress`
   - The address performing the call
 - `functionSelector`: `FunctionSelector`
@@ -810,22 +709,54 @@ public abstract request(options?: RequestInteractionOptions): Promise<ExecutionP
 
 ##### send
 
-Sends a transaction to the contract function with the specified options. This function throws an error if called on a utility function. It creates and signs the transaction if necessary, and returns a SentTx instance, which can be used to track the transaction status, receipt, and events.
+Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
 
 **Signature:**
 
 ```typescript
-public send(options: SendInteractionOptions): SentTx
+public send<TReturn = TxReceipt>(options: SendInteractionOptionsWithoutWait): Promise<TxSendResultMined<TReturn>>
 ```
 
 **Parameters:**
 
-- `options`: `SendInteractionOptions`
-  - An object containing 'from' property representing the AztecAddress of the sender and optional fee configuration
+- `options`: `SendInteractionOptionsWithoutWait`
+  - An object containing 'from' property representing the AztecAddress of the sender, optional fee configuration, and optional wait settings
 
 **Returns:**
 
-`SentTx` - A SentTx instance for tracking the transaction status and information.
+`Promise<TxSendResultMined<TReturn>>` - TReturn (if wait is undefined/WaitOpts) or TxHash (if wait is NO_WAIT)
+
+##### send
+
+**Signature:**
+
+```typescript
+public send<TReturn = TxReceipt, W extends InteractionWaitOptions = undefined>(options: SendInteractionOptions<W>): Promise<SendReturn<W, TReturn>>
+```
+
+**Parameters:**
+
+- `options`: `SendInteractionOptions<W>`
+
+**Returns:**
+
+`Promise<SendReturn<W, TReturn>>`
+
+##### send
+
+**Signature:**
+
+```typescript
+public async send<TReturn = TxReceipt>(options: SendInteractionOptions<InteractionWaitOptions>): Promise<SendReturn<typeof options.wait, TReturn>>
+```
+
+**Parameters:**
+
+- `options`: `SendInteractionOptions<InteractionWaitOptions>`
+
+**Returns:**
+
+`Promise<SendReturn<typeof options.wait, TReturn>>`
 
 ---
 
@@ -848,7 +779,8 @@ A batch of function calls to be sent as a single transaction through a wallet.
 ```typescript
 constructor(
   wallet: Wallet,
-  protected interactions: (BaseContractInteraction | ExecutionPayload)[]
+  protected interactions: (BaseContractInteraction | ExecutionPayload)[],
+  private extraHashedArgs: HashedValues[] = []
 )
 ```
 
@@ -856,6 +788,7 @@ constructor(
 
 - `wallet`: `Wallet`
 - `interactions`: `(BaseContractInteraction | ExecutionPayload)[]`
+- `extraHashedArgs` (optional): `HashedValues[]`
 
 #### Methods
 
@@ -881,12 +814,12 @@ public async request(options: RequestInteractionOptions = {}): Promise<Execution
 
 ##### simulate
 
-Simulates the batch, supporting private, public and utility functions. Although this is a single interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload that the wallet will simulate as a single transaction. Utility function calls will simply be executed one by one.
+Simulates/executes the batch, supporting private, public and utility functions. Although this is a single interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload that the wallet will simulate as a single transaction. Utility function calls will be executed one by one.
 
 **Signature:**
 
 ```typescript
-public async simulate(options: SimulateInteractionOptions): Promise<any>
+public async simulate(options: SimulateInteractionOptions): Promise<SimulationResult>
 ```
 
 **Parameters:**
@@ -896,7 +829,7 @@ public async simulate(options: SimulateInteractionOptions): Promise<any>
 
 **Returns:**
 
-`Promise<any>` - The results of all the interactions that make up the batch
+`Promise<SimulationResult>` - The results of all the interactions that make up the batch
 
 ##### getExecutionPayloads
 
@@ -1104,7 +1037,7 @@ public async getFunctionCall()
 
 **Returns:**
 
-`Promise<{ name: any; args: any; selector: any; type: any; to: AztecAddress; isStatic: any; hideMsgSender: boolean; returnTypes: any; }>` - An encoded function call
+`Promise<FunctionCall>` - An encoded function call
 
 ##### request
 
@@ -1132,49 +1065,17 @@ Simulate a transaction and get information from its execution. Differs from prov
 **Signature:**
 
 ```typescript
-public async simulate<T extends SimulateInteractionOptions>(options: T): Promise<SimulationReturn<Exclude<T['fee'], undefined>['estimateGas']>>
+public async simulate(options: SimulateInteractionOptions = {} as SimulateInteractionOptions): Promise<SimulationResult>
 ```
 
 **Parameters:**
 
-- `options`: `T`
+- `options` (optional): `SimulateInteractionOptions`
   - An optional object containing additional configuration for the simulation.
 
 **Returns:**
 
-`Promise<SimulationReturn<Exclude<T['fee'], undefined>['estimateGas']>>` - Depending on the simulation options, this method directly returns the result value of the executed function or a rich object containing extra metadata, such as estimated gas costs (if requested via options), execution statistics and emitted offchain effects
-
-##### simulate
-
-**Signature:**
-
-```typescript
-public async simulate<T extends SimulateInteractionOptions>(options: T): Promise<SimulationReturn<T['includeMetadata']>>
-```
-
-**Parameters:**
-
-- `options`: `T`
-
-**Returns:**
-
-`Promise<SimulationReturn<T['includeMetadata']>>`
-
-##### simulate
-
-**Signature:**
-
-```typescript
-public async simulate(options: SimulateInteractionOptions): Promise<SimulationReturn<typeof options.includeMetadata>>
-```
-
-**Parameters:**
-
-- `options`: `SimulateInteractionOptions`
-
-**Returns:**
-
-`Promise<SimulationReturn<typeof options.includeMetadata>>`
+`Promise<SimulationResult>` - Depending on the simulation options, this method directly returns the result value of the executed function or a rich object containing extra metadata, such as estimated gas costs (if requested via options), execution statistics and emitted offchain effects
 
 ##### profile
 
@@ -1211,18 +1112,19 @@ public with({ authWitnesses = [], capsules = [], extraHashedArgs = [], }: {
 
 **Parameters:**
 
-- `{
-    authWitnesses = [],
-    capsules = [],
-    extraHashedArgs = [],
-  }`: `{
-    /** The authWitnesses to add to the interaction */
-    authWitnesses?: AuthWitness[];
-    /** The capsules to add to the interaction */
-    capsules?: Capsule[];
-    /** The extra hashed args to add to the interaction */
-    extraHashedArgs?: HashedValues[];
-  }`
+- `{ authWitnesses = [], capsules = [], extraHashedArgs = [], }`:
+
+  ```typescript
+  {
+      /** The authWitnesses to add to the interaction */
+      authWitnesses?: AuthWitness[];
+      /** The capsules to add to the interaction */
+      capsules?: Capsule[];
+      /** The extra hashed args to add to the interaction */
+      extraHashedArgs?: HashedValues[];
+    }
+  ```
+
 
 **Returns:**
 
@@ -1283,7 +1185,8 @@ public static deploy(
   wallet: Wallet,
   artifact: ContractArtifact,
   args: any[],
-  constructorName?: string
+  constructorName?: string,
+  instantiation?: DeployInstantiationOptions
 )
 ```
 
@@ -1297,39 +1200,8 @@ public static deploy(
   - Arguments for the constructor.
 - `constructorName` (optional): `string`
   - The name of the constructor function to call.
-
-**Returns:**
-
-`DeployMethod<Contract>`
-
-##### deployWithPublicKeys
-
-Creates a tx to deploy (initialize and/or publish) a new instance of a contract using the specified public keys hash to derive the address.
-
-**Signature:**
-
-```typescript
-public static deployWithPublicKeys(
-  publicKeys: PublicKeys,
-  wallet: Wallet,
-  artifact: ContractArtifact,
-  args: any[],
-  constructorName?: string
-)
-```
-
-**Parameters:**
-
-- `publicKeys`: `PublicKeys`
-  - Hash of public keys to use for deriving the address.
-- `wallet`: `Wallet`
-  - The wallet for executing the deployment.
-- `artifact`: `ContractArtifact`
-  - Build artifact of the contract.
-- `args`: `any[]`
-  - Arguments for the constructor.
-- `constructorName` (optional): `string`
-  - The name of the constructor function to call.
+- `instantiation` (optional): `DeployInstantiationOptions`
+  - Other address-affecting parameters (salt, deployer / universalDeploy, publicKeys).
 
 **Returns:**
 
@@ -1340,18 +1212,238 @@ public static deployWithPublicKeys(
 ### `contract/deploy_method.ts`
 
 
+#### DeployInstantiationOptions
+
+**Type:** Type Alias
+
+Inputs that determine the contract's deployment address. `salt` and `publicKeys` are optional and default to a random Fr and `PublicKeys.default()` respectively. `deployer` and `universalDeploy` are mutually exclusive and both optional: - If neither is supplied, the deployer is locked lazily on the first `send` / `simulate` / `profile` call from `options.from` (NO_FROM/undefined → universal). This preserves the ergonomics of `MyContract.deploy(wallet, ...args).send({ from: alice })`. - If `deployer` or `universalDeploy: true` is supplied, the deployer is locked at construction. Once locked, the deployer cannot change. Subsequent calls with a `from` that would imply a different deployer throw — except when locked to `AztecAddress.ZERO` (universal), which is compatible with any sender.
+
+**Signature:**
+
+```typescript
+export type DeployInstantiationOptions = {
+ salt?: Fr;
+ deployer?: AztecAddress;
+ universalDeploy?: boolean;
+ publicKeys?: PublicKeys;
+ immutablesHash?: Fr;
+};
+```
+
+**Type Members:**
+
+##### salt
+
+Salt used to derive the contract address. Defaults to a random Fr.
+
+**Type:** `Fr`
+
+##### deployer
+
+Deployer address mixed into the address preimage. Mutually exclusive with `universalDeploy`.
+
+**Type:** `AztecAddress`
+
+##### universalDeploy
+
+If true, the contract is deployed universally (deployer = AztecAddress.ZERO in the address preimage). Mutually exclusive with `deployer`.
+
+**Type:** `boolean`
+
+##### publicKeys
+
+Public keys mixed into the address. Defaults to PublicKeys.default().
+
+**Type:** `PublicKeys`
+
+##### immutablesHash
+
+Commitment to the contract's immutable storage values. Folded into the salted initialization hash, so a non-zero value affects the derived address. Defaults to `Fr.ZERO`.
+
+**Type:** `Fr`
+
+
+#### BoundInstantiationOptions
+
+**Type:** Type Alias
+
+Narrowed `DeployInstantiationOptions` accepted by BoundDeployMethod: requires a concrete `deployer` and forbids `universalDeploy`. The runtime check that `deployer` is non-zero stays as defense in depth (it's a value-level invariant the type system can't model).
+
+**Signature:**
+
+```typescript
+export type BoundInstantiationOptions = SharedInstantiationOptions & {
+ deployer: AztecAddress;
+ universalDeploy?: never;
+};
+```
+
+**Type Members:**
+
+##### deployer
+
+Concrete deployer mixed into the address preimage. Required, must be non-zero.
+
+**Type:** `AztecAddress`
+
+##### universalDeploy
+
+Forbidden on `BoundDeployMethod`; use `UniversalDeployMethod` for universal deploys.
+
+**Type:** `never`
+
+
+#### UniversalInstantiationOptions
+
+**Type:** Type Alias
+
+Narrowed `DeployInstantiationOptions` accepted by UniversalDeployMethod: forbids `deployer` and requires `universalDeploy: true` (so the call site reads as a universal deploy).
+
+**Signature:**
+
+```typescript
+export type UniversalInstantiationOptions = SharedInstantiationOptions & {
+ deployer?: never;
+ universalDeploy: true;
+};
+```
+
+**Type Members:**
+
+##### deployer
+
+Forbidden on `UniversalDeployMethod`; use `BoundDeployMethod` if you need a concrete deployer.
+
+**Type:** `never`
+
+##### universalDeploy
+
+Marks this as a universal deploy. Required for clarity at the call site.
+
+**Type:** `true`
+
+
+#### PendingInstantiationOptions
+
+**Type:** Type Alias
+
+Narrowed `DeployInstantiationOptions` accepted by PendingDeployMethod: forbids both `deployer` and `universalDeploy`. The deploy is locked from the first send-time `from` instead.
+
+**Signature:**
+
+```typescript
+export type PendingInstantiationOptions = SharedInstantiationOptions & {
+ deployer?: never;
+ universalDeploy?: never;
+};
+```
+
+**Type Members:**
+
+##### deployer
+
+Forbidden on `PendingDeployMethod`; use `BoundDeployMethod` for a concrete deployer.
+
+**Type:** `never`
+
+##### universalDeploy
+
+Forbidden on `PendingDeployMethod`; use `UniversalDeployMethod` for a universal deploy.
+
+**Type:** `never`
+
+
+#### DeployMethodContract
+
+**Type:** Type Alias
+
+Identifies *which contract* is being deployed and *with what initializer*.
+
+**Signature:**
+
+```typescript
+export type DeployMethodContract<TContract extends ContractBase = ContractBase> = {
+ artifact: ContractArtifact;
+ postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract;
+ args?: any[];
+ constructorNameOrArtifact?: string | FunctionArtifact;
+};
+```
+
+**Type Members:**
+
+##### artifact
+
+Build artifact of the contract being deployed.
+
+**Type:** `ContractArtifact`
+
+##### postDeployCtor
+
+Factory invoked after deployment to produce the typed contract handle.
+
+**Type:** `(instance: ContractInstanceWithAddress, wallet: Wallet) => TContract`
+
+##### args
+
+Encoded constructor arguments for the contract. Defaults to `[]`.
+
+**Type:** `any[]`
+
+##### constructorNameOrArtifact
+
+Name (or full artifact) of the initializer to call.
+
+**Type:** `string | FunctionArtifact`
+
+
+#### DeployMethodPayload
+
+**Type:** Type Alias
+
+Execution-payload metadata propagated through `request` / `send` / `simulate` / `profile`.
+
+**Signature:**
+
+```typescript
+export type DeployMethodPayload = {
+ authWitnesses?: AuthWitness[];
+ capsules?: Capsule[];
+ extraHashedArgs?: HashedValues[];
+};
+```
+
+**Type Members:**
+
+##### authWitnesses
+
+Auth witnesses propagated to the deploy interaction.
+
+**Type:** `AuthWitness[]`
+
+##### capsules
+
+Capsules propagated to the deploy interaction.
+
+**Type:** `Capsule[]`
+
+##### extraHashedArgs
+
+Extra hashed args propagated to the deploy interaction.
+
+**Type:** `HashedValues[]`
+
+
 #### RequestDeployOptions
 
 **Type:** Type Alias
 
-Options for deploying a contract on the Aztec network. Allows specifying a contract address salt and different options to tweak contract publication and initialization
+Options for deploying a contract on the Aztec network. Controls publication and registration policy for this deployment.
 
 **Signature:**
 
 ```typescript
 export type RequestDeployOptions = RequestInteractionOptions & {
- contractAddressSalt?: Fr;
- deployer?: AztecAddress;
  skipClassPublication?: boolean;
  skipInstancePublication?: boolean;
  skipInitialization?: boolean;
@@ -1360,18 +1452,6 @@ export type RequestDeployOptions = RequestInteractionOptions & {
 ```
 
 **Type Members:**
-
-##### contractAddressSalt
-
-An optional salt value used to deterministically calculate the contract address.
-
-**Type:** `Fr`
-
-##### deployer
-
-Deployer address that will be used for the deployed contract's address computation. If set to 0, the sender's address won't be mixed in
-
-**Type:** `AztecAddress`
 
 ##### skipClassPublication
 
@@ -1398,27 +1478,40 @@ Skip contract registration in the wallet
 **Type:** `boolean`
 
 
-#### DeployOptions
+#### DeployOptionsWithoutWait
 
 **Type:** Type Alias
 
-Extends the deployment options with the required parameters to send the transaction
+Base deployment options without wait parameter.
 
 **Signature:**
 
 ```typescript
-export type DeployOptions = Omit<RequestDeployOptions, 'deployer'> & {
- universalDeploy?: boolean;
-} & Pick<SendInteractionOptions, 'from' | 'fee'>;
+export type DeployOptionsWithoutWait = RequestDeployOptions &
+ Pick<SendInteractionOptionsWithoutWait, 'from' | 'fee' | 'additionalScopes'>;
+```
+
+#### DeployOptions
+
+**Type:** Type Alias
+
+Extends the deployment options with the required parameters to send the transaction.
+
+**Signature:**
+
+```typescript
+export type DeployOptions<W extends InteractionWaitOptions = undefined> = DeployOptionsWithoutWait & {
+ wait?: W;
+};
 ```
 
 **Type Members:**
 
-##### universalDeploy
+##### wait
 
-Set to true to *not* include the sender in the address computation. This option is mutually exclusive with "deployer"
+Options for waiting for the transaction to be mined. - undefined (default): wait with default options and return the contract instance - WaitOpts: wait with custom options - NO_WAIT: return TxHash immediately without waiting
 
-**Type:** `boolean`
+**Type:** `W`
 
 
 #### SimulateDeployOptions
@@ -1430,8 +1523,8 @@ Options for simulating the deployment of a contract Allows skipping certain vali
 **Signature:**
 
 ```typescript
-export type SimulateDeployOptions = Omit<DeployOptions, 'fee'> & {
- fee?: SimulationInteractionFeeOptions;
+export type SimulateDeployOptions = Omit<DeployOptionsWithoutWait, 'fee'> & {
+ fee?: InteractionFeeOptions;
  skipTxValidation?: boolean;
  skipFeeEnforcement?: boolean;
  includeMetadata?: boolean;
@@ -1444,7 +1537,7 @@ export type SimulateDeployOptions = Omit<DeployOptions, 'fee'> & {
 
 The fee options for the transaction.
 
-**Type:** `SimulationInteractionFeeOptions`
+**Type:** `InteractionFeeOptions`
 
 ##### skipTxValidation
 
@@ -1465,11 +1558,62 @@ Whether to include metadata such as offchain effects and performance statistics 
 **Type:** `boolean`
 
 
+#### DeployResultMined
+
+**Type:** Type Alias
+
+Result of deploying a contract when waiting for mining (default case).
+
+**Signature:**
+
+```typescript
+export type DeployResultMined<TContract extends ContractBase> = {
+ contract: TContract;
+ instance: ContractInstanceWithAddress;
+ receipt: TxReceipt;
+} & OffchainOutput;
+```
+
+**Type Members:**
+
+##### contract
+
+The deployed contract instance.
+
+**Type:** `TContract`
+
+##### instance
+
+The deployed contract instance with address and metadata.
+
+**Type:** `ContractInstanceWithAddress`
+
+##### receipt
+
+The deploy transaction receipt.
+
+**Type:** `TxReceipt`
+
+
+#### DeployReturn
+
+**Type:** Type Alias
+
+Conditional return type for deploy based on wait options.
+
+**Signature:**
+
+```typescript
+export type DeployReturn<TContract extends ContractBase, W extends InteractionWaitOptions> = W extends NoWait
+ ? TxSendResultImmediate
+ : DeployResultMined<TContract>;
+```
+
 #### DeployMethod
 
 **Type:** Class
 
-Contract interaction for deployment. Handles class publication, instance publication, and initialization of the contract. Note that for some contracts, a tx is not required as part of its "creation": If there are no public functions, and if there are no initialization functions, then technically the contract has already been "created", and all of the contract's functions (private and utility) can be interacted-with immediately, without any "deployment tx". Extends the BaseContractInteraction class.
+Umbrella type for a contract deployment interaction. `DeployMethod` is abstract: callers always interact with one of three concrete flavors — BoundDeployMethod, UniversalDeployMethod, or PendingDeployMethod — picked by DeployMethod.create based on the supplied DeployInstantiationOptions. The flavors only differ in their initial deployer-lock state; the full API (`request` / `send` / `simulate` / `profile` / `getInstance` / `getAddress` / `getPartialAddress` / `register` / `with`) lives on this base, so consumers can type variables as `DeployMethod<T>` and treat all three uniformly. The deployer (and therefore the deployed address) is locked once and never changes. Locking happens either at construction (via `deployer` or `universalDeploy: true` in the instantiation options) or lazily on the first `send` / `simulate` / `profile` call, which lock from `options.from`. Once locked: - The address is stable for the lifetime of this object. - Subsequent `send` / `simulate` / `profile` calls with a `from` that would imply a different deployer throw, to prevent silently deploying at a different address than `getAddress()` reported. - A locked universal deployer (`AztecAddress.ZERO`) is compatible with any `from`, since the address does not depend on the sender. Note that for some contracts, a tx is not required as part of its "creation": If there are no public functions, and if there are no initialization functions, then technically the contract has already been "created", and all of the contract's functions (private and utility) can be interacted-with immediately, without any "deployment tx".
 
 **Extends:** `BaseContractInteraction`
 
@@ -1479,40 +1623,186 @@ Contract interaction for deployment. Handles class publication, instance publica
 **Signature:**
 
 ```typescript
-constructor(
-  private publicKeys: PublicKeys,
+protected constructor(
   wallet: Wallet,
-  protected artifact: ContractArtifact,
-  protected postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
-  private args: any[] = [],
-  constructorNameOrArtifact?: string | FunctionArtifact,
-  authWitnesses: AuthWitness[] = [],
-  capsules: Capsule[] = []
+  contract: DeployMethodContract<TContract>,
+  salt: Fr | undefined,
+  publicKeys: PublicKeys | undefined,
+  immutablesHash: Fr | undefined,
+  payload: DeployMethodPayload = {}
 )
 ```
 
 **Parameters:**
 
-- `publicKeys`: `PublicKeys`
 - `wallet`: `Wallet`
-- `artifact`: `ContractArtifact`
-- `postDeployCtor`: `(instance: ContractInstanceWithAddress, wallet: Wallet) => TContract`
-- `args` (optional): `any[]`
-- `constructorNameOrArtifact` (optional): `string | FunctionArtifact`
-- `authWitnesses` (optional): `AuthWitness[]`
-- `capsules` (optional): `Capsule[]`
+- `contract`: `DeployMethodContract<TContract>`
+- `salt`: `Fr | undefined`
+- `publicKeys`: `PublicKeys | undefined`
+- `immutablesHash`: `Fr | undefined`
+- `payload` (optional): `DeployMethodPayload`
+
+#### Properties
+
+
+##### salt
+
+Salt used in the address preimage.
+
+**Type:** `Fr`
+
+
+##### publicKeys
+
+Public keys mixed into the address preimage.
+
+**Type:** `PublicKeys`
+
+
+##### immutablesHash
+
+Immutables hash folded into the salted initialization hash.
+
+**Type:** `Fr`
+
+
+##### #instancePromise
+
+Cached instance promise; resolved once the deployer is known.
+
+**Type:** `Promise<ContractInstanceWithAddress>`
+
+
+##### #resolvedInstance
+
+Resolved value of `#instancePromise`, populated synchronously once the promise settles.
+
+**Type:** `ContractInstanceWithAddress`
+
+
+##### constructorArtifact
+
+Constructor function to call.
+
+**Type:** `FunctionAbi | undefined`
+
+
+##### artifact
+
+Build artifact of the contract being deployed.
+
+**Type:** `ContractArtifact`
+
+
+##### postDeployCtor
+
+Factory invoked after deployment to produce the typed contract handle.
+
+**Type:** `(instance: ContractInstanceWithAddress, wallet: Wallet) => TContract`
+
+
+##### args
+
+Encoded constructor arguments for the contract.
+
+**Type:** `any[]`
+
+
+##### extraHashedArgs
+
+Extra hashed args propagated through `with(...)` and into the deploy payload.
+
+**Type:** `HashedValues[]`
+
 
 #### Methods
 
 
-##### request
+##### getDeployerAddress
 
-Returns the execution payload that allows this operation to happen on chain.
+The address that will be mixed into the contract's address preimage. Owned returns the concrete deployer; Universal returns `AztecAddress.ZERO`; Pending throws unless a prior `send` / `simulate` / `profile` call has already locked it.
 
 **Signature:**
 
 ```typescript
-public async request(options?: RequestDeployOptions): Promise<ExecutionPayload>
+public abstract getDeployerAddress(): AztecAddress
+```
+
+**Returns:**
+
+`AztecAddress`
+
+##### lockDeployer
+
+Reconciles a send-time `from` with the deploy's deployer. Owned asserts an exact match; Universal accepts anything; Pending uses the first call to lock its deployer (transitioning into an Owned/Universal sibling), then defers to that sibling's assertion on subsequent calls. The "locks-or-asserts" name is intentional: only Pending mutates state, and only on its first invocation. Owned and Universal are pure assertions.
+
+**Signature:**
+
+```typescript
+public abstract lockDeployer(from: SendInteractionOptionsWithoutWait['from'] | undefined): void
+```
+
+**Parameters:**
+
+- `from`: `SendInteractionOptionsWithoutWait['from'] | undefined`
+  - The send-time `from` value (`AztecAddress`, `NO_FROM`, or `undefined`).
+
+**Returns:**
+
+`void`
+
+##### cloneInstantiation
+
+Returns the DeployInstantiationOptions that match this flavor. Used by `with(...)` to spawn a sibling instance carrying the same lock state.
+
+**Signature:**
+
+```typescript
+public abstract cloneInstantiation(): DeployInstantiationOptions
+```
+
+**Returns:**
+
+`DeployInstantiationOptions`
+
+##### create
+
+Constructs the right concrete `DeployMethod` flavor for the supplied instantiation options: - `{ deployer: <addr> }` → BoundDeployMethod - `{ universalDeploy: true }` → UniversalDeployMethod - neither set → PendingDeployMethod Mixing `deployer` and `universalDeploy` throws. Returns the umbrella `DeployMethod<T>` type so callers can use the result generically without narrowing.
+
+**Signature:**
+
+```typescript
+public static create<TContract extends ContractBase>(
+  wallet: Wallet,
+  contract: DeployMethodContract<TContract>,
+  instantiation: DeployInstantiationOptions = {},
+  payload: DeployMethodPayload = {}
+): DeployMethod<TContract>
+```
+
+**Parameters:**
+
+- `wallet`: `Wallet`
+  - Wallet used to send / simulate the deploy tx.
+- `contract`: `DeployMethodContract<TContract>`
+  - The contract being deployed (artifact, factory, args, initializer).
+- `instantiation` (optional): `DeployInstantiationOptions`
+  - Address-affecting parameters (salt, deployer / universalDeploy, publicKeys). Defaults to pending.
+- `payload` (optional): `DeployMethodPayload`
+  - Auth witnesses, capsules, and extra hashed args propagated to the deploy. Defaults to empty.
+
+**Returns:**
+
+`DeployMethod<TContract>`
+
+##### request
+
+Returns the execution payload that allows this operation to happen on chain. Requires the deployer to be known — call `getDeployerAddress()` first; on a `PendingDeployMethod` this throws unless a prior `send` / `simulate` / `profile` has already locked the deployer.
+
+**Signature:**
+
+```typescript
+public async request(options: RequestDeployOptions = {}): Promise<ExecutionPayload>
 ```
 
 **Parameters:**
@@ -1524,21 +1814,62 @@ public async request(options?: RequestDeployOptions): Promise<ExecutionPayload>
 
 `Promise<ExecutionPayload>` - The execution payload for this operation
 
-##### convertDeployOptionsToRequestOptions
+##### convertDeployOptionsToSendOptions
+
+Converts DeployOptions to SendOptions.
 
 **Signature:**
 
 ```typescript
-convertDeployOptionsToRequestOptions(options: DeployOptions): RequestDeployOptions
+protected convertDeployOptionsToSendOptions<W extends InteractionWaitOptions>(options: DeployOptions<W>): SendOptions<W>
 ```
 
 **Parameters:**
 
-- `options`: `DeployOptions`
+- `options`: `DeployOptions<W>`
+  - Deploy options with wait parameter.
 
 **Returns:**
 
-`RequestDeployOptions`
+`SendOptions<W>`
+
+##### convertDeployOptionsToSimulateOptions
+
+Converts deploy simulation options into wallet-level simulate options.
+
+**Signature:**
+
+```typescript
+protected convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions): SimulateOptions
+```
+
+**Parameters:**
+
+- `options`: `SimulateDeployOptions`
+  - The deploy simulation options to convert.
+
+**Returns:**
+
+`SimulateOptions`
+
+##### convertDeployOptionsToProfileOptions
+
+Converts deploy profile options into wallet-level profile options.
+
+**Signature:**
+
+```typescript
+protected convertDeployOptionsToProfileOptions(options: DeployOptionsWithoutWait & ProfileInteractionOptions): ProfileOptions
+```
+
+**Parameters:**
+
+- `options`: `DeployOptionsWithoutWait & ProfileInteractionOptions`
+  - The deploy profile options to convert.
+
+**Returns:**
+
+`ProfileOptions`
 
 ##### register
 
@@ -1547,13 +1878,8 @@ Adds this contract to the wallet and returns the Contract object.
 **Signature:**
 
 ```typescript
-public async register(options?: RequestDeployOptions): Promise<TContract>
+public async register(): Promise<TContract>
 ```
-
-**Parameters:**
-
-- `options` (optional): `RequestDeployOptions`
-  - Deployment options.
 
 **Returns:**
 
@@ -1599,37 +1925,64 @@ protected async getInitializationExecutionPayload(options?: RequestDeployOptions
 
 ##### send
 
-Send a contract deployment transaction (initialize and/or publish) using the provided options. This function extends the 'send' method from the ContractFunctionInteraction class, allowing us to send a transaction specifically for contract deployment.
+Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
 
 **Signature:**
 
 ```typescript
-public override send(options: DeployOptions): DeploySentTx<TContract>
+public override send(options: DeployOptionsWithoutWait): Promise<DeployResultMined<TContract>>
 ```
 
 **Parameters:**
 
-- `options`: `DeployOptions`
-  - An object containing various deployment options such as contractAddressSalt and from.
+- `options`: `DeployOptionsWithoutWait`
+  - An object containing various deployment options such as `from` and `fee`.
 
 **Returns:**
 
-`DeploySentTx<TContract>` - A SentTx object that returns the receipt and the deployed contract instance.
+`Promise<DeployResultMined<TContract>>` - TxHash (if wait is NO_WAIT), or DeployResultMined with contract, receipt, and instance (otherwise)
 
-##### getInstance
-
-Builds the contract instance and returns it.
+##### send
 
 **Signature:**
 
 ```typescript
-public async getInstance(options?: RequestDeployOptions): Promise<ContractInstanceWithAddress>
+public override send<W extends InteractionWaitOptions>(options: DeployOptions<W>): Promise<DeployReturn<TContract, W>>
 ```
 
 **Parameters:**
 
-- `options` (optional): `RequestDeployOptions`
-  - An object containing various initialization and publication options.
+- `options`: `DeployOptions<W>`
+
+**Returns:**
+
+`Promise<DeployReturn<TContract, W>>`
+
+##### send
+
+**Signature:**
+
+```typescript
+public override async send(options: DeployOptions<InteractionWaitOptions>): Promise<any>
+```
+
+**Parameters:**
+
+- `options`: `DeployOptions<InteractionWaitOptions>`
+
+**Returns:**
+
+`Promise<any>`
+
+##### getInstance
+
+Builds the contract instance and returns it. The instance is computed once and cached for the lifetime of this DeployMethod; subsequent calls return the same instance. On a PendingDeployMethod this throws unless a prior `send` / `simulate` / `profile` call has already locked the deployer — otherwise the resolved address could silently differ from the eventually-deployed one.
+
+**Signature:**
+
+```typescript
+public getInstance(): Promise<ContractInstanceWithAddress>
+```
 
 **Returns:**
 
@@ -1642,7 +1995,7 @@ Simulate the deployment
 **Signature:**
 
 ```typescript
-public async simulate(options: SimulateDeployOptions): Promise<SimulationReturn<true>>
+public async simulate(options: SimulateDeployOptions): Promise<SimulationResult>
 ```
 
 **Parameters:**
@@ -1652,7 +2005,7 @@ public async simulate(options: SimulateDeployOptions): Promise<SimulationReturn<
 
 **Returns:**
 
-`Promise<SimulationReturn<true>>` - A simulation result object containing metadata of the execution, including gas estimations (if requested via options), execution statistics and emitted offchain effects
+`Promise<SimulationResult>` - A simulation result object containing metadata of the execution, including gas estimations (if requested via options), execution statistics and emitted offchain effects
 
 ##### profile
 
@@ -1661,139 +2014,101 @@ Simulate a deployment and profile the gate count for each function in the transa
 **Signature:**
 
 ```typescript
-public async profile(options: DeployOptions & ProfileInteractionOptions): Promise<TxProfileResult>
+public async profile(options: DeployOptionsWithoutWait & ProfileInteractionOptions): Promise<TxProfileResult>
 ```
 
 **Parameters:**
 
-- `options`: `DeployOptions & ProfileInteractionOptions`
+- `options`: `DeployOptionsWithoutWait & ProfileInteractionOptions`
   - Same options as `send`, plus extra profiling options.
 
 **Returns:**
 
 `Promise<TxProfileResult>` - An object containing the function return value and profile result.
 
-##### with
+##### getAddress
 
-Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
+Returns the deployed contract address.
 
 **Signature:**
 
 ```typescript
-public with({ authWitnesses = [], capsules = [], }: {
-    authWitnesses?: AuthWitness[];
-    capsules?: Capsule[];
-}): DeployMethod
+public async getAddress(): Promise<AztecAddress>
 ```
-
-**Parameters:**
-
-- `{
-    authWitnesses = [],
-    capsules = [],
-  }`: `{
-    /** The authWitnesses to add to the deployment */
-    authWitnesses?: AuthWitness[];
-    /** The capsules to add to the deployment */
-    capsules?: Capsule[];
-  }`
 
 **Returns:**
 
-`DeployMethod` - A new DeployMethod with the added metadata, but calling the same original function in the same manner
+`Promise<AztecAddress>`
 
-#### Getters
-
-
-##### address (getter)
-
-Return this deployment address.
-
-**Signature:**
-
-```typescript
-public get address() {
-```
-
-**Returns:** `any`
-
-##### partialAddress (getter)
+##### getPartialAddress
 
 Returns the partial address for this deployment.
 
 **Signature:**
 
 ```typescript
-public get partialAddress() {
+public async getPartialAddress(): Promise<Fr>
 ```
 
-**Returns:** `any`
+**Returns:**
 
----
+`Promise<Fr>`
 
-### `contract/deploy_sent_tx.ts`
+##### getCachedInstanceOrThrow
 
-
-#### DeployedWaitOpts
-
-**Type:** Type Alias
-
-Options related to waiting for a deployment tx.
+Returns the cached resolved instance synchronously, or throws if no instance has been computed yet. Intended for subclasses that run inside a code path where `getInstance()` is guaranteed to have already been awaited (e.g. `request()` invoked it). Not part of the public API.
 
 **Signature:**
 
 ```typescript
-export type DeployedWaitOpts = WaitOpts & {
- wallet?: Wallet;
-};
+protected getCachedInstanceOrThrow(): ContractInstanceWithAddress
 ```
 
-**Type Members:**
+**Returns:**
 
-##### wallet
+`ContractInstanceWithAddress`
 
-Wallet to use for creating a contract instance. Uses the one set in the deployer constructor if not set.
+##### with
 
-**Type:** `Wallet`
-
-
-#### DeployTxReceipt
-
-**Type:** Type Alias
-
-Extends a transaction receipt with a contract instance that represents the newly deployed contract.
+Augments this DeployMethod with additional metadata, such as authWitnesses and capsules. The deployer lock is preserved: a Pending that has not yet been locked stays Pending; a Pending that has already locked, along with Owned and Universal, returns the matching locked flavor so the cloned method deploys at the same address as `this`.
 
 **Signature:**
 
 ```typescript
-export type DeployTxReceipt<TContract extends ContractBase = ContractBase> = FieldsOf<TxReceipt> & {
- contract: TContract;
- instance: ContractInstanceWithAddress;
-};
+public with({ authWitnesses = [], capsules = [], extraHashedArgs = [], }: {
+    authWitnesses?: AuthWitness[];
+    capsules?: Capsule[];
+    extraHashedArgs?: HashedValues[];
+}): DeployMethod<TContract>
 ```
 
-**Type Members:**
+**Parameters:**
 
-##### contract
+- `{ authWitnesses = [], capsules = [], extraHashedArgs = [], }`:
 
-Instance of the newly deployed contract.
+  ```typescript
+  {
+      /** The authWitnesses to add to the deployment */
+      authWitnesses?: AuthWitness[];
+      /** The capsules to add to the deployment */
+      capsules?: Capsule[];
+      /** The extra hashed args to add to the deployment */
+      extraHashedArgs?: HashedValues[];
+    }
+  ```
 
-**Type:** `TContract`
 
-##### instance
+**Returns:**
 
-The deployed contract instance with address and metadata.
+`DeployMethod<TContract>` - A new DeployMethod with the added metadata, but calling the same original function in the same manner
 
-**Type:** `ContractInstanceWithAddress`
-
-
-#### DeploySentTx
+#### BoundDeployMethod
 
 **Type:** Class
 
-A contract deployment transaction sent to the network, extending SentTx with methods to publish a contract instance.
+Deploy method whose deployer is fixed at construction to a concrete AztecAddress. The deployer is mixed into the address preimage, so the contract address is fully determined. Sending from a different account throws — letting it through would silently produce a deployed address different from the one `getAddress()` reported.
 
-**Extends:** `SentTx`
+**Extends:** `DeployMethod`
 
 
 #### Constructor
@@ -1801,154 +2116,312 @@ A contract deployment transaction sent to the network, extending SentTx with met
 **Signature:**
 
 ```typescript
-constructor(
+public constructor(
   wallet: Wallet,
-  sendTx: () => Promise<TxHash>,
-  private postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
-  private instanceGetter: () => Promise<ContractInstanceWithAddress>
+  contract: DeployMethodContract<TContract>,
+  instantiation: BoundInstantiationOptions,
+  payload: DeployMethodPayload = {}
 )
 ```
 
 **Parameters:**
 
 - `wallet`: `Wallet`
-- `sendTx`: `() => Promise<TxHash>`
-- `postDeployCtor`: `(instance: ContractInstanceWithAddress, wallet: Wallet) => TContract`
-- `instanceGetter`: `() => Promise<ContractInstanceWithAddress>`
-  - A getter for the deployed contract instance
+- `contract`: `DeployMethodContract<TContract>`
+- `instantiation`: `BoundInstantiationOptions`
+- `payload` (optional): `DeployMethodPayload`
+
+#### Properties
+
+
+##### deployer
+
+The address baked into the address preimage. Read-only — set at construction.
+
+**Type:** `AztecAddress`
+
 
 #### Methods
 
 
-##### getInstance
+##### getDeployerAddress
 
-Returns the contract instance for this deployment.
+Returns the locked deployer baked into the address preimage.
 
 **Signature:**
 
 ```typescript
-public async getInstance(): Promise<ContractInstanceWithAddress>
+public getDeployerAddress(): AztecAddress
 ```
 
 **Returns:**
 
-`Promise<ContractInstanceWithAddress>` - The deployed contract instance with address and metadata.
+`AztecAddress`
 
-##### deployed
+##### lockDeployer
 
-Awaits for the tx to be mined and returns the contract instance. Throws if tx is not mined.
-
-**Signature:**
-
-```typescript
-public async deployed(opts?: DeployedWaitOpts): Promise<TContract>
-```
-
-**Parameters:**
-
-- `opts` (optional): `DeployedWaitOpts`
-  - Options for configuring the waiting for the tx to be mined.
-
-**Returns:**
-
-`Promise<TContract>` - The deployed contract instance.
-
-##### wait
-
-Awaits for the tx to be mined and returns the receipt along with a contract instance. Throws if tx is not mined.
+Throws unless `from` matches the locked deployer; the deployer is part of the address.
 
 **Signature:**
 
 ```typescript
-public override async wait(opts?: DeployedWaitOpts): Promise<DeployTxReceipt<TContract>>
+public lockDeployer(from: SendInteractionOptionsWithoutWait['from'] | undefined): void
 ```
 
 **Parameters:**
 
-- `opts` (optional): `DeployedWaitOpts`
-  - Options for configuring the waiting for the tx to be mined.
+- `from`: `SendInteractionOptionsWithoutWait['from'] | undefined`
+  - The send-time `from` value (`AztecAddress`, `NO_FROM`, or `undefined`).
 
 **Returns:**
 
-`Promise<DeployTxReceipt<TContract>>` - The transaction receipt with the deployed contract instance.
+`void`
+
+##### cloneInstantiation
+
+Re-emits this method's `DeployInstantiationOptions` for `with(...)` to consume.
+
+**Signature:**
+
+```typescript
+public cloneInstantiation(): DeployInstantiationOptions
+```
+
+**Returns:**
+
+`DeployInstantiationOptions`
+
+#### UniversalDeployMethod
+
+**Type:** Class
+
+Deploy method whose deployer is fixed at construction to AztecAddress.ZERO (universal deploy). The address does not depend on the sender, so any account may sign the deploy tx.
+
+**Extends:** `DeployMethod`
+
+
+#### Constructor
+
+**Signature:**
+
+```typescript
+public constructor(
+  wallet: Wallet,
+  contract: DeployMethodContract<TContract>,
+  instantiation: UniversalInstantiationOptions,
+  payload: DeployMethodPayload = {}
+)
+```
+
+**Parameters:**
+
+- `wallet`: `Wallet`
+- `contract`: `DeployMethodContract<TContract>`
+- `instantiation`: `UniversalInstantiationOptions`
+- `payload` (optional): `DeployMethodPayload`
+
+#### Methods
+
+
+##### getDeployerAddress
+
+Universal deploys are anchored at `AztecAddress.ZERO`; the sender does not enter the preimage.
+
+**Signature:**
+
+```typescript
+public getDeployerAddress(): AztecAddress
+```
+
+**Returns:**
+
+`AztecAddress`
+
+##### lockDeployer
+
+Universal deploys accept any sender, including `NO_FROM` / `undefined`.
+
+**Signature:**
+
+```typescript
+public lockDeployer(_from: SendInteractionOptionsWithoutWait['from'] | undefined): void
+```
+
+**Parameters:**
+
+- `_from`: `SendInteractionOptionsWithoutWait['from'] | undefined`
+  - Ignored.
+
+**Returns:**
+
+`void`
+
+##### cloneInstantiation
+
+Re-emits this method's `DeployInstantiationOptions` for `with(...)` to consume.
+
+**Signature:**
+
+```typescript
+public cloneInstantiation(): DeployInstantiationOptions
+```
+
+**Returns:**
+
+`DeployInstantiationOptions`
+
+#### PendingDeployMethod
+
+**Type:** Class
+
+Deploy method whose deployer is not yet decided. The first `send` / `simulate` / `profile` call promotes this into an BoundDeployMethod or UniversalDeployMethod (depending on whether `options.from` is an address or `NO_FROM` / `undefined`); subsequent calls reuse that promotion and reject mismatching `from` values. Reading the address (`getInstance` / `getAddress` / `getPartialAddress`) or building a payload (`request`) before the promotion happens throws — the address would otherwise be ambiguous and could differ from what `send()` ends up deploying.
+
+**Extends:** `DeployMethod`
+
+
+#### Constructor
+
+**Signature:**
+
+```typescript
+public constructor(
+  wallet: Wallet,
+  contract: DeployMethodContract<TContract>,
+  instantiation: PendingInstantiationOptions = {},
+  payload: DeployMethodPayload = {}
+)
+```
+
+**Parameters:**
+
+- `wallet`: `Wallet`
+- `contract`: `DeployMethodContract<TContract>`
+- `instantiation` (optional): `PendingInstantiationOptions`
+- `payload` (optional): `DeployMethodPayload`
+
+#### Properties
+
+
+##### #locked
+
+The locked sibling created on the first send-side call. Once set, all flavor-specific decisions (sender compatibility, address derivation, clone shape) delegate to it, so a second call with a mismatched `from` is rejected by `BoundDeployMethod.lockDeployer`.
+
+**Type:** `BoundDeployMethod<TContract> | UniversalDeployMethod<TContract>`
+
+
+#### Methods
+
+
+##### getDeployerAddress
+
+Returns the locked deployer once it has happened. Throws while still pending — the address would otherwise differ from what `send()` ends up deploying.
+
+**Signature:**
+
+```typescript
+public getDeployerAddress(): AztecAddress
+```
+
+**Returns:**
+
+`AztecAddress`
+
+##### lockDeployer
+
+On the first call, promotes this pending method into a locked sibling and remembers it. On subsequent calls, defers to the locked sibling — so a mismatched `from` is rejected by the sibling's own policy, not a duplicate one here.
+
+**Signature:**
+
+```typescript
+public lockDeployer(from: SendInteractionOptionsWithoutWait['from'] | undefined): void
+```
+
+**Parameters:**
+
+- `from`: `SendInteractionOptionsWithoutWait['from'] | undefined`
+  - The send-time `from` value (`AztecAddress`, `NO_FROM`, or `undefined`).
+
+**Returns:**
+
+`void`
+
+##### cloneInstantiation
+
+Re-emits this method's `DeployInstantiationOptions` for `with(...)` to consume.
+
+**Signature:**
+
+```typescript
+public cloneInstantiation(): DeployInstantiationOptions
+```
+
+**Returns:**
+
+`DeployInstantiationOptions`
+
+##### #promoteFrom
+
+Builds the locked sibling implied by a send-time `from`: an `AztecAddress` becomes BoundDeployMethod; `NO_FROM` / `undefined` becomes UniversalDeployMethod.
+
+**Signature:**
+
+```typescript
+#promoteFrom(from: SendInteractionOptionsWithoutWait['from'] | undefined): BoundDeployMethod<TContract> | UniversalDeployMethod<TContract>
+```
+
+**Parameters:**
+
+- `from`: `SendInteractionOptionsWithoutWait['from'] | undefined`
+  - The send-time `from` value.
+
+**Returns:**
+
+`BoundDeployMethod<TContract> | UniversalDeployMethod<TContract>`
 
 ---
 
-### `contract/get_gas_limits.ts`
+### `contract/fastforward_contract_update.ts`
 
 
-#### getGasLimits
+#### fastForwardContractUpdate
 
 **Type:** Function
 
-Returns suggested total and teardown gas limits for a simulated tx.
+Builds `SimulationOverrides` that simulate a deployed instance as if it had already been upgraded to a new contract class. Mirrors a real onchain upgrade (scheduling the new class and waiting out the delay): - `publicStorage` rewrites the `ContractInstanceRegistry`'s delayed-public-mutable storage so the AVM's `UpdateCheck` resolves to the new class id. - `contracts` swaps the deployed instance for one whose `currentContractClassId` is bumped to the new class. The new class must already be registered on chain.
 
 **Signature:**
 
 ```typescript
-export getGasLimits(
-  simulationResult: TxSimulationResult,
-  pad = 0.1
-): {
-      gasLimits: Gas;
-      teardownGasLimits: Gas;
-}
+export async fastForwardContractUpdate(args: {
+    instanceAddress: AztecAddress;
+    newClassId: Fr;
+    node: AztecNode;
+}): Promise<SimulationOverrides>
 ```
 
 **Parameters:**
 
-- `simulationResult`: `TxSimulationResult`
-- `pad` (optional): `any`
-  - Percentage to pad the suggested gas limits by, (as decimal, e.g., 0.10 for 10%).
+- `args`:
+
+  ```typescript
+  {
+    /** Address of the deployed instance to upgrade. */
+    instanceAddress: AztecAddress;
+    /** ID of the (already-registered) class to upgrade to. */
+    newClassId: Fr;
+    /** Node used to fetch the existing instance and validate the class is registered. */
+    node: AztecNode;
+  }
+  ```
+
 
 **Returns:**
 
-```typescript
-{
-  /**
-   * Gas limit for the tx, excluding teardown gas
-   */
-  gasLimits: Gas;
-  /**
-   * Gas limit for the teardown phase
-   */
-  teardownGasLimits: Gas;
-}
-```
+`Promise<SimulationOverrides>`
 
 ---
 
 ### `contract/interaction_options.ts`
-
-
-#### FeeEstimationOptions
-
-**Type:** Type Alias
-
-Options used to tweak the simulation and add gas estimation capabilities
-
-**Signature:**
-
-```typescript
-export type FeeEstimationOptions = {
- estimateGas?: boolean;
- estimatedGasPadding?: number;
-};
-```
-
-**Type Members:**
-
-##### estimateGas
-
-Whether to modify the fee settings of the simulation with high gas limit to figure out actual gas settings.
-
-**Type:** `boolean`
-
-##### estimatedGasPadding
-
-Percentage to pad the estimated gas limits by, if empty, defaults to 0.1. Only relevant if estimateGas is set.
-
-**Type:** `number`
 
 
 #### FeePaymentMethodOption
@@ -1985,6 +2458,7 @@ User-defined partial gas settings for the interaction. This type is completely o
 ```typescript
 export type GasSettingsOption = {
  gasSettings?: Partial<FieldsOf<GasSettings>>;
+ congestionEstimate?: ManaUsageEstimate;
 };
 ```
 
@@ -1995,6 +2469,12 @@ export type GasSettingsOption = {
 The gas settings
 
 **Type:** `Partial<FieldsOf<GasSettings>>`
+
+##### congestionEstimate
+
+Assumed network congestion level for fee prediction. Controls how aggressively the wallet estimates future fees: None assumes empty blocks, Target assumes steady-state usage, and Limit assumes blocks at maximum capacity. Higher estimates produce higher fee predictions, reducing the risk of underpriced transactions during congestion spikes. Defaults to Limit (worst case) when not specified.
+
+**Type:** `ManaUsageEstimate`
 
 
 #### InteractionFeeOptions
@@ -2007,18 +2487,6 @@ Fee options as set by a user.
 
 ```typescript
 export type InteractionFeeOptions = GasSettingsOption & FeePaymentMethodOption;
-```
-
-#### SimulationInteractionFeeOptions
-
-**Type:** Type Alias
-
-Fee options that can be set for simulation *only*
-
-**Signature:**
-
-```typescript
-export type SimulationInteractionFeeOptions = InteractionFeeOptions & FeeEstimationOptions;
 ```
 
 #### RequestInteractionOptions
@@ -2058,6 +2526,104 @@ Fee payment method to embed in the interaction request
 **Type:** `FeePaymentMethodOption`
 
 
+#### NO_WAIT
+
+**Type:** Constant
+
+Constant for explicitly not waiting for transaction confirmation. We use this instead of false to avoid confusion with falsy checks.
+
+**Value Type:** `any`
+
+
+#### NoWait
+
+**Type:** Type Alias
+
+Type for the NO_WAIT constant.
+
+**Signature:**
+
+```typescript
+export type NoWait = typeof NO_WAIT;
+```
+
+#### NO_FROM
+
+**Type:** Constant
+
+Constant for explicitly opting out of account contract mediation. When used as the `from` parameter, the wallet executes the payload directly via the DefaultEntrypoint without wrapping it in an account contract entrypoint. The app is responsible for assembling the complete execution payload, including any entrypoint wrapping (e.g. multicall) if needed. This will result in the first call of the chain receiving msg_sender as Option::none
+
+**Value Type:** `any`
+
+
+#### NoFrom
+
+**Type:** Type Alias
+
+Type for the NO_FROM constant.
+
+**Signature:**
+
+```typescript
+export type NoFrom = typeof NO_FROM;
+```
+
+#### InteractionWaitOptions
+
+**Type:** Type Alias
+
+Type for wait options in interactions. - NO_WAIT symbol: Don't wait for confirmation, return TxHash immediately - WaitOpts object: Wait with custom options and return receipt/result - undefined: Wait with default options and return receipt/result
+
+**Signature:**
+
+```typescript
+export type InteractionWaitOptions = NoWait | WaitOpts | undefined;
+```
+
+#### SendInteractionOptionsWithoutWait
+
+**Type:** Type Alias
+
+Base options for calling a (constrained) function in a contract, without wait parameter.
+
+**Signature:**
+
+```typescript
+export type SendInteractionOptionsWithoutWait = RequestInteractionOptions & {
+ from: AztecAddress | NoFrom;
+ fee?: InteractionFeeOptions;
+ additionalScopes?: AztecAddress[];
+ sendMessagesAs?: AztecAddress;
+};
+```
+
+**Type Members:**
+
+##### from
+
+The sender's Aztec address, or NO_FROM to execute without account contract mediation.
+
+**Type:** `AztecAddress | NoFrom`
+
+##### fee
+
+The fee options for the transaction.
+
+**Type:** `InteractionFeeOptions`
+
+##### additionalScopes
+
+Additional addresses whose private state and keys should be accessible during execution, beyond the sender's. Required when the transaction needs to access private state or keys belonging to an address other than `from`, e.g. withdrawing from an escrow that holds its own private notes.
+
+**Type:** `AztecAddress[]`
+
+##### sendMessagesAs
+
+Overrides the sender address used to derive discovery tags for private messages (notes, events, logs). Recipients use these tags to find messages addressed to them. Defaults to `from`. Typically set when `from === NO_FROM`, since there is no account address to derive tags from.
+
+**Type:** `AztecAddress`
+
+
 #### SendInteractionOptions
 
 **Type:** Type Alias
@@ -2067,25 +2633,18 @@ Represents options for calling a (constrained) function in a contract.
 **Signature:**
 
 ```typescript
-export type SendInteractionOptions = RequestInteractionOptions & {
- from: AztecAddress;
- fee?: InteractionFeeOptions;
+export type SendInteractionOptions<W extends InteractionWaitOptions = undefined> = SendInteractionOptionsWithoutWait & {
+ wait?: W;
 };
 ```
 
 **Type Members:**
 
-##### from
+##### wait
 
-The sender's Aztec address.
+Whether to wait for the transaction to be mined. - undefined (default): wait with default options and return TxReceipt - WaitOpts object: wait with custom options and return TxReceipt - NO_WAIT: return txHash immediately without waiting
 
-**Type:** `AztecAddress`
-
-##### fee
-
-The fee options for the transaction.
-
-**Type:** `InteractionFeeOptions`
+**Type:** `W`
 
 
 #### SimulateInteractionOptions
@@ -2098,10 +2657,11 @@ Represents the options for simulating a contract function interaction. Allows sp
 
 ```typescript
 export type SimulateInteractionOptions = Omit<SendInteractionOptions, 'fee'> & {
- fee?: SimulationInteractionFeeOptions;
+ fee?: InteractionFeeOptions;
  skipTxValidation?: boolean;
  skipFeeEnforcement?: boolean;
  includeMetadata?: boolean;
+ overrides?: SimulationOverrides;
 };
 ```
 
@@ -2111,7 +2671,7 @@ export type SimulateInteractionOptions = Omit<SendInteractionOptions, 'fee'> & {
 
 The fee options for the transaction.
 
-**Type:** `SimulationInteractionFeeOptions`
+**Type:** `InteractionFeeOptions`
 
 ##### skipTxValidation
 
@@ -2127,9 +2687,15 @@ Whether to ensure the fee payer is not empty and has enough balance to pay for t
 
 ##### includeMetadata
 
-Whether to include metadata such as offchain effects and performance statistics (e.g. timing information of the different circuits and oracles) in the simulation result, instead of just the return value of the function
+Whether to include metadata such as performance statistics (e.g. timing information of the different circuits and oracles) and simulated gas usage in the simulation result, in addition to the return value and offchain effects
 
 **Type:** `boolean`
+
+##### overrides
+
+Pre-simulation overrides applied to the ephemeral fork and contract DB (publicStorage writes, contract instance overrides).
+
+**Type:** `SimulationOverrides`
 
 
 #### ProfileInteractionOptions
@@ -2162,23 +2728,199 @@ Whether to generate a Chonk proof or not
 **Type:** `boolean`
 
 
-#### SimulationReturn
+#### OffchainMessage
 
 **Type:** Type Alias
 
-Represents the result type of a simulation. By default, it will just be the return value of the simulated function If `includeMetadata` is set to true in `SimulateInteractionOptions` on the input of `simulate(...)`, it will provide extra information.
+A message emitted during execution or proving, to be delivered offchain.
 
 **Signature:**
 
 ```typescript
-export type SimulationReturn<T extends boolean | undefined> = T extends true
- ? {
- stats: SimulationStats;
+export type OffchainMessage = {
+ recipient: AztecAddress;
+ payload: Fr[];
+ contractAddress: AztecAddress;
+ anchorBlockTimestamp: bigint;
+};
+```
+
+**Type Members:**
+
+##### recipient
+
+The intended recipient of the message.
+
+**Type:** `AztecAddress`
+
+##### payload
+
+The message payload (typically encrypted).
+
+**Type:** `Fr[]`
+
+##### contractAddress
+
+The contract that emitted the message.
+
+**Type:** `AztecAddress`
+
+##### anchorBlockTimestamp
+
+Anchor block timestamp at message emission.
+
+**Type:** `bigint`
+
+
+#### OffchainOutput
+
+**Type:** Type Alias
+
+Groups all unproven outputs from private execution that are returned to the client.
+
+**Signature:**
+
+```typescript
+export type OffchainOutput = {
  offchainEffects: OffchainEffect[];
+ offchainMessages: OffchainMessage[];
+};
+```
+
+**Type Members:**
+
+##### offchainEffects
+
+Raw offchain effects emitted during execution.
+
+**Type:** `OffchainEffect[]`
+
+##### offchainMessages
+
+Messages emitted during execution, to be delivered offchain.
+
+**Type:** `OffchainMessage[]`
+
+
+#### extractOffchainOutput
+
+**Type:** Function
+
+Splits an array of offchain effects into decoded offchain messages and remaining effects. Effects whose data starts with `OFFCHAIN_MESSAGE_IDENTIFIER` are parsed as messages and removed from the effects array.
+
+**Signature:**
+
+```typescript
+export extractOffchainOutput(
+  effects: OffchainEffect[],
+  anchorBlockTimestamp: bigint
+): OffchainOutput
+```
+
+**Parameters:**
+
+- `effects`: `OffchainEffect[]`
+- `anchorBlockTimestamp`: `bigint`
+
+**Returns:**
+
+`OffchainOutput`
+
+#### SimulationResult
+
+**Type:** Type Alias
+
+Represents the result of a simulation. Always includes the return value and offchain output. When `includeMetadata` is set, also includes stats and the simulated gas usage.
+
+**Signature:**
+
+```typescript
+export type SimulationResult = {
  result: any;
- estimatedGas: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>;
- }
- : any;
+ stats?: SimulationStats;
+ gasUsed?: GasUsed;
+} & OffchainOutput;
+```
+
+**Type Members:**
+
+##### result
+
+Return value of the function
+
+**Type:** `any`
+
+##### stats
+
+Additional stats about the simulation. Present when `includeMetadata` is set.
+
+**Type:** `SimulationStats`
+
+##### gasUsed
+
+Raw gas consumed by the simulated transaction. Present when `includeMetadata` is set. Apps that want to declare explicit gas limits should derive their own from this (e.g. pad `totalGas`) and pass them via the fee options; otherwise the wallet fills in the network's per-tx admission limits automatically.
+
+**Type:** `GasUsed`
+
+
+#### TxSendResultImmediate
+
+**Type:** Type Alias
+
+Result of sendTx when not waiting for mining.
+
+**Signature:**
+
+```typescript
+export type TxSendResultImmediate = {
+ txHash: TxHash;
+} & OffchainOutput;
+```
+
+**Type Members:**
+
+##### txHash
+
+The hash of the sent transaction.
+
+**Type:** `TxHash`
+
+
+#### TxSendResultMined
+
+**Type:** Type Alias
+
+Result of sendTx when waiting for mining.
+
+**Signature:**
+
+```typescript
+export type TxSendResultMined<TReturn = TxReceipt> = {
+ receipt: TReturn;
+} & OffchainOutput;
+```
+
+**Type Members:**
+
+##### receipt
+
+The transaction receipt.
+
+**Type:** `TReturn`
+
+
+#### SendReturn
+
+**Type:** Type Alias
+
+Represents the result type of sending a transaction. If `wait` is NO_WAIT, returns TxSendResultImmediate. Otherwise returns TxSendResultMined.
+
+**Signature:**
+
+```typescript
+export type SendReturn<T extends InteractionWaitOptions, TReturn = TxReceipt> = T extends NoWait
+ ? TxSendResultImmediate
+ : TxSendResultMined<TReturn>;
 ```
 
 #### toSendOptions
@@ -2190,16 +2932,17 @@ Transforms and cleans up the higher level SendInteractionOptions defined by the 
 **Signature:**
 
 ```typescript
-export toSendOptions(options: SendInteractionOptions): SendOptions
+export toSendOptions<W extends InteractionWaitOptions = undefined>(options: SendInteractionOptions<W>): SendOptions<W>
 ```
 
 **Parameters:**
 
-- `options`: `SendInteractionOptions`
+- `options`: `SendInteractionOptions<W>`
+  - The send interaction options with optional wait parameter
 
 **Returns:**
 
-`SendOptions`
+`SendOptions<W>` - The send options to forward to the wallet
 
 #### toSimulateOptions
 
@@ -2240,269 +2983,6 @@ export toProfileOptions(options: ProfileInteractionOptions): ProfileOptions
 **Returns:**
 
 `ProfileOptions`
-
----
-
-### `contract/protocol_contracts.ts`
-
-
-#### getClassRegistryContract
-
-**Type:** Function
-
-Returns a Contract wrapper for the contract class registry.
-
-**Signature:**
-
-```typescript
-export async getClassRegistryContract(wallet: Wallet)
-```
-
-**Parameters:**
-
-- `wallet`: `Wallet`
-
-**Returns:**
-
-`Promise<UnsafeContract>`
-
-#### getInstanceRegistryContract
-
-**Type:** Function
-
-Returns a Contract wrapper for the contract instance registry.
-
-**Signature:**
-
-```typescript
-export async getInstanceRegistryContract(wallet: Wallet)
-```
-
-**Parameters:**
-
-- `wallet`: `Wallet`
-
-**Returns:**
-
-`Promise<UnsafeContract>`
-
-#### getFeeJuice
-
-**Type:** Function
-
-Returns a Contract wrapper for the fee juice contract
-
-**Signature:**
-
-```typescript
-export async getFeeJuice(wallet: Wallet)
-```
-
-**Parameters:**
-
-- `wallet`: `Wallet`
-
-**Returns:**
-
-`Promise<UnsafeContract>`
-
----
-
-### `contract/sent_tx.ts`
-
-
-#### WaitOpts
-
-**Type:** Type Alias
-
-Options related to waiting for a tx.
-
-**Signature:**
-
-```typescript
-export type WaitOpts = {
- ignoreDroppedReceiptsFor?: number;
- timeout?: number;
- interval?: number;
- dontThrowOnRevert?: boolean;
-};
-```
-
-**Type Members:**
-
-##### ignoreDroppedReceiptsFor
-
-The amount of time to ignore TxStatus.DROPPED receipts (in seconds) due to the presumption that it is being propagated by the p2p network. Defaults to 5.
-
-**Type:** `number`
-
-##### timeout
-
-The maximum time (in seconds) to wait for the transaction to be mined. Defaults to 60.
-
-**Type:** `number`
-
-##### interval
-
-The time interval (in seconds) between retries to fetch the transaction receipt. Defaults to 1.
-
-**Type:** `number`
-
-##### dontThrowOnRevert
-
-Whether to accept a revert as a status code for the tx when waiting for it. If false, will throw if the tx reverts.
-
-**Type:** `boolean`
-
-
-#### DefaultWaitOpts
-
-**Type:** Constant
-
-**Value Type:** `WaitOpts`
-
-
-#### SentTx
-
-**Type:** Class
-
-The SentTx class represents a sent transaction through the PXE (or directly to a node) providing methods to fetch its hash, receipt, and mining status.
-
-
-#### Constructor
-
-**Signature:**
-
-```typescript
-constructor(
-  protected walletOrNode: Wallet | AztecNode,
-  sendTx: () => Promise<TxHash>
-)
-```
-
-**Parameters:**
-
-- `walletOrNode`: `Wallet | AztecNode`
-- `sendTx`: `() => Promise<TxHash>`
-
-#### Properties
-
-
-##### sendTxPromise
-
-**Type:** `Promise<void>`
-
-
-##### sendTxError
-
-**Type:** `Error`
-
-
-##### txHash
-
-**Type:** `TxHash`
-
-
-#### Methods
-
-
-##### getTxHash
-
-Retrieves the transaction hash of the SentTx instance. The function internally awaits for the 'txHashPromise' to resolve, and then returns the resolved transaction hash.
-
-**Signature:**
-
-```typescript
-public async getTxHash(): Promise<TxHash>
-```
-
-**Returns:**
-
-`Promise<TxHash>` - A promise that resolves to the transaction hash of the SentTx instance. TODO(#7717): Don't throw here.
-
-##### getReceipt
-
-Retrieve the transaction receipt associated with the current SentTx instance. The function fetches the transaction hash using 'getTxHash' and then queries the PXE to get the corresponding transaction receipt.
-
-**Signature:**
-
-```typescript
-public async getReceipt(): Promise<TxReceipt>
-```
-
-**Returns:**
-
-`Promise<TxReceipt>` - A promise that resolves to a TxReceipt object representing the fetched transaction receipt.
-
-##### wait
-
-Awaits for a tx to be mined and returns the receipt. Throws if tx is not mined.
-
-**Signature:**
-
-```typescript
-public async wait(opts?: WaitOpts): Promise<FieldsOf<TxReceipt>>
-```
-
-**Parameters:**
-
-- `opts` (optional): `WaitOpts`
-  - Options for configuring the waiting for the tx to be mined.
-
-**Returns:**
-
-`Promise<FieldsOf<TxReceipt>>` - The transaction receipt.
-
-##### waitForReceipt
-
-**Signature:**
-
-```typescript
-protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt>
-```
-
-**Parameters:**
-
-- `opts` (optional): `WaitOpts`
-
-**Returns:**
-
-`Promise<TxReceipt>`
-
----
-
-### `contract/unsafe_contract.ts`
-
-
-#### UnsafeContract
-
-**Type:** Class
-
-Unsafe constructor for ContractBase that bypasses the check that the instance is registered in the wallet.
-
-**Extends:** `ContractBase`
-
-
-#### Constructor
-
-**Signature:**
-
-```typescript
-constructor(
-  instance: ContractInstanceWithAddress,
-  artifact: ContractArtifact,
-  wallet: Wallet
-)
-```
-
-**Parameters:**
-
-- `instance`: `ContractInstanceWithAddress`
-  - The deployed contract instance definition.
-- `artifact`: `ContractArtifact`
-  - The Application Binary Interface for the contract.
-- `wallet`: `Wallet`
-  - The wallet used for interacting with this contract.
 
 ---
 
@@ -2570,73 +3050,311 @@ export async waitForProven(
 
 **Returns:**
 
-`Promise<any>`
+`Promise<NonNullable<BlockNumber>>`
 
-## Deployment
+---
+
+### `contract/wait_opts.ts`
+
+
+#### WaitOpts
+
+**Type:** Type Alias
+
+Options related to waiting for a tx.
+
+**Signature:**
+
+```typescript
+export type WaitOpts = {
+ ignoreDroppedReceiptsFor?: number;
+ timeout?: number;
+ interval?: number;
+ dontThrowOnRevert?: boolean;
+ waitForStatus?: TxStatus;
+ initialDelay?: number;
+};
+```
+
+**Type Members:**
+
+##### ignoreDroppedReceiptsFor
+
+The amount of time to ignore TxStatus.DROPPED receipts (in seconds) due to the presumption that it is being propagated by the p2p network. Defaults to 5.
+
+**Type:** `number`
+
+##### timeout
+
+The maximum time (in seconds) to wait for the transaction to be mined. Defaults to 300 (5 min).
+
+**Type:** `number`
+
+##### interval
+
+The time interval (in seconds) between retries to fetch the transaction receipt. Defaults to 1.
+
+**Type:** `number`
+
+##### dontThrowOnRevert
+
+Whether to accept a revert as a status code for the tx when waiting for it. If false, will throw if the tx reverts.
+
+**Type:** `boolean`
+
+##### waitForStatus
+
+The minimum inclusion status to wait for. If set, waits until the receipt reaches this status or higher. Defaults to CHECKPOINTED.
+
+**Type:** `TxStatus`
+
+##### initialDelay
+
+The time (in seconds) to wait before the first receipt poll. Defaults to 0. Used to avoid checking for a receipt right after sending a tx, when we know it cannot have been mined yet. Counts against `timeout`.
+
+**Type:** `number`
+
+
+#### DefaultWaitOpts
+
+**Type:** Constant
+
+**Value Type:** `WaitOpts`
+
+
+## Contract / Protocol_Contracts
 
 
 ---
 
-### `deployment/broadcast_function.ts`
+### `contract/protocol_contracts/contract-class-registry.ts`
 
 
-#### broadcastPrivateFunction
+#### ContractClassRegistryContract
 
-**Type:** Function
+**Type:** Class
 
-Sets up a call to broadcast a private function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
+**Extends:** `ContractBase`
+
+
+#### Constructor
 
 **Signature:**
 
 ```typescript
-export async broadcastPrivateFunction(
-  wallet: Wallet,
-  artifact: ContractArtifact,
-  selector: FunctionSelector
-): Promise<ContractFunctionInteraction>
+private constructor(wallet: Wallet)
 ```
 
 **Parameters:**
 
 - `wallet`: `Wallet`
-  - Wallet to send the transaction.
-- `artifact`: `ContractArtifact`
-  - Contract artifact that contains the function to be broadcast.
-- `selector`: `FunctionSelector`
-  - Selector of the function to be broadcast.
 
-**Returns:**
+#### Properties
 
-`Promise<ContractFunctionInteraction>` - A ContractFunctionInteraction object that can be used to send the transaction.
 
-#### broadcastUtilityFunction
+##### methods
 
-**Type:** Function
+**Type:**
 
-Sets up a call to broadcast a utility function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
+```typescript
+{
+    /** public_dispatch(selector: field) */
+    public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** publish(artifact_hash: field, private_functions_root: field, public_bytecode_commitment: field) */
+    publish: ((
+      artifact_hash: FieldLike,
+      private_functions_root: FieldLike,
+      public_bytecode_commitment: FieldLike,
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+  }
+```
+
+
+#### Methods
+
+
+##### at
 
 **Signature:**
 
 ```typescript
-export async broadcastUtilityFunction(
-  wallet: Wallet,
-  artifact: ContractArtifact,
-  selector: FunctionSelector
-): Promise<ContractFunctionInteraction>
+public static at(wallet: Wallet): ContractClassRegistryContract
 ```
 
 **Parameters:**
 
 - `wallet`: `Wallet`
-  - Wallet to send the transaction.
-- `artifact`: `ContractArtifact`
-  - Contract artifact that contains the function to be broadcast.
-- `selector`: `FunctionSelector`
-  - Selector of the function to be broadcast.
 
 **Returns:**
 
-`Promise<ContractFunctionInteraction>` - A ContractFunctionInteraction object that can be used to send the transaction.
+`ContractClassRegistryContract`
+
+---
+
+### `contract/protocol_contracts/contract-instance-registry.ts`
+
+
+#### ContractInstanceRegistryContract
+
+**Type:** Class
+
+**Extends:** `ContractBase`
+
+
+#### Constructor
+
+**Signature:**
+
+```typescript
+private constructor(wallet: Wallet)
+```
+
+**Parameters:**
+
+- `wallet`: `Wallet`
+
+#### Properties
+
+
+##### methods
+
+**Type:**
+
+```typescript
+{
+    /** get_update_delay() */
+    get_update_delay: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** public_dispatch(selector: field) */
+    public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** publish_for_public_execution(salt: field, contract_class_id: struct, initialization_hash: field, immutables_hash: field, public_keys: struct, universal_deploy: boolean) */
+    publish_for_public_execution: ((
+      salt: FieldLike,
+      contract_class_id: WrappedFieldLike,
+      initialization_hash: FieldLike,
+      immutables_hash: FieldLike,
+      public_keys: PublicKeys,
+      universal_deploy: boolean,
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+
+    /** set_update_delay(new_update_delay: integer) */
+    set_update_delay: ((new_update_delay: bigint | number) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+
+    /** update(new_contract_class_id: struct) */
+    update: ((new_contract_class_id: WrappedFieldLike) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+  }
+```
+
+
+#### Methods
+
+
+##### at
+
+**Signature:**
+
+```typescript
+public static at(wallet: Wallet): ContractInstanceRegistryContract
+```
+
+**Parameters:**
+
+- `wallet`: `Wallet`
+
+**Returns:**
+
+`ContractInstanceRegistryContract`
+
+---
+
+### `contract/protocol_contracts/fee-juice.ts`
+
+
+#### FeeJuiceContract
+
+**Type:** Class
+
+**Extends:** `ContractBase`
+
+
+#### Constructor
+
+**Signature:**
+
+```typescript
+private constructor(wallet: Wallet)
+```
+
+**Parameters:**
+
+- `wallet`: `Wallet`
+
+#### Properties
+
+
+##### methods
+
+**Type:**
+
+```typescript
+{
+    /** balance_of_public(owner: struct) */
+    balance_of_public: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** check_balance(fee_limit: integer) */
+    check_balance: ((fee_limit: bigint | number) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** claim(to: struct, amount: integer, secret: field, message_leaf_index: field) */
+    claim: ((
+      to: AztecAddressLike,
+      amount: bigint | number,
+      secret: FieldLike,
+      message_leaf_index: FieldLike,
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+
+    /** claim_and_end_setup(to: struct, amount: integer, secret: field, message_leaf_index: field) */
+    claim_and_end_setup: ((
+      to: AztecAddressLike,
+      amount: bigint | number,
+      secret: FieldLike,
+      message_leaf_index: FieldLike,
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+
+    /** public_dispatch(selector: field) */
+    public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+  }
+```
+
+
+#### Methods
+
+
+##### at
+
+**Signature:**
+
+```typescript
+public static at(wallet: Wallet): FeeJuiceContract
+```
+
+**Parameters:**
+
+- `wallet`: `Wallet`
+
+**Returns:**
+
+`FeeJuiceContract`
+
+## Deployment
+
 
 ---
 
@@ -2658,7 +3376,6 @@ A class for deploying contract.
 constructor(
   private artifact: ContractArtifact,
   private wallet: Wallet,
-  private publicKeys?: PublicKeys,
   private constructorName?: string
 )
 ```
@@ -2667,7 +3384,6 @@ constructor(
 
 - `artifact`: `ContractArtifact`
 - `wallet`: `Wallet`
-- `publicKeys` (optional): `PublicKeys`
 - `constructorName` (optional): `string`
 
 #### Methods
@@ -2675,18 +3391,23 @@ constructor(
 
 ##### deploy
 
-Deploy a contract using the provided ABI and constructor arguments. This function creates a new DeployMethod instance that can be used to send deployment transactions and query deployment status. The method accepts any number of constructor arguments, which will be passed to the contract's constructor during deployment.
+Deploy a contract using the provided instantiation parameters and constructor arguments. Creates a new DeployMethod instance that can be used to send the deployment transaction. The first argument is the DeployInstantiationOptions (salt, deployer) — pass `{}` to accept defaults (random salt, deployer = AztecAddress.ZERO). The remaining arguments are the constructor arguments for the contract.
 
 **Signature:**
 
 ```typescript
-public deploy(...args: any[])
+public deploy(
+  args?: any[],
+  instantiation?: DeployInstantiationOptions
+)
 ```
 
 **Parameters:**
 
-- `args`: `any[]`
+- `args` (optional): `any[]`
   - The constructor arguments for the contract being deployed.
+- `instantiation` (optional): `DeployInstantiationOptions`
+  - Salt and deployer to mix into the address derivation.
 
 **Returns:**
 
@@ -2735,10 +3456,10 @@ Sets up a call to the canonical contract instance registry to publish a contract
 **Signature:**
 
 ```typescript
-export async publishInstance(
+export publishInstance(
   wallet: Wallet,
   instance: ContractInstanceWithAddress
-): Promise<ContractFunctionInteraction>
+): ContractFunctionInteraction
 ```
 
 **Parameters:**
@@ -2750,7 +3471,7 @@ export async publishInstance(
 
 **Returns:**
 
-`Promise<ContractFunctionInteraction>`
+`ContractFunctionInteraction`
 
 ## Ethereum
 
@@ -3000,7 +3721,7 @@ Helper for interacting with the FeeJuicePortal on L1.
 constructor(
   portalAddress: EthAddress,
   tokenAddress: EthAddress,
-  handlerAddress: EthAddress,
+  handlerAddress: EthAddress | undefined,
   private readonly extendedClient: ExtendedViemWalletClient,
   private readonly logger: Logger
 )
@@ -3010,7 +3731,7 @@ constructor(
 
 - `portalAddress`: `EthAddress`
 - `tokenAddress`: `EthAddress`
-- `handlerAddress`: `EthAddress`
+- `handlerAddress`: `EthAddress | undefined`
 - `extendedClient`: `ExtendedViemWalletClient`
 - `logger`: `Logger`
 
@@ -3125,6 +3846,11 @@ constructor(
 ##### tokenManager
 
 **Type:** `L1TokenManager`
+
+
+##### l1TxUtils
+
+**Type:** `L1TxUtils`
 
 
 #### Methods
@@ -3244,7 +3970,8 @@ Withdraws funds from the portal by consuming an L2 to L1 message. Returns once t
 public async withdrawFunds(
   amount: bigint,
   recipient: EthAddress,
-  blockNumber: bigint,
+  epochNumber: EpochNumber,
+  numCheckpointsInEpoch: number,
   messageIndex: bigint,
   siblingPath: SiblingPath<number>
 )
@@ -3256,8 +3983,10 @@ public async withdrawFunds(
   - Amount to withdraw.
 - `recipient`: `EthAddress`
   - Who will receive the funds.
-- `blockNumber`: `bigint`
-  - L2 block number of the message.
+- `epochNumber`: `EpochNumber`
+  - Epoch number of the message.
+- `numCheckpointsInEpoch`: `number`
+  - The partial-proof depth (1-indexed) the witness was built against.
 - `messageIndex`: `bigint`
   - Index of the message.
 - `siblingPath`: `SiblingPath<number>`
@@ -3357,7 +4086,7 @@ getAsset()
 
 **Returns:**
 
-`Promise<any>`
+`Promise<AztecAddress>`
 
 ##### getFeePayer
 
@@ -3694,7 +4423,7 @@ getFeePayer()
 
 **Returns:**
 
-`Promise<any>`
+`Promise<AztecAddress>`
 
 ##### getExecutionPayload
 
@@ -3812,6 +4541,22 @@ Any type that can be converted into a struct with a single `inner` field.
 export type WrappedFieldLike = { inner: FieldLike } | FieldLike;
 ```
 
+#### OptionLike
+
+**Type:** Type Alias
+
+Noir `Option<T>` lowered ABI shape, plus ergonomic direct `T | null | undefined` inputs.
+
+**Signature:**
+
+```typescript
+export type OptionLike<T> =
+ | T
+ | null
+ | undefined
+ | { _is_some: boolean; _value: T };
+```
+
 ---
 
 ### `utils/authwit.ts`
@@ -3906,6 +4651,26 @@ The action to approve
 
 **Type:** `ContractFunctionInteraction`
 
+
+#### isContractFunctionInteractionCallIntent
+
+**Type:** Function
+
+Identifies ContractFunctionInteractionCallIntents
+
+**Signature:**
+
+```typescript
+export isContractFunctionInteractionCallIntent(messageHashOrIntent: Fr | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent): messageHashOrIntent is ContractFunctionInteractionCallIntent
+```
+
+**Parameters:**
+
+- `messageHashOrIntent`: `Fr | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent`
+
+**Returns:**
+
+`messageHashOrIntent is ContractFunctionInteractionCallIntent`
 
 #### computeAuthWitMessageHash
 
@@ -4057,33 +4822,17 @@ Overrides the simulate method, adding the sender of the authwit (authorizer) as 
 **Signature:**
 
 ```typescript
-public override simulate<T extends SimulateInteractionOptions>(options: Omit<T, 'from'>): Promise<SimulationReturn<T['includeMetadata']>>
-```
-
-**Parameters:**
-
-- `options`: `Omit<T, 'from'>`
-  - An optional object containing additional configuration for the transaction.
-
-**Returns:**
-
-`Promise<SimulationReturn<T['includeMetadata']>>` - The result of the transaction as returned by the contract function.
-
-##### simulate
-
-**Signature:**
-
-```typescript
-public override simulate(options: Omit<SimulateInteractionOptions, 'from'> = {}): Promise<SimulationReturn<typeof options.includeMetadata>>
+public override simulate(options: Omit<SimulateInteractionOptions, 'from'> = {} as Omit<SimulateInteractionOptions, 'from'>): Promise<SimulationResult>
 ```
 
 **Parameters:**
 
 - `options` (optional): `Omit<SimulateInteractionOptions, 'from'>`
+  - An optional object containing additional configuration for the transaction.
 
 **Returns:**
 
-`Promise<SimulationReturn<typeof options.includeMetadata>>`
+`Promise<SimulationResult>` - The result of the transaction as returned by the contract function.
 
 ##### profile
 
@@ -4111,17 +4860,49 @@ Overrides the send method, adding the sender of the authwit (authorizer) as from
 **Signature:**
 
 ```typescript
-public override send(options: Omit<SendInteractionOptions, 'from'> = {}): SentTx
+public override send(options?: Omit<SendInteractionOptionsWithoutWait, 'from'>): Promise<TxSendResultMined>
 ```
 
 **Parameters:**
 
-- `options` (optional): `Omit<SendInteractionOptions, 'from'>`
+- `options` (optional): `Omit<SendInteractionOptionsWithoutWait, 'from'>`
   - An optional object containing 'fee' options information
 
 **Returns:**
 
-`SentTx` - A SentTx instance for tracking the transaction status and information.
+`Promise<TxSendResultMined>` - A TxReceipt (if wait is true/undefined) or TxHash (if wait is false)
+
+##### send
+
+**Signature:**
+
+```typescript
+public override send<W extends InteractionWaitOptions>(options?: Omit<SendInteractionOptions<W>, 'from'>): Promise<SendReturn<W>>
+```
+
+**Parameters:**
+
+- `options` (optional): `Omit<SendInteractionOptions<W>, 'from'>`
+
+**Returns:**
+
+`Promise<SendReturn<W>>`
+
+##### send
+
+**Signature:**
+
+```typescript
+public override send(options?: Omit<SendInteractionOptions<InteractionWaitOptions>, 'from'>): Promise<SendReturn<InteractionWaitOptions>>
+```
+
+**Parameters:**
+
+- `options` (optional): `Omit<SendInteractionOptions<InteractionWaitOptions>, 'from'>`
+
+**Returns:**
+
+`Promise<SendReturn<InteractionWaitOptions>>`
 
 ---
 
@@ -4137,31 +4918,41 @@ Waits for the L1 to L2 message to be ready to be consumed.
 **Signature:**
 
 ```typescript
-export async waitForL1ToL2MessageReady(
-  node: Pick<AztecNode, 'getBlockNumber' | 'getL1ToL2MessageBlock'>,
+export waitForL1ToL2MessageReady(
+  node: Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageCheckpoint'>,
   l1ToL2MessageHash: Fr,
   opts: {
     timeoutSeconds: number;
-    forPublicConsumption: boolean;
+    chainTip?: BlockTag;
 }
 )
 ```
 
 **Parameters:**
 
-- `node`: `Pick<AztecNode, 'getBlockNumber' | 'getL1ToL2MessageBlock'>`
+- `node`: `Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageCheckpoint'>`
   - Aztec node instance used to obtain the information about the message
 - `l1ToL2MessageHash`: `Fr`
   - Hash of the L1 to L2 message
-- `opts`: `{
-    /** Timeout for the operation in seconds */ timeoutSeconds: number;
-    /** True if the message is meant to be consumed from a public function */ forPublicConsumption: boolean;
-  }`
+- `opts`:
   - Options
+
+  ```typescript
+  {
+      /** Timeout for the operation in seconds */ timeoutSeconds: number;
+      /**
+       * Chain tip to evaluate readiness against. Defaults to `'latest'`. Set this to the tip the consuming PXE syncs to
+       * (e.g. `'proven'`) so readiness answers whether the message is present at the same block the transaction
+       * simulation will anchor to, not at a newer tip.
+       */
+      chainTip?: BlockTag;
+    }
+  ```
+
 
 **Returns:**
 
-`Promise<any>`
+`Promise<boolean>`
 
 #### isL1ToL2MessageReady
 
@@ -4173,26 +4964,20 @@ Returns whether the L1 to L2 message is ready to be consumed.
 
 ```typescript
 export async isL1ToL2MessageReady(
-  node: Pick<AztecNode, 'getBlockNumber' | 'getL1ToL2MessageBlock'>,
+  node: Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageCheckpoint'>,
   l1ToL2MessageHash: Fr,
-  opts: {
-    forPublicConsumption: boolean;
-    messageBlockNumber?: number;
-}
+  chainTip: BlockTag = 'latest'
 ): Promise<boolean>
 ```
 
 **Parameters:**
 
-- `node`: `Pick<AztecNode, 'getBlockNumber' | 'getL1ToL2MessageBlock'>`
+- `node`: `Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageCheckpoint'>`
   - Aztec node instance used to obtain the information about the message
 - `l1ToL2MessageHash`: `Fr`
   - Hash of the L1 to L2 message
-- `opts`: `{
-    /** True if the message is meant to be consumed from a public function */ forPublicConsumption: boolean;
-    /** Cached synced block number for the message (will be fetched from PXE otherwise) */ messageBlockNumber?: number;
-  }`
-  - Options
+- `chainTip` (optional): `BlockTag`
+  - Chain tip to evaluate readiness against. Defaults to `'latest'`. Pass the tip the consuming PXE syncs to (e.g. `'proven'`) so readiness is checked at the block the transaction simulation will anchor to.
 
 **Returns:**
 
@@ -4250,8 +5035,39 @@ This turns
 
 **Type:** Constant
 
+Waits for an Aztec node to become reachable, polling AztecNode.getNodeInfo until it succeeds.
+
 **Value Type:** `any`
 
+
+#### waitForTx
+
+**Type:** Function
+
+Waits for a transaction to be mined and returns its receipt.
+
+**Signature:**
+
+```typescript
+export async waitForTx(
+  node: AztecNode,
+  txHash: TxHash,
+  opts?: WaitOpts
+): Promise<TxReceipt>
+```
+
+**Parameters:**
+
+- `node`: `AztecNode`
+  - The Aztec node to query for transaction status
+- `txHash`: `TxHash`
+  - The hash of the transaction to wait for
+- `opts` (optional): `WaitOpts`
+  - Optional configuration for waiting behavior
+
+**Returns:**
+
+`Promise<TxReceipt>` - The transaction receipt
 
 #### createAztecNodeClient
 
@@ -4272,6 +5088,18 @@ This is a type re-exported from `@aztec/stdlib/interfaces/client`. See the sourc
 
 ```typescript
 export type { AztecNode } from '@aztec/stdlib/interfaces/client'
+```
+
+#### AztecNodeClientOptions
+
+**Type:** Type Alias
+
+This is a type re-exported from `@aztec/stdlib/interfaces/client`. See the source module for full type definition and documentation.
+
+**Signature:**
+
+```typescript
+export type { AztecNodeClientOptions } from '@aztec/stdlib/interfaces/client'
 ```
 
 ---
@@ -4323,21 +5151,19 @@ Fee payment method that allows an account contract to pay for its own deployment
 
 ```typescript
 constructor(
-  private wallet: Wallet,
-  private artifact: ContractArtifact,
-  private feePaymentNameOrArtifact: string | FunctionArtifact,
-  private accountAddress: AztecAddress,
-  private paymentMethod?: FeePaymentMethod
+  private account: Account,
+  private chainInfo: ChainInfo,
+  private paymentMethod?: FeePaymentMethod,
+  private feeEntrypointOptions?: any
 )
 ```
 
 **Parameters:**
 
-- `wallet`: `Wallet`
-- `artifact`: `ContractArtifact`
-- `feePaymentNameOrArtifact`: `string | FunctionArtifact`
-- `accountAddress`: `AztecAddress`
+- `account`: `Account`
+- `chainInfo`: `ChainInfo`
 - `paymentMethod` (optional): `FeePaymentMethod`
+- `feeEntrypointOptions` (optional): `any`
 
 #### Methods
 
@@ -4395,6 +5221,37 @@ getGasSettings(): GasSettings | undefined
 ### `wallet/account_manager.ts`
 
 
+#### AccountManagerCreateOptions
+
+**Type:** Interface
+
+Optional overrides passed to AccountManager.create.
+
+
+#### Properties
+
+
+##### salt
+
+Contract instantiation salt. Defaults to a random `Fr`.
+
+**Type:** `Salt`
+
+
+##### immutablesHash
+
+Commitment to the contract's immutable storage values. Folded into the salted initialization hash, so a non-zero value affects the derived address. Defaults to `Fr.ZERO`.
+
+**Type:** `Fr`
+
+
+##### deployer
+
+Address recorded as the instance deployer. Defaults to `AztecAddress.ZERO`.
+
+**Type:** `AztecAddress`
+
+
 #### AccountManager
 
 **Type:** Class
@@ -4411,8 +5268,7 @@ private constructor(
   private wallet: Wallet,
   private secretKey: Fr,
   private accountContract: AccountContract,
-  private instance: ContractInstanceWithAddress,
-  public readonly salt: Salt
+  private instance: ContractInstanceWithAddress
 )
 ```
 
@@ -4422,8 +5278,6 @@ private constructor(
 - `secretKey`: `Fr`
 - `accountContract`: `AccountContract`
 - `instance`: `ContractInstanceWithAddress`
-- `salt`: `Salt`
-  - Contract instantiation salt for the account contract
 
 #### Methods
 
@@ -4437,7 +5291,7 @@ static async create(
   wallet: Wallet,
   secretKey: Fr,
   accountContract: AccountContract,
-  salt?: Salt
+  opts?: AccountManagerCreateOptions
 )
 ```
 
@@ -4446,7 +5300,7 @@ static async create(
 - `wallet`: `Wallet`
 - `secretKey`: `Fr`
 - `accountContract`: `AccountContract`
-- `salt` (optional): `Salt`
+- `opts` (optional): `AccountManagerCreateOptions`
 
 **Returns:**
 
@@ -4462,7 +5316,7 @@ protected getPublicKeys()
 
 **Returns:**
 
-`any`
+`PublicKeys`
 
 ##### getPublicKeysHash
 
@@ -4474,21 +5328,7 @@ protected getPublicKeysHash()
 
 **Returns:**
 
-`any`
-
-##### getAccountInterface
-
-Returns the entrypoint for this account as defined by its account contract.
-
-**Signature:**
-
-```typescript
-public async getAccountInterface(): Promise<AccountInterface>
-```
-
-**Returns:**
-
-`Promise<AccountInterface>` - An entrypoint.
+`Promise<Fr>`
 
 ##### getCompleteAddress
 
@@ -4534,17 +5374,17 @@ public getInstance(): ContractInstanceWithAddress
 
 ##### getAccount
 
-Returns a Wallet instance associated with this account. Use it to create Contract instances to be interacted with from this account.
+Returns the account (the transaction signer) backed by this account contract. Use it to build and authorize transactions from this account.
 
 **Signature:**
 
 ```typescript
-public async getAccount(): Promise<AccountWithSecretKey>
+public async getAccount(): Promise<Account>
 ```
 
 **Returns:**
 
-`Promise<AccountWithSecretKey>` - A Wallet instance.
+`Promise<Account>`
 
 ##### getAccountContract
 
@@ -4599,47 +5439,563 @@ public async hasInitializer()
 get address() {
 ```
 
-**Returns:** `any`
+**Returns:**
+
+`AztecAddress`
+
+---
+
+### `wallet/capabilities.ts`
+
+
+#### CAPABILITY_VERSION
+
+**Type:** Constant
+
+Current capability manifest version.
+
+**Value Type:** `any`
+
+
+#### ContractFunctionPattern
+
+**Type:** Interface
+
+Pattern for matching contract functions with wildcards. Used in simulation and transaction capabilities to specify which contract functions are allowed.
+
+
+#### Properties
+
+
+##### contract
+
+Contract address or '*' for any contract
+
+**Type:** `AztecAddress | '*'`
+
+
+##### function
+
+Function name or '*' for any function
+
+**Type:** `string`
+
+
+##### additionalScopes
+
+Additional addresses whose private state and keys are accessible when calling this function, beyond the sender's. - undefined: No additional scopes allowed - AztecAddress[]: Only these specific addresses allowed as additional scopes - '*': All known address allowed as an additional scope
+
+**Type:** `AztecAddress[] | '*'`
+
+
+#### AccountsCapability
+
+**Type:** Interface
+
+Account access capability - grants access to user accounts. Maps to wallet methods: - getAccounts (when canGet: true) - createAuthWit (when canCreateAuthWit: true) The wallet decides which accounts to reveal to the app. Apps don't specify which accounts they want - they just request the capability and the wallet shows them the available accounts.
+
+
+#### Properties
+
+
+##### type
+
+Discriminator for capability type
+
+**Type:** `'accounts'`
+
+
+##### canGet
+
+Can get accounts from wallet. Maps to: getAccounts
+
+**Type:** `boolean`
+
+
+##### canCreateAuthWit
+
+Can create auth witnesses for accounts. Maps to: createAuthWit
+
+**Type:** `boolean`
+
+
+#### GrantedAccountsCapability
+
+**Type:** Interface
+
+Granted account access capability. Extends the request with specific accounts that were granted by the wallet.
+
+**Extends:** `AccountsCapability`
+
+
+#### Properties
+
+
+##### accounts
+
+Specific accounts granted by the wallet with their aliases. The wallet adds this when granting the capability.
+
+**Type:** `Aliased<AztecAddress>[]`
+
+
+#### ContractsCapability
+
+**Type:** Interface
+
+Contract interaction capability - for registering and querying contracts. Maps to wallet methods: - registerContract (when canRegister: true) - getContractMetadata (when canGetMetadata: true) Matching is done by contract address, not class ID. This allows updating existing contracts with new artifacts (e.g., when contract is upgraded to a new contractClassId onchain). Note: For querying contract class metadata, use ContractClassesCapability instead.
+
+
+#### Properties
+
+
+##### type
+
+Discriminator for capability type
+
+**Type:** `'contracts'`
+
+
+##### contracts
+
+Which contracts this applies to: - '*': Any contract address - AztecAddress[]: Specific contract addresses
+
+**Type:** `'*' | AztecAddress[]`
+
+
+##### canRegister
+
+Can register contracts and update existing registrations. Maps to: registerContract When true, allows: - Registering new contract instances at specified addresses - Re-registering existing contracts with updated artifacts (e.g., after upgrade)
+
+**Type:** `boolean`
+
+
+##### canGetMetadata
+
+Can query contract metadata. Maps to: getContractMetadata
+
+**Type:** `boolean`
+
+
+#### GrantedContractsCapability
+
+**Type:** Interface
+
+Granted contract interaction capability. The wallet may reduce the scope (e.g., from '*' to specific addresses).
+
+**Extends:** `ContractsCapability`
+
+
+#### ContractClassesCapability
+
+**Type:** Interface
+
+Contract class capability - for querying contract class metadata and registering contract classes. Maps to wallet methods: - getContractClassMetadata (when canGetMetadata: true) - registerContractClass (when canRegister: true) Contract classes are identified by their class ID (Fr), not by contract address. Multiple contract instances can share the same class. This capability grants permission to query metadata for, and register, specific contract classes. Apps typically acquire this permission automatically when registering a contract with an artifact (the wallet auto-grants permission for that contract's class ID).
+
+
+#### Properties
+
+
+##### type
+
+Discriminator for capability type
+
+**Type:** `'contractClasses'`
+
+
+##### classes
+
+Which contract classes this applies to: - '*': Any contract class ID - Fr[]: Specific contract class IDs
+
+**Type:** `'*' | Fr[]`
+
+
+##### canRegister
+
+Can register a contract class artifact in the local PXE. Maps to: registerContractClass
+
+**Type:** `boolean`
+
+
+##### canGetMetadata
+
+Can query contract class metadata. Maps to: getContractClassMetadata
+
+**Type:** `boolean`
+
+
+#### GrantedContractClassesCapability
+
+**Type:** Interface
+
+Granted contract class capability. The wallet may reduce the scope (e.g., from '*' to specific class IDs).
+
+**Extends:** `ContractClassesCapability`
+
+
+#### SimulationCapability
+
+**Type:** Interface
+
+Transaction simulation capability - for simulating transactions and executing utilities. Maps to wallet methods: - simulateTx (when transactions scope specified) - executeUtility (when utilities scope specified) - profileTx (when transactions scope specified)
+
+
+#### Properties
+
+
+##### type
+
+Discriminator for capability type
+
+**Type:** `'simulation'`
+
+
+##### transactions
+
+Transaction simulation scope. Maps to: simulateTx, profileTx
+
+**Type:**
+
+```typescript
+{
+    /**
+     * Which contracts/functions to allow:
+     * - '*': Any transaction
+     * - ContractFunctionPattern[]: Specific contract functions
+     */
+    scope: '*' | ContractFunctionPattern[];
+  }
+```
+
+
+##### utilities
+
+Utility execution scope (unconstrained calls). Maps to: executeUtility
+
+**Type:**
+
+```typescript
+{
+    /**
+     * Which contracts/functions to allow:
+     * - '*': Any utility call
+     * - ContractFunctionPattern[]: Specific contract functions
+     */
+    scope: '*' | ContractFunctionPattern[];
+  }
+```
+
+
+#### GrantedSimulationCapability
+
+**Type:** Interface
+
+Granted transaction simulation capability. The wallet may reduce the scope (e.g., from '*' to specific patterns).
+
+**Extends:** `SimulationCapability`
+
+
+#### TransactionCapability
+
+**Type:** Interface
+
+Transaction execution capability - for sending transactions. Maps to wallet methods: - sendTx Policy enforcement (rate limits, spending limits) should be handled at the contract level in Aztec, not at the wallet level.
+
+
+#### Properties
+
+
+##### type
+
+Discriminator for capability type
+
+**Type:** `'transaction'`
+
+
+##### scope
+
+Which contracts/functions to allow: - '*': Any transaction - ContractFunctionPattern[]: Specific patterns
+
+**Type:** `'*' | ContractFunctionPattern[]`
+
+
+#### GrantedTransactionCapability
+
+**Type:** Interface
+
+Granted transaction execution capability. The wallet may reduce the scope (e.g., from '*' to specific patterns).
+
+**Extends:** `TransactionCapability`
+
+
+#### DataCapability
+
+**Type:** Interface
+
+Data access capability - for querying private data. Maps to wallet methods: - getAddressBook (when addressBook: true) - getPrivateEvents (when privateEvents specified)
+
+
+#### Properties
+
+
+##### type
+
+Discriminator for capability type
+
+**Type:** `'data'`
+
+
+##### addressBook
+
+Access to address book. Maps to: getAddressBook
+
+**Type:** `boolean`
+
+
+##### privateEvents
+
+Access to private events. Maps to: getPrivateEvents
+
+**Type:**
+
+```typescript
+{
+    /**
+     * Which contracts to allow event queries from:
+     * - '*': Any contract
+     * - AztecAddress[]: Specific contracts
+     */
+    contracts: '*' | AztecAddress[];
+  }
+```
+
+
+#### GrantedDataCapability
+
+**Type:** Interface
+
+Granted data access capability. The wallet may reduce the scope (e.g., from '*' to specific contracts).
+
+**Extends:** `DataCapability`
+
+
+#### Capability
+
+**Type:** Type Alias
+
+Union type of all capability scopes (app request). Capabilities group wallet operations by their security sensitivity and functional cohesion, making permission requests understandable to users.
+
+**Signature:**
+
+```typescript
+export type Capability =
+ | AccountsCapability
+ | ContractsCapability
+ | ContractClassesCapability
+ | SimulationCapability
+ | TransactionCapability
+ | DataCapability;
+```
+
+#### GrantedCapability
+
+**Type:** Type Alias
+
+Union type of all granted capabilities (wallet response). The wallet may augment capabilities with additional information: - AccountsCapability: adds specific accounts granted - Other capabilities: may reduce scope (e.g., '*' to specific addresses)
+
+**Signature:**
+
+```typescript
+export type GrantedCapability =
+ | GrantedAccountsCapability
+ | GrantedContractsCapability
+ | GrantedContractClassesCapability
+ | GrantedSimulationCapability
+ | GrantedTransactionCapability
+ | GrantedDataCapability;
+```
+
+#### AppCapabilities
+
+**Type:** Interface
+
+Application capability manifest. Sent by dApp to declare all operations it needs. This reduces authorization friction from multiple dialogs to a single comprehensive permission request.
+
+
+#### Properties
+
+
+##### version
+
+Manifest version for forward compatibility. Currently only '1.0' is supported.
+
+**Type:** `typeof CAPABILITY_VERSION`
+
+
+##### metadata
+
+Application metadata for display in authorization dialogs.
+
+**Type:**
+
+```typescript
+{
+    /** Human-readable app name */
+    name: string;
+
+    /** App version */
+    version: string;
+
+    /** Optional description of what the app does */
+    description?: string;
+
+    /** Optional website URL */
+    url?: string;
+
+    /** Optional icon URL or data URI */
+    icon?: string;
+  }
+```
+
+
+##### capabilities
+
+Requested capabilities grouped by scope.
+
+**Type:** `Capability[]`
+
+
+#### WalletCapabilities
+
+**Type:** Interface
+
+Wallet capability response. Returned by wallet after user reviews and approves/denies the capability request. The wallet can modify requested capabilities: - Reduce scope (e.g., restrict to specific contracts instead of '*') - Add information (e.g., specify which accounts are granted) - Deny capabilities (by omitting them from the `granted` array)
+
+
+#### Properties
+
+
+##### version
+
+Response version for forward compatibility.
+
+**Type:** `typeof CAPABILITY_VERSION`
+
+
+##### granted
+
+Capabilities granted by the wallet. Capabilities not in this array were implicitly denied. Empty array means the user denied all capabilities.
+
+**Type:** `GrantedCapability[]`
+
+
+##### wallet
+
+Wallet implementation details.
+
+**Type:**
+
+```typescript
+{
+    /** Wallet name/implementation */
+    name: string;
+
+    /** Wallet version */
+    version: string;
+  }
+```
+
 
 ---
 
 ### `wallet/deploy_account_method.ts`
 
 
-#### RequestDeployAccountOptions
+#### DeployAccountFeePaymentMethodOption
 
 **Type:** Type Alias
 
-The configuration options for the request method. Omits the contractAddressSalt, since for account contracts that is fixed in the constructor
+Extended fee payment method option for account deployments that includes entrypoint wrapping options
 
 **Signature:**
 
 ```typescript
-export type RequestDeployAccountOptions = Omit<RequestDeployOptions, 'contractAddressSalt'>;
+export type DeployAccountFeePaymentMethodOption = FeePaymentMethodOption & {
+ feeEntrypointOptions?: unknown;
+};
 ```
+
+**Type Members:**
+
+##### feeEntrypointOptions
+
+Optional entrypoint-specific options for wrapping execution payloads
+
+**Type:** `unknown`
+
+
+#### RequestDeployAccountOptions
+
+**Type:** Type Alias
+
+The configuration options for the request method.
+
+**Signature:**
+
+```typescript
+export type RequestDeployAccountOptions = Omit<RequestDeployOptions, 'fee'> & {
+ fee?: DeployAccountFeePaymentMethodOption;
+ from?: AztecAddress | NoFrom;
+};
+```
+
+**Type Members:**
+
+##### fee
+
+Fee options specific to account deployment
+
+**Type:** `DeployAccountFeePaymentMethodOption`
+
+##### from
+
+Sender of the request. When NO_FROM, the to-be-deployed account pays for its own deployment (self-paid deploy) and the payload is wrapped through the multicall entrypoint.
+
+**Type:** `AztecAddress | NoFrom`
+
 
 #### DeployAccountOptions
 
 **Type:** Type Alias
 
-The configuration options for the send/prove methods. Omits: - The contractAddressSalt, since for account contracts that is fixed in the constructor. - UniversalDeployment flag, since account contracts are always deployed with it set to true
+The configuration options for the send/prove methods.
 
 **Signature:**
 
 ```typescript
-export type DeployAccountOptions = Omit<DeployOptions, 'contractAddressSalt' | 'universalDeploy'>;
+export type DeployAccountOptions<W extends InteractionWaitOptions = undefined> = DeployOptionsWithoutWait & {
+ wait?: W;
+};
 ```
+
+**Type Members:**
+
+##### wait
+
+Whether to wait for the transaction to be mined. - undefined (default): wait with default options and return TxReceipt - WaitOpts object: wait with custom options and return TxReceipt - false: return txHash immediately without waiting
+
+**Type:** `W`
+
 
 #### SimulateDeployAccountOptions
 
 **Type:** Type Alias
 
-The configuration options for the simulate method. Omits the contractAddressSalt, since for account contracts that is fixed in the constructor
+The configuration options for the simulate method.
 
 **Signature:**
 
 ```typescript
-export type SimulateDeployAccountOptions = Omit<SimulateDeployOptions, 'contractAddressSalt'>;
+export type SimulateDeployAccountOptions = SimulateDeployOptions;
 ```
 
 #### DeployAccountMethod
@@ -4648,7 +6004,7 @@ export type SimulateDeployAccountOptions = Omit<SimulateDeployOptions, 'contract
 
 Modified version of the DeployMethod used to deploy account contracts. Supports deploying contracts that can pay for their own fee, plus some preconfigured options to avoid errors.
 
-**Extends:** `DeployMethod`
+**Extends:** `UniversalDeployMethod`
 
 
 #### Constructor
@@ -4661,9 +6017,14 @@ constructor(
   wallet: Wallet,
   artifact: ContractArtifact,
   postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
-  private salt: Fr,
+  salt: Fr,
+  immutablesHash: Fr,
+  private account: Account,
   args: any[] = [],
-  constructorNameOrArtifact?: string | FunctionArtifact
+  constructorNameOrArtifact?: string | FunctionArtifact,
+  authWitnesses: AuthWitness[] = [],
+  capsules: Capsule[] = [],
+  extraHashedArgs: HashedValues[] = []
 )
 ```
 
@@ -4674,15 +6035,20 @@ constructor(
 - `artifact`: `ContractArtifact`
 - `postDeployCtor`: `(instance: ContractInstanceWithAddress, wallet: Wallet) => TContract`
 - `salt`: `Fr`
+- `immutablesHash`: `Fr`
+- `account`: `Account`
 - `args` (optional): `any[]`
 - `constructorNameOrArtifact` (optional): `string | FunctionArtifact`
+- `authWitnesses` (optional): `AuthWitness[]`
+- `capsules` (optional): `Capsule[]`
+- `extraHashedArgs` (optional): `HashedValues[]`
 
 #### Methods
 
 
 ##### request
 
-Returns the execution payload that allows this operation to happen on chain.
+Returns the execution payload that allows this operation to happen on chain. For self-deployments (from === NO_FROM), the payload is wrapped through the multicall entrypoint on the app side so the wallet can execute it directly.
 
 **Signature:**
 
@@ -4699,21 +6065,197 @@ public override async request(opts?: RequestDeployAccountOptions): Promise<Execu
 
 `Promise<ExecutionPayload>` - The execution payload for this operation
 
-##### convertDeployOptionsToRequestOptions
+##### convertDeployOptionsToSendOptions
 
 **Signature:**
 
 ```typescript
-override convertDeployOptionsToRequestOptions(options: DeployOptions): RequestDeployOptions
+protected override convertDeployOptionsToSendOptions<W extends InteractionWaitOptions>(options: DeployOptions<W>): SendOptions<W>
 ```
 
 **Parameters:**
 
-- `options`: `DeployOptions`
+- `options`: `DeployOptions<W>`
 
 **Returns:**
 
-`RequestDeployOptions`
+`SendOptions<W>`
+
+##### convertDeployOptionsToSimulateOptions
+
+**Signature:**
+
+```typescript
+protected override convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions): SimulateOptions
+```
+
+**Parameters:**
+
+- `options`: `SimulateDeployOptions`
+
+**Returns:**
+
+`SimulateOptions`
+
+##### convertDeployOptionsToProfileOptions
+
+**Signature:**
+
+```typescript
+protected override convertDeployOptionsToProfileOptions(options: DeployOptionsWithoutWait & ProfileInteractionOptions): ProfileOptions
+```
+
+**Parameters:**
+
+- `options`: `DeployOptionsWithoutWait & ProfileInteractionOptions`
+
+**Returns:**
+
+`ProfileOptions`
+
+##### with
+
+Augments this DeployAccountMethod with additional metadata, such as authWitnesses and capsules.
+
+**Signature:**
+
+```typescript
+public override with({ authWitnesses = [], capsules = [], extraHashedArgs = [], }: {
+    authWitnesses?: AuthWitness[];
+    capsules?: Capsule[];
+    extraHashedArgs?: HashedValues[];
+}): DeployAccountMethod<TContract>
+```
+
+**Parameters:**
+
+- `{ authWitnesses = [], capsules = [], extraHashedArgs = [], }`:
+
+  ```typescript
+  {
+      /** The authWitnesses to add to the deployment */
+      authWitnesses?: AuthWitness[];
+      /** The capsules to add to the deployment */
+      capsules?: Capsule[];
+      /** The extra hashed args to add to the deployment */
+      extraHashedArgs?: HashedValues[];
+    }
+  ```
+
+
+**Returns:**
+
+`DeployAccountMethod<TContract>` - A new DeployAccountMethod with the added metadata
+
+---
+
+### `wallet/tx_simulation_result_with_app_offset.ts`
+
+
+#### TxSimulationResultWithAppOffset
+
+**Type:** Class
+
+Extends TxSimulationResult with the app call offset, which tracks where the app's calls begin in the flattened array of calls. Tracking of app call offset is a wallet-level concern: the wallet may wrap the app payload in an entrypoint or may prepend calls (this is typically done for fee payments).
+
+**Extends:** `TxSimulationResult`
+
+
+#### Constructor
+
+**Signature:**
+
+```typescript
+constructor(
+  privateExecutionResult: PrivateExecutionResult,
+  publicInputs: PrivateKernelTailCircuitPublicInputs,
+  publicOutput?: PublicSimulationOutput,
+  stats?: SimulationStats,
+  public readonly appCallOffset: number | undefined = undefined
+)
+```
+
+**Parameters:**
+
+- `privateExecutionResult`: `PrivateExecutionResult`
+- `publicInputs`: `PrivateKernelTailCircuitPublicInputs`
+- `publicOutput` (optional): `PublicSimulationOutput`
+- `stats` (optional): `SimulationStats`
+- `appCallOffset` (optional): `number | undefined`
+  - Index of the app's first call in a flattened array of calls. 0 = app call is the root execution itself (DefaultEntrypoint / NO_FROM). 1..N = wallet prepended calls before the app call. undefined = wallet did not send the field; use heuristic fallback.
+
+#### Methods
+
+
+##### getPrivateReturnValuesOfAppCall
+
+Returns the private return values that correspond to the provided app call.
+
+**Signature:**
+
+```typescript
+getPrivateReturnValuesOfAppCall(appCallIndex: number = 0): NestedProcessReturnValues | undefined
+```
+
+**Parameters:**
+
+- `appCallIndex` (optional): `number`
+  - Index of the app call within the app calls.
+
+**Returns:**
+
+`NestedProcessReturnValues | undefined`
+
+##### fromResultAndOffset
+
+Creates a TxSimulationResultWithAppOffset from an existing TxSimulationResult, attaching the app call offset computed by the wallet (i.e. how many calls precede the first app call in the flattened execution tree).
+
+**Signature:**
+
+```typescript
+static fromResultAndOffset(
+  result: TxSimulationResult,
+  appCallOffset: number
+): TxSimulationResultWithAppOffset
+```
+
+**Parameters:**
+
+- `result`: `TxSimulationResult`
+  - The simulation result to wrap.
+- `appCallOffset`: `number`
+  - The index of the app's first call in the flattened execution tree.
+
+**Returns:**
+
+`TxSimulationResultWithAppOffset`
+
+##### random
+
+**Signature:**
+
+```typescript
+static override async random()
+```
+
+**Returns:**
+
+`Promise<TxSimulationResultWithAppOffset>`
+
+#### Getters
+
+
+##### schema (getter)
+
+**Signature:**
+
+```typescript
+static override get schema(): ZodFor<TxSimulationResultWithAppOffset> {
+```
+
+**Returns:**
+
+`ZodFor<TxSimulationResultWithAppOffset>`
 
 ---
 
@@ -4754,13 +6296,13 @@ The item being aliased.
 
 **Type:** Type Alias
 
-Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet wether the interaction contains a fee payment method or not
+Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
 
 **Signature:**
 
 ```typescript
 export type SimulateOptions = Omit<SimulateInteractionOptions, 'fee'> & {
- fee?: GasSettingsOption & FeeEstimationOptions;
+ fee?: GasSettingsOption;
 };
 ```
 
@@ -4770,14 +6312,14 @@ export type SimulateOptions = Omit<SimulateInteractionOptions, 'fee'> & {
 
 The fee options
 
-**Type:** `GasSettingsOption & FeeEstimationOptions`
+**Type:** `GasSettingsOption`
 
 
 #### ProfileOptions
 
 **Type:** Type Alias
 
-Options for profiling interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet wether the interaction contains a fee payment method or not
+Options for profiling interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
 
 **Signature:**
 
@@ -4800,13 +6342,17 @@ The fee options
 
 **Type:** Type Alias
 
-Options for sending/proving interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet wether the interaction contains a fee payment method or not
+Options for sending/proving interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
 
 **Signature:**
 
 ```typescript
-export type SendOptions = Omit<SendInteractionOptions, 'fee'> & {
+export type SendOptions<W extends InteractionWaitOptions = undefined> = Omit<
+ SendInteractionOptionsWithoutWait,
+ 'fee'
+> & {
  fee?: GasSettingsOption;
+ wait?: W;
 };
 ```
 
@@ -4818,51 +6364,38 @@ The fee options
 
 **Type:** `GasSettingsOption`
 
+##### wait
+
+Whether to wait for the transaction to be mined
+
+**Type:** `W`
+
 
 #### BatchableMethods
 
 **Type:** Type Alias
 
-Helper type that represents all methods that can be batched.
+Helper type that represents all methods that can be batched (all methods except batch itself).
 
 **Signature:**
 
 ```typescript
-export type BatchableMethods = Pick<
- Wallet,
- 'registerContract' | 'sendTx' | 'registerSender' | 'simulateUtility' | 'simulateTx'
->;
+export type BatchableMethods = Omit<Wallet, 'batch'>;
 ```
 
 #### BatchedMethod
 
 **Type:** Type Alias
 
-From the batchable methods, we create a type that represents a method call with its name and arguments. This is what the wallet will accept as arguments to the `batch` method.
+Union of all possible batched method calls. This ensures type safety: the `args` must match the specific `name`.
 
 **Signature:**
 
 ```typescript
-export type BatchedMethod<T extends keyof BatchableMethods> = {
- name: T;
- args: Parameters<BatchableMethods[T]>;
-};
+export type BatchedMethod = {
+ [K in keyof BatchableMethods]: BatchedMethodInternal<K>;
+}[keyof BatchableMethods];
 ```
-
-**Type Members:**
-
-##### name
-
-The method name
-
-**Type:** `T`
-
-##### args
-
-The method arguments
-
-**Type:** `Parameters<BatchableMethods[T]>`
-
 
 #### BatchedMethodResult
 
@@ -4874,7 +6407,7 @@ Helper type to extract the return type of a batched method
 
 ```typescript
 export type BatchedMethodResult<T> =
- T extends BatchedMethod<infer K> ? Awaited<ReturnType<BatchableMethods[K]>> : never;
+ T extends BatchedMethodInternal<infer K> ? Awaited<ReturnType<BatchableMethods[K]>> : never;
 ```
 
 #### BatchedMethodResultWrapper
@@ -4886,7 +6419,7 @@ Wrapper type for batch results that includes the method name for discriminated u
 **Signature:**
 
 ```typescript
-export type BatchedMethodResultWrapper<T extends BatchedMethod<keyof BatchableMethods>> = {
+export type BatchedMethodResultWrapper<T extends BatchedMethod> = {
  name: T['name'];
  result: BatchedMethodResult<T>;
 };
@@ -4916,7 +6449,7 @@ Maps a tuple of BatchedMethod to a tuple of their wrapped return types
 **Signature:**
 
 ```typescript
-export type BatchResults<T extends readonly BatchedMethod<keyof BatchableMethods>[]> = {
+export type BatchResults<T extends readonly BatchedMethod[]> = {
  [K in keyof T]: BatchedMethodResultWrapper<T[K]>;
 };
 ```
@@ -4932,6 +6465,43 @@ export type BatchResults<T extends readonly BatchedMethod<keyof BatchableMethods
 **Value Type:** `BatchedMethodResultWrapper<T[K]>`
 
 
+#### EventFilterBase
+
+**Type:** Type Alias
+
+Base filter options for event queries.
+
+**Signature:**
+
+```typescript
+export type EventFilterBase = {
+ txHash?: TxHash;
+ fromBlock?: BlockNumber;
+ toBlock?: BlockNumber;
+};
+```
+
+**Type Members:**
+
+##### txHash
+
+Transaction in which the events were emitted.
+
+**Type:** `TxHash`
+
+##### fromBlock
+
+The block number from which to start fetching events (inclusive). Optional. If provided, it must be greater or equal than 1. Defaults to the initial L2 block number (INITIAL_L2_BLOCK_NUM).
+
+**Type:** `BlockNumber`
+
+##### toBlock
+
+The block number until which to fetch logs (not inclusive). Optional. If provided, it must be greater than fromBlock.
+
+**Type:** `BlockNumber`
+
+
 #### PrivateEventFilter
 
 **Type:** Type Alias
@@ -4941,12 +6511,9 @@ Filter options when querying private events.
 **Signature:**
 
 ```typescript
-export type PrivateEventFilter = {
+export type PrivateEventFilter = EventFilterBase & {
  contractAddress: AztecAddress;
  scopes: AztecAddress[];
- txHash?: TxHash;
- fromBlock?: BlockNumber;
- toBlock?: BlockNumber;
 };
 ```
 
@@ -4964,37 +6531,49 @@ Addresses of accounts that are in scope for this filter.
 
 **Type:** `AztecAddress[]`
 
-##### txHash
 
-Transaction in which the events were emitted.
-
-**Type:** `TxHash`
-
-##### fromBlock
-
-The block number from which to start fetching events (inclusive). Optional. If provided, it must be greater or equal than 1. Defaults to the initial L2 block number (INITIAL_L2_BLOCK_NUM).
-
-**Type:** `BlockNumber`
-
-##### toBlock
-
-The block number until which to fetch logs (not inclusive). Optional. If provided, it must be greater than fromBlock. Defaults to the latest known block to PXE + 1.
-
-**Type:** `BlockNumber`
-
-
-#### PrivateEvent
+#### PublicEventFilter
 
 **Type:** Type Alias
 
-An ABI decoded private event with associated metadata.
+Filter options when querying public events. The contract address is required because the public log index is keyed on `(contract, tag)`; tag-only queries are not supported.
 
 **Signature:**
 
 ```typescript
-export type PrivateEvent<T> = {
+export type PublicEventFilter = EventFilterBase & {
+ contractAddress: AztecAddress;
+ afterEvent?: EventCursor;
+};
+```
+
+**Type Members:**
+
+##### contractAddress
+
+The address of the contract that emitted the events. Required.
+
+**Type:** `AztecAddress`
+
+##### afterEvent
+
+Cursor to resume strictly after, for pagination. Pass GetPublicEventsResult.nextCursor from a previous page here to fetch the next one. Omit to start from the beginning of the range.
+
+**Type:** `EventCursor`
+
+
+#### Event
+
+**Type:** Type Alias
+
+An ABI decoded event with associated metadata.
+
+**Signature:**
+
+```typescript
+export type Event<T, M extends object = object> = {
  event: T;
- metadata: InTx;
+ metadata: InTx & M;
 };
 ```
 
@@ -5010,7 +6589,147 @@ The ABI decoded event
 
 Metadata describing event context information such as tx and block
 
-**Type:** `InTx`
+**Type:** `InTx & M`
+
+
+#### PrivateEvent
+
+**Type:** Type Alias
+
+An ABI decoded private event with associated metadata.
+
+**Signature:**
+
+```typescript
+export type PrivateEvent<T> = Event<T>;
+```
+
+#### PublicEvent
+
+**Type:** Type Alias
+
+An ABI decoded public event with associated metadata (includes contract address).
+
+**Signature:**
+
+```typescript
+export type PublicEvent<T> = Event<
+ T,
+ {
+ contractAddress: AztecAddress;
+ }
+>;
+```
+
+#### ContractMetadata
+
+**Type:** Type Alias
+
+Contract metadata including deployment and registration status.
+
+**Signature:**
+
+```typescript
+export type ContractMetadata = {
+ instance?: ContractInstancePreimageWithAddress;
+ initializationStatus: ContractInitializationStatus;
+ isContractPublished: boolean;
+ isContractUpdated: boolean;
+ updatedContractClassId?: Fr | undefined;
+};
+```
+
+**Type Members:**
+
+##### instance
+
+The contract instance preimage and address.
+
+**Type:** `ContractInstancePreimageWithAddress`
+
+##### initializationStatus
+
+Whether the contract has been initialized.
+
+**Type:** `ContractInitializationStatus`
+
+##### isContractPublished
+
+Whether the contract instance is publicly deployed onchain
+
+**Type:** `boolean`
+
+##### isContractUpdated
+
+Whether the contract has been updated to a different class
+
+**Type:** `boolean`
+
+##### updatedContractClassId
+
+The updated contract class ID if the contract has been updated
+
+**Type:** `Fr | undefined`
+
+
+#### ContractClassMetadata
+
+**Type:** Type Alias
+
+Contract class metadata.
+
+**Signature:**
+
+```typescript
+export type ContractClassMetadata = {
+ isArtifactRegistered: boolean;
+ isContractClassPubliclyRegistered: boolean;
+};
+```
+
+**Type Members:**
+
+##### isArtifactRegistered
+
+Whether the artifact is registered in the wallet
+
+**Type:** `boolean`
+
+##### isContractClassPubliclyRegistered
+
+Whether the contract class is publicly registered onchain
+
+**Type:** `boolean`
+
+
+#### ExecuteUtilityOptions
+
+**Type:** Type Alias
+
+Options for executing a utility function call.
+
+**Signature:**
+
+```typescript
+export type ExecuteUtilityOptions = {
+ scopes: AztecAddress[];
+ authWitnesses?: AuthWitness[];
+};
+```
+
+**Type Members:**
+
+##### scopes
+
+The scopes for the utility execution (determines which notes and keys are visible).
+
+**Type:** `AztecAddress[]`
+
+##### authWitnesses
+
+Optional auth witnesses to use during execution.
+
+**Type:** `AuthWitness[]`
 
 
 #### Wallet
@@ -5023,67 +6742,37 @@ The wallet interface.
 
 ```typescript
 export type Wallet = {
- getContractClassMetadata(id: Fr, includeArtifact?: boolean): Promise<ContractClassMetadata>;
- getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
  getPrivateEvents<T>(
  eventMetadata: EventMetadataDefinition,
  eventFilter: PrivateEventFilter,
  ): Promise<PrivateEvent<T>[]>;
  getChainInfo(): Promise<ChainInfo>;
- getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
+ getContractMetadata(address: AztecAddress): Promise<ContractMetadata>;
+ getContractClassMetadata(id: Fr): Promise<ContractClassMetadata>;
  registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
  getAddressBook(): Promise<Aliased<AztecAddress>[]>;
  getAccounts(): Promise<Aliased<AztecAddress>[]>;
  registerContract(
- instance: ContractInstanceWithAddress,
+ instance: ContractInstancePreimage,
  artifact?: ContractArtifact,
- secretKey?: Fr,
- ): Promise<ContractInstanceWithAddress>;
- simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
- simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult>;
+ secretKeyOrKeys?: Fr | MasterSecretKeys,
+ ): Promise<void>;
+ registerContractClass(artifact: ContractArtifact): Promise<void>;
+ simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset>;
+ executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult>;
  profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
- sendTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxHash>;
- createAuthWit(from: AztecAddress, messageHashOrIntent: Fr | IntentInnerHash | CallIntent): Promise<AuthWitness>;
- batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<BatchResults<T>>;
+ sendTx<W extends InteractionWaitOptions = undefined>(
+ exec: ExecutionPayload,
+ opts: SendOptions<W>,
+ ): Promise<SendReturn<W>>;
+ createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent): Promise<AuthWitness>;
+ requestCapabilities(manifest: AppCapabilities): Promise<WalletCapabilities>;
+ batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>>;
 };
 ```
 
 **Type Members:**
 
-##### getContractClassMetadata
-
-**Signature:**
-
-```typescript
-getContractClassMetadata(
-  id: Fr,
-  includeArtifact?: boolean
-): Promise<ContractClassMetadata>
-```
-
-**Parameters:**
-
-- `id`: `Fr`
-- `includeArtifact` (optional): `boolean`
-
-**Returns:**
-
-`Promise<ContractClassMetadata>`
-##### getContractMetadata
-
-**Signature:**
-
-```typescript
-getContractMetadata(address: AztecAddress): Promise<ContractMetadata>
-```
-
-**Parameters:**
-
-- `address`: `AztecAddress`
-
-**Returns:**
-
-`Promise<ContractMetadata>`
 ##### getPrivateEvents
 
 **Signature:**
@@ -5114,21 +6803,36 @@ getChainInfo(): Promise<ChainInfo>
 **Returns:**
 
 `Promise<ChainInfo>`
-##### getTxReceipt
+##### getContractMetadata
 
 **Signature:**
 
 ```typescript
-getTxReceipt(txHash: TxHash): Promise<TxReceipt>
+getContractMetadata(address: AztecAddress): Promise<ContractMetadata>
 ```
 
 **Parameters:**
 
-- `txHash`: `TxHash`
+- `address`: `AztecAddress`
 
 **Returns:**
 
-`Promise<TxReceipt>`
+`Promise<ContractMetadata>`
+##### getContractClassMetadata
+
+**Signature:**
+
+```typescript
+getContractClassMetadata(id: Fr): Promise<ContractClassMetadata>
+```
+
+**Parameters:**
+
+- `id`: `Fr`
+
+**Returns:**
+
+`Promise<ContractClassMetadata>`
 ##### registerSender
 
 **Signature:**
@@ -5176,21 +6880,38 @@ getAccounts(): Promise<Aliased<AztecAddress>[]>
 
 ```typescript
 registerContract(
-  instance: ContractInstanceWithAddress,
+  instance: ContractInstancePreimage,
   artifact?: ContractArtifact,
-  secretKey?: Fr
-): Promise<ContractInstanceWithAddress>
+  secretKeyOrKeys?: Fr | MasterSecretKeys
+): Promise<void>
 ```
 
 **Parameters:**
 
-- `instance`: `ContractInstanceWithAddress`
+- `instance`: `ContractInstancePreimage`
 - `artifact` (optional): `ContractArtifact`
-- `secretKey` (optional): `Fr`
+- `secretKeyOrKeys` (optional): `Fr | MasterSecretKeys`
 
 **Returns:**
 
-`Promise<ContractInstanceWithAddress>`
+`Promise<void>`
+##### registerContractClass
+
+Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any onchain upgrade has taken effect. No chain check.
+
+**Signature:**
+
+```typescript
+registerContractClass(artifact: ContractArtifact): Promise<void>
+```
+
+**Parameters:**
+
+- `artifact`: `ContractArtifact`
+
+**Returns:**
+
+`Promise<void>`
 ##### simulateTx
 
 **Signature:**
@@ -5199,7 +6920,7 @@ registerContract(
 simulateTx(
   exec: ExecutionPayload,
   opts: SimulateOptions
-): Promise<TxSimulationResult>
+): Promise<TxSimulationResultWithAppOffset>
 ```
 
 **Parameters:**
@@ -5209,26 +6930,26 @@ simulateTx(
 
 **Returns:**
 
-`Promise<TxSimulationResult>`
-##### simulateUtility
+`Promise<TxSimulationResultWithAppOffset>`
+##### executeUtility
 
 **Signature:**
 
 ```typescript
-simulateUtility(
+executeUtility(
   call: FunctionCall,
-  authwits?: AuthWitness[]
-): Promise<UtilitySimulationResult>
+  opts: ExecuteUtilityOptions
+): Promise<UtilityExecutionResult>
 ```
 
 **Parameters:**
 
 - `call`: `FunctionCall`
-- `authwits` (optional): `AuthWitness[]`
+- `opts`: `ExecuteUtilityOptions`
 
 **Returns:**
 
-`Promise<UtilitySimulationResult>`
+`Promise<UtilityExecutionResult>`
 ##### profileTx
 
 **Signature:**
@@ -5253,20 +6974,20 @@ profileTx(
 **Signature:**
 
 ```typescript
-sendTx(
+sendTx<W extends InteractionWaitOptions = undefined>(
   exec: ExecutionPayload,
-  opts: SendOptions
-): Promise<TxHash>
+  opts: SendOptions<W>
+): Promise<SendReturn<W>>
 ```
 
 **Parameters:**
 
 - `exec`: `ExecutionPayload`
-- `opts`: `SendOptions`
+- `opts`: `SendOptions<W>`
 
 **Returns:**
 
-`Promise<TxHash>`
+`Promise<SendReturn<W>>`
 ##### createAuthWit
 
 **Signature:**
@@ -5274,24 +6995,39 @@ sendTx(
 ```typescript
 createAuthWit(
   from: AztecAddress,
-  messageHashOrIntent: Fr | IntentInnerHash | CallIntent
+  messageHashOrIntent: IntentInnerHash | CallIntent
 ): Promise<AuthWitness>
 ```
 
 **Parameters:**
 
 - `from`: `AztecAddress`
-- `messageHashOrIntent`: `Fr | IntentInnerHash | CallIntent`
+- `messageHashOrIntent`: `IntentInnerHash | CallIntent`
 
 **Returns:**
 
 `Promise<AuthWitness>`
+##### requestCapabilities
+
+**Signature:**
+
+```typescript
+requestCapabilities(manifest: AppCapabilities): Promise<WalletCapabilities>
+```
+
+**Parameters:**
+
+- `manifest`: `AppCapabilities`
+
+**Returns:**
+
+`Promise<WalletCapabilities>`
 ##### batch
 
 **Signature:**
 
 ```typescript
-batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<BatchResults<T>>
+batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResults<T>>
 ```
 
 **Parameters:**
@@ -5301,13 +7037,6 @@ batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods:
 **Returns:**
 
 `Promise<BatchResults<T>>`
-
-#### FunctionCallSchema
-
-**Type:** Constant
-
-**Value Type:** `any`
-
 
 #### ExecutionPayloadSchema
 
@@ -5323,7 +7052,7 @@ batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods:
 **Value Type:** `any`
 
 
-#### WalletSimulationFeeOptionSchema
+#### WaitOptsSchema
 
 **Type:** Constant
 
@@ -5358,11 +7087,39 @@ batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods:
 **Value Type:** `any`
 
 
-#### BatchedMethodSchema
+#### EventMetadataDefinitionSchema
 
 **Type:** Constant
 
 **Value Type:** `any`
+
+
+#### PrivateEventFilterSchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### PublicEventFilterSchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### PrivateEventSchema
+
+**Type:** Constant
+
+**Value Type:** `z.ZodType<any>`
+
+
+#### PublicEventSchema
+
+**Type:** Constant
+
+**Value Type:** `z.ZodType<PublicEvent<AbiDecoded>>`
 
 
 #### ContractMetadataSchema
@@ -5379,25 +7136,141 @@ batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods:
 **Value Type:** `any`
 
 
-#### EventMetadataDefinitionSchema
+#### ContractFunctionPatternSchema
 
 **Type:** Constant
 
 **Value Type:** `any`
 
 
-#### PrivateEventSchema
-
-**Type:** Constant
-
-**Value Type:** `ZodFor<PrivateEvent<AbiDecoded>>`
-
-
-#### PrivateEventFilterSchema
+#### AccountsCapabilitySchema
 
 **Type:** Constant
 
 **Value Type:** `any`
+
+
+#### GrantedAccountsCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### ContractsCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### GrantedContractsCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### ContractClassesCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### GrantedContractClassesCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### SimulationCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### GrantedSimulationCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### TransactionCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### GrantedTransactionCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### DataCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### GrantedDataCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### CapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### GrantedCapabilitySchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### AppCapabilitiesSchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### WalletCapabilitiesSchema
+
+**Type:** Constant
+
+**Value Type:** `any`
+
+
+#### BatchedMethodSchema
+
+**Type:** Constant
+
+This is re-exported from ``. See the source module for full documentation.
+
+**Value Type:** `Re-export`
+
+
+#### BatchedResultSchema
+
+**Type:** Constant
+
+This is re-exported from ``. See the source module for full documentation.
+
+**Value Type:** `Re-export`
 
 
 #### WalletSchema
