@@ -9,6 +9,7 @@ Usage:
 
 import json
 import argparse
+from textwrap import indent
 from typing import Dict, Any, List
 from pathlib import Path
 
@@ -85,27 +86,37 @@ Each section is organized by module, with classes, interfaces, types, and functi
         for folder in self.data.get("folders", []):
             folder_name = folder.get("name", "")
             folder_path = folder.get("path", folder_name)  # Full path for nested folders
-            # For folder header like "## Account", Docusaurus generates anchor "#account"
-            folder_slug = folder_path.lower().replace('/', '').replace('_', '')
             folder_display = folder_path.replace('/', ' / ').title()
-            lines.append(f"- [{folder_display}](#{folder_slug})")
+            lines.append(f"- [{folder_display}](#{self.heading_anchor(folder_display)})")
 
             # Add files as sub-items
             for file in folder.get("files", []):
-                file_path = file.get("path", "")
-
-                # For file header like "### `account/account_contract.ts`"
-                # Docusaurus removes backticks and special chars: "#accountaccount_contractts"
-                file_slug = file_path.lower().replace('/', '').replace('.', '').replace('_', '').replace('-', '')
-
                 # List the exports for this file
                 for export in file.get("exports", []):
                     export_name = export.get("name", "")
-                    # For export header like "#### AccountContract", Docusaurus generates "#accountcontract"
-                    export_slug = export_name.lower().replace('_', '').replace('-', '')
-                    lines.append(f"  - [{export_name}](#{export_slug})")
+                    lines.append(f"  - [{export_name}](#{self.heading_anchor(export_name)})")
 
         return "\n".join(lines)
+
+    # Punctuation that github-slugger, which Docusaurus uses for heading anchors, drops.
+    SLUG_PUNCTUATION = set("\\'!\"#$%&()*+,./:;<=>?@[]^`{|}~")
+
+    def heading_anchor(self, heading_text: str) -> str:
+        """
+        Compute the anchor Docusaurus generates for a heading.
+
+        Mirrors github-slugger: lowercase, drop punctuation, then turn spaces into hyphens.
+        Hyphens and underscores survive, so `CAPABILITY_VERSION` anchors as `capability_version`.
+
+        Args:
+            heading_text: The rendered heading text, without its leading `#`s
+
+        Returns:
+            The anchor, without a leading `#`
+        """
+        slug = heading_text.lower().strip()
+        slug = ''.join(c for c in slug if c not in self.SLUG_PUNCTUATION)
+        return slug.replace(' ', '-')
 
     def generate_folder_section(self, folder: Dict[str, Any]) -> str:
         """Generate documentation for a folder."""
@@ -394,7 +405,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
             sections.append(f"{jsdoc['description']}\n")
 
         if const_type:
-            sections.append(f"**Value Type:** `{const_type}`\n")
+            sections.append(self.format_labeled_type("Value Type", const_type))
 
         return "\n".join(sections)
 
@@ -433,7 +444,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
         if jsdoc.get("description"):
             sections.append(f"{jsdoc['description']}\n")
 
-        sections.append(f"**Type:** `{prop_type}`\n")
+        sections.append(self.format_labeled_type("Type", prop_type))
 
         return "\n".join(sections)
 
@@ -489,7 +500,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
             sections.append(self.generate_parameters_table(parameters))
 
         if return_type and kind == "getter":
-            sections.append(f"\n**Returns:** `{return_type}`")
+            sections.append(self.format_return_type(return_type))
 
         return "\n".join(sections)
 
@@ -530,8 +541,8 @@ Each section is organized by module, with classes, interfaces, types, and functi
         if jsdoc.get("description"):
             sections.append(f"{jsdoc['description']}\n")
 
-        sections.append(f"**Signature:** `{signature}`\n")
-        sections.append(f"**Value Type:** `{value_type}`\n")
+        sections.append(self.format_labeled_type("Signature", signature))
+        sections.append(self.format_labeled_type("Value Type", value_type))
 
         return "\n".join(sections)
 
@@ -549,9 +560,9 @@ Each section is organized by module, with classes, interfaces, types, and functi
         if jsdoc.get("description"):
             sections.append(f"{jsdoc['description']}\n")
 
-        sections.append(f"**Signature:** `{signature}`\n")
-        sections.append(f"**Key Type:** `{key_type}`\n")
-        sections.append(f"**Value Type:** `{value_type}`\n")
+        sections.append(self.format_labeled_type("Signature", signature))
+        sections.append(self.format_labeled_type("Key Type", key_type))
+        sections.append(self.format_labeled_type("Value Type", value_type))
 
         return "\n".join(sections)
 
@@ -564,7 +575,9 @@ Each section is organized by module, with classes, interfaces, types, and functi
         sections.append("\n**Parameters:**\n")
 
         for param in parameters:
-            name = param.get("name", "")
+            # Destructured parameters are declared over several lines; collapse them so the name
+            # stays inside a single-line inline code span.
+            name = " ".join(param.get("name", "").split())
             param_type = param.get("type", "")
             is_optional = param.get("optional", False)
             description = param.get("description", "")
@@ -573,11 +586,37 @@ Each section is organized by module, with classes, interfaces, types, and functi
             if is_optional:
                 param_name += " (optional)"
 
-            sections.append(f"- {param_name}: `{param_type}`")
-            if description:
-                sections.append(f"  - {description}")
+            if '\n' in param_type:
+                sections.append(f"- {param_name}:")
+                if description:
+                    sections.append(f"  - {description}")
+                sections.append("")
+                sections.append(indent(f"```typescript\n{param_type}\n```", "  "))
+                sections.append("")
+            else:
+                sections.append(f"- {param_name}: `{param_type}`")
+                if description:
+                    sections.append(f"  - {description}")
 
         return "\n".join(sections)
+
+    def format_labeled_type(self, label: str, type_str: str) -> str:
+        """
+        Format a `**Label:** <type>` line, using a code block when the type spans several lines.
+
+        A multi-line type can contain blank lines, which terminate an inline code span and leave
+        the type's braces and angle brackets to be parsed as MDX expressions and JSX tags.
+
+        Args:
+            label: The bold label preceding the type (e.g. "Type", "Value Type")
+            type_str: The type string
+
+        Returns:
+            Formatted markdown string for the labeled type
+        """
+        if '\n' in type_str:
+            return f"**{label}:**\n\n```typescript\n{type_str}\n```\n"
+        return f"**{label}:** `{type_str}`\n"
 
     def format_return_type(self, return_type: str, return_description: str = "") -> str:
         """
