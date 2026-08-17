@@ -106,7 +106,13 @@ Each section is organized by module, with classes, interfaces, types, and functi
         Compute the anchor Docusaurus generates for a heading.
 
         Mirrors github-slugger: lowercase, drop punctuation, then turn spaces into hyphens.
-        Hyphens and underscores survive, so `CAPABILITY_VERSION` anchors as `capability_version`.
+        Hyphens and underscores survive.
+
+        Examples:
+            `## Account` -> `#account`
+            `#### AccountContract` -> `#accountcontract`
+            `#### CAPABILITY_VERSION` -> `#capability_version`
+            `## Contract / Protocol_Contracts` -> `#contract--protocol_contracts`
 
         Args:
             heading_text: The rendered heading text, without its leading `#`s
