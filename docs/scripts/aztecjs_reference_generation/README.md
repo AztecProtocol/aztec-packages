@@ -26,7 +26,15 @@ A **two-phase pipeline** with complete control over output:
 
 # Generate to specific version
 ./scripts/aztecjs_reference_generation/update_docs.sh v2.0.2
+
+# Fail if the committed current-version page is out of date (what CI runs)
+./scripts/aztecjs_reference_generation/update_docs.sh --check
 ```
+
+`--check` regenerates into a temp file and diffs it against the committed page,
+ignoring the embedded generation timestamp. `docs/bootstrap.sh` runs it so a change
+to `yarn-project/aztec.js/src` that alters the reference cannot land without the
+regenerated page.
 
 ### Convenience Script (Testing - Custom Approach)
 
