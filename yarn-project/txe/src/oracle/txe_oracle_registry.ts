@@ -59,10 +59,15 @@ import type { TxEffectsData } from './noir-structs/tx_effects_data.js';
 // Spreading `ORACLE_REGISTRY` re-materializes its entries into `TXE_ORACLE_REGISTRY`'s inferred type, which names the
 // protocol types below. Re-exporting them gives tsc a portable path to each instead of falling back to a deep
 // node_modules path that breaks .d.ts portability (TS2742).
-export type { ContractClassLogData, EmbeddedCurvePoint, TxEffectData } from '@aztec/pxe/simulator';
+export type {
+  ContractClassLogData,
+  EmbeddedCurvePoint,
+  NullifierMembershipWitnessData,
+  PublicDataWitnessData,
+  TxEffectData,
+} from '@aztec/pxe/simulator';
 export type { BlockHash } from '@aztec/stdlib/block';
 export type { MembershipWitness } from '@aztec/foundation/trees';
-export type { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 
 const GAS: TypeMapping<GasData> = STRUCT([
   { name: 'daGas', type: U32 },

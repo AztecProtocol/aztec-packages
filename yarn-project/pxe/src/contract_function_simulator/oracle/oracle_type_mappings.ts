@@ -1,7 +1,6 @@
 import {
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
-  L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -18,7 +17,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { FieldReader } from '@aztec/foundation/serialize';
-import { MembershipWitness, type SiblingPath } from '@aztec/foundation/trees';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import type { ACVMField } from '@aztec/simulator/client';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
@@ -35,14 +34,12 @@ import {
   Tag,
   appTaggingSecretKindFromDeliveryMode,
 } from '@aztec/stdlib/logs';
-import {
-  type AppendOnlyTreeSnapshot,
-  type NullifierLeaf,
-  type NullifierLeafPreimage,
-  NullifierMembershipWitness,
-  type PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
-  PublicDataWitness,
+import type {
+  AppendOnlyTreeSnapshot,
+  NullifierLeaf,
+  NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -69,9 +66,11 @@ import { type LogRetrievalRequest, type LogSource, logSourceFromField } from '..
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
+import type { NullifierMembershipWitnessData } from '../noir-structs/nullifier_membership_witness_data.js';
 import { Option } from '../noir-structs/option.js';
 import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import type { PublicDataWitnessData } from '../noir-structs/public_data_witness_data.js';
 import {
   type ResolvedTaggingStrategy,
   resolvedTaggingStrategyFromFields,
@@ -80,7 +79,6 @@ import {
 import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
-import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { packAsHintedNote } from './note_packing_utils.js';
 
 // `ORACLE_REGISTRY` infers its entry signatures from these mappings, so its emitted declaration (and the oracle
@@ -92,9 +90,7 @@ export type {
   BlockHeader,
   ContractInstancePreimage,
   MembershipWitness,
-  NullifierMembershipWitness,
   PendingTaggedLog,
-  PublicDataWitness,
   TxHash,
 };
 
@@ -400,13 +396,10 @@ const NULLIFIER_LEAF_PREIMAGE: TypeMapping<NullifierLeafPreimage> = STRUCT<Nulli
   { name: 'nextIndex', type: BIGINT },
 ]);
 
-export const NULLIFIER_MEMBERSHIP_WITNESS: TypeMapping<NullifierMembershipWitness> = STRUCT<NullifierMembershipWitness>(
-  [
-    { name: 'leafPreimage', type: NULLIFIER_LEAF_PREIMAGE },
-    { name: 'index', type: BIGINT },
-    { name: 'siblingPath', type: SIBLING_PATH(NULLIFIER_TREE_HEIGHT) },
-  ],
-);
+export const NULLIFIER_MEMBERSHIP_WITNESS: TypeMapping<NullifierMembershipWitnessData> = STRUCT([
+  { name: 'leafPreimage', type: NULLIFIER_LEAF_PREIMAGE },
+  { name: 'witness', type: MEMBERSHIP_WITNESS(NULLIFIER_TREE_HEIGHT) },
+]);
 
 const PUBLIC_DATA_LEAF: TypeMapping<PublicDataTreeLeaf> = STRUCT<PublicDataTreeLeaf>([
   { name: 'slot', type: FIELD },
@@ -419,17 +412,10 @@ const PUBLIC_DATA_LEAF_PREIMAGE: TypeMapping<PublicDataTreeLeafPreimage> = STRUC
   { name: 'nextIndex', type: BIGINT },
 ]);
 
-export const PUBLIC_DATA_WITNESS: TypeMapping<PublicDataWitness> = STRUCT<PublicDataWitness>([
+export const PUBLIC_DATA_WITNESS: TypeMapping<PublicDataWitnessData> = STRUCT([
   { name: 'index', type: BIGINT },
   { name: 'leafPreimage', type: PUBLIC_DATA_LEAF_PREIMAGE },
-  { name: 'siblingPath', type: SIBLING_PATH(PUBLIC_DATA_TREE_HEIGHT) },
-]);
-
-export const MESSAGE_LOAD_ORACLE_INPUTS: TypeMapping<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> = STRUCT<
-  MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>
->([
-  { name: 'index', type: BIGINT },
-  { name: 'siblingPath', type: SIBLING_PATH(L1_TO_L2_MSG_TREE_HEIGHT) },
+  { name: 'siblingPath', type: FIXED_ARRAY(FIELD, PUBLIC_DATA_TREE_HEIGHT) },
 ]);
 
 export const UTILITY_CONTEXT: TypeMapping<UtilityContext> = STRUCT<UtilityContext>([
@@ -612,15 +598,6 @@ export function ALIAS<B, T>(
       base.deserialization && wrap ? { fn: readers => wrap(base.deserialization!.fn(readers)) } : undefined,
     shape: base.shape,
   };
-}
-
-function SIBLING_PATH<N extends number>(height: N): TypeMapping<SiblingPath<N>> {
-  return LEAF({
-    // On the wire (and in Noir) a sibling path is a plain `[Field; height]`, so it shares the fixed-array kind.
-    kind: `array(field,${height})`,
-    serialization: { fn: sp => [sp.toFields()] },
-    shape: [{ len: height }],
-  });
 }
 
 export function MEMBERSHIP_WITNESS<N extends number>(height: N): TypeMapping<MembershipWitness<N>> {
