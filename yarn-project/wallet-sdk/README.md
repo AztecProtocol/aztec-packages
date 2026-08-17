@@ -320,6 +320,38 @@ function useWalletDiscovery(chainInfo: ChainInfo, appId: string) {
 }
 ```
 
+## Credentialed node RPC
+
+When an embedded wallet connects to a cross-origin node that uses session cookies, opt in to browser credentials through the node client options:
+
+```typescript
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
+
+const wallet = await EmbeddedWallet.create('https://rpc.example.com', {
+  nodeClientOptions: {
+    fetchOptions: { credentials: 'include' },
+    maxBatchSize: 50,
+  },
+});
+```
+
+Node.js does not manage cookies automatically. Applications that need affinity there can inject any asynchronous cookie jar, including a `tough-cookie` jar installed by the application:
+
+```typescript
+import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
+import { CookieJar } from 'tough-cookie';
+
+const wallet = await EmbeddedWallet.create('https://rpc.example.com', {
+  nodeClientOptions: {
+    fetch: makeUndiciFetch(new Agent(), new CookieJar()),
+    maxBatchSize: 50,
+  },
+});
+```
+
+Cookie storage is optional.
+
 ## Storage backends
 
 Your wallet and the PXE it embeds persist state through a pluggable key-value store (`@aztec/kv-store`). In the browser there are two backends:

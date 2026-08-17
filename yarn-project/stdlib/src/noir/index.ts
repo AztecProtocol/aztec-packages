@@ -4,7 +4,6 @@ import type {
   AbiErrorType,
   AbiNamedValue,
   AbiType,
-  AbiValue,
   DebugFileMap,
   DebugInfo,
 } from '../abi/abi.js';
@@ -74,7 +73,7 @@ export interface NoirCompiledContract {
   /** The events of the contract */
   outputs: {
     structs: Record<string, AbiType[]>;
-    globals: Record<string, (AbiNamedValue | AbiValue)[]>;
+    globals: Record<string, AbiNamedValue[]>;
   };
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;

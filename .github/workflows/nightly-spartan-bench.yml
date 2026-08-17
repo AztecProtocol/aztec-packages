@@ -1,8 +1,9 @@
 name: Nightly Spartan Benchmarks
 
 on:
-  schedule:
-    - cron: "0 6 * * *"
+  # The nightly run is disabled for the repo split; trigger manually via workflow_dispatch.
+  # schedule:
+  #   - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       nightly_tag:

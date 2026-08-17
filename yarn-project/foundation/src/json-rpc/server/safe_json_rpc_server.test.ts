@@ -30,6 +30,104 @@ describe('SafeJsonRpcServer', () => {
     expect(response.status).toBe(httpCode);
   };
 
+  describe('CORS', () => {
+    beforeEach(() => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
+    });
+
+    it('preserves wildcard non-credentialed CORS by default', async () => {
+      const response = await send({ method: 'count', params: [] }).set('origin', 'https://app.example.com');
+
+      expect(response.headers['access-control-allow-origin']).toBe('*');
+      expect(response.headers['access-control-allow-credentials']).toBeUndefined();
+    });
+
+    it('allows credentialed requests from configured origins', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedOrigins: ['https://app.example.com/'],
+      });
+
+      const response = await send({ method: 'count', params: [] }).set('origin', 'https://app.example.com');
+
+      expect(response.headers['access-control-allow-origin']).toBe('https://app.example.com');
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
+      expect(response.headers.vary).toContain('Origin');
+    });
+
+    it('reflects any request origin when the wildcard policy is configured', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedOrigins: ['*'],
+      });
+
+      const response = await send({ method: 'count', params: [] }).set('origin', 'https://public-app.example.com');
+
+      expect(response.headers['access-control-allow-origin']).toBe('https://public-app.example.com');
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
+      expect(response.headers.vary).toContain('Origin');
+    });
+
+    it('does not allow requests from origins outside the allowlist', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedOrigins: ['https://app.example.com'],
+      });
+
+      const response = await send({ method: 'count', params: [] }).set('origin', 'https://other.example.com');
+
+      expect(response.status).toBe(200);
+      expect(response.headers['access-control-allow-origin']).toBeUndefined();
+      expect(response.headers['access-control-allow-credentials']).toBeUndefined();
+    });
+
+    it('rejects invalid configured origins', () => {
+      expect(() =>
+        createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+          corsAllowedOrigins: ['https://app.example.com/path'],
+        }),
+      ).toThrow('CORS allowed origin must not include credentials, a path, query parameters, or a fragment');
+    });
+
+    it('handles allowed preflight requests before additional middleware', async () => {
+      let middlewareCalled = false;
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedOrigins: ['https://app.example.com'],
+        middlewares: [
+          async (_ctx, next) => {
+            middlewareCalled = true;
+            await next();
+          },
+        ],
+      });
+
+      const response = await request(server.getApp().callback())
+        .options('/')
+        .set('origin', 'https://app.example.com')
+        .set('access-control-request-method', 'POST')
+        .set('access-control-request-headers', 'content-type,x-api-key');
+
+      expect(response.status).toBe(204);
+      expect(response.headers['access-control-allow-origin']).toBe('https://app.example.com');
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
+      expect(response.headers['access-control-allow-headers']).toBe('content-type,x-api-key');
+      expect(middlewareCalled).toBe(false);
+    });
+
+    it('reflects any request origin on preflight under the wildcard policy', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedOrigins: ['*'],
+      });
+
+      const response = await request(server.getApp().callback())
+        .options('/')
+        .set('origin', 'https://public-app.example.com')
+        .set('access-control-request-method', 'POST')
+        .set('access-control-request-headers', 'content-type,x-api-key');
+
+      expect(response.status).toBe(204);
+      expect(response.headers['access-control-allow-origin']).toBe('https://public-app.example.com');
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
+    });
+  });
+
   describe('single', () => {
     beforeEach(() => {
       server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
@@ -118,6 +216,34 @@ describe('SafeJsonRpcServer', () => {
       expect(calls).toEqual(['start:count:42:test-value', 'end:count']);
     });
 
+    it('reports request validation duration and outcome to diagnostics', async () => {
+      const validations: Array<{ durationMs: number | undefined; succeeded: boolean | undefined }> = [];
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        diagnostic: async (ctx, next) => {
+          try {
+            await next();
+          } finally {
+            validations.push({
+              durationMs: ctx.requestValidationDurationMs,
+              succeeded: ctx.requestValidationSucceeded,
+            });
+          }
+        },
+      });
+
+      await send({ method: 'count', params: [] });
+      await send({ method: 'getNote', params: ['invalid'] });
+      await send({ method: 'count', params: {} });
+
+      expect(validations).toHaveLength(3);
+      expect(validations[0]?.durationMs).toBeGreaterThanOrEqual(0);
+      expect(validations[0]?.succeeded).toBe(true);
+      expect(validations[1]?.durationMs).toBeGreaterThanOrEqual(0);
+      expect(validations[1]?.succeeded).toBe(false);
+      expect(validations[2]?.durationMs).toBeGreaterThanOrEqual(0);
+      expect(validations[2]?.succeeded).toBe(false);
+    });
+
     it('runs diagnostics for each request in a batch', async () => {
       const methods: string[] = [];
       server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
@@ -164,6 +290,20 @@ describe('SafeJsonRpcServer', () => {
     it('fails if calls non-existing method in handler', async () => {
       const response = await send({ jsonrpc: '2.0', method: 'invalid', params: [], id: 42 });
       expectError(response, 400, 'Method not found: invalid');
+    });
+
+    it('does not run diagnostics for non-existing methods', async () => {
+      const methods: string[] = [];
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        diagnostic: async (ctx, next) => {
+          methods.push(ctx.method);
+          await next();
+        },
+      });
+
+      await send({ jsonrpc: '2.0', method: 'invalid', params: [], id: 42 });
+
+      expect(methods).toEqual([]);
     });
 
     it('fails if calls method in handler non defined in schema', async () => {
@@ -231,6 +371,21 @@ describe('SafeJsonRpcServer', () => {
           { jsonrpc: '2.0', id: 43, result: null },
           { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null },
         ]),
+      );
+    });
+
+    it('reports unexpected batch dispatch failures as internal errors', async () => {
+      Object.defineProperty(testState, 'count', {
+        get: () => {
+          throw new Error('Unexpected dispatch failure');
+        },
+      });
+
+      const resp = await sendBatch({ jsonrpc: '2.0', method: 'count', params: [], id: 42 });
+
+      expect(resp.status).toEqual(200);
+      expect(resp.text).toEqual(
+        JSON.stringify([{ jsonrpc: '2.0', error: { code: -32603, message: 'Internal error' }, id: null }]),
       );
     });
   });

@@ -17,6 +17,7 @@ import {
   parseWithOptionals,
   schemaHasMethod,
 } from '../../schemas/index.js';
+import { Timer } from '../../timer/index.js';
 import { jsonStringify } from '../convert.js';
 import { assert } from '../js_utils.js';
 
@@ -25,6 +26,8 @@ export type DiagnosticsData = {
   method: string;
   params: any[];
   headers: http.IncomingHttpHeaders;
+  requestValidationDurationMs?: number;
+  requestValidationSucceeded?: boolean;
 };
 
 export type DiagnosticsMiddleware = (ctx: DiagnosticsData, next: () => Promise<void>) => Promise<void>;
@@ -36,13 +39,36 @@ export type SafeJsonRpcServerConfig = {
   http200OnError: boolean;
   /** The maximum body size the server will accept */
   maxBodySizeBytes: string;
+  /** Origins allowed to make credentialed cross-origin requests. An empty list preserves wildcard CORS. */
+  corsAllowedOrigins?: string[];
 };
 
-const defaultServerConfig: SafeJsonRpcServerConfig = {
+type ResolvedSafeJsonRpcServerConfig = Omit<SafeJsonRpcServerConfig, 'corsAllowedOrigins'> & {
+  corsAllowedOrigins: string[];
+};
+
+const defaultServerConfig: ResolvedSafeJsonRpcServerConfig = {
   http200OnError: false,
   maxBatchSize: 100,
   maxBodySizeBytes: '1mb',
+  corsAllowedOrigins: [],
 };
+
+function normalizeCorsOrigin(origin: string): string {
+  if (origin === '*') {
+    return origin;
+  }
+  const url = new URL(origin);
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error(`Invalid CORS origin protocol: ${origin}`);
+  }
+  if (url.username || url.password || (url.pathname !== '' && url.pathname !== '/') || url.search || url.hash) {
+    throw new Error(
+      `CORS allowed origin must not include credentials, a path, query parameters, or a fragment: ${origin}`,
+    );
+  }
+  return url.origin;
+}
 
 export class SafeJsonRpcServer {
   /**
@@ -51,7 +77,7 @@ export class SafeJsonRpcServer {
    */
   private httpServer?: http.Server;
 
-  private config: SafeJsonRpcServerConfig;
+  private config: ResolvedSafeJsonRpcServerConfig;
 
   constructor(
     /** The proxy object to delegate requests to */
@@ -67,6 +93,7 @@ export class SafeJsonRpcServer {
     private log = createLogger('json-rpc:server'),
   ) {
     this.config = { ...defaultServerConfig, ...config };
+    this.config.corsAllowedOrigins = this.config.corsAllowedOrigins.map(normalizeCorsOrigin);
 
     // handle empty string
     if (!this.config.maxBodySizeBytes) {
@@ -100,7 +127,7 @@ export class SafeJsonRpcServer {
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32700, message: `Parse error: ${err.message}` } };
         } else {
           ctx.status = 500;
-          ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32600, message: err.message ?? 'Internal error' } };
+          ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32603, message: err.message ?? 'Internal error' } };
         }
       }
     };
@@ -124,6 +151,33 @@ export class SafeJsonRpcServer {
 
     app.use(compress({ br: false }));
     app.use(jsonResponse);
+    if (this.config.corsAllowedOrigins.length === 0) {
+      app.use(cors());
+    } else {
+      const allowedOrigins = new Set(this.config.corsAllowedOrigins);
+      const allowAnyOrigin = allowedOrigins.has('*');
+      app.use(
+        cors({
+          origin: ctx => {
+            const origin = ctx.get('Origin');
+            if (!origin) {
+              return '';
+            }
+
+            if (allowAnyOrigin) {
+              return origin;
+            }
+
+            if (allowedOrigins.has(origin)) {
+              return origin;
+            }
+
+            return '';
+          },
+          credentials: true,
+        }),
+      );
+    }
     for (const middleware of this.extraMiddlewares) {
       app.use(middleware);
     }
@@ -134,7 +188,6 @@ export class SafeJsonRpcServer {
         enableTypes: ['json'],
       }),
     );
-    app.use(cors());
     app.use(router.routes());
     app.use(router.allowedMethods());
 
@@ -195,7 +248,7 @@ export class SafeJsonRpcServer {
       }
 
       this.log.warn(`Uncaught error executing request in batch: ${res.reason}.`);
-      return { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null };
+      return { jsonrpc: '2.0', error: { code: -32603, message: 'Internal error' }, id: null };
     });
   }
 
@@ -217,8 +270,12 @@ export class SafeJsonRpcServer {
         let result: any;
 
         if (this.diagnosticsMiddleware) {
-          await this.diagnosticsMiddleware({ id: id ?? null, method, params, headers }, async () => {
-            result = await this.proxy.call(method, params);
+          const diagnosticsData: DiagnosticsData = { id: id ?? null, method, params, headers };
+          await this.diagnosticsMiddleware(diagnosticsData, async () => {
+            result = await this.proxy.call(method, params, (durationMs, succeeded) => {
+              diagnosticsData.requestValidationDurationMs = durationMs;
+              diagnosticsData.requestValidationSucceeded = succeeded;
+            });
           });
         } else {
           result = await this.proxy.call(method, params);
@@ -299,7 +356,11 @@ export type StatusCheckFn = () => boolean | Promise<boolean>;
 
 interface Proxy {
   hasMethod(methodName: string): boolean;
-  call(methodName: string, jsonParams?: any[]): Promise<any>;
+  call(
+    methodName: string,
+    jsonParams?: any[],
+    onRequestValidated?: (durationMs: number, succeeded: boolean) => void,
+  ): Promise<any>;
 }
 
 /**
@@ -323,14 +384,26 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
    * @param jsonParams - The RPC parameters.
    * @returns The remote result.
    */
-  public async call(methodName: string, jsonParams: any[] = []) {
+  public async call(
+    methodName: string,
+    jsonParams: any[] = [],
+    onRequestValidated?: (durationMs: number, succeeded: boolean) => void,
+  ) {
     this.log.debug(format(`request`, methodName, jsonParams));
 
-    assert(Array.isArray(jsonParams), `Params to ${methodName} is not an array: ${jsonParams}`);
     assert(schemaHasMethod(this.schema, methodName), `Method ${methodName} not found in schema`);
     const method = this.handler[methodName as keyof T];
     assert(typeof method === 'function', `Method ${methodName} is not a function`);
-    const args = await parseWithOptionals(jsonParams, getSchemaParameters(this.schema[methodName]));
+    const validationTimer = new Timer();
+    let args: any[];
+    try {
+      assert(Array.isArray(jsonParams), `Params to ${methodName} is not an array: ${jsonParams}`);
+      args = await parseWithOptionals(jsonParams, getSchemaParameters(this.schema[methodName]));
+      onRequestValidated?.(validationTimer.ms(), true);
+    } catch (error) {
+      onRequestValidated?.(validationTimer.ms(), false);
+      throw error;
+    }
     const ret = await method.apply(this.handler, args);
     this.log.debug(format('response', methodName, ret));
     return ret;
@@ -350,12 +423,16 @@ class NamespacedSafeJsonProxy implements Proxy {
     }
   }
 
-  public call(namespacedMethodName: string, jsonParams: any[] = []) {
+  public call(
+    namespacedMethodName: string,
+    jsonParams: any[] = [],
+    onRequestValidated?: (durationMs: number, succeeded: boolean) => void,
+  ) {
     const [namespace, methodName] = namespacedMethodName.split('_', 2);
     assert(namespace && methodName, `Invalid namespaced method name: ${namespacedMethodName}`);
     const handler = this.proxies[namespace];
     assert(handler, `Namespace not found: ${namespace}`);
-    return handler.call(methodName, jsonParams);
+    return handler.call(methodName, jsonParams, onRequestValidated);
   }
 
   public hasMethod(namespacedMethodName: string): boolean {

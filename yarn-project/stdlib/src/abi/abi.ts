@@ -47,6 +47,11 @@ export const AbiValueSchema: z.ZodType<AbiValue> = z.discriminatedUnion('kind', 
   }),
 ]);
 
+export const AbiNamedValueSchema: z.ZodType<AbiNamedValue> = z.object({
+  name: z.string(),
+  value: AbiValueSchema,
+});
+
 export type TypedStructFieldValue<T> = { name: string; value: T };
 
 export interface StructValue {
@@ -389,7 +394,7 @@ export interface ContractArtifact {
   /** The outputs of the contract. */
   outputs: {
     structs: Record<string, AbiType[]>;
-    globals: Record<string, AbiValue[]>;
+    globals: Record<string, AbiNamedValue[]>;
   };
 
   /** Storage layout */
@@ -418,7 +423,7 @@ export const ContractArtifactSchema = zodFor<ContractArtifact>()(
         }
         return structs;
       }),
-      globals: z.record(z.string(), z.array(AbiValueSchema)),
+      globals: z.record(z.string(), z.array(AbiNamedValueSchema)),
     }),
     storageLayout: z.record(z.string(), z.object({ slot: schemas.Fr })),
     fileMap: z.record(

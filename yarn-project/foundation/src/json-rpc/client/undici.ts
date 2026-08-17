@@ -17,24 +17,48 @@ const COMPRESSION_THRESHOLD = 1024;
 
 export { Agent };
 
-export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
+/** Asynchronous cookie storage. */
+export interface CookieJar {
+  getCookieString(url: string): Promise<string>;
+  setCookie(cookie: string, url: string): Promise<unknown>;
+}
+
+/**
+ * Creates an Undici JSON-RPC transport.
+ * @param client - Dispatcher used to make requests.
+ * @param cookieJar - Optional application-owned cookie storage. Cookies are ignored when omitted.
+ * @returns A JSON-RPC fetch implementation.
+ */
+export function makeUndiciFetch(client: Dispatcher = new Agent(), cookieJar?: CookieJar): JsonRpcFetch {
   return async (host: string, body: unknown, extraHeaders: Record<string, string> = {}, noRetry = false) => {
     log.trace(`JsonRpcClient.fetch: ${host}`, { host, body });
+    const requestUrl = new URL(host);
+    requestUrl.hash = '';
     let resp: Dispatcher.ResponseData;
     try {
+      const headers = new Headers();
+      for (const [name, value] of Object.entries(extraHeaders)) {
+        headers.append(name, value);
+      }
+      const cookie = await cookieJar?.getCookieString(requestUrl.href);
+      if (cookie) {
+        headers.append('cookie', cookie);
+      }
       const jsonBody = Buffer.from(jsonStringify(body));
       const shouldCompress = jsonBody.length >= COMPRESSION_THRESHOLD;
+      headers.set('content-type', 'application/json');
+      if (shouldCompress) {
+        headers.set('content-encoding', 'gzip');
+      }
+      headers.set('accept-encoding', 'gzip');
+      const requestHeaders: string[] = [];
+      headers.forEach((value, name) => requestHeaders.push(name, value));
       resp = await client.request({
         method: 'POST',
-        origin: new URL(host),
-        path: '/',
+        origin: requestUrl.origin,
+        path: `${requestUrl.pathname}${requestUrl.search}`,
         body: shouldCompress ? await gzip(jsonBody) : jsonBody,
-        headers: {
-          ...extraHeaders,
-          'content-type': 'application/json',
-          ...(shouldCompress && { 'content-encoding': 'gzip' }),
-          'accept-encoding': 'gzip',
-        },
+        headers: requestHeaders,
       });
     } catch (err) {
       const errorMessage = `Error fetching from host ${host}: ${String(err)}`;
@@ -52,12 +76,28 @@ export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
       } else {
         responseText = await resp.body.text();
       }
+    } catch (err) {
+      if (!responseOk) {
+        throw new Error('HTTP ' + resp.statusCode);
+      }
+      throw new Error(`Failed to read response body. encoding: ${contentEncoding}, error: ${String(err)}`);
+    }
+
+    if (cookieJar) {
+      const setCookieHeaders = resp.headers['set-cookie'];
+      const cookies = typeof setCookieHeaders === 'string' ? [setCookieHeaders] : (setCookieHeaders ?? []);
+      for (const cookie of cookies) {
+        await cookieJar.setCookie(cookie, requestUrl.href);
+      }
+    }
+
+    try {
       responseJson = JSON.parse(responseText);
     } catch {
       if (!responseOk) {
         throw new Error('HTTP ' + resp.statusCode);
       }
-      throw new Error(`Failed to parse body as JSON. encoding: ${contentEncoding}, body: ${responseText!}`);
+      throw new Error(`Failed to parse body as JSON. encoding: ${contentEncoding}, body: ${responseText}`);
     }
 
     if (!responseOk) {

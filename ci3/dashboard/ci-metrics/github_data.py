@@ -25,7 +25,6 @@ BRANCH_PAIRS = [
 DEPLOY_WORKFLOWS = [
     'deploy-staging-networks.yml',
     'deploy-network.yml',
-    'deploy-next-net.yml',
 ]
 
 _CACHE_TTL = 3600  # 1 hour

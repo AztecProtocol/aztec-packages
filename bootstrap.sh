@@ -566,17 +566,19 @@ function release {
     return
   fi
 
+  # Releases run on a single amd64 job (see ci.sh release); every arm64 artifact is cross-compiled
+  # there. Backstop against stray arm64 invocations.
+  if [ $(arch) == arm64 ]; then
+    echo "Skipping release on arm64: everything publishes from the amd64 job (arm64 artifacts are cross-compiled there)."
+    return
+  fi
+
   # Ensure we have a github release in AztecProtocol/barretenberg for bb artifacts.
   # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
   release_bb_github
 
   # Only the foundation packages are published from here; the labs packages (yarn-project, playground,
   # aztec-up, aztec-nr, the docker release-image) are published from the labs repo.
-  # All foundation artifacts are built or cross-compiled on the amd64 job; nothing publishes from arm64.
-  if [ $(arch) == arm64 ]; then
-    return
-  fi
-
   projects=(
     barretenberg/cpp
     ipc-runtime
@@ -654,7 +656,7 @@ function release_compat_e2e {
     return 0
   fi
 
-  # Compat e2e only runs on amd64 — the arm64 release job publishes nothing.
+  # Compat e2e only runs on amd64.
   if [ "$(arch)" == arm64 ]; then
     echo "Skipping backwards compatibility e2e tests on arm64 (amd64 only)."
     return 0

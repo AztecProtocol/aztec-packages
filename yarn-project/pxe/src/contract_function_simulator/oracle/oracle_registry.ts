@@ -14,7 +14,6 @@ import {
   BOOL,
   BOUNDED_VEC,
   CALL_PRIVATE_RESULT,
-  CONTRACT_CLASS_LOG,
   CONTRACT_INSTANCE,
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
@@ -64,7 +63,6 @@ export {
   BOOL,
   BOUNDED_VEC,
   U8,
-  CONTRACT_CLASS_LOG,
   DELIVERY_MODE,
   RESOLVED_TAGGING_STRATEGY,
   EPHEMERAL_ARRAY,
@@ -528,7 +526,9 @@ export const ORACLE_REGISTRY = {
 
   aztec_prv_notifyCreatedContractClassLog: makeEntry({
     params: [
-      { name: 'log', type: CONTRACT_CLASS_LOG },
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'message', type: ARRAY(FIELD) },
+      { name: 'length', type: U32 },
       { name: 'counter', type: U32 },
     ],
   }),

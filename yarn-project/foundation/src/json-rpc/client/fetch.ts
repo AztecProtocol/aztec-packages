@@ -13,6 +13,10 @@ export type JsonRpcFetch = (
   noRetry?: boolean,
 ) => Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }>;
 
+export type JsonRpcFetchConfig = {
+  credentials?: RequestCredentials;
+};
+
 /**
  * A normal fetch function that does not retry.
  * Alternatives are a fetch function with retries, or a mocked fetch.
@@ -21,6 +25,7 @@ export type JsonRpcFetch = (
  * @param body - The RPC payload.
  * @param noRetry - Whether to throw a `NoRetryError` in case the response is a 5xx error and the body contains an error
  *                  message (see `retry` function for more details).
+ * @param config - Fetch transport configuration.
  * @returns The parsed JSON response, or throws an error.
  */
 export async function defaultFetch(
@@ -28,6 +33,7 @@ export async function defaultFetch(
   body: unknown,
   extraHeaders: Record<string, string> = {},
   noRetry = false,
+  config: JsonRpcFetchConfig = {},
 ): Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }> {
   log.debug(format(`JsonRpcClient.fetch`, host, '->', body));
   let resp: Response;
@@ -36,6 +42,7 @@ export async function defaultFetch(
       method: 'POST',
       body: jsonStringify(body),
       headers: { 'content-type': 'application/json', ...extraHeaders },
+      credentials: config.credentials,
     });
   } catch (err) {
     const errorMessage = `Error fetching from host ${host}: ${inspect(err)}`;
@@ -70,12 +77,18 @@ export async function defaultFetch(
  * @param retries - Sequence of intervals (in seconds) to retry.
  * @param noRetry - Whether to stop retries on server errors.
  * @param log - Optional logger for logging attempts.
+ * @param config - Fetch transport configuration.
  * @returns A fetch function.
  */
-export function makeFetch(retries: number[], defaultNoRetry: boolean, log?: Logger): typeof defaultFetch {
+export function makeFetch(
+  retries: number[],
+  defaultNoRetry: boolean,
+  log?: Logger,
+  config: JsonRpcFetchConfig = {},
+): JsonRpcFetch {
   return async (host: string, body: unknown, extraHeaders: Record<string, string> = {}, noRetry?: boolean) => {
     return await retry(
-      () => defaultFetch(host, body, extraHeaders, noRetry ?? defaultNoRetry),
+      () => defaultFetch(host, body, extraHeaders, noRetry ?? defaultNoRetry, config),
       `JsonRpcClient request to ${host}`,
       makeBackoff(retries),
       log,

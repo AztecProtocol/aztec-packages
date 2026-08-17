@@ -62,7 +62,8 @@ template <typename Builder> inline constexpr size_t ASSERT_EQUALITY = ZERO_GATE 
 // Honk Recursion Constants
 // ========================================
 
-// Re-pin together with root_rollup_vk_hash below; PinnedVKRootRollup checks both off one circuit construction.
+// Re-pin together with root_rollup_vk_hash below; PinnedVKRootRollup, which runs nightly, checks both off one
+// circuit construction.
 inline constexpr size_t ROOT_ROLLUP_GATE_COUNT = 6350020;
 
 // Hash of the verification key of the root rollup circuit. That circuit closes its IPA accumulator in-circuit, so it

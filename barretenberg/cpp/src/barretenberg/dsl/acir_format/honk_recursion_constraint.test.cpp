@@ -477,7 +477,9 @@ TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, Tampering)
 }
 
 // Pinned vk hash and gate count of the root rollup circuit, which is too large to construct more than once within
-// the per-test timeout. GenerateVKFromConstraints and Tampering cover it nightly (see barretenberg/cpp/bootstrap.sh).
+// the per-test timeout. Runs nightly alongside GenerateVKFromConstraints and Tampering for the same circuit: at
+// ~6.35M gates, one construction plus its vk costs 261s, which is too slow to be worth keeping per merge as a
+// change detector (see barretenberg/cpp/bootstrap.sh). A change to this circuit is caught by the next nightly.
 TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, PinnedVKRootRollup)
 {
     if constexpr (!TestFixture::IsRootRollup) {

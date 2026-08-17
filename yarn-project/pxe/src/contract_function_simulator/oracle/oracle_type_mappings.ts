@@ -154,7 +154,7 @@ export interface TypeMapping<T = any> {
    * Examples:
    * - `FIELD` → `['scalar']` // single slot
    * - `OPTION(T)` → `['scalar', ...T.shape]` // [discriminant], [...inner.shape]
-   * - `CONTRACT_CLASS_LOG` → `['scalar', { len: N }, 'scalar']` // [addr], [fields], [len]
+   * - `CONTRACT_CLASS_LOG_ENTRY` → `[{ len: N }, 'scalar', 'scalar']` // [fields], [emittedLength], [address]
    */
   shape: SlotShape[];
 }
@@ -449,12 +449,6 @@ export const PUBLIC_KEYS_AND_PARTIAL_ADDRESS: TypeMapping<{
 }> = STRUCT([
   { name: 'publicKeys', type: PUBLIC_KEYS },
   { name: 'partialAddress', type: FIELD },
-]);
-
-export const CONTRACT_CLASS_LOG: TypeMapping<ContractClassLogData> = STRUCT([
-  { name: 'contractAddress', type: AZTEC_ADDRESS },
-  { name: 'fields', type: FIXED_ARRAY(FIELD, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS) },
-  { name: 'emittedLength', type: U32 },
 ]);
 
 const PUBLIC_DATA_WRITE: TypeMapping<PublicDataWrite> = STRUCT<PublicDataWrite>([

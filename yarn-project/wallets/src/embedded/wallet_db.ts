@@ -43,16 +43,18 @@ export class WalletDB {
     },
     log: LogFn = this.userLog,
   ) {
-    if (alias) {
-      await this.aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
-    }
-    await this.accounts.set(accountKey('type', address), Buffer.from(type));
-    await this.accounts.set(accountKey('sk', address), secretKey.toBuffer());
-    await this.accounts.set(accountKey('salt', address), salt.toBuffer());
-    await this.accounts.set(
-      accountKey('signingKey', address),
-      'toBuffer' in signingKey ? signingKey.toBuffer() : signingKey,
-    );
+    await this.store.transactionAsync(async () => {
+      if (alias) {
+        await this.aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
+      }
+      await this.accounts.set(accountKey('type', address), Buffer.from(type));
+      await this.accounts.set(accountKey('sk', address), secretKey.toBuffer());
+      await this.accounts.set(accountKey('salt', address), salt.toBuffer());
+      await this.accounts.set(
+        accountKey('signingKey', address),
+        'toBuffer' in signingKey ? signingKey.toBuffer() : signingKey,
+      );
+    });
     log(`Account stored in database${alias ? ` with alias ${alias}` : ''}`);
   }
 

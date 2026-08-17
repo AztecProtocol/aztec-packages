@@ -8,3 +8,4 @@ export * from './l1_metrics.js';
 export * from './wrappers/index.js';
 export * from './start.js';
 export * from './otel_propagation.js';
+export * from './json_rpc_server_metrics.js';
