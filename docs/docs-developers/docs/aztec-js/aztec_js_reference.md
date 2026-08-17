@@ -16,7 +16,7 @@ This is an auto-generated reference. For tutorials and guides, see the [Aztec.js
 
 *Package: @aztec/aztec.js*
 
-*Generated: 2026-08-17T11:45:37.366Z*
+*Generated: 2026-08-17T18:34:55.705Z*
 
 This document provides a comprehensive reference for all public APIs in the Aztec.js library.
 
@@ -25,22 +25,22 @@ Each section is organized by module, with classes, interfaces, types, and functi
 ## Table of Contents
 
 - [Account](#account)
-  - [AccountContract](#accountcontract)
-  - [getAccountContractAddress](#getaccountcontractaddress)
   - [AuthorizationProvider](#authorizationprovider)
   - [Account](#account)
   - [BaseAccount](#baseaccount)
+  - [AccountContract](#accountcontract)
+  - [getAccountContractAddress](#getaccountcontractaddress)
 - [Authorization](#authorization)
   - [CallAuthorizationRequest](#callauthorizationrequest)
 - [Contract](#contract)
   - [BaseContractInteraction](#basecontractinteraction)
   - [BatchCall](#batchcall)
   - [abiChecker](#abichecker)
+  - [Contract](#contract)
   - [ContractMethod](#contractmethod)
   - [ContractStorageLayout](#contractstoragelayout)
   - [ContractBase](#contractbase)
   - [ContractFunctionInteraction](#contractfunctioninteraction)
-  - [Contract](#contract)
   - [DeployInstantiationOptions](#deployinstantiationoptions)
   - [BoundInstantiationOptions](#boundinstantiationoptions)
   - [UniversalInstantiationOptions](#universalinstantiationoptions)
@@ -224,142 +224,6 @@ Each section is organized by module, with classes, interfaces, types, and functi
 
 ## Account
 
-
----
-
-### `account/account_contract.ts`
-
-
-#### AccountContract
-
-**Type:** Interface
-
-An account contract instance. Knows its artifact, deployment arguments, how to create transaction execution requests out of function calls, and how to authorize actions.
-
-
-#### Methods
-
-
-##### getContractArtifact
-
-Returns the artifact of this account contract.
-
-**Signature:**
-
-```typescript
-getContractArtifact(): Promise<ContractArtifact>
-```
-
-**Returns:**
-
-`Promise<ContractArtifact>`
-
-##### getInitializationFunctionAndArgs
-
-Returns the initializer function name and arguments for this instance, or undefined if this contract does not require initialization.
-
-**Signature:**
-
-```typescript
-getInitializationFunctionAndArgs(): Promise<{
-      constructorName: string;
-      constructorArgs: any[];
-  } | undefined>
-```
-
-**Returns:**
-
-```typescript
-Promise<
-    | {
-        /** The name of the function used to initialize the contract */
-        constructorName: string;
-        /** The args to the function used to initialize the contract */
-        constructorArgs: any[];
-      }
-    | undefined
-  >
-```
-
-##### getImmutablesHash
-
-The hash of this account's immutable instantiation params, committed into its address. Returns undefined for accounts that have no immutables (these are instead deployed via an onchain initializer, which contributes to the address through its initialization hash).
-
-**Signature:**
-
-```typescript
-getImmutablesHash(): Promise<Fr | undefined>
-```
-
-**Returns:**
-
-`Promise<Fr | undefined>`
-
-##### getAccount
-
-Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
-
-**Signature:**
-
-```typescript
-getAccount(address: CompleteAddress): Account
-```
-
-**Parameters:**
-
-- `address`: `CompleteAddress`
-  - Address of this account contract.
-
-**Returns:**
-
-`Account` - An account instance for creating tx requests and authorizing actions.
-
-##### getAuthWitnessProvider
-
-Returns the auth witness provider for the given address.
-
-**Signature:**
-
-```typescript
-getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider
-```
-
-**Parameters:**
-
-- `address`: `CompleteAddress`
-  - Address for which to create auth witnesses.
-
-**Returns:**
-
-`AuthWitnessProvider`
-
-#### getAccountContractAddress
-
-**Type:** Function
-
-Compute the address of an account contract from secret, salt and optional immutables hash
-
-**Signature:**
-
-```typescript
-export async getAccountContractAddress(
-  accountContract: AccountContract,
-  secret: Fr,
-  salt: Fr,
-  immutablesHash?: Fr
-)
-```
-
-**Parameters:**
-
-- `accountContract`: `AccountContract`
-- `secret`: `Fr`
-- `salt`: `Fr`
-- `immutablesHash` (optional): `Fr`
-
-**Returns:**
-
-`Promise<AztecAddress>`
 
 ---
 
@@ -564,6 +428,142 @@ getAddress(): AztecAddress
 **Returns:**
 
 `AztecAddress`
+
+---
+
+### `account/account_contract.ts`
+
+
+#### AccountContract
+
+**Type:** Interface
+
+An account contract instance. Knows its artifact, deployment arguments, how to create transaction execution requests out of function calls, and how to authorize actions.
+
+
+#### Methods
+
+
+##### getContractArtifact
+
+Returns the artifact of this account contract.
+
+**Signature:**
+
+```typescript
+getContractArtifact(): Promise<ContractArtifact>
+```
+
+**Returns:**
+
+`Promise<ContractArtifact>`
+
+##### getInitializationFunctionAndArgs
+
+Returns the initializer function name and arguments for this instance, or undefined if this contract does not require initialization.
+
+**Signature:**
+
+```typescript
+getInitializationFunctionAndArgs(): Promise<{
+      constructorName: string;
+      constructorArgs: any[];
+  } | undefined>
+```
+
+**Returns:**
+
+```typescript
+Promise<
+    | {
+        /** The name of the function used to initialize the contract */
+        constructorName: string;
+        /** The args to the function used to initialize the contract */
+        constructorArgs: any[];
+      }
+    | undefined
+  >
+```
+
+##### getImmutablesHash
+
+The hash of this account's immutable instantiation params, committed into its address. Returns undefined for accounts that have no immutables (these are instead deployed via an onchain initializer, which contributes to the address through its initialization hash).
+
+**Signature:**
+
+```typescript
+getImmutablesHash(): Promise<Fr | undefined>
+```
+
+**Returns:**
+
+`Promise<Fr | undefined>`
+
+##### getAccount
+
+Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
+
+**Signature:**
+
+```typescript
+getAccount(address: CompleteAddress): Account
+```
+
+**Parameters:**
+
+- `address`: `CompleteAddress`
+  - Address of this account contract.
+
+**Returns:**
+
+`Account` - An account instance for creating tx requests and authorizing actions.
+
+##### getAuthWitnessProvider
+
+Returns the auth witness provider for the given address.
+
+**Signature:**
+
+```typescript
+getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider
+```
+
+**Parameters:**
+
+- `address`: `CompleteAddress`
+  - Address for which to create auth witnesses.
+
+**Returns:**
+
+`AuthWitnessProvider`
+
+#### getAccountContractAddress
+
+**Type:** Function
+
+Compute the address of an account contract from secret, salt and optional immutables hash
+
+**Signature:**
+
+```typescript
+export async getAccountContractAddress(
+  accountContract: AccountContract,
+  secret: Fr,
+  salt: Fr,
+  immutablesHash?: Fr
+)
+```
+
+**Parameters:**
+
+- `accountContract`: `AccountContract`
+- `secret`: `Fr`
+- `salt`: `Fr`
+- `immutablesHash` (optional): `Fr`
+
+**Returns:**
+
+`Promise<AztecAddress>`
 
 ## Authorization
 
@@ -871,6 +871,83 @@ export abiChecker(artifact: ContractArtifact)
 
 ---
 
+### `contract/contract.ts`
+
+
+#### Contract
+
+**Type:** Class
+
+The Contract class represents a contract and provides utility methods for interacting with it. It enables the creation of ContractFunctionInteraction instances for each function in the contract's ABI, allowing users to call or send transactions to these functions. Additionally, the Contract class can be used to attach the contract instance to a deployed contract onchain through the PXE, which facilitates interaction with Aztec's privacy protocol.
+
+**Extends:** `ContractBase`
+
+
+#### Methods
+
+
+##### at
+
+Gets a contract instance.
+
+**Signature:**
+
+```typescript
+public static at(
+  address: AztecAddress,
+  artifact: ContractArtifact,
+  wallet: Wallet
+): Contract
+```
+
+**Parameters:**
+
+- `address`: `AztecAddress`
+  - The address of the contract instance.
+- `artifact`: `ContractArtifact`
+  - Build artifact of the contract.
+- `wallet`: `Wallet`
+  - The wallet to use when interacting with the contract.
+
+**Returns:**
+
+`Contract` - A promise that resolves to a new Contract instance.
+
+##### deploy
+
+Creates a tx to deploy (initialize and/or publish) a new instance of a contract.
+
+**Signature:**
+
+```typescript
+public static deploy(
+  wallet: Wallet,
+  artifact: ContractArtifact,
+  args: any[],
+  constructorName?: string,
+  instantiation?: DeployInstantiationOptions
+)
+```
+
+**Parameters:**
+
+- `wallet`: `Wallet`
+  - The wallet for executing the deployment.
+- `artifact`: `ContractArtifact`
+  - Build artifact of the contract to deploy
+- `args`: `any[]`
+  - Arguments for the constructor.
+- `constructorName` (optional): `string`
+  - The name of the constructor function to call.
+- `instantiation` (optional): `DeployInstantiationOptions`
+  - Other address-affecting parameters (salt, deployer / universalDeploy, publicKeys).
+
+**Returns:**
+
+`DeployMethod<Contract>`
+
+---
+
 ### `contract/contract_base.ts`
 
 
@@ -1129,83 +1206,6 @@ public with({ authWitnesses = [], capsules = [], extraHashedArgs = [], }: {
 **Returns:**
 
 `ContractFunctionInteraction` - A new ContractFunctionInteraction with the added metadata, but calling the same original function in the same manner
-
----
-
-### `contract/contract.ts`
-
-
-#### Contract
-
-**Type:** Class
-
-The Contract class represents a contract and provides utility methods for interacting with it. It enables the creation of ContractFunctionInteraction instances for each function in the contract's ABI, allowing users to call or send transactions to these functions. Additionally, the Contract class can be used to attach the contract instance to a deployed contract onchain through the PXE, which facilitates interaction with Aztec's privacy protocol.
-
-**Extends:** `ContractBase`
-
-
-#### Methods
-
-
-##### at
-
-Gets a contract instance.
-
-**Signature:**
-
-```typescript
-public static at(
-  address: AztecAddress,
-  artifact: ContractArtifact,
-  wallet: Wallet
-): Contract
-```
-
-**Parameters:**
-
-- `address`: `AztecAddress`
-  - The address of the contract instance.
-- `artifact`: `ContractArtifact`
-  - Build artifact of the contract.
-- `wallet`: `Wallet`
-  - The wallet to use when interacting with the contract.
-
-**Returns:**
-
-`Contract` - A promise that resolves to a new Contract instance.
-
-##### deploy
-
-Creates a tx to deploy (initialize and/or publish) a new instance of a contract.
-
-**Signature:**
-
-```typescript
-public static deploy(
-  wallet: Wallet,
-  artifact: ContractArtifact,
-  args: any[],
-  constructorName?: string,
-  instantiation?: DeployInstantiationOptions
-)
-```
-
-**Parameters:**
-
-- `wallet`: `Wallet`
-  - The wallet for executing the deployment.
-- `artifact`: `ContractArtifact`
-  - Build artifact of the contract to deploy
-- `args`: `any[]`
-  - Arguments for the constructor.
-- `constructorName` (optional): `string`
-  - The name of the constructor function to call.
-- `instantiation` (optional): `DeployInstantiationOptions`
-  - Other address-affecting parameters (salt, deployer / universalDeploy, publicKeys).
-
-**Returns:**
-
-`DeployMethod<Contract>`
 
 ---
 

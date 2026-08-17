@@ -17,6 +17,11 @@ const ts = require('typescript');
 const fs = require('fs');
 const path = require('path');
 
+// readdirSync returns entries in filesystem order, and localeCompare depends on the runtime's
+// locale data, so either one can order the reference differently on another machine. Comparing
+// code units keeps the generated page identical everywhere the same sources are parsed.
+const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+
 /**
  * JSDoc Validator - validates JSDoc completeness and correctness
  */
@@ -227,7 +232,7 @@ class TypeScriptParser {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
 
     // Get directories first
-    const dirs = entries.filter(e => e.isDirectory());
+    const dirs = entries.filter(e => e.isDirectory()).sort(byName);
 
     for (const dir of dirs) {
       const dirName = dir.name;
@@ -289,7 +294,7 @@ class TypeScriptParser {
       }
     }
 
-    return files.sort((a, b) => a.name.localeCompare(b.name));
+    return files.sort(byName);
   }
 
   /**
