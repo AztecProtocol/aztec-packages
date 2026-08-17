@@ -41,10 +41,13 @@ export type SafeJsonRpcServerConfig = {
   maxBodySizeBytes: string;
   /** Origins allowed to make credentialed cross-origin requests. An empty list preserves wildcard CORS. */
   corsAllowedOrigins?: string[];
+  /** Headers allowed in cross-origin requests. An empty list reflects the requested headers. */
+  corsAllowedHeaders?: string[];
 };
 
-type ResolvedSafeJsonRpcServerConfig = Omit<SafeJsonRpcServerConfig, 'corsAllowedOrigins'> & {
+type ResolvedSafeJsonRpcServerConfig = Omit<SafeJsonRpcServerConfig, 'corsAllowedOrigins' | 'corsAllowedHeaders'> & {
   corsAllowedOrigins: string[];
+  corsAllowedHeaders: string[];
 };
 
 const defaultServerConfig: ResolvedSafeJsonRpcServerConfig = {
@@ -52,6 +55,7 @@ const defaultServerConfig: ResolvedSafeJsonRpcServerConfig = {
   maxBatchSize: 100,
   maxBodySizeBytes: '1mb',
   corsAllowedOrigins: [],
+  corsAllowedHeaders: [],
 };
 
 function normalizeCorsOrigin(origin: string): string {
@@ -159,8 +163,10 @@ export class SafeJsonRpcServer {
 
     app.use(compress({ br: false }));
     app.use(jsonResponse);
+    const corsAllowedHeaders =
+      this.config.corsAllowedHeaders.length > 0 ? { allowHeaders: this.config.corsAllowedHeaders } : {};
     if (this.config.corsAllowedOrigins.length === 0) {
-      app.use(cors());
+      app.use(cors(corsAllowedHeaders));
     } else {
       const allowedOrigins = new Set(this.config.corsAllowedOrigins);
       const allowAnyOrigin = allowedOrigins.has('*');
@@ -183,6 +189,7 @@ export class SafeJsonRpcServer {
             return '';
           },
           credentials: true,
+          ...corsAllowedHeaders,
         }),
       );
     }
@@ -579,6 +586,8 @@ export async function startHttpRpcServer(
     port?: number | string;
     apiPrefix?: string;
     timeoutMs?: number;
+    keepAliveTimeoutMs?: number;
+    headersTimeoutMs?: number;
     noWait?: boolean;
   } = {},
 ): Promise<http.Server & { port: number }> {
@@ -595,6 +604,12 @@ export async function startHttpRpcServer(
   const httpServer = http.createServer(app.callback());
   if (options.timeoutMs) {
     httpServer.timeout = options.timeoutMs;
+  }
+  if (options.keepAliveTimeoutMs !== undefined) {
+    httpServer.keepAliveTimeout = options.keepAliveTimeoutMs;
+  }
+  if (options.headersTimeoutMs !== undefined) {
+    httpServer.headersTimeout = options.headersTimeoutMs;
   }
 
   const { promise, resolve } = promiseWithResolvers<void>();
