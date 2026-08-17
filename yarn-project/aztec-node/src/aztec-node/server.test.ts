@@ -158,6 +158,7 @@ describe('aztec node', () => {
     const feePayerBalance = 10n ** 20n;
 
     p2p = mock<P2P>();
+    p2p.getP2PConnectivity.mockResolvedValue({ enabled: false, connectedPeers: 0 });
 
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
     feeProvider = mock<FeeProvider>();
@@ -392,6 +393,32 @@ describe('aztec node', () => {
       });
       // Tx with expiration timestamp >= current block number should be valid
       expect(await node.isValidTx(validExpirationTimestampMetadata)).toEqual({ result: 'valid' });
+    });
+  });
+
+  describe('sendTx', () => {
+    it('rejects the tx when p2p is enabled but has no connected peers', async () => {
+      p2p.getP2PConnectivity.mockResolvedValue({ enabled: true, connectedPeers: 0 });
+      const tx = await mockTxForRollup(0x10000);
+
+      await expect(node.sendTx(tx)).rejects.toThrow('no connected peers');
+      expect(p2p.sendTx).not.toHaveBeenCalled();
+    });
+
+    it('accepts the tx when p2p is enabled and has connected peers', async () => {
+      p2p.getP2PConnectivity.mockResolvedValue({ enabled: true, connectedPeers: 1 });
+      const tx = await mockTxForRollup(0x10000);
+
+      await node.sendTx(tx);
+      expect(p2p.sendTx).toHaveBeenCalledWith(tx);
+    });
+
+    it('accepts the tx when p2p is disabled', async () => {
+      p2p.getP2PConnectivity.mockResolvedValue({ enabled: false, connectedPeers: 0 });
+      const tx = await mockTxForRollup(0x10000);
+
+      await node.sendTx(tx);
+      expect(p2p.sendTx).toHaveBeenCalledWith(tx);
     });
   });
 

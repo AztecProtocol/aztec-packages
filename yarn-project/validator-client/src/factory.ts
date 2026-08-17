@@ -2,7 +2,7 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
-import { BlockProposalValidator, type P2PClient } from '@aztec/p2p';
+import type { P2PClient } from '@aztec/p2p';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -12,7 +12,6 @@ import type { TelemetryClient } from '@aztec/telemetry-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
-import { DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS } from './config.js';
 import { ValidatorMetrics } from './metrics.js';
 import { ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
@@ -37,23 +36,12 @@ export function createProposalHandler(
     l1Constants: deps.epochCache.getL1Constants(),
     blockDuration: config.blockDurationMs / 1000,
   });
-  const blockProposalValidator = new BlockProposalValidator(deps.epochCache, consensusTimetable, {
-    txsPermitted: !config.disableTransactions,
-    maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
-    maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
-    signatureContext: {
-      chainId: config.l1ChainId,
-      rollupAddress: config.rollupAddress,
-    },
-    clockDisparityMs: config.maxGossipClockDisparityMs ?? DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS,
-  });
   return new ProposalHandler(
     deps.checkpointsBuilder,
     deps.worldState,
     deps.blockSource,
     deps.l1ToL2MessageSource,
     deps.p2pClient.getTxProvider(),
-    blockProposalValidator,
     deps.epochCache,
     consensusTimetable,
     config,

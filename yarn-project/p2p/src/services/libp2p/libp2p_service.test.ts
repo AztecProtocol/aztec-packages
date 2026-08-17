@@ -318,6 +318,25 @@ describe('LibP2PService', () => {
     });
   });
 
+  describe('getP2PConnectivity', () => {
+    it('reports p2p as enabled and counts only connected peers', () => {
+      mockPeerManager.getPeers.mockReturnValue([
+        { status: 'connected', id: 'a', score: 0 },
+        { status: 'dialing', id: 'b', dialStatus: 'queued', addresses: [] },
+        { status: 'connected', id: 'c', score: 1 },
+        { status: 'cached', id: 'd', addresses: [], enr: 'enr', dialAttempts: 1 },
+      ]);
+
+      expect(service.getP2PConnectivity()).toEqual({ enabled: true, connectedPeers: 2 });
+    });
+
+    it('reports zero connected peers when there are none', () => {
+      mockPeerManager.getPeers.mockReturnValue([]);
+
+      expect(service.getP2PConnectivity()).toEqual({ enabled: true, connectedPeers: 0 });
+    });
+  });
+
   describe('validateTxsReceivedInBlockProposal', () => {
     it('throws with the offending tx hashes and reasons when a tx fails integrity validation', async () => {
       // Carries a zero vk tree root, so it fails the metadata check in the minimum integrity validator.

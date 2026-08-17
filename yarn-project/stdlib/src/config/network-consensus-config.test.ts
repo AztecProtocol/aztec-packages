@@ -1,5 +1,6 @@
 import { l1ContractsConfigMappings } from '@aztec/ethereum/config';
 
+import { MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
 import {
   NETWORK_CONSENSUS_ENV_VARS,
   type NetworkConsensusConfig,
@@ -35,6 +36,26 @@ describe('validateNetworkConsensusConfig', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain('11');
     expect(errors[0]).toContain('10');
+  });
+
+  // A long slot with short sub-slots derives more blocks than a node will build or attest to, so the network
+  // would accept a geometry whose later block indices p2p and checkpoint validation both reject.
+  it('errors when the derived count exceeds the attestable ceiling', () => {
+    const errors = validateNetworkConsensusConfig({
+      ...base,
+      aztecSlotDuration: 96,
+      blockDurationMs: 1000,
+      maxBlocksPerCheckpoint: 89,
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('89');
+    expect(errors[0]).toContain(String(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT));
+  });
+
+  it('accepts a config sitting exactly on the attestable ceiling', () => {
+    expect(
+      validateNetworkConsensusConfig({ ...base, maxBlocksPerCheckpoint: MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT }),
+    ).not.toContainEqual(expect.stringContaining('exceeds the'));
   });
 
   it('errors when the slot duration is not a multiple of the ethereum slot duration', () => {
