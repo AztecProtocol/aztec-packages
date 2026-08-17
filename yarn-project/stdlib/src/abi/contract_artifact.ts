@@ -249,16 +249,34 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
 const STORAGE_LAYOUT_GLOBAL_PREFIX = 'STORAGE_LAYOUT_';
 
 /**
+ * Returns true if the entry matches the shape emitted by the aztec-nr `#[storage]` macro: a global named
+ * `STORAGE_LAYOUT_<contract>` holding a struct with a `contract_name` string equal to `<contract>` and a `fields`
+ * struct.
+ */
+function isGeneratedStorageLayout(entry: AbiNamedValue): boolean {
+  if (entry.value.kind !== 'struct') {
+    return false;
+  }
+  const contractName = entry.value.fields.find(field => field.name === 'contract_name')?.value;
+  if (contractName?.kind !== 'string' || entry.name !== `${STORAGE_LAYOUT_GLOBAL_PREFIX}${contractName.value}`) {
+    return false;
+  }
+  const fields = entry.value.fields.find(field => field.name === 'fields')?.value;
+  return fields?.kind === 'struct';
+}
+
+/**
  * Generates a storage layout for the contract artifact.
  * @param contractName - The name of the compiled Noir contract.
  * @param globals - The globals exported by the contract.
  * @returns A storage layout for the contract.
  */
 function getStorageLayout(contractName: string, globals: Record<string, AbiNamedValue[]>) {
-  // Aztec.nr reserves the `storage` tag for the layouts its macros generate, all named `STORAGE_LAYOUT_<contract>`.
-  // Noir happily compiles `#[abi(storage)]` on a user global, so reject it here: it is read below as a malformed
-  // layout, and codegen drops the whole tag when building the contract class.
-  const reserved = globals.storage?.find(entry => !entry.name.startsWith(STORAGE_LAYOUT_GLOBAL_PREFIX));
+  // Aztec.nr reserves the `storage` tag for the layouts its macros generate. Noir happily compiles `#[abi(storage)]`
+  // on a user global, so reject anything that does not match the generated shape (a reserved-prefix name alone is
+  // not enough): it is read below as a malformed layout, and codegen drops the whole tag when building the contract
+  // class.
+  const reserved = globals.storage?.find(entry => !isGeneratedStorageLayout(entry));
   if (reserved) {
     throw new Error(
       `Global '${reserved.name}' is exported under the reserved #[abi(storage)] tag. Aztec.nr reserves that tag for ` +
