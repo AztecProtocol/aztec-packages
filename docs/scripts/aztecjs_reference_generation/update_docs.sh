@@ -31,8 +31,8 @@ readonly OUTPUT_FILE="aztec_js_reference.md"
 readonly SIDEBAR_POSITION="98"
 readonly TITLE="Reference"
 
-# The temp files are named per-run, so clean up whatever exists at exit. --check returns
-# before the deploy step, so it cannot rely on the cleanup at the end of the script.
+# --check and the error paths exit before the deploy step, so the per-run temp files are
+# cleaned up on exit. The defaults cover exits from before the names are assigned.
 cleanup() {
   rm -f "${TEMP_JSON:-}" "${TEMP_MD:-}" "${TEMP_WITH_FRONTMATTER:-}"
 }
