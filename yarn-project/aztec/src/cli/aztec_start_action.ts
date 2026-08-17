@@ -104,9 +104,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       ],
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,
+      corsAllowedHeaders: options.rpcCorsAllowedHeaders ?? [],
       corsAllowedOrigins: getRpcCorsAllowedOrigins(options),
     });
-    const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
+    const { port } = await startHttpRpcServer(rpcServer, {
+      port: options.port,
+      keepAliveTimeoutMs: options.rpcHttpKeepAliveTimeoutMs,
+      headersTimeoutMs: options.rpcHttpHeadersTimeoutMs,
+    });
     debugLogger.info(`Aztec Server listening on port ${port}`, versions);
   }
 

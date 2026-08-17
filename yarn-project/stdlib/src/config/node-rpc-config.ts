@@ -1,6 +1,12 @@
 import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
 import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
 
+const parseCommaSeparatedList = (value: string) =>
+  value
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+
 export const nodeRpcConfigMappings: ConfigMappingsType<NodeRPCConfig> = {
   rpcSimulatePublicMaxGasLimit: {
     env: 'RPC_SIMULATE_PUBLIC_MAX_GAS_LIMIT',
@@ -23,14 +29,26 @@ export const nodeRpcConfigMappings: ConfigMappingsType<NodeRPCConfig> = {
     description: 'Maximum allowed batch size for JSON RPC batch requests.',
     defaultValue: '1mb',
   },
+  rpcHttpKeepAliveTimeoutMs: {
+    env: 'RPC_HTTP_KEEP_ALIVE_TIMEOUT_MS',
+    description: 'HTTP keep-alive timeout for JSON RPC connections in milliseconds.',
+    ...numberConfigHelper(5_000),
+  },
+  rpcHttpHeadersTimeoutMs: {
+    env: 'RPC_HTTP_HEADERS_TIMEOUT_MS',
+    description: 'Timeout for receiving complete HTTP headers on JSON RPC connections in milliseconds.',
+    ...numberConfigHelper(60_000),
+  },
   rpcCorsAllowedOrigins: {
     env: 'RPC_CORS_ALLOWED_ORIGINS',
     description: 'Origins allowed to make credentialed cross-origin JSON RPC requests, separated by commas.',
-    parseEnv: (value: string) =>
-      value
-        .split(',')
-        .map(origin => origin.trim())
-        .filter(Boolean),
+    parseEnv: parseCommaSeparatedList,
+    defaultValue: [],
+  },
+  rpcCorsAllowedHeaders: {
+    env: 'RPC_CORS_ALLOWED_HEADERS',
+    description: 'Headers allowed in cross-origin JSON RPC requests, separated by commas.',
+    parseEnv: parseCommaSeparatedList,
     defaultValue: [],
   },
   rpcCorsAllowAnyOrigin: {
@@ -49,8 +67,14 @@ export type NodeRPCConfig = {
   rpcMaxBatchSize: number;
   /** The maximum body size the RPC server will accept */
   rpcMaxBodySize: string;
+  /** HTTP keep-alive timeout for JSON RPC connections in milliseconds. */
+  rpcHttpKeepAliveTimeoutMs?: number;
+  /** Timeout for receiving complete HTTP headers on JSON RPC connections in milliseconds. */
+  rpcHttpHeadersTimeoutMs?: number;
   /** Origins allowed to make credentialed cross-origin requests to the RPC server. */
   rpcCorsAllowedOrigins?: string[];
+  /** Headers allowed in cross-origin requests to the RPC server. */
+  rpcCorsAllowedHeaders?: string[];
   /** Whether to allow credentialed cross-origin requests from any origin. */
   rpcCorsAllowAnyOrigin?: boolean;
 };
