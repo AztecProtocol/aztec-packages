@@ -401,7 +401,7 @@ locals {
             p2p = { publicIP = var.P2P_PUBLIC_IP }
           }
           node = {
-            logLevel = var.LOG_LEVEL
+            logLevel           = var.LOG_LEVEL
             disableAdminApiKey = true
           }
         }
@@ -416,12 +416,13 @@ locals {
           }
           autoscaling = {
             keda = {
-              enabled         = var.PROVER_AGENT_KEDA_ENABLED && var.PROVER_ENABLED
-              pollingInterval = var.PROVER_AGENT_KEDA_POLLING_INTERVAL_SECONDS
-              cooldownPeriod  = var.PROVER_AGENT_KEDA_COOLDOWN_PERIOD_SECONDS
-              minReplicaCount = var.PROVER_AGENT_KEDA_MIN_REPLICAS
-              maxReplicaCount = var.PROVER_AGENT_KEDA_MAX_REPLICAS
-              scalingBands    = var.PROVER_AGENT_KEDA_SCALING_BANDS
+              enabled                             = var.PROVER_AGENT_KEDA_ENABLED && var.PROVER_ENABLED
+              pollingInterval                     = var.PROVER_AGENT_KEDA_POLLING_INTERVAL_SECONDS
+              cooldownPeriod                      = var.PROVER_AGENT_KEDA_COOLDOWN_PERIOD_SECONDS
+              scaleDownStabilizationWindowSeconds = var.PROVER_AGENT_KEDA_SCALE_DOWN_STABILIZATION_WINDOW_SECONDS
+              minReplicaCount                     = var.PROVER_AGENT_KEDA_MIN_REPLICAS
+              maxReplicaCount                     = var.PROVER_AGENT_KEDA_MAX_REPLICAS
+              scalingBands                        = var.PROVER_AGENT_KEDA_SCALING_BANDS
               prometheus = {
                 serverAddress = var.PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS
               }
