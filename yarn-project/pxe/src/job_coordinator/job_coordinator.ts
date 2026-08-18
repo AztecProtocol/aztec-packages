@@ -3,6 +3,9 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundatio
 import { allToCompletion } from '@aztec/foundation/promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 
+/** Identifies a job for the duration of its lifecycle, as returned by {@link JobCoordinator.beginJob}. */
+export type JobId = string;
+
 /**
  * Interface that stores must implement to support staged writes.
  */
@@ -11,12 +14,19 @@ export interface StagedStore {
   readonly storeName: string;
 
   /**
+   * Notifies the store that a job has begun.
+   *
+   * Optional only while stores migrate to per-job staging: eventually it becomes required.
+   */
+  beginJob?(jobId: JobId): void;
+
+  /**
    * Commits staged data to main storage.
    * Should be called within a transaction for atomicity.
    *
    * @param jobId - The job identifier
    */
-  commit(jobId: string): Promise<void>;
+  commit(jobId: JobId): Promise<void>;
 
   /**
    * Discards staged data without committing.
@@ -24,7 +34,7 @@ export interface StagedStore {
    *
    * @param jobId - The job identifier
    */
-  discardStaged(jobId: string): Promise<void>;
+  discardStaged(jobId: JobId): Promise<void>;
 
   /**
    * A store may have pending work that must finish before the job's staged writes are committed or discarded, yet
@@ -34,7 +44,7 @@ export interface StagedStore {
    *
    * @param jobId - The job identifier
    */
-  settle?(jobId: string): Promise<void>;
+  settle?(jobId: JobId): Promise<void>;
 }
 
 /**
@@ -56,7 +66,7 @@ export class JobCoordinator {
   /** The underlying KV store */
   kvStore: AztecAsyncKVStore;
 
-  #currentJobId: string | undefined;
+  #currentJobId: JobId | undefined;
   #stores: Map<string, StagedStore> = new Map();
 
   constructor(kvStore: AztecAsyncKVStore, bindings?: LoggerBindings) {
@@ -90,7 +100,7 @@ export class JobCoordinator {
    *
    * @returns Job ID to pass to store operations
    */
-  beginJob(): string {
+  beginJob(): JobId {
     if (this.#currentJobId) {
       throw new Error(
         `Cannot begin job: job ${this.#currentJobId} is already in progress. ` +
@@ -101,6 +111,10 @@ export class JobCoordinator {
     const jobId = randomBytes(8).toString('hex');
     this.#currentJobId = jobId;
 
+    for (const store of this.#stores.values()) {
+      store.beginJob?.(jobId);
+    }
+
     this.log.debug(`Started job ${jobId}`);
     return jobId;
   }
@@ -110,7 +124,7 @@ export class JobCoordinator {
    *
    * @param jobId - The job ID returned from beginJob
    */
-  async commitJob(jobId: string): Promise<void> {
+  async commitJob(jobId: JobId): Promise<void> {
     if (!this.#currentJobId || this.#currentJobId !== jobId) {
       throw new Error(
         `Cannot commit job ${jobId}: no matching job in progress. ` + `Current job: ${this.#currentJobId ?? 'none'}`,
@@ -123,7 +137,6 @@ export class JobCoordinator {
     await allToCompletion([...this.#stores.values()].map(store => store.settle?.(jobId)));
 
     // Commit all stores atomically in a single transaction.
-    // Each store's commit is a no-op if it has no staged data (but that's up to each store to handle).
     await this.kvStore.transactionAsync(async () => {
       for (const store of this.#stores.values()) {
         await store.commit(jobId);
@@ -139,7 +152,7 @@ export class JobCoordinator {
    *
    * @param jobId - The job ID returned from beginJob
    */
-  async abortJob(jobId: string): Promise<void> {
+  async abortJob(jobId: JobId): Promise<void> {
     if (!this.#currentJobId || this.#currentJobId !== jobId) {
       // Job may have already been aborted or never started properly
       this.log.warn(`Abort called for job ${jobId} but current job is ${this.#currentJobId ?? 'none'}`);
@@ -168,7 +181,7 @@ export class JobCoordinator {
    * Settles every store, logging failures instead of propagating them. The abort must run to completion no matter what,
    * so a store that fails to settle cannot stop the others from discarding or mask the error that aborted the job.
    */
-  async #settleStoresLoggingFailures(jobId: string): Promise<void> {
+  async #settleStoresLoggingFailures(jobId: JobId): Promise<void> {
     await allToCompletion(
       [...this.#stores.values()].map(store =>
         store.settle?.(jobId).catch(err => {

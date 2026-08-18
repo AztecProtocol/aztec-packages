@@ -39,6 +39,7 @@ describe('NoteService', () => {
     const store = await openTmpStore('test');
     keyStore = new KeyStore(store);
     noteStore = new NoteStore(store);
+    noteStore.beginJob('test');
     aztecNode = mock<AztecNode>();
 
     contractAddress = await AztecAddress.random();
@@ -85,6 +86,7 @@ describe('NoteService', () => {
     // Verify that the changes persist after job completion
     {
       await noteStore.commit('test');
+      noteStore.beginJob('fresh-job');
       const remainingNotes = await noteStore.getNotes(
         {
           contractAddress,
@@ -121,6 +123,7 @@ describe('NoteService', () => {
     // Verify that the changes persist after job completion
     {
       await noteStore.commit('test');
+      noteStore.beginJob('fresh-job');
       const remainingNotes = await noteStore.getNotes(
         {
           contractAddress,
@@ -167,6 +170,7 @@ describe('NoteService', () => {
     // Verify that the changes persist after job completion
     {
       await noteStore.commit('test');
+      noteStore.beginJob('fresh-job');
       const remainingNotes = await noteStore.getNotes(
         {
           contractAddress,
@@ -283,6 +287,7 @@ describe('NoteService', () => {
       // Verify note is still stored after committing job
       {
         await noteStore.commit('test');
+        noteStore.beginJob('fresh-job');
 
         const notes = await noteStore.getNotes({ contractAddress, scopes: [recipient.address] }, 'fresh-job');
 
@@ -393,6 +398,7 @@ describe('NoteService', () => {
       // Verify store behaves correctly pre and post commit
       await verifyNoteNullifiedInJobContext('test');
       await noteStore.commit('test');
+      noteStore.beginJob('fresh-job');
       await verifyNoteNullifiedInJobContext('fresh-job');
     });
 

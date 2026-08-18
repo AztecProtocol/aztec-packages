@@ -251,6 +251,7 @@ describe('BlockSynchronizer', () => {
       const noteAt3 = await noteAt(contract, await blockId(forkBlock));
       const noteAt4 = await noteAt(contract, block4);
       const noteAt5 = await noteAt(contract, block5);
+      noteStore.beginJob('note-job');
       await noteStore.addNotes([noteAt3, noteAt4, noteAt5], scope, 'note-job');
       await noteStore.commit('note-job');
 
@@ -304,6 +305,7 @@ describe('BlockSynchronizer', () => {
       const block9 = makeL2BlockId(BlockNumber(9), Fr.random().toString());
       const note8 = await noteAt(contract, block8);
       const note9 = await noteAt(contract, block9);
+      noteStore.beginJob('note-job');
       await noteStore.addNotes([note8, note9], scope, 'note-job');
       await noteStore.commit('note-job');
 
@@ -499,6 +501,7 @@ describe('BlockSynchronizer', () => {
       const noteAt1 = await noteAt(contract, await blockId(forkBlock));
       const noteAt2 = await noteAt(contract, block2);
       const noteAt3 = await noteAt(contract, block3);
+      noteStore.beginJob('note-job');
       await noteStore.addNotes([noteAt1, noteAt2, noteAt3], scope, 'note-job');
       await noteStore.commit('note-job');
 
@@ -529,6 +532,7 @@ describe('BlockSynchronizer', () => {
 
       // Block 1 note still present and visible via getNotes.
       expect(await noteStore.nullifiersOfNotesAtBlock(1)).toEqual([noteAt1.siloedNullifier.toString()]);
+      noteStore.beginJob('read-job');
       const found = await noteStore.getNotes(
         { contractAddress: contract, scopes: [scope], status: NoteStatus.ACTIVE },
         'read-job',

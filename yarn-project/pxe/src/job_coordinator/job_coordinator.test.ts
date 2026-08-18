@@ -187,6 +187,27 @@ describe('JobCoordinator', () => {
     });
   });
 
+  describe('beginJob broadcast', () => {
+    it('notifies registered stores with the new job id when a job begins', async () => {
+      const stagedJobIds: string[] = [];
+      const mockStore: StagedStore = {
+        storeName: 'broadcast_store',
+        beginJob: (jobId: string) => stagedJobIds.push(jobId),
+        commit: () => Promise.resolve(),
+        discardStaged: () => Promise.resolve(),
+      };
+      coordinator.registerStore(mockStore);
+
+      const first = coordinator.beginJob();
+      expect(stagedJobIds).toEqual([first]);
+      await coordinator.commitJob(first);
+
+      const second = coordinator.beginJob();
+      expect(stagedJobIds).toEqual([first, second]);
+      await coordinator.abortJob(second);
+    });
+  });
+
   describe('registerStore', () => {
     it('throws on duplicate registration', () => {
       const commitMock = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
