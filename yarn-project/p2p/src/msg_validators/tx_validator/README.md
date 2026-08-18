@@ -8,6 +8,14 @@ Transactions enter the system through different paths. **Unsolicited** transacti
 
 When solicited transactions fail to be mined, they may be migrated to the pending pool. At that point, the pool runs the state-dependent checks that were skipped on initial receipt.
 
+### Failure reporting
+
+`AggregateTxValidator` runs its validators in order. By default it runs all of them and returns every failure reason, which is what block building wants: a rejection there is reported as part of block validation, and the full reason list is the diagnosis.
+
+The RPC, req/resp and pool-migration factories build the fail-fast variant, `AggregateTxValidator.stoppingAtFirstFailure`, so a rejected tx does not pay for the validators behind the one that rejected it — a tx over the gas-limit ceiling never reaches the fee-payer balance read, and a malformed tx never reaches proof verification. The cost is that the caller sees one reason rather than all of them, and that a validator only runs once everything ahead of it passes.
+
+Gossip uses neither: `LibP2PService.runValidations` runs every stage-1 validator concurrently, because the peer penalty is the harshest severity across all failures.
+
 ## Entry Points
 
 ### 1. Gossip (libp2p pubsub)
