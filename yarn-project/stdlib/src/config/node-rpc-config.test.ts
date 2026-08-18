@@ -1,6 +1,6 @@
-import { describe, expect, it } from '@jest/globals';
-
 import { getConfigFromMappings } from '@aztec/foundation/config';
+
+import { describe, expect, it } from '@jest/globals';
 
 import {
   DEFAULT_RPC_UNSEEN_BLOCK_BY_HASH_WAIT_MS,
