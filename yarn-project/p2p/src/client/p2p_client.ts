@@ -6,6 +6,7 @@ import {
   SlotNumber,
 } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
+import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
@@ -24,7 +25,7 @@ import {
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { type GetTxByHashOptions, type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
+import { type GetTxByHashOptions, type P2PConnectivity, type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
 import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, type TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -61,7 +62,7 @@ export class P2PClient extends WithTracer implements P2P {
 
   private currentState = P2PClientState.IDLE;
   private syncPromise = Promise.resolve();
-  private syncResolve?: () => void = undefined;
+  private syncResolvers?: PromiseWithResolvers<void> = undefined;
   private latestBlockNumberAtStart = -1;
   private provenBlockNumberAtStart = -1;
   private finalizedBlockNumberAtStart = -1;
@@ -134,6 +135,10 @@ export class P2PClient extends WithTracer implements P2P {
 
   public getPeers(includePending?: boolean): Promise<PeerInfo[]> {
     return Promise.resolve(this.p2pService.getPeers(includePending));
+  }
+
+  public getP2PConnectivity(): Promise<P2PConnectivity> {
+    return Promise.resolve(this.p2pService.getP2PConnectivity());
   }
 
   public getGossipMeshPeerCount(topicType: TopicType): Promise<number> {
@@ -239,9 +244,8 @@ export class P2PClient extends WithTracer implements P2P {
       // this gets resolved on `startServiceIfSynched`
       this.initBlockStream();
       this.setCurrentState(P2PClientState.SYNCHING);
-      this.syncPromise = new Promise(resolve => {
-        this.syncResolve = resolve;
-      });
+      this.syncResolvers = promiseWithResolvers<void>();
+      this.syncPromise = this.syncResolvers.promise;
       this.log.info(`Initiating p2p sync from ${syncedLatestBlock}`, {
         syncedLatestBlock,
         syncedProvenBlock,
@@ -772,9 +776,17 @@ export class P2PClient extends WithTracer implements P2P {
         syncedFinalizedBlock,
       });
       this.setCurrentState(P2PClientState.RUNNING);
-      if (this.syncResolve !== undefined) {
-        this.syncResolve();
-        await this.p2pService.start();
+      if (this.syncResolvers !== undefined) {
+        // A throw here would be swallowed by the block stream event handler, so we reject the promise returned by
+        // start instead, which makes node startup fail rather than run on with a dead p2p stack.
+        try {
+          await this.p2pService.start();
+        } catch (err) {
+          this.log.fatal(`Failed to start p2p service`, { err, syncedLatestBlock });
+          this.syncResolvers.reject(err);
+          return;
+        }
+        this.syncResolvers.resolve();
       }
     }
   }

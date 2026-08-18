@@ -36,6 +36,8 @@ const MAX_CACHED_PEER_AGE_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout after failing MAX_DIAL_ATTEMPTS
 const GOODBYE_DIAL_TIMEOUT_MS = 1000;
 const FAILED_AUTH_HANDSHAKE_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+const ZERO_PEER_WARNING_THRESHOLD_HEARTBEATS = 3; // tolerate transient dips, such as at startup
+const ZERO_PEER_WARNING_REPEAT_INTERVAL_MS = 60 * 1000;
 
 type CachedPeer = {
   peerId: PeerId;
@@ -71,6 +73,10 @@ export class PeerManager implements PeerManagerInterface {
   private failedAuthHandshakes: Map<string, FailedAuthHandshakeEntry> = new Map();
   private validatorAddresses: EthAddress[] = [];
   private initializedPreferredPeers: boolean = false;
+  private consecutiveZeroPeerHeartbeats: number = 0;
+  private zeroPeerWarningHeartbeats: number = 0;
+  private zeroPeerWarningIssued: boolean = false;
+  private lastConnectedPeerAtMs: number | undefined;
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -115,6 +121,10 @@ export class PeerManager implements PeerManagerInterface {
 
     // Display peer counts every 60 seconds
     this.displayPeerCountsPeerHeartbeat = Math.floor(60_000 / this.config.peerCheckIntervalMS);
+    this.zeroPeerWarningHeartbeats = Math.max(
+      1,
+      Math.floor(ZERO_PEER_WARNING_REPEAT_INTERVAL_MS / this.config.peerCheckIntervalMS),
+    );
   }
   /**
    * Initializes the trusted peers.
@@ -173,6 +183,45 @@ export class PeerManager implements PeerManagerInterface {
     await this.processScheduledDisconnects();
 
     this.discover();
+    this.checkPeerConnectivity();
+  }
+
+  /**
+   * Flags a node that has been left without any connected peers, since it can neither gossip nor propagate txs.
+   *
+   * Warnings only start after a few consecutive zero-peer heartbeats so that startup or a transient dip stays quiet,
+   * and then repeat roughly once a minute instead of on every heartbeat. Recovery is logged once.
+   */
+  private checkPeerConnectivity() {
+    const connectedPeerCount = this.libP2PNode.getPeers().length;
+    const now = this.dateProvider.now();
+
+    if (connectedPeerCount > 0) {
+      if (this.zeroPeerWarningIssued) {
+        this.logger.info(`Peer connectivity restored with ${connectedPeerCount} connected peers`, {
+          connectedPeerCount,
+          zeroPeerHeartbeats: this.consecutiveZeroPeerHeartbeats,
+        });
+      }
+      this.consecutiveZeroPeerHeartbeats = 0;
+      this.zeroPeerWarningIssued = false;
+      this.lastConnectedPeerAtMs = now;
+      return;
+    }
+
+    this.consecutiveZeroPeerHeartbeats++;
+    const heartbeatsSinceThreshold = this.consecutiveZeroPeerHeartbeats - ZERO_PEER_WARNING_THRESHOLD_HEARTBEATS;
+    if (heartbeatsSinceThreshold < 0 || heartbeatsSinceThreshold % this.zeroPeerWarningHeartbeats !== 0) {
+      return;
+    }
+
+    this.zeroPeerWarningIssued = true;
+    this.logger.warn('Node has no connected peers; gossip and tx propagation are unavailable', {
+      zeroPeerHeartbeats: this.consecutiveZeroPeerHeartbeats,
+      peerCheckIntervalMS: this.config.peerCheckIntervalMS,
+      msSinceLastConnectedPeer: this.lastConnectedPeerAtMs === undefined ? undefined : now - this.lastConnectedPeerAtMs,
+      cachedPeers: this.cachedPeers.size,
+    });
   }
 
   /*

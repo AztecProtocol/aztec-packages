@@ -578,7 +578,7 @@ describe('SequencerPublisher', () => {
     expect(l1TxUtils.simulate).toHaveBeenCalledTimes(1);
   });
 
-  it('validates block headers when L1 head is already at the L2 slot boundary', async () => {
+  it('validates checkpoint headers when L1 head is already at the L2 slot boundary', async () => {
     epochCache.getL1Constants.mockReturnValue({
       ...EmptyL1RollupConstants,
       l1GenesisTime: 1000n,
@@ -594,7 +594,7 @@ describe('SequencerPublisher', () => {
     });
 
     await expect(
-      publisher.validateBlockHeader(CheckpointHeader.random({ slotNumber: SlotNumber(5) })),
+      publisher.validateCheckpointHeader(CheckpointHeader.random({ slotNumber: SlotNumber(5) })),
     ).resolves.toBeUndefined();
   });
 
