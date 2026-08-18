@@ -70,8 +70,10 @@ The generated documentation follows this hierarchy:
 Docusaurus derives a heading's anchor from every heading before it, so the table of contents can
 only be written once the body is known. `transform_to_markdown.py` renders every heading through
 `MarkdownGenerator.heading()`, which claims the anchor as the heading is emitted; one written as a
-plain string instead would misdirect table of contents links rather than break them. `generate()`
-raises if the rendered document and the claimed anchors disagree.
+plain string instead would misdirect table of contents links rather than break them: the link still
+resolves, just to the wrong section, so nothing downstream reports it. `generate()` re-reads the page
+it just rendered and raises unless its headings are exactly the ones `heading()` emitted, so a
+heading added any other way fails the build instead.
 
 ## Configuration
 
