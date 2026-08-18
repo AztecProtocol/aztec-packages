@@ -30,6 +30,14 @@ library RewardExtLib {
     RewardLib.updateConfig(_config);
   }
 
+  function updateProtocolFeeMargin(uint16 _bps) external returns (bool changed, uint16 oldBps) {
+    return FeeLib.updateProtocolFeeMargin(_bps);
+  }
+
+  function updateProtocolFeeRecipient(address _recipient) external returns (address oldRecipient) {
+    return RewardLib.updateProtocolFeeRecipient(_recipient);
+  }
+
   function claimSequencerRewards(address _sequencer) external returns (uint256) {
     return RewardLib.claimSequencerRewards(_sequencer);
   }
@@ -79,6 +87,14 @@ library RewardExtLib {
 
   function getRewardDistributor() external view returns (IRewardDistributor) {
     return RewardLib.getStorage().config.rewardDistributor;
+  }
+
+  function getProtocolFeeRecipient() external view returns (address) {
+    return RewardLib.getProtocolFeeRecipient();
+  }
+
+  function getProtocolFeeMargin() external view returns (uint16) {
+    return FeeLib.getProtocolFeeMarginBps();
   }
 
   // FeeLib/STFLib/ProposeLib view wrappers - overflow from RollupOperationsExtLib

@@ -290,7 +290,7 @@ library ProposeLib {
       checkpointNumber,
       _args.oracleInput.feeAssetPriceModifier,
       v.header.totalManaUsed,
-      components.congestionCost,
+      FeeLib.protocolFeePerMana(components),
       components.proverCost
     );
 

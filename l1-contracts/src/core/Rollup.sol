@@ -612,8 +612,12 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.LEGACY_SLASHER_DRAIN_WINDOW;
   }
 
-  function getBurnAddress() external pure override(IRollup) returns (address) {
-    return address(bytes20("CUAUHXICALLI"));
+  function getProtocolFeeRecipient() external view override(IRollup) returns (address) {
+    return RewardExtLib.getProtocolFeeRecipient();
+  }
+
+  function getProtocolFeeMargin() external view override(IRollup) returns (uint16) {
+    return RewardExtLib.getProtocolFeeMargin();
   }
 
   /**

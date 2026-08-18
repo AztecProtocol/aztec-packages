@@ -11,7 +11,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 /*struct CompressedFeeHeader {
   uint1 preHeat;
   uint63 proverCost; Max value: 9.2233720369E18
-  uint64 congestionCost;
+  uint64 protocolFee;
   uint48 ethPerFeeAsset;
   uint48 excessMana;
   uint32 manaUsed;
@@ -22,7 +22,7 @@ struct FeeHeader {
   uint256 excessMana;
   uint256 manaUsed;
   uint256 ethPerFeeAsset;
-  uint256 congestionCost;
+  uint256 protocolFee;
   uint256 proverCost;
 }
 
@@ -91,7 +91,7 @@ library FeeHeaderLib {
     return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 80) & MASK_48_BITS;
   }
 
-  function getCongestionCost(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
+  function getProtocolFee(CompressedFeeHeader _compressedFeeHeader) internal pure returns (uint256) {
     return (CompressedFeeHeader.unwrap(_compressedFeeHeader) >> 128) & MASK_64_BITS;
   }
 
@@ -106,9 +106,9 @@ library FeeHeaderLib {
     // Cap excessMana to uint48 max to prevent overflow during compression.
     value |= Math.min(_feeHeader.excessMana, MASK_48_BITS) << 32;
     value |= uint256(_feeHeader.ethPerFeeAsset.toUint48()) << 80;
-    // Cap congestionCost to uint64 max to prevent overflow during compression.
+    // Cap protocolFee to uint64 max to prevent overflow during compression.
     // The uncapped value is still used for fee validation; this only affects storage.
-    value |= Math.min(_feeHeader.congestionCost, MASK_64_BITS) << 128;
+    value |= Math.min(_feeHeader.protocolFee, MASK_64_BITS) << 128;
     // Cap proverCost to uint63 max to prevent overflow during compression.
     value |= Math.min(_feeHeader.proverCost, MASK_63_BITS) << 192;
 
@@ -127,7 +127,7 @@ library FeeHeaderLib {
     value >>= 48;
     uint256 ethPerFeeAsset = value & MASK_48_BITS;
     value >>= 48;
-    uint256 congestionCost = value & MASK_64_BITS;
+    uint256 protocolFee = value & MASK_64_BITS;
     value >>= 64;
     uint256 proverCost = value & MASK_63_BITS;
 
@@ -135,7 +135,7 @@ library FeeHeaderLib {
       manaUsed: uint256(manaUsed),
       excessMana: uint256(excessMana),
       ethPerFeeAsset: uint256(ethPerFeeAsset),
-      congestionCost: uint256(congestionCost),
+      protocolFee: uint256(protocolFee),
       proverCost: uint256(proverCost)
     });
   }

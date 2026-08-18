@@ -119,7 +119,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.label(address(rewardDistributor), "REWARD DISTRIBUTOR");
     vm.label(address(rollup.getFeeAssetPortal()), "FEE ASSET PORTAL");
     vm.label(address(asset), "ASSET");
-    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
+    vm.label(rollup.getProtocolFeeRecipient(), "BURN_ADDRESS");
   }
 
   function _loadL1Metadata(uint256 index) internal {
@@ -153,7 +153,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     uint128 manaMinFee = SafeCast.toUint128(
       point.outputs.mana_min_fee_components_in_fee_asset.sequencer_cost
         + point.outputs.mana_min_fee_components_in_fee_asset.prover_cost
-        + point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost
+        + point.outputs.mana_min_fee_components_in_fee_asset.protocol_fee
     );
 
     assertEq(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true), manaMinFee, "mana min fee mismatch");
@@ -209,11 +209,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     uint256 minFee =
       point.outputs.mana_min_fee_components_in_fee_asset.sequencer_cost
       + point.outputs.mana_min_fee_components_in_fee_asset.prover_cost
-      + point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
+      + point.outputs.mana_min_fee_components_in_fee_asset.protocol_fee;
     uint256 manaUsed = rollup.getFeeHeader(_checkpointNumber).manaUsed;
 
     fee = manaUsed * minFee;
-    burn = manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
+    burn = manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.protocol_fee;
     proverFee = Math.min(manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.prover_cost, fee - burn);
   }
 
@@ -337,6 +337,51 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     );
   }
 
+  function test_protocolFeePaidToUpdatedRecipient() public {
+    // Propose through the first epoch and into the next, mirroring test_FeeModelEquivalence.
+    Slot nextSlot = Slot.wrap(1);
+    for (uint256 i = 0; i < SLOT_DURATION / 12 * (EPOCH_DURATION + 1); i++) {
+      _loadL1Metadata(i);
+
+      if (rollup.getCurrentSlot() == nextSlot) {
+        TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
+        Checkpoint memory b = getCheckpoint();
+        skipBlobCheck(address(rollup));
+        checkpointHeaders[rollup.getPendingCheckpointNumber() + 1] = b.header;
+        rollup.propose(
+          ProposeArgs({
+            header: b.header,
+            archive: b.archive,
+            oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
+          }),
+          AttestationLibHelper.packAttestations(b.attestations),
+          b.signers,
+          b.attestationsAndSignersSignature,
+          b.blobInputs
+        );
+        nextSlot = nextSlot + Slot.wrap(1);
+      }
+    }
+
+    address burnAddress = rollup.getProtocolFeeRecipient();
+    address newRecipient = makeAddr("newProtocolFeeRecipient");
+
+    vm.prank(rollup.owner());
+    rollup.setProtocolFeeRecipient(newRecipient);
+    assertEq(rollup.getProtocolFeeRecipient(), newRecipient, "recipient not updated");
+
+    uint256 start = rollup.getProvenCheckpointNumber() + 1;
+    uint256 used = _getUsedCheckpointsInEpoch(start, rollup.getPendingCheckpointNumber());
+    (uint256 protocolFeeSum,,) = _buildEpochFees(start, used);
+    assertGt(protocolFeeSum, 0, "trace should accrue a protocol fee");
+
+    uint256 burnBalanceBefore = asset.balanceOf(burnAddress);
+    _submitEpochProof(start, used);
+
+    assertEq(asset.balanceOf(newRecipient), protocolFeeSum, "protocol fee should be paid to the new recipient");
+    assertEq(asset.balanceOf(burnAddress), burnBalanceBefore, "old recipient should receive nothing");
+  }
+
   function test_FeeModelEquivalence() public {
     Slot nextSlot = Slot.wrap(1);
     Epoch nextEpoch = Epoch.wrap(1);
@@ -387,7 +432,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         assertEq(minFeePrediction, componentsFeeAsset.summedMinFee(), "mana min fee mismatch");
 
-        assertEq(componentsFeeAsset.congestionCost, feeHeader.congestionCost, "congestion cost mismatch");
+        assertEq(componentsFeeAsset.protocolFee, feeHeader.protocolFee, "protocol fee mismatch");
         // Want to check the fee header to see if they are as we want them.
 
         assertEq(point.checkpoint_header.checkpoint_number, nextSlot, "invalid checkpoint number");
@@ -418,11 +463,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         uint256 usedCheckpointsInEpoch = _getUsedCheckpointsInEpoch(start, pendingCheckpointNumber);
         (uint256 burnSum, uint256 proverFees, uint256 sequencerFees) = _buildEpochFees(start, usedCheckpointsInEpoch);
 
-        uint256 burnAddressBalanceBefore = asset.balanceOf(rollup.getBurnAddress());
+        uint256 burnAddressBalanceBefore = asset.balanceOf(rollup.getProtocolFeeRecipient());
         uint256 sequencerRewardsBefore = rollup.getSequencerRewards(coinbase);
         _submitEpochProof(start, usedCheckpointsInEpoch);
 
-        uint256 burned = asset.balanceOf(rollup.getBurnAddress()) - burnAddressBalanceBefore;
+        uint256 burned = asset.balanceOf(rollup.getProtocolFeeRecipient()) - burnAddressBalanceBefore;
         assertEq(burnSum, burned, "Sum of burned does not match");
 
         // The reward is not yet distributed, but only accumulated.
@@ -452,8 +497,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     pure
   {
     ManaMinFeeComponentsModel memory bModel = ManaMinFeeComponentsModel({
-      congestion_cost: b.congestionCost,
       congestion_multiplier: b.congestionMultiplier,
+      protocol_fee: b.protocolFee,
       prover_cost: b.proverCost,
       sequencer_cost: b.sequencerCost
     });
