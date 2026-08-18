@@ -16,9 +16,6 @@ use crate::macros::oracle_testing::{generate_oracle_tests, generate_oracle_tests
         quote { calldata_copy_opcode },
         quote { return_opcode },
         quote { revert_opcode },
-        // TODO: implement once we support slices
-        quote { emit_public_log_opcode },
-        quote { returndata_copy_opcode },
     ],
 )]
 pub mod avm;
@@ -71,27 +68,11 @@ pub mod execution;
 pub mod execution_cache;
 #[generate_oracle_tests]
 pub mod get_contract_instance;
-#[generate_oracle_tests_excluding(
-    @[
-        // TODO: cover once the sibling-path mapping is expressible as a plain fixed array
-        quote { get_l1_to_l2_membership_witness_oracle },
-    ],
-)]
+#[generate_oracle_tests]
 pub mod get_l1_to_l2_membership_witness;
-#[generate_oracle_tests_excluding(
-    @[
-        // TODO: cover once the sibling-path mapping is expressible as a plain fixed array
-        quote { get_low_nullifier_membership_witness_oracle },
-        quote { get_nullifier_membership_witness_oracle },
-    ],
-)]
+#[generate_oracle_tests]
 pub mod get_nullifier_membership_witness;
-#[generate_oracle_tests_excluding(
-    @[
-        // TODO: cover once the sibling-path mapping is expressible as a plain fixed array
-        quote { get_public_data_witness_oracle },
-    ],
-)]
+#[generate_oracle_tests]
 pub mod get_public_data_witness;
 #[generate_oracle_tests_excluding(
     @[
@@ -104,9 +85,17 @@ pub mod get_membership_witness;
 pub mod keys;
 #[generate_oracle_tests]
 pub mod key_validation_request;
-// TODO: cover with oracle tests once the two sides agree on the param grouping (TS wraps them in a single struct).
+#[generate_oracle_tests]
 pub mod logs;
-// TODO: cover with oracle tests once the test resolver can serve EphemeralArray contents.
+#[generate_oracle_tests_excluding(
+    @[
+        // TODO: cover with oracle tests once the test resolver can serve EphemeralArray contents.
+        quote { get_pending_tagged_logs_oracle },
+        quote { validate_and_store_enqueued_notes_and_events_oracle },
+        quote { get_logs_by_tag_oracle },
+        quote { get_tx_effects_oracle },
+    ],
+)]
 pub mod message_processing;
 #[generate_oracle_tests_excluding(
     @[

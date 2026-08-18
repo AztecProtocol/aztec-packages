@@ -1,6 +1,7 @@
 import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { toACVMWitness } from '@aztec/simulator/client';
 import {
@@ -43,7 +44,6 @@ import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
-import type { ContractClassLogData } from '../noir-structs/contract_class_log_data.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import { Option } from '../noir-structs/option.js';
 import type { ResolvedTaggingStrategy } from '../noir-structs/resolved_tagging_strategy.js';
@@ -217,7 +217,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     recipient: AztecAddress,
     deliveryMode: AppTaggingSecretKind,
   ): Promise<ResolvedTaggingStrategy> {
-    const [isUnconstrainedSelfSend, chosenStrategy] = await Promise.all([
+    const [isUnconstrainedSelfSend, chosenStrategy] = await allToCompletion([
       this.#isUnconstrainedSelfSend(recipient, deliveryMode),
       this.#chooseTaggingSecretStrategy(sender, recipient, deliveryMode),
     ]);
@@ -375,7 +375,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
       // are up to date. We do this here because this store is not synced as part of the global sync because
       // that'd be wasteful as most tagging secrets are not used in each tx.
-      const [{ finalized }, anchor] = await Promise.all([
+      const [{ finalized }, anchor] = await allToCompletion([
         this.l2TipsStore.getL2Tips(),
         logQueryAnchorOf(this.anchorBlockHeader),
       ]);
@@ -603,14 +603,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Emit a contract class log.
    * This fn exists because we only carry a poseidon hash through the kernels, and need to
    * keep the preimage in ts for later.
-   * @param logData - The contract class log to be emitted.
+   * @param contractAddress - The address of the contract emitting the log.
+   * @param message - The log fields, zero-padded to `CONTRACT_CLASS_LOG_SIZE_IN_FIELDS`.
+   * @param length - How many of the fields are meaningful, trailing zeros excluded.
    * @param counter - The contract class log's counter.
    */
-  public notifyCreatedContractClassLog(logData: ContractClassLogData, counter: number) {
+  public notifyCreatedContractClassLog(contractAddress: AztecAddress, message: Fr[], length: number, counter: number) {
     const log = ContractClassLog.from({
-      contractAddress: logData.contractAddress,
-      fields: new ContractClassLogFields(logData.fields),
-      emittedLength: logData.emittedLength,
+      contractAddress,
+      fields: new ContractClassLogFields(message),
+      emittedLength: length,
     });
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toBuffer().toString('hex');
@@ -660,14 +662,15 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await this.contractSyncService.ensureContractSynced(
-      targetContractAddress,
-      functionSelector,
-      this.utilityExecutor,
-      this.anchorBlockHeader,
-      this.jobId,
-      this.scopes,
-    );
+    await this.contractSyncService.ensureContractSynced({
+      contract: targetContractAddress,
+      functionToInvokeAfterSync: functionSelector,
+      utilityExecutor: this.utilityExecutor,
+      anchorBlockHeader: this.anchorBlockHeader,
+      jobId: this.jobId,
+      scopes: this.scopes,
+      triggeredBy: { address: this.callContext.contractAddress, selector: this.callContext.functionSelector },
+    });
 
     const targetArtifact = await this.anchoredContractData.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,

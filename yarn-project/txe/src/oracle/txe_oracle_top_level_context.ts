@@ -1,8 +1,4 @@
-import {
-  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-  MAX_PRIVATE_LOGS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/constants';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -72,7 +68,6 @@ import {
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
 import { deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
-import type { PrivateLog } from '@aztec/stdlib/logs';
 import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
@@ -100,6 +95,7 @@ import type { TXEAccountStore } from '../utils/txe_account_store.js';
 import type { TXEArtifactResolver } from '../utils/txe_artifact_resolver.js';
 import { TXEPublicContractDataSource } from '../utils/txe_public_contract_data_source.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
+import type { TxEffectsData } from './noir-structs/tx_effects_data.js';
 import { type TXETaggingSecretStrategies, makeResolveTaggingSecretStrategyHook } from './tagging_secret_strategy.js';
 
 export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
@@ -188,7 +184,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables.timestamp;
   }
 
-  async getLastTxEffects(): Promise<{ txHash: TxHash; noteHashes: Fr[]; nullifiers: Fr[]; privateLogs: PrivateLog[] }> {
+  async getLastTxEffects(): Promise<TxEffectsData> {
     const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
     const block = await this.stateMachine.archiver.getBlock({ number: latestBlockNumber });
 
@@ -199,16 +195,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txEffects = block!.body.txEffects[0];
 
-    const privateLogs = txEffects.privateLogs;
-    if (privateLogs.length > MAX_PRIVATE_LOGS_PER_TX) {
-      throw new Error(`${privateLogs.length} private logs exceed max ${MAX_PRIVATE_LOGS_PER_TX}`);
-    }
-
     return {
       txHash: txEffects.txHash,
       noteHashes: txEffects.noteHashes,
       nullifiers: txEffects.nullifiers,
-      privateLogs,
+      privateLogs: txEffects.privateLogs.map(log => log.getEmittedFields()),
     };
   }
 
@@ -218,17 +209,18 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       return;
     }
 
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      contractAddress,
-      null,
-      async (call, execScopes) => {
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    await this.stateMachine.contractSyncService.ensureContractSynced({
+      contract: contractAddress,
+      functionToInvokeAfterSync: null,
+      utilityExecutor: async (call, execScopes) => {
         await this.executeUtilityCall(call, { scopes: execScopes, jobId });
       },
-      blockHeader,
+      anchorBlockHeader,
       jobId,
-      [scope],
-    );
+      scopes: [scope],
+      triggeredBy: undefined,
+    });
   }
 
   async getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
@@ -460,14 +452,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       await this.executeUtilityCall(call, { scopes: execScopes, jobId });
     };
 
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      targetContractAddress,
-      functionSelector,
+    await this.stateMachine.contractSyncService.ensureContractSynced({
+      contract: targetContractAddress,
+      functionToInvokeAfterSync: functionSelector,
       utilityExecutor,
-      blockHeader,
+      anchorBlockHeader: blockHeader,
       jobId,
       scopes,
-    );
+      triggeredBy: undefined,
+    });
 
     const blockNumber = await this.getNextBlockNumber();
 
@@ -868,16 +861,17 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
 
     // Sync notes before executing utility function to discover notes from previous transactions
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      targetContractAddress,
-      functionSelector,
-      async (call, execScopes) => {
+    await this.stateMachine.contractSyncService.ensureContractSynced({
+      contract: targetContractAddress,
+      functionToInvokeAfterSync: functionSelector,
+      utilityExecutor: async (call, execScopes) => {
         await this.executeUtilityCall(call, { scopes: execScopes, jobId });
       },
-      blockHeader,
+      anchorBlockHeader: blockHeader,
       jobId,
-      await this.keyStore.getAccounts(),
-    );
+      scopes: await this.keyStore.getAccounts(),
+      triggeredBy: undefined,
+    });
 
     const call = FunctionCall.from({
       name: artifact.name,

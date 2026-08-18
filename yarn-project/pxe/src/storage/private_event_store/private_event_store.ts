@@ -1,6 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { Semaphore } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import type { EventSelector } from '@aztec/stdlib/abi';
@@ -159,7 +160,7 @@ export class PrivateEventStore implements StagedStore {
       }
 
       const eventIds = [...eventReadPromises.keys()];
-      const eventBuffers = await Promise.all(eventReadPromises.values());
+      const eventBuffers = await allToCompletion([...eventReadPromises.values()]);
 
       const events: Array<{
         l2BlockNumber: number;
@@ -289,7 +290,7 @@ export class PrivateEventStore implements StagedStore {
       const lookupKey = this.#keyFor(entry.contractAddress, entry.eventSelector);
       this.logger.verbose('storing private event log', { eventId, lookupKey });
 
-      await Promise.all([
+      await allToCompletion([
         this.#events.set(eventId, entry.toBuffer()),
         this.#eventsByContractAndEventSelector.set(lookupKey, eventId),
         this.#eventsByBlockNumber.set(entry.l2BlockNumber, eventId),

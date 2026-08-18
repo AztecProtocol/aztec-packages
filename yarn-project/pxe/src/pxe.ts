@@ -3,6 +3,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
@@ -326,6 +327,7 @@ export class PXE {
       contractClassService,
       noteStore,
       createLogger('pxe:contract_sync', bindings),
+      config,
     );
     const txResolver = new TxResolverService(readCachedNode);
 
@@ -398,7 +400,7 @@ export class PXE {
 
     pxe.jobQueue.start();
 
-    await Promise.all([pxe.#registerProtocolContracts(), pxe.#registerPreloadedContracts()]);
+    await allToCompletion([pxe.#registerProtocolContracts(), pxe.#registerPreloadedContracts()]);
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxe;
   }
@@ -500,7 +502,7 @@ export class PXE {
 
   async #registerProtocolContracts() {
     const registered = Object.fromEntries(
-      await Promise.all(
+      await allToCompletion(
         protocolContractNames.map(async name => {
           const { address, instance, artifact } =
             await this.protocolContractsProvider.getProtocolContractArtifact(name);
@@ -515,7 +517,7 @@ export class PXE {
 
   async #registerPreloadedContracts() {
     const contracts = await this.preloadedContractsProvider.getPreloadedContracts();
-    await Promise.all(
+    await allToCompletion(
       contracts.map(async ({ instance, artifact }) => {
         if (artifact) {
           await this.registerContractClass(artifact);
@@ -548,15 +550,16 @@ export class PXE {
     const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
-      await this.contractSyncService.ensureContractSynced(
-        contractAddress,
-        functionSelector,
-        (privateSyncCall, execScopes) =>
+      await this.contractSyncService.ensureContractSynced({
+        contract: contractAddress,
+        functionToInvokeAfterSync: functionSelector,
+        utilityExecutor: (privateSyncCall, execScopes) =>
           this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
         scopes,
-      );
+        triggeredBy: undefined,
+      });
 
       const result = await contractFunctionSimulator.run(txRequest, {
         anchorBlockHeader,
@@ -858,7 +861,7 @@ export class PXE {
   public async getTaggingSecretSources(filter?: {
     kind?: RegisteredTaggingSecretSource['kind'];
   }): Promise<RegisteredTaggingSecretSource[]> {
-    const [senders, secrets] = await Promise.all([
+    const [senders, secrets] = await allToCompletion([
       this.taggingSecretSourcesStore.getSenders(),
       this.taggingSecretSourcesStore.getAllSharedSecrets(),
     ]);
@@ -1380,15 +1383,16 @@ export class PXE {
         const contractFunctionSimulator = this.#getSimulatorForTx();
 
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-        await this.contractSyncService.ensureContractSynced(
-          call.to,
-          call.selector,
-          (privateSyncCall, execScopes) =>
+        await this.contractSyncService.ensureContractSynced({
+          contract: call.to,
+          functionToInvokeAfterSync: call.selector,
+          utilityExecutor: (privateSyncCall, execScopes) =>
             this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
           anchorBlockHeader,
           jobId,
           scopes,
-        );
+          triggeredBy: undefined,
+        });
 
         const { result: executionResult, offchainEffects } = await this.#executeUtility(
           contractFunctionSimulator,
@@ -1458,15 +1462,16 @@ export class PXE {
 
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
-      await this.contractSyncService.ensureContractSynced(
-        filter.contractAddress,
-        null,
-        async (privateSyncCall, execScopes) =>
+      await this.contractSyncService.ensureContractSynced({
+        contract: filter.contractAddress,
+        functionToInvokeAfterSync: null,
+        utilityExecutor: async (privateSyncCall, execScopes) =>
           await this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
         anchorBlockHeader,
         jobId,
-        filter.scopes,
-      );
+        scopes: filter.scopes,
+        triggeredBy: undefined,
+      });
     });
 
     // anchorBlockNumber is set during the job and fixed to whatever it is after a block sync

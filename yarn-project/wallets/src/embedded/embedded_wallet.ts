@@ -7,6 +7,7 @@ import {
   type SendReturn,
   type WaitOpts,
 } from '@aztec/aztec.js/contracts';
+import type { AztecNodeClientOptions } from '@aztec/aztec.js/node';
 import type {
   Aliased,
   ExecuteUtilityOptions,
@@ -81,6 +82,8 @@ export type EmbeddedWalletOptions = {
   pxe?: EmbeddedWalletPXEOptions;
   /** Wallet DB dependency overrides (custom store). */
   walletDb?: EmbeddedWalletDBOptions;
+  /** JSON-RPC client options used when the wallet is created from a node URL. */
+  nodeClientOptions?: AztecNodeClientOptions;
   /**
    * Override PXE configuration.
    * @deprecated Use `pxe` instead.

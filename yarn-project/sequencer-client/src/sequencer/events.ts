@@ -61,7 +61,7 @@ export type SequencerEvents = {
   }) => void;
   ['checkpoint-empty']: (args: { slot: SlotNumber }) => void;
   /**
-   * Emitted when the proposer's pre-broadcast `validateBlockHeader` simulation fails. This is a
+   * Emitted when the proposer's pre-broadcast `validateCheckpointHeader` simulation fails. This is a
    * last-chance check before we gossip a checkpoint proposal: a failure here means the header
    * would not be accepted by L1 (e.g. archive mismatch, stale chain tip, or some other state
    * drift between when we built the checkpoint and when we are about to broadcast it).

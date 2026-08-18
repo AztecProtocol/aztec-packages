@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { toACVMField } from '@aztec/simulator/client';
@@ -14,7 +14,6 @@ import {
   BOOL,
   BOUNDED_VEC,
   CALL_PRIVATE_RESULT,
-  CONTRACT_CLASS_LOG,
   CONTRACT_INSTANCE,
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
@@ -28,7 +27,6 @@ import {
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
-  MESSAGE_LOAD_ORACLE_INPUTS,
   type MaybePromise,
   NOTE,
   NOTE_SELECTOR,
@@ -64,7 +62,6 @@ export {
   BOOL,
   BOUNDED_VEC,
   U8,
-  CONTRACT_CLASS_LOG,
   DELIVERY_MODE,
   RESOLVED_TAGGING_STRATEGY,
   EPHEMERAL_ARRAY,
@@ -205,7 +202,7 @@ export const ORACLE_REGISTRY = {
         ),
       },
     ],
-    returnType: MESSAGE_LOAD_ORACLE_INPUTS,
+    returnType: MEMBERSHIP_WITNESS(L1_TO_L2_MSG_TREE_HEIGHT),
   }),
 
   aztec_utl_getFromPublicStorage: makeEntry({
@@ -528,7 +525,9 @@ export const ORACLE_REGISTRY = {
 
   aztec_prv_notifyCreatedContractClassLog: makeEntry({
     params: [
-      { name: 'log', type: CONTRACT_CLASS_LOG },
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'message', type: ARRAY(FIELD) },
+      { name: 'length', type: U32 },
       { name: 'counter', type: U32 },
     ],
   }),

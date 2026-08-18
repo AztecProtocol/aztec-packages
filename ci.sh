@@ -425,21 +425,20 @@ case "$cmd" in
   # RELEASES #
   ############
   release)
-    # Spin up ec2 instances (amd64 + arm64) and run the full release flow: backwards-compat e2e
-    # checks, build, and publish. Set DRY_RUN=1 to exercise the whole flow without publishing.
+    # Spin up an ec2 instance and run the full release flow: build and publish. A single amd64 job
+    # suffices: every arm64/darwin/windows artifact is cross-compiled there. Set DRY_RUN=1 to
+    # exercise the whole flow without publishing.
     export CI_DASHBOARD="releases"
-    # Roomier instance lifetime than a standard run: the amd64 job builds, runs the backwards-compat
-    # e2e suite, and then publishes, which together exceed the default 75 min shutdown.
+    # Roomier instance lifetime than a standard run: the build plus publish exceeds the default
+    # 75 min shutdown.
     export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
     multi_job_run \
-      'x-release amd64 ci-release' \
-      'a-release arm64 ci-release'
+      'x-release amd64 ci-release'
     ;;
   ci-private-release)
-    # Run the private release flow LOCALLY (no EC2): dry-run every project except release-image, then
-    # publish release-image for real to the internal GCP Artifact Registry. Override
-    # INTERNAL_DOCKER_REGISTRY / GOOGLE_APPLICATION_CREDENTIALS as needed; SKIP_BUILD=1 reuses a build.
-    export INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-us-west1-docker.pkg.dev/testnet-440309/aztec}
+    # Run the private release flow LOCALLY (no EC2): publish the foundation npm packages to the
+    # internal GCP Artifact Registry. Override INTERNAL_NPM_REGISTRY / GOOGLE_APPLICATION_CREDENTIALS
+    # as needed; SKIP_BUILD=1 reuses a build.
     # Default to the local SA key if no GCP creds are set (a no-op in CI, where GCP_SA_KEY is used).
     [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
       export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"

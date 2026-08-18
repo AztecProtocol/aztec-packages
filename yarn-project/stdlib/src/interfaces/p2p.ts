@@ -29,6 +29,19 @@ export const PeerInfoSchema = z.discriminatedUnion('status', [
   }),
 ]);
 
+/** Connectivity of the p2p stack: whether it is enabled at all, and how many peers are currently connected. */
+export type P2PConnectivity = {
+  /** False when the node runs without a p2p stack (eg sandbox or single-node setups). */
+  enabled: boolean;
+  /** Number of peers currently connected. Always zero when p2p is disabled. */
+  connectedPeers: number;
+};
+
+export const P2PConnectivitySchema = z.object({
+  enabled: z.boolean(),
+  connectedPeers: z.number(),
+});
+
 /** Exposed API to the P2P module. */
 export interface P2PApi {
   /**
@@ -53,6 +66,13 @@ export interface P2PApi {
    * Returns info for all connected, dialing, and cached peers.
    */
   getPeers(includePending?: boolean): Promise<PeerInfo[]>;
+
+  /**
+   * Returns whether the p2p stack is enabled on this node, and the number of peers it is connected to.
+   * Nodes running without p2p report `enabled: false`, so consumers can tell a disabled stack apart from a
+   * stack that is enabled but has no peers.
+   */
+  getP2PConnectivity(): Promise<P2PConnectivity>;
 
   /**
    * Queries the Attestation pool for checkpoint attestations for the given slot.
@@ -116,4 +136,5 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getPendingTxCount: z.function({ input: z.tuple([]), output: schemas.Integer }),
   getEncodedEnr: z.function({ input: z.tuple([]), output: z.string().optional() }),
   getPeers: z.function({ input: z.tuple([optional(z.boolean())]), output: z.array(PeerInfoSchema) }),
+  getP2PConnectivity: z.function({ input: z.tuple([]), output: P2PConnectivitySchema }),
 };

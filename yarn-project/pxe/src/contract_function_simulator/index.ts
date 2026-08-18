@@ -11,6 +11,7 @@ export {
   AZTEC_ADDRESS,
   BIGINT,
   BLOCK_HASH,
+  BLOCK_HEADER,
   BLOCK_NUMBER,
   BOOL,
   BOUNDED_VEC,
@@ -22,7 +23,9 @@ export {
   EVENT_VALIDATION_REQUEST,
   FIELD,
   FIXED_ARRAY,
+  FIXED_BOUNDED_VEC,
   FUNCTION_SELECTOR,
+  GAS_FEES,
   LEAF,
   LEAF_INDEX,
   LOG_RETRIEVAL_REQUEST,
@@ -34,13 +37,16 @@ export {
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
+  PUBLIC_KEYS,
   SCALAR,
   SLOT_NUMBER,
   STR,
   STRUCT,
+  TX_HASH,
   U32,
   U64,
   U128,
+  VECTOR,
   tryFieldWidth,
   isArrayMapping,
   isBoundedVecMapping,
@@ -49,6 +55,7 @@ export {
   isFixedBoundedVecMapping,
   isOptionMapping,
   isStructMapping,
+  isVectorMapping,
   type ArrayMapping,
   type BoundedVecMapping,
   type CompositeMapping,
@@ -63,6 +70,7 @@ export {
   type StructField,
   type StructMapping,
   type TypeMapping,
+  type VectorMapping,
 } from './oracle/oracle_type_mappings.js';
 export { ExecutionNoteCache } from './execution_note_cache.js';
 export { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
@@ -72,7 +80,6 @@ export type { IMiscOracle, IUtilityExecutionOracle, IPrivateExecutionOracle } fr
 export type { FactCollection } from './noir-structs/fact_collection.js';
 export type { NoteData } from './noir-structs/note_data.js';
 export type { ResolvedTaggingStrategy } from './noir-structs/resolved_tagging_strategy.js';
-export type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 export { TxResolverService } from '../messages/tx_resolver_service.js';
 export { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 export { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
@@ -95,4 +102,6 @@ export type { PendingTaggedLog } from './noir-structs/pending_tagged_log.js';
 export type { TxEffectData } from './noir-structs/tx_effect_data.js';
 export type { ProvidedSecret } from './noir-structs/provided_secret.js';
 export type { ResolvedTx } from './noir-structs/resolved_tx.js';
+export type { NullifierMembershipWitnessData } from './noir-structs/nullifier_membership_witness_data.js';
+export type { PublicDataWitnessData } from './noir-structs/public_data_witness_data.js';
 export { TransientArrayService } from './transient_array_service.js';

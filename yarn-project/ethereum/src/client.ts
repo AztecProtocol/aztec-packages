@@ -10,6 +10,7 @@ import {
   type HttpTransport,
   type LocalAccount,
   type PrivateKeyAccount,
+  RpcRequestError,
   createPublicClient,
   createWalletClient,
   fallback,
@@ -56,6 +57,11 @@ export function getL1RpcHttpStatus(err: unknown): number | undefined {
 /** Returns true when an L1 RPC error's cause chain contains the given HTTP status. */
 export function isL1RpcHttpStatus(err: unknown, status: number): boolean {
   return getL1RpcHttpStatus(err) === status;
+}
+
+/** Returns the JSON-RPC error code reported by the L1 node, if the error's cause chain carries one. */
+export function getL1RpcErrorCode(err: unknown): number | undefined {
+  return getErrorCause(err, RpcRequestError)?.code;
 }
 
 function wrapL1RpcTransport(transport: FallbackTransport<HttpTransport[]>): FallbackTransport<HttpTransport[]> {

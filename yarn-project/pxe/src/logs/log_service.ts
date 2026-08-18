@@ -2,6 +2,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
@@ -73,7 +74,7 @@ export class LogService {
 
     const anchor = await logQueryAnchorOf(this.anchorBlockHeader);
 
-    const [publicLogsPerRequest, privateLogsPerRequest] = await Promise.all([
+    const [publicLogsPerRequest, privateLogsPerRequest] = await allToCompletion([
       this.#fetchPublicLogs(contractAddress, logRetrievalRequests, anchor),
       this.#fetchPrivateLogs(logRetrievalRequests, anchor),
     ]);
@@ -97,7 +98,7 @@ export class LogService {
     const resultsPerRequest: LogResult[][] = requests.map(() => []);
     const groups = LogService.#groupByRange(indices.map(i => ({ index: i, request: requests[i] })));
 
-    await Promise.all(
+    await allToCompletion(
       Array.from(groups.values()).map(async group => {
         const tags = group.entries.map(e => e.request.tag);
         const results = await getAllPublicLogsByTagsFromContract(this.aztecNode, contractAddress, tags, anchor, {
@@ -123,9 +124,9 @@ export class LogService {
     const resultsPerRequest: LogResult[][] = requests.map(() => []);
     const groups = LogService.#groupByRange(indices.map(i => ({ index: i, request: requests[i] })));
 
-    await Promise.all(
+    await allToCompletion(
       Array.from(groups.values()).map(async group => {
-        const siloedTags = await Promise.all(
+        const siloedTags = await allToCompletion(
           group.entries.map(e => SiloedTag.computeFromTagAndApp(e.request.tag, e.request.contractAddress)),
         );
         const results = await getAllPrivateLogsByTags(this.aztecNode, siloedTags, anchor, {
@@ -238,11 +239,11 @@ export class LogService {
     }
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    const [senderPoints, registeredSecrets] = await Promise.all([
+    const [senderPoints, registeredSecrets] = await allToCompletion([
       this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk),
       this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient),
     ]);
-    return Promise.all([
+    return allToCompletion([
       ...senderPoints.map(secret => AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)),
       ...registeredSecrets.flatMap(({ kind, secret }) => {
         switch (kind) {
@@ -268,7 +269,7 @@ export class LogService {
     // (recipient = us, sender = us).
     const allSenders = [...(await this.taggingSecretSourcesStore.getSenders()), ...(await this.keyStore.getAccounts())];
 
-    return Promise.all(
+    return allToCompletion(
       allSenders.map(async sender => {
         const taggingSecretPoint = await computeSharedTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
 

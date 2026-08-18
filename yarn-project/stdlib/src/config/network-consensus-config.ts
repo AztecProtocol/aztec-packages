@@ -1,6 +1,7 @@
 import { type L1ContractsConfig, l1ContractsConfigMappings, validateSlotDurations } from '@aztec/ethereum/config';
 import { type EnvVar, pickConfigMappings } from '@aztec/foundation/config';
 
+import { MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
 import type { SequencerConfig } from '../interfaces/configs.js';
 import {
   DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
@@ -167,6 +168,13 @@ export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): 
   }
   if (config.maxBlocksPerCheckpoint < 1) {
     errors.push(`maxBlocksPerCheckpoint must be at least 1 (got ${config.maxBlocksPerCheckpoint})`);
+  }
+  if (config.maxBlocksPerCheckpoint > MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT) {
+    errors.push(
+      `maxBlocksPerCheckpoint (${config.maxBlocksPerCheckpoint}) exceeds the ` +
+        `${MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT} blocks nodes will build or attest to, so the network would ` +
+        `reject block indices its own configuration admits`,
+    );
   }
   if (config.checkpointProposalSyncGraceSeconds < 0) {
     errors.push(

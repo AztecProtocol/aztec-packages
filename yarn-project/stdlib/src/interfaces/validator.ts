@@ -11,6 +11,8 @@ import type {
   CheckpointAttestation,
   CheckpointProposal,
   CheckpointProposalOptions,
+  ValidatedBlockProposal,
+  ValidatedCheckpointProposalCore,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
@@ -172,18 +174,18 @@ export interface Validator {
   ): Promise<CheckpointProposal>;
 
   /**
-   * Validate a block proposal from a peer.
+   * Validate a block proposal from a peer that has already passed p2p ingress validation.
    * Note: Validators do NOT attest to individual blocks - attestations are only for checkpoint proposals.
    * @returns true if the proposal is valid, false otherwise
    */
-  validateBlockProposal(proposal: BlockProposal, sender: PeerId): Promise<boolean>;
+  validateBlockProposal(proposal: ValidatedBlockProposal, sender: PeerId): Promise<boolean>;
 
   /**
-   * Validate and attest to a checkpoint proposal from a peer.
+   * Validate and attest to a checkpoint proposal from a peer that has already passed p2p ingress validation.
    * @returns Checkpoint attestations if valid, undefined otherwise
    */
   attestToCheckpointProposal(
-    proposal: CheckpointProposal,
+    proposal: ValidatedCheckpointProposalCore,
     sender: PeerId,
   ): Promise<CheckpointAttestation[] | undefined>;
 

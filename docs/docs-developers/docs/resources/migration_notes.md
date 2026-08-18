@@ -30,6 +30,27 @@ This changes the authorized message preimage, so it is a breaking change:
 
 Gas settings are not yet bound; that is planned as a follow-up.
 
+### [Aztec.js] Contract artifacts preserve the names of `#[abi(tag)]` globals
+
+Globals exported from a Noir contract with `#[abi(tag)]` now keep their names in the artifact: entries in `ContractArtifact.outputs.globals` are `{ name, value }` objects as emitted by the compiler, where the names used to be stripped on load. This lets TypeScript read contract constants by name instead of duplicating their values:
+
+```noir
+#[abi(constants)]
+pub global EXPORTED_FIELD_CONSTANT: Field = 1234;
+#[abi(constants)]
+pub global EXPORTED_STRING_CONSTANT: str<8> = "exported";
+```
+
+```typescript
+import { getGlobalsByTag } from '@aztec/aztec.js/abi';
+
+const { EXPORTED_FIELD_CONSTANT, EXPORTED_STRING_CONSTANT } = getGlobalsByTag(MyContractArtifact, 'constants');
+```
+
+There is no backwards compatibility path: artifacts compiled before Noir exported global names (with bare, unnamed entries) are rejected on load and must be recompiled with the current toolchain. The artifact hash commits to the contract artifact's ABI outputs (`ContractArtifact.outputs`), so adding names to `outputs.globals` changes the artifact hash, the contract class ID, and any addresses derived from it. The PXE data schema version was bumped accordingly, so existing PXE databases resync on first open.
+
+[Learn how to export globals under one or more tags and read them from TypeScript](../aztec-nr/framework-description/contract_artifact.md#exported-globals).
+
 ### [Aztec.js] A function's return type is a single `returnType`, not a `returnTypes` list
 
 `FunctionAbi.returnTypes` is deprecated in favor of the single optional `FunctionAbi.returnType`, since multiple return values are already expressed as one `tuple` type. Read it through `getFunctionReturnType(abi)`, which also resolves artifacts serialized before `returnType` existed. `FunctionCall.returnTypes` is likewise replaced by `FunctionCall.returnType`.

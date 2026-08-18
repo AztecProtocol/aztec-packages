@@ -1,10 +1,16 @@
-import { ARCHIVE_HEIGHT, type NOTE_HASH_TREE_HEIGHT, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
+import {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  type NOTE_HASH_TREE_HEIGHT,
+  PRIVATE_LOG_CIPHERTEXT_LEN,
+} from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
+import { allToCompletion } from '@aztec/foundation/promise';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import {
@@ -28,7 +34,7 @@ import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/k
 import { AppTaggingSecret, FlatPublicLogs, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { type UnsiloedMessageNullifier, getL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
-import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
   CallContext,
@@ -68,9 +74,14 @@ import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
+import {
+  type NullifierMembershipWitnessData,
+  toNullifierMembershipWitnessData,
+} from '../noir-structs/nullifier_membership_witness_data.js';
 import { Option } from '../noir-structs/option.js';
 import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import type { PublicDataWitnessData } from '../noir-structs/public_data_witness_data.js';
 import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
@@ -288,7 +299,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   ): Promise<EphemeralArray<boolean>> {
     const hashes = blockHashes.readAll(this.ephemeralArrayService);
     const memberships = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
-      Promise.all(
+      allToCompletion(
         hashes.map(blockHash =>
           this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash).then(Boolean),
         ),
@@ -303,14 +314,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  public async getNullifierMembershipWitness(blockHash: BlockHash, nullifier: Fr): Promise<NullifierMembershipWitness> {
+  public async getNullifierMembershipWitness(
+    blockHash: BlockHash,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitnessData> {
     const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
       this.aztecNode.getNullifierMembershipWitness(blockHash, nullifier),
     );
     if (!witness) {
       throw new Error(`Nullifier membership witness not found at block ${blockHash.toString()}.`);
     }
-    return witness;
+    return toNullifierMembershipWitnessData(witness);
   }
 
   /**
@@ -325,7 +339,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   public async getLowNullifierMembershipWitness(
     blockHash: BlockHash,
     nullifier: Fr,
-  ): Promise<NullifierMembershipWitness> {
+  ): Promise<NullifierMembershipWitnessData> {
     const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
       this.aztecNode.getLowNullifierMembershipWitness(blockHash, nullifier),
     );
@@ -334,7 +348,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         `Low nullifier witness not found for nullifier ${nullifier} at block hash ${blockHash.toString()}.`,
       );
     }
-    return witness;
+    return toNullifierMembershipWitnessData(witness);
   }
 
   /**
@@ -343,14 +357,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public async getPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness> {
+  public async getPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitnessData> {
     const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
       this.aztecNode.getPublicDataWitness(blockHash, leafSlot),
     );
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${leafSlot} at block hash ${blockHash.toString()}.`);
     }
-    return witness;
+    return {
+      index: witness.index,
+      leafPreimage: witness.leafPreimage,
+      siblingPath: witness.siblingPath.toTuple(),
+    };
   }
 
   /**
@@ -494,7 +512,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
   public async doesNullifierExist(innerNullifier: Fr) {
-    const [nullifier, anchorBlockHash] = await Promise.all([
+    const [nullifier, anchorBlockHash] = await allToCompletion([
       siloNullifier(this.contractAddress, innerNullifier!),
       this.anchorBlockHeader.hash(),
     ]);
@@ -519,7 +537,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.anchorBlockHeader.hash(),
     );
 
-    return { index: messageIndex, siblingPath };
+    return new MembershipWitness(L1_TO_L2_MSG_TREE_HEIGHT, messageIndex, siblingPath.toTuple());
   }
 
   /**
@@ -539,7 +557,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       const slots = Array(numberOfElements)
         .fill(0)
         .map((_, i) => new Fr(startStorageSlot.toBigInt() + BigInt(i)));
-      const values = await Promise.all(
+      const values = await allToCompletion(
         slots.map(storageSlot => this.aztecNode.getPublicStorageAt(blockHash, contractAddress, storageSlot)),
       );
 
@@ -654,7 +672,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
 
-    await Promise.all([
+    await allToCompletion([
       noteService.validateAndStoreNotes(noteValidationRequests, scope, validationTxData),
       eventService.validateAndStoreEvents(eventValidationRequests, scope, validationTxData),
     ]);
@@ -711,7 +729,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
 
     const uniqueTxHashes = uniqueBy(hashes, h => h.toString());
-    const options = await Promise.all(uniqueTxHashes.map(txHash => this.#getTxEffectOption(txHash)));
+    const options = await allToCompletion(uniqueTxHashes.map(txHash => this.#getTxEffectOption(txHash)));
     const optionsByHash = new Map(uniqueTxHashes.map((txHash, i) => [txHash.toString(), options[i]]));
 
     return EphemeralArray.fromValues(
@@ -929,7 +947,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
 
     const ephPkPoints = ephPks.readAll(this.ephemeralArrayService);
-    const secrets = await Promise.all(
+    const secrets = await allToCompletion(
       ephPkPoints.map(({ x, y }) => appSiloEcdhSharedSecret(addressSecret, new Point(x, y), this.contractAddress)),
     );
 
@@ -1017,7 +1035,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     if (!targetContractAddress.equals(this.contractAddress)) {
       // Standard handshake registry reads are authorized by default; every other cross-contract call needs the hook.
       if (!(await isStandardHandshakeRegistryUtilityRead(targetContractAddress, functionSelector))) {
-        const [callerClassId, targetClassId] = await Promise.all([
+        const [callerClassId, targetClassId] = await allToCompletion([
           this.anchoredContractData.getCurrentClassId(this.contractAddress),
           this.anchoredContractData.getCurrentClassId(targetContractAddress),
         ]);
@@ -1052,14 +1070,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         }
       }
 
-      await this.contractSyncService.ensureContractSynced(
-        targetContractAddress,
-        functionSelector,
-        this.utilityExecutor,
-        this.anchorBlockHeader,
-        this.jobId,
-        this.scopes,
-      );
+      await this.contractSyncService.ensureContractSynced({
+        contract: targetContractAddress,
+        functionToInvokeAfterSync: functionSelector,
+        utilityExecutor: this.utilityExecutor,
+        anchorBlockHeader: this.anchorBlockHeader,
+        jobId: this.jobId,
+        scopes: this.scopes,
+        triggeredBy: { address: this.contractAddress, selector: this.callContext.functionSelector },
+      });
     }
 
     this.logger.debug(
@@ -1143,7 +1162,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       }
     }
 
-    const fetched = await Promise.all(misses.map(h => this.#getTxReceiptWithEffect(h)));
+    const fetched = await allToCompletion(misses.map(h => this.#getTxReceiptWithEffect(h)));
     return new Map([
       ...known,
       ...misses
@@ -1217,7 +1236,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       return query();
     }
 
-    const [response] = await Promise.all([
+    const [response] = await allToCompletion([
       query(),
       (async () => {
         const block = await this.aztecNode.getBlock(blockHash);
@@ -1274,7 +1293,7 @@ async function isStandardHandshakeRegistryUtilityRead(
     return false;
   }
 
-  const matches = await Promise.all(
+  const matches = await allToCompletion(
     STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES.map(signature =>
       doesSelectorHaveSignature(functionSelector, signature),
     ),

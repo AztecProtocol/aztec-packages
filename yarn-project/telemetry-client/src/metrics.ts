@@ -33,6 +33,46 @@ export interface MetricDefinition {
   readonly valueType?: ValueType;
 }
 
+export const JSON_RPC_SERVER_REQUEST_COUNT: MetricDefinition = {
+  name: 'aztec.json_rpc.server.request_count',
+  description: 'Number of completed JSON-RPC server requests',
+  valueType: ValueType.INT,
+};
+export const JSON_RPC_SERVER_REQUEST_DURATION: MetricDefinition = {
+  name: 'aztec.json_rpc.server.request_duration',
+  description: 'JSON-RPC server request handler duration',
+  unit: 'ms',
+  valueType: ValueType.DOUBLE,
+};
+export const JSON_RPC_SERVER_REQUEST_VALIDATION_DURATION: MetricDefinition = {
+  name: 'aztec.json_rpc.server.request_validation_duration',
+  description: 'JSON-RPC server request parameter validation duration',
+  unit: 'ms',
+  valueType: ValueType.DOUBLE,
+};
+export const JSON_RPC_SERVER_REJECTED_REQUEST_COUNT: MetricDefinition = {
+  name: 'aztec.json_rpc.server.rejected_request_count',
+  description: 'Number of JSON-RPC requests rejected before handler dispatch',
+  valueType: ValueType.INT,
+};
+export const JSON_RPC_SERVER_BATCH_COUNT: MetricDefinition = {
+  name: 'aztec.json_rpc.server.batch_count',
+  description: 'Number of JSON-RPC batches received',
+  valueType: ValueType.INT,
+};
+export const JSON_RPC_SERVER_BATCH_DURATION: MetricDefinition = {
+  name: 'aztec.json_rpc.server.batch_duration',
+  description: 'JSON-RPC batch processing duration',
+  unit: 'ms',
+  valueType: ValueType.DOUBLE,
+};
+export const JSON_RPC_SERVER_BATCH_SIZE: MetricDefinition = {
+  name: 'aztec.json_rpc.server.batch_size',
+  description: 'Number of requests in a JSON-RPC batch',
+  unit: 'requests',
+  valueType: ValueType.INT,
+};
+
 export const BLOB_SINK_STORE_REQUESTS: MetricDefinition = {
   name: 'aztec.blob_sink.store_request_count',
   description: 'Number of blob store requests',

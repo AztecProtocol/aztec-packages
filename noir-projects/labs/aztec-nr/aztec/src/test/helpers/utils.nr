@@ -123,7 +123,7 @@ impl<let O: u32> ContractDeployment<O> {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct TestAccount {
     pub address: AztecAddress,
     pub keys: PublicKeys,

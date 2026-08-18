@@ -49,6 +49,7 @@
 //! produces two tests: `some+some` and `none+none`. Each scenario becomes its own `#[test]`, suffixed by index
 //! (`__0`, `__1`, …).
 
+use crate::event::EventSelector;
 use crate::messages::delivery::OnchainDeliveryMode;
 use crate::protocol::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
 
@@ -124,6 +125,13 @@ comptime fn scalars() -> [(Type, Quoted)] {
             )
         },
         ),
+        scalar::<EventSelector>(
+            quote {
+            |seed: u32| <crate::event::EventSelector as crate::protocol::traits::FromField>::from_field(
+                seed as Field,
+            )
+        },
+        ),
         onchain_delivery_mode_scalar(),
     ]
 }
@@ -134,6 +142,7 @@ comptime fn synthesizers() -> [TestValueSynthesizer] {
         scalar_synth(),
         option_synth(),
         array_synth(),
+        vector_synth(),
         bounded_vec_synth(),
         tuple_synth(),
         // Matches ANY named data type: must stay last (find-first).
@@ -260,6 +269,31 @@ pub(crate) fn oracle_test_array<T, let N: u32>(build_element: fn(u32) -> T, seed
         array[i] = build_element(seed + i);
     }
     array
+}
+
+comptime fn vector_synth() -> TestValueSynthesizer {
+    TestValueSynthesizer {
+        matches: |t: Type| t.as_vector().is_some(),
+        scenarios: |t: Type, seed: Quoted| @[unnamed(vector_value_expr(t, seed))],
+        // The `+ 1` is the length field that precedes the contents on the wire.
+        width: |t: Type| TEST_COLLECTION_LEN * flat_width(t.as_vector().unwrap()) + 1,
+        // A vector type does not display a length as it is dynamic
+        pinned: |t: Type| {
+            let pinned_element = pinned_type(t.as_vector().unwrap());
+            quote { [$pinned_element] }
+        },
+    }
+}
+
+/// A call to [`oracle_test_array`] converted to a vector, with the element's builder and the pinned element type.
+comptime fn vector_value_expr(typ: Type, seed: Quoted) -> Quoted {
+    let element_type = typ.as_vector().unwrap();
+    let pinned_element = pinned_type(element_type);
+    let build_element = builder_expr(element_type);
+    let len_expr = f"{TEST_COLLECTION_LEN}".quoted_contents();
+    quote {
+        crate::macros::oracle_testing::oracle_test_array::<$pinned_element, $len_expr>($build_element, $seed).as_vector()
+    }
 }
 
 comptime fn bounded_vec_synth() -> TestValueSynthesizer {

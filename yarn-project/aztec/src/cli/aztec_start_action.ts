@@ -7,10 +7,14 @@ import {
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import type { ChainConfig } from '@aztec/stdlib/config';
+import { type ChainConfig, getRpcCorsAllowedOrigins } from '@aztec/stdlib/config';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
-import { getOtelJsonRpcDiagnosticsMiddleware, getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
+import {
+  getOtelJsonRpcDiagnosticsMiddleware,
+  getOtelJsonRpcPropagationMiddleware,
+  getOtelJsonRpcServerMetricsMiddleware,
+} from '@aztec/telemetry-client';
 
 import { createLocalNetwork } from '../local-network/index.js';
 import { github, splash } from '../splash.js';
@@ -93,18 +97,26 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       diagnostic: getOtelJsonRpcDiagnosticsMiddleware(),
       http200OnError: false,
       log: debugLogger,
-      middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)],
+      middlewares: [
+        getOtelJsonRpcServerMetricsMiddleware(),
+        getOtelJsonRpcPropagationMiddleware(),
+        getVersioningMiddleware(versions, versioningOpts),
+      ],
       maxBatchSize: options.rpcMaxBatchSize,
       maxBodySizeBytes: options.rpcMaxBodySize,
+      corsAllowedHeaders: options.rpcCorsAllowedHeaders,
+      corsAllowedOrigins: getRpcCorsAllowedOrigins(options),
     });
-    const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
+    const { port } = await startHttpRpcServer(rpcServer, {
+      port: options.port,
+      keepAliveTimeoutMs: options.rpcHttpKeepAliveTimeoutMs,
+      headersTimeoutMs: options.rpcHttpHeadersTimeoutMs,
+    });
     debugLogger.info(`Aztec Server listening on port ${port}`, versions);
   }
 
   // If there are any admin services, start a separate JSON-RPC server for them
   if (Object.entries(adminServices).length > 0) {
-    const adminMiddlewares = [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)];
-
     // Resolve the admin API key (auto-generated and persisted, or opt-out)
     const apiKeyResolution = await resolveAdminApiKey(
       {
@@ -115,11 +127,15 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       },
       debugLogger,
     );
-    if (apiKeyResolution) {
-      adminMiddlewares.unshift(getApiKeyAuthMiddleware(apiKeyResolution.apiKeyHash));
-    } else {
+    if (!apiKeyResolution) {
       debugLogger.warn('No admin API key set — admin endpoint is unauthenticated');
     }
+    const adminMiddlewares = [
+      getOtelJsonRpcServerMetricsMiddleware(),
+      ...(apiKeyResolution ? [getApiKeyAuthMiddleware(apiKeyResolution.apiKeyHash)] : []),
+      getOtelJsonRpcPropagationMiddleware(),
+      getVersioningMiddleware(versions, versioningOpts),
+    ];
 
     const rpcServer = createNamespacedSafeJsonRpcServer(adminServices, {
       diagnostic: getOtelJsonRpcDiagnosticsMiddleware(),
