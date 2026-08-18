@@ -106,6 +106,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, L1S
   private initialSyncComplete: boolean = false;
   private initialSyncPromise: PromiseWithResolvers<void>;
 
+  /** Hash of the last L1 sync point announced via L1SyncPointUpdated, to emit only on change. */
+  private lastAnnouncedL1SyncPointHash: Buffer32 | undefined;
+
   /** Queue of blocks and checkpoints to be added to the store, processed by the sync loop. */
   private inboundQueue: (AddBlockRequest | AddProposedCheckpointRequest)[] = [];
 
@@ -436,6 +439,19 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, L1S
         fromTips,
         toTips,
         blocksAdded,
+      });
+    }
+
+    // Announce the L1 sync point separately: it advances on every pass that saw a new L1 block, even when no L2
+    // state moved, and consumers pinning L1 reads to it (e.g. the fee snapshot service) react to exactly this.
+    const l1SyncPoint = this.synchronizer.getL1SyncSnapshot();
+    if (l1SyncPoint && !l1SyncPoint.blockHash.equals(this.lastAnnouncedL1SyncPointHash ?? Buffer32.ZERO)) {
+      this.lastAnnouncedL1SyncPointHash = l1SyncPoint.blockHash;
+      this.events.emit(L2BlockSourceEvents.L1SyncPointUpdated, {
+        type: L2BlockSourceEvents.L1SyncPointUpdated,
+        l1BlockNumber: l1SyncPoint.blockNumber,
+        l1BlockHash: l1SyncPoint.blockHash,
+        l1BlockTimestamp: l1SyncPoint.blockTimestamp,
       });
     }
   }

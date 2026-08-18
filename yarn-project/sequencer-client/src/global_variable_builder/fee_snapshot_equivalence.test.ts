@@ -1,6 +1,11 @@
 import { getPublicClient } from '@aztec/ethereum/client';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
-import { type FeeHeader, RollupContract, TempCheckpointLogField } from '@aztec/ethereum/contracts';
+import {
+  type FeeHeader,
+  MAX_FEE_ASSET_PRICE_MODIFIER_BPS,
+  RollupContract,
+  TempCheckpointLogField,
+} from '@aztec/ethereum/contracts';
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { L1SyncSnapshot, L1SyncSnapshotProvider } from '@aztec/ethereum/l1-types';
 import { type Anvil, EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
@@ -400,5 +405,107 @@ describe('FeeSnapshot equivalence with legacy oracle', () => {
 
       await assertEquivalent(nowSeconds);
     }, 30_000);
+  });
+
+  // Solidity ground truth for prediction entries 1..FEE_ORACLE_LAG-1 (ported from the deleted FeePredictor test):
+  // the equivalence cases above share the TS prediction math between both sides, so this walk instead replays the
+  // prediction's assumptions on L1 — proposing a checkpoint per slot with the assumed mana usage and the decayed
+  // fee-asset price — and compares every entry against the contract's own getManaMinFeeAt. Runs last: it advances
+  // the pending tip and the chain clock.
+  describe('predictions match Solidity ground truth while advancing checkpoints', () => {
+    const constantBaseFee = 50_000_000_000n;
+
+    /** Decays ethPerFeeAsset by MAX_FEE_ASSET_PRICE_MODIFIER_BPS per step, matching the conservative estimate. */
+    function decayEthPerFeeAsset(ethPerFeeAsset: bigint, steps: number): bigint {
+      let value = ethPerFeeAsset;
+      for (let i = 0; i < steps; i++) {
+        value = (value * (10000n - MAX_FEE_ASSET_PRICE_MODIFIER_BPS)) / 10000n;
+      }
+      return value;
+    }
+
+    /** Writes a checkpoint log and bumps the pending tip to it, simulating a proposed checkpoint. */
+    async function advanceCheckpoint(checkpointNumber: CheckpointNumber, feeHeader: FeeHeader, slot: number) {
+      await writeCheckpointLog(checkpointNumber, slot, feeHeader);
+      const tips = await rollup.getTips();
+      await setTips(checkpointNumber, tips.proven);
+    }
+
+    it.each([ManaUsageEstimate.None, ManaUsageEstimate.Target, ManaUsageEstimate.Limit])(
+      'every prediction entry matches getManaMinFeeAt when advancing with assumed usage %s',
+      async estimate => {
+        // Pin L1 fees to a constant by updating the oracle twice (sets both pre and post).
+        await rollupCheatCodes.advanceSlots(FEE_ORACLE_LAG + 1);
+        await cheatCodes.setNextBlockBaseFeePerGas(constantBaseFee);
+        await rollupCheatCodes.updateL1GasFeeOracle();
+        await rollupCheatCodes.advanceSlots(FEE_ORACLE_LAG + 1);
+        await cheatCodes.setNextBlockBaseFeePerGas(constantBaseFee);
+        await rollupCheatCodes.updateL1GasFeeOracle();
+        await rollupCheatCodes.advanceSlots(3);
+        await cheatCodes.mine();
+
+        const manaTarget = await rollup.getManaTarget();
+        const manaLimit = await rollup.getManaLimit();
+        const assumedManaUsed =
+          estimate === ManaUsageEstimate.None ? 0n : estimate === ManaUsageEstimate.Target ? manaTarget : manaLimit;
+
+        // Take the service's predictions pinned at the current block, then replay their assumptions on L1.
+        const block = await publicClient.getBlock();
+        const identity: L1SyncSnapshot = {
+          blockNumber: block.number!,
+          blockHash: Buffer32.fromString(block.hash),
+          blockTimestamp: block.timestamp,
+        };
+        const dateProvider = new ManualDateProvider();
+        dateProvider.setTime(Number(block.timestamp) * 1000);
+        const service = makeService(identity, dateProvider);
+        let predicted: GasFees[];
+        try {
+          predicted = (await service.getPredictedMinFees(estimate)).slice(1);
+        } finally {
+          await service.stop();
+        }
+        expect(predicted).toHaveLength(FEE_ORACLE_LAG);
+
+        const pendingCheckpointNumber = await rollup.getCheckpointNumber();
+        const startCheckpoint = await rollup.getCheckpoint(pendingCheckpointNumber);
+        const startFeeHeader = startCheckpoint.feeHeader;
+        const anchorSlot = Number(getSlotAtNextL1Block(block.timestamp, constants));
+        const startSlot = Math.max(Number(startCheckpoint.slotNumber) + 1, anchorSlot);
+
+        let prevExcessMana = startFeeHeader.excessMana;
+        let prevManaUsed = startFeeHeader.manaUsed;
+
+        for (let i = 0; i < predicted.length; i++) {
+          const slot = startSlot + i;
+          // Ground truth: the contract's own fee at this slot, given the state replayed so far.
+          const l1Fee = await rollup.getManaMinFeeAt(tsForSlot(slot), true);
+          expect(predicted[i].feePerL2Gas).toBe(l1Fee);
+
+          // Replay the prediction's assumption: a checkpoint proposed at this slot with the assumed mana usage
+          // and the conservatively decayed fee-asset price.
+          const newExcessMana = computeExcessMana(prevExcessMana, prevManaUsed, manaTarget);
+          await advanceCheckpoint(
+            CheckpointNumber.add(pendingCheckpointNumber, i + 1),
+            {
+              excessMana: newExcessMana,
+              manaUsed: assumedManaUsed,
+              ethPerFeeAsset: decayEthPerFeeAsset(startFeeHeader.ethPerFeeAsset, i + 1),
+              congestionCost: 0n,
+              proverCost: 0n,
+            },
+            slot,
+          );
+          if (i < predicted.length - 1) {
+            await cheatCodes.warp(Number(tsForSlot(slot + 1)));
+            await cheatCodes.setNextBlockBaseFeePerGas(constantBaseFee);
+            await cheatCodes.mine();
+          }
+          prevExcessMana = newExcessMana;
+          prevManaUsed = assumedManaUsed;
+        }
+      },
+      60_000,
+    );
   });
 });

@@ -244,7 +244,8 @@ export async function createAztecNodeService(
     const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig);
 
     // Serve fee RPCs (and the p2p mempool fee policy) from a background snapshot refreshed per L1 block, so
-    // warm calls issue zero L1 requests. The service pins its reads to the archiver's synced L1 identity.
+    // warm calls issue zero L1 requests. The service pins its reads to the archiver's synced L1 identity and
+    // wakes on the archiver's L1 sync point events, with its poll loop as the fallback.
     const feeSnapshotService = new FeeSnapshotService(
       rollupContract,
       archiver,
@@ -256,6 +257,7 @@ export async function createAztecNodeService(
         epochDuration: Number(epochDuration),
       }),
       log.createChild('fee-snapshot'),
+      archiver.events,
     );
     feeSnapshotService.start();
     started.push(feeSnapshotService);

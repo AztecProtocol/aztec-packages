@@ -1,3 +1,4 @@
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -57,11 +58,14 @@ describe('RollupContract fee reads', () => {
     const currentSlot = await rollup.getSlotNumber(options);
     const timestamps = [tsForSlot(Number(currentSlot) + 1), tsForSlot(Number(currentSlot) + 2)];
 
-    expect(await rollup.getFeeGlobals(options)).toEqual({
-      tips: await rollup.getTips(options),
-      manaTarget: await rollup.readManaTarget(options),
-      manaLimit: await rollup.readManaLimit(options),
-      provingCostPerManaEth: await rollup.readProvingCostPerManaInEth(options),
+    expect(await rollup.getFeeGlobalsAndCheckpoints([pending, proven], options)).toEqual({
+      globals: {
+        tips: await rollup.getTips(options),
+        manaTarget: await rollup.readManaTarget(options),
+        manaLimit: await rollup.readManaLimit(options),
+        provingCostPerManaEth: await rollup.readProvingCostPerManaInEth(options),
+      },
+      checkpoints: [await rollup.getCheckpoint(pending, options), await rollup.getCheckpoint(proven, options)],
     });
     expect(await rollup.getCheckpoints([pending, proven], options)).toEqual([
       await rollup.getCheckpoint(pending, options),
@@ -80,6 +84,18 @@ describe('RollupContract fee reads', () => {
       tips: await rollup.getTips(options),
     });
   }, 30_000);
+
+  it('resolves a reverting speculative checkpoint read to undefined without failing the globals', async () => {
+    const blockNumber = await publicClient.getBlockNumber();
+    const options = { blockNumber };
+    const { pending } = await rollup.getTips(options);
+    // A number beyond the pending tip reverts on-chain (Rollup__UnavailableTempCheckpointLog).
+    const beyondPending = CheckpointNumber.add(pending, 1000);
+
+    const { globals, checkpoints } = await rollup.getFeeGlobalsAndCheckpoints([pending, beyondPending], options);
+    expect(globals.tips.pending).toBe(pending);
+    expect(checkpoints).toEqual([await rollup.getCheckpoint(pending, options), undefined]);
+  });
 
   it('pins getManaMinFeeAt to a block number so later blocks do not change the read', async () => {
     const blockNumber = await publicClient.getBlockNumber();

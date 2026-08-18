@@ -20,7 +20,12 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { GENESIS_BLOCK_HEADER_HASH, L2BlockSourceEvents, type L2BlockSourceUpdatedEvent } from '@aztec/stdlib/block';
+import {
+  GENESIS_BLOCK_HEADER_HASH,
+  type L1SyncPointUpdatedEvent,
+  L2BlockSourceEvents,
+  type L2BlockSourceUpdatedEvent,
+} from '@aztec/stdlib/block';
 import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
@@ -265,6 +270,9 @@ describe('Archiver Sync', () => {
       // No snapshot is published before the first successful sync.
       expect(archiver.getL1SyncSnapshot()).toBeUndefined();
 
+      const announced: L1SyncPointUpdatedEvent[] = [];
+      archiver.events.on(L2BlockSourceEvents.L1SyncPointUpdated, event => announced.push(event));
+
       await fake.addCheckpoint(CheckpointNumber(1), {
         l1BlockNumber: 101n,
         messagesL1BlockNumber: 98n,
@@ -279,6 +287,17 @@ describe('Archiver Sync', () => {
       expect(snapshot!.blockNumber).toBe(archiver.getL1BlockNumber());
       expect(snapshot!.blockTimestamp).toBe(await archiver.getL1Timestamp());
       expect(snapshot!.blockNumber).toBe(2500n);
+
+      // The pass announced the new sync point, and re-syncing without a new L1 block announces nothing more.
+      expect(announced.at(-1)).toEqual({
+        type: L2BlockSourceEvents.L1SyncPointUpdated,
+        l1BlockNumber: snapshot!.blockNumber,
+        l1BlockHash: snapshot!.blockHash,
+        l1BlockTimestamp: snapshot!.blockTimestamp,
+      });
+      const announcedCount = announced.length;
+      await archiver.syncImmediate();
+      expect(announced).toHaveLength(announcedCount);
     }, 30_000);
 
     it('ignores checkpoint 3 because it has been pruned', async () => {

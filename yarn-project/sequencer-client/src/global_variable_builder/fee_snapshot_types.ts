@@ -1,3 +1,4 @@
+import type { RollupChainTips } from '@aztec/ethereum/contracts';
 import type { L1SyncSnapshot } from '@aztec/ethereum/l1-types';
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
@@ -22,6 +23,8 @@ export type FeeQuoteCandidate = {
 export type FeeSnapshot = {
   /** L1 identity this snapshot was built at (block number + hash + timestamp). */
   l1: L1SyncSnapshot;
+  /** Chain tips at the pinned block; the next refresh speculatively reads these checkpoints with its globals. */
+  tips: RollupChainTips;
   /** Floor of the current-fee anchor rule: the slot after the pending checkpoint at the pinned block. */
   currentFloorSlot: SlotNumber;
   /** Floor of the prediction anchor rule: the slot of the pinned block timestamp (TS arithmetic). */

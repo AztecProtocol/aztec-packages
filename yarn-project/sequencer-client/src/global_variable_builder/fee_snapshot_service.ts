@@ -5,6 +5,7 @@ import { times, unique } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { type DateProvider, executeTimeout } from '@aztec/foundation/timer';
+import { type ArchiverEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import { getSlotAtNextL1Block, getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, ManaUsageEstimate, computeExcessMana } from '@aztec/stdlib/gas';
 import type { FeeProvider } from '@aztec/stdlib/tx';
@@ -29,6 +30,9 @@ const CANDIDATE_HEADROOM_SLOTS = 2;
 /** The two candidates a read resolves, one per anchor rule. */
 type ResolvedLookup = { current: FeeQuoteCandidate; prediction: FeeQuoteCandidate };
 
+/** The slice of the archiver's emitter the service subscribes to for immediate L1 sync point wake-ups. */
+type L1SyncPointEventSource = Pick<ArchiverEmitter, 'on' | 'off'>;
+
 /**
  * Serves current and predicted fee quotes from an in-memory snapshot refreshed in the background per L1 block,
  * so warm RPC calls issue zero L1 requests. Reads are served from a complete, immutable, atomically-swapped
@@ -47,16 +51,18 @@ export class FeeSnapshotService implements FeeProvider {
     private readonly dateProvider: DateProvider,
     private readonly config: FeeSnapshotServiceConfig,
     private readonly log: Logger = createLogger('sequencer:fee-snapshot'),
+    private readonly events?: L1SyncPointEventSource,
   ) {
     this.runningPromise = new RunningPromise(() => this.tick(), this.log, config.pollIntervalMs);
   }
 
-  /** Starts the background refresh loop. */
+  /** Starts the background refresh loop and, when an event source is wired, the L1 sync point subscription. */
   public start(): void {
     if (this.stopped) {
       throw new FeeSnapshotError('Cannot start a stopped fee snapshot service');
     }
     this.runningPromise.start();
+    this.events?.on(L2BlockSourceEvents.L1SyncPointUpdated, this.onL1SyncPointUpdated);
     this.log.verbose('Fee snapshot service started', { pollIntervalMs: this.config.pollIntervalMs });
   }
 
@@ -66,10 +72,22 @@ export class FeeSnapshotService implements FeeProvider {
       return;
     }
     this.stopped = true;
+    this.events?.off(L2BlockSourceEvents.L1SyncPointUpdated, this.onL1SyncPointUpdated);
     await this.runningPromise.stop();
     await this.inFlight?.catch(() => undefined);
     this.log.verbose('Fee snapshot service stopped');
   }
+
+  /**
+   * Wakes the poll loop as soon as the archiver announces a new L1 sync point, so a refresh starts immediately
+   * instead of waiting out the poll interval. The poll remains the correctness fallback for missed events and
+   * for coverage refreshes, which are clock-driven rather than event-driven.
+   */
+  private readonly onL1SyncPointUpdated = (): void => {
+    if (!this.stopped) {
+      void this.runningPromise.trigger().catch(() => undefined);
+    }
+  };
 
   /** Returns the current minimum fees for inclusion in the next block. */
   public async getCurrentMinFees(): Promise<GasFees> {
@@ -97,8 +115,9 @@ export class FeeSnapshotService implements FeeProvider {
   }
 
   /**
-   * Serves from the published snapshot or refreshes until the read times out. An aborted lookup finishes
-   * awaiting its current shared refresh but does not initiate another one.
+   * Serves from the published snapshot, refreshing when it is missing or superseded. A refresh failure
+   * propagates to the reader immediately rather than retrying — only waiting is bounded by the read timeout.
+   * An aborted lookup finishes awaiting its current shared refresh but does not initiate another one.
    */
   private async lookupLoop(signal: AbortSignal): Promise<ResolvedLookup> {
     while (!signal.aborted) {
@@ -118,7 +137,8 @@ export class FeeSnapshotService implements FeeProvider {
    * Serves both anchors from the published snapshot, or returns undefined when a refresh is needed. The
    * identity check runs before the staleness bound: a snapshot the archiver has already moved past is never
    * served, which preserves freshness parity with a per-call latest-block check at zero L1 cost. Staleness
-   * itself throws — the archiver identity is frozen, so a refresh cannot help.
+   * itself throws before the coverage lookup — the archiver identity is frozen, so a refresh cannot help and
+   * must not be triggered.
    */
   private serveFromSnapshot(): ResolvedLookup | undefined {
     const snapshot = this.snapshot;
@@ -130,12 +150,17 @@ export class FeeSnapshotService implements FeeProvider {
       return undefined;
     }
     const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
+    this.assertHeadFresh(snapshot.l1.blockTimestamp, nowSeconds);
+    // The two quotes anchor on different floors, mirroring the legacy oracle. The current fee answers "what does
+    // the next block pay", so it floors on the slot after the pending checkpoint at the pinned block: a next block
+    // cannot land at or before its parent's slot. Predictions answer "what will upcoming slots pay", so they floor
+    // on the slot of the pinned block's timestamp (the L1 head's own slot). Both are then raised to the slot of the
+    // next L1 block, since nothing can land before that.
     const current = snapshot.candidates.get(this.wantedSlot(snapshot.currentFloorSlot, nowSeconds));
     const prediction = snapshot.candidates.get(this.wantedSlot(snapshot.predictionFloorSlot, nowSeconds));
     if (!current || !prediction) {
       return undefined;
     }
-    this.assertHeadFresh(snapshot, nowSeconds);
     return { current, prediction };
   }
 
@@ -144,13 +169,13 @@ export class FeeSnapshotService implements FeeProvider {
     return Math.max(floorSlot, getSlotAtNextL1Block(atSeconds, this.config));
   }
 
-  /** Fails closed when the pinned L1 head is older than the bound, i.e. the archiver or provider is frozen. */
-  private assertHeadFresh(snapshot: FeeSnapshot, nowSeconds: bigint): void {
+  /** Fails closed when the given pinned L1 timestamp is older than the bound, i.e. the archiver is frozen. */
+  private assertHeadFresh(blockTimestamp: bigint, nowSeconds: bigint): void {
     const { maxL1HeadAgeSeconds } = this.config;
     if (maxL1HeadAgeSeconds <= 0) {
       return;
     }
-    const ageSeconds = Number(nowSeconds - snapshot.l1.blockTimestamp);
+    const ageSeconds = Number(nowSeconds - blockTimestamp);
     if (ageSeconds > maxL1HeadAgeSeconds) {
       throw new FeeQuoteUnavailableError(`pinned L1 head age ${ageSeconds}s exceeds max ${maxL1HeadAgeSeconds}s`);
     }
@@ -190,6 +215,9 @@ export class FeeSnapshotService implements FeeProvider {
       if (!identity) {
         throw new FeeQuoteUnavailableError('the archiver has no L1 identity yet');
       }
+      // A refresh pinned to a stale identity would only produce a snapshot every read rejects on head age, so
+      // fail before touching L1. This also keeps the poll loop from re-fetching a frozen head every tick.
+      this.assertHeadFresh(identity.blockTimestamp, BigInt(this.dateProvider.nowInSeconds()));
       // The slot is freed only once the refresh settles, and every waiter resumes after that, so a subsequent
       // caller (e.g. a read that found this snapshot already superseded) starts a fresh refresh at a new identity.
       this.inFlight = this.runRefresh(identity).finally(() => (this.inFlight = undefined));
@@ -221,25 +249,40 @@ export class FeeSnapshotService implements FeeProvider {
   }
 
   /**
-   * Builds a complete snapshot in four batched stages, all pinned to the identity's L1 block. Each stage's
-   * inputs are fully determined by the previous ones: tips and governance values, then the checkpoints those
-   * tips name, then per-candidate fee state, then the L1 fee oracle over the resulting prediction windows.
+   * Builds a complete snapshot in batched stages, all pinned to the identity's L1 block. Each stage's inputs
+   * are fully determined by the previous ones: tips and governance values (with the checkpoints those tips
+   * name, resolved speculatively or in a follow-up read), then per-candidate fee state, then the L1 fee oracle
+   * over the resulting prediction windows.
    */
   private async buildSnapshot(identity: L1SyncSnapshot): Promise<FeeSnapshot> {
     const options = { blockNumber: identity.blockNumber };
 
-    const globals = await this.rollup.getFeeGlobals(options);
-    const { tips } = globals;
-
-    // Checkpoint 0 is the valid genesis checkpoint, so `pending`/`proven` of 0 are read normally; the proven
-    // read is skipped only when it coincides with the pending one.
-    const includeProven = tips.proven !== tips.pending;
-    const checkpoints = await this.rollup.getCheckpoints(
-      includeProven ? [tips.pending, tips.proven] : [tips.pending],
+    // Speculatively read the previous snapshot's tip checkpoints together with the globals: tips only change
+    // when a checkpoint lands or is proven, so most refreshes resolve both stages in a single round trip. A
+    // speculative entry is only trusted when the tips returned by the same call still name its number.
+    const speculatedNumbers = this.snapshot ? unique([this.snapshot.tips.pending, this.snapshot.tips.proven]) : [];
+    const { globals, checkpoints: speculated } = await this.rollup.getFeeGlobalsAndCheckpoints(
+      speculatedNumbers,
       options,
     );
-    const pendingCheckpoint = checkpoints[0];
-    const provenCheckpoint = includeProven ? checkpoints[1] : pendingCheckpoint;
+    const { tips } = globals;
+
+    const speculatedByNumber = new Map(
+      speculatedNumbers.map((checkpointNumber, i) => [checkpointNumber, speculated[i]]),
+    );
+    // Checkpoint 0 is the valid genesis checkpoint, so `pending`/`proven` of 0 are read normally; the proven
+    // read is skipped only when it coincides with the pending one.
+    let pendingCheckpoint = speculatedByNumber.get(tips.pending);
+    let provenCheckpoint = tips.proven === tips.pending ? pendingCheckpoint : speculatedByNumber.get(tips.proven);
+    if (!pendingCheckpoint || !provenCheckpoint) {
+      const includeProven = tips.proven !== tips.pending;
+      const checkpoints = await this.rollup.getCheckpoints(
+        includeProven ? [tips.pending, tips.proven] : [tips.pending],
+        options,
+      );
+      pendingCheckpoint = checkpoints[0];
+      provenCheckpoint = includeProven ? checkpoints[1] : pendingCheckpoint;
+    }
 
     // Sampled here rather than at refresh entry: two round trips have already elapsed, and the candidate set
     // should be centred on the slot a read will want once this snapshot is published.
@@ -298,7 +341,7 @@ export class FeeSnapshotService implements FeeProvider {
       ]),
     );
 
-    return { l1: identity, currentFloorSlot, predictionFloorSlot, candidates };
+    return { l1: identity, tips, currentFloorSlot, predictionFloorSlot, candidates };
   }
 
   /** Computes the complete prediction array for every mana-usage estimate at a single candidate slot. */

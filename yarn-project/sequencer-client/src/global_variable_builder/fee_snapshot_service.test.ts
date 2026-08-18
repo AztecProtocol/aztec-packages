@@ -15,9 +15,11 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { ManualDateProvider } from '@aztec/foundation/timer';
+import { type ArchiverEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import { FEE_ORACLE_LAG, ManaUsageEstimate } from '@aztec/stdlib/gas';
 
 import { mock } from 'jest-mock-extended';
+import { EventEmitter } from 'node:events';
 
 import { TestFeeSnapshotService } from '../test/test_fee_snapshot_service.js';
 import {
@@ -31,8 +33,14 @@ const SLOT_DURATION = 24;
 const ETHEREUM_SLOT_DURATION = 12;
 const EPOCH_DURATION = 32;
 
-/** Round trips one refresh makes: globals, checkpoints, per-slot fee inputs, L1 fees + trailing tips. */
-const STAGES_PER_REFRESH = 4;
+/**
+ * Round trips of a first refresh: globals (with no speculative checkpoints yet), the checkpoints those tips
+ * name, per-slot fee inputs, and L1 fees + trailing tips.
+ */
+const STAGES_FIRST_REFRESH = 4;
+
+/** Round trips of a refresh whose tip speculation hits: the dedicated checkpoints read is skipped. */
+const STAGES_WARM_REFRESH = 3;
 
 const FEE_HEADER: FeeHeader = {
   excessMana: 0n,
@@ -60,7 +68,7 @@ function makeCheckpoint(slot: number): CheckpointLog {
 
 /** Deterministic in-memory rollup reader. `manaMinFee` returns the slot number so current fees are identifiable. */
 class FakeRollup {
-  /** Number of stage round trips made (one refresh is {@link STAGES_PER_REFRESH}). */
+  /** Number of stage round trips made (see {@link STAGES_FIRST_REFRESH} and {@link STAGES_WARM_REFRESH}). */
   public callCount = 0;
   public blockNumbers: bigint[] = [];
   public tips: RollupChainTips = { pending: CheckpointNumber(5), proven: CheckpointNumber(3) };
@@ -77,14 +85,31 @@ class FakeRollup {
   /** Tips reported by the trailing re-read of the last stage, to simulate divergence across stages. */
   public tailTips: RollupChainTips | undefined;
 
-  async getFeeGlobals(options: { blockNumber: bigint }): Promise<RollupFeeGlobals> {
+  async getFeeGlobalsAndCheckpoints(
+    speculativeCheckpointNumbers: CheckpointNumber[],
+    options: { blockNumber: bigint },
+  ): Promise<{ globals: RollupFeeGlobals; checkpoints: (CheckpointLog | undefined)[] }> {
     await this.stage(options);
     return {
-      tips: this.tips,
-      manaTarget: this.manaTarget,
-      manaLimit: this.manaLimit,
-      provingCostPerManaEth: this.provingCost,
+      globals: {
+        tips: this.tips,
+        manaTarget: this.manaTarget,
+        manaLimit: this.manaLimit,
+        provingCostPerManaEth: this.provingCost,
+      },
+      // Like the contract, only numbers the current tips name resolve to meaningful data.
+      checkpoints: speculativeCheckpointNumbers.map(checkpointNumber => this.checkpointFor(checkpointNumber)),
     };
+  }
+
+  private checkpointFor(checkpointNumber: CheckpointNumber): CheckpointLog | undefined {
+    if (Number(checkpointNumber) === Number(this.tips.pending)) {
+      return makeCheckpoint(this.pendingSlot);
+    }
+    if (Number(checkpointNumber) === Number(this.tips.proven)) {
+      return makeCheckpoint(this.provenSlot);
+    }
+    return undefined;
   }
 
   async getCheckpoints(
@@ -129,7 +154,9 @@ class FakeRollup {
 /** Wraps the fake in a {@link RollupContract} mock so the service can take the real contract type. */
 function asRollupContract(fake: FakeRollup): RollupContract {
   const rollup = mock<RollupContract>();
-  rollup.getFeeGlobals.mockImplementation(options => fake.getFeeGlobals(options));
+  rollup.getFeeGlobalsAndCheckpoints.mockImplementation((speculativeCheckpointNumbers, options) =>
+    fake.getFeeGlobalsAndCheckpoints(speculativeCheckpointNumbers, options),
+  );
   rollup.getCheckpoints.mockImplementation((checkpointNumbers, options) =>
     fake.getCheckpoints(checkpointNumbers, options),
   );
@@ -161,7 +188,10 @@ describe('FeeSnapshotService', () => {
 
   const PINNED_SLOT = 100;
 
-  function makeService(overrides: Partial<FeeSnapshotServiceConfig> = {}): TestFeeSnapshotService {
+  function makeService(
+    overrides: Partial<FeeSnapshotServiceConfig> = {},
+    events?: ArchiverEmitter,
+  ): TestFeeSnapshotService {
     const config: FeeSnapshotServiceConfig = {
       ...getDefaultFeeSnapshotServiceConfig({
         slotDuration: SLOT_DURATION,
@@ -173,7 +203,7 @@ describe('FeeSnapshotService', () => {
       pollIntervalMs: 10_000_000,
       ...overrides,
     };
-    return new TestFeeSnapshotService(asRollupContract(rollup), identity, dateProvider, config);
+    return new TestFeeSnapshotService(asRollupContract(rollup), identity, dateProvider, config, undefined, events);
   }
 
   function coveredSlots(): number[] {
@@ -209,7 +239,7 @@ describe('FeeSnapshotService', () => {
   it('warm calls issue zero L1 requests', async () => {
     await service.getCurrentMinFees();
     const afterFirst = rollup.callCount;
-    expect(afterFirst).toBe(STAGES_PER_REFRESH);
+    expect(afterFirst).toBe(STAGES_FIRST_REFRESH);
     for (let i = 0; i < 20; i++) {
       await service.getPredictedMinFees(ManaUsageEstimate.Target);
     }
@@ -221,7 +251,7 @@ describe('FeeSnapshotService', () => {
     for (const fees of results) {
       expect(fees.feePerL2Gas).toBe(101n);
     }
-    expect(rollup.callCount).toBe(STAGES_PER_REFRESH);
+    expect(rollup.callCount).toBe(STAGES_FIRST_REFRESH);
   });
 
   it('refreshes once on an archiver identity change and shares the completion', async () => {
@@ -232,7 +262,7 @@ describe('FeeSnapshotService', () => {
     for (const fees of results) {
       expect(fees.feePerL2Gas).toBe(101n);
     }
-    expect(rollup.callCount).toBe(before + STAGES_PER_REFRESH);
+    expect(rollup.callCount).toBe(before + STAGES_WARM_REFRESH);
     expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
   });
 
@@ -241,8 +271,42 @@ describe('FeeSnapshotService', () => {
     const before = rollup.callCount;
     identity.snapshot = makeIdentity(1n, PINNED_SLOT, Buffer32.fromNumber(999));
     await service.getCurrentMinFees();
-    expect(rollup.callCount).toBe(before + STAGES_PER_REFRESH);
+    expect(rollup.callCount).toBe(before + STAGES_WARM_REFRESH);
     expect(service.getSnapshot()!.l1.blockHash.equals(Buffer32.fromNumber(999))).toBe(true);
+  });
+
+  it('skips the checkpoints read when the previous tips still hold, and refetches when they change', async () => {
+    await service.getCurrentMinFees();
+    expect(rollup.callCount).toBe(STAGES_FIRST_REFRESH);
+
+    // Same tips at a new identity: the speculative read resolves the checkpoints, saving a round trip.
+    identity.snapshot = makeIdentity(2n, PINNED_SLOT);
+    expect((await service.getCurrentMinFees()).feePerL2Gas).toBe(101n);
+    expect(rollup.callCount).toBe(STAGES_FIRST_REFRESH + STAGES_WARM_REFRESH);
+
+    // Tips moved: the speculation misses and the dedicated checkpoints read runs again.
+    rollup.tips = { pending: CheckpointNumber(6), proven: CheckpointNumber(3) };
+    rollup.pendingSlot = 101;
+    identity.snapshot = makeIdentity(3n, PINNED_SLOT);
+    expect((await service.getCurrentMinFees()).feePerL2Gas).toBe(102n);
+    expect(rollup.callCount).toBe(STAGES_FIRST_REFRESH + STAGES_WARM_REFRESH + STAGES_FIRST_REFRESH);
+  });
+
+  it('wakes the refresh loop immediately on an archiver L1 sync point event', async () => {
+    const events = new EventEmitter() as ArchiverEmitter;
+    service = makeService({}, events);
+    service.start();
+    await retryUntil(() => service.getSnapshot()?.l1.blockNumber === 1n, 'initial refresh', 10, 0.02);
+
+    // The poll interval is effectively infinite, so only the event can drive the next refresh.
+    identity.snapshot = makeIdentity(2n, PINNED_SLOT);
+    events.emit(L2BlockSourceEvents.L1SyncPointUpdated, {
+      type: L2BlockSourceEvents.L1SyncPointUpdated,
+      l1BlockNumber: identity.snapshot.blockNumber,
+      l1BlockHash: identity.snapshot.blockHash,
+      l1BlockTimestamp: identity.snapshot.blockTimestamp,
+    });
+    await retryUntil(() => service.getSnapshot()?.l1.blockNumber === 2n, 'event-driven refresh', 10, 0.02);
   });
 
   it('keeps serving the last-good snapshot when a refresh fails, then recovers on the next read', async () => {
@@ -318,7 +382,7 @@ describe('FeeSnapshotService', () => {
     await sleep(0);
 
     expect(service.stats.refreshes).toBe(1);
-    expect(rollup.callCount).toBe(STAGES_PER_REFRESH);
+    expect(rollup.callCount).toBe(STAGES_FIRST_REFRESH);
     expect(service.getSnapshot()!.l1.blockNumber).toBe(1n);
   });
 
@@ -333,6 +397,24 @@ describe('FeeSnapshotService', () => {
     await service.getCurrentMinFees();
     dateProvider.advanceTime(120);
     await expect(service.getCurrentMinFees()).rejects.toThrow('pinned L1 head age 120s exceeds max 60s');
+  });
+
+  it('does not touch L1 for a stale frozen identity, even with the wanted slot uncovered', async () => {
+    service = makeService({ maxL1HeadAgeSeconds: 60 });
+    await service.getCurrentMinFees();
+    const calls = rollup.callCount;
+    // Advance past both the candidate headroom and the age bound with the identity frozen: a refresh could
+    // rebuild coverage, but only at the same stale head, so the read must fail without issuing one.
+    dateProvider.advanceTime(10 * SLOT_DURATION);
+    await expect(service.getCurrentMinFees()).rejects.toThrow(/pinned L1 head age/);
+    expect(rollup.callCount).toBe(calls);
+  });
+
+  it('fails a cold read without touching L1 when the identity is already stale', async () => {
+    service = makeService({ maxL1HeadAgeSeconds: 60 });
+    dateProvider.advanceTime(120);
+    await expect(service.getCurrentMinFees()).rejects.toThrow(/pinned L1 head age/);
+    expect(rollup.callCount).toBe(0);
   });
 
   it('serves an arbitrarily old pinned head when the age bound is disabled', async () => {
@@ -432,7 +514,7 @@ describe('FeeSnapshotService', () => {
       // Slot 103 starts exactly at this timestamp: the read wants a covered slot while the tick's lookahead
       // (slot 104) does not, so the gated coverage refresh is in flight when the read arrives.
       dateProvider.advanceTime(3 * SLOT_DURATION);
-      await retryUntil(() => rollup.callCount > STAGES_PER_REFRESH, 'gated refresh started', 10, 0.02);
+      await retryUntil(() => rollup.callCount > STAGES_FIRST_REFRESH, 'gated refresh started', 10, 0.02);
 
       const fees = await service.getCurrentMinFees();
       expect(fees.feePerL2Gas).toBe(103n);

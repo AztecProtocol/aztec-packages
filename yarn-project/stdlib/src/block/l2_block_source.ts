@@ -8,6 +8,7 @@ import {
   type SlotNumber,
   SlotNumberSchema,
 } from '@aztec/foundation/branded-types';
+import type { Buffer32 } from '@aztec/foundation/buffer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { schemas } from '@aztec/foundation/schemas';
@@ -336,6 +337,7 @@ export type ArchiverEmitter = TypedEventEmitter<{
     args: DescendentOfInvalidAttestationsCheckpointEvent,
   ) => void;
   [L2BlockSourceEvents.L2BlockSourceUpdated]: (args: L2BlockSourceUpdatedEvent) => void;
+  [L2BlockSourceEvents.L1SyncPointUpdated]: (args: L1SyncPointUpdatedEvent) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource {
   events: ArchiverEmitter;
@@ -441,7 +443,21 @@ export enum L2BlockSourceEvents {
   CheckpointEquivocationDetected = 'checkpointEquivocationDetected',
   DescendentOfInvalidAttestationsCheckpointDetected = 'descendentOfInvalidAttestationsCheckpointDetected',
   L2BlockSourceUpdated = 'l2BlockSourceUpdated',
+  L1SyncPointUpdated = 'l1SyncPointUpdated',
 }
+
+/**
+ * Emitted once per committed archiver sync pass that advanced the synced L1 block, even when no L2 state moved.
+ * Lets consumers pinning reads to the archiver's L1 sync point (e.g. the fee snapshot service) react immediately
+ * instead of waiting for their next poll. Polling remains the correctness fallback, so a missed event only
+ * affects latency.
+ */
+export type L1SyncPointUpdatedEvent = {
+  type: 'l1SyncPointUpdated';
+  l1BlockNumber: bigint;
+  l1BlockHash: Buffer32;
+  l1BlockTimestamp: bigint;
+};
 
 /**
  * Aggregate event emitted once per committed archiver sync pass that mutated local state. Carries the chain tips

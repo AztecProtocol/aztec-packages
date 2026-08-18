@@ -163,10 +163,14 @@ refreshes it whenever the archiver publishes a new L1 identity, and proactively 
 to outrun the covered slots so a run of empty Ethereum slots cannot freeze quotes. Every value in a snapshot
 is read at the archiver's synced L1 block, and each candidate slot holds a *complete* precomputed quote: the
 Solidity `getManaMinFeeAt` current fee plus a `FEE_ORACLE_LAG`-length prediction array per `ManaUsageEstimate`.
+The archiver announces each new synced L1 block via an `L1SyncPointUpdated` event that wakes the refresh loop
+immediately; the poll interval is only the fallback for missed events and clock-driven coverage refreshes.
 
-The refresh runs four batched, pinned stages, each of whose inputs the previous ones fully determine: chain
-tips and governance values; the checkpoints those tips name; the current fee and prune-ability per candidate
-slot; the L1 fee oracle over the resulting prediction windows. A read serves the candidate for its wanted slot
+The refresh runs batched, pinned stages, each of whose inputs the previous ones fully determine: chain tips
+and governance values (read together with a speculative fetch of the previous snapshot's tip checkpoints, so
+a refresh whose tips did not move resolves both in one round trip); the checkpoints the tips name, when the
+speculation missed; the current fee and prune-ability per candidate slot; the L1 fee oracle over the
+resulting prediction windows. A read serves the candidate for its wanted slot
 or triggers a refresh — it never substitutes another slot's answer. Concurrent reads and the poll loop share
 one in-flight refresh, so a failing L1 sees at most one serial request chain regardless of RPC traffic; a
 failed refresh keeps the last-good snapshot stored and surfaces its error to the waiting readers.
@@ -187,9 +191,11 @@ materialized with a small headroom, which is what lets reads keep working while 
 ### Staleness
 
 One bound, disabled by setting it to `0`: the pinned **L1-head age** (`now - pinnedBlockTimestamp`) fails
-closed with a typed error, catching a frozen provider or archiver. Nothing else can go silently stale,
-because a read compares the archiver identity against the snapshot before serving: a superseded snapshot is
-never served, it forces a refresh, and a refresh that cannot replace it surfaces its own error.
+closed with a typed error, catching a frozen provider or archiver. The bound is enforced both when serving
+and before starting a refresh, so a frozen identity fails reads fast and never generates L1 traffic that a
+read would reject anyway. Nothing else can go silently stale, because a read compares the archiver identity
+against the snapshot before serving: a superseded snapshot is never served, it forces a refresh, and a
+refresh that cannot replace it surfaces its own error.
 
 ### Consistency stance
 

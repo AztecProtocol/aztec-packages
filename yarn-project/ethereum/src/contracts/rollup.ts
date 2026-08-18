@@ -1190,18 +1190,58 @@ export class RollupContract {
     };
   }
 
-  /** Reads the chain tips together with the governance-settable fee parameters, pinned to one L1 block. */
-  async getFeeGlobals(options: { blockNumber: bigint }): Promise<RollupFeeGlobals> {
-    const [tips, manaTarget, manaLimit, provingCostPerManaEth] = await this.client.multicall({
+  /**
+   * Reads the chain tips and the governance-settable fee parameters, plus a speculative checkpoint log per
+   * requested number, all in one call pinned to one L1 block. The checkpoint numbers are a guess made before the
+   * tips are known (typically a previous read's tips), so each entry resolves to undefined when its read reverts
+   * (a guessed number can fall out of the temp checkpoint log buffer); callers must discard any entry the
+   * returned tips do not name, since its contents are only meaningful for a current tip.
+   */
+  async getFeeGlobalsAndCheckpoints(
+    speculativeCheckpointNumbers: CheckpointNumber[],
+    options: { blockNumber: bigint },
+  ): Promise<{ globals: RollupFeeGlobals; checkpoints: (CheckpointLog | undefined)[] }> {
+    const globalReads = ['getTips', 'getManaTarget', 'getManaLimit', 'getProvingCostPerManaInEth'] as const;
+    const results = await this.client.multicall({
       contracts: [
-        { address: this.address, abi: RollupAbi, functionName: 'getTips' },
-        { address: this.address, abi: RollupAbi, functionName: 'getManaTarget' },
-        { address: this.address, abi: RollupAbi, functionName: 'getManaLimit' },
-        { address: this.address, abi: RollupAbi, functionName: 'getProvingCostPerManaInEth' },
+        ...globalReads.map(functionName => ({ address: this.address, abi: RollupAbi, functionName })),
+        ...speculativeCheckpointNumbers.map(checkpointNumber => ({
+          address: this.address,
+          abi: RollupAbi,
+          functionName: 'getCheckpoint' as const,
+          args: [BigInt(checkpointNumber)] as const,
+        })),
       ],
       ...this.multicallOptions(options.blockNumber),
+      // Unlike the other fee multicalls, per-call failures are tolerated here: a speculative checkpoint read may
+      // revert without invalidating the globals. Failures of the four global reads are rethrown below.
+      allowFailure: true,
     });
-    return { tips: toChainTips(tips), manaTarget, manaLimit, provingCostPerManaEth };
+
+    const [tips, manaTarget, manaLimit, provingCostPerManaEth] = results.slice(0, 4).map(entry => {
+      if (entry.status !== 'success') {
+        throw entry.error;
+      }
+      return entry.result;
+    });
+    if (typeof tips !== 'object' || !('pending' in tips)) {
+      throw new Error('Unexpected multicall result shape for the tips read');
+    }
+    if (typeof manaTarget !== 'bigint' || typeof manaLimit !== 'bigint' || typeof provingCostPerManaEth !== 'bigint') {
+      throw new Error('Unexpected multicall result shapes for the fee parameter reads');
+    }
+
+    const checkpoints = results.slice(4).map(entry => {
+      if (entry.status !== 'success') {
+        return undefined;
+      }
+      if (typeof entry.result !== 'object' || !('feeHeader' in entry.result)) {
+        throw new Error('Unexpected multicall result shape for a speculative checkpoint read');
+      }
+      return toCheckpointLog(entry.result);
+    });
+
+    return { globals: { tips: toChainTips(tips), manaTarget, manaLimit, provingCostPerManaEth }, checkpoints };
   }
 
   /** Reads several checkpoint logs pinned to one L1 block, in the order requested. */
