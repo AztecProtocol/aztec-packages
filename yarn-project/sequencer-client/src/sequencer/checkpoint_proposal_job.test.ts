@@ -1163,8 +1163,8 @@ describe('CheckpointProposalJob', () => {
       );
     });
 
-    // Only the first block of a checkpoint may be empty (no block-root circuit can prove a zero-tx block at a
-    // later index), so minValidTxsPerBlock: 0 must not reach the builder for anything past index 0.
+    // A block past the first carrying neither txs nor messages is pure padding, so minValidTxsPerBlock: 0 must
+    // not reach the builder for it.
     it('floors minValidTxs at 1 past the first block even when configured to 0', async () => {
       jest
         .spyOn(job.getTimetable(), 'selectNextSubslot')
@@ -1181,6 +1181,41 @@ describe('CheckpointProposalJob', () => {
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
       expect(checkpointBuilder.buildBlockCalls[0].opts.minValidTxs).toBe(0);
       expect(checkpointBuilder.buildBlockCalls[1].opts.minValidTxs).toBe(1);
+    });
+
+    // A mid-checkpoint block consuming messages is proven by the no-txs block-root circuit, so the floor must
+    // not apply to it or a message-only block could never be built past index 0.
+    it('leaves minValidTxs at 0 past the first block when the block consumes messages', async () => {
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, false))
+        .mockReturnValueOnce(subslot(18, 1, true))
+        .mockReturnValue(noSubslot());
+
+      const makeBucket = (seq: bigint, totalMsgCount: bigint, lastMessageIndex: bigint): InboxBucket => ({
+        seq,
+        inboxRollingHash: new Fr(Number(seq)),
+        totalMsgCount,
+        timestamp: 0n,
+        msgCount: 2,
+        lastMessageIndex,
+      });
+      l1ToL2MessageSource.getLatestInboxBucketAtOrBefore
+        .mockResolvedValueOnce(makeBucket(2n, 2n, 1n))
+        .mockResolvedValue(makeBucket(3n, 4n, 3n));
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets
+        .mockResolvedValueOnce([new Fr(1), new Fr(2)])
+        .mockResolvedValue([new Fr(3), new Fr(4)]);
+
+      const { lastBlock } = await setupMultipleBlocks(2, [2, 0]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      job.updateConfig({ minValidTxsPerBlock: 0 });
+      await job.executeAndAwait();
+
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
+      expect(checkpointBuilder.buildBlockCalls[1].opts.l1ToL2Messages).toEqual([new Fr(3), new Fr(4)]);
+      expect(checkpointBuilder.buildBlockCalls[1].opts.minValidTxs).toBe(0);
     });
 
     it('builds multiple blocks with sufficient txs', async () => {

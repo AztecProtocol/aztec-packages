@@ -471,9 +471,7 @@ describe('ValidatorClient', () => {
     beforeEach(async () => {
       const blockHeader = makeBlockHeader(1, { blockNumber: BlockNumber(100), slotNumber: SlotNumber(100) });
       blockNumber = BlockNumber(blockHeader.globalVariables.blockNumber);
-      proposal = ValidatedBlockProposal(
-        await makeBlockProposal({ blockHeader, bucketRef: genesisBucketRef }),
-      );
+      proposal = ValidatedBlockProposal(await makeBlockProposal({ blockHeader, bucketRef: genesisBucketRef }));
       // The proposal targets slot 100, which under pipelining is built during the previous slot. Set the
       // wall clock to the start of that build slot (target_slot_start - S), matching how a pipelined
       // proposer is positioned when validating an inbound block proposal. With S - 2E = 0 in this config
