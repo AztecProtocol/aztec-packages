@@ -114,7 +114,7 @@ export class CheckpointProposalJob implements Traceable {
    * Chain state overrides built once per slot in proposeCheckpoint after the checkpoint is
    * complete. Carries the pending parent override (archive + slot + fee header) for pipelining,
    * or the invalidation pending override when rolling back. Consumed by
-   * publisher.validateBlockHeader before broadcast.
+   * publisher.validateCheckpointHeader before broadcast.
    */
   private checkpointSimulationOverridesPlan?: SimulationOverridesPlan;
 
@@ -592,7 +592,7 @@ export class CheckpointProposalJob implements Traceable {
       // Build the simulation plan for this slot. When pipelining, this overrides L1's view of
       // pending/archive/fee-header to "as if the proposed parent had landed", so both the
       // mana-min-fee simulation (in the globals builder) and the pre-broadcast
-      // validateBlockHeader see the chain tip the eventual L1 send will see.
+      // validateCheckpointHeader see the chain tip the eventual L1 send will see.
       this.checkpointSimulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
         checkpointNumber: this.checkpointNumber,
         proposedCheckpointData: this.proposedCheckpointData,
@@ -794,7 +794,7 @@ export class CheckpointProposalJob implements Traceable {
       // If this fails the slot is aborted before any gossip work; state drift between here
       // and the eventual L1 send is caught by the bundle simulate at send time.
       try {
-        await this.publisher.validateBlockHeader(checkpoint.header, this.checkpointSimulationOverridesPlan);
+        await this.publisher.validateCheckpointHeader(checkpoint.header, this.checkpointSimulationOverridesPlan);
       } catch (err) {
         this.log.error(`Pre-broadcast header validation failed for slot ${this.targetSlot}; aborting`, err, {
           slot: this.targetSlot,
@@ -1093,7 +1093,11 @@ export class CheckpointProposalJob implements Traceable {
       // Per-block limits are operator overrides (from SEQ_MAX_L2_BLOCK_GAS etc.) further capped
       // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
       // minValidTxs is passed into the builder so it can reject the block *before* updating state.
-      const minValidTxs = forceCreate ? 0 : (this.config.minValidTxsPerBlock ?? minTxs);
+      // Only the first block of a checkpoint may be empty, since this allows a checkpoint to be created
+      // even if there are no transactions. If an empty block appears after the first, it can't be proven
+      // (there is no rollup circuit shaped to allow this), so the floor for minValidTxs is 1.
+      const configuredMinValidTxs = forceCreate ? 0 : (this.config.minValidTxsPerBlock ?? minTxs);
+      const minValidTxs = indexWithinCheckpoint > 0 ? Math.max(configuredMinValidTxs, 1) : configuredMinValidTxs;
       const blockBuilderOptions: BlockBuilderOptions = {
         maxTransactions: this.config.maxTxsPerBlock,
         maxBlockGas:

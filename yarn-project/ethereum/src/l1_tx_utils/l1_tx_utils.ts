@@ -702,14 +702,14 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
     const blockOverrides = { ..._blockOverrides };
     const gasConfig = merge(this.config, _gasConfig);
-    const feesPerGas = await this.getFeesPerGas(gasConfig, false);
 
+    // Fee fields are deliberately omitted. Supplying them makes the node apply the EIP-1559 upfront funds
+    // check (sender balance >= gas * maxFeePerGas) against the worst-case gas cap below, which rejects the
+    // whole simulation request before any execution. Omitted fee fields default to a zero gas price.
     const call: any = {
       to: request.to!,
       data: request.data,
       from: request.from ?? this.getSenderAddress().toString(),
-      maxFeePerGas: feesPerGas.maxFeePerGas,
-      maxPriorityFeePerGas: feesPerGas.maxPriorityFeePerGas,
       gas: request.gas ?? MAX_L1_TX_LIMIT,
     };
 
@@ -718,7 +718,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       blockOverrides.gasLimit = MAX_L1_TX_LIMIT;
     }
 
-    return this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);
+    return await this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);
   }
 
   /**

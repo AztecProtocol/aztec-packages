@@ -2,6 +2,7 @@ import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -96,6 +97,11 @@ describe('P2P Client', () => {
     await kvStore.close();
   });
 
+  it('forwards p2p connectivity from the service', async () => {
+    p2pService.getP2PConnectivity.mockReturnValue({ enabled: true, connectedPeers: 4 });
+    await expect(client.getP2PConnectivity()).resolves.toEqual({ enabled: true, connectedPeers: 4 });
+  });
+
   it('can start & stop', async () => {
     expect(client.isReady()).toEqual(false);
 
@@ -104,6 +110,31 @@ describe('P2P Client', () => {
 
     await client.stop();
     expect(client.isReady()).toEqual(false);
+  });
+
+  describe('Service startup while syncing', () => {
+    it('fails to start if the p2p service fails to start', async () => {
+      p2pService.start.mockRejectedValue(new Error('ERR_NO_VALID_ADDRESSES'));
+
+      await expect(client.start()).rejects.toThrow('ERR_NO_VALID_ADDRESSES');
+    });
+
+    it('completes the startup only after the p2p service has started', async () => {
+      const serviceStart = promiseWithResolvers<void>();
+      p2pService.start.mockReturnValue(serviceStart.promise);
+
+      let startCompleted = false;
+      const startPromise = client.start().then(() => {
+        startCompleted = true;
+      });
+
+      await retryFastUntil(() => p2pService.start.mock.calls.length > 0 || undefined, 'p2p service start');
+      expect(startCompleted).toBe(false);
+
+      serviceStart.resolve();
+      await startPromise;
+      expect(startCompleted).toBe(true);
+    });
   });
 
   it('adds txs to pool and propagates it', async () => {
