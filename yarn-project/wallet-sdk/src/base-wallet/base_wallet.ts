@@ -309,13 +309,13 @@ export abstract class BaseWallet implements Wallet {
     // (the node's per-tx admission limit), so the proposer does not skip the tx for over-declaring gas.
     let fullGasSettings;
     if (forEstimation) {
-      // Estimation deliberately uses very high internal limits and skips tx validation, so we do not
-      // validate against the network admission limit here.
+      // Estimation deliberately uses very high internal limits, which the node exempts from gas-limit
+      // admission during simulation, so we do not validate against the network admission limit here.
       fullGasSettings = GasSettings.forEstimation(gasSettingsOverrides);
     } else {
       const maxTxGasLimits = await this.getMaxTxGasLimits();
       // If the caller declared explicit gas limits, reject them up front when they exceed the network's
-      // per-tx admission limit (mirroring the node's GasLimitsValidator). Otherwise fill in the limit.
+      // per-tx admission limit (mirroring the node's MaxGasLimitsValidator). Otherwise fill in the limit.
       if (gasSettingsOverrides.gasLimits) {
         assertGasLimitsWithinNetworkLimits(gasSettingsOverrides.gasLimits, maxTxGasLimits);
       }
