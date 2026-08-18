@@ -18,6 +18,20 @@ describe('AggregateTxValidator', () => {
     await expect(agg.validateTx(txs[4])).resolves.toEqual({ result: 'invalid', reason: ['Denied', 'Denied'] });
   });
 
+  describe('stoppingAtFirstFailure', () => {
+    it('returns only the first failure and leaves the later validators unrun', async () => {
+      const txs = await Promise.all([mockTx(0), mockTx(1)]);
+      const second = new CountingTxDenyList([txs[0].getTxHash()]);
+      const agg = AggregateTxValidator.stoppingAtFirstFailure(new TxDenyList([txs[0].getTxHash()]), second);
+
+      await expect(agg.validateTx(txs[0])).resolves.toEqual({ result: 'invalid', reason: ['Denied'] });
+      expect(second.calls).toEqual(0);
+
+      await expect(agg.validateTx(txs[1])).resolves.toEqual({ result: 'valid' });
+      expect(second.calls).toEqual(1);
+    });
+  });
+
   class TxDenyList implements TxValidator<AnyTx> {
     denyList: Set<string>;
 
@@ -31,6 +45,16 @@ describe('AggregateTxValidator', () => {
         return Promise.resolve({ result: 'invalid', reason: ['Denied'] });
       }
       return Promise.resolve({ result: 'valid' });
+    }
+  }
+
+  /** A deny list that records how many times it was consulted. */
+  class CountingTxDenyList extends TxDenyList {
+    public calls = 0;
+
+    public override validateTx(tx: AnyTx): Promise<TxValidationResult> {
+      this.calls++;
+      return super.validateTx(tx);
     }
   }
 });

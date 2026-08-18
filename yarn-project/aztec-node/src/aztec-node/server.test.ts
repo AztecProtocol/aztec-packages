@@ -55,7 +55,6 @@ import {
   HashedValues,
   MinedTxReceipt,
   PendingTxReceipt,
-  TX_ERROR_CALLDATA_COUNT_MISMATCH,
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
@@ -362,9 +361,11 @@ describe('aztec node', () => {
         newPublicFunctionCalldata,
       );
       await tx.recomputeHash();
+      // The tx also trips the calldata-count check, but the RPC validator stops at the first failure and the
+      // size check runs ahead of the data check.
       expect(await node.isValidTx(tx)).toEqual({
         result: 'invalid',
-        reason: [TX_ERROR_SIZE_ABOVE_LIMIT, TX_ERROR_CALLDATA_COUNT_MISMATCH],
+        reason: [TX_ERROR_SIZE_ABOVE_LIMIT],
       });
     });
 

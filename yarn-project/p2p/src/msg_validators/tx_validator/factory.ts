@@ -223,7 +223,7 @@ function createTxValidatorForMinimumTxIntegrityChecks(
   bindings?: LoggerBindings,
   cache?: TxValidationCache,
 ): TxValidator {
-  const aggregate = new AggregateTxValidator(
+  const aggregate = AggregateTxValidator.stoppingAtFirstFailure(
     new MetadataTxValidator(
       {
         l1ChainId: new Fr(l1ChainId),
@@ -369,7 +369,7 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     validators.push(new TxProofValidator(verifier, bindings));
   }
 
-  return new AggregateTxValidator(...validators);
+  return AggregateTxValidator.stoppingAtFirstFailure(...validators);
 }
 
 /**
@@ -468,7 +468,7 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
       return merkleTree.findLeafIndices(MerkleTreeId.ARCHIVE, archives);
     },
   };
-  return new AggregateTxValidator<TxMetaData>(
+  return AggregateTxValidator.stoppingAtFirstFailure<TxMetaData>(
     new MinGasLimitsValidator<TxMetaData>(bindings),
     new MaxGasLimitsValidator<TxMetaData>({ ...gasLimitOpts, bindings }),
     new MaxFeePerGasValidator<TxMetaData>(gasFees, bindings),

@@ -1,6 +1,13 @@
-import { MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
+import {
+  MAX_PROCESSABLE_L2_GAS,
+  MAX_TX_DA_GAS,
+  PRIVATE_TX_L2_GAS_OVERHEAD,
+  TX_DA_GAS_OVERHEAD,
+} from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type {
@@ -10,6 +17,7 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type GlobalVariables, TX_ERROR_GAS_LIMIT_TOO_HIGH, TX_ERROR_INSUFFICIENT_GAS_LIMIT } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -50,6 +58,29 @@ async function mockPrivateTxWithGasSettings(gasSettings: GasSettings) {
     hasPublicTeardownCallRequest: false,
   });
   tx.data.constants.txContext.gasSettings = gasSettings;
+  return tx;
+}
+
+/**
+ * As above, but valid to every RPC validator that precedes the gas-limit checks, so a fail-fast aggregate
+ * reaches them. Mutating the tx invalidates its cached hash, hence the recompute, and `findLeafIndices` has to
+ * answer per tree: the archive root must resolve while the nullifiers must not.
+ */
+async function mockRpcAdmissibleTxWithGasSettings(
+  db: MockProxy<MerkleTreeReadOperations>,
+  { l1ChainId, rollupVersion }: { l1ChainId: number; rollupVersion: number },
+  gasSettings: GasSettings,
+) {
+  db.findLeafIndices.mockImplementation((treeId, leaves) =>
+    Promise.resolve(treeId === MerkleTreeId.ARCHIVE ? leaves.map(() => 0n) : leaves.map(() => undefined)),
+  );
+
+  const tx = await mockPrivateTxWithGasSettings(gasSettings);
+  tx.data.constants.txContext.chainId = new Fr(l1ChainId);
+  tx.data.constants.txContext.version = new Fr(rollupVersion);
+  tx.data.constants.vkTreeRoot = getVKTreeRoot();
+  tx.data.constants.protocolContractsHash = protocolContractsHash;
+  await tx.recomputeHash();
   return tx;
 }
 
@@ -348,10 +379,10 @@ describe('Validator factory functions', () => {
     });
 
     describe('gas-limit validation', () => {
+      const chain = { l1ChainId: 1, rollupVersion: 2 };
+
       // Estimation limits exceed the per-tx protocol maximum by construction, so whether the tx is rejected is
-      // decided solely by isSimulation; skipFeeEnforcement must not affect it. The aggregate collects reasons
-      // from every validator, so asserting on the specific error is robust to other validators failing on the
-      // mocked db.
+      // decided solely by isSimulation; skipFeeEnforcement must not affect it.
       it.each`
         isSimulation | skipFeeEnforcement | rejected
         ${false}     | ${false}           | ${true}
@@ -361,10 +392,8 @@ describe('Validator factory functions', () => {
       `(
         'isSimulation=$isSimulation, skipFeeEnforcement=$skipFeeEnforcement: over-limit tx rejected=$rejected',
         async ({ isSimulation, skipFeeEnforcement, rejected }) => {
-          db.findLeafIndices.mockResolvedValue([]);
           const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
-            l1ChainId: 1,
-            rollupVersion: 2,
+            ...chain,
             setupAllowList: [],
             gasFees: new GasFees(1, 1),
             skipFeeEnforcement,
@@ -373,7 +402,9 @@ describe('Validator factory functions', () => {
             blockNumber: BlockNumber(5),
             txsPermitted: true,
           });
-          const tx = await mockPrivateTxWithGasSettings(
+          const tx = await mockRpcAdmissibleTxWithGasSettings(
+            db,
+            chain,
             GasSettings.forEstimation({ maxFeesPerGas: new GasFees(1, 1) }),
           );
           const result = await validator.validateTx(tx);
@@ -393,10 +424,8 @@ describe('Validator factory functions', () => {
       `(
         'isSimulation=$isSimulation, skipFeeEnforcement=$skipFeeEnforcement: under-minimum tx is rejected',
         async ({ isSimulation, skipFeeEnforcement }) => {
-          db.findLeafIndices.mockResolvedValue([]);
           const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
-            l1ChainId: 1,
-            rollupVersion: 2,
+            ...chain,
             setupAllowList: [],
             gasFees: new GasFees(1, 1),
             skipFeeEnforcement,
@@ -405,7 +434,9 @@ describe('Validator factory functions', () => {
             blockNumber: BlockNumber(5),
             txsPermitted: true,
           });
-          const tx = await mockPrivateTxWithGasSettings(
+          const tx = await mockRpcAdmissibleTxWithGasSettings(
+            db,
+            chain,
             GasSettings.fallback({ gasLimits: Gas.empty(), maxFeesPerGas: new GasFees(1, 1) }),
           );
           const result = await validator.validateTx(tx);
@@ -413,6 +444,51 @@ describe('Validator factory functions', () => {
           expect(reasons.some(r => r.includes(TX_ERROR_INSUFFICIENT_GAS_LIMIT))).toBe(true);
         },
       );
+    });
+
+    // The cost the fail-fast aggregate is meant to reclaim. `getPreviousValueIndex` is only reached through
+    // `DatabasePublicStateSource`, and in this validator set only `GasTxValidator` uses one, so the call is a
+    // faithful proxy for the fee-payer balance lookup.
+    describe('fee-payer balance read', () => {
+      const chain = { l1ChainId: 1, rollupVersion: 2 };
+
+      const createValidator = () =>
+        createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
+          ...chain,
+          setupAllowList: [],
+          gasFees: new GasFees(1, 1),
+          timestamp: 100n,
+          blockNumber: BlockNumber(5),
+          txsPermitted: true,
+        });
+
+      it('is skipped for a tx rejected by an earlier validator', async () => {
+        const tx = await mockRpcAdmissibleTxWithGasSettings(
+          db,
+          chain,
+          GasSettings.forEstimation({ maxFeesPerGas: new GasFees(1, 1) }),
+        );
+
+        await expect(createValidator().validateTx(tx)).resolves.toEqual({
+          result: 'invalid',
+          reason: [expect.stringContaining(TX_ERROR_GAS_LIMIT_TOO_HIGH)],
+        });
+        expect(db.getPreviousValueIndex).not.toHaveBeenCalled();
+      });
+
+      it('still happens for a tx that clears the earlier validators', async () => {
+        const tx = await mockRpcAdmissibleTxWithGasSettings(
+          db,
+          chain,
+          GasSettings.fallback({
+            gasLimits: new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD),
+            maxFeesPerGas: new GasFees(1, 1),
+          }),
+        );
+
+        await createValidator().validateTx(tx);
+        expect(db.getPreviousValueIndex).toHaveBeenCalled();
+      });
     });
 
     it('excludes proof validator when no verifier is provided', () => {
