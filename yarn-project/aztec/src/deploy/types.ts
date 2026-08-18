@@ -67,13 +67,32 @@ export interface GeneratedContractClass<T extends ContractBase = ContractBase> {
   at(address: AztecAddress, wallet: Wallet): T;
 }
 
+/**
+ * Who sends a contract step's deploy, and whether the address commits to them:
+ * - `deployer` — a bound deploy: the account salts + sends, and the address commits to it.
+ * - `universal: true` + `from` — a universal deploy: the address is the same whoever sends it, so
+ *   it can be shared before anyone commits to deploying it; `from` sends and pays.
+ */
+type ContractSender =
+  | {
+      /** Account that salts + sends the deploy, e.g. `(r) => r.account("admin")`. */
+      deployer: (resolve: Resolver) => AztecAddress;
+      universal?: never;
+      from?: never;
+    }
+  | {
+      /** Publish without binding the sender into the address. */
+      universal: true;
+      /** Account that sends (and pays for) the deploy, e.g. `(r) => r.account("admin")`. */
+      from: (resolve: Resolver) => AztecAddress;
+      deployer?: never;
+    };
+
 /** What a contract step declares however its initializer args are produced. */
-interface ContractStepBase<T extends ContractBase = ContractBase> {
+type ContractStepBase<T extends ContractBase = ContractBase> = ContractSender & {
   kind: 'contract';
   /** The generated contract class — provides the artifact and the typed `.at`. */
   contract: GeneratedContractClass<T>;
-  /** Account that salts + sends the deploy, e.g. `(r) => r.account("admin")`. */
-  deployer: (resolve: Resolver) => AztecAddress;
   /** Per-contract salt, overriding {@link DeploymentSpec.salt}. */
   salt?: Fr;
   /**
@@ -83,15 +102,16 @@ interface ContractStepBase<T extends ContractBase = ContractBase> {
   secret?: Fr;
   /** Name of a non-default `#[initializer]` to call. Defaults to the contract's constructor. */
   initializer?: string;
-}
+};
 
 /**
  * A step that puts a contract on-chain (or in the PXE):
  * - `publish`  → register the class + deploy the instance + run its initializer (a tx).
  * - `register` → private; only derive the deterministic address and register it in the PXE (no tx).
  *
- * The address is deterministic in (class id, deployer, salt, initializer + its args). The two ways
- * to supply those args are the union's two variants, so a step can only pick one.
+ * The address is deterministic in (class id, deployer, salt, initializer + its args) — with the
+ * deployer omitted for {@link ContractSender | universal} steps. The two ways to supply those args
+ * are the union's two variants, so a step can only pick one.
  */
 export type ContractStep<C = Steps, T extends ContractBase = ContractBase> =
   | (ContractStepBase<T> & {
