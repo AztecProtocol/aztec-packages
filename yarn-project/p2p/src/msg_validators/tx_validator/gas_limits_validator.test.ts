@@ -13,35 +13,27 @@ import assert from 'assert';
 
 import { MaxGasLimitsValidator, MinGasLimitsValidator } from './gas_limits_validator.js';
 
-const DEFAULT_GAS_LIMITS = new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS);
+/** Sets the gas limits under test. These validators read nothing else, so the fees are arbitrary. */
+const setGasLimits = (tx: Tx, gasLimits: Gas) => {
+  tx.data.constants.txContext.gasSettings = GasSettings.fallback({ gasLimits, maxFeesPerGas: new GasFees(11, 22) });
+};
 
-/** A tx with no public calls, carrying the default gas limits. */
-const makePrivateTx = async (gasFees: GasFees) => {
+/** A tx with no public calls. */
+const makePrivateTx = async () => {
   const privateTx = await mockTx(1, {
     numberOfNonRevertiblePublicCallRequests: 0,
     numberOfRevertiblePublicCallRequests: 0,
     hasPublicTeardownCallRequest: false,
   });
   assert(!privateTx.data.forPublic);
-  privateTx.data.constants.txContext.gasSettings = GasSettings.fallback({
-    gasLimits: DEFAULT_GAS_LIMITS,
-    maxFeesPerGas: gasFees.clone(),
-  });
   return privateTx;
 };
 
 describe('gas limits validators', () => {
-  let gasFees: GasFees;
   let tx: Tx;
 
-  const setGasLimits = (tx: Tx, gasLimits: Gas) => {
-    tx.data.constants.txContext.gasSettings = GasSettings.fallback({ gasLimits, maxFeesPerGas: gasFees.clone() });
-  };
-
   beforeEach(async () => {
-    gasFees = new GasFees(11, 22);
     tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    setGasLimits(tx, DEFAULT_GAS_LIMITS);
   });
 
   describe('MinGasLimitsValidator', () => {
@@ -62,7 +54,7 @@ describe('gas limits validators', () => {
     });
 
     it('accepts private tx at exactly the minimum gas limits', async () => {
-      const privateTx = await makePrivateTx(gasFees);
+      const privateTx = await makePrivateTx();
       setGasLimits(privateTx, new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD));
       await expectValid(privateTx);
     });
@@ -74,7 +66,7 @@ describe('gas limits validators', () => {
     });
 
     it('rejects private tx below the private L2 gas minimum', async () => {
-      const privateTx = await makePrivateTx(gasFees);
+      const privateTx = await makePrivateTx();
       setGasLimits(privateTx, new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD - 1));
       await expectInvalid(privateTx);
     });
@@ -122,7 +114,7 @@ describe('gas limits validators', () => {
     });
 
     it('rejects private tx if L2 gas limit is too high', async () => {
-      const privateTx = await makePrivateTx(gasFees);
+      const privateTx = await makePrivateTx();
       setGasLimits(privateTx, new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS + 1));
       await expectInvalid(privateTx);
     });
@@ -134,14 +126,16 @@ describe('gas limits validators', () => {
     });
 
     describe('network admission limits (maxTxL2Gas, maxTxDAGas)', () => {
+      // Network limits are deployment config; any value below the protocol ceiling stands in for one here.
+      const maxTxL2Gas = Math.floor(MAX_PROCESSABLE_L2_GAS / 2);
+      const maxTxDAGas = Math.floor(MAX_TX_DA_GAS / 2);
+
       it('rejects tx exceeding maxTxL2Gas', async () => {
-        const maxTxL2Gas = 1_000_000;
         setGasLimits(tx, new Gas(MAX_TX_DA_GAS, maxTxL2Gas + 1));
         await expectInvalid(tx, new MaxGasLimitsValidator({ maxTxL2Gas }));
       });
 
       it('accepts tx at exactly maxTxL2Gas', async () => {
-        const maxTxL2Gas = 1_000_000;
         setGasLimits(tx, new Gas(MAX_TX_DA_GAS, maxTxL2Gas));
         await expectValid(tx, new MaxGasLimitsValidator({ maxTxL2Gas }));
       });
@@ -158,13 +152,11 @@ describe('gas limits validators', () => {
       });
 
       it('rejects tx exceeding maxTxDAGas', async () => {
-        const maxTxDAGas = 100_000;
         setGasLimits(tx, new Gas(maxTxDAGas + 1, PUBLIC_TX_L2_GAS_OVERHEAD));
         await expectInvalid(tx, new MaxGasLimitsValidator({ maxTxDAGas }));
       });
 
       it('accepts tx at exactly maxTxDAGas', async () => {
-        const maxTxDAGas = 100_000;
         setGasLimits(tx, new Gas(maxTxDAGas, PUBLIC_TX_L2_GAS_OVERHEAD));
         await expectValid(tx, new MaxGasLimitsValidator({ maxTxDAGas }));
       });
