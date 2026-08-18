@@ -17,6 +17,7 @@ import {
   type TopicValidatorResult,
   TypedEventEmitter,
 } from '@libp2p/interface';
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 
 import type { P2PConfig } from '../config.js';
 import type { MemPools } from '../mem_pools/interface.js';
@@ -308,4 +309,18 @@ export class MockGossipSubNetwork {
       }
     }
   }
+}
+
+/**
+ * Registers an extra peer on the mock gossip network that subscribes to nothing and drops every message
+ * delivered to it, and returns its peer id.
+ *
+ * Exists for single-node tests that run on a mock gossip bus: with a single member the node counts zero
+ * connected peers, and connectivity-gated behavior then kicks in even though the topology is intentional
+ * (the node rejects incoming txs since it has nobody to propagate them to, and a proposer under
+ * `minPeersToPropose` skips its slot). Registering one phantom peer keeps those gates satisfied.
+ */
+export async function registerPhantomGossipPeer(network: MockGossipSubNetwork): Promise<PeerId> {
+  const service = new MockGossipSubService(await createSecp256k1PeerId(), network);
+  return service.peerId;
 }

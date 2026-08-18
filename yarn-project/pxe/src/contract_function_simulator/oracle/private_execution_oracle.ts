@@ -661,14 +661,15 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await this.contractSyncService.ensureContractSynced(
-      targetContractAddress,
-      functionSelector,
-      this.utilityExecutor,
-      this.anchorBlockHeader,
-      this.jobId,
-      this.scopes,
-    );
+    await this.contractSyncService.ensureContractSynced({
+      contract: targetContractAddress,
+      functionToInvokeAfterSync: functionSelector,
+      utilityExecutor: this.utilityExecutor,
+      anchorBlockHeader: this.anchorBlockHeader,
+      jobId: this.jobId,
+      scopes: this.scopes,
+      triggeredBy: { address: this.callContext.contractAddress, selector: this.callContext.functionSelector },
+    });
 
     const targetArtifact = await this.anchoredContractData.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,

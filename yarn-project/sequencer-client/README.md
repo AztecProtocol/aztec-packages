@@ -261,6 +261,7 @@ The configuration object is `SequencerConfig` (`src/sequencer/config.ts` + `src/
 | `governanceProposerPayload` / `GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS` | unset | Payload signaled in the governance vote each slot. |
 | `secondsBeforeInvalidatingBlockAsCommitteeMember` | 144 | When *not* the proposer, committee members may invalidate a stuck checkpoint after this many seconds into the slot. |
 | `secondsBeforeInvalidatingBlockAsNonCommitteeMember` | 432 | Same for any node — last resort. |
+| `minPeersToPropose` / `SEQ_MIN_PEERS_TO_PROPOSE` | 1 | Minimum connected p2p peers required to build a checkpoint. Zero disables the check; ignored when p2p is disabled by config. |
 
 The full list (including test/fault-injection hooks like `pauseProposingForSlots` and `skipPublishingCheckpointsPercent`) lives in `src/config.ts`.
 
@@ -271,6 +272,7 @@ The full list (including test/fault-injection hooks like `pauseProposingForSlots
 - **Insufficient txs in a sub-slot**: `CheckpointBuilder.buildBlock` returns `insufficient-txs`. The sub-slot is skipped without committing state; the next sub-slot retries. On the last sub-slot, if `buildCheckpointIfEmpty` is true, the block is still built with whatever is available (possibly zero txs).
 - **Sub-slot deadline exceeded**: `CheckpointBuilder` enforces the deadline and stops executing further txs. The block is finalized with whatever fit.
 - **Build start deadline exceeded**: the work loop abandons the slot before building and marks it as attempted so the same checkpoint is not retried. Inside the job, sub-slot and attestation deadlines bound their own phases.
+- **No connected peers**: with p2p enabled and fewer than `minPeersToPropose` peers, the proposer skips building entirely (the proposal could never reach the committee, and a node with enough committee seats to self-attest would publish a checkpoint whose data was never gossiped). Governance/slashing votes and prune still go out, and the slot is marked as attempted.
 - **Pipelined parent fails on L1**: `waitForValidParentCheckpointOnL1` returns false. The whole proposal is discarded (`pipelined-checkpoint-discarded`), the parent is enqueued for invalidation, and the L1 submission for *this* checkpoint is not sent.
 - **L1 submission reverts or expires**: `checkpoint-publish-failed` is emitted with the individual action results so observability can break down which actions in the Multicall3 went through and which didn't.
 

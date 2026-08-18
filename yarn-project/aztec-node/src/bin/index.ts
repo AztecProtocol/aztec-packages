@@ -6,7 +6,11 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import { createLogger } from '@aztec/foundation/log';
 import { getRpcCorsAllowedOrigins } from '@aztec/stdlib/config';
-import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
+import {
+  getOtelJsonRpcDiagnosticsMiddleware,
+  getOtelJsonRpcPropagationMiddleware,
+  getOtelJsonRpcServerMetricsMiddleware,
+} from '@aztec/telemetry-client';
 
 import {
   type AztecNodeConfig,
@@ -47,14 +51,23 @@ async function main() {
   process.once('SIGTERM', shutdown);
 
   const services: NamespacedApiHandlers = {};
-  registerAztecNodeRpcHandlers(aztecNode, services);
+  registerAztecNodeRpcHandlers(aztecNode, services, undefined, {
+    p2pHealthMinPeers: aztecNodeConfig.p2pHealthMinPeers,
+  });
   const rpcServer = createNamespacedSafeJsonRpcServer(services, {
-    middlewares: [getOtelJsonRpcPropagationMiddleware()],
+    diagnostic: getOtelJsonRpcDiagnosticsMiddleware(),
+    middlewares: [getOtelJsonRpcServerMetricsMiddleware(), getOtelJsonRpcPropagationMiddleware()],
     maxBatchSize: aztecNodeConfig.rpcMaxBatchSize,
     maxBodySizeBytes: aztecNodeConfig.rpcMaxBodySize,
+    corsAllowedHeaders: aztecNodeConfig.rpcCorsAllowedHeaders ?? [],
     corsAllowedOrigins: getRpcCorsAllowedOrigins(aztecNodeConfig),
   });
-  await startHttpRpcServer(rpcServer, { port: +AZTEC_NODE_PORT, apiPrefix: API_PREFIX });
+  await startHttpRpcServer(rpcServer, {
+    port: +AZTEC_NODE_PORT,
+    apiPrefix: API_PREFIX,
+    keepAliveTimeoutMs: aztecNodeConfig.rpcHttpKeepAliveTimeoutMs,
+    headersTimeoutMs: aztecNodeConfig.rpcHttpHeadersTimeoutMs,
+  });
   logger.info(`Aztec Node JSON-RPC Server listening on port ${AZTEC_NODE_PORT}`);
 }
 

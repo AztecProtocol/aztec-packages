@@ -537,6 +537,27 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
+    // A proposal that cannot reach the committee is worse than not proposing: the slot is burned, and a
+    // node holding enough committee seats to reach quorum on its own would publish a checkpoint whose tx
+    // data was never gossiped to anyone, which is indistinguishable from data withholding. Skip building
+    // while peerless, but keep the vote/prune duties below. Only applies when p2p is enabled: setups that
+    // disable it (sandbox, single node, automine) legitimately propose with no peers.
+    const connectivity = await this.p2pClient.getP2PConnectivity();
+    const minPeersToPropose = this.config.minPeersToPropose;
+    if (connectivity.enabled && connectivity.connectedPeers < minPeersToPropose) {
+      this.log.warn(`Skipping checkpoint proposal for slot ${targetSlot} since we have too few connected peers`, {
+        targetSlot,
+        connectedPeers: connectivity.connectedPeers,
+        minPeersToPropose,
+      });
+      this.metrics.recordCheckpointPrecheckFailed('no_peers');
+      // Mark the slot as attempted so the gate is not re-evaluated on every tick within the slot. Vote-only
+      // actions still run: L1 duties (governance/slashing votes, prune) do not depend on gossip.
+      await this.tryVoteAndPruneWhenCannotBuild({ slot, targetSlot });
+      this.lastSlotForCheckpointProposalJob = targetSlot;
+      return undefined;
+    }
+
     // We are the proposer, the escape hatch is closed, and we have time before the build start deadline.
     // Now run the full sync check before building.
     const syncedTo = await this.checkSync({ ts, slot });

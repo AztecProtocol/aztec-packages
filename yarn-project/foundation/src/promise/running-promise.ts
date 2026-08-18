@@ -1,3 +1,4 @@
+import { InterruptError } from '../error/index.js';
 import { type Logger, createLogger } from '../log/pino-logger.js';
 import { InterruptibleSleep } from '../sleep/index.js';
 import { type PromiseWithResolvers, promiseWithResolvers } from './utils.js';
@@ -22,17 +23,16 @@ export function makeLoggingErrorHandler(
  * at a specified polling interval. It allows starting, stopping, and checking the status of the
  * internally managed promise. The class also supports interrupting the polling process when stopped.
  */
-export class RunningPromise<T = void> {
+export class RunningPromise {
   private running = false;
   private runningPromise = Promise.resolve();
   private interruptibleSleep = new InterruptibleSleep();
   private requested: PromiseWithResolvers<void> | undefined = undefined;
-  private requestedArg: T | undefined = undefined;
 
   public static readonly EXIT: typeof EXIT = EXIT;
 
   constructor(
-    private fn: (arg?: T) => void | Promise<void>,
+    private fn: () => void | Promise<void>,
     private logger = createLogger('running-promise'),
     private pollingIntervalMS = 10000,
     private handleError: ErrorHandler = makeLoggingErrorHandler(logger),
@@ -50,9 +50,10 @@ export class RunningPromise<T = void> {
 
     const poll = async () => {
       while (this.running) {
-        const hasRequested = this.requested !== undefined;
+        const requested = this.requested;
+        this.requested = undefined;
         try {
-          await this.fn(this.requestedArg);
+          await this.fn();
         } catch (err) {
           const code = await this.handleError(err);
           if (code === RunningPromise.EXIT) {
@@ -62,10 +63,8 @@ export class RunningPromise<T = void> {
         }
 
         // If an immediate run had been requested *before* the function started running, resolve the request.
-        if (hasRequested) {
-          this.requested!.resolve();
-          this.requested = undefined;
-          this.requestedArg = undefined;
+        if (requested) {
+          requested.resolve();
         }
 
         // If no immediate run was requested, sleep for the polling interval.
@@ -73,6 +72,12 @@ export class RunningPromise<T = void> {
           await this.interruptibleSleep.sleep(this.pollingIntervalMS);
         }
       }
+
+      // A trigger that arrived after the final pass started will never be served by any pass, so settle it as
+      // failed rather than leaving its caller waiting forever.
+      const unserved = this.requested;
+      this.requested = undefined;
+      unserved?.reject(new InterruptError('RunningPromise stopped before serving trigger'));
     };
     this.runningPromise = poll();
     return this;
@@ -101,21 +106,26 @@ export class RunningPromise<T = void> {
 
   /**
    * Triggers an immediate run of the function, bypassing the polling interval.
-   * If the function is currently running, it will be allowed to continue and then called again immediately.
+   *
+   * Resolves only after a complete run of the function that *started after* this call: a run already in flight is
+   * allowed to finish first, and the function is then called again. Concurrent callers coalesce onto a single such
+   * run. Rejects if the loop stops (via `stop()` or an error handler requesting exit) before that run happens.
+   *
+   * Calling this from inside the function itself and awaiting the result deadlocks, since the awaited run cannot
+   * start until the current one returns. That usage is not supported.
    */
-  public async trigger(arg?: T): Promise<void> {
+  public async trigger(): Promise<void> {
     if (!this.running) {
-      return this.fn(arg);
+      return this.fn();
     }
 
     let requested = this.requested;
     if (!requested) {
       requested = promiseWithResolvers<void>();
       this.requested = requested;
-      this.requestedArg = arg;
       this.interruptibleSleep.interrupt();
     }
-    await requested!.promise;
+    await requested.promise;
   }
 
   /**

@@ -17,6 +17,7 @@ import {
   parseWithOptionals,
   schemaHasMethod,
 } from '../../schemas/index.js';
+import { Timer } from '../../timer/index.js';
 import { jsonStringify } from '../convert.js';
 import { assert } from '../js_utils.js';
 
@@ -25,6 +26,8 @@ export type DiagnosticsData = {
   method: string;
   params: any[];
   headers: http.IncomingHttpHeaders;
+  requestValidationDurationMs?: number;
+  requestValidationSucceeded?: boolean;
 };
 
 export type DiagnosticsMiddleware = (ctx: DiagnosticsData, next: () => Promise<void>) => Promise<void>;
@@ -38,10 +41,13 @@ export type SafeJsonRpcServerConfig = {
   maxBodySizeBytes: string;
   /** Origins allowed to make credentialed cross-origin requests. An empty list preserves wildcard CORS. */
   corsAllowedOrigins?: string[];
+  /** Headers allowed in cross-origin requests. An empty list reflects the requested headers. */
+  corsAllowedHeaders?: string[];
 };
 
-type ResolvedSafeJsonRpcServerConfig = Omit<SafeJsonRpcServerConfig, 'corsAllowedOrigins'> & {
+type ResolvedSafeJsonRpcServerConfig = Omit<SafeJsonRpcServerConfig, 'corsAllowedOrigins' | 'corsAllowedHeaders'> & {
   corsAllowedOrigins: string[];
+  corsAllowedHeaders: string[];
 };
 
 const defaultServerConfig: ResolvedSafeJsonRpcServerConfig = {
@@ -49,6 +55,7 @@ const defaultServerConfig: ResolvedSafeJsonRpcServerConfig = {
   maxBatchSize: 100,
   maxBodySizeBytes: '1mb',
   corsAllowedOrigins: [],
+  corsAllowedHeaders: [],
 };
 
 function normalizeCorsOrigin(origin: string): string {
@@ -98,8 +105,16 @@ export class SafeJsonRpcServer {
     }
   }
 
+  /** Returns the status of this server, including per-component health when the health check reports it. */
+  public getStatus(): Promise<ServerStatus> {
+    return Promise.resolve(this.healthCheck()).then(result => {
+      const { healthy, details } = normalizeStatusCheckResult(result);
+      return { ok: healthy, ...details };
+    });
+  }
+
   public isHealthy(): boolean | Promise<boolean> {
-    return this.healthCheck();
+    return this.getStatus().then(status => status.ok);
   }
 
   /**
@@ -124,7 +139,7 @@ export class SafeJsonRpcServer {
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32700, message: `Parse error: ${err.message}` } };
         } else {
           ctx.status = 500;
-          ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32600, message: err.message ?? 'Internal error' } };
+          ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32603, message: err.message ?? 'Internal error' } };
         }
       }
     };
@@ -148,8 +163,10 @@ export class SafeJsonRpcServer {
 
     app.use(compress({ br: false }));
     app.use(jsonResponse);
+    const corsAllowedHeaders =
+      this.config.corsAllowedHeaders.length > 0 ? { allowHeaders: this.config.corsAllowedHeaders } : {};
     if (this.config.corsAllowedOrigins.length === 0) {
-      app.use(cors());
+      app.use(cors(corsAllowedHeaders));
     } else {
       const allowedOrigins = new Set(this.config.corsAllowedOrigins);
       const allowAnyOrigin = allowedOrigins.has('*');
@@ -172,6 +189,7 @@ export class SafeJsonRpcServer {
             return '';
           },
           credentials: true,
+          ...corsAllowedHeaders,
         }),
       );
     }
@@ -245,7 +263,7 @@ export class SafeJsonRpcServer {
       }
 
       this.log.warn(`Uncaught error executing request in batch: ${res.reason}.`);
-      return { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null };
+      return { jsonrpc: '2.0', error: { code: -32603, message: 'Internal error' }, id: null };
     });
   }
 
@@ -267,8 +285,12 @@ export class SafeJsonRpcServer {
         let result: any;
 
         if (this.diagnosticsMiddleware) {
-          await this.diagnosticsMiddleware({ id: id ?? null, method, params, headers }, async () => {
-            result = await this.proxy.call(method, params);
+          const diagnosticsData: DiagnosticsData = { id: id ?? null, method, params, headers };
+          await this.diagnosticsMiddleware(diagnosticsData, async () => {
+            result = await this.proxy.call(method, params, (durationMs, succeeded) => {
+              diagnosticsData.requestValidationDurationMs = durationMs;
+              diagnosticsData.requestValidationSucceeded = succeeded;
+            });
           });
         } else {
           result = await this.proxy.call(method, params);
@@ -345,11 +367,42 @@ export class SafeJsonRpcServer {
   }
 }
 
-export type StatusCheckFn = () => boolean | Promise<boolean>;
+/** Health of a single component, along with any details worth surfacing to whoever queries the status endpoint. */
+export type StatusCheckResult = {
+  /** Whether the component is healthy. */
+  healthy: boolean;
+  /** Component-specific information, reported next to the healthy flag. */
+  details?: object;
+};
+
+/** Health check for a component. Returning a plain boolean is shorthand for `{ healthy: <boolean> }`. */
+export type StatusCheckFn = () => boolean | StatusCheckResult | Promise<boolean | StatusCheckResult>;
+
+/** Health of a component as reported on the status endpoint: its healthy flag flattened with its details. */
+export type ComponentStatus = { healthy: boolean } & Record<string, unknown>;
+
+/** Status of a server as reported on the status endpoint. */
+export type ServerStatus = {
+  /** Whether every checked component reported healthy. */
+  ok: boolean;
+  /** Health of each component keyed by namespace, when the server has component-level health checks. */
+  components?: Record<string, ComponentStatus>;
+};
+
+/** Returns the status of a server. */
+export type ServerStatusFn = () => ServerStatus | Promise<ServerStatus>;
+
+function normalizeStatusCheckResult(result: boolean | StatusCheckResult): StatusCheckResult {
+  return typeof result === 'boolean' ? { healthy: result } : result;
+}
 
 interface Proxy {
   hasMethod(methodName: string): boolean;
-  call(methodName: string, jsonParams?: any[]): Promise<any>;
+  call(
+    methodName: string,
+    jsonParams?: any[],
+    onRequestValidated?: (durationMs: number, succeeded: boolean) => void,
+  ): Promise<any>;
 }
 
 /**
@@ -373,14 +426,26 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
    * @param jsonParams - The RPC parameters.
    * @returns The remote result.
    */
-  public async call(methodName: string, jsonParams: any[] = []) {
+  public async call(
+    methodName: string,
+    jsonParams: any[] = [],
+    onRequestValidated?: (durationMs: number, succeeded: boolean) => void,
+  ) {
     this.log.debug(format(`request`, methodName, jsonParams));
 
-    assert(Array.isArray(jsonParams), `Params to ${methodName} is not an array: ${jsonParams}`);
     assert(schemaHasMethod(this.schema, methodName), `Method ${methodName} not found in schema`);
     const method = this.handler[methodName as keyof T];
     assert(typeof method === 'function', `Method ${methodName} is not a function`);
-    const args = await parseWithOptionals(jsonParams, getSchemaParameters(this.schema[methodName]));
+    const validationTimer = new Timer();
+    let args: any[];
+    try {
+      assert(Array.isArray(jsonParams), `Params to ${methodName} is not an array: ${jsonParams}`);
+      args = await parseWithOptionals(jsonParams, getSchemaParameters(this.schema[methodName]));
+      onRequestValidated?.(validationTimer.ms(), true);
+    } catch (error) {
+      onRequestValidated?.(validationTimer.ms(), false);
+      throw error;
+    }
     const ret = await method.apply(this.handler, args);
     this.log.debug(format('response', methodName, ret));
     return ret;
@@ -400,12 +465,16 @@ class NamespacedSafeJsonProxy implements Proxy {
     }
   }
 
-  public call(namespacedMethodName: string, jsonParams: any[] = []) {
+  public call(
+    namespacedMethodName: string,
+    jsonParams: any[] = [],
+    onRequestValidated?: (durationMs: number, succeeded: boolean) => void,
+  ) {
     const [namespace, methodName] = namespacedMethodName.split('_', 2);
     assert(namespace && methodName, `Invalid namespaced method name: ${namespacedMethodName}`);
     const handler = this.proxies[namespace];
     assert(handler, `Namespace not found: ${namespace}`);
-    return handler.call(methodName, jsonParams);
+    return handler.call(methodName, jsonParams, onRequestValidated);
   }
 
   public hasMethod(namespacedMethodName: string): boolean {
@@ -424,23 +493,23 @@ export function makeHandler<T extends object>(handler: T, schema: ApiSchemaFor<T
 }
 
 function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Logger): StatusCheckFn {
-  return async () => {
+  return async (): Promise<StatusCheckResult> => {
     try {
-      const results = await Promise.all(
-        Object.entries(namedHandlers).map(async ([name, [, , healthCheck]]) => [
-          name,
-          healthCheck ? await healthCheck() : true,
-        ]),
+      const entries = await Promise.all(
+        Object.entries(namedHandlers).map(async ([name, [, , healthCheck]]): Promise<[string, ComponentStatus]> => {
+          const { healthy, details } = normalizeStatusCheckResult(healthCheck ? await healthCheck() : true);
+          return [name, { healthy, ...details }];
+        }),
       );
-      const failed = results.filter(([_, result]) => !result);
+      const components = Object.fromEntries(entries);
+      const failed = entries.filter(([, status]) => !status.healthy).map(([name]) => name);
       if (failed.length > 0) {
-        log?.warn(`Health check failed for ${failed.map(([name]) => name).join(', ')}`);
-        return false;
+        log?.warn(`Health check failed for ${failed.join(', ')}`, { components });
       }
-      return true;
+      return { healthy: failed.length === 0, details: { components } };
     } catch (err) {
       log?.error(`Error during health check`, err);
-      return false;
+      return { healthy: false };
     }
   };
 }
@@ -480,51 +549,67 @@ export function createSafeJsonRpcServer<T extends object = any>(
 }
 
 /**
- * Creates a router for handling a plain status request that will return 200 status when running.
- * @param getCurrentStatus - List of health check functions to run.
+ * Creates a router for handling a status request that returns a 200 status code when healthy and a 500 otherwise,
+ * along with the reported status as a JSON body.
+ * @param getCurrentStatus - Function returning the current status of the server.
  * @param apiPrefix - The prefix to use for all api requests
  * @returns - The router for handling status requests.
  */
-export function createStatusRouter(getCurrentStatus: StatusCheckFn, apiPrefix = '') {
+export function createStatusRouter(getCurrentStatus: ServerStatusFn, apiPrefix = '') {
   const router = new Router({ prefix: `${apiPrefix}` });
   router.get('/status', async (ctx: Koa.Context) => {
-    let ok: boolean;
+    let status: ServerStatus;
     try {
-      ok = (await getCurrentStatus()) === true;
+      status = await getCurrentStatus();
     } catch {
-      ok = false;
+      status = { ok: false };
     }
 
-    ctx.status = ok ? 200 : 500;
+    ctx.status = status.ok === true ? 200 : 500;
+    ctx.type = 'application/json';
+    ctx.body = status;
   });
   return router;
 }
 
 /**
  * Wraps a JsonRpcServer in a nodejs http server and starts it.
- * Installs a status router that calls to the isHealthy method to the server.
+ * Installs a status router that reports the status of the server, using its getStatus method when available so that
+ * per-component health is included, and falling back to isHealthy otherwise.
  * Returns once starts listening unless noWait is set.
  * @returns A running http server.
  */
 export async function startHttpRpcServer(
-  rpcServer: Pick<SafeJsonRpcServer, 'getApp' | 'isHealthy'>,
+  rpcServer: Pick<SafeJsonRpcServer, 'getApp' | 'isHealthy'> & Partial<Pick<SafeJsonRpcServer, 'getStatus'>>,
   options: {
     host?: string;
     port?: number | string;
     apiPrefix?: string;
     timeoutMs?: number;
+    keepAliveTimeoutMs?: number;
+    headersTimeoutMs?: number;
     noWait?: boolean;
   } = {},
 ): Promise<http.Server & { port: number }> {
   const app = rpcServer.getApp(options.apiPrefix);
 
-  const statusRouter = createStatusRouter(rpcServer.isHealthy.bind(rpcServer), options.apiPrefix);
+  const getStatus: ServerStatusFn = rpcServer.getStatus
+    ? rpcServer.getStatus.bind(rpcServer)
+    : async () => ({ ok: (await rpcServer.isHealthy()) === true });
+
+  const statusRouter = createStatusRouter(getStatus, options.apiPrefix);
   app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   const httpServer = http.createServer(app.callback());
   if (options.timeoutMs) {
     httpServer.timeout = options.timeoutMs;
+  }
+  if (options.keepAliveTimeoutMs !== undefined) {
+    httpServer.keepAliveTimeout = options.keepAliveTimeoutMs;
+  }
+  if (options.headersTimeoutMs !== undefined) {
+    httpServer.headersTimeout = options.headersTimeoutMs;
   }
 
   const { promise, resolve } = promiseWithResolvers<void>();

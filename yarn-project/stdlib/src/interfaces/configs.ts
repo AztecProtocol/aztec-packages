@@ -133,6 +133,11 @@ export interface SequencerConfig {
   skipBroadcastCheckpointProposal?: boolean;
   /** List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected. */
   pauseProposingForSlots?: SlotNumber[];
+  /**
+   * Minimum number of connected p2p peers required to build and propose a checkpoint. Zero disables the
+   * check. Ignored when p2p is disabled by config.
+   */
+  minPeersToPropose?: number;
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
@@ -186,6 +191,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     skipBroadcastProposals: z.boolean().optional(),
     skipBroadcastCheckpointProposal: z.boolean().optional(),
     pauseProposingForSlots: z.array(SlotNumberSchema).optional(),
+    minPeersToPropose: z.number().nonnegative().optional(),
   }),
 );
 
