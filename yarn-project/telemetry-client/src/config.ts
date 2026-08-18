@@ -19,6 +19,8 @@ export interface TelemetryClientConfig {
   otelIncludeMetrics: string[];
   otelMinTraceDurationMs: number;
   otelBspMaxQueueSize: number;
+  otelBspMaxExportBatchSize: number;
+  otelBspScheduleDelayMs: number;
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
@@ -67,7 +69,17 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   otelBspMaxQueueSize: {
     env: 'OTEL_BSP_MAX_QUEUE_SIZE',
     description: 'The maximum number of completed spans to queue before export.',
-    ...numberConfigHelper(16384),
+    ...numberConfigHelper(65536),
+  },
+  otelBspMaxExportBatchSize: {
+    env: 'OTEL_BSP_MAX_EXPORT_BATCH_SIZE',
+    description: 'The maximum number of spans to send to the collector in a single export.',
+    ...numberConfigHelper(4096),
+  },
+  otelBspScheduleDelayMs: {
+    env: 'OTEL_BSP_SCHEDULE_DELAY',
+    description: 'How long to wait before exporting a partially filled batch of spans, in milliseconds.',
+    ...numberConfigHelper(5000),
   },
   otelIncludeMetrics: {
     env: 'OTEL_INCLUDE_METRICS',

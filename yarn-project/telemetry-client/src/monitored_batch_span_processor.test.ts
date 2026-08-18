@@ -78,12 +78,16 @@ describe('MonitoredBatchSpanProcessor', () => {
   it('warns when the queue fills up', () => {
     const log = makeLog();
     const processor = new MonitoredBatchSpanProcessor(new CollectingSpanExporter(), log, {
-      maxQueueSize: 2,
+      maxQueueSize: 4,
+      maxExportBatchSize: 2,
       minTraceDurationMs: 0,
     });
 
-    processor.onEnd(makeSpan(1));
-    processor.onEnd(makeSpan(1));
+    // The SDK exports one batch at a time, and the in-flight flag only clears on a microtask, so the
+    // first two spans leave and the next four pile up behind them within this synchronous burst.
+    for (let i = 0; i < 6; i++) {
+      processor.onEnd(makeSpan(1));
+    }
     expect(log.warn).not.toHaveBeenCalled();
 
     processor.onEnd(makeSpan(1));
