@@ -197,7 +197,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
 
     context.halt();
 
-    // Such transactions should be filtered by GasTxValidator.
+    // Gas estimation deliberately declares limits above this ceiling; block building rejects them before execution.
     assert(
       context.getActualGasUsed().l2Gas <= MAX_PROCESSABLE_L2_GAS,
       `Transaction consumes ${context.getActualGasUsed().l2Gas} L2 gas, which exceeds the maximum processable gas of ${MAX_PROCESSABLE_L2_GAS}`,
