@@ -2555,7 +2555,7 @@ describe('Archiver Sync', () => {
       archiver.events.off(L2BlockSourceEvents.L2BlockSourceUpdated, updateSpy);
     });
 
-    it('emits a single aggregate event carrying fromTips, toTips and blocksAdded for a checkpoint sync', async () => {
+    it('emits a single aggregate event carrying fromTips and toTips for a checkpoint sync', async () => {
       const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
         l1BlockNumber: 70n,
         messagesL1BlockNumber: 60n,
@@ -2572,7 +2572,6 @@ describe('Archiver Sync', () => {
       expect(event.fromTips.proposed.number).toEqual(BlockNumber(0));
       expect(event.toTips.proposed.number).toEqual(lastBlock);
       expect(event.toTips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
-      expect(event.blocksAdded.map(b => b.number)).toEqual(cp1.blocks.map(b => b.number));
     });
 
     it('emits no aggregate event on a fully-synced no-op pass', async () => {
@@ -2613,18 +2612,15 @@ describe('Archiver Sync', () => {
       updateSpy.mockClear();
       await archiver.syncImmediate();
 
-      // The conflicting local blocks are pruned and replaced by the L1 chain. The aggregate event carries the
-      // newly-fetched L1 blocks (the prune itself is reflected by the moved tips, not by the delta).
+      // The conflicting local blocks are pruned and replaced by the L1 chain, which the single aggregate event
+      // reports through its moved tips.
       expect(updateSpy).toHaveBeenCalledTimes(1);
       const event = updateSpy.mock.calls[0][0] as L2BlockSourceUpdatedEvent;
-      expect(event.blocksAdded.map(b => b.number)).toEqual(
-        expect.arrayContaining(differentCp2.blocks.map(b => b.number)),
-      );
       expect(event.toTips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
       expect(event.toTips.proposed.number).toEqual(differentCp2.blocks.at(-1)!.number);
     }, 15_000);
 
-    it('emits an aggregate event with no blocks added when only the proven tip advances', async () => {
+    it('emits an aggregate event when only the proven tip advances', async () => {
       const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), { l1BlockNumber: 70n });
       fake.setL1BlockNumber(100n);
       await archiver.syncImmediate();
@@ -2640,7 +2636,6 @@ describe('Archiver Sync', () => {
       expect(updateSpy).toHaveBeenCalledTimes(1);
       const event = updateSpy.mock.calls[0][0] as L2BlockSourceUpdatedEvent;
       // No blocks were added; the event still fires because the proven tip moved (proposed/checkpointed unchanged).
-      expect(event.blocksAdded).toEqual([]);
       expect(event.fromTips.proven.checkpoint.number).toEqual(CheckpointNumber(0));
       expect(event.toTips.proven.checkpoint.number).toEqual(CheckpointNumber(1));
       expect(event.fromTips.proposed.number).toEqual(event.toTips.proposed.number);

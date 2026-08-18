@@ -103,11 +103,14 @@ export class ArchiverDataStoreUpdater {
     },
     evictProposedFrom?: CheckpointNumber,
   ): Promise<ReconcileCheckpointsResult> {
+    // These checkpoints are already on L1, so ingest tolerates an empty non-first block. The rule is enforced
+    // by proposers and attesters; rejecting an ingest would stall sync rather than undo the checkpoint.
+    const validateOpts = { rollupManaLimit: this.opts?.rollupManaLimit, allowEmptyNonFirstBlocks: true };
     for (const checkpoint of checkpoints) {
-      validateCheckpoint(checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
+      validateCheckpoint(checkpoint.checkpoint, validateOpts);
     }
     if (promoteProposed) {
-      validateCheckpoint(promoteProposed.checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
+      validateCheckpoint(promoteProposed.checkpoint.checkpoint, validateOpts);
     }
 
     const result = await this.stores.db.transactionAsync(async () => {

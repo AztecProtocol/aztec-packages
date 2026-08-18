@@ -1,12 +1,15 @@
+import http from 'http';
 import request from 'supertest';
 
 import { times } from '../../collection/array.js';
 import { TestNote, TestState, type TestStateApi, TestStateSchema } from '../fixtures/test_state.js';
 import {
+  type NamespacedApiHandlers,
   type SafeJsonRpcServer,
   createNamespacedSafeJsonRpcServer,
   createSafeJsonRpcServer,
   makeHandler,
+  startHttpRpcServer,
 } from './safe_json_rpc_server.js';
 
 const jsonrpc = '2.0';
@@ -111,6 +114,21 @@ describe('SafeJsonRpcServer', () => {
       expect(middlewareCalled).toBe(false);
     });
 
+    it('restricts preflight requests to configured headers', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        corsAllowedHeaders: ['content-type', 'x-api-key'],
+      });
+
+      const response = await request(server.getApp().callback())
+        .options('/')
+        .set('origin', 'https://app.example.com')
+        .set('access-control-request-method', 'POST')
+        .set('access-control-request-headers', 'content-type,x-api-key,x-unauthorized');
+
+      expect(response.status).toBe(204);
+      expect(response.headers['access-control-allow-headers']).toBe('content-type,x-api-key');
+    });
+
     it('reflects any request origin on preflight under the wildcard policy', async () => {
       server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
         corsAllowedOrigins: ['*'],
@@ -125,6 +143,30 @@ describe('SafeJsonRpcServer', () => {
       expect(response.status).toBe(204);
       expect(response.headers['access-control-allow-origin']).toBe('https://public-app.example.com');
       expect(response.headers['access-control-allow-credentials']).toBe('true');
+    });
+  });
+
+  describe('HTTP timeouts', () => {
+    beforeEach(() => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
+    });
+
+    it('preserves the Node.js defaults', async () => {
+      const defaultHttpServer = http.createServer();
+      await using httpServer = await startHttpRpcServer(server);
+
+      expect(httpServer.keepAliveTimeout).toBe(defaultHttpServer.keepAliveTimeout);
+      expect(httpServer.headersTimeout).toBe(defaultHttpServer.headersTimeout);
+    });
+
+    it('configures keep-alive and headers timeouts', async () => {
+      await using httpServer = await startHttpRpcServer(server, {
+        keepAliveTimeoutMs: 65_000,
+        headersTimeoutMs: 66_000,
+      });
+
+      expect(httpServer.keepAliveTimeout).toBe(65_000);
+      expect(httpServer.headersTimeout).toBe(66_000);
     });
   });
 
@@ -426,6 +468,69 @@ describe('SafeJsonRpcServer', () => {
     it('fails if no namespace is provided', async () => {
       const response = await send({ method: 'getNote', params: [1] });
       expectError(response, 400, 'Method not found: getNote');
+    });
+  });
+
+  describe('status', () => {
+    let httpServer: http.Server & { port: number };
+
+    const startServer = async (rpcServer: SafeJsonRpcServer) => {
+      httpServer = await startHttpRpcServer(rpcServer, { host: '127.0.0.1' });
+      return `http://127.0.0.1:${httpServer.port}`;
+    };
+
+    const startNamespacedServer = (handlers: NamespacedApiHandlers) =>
+      startServer(createNamespacedSafeJsonRpcServer(handlers));
+
+    afterEach(() => {
+      httpServer?.close();
+    });
+
+    it('returns 200 with per-component details when all components are healthy', async () => {
+      const url = await startNamespacedServer({
+        letters: [testState, TestStateSchema, () => ({ healthy: true, details: { connectedPeers: 3 } })],
+        numbers: [new TestState([new TestNote('1')]), TestStateSchema, () => true],
+      });
+
+      const response = await fetch(`${url}/status`);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('application/json');
+      await expect(response.json()).resolves.toEqual({
+        ok: true,
+        components: { letters: { healthy: true, connectedPeers: 3 }, numbers: { healthy: true } },
+      });
+    });
+
+    it('returns 500 with the failing component when a component is unhealthy', async () => {
+      const url = await startNamespacedServer({
+        letters: [testState, TestStateSchema, () => ({ healthy: false, details: { connectedPeers: 0 } })],
+        numbers: [new TestState([new TestNote('1')]), TestStateSchema, () => true],
+      });
+
+      const response = await fetch(`${url}/status`);
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toEqual({
+        ok: false,
+        components: { letters: { healthy: false, connectedPeers: 0 }, numbers: { healthy: true } },
+      });
+    });
+
+    it('returns 500 when a component health check returns false', async () => {
+      const url = await startNamespacedServer({
+        letters: [testState, TestStateSchema, () => false],
+      });
+
+      const response = await fetch(`${url}/status`);
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toEqual({ ok: false, components: { letters: { healthy: false } } });
+    });
+
+    it('returns 200 with no components for a server without health checks', async () => {
+      const url = await startServer(createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema));
+
+      const response = await fetch(`${url}/status`);
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ ok: true });
     });
   });
 });
