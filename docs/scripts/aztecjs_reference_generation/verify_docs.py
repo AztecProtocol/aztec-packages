@@ -85,39 +85,68 @@ class DocVerifier:
 
                 previous_level = current_level
 
+    # Headings the generator emits to group a class or interface's members. They sit at the same
+    # level as the export headings but describe no export of their own.
+    MEMBER_GROUP_HEADINGS = {'Constructor', 'Properties', 'Methods', 'Getters', 'Setters', 'Call Signatures'}
+
+    # Only these kinds are documented with a signature; a class, interface or constant has none.
+    KINDS_WITH_SIGNATURE = {'Function', 'Type Alias'}
+
     def check_section_structure(self):
         """Check that Type/Interface/Class sections have required subsections."""
         section_pattern = re.compile(r'^####\s+(.+)$')
-        type_label_pattern = re.compile(r'^\*\*Type:\*\*\s+(.+)$')
+        type_label_pattern = re.compile(r'^\*\*Type:\*\*\s*(.*)$')
         signature_pattern = re.compile(r'^\*\*Signature:\*\*')
 
         current_section = None
         current_line = 0
+        section_kind = ''
         has_type_label = False
         has_signature = False
+        in_code_block = False
+
+        def check_finished_section():
+            if not current_section:
+                return
+            if not has_type_label:
+                self.issues.append((current_line, 'WARNING', f'Section "{current_section}" missing **Type:** label'))
+            if section_kind in self.KINDS_WITH_SIGNATURE and not has_signature:
+                self.issues.append((current_line, 'INFO', f'Section "{current_section}" missing **Signature:**'))
 
         for i, line in enumerate(self.lines, start=1):
+            # A multi-line type is rendered inside a fence, so its contents are not labels.
+            if line.strip().startswith('```'):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
             # New H4 section (export)
             if section_pattern.match(line):
-                # Check previous section
-                if current_section:
-                    if not has_type_label:
-                        self.issues.append((current_line, 'WARNING', f'Section "{current_section}" missing **Type:** label'))
-                    if not has_signature:
-                        self.issues.append((current_line, 'INFO', f'Section "{current_section}" missing **Signature:**'))
+                check_finished_section()
 
-                current_section = section_pattern.match(line).group(1).strip()
+                heading = section_pattern.match(line).group(1).strip()
+                if heading in self.MEMBER_GROUP_HEADINGS:
+                    current_section = None
+                    continue
+
+                current_section = heading
                 current_line = i
+                section_kind = ''
                 has_type_label = False
                 has_signature = False
 
             # Check for type label
-            if type_label_pattern.match(line):
+            type_label_match = type_label_pattern.match(line)
+            if type_label_match:
+                if not has_type_label:
+                    section_kind = type_label_match.group(1).strip()
                 has_type_label = True
 
             # Check for signature
             if signature_pattern.match(line):
                 has_signature = True
+
+        check_finished_section()
 
     def check_empty_sections(self):
         """Check for empty parameter/returns sections."""
