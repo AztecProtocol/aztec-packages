@@ -435,7 +435,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         type: L2BlockSourceEvents.L2BlockSourceUpdated,
         fromTips,
         toTips,
-        blocksAdded,
       });
     }
   }

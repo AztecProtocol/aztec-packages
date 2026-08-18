@@ -8,7 +8,7 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import type { L2Tips } from '@aztec/stdlib/block';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, AztecNodeDebugApiSchema } from '@aztec/stdlib/interfaces/client';
-import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
+import { P2PApiSchema, type P2PConnectivity } from '@aztec/stdlib/interfaces/server';
 import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 
 import { registerAztecNodeRpcHandlers } from './register_node_rpc_handlers.js';
@@ -20,7 +20,9 @@ const GetChainTipsOnlySchema: ApiSchemaFor<GetChainTipsOnly> = {
   getChainTips: AztecNodeApiSchema.getChainTips,
 };
 
-const p2p = {};
+let connectivity: P2PConnectivity;
+
+const p2p = { getP2PConnectivity: () => Promise.resolve(connectivity) };
 
 const mockNode = {
   getP2P: () => p2p,
@@ -47,7 +49,8 @@ describe('registerAztecNodeRpcHandlers', () => {
 
     expect(services.aztec).toEqual([mockNode, AztecNodeApiSchema]);
     expect(services.node).toBe(services.aztec);
-    expect(services.p2p).toEqual([p2p, P2PApiSchema]);
+    expect(services.p2p[0]).toBe(p2p);
+    expect(services.p2p[1]).toBe(P2PApiSchema);
     expect(services.aztecDebug).toEqual([mockNode, AztecNodeDebugApiSchema]);
     expect(services.nodeDebug).toBe(services.aztecDebug);
     expect(adminServices.aztecAdmin).toEqual([mockNode, AztecNodeAdminApiSchema]);
@@ -61,6 +64,52 @@ describe('registerAztecNodeRpcHandlers', () => {
 
     expect(services.aztecDebug).toBeUndefined();
     expect(services.nodeDebug).toBeUndefined();
+  });
+
+  describe('p2p health check', () => {
+    const getP2PHealthCheck = (p2pHealthMinPeers?: number) => {
+      const services: NamespacedApiHandlers = {};
+      registerAztecNodeRpcHandlers(mockNode, services, undefined, { p2pHealthMinPeers });
+      const healthCheck = services.p2p[2];
+      expect(healthCheck).toBeDefined();
+      return healthCheck!;
+    };
+
+    it('reports connectivity and stays healthy with no peers by default', async () => {
+      connectivity = { enabled: true, connectedPeers: 0 };
+
+      await expect(getP2PHealthCheck()()).resolves.toEqual({
+        healthy: true,
+        details: { enabled: true, connectedPeers: 0 },
+      });
+    });
+
+    it('is unhealthy with fewer peers than the configured minimum', async () => {
+      connectivity = { enabled: true, connectedPeers: 0 };
+
+      await expect(getP2PHealthCheck(1)()).resolves.toEqual({
+        healthy: false,
+        details: { enabled: true, connectedPeers: 0 },
+      });
+    });
+
+    it('is healthy with at least the configured minimum of peers', async () => {
+      connectivity = { enabled: true, connectedPeers: 3 };
+
+      await expect(getP2PHealthCheck(3)()).resolves.toEqual({
+        healthy: true,
+        details: { enabled: true, connectedPeers: 3 },
+      });
+    });
+
+    it('is healthy when p2p is disabled regardless of the configured minimum', async () => {
+      connectivity = { enabled: false, connectedPeers: 0 };
+
+      await expect(getP2PHealthCheck(1)()).resolves.toEqual({
+        healthy: true,
+        details: { enabled: false, connectedPeers: 0 },
+      });
+    });
   });
 
   it('serves node_* methods as aliases of aztec_*', async () => {

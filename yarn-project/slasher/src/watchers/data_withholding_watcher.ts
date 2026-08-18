@@ -33,18 +33,24 @@ type DataWithholdingWatcherConfig = Pick<SlasherConfig, (typeof DataWithholdingW
  * The watcher ticks at quarter-eth-slot cadence (matching the Sentinel template). On boot it
  * floors processing at the current slot — restart-time gaps are accepted and not back-filled,
  * matching the Sentinel approach.
+ *
+ * Since the evidence for an offense is the absence of txs in the local pool, the probe is gated on
+ * p2p connectivity: while there are no connected peers, slots are skipped instead of probed, since
+ * missing txs then say nothing about the attesters. Nodes running with p2p disabled do not run this
+ * watcher at all.
  */
 export class DataWithholdingWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   private runningPromise: RunningPromise;
   private initialSlot: SlotNumber | undefined;
   private lastCheckedSlot: SlotNumber | undefined;
   private config: DataWithholdingWatcherConfig;
+  private gossipDegraded = false;
 
   constructor(
     private readonly epochCache: EpochCache,
     private readonly l2BlockSource: Pick<L2BlockSource, 'getCheckpoint' | 'getSyncedL2SlotNumber'>,
     private readonly txProvider: Pick<ITxProvider, 'hasTxs'>,
-    private readonly p2p: Pick<P2PApi, 'getCheckpointAttestationsForSlot'>,
+    private readonly p2p: Pick<P2PApi, 'getCheckpointAttestationsForSlot' | 'getP2PConnectivity'>,
     private readonly reexecutionTracker: Pick<CheckpointReexecutionTracker, 'getTxsCollectedRecord'>,
     private readonly signatureContext: CoordinationSignatureContext,
     config: DataWithholdingWatcherConfig,
@@ -99,6 +105,32 @@ export class DataWithholdingWatcher extends (EventEmitter as new () => WatcherEm
     const targetSlot = SlotNumber(currentSlot - tolerance - 1);
     if (targetSlot <= this.initialSlot) {
       return;
+    }
+
+    // Missing txs are only evidence of withholding if we could have received them. Slots probed
+    // while gossip is down are skipped for good rather than deferred: once peers return, txs from
+    // those checkpoints may already have been evicted from the pool as mined, so a late probe would
+    // still report them missing. An unknown must not turn into an offense. Note this deliberately
+    // ignores whether p2p is enabled: a node with no p2p stack sees even less than a peerless one.
+    const connectivity = await this.p2p.getP2PConnectivity();
+    if (connectivity.connectedPeers === 0) {
+      if (!this.gossipDegraded) {
+        this.gossipDegraded = true;
+        this.log.warn(`Skipping data-withholding checks while no peers are connected`, {
+          targetSlot,
+          lastCheckedSlot: this.lastCheckedSlot,
+        });
+      }
+      this.lastCheckedSlot = targetSlot;
+      return;
+    }
+
+    if (this.gossipDegraded) {
+      this.gossipDegraded = false;
+      this.log.info(`Resuming data-withholding checks now that peers are connected`, {
+        targetSlot,
+        connectedPeers: connectivity.connectedPeers,
+      });
     }
 
     const startSlot = this.lastCheckedSlot === undefined ? this.initialSlot : this.lastCheckedSlot;

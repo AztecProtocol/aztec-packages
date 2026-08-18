@@ -26,7 +26,7 @@ const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 // Resolving @aztec/* would make every inferred return type depend on which sibling packages the
 // environment has built, and a page generated against one build state silently differs from a page
 // generated against another. Types that cross a package boundary have to be annotated in the source.
-function hermeticCompilerHost(compilerOptions) {
+function relativeImportsOnlyHost(compilerOptions) {
   const host = ts.createCompilerHost(compilerOptions, true);
   host.resolveModuleNameLiterals = (literals, containingFile) =>
     literals.map(literal =>
@@ -352,7 +352,7 @@ class TypeScriptParser {
         }
       }
 
-      program = ts.createProgram([filePath], compilerOptions, hermeticCompilerHost(compilerOptions));
+      program = ts.createProgram([filePath], compilerOptions, relativeImportsOnlyHost(compilerOptions));
       this.typeChecker = program.getTypeChecker();
       // Use the source file from the program (required for type checking)
       sourceFile = program.getSourceFile(filePath);
@@ -612,7 +612,22 @@ class TypeScriptParser {
       for (const element of node.exportClause.elements) {
         const name = element.name.getText(sourceFile);
         const isTypeOnly = element.isTypeOnly || node.isTypeOnly;
-        const moduleSpecifier = node.moduleSpecifier ? node.moduleSpecifier.getText(sourceFile).replace(/['"]/g, '') : '';
+
+        // `export { foo }` with no `from` publishes a local declaration rather than re-exporting
+        // one, so there is no source module to send a reader to. Documenting it as a re-export
+        // would name an empty module and claim a type of `Re-export`.
+        if (!node.moduleSpecifier) {
+          exports.push({
+            kind: isTypeOnly ? 'type' : 'const',
+            name: name,
+            signature: isTypeOnly ? `export type { ${name} }` : `export { ${name} }`,
+            jsdoc: { description: '', tags: [] },
+            type: '',
+          });
+          continue;
+        }
+
+        const moduleSpecifier = node.moduleSpecifier.getText(sourceFile).replace(/['"]/g, '');
 
         // Create a simple re-export entry with improved documentation
         const description = isTypeOnly

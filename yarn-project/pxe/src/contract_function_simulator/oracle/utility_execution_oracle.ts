@@ -1070,14 +1070,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         }
       }
 
-      await this.contractSyncService.ensureContractSynced(
-        targetContractAddress,
-        functionSelector,
-        this.utilityExecutor,
-        this.anchorBlockHeader,
-        this.jobId,
-        this.scopes,
-      );
+      await this.contractSyncService.ensureContractSynced({
+        contract: targetContractAddress,
+        functionToInvokeAfterSync: functionSelector,
+        utilityExecutor: this.utilityExecutor,
+        anchorBlockHeader: this.anchorBlockHeader,
+        jobId: this.jobId,
+        scopes: this.scopes,
+        triggeredBy: { address: this.contractAddress, selector: this.callContext.functionSelector },
+      });
     }
 
     this.logger.debug(
