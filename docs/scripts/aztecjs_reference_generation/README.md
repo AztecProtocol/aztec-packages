@@ -60,13 +60,18 @@ The generated documentation follows this hierarchy:
 ```markdown
 ## Account                        # H2: Folder/Module
 ---
-### File: `account/account.ts`   # H3: File
+### `account/account.ts`          # H3: File
 #### AccountContract              # H4: Export (Class/Interface/Type)
 **Type:** Class
-##### constructor                 # H5: Member (Method/Property)
-##### Methods                     # H5: Subsection
-###### deploy                     # H6: Specific method
+#### Methods                      # H4: Member group
+##### createAuthWit               # H5: Member (Method/Property/Getter)
 ```
+
+Docusaurus derives a heading's anchor from every heading before it, so the table of contents can
+only be written once the body is known. `transform_to_markdown.py` renders every heading through
+`MarkdownGenerator.heading()`, which claims the anchor as the heading is emitted; one written as a
+plain string instead would misdirect table of contents links rather than break them. `generate()`
+raises if the rendered document and the claimed anchors disagree.
 
 ## Configuration
 

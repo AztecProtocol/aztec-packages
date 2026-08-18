@@ -612,7 +612,22 @@ class TypeScriptParser {
       for (const element of node.exportClause.elements) {
         const name = element.name.getText(sourceFile);
         const isTypeOnly = element.isTypeOnly || node.isTypeOnly;
-        const moduleSpecifier = node.moduleSpecifier ? node.moduleSpecifier.getText(sourceFile).replace(/['"]/g, '') : '';
+
+        // `export { foo }` with no `from` publishes a local declaration rather than re-exporting
+        // one, so there is no source module to send a reader to. Documenting it as a re-export
+        // would name an empty module and claim a type of `Re-export`.
+        if (!node.moduleSpecifier) {
+          exports.push({
+            kind: isTypeOnly ? 'type' : 'const',
+            name: name,
+            signature: isTypeOnly ? `export type { ${name} }` : `export { ${name} }`,
+            jsdoc: { description: '', tags: [] },
+            type: '',
+          });
+          continue;
+        }
+
+        const moduleSpecifier = node.moduleSpecifier.getText(sourceFile).replace(/['"]/g, '');
 
         // Create a simple re-export entry with improved documentation
         const description = isTypeOnly

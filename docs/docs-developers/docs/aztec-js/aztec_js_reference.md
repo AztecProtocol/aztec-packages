@@ -16,7 +16,7 @@ This is an auto-generated reference. For tutorials and guides, see the [Aztec.js
 
 *Package: @aztec/aztec.js*
 
-*Generated: 2026-08-18T11:28:21.967Z*
+*Generated: 2026-08-18T15:38:28.901Z*
 
 This document provides a comprehensive reference for all public APIs in the Aztec.js library.
 
@@ -26,7 +26,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
 
 - [Account](#account)
   - [AuthorizationProvider](#authorizationprovider)
-  - [Account](#account)
+  - [Account](#account-1)
   - [BaseAccount](#baseaccount)
   - [AccountContract](#accountcontract)
   - [getAccountContractAddress](#getaccountcontractaddress)
@@ -36,7 +36,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
   - [BaseContractInteraction](#basecontractinteraction)
   - [BatchCall](#batchcall)
   - [abiChecker](#abichecker)
-  - [Contract](#contract)
+  - [Contract](#contract-1)
   - [ContractMethod](#contractmethod)
   - [ContractStorageLayout](#contractstoragelayout)
   - [ContractBase](#contractbase)
@@ -99,7 +99,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
   - [L1FeeJuicePortalManager](#l1feejuiceportalmanager)
   - [L1ToL2TokenPortalManager](#l1tol2tokenportalmanager)
   - [L1TokenPortalManager](#l1tokenportalmanager)
-- [Fee](#fee)
+- [Fee](#fee-4)
   - [FeeJuicePaymentMethodWithClaim](#feejuicepaymentmethodwithclaim)
   - [FeePaymentMethod](#feepaymentmethod)
   - [PrivateFeePaymentMethod](#privatefeepaymentmethod)
@@ -179,7 +179,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
   - [ContractMetadata](#contractmetadata)
   - [ContractClassMetadata](#contractclassmetadata)
   - [ExecuteUtilityOptions](#executeutilityoptions)
-  - [Wallet](#wallet)
+  - [Wallet](#wallet-2)
   - [ExecutionPayloadSchema](#executionpayloadschema)
   - [GasSettingsOptionSchema](#gassettingsoptionschema)
   - [WaitOptsSchema](#waitoptsschema)
@@ -3957,6 +3957,8 @@ getGasSettings(): GasSettings | undefined
 
 **Type:** Class
 
+**Deprecated:** Is not supported on mainnet. Use FeeJuicePaymentMethodWithClaim or `SponsoredFeePaymentMethod` instead.
+
 Holds information about how the fee for a transaction is to be paid.
 
 **Implements:** `FeePaymentMethod`
@@ -4052,6 +4054,8 @@ getGasSettings(): GasSettings | undefined
 #### PublicFeePaymentMethod
 
 **Type:** Class
+
+**Deprecated:** Is not supported on mainnet. Use FeeJuicePaymentMethodWithClaim or `SponsoredFeePaymentMethod` instead.
 
 Holds information about how the fee for a transaction is to be paid.
 
@@ -7024,18 +7028,10 @@ batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResult
 
 **Type:** Constant
 
-This is re-exported from ``. See the source module for full documentation.
-
-**Value Type:** `Re-export`
-
 
 #### BatchedResultSchema
 
 **Type:** Constant
-
-This is re-exported from ``. See the source module for full documentation.
-
-**Value Type:** `Re-export`
 
 
 #### WalletSchema
