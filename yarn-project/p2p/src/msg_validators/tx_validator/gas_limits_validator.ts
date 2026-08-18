@@ -14,7 +14,10 @@ import {
   type TxValidator,
 } from '@aztec/stdlib/tx';
 
-/** Structural interface for types that carry gas limit data, used by {@link GasLimitsValidator}. */
+/**
+ * Structural interface for types that carry gas limit data, used by {@link MinGasLimitsValidator} and
+ * {@link MaxGasLimitsValidator}.
+ */
 export interface HasGasLimitData {
   txHash: { toString(): string };
   data: {
@@ -29,18 +32,67 @@ export interface HasGasLimitData {
 }
 
 /**
- * Validates that a transaction's gas limits are within acceptable bounds.
+ * Validates that a transaction declares at least the gas it is guaranteed to be charged.
  *
- * Rejects transactions whose gas limits fall below the fixed minimums (FIXED_DA_GAS,
- * FIXED_L2_GAS) or exceed the AVM's maximum processable L2 gas. This is a cheap,
- * stateless check that operates on gas settings alone.
+ * Rejects transactions whose gas limits fall below the fixed protocol overheads
+ * ({@link TX_DA_GAS_OVERHEAD} and {@link PRIVATE_TX_L2_GAS_OVERHEAD} / {@link PUBLIC_TX_L2_GAS_OVERHEAD}).
+ * This is a cheap, stateless check that operates on gas settings alone.
+ *
+ * The floor is a protocol property with no exemptions: a tx below it can never be mined, so every entry
+ * point applies it, including gas estimation.
  *
  * Generic over T so it can validate both full {@link Tx} objects and {@link TxMetaData}
  * (used during pending pool migration).
- *
- * Sole owner of declared gas-limit validation; factories include it explicitly wherever the check applies.
  */
-export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidator<T> {
+export class MinGasLimitsValidator<T extends HasGasLimitData> implements TxValidator<T> {
+  #log: Logger;
+
+  constructor(bindings?: LoggerBindings) {
+    this.#log = createLogger('sequencer:tx_validator:tx_gas', bindings);
+  }
+
+  validateTx(tx: T): Promise<TxValidationResult> {
+    return Promise.resolve(this.validateGasLimit(tx));
+  }
+
+  /** Checks gas limits are >= the fixed protocol overheads (L2 and DA). */
+  validateGasLimit(tx: T): TxValidationResult {
+    const gasLimits = tx.data.constants.txContext.gasSettings.gasLimits;
+    const minGasLimits = new Gas(
+      TX_DA_GAS_OVERHEAD,
+      tx.data.forPublic ? PUBLIC_TX_L2_GAS_OVERHEAD : PRIVATE_TX_L2_GAS_OVERHEAD,
+    );
+
+    if (minGasLimits.gtAny(gasLimits)) {
+      this.#log.verbose(`Rejecting transaction due to the gas limit(s) not being above the minimum gas limit`, {
+        gasLimits,
+        minGasLimits,
+      });
+      return {
+        result: 'invalid',
+        reason: [
+          `${TX_ERROR_INSUFFICIENT_GAS_LIMIT} (required=da:${minGasLimits.daGas},l2:${minGasLimits.l2Gas} got=da:${gasLimits.daGas},l2:${gasLimits.l2Gas})`,
+        ],
+      };
+    }
+
+    return { result: 'valid' };
+  }
+}
+
+/**
+ * Validates that a transaction does not declare more gas than it is allowed to.
+ *
+ * Rejects transactions whose gas limits exceed the per-tx protocol maxima, optionally tightened to the
+ * network admission limits. This is a cheap, stateless check that operates on gas settings alone.
+ *
+ * Unlike the floor, the ceiling is exempted on the gas estimation path, where limits are deliberately
+ * inflated past what the protocol allows (see {@link GasSettings.forEstimation}).
+ *
+ * Generic over T so it can validate both full {@link Tx} objects and {@link TxMetaData}
+ * (used during pending pool migration).
+ */
+export class MaxGasLimitsValidator<T extends HasGasLimitData> implements TxValidator<T> {
   #log: Logger;
   #effectiveMaxL2Gas: number;
   #effectiveMaxDAGas: number;
@@ -65,26 +117,9 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
     return Promise.resolve(this.validateGasLimit(tx));
   }
 
-  /** Checks gas limits are >= fixed minimums and <= effective max gas (L2 and DA). */
+  /** Checks gas limits are <= the effective max gas (L2 and DA). */
   validateGasLimit(tx: T): TxValidationResult {
     const gasLimits = tx.data.constants.txContext.gasSettings.gasLimits;
-    const minGasLimits = new Gas(
-      TX_DA_GAS_OVERHEAD,
-      tx.data.forPublic ? PUBLIC_TX_L2_GAS_OVERHEAD : PRIVATE_TX_L2_GAS_OVERHEAD,
-    );
-
-    if (minGasLimits.gtAny(gasLimits)) {
-      this.#log.verbose(`Rejecting transaction due to the gas limit(s) not being above the minimum gas limit`, {
-        gasLimits,
-        minGasLimits,
-      });
-      return {
-        result: 'invalid',
-        reason: [
-          `${TX_ERROR_INSUFFICIENT_GAS_LIMIT} (required=da:${minGasLimits.daGas},l2:${minGasLimits.l2Gas} got=da:${gasLimits.daGas},l2:${gasLimits.l2Gas})`,
-        ],
-      };
-    }
 
     if (gasLimits.l2Gas > this.#effectiveMaxL2Gas) {
       this.#log.verbose(`Rejecting transaction due to the L2 gas limit being higher than the effective maximum`, {

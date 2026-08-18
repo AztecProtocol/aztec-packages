@@ -315,7 +315,7 @@ export abstract class BaseWallet implements Wallet {
     } else {
       const maxTxGasLimits = await this.getMaxTxGasLimits();
       // If the caller declared explicit gas limits, reject them up front when they exceed the network's
-      // per-tx admission limit (mirroring the node's GasLimitsValidator). Otherwise fill in the limit.
+      // per-tx admission limit (mirroring the node's MaxGasLimitsValidator). Otherwise fill in the limit.
       if (gasSettingsOverrides.gasLimits) {
         assertGasLimitsWithinNetworkLimits(gasSettingsOverrides.gasLimits, maxTxGasLimits);
       }

@@ -81,8 +81,9 @@ export class MaxFeePerGasValidator<T extends HasMaxFeePerGasData> implements TxV
  *    adds any pending claim from a setup-phase `_increase_public_balance` call, and
  *    rejects if the total is less than the tx's fee limit (gasLimits * maxFeePerGas).
  *
- * Gas limits are deliberately not checked here: they are owned by {@link GasLimitsValidator}, which factories
- * include separately so that exemptions (e.g. gas estimation) don't change fee enforcement.
+ * Gas limits are deliberately not checked here: they are owned by {@link MinGasLimitsValidator} and
+ * {@link MaxGasLimitsValidator}, which factories include separately so that exemptions (e.g. gas estimation)
+ * don't change fee enforcement.
  *
  * Used by: gossip (stage 1), RPC, and block building validators.
  */
@@ -90,22 +91,22 @@ export class GasTxValidator implements TxValidator<Tx> {
   #log: Logger;
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
-  #gasFees: GasFees;
+  #maxFeePerGasValidator: MaxFeePerGasValidator<Tx>;
 
   constructor(
     publicDataSource: PublicStateSource,
     feeJuiceAddress: AztecAddress,
     gasFees: GasFees,
-    private bindings?: LoggerBindings,
+    bindings?: LoggerBindings,
   ) {
     this.#log = createLogger('sequencer:tx_validator:tx_gas', bindings);
     this.#publicDataSource = publicDataSource;
     this.#feeJuiceAddress = feeJuiceAddress;
-    this.#gasFees = gasFees;
+    this.#maxFeePerGasValidator = new MaxFeePerGasValidator(gasFees, bindings);
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
-    const maxFeeValidation = new MaxFeePerGasValidator(this.#gasFees, this.bindings).validateMaxFeePerGas(tx);
+    const maxFeeValidation = this.#maxFeePerGasValidator.validateMaxFeePerGas(tx);
     if (maxFeeValidation.result === 'invalid') {
       return maxFeeValidation;
     }

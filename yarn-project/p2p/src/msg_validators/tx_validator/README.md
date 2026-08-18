@@ -19,7 +19,7 @@ Unsolicited transactions from any peer. Fully validated in two stages with a poo
 
 | Step | What runs | On failure |
 |------|-----------|------------|
-| **Stage 1** (fast) | TxPermitted, Data, Metadata, Timestamp, DoubleSpend, GasLimits, Gas, Phases, BlockHeader | Penalize peer, reject tx |
+| **Stage 1** (fast) | TxPermitted, Data, Metadata, Timestamp, DoubleSpend, MinGasLimits, MaxGasLimits, Gas, Phases, BlockHeader | Penalize peer, reject tx |
 | **Pool pre-check** | `canAddPendingTx` — checks for duplicates, pool capacity | Ignore tx (no penalty) |
 | **Stage 2** (slow) | Proof verification | Penalize peer, reject tx |
 | **Pool add** | `addPendingTxs` | Accept, ignore, or reject |
@@ -34,7 +34,8 @@ Each stage-1 and stage-2 validator is paired with a `PeerErrorSeverity`. If a va
 Unsolicited transactions from a local wallet/PXE. Runs the full set of checks as a single aggregate validator:
 
 - TxPermitted, Size, Data, Metadata, Timestamp, DoubleSpend, Phases, BlockHeader
-- GasLimits (skipped for simulations — gas estimation submits limits above the per-tx maximum)
+- MinGasLimits
+- MaxGasLimits (skipped for simulations — gas estimation submits limits above the per-tx maximum)
 - Gas (optional — skipped when `skipFeeEnforcement` is set)
 - Proof verification (optional — skipped for simulations when no verifier is provided)
 
@@ -57,7 +58,7 @@ State-dependent checks are deferred to either the block building validator (for 
 Transactions already in the pool, about to be sequenced into a block. Re-validates against the current state of the block being built. **This is where invalid txs that entered via req/resp or block proposals are caught** — their invalidity is reported as part of block validation/attestation.
 
 Runs:
-- Timestamp, DoubleSpend, Phases, GasLimits, Gas, BlockHeader
+- Timestamp, DoubleSpend, Phases, MinGasLimits, MaxGasLimits, Gas, BlockHeader
 
 Does **not** run:
 - Proof, Data — already verified on entry (by gossip, RPC, or req/resp validators)
@@ -76,7 +77,7 @@ This validator is invoked on **every** transaction potentially entering the pend
 - Startup hydration — revalidating persisted non-mined txs on node restart
 
 Runs:
-- DoubleSpend, BlockHeader, GasLimits, MaxFeePerGas, Timestamp, AllowedSetupCalls
+- DoubleSpend, BlockHeader, MinGasLimits, MaxGasLimits, MaxFeePerGas, Timestamp, AllowedSetupCalls
 
 Operates on `TxMetaData` (pre-built by the pool) rather than full `Tx` objects.
 
@@ -93,7 +94,8 @@ The `AllowedSetupCallsMetaValidator` checks a precomputed boolean flag (`TxMetaD
 | `TimestampTxValidator` | Transaction has not expired (expiration timestamp vs next slot) | 1.56 us |
 | `DoubleSpendTxValidator` | Nullifiers do not already exist in the nullifier tree | 106.08 us |
 | `GasTxValidator` | Max fee per gas meets current block fees (delegates to `MaxFeePerGasValidator`), and fee payer has sufficient FeeJuice balance | 1.02 ms |
-| `GasLimitsValidator` | Gas limits are >= fixed minimums and <= AVM max processable L2 gas (optionally clamped further by network admission limits). Sole owner of declared gas-limit validation | 3–10 us |
+| `MinGasLimitsValidator` | Gas limits are >= the fixed protocol overheads. Applies on every entry point, with no exemptions | 3–10 us |
+| `MaxGasLimitsValidator` | Gas limits are <= AVM max processable L2 gas (optionally clamped further by network admission limits). Exempted on the gas estimation path | 3–10 us |
 | `MaxFeePerGasValidator` | Max fee per gas >= current block gas fees on both dimensions (DA and L2). Used standalone in pool migration; also called internally by `GasTxValidator` | 3–10 us |
 | `PhasesTxValidator` | Public function calls in setup phase are on the allow list | 10.12–13.12 us |
 | `AllowedSetupCallsMetaValidator` | Checks the precomputed `allowedSetupCalls` flag on `TxMetaData`. Used in pool migration instead of the full `PhasesTxValidator` | — |
@@ -111,18 +113,19 @@ The `AllowedSetupCallsMetaValidator` checks a precomputed boolean flag (`TxMetaD
 | Timestamp | Stage 1 | Yes | — | Yes | Yes |
 | DoubleSpend | Stage 1 | Yes | — | Yes | Yes |
 | Gas (fee balance) | Stage 1 | Optional* | — | Yes | — |
-| GasLimits | Stage 1 | Yes*** | — | Yes | Yes |
+| MinGasLimits | Stage 1 | Yes | — | Yes | Yes |
+| MaxGasLimits | Stage 1 | Yes*** | — | Yes | Yes |
 | MaxFeePerGas (standalone) | — | — | — | — | Yes |
 | Phases | Stage 1 | Yes | — | Yes | — |
 | AllowedSetupCalls | — | — | — | — | Yes |
 | BlockHeader | Stage 1 | Yes | — | Yes | Yes |
 | Proof | Stage 2 | Optional** | Yes | — | — |
 
-\* Gas balance check is skipped when `skipFeeEnforcement` is set (testing/dev). `GasTxValidator` internally delegates to `MaxFeePerGasValidator` as its first step, so fee-per-gas is checked wherever `GasTxValidator` runs. Pool migration uses `MaxFeePerGasValidator` standalone because it doesn't need the balance check. Declared gas-limit validation is owned solely by `GasLimitsValidator`.
+\* Gas balance check is skipped when `skipFeeEnforcement` is set (testing/dev). `GasTxValidator` internally delegates to `MaxFeePerGasValidator` as its first step, so fee-per-gas is checked wherever `GasTxValidator` runs. Pool migration uses `MaxFeePerGasValidator` standalone because it doesn't need the balance check. Declared gas-limit validation is owned solely by `MinGasLimitsValidator` and `MaxGasLimitsValidator`.
 \** Proof verification is skipped for simulations (no verifier provided).
-\*** Skipped for simulations: gas estimation submits limits above the per-tx maximum, and the wallet clamps the real tx to the admission limit afterward.
+\*** Only the ceiling is skipped for simulations: gas estimation submits limits above the per-tx maximum, and the wallet clamps the real tx to the admission limit afterward. The floor still applies, since a tx below it can never be mined.
 
-The gas-limit bounds `GasLimitsValidator` enforces here — the per-tx protocol maxima and the network admission limits — are documented in [`stdlib/src/gas/README.md`](../../../../stdlib/src/gas/README.md) under "Gas and Data Limits".
+The gas-limit bounds `MaxGasLimitsValidator` enforces here — the per-tx protocol maxima and the network admission limits — are documented in [`stdlib/src/gas/README.md`](../../../../stdlib/src/gas/README.md) under "Gas and Data Limits".
 
 ## Fee-Per-Gas Rejection Strategy
 

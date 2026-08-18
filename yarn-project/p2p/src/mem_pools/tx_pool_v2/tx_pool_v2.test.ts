@@ -32,7 +32,10 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AggregateTxValidator } from '../../msg_validators/tx_validator/aggregate_tx_validator.js';
-import { GasLimitsValidator } from '../../msg_validators/tx_validator/gas_limits_validator.js';
+import {
+  MaxGasLimitsValidator,
+  MinGasLimitsValidator,
+} from '../../msg_validators/tx_validator/gas_limits_validator.js';
 import { MaxFeePerGasValidator } from '../../msg_validators/tx_validator/gas_validator.js';
 import { AllowedSetupCallsMetaValidator } from '../../msg_validators/tx_validator/phases_validator.js';
 import type { TxMetaData } from './tx_metadata.js';
@@ -730,7 +733,13 @@ describe('TxPoolV2', () => {
       gasPool = new AztecKVTxPoolV2(gasStore, gasArchiveStore, {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        createTxValidator: () => Promise.resolve(new GasLimitsValidator<TxMetaData>()),
+        createTxValidator: () =>
+          Promise.resolve(
+            new AggregateTxValidator<TxMetaData>(
+              new MinGasLimitsValidator<TxMetaData>(),
+              new MaxGasLimitsValidator<TxMetaData>(),
+            ),
+          ),
         checkAllowedSetupCalls: () => Promise.resolve(true),
         blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       });

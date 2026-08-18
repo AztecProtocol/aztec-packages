@@ -10,7 +10,7 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
-import { type GlobalVariables, TX_ERROR_GAS_LIMIT_TOO_HIGH } from '@aztec/stdlib/tx';
+import { type GlobalVariables, TX_ERROR_GAS_LIMIT_TOO_HIGH, TX_ERROR_INSUFFICIENT_GAS_LIMIT } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -28,7 +28,7 @@ import {
   createTxValidatorForOnDemandReceivedTxs,
   createTxValidatorForTransactionsEnteringPendingTxPool,
 } from './factory.js';
-import { GasLimitsValidator } from './gas_limits_validator.js';
+import { MaxGasLimitsValidator, MinGasLimitsValidator } from './gas_limits_validator.js';
 import { GasTxValidator, MaxFeePerGasValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { AllowedSetupCallsMetaValidator, PhasesTxValidator } from './phases_validator.js';
@@ -86,7 +86,8 @@ describe('Validator factory functions', () => {
         'phasesValidator',
         'blockHeaderValidator',
         'doubleSpendValidator',
-        'gasLimitsValidator',
+        'minGasLimitsValidator',
+        'maxGasLimitsValidator',
         'gasValidator',
         'dataValidator',
         'contractInstanceValidator',
@@ -114,7 +115,7 @@ describe('Validator factory functions', () => {
       const tx = await mockPrivateTxWithGasSettings(
         GasSettings.fallback({ gasLimits: new Gas(MAX_TX_DA_GAS, maxTxL2Gas + 1), maxFeesPerGas: new GasFees(1, 1) }),
       );
-      const result = await validators.gasLimitsValidator.validator.validateTx(tx);
+      const result = await validators.maxGasLimitsValidator.validator.validateTx(tx);
       expect(result.result).toBe('invalid');
       expect((result as { reason: string[] }).reason[0]).toContain(TX_ERROR_GAS_LIMIT_TOO_HIGH);
     });
@@ -143,7 +144,7 @@ describe('Validator factory functions', () => {
           maxFeesPerGas: new GasFees(1, 1),
         }),
       );
-      const result = await validators.gasLimitsValidator.validator.validateTx(tx);
+      const result = await validators.maxGasLimitsValidator.validator.validateTx(tx);
       expect(result.result).toBe('invalid');
       expect((result as { reason: string[] }).reason[0]).toContain(TX_ERROR_GAS_LIMIT_TOO_HIGH);
     });
@@ -186,7 +187,8 @@ describe('Validator factory functions', () => {
       expect(validators.dataValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.metadataValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.doubleSpendValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
-      expect(validators.gasLimitsValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
+      expect(validators.minGasLimitsValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
+      expect(validators.maxGasLimitsValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.gasValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.phasesValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
     });
@@ -296,7 +298,8 @@ describe('Validator factory functions', () => {
         DoubleSpendTxValidator.name,
         DataTxValidator.name,
         ContractInstanceTxValidator.name,
-        GasLimitsValidator.name,
+        MinGasLimitsValidator.name,
+        MaxGasLimitsValidator.name,
         GasTxValidator.name,
         TxProofValidator.name,
       ]);
@@ -317,14 +320,15 @@ describe('Validator factory functions', () => {
       const aggregate = validator as AggregateTxValidator<unknown>;
       const names = getValidatorNames(aggregate);
       // Gas-limit validation is not fee enforcement, so it stays even with fees skipped.
-      expect(names).toContain(GasLimitsValidator.name);
+      expect(names).toContain(MinGasLimitsValidator.name);
+      expect(names).toContain(MaxGasLimitsValidator.name);
       expect(names).not.toContain(GasTxValidator.name);
       expect(names).toContain(TxProofValidator.name);
     });
 
-    it('excludes the gas-limits validator during simulation', () => {
-      // Gas estimation submits intentionally-inflated forEstimation limits, so gas-limit validation must not
-      // reject the estimation tx; the wallet clamps the real tx afterward.
+    it('excludes only the gas-limits ceiling during simulation', () => {
+      // Gas estimation submits intentionally-inflated forEstimation limits, so the ceiling must not reject the
+      // estimation tx; the wallet clamps the real tx afterward. The floor has no such exemption.
       const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
         l1ChainId: 1,
         rollupVersion: 2,
@@ -338,7 +342,9 @@ describe('Validator factory functions', () => {
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
-      expect(getValidatorNames(aggregate)).not.toContain(GasLimitsValidator.name);
+      const names = getValidatorNames(aggregate);
+      expect(names).not.toContain(MaxGasLimitsValidator.name);
+      expect(names).toContain(MinGasLimitsValidator.name);
     });
 
     describe('gas-limit validation', () => {
@@ -373,6 +379,38 @@ describe('Validator factory functions', () => {
           const result = await validator.validateTx(tx);
           const reasons = result.result === 'invalid' ? result.reason : [];
           expect(reasons.some(r => r.includes(TX_ERROR_GAS_LIMIT_TOO_HIGH))).toBe(rejected);
+        },
+      );
+
+      // Estimation only ever needs the ceiling exempted. The minimum is a protocol floor that the real tx can
+      // never satisfy, so a simulation that passes it would only fail again on sendTx.
+      it.each`
+        isSimulation | skipFeeEnforcement
+        ${false}     | ${false}
+        ${false}     | ${true}
+        ${true}      | ${false}
+        ${true}      | ${true}
+      `(
+        'isSimulation=$isSimulation, skipFeeEnforcement=$skipFeeEnforcement: under-minimum tx is rejected',
+        async ({ isSimulation, skipFeeEnforcement }) => {
+          db.findLeafIndices.mockResolvedValue([]);
+          const validator = createTxValidatorForAcceptingTxsOverRPC(db, contractSource, undefined, {
+            l1ChainId: 1,
+            rollupVersion: 2,
+            setupAllowList: [],
+            gasFees: new GasFees(1, 1),
+            skipFeeEnforcement,
+            isSimulation,
+            timestamp: 100n,
+            blockNumber: BlockNumber(5),
+            txsPermitted: true,
+          });
+          const tx = await mockPrivateTxWithGasSettings(
+            GasSettings.fallback({ gasLimits: Gas.empty(), maxFeesPerGas: new GasFees(1, 1) }),
+          );
+          const result = await validator.validateTx(tx);
+          const reasons = result.result === 'invalid' ? result.reason : [];
+          expect(reasons.some(r => r.includes(TX_ERROR_INSUFFICIENT_GAS_LIMIT))).toBe(true);
         },
       );
     });
@@ -416,7 +454,8 @@ describe('Validator factory functions', () => {
         PhasesTxValidator.name,
         BlockHeaderTxValidator.name,
         DoubleSpendTxValidator.name,
-        GasLimitsValidator.name,
+        MinGasLimitsValidator.name,
+        MaxGasLimitsValidator.name,
         GasTxValidator.name,
       ]);
     });
@@ -454,7 +493,8 @@ describe('Validator factory functions', () => {
 
       const aggregate = validator as AggregateTxValidator<unknown>;
       expect(getValidatorNames(aggregate)).toEqual([
-        GasLimitsValidator.name,
+        MinGasLimitsValidator.name,
+        MaxGasLimitsValidator.name,
         MaxFeePerGasValidator.name,
         TimestampTxValidator.name,
         DoubleSpendTxValidator.name,
