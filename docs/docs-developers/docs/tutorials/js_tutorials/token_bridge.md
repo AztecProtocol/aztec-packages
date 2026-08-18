@@ -437,15 +437,15 @@ To bridge, first approve the portal address to transfer the NFT, then transfer i
 
 #include_code deposit_to_aztec /docs/examples/ts/token_bridge/index.ts typescript
 
-The `Inbox` contract will emit an important log: `MessageSent(inProgress, index, leaf, updatedRollingHash);`. This log provides the **leaf index** of the message in the [L1-L2 Message Tree](../../foundational-topics/ethereum-aztec-messaging/index.md)—the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim and decrypt the message.
+The `Inbox` contract will emit an important log: `MessageSent(hash, inboxRollingHash, bucketSeq, message);`. The `message.index` field is the **leaf index** of the message in the [L1-L2 Message Tree](../../foundational-topics/ethereum-aztec-messaging/index.md)—the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim and decrypt the message.
 
 Use viem to extract this information:
 
 #include_code get_message_leaf_index /docs/examples/ts/token_bridge/index.ts typescript
 
-This extracts the logs from the deposit and retrieves the leaf index. You can now claim it on L2. However, for security reasons, at least 2 blocks must pass before a message can be claimed on L2. If you called `claim` on the L2 contract immediately, it would return "no message available".
+This extracts the logs from the deposit and retrieves the leaf index. You can now claim it on L2. However, a message can only be claimed once an L2 block includes it, and the network waits until the message is at least 12 seconds old before including it, so expect 12 to 30 seconds of latency. If you called `claim` on the L2 contract immediately, it would return "no message available".
 
-Add a utility function to mine two blocks (it deploys a contract with a random salt):
+On a local network blocks are only produced when transactions are submitted, so add a utility function that forces a couple of blocks (it deploys a contract with a random salt):
 
 #include_code mine_blocks /docs/examples/ts/token_bridge/index.ts typescript
 

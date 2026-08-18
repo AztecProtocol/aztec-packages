@@ -42,11 +42,12 @@ fn assert_prev_block_rollups_follow_on_from_each_other(
         "Mismatched timestamps: expected right.timestamp to match left.timestamp",
     );
 
-    // TODO: Consider extracting into its own function:
-
-    // A non-empty `in_hash` originates from the first block root only, and is propagated through all merge
-    // steps via the left rollup only (see merge_block_rollups.nr).
-    // We prevent the right rollup from propagating a nonzero `in_hash`, so it's impossible for any
-    // block but the first to propagate a nonzero `in_hash` up to the checkpoint root.
-    assert_eq(right.in_hash, 0, "Right rollup must not carry in_hash");
+    // The message sponge threads across the checkpoint's blocks: the right rollup must start from where the left rollup
+    // ended. Combined with the checkpoint root asserting the leftmost start is empty and the merged end matches the
+    // parity root's sponge, this pins the blocks to insert exactly the parity-committed message list, in order.
+    assert_eq(
+        right.start_msg_sponge,
+        left.end_msg_sponge,
+        "Mismatched message sponge: expected right.start_msg_sponge to match left.end_msg_sponge",
+    );
 }

@@ -7,7 +7,7 @@ import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/ty
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { compactArray, partition, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -30,7 +30,6 @@ import {
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
-import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telemetry-client';
 
@@ -431,16 +430,14 @@ export class ArchiverL1Synchronizer implements Traceable {
       return true;
     }
 
-    // Compare local message store state with the remote. If they match, we just advance the match pointer.
-    const remoteMessagesState = await this.inbox.getState({ blockNumber: currentL1BlockNumber });
+    // Compare local message store state with the remote. If they match, we just advance the match pointer. The
+    // remote state is the Inbox's live chain position (cumulative total and consensus rolling hash), read in a
+    // single atomic call.
+    const remoteState = await this.inbox.getState({ blockNumber: currentL1BlockNumber });
     const localLastMessage = await this.stores.messages.getLastMessage();
-    if (await this.localStateMatches(localLastMessage, remoteMessagesState)) {
+    if (await this.localStateMatches(localLastMessage, remoteState)) {
       this.log.trace(`Local L1 to L2 messages are already in sync with remote at L1 block ${currentL1BlockNumber}`);
-      await this.stores.messages.setMessageSyncState(
-        currentL1Block,
-        remoteMessagesState.treeInProgress,
-        finalizedL1Block,
-      );
+      await this.stores.messages.setMessageSyncState(currentL1Block, finalizedL1Block);
       return true;
     }
 
@@ -456,7 +453,7 @@ export class ArchiverL1Synchronizer implements Traceable {
           `Failed to store L1 to L2 messages retrieved from L1: ${error.message}. Rolling back syncpoint to retry.`,
           { inboxMessage: error.inboxMessage },
         );
-        await this.rollbackL1ToL2Messages(remoteMessagesState);
+        await this.rollbackL1ToL2Messages(remoteState);
         return false;
       }
       throw error;
@@ -466,36 +463,35 @@ export class ArchiverL1Synchronizer implements Traceable {
     // we'd notice by comparing our local state with the remote one again, and seeing they don't match even after
     // our sync attempt. In this case, we also rollback our syncpoint, and trigger a retry.
     const localLastMessageAfterSync = await this.stores.messages.getLastMessage();
-    if (!(await this.localStateMatches(localLastMessageAfterSync, remoteMessagesState))) {
+    if (!(await this.localStateMatches(localLastMessageAfterSync, remoteState))) {
       this.log.warn(
         `Local L1 to L2 messages state does not match remote after sync attempt. Rolling back syncpoint to retry.`,
-        { localLastMessageAfterSync, remoteMessagesState },
+        { localLastMessageAfterSync, remoteState },
       );
-      await this.rollbackL1ToL2Messages(remoteMessagesState);
+      await this.rollbackL1ToL2Messages(remoteState);
       return false;
     }
 
     // Advance the syncpoint after a successful sync
-    await this.stores.messages.setMessageSyncState(
-      currentL1Block,
-      remoteMessagesState.treeInProgress,
-      finalizedL1Block,
-    );
+    await this.stores.messages.setMessageSyncState(currentL1Block, finalizedL1Block);
     return true;
   }
 
-  /** Checks if the local rolling hash and message count matches the remote state */
+  /** Checks if the local consensus rolling hash and message count match the remote Inbox live state. */
   private async localStateMatches(localLastMessage: InboxMessage | undefined, remoteState: InboxContractState) {
     const localMessageCount = await this.stores.messages.getTotalL1ToL2MessageCount();
     this.log.trace(`Comparing local and remote inbox state`, { localMessageCount, localLastMessage, remoteState });
 
     return (
       remoteState.totalMessagesInserted === localMessageCount &&
-      remoteState.messagesRollingHash.equals(localLastMessage?.rollingHash ?? Buffer16.ZERO)
+      remoteState.rollingHash.equals(localLastMessage?.inboxRollingHash ?? Fr.ZERO)
     );
   }
 
-  /** Retrieves L1 to L2 messages from L1 in batches and stores them. */
+  /**
+   * Retrieves L1 to L2 messages from L1 in batches and stores them. Batches must span whole L1 blocks so that every
+   * message of an Inbox bucket is stored in a single call, which the message store requires.
+   */
   private async retrieveAndStoreMessages(fromL1Block: bigint, toL1Block: bigint): Promise<void> {
     let searchStartBlock: bigint = 0n;
     let searchEndBlock: bigint = fromL1Block;
@@ -508,7 +504,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       this.log.trace(`Retrieving L1 to L2 messages in L1 blocks ${searchStartBlock}-${searchEndBlock}`);
       const messages = await retrieveL1ToL2Messages(this.inbox, searchStartBlock, searchEndBlock);
       const timer = new Timer();
-      await this.stores.messages.addL1ToL2Messages(messages);
+      await this.stores.messages.addL1ToL2MessageBuckets(messages);
       const perMsg = timer.ms() / messages.length;
       this.instrumentation.processNewMessages(messages.length, perMsg);
       for (const msg of messages) {
@@ -519,10 +515,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     } while (searchEndBlock < toL1Block);
 
     if (messageCount > 0) {
-      this.log.info(
-        `Retrieved ${messageCount} new L1 to L2 messages up to message with index ${lastMessage?.index} for checkpoint ${lastMessage?.checkpointNumber}`,
-        { lastMessage, messageCount },
-      );
+      this.log.info(`Retrieved ${messageCount} new L1 to L2 messages up to message with index ${lastMessage?.index}`, {
+        lastMessage,
+        messageCount,
+      });
     }
   }
 
@@ -530,8 +526,8 @@ export class ArchiverL1Synchronizer implements Traceable {
    * Rolls back local L1 to L2 messages to the last common message with L1, and updates the syncpoint to the L1 block of that message.
    * If no common message is found, rolls back all messages and sets the syncpoint to the start block.
    */
-  private async rollbackL1ToL2Messages(remoteMessagesState: InboxContractState): Promise<L1BlockId> {
-    const { treeInProgress: remoteTreeInProgress, messagesRollingHash: remoteRollingHash } = remoteMessagesState;
+  private async rollbackL1ToL2Messages(remoteState: InboxContractState): Promise<L1BlockId> {
+    const remoteRollingHash = remoteState.rollingHash;
 
     const messagesFinalizedL1Block = await this.stores.messages.getMessagesFinalizedL1Block();
     const finalizedL1BlockNumber = messagesFinalizedL1Block?.l1BlockNumber;
@@ -543,12 +539,12 @@ export class ArchiverL1Synchronizer implements Traceable {
     let messagesToDelete = 0;
     this.log.verbose(`Searching most recent common L1 to L2 message`);
     for await (const localMsg of this.stores.messages.iterateL1ToL2Messages({ reverse: true })) {
-      const logCtx = { remoteMsg: undefined as InboxMessage | undefined, localMsg, remoteMessagesState };
+      const logCtx = { remoteMsg: undefined as InboxMessage | undefined, localMsg, remoteState };
 
       // First check if the local message rolling hash matches the current rolling hash of the inbox contract,
       // which means we just need to rollback some local messages and we should be back in sync. This means there
       // was an L1 reorg that removed some of the messages we had, but no new messages were added compared.
-      if (localMsg.rollingHash.equals(remoteRollingHash)) {
+      if (localMsg.inboxRollingHash.equals(remoteRollingHash)) {
         this.log.info(
           `Found common L1 to L2 message at index ${localMsg.index} on L1 block ${localMsg.l1BlockNumber} matching current remote state`,
           logCtx,
@@ -571,7 +567,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       // an archival rpc node, since the message could be from a long time ago if we're catching up with syncing.
       const remoteMsg = await retrieveL1ToL2Message(this.inbox, localMsg);
       logCtx.remoteMsg = remoteMsg;
-      if (remoteMsg && remoteMsg.rollingHash.equals(localMsg.rollingHash)) {
+      if (remoteMsg && remoteMsg.inboxRollingHash.equals(localMsg.inboxRollingHash)) {
         this.log.info(
           `Found most recent common L1 to L2 message at index ${localMsg.index} on L1 block ${localMsg.l1BlockNumber}`,
           logCtx,
@@ -613,10 +609,9 @@ export class ArchiverL1Synchronizer implements Traceable {
         : await this.getL1BlockHash(syncPointL1BlockNumber);
 
     const messagesSyncPoint = { l1BlockNumber: syncPointL1BlockNumber, l1BlockHash: syncPointL1BlockHash };
-    await this.stores.messages.setMessageSyncState(messagesSyncPoint, remoteTreeInProgress);
+    await this.stores.messages.setMessageSyncState(messagesSyncPoint);
     this.log.verbose(`Updated messages syncpoint to L1 block ${messagesSyncPoint.l1BlockNumber}`, {
       ...messagesSyncPoint,
-      remoteTreeInProgress,
     });
     return messagesSyncPoint;
   }
@@ -1012,25 +1007,6 @@ export class ArchiverL1Synchronizer implements Traceable {
       const validCheckpoints: PublishedCheckpoint[] = [];
       for (const calldataCheckpoint of checkpointsToIngest) {
         const published = publishedByNumber.get(calldataCheckpoint.checkpointNumber)!;
-
-        // Check the inHash of the checkpoint against the l1->l2 messages.
-        // The messages should've been synced up to the currentL1BlockNumber and must be available for the published
-        // checkpoints we just retrieved.
-        const l1ToL2Messages = await this.stores.messages.getL1ToL2Messages(published.checkpoint.number);
-        const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
-        const publishedInHash = published.checkpoint.header.inHash;
-        if (!computedInHash.equals(publishedInHash)) {
-          this.log.fatal(`Mismatch inHash for checkpoint ${published.checkpoint.number}`, {
-            checkpointHash: published.checkpoint.hash(),
-            l1BlockNumber: published.l1.blockNumber,
-            computedInHash,
-            publishedInHash,
-          });
-          // Throwing an error since this is most likely caused by a bug.
-          throw new Error(
-            `Mismatch inHash for checkpoint ${published.checkpoint.number}. Expected ${computedInHash} but got ${publishedInHash}`,
-          );
-        }
 
         validCheckpoints.push(published);
         this.log.debug(

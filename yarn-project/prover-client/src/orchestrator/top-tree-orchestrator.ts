@@ -19,6 +19,7 @@ import { MerkleTreeCalculator, type TreeNodeLocation, shaMerkleHash } from '@azt
 import type { EthAddress } from '@aztec/stdlib/block';
 import type { PublicInputsAndRecursiveProof, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import { computeCheckpointOutHash } from '@aztec/stdlib/messaging';
+import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import type { Proof } from '@aztec/stdlib/proofs';
 import {
   type BlockRollupPublicInputs,
@@ -32,19 +33,18 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { buildBlobHints, toProofData } from './block-building-helpers.js';
+import type { CheckpointSubTreeProofs } from './checkpoint-sub-tree-orchestrator.js';
 import { ProvingScheduler } from './proving-scheduler.js';
 import { TopTreeProvingState } from './top-tree-proving-state.js';
 
 /** Per-checkpoint data fed into the top tree. */
 export type CheckpointTopTreeData = {
   /**
-   * Block-rollup proof outputs from the checkpoint's sub-tree. Passed as a Promise so the
-   * top tree can start (compute hints, pipeline merges) while sub-trees are still proving.
-   * The promise resolves to 1 entry for a single-block checkpoint, 2 for multi-block.
+   * The checkpoint sub-tree's proofs. Passed as a Promise so the top tree can start (compute hints, pipeline merges)
+   * while sub-trees are still proving. `blockProofOutputs` resolves to 1 entry for a single-block checkpoint, 2 for
+   * multi-block; `inboxParityProof` feeds the checkpoint root rollup.
    */
-  blockProofs: Promise<
-    PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>[]
-  >;
+  subTreeProofs: Promise<CheckpointSubTreeProofs>;
   /** L2-to-L1 messages per block in the checkpoint, used to compute the out hash. */
   l2ToL1MsgsPerBlock: Fr[][][];
   /** Blob fields encoding the checkpoint's tx effects, used to compute the blob accumulator. */
@@ -84,7 +84,7 @@ type OutHashHint = {
  *
  * Pipelined start: `prove()` does not wait for block-level proving. It pre-computes the
  * out-hash and blob-accumulator hint chains immediately from archiver-derivable data,
- * and each checkpoint's root rollup fires the moment its sub-tree's `blockProofs`
+ * and each checkpoint's root rollup fires the moment its sub-tree's `subTreeProofs`
  * promise resolves. Later checkpoints can still be block-level proving in parallel.
  */
 export class TopTreeOrchestrator extends ProvingScheduler {
@@ -166,15 +166,16 @@ export class TopTreeOrchestrator extends ProvingScheduler {
     for (let i = 0; i < checkpointData.length; i++) {
       const cd = checkpointData[i];
       const checkpointIndex = i;
-      void cd.blockProofs.then(
-        blockProofs => {
+      void cd.subTreeProofs.then(
+        subTreeProofs => {
           if (this.cancelled || !this.state?.verifyState()) {
             return;
           }
           this.enqueueCheckpointRoot(
             this.state,
             checkpointIndex,
-            blockProofs,
+            subTreeProofs.blockProofOutputs,
+            subTreeProofs.inboxParityProof,
             cd,
             outHashHints[i],
             checkpointStartBlobs[i],
@@ -220,15 +221,22 @@ export class TopTreeOrchestrator extends ProvingScheduler {
   private enqueueCheckpointRoot(
     state: TopTreeProvingState,
     checkpointIndex: number,
-    blockProofs: PublicInputsAndRecursiveProof<
+    blockProofOutputs: PublicInputsAndRecursiveProof<
       BlockRollupPublicInputs,
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >[],
+    inboxParityProof: PublicInputsAndRecursiveProof<ParityPublicInputs>,
     cd: CheckpointTopTreeData,
     outHashHint: OutHashHint,
     startBlobAccumulator: BatchedBlobAccumulator,
   ) {
-    void this.buildCheckpointRootInputs(blockProofs, cd, outHashHint, startBlobAccumulator).then(
+    void this.buildCheckpointRootInputs(
+      blockProofOutputs,
+      inboxParityProof,
+      cd,
+      outHashHint,
+      startBlobAccumulator,
+    ).then(
       inputs => {
         this.deferredProving(
           state,
@@ -261,10 +269,11 @@ export class TopTreeOrchestrator extends ProvingScheduler {
   }
 
   private async buildCheckpointRootInputs(
-    blockProofs: PublicInputsAndRecursiveProof<
+    blockProofOutputs: PublicInputsAndRecursiveProof<
       BlockRollupPublicInputs,
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >[],
+    inboxParityProof: PublicInputsAndRecursiveProof<ParityPublicInputs>,
     cd: CheckpointTopTreeData,
     outHashHint: OutHashHint,
     startBlobAccumulator: BatchedBlobAccumulator,
@@ -283,10 +292,11 @@ export class TopTreeOrchestrator extends ProvingScheduler {
       blobsHash,
     });
 
-    const proofDatas = blockProofs.map(p => toProofData(p));
+    const inboxParity = toProofData(inboxParityProof);
+    const proofDatas = blockProofOutputs.map(p => toProofData(p));
     return proofDatas.length === 1
-      ? new CheckpointRootSingleBlockRollupPrivateInputs(proofDatas[0], hints)
-      : new CheckpointRootRollupPrivateInputs([proofDatas[0], proofDatas[1]], hints);
+      ? new CheckpointRootSingleBlockRollupPrivateInputs(proofDatas[0], inboxParity, hints)
+      : new CheckpointRootRollupPrivateInputs([proofDatas[0], proofDatas[1]], inboxParity, hints);
   }
 
   // --- internal: top-tree proof orchestration (formerly TopTreeProvingScheduler) ---

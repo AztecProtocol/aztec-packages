@@ -47,7 +47,6 @@ describe('multi-node/slashing/multiple_validators_sentinel', () => {
       minTxsPerBlock: 0,
       slashingRoundSizeInEpochs: 2,
       slashInactivityPenalty: 0n, // Set to 0 to disable
-      inboxLag: 2,
       initialValidators: buildMockGossipValidators(NUM_VALIDATORS),
     });
 

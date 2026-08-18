@@ -7,25 +7,22 @@ use crate::{
 };
 use types::{
     constants::{
-        BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+        BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
     },
     proof::proof_data::RollupHonkProofData,
 };
 
 // Note: see `rollup_structure_tests.nr` for valid combinations of left and right vks.
-global ALLOWED_RIGHT_ROLLUP_VK_INDICES: [u32; 3] =
-    [BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, BLOCK_MERGE_ROLLUP_VK_INDEX];
-
-global ALLOWED_LEFT_ROLLUP_VK_INDICES: [u32; 6] = ALLOWED_RIGHT_ROLLUP_VK_INDICES.concat([
-    // The first block roots may only appear as the left child of the block merge rollup.
-    // However, this doesn't prevent having 2 first block roots in the same checkpoint. We rely on the checks in
-    // `validate_consecutive_block_rollups` and `checkpoint_root_inputs_validator` to enforce this.
-    BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
-]);
+// Every block root variant handles both the first and the non-first position in a checkpoint, so the same set is
+// allowed on either side; what makes the leftmost block the checkpoint's first block are the start-value asserts in
+// `checkpoint_root_inputs_validator`.
+global ALLOWED_PREVIOUS_VK_INDICES: [u32; 4] = [
+    BLOCK_ROOT_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX,
+    BLOCK_MERGE_ROLLUP_VK_INDEX,
+];
 
 pub struct BlockMergeRollupPrivateInputs {
     pub(crate) previous_rollups: [RollupHonkProofData<BlockRollupPublicInputs>; 2],
@@ -41,7 +38,7 @@ pub struct BlockMergeRollupPrivateInputs {
 /// - Merges the state references (left's start with right's end)
 /// - Merges the sponge blobs (left's start with right's end)
 /// - Accumulates the block_headers_hash, out_hash, fees, and mana used
-/// - Propagates the in_hash from the left rollup (which must be a first block)
+/// - Threads the message sponge (left's start, right's end)
 ///
 /// The output feeds into another Block Merge circuit to continue building the tree,
 /// or into a Checkpoint Root circuit once all blocks in the checkpoint are combined.
@@ -58,11 +55,11 @@ pub fn execute(inputs: BlockMergeRollupPrivateInputs) -> BlockRollupPublicInputs
     let vk_tree_root = inputs.previous_rollups[0].public_inputs.constants.vk_tree_root;
     inputs.previous_rollups[0].vk_data.validate_allowed_in_vk_tree(
         vk_tree_root,
-        ALLOWED_LEFT_ROLLUP_VK_INDICES,
+        ALLOWED_PREVIOUS_VK_INDICES,
     );
     inputs.previous_rollups[1].vk_data.validate_allowed_in_vk_tree(
         vk_tree_root,
-        ALLOWED_RIGHT_ROLLUP_VK_INDICES,
+        ALLOWED_PREVIOUS_VK_INDICES,
     );
 
     // Validate the public inputs.

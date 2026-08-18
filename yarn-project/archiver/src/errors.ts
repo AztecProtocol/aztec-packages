@@ -102,17 +102,25 @@ export class BlockAlreadyCheckpointedError extends Error {
   }
 }
 
-/** Thrown when L1 to L2 messages are requested for a checkpoint whose message tree hasn't been sealed yet. */
-export class L1ToL2MessagesNotReadyError extends Error {
-  constructor(
-    public readonly checkpointNumber: number,
-    public readonly inboxTreeInProgress: bigint,
-  ) {
-    super(
-      `Cannot get L1 to L2 messages for checkpoint ${checkpointNumber}: ` +
-        `inbox tree in progress is ${inboxTreeInProgress}, messages not yet sealed`,
-    );
-    this.name = 'L1ToL2MessagesNotReadyError';
+/**
+ * Thrown when a query names an Inbox bucket this archiver has not synced. Distinguishes "not synced yet, retry once
+ * L1 sync catches up" from a genuinely empty result.
+ */
+export class InboxBucketNotSyncedError extends Error {
+  constructor(public readonly bucketSeq: bigint) {
+    super(`Inbox bucket ${bucketSeq} has not been synced`);
+    this.name = 'InboxBucketNotSyncedError';
+  }
+}
+
+/**
+ * Thrown when a cumulative Inbox message count does not resolve to a bucket boundary this archiver has synced, either
+ * because the count sits inside a bucket or because the bucket is not synced yet.
+ */
+export class InboxBucketBoundaryNotSyncedError extends Error {
+  constructor(public readonly totalMsgCount: bigint) {
+    super(`No synced Inbox bucket ends at cumulative message count ${totalMsgCount}`);
+    this.name = 'InboxBucketBoundaryNotSyncedError';
   }
 }
 

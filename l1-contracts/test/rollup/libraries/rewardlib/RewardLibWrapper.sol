@@ -91,7 +91,8 @@ contract RewardLibWrapper {
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
       TestConstants.AZTEC_EPOCH_DURATION,
-      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS,
+      TestConstants.ETHEREUM_SLOT_DURATION
     );
   }
 
@@ -116,7 +117,9 @@ contract RewardLibWrapper {
         attestationsHash: bytes32(0),
         payloadDigest: bytes32(0),
         slotNumber: Slot.wrap(0),
-        feeHeader: _feeHeader
+        feeHeader: _feeHeader,
+        inboxRollingHash: bytes32(0),
+        inboxMsgTotal: 0
       })
     );
   }

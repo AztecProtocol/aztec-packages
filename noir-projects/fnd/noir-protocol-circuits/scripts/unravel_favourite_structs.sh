@@ -56,11 +56,6 @@ append_line_break
 node scripts/unravel_struct.js target/rollup_tx_merge.json TxRollupPublicInputs >> "$FILE" 2>&1
 
 
-append_line_break "BLOCK ROOT FIRST"
-node scripts/unravel_struct.js target/rollup_block_root_first.json BlockRootFirstRollupPrivateInputs >> "$FILE" 2>&1
-append_line_break
-node scripts/unravel_struct.js target/rollup_block_root_first.json BlockRollupPublicInputs >> "$FILE" 2>&1
-
 append_line_break "BLOCK ROOT"
 node scripts/unravel_struct.js target/rollup_block_root.json BlockRootRollupPrivateInputs >> "$FILE" 2>&1
 append_line_break

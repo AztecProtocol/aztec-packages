@@ -139,20 +139,20 @@ run the generation commands above.
 
 Proof-length-affecting changes (e.g. `CHONK_PROOF_LENGTH` bumps from MegaFlavor entity additions) make the committed `Prover.toml` fixtures stale. `nargo execute --program-dir <crate>` then fails with `Type Array { length: N, typ: Field } is expected to have length N but value Vec(...)`.
 
-Regenerate via the e2e prover full test with fake proofs:
+Regeneration is split across two commands. The block-root, block-merge, checkpoint, tx-merge, and root rollup samples come from the prover-client suite, which drives the simulated orchestrator and needs no L1 sandbox:
+
+```bash
+AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test regenerate_rollup_sample_inputs
+```
+
+The private-kernel samples and the transaction-base rollup samples (`rollup-tx-base-private`, `rollup-tx-base-public`) need real client-proved transactions, so they come from the e2e prover full test with fake proofs:
 
 ```bash
 cd yarn-project
-AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test e2e_prover/full.test
+AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test single-node/prover/server/full.test
 ```
 
-`FAKE_PROOFS=1` skips real proving — runs in ~2 min (orchestrator + witness generation only). Writes 12 `Prover.toml` files under `noir-projects/fnd/noir-protocol-circuits/crates/<circuit>/Prover.toml`.
-
-For circuits not exercised by `full.test.ts` (`rollup-tx-merge`, `rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-merge`, `rollup-checkpoint-root`, `rollup-block-root-first-empty-tx`), additionally run:
-
-```bash
-AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test orchestrator_single_checkpoint
-```
+`FAKE_PROOFS=1` skips real proving. Both write into `noir-projects/fnd/noir-protocol-circuits/crates/<circuit>/Prover.toml`.
 
 Verify with `nargo execute --program-dir noir-projects/fnd/noir-protocol-circuits/crates/<crate>` for any previously-failing crate; should print `Circuit witness successfully solved`.
 

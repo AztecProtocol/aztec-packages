@@ -101,17 +101,16 @@ export type ClientCircuitName =
   | 'app-circuit';
 
 export type ServerCircuitName =
-  | 'parity-base'
-  | 'parity-root'
+  | 'inbox-parity-64'
+  | 'inbox-parity-256'
+  | 'inbox-parity-1024'
   | 'chonk-verifier-public'
   | 'rollup-tx-base-private'
   | 'rollup-tx-base-public'
   | 'rollup-tx-merge'
-  | 'rollup-block-root-first'
-  | 'rollup-block-root-first-single-tx'
-  | 'rollup-block-root-first-empty-tx'
   | 'rollup-block-root'
   | 'rollup-block-root-single-tx'
+  | 'rollup-block-root-no-txs'
   | 'rollup-block-merge'
   | 'rollup-checkpoint-root'
   | 'rollup-checkpoint-root-single-block'

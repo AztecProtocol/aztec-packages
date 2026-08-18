@@ -1,6 +1,4 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AvmSimulatorPool } from '@aztec/simulator/server';
 import type { BlockHash, L2Block } from '@aztec/stdlib/block';
@@ -35,10 +33,8 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   }
 
   public async handleL2Block(block: L2Block, l1ToL2Messages: Fr[] = []) {
-    await this.nativeWorldStateService.handleL2BlockAndMessages(
-      block,
-      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
-    );
+    // Append the block's real message leaves unpadded at compact indices.
+    await this.nativeWorldStateService.handleL2BlockAndMessages(block, l1ToL2Messages);
 
     this.blockNumber = block.header.globalVariables.blockNumber;
   }

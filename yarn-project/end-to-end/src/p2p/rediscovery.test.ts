@@ -33,7 +33,6 @@ describe('e2e_p2p_rediscovery', () => {
         aztecSlotDuration: 24,
         blockDurationMs: BLOCK_DURATION_MS,
         listenAddress: '127.0.0.1',
-        inboxLag: 2,
       },
     });
     await t.setup();

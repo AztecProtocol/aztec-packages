@@ -8,8 +8,9 @@ import { promises as fs } from 'fs';
 const log = createConsoleLogger('autogenerate');
 
 const circuits = [
-  'parity_base',
-  'parity_root',
+  'inbox_parity_64',
+  'inbox_parity_256',
+  'inbox_parity_1024',
   'private_kernel_init',
   'private_kernel_init_2',
   'private_kernel_init_3',
@@ -31,9 +32,7 @@ const circuits = [
   'rollup_tx_merge',
   'rollup_block_root',
   'rollup_block_root_single_tx',
-  'rollup_block_root_first',
-  'rollup_block_root_first_single_tx',
-  'rollup_block_root_first_empty_tx',
+  'rollup_block_root_no_txs',
   'rollup_block_merge',
   'rollup_checkpoint_root',
   'rollup_checkpoint_root_single_block',

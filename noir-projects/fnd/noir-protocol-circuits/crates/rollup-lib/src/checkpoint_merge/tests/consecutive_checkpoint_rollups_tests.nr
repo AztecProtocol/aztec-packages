@@ -238,6 +238,18 @@ fn non_consecutive_out_hash_next_available_leaf_indices() {
     builder.execute_and_fail();
 }
 
+// --- inbox rolling hash ---
+
+#[test(should_fail_with = "Mismatched inbox rolling hash: expected right.start to match left.end")]
+fn non_consecutive_inbox_rolling_hash() {
+    let mut builder = TestBuilder::default();
+
+    // Break the continuity of the rolling-hash chain between the two checkpoints.
+    builder.right_rollup.start_inbox_rolling_hash += 1;
+
+    builder.execute_and_fail();
+}
+
 // --- blob accumulators ---
 
 #[test(should_fail_with = "Mismatched blob accumulators: expected right.start_blob_accumulator to match left.end_blob_accumulator")]

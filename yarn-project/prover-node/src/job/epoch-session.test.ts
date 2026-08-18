@@ -282,20 +282,20 @@ describe('EpochSession', () => {
   // ---------------- checkpoint failure ----------------
 
   describe('checkpoint that fails to prove', () => {
-    it('ends the session in "stopped" (not "failed") when a checkpoint\'s blockProofs reject', async () => {
+    it('ends the session in "stopped" (not "failed") when a checkpoint\'s subTreeProofs reject', async () => {
       // Build a prover whose block-rollup proofs are guaranteed to reject — this mirrors
       // the production path where CheckpointProver.executeCheckpoint catches an internal
-      // error (e.g. a data-plane reorg fork fault) and rejects its blockProofs promise.
+      // error (e.g. a data-plane reorg fork fault) and rejects its subTreeProofs promise.
       // The session must NOT declare the epoch failed: it ends in the non-declaring terminal
       // 'stopped', leaving the reconciler free to rebuild it over current canonical content.
-      const failingProver = makeStubProver(cp, { blockProofsError: new Error('block 7 proving failed') });
+      const failingProver = makeStubProver(cp, { subTreeProofsError: new Error('block 7 proving failed') });
       const session = new EpochSession(
         makeSpec(),
         [failingProver],
         makeDeps({
           // Override mirrors what the real topTree.prove(...) does: awaits each prover's
-          // blockProofs and propagates the rejection up.
-          hooks: { topTreeProveOverride: () => failingProver.whenBlockProofsReady().then(() => synthProof) },
+          // subTreeProofs and propagates the rejection up.
+          hooks: { topTreeProveOverride: () => failingProver.whenSubTreeProofsReady().then(() => synthProof) },
         }),
       );
       const state = await session.start();
@@ -308,12 +308,12 @@ describe('EpochSession', () => {
     });
 
     it('whenDone resolves to "stopped" so callers observing the lifecycle agree with the return value', async () => {
-      const failingProver = makeStubProver(cp, { blockProofsError: new Error('boom') });
+      const failingProver = makeStubProver(cp, { subTreeProofsError: new Error('boom') });
       const session = new EpochSession(
         makeSpec(),
         [failingProver],
         makeDeps({
-          hooks: { topTreeProveOverride: () => failingProver.whenBlockProofsReady().then(() => synthProof) },
+          hooks: { topTreeProveOverride: () => failingProver.whenSubTreeProofsReady().then(() => synthProof) },
         }),
       );
       const startResult = session.start();
@@ -322,12 +322,12 @@ describe('EpochSession', () => {
     });
 
     it('ends the session in "stopped" (not "failed") when a prover was cancelled by a prune (isCancelled, not isFailed)', async () => {
-      // A control-plane prune cancels the prover: its blockProofs reject with "cancelled" and it reports
+      // A control-plane prune cancels the prover: its subTreeProofs reject with "cancelled" and it reports
       // isCancelled()===true / isFailed()===false. If that rejection reaches start()'s catch before the
       // reconcile marks the session 'cancelled', it must NOT be classified 'failed' (which would trigger a
       // spurious full-snapshot upload) — a cancelled prover is prune-ambiguous, so classify 'stopped'.
       const cancelledProver = makeStubProver(cp, {
-        blockProofsError: new Error('Checkpoint cancelled'),
+        subTreeProofsError: new Error('Checkpoint cancelled'),
         isFailed: false,
         isCancelled: true,
       });
@@ -335,7 +335,7 @@ describe('EpochSession', () => {
         makeSpec(),
         [cancelledProver],
         makeDeps({
-          hooks: { topTreeProveOverride: () => cancelledProver.whenBlockProofsReady().then(() => synthProof) },
+          hooks: { topTreeProveOverride: () => cancelledProver.whenSubTreeProofsReady().then(() => synthProof) },
         }),
       );
       const state = await session.start();
@@ -465,24 +465,24 @@ class TestEpochSession extends EpochSession {
  * Minimal CheckpointProver-shaped stub: provides everything the TopTreeJob and EpochSession
  * read off a prover, without standing up the actual eager gather/sub-tree pipeline.
  *
- * Pass `blockProofsError` to simulate a checkpoint that fails to prove — its
- * `whenBlockProofsReady()` will reject with the supplied error, mirroring the production
+ * Pass `subTreeProofsError` to simulate a checkpoint that fails to prove — its
+ * `whenSubTreeProofsReady()` will reject with the supplied error, mirroring the production
  * path where CheckpointProver.executeCheckpoint catches an internal failure and rejects
- * its blockProofs promise.
+ * its subTreeProofs promise.
  */
 function makeStubProver(
   checkpoint: Checkpoint,
-  opts: { blockProofsError?: Error; isFailed?: boolean; isCancelled?: boolean } = {},
+  opts: { subTreeProofsError?: Error; isFailed?: boolean; isCancelled?: boolean } = {},
 ): CheckpointProver {
   const id = CheckpointProver.idFor(checkpoint);
-  // By default whenBlockProofsReady never resolves in these tests; the prove override
+  // By default whenSubTreeProofsReady never resolves in these tests; the prove override
   // bypasses any path that would actually await it.
-  const blockProofs: Promise<never> = opts.blockProofsError
-    ? Promise.reject(opts.blockProofsError)
+  const subTreeProofs: Promise<never> = opts.subTreeProofsError
+    ? Promise.reject(opts.subTreeProofsError)
     : new Promise(() => {});
   // Suppress unhandled-rejection noise — tests that need the rejection observe it
   // explicitly via the proveOverride hook.
-  blockProofs.catch(() => {});
+  subTreeProofs.catch(() => {});
   return {
     id,
     checkpoint,
@@ -493,11 +493,11 @@ function makeStubProver(
     l1ToL2Messages: [],
     previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
     txs: new Map(),
-    whenBlockProofsReady: () => blockProofs,
+    whenSubTreeProofsReady: () => subTreeProofs,
     isCancelled: () => opts.isCancelled ?? false,
-    // A prover configured with a blockProofsError is one whose block proofs rejected — i.e. failed,
+    // A prover configured with a subTreeProofsError is one whose sub-tree proofs rejected — i.e. failed,
     // unless the caller decouples the two (e.g. to model a cancelled-but-not-failed prune).
-    isFailed: () => opts.isFailed ?? opts.blockProofsError !== undefined,
+    isFailed: () => opts.isFailed ?? opts.subTreeProofsError !== undefined,
     cancel: () => {},
     whenDone: () => Promise.resolve(),
     getAbortSignal: () => new AbortController().signal,

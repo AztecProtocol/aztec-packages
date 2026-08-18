@@ -37,8 +37,7 @@ describe('computeNetworkTxGasLimits', () => {
           DA_GAS_PER_FIELD,
       );
       const firstBlockBlobFieldCap = Math.ceil(
-        ((BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS - getNumBlockEndBlobFields(true)) /
-          b) *
+        ((BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS - getNumBlockEndBlobFields()) / b) *
           MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER,
       );
       expect(admittedBlobFields).toBeLessThanOrEqual(firstBlockBlobFieldCap);

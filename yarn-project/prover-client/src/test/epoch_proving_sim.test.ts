@@ -1,5 +1,4 @@
 import { PROOF_DELAY_MS, WITGEN_DELAY_MS } from '@aztec/bb-prover/test';
-import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
 import { insertIntoSortedArray } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
@@ -10,11 +9,9 @@ import { ProvingRequestType } from '@aztec/stdlib/proofs';
  */
 const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.ROOT_ROLLUP,
-  ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP,
-  ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP,
-  ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP,
   ProvingRequestType.BLOCK_MERGE_ROLLUP,
   ProvingRequestType.CHECKPOINT_ROOT_ROLLUP,
   ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP,
@@ -25,8 +22,7 @@ const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
   ProvingRequestType.PUBLIC_VM,
   ProvingRequestType.PUBLIC_CHONK_VERIFIER,
-  ProvingRequestType.PARITY_ROOT,
-  ProvingRequestType.PARITY_BASE, // Lowest priority
+  ProvingRequestType.INBOX_PARITY, // Lowest priority
 ];
 
 // Job represents a proving task with its hierarchical context
@@ -66,9 +62,8 @@ type TestConfig = {
 
 // State tracking for dependency resolution
 type SimState = {
-  // Parity tracking (per checkpoint, first block only)
-  baseParityComplete: Map<number, number>;
-  rootParityComplete: Map<number, boolean>;
+  // Parity tracking: one InboxParity proof per checkpoint, gating the first block root.
+  inboxParityComplete: Map<number, boolean>;
 
   // Public tx dependency tracking (aggregate per block)
   // Key format: "checkpoint-block"
@@ -201,19 +196,14 @@ function getJobDuration(job: Job): number {
   return WITGEN_DELAY_MS[job.type] + PROOF_DELAY_MS[job.type];
 }
 
-function getBlockRootType(isFirst: boolean, txCount: number): ProvingRequestType {
+function getBlockRootType(txCount: number): ProvingRequestType {
   if (txCount === 0) {
-    if (!isFirst) {
-      throw new Error('Non-first empty blocks should have been rejected during initialization');
-    }
-    return ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP;
+    return ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP;
   }
   if (txCount === 1) {
-    return isFirst
-      ? ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP
-      : ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP;
+    return ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP;
   }
-  return isFirst ? ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP : ProvingRequestType.BLOCK_ROOT_ROLLUP;
+  return ProvingRequestType.BLOCK_ROOT_ROLLUP;
 }
 
 function getCheckpointRootType(blockCount: number): ProvingRequestType {
@@ -243,8 +233,7 @@ function getBlockTxCount(block: Block): { privateTxs: number; publicTxs: number;
 
 function initializeState(checkpoints: Checkpoint[]): SimState {
   const state: SimState = {
-    baseParityComplete: new Map(),
-    rootParityComplete: new Map(),
+    inboxParityComplete: new Map(),
     vmComplete: new Map(),
     chonkComplete: new Map(),
     publicBaseEnqueued: new Map(),
@@ -267,8 +256,7 @@ function initializeState(checkpoints: Checkpoint[]): SimState {
   for (let cp = 1; cp <= checkpoints.length; cp++) {
     const blocks = checkpoints[cp - 1];
     state.blocksPerCheckpoint.set(cp, blocks.length);
-    state.baseParityComplete.set(cp, 0);
-    state.rootParityComplete.set(cp, false);
+    state.inboxParityComplete.set(cp, false);
     state.blockRootComplete.set(cp, false);
     state.checkpointRootComplete.set(cp, false);
 
@@ -300,10 +288,8 @@ function fillQueue(queues: Queues, checkpoints: Checkpoint[]): void {
   for (let cp = 1; cp <= checkpoints.length; cp++) {
     const blocks = checkpoints[cp - 1];
 
-    // assume every checkpoint includes cross-chain messages
-    queues[ProvingRequestType.PARITY_BASE].push(
-      ...times(NUM_BASE_PARITY_PER_ROOT_PARITY, () => createJob(cp, 1, ProvingRequestType.PARITY_BASE)),
-    );
+    // assume every checkpoint includes cross-chain messages: one InboxParity proof per checkpoint
+    queues[ProvingRequestType.INBOX_PARITY].push(createJob(cp, 1, ProvingRequestType.INBOX_PARITY));
 
     for (let b = 1; b <= blocks.length; b++) {
       const block = blocks[b - 1];
@@ -335,18 +321,8 @@ function enqueueDependentJobs(job: Job, state: SimState, queues: Queues, checkpo
   const key = blockKey(checkpoint, block);
 
   switch (type) {
-    case ProvingRequestType.PARITY_BASE: {
-      const count = (state.baseParityComplete.get(checkpoint) ?? 0) + 1;
-      state.baseParityComplete.set(checkpoint, count);
-
-      if (count === NUM_BASE_PARITY_PER_ROOT_PARITY) {
-        queues[ProvingRequestType.PARITY_ROOT].push(createJob(checkpoint, 1, ProvingRequestType.PARITY_ROOT));
-      }
-      break;
-    }
-
-    case ProvingRequestType.PARITY_ROOT: {
-      state.rootParityComplete.set(checkpoint, true);
+    case ProvingRequestType.INBOX_PARITY: {
+      state.inboxParityComplete.set(checkpoint, true);
       tryEnqueueBlockRoot(checkpoint, 1, state, queues);
       break;
     }
@@ -376,11 +352,9 @@ function enqueueDependentJobs(job: Job, state: SimState, queues: Queues, checkpo
       break;
     }
 
-    case ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP:
-    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP:
-    case ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP:
     case ProvingRequestType.BLOCK_ROOT_ROLLUP:
-    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP: {
+    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP:
+    case ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP: {
       handleBlockRootComplete(checkpoint, block, state, queues);
       break;
     }
@@ -523,12 +497,12 @@ function tryEnqueueBlockRoot(checkpoint: number, blk: number, state: SimState, q
     return;
   }
 
-  // First block also needs root parity
-  if (isFirst && !state.rootParityComplete.get(checkpoint)) {
+  // First block also needs the checkpoint's InboxParity proof
+  if (isFirst && !state.inboxParityComplete.get(checkpoint)) {
     return;
   }
 
-  const blockRootType = getBlockRootType(isFirst, totalTxs);
+  const blockRootType = getBlockRootType(totalTxs);
   queue[blockRootType].push(createJob(checkpoint, blk, blockRootType));
 }
 

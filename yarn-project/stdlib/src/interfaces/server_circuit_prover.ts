@@ -6,17 +6,14 @@ import type {
 } from '@aztec/constants';
 
 import type { AvmCircuitInputs } from '../avm/avm.js';
-import type { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
+import type { InboxParityPrivateInputs } from '../parity/inbox_parity_private_inputs.js';
 import type { ParityPublicInputs } from '../parity/parity_public_inputs.js';
-import type { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
 import type { RecursiveProof } from '../proofs/recursive_proof.js';
 import type { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup_private_inputs.js';
 import type { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import type {
-  BlockRootEmptyTxFirstRollupPrivateInputs,
-  BlockRootFirstRollupPrivateInputs,
+  BlockRootNoTxsRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
-  BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
 } from '../rollup/block_root_rollup_private_inputs.js';
 import type { CheckpointMergeRollupPrivateInputs } from '../rollup/checkpoint_merge_rollup_private_inputs.js';
@@ -42,24 +39,15 @@ import type { PublicInputsAndRecursiveProof } from './proving-job.js';
  */
 export interface ServerCircuitProver {
   /**
-   * Creates a proof for the given input.
-   * @param input - Input to the circuit.
+   * Creates the checkpoint's single InboxParity proof. The circuit variant (ladder size) is selected from
+   * `inputs.size`.
+   * @param inputs - Input to the circuit.
    */
-  getBaseParityProof(
-    inputs: ParityBasePrivateInputs,
+  getInboxParityProof(
+    inputs: InboxParityPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>;
-
-  /**
-   * Creates a proof for the given input.
-   * @param input - Input to the circuit.
-   */
-  getRootParityProof(
-    inputs: ParityRootPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
 
   getPublicChonkVerifierProof(
     inputs: PublicChonkVerifierPrivateInputs,
@@ -99,24 +87,6 @@ export interface ServerCircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  getBlockRootFirstRollupProof(
-    input: BlockRootFirstRollupPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
-
-  getBlockRootSingleTxFirstRollupProof(
-    input: BlockRootSingleTxFirstRollupPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
-
-  getBlockRootEmptyTxFirstRollupProof(
-    input: BlockRootEmptyTxFirstRollupPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
-
   getBlockRootRollupProof(
     input: BlockRootRollupPrivateInputs,
     signal?: AbortSignal,
@@ -125,6 +95,12 @@ export interface ServerCircuitProver {
 
   getBlockRootSingleTxRollupProof(
     input: BlockRootSingleTxRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
+
+  getBlockRootNoTxsRollupProof(
+    input: BlockRootNoTxsRollupPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;

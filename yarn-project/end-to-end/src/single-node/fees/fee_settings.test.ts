@@ -76,7 +76,6 @@ describe('single-node/fees/fee_settings', () => {
   // (Test-body txs explicitly call `wallet.setMinFeePadding(...)` so they don't use the wallet default.)
   const AZTEC_SLOT_DURATION = 12;
   const t = new FeesTest('fee_juice', 1, {
-    inboxLag: 2,
     minTxsPerBlock: 0,
     aztecSlotDuration: AZTEC_SLOT_DURATION,
     ethereumSlotDuration: 4,

@@ -1,7 +1,7 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs},
+    abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, ParityPublicInputs},
     checkpoint_root::components::{
-        CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator,
+        CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator, validate_inbox_parity,
     },
 };
 use blob::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
@@ -9,24 +9,24 @@ use types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader},
     constants::{
         ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, BLOCK_MERGE_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
         BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, FIELDS_PER_BLOB, OUT_HASH_TREE_HEIGHT,
     },
-    proof::proof_data::RollupHonkProofData,
+    proof::proof_data::{RollupHonkProofData, UltraHonkProofData},
 };
 
-global ALLOWED_PREVIOUS_VK_INDICES: [u32; 6] = [
-    BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
+global ALLOWED_PREVIOUS_VK_INDICES: [u32; 4] = [
     BLOCK_ROOT_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX,
     BLOCK_MERGE_ROLLUP_VK_INDEX,
 ];
 
 pub struct CheckpointRootRollupPrivateInputs {
     pub(crate) previous_rollups: [RollupHonkProofData<BlockRollupPublicInputs>; 2],
+    // Inbox parity proof over the checkpoint's L1-to-L2 messages. One variable-size proof per checkpoint: the
+    // checkpoint root is the only circuit that sees the whole checkpoint's message commitments.
+    pub(crate) inbox_parity: UltraHonkProofData<ParityPublicInputs>,
     pub(crate) hints: CheckpointRootRollupHints,
 }
 
@@ -94,8 +94,17 @@ pub fn execute(inputs: CheckpointRootRollupPrivateInputs) -> CheckpointRollupPub
         .validate();
 
     let previous_rollups = inputs.previous_rollups.map(|rollup| rollup.public_inputs);
+
+    let constants = previous_rollups[0].constants;
+    validate_inbox_parity(
+        inputs.inbox_parity,
+        constants.vk_tree_root,
+        constants.prover_id,
+    );
+
     CheckpointRollupPublicInputsComposer::new(
         previous_rollups,
+        inputs.inbox_parity.public_inputs,
         hints.previous_out_hash,
         hints.new_out_hash_sibling_path,
         hints.start_blob_accumulator,

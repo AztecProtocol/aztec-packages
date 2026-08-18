@@ -38,18 +38,9 @@ export function validateCheckpoint(
      * accepted by L1.
      */
     maxBlocksPerCheckpoint?: number;
-    /**
-     * Whether to tolerate a zero-tx block after the first one. Defaults to false; the L1-sync ingest path
-     * passes true for the same reason it raises `maxBlocksPerCheckpoint` — such a checkpoint is already on
-     * L1, and refusing to ingest it would stall sync rather than undo it.
-     */
-    allowEmptyNonFirstBlocks?: boolean;
   },
 ): void {
-  validateCheckpointStructure(checkpoint, {
-    maxBlocksPerCheckpoint: opts.maxBlocksPerCheckpoint,
-    allowEmptyNonFirstBlocks: opts.allowEmptyNonFirstBlocks,
-  });
+  validateCheckpointStructure(checkpoint, { maxBlocksPerCheckpoint: opts.maxBlocksPerCheckpoint });
   validateCheckpointLimits(checkpoint, opts);
   validateCheckpointBlocksLimits(checkpoint, opts);
 }
@@ -62,16 +53,15 @@ export function validateCheckpoint(
  * - Checkpoint lastArchiveRoot matches the first block's lastArchive root
  * - Sequential block numbers without gaps
  * - Sequential indexWithinCheckpoint starting at 0
- * - Every block after the first carries at least one tx, unless `allowEmptyNonFirstBlocks` is set
  * - Archive root chaining between consecutive blocks
  * - Consistent slot number across all blocks
  * - Global variables (slot, timestamp, coinbase, feeRecipient, gasFees) match checkpoint header for each block
  */
 export function validateCheckpointStructure(
   checkpoint: Checkpoint,
-  opts: { maxBlocksPerCheckpoint?: number; allowEmptyNonFirstBlocks?: boolean } = {},
+  opts: { maxBlocksPerCheckpoint?: number } = {},
 ): void {
-  const { maxBlocksPerCheckpoint = MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT, allowEmptyNonFirstBlocks = false } = opts;
+  const { maxBlocksPerCheckpoint = MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT } = opts;
   const { blocks, number, slot } = checkpoint;
 
   if (blocks.length === 0) {
@@ -124,18 +114,6 @@ export function validateCheckpointStructure(
     }
 
     if (i > 0) {
-      // The only block-root circuit that proves a zero-tx block is `rollup_block_root_first_empty_tx`, which is
-      // pinned to index 0 of a checkpoint: it starts a fresh sponge blob and carries a non-zero in_hash, both of
-      // which the block-merge continuity checks forbid at any later index. An empty block past the first would
-      // therefore have no circuit able to prove it.
-      if (!allowEmptyNonFirstBlocks && block.body.txEffects.length === 0) {
-        throw new CheckpointValidationError(
-          `Block ${block.number} at index ${i} has no txs; only the first block of a checkpoint may be empty`,
-          number,
-          slot,
-        );
-      }
-
       const prev = blocks[i - 1];
       if (block.number !== prev.number + 1) {
         throw new CheckpointValidationError(

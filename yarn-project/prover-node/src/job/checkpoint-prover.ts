@@ -1,6 +1,5 @@
-import { type ARCHIVE_HEIGHT, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import type { ARCHIVE_HEIGHT } from '@aztec/constants';
 import { BlockNumber, type EpochNumber, type SlotNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
@@ -10,7 +9,11 @@ import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EpochProverFactory } from '@aztec/prover-client';
-import type { CheckpointSubTreeOrchestrator, ChonkCache, SubTreeResult } from '@aztec/prover-client/orchestrator';
+import type {
+  CheckpointSubTreeOrchestrator,
+  CheckpointSubTreeProofs,
+  ChonkCache,
+} from '@aztec/prover-client/orchestrator';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
@@ -65,6 +68,8 @@ export type CheckpointProverArgs = {
   attestations: CommitteeAttestation[];
   previousBlockHeader: BlockHeader;
   l1ToL2Messages: Fr[];
+  /** Inbox rolling hash of the previous checkpoint (this checkpoint's chain start); genesis is zero. */
+  previousInboxRollingHash: Fr;
   previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>;
 };
 
@@ -78,8 +83,8 @@ export type CheckpointProverArgs = {
  * predecessor but with different content, keys to a distinct prover.
  *
  * The prover eagerly starts its own tx gather and sub-tree work in the constructor, so
- * callers only need to call `whenBlockProofsReady()` to obtain the resulting block-rollup
- * proofs.
+ * callers only need to call `whenSubTreeProofsReady()` to obtain the resulting block-rollup
+ * and InboxParity proofs.
  *
  * A CheckpointProver does not survive a prune: its sub-tree work forks world-state per
  * block, and an L1 prune of a base block faults those reads. The store therefore cancels and
@@ -97,16 +102,18 @@ export class CheckpointProver {
   readonly attestations: CommitteeAttestation[];
   readonly previousBlockHeader: BlockHeader;
   readonly l1ToL2Messages: Fr[];
+  readonly previousInboxRollingHash: Fr;
   readonly previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>;
 
-  /** Resolved by the sub-tree on success, rejected on cancel/failure. */
-  private readonly blockProofs: PromiseWithResolvers<SubTreeResult['blockProofOutputs']> = promiseWithResolvers();
+  /** Resolved by the sub-tree on success, rejected on cancel/failure. Carries the block proofs plus the checkpoint's
+   * InboxParity proof (which feeds the checkpoint root in the top tree). */
+  private readonly subTreeProofs: PromiseWithResolvers<CheckpointSubTreeProofs> = promiseWithResolvers();
 
   // Three independent lifecycle facts — deliberately not collapsed into one status enum, because several
   // combinations are legal and relied on: a prover can be `completed` and then `cancelled` (routine
   // teardown of an already-proven checkpoint), or `completed` and then `failed` (block proving was
   // enqueued, but the sub-tree subsequently faulted). Only `failed` + `cancelled` is excluded — a cancel
-  // is not a failure (enforced in `failBlockProofs`).
+  // is not a failure (enforced in `failSubTreeProofs`).
   /** Block-level proving was fully *enqueued* (a progress marker; the sub-tree may still be proving). */
   private completed = false;
   /** Block proofs rejected for a genuine (non-cancel) reason — a sub-tree or prune-induced fork fault. */
@@ -133,11 +140,12 @@ export class CheckpointProver {
     this.attestations = args.attestations;
     this.previousBlockHeader = args.previousBlockHeader;
     this.l1ToL2Messages = args.l1ToL2Messages;
+    this.previousInboxRollingHash = args.previousInboxRollingHash;
     this.previousArchiveSiblingPath = args.previousArchiveSiblingPath;
     this.id = CheckpointProver.idFor(args.checkpoint);
-    // Mark blockProofs as observed so a cancel that lands before any consumer awaits
+    // Mark subTreeProofs as observed so a cancel that lands before any consumer awaits
     // does not surface as an unhandled rejection.
-    this.blockProofs.promise.catch(() => {});
+    this.subTreeProofs.promise.catch(() => {});
     deps.log.info(`Created CheckpointProver ${this.id}`, {
       checkpointNumber: this.checkpoint.number,
       epochNumber: this.epochNumber,
@@ -178,9 +186,9 @@ export class CheckpointProver {
     return this.abortController.signal;
   }
 
-  /** Promise that resolves with the block-rollup proofs for this checkpoint (or rejects on cancel/failure). */
-  public whenBlockProofsReady(): Promise<SubTreeResult['blockProofOutputs']> {
-    return this.blockProofs.promise;
+  /** Promise that resolves with the block-rollup proofs and InboxParity proof for this checkpoint (or rejects). */
+  public whenSubTreeProofsReady(): Promise<CheckpointSubTreeProofs> {
+    return this.subTreeProofs.promise;
   }
 
   /** Resolves when all in-flight work for this prover has fully unwound. */
@@ -188,11 +196,11 @@ export class CheckpointProver {
     await this.runPromise.catch(() => {});
     // `runPromise` resolves once block-level proving is *enqueued*, but the sub-tree's proofs (and the
     // success-driven teardown they trigger) land later, on the `getSubTreeResult()` callback. Awaiting
-    // `blockProofs` here bridges that gap: on success the callback resolves `blockProofs` and then
+    // `subTreeProofs` here bridges that gap: on success the callback resolves `subTreeProofs` and then
     // synchronously sets `teardownPromise` before this await resumes, so the teardown is observable
-    // below; on failure/cancel `blockProofs` rejects and teardown is driven by the `finally`/cancel
+    // below; on failure/cancel `subTreeProofs` rejects and teardown is driven by the `finally`/cancel
     // paths already awaited via `runPromise`/`cancelPromise`.
-    await this.blockProofs.promise.catch(() => {});
+    await this.subTreeProofs.promise.catch(() => {});
     if (this.cancelPromise) {
       await this.cancelPromise;
     }
@@ -218,16 +226,16 @@ export class CheckpointProver {
       this.deps.log.error(`Error in CheckpointProver ${this.id}`, err, {
         checkpointNumber: this.checkpoint.number,
       });
-      this.failBlockProofs(err instanceof Error ? err : new Error(String(err)));
+      this.failSubTreeProofs(err instanceof Error ? err : new Error(String(err)));
     }
   }
 
   /**
-   * Rejects the block-proof promise and, unless this is a cancellation, records the prover as failed so
+   * Rejects the sub-tree proof promise and, unless this is a cancellation, records the prover as failed so
    * the reconciler won't build an EpochSession over it. First rejection wins, so a later duplicate reject
    * (e.g. the executeCheckpoint `finally`) is a harmless no-op.
    */
-  private failBlockProofs(err: Error): void {
+  private failSubTreeProofs(err: Error): void {
     if (!this.cancelled && !this.failed) {
       this.failed = true;
       // Notify the owner so it can upload a post-mortem for this checkpoint. Fire-and-forget: the
@@ -238,7 +246,7 @@ export class CheckpointProver {
         this.deps.log.error(`Error in CheckpointProver onFailed callback for ${this.id}`, err);
       }
     }
-    this.blockProofs.reject(err);
+    this.subTreeProofs.reject(err);
   }
 
   /** Fetches every tx in this checkpoint from the tx pool (by hash, via the block tx effects). */
@@ -321,11 +329,12 @@ export class CheckpointProver {
         this.epochNumber,
         checkpointConstants,
         this.l1ToL2Messages,
+        this.previousInboxRollingHash,
         this.checkpoint.blocks.length,
         this.previousBlockHeader,
       );
       subTreeStarted = true;
-      // Bridge the sub-tree's result onto blockProofs.
+      // Bridge the sub-tree's result onto subTreeProofs.
       void this.subTree.getSubTreeResult().then(
         result => {
           this.deps.log.info(`Sub-tree block proofs ready for checkpoint ${this.checkpoint.number}`, {
@@ -334,17 +343,20 @@ export class CheckpointProver {
           });
           // Spans processing + proving (from executeCheckpoint start, after tx gathering) to proofs ready.
           this.deps.metrics.recordCheckpointProving(checkpointTimer.ms());
-          this.blockProofs.resolve(result.blockProofOutputs);
-          // Release the sub-tree orchestrator now that its output is captured. The block-proof outputs
-          // survive via the resolved promise; everything else the sub-tree held — per-tx AVM inputs, and
-          // the base/merge/parity proof trees — is dead once proving completes, yet the prover is retained
-          // for the whole proof-submission window. Dropping it here is what stops that retention from
-          // accumulating across every proven checkpoint. Post-completion consumers (the top-tree job, a
-          // rebuilt EpochSession, failure upload) read only `whenBlockProofsReady()` and this prover's own
-          // fields (`checkpoint`, `txs`, headers, sibling paths), never the sub-tree.
+          this.subTreeProofs.resolve({
+            blockProofOutputs: result.blockProofOutputs,
+            inboxParityProof: result.inboxParityProof,
+          });
+          // Release the sub-tree orchestrator now that its output is captured. The block-proof and
+          // InboxParity proofs survive via the resolved promise; everything else the sub-tree held — per-tx
+          // AVM inputs, and the base/merge/parity proof trees — is dead once proving completes, yet the
+          // prover is retained for the whole proof-submission window. Dropping it here is what stops that
+          // retention from accumulating across every proven checkpoint. Post-completion consumers (the
+          // top-tree job, a rebuilt EpochSession, failure upload) read only `whenSubTreeProofsReady()` and
+          // this prover's own fields (`checkpoint`, `txs`, headers, sibling paths), never the sub-tree.
           this.teardownPromise = this.teardownSubTree();
         },
-        err => this.failBlockProofs(err instanceof Error ? err : new Error(String(err))),
+        err => this.failSubTreeProofs(err instanceof Error ? err : new Error(String(err))),
       );
       if (signal.aborted) {
         return;
@@ -361,21 +373,31 @@ export class CheckpointProver {
         }
       }
 
+      // Streaming Inbox: the checkpoint's messages are consumed contiguously across its blocks;
+      // each block's slice runs from its parent block's L1-to-L2 leaf count to its own (compact indices make leaf
+      // count equal cumulative message count).
+      const l1ToL2LeafCount = (block: L2Block) => Number(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+      const checkpointStartLeafCount = l1ToL2LeafCount(this.checkpoint.blocks.at(-1)!) - this.l1ToL2Messages.length;
+
       for (let blockIndex = 0; blockIndex < this.checkpoint.blocks.length; blockIndex++) {
         const blockTimer = new Timer();
         const block = this.checkpoint.blocks[blockIndex];
         const globalVariables = block.header.globalVariables;
         const blockTxs = this.getTxsForBlock(block, txs);
 
-        await this.subTree.startNewBlock(block.number, globalVariables.timestamp, blockTxs.length);
+        const prevLeafCount =
+          blockIndex === 0 ? checkpointStartLeafCount : l1ToL2LeafCount(this.checkpoint.blocks[blockIndex - 1]);
+        const blockMessages = this.l1ToL2Messages.slice(
+          prevLeafCount - checkpointStartLeafCount,
+          l1ToL2LeafCount(block) - checkpointStartLeafCount,
+        );
+
+        await this.subTree.startNewBlock(block.number, globalVariables.timestamp, blockTxs.length, blockMessages);
         if (signal.aborted) {
           return;
         }
 
-        const db = await this.createFork(
-          BlockNumber(block.number - 1),
-          blockIndex === 0 ? this.l1ToL2Messages : undefined,
-        );
+        const db = await this.createFork(BlockNumber(block.number - 1), blockMessages);
         try {
           if (signal.aborted) {
             return;
@@ -424,7 +446,7 @@ export class CheckpointProver {
         if (subTreeStarted) {
           await this.teardownSubTree();
         }
-        this.failBlockProofs(new Error(`Checkpoint ${this.id} did not complete block processing`));
+        this.failSubTreeProofs(new Error(`Checkpoint ${this.id} did not complete block processing`));
       }
     }
   }
@@ -457,7 +479,7 @@ export class CheckpointProver {
       });
     }
     this.abortController.abort();
-    this.blockProofs.reject(new Error(`Checkpoint ${this.id} cancelled`));
+    this.subTreeProofs.reject(new Error(`Checkpoint ${this.id} cancelled`));
     this.cancelPromise = this.runCancel().catch(() => {});
   }
 
@@ -520,19 +542,10 @@ export class CheckpointProver {
     return processedTxs;
   }
 
-  private async createFork(blockNumber: BlockNumber, l1ToL2Messages: Fr[] | undefined) {
+  private async createFork(blockNumber: BlockNumber, l1ToL2Messages: Fr[]) {
     const db = await this.deps.dbProvider.fork(blockNumber);
-
-    if (l1ToL2Messages !== undefined) {
-      const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
-        l1ToL2Messages,
-        Fr.ZERO,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        'Too many L1 to L2 messages',
-      );
-      await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
-    }
-
+    // Append the block's real message leaves unpadded at compact indices.
+    await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
     return db;
   }
 }

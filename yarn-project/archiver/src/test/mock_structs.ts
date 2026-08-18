@@ -1,13 +1,9 @@
-import {
-  MAX_NOTE_HASHES_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
-} from '@aztec/constants';
+import { MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
-import { randomBigInt, randomInt } from '@aztec/foundation/crypto/random';
+import { randomBigInt } from '@aztec/foundation/crypto/random';
 import type { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -15,88 +11,81 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { PrivateLog, PublicLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
-import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeCheckpointAttestationFromCheckpoint } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { PartialStateReference, StateReference, TxEffect } from '@aztec/stdlib/tx';
 
-import { type InboxMessage, updateRollingHash } from '../structs/inbox_message.js';
+import type { InboxMessage } from '../structs/inbox_message.js';
 
 export function makeInboxMessage(
-  previousRollingHash = Buffer16.ZERO,
+  previousInboxRollingHash = Fr.ZERO,
   overrides: Partial<InboxMessage> = {},
 ): InboxMessage {
-  const { checkpointNumber = CheckpointNumber(randomInt(100) + 1) } = overrides;
   const { l1BlockNumber = randomBigInt(100n) + 1n } = overrides;
   const { l1BlockHash = Buffer32.random() } = overrides;
   const { leaf = Fr.random() } = overrides;
-  const { rollingHash = updateRollingHash(previousRollingHash, leaf) } = overrides;
-  const { index = InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) } = overrides;
+  // Compact global insertion index: defaults to the first slot.
+  const { index = 0n } = overrides;
+  const { inboxRollingHash = updateInboxRollingHash(previousInboxRollingHash, leaf) } = overrides;
+  // Default each message to its own bucket, keyed monotonically off its global index.
+  const { bucketSeq = index + 1n } = overrides;
+  const { bucketTimestamp = index + 1n } = overrides;
 
   return {
     index,
     leaf,
-    checkpointNumber,
     l1BlockNumber,
     l1BlockHash,
-    rollingHash,
+    inboxRollingHash,
+    bucketSeq,
+    bucketTimestamp,
   };
 }
 
+/**
+ * Builds a contiguous run of `totalCount` inbox messages with compact global indices starting at `initialIndex`
+ * and a chained consensus rolling hash starting from `initialInboxHash`.
+ */
 export function makeInboxMessages(
   totalCount: number,
   opts: {
-    initialHash?: Buffer16;
-    initialCheckpointNumber?: CheckpointNumber;
-    messagesPerCheckpoint?: number;
+    initialInboxHash?: Fr;
+    initialIndex?: bigint;
     overrideFn?: (msg: InboxMessage, index: number) => InboxMessage;
   } = {},
 ): InboxMessage[] {
-  const {
-    initialHash = Buffer16.ZERO,
-    overrideFn = msg => msg,
-    initialCheckpointNumber = CheckpointNumber(1),
-    messagesPerCheckpoint = 1,
-  } = opts;
+  const { initialInboxHash = Fr.ZERO, initialIndex = 0n, overrideFn = msg => msg } = opts;
 
   const messages: InboxMessage[] = [];
-  let rollingHash = initialHash;
+  let inboxRollingHash = initialInboxHash;
   for (let i = 0; i < totalCount; i++) {
-    const msgIndex = i % messagesPerCheckpoint;
-    const checkpointNumber = CheckpointNumber.fromBigInt(
-      BigInt(initialCheckpointNumber) + BigInt(i) / BigInt(messagesPerCheckpoint),
-    );
     const leaf = Fr.random();
+    inboxRollingHash = updateInboxRollingHash(inboxRollingHash, leaf);
     const message = overrideFn(
-      makeInboxMessage(rollingHash, {
+      makeInboxMessage(Fr.ZERO, {
         leaf,
-        checkpointNumber,
-        index: InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) + BigInt(msgIndex),
+        index: initialIndex + BigInt(i),
+        inboxRollingHash,
       }),
       i,
     );
-    rollingHash = message.rollingHash;
     messages.push(message);
   }
   return messages;
 }
 
-/** Creates inbox messages distributed across multiple blocks with proper checkpoint numbering. */
-export function makeInboxMessagesWithFullBlocks(
-  blockCount: number,
-  opts: { initialCheckpointNumber?: CheckpointNumber } = {},
-): InboxMessage[] {
-  const { initialCheckpointNumber = CheckpointNumber(13) } = opts;
-  return makeInboxMessages(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * blockCount, {
+/**
+ * Creates `blockCount` full buckets of `MAX_L1_TO_L2_MSGS_PER_BLOCK` inbox messages each, with compact indices and one
+ * bucket sequence per block.
+ */
+export function makeInboxMessagesWithFullBlocks(blockCount: number): InboxMessage[] {
+  return makeInboxMessages(MAX_L1_TO_L2_MSGS_PER_BLOCK * blockCount, {
     overrideFn: (msg, i) => {
-      const checkpointNumber = CheckpointNumber(
-        initialCheckpointNumber + Math.floor(i / NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
-      );
-      const index =
-        InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) + BigInt(i % NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-      return { ...msg, checkpointNumber, index };
+      const bucketSeq = BigInt(Math.floor(i / MAX_L1_TO_L2_MSGS_PER_BLOCK)) + 1n;
+      return { ...msg, bucketSeq, bucketTimestamp: bucketSeq };
     },
   });
 }

@@ -205,8 +205,12 @@ export interface AztecNode {
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
-  /** Returns the L2 checkpoint number in which this L1 to L2 message becomes available, or undefined if not found. */
-  getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined>;
+  /**
+   * Returns the compact leaf index assigned to this L1 to L2 message as soon as the node has ingested it from L1,
+   * before any L2 block consumes it. Returns undefined if the node has not yet seen the message. The message becomes
+   * consumable once a block's L1-to-L2 message tree grows past this index.
+   */
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined>;
 
   /**
    * Returns all the L2 to L1 messages in an epoch.
@@ -614,7 +618,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     output: z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional(),
   }),
 
-  getL1ToL2MessageCheckpoint: z.function({ input: z.tuple([schemas.Fr]), output: CheckpointNumberSchema.optional() }),
+  getL1ToL2MessageIndex: z.function({ input: z.tuple([schemas.Fr]), output: schemas.BigInt.optional() }),
 
   getL2ToL1Messages: z.function({
     input: z.tuple([EpochNumberSchema]),

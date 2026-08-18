@@ -39,9 +39,9 @@ contract DeployRollupForUpgradeTest is Test {
     string memory json = vm.readFile(path);
 
     // Timing config
+    vm.setEnv("ETHEREUM_SLOT_DURATION", vm.toString(json.readUint(".ETHEREUM_SLOT_DURATION")));
     vm.setEnv("AZTEC_SLOT_DURATION", vm.toString(json.readUint(".AZTEC_SLOT_DURATION")));
     vm.setEnv("AZTEC_EPOCH_DURATION", vm.toString(json.readUint(".AZTEC_EPOCH_DURATION")));
-    vm.setEnv("AZTEC_INBOX_LAG", vm.toString(json.readUint(".AZTEC_INBOX_LAG")));
     vm.setEnv("AZTEC_PROOF_SUBMISSION_EPOCHS", vm.toString(json.readUint(".AZTEC_PROOF_SUBMISSION_EPOCHS")));
 
     // Validator config

@@ -16,9 +16,10 @@ pub fn merge_block_rollups(
     let block_headers_hash =
         accumulate_block_headers_hash(left.block_headers_hash, right.block_headers_hash);
 
-    // `in_hash` originates from the first block root and must propagate through all merge steps via the left rollup
-    // only. It's checked in `validate_consecutive_block_rollups` to make sure only the left rollup carries it.
-    let in_hash = left.in_hash;
+    // The message sponge threads across the checkpoint's blocks: the range spans left's start through right's end.
+    // `validate_consecutive_block_rollups` asserts `right.start_msg_sponge == left.end_msg_sponge` for continuity.
+    let start_msg_sponge = left.start_msg_sponge;
+    let end_msg_sponge = right.end_msg_sponge;
 
     let out_hash = accumulate_out_hash(left.out_hash, right.out_hash);
 
@@ -36,7 +37,8 @@ pub fn merge_block_rollups(
         end_sponge_blob: right.end_sponge_blob,
         timestamp: left.timestamp, // Both blocks have the same timestamp.
         block_headers_hash,
-        in_hash,
+        start_msg_sponge,
+        end_msg_sponge,
         out_hash,
         accumulated_fees,
         accumulated_mana_used,

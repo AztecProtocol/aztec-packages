@@ -130,18 +130,18 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
    * @dev Uses:
    *   - archive: GENESIS_ARCHIVE_ROOT
    *   - oracleInput: zero
-   *   - header fields from fixture for blockHeadersHash/blobsHash/inHash/outHash, rest overridden
+   *   - header fields from fixture for blockHeadersHash/blobsHash/outHash, rest overridden
    */
   function _buildProposeArgs(address _proposer) internal view returns (ProposeArgs memory args, bytes memory blobs) {
     bytes32 archive = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
     Slot slotNumber = rollup.getCurrentSlot();
 
-    // Build header fresh, only copying blockHeadersHash/blobsHash/inHash/outHash from fixture
+    // Build header fresh, only copying blockHeadersHash/blobsHash/outHash from fixture
     ProposedHeader memory header = ProposedHeader({
       lastArchiveRoot: archive,
       blockHeadersHash: full.checkpoint.header.blockHeadersHash,
       blobsHash: full.checkpoint.header.blobsHash,
-      inHash: full.checkpoint.header.inHash,
+      inboxRollingHash: full.checkpoint.header.inboxRollingHash,
       outHash: full.checkpoint.header.outHash,
       slotNumber: slotNumber,
       timestamp: rollup.getTimestampForSlot(slotNumber),
@@ -154,7 +154,13 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       accumulatedFees: 0
     });
 
-    args = ProposeArgs({header: header, archive: archive, oracleInput: OracleInput({feeAssetPriceModifier: 0})});
+    // Streaming Inbox: reference the newest bucket (genesis here; nothing is seeded).
+    uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
+    header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
+
+    args = ProposeArgs({
+      header: header, archive: archive, oracleInput: OracleInput({feeAssetPriceModifier: 0}), bucketHint: bucketHint
+    });
 
     blobs = full.checkpoint.blobCommitments;
   }
@@ -204,8 +210,13 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       header.gasFees.feePerL2Gas = manaMinFee;
     }
 
-    ProposeArgs memory proposeArgs =
-      ProposeArgs({header: header, archive: full.checkpoint.archive, oracleInput: OracleInput(0)});
+    // Streaming Inbox: reference the newest bucket (genesis here; nothing is seeded).
+    uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
+    header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
+
+    ProposeArgs memory proposeArgs = ProposeArgs({
+      header: header, archive: full.checkpoint.archive, oracleInput: OracleInput(0), bucketHint: bucketHint
+    });
 
     skipBlobCheck(address(rollup));
 
@@ -324,6 +335,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       previousArchive: previousArchive,
       endArchive: endArchive,
       outHash: endFull.checkpoint.header.outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: 0,
       proverId: _prover
     });
 

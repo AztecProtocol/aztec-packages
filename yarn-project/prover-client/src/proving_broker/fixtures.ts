@@ -6,7 +6,7 @@ import { ProvingRequestType } from '@aztec/stdlib/proofs';
 export function makeRandomProvingJobId(epochNumber?: EpochNumber): ProvingJobId {
   return makeProvingJobId(
     epochNumber ?? EpochNumber(1),
-    ProvingRequestType.PARITY_BASE,
+    ProvingRequestType.INBOX_PARITY,
     randomBytes(8).toString('hex'),
   );
 }

@@ -321,7 +321,10 @@ describe('single-node/prover/full', () => {
       }),
     );
 
-    // For the commented out circuits, run the tests in orchestrator_single_checkpoint.test.ts to generate the sample inputs.
+    // Regenerates the private-kernel Prover.toml sample inputs plus the transaction-base rollup
+    // samples, which all need real client-proved transactions. The block-root, block-merge,
+    // checkpoint, tx-merge, and root rollup Prover.tomls are regenerated instead by the prover-client
+    // suite `regenerate_rollup_sample_inputs.test.ts`, so they are intentionally not written here.
     (
       [
         'private-kernel-init',
@@ -339,17 +342,6 @@ describe('single-node/prover/full', () => {
         'private-kernel-reset-tail-to-public',
         'rollup-tx-base-private',
         'rollup-tx-base-public',
-        // 'rollup-tx-merge',
-        'rollup-block-root-first',
-        'rollup-block-root-first-single-tx',
-        // 'rollup-block-root-first-empty-tx',
-        // 'rollup-block-root',
-        // 'rollup-block-root-single-tx',
-        // 'rollup-block-merge',
-        // 'rollup-checkpoint-root',
-        'rollup-checkpoint-root-single-block',
-        'rollup-checkpoint-merge',
-        'rollup-root',
       ] satisfies CircuitName[]
     ).forEach(circuitName => {
       const data = getTestData(circuitName);

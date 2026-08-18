@@ -1,30 +1,62 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { CheckpointId, L2BlockId, L2TipId, L2Tips } from '@aztec/stdlib/block';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
 /**
  * A mocked implementation of L1ToL2MessageSource to be used in tests.
  */
 export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
-  private messagesPerCheckpoint = new Map<CheckpointNumber, Fr[]>();
+  private buckets = new Map<bigint, InboxBucket>();
+  private messagesPerBucket = new Map<bigint, Fr[]>();
 
   constructor(private blockNumber: number) {}
 
-  public setL1ToL2Messages(checkpointNumber: CheckpointNumber, msgs: Fr[]) {
-    this.messagesPerCheckpoint.set(checkpointNumber, msgs);
+  public setInboxBucket(bucket: InboxBucket, msgs: Fr[] = []) {
+    this.buckets.set(bucket.seq, bucket);
+    this.messagesPerBucket.set(bucket.seq, msgs);
   }
 
   public setBlockNumber(blockNumber: number) {
     this.blockNumber = blockNumber;
   }
 
-  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    return Promise.resolve(this.messagesPerCheckpoint.get(checkpointNumber) ?? []);
-  }
-
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
     throw new Error('Method not implemented.');
+  }
+
+  getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
+    return Promise.resolve(this.buckets.get(seq));
+  }
+
+  getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined> {
+    if (totalMsgCount === 0n) {
+      return Promise.resolve(this.buckets.get(0n));
+    }
+    return Promise.resolve([...this.buckets.values()].find(bucket => bucket.totalMsgCount === totalMsgCount));
+  }
+
+  getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
+    const atOrBefore = [...this.buckets.values()]
+      .filter(bucket => bucket.timestamp <= timestamp)
+      .sort((a, b) => Number(a.seq - b.seq));
+    return Promise.resolve(atOrBefore.at(-1));
+  }
+
+  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
+    const seqs = [...this.messagesPerBucket.keys()]
+      .filter(seq => seq > fromExclusive && seq <= toInclusive)
+      .sort((a, b) => Number(a - b));
+    return Promise.resolve(seqs.flatMap(seq => this.messagesPerBucket.get(seq) ?? []));
+  }
+
+  async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+    const startBucket = await this.getInboxBucketByTotalMsgCount(startLeafCount);
+    const endBucket = await this.getInboxBucketByTotalMsgCount(endLeafCount);
+    if (startBucket === undefined || endBucket === undefined) {
+      throw new Error(`No mocked Inbox bucket boundary at ${startLeafCount} or ${endLeafCount}`);
+    }
+    return this.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
   }
 
   getBlockNumber() {

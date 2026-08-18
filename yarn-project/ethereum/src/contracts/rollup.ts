@@ -69,6 +69,10 @@ export type EpochProofPublicInputArgs = {
   previousArchive: `0x${string}`;
   endArchive: `0x${string}`;
   outHash: `0x${string}`;
+  /** Inbox rolling hash before the epoch's first checkpoint's messages. */
+  previousInboxRollingHash: `0x${string}`;
+  /** Inbox rolling hash after the epoch's last checkpoint's messages. */
+  endInboxRollingHash: `0x${string}`;
   proverId: `0x${string}`;
 };
 
@@ -76,7 +80,7 @@ export type ViemHeader = {
   lastArchiveRoot: `0x${string}`;
   blockHeadersHash: `0x${string}`;
   blobsHash: `0x${string}`;
-  inHash: `0x${string}`;
+  inboxRollingHash: `0x${string}`;
   outHash: `0x${string}`;
   slotNumber: bigint;
   timestamp: bigint;
@@ -135,7 +139,10 @@ export type L1FeeData = {
   blobFee: bigint;
 };
 
-/** Field offsets within the CompressedTempCheckpointLog struct in Solidity storage. */
+/**
+ * Field offsets within the CompressedTempCheckpointLog struct in Solidity storage. The `SlotNumber`
+ * word also packs the inbox consumption counts, which Solidity places in the same slot.
+ */
 export enum TempCheckpointLogField {
   HeaderHash = 0,
   BlobCommitmentsHash = 1,
@@ -144,6 +151,7 @@ export enum TempCheckpointLogField {
   PayloadDigest = 4,
   SlotNumber = 5,
   FeeHeader = 6,
+  InboxRollingHash = 7,
 }
 
 /**
@@ -151,12 +159,17 @@ export enum TempCheckpointLogField {
  * `propose()` path actually reads back. `payloadDigest` is `Buffer32` because it carries an
  * arbitrary `bytes32` value rather than a BN254 scalar. `slotNumber` carries the uint32 portion
  * of the on-chain `CompressedSlot`.
+ *
+ * `slotNumber` and `inboxMsgTotal` share a single storage word, so supplying either rewrites both;
+ * the one left out lands as zero.
  */
 export type TempCheckpointLogOverrideFields = {
   headerHash?: Fr;
   outHash?: Fr;
   payloadDigest?: Buffer32;
   slotNumber?: SlotNumber;
+  /** Cumulative Inbox message count consumed as of this checkpoint. */
+  inboxMsgTotal?: bigint;
   feeHeader?: FeeHeader;
 };
 
@@ -263,6 +276,13 @@ function decodeRpcRequestErrorName(err: unknown): string | undefined {
 
 function isHexString(value: unknown): value is Hex {
   return typeof value === 'string' && value.startsWith('0x');
+}
+
+function requireUintFits(value: bigint, bits: number, name: string): bigint {
+  if (value < 0n || value >= 1n << BigInt(bits)) {
+    throw new Error(`${name} ${value} does not fit in uint${bits}`);
+  }
+  return value;
 }
 
 export class RollupContract {
@@ -945,6 +965,9 @@ export class RollupContract {
    *
    * `blobCommitmentsHash` and `attestationsHash` are intentionally not exposed here — the propose path
    * never asserts against them, so leaving them at storage zero is harmless.
+   *
+   * One diff entry is emitted per storage word touched, so words left out keep their on-chain values.
+   * `slotNumber` and the two inbox consumption counts share a word: any of them rewrites all three.
    */
   public async makeTempCheckpointLogOverride(
     checkpointNumber: CheckpointNumber,
@@ -969,14 +992,17 @@ export class RollupContract {
         value: fields.payloadDigest.toString() as `0x${string}`,
       });
     }
-    if (fields.slotNumber !== undefined) {
-      // CompressedSlot is uint32 on L1 (SafeCast.toUint32 reverts on overflow). Match that behavior here
-      // so a malformed override surfaces immediately rather than silently truncating into a wrong slot.
-      const slotNumber = BigInt(fields.slotNumber);
-      if (slotNumber < 0n || slotNumber > 0xffffffffn) {
-        throw new Error(`slotNumber ${slotNumber} does not fit in uint32`);
-      }
-      stateDiff.push({ slot: slotAt(TempCheckpointLogField.SlotNumber), value: word(slotNumber) });
+    if (fields.slotNumber !== undefined || fields.inboxMsgTotal !== undefined) {
+      // The L1 struct packs the slot number and the inbox consumption count into one word, so this
+      // diff always writes both. Widths are enforced here because the L1 writers cast through
+      // SafeCast and revert on overflow; a malformed override must surface rather than silently truncate
+      // into a neighbouring field.
+      const slotNumber = requireUintFits(BigInt(fields.slotNumber ?? 0), 32, 'slotNumber');
+      const inboxMsgTotal = requireUintFits(fields.inboxMsgTotal ?? 0n, 64, 'inboxMsgTotal');
+      stateDiff.push({
+        slot: slotAt(TempCheckpointLogField.SlotNumber),
+        value: word(slotNumber | (inboxMsgTotal << 32n)),
+      });
     }
     if (fields.feeHeader) {
       stateDiff.push({

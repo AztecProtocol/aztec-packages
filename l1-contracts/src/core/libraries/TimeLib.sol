@@ -17,6 +17,7 @@ struct TimeStorage {
    * proofs for epoch n must land while the epoch is ongoing.
    */
   uint32 proofSubmissionEpochs;
+  uint32 ethereumSlotDuration; // Number of seconds in an L1 slot
 }
 
 library TimeLib {
@@ -28,18 +29,37 @@ library TimeLib {
     uint256 _genesisTime,
     uint256 _slotDuration,
     uint256 _epochDuration,
-    uint256 _proofSubmissionEpochs
+    uint256 _proofSubmissionEpochs,
+    uint256 _ethereumSlotDuration
   ) internal {
     TimeStorage storage store = getStorage();
     store.genesisTime = _genesisTime.toUint128();
     store.slotDuration = _slotDuration.toUint32();
     store.epochDuration = _epochDuration.toUint32();
     store.proofSubmissionEpochs = _proofSubmissionEpochs.toUint32();
+    store.ethereumSlotDuration = _ethereumSlotDuration.toUint32();
   }
 
   function toTimestamp(Slot _a) internal view returns (Timestamp) {
     TimeStorage storage store = getStorage();
     return Timestamp.wrap(store.genesisTime) + Timestamp.wrap(Slot.unwrap(_a) * store.slotDuration);
+  }
+
+  /**
+   * @notice The Inbox consumption cutoff for a checkpoint proposed in `_slot`: the timestamp at or before which
+   *         an Inbox bucket becomes mandatory to consume
+   *
+   * @dev The cutoff is one configured L1 slot before slot S-1 starts. A bucket at or before it has been part of
+   *      the L1 state every node derives slot S-1 from, so the network had the full previous slot to observe it
+   *      and the checkpoint has no excuse not to consume it; anything newer may legitimately be unseen.
+   *
+   * @param _slot - The slot the checkpoint is proposed in
+   *
+   * @return The Inbox consumption cutoff timestamp
+   */
+  function getInboxCutoffTimestamp(Slot _slot) internal view returns (Timestamp) {
+    TimeStorage storage store = getStorage();
+    return toTimestamp(_slot - Slot.wrap(1)) - Timestamp.wrap(store.ethereumSlotDuration);
   }
 
   function slotFromTimestamp(Timestamp _a) internal view returns (Slot) {

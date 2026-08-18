@@ -259,10 +259,35 @@ const INBOX_ABI = [
     type: "event",
     name: "MessageSent",
     inputs: [
-      { name: "checkpointNumber", type: "uint256", indexed: true },
-      { name: "index", type: "uint256", indexed: false },
       { name: "hash", type: "bytes32", indexed: true },
-      { name: "rollingHash", type: "bytes16", indexed: false },
+      { name: "inboxRollingHash", type: "bytes32", indexed: false },
+      { name: "bucketSeq", type: "uint256", indexed: false },
+      {
+        name: "message",
+        type: "tuple",
+        indexed: false,
+        components: [
+          {
+            name: "sender",
+            type: "tuple",
+            components: [
+              { name: "actor", type: "address" },
+              { name: "chainId", type: "uint256" },
+            ],
+          },
+          {
+            name: "recipient",
+            type: "tuple",
+            components: [
+              { name: "actor", type: "bytes32" },
+              { name: "version", type: "uint256" },
+            ],
+          },
+          { name: "content", type: "bytes32" },
+          { name: "secretHash", type: "bytes32" },
+          { name: "index", type: "uint256" },
+        ],
+      },
     ],
   },
 ] as const;
@@ -289,7 +314,7 @@ const messageSentLogs = depositReceipt.logs
 if (messageSentLogs.length === 0) {
   throw new Error("No MessageSent events found in deposit transaction");
 }
-const depositLeafIndex = new Fr(messageSentLogs[0].decoded.args.index);
+const depositLeafIndex = new Fr(messageSentLogs[0].decoded.args.message.index);
 console.log(`Deposit message leaf index: ${depositLeafIndex}\n`);
 // docs:end:deposit_to_l2
 
@@ -601,7 +626,9 @@ const daiDepositLogs = l1SwapReceipt.logs
 if (daiDepositLogs.length === 0) {
   throw new Error("No MessageSent events found in L1 swap transaction");
 }
-const daiDepositLeafIndex = new Fr(daiDepositLogs[0].decoded.args.index);
+const daiDepositLeafIndex = new Fr(
+  daiDepositLogs[0].decoded.args.message.index,
+);
 
 // Mine blocks and claim
 await mine2Blocks(wallet, account.address);

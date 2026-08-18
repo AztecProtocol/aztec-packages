@@ -96,7 +96,7 @@ sequenceDiagram
     Portal->>Aave: withdraw(aTokenAmount)
     Aave-->>Portal: underlying + yield
     Portal->>Inbox: sendL2Message(content)
-    Note over Inbox: Wait for 2 L2 blocks (required for L1→L2 message availability)
+    Note over Inbox: Wait for an L2 block to include the message (12-30s)
     User->>Bridge: claim_public(amount_with_yield)
     Bridge->>Inbox: consume_l1_to_l2_message
     Bridge->>Token: mint_to_public(user, amount_with_yield)
@@ -441,7 +441,7 @@ Extract the message leaf index:
 
 #include_code get_claim_leaf_index /docs/examples/ts/aave_bridge/index.ts typescript
 
-On the local network, L2 blocks are only produced when transactions are submitted. L1-to-L2 messages require 2 L2 blocks before they can be consumed on L2. This utility deploys two dummy contracts (with random salts for unique addresses) to force block production. On devnet or testnet, blocks are produced continuously and this step is unnecessary:
+On the local network, L2 blocks are only produced when transactions are submitted. An L1-to-L2 message can only be consumed once an L2 block includes it, and the network waits until the message is at least 12 seconds old before including it. This utility deploys two dummy contracts (with random salts for unique addresses) to force block production. On devnet or testnet, blocks are produced continuously and this step is unnecessary:
 
 #include_code mine_blocks /docs/examples/ts/aave_bridge/index.ts typescript
 
@@ -501,7 +501,7 @@ If `claim_public` reverts, ensure you called `set_minter(l2Bridge.address, true)
 
 ### L1→L2 message not found — claim reverts after mining blocks
 
-L1-to-L2 messages need 2 L2 blocks after the L1 transaction before they become consumable. Make sure `mine2Blocks` runs before the claim. If the issue persists, verify the `messageLeafIndex` extracted from the `MessageSent` event is correct.
+An L1-to-L2 message becomes consumable once an L2 block includes it, which takes 12 to 30 seconds after the L1 transaction. Make sure `mine2Blocks` runs before the claim. If the issue persists, verify the `messageLeafIndex` extracted from the `MessageSent` event is correct.
 
 ## Next Steps
 

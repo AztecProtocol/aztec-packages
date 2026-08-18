@@ -43,7 +43,7 @@
       "lastArchiveRoot": "0x177a4955b31ecaafad999753938a44e526b54c5ba5d536688227f85f15cfbdf5",
       "blockHeadersHash": "0x07db5c24565ad9a2c9d39ef7d9a4446e9742d6090567ff28aef9a45f4738a5cb",
       "blobsHash": "0x00ec2400a7cfc9d975cb0802980d49387588738160a0cf0301f07e1abad6456c",
-      "inHash": "0x00de7b349d2306334734e4f58b1302a6ed5a6c796a706f6597a5641b6d468223",
+      "inboxRollingHash": "0x00cad6497cf81748167158f149ba70c31f34c68b0ae1b156117de63e073d14b5",
       "outHash": "0x007c92c6cf05665e1c02a305370a4d38bcb8b555261c6b39c862f8c067d6bcb7",
       "slotNumber": 99,
       "timestamp": 1776857833,
@@ -56,7 +56,7 @@
       "totalManaUsed": 0,
       "accumulatedFees": 0
     },
-    "headerHash": "0x00628120df9716928e25a69ca7b1ac2497f22fdaab439f64315ad4daf7bc5191",
+    "headerHash": "0x0018784f81057f236b2da6a1e9bc20cb7c931343cbecb2035b605dc8ca5dd3cb",
     "numTxs": 1
   }
 }
