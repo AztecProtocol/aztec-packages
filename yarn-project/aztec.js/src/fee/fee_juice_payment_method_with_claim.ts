@@ -49,7 +49,7 @@ export class FeeJuicePaymentMethodWithClaim implements FeePaymentMethod {
     );
   }
 
-  getAsset() {
+  getAsset(): Promise<AztecAddress> {
     return Promise.resolve(ProtocolContractAddress.FeeJuice);
   }
 

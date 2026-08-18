@@ -9,6 +9,8 @@ Usage:
 
 import json
 import argparse
+import re
+from textwrap import indent
 from typing import Dict, Any, List
 from pathlib import Path
 
@@ -19,11 +21,57 @@ except ImportError:
     YAML_AVAILABLE = False
 
 
+class HeadingSlugger:
+    """
+    Assigns the anchors Docusaurus generates for a document's headings.
+
+    Docusaurus slugs headings with github-slugger: lowercase, drop punctuation, turn spaces into
+    hyphens, then keep the result unique by appending `-1`, `-2` and so on. The suffix search walks
+    the anchors already taken rather than counting repeats of the same text, so a heading that
+    literally reads `wallet-1` takes that anchor away from the second `Wallet`. An anchor therefore
+    depends on every heading before it, including ones nothing links to.
+    """
+
+    # Punctuation github-slugger drops. Its own table also covers non-ASCII punctuation, which no
+    # heading generated from TypeScript sources has needed so far.
+    PUNCTUATION = set("\\'!\"#$%&()*+,./:;<=>?@[]^`{|}~")
+
+    def __init__(self):
+        self.occurrences = {}
+
+    def slug(self, heading_text: str) -> str:
+        """
+        Claim and return the anchor for the next heading, without its leading `#`.
+
+        Examples, for a document whose earlier headings took none of these:
+            `## Account` -> `account`
+            `#### CAPABILITY_VERSION` -> `capability_version`
+            `## Contract / Protocol_Contracts` -> `contract--protocol_contracts`
+        """
+        base = self.base_slug(heading_text)
+        slug = base
+        while slug in self.occurrences:
+            self.occurrences[base] += 1
+            slug = f"{base}-{self.occurrences[base]}"
+        self.occurrences[slug] = 0
+        return slug
+
+    @classmethod
+    def base_slug(cls, heading_text: str) -> str:
+        """Slug a heading without regard for the anchors already taken."""
+        slug = heading_text.lower().strip()
+        slug = ''.join(c for c in slug if c not in cls.PUNCTUATION)
+        return slug.replace(' ', '-')
+
+
 class MarkdownGenerator:
     """Generates markdown documentation from structured API data."""
 
     def __init__(self, data: Dict[str, Any], config: Dict[str, Any] = None):
         self.data = data
+        self.slugger = HeadingSlugger()
+        self.headings: List[str] = []
+        self.toc_entries: List[Dict[str, str]] = []
         # Merge provided config with defaults to ensure all config keys exist
         default_config = self.get_default_config()
         if config:
@@ -44,7 +92,7 @@ class MarkdownGenerator:
 
         # Title
         if self.config.get("title"):
-            sections.append(f"# {self.config['title']}\n")
+            sections.append(f"{self.heading(1, self.config['title'])}\n")
 
         # Metadata
         if self.config.get("include_metadata"):
@@ -57,19 +105,26 @@ class MarkdownGenerator:
         # Introduction
         sections.append(self.generate_introduction())
 
-        # Table of Contents
-        if self.config.get("include_toc"):
-            toc = self.generate_main_toc()
-            if toc:
-                sections.append("## Table of Contents\n")
-                sections.append(toc)
-                sections.append("\n---\n")
+        # The table of contents links to anchors the body claims, so the body has to be generated
+        # first. Its own heading still precedes the body in the document, and so claims its anchor
+        # before any of them.
+        folders = self.data.get("folders", [])
+        toc_heading = ""
+        if self.config.get("include_toc") and folders:
+            toc_heading = f"{self.heading(2, 'Table of Contents')}\n"
 
-        # Main content - iterate through folders
-        for folder in self.data.get("folders", []):
-            sections.append(self.generate_folder_section(folder))
+        body = [self.generate_folder_section(folder) for folder in folders]
 
-        return "\n".join(sections)
+        if toc_heading:
+            sections.append(toc_heading)
+            sections.append(self.generate_main_toc())
+            sections.append("\n---\n")
+
+        sections.extend(body)
+
+        markdown = "\n".join(sections)
+        self.verify_headings(markdown)
+        return markdown
 
     def generate_introduction(self) -> str:
         """Generate introduction text."""
@@ -79,44 +134,99 @@ Each section is organized by module, with classes, interfaces, types, and functi
 """
 
     def generate_main_toc(self) -> str:
-        """Generate the main table of contents."""
+        """Generate the main table of contents from the anchors the body claimed."""
         lines = []
 
-        for folder in self.data.get("folders", []):
-            folder_name = folder.get("name", "")
-            folder_path = folder.get("path", folder_name)  # Full path for nested folders
-            # For folder header like "## Account", Docusaurus generates anchor "#account"
-            folder_slug = folder_path.lower().replace('/', '').replace('_', '')
-            folder_display = folder_path.replace('/', ' / ').title()
-            lines.append(f"- [{folder_display}](#{folder_slug})")
-
-            # Add files as sub-items
-            for file in folder.get("files", []):
-                file_path = file.get("path", "")
-
-                # For file header like "### `account/account_contract.ts`"
-                # Docusaurus removes backticks and special chars: "#accountaccount_contractts"
-                file_slug = file_path.lower().replace('/', '').replace('.', '').replace('_', '').replace('-', '')
-
-                # List the exports for this file
-                for export in file.get("exports", []):
-                    export_name = export.get("name", "")
-                    # For export header like "#### AccountContract", Docusaurus generates "#accountcontract"
-                    export_slug = export_name.lower().replace('_', '').replace('-', '')
-                    lines.append(f"  - [{export_name}](#{export_slug})")
+        for entry in self.toc_entries:
+            indent = "" if entry["kind"] == "folder" else "  "
+            lines.append(f"{indent}- [{entry['text']}](#{entry['anchor']})")
 
         return "\n".join(lines)
+
+    def heading(self, level: int, text: str, toc_kind: str = "") -> str:
+        """
+        Render a heading and claim its anchor.
+
+        Every heading in the document has to be rendered through here, in the order it appears,
+        because each anchor depends on the ones already taken. Pass `toc_kind` to also list the
+        heading in the table of contents.
+
+        Args:
+            level: Heading level, as a count of `#`s
+            text: The heading text, as it is rendered
+            toc_kind: "folder" or "export" to list this heading in the table of contents
+
+        Returns:
+            The rendered heading line
+        """
+        anchor = self.slugger.slug(text)
+        self.headings.append(text)
+        if toc_kind:
+            self.toc_entries.append({"kind": toc_kind, "text": text, "anchor": anchor})
+        return f"{'#' * level} {text}"
+
+    def verify_headings(self, markdown: str) -> None:
+        """
+        Check that the document's headings are exactly the ones that claimed an anchor.
+
+        A heading written as a plain string never reaches the slugger, so it takes an anchor the
+        generator does not know about and silently shifts the suffix of every later duplicate. That
+        misdirects table of contents links rather than breaking them, which nothing downstream
+        detects: the links still resolve, just to the wrong section.
+        """
+        rendered = []
+        in_code_block = False
+        for line in markdown.split("\n"):
+            if line.lstrip().startswith("```"):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
+            match = re.match(r'^(#{1,6}) (.*)$', line)
+            if match:
+                rendered.append(match.group(2))
+
+        if rendered != self.headings:
+            for claimed, found in zip(self.headings, rendered):
+                if claimed != found:
+                    raise ValueError(
+                        f"Heading {found!r} did not claim an anchor; expected {claimed!r}. "
+                        "Render every heading through MarkdownGenerator.heading()."
+                    )
+            missing = self.headings[len(rendered):] or rendered[len(self.headings):]
+            raise ValueError(
+                f"The document and the claimed anchors disagree on {len(missing)} trailing "
+                f"heading(s), starting at {missing[0]!r}."
+            )
+
+    def format_description(self, jsdoc: Dict[str, Any]) -> List[str]:
+        """
+        Render an entry's description, behind a deprecation notice when it carries one.
+
+        A doc comment that is only a `@deprecated` tag leaves the description empty, so without
+        this the entry reads as though nothing were wrong with it.
+        """
+        sections = []
+
+        deprecated = next((tag for tag in jsdoc.get("tags", []) if tag.get("name") == "deprecated"), None)
+        if deprecated is not None:
+            note = deprecated.get("text", "").strip()
+            sections.append(f"**Deprecated:** {note}\n" if note else "**Deprecated**\n")
+
+        if jsdoc.get("description"):
+            sections.append(f"{jsdoc['description']}\n")
+
+        return sections
 
     def generate_folder_section(self, folder: Dict[str, Any]) -> str:
         """Generate documentation for a folder."""
         folder_name = folder.get("name", "")
         folder_path = folder.get("path", folder_name)  # Full path for nested folders
-        folder_slug = self.slugify(folder_path)
 
         sections = []
         # Use full path for nested directories, capitalize just the display
         folder_display = folder_path.replace('/', ' / ').title()
-        sections.append(f"\n## {folder_display}\n")
+        sections.append(f"\n{self.heading(2, folder_display, toc_kind='folder')}\n")
 
         # Folder description if available
         if "description" in folder:
@@ -124,13 +234,12 @@ Each section is organized by module, with classes, interfaces, types, and functi
 
         # Generate documentation for each file
         for file in folder.get("files", []):
-            sections.append(self.generate_file_section(file, folder_path))
+            sections.append(self.generate_file_section(file))
 
         return "\n".join(sections)
 
-    def generate_file_section(self, file: Dict[str, Any], folder_name: str) -> str:
+    def generate_file_section(self, file: Dict[str, Any]) -> str:
         """Generate documentation for a file."""
-        file_name = file.get("name", "")
         file_path = file.get("path", "")
         exports = file.get("exports", [])
 
@@ -142,46 +251,43 @@ Each section is organized by module, with classes, interfaces, types, and functi
 
         # Add file-level separator and header (only if there are exports)
         sections.append("\n---\n")
-        sections.append(f"### `{file_path}`\n")
+        sections.append(f"{self.heading(3, f'`{file_path}`')}\n")
 
         # Generate documentation for each export
         for export in exports:
-            sections.append(self.generate_export_section(export, folder_name, file_name, file_path))
+            sections.append(self.generate_export_section(export))
 
         return "\n".join(sections)
 
-    def generate_export_section(self, export: Dict[str, Any], folder_name: str, file_name: str, file_path: str) -> str:
+    def generate_export_section(self, export: Dict[str, Any]) -> str:
         """Generate documentation for an export (class, interface, type, function)."""
         kind = export.get("kind", "")
         name = export.get("name", "")
 
         if kind == "class":
-            return self.generate_class_docs(export, folder_name, file_name, file_path)
+            return self.generate_class_docs(export)
         elif kind == "interface":
-            return self.generate_interface_docs(export, folder_name, file_name, file_path)
+            return self.generate_interface_docs(export)
         elif kind == "type":
-            return self.generate_type_docs(export, folder_name, file_name, file_path)
+            return self.generate_type_docs(export)
         elif kind == "function":
-            return self.generate_function_docs(export, folder_name, file_name, file_path)
+            return self.generate_function_docs(export)
         elif kind == "const":
-            return self.generate_const_docs(export, folder_name, file_name, file_path)
+            return self.generate_const_docs(export)
         else:
             return ""
 
-    def generate_class_docs(self, cls: Dict[str, Any], folder_name: str, file_name: str, file_path: str) -> str:
+    def generate_class_docs(self, cls: Dict[str, Any]) -> str:
         """Generate documentation for a class."""
         name = cls.get("name", "")
-        file_name_no_ext = file_name.replace(".ts", "")
-        slug = self.slugify(f"{folder_name}-{file_name_no_ext}-{name}")
 
         sections = []
-        sections.append(f"\n#### {name}\n")
+        sections.append(f"\n{self.heading(4, name, toc_kind='export')}\n")
         sections.append(f"**Type:** Class\n")
 
         # Description
         jsdoc = cls.get("jsdoc", {})
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
         # Heritage
         extends = cls.get("extends", [])
@@ -204,50 +310,47 @@ Each section is organized by module, with classes, interfaces, types, and functi
 
             # Constructor
             if constructors:
-                sections.append("\n#### Constructor\n")
+                sections.append(f"\n{self.heading(4, 'Constructor')}\n")
                 for constructor in constructors:
                     sections.append(self.generate_constructor_docs(constructor))
 
             # Properties
             if properties:
-                sections.append("\n#### Properties\n")
+                sections.append(f"\n{self.heading(4, 'Properties')}\n")
                 for prop in properties:
                     sections.append(self.generate_property_docs(prop))
 
             # Methods
             if methods:
-                sections.append("\n#### Methods\n")
+                sections.append(f"\n{self.heading(4, 'Methods')}\n")
                 for method in methods:
                     sections.append(self.generate_method_docs(method))
 
             # Getters
             if getters:
-                sections.append("\n#### Getters\n")
+                sections.append(f"\n{self.heading(4, 'Getters')}\n")
                 for getter in getters:
                     sections.append(self.generate_accessor_docs(getter))
 
             # Setters
             if setters:
-                sections.append("\n#### Setters\n")
+                sections.append(f"\n{self.heading(4, 'Setters')}\n")
                 for setter in setters:
                     sections.append(self.generate_accessor_docs(setter))
 
         return "\n".join(sections)
 
-    def generate_interface_docs(self, iface: Dict[str, Any], folder_name: str, file_name: str, file_path: str) -> str:
+    def generate_interface_docs(self, iface: Dict[str, Any]) -> str:
         """Generate documentation for an interface."""
         name = iface.get("name", "")
-        file_name_no_ext = file_name.replace(".ts", "")
-        slug = self.slugify(f"{folder_name}-{file_name_no_ext}-{name}")
 
         sections = []
-        sections.append(f"\n#### {name}\n")
+        sections.append(f"\n{self.heading(4, name, toc_kind='export')}\n")
         sections.append(f"**Type:** Interface\n")
 
         # Description
         jsdoc = iface.get("jsdoc", {})
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
         # Extends
         extends = iface.get("extends", [])
@@ -264,25 +367,25 @@ Each section is organized by module, with classes, interfaces, types, and functi
 
             # Properties
             if properties:
-                sections.append("\n#### Properties\n")
+                sections.append(f"\n{self.heading(4, 'Properties')}\n")
                 for prop in properties:
                     sections.append(self.generate_property_docs(prop))
 
             # Methods
             if methods:
-                sections.append("\n#### Methods\n")
+                sections.append(f"\n{self.heading(4, 'Methods')}\n")
                 for method in methods:
                     sections.append(self.generate_method_docs(method))
 
             # Call signatures
             if call_sigs:
-                sections.append("\n#### Call Signatures\n")
+                sections.append(f"\n{self.heading(4, 'Call Signatures')}\n")
                 for sig in call_sigs:
                     sections.append(self.generate_call_signature_docs(sig))
 
         return "\n".join(sections)
 
-    def generate_type_docs(self, type_alias: Dict[str, Any], folder_name: str, file_name: str, file_path: str) -> str:
+    def generate_type_docs(self, type_alias: Dict[str, Any]) -> str:
         """Generate documentation for a type alias."""
         name = type_alias.get("name", "")
         signature = type_alias.get("signature", "")
@@ -290,11 +393,10 @@ Each section is organized by module, with classes, interfaces, types, and functi
         members = type_alias.get("members", [])
 
         sections = []
-        sections.append(f"\n#### {name}\n")
+        sections.append(f"\n{self.heading(4, name, toc_kind='export')}\n")
         sections.append(f"**Type:** Type Alias\n")
 
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
         sections.append("**Signature:**\n")
         sections.append(f"```typescript\n{signature}\n```")
@@ -350,7 +452,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
 
         return "\n".join(sections)
 
-    def generate_function_docs(self, func: Dict[str, Any], folder_name: str, file_name: str, file_path: str) -> str:
+    def generate_function_docs(self, func: Dict[str, Any]) -> str:
         """Generate documentation for a function."""
         name = func.get("name", "")
         signature = func.get("signature", "")
@@ -360,11 +462,10 @@ Each section is organized by module, with classes, interfaces, types, and functi
         return_description = func.get("returnDescription", "")
 
         sections = []
-        sections.append(f"\n#### {name}\n")
+        sections.append(f"\n{self.heading(4, name, toc_kind='export')}\n")
         sections.append(f"**Type:** Function\n")
 
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
         sections.append("**Signature:**\n")
         sections.append(f"```typescript\n{signature}\n```")
@@ -379,7 +480,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
 
         return "\n".join(sections)
 
-    def generate_const_docs(self, const: Dict[str, Any], folder_name: str, file_name: str, file_path: str) -> str:
+    def generate_const_docs(self, const: Dict[str, Any]) -> str:
         """Generate documentation for a const."""
         name = const.get("name", "")
         signature = const.get("signature", "")
@@ -387,14 +488,13 @@ Each section is organized by module, with classes, interfaces, types, and functi
         const_type = const.get("type", "")
 
         sections = []
-        sections.append(f"\n#### {name}\n")
+        sections.append(f"\n{self.heading(4, name, toc_kind='export')}\n")
         sections.append(f"**Type:** Constant\n")
 
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
         if const_type:
-            sections.append(f"**Value Type:** `{const_type}`\n")
+            sections.append(self.format_labeled_type("Value Type", const_type))
 
         return "\n".join(sections)
 
@@ -406,8 +506,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
 
         sections = []
 
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
         sections.append("**Signature:**\n")
         sections.append(f"```typescript\n{signature}\n```")
@@ -428,12 +527,11 @@ Each section is organized by module, with classes, interfaces, types, and functi
         is_optional = prop.get("optional", False)
 
         sections = []
-        sections.append(f"\n##### {name}\n")
+        sections.append(f"\n{self.heading(5, name)}\n")
 
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
-        sections.append(f"**Type:** `{prop_type}`\n")
+        sections.append(self.format_labeled_type("Type", prop_type))
 
         return "\n".join(sections)
 
@@ -449,10 +547,9 @@ Each section is organized by module, with classes, interfaces, types, and functi
         is_async = method.get("async", False)
 
         sections = []
-        sections.append(f"\n##### {name}\n")
+        sections.append(f"\n{self.heading(5, name)}\n")
 
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
         sections.append("**Signature:**\n")
         sections.append(f"```typescript\n{signature}\n```")
@@ -477,10 +574,9 @@ Each section is organized by module, with classes, interfaces, types, and functi
         return_type = accessor.get("returnType", "")
 
         sections = []
-        sections.append(f"\n##### {name} ({kind})\n")
+        sections.append(f"\n{self.heading(5, f'{name} ({kind})')}\n")
 
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
         sections.append("**Signature:**\n")
         sections.append(f"```typescript\n{signature}\n```")
@@ -489,7 +585,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
             sections.append(self.generate_parameters_table(parameters))
 
         if return_type and kind == "getter":
-            sections.append(f"\n**Returns:** `{return_type}`")
+            sections.append(self.format_return_type(return_type))
 
         return "\n".join(sections)
 
@@ -503,8 +599,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
 
         sections = []
 
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
         sections.append("**Signature:**\n")
         sections.append(f"```typescript\n{signature}\n```")
@@ -525,13 +620,12 @@ Each section is organized by module, with classes, interfaces, types, and functi
         value_type = sig.get("type", "any")
 
         sections = []
-        sections.append(f"\n##### {name}\n")
+        sections.append(f"\n{self.heading(5, name)}\n")
 
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
-        sections.append(f"**Signature:** `{signature}`\n")
-        sections.append(f"**Value Type:** `{value_type}`\n")
+        sections.append(self.format_labeled_type("Signature", signature))
+        sections.append(self.format_labeled_type("Value Type", value_type))
 
         return "\n".join(sections)
 
@@ -544,14 +638,13 @@ Each section is organized by module, with classes, interfaces, types, and functi
         key_type = mapped.get("keyType", "any")
 
         sections = []
-        sections.append(f"\n##### {name}\n")
+        sections.append(f"\n{self.heading(5, name)}\n")
 
-        if jsdoc.get("description"):
-            sections.append(f"{jsdoc['description']}\n")
+        sections.extend(self.format_description(jsdoc))
 
-        sections.append(f"**Signature:** `{signature}`\n")
-        sections.append(f"**Key Type:** `{key_type}`\n")
-        sections.append(f"**Value Type:** `{value_type}`\n")
+        sections.append(self.format_labeled_type("Signature", signature))
+        sections.append(self.format_labeled_type("Key Type", key_type))
+        sections.append(self.format_labeled_type("Value Type", value_type))
 
         return "\n".join(sections)
 
@@ -564,7 +657,9 @@ Each section is organized by module, with classes, interfaces, types, and functi
         sections.append("\n**Parameters:**\n")
 
         for param in parameters:
-            name = param.get("name", "")
+            # Destructured parameters are declared over several lines; collapse them so the name
+            # stays inside a single-line inline code span.
+            name = " ".join(param.get("name", "").split())
             param_type = param.get("type", "")
             is_optional = param.get("optional", False)
             description = param.get("description", "")
@@ -573,11 +668,37 @@ Each section is organized by module, with classes, interfaces, types, and functi
             if is_optional:
                 param_name += " (optional)"
 
-            sections.append(f"- {param_name}: `{param_type}`")
-            if description:
-                sections.append(f"  - {description}")
+            if '\n' in param_type:
+                sections.append(f"- {param_name}:")
+                if description:
+                    sections.append(f"  - {description}")
+                sections.append("")
+                sections.append(indent(f"```typescript\n{param_type}\n```", "  "))
+                sections.append("")
+            else:
+                sections.append(f"- {param_name}: `{param_type}`")
+                if description:
+                    sections.append(f"  - {description}")
 
         return "\n".join(sections)
+
+    def format_labeled_type(self, label: str, type_str: str) -> str:
+        """
+        Format a `**Label:** <type>` line, using a code block when the type spans several lines.
+
+        A multi-line type can contain blank lines, which terminate an inline code span and leave
+        the type's braces and angle brackets to be parsed as MDX expressions and JSX tags.
+
+        Args:
+            label: The bold label preceding the type (e.g. "Type", "Value Type")
+            type_str: The type string
+
+        Returns:
+            Formatted markdown string for the labeled type
+        """
+        if '\n' in type_str:
+            return f"**{label}:**\n\n```typescript\n{type_str}\n```\n"
+        return f"**{label}:** `{type_str}`\n"
 
     def format_return_type(self, return_type: str, return_description: str = "") -> str:
         """
@@ -609,21 +730,6 @@ Each section is organized by module, with classes, interfaces, types, and functi
             sections.append(return_line)
 
         return "\n".join(sections)
-
-    def slugify(self, text: str) -> str:
-        """Convert text to a markdown-friendly anchor."""
-        # Convert to lowercase and replace spaces/special chars with hyphens
-        slug = text.lower()
-        slug = slug.replace(" ", "-")
-        slug = slug.replace("/", "-")
-        slug = slug.replace(".", "-")
-        slug = slug.replace("_", "-")
-        # Remove any other special characters
-        slug = ''.join(c for c in slug if c.isalnum() or c == '-')
-        # Remove consecutive hyphens
-        while '--' in slug:
-            slug = slug.replace('--', '-')
-        return slug.strip('-')
 
 
 def load_input_file(file_path: str) -> Dict[str, Any]:

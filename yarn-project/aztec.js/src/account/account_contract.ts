@@ -1,6 +1,7 @@
 import type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveKeys } from '@aztec/stdlib/keys';
@@ -32,7 +33,7 @@ export interface AccountContract {
 
   /**
    * The hash of this account's immutable instantiation params, committed into its address. Returns
-   * undefined for accounts that have no immutables (these are instead deployed via an on-chain
+   * undefined for accounts that have no immutables (these are instead deployed via an onchain
    * initializer, which contributes to the address through its initialization hash).
    */
   getImmutablesHash(): Promise<Fr | undefined>;
@@ -61,7 +62,7 @@ export async function getAccountContractAddress(
   secret: Fr,
   salt: Fr,
   immutablesHash?: Fr,
-) {
+): Promise<AztecAddress> {
   const { publicKeys } = await deriveKeys(secret);
   const { constructorName, constructorArgs } = (await accountContract.getInitializationFunctionAndArgs()) ?? {
     constructorName: undefined,
