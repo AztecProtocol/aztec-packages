@@ -77,6 +77,9 @@ affinity: null
 tolerations: []
 topologySpreadConstraints: []
 
+# -- Pod termination grace period; unset uses the k8s default (30s)
+terminationGracePeriodSeconds: null
+
 # -- Aztec node configuration
 node:
   # -- Log level - info, verbose, debug, trace

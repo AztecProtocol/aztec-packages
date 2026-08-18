@@ -2,7 +2,9 @@
 {{- $agentChartName := default "agent" .Values.agent.nameOverride }}
 {{- $agentDefaultName := ternary .Release.Name (printf "%s-%s" .Release.Name $agentChartName) (contains $agentChartName .Release.Name) }}
 {{- $agentName := default $agentDefaultName .Values.agent.fullnameOverride | trunc 63 | trimSuffix "-" }}
-{{- $queueQuery := printf "sum(aztec_proving_queue_size{k8s_namespace_name=%q})" .Release.Namespace }}
+{{- /* Queued jobs alone drop to 0 while agents are still proving, which would let KEDA
+       scale the pool to zero mid-proof; include in-progress jobs so agents stay up. */}}
+{{- $queueQuery := printf "(sum(aztec_proving_queue_size{k8s_namespace_name=%q}) or vector(0)) + (sum(aztec_proving_queue_active_jobs_count{k8s_namespace_name=%q}) or vector(0))" .Release.Namespace .Release.Namespace }}
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
