@@ -407,6 +407,8 @@ export class OpenTelemetryClient implements TelemetryClient {
           ? [
               new MonitoredBatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href }), log, {
                 maxQueueSize: config.otelBspMaxQueueSize,
+                maxExportBatchSize: config.otelBspMaxExportBatchSize,
+                scheduledDelayMillis: config.otelBspScheduleDelayMs,
                 minTraceDurationMs: config.otelMinTraceDurationMs,
               }),
             ]
