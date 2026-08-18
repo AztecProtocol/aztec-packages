@@ -6,14 +6,10 @@ import {
   type L2BlockSource,
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
+  getBlockSourceEmitter,
 } from '../l2_block_source.js';
 import type { L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 import { L2BlockStream, type L2BlockStreamOptions } from './l2_block_stream.js';
-
-/** Returns the event emitter of a source that exposes one, or undefined for plain (e.g. RPC-backed) sources. */
-function getEmitter(source: L2BlockSource | L2BlockSourceEventEmitter): ArchiverEmitter | undefined {
-  return 'events' in source ? source.events : undefined;
-}
 
 /**
  * Event-driven wrapper around {@link L2BlockStream}. Subscribes to the source's aggregate `l2BlockSourceUpdated`
@@ -46,7 +42,7 @@ export class EventDrivenL2BlockStream {
     // stream through `sync()` (which runs `work()` directly when the inner loop is stopped).
     this.blockStream = new L2BlockStream(source, localData, handler, log, opts);
     this.runningPromise = new RunningPromise(() => this.blockStream.sync(), log, opts.pollIntervalMS ?? 1000);
-    this.emitter = getEmitter(source);
+    this.emitter = getBlockSourceEmitter(source);
   }
 
   public start(): void {
