@@ -104,9 +104,22 @@ if [[ "$CHECK_ONLY" == true ]]; then
     sed 's/^\*Generated: .*\*$/*Generated: <ignored>*/' "$1"
   }
 
-  if diff <(normalize "$COMMITTED") <(normalize "$TEMP_WITH_FRONTMATTER") > /dev/null; then
+  DRIFT=$(diff -U1 --label committed --label regenerated \
+    <(normalize "$COMMITTED") <(normalize "$TEMP_WITH_FRONTMATTER") || true)
+
+  if [[ -z "$DRIFT" ]]; then
     echo "  ✓ Reference matches aztec.js"
     exit 0
+  fi
+
+  # Print the drift. Not every cause reproduces on the author's machine: the generator infers
+  # return types through the type checker, so what it emits also depends on which yarn-project
+  # packages the environment has built.
+  DRIFT_LINES=$(printf '%s\n' "$DRIFT" | wc -l | tr -d ' ')
+  echo "" >&2
+  printf '%s\n' "$DRIFT" | head -60 >&2 || true
+  if ((DRIFT_LINES > 60)); then
+    echo "... and $((DRIFT_LINES - 60)) more diff lines" >&2
   fi
 
   cat >&2 <<EOF
