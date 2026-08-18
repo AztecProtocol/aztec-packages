@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct ClaimedLengthArray documentation</title>
 </head>
 <body>
@@ -62,7 +65,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">utils</a>::<a href="index.html">arrays</a></div>
-<h1>Struct <span id="struct" class="struct">ClaimedLengthArray</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">ClaimedLengthArray</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct ClaimedLengthArray&lt;T, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; {
     pub array: [T; N],
     pub length: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
@@ -81,39 +90,25 @@ Validation must include:</p>
 <div id="structfield.array" class="struct-field"><code class="code-header">array: [T; N]</code></div>
 <div class="padded-description"></div><div id="structfield.length" class="struct-field"><code class="code-header">length: <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;</code></h3>
-
-<div class="padded-methods"><code id="assert_dense_trimmed" class="code-header">pub fn <a href="#assert_dense_trimmed"><span class="fn">assert_dense_trimmed</span></a>(self)
+<h3><code class="code-header">impl&lt;T, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
 <div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+    T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code></h3>
 
-<code id="assert_empty" class="code-header">pub fn <a href="#assert_empty"><span class="fn">assert_empty</span></a>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+<div class="padded-methods"><code id="assert_dense_trimmed" class="code-header">pub fn <a href="#assert_dense_trimmed" class="fn">assert_dense_trimmed</a>(self)</code>
 
-<code id="assert_length_within_bounds" class="code-header">pub fn <a href="#assert_length_within_bounds"><span class="fn">assert_length_within_bounds</span></a>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+<code id="assert_empty" class="code-header">pub fn <a href="#assert_empty" class="fn">assert_empty</a>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
 
-<code id="push" class="code-header">pub fn <a href="#push"><span class="fn">push</span></a>(&mut self, item: T)
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+<code id="assert_length_within_bounds" class="code-header">pub fn <a href="#assert_length_within_bounds" class="fn">assert_length_within_bounds</a>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)</code>
 
-<code id="pop" class="code-header">pub fn <a href="#pop"><span class="fn">pop</span></a>(&mut self) -> T
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+<code id="push" class="code-header">pub fn <a href="#push" class="fn">push</a>(&mut self, item: T)</code>
 
-<code id="for_each" class="code-header">pub fn <a href="#for_each"><span class="fn">for_each</span></a>&lt;Env&gt;(self, f: fn[Env](T))
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+<code id="pop" class="code-header">pub fn <a href="#pop" class="fn">pop</a>(&mut self) -> T</code>
 
-<code id="for_each_i" class="code-header">pub fn <a href="#for_each_i"><span class="fn">for_each_i</span></a>&lt;Env&gt;(self, f: fn[Env](T, <a href="../../../std/primitive.u32.html" class="primitive">u32</a>))
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+<code id="for_each" class="code-header">pub fn <a href="#for_each" class="fn">for_each</a>&lt;Env&gt;(self, f: fn[Env](T))</code>
 
-<code id="from_bounded_vec" class="code-header">pub fn <a href="#from_bounded_vec"><span class="fn">from_bounded_vec</span></a>(vec: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, N&gt;) -> Self
-<div class="where-clause">where
-    T: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
+<code id="for_each_i" class="code-header">pub fn <a href="#for_each_i" class="fn">for_each_i</a>&lt;Env&gt;(self, f: fn[Env](T, <a href="../../../std/primitive.u32.html" class="primitive">u32</a>))</code>
+
+<code id="from_bounded_vec" class="code-header">pub fn <a href="#from_bounded_vec" class="fn">from_bounded_vec</a>(vec: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, N&gt;) -> Self</code>
 
 </div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-ClaimedLengthArray<T, N>"><code class="code-header">impl&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;T, N&gt;
@@ -154,7 +149,8 @@ Validation must include:</p>
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

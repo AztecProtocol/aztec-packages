@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct NoteHashAndNullifier documentation</title>
 </head>
 <body>
@@ -40,12 +43,19 @@
 </ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.do_sync_state.html">do_sync_state</a></div></li>
+<li><a href="fn.do_sync_state_no_op.html">do_sync_state_no_op</a></div></li>
 <li><a href="fn.do_sync_state_without_handshake_discovery.html">do_sync_state_without_handshake_discovery</a></div></li>
 </ul>
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">discovery</a></div>
-<h1>Struct <span id="struct" class="struct">NoteHashAndNullifier</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">NoteHashAndNullifier</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct NoteHashAndNullifier {
     pub note_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub inner_nullifier: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;,
@@ -60,7 +70,8 @@
 <p>The result of <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html#compute_nullifier_unconstrained"><code>crate::note::note_interface::NoteHash::compute_nullifier_unconstrained</code></a>.</p>
 <p>This value is unconstrained, as all of message discovery is unconstrained. It is <code>None</code> if the nullifier
 cannot be computed (e.g. because the nullifier hiding key is not available).</p></div>
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

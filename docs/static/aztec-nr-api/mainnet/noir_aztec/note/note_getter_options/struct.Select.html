@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct Select documentation</title>
 </head>
 <body>
@@ -38,16 +41,25 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::<a href="index.html">note_getter_options</a></div>
-<h1>Struct <span id="struct" class="struct">Select</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">Select</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct Select
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../noir_aztec/note/note_getter_options/struct.Select.html" class="struct">Select</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(property_selector: <a href="../../../noir_aztec/note/note_getter_options/struct.PropertySelector.html" class="struct">PropertySelector</a>, comparator: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>, value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>&lt;T&gt;(property_selector: <a href="../../../noir_aztec/note/note_getter_options/struct.PropertySelector.html" class="struct">PropertySelector</a>&lt;T&gt;, comparator: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>, value: T) -> Self
+<div class="where-clause">where
+    T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

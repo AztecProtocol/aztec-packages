@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Type alias CustomMessageHandler documentation</title>
 </head>
 <body>
@@ -34,12 +37,19 @@
 </ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.do_sync_state.html">do_sync_state</a></div></li>
+<li><a href="fn.do_sync_state_no_op.html">do_sync_state_no_op</a></div></li>
 <li><a href="fn.do_sync_state_without_handshake_discovery.html">do_sync_state_without_handshake_discovery</a></div></li>
 </ul>
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">discovery</a></div>
-<h1>Type alias <span class="type">CustomMessageHandler</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Type alias <span class="type">CustomMessageHandler</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub type CustomMessageHandler = unconstrained fn(<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 11&gt;, <a href="../../../noir_aztec/oracle/tx_resolution/struct.ResolvedTx.html" class="struct">ResolvedTx</a>, <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>);</code></pre>
 
 <div class="comments">
@@ -47,6 +57,7 @@
 <p>Contracts that emit custom messages (i.e. any with a message type that is not in <a href="../../../noir_aztec/messages/msg_type/index.html"><code>crate::messages::msg_type</code></a>)
 need to use <a href="../../../noir_aztec/macros/struct.AztecConfig.html#custom_message_handler"><code>crate::macros::AztecConfig::custom_message_handler</code></a> with a function of this type in order to
 process them. They will otherwise be <strong>silently ignored</strong>.</p></div>
+</div>
 </main>
 </span>
 </body>

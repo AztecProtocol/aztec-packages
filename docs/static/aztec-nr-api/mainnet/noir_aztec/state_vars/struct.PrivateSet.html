@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct PrivateSet documentation</title>
 </head>
 <body>
@@ -58,7 +61,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
-<h1>Struct <span id="struct" class="struct">PrivateSet</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">PrivateSet</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct PrivateSet&lt;Note, Context&gt; {
     pub context: Context,
     pub storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
@@ -133,14 +142,15 @@ within the innards of the PrivateSet impl, so you shouldn't need to think about 
 <div class="padded-description"></div><div id="structfield.storage_slot" class="struct-field"><code class="code-header">storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.owner" class="struct-field"><code class="code-header">owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;Note, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="insert" class="code-header">pub fn <a href="#insert"><span class="fn">insert</span></a>(self, note: Note) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
+<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;Note, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;
 <div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
+
+<div class="padded-methods"><code id="insert" class="code-header">pub fn <a href="#insert" class="fn">insert</a>(self, note: Note) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Inserts a new <code>note</code> into the PrivateSet.</p>
@@ -184,15 +194,12 @@ This prevents state collisions between different smart contracts.</li>
 <li>Ensure uniqueness of the <code>siloed_note_hash</code>, to prevent Faerie-Gold attacks, by hashing the
 <code>siloed_note_hash</code> with a unique value, to yield a <code>unique_siloed_note_hash</code> (see the protocol spec for more).</li>
 </ul></div>
-</div><code id="pop_notes" class="code-header">pub fn <a href="#pop_notes"><span class="fn">pop_notes</span></a>&lt;PreprocessorArgs, FilterArgs, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+</div><code id="pop_notes" class="code-header">pub fn <a href="#pop_notes" class="fn">pop_notes</a>&lt;PreprocessorArgs, FilterArgs, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     self,
     options: <a href="../../noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html" class="struct">NoteGetterOptions</a>&lt;Note, M, PreprocessorArgs, FilterArgs&gt;,
 ) -> <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;Note, 16&gt;
 <div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Pops a collection of &quot;current&quot; notes (i.e. not-yet-nullified notes) which belong to this PrivateSet.</p>
@@ -253,11 +260,7 @@ This prevents nullifier collisions between different smart contracts.</li>
 indexed merkle tree, which supports efficient non-membership proofs.</li>
 </ul>
 </div>
-</div><code id="remove" class="code-header">pub fn <a href="#remove"><span class="fn">remove</span></a>(self, confirmed_note: <a href="../../noir_aztec/note/struct.ConfirmedNote.html" class="struct">ConfirmedNote</a>&lt;Note&gt;)
-<div class="where-clause">where
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+</div><code id="remove" class="code-header">pub fn <a href="#remove" class="fn">remove</a>(self, confirmed_note: <a href="../../noir_aztec/note/struct.ConfirmedNote.html" class="struct">ConfirmedNote</a>&lt;Note&gt;)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Permanently removes (conceptually) the given note from this PrivateSet, by nullifying it.</p>
@@ -281,15 +284,12 @@ syntax of how to encrypt and deliver notes much clearer, and to make the default
 developers. We will also be enabling easier ways to customize your own note encryption options.</li>
 </ul>
 </div>
-</div><code id="get_notes" class="code-header">pub fn <a href="#get_notes"><span class="fn">get_notes</span></a>&lt;PreprocessorArgs, FilterArgs, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+</div><code id="get_notes" class="code-header">pub fn <a href="#get_notes" class="fn">get_notes</a>&lt;PreprocessorArgs, FilterArgs, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     self,
     options: <a href="../../noir_aztec/note/note_getter_options/struct.NoteGetterOptions.html" class="struct">NoteGetterOptions</a>&lt;Note, M, PreprocessorArgs, FilterArgs&gt;,
 ) -> <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../noir_aztec/note/struct.ConfirmedNote.html" class="struct">ConfirmedNote</a>&lt;Note&gt;, 16&gt;
 <div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns a filtered collection of notes from the set.</p>
@@ -338,17 +338,18 @@ Note Hashes Tree that this tx is referencing.</li>
 execution frame of this tx.</li>
 </ul>
 </div>
-</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateSet.html" class="struct">PrivateSet</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;
+<div class="where-clause">where
+    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
 
-<div class="padded-methods"><code id="view_notes" class="code-header">pub unconstrained fn <a href="#view_notes"><span class="fn">view_notes</span></a>(
+<div class="padded-methods"><code id="view_notes" class="code-header">pub unconstrained fn <a href="#view_notes" class="fn">view_notes</a>(
     self,
     options: <a href="../../noir_aztec/note/note_viewer_options/struct.NoteViewerOptions.html" class="struct">NoteViewerOptions</a>&lt;Note, &lt;Note as Packable&gt;::N&gt;,
 ) -> <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;Note, 10&gt;
 <div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns a collection of notes which belong to this PrivateSet, according to the given selection <code>options</code>.</p>
@@ -365,7 +366,8 @@ returned by the oracle call to the PXE.</li>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

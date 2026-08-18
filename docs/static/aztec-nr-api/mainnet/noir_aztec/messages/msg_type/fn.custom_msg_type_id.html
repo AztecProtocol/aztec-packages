@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function custom_msg_type_id documentation</title>
 </head>
 <body>
@@ -30,7 +33,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">msg_type</a></div>
-<h1>Function <span class="fn">custom_msg_type_id</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">custom_msg_type_id</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub comptime fn custom_msg_type_id(local_id: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>) -> <a href="../../../std/primitive.u64.html" class="primitive">u64</a></code></pre>
 
 <div class="comments">
@@ -41,6 +50,7 @@ defined.</p>
 <h2>Examples</h2>
 <pre><code><span class="kw">global</span> MY_MSG_TYPE_ID: u64 = custom_msg_type_id(<span class="number">0</span>);
 <span class="kw">global</span> MY_OTHER_MSG_TYPE_ID: u64 = custom_msg_type_id(<span class="number">1</span>);</code></pre></div>
+</div>
 </main>
 </span>
 </body>

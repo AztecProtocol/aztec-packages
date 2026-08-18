@@ -19,6 +19,24 @@ except ImportError:
     YAML_AVAILABLE = False
 
 
+def heading_anchor(text: str) -> str:
+    """Anchor Docusaurus generates for a heading, matching github-slugger.
+
+    Everything except alphanumerics, spaces, hyphens and underscores is dropped, then each
+    remaining space becomes a hyphen. Underscores are kept, so `CAPABILITY_VERSION` anchors
+    as `capability_version`.
+    """
+    cleaned = "".join(c for c in str(text).lower().strip() if c.isalnum() or c in " -_")
+    return cleaned.replace(" ", "-")
+
+def inline_type(type_str: str) -> str:
+    """Collapse a type to a single line so it is safe inside an inline code span.
+
+    A multi-line type inside backticks leaves the span unterminated, and MDX then reads the
+    type's leading `{` as the start of a JSX expression and fails the build.
+    """
+    return " ".join(str(type_str).split())
+
 class MarkdownGenerator:
     """Generates markdown documentation from structured API data."""
 
@@ -86,8 +104,8 @@ Each section is organized by module, with classes, interfaces, types, and functi
             folder_name = folder.get("name", "")
             folder_path = folder.get("path", folder_name)  # Full path for nested folders
             # For folder header like "## Account", Docusaurus generates anchor "#account"
-            folder_slug = folder_path.lower().replace('/', '').replace('_', '')
             folder_display = folder_path.replace('/', ' / ').title()
+            folder_slug = heading_anchor(folder_display)
             lines.append(f"- [{folder_display}](#{folder_slug})")
 
             # Add files as sub-items
@@ -102,7 +120,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
                 for export in file.get("exports", []):
                     export_name = export.get("name", "")
                     # For export header like "#### AccountContract", Docusaurus generates "#accountcontract"
-                    export_slug = export_name.lower().replace('_', '').replace('-', '')
+                    export_slug = heading_anchor(export_name)
                     lines.append(f"  - [{export_name}](#{export_slug})")
 
         return "\n".join(lines)
@@ -394,7 +412,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
             sections.append(f"{jsdoc['description']}\n")
 
         if const_type:
-            sections.append(f"**Value Type:** `{const_type}`\n")
+            sections.append(f"**Value Type:** `{inline_type(const_type)}`\n")
 
         return "\n".join(sections)
 
@@ -433,7 +451,12 @@ Each section is organized by module, with classes, interfaces, types, and functi
         if jsdoc.get("description"):
             sections.append(f"{jsdoc['description']}\n")
 
-        sections.append(f"**Type:** `{prop_type}`\n")
+        if "\n" in prop_type:
+            # Multi-line types break inline code spans in MDX (a bare `{` is parsed as a JSX expression).
+            sections.append("**Type:**\n")
+            sections.append(f"```typescript\n{prop_type}\n```\n")
+        else:
+            sections.append(f"**Type:** `{inline_type(prop_type)}`\n")
 
         return "\n".join(sections)
 
@@ -489,7 +512,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
             sections.append(self.generate_parameters_table(parameters))
 
         if return_type and kind == "getter":
-            sections.append(f"\n**Returns:** `{return_type}`")
+            sections.append(f"\n**Returns:** `{inline_type(return_type)}`")
 
         return "\n".join(sections)
 
@@ -530,8 +553,8 @@ Each section is organized by module, with classes, interfaces, types, and functi
         if jsdoc.get("description"):
             sections.append(f"{jsdoc['description']}\n")
 
-        sections.append(f"**Signature:** `{signature}`\n")
-        sections.append(f"**Value Type:** `{value_type}`\n")
+        sections.append(f"**Signature:** `{inline_type(signature)}`\n")
+        sections.append(f"**Value Type:** `{inline_type(value_type)}`\n")
 
         return "\n".join(sections)
 
@@ -549,9 +572,9 @@ Each section is organized by module, with classes, interfaces, types, and functi
         if jsdoc.get("description"):
             sections.append(f"{jsdoc['description']}\n")
 
-        sections.append(f"**Signature:** `{signature}`\n")
-        sections.append(f"**Key Type:** `{key_type}`\n")
-        sections.append(f"**Value Type:** `{value_type}`\n")
+        sections.append(f"**Signature:** `{inline_type(signature)}`\n")
+        sections.append(f"**Key Type:** `{inline_type(key_type)}`\n")
+        sections.append(f"**Value Type:** `{inline_type(value_type)}`\n")
 
         return "\n".join(sections)
 
@@ -573,7 +596,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
             if is_optional:
                 param_name += " (optional)"
 
-            sections.append(f"- {param_name}: `{param_type}`")
+            sections.append(f"- {param_name}: `{inline_type(param_type)}`")
             if description:
                 sections.append(f"  - {description}")
 
@@ -603,7 +626,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
             if return_description:
                 sections.append(f"\n{return_description}")
         else:
-            return_line = f"`{return_type}`"
+            return_line = f"`{inline_type(return_type)}`"
             if return_description:
                 return_line += f" - {return_description}"
             sections.append(return_line)

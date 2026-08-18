@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct PublicContext documentation</title>
 </head>
 <body>
@@ -72,7 +75,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">context</a></div>
-<h1>Struct <span id="struct" class="struct">PublicContext</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">PublicContext</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct PublicContext
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -131,7 +140,7 @@ fundamentally different from optimising a public function.</p>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(compute_args_hash: fn() -> <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>(compute_args_hash: fn() -> <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Creates a new PublicContext instance.</p>
@@ -146,7 +155,7 @@ be called directly by smart contract developers.</p>
 <li>A new PublicContext instance</li>
 </ul>
 </div>
-</div><code id="emit_public_log_unsafe" class="code-header">pub fn <a href="#emit_public_log_unsafe"><span class="fn">emit_public_log_unsafe</span></a>&lt;T&gt;(_self: Self, tag: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, log: T)
+</div><code id="emit_public_log_unsafe" class="code-header">pub fn <a href="#emit_public_log_unsafe" class="fn">emit_public_log_unsafe</a>&lt;T&gt;(_self: Self, tag: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, log: T)
 <div class="where-clause">where
     T: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
 
@@ -163,7 +172,7 @@ clients to efficiently query for matching logs without scanning all of them.</li
 collisions between logs from different sources. Without domain separation, two unrelated log types that
 happen to share a raw tag value become indistinguishable. Prefer <code>self.emit(event)</code> for events, which
 handles tagging automatically.</p></div>
-</div><code id="note_hash_exists" class="code-header">pub fn <a href="#note_hash_exists"><span class="fn">note_hash_exists</span></a>(_self: Self, note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, leaf_index: <a href="../../std/primitive.u64.html" class="primitive">u64</a>) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+</div><code id="note_hash_exists" class="code-header">pub fn <a href="#note_hash_exists" class="fn">note_hash_exists</a>(_self: Self, note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, leaf_index: <a href="../../std/primitive.u64.html" class="primitive">u64</a>) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Checks if a given note hash exists in the note hash tree at a particular leaf_index.</p>
@@ -177,7 +186,7 @@ handles tagging automatically.</p></div>
 <li><code>bool</code> - True if the note hash exists at the specified index</li>
 </ul>
 </div>
-</div><code id="l1_to_l2_msg_exists" class="code-header">pub fn <a href="#l1_to_l2_msg_exists"><span class="fn">l1_to_l2_msg_exists</span></a>(_self: Self, msg_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, msg_leaf_index: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+</div><code id="l1_to_l2_msg_exists" class="code-header">pub fn <a href="#l1_to_l2_msg_exists" class="fn">l1_to_l2_msg_exists</a>(_self: Self, msg_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, msg_leaf_index: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Checks if a specific L1-to-L2 message exists in the L1-to-L2 message tree at a particular leaf index.</p>
@@ -198,7 +207,7 @@ handles tagging automatically.</p></div>
 <li>Messages are copied from L1 Inbox to L2 by block proposers</li>
 </ul>
 </div>
-</div><code id="nullifier_exists_unsafe" class="code-header">pub fn <a href="#nullifier_exists_unsafe"><span class="fn">nullifier_exists_unsafe</span></a>(
+</div><code id="nullifier_exists_unsafe" class="code-header">pub fn <a href="#nullifier_exists_unsafe" class="fn">nullifier_exists_unsafe</a>(
     _self: Self,
     unsiloed_nullifier: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
@@ -237,7 +246,7 @@ nullifier that was emitted alongside the enqueuing of a public call <strong>befo
 <h4>Cost</h4>
 <p>This emits the <code>CHECKNULLIFIEREXISTS</code> opcode, which conceptually performs a merkle inclusion proof on the
 nullifier tree (both when the nullifier exists and when it doesn't).</p></div>
-</div><code id="consume_l1_to_l2_message" class="code-header">pub fn <a href="#consume_l1_to_l2_message"><span class="fn">consume_l1_to_l2_message</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+</div><code id="consume_l1_to_l2_message" class="code-header">pub fn <a href="#consume_l1_to_l2_message" class="fn">consume_l1_to_l2_message</a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     self,
     content: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     secret: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N],
@@ -269,7 +278,7 @@ you will need to wait until the messages are copied before you can consume them.
 <li>Will revert if message doesn't exist or was already consumed</li>
 </ul>
 </div>
-</div><code id="message_portal" class="code-header">pub fn <a href="#message_portal"><span class="fn">message_portal</span></a>(_self: Self, recipient: <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a>, content: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+</div><code id="message_portal" class="code-header">pub fn <a href="#message_portal" class="fn">message_portal</a>(_self: Self, recipient: <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a>, content: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sends an &quot;L2 -&gt; L1 message&quot; from this function (Aztec, L2) to a smart contract on Ethereum (L1). L1 contracts
@@ -289,7 +298,7 @@ proof to be submitted -- especially if the block was near the start of an epoch.
 <li><code>content</code> - Message content (32 bytes as a Field element)</li>
 </ul>
 </div>
-</div><code id="call_public_function" class="code-header">pub unconstrained fn <a href="#call_public_function"><span class="fn">call_public_function</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+</div><code id="call_public_function" class="code-header">pub unconstrained fn <a href="#call_public_function" class="fn">call_public_function</a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     _self: Self,
     contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     function_selector: <a href="../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a>,
@@ -312,7 +321,7 @@ proof to be submitted -- especially if the block was near the start of an epoch.
 <li><code>[Field]</code> - Return data from the called function</li>
 </ul>
 </div>
-</div><code id="static_call_public_function" class="code-header">pub unconstrained fn <a href="#static_call_public_function"><span class="fn">static_call_public_function</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+</div><code id="static_call_public_function" class="code-header">pub unconstrained fn <a href="#static_call_public_function" class="fn">static_call_public_function</a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     _self: Self,
     contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     function_selector: <a href="../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a>,
@@ -338,7 +347,7 @@ calls are constrained to also be staticcalls.</p>
 <li><code>[Field]</code> - Return data from the called function</li>
 </ul>
 </div>
-</div><code id="push_note_hash" class="code-header">pub fn <a href="#push_note_hash"><span class="fn">push_note_hash</span></a>(_self: Self, note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+</div><code id="push_note_hash" class="code-header">pub fn <a href="#push_note_hash" class="fn">push_note_hash</a>(_self: Self, note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Adds a new note hash to the Aztec blockchain's global Note Hash Tree.</p>
@@ -359,7 +368,7 @@ in a <em>private</em> function, and then later &quot;completed&quot; with some d
 <li>The note hash will be siloed with the contract address by the protocol</li>
 </ul>
 </div>
-</div><code id="push_nullifier_unsafe" class="code-header">pub fn <a href="#push_nullifier_unsafe"><span class="fn">push_nullifier_unsafe</span></a>(_self: Self, nullifier: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+</div><code id="push_nullifier_unsafe" class="code-header">pub fn <a href="#push_nullifier_unsafe" class="fn">push_nullifier_unsafe</a>(_self: Self, nullifier: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Creates a new <a href="../../noir_aztec/nullifier/index.html">nullifier</a>.</p>
@@ -376,7 +385,7 @@ variable as initialized). Note nullifiers should only be created via
 <p>The raw <code>nullifier</code> is not what is inserted into the Aztec state tree: it will be first siloed by contract
 address via <a href="../../protocol_types/hash/fn.compute_siloed_nullifier.html"><code>crate::protocol::hash::compute_siloed_nullifier</code></a> in order to prevent accidental or malicious
 interference of nullifiers from different contracts.</p></div>
-</div><code id="this_address" class="code-header">pub fn <a href="#this_address"><span class="fn">this_address</span></a>(_self: Self) -> <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+</div><code id="this_address" class="code-header">pub fn <a href="#this_address" class="fn">this_address</a>(_self: Self) -> <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the address of the current contract being executed.</p>
@@ -387,7 +396,7 @@ address, commonly needed for access control or when interacting with other contr
 <li><code>AztecAddress</code> - The contract address of the current function being executed.</li>
 </ul>
 </div>
-</div><code id="maybe_msg_sender" class="code-header">pub fn <a href="#maybe_msg_sender"><span class="fn">maybe_msg_sender</span></a>(_self: Self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code>
+</div><code id="maybe_msg_sender" class="code-header">pub fn <a href="#maybe_msg_sender" class="fn">maybe_msg_sender</a>(_self: Self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the contract address that initiated this function call.</p>
@@ -407,7 +416,7 @@ or a user's account contract).</li>
 <li>In nested calls, this is the immediate caller, not the original transaction sender</li>
 </ul>
 </div>
-</div><code id="selector" class="code-header">pub fn <a href="#selector"><span class="fn">selector</span></a>(_self: Self) -> <a href="../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a></code>
+</div><code id="selector" class="code-header">pub fn <a href="#selector" class="fn">selector</a>(_self: Self) -> <a href="../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the function selector of the currently-executing function.</p>
@@ -422,7 +431,7 @@ or a user's account contract).</li>
 <li>Used internally for function dispatch in the AVM</li>
 </ul>
 </div>
-</div><code id="get_args_hash" class="code-header">pub fn <a href="#get_args_hash"><span class="fn">get_args_hash</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+</div><code id="get_args_hash" class="code-header">pub fn <a href="#get_args_hash" class="fn">get_args_hash</a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the hash of the arguments passed to the current function.</p>
@@ -433,7 +442,7 @@ typically won't need to access this directly as arguments are automatically made
 <li><code>Field</code> - Hash of the function arguments</li>
 </ul>
 </div>
-</div><code id="transaction_fee" class="code-header">pub fn <a href="#transaction_fee"><span class="fn">transaction_fee</span></a>(_self: Self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+</div><code id="transaction_fee" class="code-header">pub fn <a href="#transaction_fee" class="fn">transaction_fee</a>(_self: Self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the &quot;transaction fee&quot; for the current transaction. This is the final tx fee that will be deducted from
@@ -451,7 +460,7 @@ final tx fee can actually be computed.</p>
 fee value. The teardown phase does not consume a variable amount of gas: it always consumes a pre-allocated
 amount of gas, as specified by the user when they generate their tx.</p>
 </div>
-</div><code id="chain_id" class="code-header">pub fn <a href="#chain_id"><span class="fn">chain_id</span></a>(_self: Self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+</div><code id="chain_id" class="code-header">pub fn <a href="#chain_id" class="fn">chain_id</a>(_self: Self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the chain ID of the current network.</p>
@@ -463,7 +472,7 @@ transaction is executing on.</p>
 <li><code>Field</code> - The chain ID as a field element</li>
 </ul>
 </div>
-</div><code id="version" class="code-header">pub fn <a href="#version"><span class="fn">version</span></a>(_self: Self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+</div><code id="version" class="code-header">pub fn <a href="#version" class="fn">version</a>(_self: Self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the Aztec protocol version that this transaction is executing under. Different versions may have
@@ -476,7 +485,7 @@ different rules, opcodes, or cryptographic primitives.</p>
 <li><code>Field</code> - The protocol version as a field element</li>
 </ul>
 </div>
-</div><code id="block_number" class="code-header">pub fn <a href="#block_number"><span class="fn">block_number</span></a>(_self: Self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
+</div><code id="block_number" class="code-header">pub fn <a href="#block_number" class="fn">block_number</a>(_self: Self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the current block number.</p>
@@ -494,7 +503,7 @@ reduce the time between blocks, eventually). Use <code>context.timestamp()</code
 <li><code>u32</code> - The current block number</li>
 </ul>
 </div>
-</div><code id="timestamp" class="code-header">pub fn <a href="#timestamp"><span class="fn">timestamp</span></a>(_self: Self) -> <a href="../../std/primitive.u64.html" class="primitive">u64</a></code>
+</div><code id="timestamp" class="code-header">pub fn <a href="#timestamp" class="fn">timestamp</a>(_self: Self) -> <a href="../../std/primitive.u64.html" class="primitive">u64</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the timestamp of the current block.</p>
@@ -511,7 +520,7 @@ actual current time, the committee of validators will not attest to the block.</
 <li><code>u64</code> - Unix timestamp in seconds</li>
 </ul>
 </div>
-</div><code id="min_fee_per_l2_gas" class="code-header">pub fn <a href="#min_fee_per_l2_gas"><span class="fn">min_fee_per_l2_gas</span></a>(_self: Self) -> <a href="../../std/primitive.u128.html" class="primitive">u128</a></code>
+</div><code id="min_fee_per_l2_gas" class="code-header">pub fn <a href="#min_fee_per_l2_gas" class="fn">min_fee_per_l2_gas</a>(_self: Self) -> <a href="../../std/primitive.u128.html" class="primitive">u128</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the fee per unit of L2 gas for this transaction (aka the &quot;L2 gas price&quot;), as chosen by the user.</p>
@@ -532,7 +541,7 @@ to the time of tx submission. This can give clues about the proving time, and he
 or their favorite number). Wallet devs might wish to consider fuzzing the choice of gas price.</li>
 </ul>
 </div>
-</div><code id="min_fee_per_da_gas" class="code-header">pub fn <a href="#min_fee_per_da_gas"><span class="fn">min_fee_per_da_gas</span></a>(_self: Self) -> <a href="../../std/primitive.u128.html" class="primitive">u128</a></code>
+</div><code id="min_fee_per_da_gas" class="code-header">pub fn <a href="#min_fee_per_da_gas" class="fn">min_fee_per_da_gas</a>(_self: Self) -> <a href="../../std/primitive.u128.html" class="primitive">u128</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the fee per unit of DA (Data Availability) gas (aka the &quot;DA gas price&quot;).</p>
@@ -543,7 +552,7 @@ or their favorite number). Wallet devs might wish to consider fuzzing the choice
 <li><code>u128</code> - Fee per unit of DA gas</li>
 </ul>
 </div>
-</div><code id="l2_gas_left" class="code-header">pub fn <a href="#l2_gas_left"><span class="fn">l2_gas_left</span></a>(_self: Self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
+</div><code id="l2_gas_left" class="code-header">pub fn <a href="#l2_gas_left" class="fn">l2_gas_left</a>(_self: Self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the remaining L2 gas available for this transaction.</p>
@@ -553,7 +562,7 @@ or their favorite number). Wallet devs might wish to consider fuzzing the choice
 <li><code>u32</code> - Remaining L2 gas units</li>
 </ul>
 </div>
-</div><code id="da_gas_left" class="code-header">pub fn <a href="#da_gas_left"><span class="fn">da_gas_left</span></a>(_self: Self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
+</div><code id="da_gas_left" class="code-header">pub fn <a href="#da_gas_left" class="fn">da_gas_left</a>(_self: Self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the remaining DA (Data Availability) gas available for this transaction.</p>
@@ -565,7 +574,7 @@ public functions even begins.</p>
 <li><code>u32</code> - Remaining DA gas units</li>
 </ul>
 </div>
-</div><code id="is_static_call" class="code-header">pub fn <a href="#is_static_call"><span class="fn">is_static_call</span></a>(_self: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+</div><code id="is_static_call" class="code-header">pub fn <a href="#is_static_call" class="fn">is_static_call</a>(_self: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Checks if the current execution is within a staticcall context, where no state changes or logs are allowed to
@@ -575,7 +584,7 @@ be emitted (by this function or any nested function calls).</p>
 <li><code>bool</code> - True if in staticcall context, false otherwise</li>
 </ul>
 </div>
-</div><code id="raw_storage_read" class="code-header">pub fn <a href="#raw_storage_read"><span class="fn">raw_storage_read</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]</code>
+</div><code id="raw_storage_read" class="code-header">pub fn <a href="#raw_storage_read" class="fn">raw_storage_read</a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]</code>
 
 <div class="padded-description"><div class="comments">
 <p>Reads raw field values from public storage. Reads N consecutive storage slots starting from the given slot.</p>
@@ -594,7 +603,7 @@ PublicMutable &amp; PublicImmutable.</p>
 <li><code>N</code> - the number of consecutive slots to return, starting from the <code>storage_slot</code>.</li>
 </ul>
 </div>
-</div><code id="storage_read" class="code-header">pub fn <a href="#storage_read"><span class="fn">storage_read</span></a>&lt;T&gt;(self, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> T
+</div><code id="storage_read" class="code-header">pub fn <a href="#storage_read" class="fn">storage_read</a>&lt;T&gt;(self, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> T
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
@@ -615,7 +624,7 @@ PublicMutable &amp; PublicImmutable.</p>
 <li><code>T</code> - The type that the caller expects to read from the <code>storage_slot</code>.</li>
 </ul>
 </div>
-</div><code id="raw_storage_write" class="code-header">pub fn <a href="#raw_storage_write"><span class="fn">raw_storage_write</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+</div><code id="raw_storage_write" class="code-header">pub fn <a href="#raw_storage_write" class="fn">raw_storage_write</a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     _self: Self,
     storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     values: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N],
@@ -632,7 +641,7 @@ PublicMutable &amp; PublicImmutable.</p>
 <li><code>values</code> - Array of N Fields to write to storage</li>
 </ul>
 </div>
-</div><code id="storage_write" class="code-header">pub fn <a href="#storage_write"><span class="fn">storage_write</span></a>&lt;T&gt;(self, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, value: T)
+</div><code id="storage_write" class="code-header">pub fn <a href="#storage_write" class="fn">storage_write</a>&lt;T&gt;(self, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, value: T)
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
@@ -667,7 +676,8 @@ PublicMutable &amp; PublicImmutable.</p>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(self, other: Self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

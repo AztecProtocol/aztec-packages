@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Struct UnbalancedMerkleTree documentation</title>
 </head>
 <body>
@@ -34,7 +37,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol</a>::<a href="../index.html">merkle_tree</a>::<a href="index.html">unbalanced_merkle_tree</a></div>
-<h1>Struct <span id="struct" class="struct">UnbalancedMerkleTree</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">UnbalancedMerkleTree</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct UnbalancedMerkleTree {
     pub root: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
 }
@@ -44,14 +53,20 @@
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../../protocol_types/merkle_tree/unbalanced_merkle_tree/struct.UnbalancedMerkleTree.html" class="struct">UnbalancedMerkleTree</a></code></h3>
 
-<div class="padded-methods"><code id="new_sha" class="code-header">pub fn <a href="#new_sha"><span class="fn">new_sha</span></a>&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let MAX_SUBTREES: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+<div class="comments">
+<p>Calculates the root of the minimal size merkle tree required to store <code>num_non_empty_leaves</code>.</p>
+<p>Since we cannot isolate branches, it cost more gates than using MerkleTree on the full array of elements <code>N</code>,
+but it may be cheaper onchain when proving the membership of a leaf.</p>
+</div>
+<div class="padded-methods"><code id="new_sha" class="code-header">pub fn <a href="#new_sha" class="fn">new_sha</a>&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let MAX_SUBTREES: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     leaves: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; N],
     num_non_empty_leaves: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
 ) -> Self</code>
 
-<code id="get_root" class="code-header">pub fn <a href="#get_root"><span class="fn">get_root</span></a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
+<code id="get_root" class="code-header">pub fn <a href="#get_root" class="fn">get_root</a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

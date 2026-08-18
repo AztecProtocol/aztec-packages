@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct ContractSelfUtility documentation</title>
 </head>
 <body>
@@ -38,7 +41,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">contract_self</a>::<a href="index.html">contract_self_utility</a></div>
-<h1>Struct <span id="struct" class="struct">ContractSelfUtility</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">ContractSelfUtility</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct ContractSelfUtility&lt;Storage, CallSelf&gt; {
     pub address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     pub storage: Storage,
@@ -84,15 +93,15 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 <p>Example API:</p>
 <pre><code>self.call_self.some_utility_function(args)</code></pre></div>
 </div><h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;CallSelf, Storage&gt; <a href="../../../noir_aztec/contract_self/contract_self_utility/struct.ContractSelfUtility.html" class="struct">ContractSelfUtility</a>&lt;Storage, CallSelf&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Storage, CallSelf&gt; <a href="../../../noir_aztec/contract_self/contract_self_utility/struct.ContractSelfUtility.html" class="struct">ContractSelfUtility</a>&lt;Storage, CallSelf&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(context: <a href="../../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>, storage: Storage, call_self: CallSelf) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>(context: <a href="../../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>, storage: Storage, call_self: CallSelf) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Creates a new <code>ContractSelfUtility</code> instance for a utility function.</p>
 <p>This constructor is called automatically by the macro system and should not be called directly.</p>
 </div>
-</div><code id="msg_sender" class="code-header">pub unconstrained fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+</div><code id="msg_sender" class="code-header">pub unconstrained fn <a href="#msg_sender" class="fn">msg_sender</a>(self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>The address of the contract that made this function call.</p>
@@ -103,7 +112,7 @@ and this function panics. Only a nested (cross-contract) utility call has a <cod
 <p>If you need to handle the no-caller case, use <a href="../../../noir_aztec/context/struct.UtilityContext.html#maybe_msg_sender"><code>UtilityContext::maybe_msg_sender</code></a>.</p>
 <p>Note that utility functions are simulated client-side and never proven, so this value is unconstrained: see
 <a href="../../../noir_aztec/context/struct.UtilityContext.html#maybe_msg_sender"><code>UtilityContext::maybe_msg_sender</code></a> for why it must not be relied on as a security guarantee.</p></div>
-</div><code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+</div><code id="call" class="code-header">pub unconstrained fn <a href="#call" class="fn">call</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
     call: <a href="../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,
 ) -> T
@@ -121,7 +130,8 @@ its result.</p>
 private state to the caller, so it requires explicit authorization. A call that is not authorized fails.</p>
 <h4>Example</h4>
 <pre><code>self.call(Token::at(address).get_balance_of(owner));</code></pre></div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function conditionally_check_membership documentation</title>
 </head>
 <body>
@@ -32,7 +35,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">merkle_tree</a>::<a href="index.html">membership</a></div>
-<h1>Function <span class="fn">conditionally_check_membership</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">conditionally_check_membership</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn conditionally_check_membership&lt;let TREE_HEIGHT: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, LEAF_PREIMAGE, VALUE&gt;(
     key: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     exists: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
@@ -58,6 +67,7 @@
 (<code>exists == false</code>) for the key, <code>false</code> otherwise.</li>
 <li>is_leaf_in_tree: <code>true</code> if the leaf preimage exists in the tree, <code>false</code> otherwise.</li>
 </ul>
+</div>
 </div>
 </main>
 </span>

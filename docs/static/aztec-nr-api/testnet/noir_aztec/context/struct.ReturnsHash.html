@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct ReturnsHash documentation</title>
 </head>
 <body>
@@ -40,7 +43,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">context</a></div>
-<h1>Struct <span id="struct" class="struct">ReturnsHash</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">ReturnsHash</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct ReturnsHash
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -53,16 +62,17 @@ oracles with the preimages of these hashes on return to make them available to t
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../noir_aztec/context/struct.ReturnsHash.html" class="struct">ReturnsHash</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>(hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
-<code id="get_preimage" class="code-header">pub fn <a href="#get_preimage"><span class="fn">get_preimage</span></a>&lt;T&gt;(self) -> T
+<code id="get_preimage" class="code-header">pub fn <a href="#get_preimage" class="fn">get_preimage</a>&lt;T&gt;(self) -> T
 <div class="where-clause">where
     T: <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Fetches the underlying return value from an oracle, constraining that it corresponds to the return data hash.</p>
 </div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Function mark_as_initialized_from_private_initializer documentation</title>
 </head>
 <body>
@@ -33,7 +36,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">macros</a>::<a href="../index.html">functions</a>::<a href="index.html">initialization_utils</a></div>
-<h1>Function <span class="fn">mark_as_initialized_from_private_initializer</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">mark_as_initialized_from_private_initializer</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn mark_as_initialized_from_private_initializer(
     context: &mut <a href="../../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
     emit_public_init_nullifier: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>,
@@ -45,6 +54,7 @@
 this also enqueues a call to the auto-generated <code>__emit_public_init_nullifier</code> function so the public
 initialization nullifier is emitted in public. Called by private
 <a href="../../../../noir_aztec/macros/functions/fn.initializer.html"><code>initializer</code></a> macros.</p></div>
+</div>
 </main>
 </span>
 </body>

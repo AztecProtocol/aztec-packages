@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Struct TestEnvironmentOptions documentation</title>
 </head>
 <body>
@@ -29,6 +32,7 @@
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.CallPrivateOptions.html">CallPrivateOptions</a></div></li>
 <li><a href="struct.CallPublicOptions.html">CallPublicOptions</a></div></li>
+<li><a href="struct.CreateAccountOptions.html">CreateAccountOptions</a></div></li>
 <li><a href="struct.DeployOptions.html">DeployOptions</a></div></li>
 <li><a href="struct.ExecuteUtilityOptions.html">ExecuteUtilityOptions</a></div></li>
 <li><a href="struct.PrivateContextOptions.html">PrivateContextOptions</a></div></li>
@@ -39,7 +43,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">test</a>::<a href="../index.html">helpers</a>::<a href="index.html">test_environment</a></div>
-<h1>Struct <span id="struct" class="struct">TestEnvironmentOptions</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">TestEnvironmentOptions</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct TestEnvironmentOptions
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -55,12 +65,12 @@ methods setting each value, e.g.:</p>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironmentOptions.html" class="struct">TestEnvironmentOptions</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>() -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Creates a new <code>TestEnvironmentOptions</code> with default values.</p>
 </div>
-</div><code id="with_default_tag_secret_strategy" class="code-header">pub fn <a href="#with_default_tag_secret_strategy"><span class="fn">with_default_tag_secret_strategy</span></a>&lt;M&gt;(
+</div><code id="with_default_tag_secret_strategy" class="code-header">pub fn <a href="#with_default_tag_secret_strategy" class="fn">with_default_tag_secret_strategy</a>&lt;M&gt;(
     &mut self,
     mode: M,
     strategy: <a href="../../../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html" class="struct">TaggingSecretStrategy</a>,
@@ -76,7 +86,7 @@ private executions that do not fix their own delivery derivation.</p>
 environment applies its own default. A mode left unset while the other is configured falls back to the default
 <a href="../../../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html#non_interactive_handshake"><code>TaggingSecretStrategy::non_interactive_handshake</code></a>, the strategy a PXE <code>resolveTaggingSecretStrategy</code> hook
 typically hardcodes for modes it does not customize.</p></div>
-</div><code id="with_default_tag_secret_strategy_all_modes" class="code-header">pub fn <a href="#with_default_tag_secret_strategy_all_modes"><span class="fn">with_default_tag_secret_strategy_all_modes</span></a>(
+</div><code id="with_default_tag_secret_strategy_all_modes" class="code-header">pub fn <a href="#with_default_tag_secret_strategy_all_modes" class="fn">with_default_tag_secret_strategy_all_modes</a>(
     &mut self,
     strategy: <a href="../../../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html" class="struct">TaggingSecretStrategy</a>,
 ) -> Self</code>
@@ -85,7 +95,7 @@ typically hardcodes for modes it does not customize.</p></div>
 <p>Sets <code>strategy</code> for both delivery modes: the equivalent of a PXE <code>resolveTaggingSecretStrategy</code> hook that
 ignores the request's mode. See
 <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironmentOptions.html#with_default_tag_secret_strategy"><code>with_default_tag_secret_strategy</code></a> to configure a single mode.</p></div>
-</div><code id="with_all_utility_call_targets_authorized" class="code-header">pub fn <a href="#with_all_utility_call_targets_authorized"><span class="fn">with_all_utility_call_targets_authorized</span></a>(&mut self) -> Self</code>
+</div><code id="with_all_utility_call_targets_authorized" class="code-header">pub fn <a href="#with_all_utility_call_targets_authorized" class="fn">with_all_utility_call_targets_authorized</a>(&mut self) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Authorizes all cross-contract utility call targets for the entire test.</p>
@@ -93,7 +103,8 @@ ignores the request's mode. See
 <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html#with_authorized_utility_call_targets"><code>CallPrivateOptions::with_authorized_utility_call_targets</code></a> and its siblings.</p>
 <p>By default, cross-contract utility calls are denied, mirroring a wallet that authorizes no such call. Use
 this in tests that do not care about utility call authorization.</p></div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

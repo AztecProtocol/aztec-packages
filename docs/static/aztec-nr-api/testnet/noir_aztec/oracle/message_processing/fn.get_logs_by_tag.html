@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function get_logs_by_tag documentation</title>
 </head>
 <body>
@@ -26,7 +29,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">message_processing</a></div>
-<h1>Function <span class="fn">get_logs_by_tag</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">get_logs_by_tag</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub unconstrained fn get_logs_by_tag(
     requests: <a href="../../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../../noir_aztec/messages/processing/log_retrieval_request/struct.LogRetrievalRequest.html" class="struct">LogRetrievalRequest</a>&gt;,
 ) -> <a href="../../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../../noir_aztec/messages/processing/log_retrieval_response/struct.LogRetrievalResponse.html" class="struct">LogRetrievalResponse</a>&gt;&gt;</code></pre>
@@ -35,6 +44,7 @@
 <p>Fetches all logs matching each request's tag and returns a nested ephemeral array.</p>
 <p>Each element in the outer array is an inner <code>EphemeralArray&lt;LogRetrievalResponse&gt;</code> containing all matching logs for
 the request at the same index (which may be empty if no logs were found).</p>
+</div>
 </div>
 </main>
 </span>

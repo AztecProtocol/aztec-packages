@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Module public_checks documentation</title>
 </head>
 <body>
@@ -52,7 +55,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::public_checks</div>
-<h1>Module <span id="mod" class="module">public_checks</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">public_checks</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.privately_check_block_number.html" class="fn">privately_check_block_number</a></div><div class="item-description">Asserts that the current block number in the enqueued public call enqueued by <code>check_block_number</code> satisfies
 the <code>operation</code> with respect to the <code>value. Preserves privacy by performing the check via the public checks contract. This conceals an address of the calling contract by setting </code>context.msg_sender` to the public checks contract
@@ -61,6 +70,7 @@ address.</div></li>
 the <code>operation</code> with respect to the <code>value. Preserves privacy by performing the check via the public checks contract. This conceals an address of the calling contract by setting </code>context.msg_sender` to the public checks contract
 address.</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>
