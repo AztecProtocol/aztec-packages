@@ -182,7 +182,10 @@ class TypeScriptParser {
   constructor(sourcePath, options = {}) {
     this.sourcePath = path.resolve(sourcePath);
     this.options = {
-      excludeDirs: ['api', 'node_modules', '__tests__', 'test'],
+      // protocol_contracts is gitignored build output, generated from the compiled Noir protocol
+      // contracts. Documenting it would make this page unverifiable from a checkout and would tie
+      // it to noir-projects, so a Noir contract change would leave the committed page stale.
+      excludeDirs: ['api', 'node_modules', '__tests__', 'test', 'protocol_contracts'],
       excludeFiles: ['.test.ts', '.test.tsx', 'index.ts'],
       validate: false, // Enable validation
       ...options
