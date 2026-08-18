@@ -5,7 +5,9 @@ pragma solidity >=0.8.27;
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
+import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -16,6 +18,10 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {BitMaps} from "@oz/utils/structs/BitMaps.sol";
 
 type Bps is uint32;
+
+interface IEligible {
+  function isEligible() external view returns (bool);
+}
 
 library BpsLib {
   function mul(uint256 _a, Bps _b) internal pure returns (uint256) {
@@ -84,6 +90,10 @@ library RewardLib {
   // such as sacrificial hearts, during rituals performed within temples.
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
+  /// @dev Enough for a getter behind a proxy (2 cold account accesses + a few SLOADs), while
+  ///      bounding how much gas a hostile withdrawer can burn during proposal.
+  uint256 private constant ELIGIBILITY_PROBE_GAS = 50_000;
+
   /// @notice One-shot writer used during rollup construction. Writes every field of
   ///         {RewardConfig}, including the immutable `rewardDistributor` and `booster`.
   /// @dev Must only be reachable from the constructor path. Post-deployment updates go through
@@ -151,7 +161,9 @@ library RewardLib {
     return accumulatedRewards;
   }
 
-  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) internal {
+  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch, address[] memory _committee)
+    internal
+  {
     RollupStore storage rollupStore = STFLib.getStorage();
     RewardStorage storage rewardStorage = getStorage();
 
@@ -183,9 +195,20 @@ library RewardLib {
       Values memory v;
       Totals memory t;
 
+      (bool[] memory eligible, uint256 eligibleCount) =
+        computeEligibility(_args, _endEpoch, _committee, $er.longestProvenLength, length);
+
       {
         uint256 added = length - $er.longestProvenLength;
-        uint256 checkpointRewardsDesired = added * getCheckpointReward();
+
+        // Per-checkpoint sequencer share of the checkpoint reward; the rest goes to the provers.
+        uint256 sequencerShare = BpsLib.mul(getCheckpointReward(), rewardStorage.config.sequencerBps);
+
+        // Only claim what is owed from the distributor: the prover share for every added
+        // checkpoint, plus the sequencer share for checkpoints proposed by a validator with an
+        // eligible withdrawer. The sequencer share of ineligible checkpoints never leaves the
+        // distributor.
+        uint256 checkpointRewardsDesired = added * getCheckpointReward() - (added - eligibleCount) * sequencerShare;
         uint256 checkpointRewardsAvailable = 0;
 
         if (checkpointRewardsDesired > 0) {
@@ -200,11 +223,14 @@ library RewardLib {
           }
         }
 
-        uint256 sequenceCheckpointRewards = BpsLib.mul(checkpointRewardsAvailable, rewardStorage.config.sequencerBps);
-        v.sequencerCheckpointReward = sequenceCheckpointRewards / added;
+        // If the distributor could not cover the full amount, both pots scale proportionally.
+        uint256 sequencerCheckpointRewards = checkpointRewardsDesired == 0
+          ? 0
+          : checkpointRewardsAvailable * (eligibleCount * sequencerShare) / checkpointRewardsDesired;
+        v.sequencerCheckpointReward = eligibleCount == 0 ? 0 : sequencerCheckpointRewards / eligibleCount;
 
-        uint256 dust = sequenceCheckpointRewards - (v.sequencerCheckpointReward * added);
-        uint256 proverCheckpointRewards = checkpointRewardsAvailable - sequenceCheckpointRewards + dust;
+        // Rounding dust from the sequencer pot lands with the provers.
+        uint256 proverCheckpointRewards = checkpointRewardsAvailable - v.sequencerCheckpointReward * eligibleCount;
         if (proverCheckpointRewards > 0) {
           $er.rewards += proverCheckpointRewards.toUint128();
         }
@@ -231,7 +257,10 @@ library RewardLib {
 
         {
           v.sequencer = _args.headers[i].coinbase;
-          uint256 toSequencer = v.sequencerCheckpointReward + v.sequencerFee;
+          uint256 toSequencer = v.sequencerFee;
+          if (eligible[i]) {
+            toSequencer += v.sequencerCheckpointReward;
+          }
           if (toSequencer > 0) {
             rewardStorage.sequencerRewards[v.sequencer] += toSequencer;
           }
@@ -248,6 +277,62 @@ library RewardLib {
         rollupStore.config.feeAsset.safeTransfer(BURN_ADDRESS, t.totalBurn);
       }
     }
+  }
+
+  /// @notice Derives the proposer of every newly proven checkpoint from the committee and
+  ///         evaluates the checkpoint-reward eligibility of each proposer's withdrawer.
+  /// @dev The committee was already reconstructed from calldata and checked against the stored
+  ///      commitment during attestation verification, so each checkpoint's proposer is one index
+  ///      computation away -- no committee sampling and no extra storage reads. An empty
+  ///      committee (target committee size 0 or escape hatch) marks everything ineligible.
+  function computeEligibility(
+    SubmitEpochRootProofArgs calldata _args,
+    Epoch _endEpoch,
+    address[] memory _committee,
+    uint256 _from,
+    uint256 _to
+  ) private view returns (bool[] memory, uint256) {
+    bool[] memory eligible = new bool[](_to);
+    uint256 eligibleCount = 0;
+
+    if (_committee.length == 0) {
+      return (eligible, eligibleCount);
+    }
+
+    uint256 sampleSeed = ValidatorSelectionLib.getSampleSeed(_endEpoch);
+    for (uint256 i = _from; i < _to; i++) {
+      uint256 proposerIndex = ValidatorSelectionLib.computeProposerIndex(
+        _endEpoch, _args.headers[i].slotNumber, sampleSeed, _committee.length
+      );
+      eligible[i] = isWithdrawerEligible(_committee[proposerIndex]);
+      if (eligible[i]) {
+        eligibleCount++;
+      }
+    }
+
+    return (eligible, eligibleCount);
+  }
+
+  /// @notice Placeholder eligibility test for the checkpoint reward: the proposer's withdrawer is
+  ///         looked up in the GSE, and the checkpoint qualifies only if the withdrawer is a
+  ///         contract answering true to {IEligible.isEligible}.
+  /// @dev The withdrawer is an arbitrary staker-chosen address, so the probe is a gas-capped
+  ///      staticcall whose failure modes (no code, revert, wrong return shape) all read as
+  ///      ineligible -- it must never revert, or a hostile withdrawer could block proof
+  ///      submission.
+  function isWithdrawerEligible(address _proposer) internal view returns (bool) {
+    if (_proposer == address(0)) {
+      return false;
+    }
+
+    address withdrawer = StakingLib.getStorage().gse.getWithdrawer(_proposer);
+    if (withdrawer == address(0)) {
+      return false;
+    }
+
+    (bool success, bytes memory returnData) =
+      withdrawer.staticcall{gas: ELIGIBILITY_PROBE_GAS}(abi.encodeCall(IEligible.isEligible, ()));
+    return success && returnData.length == 32 && uint256(bytes32(returnData)) == 1;
   }
 
   function getSharesFor(address _prover) internal view returns (uint256) {
