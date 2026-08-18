@@ -1,3 +1,4 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { TxReceipt } from '@aztec/stdlib/tx';
@@ -22,7 +23,11 @@ export const DefaultWaitForProvenOpts: WaitForProvenOpts = {
 /**
  * Wait for a transaction to be proven by polling the node
  */
-export async function waitForProven(node: AztecNode, receipt: TxReceipt, opts?: WaitForProvenOpts) {
+export async function waitForProven(
+  node: AztecNode,
+  receipt: TxReceipt,
+  opts?: WaitForProvenOpts,
+): Promise<BlockNumber> {
   if (!receipt.blockNumber) {
     throw new Error(`Cannot wait for proven: receipt of tx ${receipt.txHash} does not have a block number`);
   }

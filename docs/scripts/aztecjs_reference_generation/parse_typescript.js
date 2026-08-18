@@ -22,6 +22,21 @@ const path = require('path');
 // code units keeps the generated page identical everywhere the same sources are parsed.
 const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 
+// The reference documents aztec.js on its own, so the checker resolves relative imports only.
+// Resolving @aztec/* would make every inferred return type depend on which sibling packages the
+// environment has built, and a page generated against one build state silently differs from a page
+// generated against another. Types that cross a package boundary have to be annotated in the source.
+function hermeticCompilerHost(compilerOptions) {
+  const host = ts.createCompilerHost(compilerOptions, true);
+  host.resolveModuleNameLiterals = (literals, containingFile) =>
+    literals.map(literal =>
+      literal.text.startsWith('.')
+        ? ts.resolveModuleName(literal.text, containingFile, compilerOptions, host)
+        : { resolvedModule: undefined }
+    );
+  return host;
+}
+
 /**
  * JSDoc Validator - validates JSDoc completeness and correctness
  */
@@ -334,7 +349,7 @@ class TypeScriptParser {
         }
       }
 
-      program = ts.createProgram([filePath], compilerOptions);
+      program = ts.createProgram([filePath], compilerOptions, hermeticCompilerHost(compilerOptions));
       this.typeChecker = program.getTypeChecker();
       // Use the source file from the program (required for type checking)
       sourceFile = program.getSourceFile(filePath);

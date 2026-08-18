@@ -15,7 +15,7 @@ export class SponsoredFeePaymentMethod implements FeePaymentMethod {
     throw new Error('Asset is not required for sponsored fpc.');
   }
 
-  getFeePayer() {
+  getFeePayer(): Promise<AztecAddress> {
     return Promise.resolve(this.paymentContract);
   }
 

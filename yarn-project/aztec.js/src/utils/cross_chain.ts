@@ -21,7 +21,7 @@ export function waitForL1ToL2MessageReady(
      */
     chainTip?: BlockTag;
   },
-) {
+): Promise<boolean> {
   return retryUntil(
     () => isL1ToL2MessageReady(node, l1ToL2MessageHash, opts.chainTip),
     `L1 to L2 message ${l1ToL2MessageHash.toString()} ready`,

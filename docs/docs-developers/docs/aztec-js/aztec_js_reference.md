@@ -16,7 +16,7 @@ This is an auto-generated reference. For tutorials and guides, see the [Aztec.js
 
 *Package: @aztec/aztec.js*
 
-*Generated: 2026-08-17T18:34:55.705Z*
+*Generated: 2026-08-18T09:31:07.014Z*
 
 This document provides a comprehensive reference for all public APIs in the Aztec.js library.
 
@@ -551,7 +551,7 @@ export async getAccountContractAddress(
   secret: Fr,
   salt: Fr,
   immutablesHash?: Fr
-)
+): Promise<AztecAddress>
 ```
 
 **Parameters:**
@@ -1109,7 +1109,7 @@ Returns the encoded function call wrapped by this interaction Useful when genera
 **Signature:**
 
 ```typescript
-public async getFunctionCall()
+public async getFunctionCall(): Promise<FunctionCall>
 ```
 
 **Returns:**
@@ -3039,7 +3039,7 @@ export async waitForProven(
   node: AztecNode,
   receipt: TxReceipt,
   opts?: WaitForProvenOpts
-)
+): Promise<BlockNumber>
 ```
 
 **Parameters:**
@@ -3050,7 +3050,7 @@ export async waitForProven(
 
 **Returns:**
 
-`Promise<NonNullable<BlockNumber>>`
+`Promise<BlockNumber>`
 
 ---
 
@@ -4081,7 +4081,7 @@ async getExecutionPayload(): Promise<ExecutionPayload>
 **Signature:**
 
 ```typescript
-getAsset()
+getAsset(): Promise<AztecAddress>
 ```
 
 **Returns:**
@@ -4418,7 +4418,7 @@ getAsset(): Promise<AztecAddress>
 **Signature:**
 
 ```typescript
-getFeePayer()
+getFeePayer(): Promise<AztecAddress>
 ```
 
 **Returns:**
@@ -4925,7 +4925,7 @@ export waitForL1ToL2MessageReady(
     timeoutSeconds: number;
     chainTip?: BlockTag;
 }
-)
+): Promise<boolean>
 ```
 
 **Parameters:**
@@ -5311,7 +5311,7 @@ static async create(
 **Signature:**
 
 ```typescript
-protected getPublicKeys()
+protected getPublicKeys(): PublicKeys
 ```
 
 **Returns:**
@@ -5323,7 +5323,7 @@ protected getPublicKeys()
 **Signature:**
 
 ```typescript
-protected getPublicKeysHash()
+protected getPublicKeysHash(): Promise<Fr>
 ```
 
 **Returns:**
@@ -5436,7 +5436,7 @@ public async hasInitializer()
 **Signature:**
 
 ```typescript
-get address() {
+get address(): AztecAddress {
 ```
 
 **Returns:**
