@@ -109,6 +109,8 @@ library EpochProofLib {
 
     Epoch endEpoch = assertAcceptable(_args.start, _args.end);
 
+    // Rehash the supplied headers against storage once, here: the public-input assembly below reads the fee
+    // recipient/value out of them and relies on this call having run.
     verifyHeaders(_args.start, _args.end, _args.headers);
 
     // Verify attestations for the last checkpoint in the epoch
@@ -150,6 +152,11 @@ library EpochProofLib {
    * own public inputs used for generating the proof vs the ones assembled
    * by this contract when verifying it.
    *
+   * @dev The fee recipient/value public inputs are sourced from the supplied headers, so this entry point rehashes
+   * them against storage before assembling: an off-chain caller must not walk away with public inputs built from
+   * unverified fee fields and only discover the mismatch when the on-chain proof reverts. The submit path verifies
+   * the headers up front and assembles via computeEpochProofPublicInputs to avoid rehashing them twice.
+   *
    * @param  _start - The start of the epoch (inclusive)
    * @param  _end - The end of the epoch (inclusive)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
@@ -163,6 +170,84 @@ library EpochProofLib {
     ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) internal view returns (bytes32[] memory) {
+    verifyHeaders(_start, _end, _headers);
+    return computeEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
+  }
+
+  /**
+   * @notice Verifies committee attestations for the last checkpoint in the epoch before accepting the epoch proof
+   *
+   * @dev This verification ensures that the committee has properly validated the final state of the epoch
+   *      before the proof can be accepted. The function validates that:
+   *      1. The provided attestations match the stored attestation hash for the checkpoint
+   *      2. The attestations have valid signatures from committee members
+   *      3. The attestations meet the required threshold (2/3+ of committee)
+   *
+   *      For escape hatch epochs, attestation verification is skipped since there is no committee
+   *      involvement - only the designated escape hatch proposer can propose blocks.
+   *
+   * @dev Errors Thrown:
+   *      - Rollup__InvalidAttestations: Provided attestations don't match stored hash or fail validation
+   *
+   * @param _endCheckpointNumber The last checkpoint number in the epoch to verify attestations for
+   * @param _attestations The committee attestations containing signatures and validator information
+   */
+  function verifyLastCheckpointAttestationsAndOutHash(
+    uint256 _endCheckpointNumber,
+    CommitteeAttestations memory _attestations,
+    bytes32 _outHash
+  ) private {
+    // Get the stored attestation hash and payload digest for the last checkpoint
+    CompressedTempCheckpointLog storage checkpointLog = STFLib.getStorageTempCheckpointLog(_endCheckpointNumber);
+
+    // Verify that the out hash matches the stored value
+    // The stored out hash is part of the payloadDigest that was attested to.
+    require(checkpointLog.outHash == _outHash, Errors.Rollup__InvalidOutHash(checkpointLog.outHash, _outHash));
+
+    // Verify that the provided attestations match the stored hash
+    bytes32 providedAttestationsHash = keccak256(abi.encode(_attestations));
+    require(providedAttestationsHash == checkpointLog.attestationsHash, Errors.Rollup__InvalidAttestations());
+
+    // Get the epoch for the last checkpoint
+    Epoch epoch = STFLib.getEpochForCheckpoint(_endCheckpointNumber);
+
+    // Check if this is an escape hatch epoch - skip attestation verification if so
+    // since escape hatch blocks are proposed without committee attestations.
+    // Uses epoch-stable lookup so proof verification uses the escape hatch that was
+    // active when the epoch started, not whatever is currently configured.
+    {
+      IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatchForEpoch(epoch);
+      if (address(escapeHatch) != address(0)) {
+        (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
+        if (isOpen) {
+          // Skip attestation verification for escape hatch epochs
+          return;
+        }
+      }
+    }
+
+    ValidatorSelectionLib.verifyAttestations(epoch, _attestations, checkpointLog.payloadDigest);
+  }
+
+  /**
+   * @notice Assembles the root rollup public inputs, taking the supplied checkpoint headers as already verified
+   *
+   * @dev Callers must have rehashed `_headers` against the stored header hashes beforehand, since the fee
+   * recipient/value public inputs are read straight out of them.
+   *
+   * @param  _start - The start of the epoch (inclusive)
+   * @param  _end - The end of the epoch (inclusive)
+   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
+   * @param  _headers - The proposed checkpoint headers supplying the fee recipient and value for each checkpoint
+   * @param _blobPublicInputs- The blob public inputs for the proof
+   */
+  function computeEpochProofPublicInputs(
+    uint256 _start,
+    uint256 _end,
+    PublicInputArgs calldata _args,
+    ProposedHeader[] calldata _headers,
+    bytes calldata _blobPublicInputs
+  ) private view returns (bytes32[] memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
 
     {
@@ -181,6 +266,23 @@ library EpochProofLib {
           expectedEndArchive == _args.endArchive, Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
         );
       }
+
+      // Start anchoring for the Inbox rolling-hash chain, mirroring previousArchive: the start of the claimed
+      // chain segment must match the rolling hash recorded at propose for checkpoint _start - 1. This check is
+      // required for soundness - the previous checkpoint's header is not among this proof's public inputs, so
+      // nothing else pins where the segment begins. The end boundary needs no storage check: the checkpoint root
+      // binds end_inbox_rolling_hash to the last checkpoint header, whose hash verifyHeaders ties to storage, so a
+      // wrong end value simply fails proof verification (a storage comparison here would only buy a nicer error at
+      // the cost of one cold SLOAD per submission).
+      {
+        bytes32 expectedPreviousInboxRollingHash = STFLib.getInboxRollingHash(_start - 1);
+        require(
+          expectedPreviousInboxRollingHash == _args.previousInboxRollingHash,
+          Errors.Rollup__InvalidPreviousInboxRollingHash(
+            expectedPreviousInboxRollingHash, _args.previousInboxRollingHash
+          )
+        );
+      }
     }
 
     bytes32[] memory publicInputs = new bytes32[](Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH);
@@ -191,6 +293,8 @@ library EpochProofLib {
     //   previous_archive_root: Field,
     //   end_archive_root: Field,
     //   out_hash: Field,
+    //   previous_inbox_rolling_hash: Field,
+    //   end_inbox_rolling_hash: Field,
     //   checkpointHeaderHashes: [Field; Constants.MAX_CHECKPOINTS_PER_EPOCH],
     //   fees: [FeeRecipient; Constants.MAX_CHECKPOINTS_PER_EPOCH],
     //   chain_id: Field,
@@ -208,15 +312,21 @@ library EpochProofLib {
       publicInputs[1] = _args.endArchive;
 
       publicInputs[2] = _args.outHash;
+
+      // Inbox rolling-hash chain segment consumed across the epoch. The start is validated above
+      // against the record written at propose for checkpoint _start - 1; the end is pinned transitively through the
+      // stored checkpoint header hashes (see the anchoring block in assertAcceptable).
+      publicInputs[3] = _args.previousInboxRollingHash;
+      publicInputs[4] = _args.endInboxRollingHash;
     }
 
     uint256 numCheckpoints = _end - _start + 1;
 
     for (uint256 i = 0; i < numCheckpoints; i++) {
-      publicInputs[3 + i] = STFLib.getHeaderHash(_start + i);
+      publicInputs[5 + i] = STFLib.getHeaderHash(_start + i);
     }
 
-    uint256 offset = 3 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
+    uint256 offset = 5 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
 
     // Taking recipient/value from the checkpoint headers rather than the prover
     // as defense in depth. Slots past numCheckpoints stay zero.
@@ -274,61 +384,6 @@ library EpochProofLib {
     publicInputs[offset + 1] = bytes32(uint256(uint136(bytes17((_blobPublicInputs[127:144])))));
 
     return publicInputs;
-  }
-
-  /**
-   * @notice Verifies committee attestations for the last checkpoint in the epoch before accepting the epoch proof
-   *
-   * @dev This verification ensures that the committee has properly validated the final state of the epoch
-   *      before the proof can be accepted. The function validates that:
-   *      1. The provided attestations match the stored attestation hash for the checkpoint
-   *      2. The attestations have valid signatures from committee members
-   *      3. The attestations meet the required threshold (2/3+ of committee)
-   *
-   *      For escape hatch epochs, attestation verification is skipped since there is no committee
-   *      involvement - only the designated escape hatch proposer can propose blocks.
-   *
-   * @dev Errors Thrown:
-   *      - Rollup__InvalidAttestations: Provided attestations don't match stored hash or fail validation
-   *
-   * @param _endCheckpointNumber The last checkpoint number in the epoch to verify attestations for
-   * @param _attestations The committee attestations containing signatures and validator information
-   */
-  function verifyLastCheckpointAttestationsAndOutHash(
-    uint256 _endCheckpointNumber,
-    CommitteeAttestations memory _attestations,
-    bytes32 _outHash
-  ) private {
-    // Get the stored attestation hash and payload digest for the last checkpoint
-    CompressedTempCheckpointLog storage checkpointLog = STFLib.getStorageTempCheckpointLog(_endCheckpointNumber);
-
-    // Verify that the out hash matches the stored value
-    // The stored out hash is part of the payloadDigest that was attested to.
-    require(checkpointLog.outHash == _outHash, Errors.Rollup__InvalidOutHash(checkpointLog.outHash, _outHash));
-
-    // Verify that the provided attestations match the stored hash
-    bytes32 providedAttestationsHash = keccak256(abi.encode(_attestations));
-    require(providedAttestationsHash == checkpointLog.attestationsHash, Errors.Rollup__InvalidAttestations());
-
-    // Get the epoch for the last checkpoint
-    Epoch epoch = STFLib.getEpochForCheckpoint(_endCheckpointNumber);
-
-    // Check if this is an escape hatch epoch - skip attestation verification if so
-    // since escape hatch blocks are proposed without committee attestations.
-    // Uses epoch-stable lookup so proof verification uses the escape hatch that was
-    // active when the epoch started, not whatever is currently configured.
-    {
-      IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatchForEpoch(epoch);
-      if (address(escapeHatch) != address(0)) {
-        (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
-        if (isOpen) {
-          // Skip attestation verification for escape hatch epochs
-          return;
-        }
-      }
-    }
-
-    ValidatorSelectionLib.verifyAttestations(epoch, _attestations, checkpointLog.payloadDigest);
   }
 
   /**
@@ -421,6 +476,9 @@ library EpochProofLib {
    *      2. Assembling the public inputs for the root rollup circuit
    *      3. Verifying the validity proof against the assembled public inputs using the configured verifier
    *
+   * @dev Assumes the caller has already verified the supplied checkpoint headers against storage, so assembly skips
+   *      rehashing them.
+   *
    * @dev Errors Thrown:
    *      - Rollup__InvalidBlobProof: Batched blob proof verification failed
    *      - Rollup__InvalidProof: validity proof verification failed
@@ -436,7 +494,7 @@ library EpochProofLib {
     BlobLib.validateBatchedBlob(_args.blobInputs);
 
     bytes32[] memory publicInputs =
-      getEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.headers, _args.blobInputs);
+      computeEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.headers, _args.blobInputs);
 
     require(rollupStore.config.epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
 

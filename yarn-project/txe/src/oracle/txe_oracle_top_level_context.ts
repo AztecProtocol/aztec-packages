@@ -1,4 +1,4 @@
-import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -665,8 +665,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
-    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
-    await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
+    // TXE blocks carry no L1-to-L2 messages, so the message tree is left unadvanced.
 
     const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 
@@ -830,8 +829,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
-    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
-    await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
+    // TXE blocks carry no L1-to-L2 messages, so the message tree is left unadvanced.
 
     const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 

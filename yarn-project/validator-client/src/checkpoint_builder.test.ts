@@ -298,8 +298,8 @@ describe('CheckpointBuilder', () => {
 
   describe('capLimitsByCheckpointBudgets (validator mode)', () => {
     const totalBlobCapacity = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
-    const firstBlockEndOverhead = getNumBlockEndBlobFields(true);
-    const nonFirstBlockEndOverhead = getNumBlockEndBlobFields(false);
+    const firstBlockEndOverhead = getNumBlockEndBlobFields();
+    const nonFirstBlockEndOverhead = getNumBlockEndBlobFields();
 
     it('caps L2 gas by remaining checkpoint mana', () => {
       const rollupManaLimit = 1_000_000;

@@ -274,10 +274,15 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     header.totalManaUsed = manaSpent;
     header.accumulatedFees = uint256(manaMinFee) * manaSpent;
 
+    // Streaming Inbox: reference the newest bucket (nothing seeded here, so the genesis bucket).
+    uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
+    header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
+
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
       archive: archiveRoot,
-      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
+      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
+      bucketHint: bucketHint
     });
 
     CommitteeAttestation[] memory attestations;
@@ -511,6 +516,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           previousArchive: rollup.getCheckpoint(start).archive,
           endArchive: endCheckpoint.archive,
           outHash: endCheckpoint.outHash,
+          previousInboxRollingHash: 0,
+          endInboxRollingHash: 0,
           proverId: address(0)
         });
 

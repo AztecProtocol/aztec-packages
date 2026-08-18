@@ -131,12 +131,9 @@ export function makeBlockEndStateField({
 }
 
 export function makeBlockEndBlobData({
-  isFirstBlock = true,
   seed = 1,
   ...overrides
-}: { seed?: number; isFirstBlock?: boolean } & Partial<
-  Omit<BlockEndBlobData, 'blockEndMarker' | 'blockEndStateField'>
-> & {
+}: { seed?: number } & Partial<Omit<BlockEndBlobData, 'blockEndMarker' | 'blockEndStateField'>> & {
     blockEndMarker?: Partial<BlockEndMarker>;
     blockEndStateField?: Partial<BlockEndStateField>;
   } = {}): BlockEndBlobData {
@@ -152,18 +149,18 @@ export function makeBlockEndBlobData({
     noteHashRoot: fr(seed + 0x300),
     nullifierRoot: fr(seed + 0x400),
     publicDataRoot: fr(seed + 0x500),
-    l1ToL2MessageRoot: isFirstBlock ? fr(seed + 0x600) : undefined,
+    // Every block carries the l1-to-l2 message tree root.
+    l1ToL2MessageRoot: fr(seed + 0x600),
     ...blockEndBlobDataOverrides,
   };
 }
 
 export function makeBlockBlobData({
   numTxs = 1,
-  isFirstBlock = true,
   isFullTx = false,
   seed = 1,
   ...overrides
-}: { numTxs?: number; isFirstBlock?: boolean; isFullTx?: boolean; seed?: number } & Partial<
+}: { numTxs?: number; isFullTx?: boolean; seed?: number } & Partial<
   Parameters<typeof makeBlockEndBlobData>[0]
 > = {}): BlockBlobData {
   return {
@@ -173,7 +170,6 @@ export function makeBlockBlobData({
       blockEndMarker: {
         numTxs,
       },
-      isFirstBlock,
       ...overrides,
     }),
   };
@@ -193,11 +189,7 @@ export function makeCheckpointBlobData({
 } & Partial<CheckpointBlobData> = {}): CheckpointBlobData {
   const blocks =
     overrides.blocks ??
-    makeTuple(
-      numBlocks,
-      i => makeBlockBlobData({ numTxs: numTxsPerBlock, isFirstBlock: i === seed, isFullTx, seed: seed + i * 0x1000 }),
-      seed,
-    );
+    makeTuple(numBlocks, i => makeBlockBlobData({ numTxs: numTxsPerBlock, isFullTx, seed: seed + i * 0x1000 }), seed);
 
   const numBlobFields =
     overrides.checkpointEndMarker?.numBlobFields ??

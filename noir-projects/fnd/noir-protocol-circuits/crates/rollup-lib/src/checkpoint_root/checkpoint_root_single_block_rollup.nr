@@ -1,27 +1,35 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs},
+    abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, ParityPublicInputs},
     checkpoint_root::{
         checkpoint_root_rollup::CheckpointRootRollupHints,
-        components::{CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator},
+        components::{
+            CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator,
+            validate_inbox_parity,
+        },
     },
 };
 use types::{
     constants::{
-        BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
     },
-    proof::proof_data::RollupHonkProofData,
+    proof::proof_data::{RollupHonkProofData, UltraHonkProofData},
 };
 
-// If there's only one previous rollup (i.e., one block in the checkpoint), it must be the first block root rollup.
+// The sole block of the checkpoint is also its first block, which any block root variant can be: the inputs validator
+// pins the leftmost block's start values to their initial ones. Block merges are excluded, since a merge means the
+// checkpoint has more than one block.
 global ALLOWED_PREVIOUS_VK_INDICES: [u32; 3] = [
-    BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX,
 ];
 
 pub struct CheckpointRootSingleBlockRollupPrivateInputs {
     pub(crate) previous_rollup: RollupHonkProofData<BlockRollupPublicInputs>,
+    // Inbox parity proof over the checkpoint's L1-to-L2 messages. One variable-size proof per checkpoint: the
+    // checkpoint root is the only circuit that sees the whole checkpoint's message commitments.
+    pub(crate) inbox_parity: UltraHonkProofData<ParityPublicInputs>,
     pub(crate) hints: CheckpointRootRollupHints,
 }
 
@@ -30,7 +38,7 @@ pub struct CheckpointRootSingleBlockRollupPrivateInputs {
 /// This variant is used when the checkpoint contains only one block.
 ///
 /// This circuit:
-/// - Verifies the proof from a single block rollup (must be a first block root variant)
+/// - Verifies the proof from a single block rollup
 /// - Validates continuity with the previous checkpoint using the previous block header
 ///   - Validates the start state matches the previous block's end state
 ///   - Validates the previous archive matches the previous block header hash
@@ -55,8 +63,16 @@ pub fn execute(
     )
         .validate();
 
+    let constants = inputs.previous_rollup.public_inputs.constants;
+    validate_inbox_parity(
+        inputs.inbox_parity,
+        constants.vk_tree_root,
+        constants.prover_id,
+    );
+
     CheckpointRollupPublicInputsComposer::new(
         [inputs.previous_rollup.public_inputs],
+        inputs.inbox_parity.public_inputs,
         hints.previous_out_hash,
         hints.new_out_hash_sibling_path,
         hints.start_blob_accumulator,

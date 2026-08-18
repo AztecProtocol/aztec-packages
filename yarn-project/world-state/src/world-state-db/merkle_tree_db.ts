@@ -31,7 +31,10 @@ export const INITIAL_PUBLIC_DATA_TREE_SIZE = 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_RE
 
 export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations, ReadonlyWorldStateAccess {
   /**
-   * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
+   * Handles a single L2 block: inserts its note hashes, nullifiers, public data writes, and the block's L1-to-L2
+   * message bundle into the merkle trees. Any block may carry a message bundle and transition the L1-to-L2 message
+   * tree, not just the first block of a checkpoint. The bundle's real (unpadded, compact) leaves are appended as
+   * given, matching how the circuits build the tree.
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */

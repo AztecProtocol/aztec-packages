@@ -1,5 +1,6 @@
 mod child_proof_vk_tests;
 mod consecutive_block_rollups_tests;
+mod no_txs_tests;
 mod rollup_structure_tests;
 
 use crate::{
@@ -12,18 +13,11 @@ use crate::{
 };
 use types::{
     constants::{
-        BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+        BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
     },
     hash::accumulate_sha256,
 };
-
-fn is_first_block(vk_index: u32) -> bool {
-    (vk_index == BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX)
-        | (vk_index == BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX)
-        | (vk_index == BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX)
-}
 
 struct TestBuilder {
     left_rollup: BlockRollupPublicInputs,
@@ -36,10 +30,11 @@ struct TestBuilder {
 
 impl TestBuilder {
     pub fn default() -> Self {
+        // Distinct child variants, so a test that tampers with one child's vk hash does not also invalidate the other.
         Self::new(
-            BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-            1,
             BLOCK_ROOT_ROLLUP_VK_INDEX,
+            1,
+            BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
             1,
         )
     }
@@ -53,25 +48,13 @@ impl TestBuilder {
         Self::validate_input_vk_index(left_rollup_vk_index, num_left_blocks);
         Self::validate_input_vk_index(right_rollup_vk_index, num_right_blocks);
 
-        let mut fixture_builder = RollupFixtureBuilder::new();
+        let fixture_builder = RollupFixtureBuilder::new();
         let start_block_number = fixture_builder.start_block_number;
 
-        if !is_first_block(left_rollup_vk_index)
-            & (left_rollup_vk_index != BLOCK_MERGE_ROLLUP_VK_INDEX) {
-            // Change the start_block_number to be smaller than the left rollup's start_block_number so that the in_hash
-            // won't be set on the left rollup.
-            fixture_builder.start_block_number = start_block_number - 1;
-        }
         let left_rollup = fixture_builder.get_merged_block_rollup_public_inputs(
             start_block_number,
             start_block_number + num_left_blocks as u32 - 1,
         );
-
-        if is_first_block(right_rollup_vk_index) {
-            // Change the start_block_number to be the right rollup's start_block_number so that the in_hash will be set
-            // on the right rollup.
-            fixture_builder.start_block_number = start_block_number + num_left_blocks as u32;
-        }
         let right_rollup = fixture_builder.get_merged_block_rollup_public_inputs(
             start_block_number + num_left_blocks as u32,
             start_block_number + (num_left_blocks + num_right_blocks) as u32 - 1,
@@ -92,11 +75,9 @@ impl TestBuilder {
             assert_eq(vk_index, BLOCK_MERGE_ROLLUP_VK_INDEX);
         } else {
             assert(
-                (vk_index == BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX)
-                    | (vk_index == BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX)
-                    | (vk_index == BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX)
-                    | (vk_index == BLOCK_ROOT_ROLLUP_VK_INDEX)
-                    | (vk_index == BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX),
+                (vk_index == BLOCK_ROOT_ROLLUP_VK_INDEX)
+                    | (vk_index == BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX)
+                    | (vk_index == BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX),
             );
         }
     }
@@ -143,7 +124,9 @@ impl TestBuilder {
             accumulate_block_headers_hash(left.block_headers_hash, right.block_headers_hash);
         assert_eq(pi.block_headers_hash, expected_block_headers_hash);
 
-        assert_eq(pi.in_hash, left.in_hash);
+        // The start of the message sponge comes from the left rollup; its end comes from the right rollup.
+        assert_eq(pi.start_msg_sponge, left.start_msg_sponge);
+        assert_eq(pi.end_msg_sponge, right.end_msg_sponge);
 
         let expected_out_hash = if (left.out_hash != 0) & (right.out_hash != 0) {
             accumulate_sha256(left.out_hash, right.out_hash)

@@ -55,6 +55,10 @@ pub fn merge_checkpoint_rollups(
         new_archive: right.new_archive,
         previous_out_hash: left.previous_out_hash,
         new_out_hash: right.new_out_hash,
+        // The rolling-hash chain spans both checkpoint ranges: start from the left, end at the right. Continuity
+        // (`right.start == left.end`) is asserted in `validate_consecutive_checkpoint_rollups`.
+        start_inbox_rolling_hash: left.start_inbox_rolling_hash,
+        end_inbox_rolling_hash: right.end_inbox_rolling_hash,
         checkpoint_header_hashes,
         fees,
         start_blob_accumulator: left.start_blob_accumulator,

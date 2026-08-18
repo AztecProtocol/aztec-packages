@@ -37,7 +37,6 @@ import type { ContractDataSource, ContractInstanceWithAddress } from '@aztec/std
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { InboxLeaf } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockTx, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
@@ -1423,6 +1422,7 @@ describe('aztec node', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
+        inboxMsgTotal: 0n,
       };
     }
 
@@ -1595,22 +1595,19 @@ describe('aztec node', () => {
     });
   });
 
-  describe('getL1ToL2MessageCheckpoint', () => {
-    it('returns the checkpoint for a message at index 0n', async () => {
+  describe('getL1ToL2MessageIndex', () => {
+    it('returns the compact leaf index the node assigned to the message', async () => {
       const msg = Fr.random();
-      l1ToL2MessageSource.getL1ToL2MessageIndex.mockResolvedValue(0n);
+      l1ToL2MessageSource.getL1ToL2MessageIndex.mockResolvedValue(7n);
 
-      const result = await node.getL1ToL2MessageCheckpoint(msg);
-      expect(result).toEqual(InboxLeaf.checkpointNumberFromIndex(0n));
-      expect(result).not.toBeUndefined();
+      expect(await node.getL1ToL2MessageIndex(msg)).toEqual(7n);
     });
 
     it('returns undefined when the message is not found', async () => {
       const msg = Fr.random();
       l1ToL2MessageSource.getL1ToL2MessageIndex.mockResolvedValue(undefined);
 
-      const result = await node.getL1ToL2MessageCheckpoint(msg);
-      expect(result).toBeUndefined();
+      expect(await node.getL1ToL2MessageIndex(msg)).toBeUndefined();
     });
   });
 

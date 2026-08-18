@@ -3,7 +3,11 @@ import type { ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types
 export type UltraHonkFlavor = 'ultra_honk' | 'ultra_keccak_honk' | 'ultra_starknet_honk' | 'ultra_rollup_honk';
 
 const UltraKeccakHonkCircuits = ['RootRollupArtifact'] as const satisfies ServerProtocolArtifact[];
-const UltraHonkCircuits = ['ParityBaseArtifact', 'ParityRootArtifact'] as const satisfies ServerProtocolArtifact[];
+const UltraHonkCircuits = [
+  'InboxParity64Artifact',
+  'InboxParity256Artifact',
+  'InboxParity1024Artifact',
+] as const satisfies ServerProtocolArtifact[];
 
 export type UltraKeccakHonkServerProtocolArtifact = (typeof UltraKeccakHonkCircuits)[number];
 export type UltraHonkServerProtocolArtifact = (typeof UltraHonkCircuits)[number];

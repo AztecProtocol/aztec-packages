@@ -127,7 +127,6 @@ impl SpongeBlob {
         state: StateReference,
         num_txs: u16,
         total_mana_used: Field,
-        is_first_block_in_checkpoint: bool,
     ) {
         let blob_data = create_block_end_blob_data(
             global_variables,
@@ -137,15 +136,10 @@ impl SpongeBlob {
             total_mana_used,
         );
 
-        // Include the last field (the l1-to-l2 message tree root) only for the first block, since this value is the
-        // same for all blocks in the checkpoint.
-        let num_blob_data_to_absorb = if is_first_block_in_checkpoint {
-            blob_data.len()
-        } else {
-            blob_data.len() - 1
-        };
-
-        self.absorb(blob_data, num_blob_data_to_absorb);
+        // The l1-to-l2 message tree root (the last field) is absorbed for every block: any block
+        // can now insert its own bundle, so the root differs per block and blob-syncing nodes reconstruct each block's
+        // message-tree root from the blob alone.
+        self.absorb(blob_data, blob_data.len());
     }
 
     /// |----------|---------------------------------------------|---------|

@@ -21,6 +21,7 @@ import { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } 
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import type { PXEConfig } from '@aztec/pxe/server';
+import type { BlockTag } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
@@ -107,6 +108,17 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
     this.l1HarnessAccountIndex = crossChainOpts.l1HarnessAccountIndex;
     this.deployTokenBridge = crossChainOpts.deployTokenBridge ?? true;
     this.requireEpochProven = opts.startProverNode ?? false;
+  }
+
+  /**
+   * Chain tip the PXE syncs to. L1→L2 message readiness must be evaluated against this tip rather than
+   * the default `'latest'`: with per-block inbox insertion the proposed chain reaches a message's
+   * checkpoint before that checkpoint is published, so a `'latest'` readiness check flips true while a
+   * PXE anchored to `'checkpointed'` (or `'proven'`) has not yet synced the block the consuming tx will
+   * anchor to. Defaults to `'latest'` so suites that do not pin a sync tip keep their semantics.
+   */
+  get pxeSyncChainTip(): BlockTag {
+    return this.pxeOpts.syncChainTip ?? 'latest';
   }
 
   override async setup(opts: SingleNodeTestOpts = {}, pxeOpts: Partial<PXEConfig> = {}) {

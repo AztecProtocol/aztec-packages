@@ -50,7 +50,7 @@ import {
 import { PrivateToAvmAccumulatedData } from '../kernel/private_to_avm_accumulated_data.js';
 import { PrivateToPublicAccumulatedDataBuilder } from '../kernel/private_to_public_accumulated_data_builder.js';
 import { PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
-import { computeInHashFromL1ToL2Messages } from '../messaging/in_hash.js';
+import { InboxBucketRef } from '../messaging/inbox_bucket.js';
 import { BlockProposal } from '../p2p/block_proposal.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { CheckpointProposal } from '../p2p/checkpoint_proposal.js';
@@ -476,11 +476,9 @@ export async function mockCheckpointAndMessages(
   }
 
   const messages = blocksAndMessages[0].messages;
-  const inHash = computeInHashFromL1ToL2Messages(messages);
   const firstBlockLastArchive = blocksAndMessages[0].block.header.lastArchive;
   const checkpoint = await Checkpoint.random(checkpointNumber, {
     numBlocks: 0,
-    inHash,
     ...options,
     ...globals,
     lastArchive: firstBlockLastArchive,
@@ -544,11 +542,11 @@ export interface MakeBlockProposalOptions {
   signer?: Secp256k1Signer;
   blockHeader?: BlockHeader;
   indexWithinCheckpoint?: IndexWithinCheckpoint;
-  inHash?: Fr;
   archiveRoot?: Fr;
   txHashes?: TxHash[];
   txs?: Tx[];
   signatureContext?: CoordinationSignatureContext;
+  bucketRef?: InboxBucketRef;
 }
 
 export interface MakeCheckpointProposalOptions {
@@ -563,6 +561,7 @@ export interface MakeCheckpointProposalOptions {
     indexWithinCheckpoint?: IndexWithinCheckpoint;
     txHashes?: TxHash[];
     txs?: Tx[];
+    bucketRef?: InboxBucketRef;
   };
 }
 
@@ -595,24 +594,24 @@ export const makeAndSignCommitteeAttestationsAndSigners = (
 export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<BlockProposal> => {
   const blockHeader = options?.blockHeader ?? makeBlockHeader(1);
   const indexWithinCheckpoint = options?.indexWithinCheckpoint ?? IndexWithinCheckpoint(0);
-  const inHash = options?.inHash ?? Fr.random();
   const archiveRoot = options?.archiveRoot ?? Fr.random();
   const txHashes = options?.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
   const txs = options?.txs;
   const signer = options?.signer ?? Secp256k1Signer.random();
   const signatureContext = options?.signatureContext ?? TEST_COORDINATION_SIGNATURE_CONTEXT;
+  const bucketRef = options?.bucketRef;
 
   return BlockProposal.createProposalFromSigner(
     blockHeader,
     CheckpointNumber(1),
     indexWithinCheckpoint,
-    inHash,
     archiveRoot,
     txHashes,
     txs,
     signatureContext,
     (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
     (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
+    bucketRef,
   );
 };
 
@@ -628,12 +627,12 @@ export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOpt
     ? await makeBlockProposal({
         blockHeader: options.lastBlock.blockHeader,
         indexWithinCheckpoint: options.lastBlock.indexWithinCheckpoint ?? IndexWithinCheckpoint(4),
-        inHash: checkpointHeader.inHash,
         archiveRoot,
         txHashes: options.lastBlock.txHashes,
         txs: options.lastBlock.txs,
         signer,
         signatureContext,
+        bucketRef: options.lastBlock.bucketRef,
       })
     : undefined;
 

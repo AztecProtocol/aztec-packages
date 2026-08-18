@@ -22,7 +22,7 @@ describe('CheckpointHeader', () => {
     const header = CheckpointHeader.empty();
     const hash = header.hash().toString();
 
-    expect(hash).toMatchInlineSnapshot('"0x002e384af86a480f952aa16443fd29646a9063865e62d7c403fc7ed697bb7712"');
+    expect(hash).toMatchInlineSnapshot(`"0x002e384af86a480f952aa16443fd29646a9063865e62d7c403fc7ed697bb7712"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
@@ -37,7 +37,7 @@ describe('CheckpointHeader', () => {
       lastArchiveRoot: new Fr(123),
       blockHeadersHash: new Fr(456),
       blobsHash: new Fr(77),
-      inHash: new Fr(88),
+      inboxRollingHash: new Fr(89),
       epochOutHash: new Fr(99),
       slotNumber: SlotNumber(1234),
       timestamp: BigInt(5678),
@@ -49,7 +49,7 @@ describe('CheckpointHeader', () => {
     });
     const hash = header.hash().toString();
 
-    expect(hash).toMatchInlineSnapshot('"0x00d0dc440023ae006b0880b29ebfd5fda599d1aa7707f925229a362c5f24f3fc"');
+    expect(hash).toMatchInlineSnapshot(`"0x00751391e842cd7b2014478255dd3309df86327197a0feb03f0af1b758f62ba5"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
@@ -64,7 +64,7 @@ describe('CheckpointHeader', () => {
       lastArchiveRoot: new Fr(MAX_FIELD_VALUE - 123n),
       blockHeadersHash: new Fr(MAX_FIELD_VALUE - 456n),
       blobsHash: new Fr(MAX_FIELD_VALUE - 77n),
-      inHash: new Fr(MAX_FIELD_VALUE - 88n),
+      inboxRollingHash: new Fr(MAX_FIELD_VALUE - 89n),
       epochOutHash: new Fr(MAX_FIELD_VALUE - 99n),
       slotNumber: SlotNumber(1234),
       timestamp: 2n ** 64n - 1n - 5678n,
@@ -79,7 +79,7 @@ describe('CheckpointHeader', () => {
 
     const hash = header.hash().toString();
 
-    expect(hash).toMatchInlineSnapshot('"0x0077f763e5840cc3f24686ac79f58ef8a7f08c6418fd757e7e84566dc2eb032a"');
+    expect(hash).toMatchInlineSnapshot(`"0x005bd09725c6e77a4a28a7ccdaf7875ba5882431ca3c82e62db96e8a12769ce5"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

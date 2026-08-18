@@ -1,5 +1,5 @@
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
-import { BlockNumber, type CheckpointNumber, type EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, type EpochNumber } from '@aztec/foundation/branded-types';
 import { chunkBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -16,7 +16,7 @@ import {
 } from '@aztec/stdlib/block';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { InboxLeaf, type L1ToL2MessageSource, type L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type { L1ToL2MessageSource, L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import {
   MerkleTreeId,
   type NullifierLeafPreimage,
@@ -177,9 +177,8 @@ export class NodeWorldStateQueries {
     return [witness.index, witness.path];
   }
 
-  public async getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
-    const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex !== undefined ? InboxLeaf.checkpointNumberFromIndex(messageIndex) : undefined;
+  public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
   }
 
   /**

@@ -171,7 +171,6 @@ export async function setupBlockProductionWithProver(opts: {
       ...setupOpts,
       pxeOpts: { syncChainTip },
       skipInitialSequencer: true,
-      inboxLag: 2,
     },
     nodeOpts: (index: number) => ({
       dontStartSequencer: true,

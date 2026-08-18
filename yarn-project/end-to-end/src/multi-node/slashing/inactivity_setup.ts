@@ -48,7 +48,6 @@ export class InactivityTest {
   private async run(opts: { slashInactivityConsecutiveEpochThreshold: number; inactiveNodeCount: number }) {
     this.test = await MultiNodeTestContext.setup({
       ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
-      inboxLag: 2,
       anvilSlotsInAnEpoch: 4,
       // A fake prover node is started by the context (realProofs:false); give it the multi-epoch
       // proving delay the inactivity scenario relied on, and keep enough broker history.

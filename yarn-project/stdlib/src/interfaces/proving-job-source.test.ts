@@ -1,16 +1,19 @@
 import { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { makeRecursiveProof } from '../proofs/recursive_proof.js';
+import { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import { TxRollupPublicInputs } from '../rollup/tx_rollup_public_inputs.js';
+import { makeBlockRollupPublicInputs } from '../tests/factories.js';
 import { VerificationKeyData } from '../vks/verification_key.js';
 import { type ProvingJobSource, ProvingJobSourceSchema } from './proving-job-source.js';
 import {
   type ProofUri,
   type ProvingJob,
-  type ProvingJobResult,
+  ProvingJobResult,
   type ProvingRequestResultFor,
   makePublicInputsAndRecursiveProof,
 } from './proving-job.js';
@@ -60,6 +63,28 @@ describe('ProvingJobSourceSchema', () => {
 
   it('rejectProvingJob', async () => {
     await context.client.rejectProvingJob('a-job-id', 'reason');
+  });
+});
+
+describe('ProvingJobResult', () => {
+  it('round-trips a transaction-less block-root rollup result through the schema', () => {
+    // The transaction-less block-root proof type must survive serialization: a checkpoint that builds a block with no
+    // txs produces this result, and the proof store decodes it via the ProvingJobResult schema. Omitting it from
+    // the union throws "Invalid discriminator value" and stalls proving.
+    const result: ProvingJobResult = {
+      type: ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP,
+      result: makePublicInputsAndRecursiveProof<
+        BlockRollupPublicInputs,
+        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+      >(
+        makeBlockRollupPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
+      ),
+    };
+
+    const roundTripped = jsonParseWithSchema<ProvingJobResult>(jsonStringify(result), ProvingJobResult);
+    expect(roundTripped.type).toEqual(ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP);
   });
 });
 

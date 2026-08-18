@@ -16,7 +16,7 @@
   "pxe_l2_tip_checkpoints": [
     {
       "key": "utf8:checkpointed",
-      "value": "{\"number\":47,\"hash\":\"0x00e66a45cc6583f772f44bdb5ae6535cf821a59a3d832702a125f0c57f6228ef\"}"
+      "value": "{\"number\":47,\"hash\":\"0x00407c60c560276f14936ea39b073d155bc34a485e8a83c0439c9b8ef83f737e\"}"
     },
     {
       "key": "utf8:proven",

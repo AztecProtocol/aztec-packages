@@ -38,14 +38,14 @@ describe('ProvingBroker RPC', () => {
       const inputsUri = isSmall ? makeInputsUri() : (randomBytes(2000).toString('hex') as ProofUri);
       const job: ProvingJob = {
         id: makeRandomProvingJobId(EpochNumber(1)),
-        type: ProvingRequestType.PARITY_BASE,
+        type: ProvingRequestType.INBOX_PARITY,
         inputsUri,
         epochNumber: EpochNumber(1),
       };
 
       await client.enqueueProvingJob(job);
 
-      const retrievedJob = await client.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      const retrievedJob = await client.getProvingJob({ allowList: [ProvingRequestType.INBOX_PARITY] });
       expect(retrievedJob?.job.id).toBe(job.id);
       expect(retrievedJob?.job.inputsUri).toBe(inputsUri);
     } finally {

@@ -1,9 +1,16 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, TxRollupPublicInputs},
-    block_root::components::{BlockRollupPublicInputsComposer, validate_previous_rollups},
+    abis::{BlockRollupPublicInputs, L1ToL2MessageBundle, L1ToL2MessageSponge, TxRollupPublicInputs},
+    block_root::components::{
+        BlockRollupPublicInputsComposer, validate_l1_to_l2_tree_snapshot_in_constants,
+        validate_previous_rollups,
+    },
 };
 use types::{
-    constants::{ARCHIVE_HEIGHT, PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX},
+    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+    constants::{
+        ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
+        PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
+    },
     proof::proof_data::RollupHonkProofData,
 };
 
@@ -13,16 +20,30 @@ global ALLOWED_PREVIOUS_VK_INDICES: [u32; 2] =
 
 pub struct BlockRootSingleTxRollupPrivateInputs {
     pub(crate) previous_rollup: RollupHonkProofData<TxRollupPublicInputs>,
+    // L1-to-L2 message bundle inserted by this block.
+    pub(crate) message_bundle: L1ToL2MessageBundle,
+    // The l1-to-l2 tree snapshot this block builds on. It is a witnessed value: for the checkpoint's first block it is
+    // the pre-insertion snapshot, checked against the previous checkpoint's last block header in the checkpoint root;
+    // for any later block it is pinned by block-merge continuity (`right.start_state == left.end_state`) to the
+    // previous block's end state.
+    pub(crate) previous_l1_to_l2: AppendOnlyTreeSnapshot,
+    // Message sponge this block starts from: the empty sponge for the checkpoint's first block, otherwise the sponge
+    // inherited from the previous block. Checked against the empty sponge in the checkpoint root for the leftmost
+    // block, and against the previous block's `end_msg_sponge` in the block merge otherwise.
+    pub(crate) start_msg_sponge: L1ToL2MessageSponge,
+    // Frontier hint for appending the bundle to the l1-to-l2 message tree (validated against `previous_l1_to_l2`).
+    pub(crate) l1_to_l2_message_frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
     // Hint for inserting the new block hash to the last archive.
     pub(crate) new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 }
 
 /// The Block Root Single Tx Rollup circuit finalizes a block containing exactly one transaction.
-/// It creates the block header and does not process L1-to-L2 messages.
-/// This variant is used for non-first blocks with only one transaction.
+/// It inserts the block's L1-to-L2 message bundle and creates the block header.
+/// This variant is used for blocks with only one transaction, at any position in the checkpoint.
 ///
 /// This circuit:
 /// - Verifies the proof from a single tx rollup (Private Tx Base or Public Tx Base circuit)
+/// - Appends the block's L1-to-L2 message bundle to the L1-to-L2 message tree and absorbs it into the message sponge
 /// - Computes the block header hash and inserts it into the archive tree
 ///
 /// The output feeds into a Block Merge circuit if more blocks need to be combined,
@@ -31,8 +52,28 @@ pub struct BlockRootSingleTxRollupPrivateInputs {
 ///
 /// VkIndex: BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX
 pub fn execute(inputs: BlockRootSingleTxRollupPrivateInputs) -> BlockRollupPublicInputs {
+    // The block builds on a witnessed start snapshot rather than the constants value, so it can append its own bundle
+    // and still assert the tx constants carry the post-bundle snapshot.
+    let mut composer = BlockRollupPublicInputsComposer::new_from_single_rollup(
+        inputs.previous_rollup.public_inputs,
+    );
+    let new_l1_to_l2 = composer
+        .with_message_bundle(
+            inputs.previous_l1_to_l2,
+            inputs.start_msg_sponge,
+            inputs.message_bundle,
+            inputs.l1_to_l2_message_frontier_hint,
+        )
+        .get_new_l1_to_l2();
+
     validate_previous_rollups([inputs.previous_rollup], ALLOWED_PREVIOUS_VK_INDICES);
 
-    BlockRollupPublicInputsComposer::new_from_single_rollup(inputs.previous_rollup.public_inputs)
-        .finish(inputs.new_archive_sibling_path)
+    // The tx constants pin the l1-to-l2 snapshot the AVM validates message reads against; asserting it equals this
+    // block's post-bundle root lets this block's txs read the messages this block inserts (same-block consumption).
+    validate_l1_to_l2_tree_snapshot_in_constants(
+        inputs.previous_rollup.public_inputs.constants,
+        new_l1_to_l2,
+    );
+
+    composer.finish(inputs.new_archive_sibling_path)
 }

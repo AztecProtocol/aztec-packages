@@ -25,6 +25,7 @@ import {
 import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogResultSchema } from '../logs/log_result.js';
 import { PrivateLogsQuerySchema, PublicLogsQuerySchema } from '../logs/logs_query.js';
+import { InboxBucketSchema } from '../messaging/inbox_bucket.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { optional, schemas } from '../schemas/schemas.js';
@@ -135,8 +136,24 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   }),
   getContractClassIds: z.function({ input: z.tuple([]), output: z.array(schemas.Fr) }),
   registerContractFunctionSignatures: z.function({ input: z.tuple([z.array(z.string())]), output: z.void() }),
-  getL1ToL2Messages: z.function({ input: z.tuple([CheckpointNumberSchema]), output: z.array(schemas.Fr) }),
   getL1ToL2MessageIndex: z.function({ input: z.tuple([schemas.Fr]), output: schemas.BigInt.optional() }),
+  getLatestInboxBucketAtOrBefore: z.function({
+    input: z.tuple([schemas.BigInt]),
+    output: InboxBucketSchema.optional(),
+  }),
+  getInboxBucket: z.function({ input: z.tuple([schemas.BigInt]), output: InboxBucketSchema.optional() }),
+  getInboxBucketByTotalMsgCount: z.function({
+    input: z.tuple([schemas.BigInt]),
+    output: InboxBucketSchema.optional(),
+  }),
+  getL1ToL2MessagesBetweenBuckets: z.function({
+    input: z.tuple([schemas.BigInt, schemas.BigInt]),
+    output: z.array(schemas.Fr),
+  }),
+  getL1ToL2MessagesBetweenLeafCounts: z.function({
+    input: z.tuple([schemas.BigInt, schemas.BigInt]),
+    output: z.array(schemas.Fr),
+  }),
   getDebugFunctionName: z.function({
     input: z.tuple([schemas.AztecAddress, schemas.FunctionSelector]),
     output: optional(z.string()),

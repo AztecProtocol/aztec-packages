@@ -116,7 +116,6 @@ export class L2Block {
   }
 
   public toBlockBlobData(): BlockBlobData {
-    const isFirstBlock = this.indexWithinCheckpoint === 0;
     return {
       blockEndMarker: {
         numTxs: this.body.txEffects.length,
@@ -134,7 +133,8 @@ export class L2Block {
       noteHashRoot: this.header.state.partial.noteHashTree.root,
       nullifierRoot: this.header.state.partial.nullifierTree.root,
       publicDataRoot: this.header.state.partial.publicDataTree.root,
-      l1ToL2MessageRoot: isFirstBlock ? this.header.state.l1ToL2MessageTree.root : undefined,
+      // Every block carries its own post-bundle l1-to-l2 message tree root.
+      l1ToL2MessageRoot: this.header.state.l1ToL2MessageTree.root,
       txs: this.body.toTxBlobData(),
     };
   }
@@ -155,7 +155,6 @@ export class L2Block {
    * @param txsPerBlock - The number of transactions to include in the block.
    * @param numPublicCallsPerTx - The number of public function calls to include in each transaction.
    * @param numPublicLogsPerCall - The number of public logs per 1 public function invocation.
-   * @param inHash - The hash of the L1 to L2 messages subtree which got inserted in this block.
    * @returns The L2 block.
    */
   static async random(

@@ -78,6 +78,10 @@ contract RollupBase is DecoderBase {
       previousArchive: parentCheckpointLog.archive,
       endArchive: endFull.checkpoint.archive,
       outHash: endFull.checkpoint.header.outHash,
+      // Anchor the rolling-hash chain start to the record written at propose for checkpoint start - 1.
+      // The end value is unchecked on L1 but supplied for completeness.
+      previousInboxRollingHash: proposedHeaders[startCheckpointNumber - 1].inboxRollingHash,
+      endInboxRollingHash: proposedHeaders[endCheckpointNumber].inboxRollingHash,
       proverId: _prover
     });
 
@@ -161,11 +165,16 @@ contract RollupBase is DecoderBase {
 
     checkpointFees[full.checkpoint.checkpointNumber] = _manaUsed * minFee;
 
-    // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, Timestamp.unwrap(full.checkpoint.header.timestamp)));
-
+    // Seed the Inbox before jumping to the checkpoint's L1 block: propose rejects a bucket that is still
+    // accumulating, and a bucket keeps accumulating for the whole L1 block that opened it.
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
-    full.checkpoint.header.inHash = rollup.getInbox().getRoot(full.checkpoint.checkpointNumber);
+
+    // We jump to the time of the block, always past the L1 block the messages above landed in.
+    vm.warp(max(block.timestamp + 1, Timestamp.unwrap(full.checkpoint.header.timestamp)));
+    // Streaming Inbox: reference the newest bucket so the checkpoint consumes all messages
+    // seeded above and the mandatory-consumption assert is trivially satisfied (a wrong ref could only revert).
+    uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
+    full.checkpoint.header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
 
     {
       bytes32[] memory blobHashes;
@@ -195,8 +204,12 @@ contract RollupBase is DecoderBase {
 
     proposedHeaders[full.checkpoint.checkpointNumber] = full.checkpoint.header;
 
-    ProposeArgs memory args =
-      ProposeArgs({header: full.checkpoint.header, archive: full.checkpoint.archive, oracleInput: OracleInput(0)});
+    ProposeArgs memory args = ProposeArgs({
+      header: full.checkpoint.header,
+      archive: full.checkpoint.archive,
+      oracleInput: OracleInput(0),
+      bucketHint: bucketHint
+    });
 
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);

@@ -4,6 +4,7 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
+import { L1ToL2MessageSponge } from '../messaging/l1_to_l2_message_sponge.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { StateReference } from '../tx/state_reference.js';
 import type { UInt64 } from '../types/shared.js';
@@ -53,9 +54,14 @@ export class BlockRollupPublicInputs {
      */
     public blockHeadersHash: Fr,
     /**
-     * SHA256 hash of l1 to l2 messages.
+     * Message-bundle sponge threaded across the checkpoint's blocks, before this block range absorbs its bundle.
      */
-    public inHash: Fr,
+    public startMsgSponge: L1ToL2MessageSponge,
+    /**
+     * Message-bundle sponge after this block range absorbs its bundle. The checkpoint root asserts the final value
+     * matches the parity root's sponge over the same (padded) message list.
+     */
+    public endMsgSponge: L1ToL2MessageSponge,
     /**
      * SHA256 hash of L2 to L1 messages created in this block range.
      */
@@ -82,7 +88,8 @@ export class BlockRollupPublicInputs {
       reader.readObject(SpongeBlob),
       reader.readUInt64(),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readObject(L1ToL2MessageSponge),
+      reader.readObject(L1ToL2MessageSponge),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -100,7 +107,8 @@ export class BlockRollupPublicInputs {
       this.endSpongeBlob,
       bigintToUInt64BE(this.timestamp),
       this.blockHeadersHash,
-      this.inHash,
+      this.startMsgSponge,
+      this.endMsgSponge,
       this.outHash,
       this.accumulatedFees,
       this.accumulatedManaUsed,
@@ -124,7 +132,8 @@ export class BlockRollupPublicInputs {
       previousArchiveRoot: this.previousArchive.root.toString(),
       newArchiveRoot: this.newArchive.root.toString(),
       blockHeadersHash: this.blockHeadersHash.toString(),
-      inHash: this.inHash.toString(),
+      startMsgSpongeNumAbsorbed: this.startMsgSponge.numAbsorbed,
+      endMsgSpongeNumAbsorbed: this.endMsgSponge.numAbsorbed,
       outHash: this.outHash.toString(),
       timestamp: this.timestamp.toString(),
       accumulatedFees: this.accumulatedFees.toString(),

@@ -83,16 +83,22 @@ export async function retrievedToPublishedCheckpoint({
     .slice(1)
     .concat([archiveRoot]);
 
-  // An error will be thrown from `decodeCheckpointBlobDataFromBlobs` if it can't read a field for the
-  // `l1ToL2MessageRoot` of the first block. So below we can safely assume it exists:
-  const l1toL2MessageTreeRoot = blocksBlobData[0].l1ToL2MessageRoot!;
-
   const spongeBlob = SpongeBlob.init();
   const l2Blocks: L2Block[] = [];
   for (let i = 0; i < blocksBlobData.length; i++) {
     const blockBlobData = blocksBlobData[i];
-    const { blockEndMarker, blockEndStateField, lastArchiveRoot, noteHashRoot, nullifierRoot, publicDataRoot } =
-      blockBlobData;
+    // The blob carries a per-block L1-to-L2 message tree root: any block
+    // within a checkpoint can insert messages, so reconstruction must use each block's own root rather than
+    // the checkpoint's first block.
+    const {
+      blockEndMarker,
+      blockEndStateField,
+      lastArchiveRoot,
+      noteHashRoot,
+      nullifierRoot,
+      publicDataRoot,
+      l1ToL2MessageRoot,
+    } = blockBlobData;
 
     const l2BlockNumber = blockEndMarker.blockNumber;
 
@@ -109,7 +115,7 @@ export async function retrievedToPublishedCheckpoint({
 
     const state = StateReference.from({
       l1ToL2MessageTree: new AppendOnlyTreeSnapshot(
-        l1toL2MessageTreeRoot,
+        l1ToL2MessageRoot,
         blockEndStateField.l1ToL2MessageNextAvailableLeafIndex,
       ),
       partial: PartialStateReference.from({
@@ -357,7 +363,7 @@ export async function retrieveL1ToL2Message(
  * @param inbox - The inbox contract wrapper.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
- * @returns An array of InboxLeaf and next eth block to search from.
+ * @returns The L1 to L2 messages retrieved from the Inbox, as an array of InboxMessage.
  */
 export async function retrieveL1ToL2Messages(
   inbox: InboxContract,
@@ -385,8 +391,9 @@ function mapLogInboxMessage(log: MessageSentLog): InboxMessage {
     leaf: log.args.leaf,
     l1BlockNumber: log.l1BlockNumber,
     l1BlockHash: log.l1BlockHash,
-    checkpointNumber: log.args.checkpointNumber,
-    rollingHash: log.args.rollingHash,
+    inboxRollingHash: log.args.inboxRollingHash,
+    bucketSeq: log.args.bucketSeq,
+    bucketTimestamp: log.l1BlockTimestamp,
   };
 }
 

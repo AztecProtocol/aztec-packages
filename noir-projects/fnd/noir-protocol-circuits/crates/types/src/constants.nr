@@ -61,8 +61,11 @@ pub global NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT;
 pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT;
-pub global L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
-    L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT;
+// Cap on L1-to-L2 messages bundled into a single L2 block. One quarter of the per-checkpoint
+// cap: a checkpoint drains its Inbox consumption across up to four message-bearing blocks.
+pub global MAX_L1_TO_L2_MSGS_PER_BLOCK: u32 = 256;
+// Cap on L1-to-L2 messages consumed by a single checkpoint.
+pub global MAX_L1_TO_L2_MSGS_PER_CHECKPOINT: u32 = 1024;
 // Maximum number of subtrees a L2ToL1Msg unbalanced tree can have. Used when calculating the out hash of a tx.
 pub global MAX_L2_TO_L1_MSG_SUBTREES_PER_TX: u32 = 3; // ceil(log2(MAX_L2_TO_L1_MSGS_PER_TX))
 
@@ -98,9 +101,6 @@ pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = MAX_PRIVATE_LOGS_PER_CALL;
 // docs:end:constants
 
-// ROLLUP CONTRACT CONSTANTS - constants used only in l1-contracts
-pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 1 << L1_TO_L2_MSG_SUBTREE_HEIGHT;
-
 // VK TREE CONSTANTS
 pub global PRIVATE_KERNEL_INIT_VK_INDEX: u32 = 0;
 pub global PRIVATE_KERNEL_INNER_VK_INDEX: u32 = 1;
@@ -111,9 +111,9 @@ pub global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
 pub global PRIVATE_TX_BASE_ROLLUP_VK_INDEX: u32 = 7;
 pub global PUBLIC_TX_BASE_ROLLUP_VK_INDEX: u32 = 8;
 pub global TX_MERGE_ROLLUP_VK_INDEX: u32 = 9;
-pub global BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX: u32 = 10;
-pub global BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX: u32 = 11;
-pub global BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX: u32 = 12;
+// VK indices 10 and 11 are intentionally unallocated: they were the first-block block roots, merged into the
+// variants below (which now cover both the first and non-first cases).
+pub global BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX: u32 = 12;
 pub global BLOCK_ROOT_ROLLUP_VK_INDEX: u32 = 13;
 pub global BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX: u32 = 14;
 pub global BLOCK_MERGE_ROLLUP_VK_INDEX: u32 = 15;
@@ -122,8 +122,8 @@ pub global CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX: u32 = 17;
 pub global CHECKPOINT_PADDING_ROLLUP_VK_INDEX: u32 = 18;
 pub global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 19;
 pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
-pub global PARITY_BASE_VK_INDEX: u32 = 21;
-pub global PARITY_ROOT_VK_INDEX: u32 = 22;
+// VK indices 21 and 22 are intentionally unallocated: they were the parity base / parity root, replaced by the
+// InboxParity size ladder (appended at 74-76 below, since the reset range 23-64 is reserved).
 // The three families below carve up the reset-family range (23-42). Each base is the VK index
 // of its family's first variant; subsequent variants occupy successive indices. Bases must
 // stay ascending; `validate_vk_in_vk_tree` depends on this ordering.
@@ -146,6 +146,12 @@ pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 69;
 pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 70;
 pub global PRIVATE_KERNEL_INNER_4_VK_INDEX: u32 = 71;
 pub global PRIVATE_KERNEL_INNER_5_VK_INDEX: u32 = 72;
+// VK index 73 is intentionally unallocated: it was the message-only block root, merged into the no-txs block root.
+// The InboxParity size ladder: one VK per size, checked as an allowed set by the checkpoint root. Appended here
+// (rather than reusing the freed 21/22) so the three sizes stay contiguous and read in order.
+pub global INBOX_PARITY_64_VK_INDEX: u32 = 74;
+pub global INBOX_PARITY_256_VK_INDEX: u32 = 75;
+pub global INBOX_PARITY_1024_VK_INDEX: u32 = 76;
 
 // Maximum number of apps absorbed by a single private kernel iteration.
 pub global MAX_APPS_PER_KERNEL: u32 = 5;
@@ -183,6 +189,11 @@ pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_CHECKPOINT: u32 = 6;
 pub global MAX_CHECKPOINTS_PER_EPOCH: u32 = 32;
+// Cap on the number of L2 blocks a single checkpoint may contain, asserted in the checkpoint root circuit. It bounds
+// the epoch prover's worst case at `MAX_BLOCKS_PER_CHECKPOINT` block-root proofs plus one fewer block merges, which is
+// what makes fully empty blocks safe to allow at any position in a checkpoint. The value is one block per second over
+// the production slot length.
+pub global MAX_BLOCKS_PER_CHECKPOINT: u32 = 72;
 pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
@@ -327,6 +338,7 @@ pub global FUNCTION_DATA_LENGTH: u32 = 2;
 pub global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
 pub global SPONGE_BLOB_LENGTH: u32 = 10;
+pub global L1_TO_L2_MESSAGE_SPONGE_LENGTH: u32 = 10;
 pub global BLS12_FR_LIMBS: u32 = 3; // TODO(#14646): get this from bignum
 pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
 pub global BLS12_POINT_LENGTH: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
@@ -405,7 +417,7 @@ pub global BLOCK_HEADER_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
 pub global CHECKPOINT_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* block_headers_hash */
     + 1 /* blobs_hash */
-    + 1 /* in_hash */
+    + 1 /* inbox_rolling_hash */
     + 1 /* out_hash */
     + 1 /* slot_number */
     + 1 /* timestamp */
@@ -564,20 +576,24 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
     + 2 * SPONGE_BLOB_LENGTH /* start_sponge_blob and end_sponge_blob */
     + 1 /* timestamp */
     + 1 /* block_headers_hash */
-    + 1 /* in_hash */
+    + 2 * L1_TO_L2_MESSAGE_SPONGE_LENGTH /* start_msg_sponge and end_msg_sponge */
     + 1 /* out_hash */
     + 1 /* accumulated_fees */
     + 1 /* accumulated_mana_used */;
 pub global CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LENGTH
     + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* previous_archive and new_archive */
-    + MAX_CHECKPOINTS_PER_EPOCH /* checkpoint_header_hashes */
     + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* start_out_hash and end_out_hash */
+    + 1 /* start_inbox_rolling_hash */
+    + 1 /* end_inbox_rolling_hash */
+    + MAX_CHECKPOINTS_PER_EPOCH /* checkpoint_header_hashes */
     + MAX_CHECKPOINTS_PER_EPOCH * FEE_RECIPIENT_LENGTH /* fees */
     + 2 * BLOB_ACCUMULATOR_LENGTH /* start and end blob accumulators */
     + FINAL_BLOB_BATCHING_CHALLENGES_LENGTH;
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + 1 /* end_archive_root */
     + 1 /* out_hash */
+    + 1 /* previous_inbox_rolling_hash */
+    + 1 /* end_inbox_rolling_hash */
     + 1 /* chain_id */
     + 1 /* version */
     + 1 /* vk_tree_root */
@@ -587,11 +603,11 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + MAX_CHECKPOINTS_PER_EPOCH * FEE_RECIPIENT_LENGTH /* fees */
     + FINAL_BLOB_ACCUMULATOR_LENGTH /* blob_public_inputs */;
 
-// Depends on the final number of messages per checkpoint.
-pub global NUM_MSGS_PER_BASE_PARITY: u32 = 256;
-// pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP / NUM_MSGS_PER_BASE_PARITY;
-// FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
-pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
+// The InboxParity size ladder: one variable-size parity proof is produced per checkpoint, and the prover picks the
+// smallest size >= the checkpoint's real message count. The largest rung equals the per-checkpoint message cap.
+pub global INBOX_PARITY_SIZE_SMALL: u32 = 64;
+pub global INBOX_PARITY_SIZE_MEDIUM: u32 = 256;
+pub global INBOX_PARITY_SIZE_LARGE: u32 = 1024;
 
 // Lengths of the different types of proofs in fields
 pub global RECURSIVE_PROOF_LENGTH: u32 = 410;
@@ -708,6 +724,12 @@ pub global DOM_SEP__PUBLIC_DATA_MERKLE: u32 = 3756303423;
 // AVM-internal indexed trees:
 pub global DOM_SEP__WRITTEN_SLOTS_MERKLE: u32 = 2292766212;
 pub global DOM_SEP__RETRIEVED_BYTECODES_MERKLE: u32 = 2789215184;
+
+/// Domain separator for the Inbox rolling sha256 chain over L1 to L2 message leaves.
+///
+/// Prefixed to every link's sha256 preimage so a chain link cannot be reinterpreted as an untagged two-field sha256
+/// hash, in particular the `out_hash` merkle node hash, which absorbs the same 64-byte two-field preimage shape.
+pub global DOM_SEP__INBOX_ROLLING_HASH: u32 = 3737216265;
 
 // ---------------------------------------------------------------
 // Contract Address
@@ -1317,9 +1339,9 @@ mod test {
     use crate::merkle_tree::root::compute_empty_sha_tree_root;
     use crate::traits::ToField;
     use super::{
-        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET, MAX_ETH_ADDRESS_VALUE,
-        NUM_BASE_PARITY_PER_ROOT_PARITY, NUM_MSGS_PER_BASE_PARITY,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
+        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET, INBOX_PARITY_SIZE_LARGE,
+        MAX_ETH_ADDRESS_VALUE, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+        TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
     };
 
     #[test]
@@ -1364,10 +1386,8 @@ mod test {
 
     #[test]
     fn parity_covers_all_l1_to_l2_msgs() {
-        assert_eq(
-            NUM_BASE_PARITY_PER_ROOT_PARITY * NUM_MSGS_PER_BASE_PARITY,
-            NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        );
+        // The largest InboxParity rung must be able to hold a full checkpoint's worth of messages.
+        assert_eq(INBOX_PARITY_SIZE_LARGE, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT);
     }
 
     #[test]

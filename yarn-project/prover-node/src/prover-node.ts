@@ -3,6 +3,7 @@ import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { assertRequired, compact, pick } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -349,8 +350,15 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   ): Promise<RegisterCheckpointData> {
     const previousBlockNumber = BlockNumber(checkpoint.blocks[0].number - 1);
     const previousBlockHeader = await this.gatherPreviousBlockHeader(previousBlockNumber);
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpoint.number);
     const lastBlock = checkpoint.blocks.at(-1)!;
+    // Streaming Inbox: the checkpoint's consumed messages are those between the parent
+    // checkpoint's consumed position and this checkpoint's last block, as a compact leaf-count range. The prover
+    // slices them per block.
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts(
+      BigInt(previousBlockHeader.state.l1ToL2MessageTree.nextAvailableLeafIndex),
+      BigInt(lastBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex),
+    );
+    const previousInboxRollingHash = await this.gatherPreviousInboxRollingHash(checkpoint.number);
     const lastBlockHash = await lastBlock.header.hash();
     await this.worldState.syncImmediate(lastBlock.number, lastBlockHash);
     const previousArchiveSiblingPath = await getLastSiblingPath(
@@ -361,8 +369,25 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       attestations,
       previousBlockHeader,
       l1ToL2Messages,
+      previousInboxRollingHash,
       previousArchiveSiblingPath,
     };
+  }
+
+  /**
+   * Sources the inbox rolling hash chain-start for a checkpoint: the previous checkpoint's `inboxRollingHash`, or zero
+   * for the genesis checkpoint. The prover threads this into the base parity circuits so the rebuilt checkpoint header
+   * matches the proposer's.
+   */
+  private async gatherPreviousInboxRollingHash(checkpointNumber: CheckpointNumber): Promise<Fr> {
+    if (checkpointNumber <= 1) {
+      return Fr.ZERO;
+    }
+    const previous = await this.l2BlockSource.getCheckpoint({ number: CheckpointNumber(checkpointNumber - 1) });
+    if (!previous) {
+      throw new Error(`Previous checkpoint ${checkpointNumber - 1} not found when sourcing inbox rolling hash`);
+    }
+    return previous.checkpoint.header.inboxRollingHash;
   }
 
   /**

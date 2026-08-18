@@ -1,5 +1,6 @@
 use crate::abis::{
-    BlockRollupPublicInputs, CheckpointRollupPublicInputs, ParityPublicInputs, TxRollupPublicInputs,
+    BlockRollupPublicInputs, CheckpointRollupPublicInputs, L1ToL2MessageSponge, ParityPublicInputs,
+    TxRollupPublicInputs,
 };
 use bigcurve::BigCurve;
 use bignum::BigNum;
@@ -23,13 +24,21 @@ use types::{
     constants::{
         ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, DOM_SEP__BLOB_GAMMA_FINAL, EMPTY_EPOCH_OUT_HASH,
         L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_CHECKPOINTS_PER_EPOCH,
-        OUT_HASH_TREE_HEIGHT, OUT_HASH_TREE_LEAF_COUNT,
+        MAX_L1_TO_L2_MSGS_PER_BLOCK, OUT_HASH_TREE_HEIGHT, OUT_HASH_TREE_LEAF_COUNT,
     },
     hash::{poseidon2_hash, poseidon2_hash_with_separator},
-    merkle_tree::{compute_empty_tree_root, MerkleTree, test_utils::SingleSubtreeMerkleTree},
+    merkle_tree::{
+        append_only_tree::append_leaves_to_snapshot, compute_empty_tree_root, MerkleTree,
+        test_utils::SingleSubtreeMerkleTree,
+    },
     proof::proof_data::{AvmV2ProofData, ProofData},
     traits::{Deserialize, Empty, Hash},
 };
+
+// The fixture pre-fills l1-to-l2 leaves into a single subtree of 2^3 = 8 leaves, which bounds how far into the tree a
+// block's bundle can be made to start. The bundle append itself is not aligned to that subtree.
+global PRE_EXISTING_L1_TO_L2_SUBTREE_HEIGHT: u32 = 3;
+global PRE_EXISTING_L1_TO_L2_LEAF_COUNT: u32 = 8;
 
 pub struct RollupFixtureBuilder {
     // Epoch constants.
@@ -39,7 +48,7 @@ pub struct RollupFixtureBuilder {
     pub protocol_contracts_hash: Field,
     pub prover_id: Field,
 
-    // Used to identify the first block, which will have an empty start_sponge_blob, and non-empty in_hash.
+    // Used to identify the first block, which will have an empty start_sponge_blob.
     pub start_block_number: u32,
 
     // Used to identify the first checkpoint, which will have an empty start_blob_accumulator.
@@ -174,6 +183,61 @@ impl RollupFixtureBuilder {
         };
 
         (previous_snapshot, sibling_path_for_insertion, new_snapshot)
+    }
+
+    /// Builds a per-block L1-to-L2 message bundle appended to an empty tree, returning
+    /// `(previous_snapshot, leaves, frontier_hint, new_snapshot)`. The resulting `new_snapshot` is exactly what the
+    /// block root circuit recomputes from the same inputs.
+    pub fn build_l1_to_l2_message_bundle(
+        self,
+        num_msgs: u32,
+    ) -> (AppendOnlyTreeSnapshot, [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK], [Field; L1_TO_L2_MSG_TREE_HEIGHT], AppendOnlyTreeSnapshot) {
+        self.build_l1_to_l2_message_bundle_at_index(num_msgs, 0)
+    }
+
+    /// Same as `build_l1_to_l2_message_bundle`, but appending into a tree that already holds `start_index` leaves —
+    /// the compact, unaligned append every block after the very first one performs. The pre-existing leaves sit in a
+    /// single subtree of `PRE_EXISTING_L1_TO_L2_LEAF_COUNT` leaves, so `start_index` must stay below that. The frontier
+    /// hint is the tree's sibling path at `start_index`, which is how a tree database answers for it: the pending left
+    /// sibling at every level where the index is a right child, and the zero-subtree root everywhere else.
+    pub fn build_l1_to_l2_message_bundle_at_index(
+        _self: Self,
+        num_msgs: u32,
+        start_index: u32,
+    ) -> (AppendOnlyTreeSnapshot, [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK], [Field; L1_TO_L2_MSG_TREE_HEIGHT], AppendOnlyTreeSnapshot) {
+        assert(
+            start_index < PRE_EXISTING_L1_TO_L2_LEAF_COUNT,
+            "The fixture cannot pre-fill that many l1-to-l2 leaves",
+        );
+
+        let mut pre_existing = [0; PRE_EXISTING_L1_TO_L2_LEAF_COUNT];
+        for i in 0..PRE_EXISTING_L1_TO_L2_LEAF_COUNT {
+            if i < start_index {
+                pre_existing[i] = (i + 1) as Field * 7;
+            }
+        }
+        let tree = SingleSubtreeMerkleTree::<PRE_EXISTING_L1_TO_L2_LEAF_COUNT, PRE_EXISTING_L1_TO_L2_SUBTREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT>::new(
+            pre_existing,
+        );
+
+        let mut leaves = [0; MAX_L1_TO_L2_MSGS_PER_BLOCK];
+        for i in 0..MAX_L1_TO_L2_MSGS_PER_BLOCK {
+            if i < num_msgs {
+                leaves[i] = (i + 1) as Field * 100;
+            }
+        }
+        let previous = AppendOnlyTreeSnapshot {
+            root: tree.get_root(),
+            next_available_leaf_index: start_index as Field,
+        };
+        let frontier_hint = tree.get_sibling_path(start_index as Field);
+        let new = append_leaves_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK>(
+            previous,
+            leaves,
+            num_msgs,
+            frontier_hint,
+        );
+        (previous, leaves, frontier_hint, new)
     }
 
     pub fn build_out_hash_tree_for_insertion(
@@ -315,11 +379,18 @@ impl RollupFixtureBuilder {
     ) -> BlockRollupPublicInputs {
         let slot_number = self.start_slot_number;
 
-        let in_hash = if start_block_number == self.start_block_number {
-            self.get_in_hash(slot_number)
+        let is_first_block = start_block_number == self.start_block_number;
+
+        // The message sponge threads across the checkpoint's blocks. The leftmost block starts from empty; every block
+        // ends at the checkpoint's accumulated sponge (in the fixture, only the first block absorbs, so the sponge stays
+        // constant for the non-first blocks). This matches the transitional wiring where the first block carries the
+        // whole checkpoint's bundle.
+        let start_msg_sponge = if is_first_block {
+            L1ToL2MessageSponge::empty()
         } else {
-            0
+            self.get_msg_sponge(slot_number)
         };
+        let end_msg_sponge = self.get_msg_sponge(slot_number);
 
         BlockRollupPublicInputs {
             constants: self.get_checkpoint_constant_data(slot_number),
@@ -331,7 +402,8 @@ impl RollupFixtureBuilder {
             end_sponge_blob: self.get_sponge_blob(end_block_number),
             timestamp: self.get_timestamp(slot_number),
             block_headers_hash: self.get_block_headers_hash(end_block_number),
-            in_hash,
+            start_msg_sponge,
+            end_msg_sponge,
             out_hash: self.get_out_hash(end_block_number),
             accumulated_fees: self.get_fee(end_block_number),
             accumulated_mana_used: self.get_mana_used(end_block_number),
@@ -371,6 +443,10 @@ impl RollupFixtureBuilder {
             checkpoint_header_hashes,
             previous_out_hash: self.get_out_hash_snapshot(start_checkpoint_index),
             new_out_hash: self.get_out_hash_snapshot(end_checkpoint_index + 1),
+            // The chain spans this checkpoint range; consecutive checkpoints chain because each range's end
+            // (`get_inbox_rolling_hash(end_slot + 1)`) equals the next range's start (`get_inbox_rolling_hash(start_slot)`).
+            start_inbox_rolling_hash: self.get_inbox_rolling_hash(start_slot_number),
+            end_inbox_rolling_hash: self.get_inbox_rolling_hash(end_slot_number + 1),
             fees,
             start_blob_accumulator: self.get_blob_accumulator(start_slot_number - 1),
             end_blob_accumulator: self.get_blob_accumulator(end_slot_number),
@@ -380,11 +456,21 @@ impl RollupFixtureBuilder {
 
     pub fn get_parity_public_inputs(self, slot_number: Field) -> ParityPublicInputs {
         ParityPublicInputs {
-            sha_root: slot_number * 85831493,
-            converted_root: self.get_l1_to_l2_message_subtree_root(slot_number),
-            vk_tree_root: self.vk_tree_root,
+            start_rolling_hash: self.get_inbox_rolling_hash(slot_number),
+            end_rolling_hash: self.get_inbox_rolling_hash(slot_number + 1),
+            // The message sponge resets per checkpoint, so it ends at the checkpoint's accumulated sponge — the same
+            // value the block roots reach across the checkpoint.
+            end_sponge: self.get_msg_sponge(slot_number),
             prover_id: self.prover_id,
         }
+    }
+
+    /// Deterministic non-empty message sponge for a checkpoint, shared by that checkpoint's block roots (as their
+    /// end sponge) and its parity root (as its end sponge), so the checkpoint root's equality check passes.
+    pub fn get_msg_sponge(_self: Self, slot_number: Field) -> L1ToL2MessageSponge {
+        let mut sponge = L1ToL2MessageSponge::new();
+        sponge.absorb([slot_number, slot_number * 7, slot_number * 13], 3);
+        sponge
     }
 
     pub fn get_sponge_blob(self, block_number: u32) -> SpongeBlob {
@@ -455,8 +541,8 @@ impl RollupFixtureBuilder {
         tx_or_block_or_slot_number as Field * 60415
     }
 
-    fn get_in_hash(_self: Self, slot_number: Field) -> Field {
-        slot_number * 94297
+    fn get_inbox_rolling_hash(_self: Self, slot_number: Field) -> Field {
+        slot_number * 917231
     }
 
     fn get_timestamp(_self: Self, slot_number: Field) -> u64 {

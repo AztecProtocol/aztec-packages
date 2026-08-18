@@ -91,7 +91,6 @@ describe('multi-node/slashing/data_withholding_slash', () => {
       slashDataWithholdingToleranceSlots: TOLERANCE_SLOTS,
       slashDataWithholdingPenalty: slashingAmount,
       minTxsPerBlock: 1,
-      inboxLag: 2,
       initialValidators: buildMockGossipValidators(NUM_VALIDATORS),
     });
   });

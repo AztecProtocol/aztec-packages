@@ -56,6 +56,11 @@ export type PublicProcessorLimits = {
 type BlockBuilderOptionsBase = PublicProcessorLimits & {
   /** Minimum number of successfully processed txs required. Block is rejected if fewer succeed. */
   minValidTxs: number;
+  /**
+   * L1-to-L2 message leaves this block consumes, inserted into the fork's L1-to-L2 message tree before the block
+   * header is built. Omitted when the block consumes nothing from the Inbox.
+   */
+  l1ToL2Messages?: Fr[];
 };
 
 /** Proposer mode: redistribution params are required. */
@@ -150,12 +155,16 @@ export interface ICheckpointsBuilder {
    */
   getFork(blockNumber: BlockNumber, blockHash?: BlockHash): Promise<MerkleTreeWriteOperations>;
 
+  /**
+   * Opens a fresh checkpoint. The checkpoint's L1-to-L2 messages are not passed here: each block carries its own
+   * bundle in `buildBlock`'s `l1ToL2Messages`.
+   */
   startCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
     feeAssetPriceModifier: bigint,
-    l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
+    previousInboxRollingHash: Fr,
     fork: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
   ): Promise<ICheckpointBlockBuilder>;

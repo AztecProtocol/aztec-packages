@@ -82,7 +82,8 @@ contract Tmnt419Test is RollupBase {
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
       TestConstants.AZTEC_EPOCH_DURATION,
-      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS,
+      TestConstants.ETHEREUM_SLOT_DURATION
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
@@ -173,8 +174,13 @@ contract Tmnt419Test is RollupBase {
     header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
     header.totalManaUsed = MANA_TARGET;
 
-    ProposeArgs memory proposeArgs =
-      ProposeArgs({header: header, archive: archiveRoot, oracleInput: OracleInput({feeAssetPriceModifier: 0})});
+    // Streaming Inbox: reference the newest bucket so any seeded messages are consumed.
+    uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
+    header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
+
+    ProposeArgs memory proposeArgs = ProposeArgs({
+      header: header, archive: archiveRoot, oracleInput: OracleInput({feeAssetPriceModifier: 0}), bucketHint: bucketHint
+    });
 
     CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
     address[] memory signers = new address[](0);
