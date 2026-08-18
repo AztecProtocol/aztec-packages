@@ -10,11 +10,11 @@ const DROP_WARNING_INTERVAL_MS = 30_000;
 
 const DEFAULT_MIN_TRACE_DURATION_MS = 10;
 
-const DEFAULT_MAX_QUEUE_SIZE = 16384;
+const DEFAULT_MAX_QUEUE_SIZE = 65536;
 
 /** Cap on the per-export batch size, so a large queue can actually be drained instead of dribbling out
  * at the SDK default of 512 spans per scheduled export. Kept <= maxQueueSize per the BatchSpanProcessor contract. */
-const DEFAULT_MAX_EXPORT_BATCH_SIZE = 2048;
+const DEFAULT_MAX_EXPORT_BATCH_SIZE = 4096;
 
 export type MonitoredBatchSpanProcessorConfig = BufferConfig & {
   minTraceDurationMs?: number;

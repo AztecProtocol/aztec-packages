@@ -69,12 +69,12 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   otelBspMaxQueueSize: {
     env: 'OTEL_BSP_MAX_QUEUE_SIZE',
     description: 'The maximum number of completed spans to queue before export.',
-    ...numberConfigHelper(16384),
+    ...numberConfigHelper(65536),
   },
   otelBspMaxExportBatchSize: {
     env: 'OTEL_BSP_MAX_EXPORT_BATCH_SIZE',
     description: 'The maximum number of spans to send to the collector in a single export.',
-    ...numberConfigHelper(2048),
+    ...numberConfigHelper(4096),
   },
   otelBspScheduleDelayMs: {
     env: 'OTEL_BSP_SCHEDULE_DELAY',
