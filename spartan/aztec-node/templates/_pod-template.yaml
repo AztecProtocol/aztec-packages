@@ -22,6 +22,10 @@ spec:
   serviceAccountName: {{ include "chart.serviceAccountName" . }}
   {{- end }}
 
+  {{- if .Values.terminationGracePeriodSeconds }}
+  terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+  {{- end }}
+
   {{- if .Values.hostNetwork }}
   dnsPolicy: ClusterFirstWithHostNet
   hostNetwork: true
