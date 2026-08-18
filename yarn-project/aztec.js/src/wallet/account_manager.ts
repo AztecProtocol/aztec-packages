@@ -5,6 +5,7 @@ import {
   type ContractInstanceWithAddress,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
+import type { PublicKeys } from '@aztec/stdlib/keys';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
 import type { AccountContract } from '../account/account_contract.js';
@@ -67,11 +68,11 @@ export class AccountManager {
     return new AccountManager(wallet, secretKey, accountContract, instance);
   }
 
-  protected getPublicKeys() {
+  protected getPublicKeys(): PublicKeys {
     return this.instance.publicKeys;
   }
 
-  protected getPublicKeysHash() {
+  protected getPublicKeysHash(): Promise<Fr> {
     return this.getPublicKeys().hash();
   }
 
@@ -91,7 +92,7 @@ export class AccountManager {
     return this.secretKey;
   }
 
-  get address() {
+  get address(): AztecAddress {
     return this.instance.address;
   }
 

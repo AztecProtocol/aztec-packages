@@ -75,7 +75,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * Useful when generating authwits
    * @returns An encoded function call
    */
-  public async getFunctionCall() {
+  public async getFunctionCall(): Promise<FunctionCall> {
     const args = encodeArguments(this.functionDao, this.args);
     return FunctionCall.from({
       name: this.functionDao.name,
