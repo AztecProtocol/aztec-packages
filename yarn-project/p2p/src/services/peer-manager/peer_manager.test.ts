@@ -20,7 +20,7 @@ import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
-import { multiaddr } from '@multiformats/multiaddr';
+import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import { type ENR, SignableENR } from '@nethermindeth/enr';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { generatePrivateKey } from 'viem/accounts';
@@ -943,6 +943,115 @@ describe('PeerManager', () => {
       const isPreferredPeer = (newPeerManager as any).isPreferredPeer.bind(newPeerManager);
 
       expect(isPreferredPeer(peerId)).toBe(true);
+    });
+
+    describe('updatePreferredPeers', () => {
+      const createPreferredPeer = async (port: number, withTcpAddress = true) => {
+        const peerId = await createSecp256k1PeerId();
+        const enr = SignableENR.createFromPeerId(peerId);
+        if (withTcpAddress) {
+          enr.setLocationMultiaddr(multiaddr(`/ip4/127.0.0.1/tcp/${port}`));
+        }
+        return { peerId, enr: enr.encodeTxt() };
+      };
+
+      let node: any;
+      let manager: PeerManager;
+
+      beforeEach(() => {
+        node = createMockLibP2PNode([], []);
+        manager = createMockPeerManager('test', node, 3);
+      });
+
+      it('adds new preferred peers as direct peers', async () => {
+        const peer = await createPreferredPeer(9001);
+
+        await manager.updatePreferredPeers([peer.enr]);
+
+        expect(node.services.pubsub.direct.has(peer.peerId.toString())).toBe(true);
+        expect(manager.isAuthenticatedPeer(peer.peerId)).toBe(true);
+
+        const [mergedPeerId, mergedData] = node.peerStore.merge.mock.calls[0];
+        expect(mergedPeerId.toString()).toEqual(peer.peerId.toString());
+        expect(mergedData.multiaddrs.map((addr: Multiaddr) => addr.toString())).toEqual(['/ip4/127.0.0.1/tcp/9001']);
+      });
+
+      it('removes peers that are no longer preferred', async () => {
+        const kept = await createPreferredPeer(9001);
+        const dropped = await createPreferredPeer(9002);
+
+        await manager.updatePreferredPeers([kept.enr, dropped.enr]);
+        await manager.updatePreferredPeers([kept.enr]);
+
+        expect(node.services.pubsub.direct.has(kept.peerId.toString())).toBe(true);
+        expect(node.services.pubsub.direct.has(dropped.peerId.toString())).toBe(false);
+        expect(manager.isAuthenticatedPeer(kept.peerId)).toBe(true);
+        expect(manager.isAuthenticatedPeer(dropped.peerId)).toBe(false);
+      });
+
+      it('disconnects a removed peer that is no longer authenticated when only validators are allowed', async () => {
+        const validatorOnlyNode = createMockLibP2PNode([], []);
+        validatorOnlyNode.getConnections.mockImplementation((peerId?: PeerId) =>
+          peerId ? [{ remotePeer: peerId }] : [],
+        );
+        const validatorOnlyManager = createMockPeerManager('test', validatorOnlyNode, 3, [], [], [], {
+          p2pAllowOnlyValidators: true,
+        });
+        const dropped = await createPreferredPeer(9002);
+
+        await validatorOnlyManager.updatePreferredPeers([dropped.enr]);
+        await validatorOnlyManager.updatePreferredPeers([]);
+        await validatorOnlyManager.heartbeat();
+
+        expect(validatorOnlyNode.hangUp).toHaveBeenCalledWith(peerIdFromString(dropped.peerId.toString()));
+      });
+
+      it('keeps a removed peer connected when validator-only mode is off', async () => {
+        node.getConnections.mockImplementation((peerId?: PeerId) => (peerId ? [{ remotePeer: peerId }] : []));
+        const dropped = await createPreferredPeer(9002);
+
+        await manager.updatePreferredPeers([dropped.enr]);
+        await manager.updatePreferredPeers([]);
+        await manager.heartbeat();
+
+        expect(node.hangUp).not.toHaveBeenCalled();
+      });
+
+      it('rejects the whole update when an ENR is invalid, leaving the preferred set untouched', async () => {
+        const existing = await createPreferredPeer(9001);
+        const incoming = await createPreferredPeer(9002);
+        await manager.updatePreferredPeers([existing.enr]);
+
+        await expect(manager.updatePreferredPeers([incoming.enr, 'not-an-enr'])).rejects.toThrow();
+
+        expect(manager.isAuthenticatedPeer(existing.peerId)).toBe(true);
+        expect(manager.isAuthenticatedPeer(incoming.peerId)).toBe(false);
+        expect(node.services.pubsub.direct.has(existing.peerId.toString())).toBe(true);
+        expect(node.services.pubsub.direct.has(incoming.peerId.toString())).toBe(false);
+      });
+
+      it('rejects an update carrying an ENR without a TCP address', async () => {
+        const noTcpAddress = await createPreferredPeer(0, false);
+
+        await expect(manager.updatePreferredPeers([noTcpAddress.enr])).rejects.toThrow('no TCP address');
+
+        expect(manager.isAuthenticatedPeer(noTcpAddress.peerId)).toBe(false);
+        expect(node.services.pubsub.direct.size).toBe(0);
+      });
+
+      it('re-applies the updated list on the next validator heartbeat', async () => {
+        const validatorAddresses = [EthAddress.random()];
+        mockEpochCache.getRegisteredValidators.mockResolvedValue(validatorAddresses);
+        manager.registerThisValidatorAddresses(validatorAddresses);
+
+        const peer = await createPreferredPeer(9001);
+        await manager.updatePreferredPeers([peer.enr]);
+        node.services.pubsub.direct.clear();
+
+        await manager.heartbeat();
+
+        expect(node.services.pubsub.direct.has(peer.peerId.toString())).toBe(true);
+      });
     });
   });
 
