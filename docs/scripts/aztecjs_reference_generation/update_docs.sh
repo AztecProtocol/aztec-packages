@@ -1,15 +1,25 @@
 #!/usr/bin/env bash
 # Script to regenerate auto-generated Aztec.js API documentation
-# Usage: ./scripts/aztecjs_reference_generation/update_docs.sh [target_version]
+# Usage: ./scripts/aztecjs_reference_generation/update_docs.sh [target_version] [--check]
 #
 # Examples:
 #   ./scripts/aztecjs_reference_generation/update_docs.sh                    # Updates all versions
 #   ./scripts/aztecjs_reference_generation/update_docs.sh current            # Updates current only
 #   ./scripts/aztecjs_reference_generation/update_docs.sh v2.0.2             # Updates v2.0.2 only
+#   ./scripts/aztecjs_reference_generation/update_docs.sh --check            # Fails if current is stale
 
 set -euo pipefail
 
-TARGET_VERSION="${1:-all}"
+CHECK_ONLY=false
+TARGET_VERSION=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --check) CHECK_ONLY=true ;;
+    *) TARGET_VERSION="$1" ;;
+  esac
+  shift
+done
+TARGET_VERSION="${TARGET_VERSION:-all}"
 
 # Constants
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,6 +30,13 @@ readonly AZTEC_JS_SRC="$SCRIPT_DIR/../../../yarn-project/aztec.js/src"
 readonly OUTPUT_FILE="aztec_js_reference.md"
 readonly SIDEBAR_POSITION="98"
 readonly TITLE="Reference"
+
+# --check and the error paths exit before the deploy step, so the per-run temp files are
+# cleaned up on exit. The defaults cover exits from before the names are assigned.
+cleanup() {
+  rm -f "${TEMP_JSON:-}" "${TEMP_MD:-}" "${TEMP_WITH_FRONTMATTER:-}"
+}
+trap cleanup EXIT
 
 echo "=== Aztec.js API Documentation Update Script ==="
 echo ""
@@ -71,6 +88,48 @@ EOF
 # Append markdown content (skip first line which is duplicate title)
 tail -n +2 "$TEMP_MD" >> "$TEMP_WITH_FRONTMATTER"
 
+# --check: compare against the committed current-version page instead of deploying.
+if [[ "$CHECK_ONLY" == true ]]; then
+  echo ""
+  echo "Step 3: Comparing against the committed reference..."
+  readonly COMMITTED="$DOCS_ROOT/docs-developers/docs/aztec-js/$OUTPUT_FILE"
+
+  if [[ ! -f "$COMMITTED" ]]; then
+    echo "Error: no committed reference at $COMMITTED"
+    exit 1
+  fi
+
+  # The page stamps its own generation time, so that line always differs.
+  normalize() {
+    sed 's/^\*Generated: .*\*$/*Generated: <ignored>*/' "$1"
+  }
+
+  DRIFT=$(diff -U1 --label committed --label regenerated \
+    <(normalize "$COMMITTED") <(normalize "$TEMP_WITH_FRONTMATTER") || true)
+
+  if [[ -z "$DRIFT" ]]; then
+    echo "  ✓ Reference matches aztec.js"
+    exit 0
+  fi
+
+  DRIFT_LINES=$(printf '%s\n' "$DRIFT" | wc -l | tr -d ' ')
+  echo "" >&2
+  printf '%s\n' "$DRIFT" | head -60 >&2 || true
+  if ((DRIFT_LINES > 60)); then
+    echo "... and $((DRIFT_LINES - 60)) more diff lines" >&2
+  fi
+
+  cat >&2 <<EOF
+
+The committed Aztec.js reference no longer matches yarn-project/aztec.js/src.
+
+Regenerate it and commit the result:
+
+  cd docs && ./scripts/aztecjs_reference_generation/update_docs.sh current
+EOF
+  exit 1
+fi
+
 # Step 4: Deploy to target locations
 echo ""
 echo "Step 3: Deploying documentation..."
@@ -121,9 +180,6 @@ case "$TARGET_VERSION" in
     update_version "$TARGET_VERSION"
     ;;
 esac
-
-# Cleanup
-rm -f "$TEMP_JSON" "$TEMP_MD" "$TEMP_WITH_FRONTMATTER"
 
 echo ""
 echo "=== Documentation Update Complete ==="

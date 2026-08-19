@@ -156,12 +156,17 @@ self-identify its release type, set `RELEASE_TYPE` explicitly.
 cd docs
 RELEASE_TYPE=<release_type> yarn generate:aztec-nr-api <nodeVersion>
 RELEASE_TYPE=<release_type> yarn generate:typescript-api <nodeVersion>
+./scripts/aztecjs_reference_generation/update_docs.sh current
 ```
 
 This creates/updates the API docs in:
 
 - `docs/static/aztec-nr-api/<release_type>/` (e.g. `mainnet/`, `testnet/`)
 - `docs/static/typescript-api/<release_type>/`
+- `docs/docs-developers/docs/aztec-js/aztec_js_reference.md`
+
+`docs/bootstrap.sh` fails CI when the Aztec.js reference drifts, so in practice it
+should already be current; run it anyway so a release never ships a stale page.
 
 **Prerequisites — you MUST build dependencies before generating API docs:**
 
