@@ -3,6 +3,7 @@ title: Getting Started on Local Network
 description: Guide for developers to get started with the Aztec local network, including account creation and contract deployment.
 sidebar_position: 0
 tags: [local_network, testnet]
+references: ["aztec-up/*", "yarn-project/aztec/src/cli/*", "yarn-project/cli-wallet/src/*", "noir-projects/labs/noir-contracts/contracts/app/token_contract/*"]
 ---
 
 import Tabs from '@theme/Tabs';

@@ -3,6 +3,7 @@ id: creating_keystores
 displayed_sidebar: operatorsSidebar
 title: Creating Sequencer Keystores
 description: Learn how to create sequencer keystores for running validators on the Aztec network using the Aztec CLI.
+references: ["yarn-project/cli/src/cmds/validator_keys/*", "yarn-project/node-keystore/src/schemas.ts"]
 ---
 
 ## Overview

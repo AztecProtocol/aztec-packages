@@ -3,6 +3,7 @@ title: Using Authentication Witnesses
 tags: [accounts, authwit]
 sidebar_position: 6
 description: Step-by-step guide to implementing authentication witnesses in Aztec.js for delegated transactions.
+references: ["docs/examples/ts/aztecjs_authwit/index.ts", "yarn-project/aztec.js/src/utils/authwit.ts", "yarn-project/aztec.js/src/wallet/*"]
 ---
 
 This guide shows you how to create and use authentication witnesses (authwits) to authorize other accounts to perform actions on your behalf.

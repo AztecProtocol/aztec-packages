@@ -3,6 +3,7 @@ id: overview
 title: Full node overview
 description: What a full node is and why you might run one.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/aztec/src/cli/cmds/start_node.ts", "yarn-project/aztec/src/cli/aztec_start_options.ts"]
 ---
 
 ## Overview

@@ -3,6 +3,7 @@ id: verification
 title: Verifying your full node
 description: Checks to confirm your full node is healthy and reachable on the network.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/stdlib/src/interfaces/aztec-node.ts", "yarn-project/aztec-node/src/aztec-node/server.ts"]
 ---
 
 ## Verification

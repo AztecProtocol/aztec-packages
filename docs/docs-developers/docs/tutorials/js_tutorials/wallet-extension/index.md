@@ -2,6 +2,7 @@
 title: Building a Wallet Extension
 description: Learn how to build a Chrome extension wallet for Aztec with encrypted key storage, SponsoredFPC fee payment, and transaction approval flows
 sidebar_position: 3
+references: ["docs/examples/webapp-tutorial/test-extension/*"]
 ---
 
 # Building a Wallet Extension for Aztec

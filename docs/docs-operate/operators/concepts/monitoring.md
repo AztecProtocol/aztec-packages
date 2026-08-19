@@ -3,6 +3,7 @@ id: monitoring
 title: Monitoring and metrics
 description: The handful of metrics that actually matter for keeping your sequencer alive, plus what to alert on and where the dashboards live.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/telemetry-client/src/*", "docs/static/scripts/aztec-monitoring.sh"]
 ---
 
 The Aztec node exposes over 250 Prometheus metrics. Most operators only need to watch a small handful to keep their sequencer healthy.

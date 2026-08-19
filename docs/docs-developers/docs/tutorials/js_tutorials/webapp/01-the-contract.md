@@ -2,6 +2,7 @@
 title: "1. The Contract"
 sidebar_position: 1
 description: "Walk through the Pod Racing smart contract, compile it, and deploy and interact with it via a TypeScript script"
+references: ["docs/examples/webapp-tutorial/contracts/src/*", "docs/examples/webapp-tutorial/scripts/deploy-and-interact.ts"]
 ---
 
 # The Contract

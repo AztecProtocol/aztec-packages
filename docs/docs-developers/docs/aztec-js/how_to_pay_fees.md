@@ -3,6 +3,7 @@ title: Paying Fees
 tags: [fees, transactions, accounts, mana, gas]
 sidebar_position: 7
 description: Pay transaction fees on Aztec, understand mana costs, estimate gas, and retrieve fees from receipts.
+references: ["docs/examples/ts/aztecjs_advanced/index.ts", "docs/examples/ts/aztecjs_connection/index.ts", "yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts", "yarn-project/aztec.js/src/fee/*"]
 ---
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';

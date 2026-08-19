@@ -4,6 +4,7 @@ slug: /operators/tooling
 title: Operator tooling
 description: A curated index of Foundation and community-built tools that operators rely on for monitoring, key management, slashing protection, and reward tracking.
 displayed_sidebar: operatorsSidebar
+references: ["docs/static/scripts/aztec-monitoring.sh"]
 ---
 
 Operating an Aztec node usually involves more than the node software itself. Most operators rely on a combination of Foundation-built tools (staking dashboard, fee model) and community-built tools (dashboards, scripts, indexers) that fill specific gaps. This page is a curated index.

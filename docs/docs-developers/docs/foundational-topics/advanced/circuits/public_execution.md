@@ -3,6 +3,7 @@ title: Public Execution (AVM)
 sidebar_position: 2
 tags: [protocol, circuits]
 description: Learn how the Aztec Virtual Machine (AVM) executes public functions and manages public state transitions.
+references: ["yarn-project/simulator/src/public/*", "barretenberg/cpp/src/barretenberg/vm2/*", "noir-projects/fnd/noir-protocol-circuits/crates/hiding-kernel-to-public/*"]
 ---
 
 Public function execution in Aztec is handled by the **Aztec Virtual Machine (AVM)**. Unlike private execution (which runs on user devices), public execution runs on the sequencer's infrastructure where access to current state is required.

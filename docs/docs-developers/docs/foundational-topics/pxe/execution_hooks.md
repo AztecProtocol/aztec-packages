@@ -3,6 +3,7 @@ title: Execution hooks
 sidebar_position: 3
 tags: [pxe, wallets]
 description: How wallets use PXE execution hooks to apply custom policies during client-side simulation.
+references: ["yarn-project/pxe/src/hooks/*", "noir-projects/labs/aztec-nr/aztec/src/test/helpers/test_environment.nr", "noir-projects/labs/noir-contracts/contracts/standard/handshake_registry_contract/*"]
 ---
 
 Execution hooks are callbacks that the PXE invokes during client-side simulation when an operation needs a decision from the wallet. They let the wallet apply its own policies before execution proceeds, such as prompting the user, consulting a dynamic allowlist, or inspecting call arguments. All hooks are optional; when a hook is absent, the PXE applies a conservative default: for example it avoids privacy leaks (such as revealing a message's recipient onchain) unless specifically told otherwise.

@@ -2,6 +2,7 @@
 title: "2. Wallet Extension Integration"
 sidebar_position: 2
 description: "Build an Aztec wallet extension — handle discovery, manage sessions, route messages, and extend BaseWallet"
+references: ["docs/examples/webapp-tutorial/test-extension/src/background.ts", "docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts", "yarn-project/wallet-sdk/src/*"]
 ---
 
 # Wallet Extension Integration

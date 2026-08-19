@@ -2,6 +2,7 @@
 title: Staking Tokens
 description: Learn how to stake tokens on the Aztec network to participate in network security and earn rewards.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/core/libraries/rollup/StakingLib.sol", "l1-contracts/src/core/libraries/StakingQueue.sol", "l1-contracts/src/governance/GSE.sol", "l1-contracts/src/governance/libraries/ConfigurationLib.sol"]
 ---
 
 # Staking Tokens

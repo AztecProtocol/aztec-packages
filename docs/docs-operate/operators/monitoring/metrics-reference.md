@@ -2,6 +2,7 @@
 title: Key Metrics Reference
 description: Comprehensive guide to understanding and using the metrics exposed by your Aztec node for monitoring and observability.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/telemetry-client/src/metrics.ts", "yarn-project/telemetry-client/src/attributes.ts"]
 ---
 
 ## Overview

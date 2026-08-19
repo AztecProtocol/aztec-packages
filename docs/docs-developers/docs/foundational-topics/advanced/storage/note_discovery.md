@@ -3,6 +3,7 @@ title: Note Discovery
 tags: [storage, concepts, advanced, notes]
 description: Understand how Aztec's note tagging system allows users to efficiently discover and decrypt notes that belong to them without relying on brute force or offchain communication.
 sidebar_position: 3
+references: ["noir-projects/labs/aztec-nr/aztec/src/messages/discovery/*", "noir-projects/labs/aztec-nr/aztec/src/messages/delivery/*", "yarn-project/pxe/src/tagging/*", "noir-projects/labs/noir-contracts/contracts/standard/handshake_registry_contract/*"]
 ---
 
 Note discovery refers to the process of a user identifying and decrypting [notes](../../state_management.md#notes) that belong to them.

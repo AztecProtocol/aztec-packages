@@ -3,6 +3,7 @@ title: Visibility
 sidebar_position: 4
 tags: [functions]
 description: Understand function visibility modifiers in Aztec and how they affect function execution and accessibility.
+references: ["noir-projects/labs/aztec-nr/aztec/src/macros/functions/*"]
 ---
 
 In Aztec there are multiple different types of visibility that can be applied to functions. Namely we have `data visibility` and `function visibility`. This page explains these types of visibility.

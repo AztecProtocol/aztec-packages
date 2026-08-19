@@ -3,6 +3,7 @@ id: slashing_and_offenses
 displayed_sidebar: operatorsSidebar
 title: Slashing and Offenses
 description: Learn how the slashing mechanism works, what offenses are detected, and how to configure your sequencer to participate in consensus-based slashing
+references: ["yarn-project/slasher/src/*", "yarn-project/aztec-node/src/sentinel/*", "l1-contracts/src/core/slashing/*", "yarn-project/stdlib/src/interfaces/aztec-node-admin.ts"]
 ---
 
 ## Overview

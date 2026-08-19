@@ -3,6 +3,7 @@ title: AVM Cryptographic Compatibility
 sidebar_position: 3
 description: Which Noir cryptographic primitives work in public (AVM) functions vs private, and workarounds for unsupported operations.
 tags: [protocol, circuits]
+references: ["avm-transpiler/src/*", "yarn-project/simulator/docs/avm/avm-isa-quick-reference.md"]
 ---
 
 Private and public functions in Aztec use different execution models. Private functions compile to ACIR circuits and have access to the full Noir standard library. Public functions compile to AVM bytecode via the transpiler, which supports only a specific set of cryptographic operations.

@@ -3,6 +3,7 @@ id: claiming-rewards
 title: Claiming rewards
 description: When rewards show up, how much you earn, and how to claim across many sequencers and rollups from the staking dashboard.
 displayed_sidebar: operatorsSidebar
+references: ["l1-contracts/src/core/libraries/rollup/RewardLib.sol", "l1-contracts/src/core/libraries/rollup/RewardExtLib.sol", "l1-contracts/src/core/Rollup.sol", "l1-contracts/src/governance/RewardDistributor.sol", "yarn-project/cli/src/cmds/validator_keys/*"]
 ---
 
 This page explains when Aztec rewards become claimable and how to claim them. The [staking dashboard](https://stake.aztec.network) is the primary path: it finds your rewards across every rollup and bundles the claims into a single wallet flow, which is what makes claiming practical once you run more than one sequencer or operate at provider scale. The `cast` recipes for a single attester live in [Advanced operations](/operate/operators/sequencer-management/claiming-rewards).

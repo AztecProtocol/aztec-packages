@@ -3,6 +3,7 @@ id: verification
 title: Verifying your prover
 description: Confirm the prover node, broker, and agents are running, connected, and proving epochs.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/prover-client/src/proving_broker/proving_broker.ts", "yarn-project/prover-client/src/proving_broker/proving_agent.ts", "yarn-project/prover-node/src/prover-node.ts"]
 ---
 
 ## Verification

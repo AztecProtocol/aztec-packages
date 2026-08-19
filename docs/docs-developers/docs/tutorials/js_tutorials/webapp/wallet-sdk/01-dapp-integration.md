@@ -2,6 +2,7 @@
 title: "1. dApp Integration"
 sidebar_position: 1
 description: "Connect your dApp to Aztec wallet extensions — discovery, secure channels, capabilities, and wallet usage"
+references: ["docs/examples/webapp-tutorial/src/wallet-connection.ts", "docs/examples/webapp-tutorial/src/components/WalletConnect.tsx", "yarn-project/wallet-sdk/src/*"]
 ---
 
 # dApp Integration

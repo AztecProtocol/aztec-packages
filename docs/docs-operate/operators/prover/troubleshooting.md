@@ -3,6 +3,7 @@ id: troubleshooting
 title: Prover troubleshooting
 description: Common issues prover operators hit and how to fix them.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/prover-client/src/proving_broker/*", "yarn-project/prover-node/src/config.ts"]
 ---
 
 ## Troubleshooting

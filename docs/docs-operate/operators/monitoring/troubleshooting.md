@@ -2,6 +2,7 @@
 displayed_sidebar: operatorsSidebar
 title: Complete Example and Troubleshooting
 description: Complete Docker Compose example with all monitoring components and troubleshooting guide for common monitoring issues.
+references: ["yarn-project/telemetry-client/src/config.ts", "yarn-project/telemetry-client/src/otel.ts", "yarn-project/telemetry-client/src/metrics.ts"]
 ---
 
 ## Complete Docker Compose Example

@@ -3,6 +3,7 @@ title: Storage Slots
 tags: [storage, concepts, advanced]
 sidebar_position: 1
 description: Understand how storage slots work in Aztec for both public and private state, including siloing mechanisms and note hash commitments.
+references: ["noir-projects/labs/aztec-nr/aztec/src/state_vars/*", "noir-projects/fnd/noir-protocol-circuits/crates/types/src/hash.nr"]
 ---
 
 Storage slots in Aztec serve a similar purpose to Ethereum—they identify where contract state is stored. However, Aztec handles public and private state differently to maintain privacy guarantees while preventing conflicts between contracts.

@@ -3,6 +3,7 @@ id: setup
 title: Prover setup
 description: Generate keys, then deploy the prover node, broker, and agents.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/prover-node/src/config.ts", "yarn-project/prover-client/src/proving_broker/config.ts", "yarn-project/aztec/src/cli/aztec_start_options.ts"]
 ---
 
 ## Generating Keys

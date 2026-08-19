@@ -2,6 +2,7 @@
 title: "3. PXE Integration"
 description: Running the Private eXecution Environment in a browser extension and extending BaseWallet
 sidebar_position: 3
+references: ["docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts"]
 ---
 
 # PXE Integration

@@ -3,6 +3,7 @@ title: Using Capsules
 sidebar_position: 17
 tags: [functions, oracles]
 description: Learn how to use capsules for per-contract non-volatile storage in the PXE.
+references: ["noir-projects/labs/aztec-nr/aztec/src/capsules/*", "noir-projects/labs/aztec-nr/aztec/src/oracle/capsules.nr"]
 ---
 
 Capsules provide per-contract non-volatile storage in the PXE. Data is stored locally (not onchain), scoped per contract address, and persists until explicitly deleted.

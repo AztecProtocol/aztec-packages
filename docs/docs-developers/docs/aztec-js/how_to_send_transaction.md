@@ -3,6 +3,7 @@ title: Sending Transactions
 sidebar_position: 4
 description: Send transactions to Aztec contracts using Aztec.js with various options and error handling
 tags: [transactions, contracts, aztec.js]
+references: ["docs/examples/ts/aztecjs_advanced/index.ts", "yarn-project/aztec.js/src/contract/*"]
 ---
 
 This guide shows you how to send transactions to smart contracts on Aztec.

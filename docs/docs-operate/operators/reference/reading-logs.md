@@ -3,6 +3,7 @@ id: reading_logs
 title: Reading your logs
 description: A reference for common sequencer, prover, and node log messages, which are safe to ignore, and which need action.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/node-keystore/src/*", "yarn-project/p2p/src/*", "yarn-project/sequencer-client/src/*", "yarn-project/archiver/src/*", "yarn-project/prover-client/src/proving_broker/*"]
 ---
 
 Node logs carry a mix of routine network noise and messages that need action. This page catalogues the ones operators see most often, grouped by subsystem, with a severity and what to do.

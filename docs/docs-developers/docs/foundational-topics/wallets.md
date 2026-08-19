@@ -3,6 +3,7 @@ title: Wallets
 sidebar_position: 2
 tags: [accounts]
 description: Overview of wallet responsibilities in Aztec including account management, private state tracking, transaction execution, key management, and authorization handling.
+references: ["yarn-project/aztec.js/src/account/*", "yarn-project/wallets/src/*", "noir-projects/labs/noir-contracts/contracts/account/ecdsa_k_account_contract/*"]
 ---
 
 This page covers the main responsibilities of a wallet in the Aztec network.

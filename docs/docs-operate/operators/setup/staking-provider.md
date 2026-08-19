@@ -3,6 +3,7 @@ id: become_a_staking_provider
 displayed_sidebar: operatorsSidebar
 title: Become a Staking Provider
 description: Learn how to run a sequencer with delegated stake on the Aztec network, including provider registration and sequencer identity management.
+references: ["yarn-project/cli/src/cmds/validator_keys/new.ts", "yarn-project/cli/src/cmds/validator_keys/staker.ts", "yarn-project/node-keystore/src/schemas.ts", "l1-contracts/src/governance/GSE.sol"]
 ---
 
 ## Overview

@@ -3,6 +3,7 @@ id: syncing_best_practices
 displayed_sidebar: operatorsSidebar
 title: Using and uploading snapshots
 description: Learn sync modes and snapshot strategies to efficiently sync your Aztec node with the network.
+references: ["yarn-project/node-lib/src/actions/snapshot-sync.ts", "yarn-project/node-lib/src/actions/upload-snapshot.ts", "yarn-project/node-lib/src/config/index.ts", "yarn-project/stdlib/src/interfaces/aztec-node-admin.ts"]
 ---
 
 ## Overview

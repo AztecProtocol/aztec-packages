@@ -2,6 +2,7 @@
 title: Bridging
 description: Understand how assets move between Ethereum (L1) and Aztec (L2) through portals and message passing.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/core/messagebridge/Inbox.sol", "l1-contracts/src/core/messagebridge/Outbox.sol", "l1-contracts/src/core/messagebridge/FeeJuicePortal.sol"]
 ---
 
 # Bridging Between Ethereum and Aztec

@@ -2,6 +2,7 @@
 displayed_sidebar: operatorsSidebar
 title: Useful Commands
 description: Essential cast commands for querying Registry, Rollup, and Governance contracts as a sequencer operator.
+references: ["l1-contracts/src/governance/Registry.sol", "l1-contracts/src/core/Rollup.sol", "l1-contracts/src/governance/GSE.sol", "l1-contracts/src/governance/Governance.sol", "l1-contracts/src/governance/proposer/GovernanceProposer.sol"]
 ---
 
 ## Overview

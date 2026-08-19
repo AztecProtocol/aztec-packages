@@ -10,6 +10,7 @@
     "clean": "./scripts/clean.sh",
     "dev:netlify": "yarn netlify dev",
     "generate:aztec-nr-api": "./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh",
+    "generate:aztecjs-reference": "./scripts/aztecjs_reference_generation/update_docs.sh current",
     "generate:typescript-api": "./scripts/typescript_api_generation/generate_ts_api_docs.sh",
     "generate:node-api-reference": "./scripts/node_api_reference_generation/generate_node_api_reference.sh",
     "generate:operator-cli-reference": "./scripts/cli_reference_generation/generate_operator_cli_ref.sh",
@@ -48,7 +49,8 @@
     "@tsconfig/docusaurus": "^1.0.7",
     "cspell": "^8.19.4",
     "dotenv": "^16.6.1",
-    "netlify-cli": "^24.3.0"
+    "netlify-cli": "^24.3.0",
+    "typescript": "^5.9.3"
   },
   "cspell": {
     "import": [

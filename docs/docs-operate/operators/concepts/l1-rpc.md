@@ -3,6 +3,7 @@ id: l1-rpc
 title: L1 RPC requirements
 description: What kind of Ethereum L1 endpoint an Aztec node needs, why a blob-serving consensus client is required, how much RPC load a node generates, and how to avoid the most common L1-side failures.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/ethereum/src/l1_reader.ts", "yarn-project/archiver/src/config.ts", "yarn-project/blob-client/src/client/config.ts", "yarn-project/foundation/src/config/env_var.ts"]
 ---
 
 Every Aztec node needs L1 access through **three endpoints**, all of which can point at the same Ethereum node:

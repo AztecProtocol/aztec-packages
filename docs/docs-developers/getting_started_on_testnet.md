@@ -3,6 +3,7 @@ title: Getting Started on Testnet
 sidebar_position: 1
 tags: [testnet]
 description: Deploy contracts and send transactions on the Aztec testnet using the CLI wallet and the Sponsored FPC for fee payment.
+references: ["aztec-up/*", "yarn-project/cli-wallet/src/*", "noir-projects/labs/noir-contracts/contracts/app/token_contract/*", "noir-projects/labs/noir-contracts/contracts/fees/sponsored_fpc_contract/*"]
 ---
 
 import { General } from '@site/src/components/Snippets/general_snippets';

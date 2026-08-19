@@ -2,6 +2,7 @@
 title: Sample configuration patterns
 description: Learn about advanced keystore patterns including multiple publishers, multiple sequencers, and infrastructure provider scenarios.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/node-keystore/src/schemas.ts", "yarn-project/node-keystore/src/keystore_manager.ts"]
 ---
 
 ## Overview

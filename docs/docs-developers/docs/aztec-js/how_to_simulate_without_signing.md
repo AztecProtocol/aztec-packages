@@ -3,6 +3,7 @@ title: Simulate without signing prompts
 tags: [simulation, authwit, wallet]
 sidebar_position: 6
 description: How to call .simulate() on a view function or estimate gas without prompting the user to sign authentication witnesses.
+references: ["docs/examples/ts/aztecjs_kernelless_simulation/index.ts", "yarn-project/aztec.js/src/contract/interaction_options.ts", "yarn-project/aztec.js/src/authorization/call_authorization_request.ts", "yarn-project/wallets/src/embedded/embedded_wallet.ts"]
 ---
 
 You want to call `.simulate()` from an app and not have the user's wallet pop up a signing prompt. This page covers the symptoms that lead to that prompt, why the obvious workarounds do not work, and the right fix.

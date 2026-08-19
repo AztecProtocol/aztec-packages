@@ -2,6 +2,7 @@
 title: Network Upgrades
 description: Learn how the Aztec network upgrades to new rollup versions and how validators transition.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/governance/Registry.sol", "l1-contracts/src/governance/GSE.sol"]
 ---
 
 # Network Upgrades

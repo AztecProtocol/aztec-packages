@@ -4,6 +4,7 @@ tags: [accounts, authwit]
 sidebar_position: 2
 keywords: [authwit, authentication witness, accounts]
 description: Learn about Aztec's Authentication Witness scheme that enables secure third-party actions on behalf of users, providing a privacy-preserving alternative to traditional token approvals.
+references: ["noir-projects/labs/aztec-nr/aztec/src/authwit/*", "noir-projects/labs/aztec-nr/aztec/src/macros/authorization.nr", "noir-projects/labs/noir-contracts/contracts/standard/auth_registry_contract/*", "yarn-project/aztec.js/src/authorization/*"]
 ---
 
 Authentication Witness is a scheme for authenticating actions on Aztec, allowing users to authorize third-parties (protocols or other users) to execute actions on their behalf.

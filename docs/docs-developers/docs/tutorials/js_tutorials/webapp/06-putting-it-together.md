@@ -2,6 +2,7 @@
 title: "6. Putting It Together"
 sidebar_position: 7
 description: "Wire all components into a complete Pod Racing webapp and run it"
+references: ["docs/examples/webapp-tutorial/src/main.tsx", "docs/examples/webapp-tutorial/src/App.tsx"]
 ---
 
 # Putting It Together

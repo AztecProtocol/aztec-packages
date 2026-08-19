@@ -1,6 +1,7 @@
 ---
 title: Prometheus Setup
 description: Configure Prometheus to scrape and store metrics from your Aztec node's OpenTelemetry Collector.
+references: ["yarn-project/telemetry-client/src/metrics.ts", "yarn-project/telemetry-client/src/config.ts"]
 ---
 
 ## Overview
