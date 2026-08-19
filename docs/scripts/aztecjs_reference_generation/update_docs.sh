@@ -112,9 +112,6 @@ if [[ "$CHECK_ONLY" == true ]]; then
     exit 0
   fi
 
-  # Print the drift. Not every cause reproduces on the author's machine: the generator infers
-  # return types through the type checker, so what it emits also depends on which yarn-project
-  # packages the environment has built.
   DRIFT_LINES=$(printf '%s\n' "$DRIFT" | wc -l | tr -d ' ')
   echo "" >&2
   printf '%s\n' "$DRIFT" | head -60 >&2 || true
