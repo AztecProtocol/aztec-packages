@@ -2,6 +2,7 @@
 title: Troubleshooting and Best Practices
 description: Common issues, troubleshooting steps, security best practices, and CLI reference for keystore configuration and operation on the Aztec network.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/cli/src/cmds/validator_keys/*", "yarn-project/node-keystore/src/*"]
 ---
 
 ## Keystore Creation Issues

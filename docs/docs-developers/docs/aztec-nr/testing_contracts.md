@@ -4,6 +4,7 @@ tags: [contracts, tests, testing, noir]
 keywords: [tests, testing, noir]
 sidebar_position: 6
 description: Write and run tests for your Aztec smart contracts using Noir's TestEnvironment.
+references: ["noir-projects/labs/aztec-nr/aztec/src/test/*", "yarn-project/aztec/src/cli/cmds/start_txe.ts"]
 ---
 
 This guide shows you how to test your Aztec smart contracts using Noir's `TestEnvironment` for fast, lightweight testing.

@@ -3,6 +3,7 @@ title: AI Tooling
 description: Set up AI coding tools like Claude Code, Cursor, and Codex for Aztec and Noir development.
 sidebar_position: 2
 tags: [ai, tooling, getting_started]
+references: ["context7.json"]
 ---
 
 Aztec is new, rapidly evolving, and spans novel concepts like private state, notes, and nullifiers. AI coding tools can accelerate your learning and development, but they need up-to-date context to be useful. This page shows you how to set that up.

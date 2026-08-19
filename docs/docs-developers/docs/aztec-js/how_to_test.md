@@ -3,6 +3,7 @@ title: Testing Smart Contracts
 tags: [contracts, tests]
 sidebar_position: 8
 description: Learn how to write and run tests for your Aztec smart contracts using Aztec.js and a local network.
+references: ["docs/examples/ts/aztecjs_testing/index.ts", "docs/examples/ts/aztecjs_connection/index.ts", "yarn-project/wallets/src/embedded/*", "yarn-project/accounts/src/testing/*"]
 ---
 
 This guide covers how to test Aztec smart contracts by connecting to a local network, deploying contracts, and verifying their behavior.

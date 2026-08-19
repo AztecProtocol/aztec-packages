@@ -3,6 +3,7 @@ title: Note Delivery
 tags: [storage, concepts, notes]
 description: Learn how to deliver notes to recipients in Aztec smart contracts using different delivery modes to balance proving time, transaction costs, and delivery guarantees.
 sidebar_position: 4
+references: ["noir-projects/labs/aztec-nr/aztec/src/messages/delivery/*", "noir-projects/labs/aztec-nr/aztec/src/messages/discovery/*", "noir-projects/labs/aztec-nr/aztec/src/oracle/resolve_tagging_strategy.nr"]
 ---
 
 When you create a note in an Aztec smart contract, you must deliver it to the recipient so they can use it. This page explains how note delivery works and how to choose the right delivery mode for your use case.

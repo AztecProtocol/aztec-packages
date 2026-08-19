@@ -3,6 +3,7 @@ title: Events and Logs
 tags: [contracts, events]
 sidebar_position: 8
 description: Learn how to emit events from your Aztec smart contracts for offchain applications to consume.
+references: ["noir-projects/labs/aztec-nr/aztec/src/macros/events.nr", "noir-projects/labs/aztec-nr/aztec/src/event/*", "noir-projects/labs/aztec-nr/aztec/src/messages/delivery/*"]
 ---
 
 Events allow contracts to communicate with offchain applications. Private events are encrypted and delivered to specific recipients, while public events are visible to everyone.

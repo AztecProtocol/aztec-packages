@@ -3,6 +3,7 @@ title: Offchain message delivery
 tags: [storage, concepts, notes]
 description: Deliver notes and events to recipients through your own channel with offchain message delivery, avoiding data availability costs entirely.
 sidebar_position: 4
+references: ["noir-projects/labs/noir-contracts/contracts/app/token_contract/src/main.nr", "noir-projects/labs/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private_with_offchain_delivery.nr", "noir-projects/labs/aztec-nr/aztec/src/messages/offchain_messages.nr", "noir-projects/labs/aztec-nr/aztec/src/messages/processing/offchain/*"]
 ---
 
 Offchain message delivery lets you send notes and events to recipients without posting any data onchain. The encrypted message is returned to the sender's application, which transports it to the recipient through its own channel: a link, a QR code, a direct message, or any other medium. This eliminates data availability (DA) costs and adds zero proving time, at the cost of the application handling transport itself.

@@ -2,6 +2,7 @@
 title: Limitations
 description: Understand the current limitations of the Aztec network and its implications for developers.
 sidebar_position: 6
+references: ["noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr", "noir-projects/labs/aztec-nr/aztec/src/context/*"]
 ---
 
 The Aztec stack is a work in progress. Packages have been released early to gather feedback on the capabilities of the protocol and user experiences.

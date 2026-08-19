@@ -3,6 +3,7 @@ id: high_availability_sequencers
 displayed_sidebar: operatorsSidebar
 title: High Availability Sequencers
 description: Learn how to run highly available sequencers across multiple nodes with database-backed coordination to prevent double-signing and ensure redundancy.
+references: ["yarn-project/validator-ha-signer/src/*", "yarn-project/stdlib/src/ha-signing/*", "yarn-project/validator-client/src/key_store/ha_key_store.ts", "yarn-project/aztec/src/cli/cmds/migrate_ha_db.ts", "yarn-project/cli/src/cmds/validator_keys/new.ts"]
 ---
 
 ## Overview

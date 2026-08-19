@@ -3,6 +3,7 @@ title: Private Kernel Circuit
 sidebar_position: 1
 tags: [protocol, circuits]
 description: Learn about the Private Kernel Circuit, the only zero-knowledge circuit in Aztec that handles private data and ensures transaction privacy by executing on user devices.
+references: ["noir-projects/fnd/noir-protocol-circuits/crates/private-kernel-lib/*", "yarn-project/pxe/src/private_kernel/*"]
 ---
 
 The private kernel circuit is executed by the user on their own device. This ensures private inputs remain private.

@@ -3,6 +3,7 @@ title: Contract Deployment
 sidebar_position: 1
 tags: [contracts, protocol]
 description: Learn how contract classes and instances are created and deployed on the Aztec network.
+references: ["noir-projects/fnd/noir-contracts/contracts/protocol/contract_class_registry_contract/*", "noir-projects/fnd/noir-contracts/contracts/protocol/contract_instance_registry_contract/*", "noir-projects/labs/aztec-nr/aztec/src/history/deployment.nr", "yarn-project/stdlib/src/contract/*"]
 ---
 
 In the Aztec protocol, contracts are created as _instances_ of contract _classes_. Unlike Ethereum where deployment is binary (deployed or not), Aztec contracts progress through multiple states before they are fully operational.

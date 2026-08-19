@@ -3,6 +3,7 @@ title: Contract Upgrades
 sidebar_position: 14
 tags: [contracts]
 description: Understand contract upgrade patterns in Aztec and how to implement upgradeable contracts.
+references: ["noir-projects/fnd/noir-contracts/contracts/protocol/contract_instance_registry_contract/*", "noir-projects/labs/noir-contracts/contracts/protocol_interface/contract_instance_registry_interface/*", "yarn-project/aztec.js/src/deployment/publish_class.ts"]
 ---
 
 :::warning[Upgrades are not yet well supported by the framework]

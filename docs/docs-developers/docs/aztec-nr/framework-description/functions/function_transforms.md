@@ -3,6 +3,7 @@ title: Inner Workings of Functions
 sidebar_position: 5
 tags: [functions]
 description: Understand how Aztec transforms contract functions during compilation for privacy and efficiency.
+references: ["noir-projects/labs/aztec-nr/aztec/src/macros/*", "noir-projects/labs/aztec-nr/aztec/src/context/*"]
 ---
 
 This page explains what happens under the hood when you create a function in an Aztec contract. The [next page](./attributes.md) covers what the function attributes do.

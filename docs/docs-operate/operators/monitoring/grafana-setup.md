@@ -1,6 +1,7 @@
 ---
 title: Grafana Setup
 description: Configure Grafana to visualize Aztec node metrics and set up alerts for monitoring your node's health.
+references: ["yarn-project/telemetry-client/src/metrics.ts"]
 ---
 
 ## Overview

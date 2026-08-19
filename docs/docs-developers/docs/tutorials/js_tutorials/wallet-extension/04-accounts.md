@@ -2,6 +2,7 @@
 title: "4. Account Management"
 description: Key derivation, encrypted storage, and SchnorrAccountContract for Aztec wallet accounts
 sidebar_position: 4
+references: ["docs/examples/webapp-tutorial/test-extension/src/wallet/wallet-impl.ts", "docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts", "docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts"]
 ---
 
 # Account Management

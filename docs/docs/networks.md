@@ -3,6 +3,7 @@ title: Networks
 keywords: [Aztec, Networks, Alpha, Testnet, Mainnet]
 id: networks
 description: "Connect to Aztec Networks: Alpha (Mainnet) and Testnet, choose the right network for your use case, and find the version each network is running."
+references: ["l1-contracts/script/deploy/*"]
 ---
 
 # Aztec networks overview

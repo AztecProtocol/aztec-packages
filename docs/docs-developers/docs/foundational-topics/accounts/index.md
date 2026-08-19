@@ -2,6 +2,7 @@
 title: Accounts
 tags: [accounts]
 description: Deep dive into Aztec's native account abstraction system - understanding how smart contract accounts work, their architecture, key management, and authorization mechanisms in a privacy-preserving blockchain.
+references: ["noir-projects/labs/aztec-nr/aztec/src/authwit/*", "noir-projects/labs/noir-contracts/contracts/account/*", "yarn-project/accounts/src/*", "yarn-project/aztec.js/src/account/*", "yarn-project/entrypoints/src/*"]
 ---
 
 # Understanding Accounts in Aztec

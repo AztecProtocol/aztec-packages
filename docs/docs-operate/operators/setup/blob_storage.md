@@ -4,6 +4,7 @@ sidebar_position: 4
 title: Blob retrieval
 description: Learn how Aztec nodes retrieve blob data for L1 transactions.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/blob-client/src/client/config.ts", "yarn-project/blob-client/src/client/factory.ts", "yarn-project/blob-client/src/filestore/*", "yarn-project/blob-client/src/archive/*"]
 ---
 
 ## Overview

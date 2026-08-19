@@ -1,6 +1,7 @@
 ---
 title: "Verify Noir Proofs in Aztec Contracts"
 description: "Learn to generate offchain ZK proofs with Noir and verify them onchain in Aztec private smart contracts"
+references: ["docs/examples/circuits/hello_circuit/*", "docs/examples/contracts/recursive_verification_contract/*", "docs/examples/ts/recursive_verification/*"]
 ---
 
 ## Overview

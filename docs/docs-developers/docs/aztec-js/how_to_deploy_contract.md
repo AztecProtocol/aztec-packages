@@ -3,6 +3,7 @@ title: Deploying Contracts
 tags: [contracts, deployment]
 sidebar_position: 3
 description: Deploy smart contracts to Aztec using generated TypeScript classes.
+references: ["docs/examples/ts/aztecjs_advanced/index.ts", "docs/examples/ts/aztecjs_connection/index.ts", "yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts", "yarn-project/aztec.js/src/contract/deploy_method.ts", "yarn-project/aztec.js/src/deployment/*"]
 ---
 
 This guide shows you how to deploy compiled contracts to Aztec using the generated TypeScript interfaces.

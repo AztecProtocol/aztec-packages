@@ -2,6 +2,7 @@
 title: "2. Project Setup"
 sidebar_position: 2
 description: "Understand the webapp project structure, Vite configuration, and environment setup"
+references: ["docs/examples/webapp-tutorial/vite.config.ts", "docs/examples/webapp-tutorial/package.json"]
 ---
 
 # Project Setup

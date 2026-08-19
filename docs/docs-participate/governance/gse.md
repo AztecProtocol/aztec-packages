@@ -2,6 +2,7 @@
 title: GSE and Stake Mobility
 description: Learn how the Governance Staking Escrow (GSE) enables seamless stake migration during rollup upgrades.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/governance/GSE.sol", "l1-contracts/src/governance/GSEPayload.sol", "l1-contracts/src/governance/libraries/DepositDelegationLib.sol"]
 ---
 
 # Governance Staking Escrow (GSE)

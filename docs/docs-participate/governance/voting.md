@@ -2,6 +2,7 @@
 title: Voting
 description: Learn how voting power works in Aztec governance, including deposits, withdrawals, delegation, and vote casting.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/governance/Governance.sol", "l1-contracts/src/governance/GSE.sol", "l1-contracts/src/governance/libraries/ProposalLib.sol", "l1-contracts/src/governance/libraries/DepositDelegationLib.sol"]
 ---
 
 # Voting

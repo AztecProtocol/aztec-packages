@@ -3,6 +3,7 @@ title: Kernelless simulations
 sidebar_position: 2
 tags: [pxe, simulation, gas estimation]
 description: How the PXE simulates transactions without running the private kernel circuits, why it is the default for .simulate(), and what it skips.
+references: ["yarn-project/pxe/src/contract_function_simulator/*", "yarn-project/stdlib/src/tx/simulated_tx.ts", "yarn-project/wallets/src/embedded/embedded_wallet.ts", "noir-projects/labs/noir-contracts/contracts/account/simulated_schnorr_account_contract/*", "noir-projects/labs/noir-contracts/contracts/account/simulated_ecdsa_account_contract/*"]
 ---
 
 This page explains what kernelless simulation is in the Private eXecution Environment (PXE), how it differs from a full simulation, and where it does and does not apply. If you are looking for the recipe to make `.simulate()` succeed without signing prompts, see [Simulate without signing prompts](../../aztec-js/how_to_simulate_without_signing.md).

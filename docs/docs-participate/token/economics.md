@@ -2,6 +2,7 @@
 title: Economics & Rewards
 description: Learn about Aztec network economics including reward distribution, sequencer and prover incentives, and the activity score system.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/governance/RewardDistributor.sol", "l1-contracts/src/core/reward-boost/RewardBooster.sol", "l1-contracts/src/core/libraries/rollup/RewardLib.sol"]
 ---
 
 # Economics & Rewards

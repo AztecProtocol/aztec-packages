@@ -2,6 +2,7 @@
 title: "5. Transaction Handling"
 description: The sendTx flow, proof generation, and SponsoredFPC fee payment in Aztec wallet extensions
 sidebar_position: 5
+references: ["docs/examples/webapp-tutorial/test-extension/src/background.ts", "docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts"]
 ---
 
 # Transaction Handling

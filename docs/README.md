@@ -270,6 +270,25 @@ yarn generate:typescript-api v3.0.0-devnet.6
 
 The generated docs are linked from the [TypeScript API Reference](/developers/docs/aztec-js/typescript_api_reference) page.
 
+### Aztec.js API Reference Page
+
+The single-page Aztec.js reference (`docs-developers/docs/aztec-js/aztec_js_reference.md`) is auto-generated from `yarn-project/aztec.js/src` by `scripts/aztecjs_reference_generation/`. This is a separate surface from the TypeDoc-based `static/typescript-api/` docs above: it is a Docusaurus page that gets snapshotted into `developer_versioned_docs/` at release cut time. `docs/bootstrap.sh` runs `update_docs.sh --check` in CI, so a change to `yarn-project/aztec.js/src` that alters the reference cannot land without the regenerated page.
+
+**Prerequisites:** No build is required — the parser reads source `.ts` files directly. `node` and `python3` must be available.
+
+**Regenerate the current page:**
+
+```bash
+yarn generate:aztecjs-reference
+```
+
+This overwrites `docs-developers/docs/aztec-js/aztec_js_reference.md`. Do not hand-edit that file.
+
+**When to regenerate:**
+
+- When `yarn-project/aztec.js/src` public APIs or JSDoc change (CI's drift check will require it)
+- During a release docs cut (the `release-docs` skill runs this in Step 6, with the working tree checked out at the release tag)
+
 ### Node JSON-RPC API Reference
 
 The Node JSON-RPC API reference is auto-generated from the TypeScript interface definitions and Zod schemas in `yarn-project/stdlib/src/interfaces/`. The generator parses the source AST to extract method names, JSDoc comments, and parameter/return types.

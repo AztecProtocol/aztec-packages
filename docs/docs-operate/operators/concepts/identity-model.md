@@ -3,6 +3,7 @@ id: identity-model
 title: Identity model
 description: Which keys earn rewards, which are slashable, which can be rotated. The role each address plays in operating an Aztec sequencer or prover.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/node-keystore/src/*", "l1-contracts/src/core/libraries/rollup/StakingLib.sol", "l1-contracts/src/core/libraries/rollup/RewardLib.sol", "l1-contracts/src/core/interfaces/IStaking.sol"]
 ---
 
 A single sequencer is identified by **several different addresses**, each with a different job. Confusing them can result in misrouted rewards or an inability to initiate withdrawal.

@@ -2,6 +2,7 @@
 title: "Wallet SDK"
 sidebar_position: 0
 description: "Aztec wallet SDK — secure wallet discovery, encrypted messaging, and capability-based permissions for dApps and wallet extensions"
+references: ["yarn-project/wallet-sdk/src/*"]
 ---
 
 # Wallet SDK

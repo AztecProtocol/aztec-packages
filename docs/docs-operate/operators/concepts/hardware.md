@@ -3,6 +3,7 @@ id: hardware
 title: Hardware spec
 description: What your machine actually needs to run an Aztec full node, sequencer, provider, or prover, including the CPU instruction-set floor and the extra disk for co-hosting an L1 node.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/prover-client/src/proving_broker/config.ts"]
 ---
 
 A single-screen view of what each role needs.

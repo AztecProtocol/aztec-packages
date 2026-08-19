@@ -2,6 +2,7 @@
 title: Prerequisites
 description: Common prerequisites and requirements for running nodes on the Aztec network, including hardware, software, and network configuration.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/ethereum/src/config.ts", "yarn-project/p2p/src/config.ts", "yarn-project/cli/src/cmds/validator_keys/*"]
 ---
 
 ## Overview

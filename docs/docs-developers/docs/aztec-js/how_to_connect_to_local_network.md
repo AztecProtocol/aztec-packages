@@ -3,6 +3,7 @@ title: Connect to Local Network
 tags: [local_network, connection, wallet]
 sidebar_position: 1
 description: Connect your application to the Aztec local network and interact with accounts.
+references: ["docs/examples/ts/aztecjs_connection/index.ts", "yarn-project/wallets/src/embedded/*", "yarn-project/accounts/src/testing/*"]
 ---
 
 This guide shows you how to connect your application to the Aztec local network and interact with the network.

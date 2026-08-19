@@ -3,6 +3,7 @@ id: sequencer-troubleshooting
 title: Sequencer troubleshooting
 description: A symptom-first guide to diagnosing a sequencer that is running but not proposing or attesting, covering publisher balance, L1 RPC, peer count, and coinbase configuration.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/sequencer-client/src/publisher/*", "yarn-project/p2p/src/config.ts", "yarn-project/ethereum/src/l1_reader.ts", "yarn-project/node-keystore/src/*"]
 ---
 
 Your node is running but proposals or attestations are not landing. This page is a decision tree for the most common causes, in the order worth checking them. Each branch points to the page with the full fix.

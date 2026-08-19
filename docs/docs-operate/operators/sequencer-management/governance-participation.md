@@ -3,6 +3,7 @@ id: creating_and_voting_on_proposals
 displayed_sidebar: operatorsSidebar
 title: Governance and Proposal Process
 description: Learn how to participate in protocol governance as a sequencer, including signaling support, creating proposals, and voting
+references: ["l1-contracts/src/governance/Governance.sol", "l1-contracts/src/governance/proposer/GovernanceProposer.sol", "l1-contracts/src/governance/GSE.sol", "l1-contracts/src/governance/interfaces/IPayload.sol", "yarn-project/stdlib/src/interfaces/aztec-node-admin.ts"]
 ---
 
 ## Overview

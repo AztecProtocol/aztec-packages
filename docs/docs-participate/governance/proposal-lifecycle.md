@@ -2,6 +2,7 @@
 title: Proposal Lifecycle
 description: Learn how proposals move through the governance process, from initial signaling to final execution.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/governance/interfaces/IPayload.sol", "l1-contracts/src/governance/proposer/GovernanceProposer.sol", "l1-contracts/src/governance/proposer/EmpireBase.sol", "l1-contracts/src/governance/GSEPayload.sol", "l1-contracts/src/governance/Governance.sol"]
 ---
 
 # Proposal Lifecycle
