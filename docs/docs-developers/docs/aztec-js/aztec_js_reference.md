@@ -16,7 +16,7 @@ This is an auto-generated reference. For tutorials and guides, see the [Aztec.js
 
 *Package: @aztec/aztec.js*
 
-*Generated: 2026-08-18T18:09:04.875Z*
+*Generated: 2026-08-19T11:34:32.056Z*
 
 This document provides a comprehensive reference for all public APIs in the Aztec.js library.
 
@@ -25,22 +25,22 @@ Each section is organized by module, with classes, interfaces, types, and functi
 ## Table of Contents
 
 - [Account](#account)
+  - [AuthorizationProvider](#authorizationprovider)
+  - [Account](#account-1)
+  - [BaseAccount](#baseaccount)
   - [AccountContract](#accountcontract)
   - [getAccountContractAddress](#getaccountcontractaddress)
-  - [AuthorizationProvider](#authorizationprovider)
-  - [Account](#account)
-  - [BaseAccount](#baseaccount)
 - [Authorization](#authorization)
   - [CallAuthorizationRequest](#callauthorizationrequest)
 - [Contract](#contract)
   - [BaseContractInteraction](#basecontractinteraction)
   - [BatchCall](#batchcall)
   - [abiChecker](#abichecker)
+  - [Contract](#contract-1)
   - [ContractMethod](#contractmethod)
   - [ContractStorageLayout](#contractstoragelayout)
   - [ContractBase](#contractbase)
   - [ContractFunctionInteraction](#contractfunctioninteraction)
-  - [Contract](#contract)
   - [DeployInstantiationOptions](#deployinstantiationoptions)
   - [BoundInstantiationOptions](#boundinstantiationoptions)
   - [UniversalInstantiationOptions](#universalinstantiationoptions)
@@ -86,10 +86,6 @@ Each section is organized by module, with classes, interfaces, types, and functi
   - [waitForProven](#waitforproven)
   - [WaitOpts](#waitopts)
   - [DefaultWaitOpts](#defaultwaitopts)
-- [Contract / Protocol_Contracts](#contract--protocol_contracts)
-  - [ContractClassRegistryContract](#contractclassregistrycontract)
-  - [ContractInstanceRegistryContract](#contractinstanceregistrycontract)
-  - [FeeJuiceContract](#feejuicecontract)
 - [Deployment](#deployment)
   - [ContractDeployer](#contractdeployer)
   - [publishContractClass](#publishcontractclass)
@@ -103,7 +99,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
   - [L1FeeJuicePortalManager](#l1feejuiceportalmanager)
   - [L1ToL2TokenPortalManager](#l1tol2tokenportalmanager)
   - [L1TokenPortalManager](#l1tokenportalmanager)
-- [Fee](#fee)
+- [Fee](#fee-4)
   - [FeeJuicePaymentMethodWithClaim](#feejuicepaymentmethodwithclaim)
   - [FeePaymentMethod](#feepaymentmethod)
   - [PrivateFeePaymentMethod](#privatefeepaymentmethod)
@@ -182,7 +178,7 @@ Each section is organized by module, with classes, interfaces, types, and functi
   - [ContractMetadata](#contractmetadata)
   - [ContractClassMetadata](#contractclassmetadata)
   - [ExecuteUtilityOptions](#executeutilityoptions)
-  - [Wallet](#wallet)
+  - [Wallet](#wallet-2)
   - [ExecutionPayloadSchema](#executionpayloadschema)
   - [GasSettingsOptionSchema](#gassettingsoptionschema)
   - [WaitOptsSchema](#waitoptsschema)
@@ -223,142 +219,6 @@ Each section is organized by module, with classes, interfaces, types, and functi
 
 ## Account
 
-
----
-
-### `account/account_contract.ts`
-
-
-#### AccountContract
-
-**Type:** Interface
-
-An account contract instance. Knows its artifact, deployment arguments, how to create transaction execution requests out of function calls, and how to authorize actions.
-
-
-#### Methods
-
-
-##### getContractArtifact
-
-Returns the artifact of this account contract.
-
-**Signature:**
-
-```typescript
-getContractArtifact(): Promise<ContractArtifact>
-```
-
-**Returns:**
-
-`Promise<ContractArtifact>`
-
-##### getInitializationFunctionAndArgs
-
-Returns the initializer function name and arguments for this instance, or undefined if this contract does not require initialization.
-
-**Signature:**
-
-```typescript
-getInitializationFunctionAndArgs(): Promise<{
-      constructorName: string;
-      constructorArgs: any[];
-  } | undefined>
-```
-
-**Returns:**
-
-```typescript
-Promise<
-    | {
-        /** The name of the function used to initialize the contract */
-        constructorName: string;
-        /** The args to the function used to initialize the contract */
-        constructorArgs: any[];
-      }
-    | undefined
-  >
-```
-
-##### getImmutablesHash
-
-The hash of this account's immutable instantiation params, committed into its address. Returns undefined for accounts that have no immutables (these are instead deployed via an onchain initializer, which contributes to the address through its initialization hash).
-
-**Signature:**
-
-```typescript
-getImmutablesHash(): Promise<Fr | undefined>
-```
-
-**Returns:**
-
-`Promise<Fr | undefined>`
-
-##### getAccount
-
-Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
-
-**Signature:**
-
-```typescript
-getAccount(address: CompleteAddress): Account
-```
-
-**Parameters:**
-
-- `address`: `CompleteAddress`
-  - Address of this account contract.
-
-**Returns:**
-
-`Account` - An account instance for creating tx requests and authorizing actions.
-
-##### getAuthWitnessProvider
-
-Returns the auth witness provider for the given address.
-
-**Signature:**
-
-```typescript
-getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider
-```
-
-**Parameters:**
-
-- `address`: `CompleteAddress`
-  - Address for which to create auth witnesses.
-
-**Returns:**
-
-`AuthWitnessProvider`
-
-#### getAccountContractAddress
-
-**Type:** Function
-
-Compute the address of an account contract from secret, salt and optional immutables hash
-
-**Signature:**
-
-```typescript
-export async getAccountContractAddress(
-  accountContract: AccountContract,
-  secret: Fr,
-  salt: Fr,
-  immutablesHash?: Fr
-)
-```
-
-**Parameters:**
-
-- `accountContract`: `AccountContract`
-- `secret`: `Fr`
-- `salt`: `Fr`
-- `immutablesHash` (optional): `Fr`
-
-**Returns:**
-
-`Promise<AztecAddress>`
 
 ---
 
@@ -563,6 +423,142 @@ getAddress(): AztecAddress
 **Returns:**
 
 `AztecAddress`
+
+---
+
+### `account/account_contract.ts`
+
+
+#### AccountContract
+
+**Type:** Interface
+
+An account contract instance. Knows its artifact, deployment arguments, how to create transaction execution requests out of function calls, and how to authorize actions.
+
+
+#### Methods
+
+
+##### getContractArtifact
+
+Returns the artifact of this account contract.
+
+**Signature:**
+
+```typescript
+getContractArtifact(): Promise<ContractArtifact>
+```
+
+**Returns:**
+
+`Promise<ContractArtifact>`
+
+##### getInitializationFunctionAndArgs
+
+Returns the initializer function name and arguments for this instance, or undefined if this contract does not require initialization.
+
+**Signature:**
+
+```typescript
+getInitializationFunctionAndArgs(): Promise<{
+      constructorName: string;
+      constructorArgs: any[];
+  } | undefined>
+```
+
+**Returns:**
+
+```typescript
+Promise<
+    | {
+        /** The name of the function used to initialize the contract */
+        constructorName: string;
+        /** The args to the function used to initialize the contract */
+        constructorArgs: any[];
+      }
+    | undefined
+  >
+```
+
+##### getImmutablesHash
+
+The hash of this account's immutable instantiation params, committed into its address. Returns undefined for accounts that have no immutables (these are instead deployed via an onchain initializer, which contributes to the address through its initialization hash).
+
+**Signature:**
+
+```typescript
+getImmutablesHash(): Promise<Fr | undefined>
+```
+
+**Returns:**
+
+`Promise<Fr | undefined>`
+
+##### getAccount
+
+Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
+
+**Signature:**
+
+```typescript
+getAccount(address: CompleteAddress): Account
+```
+
+**Parameters:**
+
+- `address`: `CompleteAddress`
+  - Address of this account contract.
+
+**Returns:**
+
+`Account` - An account instance for creating tx requests and authorizing actions.
+
+##### getAuthWitnessProvider
+
+Returns the auth witness provider for the given address.
+
+**Signature:**
+
+```typescript
+getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider
+```
+
+**Parameters:**
+
+- `address`: `CompleteAddress`
+  - Address for which to create auth witnesses.
+
+**Returns:**
+
+`AuthWitnessProvider`
+
+#### getAccountContractAddress
+
+**Type:** Function
+
+Compute the address of an account contract from secret, salt and optional immutables hash
+
+**Signature:**
+
+```typescript
+export async getAccountContractAddress(
+  accountContract: AccountContract,
+  secret: Fr,
+  salt: Fr,
+  immutablesHash?: Fr
+)
+```
+
+**Parameters:**
+
+- `accountContract`: `AccountContract`
+- `secret`: `Fr`
+- `salt`: `Fr`
+- `immutablesHash` (optional): `Fr`
+
+**Returns:**
+
+`Promise<any>`
 
 ## Authorization
 
@@ -870,6 +866,83 @@ export abiChecker(artifact: ContractArtifact)
 
 ---
 
+### `contract/contract.ts`
+
+
+#### Contract
+
+**Type:** Class
+
+The Contract class represents a contract and provides utility methods for interacting with it. It enables the creation of ContractFunctionInteraction instances for each function in the contract's ABI, allowing users to call or send transactions to these functions. Additionally, the Contract class can be used to attach the contract instance to a deployed contract onchain through the PXE, which facilitates interaction with Aztec's privacy protocol.
+
+**Extends:** `ContractBase`
+
+
+#### Methods
+
+
+##### at
+
+Gets a contract instance.
+
+**Signature:**
+
+```typescript
+public static at(
+  address: AztecAddress,
+  artifact: ContractArtifact,
+  wallet: Wallet
+): Contract
+```
+
+**Parameters:**
+
+- `address`: `AztecAddress`
+  - The address of the contract instance.
+- `artifact`: `ContractArtifact`
+  - Build artifact of the contract.
+- `wallet`: `Wallet`
+  - The wallet to use when interacting with the contract.
+
+**Returns:**
+
+`Contract` - A promise that resolves to a new Contract instance.
+
+##### deploy
+
+Creates a tx to deploy (initialize and/or publish) a new instance of a contract.
+
+**Signature:**
+
+```typescript
+public static deploy(
+  wallet: Wallet,
+  artifact: ContractArtifact,
+  args: any[],
+  constructorName?: string,
+  instantiation?: DeployInstantiationOptions
+)
+```
+
+**Parameters:**
+
+- `wallet`: `Wallet`
+  - The wallet for executing the deployment.
+- `artifact`: `ContractArtifact`
+  - Build artifact of the contract to deploy
+- `args`: `any[]`
+  - Arguments for the constructor.
+- `constructorName` (optional): `string`
+  - The name of the constructor function to call.
+- `instantiation` (optional): `DeployInstantiationOptions`
+  - Other address-affecting parameters (salt, deployer / universalDeploy, publicKeys).
+
+**Returns:**
+
+`DeployMethod<Contract>`
+
+---
+
 ### `contract/contract_base.ts`
 
 
@@ -1036,7 +1109,7 @@ public async getFunctionCall()
 
 **Returns:**
 
-`Promise<FunctionCall>` - An encoded function call
+`Promise<any>` - An encoded function call
 
 ##### request
 
@@ -1111,92 +1184,23 @@ public with({ authWitnesses = [], capsules = [], extraHashedArgs = [], }: {
 
 **Parameters:**
 
-- `{
-    authWitnesses = [],
-    capsules = [],
-    extraHashedArgs = [],
-  }`: `{ /** The authWitnesses to add to the interaction */ authWitnesses?: AuthWitness[]; /** The capsules to add to the interaction */ capsules?: Capsule[]; /** The extra hashed args to add to the interaction */ extraHashedArgs?: HashedValues[]; }`
+- `{ authWitnesses = [], capsules = [], extraHashedArgs = [], }`:
+
+  ```typescript
+  {
+      /** The authWitnesses to add to the interaction */
+      authWitnesses?: AuthWitness[];
+      /** The capsules to add to the interaction */
+      capsules?: Capsule[];
+      /** The extra hashed args to add to the interaction */
+      extraHashedArgs?: HashedValues[];
+    }
+  ```
+
 
 **Returns:**
 
 `ContractFunctionInteraction` - A new ContractFunctionInteraction with the added metadata, but calling the same original function in the same manner
-
----
-
-### `contract/contract.ts`
-
-
-#### Contract
-
-**Type:** Class
-
-The Contract class represents a contract and provides utility methods for interacting with it. It enables the creation of ContractFunctionInteraction instances for each function in the contract's ABI, allowing users to call or send transactions to these functions. Additionally, the Contract class can be used to attach the contract instance to a deployed contract onchain through the PXE, which facilitates interaction with Aztec's privacy protocol.
-
-**Extends:** `ContractBase`
-
-
-#### Methods
-
-
-##### at
-
-Gets a contract instance.
-
-**Signature:**
-
-```typescript
-public static at(
-  address: AztecAddress,
-  artifact: ContractArtifact,
-  wallet: Wallet
-): Contract
-```
-
-**Parameters:**
-
-- `address`: `AztecAddress`
-  - The address of the contract instance.
-- `artifact`: `ContractArtifact`
-  - Build artifact of the contract.
-- `wallet`: `Wallet`
-  - The wallet to use when interacting with the contract.
-
-**Returns:**
-
-`Contract` - A promise that resolves to a new Contract instance.
-
-##### deploy
-
-Creates a tx to deploy (initialize and/or publish) a new instance of a contract.
-
-**Signature:**
-
-```typescript
-public static deploy(
-  wallet: Wallet,
-  artifact: ContractArtifact,
-  args: any[],
-  constructorName?: string,
-  instantiation?: DeployInstantiationOptions
-)
-```
-
-**Parameters:**
-
-- `wallet`: `Wallet`
-  - The wallet for executing the deployment.
-- `artifact`: `ContractArtifact`
-  - Build artifact of the contract to deploy
-- `args`: `any[]`
-  - Arguments for the constructor.
-- `constructorName` (optional): `string`
-  - The name of the constructor function to call.
-- `instantiation` (optional): `DeployInstantiationOptions`
-  - Other address-affecting parameters (salt, deployer / universalDeploy, publicKeys).
-
-**Returns:**
-
-`DeployMethod<Contract>`
 
 ---
 
@@ -2075,11 +2079,19 @@ public with({ authWitnesses = [], capsules = [], extraHashedArgs = [], }: {
 
 **Parameters:**
 
-- `{
-    authWitnesses = [],
-    capsules = [],
-    extraHashedArgs = [],
-  }`: `{ /** The authWitnesses to add to the deployment */ authWitnesses?: AuthWitness[]; /** The capsules to add to the deployment */ capsules?: Capsule[]; /** The extra hashed args to add to the deployment */ extraHashedArgs?: HashedValues[]; }`
+- `{ authWitnesses = [], capsules = [], extraHashedArgs = [], }`:
+
+  ```typescript
+  {
+      /** The authWitnesses to add to the deployment */
+      authWitnesses?: AuthWitness[];
+      /** The capsules to add to the deployment */
+      capsules?: Capsule[];
+      /** The extra hashed args to add to the deployment */
+      extraHashedArgs?: HashedValues[];
+    }
+  ```
+
 
 **Returns:**
 
@@ -2384,7 +2396,19 @@ export async fastForwardContractUpdate(args: {
 
 **Parameters:**
 
-- `args`: `{ /** Address of the deployed instance to upgrade. */ instanceAddress: AztecAddress; /** ID of the (already-registered) class to upgrade to. */ newClassId: Fr; /** Node used to fetch the existing instance and validate the class is registered. */ node: AztecNode; }`
+- `args`:
+
+  ```typescript
+  {
+    /** Address of the deployed instance to upgrade. */
+    instanceAddress: AztecAddress;
+    /** ID of the (already-registered) class to upgrade to. */
+    newClassId: Fr;
+    /** Node used to fetch the existing instance and validate the class is registered. */
+    node: AztecNode;
+  }
+  ```
+
 
 **Returns:**
 
@@ -3021,7 +3045,7 @@ export async waitForProven(
 
 **Returns:**
 
-`Promise<NonNullable<BlockNumber>>`
+`Promise<any>`
 
 ---
 
@@ -3092,237 +3116,6 @@ The time (in seconds) to wait before the first receipt poll. Defaults to 0. Used
 
 **Value Type:** `WaitOpts`
 
-
-## Contract / Protocol_Contracts
-
-
----
-
-### `contract/protocol_contracts/contract-class-registry.ts`
-
-
-#### ContractClassRegistryContract
-
-**Type:** Class
-
-**Extends:** `ContractBase`
-
-
-#### Constructor
-
-**Signature:**
-
-```typescript
-private constructor(wallet: Wallet)
-```
-
-**Parameters:**
-
-- `wallet`: `Wallet`
-
-#### Properties
-
-
-##### methods
-
-**Type:**
-
-```typescript
-{
-    /** public_dispatch(selector: field) */
-    public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** publish(artifact_hash: field, private_functions_root: field, public_bytecode_commitment: field) */
-    publish: ((
-      artifact_hash: FieldLike,
-      private_functions_root: FieldLike,
-      public_bytecode_commitment: FieldLike,
-    ) => ContractFunctionInteraction) &
-      Pick<ContractMethod, 'selector'>;
-  }
-```
-
-
-#### Methods
-
-
-##### at
-
-**Signature:**
-
-```typescript
-public static at(wallet: Wallet): ContractClassRegistryContract
-```
-
-**Parameters:**
-
-- `wallet`: `Wallet`
-
-**Returns:**
-
-`ContractClassRegistryContract`
-
----
-
-### `contract/protocol_contracts/contract-instance-registry.ts`
-
-
-#### ContractInstanceRegistryContract
-
-**Type:** Class
-
-**Extends:** `ContractBase`
-
-
-#### Constructor
-
-**Signature:**
-
-```typescript
-private constructor(wallet: Wallet)
-```
-
-**Parameters:**
-
-- `wallet`: `Wallet`
-
-#### Properties
-
-
-##### methods
-
-**Type:**
-
-```typescript
-{
-    /** get_update_delay() */
-    get_update_delay: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** public_dispatch(selector: field) */
-    public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** publish_for_public_execution(salt: field, contract_class_id: struct, initialization_hash: field, immutables_hash: field, public_keys: struct, universal_deploy: boolean) */
-    publish_for_public_execution: ((
-      salt: FieldLike,
-      contract_class_id: WrappedFieldLike,
-      initialization_hash: FieldLike,
-      immutables_hash: FieldLike,
-      public_keys: PublicKeys,
-      universal_deploy: boolean,
-    ) => ContractFunctionInteraction) &
-      Pick<ContractMethod, 'selector'>;
-
-    /** set_update_delay(new_update_delay: integer) */
-    set_update_delay: ((new_update_delay: bigint | number) => ContractFunctionInteraction) &
-      Pick<ContractMethod, 'selector'>;
-
-    /** update(new_contract_class_id: struct) */
-    update: ((new_contract_class_id: WrappedFieldLike) => ContractFunctionInteraction) &
-      Pick<ContractMethod, 'selector'>;
-  }
-```
-
-
-#### Methods
-
-
-##### at
-
-**Signature:**
-
-```typescript
-public static at(wallet: Wallet): ContractInstanceRegistryContract
-```
-
-**Parameters:**
-
-- `wallet`: `Wallet`
-
-**Returns:**
-
-`ContractInstanceRegistryContract`
-
----
-
-### `contract/protocol_contracts/fee-juice.ts`
-
-
-#### FeeJuiceContract
-
-**Type:** Class
-
-**Extends:** `ContractBase`
-
-
-#### Constructor
-
-**Signature:**
-
-```typescript
-private constructor(wallet: Wallet)
-```
-
-**Parameters:**
-
-- `wallet`: `Wallet`
-
-#### Properties
-
-
-##### methods
-
-**Type:**
-
-```typescript
-{
-    /** balance_of_public(owner: struct) */
-    balance_of_public: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** check_balance(fee_limit: integer) */
-    check_balance: ((fee_limit: bigint | number) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** claim(to: struct, amount: integer, secret: field, message_leaf_index: field) */
-    claim: ((
-      to: AztecAddressLike,
-      amount: bigint | number,
-      secret: FieldLike,
-      message_leaf_index: FieldLike,
-    ) => ContractFunctionInteraction) &
-      Pick<ContractMethod, 'selector'>;
-
-    /** claim_and_end_setup(to: struct, amount: integer, secret: field, message_leaf_index: field) */
-    claim_and_end_setup: ((
-      to: AztecAddressLike,
-      amount: bigint | number,
-      secret: FieldLike,
-      message_leaf_index: FieldLike,
-    ) => ContractFunctionInteraction) &
-      Pick<ContractMethod, 'selector'>;
-
-    /** public_dispatch(selector: field) */
-    public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-  }
-```
-
-
-#### Methods
-
-
-##### at
-
-**Signature:**
-
-```typescript
-public static at(wallet: Wallet): FeeJuiceContract
-```
-
-**Parameters:**
-
-- `wallet`: `Wallet`
-
-**Returns:**
-
-`FeeJuiceContract`
 
 ## Deployment
 
@@ -3605,7 +3398,7 @@ public async getMintAmount()
 
 **Returns:**
 
-`Promise<bigint>`
+`Promise<any>`
 
 ##### getL1TokenBalance
 
@@ -3624,7 +3417,7 @@ public async getL1TokenBalance(address: Hex)
 
 **Returns:**
 
-`Promise<bigint>`
+`Promise<any>`
 
 ##### mint
 
@@ -4057,7 +3850,7 @@ getAsset()
 
 **Returns:**
 
-`Promise<AztecAddress>`
+`Promise<any>`
 
 ##### getFeePayer
 
@@ -4163,6 +3956,8 @@ getGasSettings(): GasSettings | undefined
 
 **Type:** Class
 
+**Deprecated:** Is not supported on mainnet. Use FeeJuicePaymentMethodWithClaim or `SponsoredFeePaymentMethod` instead.
+
 Holds information about how the fee for a transaction is to be paid.
 
 **Implements:** `FeePaymentMethod`
@@ -4258,6 +4053,8 @@ getGasSettings(): GasSettings | undefined
 #### PublicFeePaymentMethod
 
 **Type:** Class
+
+**Deprecated:** Is not supported on mainnet. Use FeeJuicePaymentMethodWithClaim or `SponsoredFeePaymentMethod` instead.
 
 Holds information about how the fee for a transaction is to be paid.
 
@@ -4394,7 +4191,7 @@ getFeePayer()
 
 **Returns:**
 
-`Promise<AztecAddress>`
+`Promise<any>`
 
 ##### getExecutionPayload
 
@@ -4905,12 +4702,25 @@ export waitForL1ToL2MessageReady(
   - Aztec node instance used to obtain the information about the message
 - `l1ToL2MessageHash`: `Fr`
   - Hash of the L1 to L2 message
-- `opts`: `{ /** Timeout for the operation in seconds */ timeoutSeconds: number; /** * Chain tip to evaluate readiness against. Defaults to `'latest'`. Set this to the tip the consuming PXE syncs to * (e.g. `'proven'`) so readiness answers whether the message is present at the same block the transaction * simulation will anchor to, not at a newer tip. */ chainTip?: BlockTag; }`
+- `opts`:
   - Options
+
+  ```typescript
+  {
+      /** Timeout for the operation in seconds */ timeoutSeconds: number;
+      /**
+       * Chain tip to evaluate readiness against. Defaults to `'latest'`. Set this to the tip the consuming PXE syncs to
+       * (e.g. `'proven'`) so readiness answers whether the message is present at the same block the transaction
+       * simulation will anchor to, not at a newer tip.
+       */
+      chainTip?: BlockTag;
+    }
+  ```
+
 
 **Returns:**
 
-`Promise<boolean>`
+`any`
 
 #### isL1ToL2MessageReady
 
@@ -5262,7 +5072,7 @@ protected getPublicKeys()
 
 **Returns:**
 
-`PublicKeys`
+`any`
 
 ##### getPublicKeysHash
 
@@ -5274,7 +5084,7 @@ protected getPublicKeysHash()
 
 **Returns:**
 
-`Promise<Fr>`
+`any`
 
 ##### getCompleteAddress
 
@@ -5385,7 +5195,9 @@ public async hasInitializer()
 get address() {
 ```
 
-**Returns:** `AztecAddress`
+**Returns:**
+
+`any`
 
 ---
 
@@ -6073,11 +5885,19 @@ public override with({ authWitnesses = [], capsules = [], extraHashedArgs = [], 
 
 **Parameters:**
 
-- `{
-    authWitnesses = [],
-    capsules = [],
-    extraHashedArgs = [],
-  }`: `{ /** The authWitnesses to add to the deployment */ authWitnesses?: AuthWitness[]; /** The capsules to add to the deployment */ capsules?: Capsule[]; /** The extra hashed args to add to the deployment */ extraHashedArgs?: HashedValues[]; }`
+- `{ authWitnesses = [], capsules = [], extraHashedArgs = [], }`:
+
+  ```typescript
+  {
+      /** The authWitnesses to add to the deployment */
+      authWitnesses?: AuthWitness[];
+      /** The capsules to add to the deployment */
+      capsules?: Capsule[];
+      /** The extra hashed args to add to the deployment */
+      extraHashedArgs?: HashedValues[];
+    }
+  ```
+
 
 **Returns:**
 
@@ -6189,7 +6009,9 @@ static override async random()
 static override get schema(): ZodFor<TxSimulationResultWithAppOffset> {
 ```
 
-**Returns:** `ZodFor<TxSimulationResultWithAppOffset>`
+**Returns:**
+
+`ZodFor<TxSimulationResultWithAppOffset>`
 
 ---
 
@@ -7193,18 +7015,10 @@ batch<const T extends readonly BatchedMethod[]>(methods: T): Promise<BatchResult
 
 **Type:** Constant
 
-This is re-exported from ``. See the source module for full documentation.
-
-**Value Type:** `Re-export`
-
 
 #### BatchedResultSchema
 
 **Type:** Constant
-
-This is re-exported from ``. See the source module for full documentation.
-
-**Value Type:** `Re-export`
 
 
 #### WalletSchema

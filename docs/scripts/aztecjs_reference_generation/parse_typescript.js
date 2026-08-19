@@ -17,6 +17,26 @@ const ts = require('typescript');
 const fs = require('fs');
 const path = require('path');
 
+// readdirSync returns entries in filesystem order, and localeCompare depends on the runtime's
+// locale data, so either one can order the reference differently on another machine. Comparing
+// code units keeps the generated page identical everywhere the same sources are parsed.
+const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+
+// The reference documents aztec.js on its own, so the checker resolves relative imports only.
+// Resolving @aztec/* would make every inferred return type depend on which sibling packages the
+// environment has built, and a page generated against one build state silently differs from a page
+// generated against another. Types that cross a package boundary have to be annotated in the source.
+function relativeImportsOnlyHost(compilerOptions) {
+  const host = ts.createCompilerHost(compilerOptions, true);
+  host.resolveModuleNameLiterals = (literals, containingFile) =>
+    literals.map(literal =>
+      literal.text.startsWith('.')
+        ? ts.resolveModuleName(literal.text, containingFile, compilerOptions, host)
+        : { resolvedModule: undefined }
+    );
+  return host;
+}
+
 /**
  * JSDoc Validator - validates JSDoc completeness and correctness
  */
@@ -162,7 +182,10 @@ class TypeScriptParser {
   constructor(sourcePath, options = {}) {
     this.sourcePath = path.resolve(sourcePath);
     this.options = {
-      excludeDirs: ['api', 'node_modules', '__tests__', 'test'],
+      // protocol_contracts is gitignored build output, generated from the compiled Noir protocol
+      // contracts. Documenting it would make this page unverifiable from a checkout and would tie
+      // it to noir-projects, so a Noir contract change would leave the committed page stale.
+      excludeDirs: ['api', 'node_modules', '__tests__', 'test', 'protocol_contracts'],
       excludeFiles: ['.test.ts', '.test.tsx', 'index.ts'],
       validate: false, // Enable validation
       ...options
@@ -227,7 +250,7 @@ class TypeScriptParser {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
 
     // Get directories first
-    const dirs = entries.filter(e => e.isDirectory());
+    const dirs = entries.filter(e => e.isDirectory()).sort(byName);
 
     for (const dir of dirs) {
       const dirName = dir.name;
@@ -289,7 +312,7 @@ class TypeScriptParser {
       }
     }
 
-    return files.sort((a, b) => a.name.localeCompare(b.name));
+    return files.sort(byName);
   }
 
   /**
@@ -329,7 +352,7 @@ class TypeScriptParser {
         }
       }
 
-      program = ts.createProgram([filePath], compilerOptions);
+      program = ts.createProgram([filePath], compilerOptions, relativeImportsOnlyHost(compilerOptions));
       this.typeChecker = program.getTypeChecker();
       // Use the source file from the program (required for type checking)
       sourceFile = program.getSourceFile(filePath);
@@ -589,7 +612,22 @@ class TypeScriptParser {
       for (const element of node.exportClause.elements) {
         const name = element.name.getText(sourceFile);
         const isTypeOnly = element.isTypeOnly || node.isTypeOnly;
-        const moduleSpecifier = node.moduleSpecifier ? node.moduleSpecifier.getText(sourceFile).replace(/['"]/g, '') : '';
+
+        // `export { foo }` with no `from` publishes a local declaration rather than re-exporting
+        // one, so there is no source module to send a reader to. Documenting it as a re-export
+        // would name an empty module and claim a type of `Re-export`.
+        if (!node.moduleSpecifier) {
+          exports.push({
+            kind: isTypeOnly ? 'type' : 'const',
+            name: name,
+            signature: isTypeOnly ? `export type { ${name} }` : `export { ${name} }`,
+            jsdoc: { description: '', tags: [] },
+            type: '',
+          });
+          continue;
+        }
+
+        const moduleSpecifier = node.moduleSpecifier.getText(sourceFile).replace(/['"]/g, '');
 
         // Create a simple re-export entry with improved documentation
         const description = isTypeOnly
