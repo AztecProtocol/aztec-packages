@@ -53,6 +53,18 @@ jobs:
             org.opencontainers.image.revision.branch=${{ github.ref_name }}
             com.aztec.visibility=private
 
+      - name: Install oras
+        uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6 # v1.2.4
+
+      - name: Extract and attach fuzzer manifest
+        run: |
+          docker create --name manifest-extract ghcr.io/aztecprotocol/avm-fuzzing-container-private:${{ github.sha }}
+          docker cp manifest-extract:/home/fuzzer/fuzzer_manifest.json ./fuzzer_manifest.json
+          docker rm manifest-extract
+          oras attach ghcr.io/aztecprotocol/avm-fuzzing-container-private@${{ steps.build.outputs.digest }} \
+            --artifact-type application/vnd.contfuzzer.manifest+json \
+            fuzzer_manifest.json
+
       - name: Install cosign
         uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
         with:

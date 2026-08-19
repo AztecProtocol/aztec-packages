@@ -42,4 +42,14 @@ if(FUZZING_AVM)
         add_executable(avm_tx_corpus_analyzer avm_tx_corpus_analyzer.cpp)
         target_link_libraries(avm_tx_corpus_analyzer avm_fuzzer)
     endif()
+
+endif()
+
+# Umbrella target: `cmake --build <dir> --target avm_fuzzers` builds only
+# AVM-specific fuzzers without the collateral base fuzzers (stdlib_*, etc.)
+# that the fuzzing-avm preset also compiles. Targets are registered by
+# module.cmake into BB_AVM_FUZZER_TARGETS when their source is under avm_fuzzer/.
+if(FUZZING AND FUZZING_AVM)
+    get_property(_avm_targets GLOBAL PROPERTY BB_AVM_FUZZER_TARGETS)
+    add_custom_target(avm_fuzzers DEPENDS ${_avm_targets} fuzzer_manifest)
 endif()

@@ -255,7 +255,8 @@
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "MULTITHREADING": "OFF",
+        "FUZZER_PRESET_NAME": "${presetName}"
       }
     },
     {

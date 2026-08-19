@@ -1,18 +1,21 @@
-# AVM TX Fuzzer Container (Private)
-# Builds a container that can run the AVM transaction fuzzer from a private repo
+# AVM Fuzzing Container (Private)
+# Builds all 14 AVM fuzzer targets with Node.js runtime for differential testing.
 #
 # Build latest from 'next' branch:
 #   DOCKER_BUILDKIT=1 docker build --secret id=github_token,env=GITHUB_TOKEN \
-#     -f Dockerfile.private -t avm-tx-fuzzer container-builds/avm-fuzzing-container/src/
+#     -f Dockerfile.private -t avm-fuzzing container-builds/avm-fuzzing-container/src/
 #
 # Build specific commit:
 #   DOCKER_BUILDKIT=1 docker build --secret id=github_token,env=GITHUB_TOKEN \
-#     --build-arg COMMIT=<sha> -f Dockerfile.private -t avm-tx-fuzzer container-builds/avm-fuzzing-container/src/
+#     --build-arg COMMIT=<sha> -f Dockerfile.private -t avm-fuzzing container-builds/avm-fuzzing-container/src/
 
+# =============================================================================
+# Builder stage
+# =============================================================================
 FROM aztecprotocol/build:3.0-amd64 AS builder
 
-ARG COMMIT=""
 ARG BRANCH="next"
+ARG COMMIT=""
 ARG REPO="AztecProtocol/aztec-packages-private"
 
 # Install ldid (not included in build image, only in basebox)
@@ -37,15 +40,42 @@ RUN --mount=type=secret,id=github_token \
 WORKDIR /root/aztec-packages
 
 # Run bootstrap up to yarn-project (release-image needs docker which isn't available)
-RUN BOOTSTRAP_TO=yarn-project ./bootstrap.sh
+RUN ./bootstrap.sh build yarn-project
 
-# Build the tx fuzzer
+# Download CRS
+WORKDIR /root/aztec-packages/barretenberg
+RUN CRS_FORMAT=uncompressed ./crs/bootstrap.sh
+
 WORKDIR /root/aztec-packages/barretenberg/cpp
+
+# Create a clean copy of the source tree BEFORE builds (for coverage reports)
+RUN cp -r /root/aztec-packages /root/aztec-packages-src && rm -rf /root/aztec-packages-src/.git
+
+# Build AVM-specific fuzzers only via the umbrella target (the preset also
+# rebuilds all base fuzzers as a side effect — avm_fuzzers avoids that).
 RUN cmake --preset fuzzing-avm
-RUN cmake --build build-fuzzing-avm --target avm_fuzzer_tx_fuzzer
+RUN cmake --build build-fuzzing-avm --target avm_fuzzers
+
+# Build coverage variants (instrumented for llvm-cov)
+RUN cmake -B build-fuzzing-avm-cov -G Ninja \
+    -DCMAKE_C_COMPILER=clang-20 -DCMAKE_CXX_COMPILER=clang++-20 \
+    -DCMAKE_BUILD_TYPE=RelWithAssert \
+    -DFUZZING=ON -DFUZZING_AVM=ON -DDISABLE_ASM=OFF -DMULTITHREADING=ON \
+    -DFUZZER_PRESET_NAME=fuzzing-cov \
+    -DCMAKE_CXX_FLAGS="-fprofile-instr-generate -fcoverage-mapping" \
+    -DCMAKE_C_FLAGS="-fprofile-instr-generate -fcoverage-mapping"
+RUN cmake --build build-fuzzing-avm-cov --target avm_fuzzers
+
+# Flatten binaries into /targets/ and auto-generate v2 manifest.
+# AVM fuzzers use a singleton LMDB world state that cannot handle concurrent
+# writers, so they run single-threaded (cpus=1, memory_gb=8).
+RUN python3 scripts/flatten_and_manifest.py /targets /tmp/fuzzer_manifest.json \
+    build-fuzzing-avm/bin/fuzzer_manifest.json \
+    --copy-only build-fuzzing-avm-cov/bin/fuzzer_manifest.json \
+    --cpus 1 --memory-gb 8
 
 # =============================================================================
-# Runtime image
+# Runtime stage
 # =============================================================================
 FROM ubuntu:noble AS runtime
 
@@ -57,7 +87,8 @@ RUN apt-get update && apt-get install -y \
     libelf1 \
     libdwarf1 \
     ca-certificates \
-    curl && \
+    curl \
+    llvm-20 && \
     curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
     apt-get install -y nodejs && \
     corepack enable && \
@@ -66,16 +97,7 @@ RUN apt-get update && apt-get install -y \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN useradd -m fuzzer
-
 WORKDIR /home/fuzzer
-
-# Copy fuzzer binary
-COPY --from=builder /root/aztec-packages/barretenberg/cpp/build-fuzzing-avm/bin/avm_fuzzer_tx_fuzzer \
-    ./aztec-packages/barretenberg/cpp/build-fuzzing-avm/bin/
-
-# Copy run_fuzzer.sh
-COPY --from=builder /root/aztec-packages/barretenberg/cpp/src/barretenberg/avm_fuzzer/run_fuzzer.sh \
-    ./aztec-packages/barretenberg/cpp/src/barretenberg/avm_fuzzer/
 
 # Copy yarn-project (fully built)
 COPY --from=builder /root/aztec-packages/yarn-project \
@@ -89,18 +111,43 @@ COPY --from=builder /root/aztec-packages/barretenberg/ts \
 COPY --from=builder /root/aztec-packages/noir/packages \
     ./aztec-packages/noir/packages/
 
-# Create directories for corpus, crashes, etc.
-RUN mkdir -p aztec-packages/barretenberg/cpp/src/barretenberg/avm_fuzzer/corpus/tx \
-    aztec-packages/barretenberg/cpp/src/barretenberg/avm_fuzzer/sync_corpus/tx \
-    corpus output crash-reports artifacts
+# Copy source tree for coverage reports at the same path used during build,
+# so llvm-cov can find source files without path remapping.
+COPY --from=builder /root/aztec-packages-src /root/aztec-packages
 
-# Make run_fuzzer.sh executable
-RUN chmod +x aztec-packages/barretenberg/cpp/src/barretenberg/avm_fuzzer/run_fuzzer.sh
+# Copy coverage build directory (needed for llvm-cov links)
+COPY --from=builder /root/aztec-packages/barretenberg/cpp/build-fuzzing-avm-cov/ \
+    /root/aztec-packages/barretenberg/cpp/build-fuzzing-avm-cov/
+
+# Copy CRS to a world-readable location so non-root containers can access it
+COPY --from=builder /root/.bb-crs /opt/bb-crs
+RUN chmod -R 755 /opt/bb-crs
+ENV CRS_PATH=/opt/bb-crs
+
+# AVM simulator binary path for differential fuzzers
+ENV AVM_SIMULATOR_BIN=/home/fuzzer/aztec-packages/yarn-project/simulator/dest/public/fuzzing/avm_simulator_bin.js
+ENV AVM_FUZZER_LOGGING=1
+
+# Copy flattened target binaries
+COPY --from=builder /targets/ /targets/
+
+# Copy auto-generated fuzzer manifest
+COPY --from=builder /tmp/fuzzer_manifest.json ./fuzzer_manifest.json
 
 # Copy entrypoint script
-COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh
+COPY entrypoint.sh ./entrypoint.sh
 
-WORKDIR /home/fuzzer/aztec-packages/barretenberg/cpp/src/barretenberg/avm_fuzzer
+# The container runs as a non-root UID (65534/nobody) on the fuzzing platform.
+# All copied files must be world-readable/executable.
+RUN chmod a+rx /home/fuzzer && \
+    chmod -R a+rX /home/fuzzer/aztec-packages/ && \
+    chmod a+rx /root && \
+    chmod -R a+rX /root/aztec-packages/ && \
+    chmod a+rx /home/fuzzer/entrypoint.sh && \
+    chmod -R a+rx /targets/
 
-ENTRYPOINT ["/home/fuzzer/entrypoint.sh"]
+# Create directories for corpus, crashes, output, and temp
+RUN mkdir -p /corpus /crashes /output /reproduce-input /tmp && \
+    chmod 777 /corpus /crashes /output /reproduce-input /tmp
+
+ENTRYPOINT ["./entrypoint.sh"]

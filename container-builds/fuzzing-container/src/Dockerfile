@@ -61,22 +61,14 @@ RUN cmake --build build-fuzzing-asan && mv build-fuzzing-asan/bin bin-fuzzing-as
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-coverage
 RUN cmake --build build-fuzzing-cov
 
-# Build avm fuzzers
-RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-avm
-RUN cmake --build build-fuzzing-avm && mv build-fuzzing-avm/bin bin-fuzzing-avm && rm -rf build-fuzzing-avm
-
 # Flatten variant binaries into /targets/<name>[_suffix] and generate v2 manifest.
 # Positional manifests = scheduled as independent fuzz jobs by the platform.
 # --copy-only = companion binaries (asan for crash repro, cov for coverage collection).
-# AVM fuzzers use a singleton LMDB world state (/tmp/avm_fuzzer_ws/) that
-# cannot handle concurrent writers, so they must run single-threaded (cpus=1).
 RUN python3 scripts/flatten_and_manifest.py /targets /tmp/fuzzer_manifest.json \
     bin-fuzzing/fuzzer_manifest.json \
     bin-fuzzing-noasm/fuzzer_manifest.json \
-    bin-fuzzing-avm/fuzzer_manifest.json \
     --copy-only bin-fuzzing-asan/fuzzer_manifest.json \
-    --copy-only build-fuzzing-cov/bin/fuzzer_manifest.json \
-    --preset-resources fuzzing-avm:1:8
+    --copy-only build-fuzzing-cov/bin/fuzzer_manifest.json
 
 # Runtime stage
 FROM ubuntu:noble AS runtime
