@@ -2,13 +2,12 @@ import type { FunctionCall } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { NoteDao } from '@aztec/stdlib/note';
-import type { ContractOverrides } from '@aztec/stdlib/tx';
+import type { BlockHeader, ContractOverrides } from '@aztec/stdlib/tx';
 
-import type { BlockSynchronizer } from '../block_synchronizer/block_synchronizer.js';
 import type { ContractSyncService } from '../contract/contract_sync_service.js';
 import type { ContractFunctionSimulator } from '../contract_function_simulator/contract_function_simulator.js';
 import type { NotesFilter } from '../notes_filter.js';
-import type { AnchorBlockStore } from '../storage/index.js';
+import type { SyncedJobContext } from '../pxe.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 
 /**
@@ -16,36 +15,36 @@ import type { NoteStore } from '../storage/note_store/note_store.js';
  * No backwards compatibility or API stability should be expected. Use at your own risk.
  */
 export class PXEDebugUtils {
-  #putJobInQueue!: <T>(job: (jobId: string) => Promise<T>) => Promise<T>;
+  #syncedJob!: <T>(job: (ctx: SyncedJobContext) => Promise<T>) => Promise<T>;
   #getSimulatorForTx!: (overrides?: { contracts?: ContractOverrides }) => ContractFunctionSimulator;
   #executeUtility!: (
     contractFunctionSimulator: ContractFunctionSimulator,
     call: FunctionCall,
     authWitnesses: AuthWitness[] | undefined,
     scopes: AztecAddress[],
+    anchorBlockHeader: BlockHeader,
     jobId: string,
   ) => Promise<any>;
 
   constructor(
     private contractSyncService: ContractSyncService,
     private noteStore: NoteStore,
-    private blockStateSynchronizer: BlockSynchronizer,
-    private anchorBlockStore: AnchorBlockStore,
   ) {}
 
   /** Not injected through constructor since they're are co-dependant */
   public setPXEHelpers(
-    putJobInQueue: <T>(job: (jobId: string) => Promise<T>) => Promise<T>,
+    syncedJob: <T>(job: (ctx: SyncedJobContext) => Promise<T>) => Promise<T>,
     getSimulatorForTx: (overrides?: { contracts?: ContractOverrides }) => ContractFunctionSimulator,
     executeUtility: (
       contractFunctionSimulator: ContractFunctionSimulator,
       call: FunctionCall,
       authWitnesses: AuthWitness[] | undefined,
       scopes: AztecAddress[],
+      anchorBlockHeader: BlockHeader,
       jobId: string,
     ) => Promise<any>,
   ) {
-    this.#putJobInQueue = putJobInQueue;
+    this.#syncedJob = syncedJob;
     this.#getSimulatorForTx = getSimulatorForTx;
     this.#executeUtility = executeUtility;
   }
@@ -62,18 +61,21 @@ export class PXEDebugUtils {
    * @returns The requested notes.
    */
   public getNotes(filter: NotesFilter): Promise<NoteDao[]> {
-    return this.#putJobInQueue(async (jobId: string) => {
-      await this.blockStateSynchronizer.sync();
-
-      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-
+    return this.#syncedJob(async ({ jobId, anchorBlockHeader }) => {
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
       await this.contractSyncService.ensureContractSynced({
         contract: filter.contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor: async (privateSyncCall, execScopes) =>
-          await this.#executeUtility(contractFunctionSimulator, privateSyncCall, [], execScopes, jobId),
+          await this.#executeUtility(
+            contractFunctionSimulator,
+            privateSyncCall,
+            [],
+            execScopes,
+            anchorBlockHeader,
+            jobId,
+          ),
         anchorBlockHeader,
         jobId,
         scopes: filter.scopes,

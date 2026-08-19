@@ -46,9 +46,9 @@ export interface StagedStore {
  * 3. On commit, staging is promoted to main storage
  * 4. On abort, staged data is discarded
  *
- * Note: PXE should only rely on a single JobCoordinator instance, so it can eventually
- * orchestrate concurrent jobs. Right now it doesn't make a difference because we're
- * using a job queue with concurrency=1.
+ * Note: jobs must be serialized — beginJob throws if one is already in progress. We still key staging by job ID
+ * because aborting a job doesn't cancel its in-flight async work: a late write from an aborted job lands under its
+ * old job ID and is never promoted, instead of leaking into the next job's staging.
  */
 export class JobCoordinator {
   private readonly log: Logger;
