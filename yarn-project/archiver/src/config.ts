@@ -95,7 +95,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description:
       'Preload the standard contracts (AuthRegistry, PublicChecks, HandshakeRegistry) into the contract store at ' +
       'block 0. For test environments only, and only safe when genesis seeds the matching registration/deployment ' +
-      'nullifiers; otherwise a later on-chain publish would collide with the block-0 preload.',
+      'nullifiers; otherwise a later onchain publish would collide with the block-0 preload.',
     ...booleanConfigHelper(false),
   },
   ...chainConfigMappings,

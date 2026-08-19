@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Module random documentation</title>
 </head>
 <body>
@@ -57,13 +60,20 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::random</div>
-<h1>Module <span id="mod" class="module">random</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">random</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.random.html" class="fn">random</a></div><div class="item-description">Returns an unconstrained random value. Note that it is not possible to constrain this value to prove that it is
 truly random: we assume that the oracle is cooperating and returning random values. In some applications this
 behavior might not be acceptable and other techniques might be more suitable, such as producing pseudo-random
 values by hashing values outside of user control (like block hashes) or secrets.</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct ProofDataForFixedVk documentation</title>
 </head>
 <body>
@@ -41,7 +44,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">proof</a>::<a href="index.html">proof_data</a></div>
-<h1>Struct <span id="struct" class="struct">ProofDataForFixedVk</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">ProofDataForFixedVk</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct ProofDataForFixedVk&lt;T, let ProofLen: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; {
     pub public_inputs: T,
     pub proof: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; ProofLen],
@@ -53,11 +62,12 @@
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/proof/proof_data/struct.ProofDataForFixedVk.html" class="struct">ProofDataForFixedVk</a>&lt;T, 15516&gt;</code></h3>
 
-<div class="padded-methods"><code id="verify_proof_with_columns" class="code-header">pub fn <a href="#verify_proof_with_columns"><span class="fn">verify_proof_with_columns</span></a>&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self)
+<div class="padded-methods"><code id="verify_proof_with_columns" class="code-header">pub fn <a href="#verify_proof_with_columns" class="fn">verify_proof_with_columns</a>&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self)
 <div class="where-clause">where
     T: <a href="../../../protocol_types/proof/traits/trait.SerializeToColumns.html" class="trait">SerializeToColumns</a>&lt;N&gt;</div></code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

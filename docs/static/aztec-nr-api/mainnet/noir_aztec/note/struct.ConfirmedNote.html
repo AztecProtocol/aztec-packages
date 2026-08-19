@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct ConfirmedNote documentation</title>
 </head>
 <body>
@@ -48,7 +51,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">note</a></div>
-<h1>Struct <span id="struct" class="struct">ConfirmedNote</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">ConfirmedNote</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct ConfirmedNote&lt;Note&gt; {
     pub note: Note,
     pub contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
@@ -89,7 +98,8 @@ by the kernel, resulting in a <em>transient note</em>.</p></div>
 </div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/note/struct.ConfirmedNote.html" class="struct">ConfirmedNote</a>&lt;Note&gt;</code></h3>
 
-<div class="padded-methods"></div></main>
+<div class="padded-methods"></div></div>
+</main>
 </span>
 </body>
 </html>

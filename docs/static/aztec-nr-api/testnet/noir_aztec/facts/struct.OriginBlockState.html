@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct OriginBlockState documentation</title>
 </head>
 <body>
@@ -51,7 +54,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">facts</a></div>
-<h1>Struct <span id="struct" class="struct">OriginBlockState</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">OriginBlockState</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct OriginBlockState
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -61,23 +70,23 @@
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../noir_aztec/facts/struct.OriginBlockState.html" class="struct">OriginBlockState</a></code></h3>
 
-<div class="padded-methods"><code id="pending" class="code-header">pub fn <a href="#pending"><span class="fn">pending</span></a>() -> Self</code>
+<div class="padded-methods"><code id="pending" class="code-header">pub fn <a href="#pending" class="fn">pending</a>() -> Self</code>
 
-<code id="proven" class="code-header">pub fn <a href="#proven"><span class="fn">proven</span></a>() -> Self</code>
+<code id="proven" class="code-header">pub fn <a href="#proven" class="fn">proven</a>() -> Self</code>
 
-<code id="finalized" class="code-header">pub fn <a href="#finalized"><span class="fn">finalized</span></a>() -> Self</code>
+<code id="finalized" class="code-header">pub fn <a href="#finalized" class="fn">finalized</a>() -> Self</code>
 
-<code id="is_pending" class="code-header">pub fn <a href="#is_pending"><span class="fn">is_pending</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+<code id="is_pending" class="code-header">pub fn <a href="#is_pending" class="fn">is_pending</a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Whether the origin block is still above the proven tip.</p>
 </div>
-</div><code id="is_proven" class="code-header">pub fn <a href="#is_proven"><span class="fn">is_proven</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+</div><code id="is_proven" class="code-header">pub fn <a href="#is_proven" class="fn">is_proven</a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Whether the origin block is proven but not yet finalized.</p>
 </div>
-</div><code id="is_finalized" class="code-header">pub fn <a href="#is_finalized"><span class="fn">is_finalized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+</div><code id="is_finalized" class="code-header">pub fn <a href="#is_finalized" class="fn">is_finalized</a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Whether the origin block is finalized, and thus facts related to it can no longer be retracted.</p>
@@ -99,7 +108,8 @@
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

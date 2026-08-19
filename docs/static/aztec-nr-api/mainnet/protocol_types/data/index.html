@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Module data documentation</title>
 </head>
 <body>
@@ -54,7 +57,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::data</div>
-<h1>Module <span id="mod" class="module">data</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">data</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="re-exports">Re-exports</h2><ul class="item-list">
 <li><div class="item-name"><code>pub use protocol_types::data::public_data_tree_leaf::<a href="../../protocol_types/data/public_data_tree_leaf/struct.PublicDataTreeLeaf.html" class="struct">PublicDataTreeLeaf</a>;</code></div></li>
 <li><div class="item-name"><code>pub use protocol_types::data::public_data_tree_leaf_preimage::<a href="../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a>;</code></div></li>
@@ -67,6 +76,7 @@
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.public_data_storage_read.html" class="fn">public_data_storage_read</a></div><div class="item-description">Read the value from public storage at the given <code>leaf_slot</code>.</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

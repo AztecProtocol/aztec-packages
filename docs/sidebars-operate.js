@@ -234,6 +234,7 @@ const referenceItems = [
       id: "operators/reference/changelog/changelog",
     },
     items: [
+      "operators/reference/changelog/v5.2",
       "operators/reference/changelog/v4.3",
       "operators/reference/changelog/v4.2",
       "operators/reference/changelog/v4",

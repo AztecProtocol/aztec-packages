@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../styles.css">
+<script>window.docRoot = "../";</script>
+<script defer src="../search-index.js"></script>
 <script defer src="../nargo_doc.js"></script>
+<script defer src="../search.js"></script>
 <title>Crate compressed_string documentation</title>
 </head>
 <body>
@@ -33,7 +36,13 @@
 </nav>
 <main>
 <div><a href="../index.html">aztec-nr</a> - compressed_string</div>
-<h1>Crate <span class="crate">compressed_string</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Crate <span class="crate">compressed_string</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <div class="comments">
 <p>Efficient string storage.</p>
 </div>
@@ -44,6 +53,7 @@ converts to <code>[Field; N]</code> or <code>[u8; M]</code>. This particular con
 be M/31 rounded up. Can be used for longer strings that don't fit into a single field.</div></li>
 <li><div class="item-name"><a href="struct.FieldCompressedString.html" class="struct">FieldCompressedString</a></div><div class="item-description"></div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

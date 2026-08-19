@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Module delayed_public_mutable_values documentation</title>
 </head>
 <body>
@@ -36,7 +39,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">delayed_public_mutable</a>::delayed_public_mutable_values</div>
-<h1>Module <span id="mod" class="module">delayed_public_mutable_values</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">delayed_public_mutable_values</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="structs">Structs</h2><ul class="item-list">
 <li><div class="item-name"><a href="struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a></div><div class="item-description">DelayedPublicMutableValues is just a wrapper around ScheduledValueChange and ScheduledDelayChange that then allows us
 to wrap both of these values in WithHash. WithHash allows for efficient read of values in private.</div></li>
@@ -48,6 +57,7 @@ and svc timestamp_of_change. We'll discard the svc component.</div></li>
 <li><div class="item-name"><a href="fn.unpack_value_change.html" class="fn">unpack_value_change</a></div><div class="item-description">Extracts a ScheduledValueChange struct from the packed representation of the full DelayedPublicMutable.
 TODO: impl the packable trait for ScheduledValueChange.</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Global ORACLE_VERSION_MAJOR documentation</title>
 </head>
 <body>
@@ -28,7 +31,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">version</a></div>
-<h1>Global <span class="global">ORACLE_VERSION_MAJOR</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Global <span class="global">ORACLE_VERSION_MAJOR</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub global ORACLE_VERSION_MAJOR: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>;</code></pre>
 
 <div class="comments">
@@ -44,6 +53,7 @@ called. If the major version is incompatible, an error is thrown immediately. Th
 the PXE and used to provide helpful error messages if a contract calls an oracle that doesn't exist. We don't throw
 immediately if AZTEC_NR_MINOR &gt; PXE_MINOR because if a contract is updated to use a newer Aztec.nr dependency
 without actually using any of the new oracles then there is no reason to throw.</p>
+</div>
 </div>
 </main>
 </span>

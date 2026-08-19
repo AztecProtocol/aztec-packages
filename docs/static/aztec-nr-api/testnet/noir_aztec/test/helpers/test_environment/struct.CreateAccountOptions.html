@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Struct CreateAccountOptions documentation</title>
 </head>
 <body>
@@ -39,7 +42,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">test</a>::<a href="../index.html">helpers</a>::<a href="index.html">test_environment</a></div>
-<h1>Struct <span id="struct" class="struct">CreateAccountOptions</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">CreateAccountOptions</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct CreateAccountOptions
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -53,27 +62,28 @@ addresses.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CreateAccountOptions.html" class="struct">CreateAccountOptions</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>() -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Creates a new <code>CreateAccountOptions</code> with default values, i.e. the same as if using the <code>create_light_account</code>
 method instead of <code>create_light_account_opts</code>. Use the <code>with_secret</code> and <code>with_partial_address</code> methods to set
 the desired configuration values.</p>
 </div>
-</div><code id="with_secret" class="code-header">pub fn <a href="#with_secret"><span class="fn">with_secret</span></a>(&mut self, secret: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+</div><code id="with_secret" class="code-header">pub fn <a href="#with_secret" class="fn">with_secret</a>(&mut self, secret: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets the secret used for key derivation. The secret affects the account's public keys and therefore its address:
 accounts created with different secrets will have different keys and addresses.</p>
 </div>
-</div><code id="with_partial_address" class="code-header">pub fn <a href="#with_partial_address"><span class="fn">with_partial_address</span></a>(&mut self, partial_address: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+</div><code id="with_partial_address" class="code-header">pub fn <a href="#with_partial_address" class="fn">with_partial_address</a>(&mut self, partial_address: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets the partial address used for address derivation. The partial address affects the resulting account address
 but not its keys: accounts created with the same secret but different partial addresses share master keys while
 having different addresses.</p>
 </div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

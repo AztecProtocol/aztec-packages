@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct SinglePrivateMutable documentation</title>
 </head>
 <body>
@@ -53,7 +56,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
-<h1>Struct <span id="struct" class="struct">SinglePrivateMutable</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">SinglePrivateMutable</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct SinglePrivateMutable&lt;Note, Context&gt;
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -104,51 +113,29 @@ decide what method of note message delivery to use. Keep in mind that unless the
 incentivized to deliver the note you should use constrained delivery or you are at a risk of a malicious actor
 bricking the contract.</p></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.SinglePrivateMutable.html" class="struct">SinglePrivateMutable</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Note, Context&gt; <a href="../../noir_aztec/state_vars/struct.SinglePrivateMutable.html" class="struct">SinglePrivateMutable</a>&lt;Note, Context&gt;</code></h3>
 
-<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.SinglePrivateMutable.html" class="struct">SinglePrivateMutable</a>&lt;Note, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;
 <div class="where-clause">where
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code></h3>
 
-<div class="padded-description"><div class="comments">
-<p>Returns <code>true</code> if this SinglePrivateMutable has been initialized.</p>
-</div>
-</div><code id="view_note" class="code-header">pub unconstrained fn <a href="#view_note"><span class="fn">view_note</span></a>(self) -> Note
+<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize" class="fn">initialize</a>(self, note: Note, owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Returns the current note in this SinglePrivateMutable.</p>
-</div>
-</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/struct.SinglePrivateMutable.html" class="struct">SinglePrivateMutable</a>&lt;Note, Context&gt;</code></h3>
-
-<div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.SinglePrivateMutable.html" class="struct">SinglePrivateMutable</a>&lt;Note, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, note: Note, owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
-<div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Initializes a SinglePrivateMutable state variable instance with its first <code>note</code> and returns a <a href="../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a>
 that allows you to decide what method of note message delivery to use for the new note.</p>
 <p>This function can only be called once per SinglePrivateMutable. Subsequent calls will fail because the
 initialization nullifier will already exist.</p></div>
-</div><code id="replace" class="code-header">pub fn <a href="#replace"><span class="fn">replace</span></a>&lt;Env&gt;(
+</div><code id="replace" class="code-header">pub fn <a href="#replace" class="fn">replace</a>&lt;Env&gt;(
     self,
     f: fn[Env](Note) -> Note,
     new_owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
 ) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Reads the current note of a SinglePrivateMutable state variable, nullifies it, and inserts a new note for
@@ -165,15 +152,13 @@ uninitialized SinglePrivateMutable, it will fail because there is no current not
 if the state variable has been initialized already, you can use <code>initialize_or_replace</code> to handle both cases.</p>
 <p>The nullification of the previous note ensures that it cannot be used again, maintaining the invariant that a
 SinglePrivateMutable has exactly one current note.</p></div>
-</div><code id="initialize_or_replace" class="code-header">pub fn <a href="#initialize_or_replace"><span class="fn">initialize_or_replace</span></a>&lt;Env&gt;(
+</div><code id="initialize_or_replace" class="code-header">pub fn <a href="#initialize_or_replace" class="fn">initialize_or_replace</a>&lt;Env&gt;(
     self,
     f: fn[Env](<a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;Note&gt;) -> Note,
     new_owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
 ) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Initializes the SinglePrivateMutable if it's uninitialized, or replaces the current note using a transform
@@ -182,11 +167,9 @@ function <code>f</code> while the new note is owned by <code>new_owner</code>. T
 <p>This function returns a <a href="../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a> that allows you to decide what method of note message delivery to use
 for
 the new note.</p></div>
-</div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
+</div><code id="get_note" class="code-header">pub fn <a href="#get_note" class="fn">get_note</a>(self) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code>
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Reads the current note of a SinglePrivateMutable state variable instance. The read is performed by nullifying
@@ -195,6 +178,24 @@ we're reading the latest note.</p>
 <p>This function returns a <a href="../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a> that allows you to decide what method of note message delivery to use
 for
 the new note.</p></div>
+</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.SinglePrivateMutable.html" class="struct">SinglePrivateMutable</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;
+<div class="where-clause">where
+    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
+
+<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized" class="fn">is_initialized</a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns <code>true</code> if this SinglePrivateMutable has been initialized.</p>
+</div>
+</div><code id="view_note" class="code-header">pub unconstrained fn <a href="#view_note" class="fn">view_note</a>(self) -> Note
+<div class="where-clause">where
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the current note in this SinglePrivateMutable.</p>
+</div>
 </div></div><h2>Trait implementations</h2>
 <h3 id="impl-StateVariable&lt;1, Context&gt;-for-SinglePrivateMutable<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.SinglePrivateMutable.html" class="struct">SinglePrivateMutable</a>&lt;Note, Context&gt;</code></h3>
 
@@ -202,7 +203,8 @@ the new note.</p></div>
 
 <code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

@@ -193,6 +193,8 @@ Search for `governanceProposerPayload` in the response to confirm it matches you
 
 Once configured, your sequencer automatically signals support for this payload each time you propose a block. Each signal counts toward the quorum requirement.
 
+Since v5.2.0 the node stops signalling on its own once the payload's proposal goes live or has already been executed, instead of burning roughly 100k gas per slot on a signal that can no longer do anything. You will see `Payload 0x... has a live governance proposal, stopping signals` or `Payload 0x... was executed by governance within lookback, stopping signals` in the logs. A proposal that was merely rejected, dropped, or expired is still re-signalled. For a payload deliberately designed to be executed more than once, set `GOVERNANCE_PROPOSER_FORCE_PAYLOAD_VOTE=true` to keep signalling anyway.
+
 ## Creating a Proposal
 
 #if(testnet)

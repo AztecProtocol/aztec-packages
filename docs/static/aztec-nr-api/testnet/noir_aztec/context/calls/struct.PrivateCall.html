@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct PrivateCall documentation</title>
 </head>
 <body>
@@ -41,7 +44,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">context</a>::<a href="index.html">calls</a></div>
-<h1>Struct <span id="struct" class="struct">PrivateCall</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">PrivateCall</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct PrivateCall&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; {
     pub target_contract: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     pub selector: <a href="../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a>,
@@ -58,7 +67,18 @@
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;</code></h3>
 
-<div class="padded-methods"><code id="call" class="code-header">pub fn <a href="#call"><span class="fn">call</span></a>(self, context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>(
+    target_contract: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    selector: <a href="../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a>,
+    name: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;M&gt;,
+    args: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N],
+) -> Self</code>
+
+</div><h3><code class="code-header">impl&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a>&lt;N = _&gt;</div></code></h3>
+
+<div class="padded-methods"><code id="call" class="code-header">pub fn <a href="#call" class="fn">call</a>(self, context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T
 <div class="where-clause">where
     T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
@@ -67,16 +87,8 @@
 <p>Please use the new contract API: <code>self.call(MyContract::at(address).my_private_function(...args))</code> instead of
 manually constructing and calling <code>PrivateCall</code>.</p>
 </div>
-</div></div><h3><code class="code-header">impl&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;</code></h3>
-
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(
-    target_contract: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    selector: <a href="../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a>,
-    name: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;M&gt;,
-    args: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N],
-) -> Self</code>
-
-</div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

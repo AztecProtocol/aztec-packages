@@ -273,7 +273,7 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 /// # Example
 /// ```
 /// #[custom_note]
-/// struct CustomNote {
+/// pub struct CustomNote {
 ///     value: Field,
 ///     metadata: Field
 /// }

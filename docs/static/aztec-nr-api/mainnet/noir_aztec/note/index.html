@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Module note documentation</title>
 </head>
 <body>
@@ -53,7 +56,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::note</div>
-<h1>Module <span id="mod" class="module">note</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">note</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <div class="comments">
 <p>Note traits and utilities</p>
 <h2>Siloing</h2>
@@ -76,6 +85,7 @@ created depending on runtime conditions (e.g. a token transfer change note is no
 <li><div class="item-name"><a href="struct.NoteMessage.html" class="struct">NoteMessage</a></div><div class="item-description">A message with information about a note that was created in the current contract call. This message <strong>MUST</strong> be
 delivered to a recipient in order to not lose the private note information.</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

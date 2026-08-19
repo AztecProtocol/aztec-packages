@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function notify_created_note documentation</title>
 </head>
 <body>
@@ -28,7 +31,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">notes</a></div>
-<h1>Function <span class="fn">notify_created_note</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">notify_created_note</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn notify_created_note&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
@@ -42,6 +51,7 @@
 <div class="comments">
 <p>Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
 transaction. This note should only be added to the non-volatile database if found in an actual block.</p>
+</div>
 </div>
 </main>
 </span>

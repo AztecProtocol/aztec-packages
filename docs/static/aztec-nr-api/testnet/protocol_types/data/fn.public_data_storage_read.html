@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Function public_data_storage_read documentation</title>
 </head>
 <body>
@@ -29,7 +32,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">data</a></div>
-<h1>Function <span class="fn">public_data_storage_read</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">public_data_storage_read</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn public_data_storage_read(
     public_data_tree_root: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     public_data_leaf_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
@@ -54,6 +63,7 @@
 <ul>
 <li><code>Field</code>: The value read from the public data tree.</li>
 </ul>
+</div>
 </div>
 </main>
 </span>
