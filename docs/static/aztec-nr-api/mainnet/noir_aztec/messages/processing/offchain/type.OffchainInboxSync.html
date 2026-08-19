@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Type alias OffchainInboxSync documentation</title>
 </head>
 <body>
@@ -34,7 +37,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">processing</a>::<a href="index.html">offchain</a></div>
-<h1>Type alias <span class="type">OffchainInboxSync</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Type alias <span class="type">OffchainInboxSync</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub type OffchainInboxSync = unconstrained fn(<a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../../../noir_aztec/messages/processing/struct.OffchainMessageWithTx.html" class="struct">OffchainMessageWithTx</a>&gt;;</code></pre>
 
 <div class="comments">
@@ -48,6 +57,7 @@ locally stored in a persistent inbox.</p>
 of, etc.</p>
 <p>The only current implementation of an <a href="../../../../noir_aztec/messages/processing/offchain/type.OffchainInboxSync.html"><code>OffchainInboxSync</code></a> is <a href="../../../../noir_aztec/messages/processing/offchain/fn.sync_inbox.html"><code>sync_inbox</code></a>, which manages an inbox with
 expiration and finality-based eviction and automatic transaction context resolution.</p></div>
+</div>
 </main>
 </span>
 </body>

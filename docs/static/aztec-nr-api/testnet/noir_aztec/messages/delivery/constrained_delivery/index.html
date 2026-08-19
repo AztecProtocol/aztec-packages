@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Module constrained_delivery documentation</title>
 </head>
 <body>
@@ -44,7 +47,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">delivery</a>::constrained_delivery</div>
-<h1>Module <span id="mod" class="module">constrained_delivery</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">constrained_delivery</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <div class="comments">
 <p>Sender-side helpers for constrained message delivery.</p>
 <p>Constrained messages form per-<code>(sender, recipient, handshake secrets)</code> sequences, each send anchored to the
@@ -58,6 +67,7 @@ before its constrained tag is emitted; every constrained send then emits the sam
 <h2 id="globals">Globals</h2><ul class="item-list">
 <li><div class="item-name"><a href="global.VALIDATE_HANDSHAKE_SELECTOR.html" class="global">VALIDATE_HANDSHAKE_SELECTOR</a></div><div class="item-description"></div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

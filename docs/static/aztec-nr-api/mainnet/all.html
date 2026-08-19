@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="styles.css">
+<script>window.docRoot = "";</script>
+<script defer src="search-index.js"></script>
 <script defer src="nargo_doc.js"></script>
+<script defer src="search.js"></script>
 <title>All items in aztec-nr documentation</title>
 </head>
 <body>
@@ -26,7 +29,13 @@
 </nav>
 <main>
 <div><a href="index.html">aztec-nr</a></div>
-<h1>All items in aztec-nr</h1>
+<div class="heading-row">
+<h1 class="heading-content">All items in aztec-nr</h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <span id="struct"></span><h2>Structs</h2>
 <ul class="item-list">
 <li><a href="address_note/struct.AddressNote.html">address_note::AddressNote</a></li>
@@ -1275,6 +1284,7 @@
 <li><a href="noir_aztec/utils/remove_constraints/fn.remove_constraints.html">noir_aztec::utils::remove_constraints::remove_constraints</a></li>
 <li><a href="noir_aztec/utils/remove_constraints/fn.remove_constraints_if.html">noir_aztec::utils::remove_constraints::remove_constraints_if</a></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

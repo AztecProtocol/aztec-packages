@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function compute_unique_note_hash documentation</title>
 </head>
 <body>
@@ -44,7 +47,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">protocol</a>::<a href="index.html">hash</a></div>
-<h1>Function <span class="fn">compute_unique_note_hash</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">compute_unique_note_hash</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn compute_unique_note_hash(note_nonce: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, siloed_note_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></pre>
 
 <div class="comments">
@@ -80,6 +89,7 @@ created naturally by any functions of the tx. (Search &quot;protocol_nullifier&q
 We combine the <code>first_nullifier</code> with the note's index (its position within this tx's new
 note_hashes array) (<code>note_index_in_tx</code>) to get a truly unique value to inject into a note, which
 we call a <code>note_nonce</code>.</p>
+</div>
 </div>
 </main>
 </span>

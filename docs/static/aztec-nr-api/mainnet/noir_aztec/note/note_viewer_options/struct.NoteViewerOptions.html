@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct NoteViewerOptions documentation</title>
 </head>
 <body>
@@ -44,7 +47,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::<a href="index.html">note_viewer_options</a></div>
-<h1>Struct <span id="struct" class="struct">NoteViewerOptions</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">NoteViewerOptions</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct NoteViewerOptions&lt;Note, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; {
     pub selects: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/note_getter_options/struct.Select.html" class="struct">Select</a>&gt;, M&gt;,
     pub sorts: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/note/note_getter_options/struct.Sort.html" class="struct">Sort</a>&gt;, M&gt;,
@@ -62,14 +71,14 @@
 <div class="padded-description"></div><div id="structfield.owner" class="struct-field"><code class="code-header">owner: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code></div>
 <div class="padded-description"></div><div id="structfield.status" class="struct-field"><code class="code-header">status: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, Note&gt; <a href="../../../noir_aztec/note/note_viewer_options/struct.NoteViewerOptions.html" class="struct">NoteViewerOptions</a>&lt;Note, M&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Note, let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../noir_aztec/note/note_viewer_options/struct.NoteViewerOptions.html" class="struct">NoteViewerOptions</a>&lt;Note, M&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>() -> Self
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code>
 
-<code id="select" class="code-header">pub fn <a href="#select"><span class="fn">select</span></a>&lt;T&gt;(
+<code id="select" class="code-header">pub fn <a href="#select" class="fn">select</a>&lt;T&gt;(
     &mut self,
     property_selector: <a href="../../../noir_aztec/note/note_getter_options/struct.PropertySelector.html" class="struct">PropertySelector</a>&lt;T&gt;,
     comparator: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>,
@@ -78,19 +87,20 @@
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
-<code id="sort" class="code-header">pub fn <a href="#sort"><span class="fn">sort</span></a>&lt;T&gt;(&mut self, property_selector: <a href="../../../noir_aztec/note/note_getter_options/struct.PropertySelector.html" class="struct">PropertySelector</a>&lt;T&gt;, order: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>) -> Self
+<code id="sort" class="code-header">pub fn <a href="#sort" class="fn">sort</a>&lt;T&gt;(&mut self, property_selector: <a href="../../../noir_aztec/note/note_getter_options/struct.PropertySelector.html" class="struct">PropertySelector</a>&lt;T&gt;, order: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>) -> Self
 <div class="where-clause">where
     T: <a href="../../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
-<code id="set_limit" class="code-header">pub fn <a href="#set_limit"><span class="fn">set_limit</span></a>(&mut self, limit: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
+<code id="set_limit" class="code-header">pub fn <a href="#set_limit" class="fn">set_limit</a>(&mut self, limit: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
 
-<code id="set_offset" class="code-header">pub fn <a href="#set_offset"><span class="fn">set_offset</span></a>(&mut self, offset: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
+<code id="set_offset" class="code-header">pub fn <a href="#set_offset" class="fn">set_offset</a>(&mut self, offset: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
 
-<code id="set_status" class="code-header">pub fn <a href="#set_status"><span class="fn">set_status</span></a>(&mut self, status: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>) -> Self</code>
+<code id="set_status" class="code-header">pub fn <a href="#set_status" class="fn">set_status</a>(&mut self, status: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>) -> Self</code>
 
-<code id="set_owner" class="code-header">pub fn <a href="#set_owner"><span class="fn">set_owner</span></a>(&mut self, owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+<code id="set_owner" class="code-header">pub fn <a href="#set_owner" class="fn">set_owner</a>(&mut self, owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Struct SingleSubtreeMerkleTree documentation</title>
 </head>
 <body>
@@ -41,32 +44,38 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol</a>::<a href="../index.html">merkle_tree</a>::<a href="index.html">test_utils</a></div>
-<h1>Struct <span id="struct" class="struct">SingleSubtreeMerkleTree</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">SingleSubtreeMerkleTree</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct SingleSubtreeMerkleTree&lt;let SubtreeWidth: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let SubtreeHeight: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let TreeHeight: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;let SubtreeHeight: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let SubtreeWidth: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let TreeHeight: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../../protocol_types/merkle_tree/test_utils/struct.SingleSubtreeMerkleTree.html" class="struct">SingleSubtreeMerkleTree</a>&lt;SubtreeWidth, SubtreeHeight, TreeHeight&gt;</code></h3>
+<h3><code class="code-header">impl&lt;let SubtreeWidth: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let SubtreeHeight: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let TreeHeight: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../../protocol_types/merkle_tree/test_utils/struct.SingleSubtreeMerkleTree.html" class="struct">SingleSubtreeMerkleTree</a>&lt;SubtreeWidth, SubtreeHeight, TreeHeight&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(subtree_leaves: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; SubtreeWidth]) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>(subtree_leaves: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; SubtreeWidth]) -> Self</code>
 
-<code id="new_with_hasher" class="code-header">pub fn <a href="#new_with_hasher"><span class="fn">new_with_hasher</span></a>(
+<code id="new_with_hasher" class="code-header">pub fn <a href="#new_with_hasher" class="fn">new_with_hasher</a>(
     subtree_leaves: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; SubtreeWidth],
     hasher: fn(<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> Self</code>
 
-<code id="new_at_index" class="code-header">pub fn <a href="#new_at_index"><span class="fn">new_at_index</span></a>(
+<code id="new_at_index" class="code-header">pub fn <a href="#new_at_index" class="fn">new_at_index</a>(
     subtree_leaves: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; SubtreeWidth],
     first_leaf_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> Self</code>
 
-<code id="new_with_hasher_at_index" class="code-header">pub fn <a href="#new_with_hasher_at_index"><span class="fn">new_with_hasher_at_index</span></a>(
+<code id="new_with_hasher_at_index" class="code-header">pub fn <a href="#new_with_hasher_at_index" class="fn">new_with_hasher_at_index</a>(
     subtree_leaves: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; SubtreeWidth],
     first_leaf_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     hasher: fn(<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> Self</code>
 
-<code id="new_tree_roots_at_index" class="code-header">pub fn <a href="#new_tree_roots_at_index"><span class="fn">new_tree_roots_at_index</span></a>&lt;let InsertedValueTreeHeight: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+<code id="new_tree_roots_at_index" class="code-header">pub fn <a href="#new_tree_roots_at_index" class="fn">new_tree_roots_at_index</a>&lt;let InsertedValueTreeHeight: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     subtree_leaves: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; SubtreeWidth],
     first_leaf_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> Self</code>
@@ -75,21 +84,22 @@
 <p>The values to be inserted to the subtree are tree roots themselves. The zero hashes will take into account the
 extra layers (<code>InsertedValueTreeHeight</code>) of the inserted values.</p>
 </div>
-</div><code id="new_tree_roots_at_index_with_hasher" class="code-header">pub fn <a href="#new_tree_roots_at_index_with_hasher"><span class="fn">new_tree_roots_at_index_with_hasher</span></a>&lt;let InsertedValueTreeHeight: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+</div><code id="new_tree_roots_at_index_with_hasher" class="code-header">pub fn <a href="#new_tree_roots_at_index_with_hasher" class="fn">new_tree_roots_at_index_with_hasher</a>&lt;let InsertedValueTreeHeight: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     subtree_leaves: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; SubtreeWidth],
     first_leaf_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     hasher: fn(<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> Self</code>
 
-<code id="get_sibling_path" class="code-header">pub fn <a href="#get_sibling_path"><span class="fn">get_sibling_path</span></a>(self, leaf_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; TreeHeight]</code>
+<code id="get_sibling_path" class="code-header">pub fn <a href="#get_sibling_path" class="fn">get_sibling_path</a>(self, leaf_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; TreeHeight]</code>
 
-<code id="update_leaf" class="code-header">pub fn <a href="#update_leaf"><span class="fn">update_leaf</span></a>(&mut self, leaf_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, value: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+<code id="update_leaf" class="code-header">pub fn <a href="#update_leaf" class="fn">update_leaf</a>(&mut self, leaf_index: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, value: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
-<code id="get_root" class="code-header">pub fn <a href="#get_root"><span class="fn">get_root</span></a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
+<code id="get_root" class="code-header">pub fn <a href="#get_root" class="fn">get_root</a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-<code id="get_next_available_index" class="code-header">pub fn <a href="#get_next_available_index"><span class="fn">get_next_available_index</span></a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
+<code id="get_next_available_index" class="code-header">pub fn <a href="#get_next_available_index" class="fn">get_next_available_index</a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

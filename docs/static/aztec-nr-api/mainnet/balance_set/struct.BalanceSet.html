@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../styles.css">
+<script>window.docRoot = "../";</script>
+<script defer src="../search-index.js"></script>
 <script defer src="../nargo_doc.js"></script>
+<script defer src="../search.js"></script>
 <title>Struct BalanceSet documentation</title>
 </head>
 <body>
@@ -40,31 +43,38 @@
 </nav>
 <main>
 <div><a href="../index.html">aztec-nr</a> - <a href="index.html">balance_set</a></div>
-<h1>Struct <span id="struct" class="struct">BalanceSet</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">BalanceSet</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct BalanceSet&lt;Context&gt;
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../balance_set/struct.BalanceSet.html" class="struct">BalanceSet</a>&lt;<a href="../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="balance_of" class="code-header">pub unconstrained fn <a href="#balance_of"><span class="fn">balance_of</span></a>(self) -> <a href="../std/primitive.u128.html" class="primitive">u128</a></code>
+<div class="padded-methods"><code id="balance_of" class="code-header">pub unconstrained fn <a href="#balance_of" class="fn">balance_of</a>(self) -> <a href="../std/primitive.u128.html" class="primitive">u128</a></code>
 
-<code id="balance_of_with_offset" class="code-header">pub unconstrained fn <a href="#balance_of_with_offset"><span class="fn">balance_of_with_offset</span></a>(self, offset: <a href="../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../std/primitive.u128.html" class="primitive">u128</a></code>
+<code id="balance_of_with_offset" class="code-header">pub unconstrained fn <a href="#balance_of_with_offset" class="fn">balance_of_with_offset</a>(self, offset: <a href="../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../std/primitive.u128.html" class="primitive">u128</a></code>
 
 </div><h3><code class="code-header">impl <a href="../balance_set/struct.BalanceSet.html" class="struct">BalanceSet</a>&lt;&mut <a href="../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="add" class="code-header">pub fn <a href="#add"><span class="fn">add</span></a>(self, addend: <a href="../std/primitive.u128.html" class="primitive">u128</a>) -> <a href="../noir_aztec/note/struct.MaybeNoteMessage.html" class="struct">MaybeNoteMessage</a>&lt;<a href="../uint_note/struct.UintNote.html" class="struct">UintNote</a>&gt;</code>
+<div class="padded-methods"><code id="add" class="code-header">pub fn <a href="#add" class="fn">add</a>(self, addend: <a href="../std/primitive.u128.html" class="primitive">u128</a>) -> <a href="../noir_aztec/note/struct.MaybeNoteMessage.html" class="struct">MaybeNoteMessage</a>&lt;<a href="../uint_note/struct.UintNote.html" class="struct">UintNote</a>&gt;</code>
 
-<code id="sub" class="code-header">pub fn <a href="#sub"><span class="fn">sub</span></a>(self, amount: <a href="../std/primitive.u128.html" class="primitive">u128</a>) -> <a href="../noir_aztec/note/struct.MaybeNoteMessage.html" class="struct">MaybeNoteMessage</a>&lt;<a href="../uint_note/struct.UintNote.html" class="struct">UintNote</a>&gt;</code>
+<code id="sub" class="code-header">pub fn <a href="#sub" class="fn">sub</a>(self, amount: <a href="../std/primitive.u128.html" class="primitive">u128</a>) -> <a href="../noir_aztec/note/struct.MaybeNoteMessage.html" class="struct">MaybeNoteMessage</a>&lt;<a href="../uint_note/struct.UintNote.html" class="struct">UintNote</a>&gt;</code>
 
-<code id="try_sub" class="code-header">pub fn <a href="#try_sub"><span class="fn">try_sub</span></a>(self, target_amount: <a href="../std/primitive.u128.html" class="primitive">u128</a>, max_notes: <a href="../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../std/primitive.u128.html" class="primitive">u128</a></code>
+<code id="try_sub" class="code-header">pub fn <a href="#try_sub" class="fn">try_sub</a>(self, target_amount: <a href="../std/primitive.u128.html" class="primitive">u128</a>, max_notes: <a href="../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../std/primitive.u128.html" class="primitive">u128</a></code>
 
 </div><h2>Trait implementations</h2>
 <h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-BalanceSet<Context>"><code class="code-header">impl&lt;Context&gt; <a href="../noir_aztec/state_vars/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../balance_set/struct.BalanceSet.html" class="struct">BalanceSet</a>&lt;Context&gt;</code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../std/primitive.Field.html" class="primitive">Field</a>, owner: <a href="../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

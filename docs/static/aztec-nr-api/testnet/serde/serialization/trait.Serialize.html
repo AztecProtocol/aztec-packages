@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Trait Serialize documentation</title>
 </head>
 <body>
@@ -160,13 +163,19 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">serde</a>::<a href="index.html">serialization</a></div>
-<h1>Trait <span id="trait" class="trait">Serialize</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Trait <span id="trait" class="trait">Serialize</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub trait Serialize {
     let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>;
 
     <span class="comment">// Required methods</span>
-    pub fn <a href="#serialize"><span class="fn">serialize</span></a>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; Self::N];
-    pub fn <a href="#stream_serialize"><span class="fn">stream_serialize</span></a>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;);
+    pub fn <a href="#serialize" class="fn">serialize</a>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; Self::N];
+    pub fn <a href="#stream_serialize" class="fn">stream_serialize</a>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;);
 }</code></pre>
 
 <div class="comments">
@@ -203,9 +212,9 @@ fail with an arguments hash mismatch error message.</p>
     }
 }</code></pre></div>
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="serialize" class="code-header">pub fn <a href="#serialize"><span class="fn">serialize</span></a>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; Self::N]</code>
+<div class="padded-methods"><code id="serialize" class="code-header">pub fn <a href="#serialize" class="fn">serialize</a>(self) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; Self::N]</code>
 
-<code id="stream_serialize" class="code-header">pub fn <a href="#stream_serialize"><span class="fn">stream_serialize</span></a>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+<code id="stream_serialize" class="code-header">pub fn <a href="#stream_serialize" class="fn">stream_serialize</a>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
 </div><h2>Implementors</h2>
 <h3 id="impl-Serialize-for-(T0, T1)"><code class="code-header">impl&lt;T0, T1&gt; <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for (T0, T1)
@@ -297,9 +306,9 @@ fail with an arguments hash mismatch error message.</p>
 
 <h3 id="impl-Serialize-for-DiscoveredHandshake"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/messages/delivery/handshake/struct.DiscoveredHandshake.html" class="struct">DiscoveredHandshake</a></code></h3>
 
-<h3 id="impl-Serialize-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+<h3 id="impl-Serialize-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/point/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
 
-<h3 id="impl-Serialize-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurveScalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
+<h3 id="impl-Serialize-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/scalar/struct.Scalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
 
 <h3 id="impl-Serialize-for-Empty"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for Empty</code></h3>
 
@@ -495,6 +504,7 @@ fail with an arguments hash mismatch error message.</p>
 
 <h3 id="impl-Serialize-for-u8"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../std/primitive.u8.html" class="primitive">u8</a></code></h3>
 
+</div>
 </main>
 </span>
 </body>

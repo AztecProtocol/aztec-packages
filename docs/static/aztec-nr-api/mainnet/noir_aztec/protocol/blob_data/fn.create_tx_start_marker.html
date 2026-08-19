@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function create_tx_start_marker documentation</title>
 </head>
 <body>
@@ -36,7 +39,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">protocol</a>::<a href="index.html">blob_data</a></div>
-<h1>Function <span class="fn">create_tx_start_marker</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">create_tx_start_marker</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn create_tx_start_marker(
     num_blob_fields: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
     array_lengths: <a href="../../../protocol_types/blob_data/struct.TxEffectArrayLengths.html" class="struct">TxEffectArrayLengths</a>,
@@ -57,6 +66,7 @@
 <code>revert_code</code> occupies 1 byte.
 Each of the remaining values occupies 2 bytes, allowing a maximum of 2 ** 16 elements each.
 A test below ensures they do not exceed these limits.</p>
+</div>
 </div>
 </main>
 </span>

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function unpack_delay_change documentation</title>
 </head>
 <body>
@@ -28,7 +31,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">delayed_public_mutable</a>::<a href="index.html">delayed_public_mutable_values</a></div>
-<h1>Function <span class="fn">unpack_delay_change</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">unpack_delay_change</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn unpack_delay_change&lt;let INITIAL_DELAY: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>&gt;(
     packed: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> <a href="../../../protocol_types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;INITIAL_DELAY&gt;</code></pre>
@@ -37,6 +46,7 @@
 <p>Extracts a ScheduledDelayChange struct from 0th field of the packed representation of the full DelayedPublicMutable.
 This function expects to be called with just the first field of the packed representation, which contains sdc
 and svc timestamp_of_change. We'll discard the svc component.</p>
+</div>
 </div>
 </main>
 </span>

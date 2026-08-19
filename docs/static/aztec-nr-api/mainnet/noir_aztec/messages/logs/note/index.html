@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Module note documentation</title>
 </head>
 <body>
@@ -32,7 +35,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">logs</a>::note</div>
-<h1>Module <span id="mod" class="module">note</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">note</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.encode_private_note_message.html" class="fn">encode_private_note_message</a></div><div class="item-description">Creates the plaintext for a private note message (i.e. one of type <a href="../../../../noir_aztec/messages/msg_type/global.PRIVATE_NOTE_MSG_TYPE_ID.html"><code>PRIVATE_NOTE_MSG_TYPE_ID</code></a>).</div></li>
 <li><div class="item-name"><a href="fn.encode_private_note_message_with_msg_type_id.html" class="fn">encode_private_note_message_with_msg_type_id</a></div><div class="item-description">Creates the plaintext for a private note message with the given <code>msg_type_id</code>.</div></li>
@@ -41,6 +50,7 @@
 <li><div class="item-name"><a href="global.MAX_NOTE_PACKED_LEN.html" class="global">MAX_NOTE_PACKED_LEN</a></div><div class="item-description">The maximum length of the packed representation of a note's contents. This is limited by private log size,
 encryption overhead and extra fields in the message (e.g. message type id, storage slot, randomness, etc.).</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

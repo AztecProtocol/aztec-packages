@@ -126,23 +126,7 @@ The `GasPrice` interface exported from `@aztec/ethereum/l1-tx-utils` is now `Fee
 - The node's L1 transaction state store writes the new key but still reads states written under the old one, so a node restarting on this version keeps monitoring transactions it sent before the upgrade.
 - Failed-L1-transaction debug records (written when `L1_TX_FAILED_STORE` is set) now use `sentFeesPerGas` and `sentFeesPerGasLadder` instead of `sentGasPrice` and `sentGasPriceLadder`. Records written before the upgrade keep the old keys, and parsing one through `FailedL1TxSchema` returns it without those fields, though the values are still present in the stored JSON under the old names.
 
-## 5.1.0
-
-### [Aztec.nr] Canonical HandshakeRegistry re-pinned at a new address
-
-The canonical `HandshakeRegistry` has been re-pinned so that it includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. The registry moves to a new address. Handshakes established with the previous registry instance are not visible to the new one and must be re-established. The other standard contracts keep their addresses.
-
-### [Aztec.nr] Note property selectors are typed and use packed-layout indices
-
-The selectors in the generated `properties()` used the field's position in the note struct declaration, which pointed at the wrong packed field for any note with an earlier field packing to more than one `Field` (a `Point`, an array, a nested struct). Selector indices are now the field's offset in the note's packed representation, so `select`/`sort` criteria constrain the field they name.
-
-Breaking changes:
-
-- `PropertySelector<T>` carries the selected property's type. Hand-constructed literals need a type annotation, e.g. `let selector: PropertySelector<Field> = PropertySelector { index: 0, offset: 0, length: 32 };`.
-- `select`/`sort` reject properties that pack to more than one `Field` at compile time.
-- `select` takes its value typed as the property's type. Cast the value if a mixed-type comparison was intentional.
-- `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
-- Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
+## 5.2.0
 
 ### [Aztec.nr] Note types declared inside a contract must be `pub`
 
@@ -166,6 +150,56 @@ Note types declared in their own module are unaffected, since they are already `
       owner: AztecAddress,
   }
 ```
+
+### [Sequencer] A sequencer with p2p enabled no longer proposes while it has no connected peers
+
+The sequencer skips building and proposing a checkpoint when p2p is enabled and it is connected to fewer than `SEQ_MIN_PEERS_TO_PROPOSE` peers (default `1`). Proposing into an empty peer set burns the slot and can publish a checkpoint whose transaction data nobody received. L1-only duties (governance and slashing votes, prune, invalidation) are unaffected, and setups that disable p2p entirely (sandbox, local network, single node) still propose as before.
+
+A peerless node also warns periodically, stops filing data-withholding slashing offenses, and rejects incoming transactions until it reconnects.
+
+**Impact**: set `SEQ_MIN_PEERS_TO_PROPOSE=0` to restore the previous behaviour. Fixing the underlying peer connectivity is the real remedy.
+
+### [Node API] JSON-RPC internal errors now return code `-32603`
+
+The JSON-RPC server returned `-32600` ("Invalid Request") for internal server failures. It now returns `-32603` ("Internal error"), which is what the JSON-RPC 2.0 specification defines for that case. Genuine malformed-request errors still return `-32600`.
+
+**Impact**: clients that branch on `-32600` to detect an internal server failure must also handle `-32603`.
+
+### [Node API] `GET /status` now returns a JSON body with per-component health
+
+The status endpoint previously set only an HTTP status code and returned no body. It now responds with `application/json` describing per-component health, for example:
+
+```json
+{ "ok": true, "components": { "p2p": { "healthy": true, "enabled": true, "connectedPeers": 12 } } }
+```
+
+`StatusCheckFn` widens from `() => boolean | Promise<boolean>` to also allow a structured result, and the new `ComponentStatus` / `ServerStatus` / `ServerStatusFn` types plus `SafeJsonRpcServer.getStatus()` are exported. The p2p component fails the check when the connected peer count is below `P2P_HEALTH_MIN_PEERS` (default `0`, which never fails).
+
+**Impact**: consumers that only read the HTTP status code are unaffected. Custom status callbacks that returned a bare boolean keep working.
+
+### [Aztec.js] `deserializeArrayFromVector` removed from `@aztec/foundation/serialize`
+
+`deserializeArrayFromVector` has been deleted from `@aztec/foundation`'s serialization helpers and is no longer exported.
+
+**Impact**: decode length-prefixed vectors with `BufferReader` (`reader.readVector(...)`) instead.
+
+## 5.1.0
+
+### [Aztec.nr] Canonical HandshakeRegistry re-pinned at a new address
+
+The canonical `HandshakeRegistry` has been re-pinned so that it includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. The registry moves to a new address. Handshakes established with the previous registry instance are not visible to the new one and must be re-established. The other standard contracts keep their addresses.
+
+### [Aztec.nr] Note property selectors are typed and use packed-layout indices
+
+The selectors in the generated `properties()` used the field's position in the note struct declaration, which pointed at the wrong packed field for any note with an earlier field packing to more than one `Field` (a `Point`, an array, a nested struct). Selector indices are now the field's offset in the note's packed representation, so `select`/`sort` criteria constrain the field they name.
+
+Breaking changes:
+
+- `PropertySelector<T>` carries the selected property's type. Hand-constructed literals need a type annotation, e.g. `let selector: PropertySelector<Field> = PropertySelector { index: 0, offset: 0, length: 32 };`.
+- `select`/`sort` reject properties that pack to more than one `Field` at compile time.
+- `select` takes its value typed as the property's type. Cast the value if a mixed-type comparison was intentional.
+- `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
+- Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
 
 ## 5.0.1
 

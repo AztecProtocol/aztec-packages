@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Trait Deserialize documentation</title>
 </head>
 <body>
@@ -131,6 +134,7 @@
 <li><a href="#impl-Deserialize-for-TreeSnapshots">TreeSnapshots</a></li>
 <li><a href="#impl-Deserialize-for-TxConstantData">TxConstantData</a></li>
 <li><a href="#impl-Deserialize-for-TxContext">TxContext</a></li>
+<li><a href="#impl-Deserialize-for-TxEffect">TxEffect</a></li>
 <li><a href="#impl-Deserialize-for-TxRequest">TxRequest</a></li>
 <li><a href="#impl-Deserialize-for-UintNote">UintNote</a></li>
 <li><a href="#impl-Deserialize-for-UnconstrainedArray<T, EphemeralOracles>">UnconstrainedArray<T, EphemeralOracles></a></li>
@@ -159,13 +163,19 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">serde</a>::<a href="index.html">serialization</a></div>
-<h1>Trait <span id="trait" class="trait">Deserialize</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Trait <span id="trait" class="trait">Deserialize</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub trait Deserialize {
     let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>;
 
     <span class="comment">// Required methods</span>
-    pub fn <a href="#deserialize"><span class="fn">deserialize</span></a>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; Self::N]) -> Self;
-    pub fn <a href="#stream_deserialize"><span class="fn">stream_deserialize</span></a>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self;
+    pub fn <a href="#deserialize" class="fn">deserialize</a>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; Self::N]) -> Self;
+    pub fn <a href="#stream_deserialize" class="fn">stream_deserialize</a>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self;
 }</code></pre>
 
 <div class="comments">
@@ -198,9 +208,9 @@ deserializing return values from function calls in Noir. Since the same function
     }
 }</code></pre></div>
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="deserialize" class="code-header">pub fn <a href="#deserialize"><span class="fn">deserialize</span></a>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; Self::N]) -> Self</code>
+<div class="padded-methods"><code id="deserialize" class="code-header">pub fn <a href="#deserialize" class="fn">deserialize</a>(fields: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; Self::N]) -> Self</code>
 
-<code id="stream_deserialize" class="code-header">pub fn <a href="#stream_deserialize"><span class="fn">stream_deserialize</span></a>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+<code id="stream_deserialize" class="code-header">pub fn <a href="#stream_deserialize" class="fn">stream_deserialize</a>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
 </div><h2>Implementors</h2>
 <h3 id="impl-Deserialize-for-()"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for ()</code></h3>
@@ -294,9 +304,9 @@ deserializing return values from function calls in Noir. Since the same function
 
 <h3 id="impl-Deserialize-for-DiscoveredHandshake"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/messages/delivery/handshake/struct.DiscoveredHandshake.html" class="struct">DiscoveredHandshake</a></code></h3>
 
-<h3 id="impl-Deserialize-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
+<h3 id="impl-Deserialize-for-EmbeddedCurvePoint"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/point/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></h3>
 
-<h3 id="impl-Deserialize-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/embedded_curve_ops/struct.EmbeddedCurveScalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
+<h3 id="impl-Deserialize-for-EmbeddedCurveScalar"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/scalar/struct.Scalar.html" class="struct">EmbeddedCurveScalar</a></code></h3>
 
 <h3 id="impl-Deserialize-for-Empty"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for Empty</code></h3>
 
@@ -456,6 +466,8 @@ deserializing return values from function calls in Noir. Since the same function
 
 <h3 id="impl-Deserialize-for-TxContext"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/transaction/tx_context/struct.TxContext.html" class="struct">TxContext</a></code></h3>
 
+<h3 id="impl-Deserialize-for-TxEffect"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/blob_data/struct.TxEffect.html" class="struct">TxEffect</a></code></h3>
+
 <h3 id="impl-Deserialize-for-TxRequest"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/transaction/tx_request/struct.TxRequest.html" class="struct">TxRequest</a></code></h3>
 
 <h3 id="impl-Deserialize-for-UintNote"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../uint_note/struct.UintNote.html" class="struct">UintNote</a></code></h3>
@@ -488,6 +500,7 @@ deserializing return values from function calls in Noir. Since the same function
 
 <h3 id="impl-Deserialize-for-u8"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../std/primitive.u8.html" class="primitive">u8</a></code></h3>
 
+</div>
 </main>
 </span>
 </body>

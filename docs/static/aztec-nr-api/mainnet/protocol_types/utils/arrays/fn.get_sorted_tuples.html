@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function get_sorted_tuples documentation</title>
 </head>
 <body>
@@ -38,7 +41,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">utils</a>::<a href="index.html">arrays</a></div>
-<h1>Function <span class="fn">get_sorted_tuples</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">get_sorted_tuples</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub unconstrained fn get_sorted_tuples&lt;T, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, Env&gt;(
     array: [T; N],
     ordering: fn[Env](T, T) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
@@ -49,6 +58,7 @@
 <div class="comments">
 <p>Sorts the input <code>array</code>, but also outputs an <code>original_index</code> field for each sorted
 item, so that you know where it came from.</p>
+</div>
 </div>
 </main>
 </span>

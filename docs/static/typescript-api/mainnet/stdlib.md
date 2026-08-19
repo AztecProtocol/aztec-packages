@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: 5.1.0
+Version: 5.2.0
 
 ## Quick Import Reference
 
@@ -600,7 +600,7 @@ new EthAddress(buffer: Buffer)
 
 ### EventDrivenL2BlockStream
 
-Event-driven wrapper around L2BlockStream. Subscribes to the source's aggregate `l2BlockSourceUpdated` event (when the source exposes one) to trigger an immediate reconciliation, while keeping the periodic poll as the correctness fallback. Subsystems keep consuming the same L2BlockStreamEvents; the archiver aggregate event is handled entirely here. The event is passed through to the sync pass via RunningPromise.trigger. If, at the time the pass runs, the stream's local tips match the event's `fromTips` (it is caught up to where the event began), the event's hydrated blocks are served back through a hot-block cache and the event's `toTips` is reported as the source tips — so the triggered sync re-reads neither block bodies nor tips from the archiver. Otherwise the pass delegates entirely to the source, and the periodic poll guarantees eventual catch-up.
+Event-driven wrapper around L2BlockStream. Subscribes to the source's aggregate `l2BlockSourceUpdated` event (when the source exposes one) and uses it purely as a doorbell: each event triggers an immediate reconciliation pass instead of waiting for the next tick, while the periodic poll remains the correctness fallback. Every pass reads tips and blocks authoritatively from the source, so a missed, stale, or duplicated event only affects latency. Subsystems keep consuming the same L2BlockStreamEvents; the archiver aggregate event is handled entirely here.
 
 **Constructor**
 ```typescript
@@ -611,7 +611,7 @@ new EventDrivenL2BlockStream(source: L2BlockSource | L2BlockSourceEventEmitter, 
 - `isRunning() => boolean`
 - `start() => void`
 - `stop() => Promise<void>`
-- `sync() => Promise<void>` - Runs a synchronization pass now, bypassing the poll interval, and resolves once that pass completes. Concurrent callers and periodic ticks coalesce onto a single pass; a caller that coalesces onto an already in-flight pass can resolve against a pass that began just before it, so this guarantees freshness only up to that coalescing window. The periodic poll and per-pass reorg handling make the gap a latency effect, never a correctness one.
+- `sync() => Promise<void>` - Runs a synchronization pass now, bypassing the poll interval. Resolves once a pass that started after this call completes, so the caller observes state at least as fresh as the moment it asked. Concurrent callers coalesce onto a single such pass. Rejects if the stream is stopped before that pass runs.
 
 ### EventSelector
 
@@ -944,6 +944,7 @@ new HashedValues(values: Fr[], hash: Fr)
 - `static getFields(fields: FieldsOf<HashedValues>) => readonly []`
 - `getSize() => number`
 - `static random() => HashedValues`
+- `static schemaFor(maxValues?: number) => ZodFor<HashedValues>` - Returns a schema that additionally rejects more than `maxValues` values. The bound belongs to the caller rather than to this class: the same container carries public calldata, private call arguments and authwit arguments, and those have different limits.
 - `toBuffer() => Buffer`
 
 ### InMemoryDebugLogStore
@@ -2279,6 +2280,14 @@ new UtilityExecutionResult(result: Fr[], offchainEffects: { contractAddress: Azt
 - `static random() => UtilityExecutionResult`
 
 ## Interfaces
+
+### AbiNamedValue
+
+An exported value together with the name of the global that produced it.
+
+**Properties**
+- `name: string` - The name of the exported global.
+- `value: AbiValue` - The exported value.
 
 ### ArrayType
 
@@ -4056,11 +4065,11 @@ type L2BlockProvenEvent = unknown
 ```typescript
 type L2BlockSourceUpdatedEvent = unknown
 ```
-Aggregate event emitted once per committed archiver sync pass that mutated local state. Carries the chain tips before and after the pass, and the blocks added during it. Consumers compare `fromTips` and `toTips` to learn what moved; there is no separate `changed` section. This is an optimization signal that lets a block stream reconcile immediately on an archiver update rather than waiting for its next poll. Polling remains the correctness fallback, so a missed event only affects latency. `blocksAdded` are hydrated blocks already in hand from the sync pass, so a triggered sync that is caught up to `fromTips` can reuse them (and `toTips`) instead of re-reading the store.
+Aggregate event emitted once per committed archiver sync pass that mutated local state. Carries the chain tips before and after the pass; consumers compare `fromTips` and `toTips` to learn what moved, and read any data they need from the source itself. This is an optimization signal that lets a block stream reconcile immediately on an archiver update rather than waiting for its next poll. Polling remains the correctness fallback, so a missed event only affects latency.
 
 ### L2BlockStreamEvent
 ```typescript
-type L2BlockStreamEvent = { blocks: L2Block[]; type: "blocks-added" } | { block: L2BlockId; type: "chain-proposed" } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-checkpointed" } | { block: L2BlockId; checkpointed: L2TipId; ... } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-proven" } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-finalized" }
+type L2BlockStreamEvent = { blocks: L2Block[]; type: "blocks-added" } | { block: L2BlockId; header: BlockHeader; type: "chain-proposed" } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-checkpointed" } | { block: L2BlockId; checkpointed: L2TipId; ... } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-proven" } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-finalized" }
 ```
 
 ### L2BlockStreamOptions
@@ -4173,6 +4182,12 @@ type MAGIC_CONGESTION_VALUE_DIVISOR = [object Object]
 ```typescript
 type MAGIC_CONGESTION_VALUE_MULTIPLIER = [object Object]
 ```
+
+### MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX
+```typescript
+type MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX = number
+```
+Upper bound on the calldata entries a tx can carry: one per enqueued call, plus one for the teardown call. The revertible and non-revertible call request arrays are each sized `MAX_ENQUEUED_CALLS_PER_TX`, but the private tail circuit fills them by partitioning a single array of that size, so their lengths sum to it. The teardown request is propagated separately and can only be set once.
 
 ### MINIMUM_CONGESTION_MULTIPLIER
 ```typescript

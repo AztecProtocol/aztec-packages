@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Function check_membership_with_hasher documentation</title>
 </head>
 <body>
@@ -32,7 +35,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol</a>::<a href="../index.html">merkle_tree</a>::<a href="index.html">membership</a></div>
-<h1>Function <span class="fn">check_membership_with_hasher</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">check_membership_with_hasher</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn check_membership_with_hasher&lt;let TREE_HEIGHT: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     leaf: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
     membership_witness: <a href="../../../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;TREE_HEIGHT&gt;,
@@ -48,6 +57,7 @@ Same as <code>check_membership</code> but uses a custom hasher.
 <ul>
 <li>bool: <code>true</code> if the leaf exists in the tree, <code>false</code> otherwise.</li>
 </ul>
+</div>
 </div>
 </main>
 </span>

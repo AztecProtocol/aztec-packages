@@ -297,12 +297,12 @@ The snippet below shows a contract with two private state variables: an admin ad
 
 ```rust
 #[note]
-struct AddressNote {
+pub struct AddressNote {
     value: AztecAddress,
 }
 
 #[note]
-struct UintNote {
+pub struct UintNote {
     value: u128,
 }
 

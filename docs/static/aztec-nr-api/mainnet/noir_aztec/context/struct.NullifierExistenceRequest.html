@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct NullifierExistenceRequest documentation</title>
 </head>
 <body>
@@ -40,7 +43,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">context</a></div>
-<h1>Struct <span id="struct" class="struct">NullifierExistenceRequest</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">NullifierExistenceRequest</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct NullifierExistenceRequest
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -50,21 +59,22 @@
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../noir_aztec/context/struct.NullifierExistenceRequest.html" class="struct">NullifierExistenceRequest</a></code></h3>
 
-<div class="padded-methods"><code id="for_pending" class="code-header">pub fn <a href="#for_pending"><span class="fn">for_pending</span></a>(unsiloed_nullifier: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+<div class="padded-methods"><code id="for_pending" class="code-header">pub fn <a href="#for_pending" class="fn">for_pending</a>(unsiloed_nullifier: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Creates an existence request for a pending nullifier.</p>
 <p>Pending nullifiers have not been siloed with the contract address. These requests are created using the
 unsiloed value and address of the contract that emitted the nullifier.</p>
 </div>
-</div><code id="for_settled" class="code-header">pub fn <a href="#for_settled"><span class="fn">for_settled</span></a>(siloed_nullifier: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+</div><code id="for_settled" class="code-header">pub fn <a href="#for_settled" class="fn">for_settled</a>(siloed_nullifier: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Creates an existence request for a settled nullifier.</p>
 <p>Unlike pending nullifiers, settled nullifiers have been siloed with their contract addresses before adding to
 the nullifier tree, and their existence request is created using the siloed value.</p>
 </div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Module note_getter documentation</title>
 </head>
 <body>
@@ -43,7 +46,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::note_getter</div>
-<h1>Module <span id="mod" class="module">note_getter</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">note_getter</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="re-exports">Re-exports</h2><ul class="item-list">
 <li><div class="item-name"><code>pub use noir_aztec::note::constants::<a href="../../../noir_aztec/note/constants/global.MAX_NOTES_PER_PAGE.html" class="global">MAX_NOTES_PER_PAGE</a>;</code></div></li>
 </ul>
@@ -57,6 +66,7 @@ requests, which can save constraints when computing the note's nullifiers.</div>
 content is returned, and not any of the information used when proving its existence (e.g. note nonce, note hash,
 etc.).</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

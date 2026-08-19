@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Struct ExecuteUtilityOptions documentation</title>
 </head>
 <body>
@@ -39,7 +42,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">test</a>::<a href="../index.html">helpers</a>::<a href="index.html">test_environment</a></div>
-<h1>Struct <span id="struct" class="struct">ExecuteUtilityOptions</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">ExecuteUtilityOptions</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct ExecuteUtilityOptions&lt;let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -51,15 +60,22 @@
     SomeContract::at(addr).some_utility_function(),
 );</code></pre></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html" class="struct">ExecuteUtilityOptions</a>&lt;T&gt;</code></h3>
+<h3><code class="code-header">impl <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html" class="struct">ExecuteUtilityOptions</a>&lt;0&gt;</code></h3>
 
-<div class="padded-methods"><code id="with_from" class="code-header">pub fn <a href="#with_from"><span class="fn">with_from</span></a>(&mut self, from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates default <code>ExecuteUtilityOptions</code>.</p>
+</div>
+</div></div><h3><code class="code-header">impl&lt;let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html" class="struct">ExecuteUtilityOptions</a>&lt;T&gt;</code></h3>
+
+<div class="padded-methods"><code id="with_from" class="code-header">pub fn <a href="#with_from" class="fn">with_from</a>(&mut self, from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets the <code>msg_sender</code> simulating a cross-contract call.</p>
 <p>By default, an <code>Option::none</code> value is supplied to <code>maybe_msg_sender</code>.</p>
 </div>
-</div><code id="with_authorized_utility_call_targets" class="code-header">pub fn <a href="#with_authorized_utility_call_targets"><span class="fn">with_authorized_utility_call_targets</span></a>&lt;let T_2: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+</div><code id="with_authorized_utility_call_targets" class="code-header">pub fn <a href="#with_authorized_utility_call_targets" class="fn">with_authorized_utility_call_targets</a>&lt;let T_2: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     self,
     targets: [<a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>; T_2],
 ) -> <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html" class="struct">ExecuteUtilityOptions</a>&lt;T_2&gt;</code>
@@ -69,14 +85,8 @@
 <p>By default, cross-contract utility calls are denied. This method lets the test author specify which target
 contracts are allowed to be called via utility functions during execution.</p>
 </div>
-</div></div><h3><code class="code-header">impl <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html" class="struct">ExecuteUtilityOptions</a>&lt;0&gt;</code></h3>
-
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self</code>
-
-<div class="padded-description"><div class="comments">
-<p>Creates default <code>ExecuteUtilityOptions</code>.</p>
-</div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

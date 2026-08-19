@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct UtilityContext documentation</title>
 </head>
 <body>
@@ -53,26 +56,32 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">context</a></div>
-<h1>Struct <span id="struct" class="struct">UtilityContext</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">UtilityContext</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct UtilityContext
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub unconstrained fn <a href="#new"><span class="fn">new</span></a>() -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub unconstrained fn <a href="#new" class="fn">new</a>() -> Self</code>
 
-<code id="at" class="code-header">pub unconstrained fn <a href="#at"><span class="fn">at</span></a>(contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+<code id="at" class="code-header">pub unconstrained fn <a href="#at" class="fn">at</a>(contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
-<code id="block_header" class="code-header">pub fn <a href="#block_header"><span class="fn">block_header</span></a>(self) -> <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code>
+<code id="block_header" class="code-header">pub fn <a href="#block_header" class="fn">block_header</a>(self) -> <a href="../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code>
 
-<code id="block_number" class="code-header">pub fn <a href="#block_number"><span class="fn">block_number</span></a>(self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
+<code id="block_number" class="code-header">pub fn <a href="#block_number" class="fn">block_number</a>(self) -> <a href="../../std/primitive.u32.html" class="primitive">u32</a></code>
 
-<code id="timestamp" class="code-header">pub fn <a href="#timestamp"><span class="fn">timestamp</span></a>(self) -> <a href="../../std/primitive.u64.html" class="primitive">u64</a></code>
+<code id="timestamp" class="code-header">pub fn <a href="#timestamp" class="fn">timestamp</a>(self) -> <a href="../../std/primitive.u64.html" class="primitive">u64</a></code>
 
-<code id="this_address" class="code-header">pub fn <a href="#this_address"><span class="fn">this_address</span></a>(self) -> <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+<code id="this_address" class="code-header">pub fn <a href="#this_address" class="fn">this_address</a>(self) -> <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
 
-<code id="maybe_msg_sender" class="code-header">pub unconstrained fn <a href="#maybe_msg_sender"><span class="fn">maybe_msg_sender</span></a>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code>
+<code id="maybe_msg_sender" class="code-header">pub unconstrained fn <a href="#maybe_msg_sender" class="fn">maybe_msg_sender</a>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;</code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the address that initiated this utility call.</p>
@@ -83,16 +92,16 @@ or dApp) has no caller and sees <code>Option::none</code>.</p>
 simulator (PXE) set it to: nothing about it is verified onchain. It exists to assist simulation in a
 cooperative environment and must not be relied on as a security guarantee.</p>
 </div>
-</div><code id="version" class="code-header">pub fn <a href="#version"><span class="fn">version</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+</div><code id="version" class="code-header">pub fn <a href="#version" class="fn">version</a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-<code id="chain_id" class="code-header">pub fn <a href="#chain_id"><span class="fn">chain_id</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+<code id="chain_id" class="code-header">pub fn <a href="#chain_id" class="fn">chain_id</a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-<code id="raw_storage_read" class="code-header">pub unconstrained fn <a href="#raw_storage_read"><span class="fn">raw_storage_read</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+<code id="raw_storage_read" class="code-header">pub unconstrained fn <a href="#raw_storage_read" class="fn">raw_storage_read</a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     self,
     storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N]</code>
 
-<code id="storage_read" class="code-header">pub unconstrained fn <a href="#storage_read"><span class="fn">storage_read</span></a>&lt;T&gt;(self, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> T
+<code id="storage_read" class="code-header">pub unconstrained fn <a href="#storage_read" class="fn">storage_read</a>&lt;T&gt;(self, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> T
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
@@ -101,7 +110,8 @@ cooperative environment and must not be relied on as a security guarantee.</p>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">from</span>(data: UtilityContextData) -> Self</code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

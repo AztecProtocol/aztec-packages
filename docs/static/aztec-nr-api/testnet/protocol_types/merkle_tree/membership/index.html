@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Module membership documentation</title>
 </head>
 <body>
@@ -37,7 +40,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">merkle_tree</a>::membership</div>
-<h1>Module <span id="mod" class="module">membership</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">membership</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="structs">Structs</h2><ul class="item-list">
 <li><div class="item-name"><a href="struct.MembershipWitness.html" class="struct">MembershipWitness</a></div><div class="item-description"></div></li>
 </ul>
@@ -64,6 +73,7 @@ Use this variant for indexed trees whose internal nodes use a tree-specific sepa
 Use this variant for indexed trees whose internal nodes use a tree-specific separator
 (e.g. <code>public_data_merkle_hash</code>).</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

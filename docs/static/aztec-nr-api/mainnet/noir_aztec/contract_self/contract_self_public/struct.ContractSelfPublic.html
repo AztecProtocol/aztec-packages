@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct ContractSelfPublic documentation</title>
 </head>
 <body>
@@ -42,7 +45,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">contract_self</a>::<a href="index.html">contract_self_public</a></div>
-<h1>Struct <span id="struct" class="struct">ContractSelfPublic</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">ContractSelfPublic</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct ContractSelfPublic&lt;Storage, CallSelf, CallSelfStatic, CallInternal&gt; {
     pub address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     pub storage: Storage,
@@ -102,9 +111,9 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 <p>Example API:</p>
 <pre><code>self.internal.some_internal_function(args)</code></pre></div>
 </div><h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;CallInternal, CallSelf, CallSelfStatic, Storage&gt; <a href="../../../noir_aztec/contract_self/contract_self_public/struct.ContractSelfPublic.html" class="struct">ContractSelfPublic</a>&lt;Storage, CallSelf, CallSelfStatic, CallInternal&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Storage, CallSelf, CallSelfStatic, CallInternal&gt; <a href="../../../noir_aztec/contract_self/contract_self_public/struct.ContractSelfPublic.html" class="struct">ContractSelfPublic</a>&lt;Storage, CallSelf, CallSelfStatic, CallInternal&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>(
     context: <a href="../../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>,
     storage: Storage,
     call_self: CallSelf,
@@ -116,7 +125,7 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 <p>Creates a new <code>ContractSelfPublic</code> instance for a public function.</p>
 <p>This constructor is called automatically by the macro system and should not be called directly.</p>
 </div>
-</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender" class="fn">msg_sender</a>(self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>The address of the contract address that made this function call.</p>
@@ -126,7 +135,7 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 <p><a href="../../../noir_aztec/contract_self/contract_self_private/struct.ContractSelfPrivate.html#enqueue_incognito"><code>ContractSelfPrivate::enqueue_incognito</code></a>).
 This function reverts when executed in such a context.</p>
 <p>If you need to handle these cases, use <a href="../../../noir_aztec/context/struct.PublicContext.html#maybe_msg_sender"><code>PublicContext::maybe_msg_sender</code></a>.</p></div>
-</div><code id="emit" class="code-header">pub unconstrained fn <a href="#emit"><span class="fn">emit</span></a>&lt;Event&gt;(&mut self, event: Event)
+</div><code id="emit" class="code-header">pub unconstrained fn <a href="#emit" class="fn">emit</a>&lt;Event&gt;(&mut self, event: Event)
 <div class="where-clause">where
     Event: <a href="../../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
     Event: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
@@ -147,7 +156,7 @@ events on EVM chains.</p>
 <h4>Cost</h4>
 <p>Public event emission is achieved by emitting public transaction logs. A total of <code>N+1</code> fields are emitted,
 where <code>N</code> is the serialization length of the event.</p></div>
-</div><code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+</div><code id="call" class="code-header">pub unconstrained fn <a href="#call" class="fn">call</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     self,
     call: <a href="../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
 ) -> T
@@ -167,7 +176,7 @@ where <code>N</code> is the serialization length of the event.</p></div>
 </ul>
 <h4>Example</h4>
 <pre><code>self.call(Token::at(address).transfer_in_public(recipient, amount));</code></pre></div>
-</div><code id="view" class="code-header">pub unconstrained fn <a href="#view"><span class="fn">view</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+</div><code id="view" class="code-header">pub unconstrained fn <a href="#view" class="fn">view</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     self,
     call: <a href="../../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
 ) -> T
@@ -189,7 +198,8 @@ calls are constrained to also be static calls.</p>
 </ul>
 <h4>Example</h4>
 <pre><code>self.view(Token::at(address).balance_of_public(recipient));</code></pre></div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct PrivateImmutable documentation</title>
 </head>
 <body>
@@ -51,7 +54,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
-<h1>Struct <span id="struct" class="struct">PrivateImmutable</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">PrivateImmutable</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct PrivateImmutable&lt;Note, Context&gt;
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -79,34 +88,11 @@ different users can have their own distinct parameters.</p>
 <li><code>Context</code> - The execution context (PrivateContext or UtilityContext).</li>
 </ul></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Note, Context&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
 
-<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a>
-<div class="where-clause">where
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+<div class="padded-methods"></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
-<div class="padded-description"><div class="comments">
-<p>Returns <code>true</code> if this PrivateImmutable has been initialized.</p>
-</div>
-</div><code id="view_note" class="code-header">pub unconstrained fn <a href="#view_note"><span class="fn">view_note</span></a>(self) -> Note
-<div class="where-clause">where
-    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
-    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Returns the permanent note in this PrivateImmutable without consuming it.</p>
-<p>This function is only available in a UtilityContext (unconstrained environment) and is typically used for
-offchain queries, view functions, or testing.</p>
-<p>Unlike the constrained <code>get_note()</code>, this function does not push read requests or perform validation. It simply
-reads the note from the PXE's database.</p>
-</div>
-</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, note: Note) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
+<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize" class="fn">initialize</a>(self, note: Note) -> <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
@@ -122,7 +108,7 @@ PrivateImmutable. Subsequent calls will fail because the initialization nullifie
 <ul>
 <li>it persists for the lifetime of the state variable.</li>
 </ul></div>
-</div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> Note
+</div><code id="get_note" class="code-header">pub fn <a href="#get_note" class="fn">get_note</a>(self) -> Note
 <div class="where-clause">where
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
@@ -135,14 +121,35 @@ and the transaction will not be provable.</p>
 <p>Since the note is immutable, there's no risk of reading stale data or race conditions - the note never changes
 after initialization.</p>
 </div>
-</div></div><h3><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
+</div></div><h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;
+<div class="where-clause">where
+    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a>,
+    Note: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code></h3>
 
-<div class="padded-methods"></div><h2>Trait implementations</h2>
+<div class="padded-methods"><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized" class="fn">is_initialized</a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns <code>true</code> if this PrivateImmutable has been initialized.</p>
+</div>
+</div><code id="view_note" class="code-header">pub unconstrained fn <a href="#view_note" class="fn">view_note</a>(self) -> Note
+<div class="where-clause">where
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the permanent note in this PrivateImmutable without consuming it.</p>
+<p>This function is only available in a UtilityContext (unconstrained environment) and is typically used for
+offchain queries, view functions, or testing.</p>
+<p>Unlike the constrained <code>get_note()</code>, this function does not push read requests or perform validation. It simply
+reads the note from the PXE's database.</p>
+</div>
+</div></div><h2>Trait implementations</h2>
 <h3 id="impl-OwnedStateVariable&lt;Context&gt;-for-PrivateImmutable<Note, Context>"><code class="code-header">impl&lt;Context, Note&gt; <a href="../../noir_aztec/state_vars/trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a>&lt;Context&gt; for <a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html" class="struct">PrivateImmutable</a>&lt;Note, Context&gt;</code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>
