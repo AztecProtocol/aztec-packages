@@ -16,7 +16,7 @@ This is an auto-generated reference. For tutorials and guides, see the [Aztec.js
 
 *Package: @aztec/aztec.js*
 
-*Generated: 2026-08-18T15:38:28.901Z*
+*Generated: 2026-08-19T09:19:51.719Z*
 
 This document provides a comprehensive reference for all public APIs in the Aztec.js library.
 
@@ -4688,7 +4688,7 @@ Waits for the L1 to L2 message to be ready to be consumed.
 
 ```typescript
 export waitForL1ToL2MessageReady(
-  node: Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageCheckpoint'>,
+  node: Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageIndex'>,
   l1ToL2MessageHash: Fr,
   opts: {
     timeoutSeconds: number;
@@ -4699,7 +4699,7 @@ export waitForL1ToL2MessageReady(
 
 **Parameters:**
 
-- `node`: `Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageCheckpoint'>`
+- `node`: `Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageIndex'>`
   - Aztec node instance used to obtain the information about the message
 - `l1ToL2MessageHash`: `Fr`
   - Hash of the L1 to L2 message
@@ -4733,7 +4733,7 @@ Returns whether the L1 to L2 message is ready to be consumed.
 
 ```typescript
 export async isL1ToL2MessageReady(
-  node: Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageCheckpoint'>,
+  node: Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageIndex'>,
   l1ToL2MessageHash: Fr,
   chainTip: BlockTag = 'latest'
 ): Promise<boolean>
@@ -4741,7 +4741,7 @@ export async isL1ToL2MessageReady(
 
 **Parameters:**
 
-- `node`: `Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageCheckpoint'>`
+- `node`: `Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageIndex'>`
   - Aztec node instance used to obtain the information about the message
 - `l1ToL2MessageHash`: `Fr`
   - Hash of the L1 to L2 message
