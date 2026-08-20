@@ -136,7 +136,7 @@ function contractWithGlobals(globals: Record<string, AbiNamedValue[]>): NoirComp
     aztec_version: '1.0.0',
     transpiled: true,
     functions: [],
-    outputs: { structs: {}, globals },
+    outputs: { structs: { functions: [] }, globals },
     file_map: {},
   };
 }
