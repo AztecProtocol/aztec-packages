@@ -53,6 +53,23 @@ describe('contract_artifact', () => {
     expect(artifact.storageLayout).toEqual({ balance: { slot: new Fr(1) } });
   });
 
+  it('reports the contract and function when a verification key has the wrong size', () => {
+    const contract = contractWithGlobals({});
+    contract.functions.push({
+      name: 'deposit',
+      is_unconstrained: false,
+      custom_attributes: ['abi_private'],
+      abi: { parameters: [], return_type: null, error_types: {} },
+      bytecode: '',
+      verification_key: Buffer.alloc(1).toString('base64'),
+      debug_symbols: '',
+    });
+
+    expect(() => loadContractArtifact(contract)).toThrow(
+      /TestContract::deposit.*verification key has wrong size: expected \d+, got 1.*rebuild.*current toolchain/i,
+    );
+  });
+
   it('loads the constants exported by the Test contract', () => {
     const artifact = getTestContractArtifact();
     const constants = getGlobalsByTag(artifact, 'constants');

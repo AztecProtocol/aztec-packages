@@ -1,3 +1,5 @@
+import { MEGA_APP_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import {
@@ -213,6 +215,16 @@ function generateFunctionArtifact(
   contract: NoirCompiledContract,
 ): Omit<FunctionArtifact, 'bytecode'> & { bytecode: string } {
   const abi = generateFunctionAbi(fn, contract);
+  if (abi.functionType === FunctionType.PRIVATE && fn.verification_key) {
+    const expectedSize = MEGA_APP_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES;
+    const actualSize = Buffer.from(fn.verification_key, 'base64').length;
+    if (actualSize !== expectedSize) {
+      throw new Error(
+        `${contract.name}::${fn.name} — verification key has wrong size: expected ${expectedSize}, got ${actualSize}. ` +
+          'This artifact may be stale or compiled with an incompatible toolchain version; rebuild it with the current toolchain.',
+      );
+    }
+  }
   return {
     ...abi,
     bytecode: fn.bytecode,
