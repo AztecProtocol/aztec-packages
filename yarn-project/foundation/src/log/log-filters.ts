@@ -46,6 +46,25 @@ export function parseLogLevelEnvVar(
   return [level, parseFilters(logLevelEnvVar.slice(level.length + 1))];
 }
 
+/**
+ * Renders a default level and per-module filters into the `LOG_LEVEL` env var format.
+ * Inverse of {@link parseLogLevelEnvVar}: parsing the returned string yields the same level and filters.
+ */
+export function formatLogLevelSpec(defaultLevel: LogLevel, filters: LogFilters): string {
+  const statements = [...filters].reverse().map(([module, level]) => `${level}:${module}`);
+  return [defaultLevel, ...statements].join(';');
+}
+
+/** Returns whether the given string is a valid log level spec in the `LOG_LEVEL` env var format. */
+export function isValidLogLevelSpec(spec: string): boolean {
+  try {
+    parseLogLevelEnvVar(spec, 'info');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function assertValidLogLevel(level: string): asserts level is LogLevel {
   if (!LogLevels.includes(level as LogLevel)) {
     throw new Error(`Invalid log level: ${level}`);

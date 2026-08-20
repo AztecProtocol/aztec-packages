@@ -10,7 +10,7 @@ import { parseBooleanEnv } from '../config/parse-env.js';
 import { AWSCloudLoggerConfig } from './aws-logger-config.js';
 import { convertBigintsToStrings } from './bigint-utils.js';
 import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
-import { getLogLevelFromFilters, parseLogLevelEnvVar } from './log-filters.js';
+import { type LogFilters, formatLogLevelSpec, getLogLevelFromFilters, parseLogLevelEnvVar } from './log-filters.js';
 import type { LogLevel } from './log-levels.js';
 import type { LogData, LogFn } from './log_fn.js';
 
@@ -57,10 +57,7 @@ export function createLogger(module: string, bindings?: LoggerBindings): Logger 
   const actor = resolvedBindings?.actor;
   const instanceId = resolvedBindings?.instanceId;
 
-  const pinoLogger = logger.child(
-    { module, ...(actor && { actor }), ...(instanceId && { instanceId }) },
-    { level: getLogLevelFromFilters(logFilters, module) },
-  );
+  const pinoLogger = createPinoChild(module, { actor, instanceId });
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
   // Note that isLevelEnabled is missing from the browser version of pino.
@@ -85,7 +82,9 @@ export function createLogger(module: string, bindings?: LoggerBindings): Logger 
     /** Log as trace. Use for when we want to denial-of-service any recipient of the logs. */
     trace: (msg: string, data?: unknown) => logFn('trace', msg, data),
     /** Level of the logger */
-    level: pinoLogger.level as LogLevel,
+    get level() {
+      return pinoLogger.level as LogLevel;
+    },
     /** Whether the given level is enabled for this logger. */
     isLevelEnabled: (level: LogLevel) => isLevelEnabled(pinoLogger, level),
     /** Module name for the logger. */
@@ -128,9 +127,64 @@ function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel
     : logger.levels.values[level] >= logger.levels.values[logger.level];
 }
 
-// Load log levels from environment variables.
+// Load log levels from environment variables. These exports reflect the startup configuration;
+// the current values (mutable via setLogLevel) are tracked separately below.
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
 export const [logLevel, logFilters] = parseLogLevelEnvVar(process.env.LOG_LEVEL, defaultLogLevel);
+
+let currentLogLevel: LogLevel = logLevel;
+let currentLogFilters: LogFilters = logFilters;
+
+// Registry of live pino child loggers so setLogLevel can update their levels in place: pino children do not follow
+// changes to their parent's level after creation. Entries are weakly held since some code paths create short-lived
+// loggers (e.g. per-tx validators); the module name is kept alongside to recompute the per-module filter level.
+type RegisteredPinoChild = { ref: WeakRef<pino.Logger<'verbose'>>; module: string };
+const registeredPinoChildren = new Set<RegisteredPinoChild>();
+const pinoChildFinalizer = new FinalizationRegistry<RegisteredPinoChild>(entry => registeredPinoChildren.delete(entry));
+
+/**
+ * Creates a pino child logger with the current per-module filter level applied, registered so later setLogLevel calls
+ * update it in place. Internal to the logging module: use createLogger unless a raw pino instance is required.
+ */
+export function createPinoChild(module: string, bindings: LoggerBindings = {}): pino.Logger<'verbose'> {
+  const { actor, instanceId } = bindings;
+  const child = logger.child(
+    { module, ...(actor && { actor }), ...(instanceId && { instanceId }) },
+    { level: getLogLevelFromFilters(currentLogFilters, module) },
+  );
+  const entry = { ref: new WeakRef(child), module };
+  registeredPinoChildren.add(entry);
+  pinoChildFinalizer.register(child, entry);
+  return child;
+}
+
+/**
+ * Updates the log level and per-module filters of all loggers created via createLogger, and of loggers created
+ * afterwards. Accepts the same format as the `LOG_LEVEL` env var (e.g. `info` or `debug;trace:sequencer,p2p`).
+ * Only affects the current process: spawned processes such as prover agents keep their own configuration.
+ * @param spec - Log level spec in `LOG_LEVEL` env var format. Throws if invalid, leaving current levels untouched.
+ */
+export function setLogLevel(spec: string): void {
+  const [newLevel, newFilters] = parseLogLevelEnvVar(spec, defaultLogLevel);
+  const previous = getLogLevel();
+  currentLogLevel = newLevel;
+  currentLogFilters = newFilters;
+  logger.level = newLevel;
+  for (const entry of registeredPinoChildren) {
+    const child = entry.ref.deref();
+    if (child === undefined) {
+      registeredPinoChildren.delete(entry);
+    } else {
+      child.level = getLogLevelFromFilters(newFilters, entry.module) ?? newLevel;
+    }
+  }
+  logger.info({ module: 'logger' }, `Updated log level from ${previous} to ${getLogLevel()}`);
+}
+
+/** Returns the current log level and per-module filters in the `LOG_LEVEL` env var format. */
+export function getLogLevel(): string {
+  return formatLogLevelSpec(currentLogLevel, currentLogFilters);
+}
 
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };

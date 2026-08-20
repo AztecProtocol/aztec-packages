@@ -34,11 +34,13 @@ describe('AztecNodeAdminApiSchema', () => {
     expect(config).toMatchObject({
       coinbase: expect.any(EthAddress),
       maxPendingTxCount: expect.any(Number),
+      logLevel: 'info',
     });
   });
 
   it('setConfig', async () => {
-    await context.client.setConfig({ coinbase: EthAddress.random() });
+    await context.client.setConfig({ coinbase: EthAddress.random(), logLevel: 'debug;trace:p2p' });
+    await expect(context.client.setConfig({ logLevel: 'loud' })).rejects.toThrow();
   });
 
   it('startSnapshotUpload', async () => {
@@ -83,8 +85,9 @@ describe('AztecNodeAdminApiSchema', () => {
 
 class MockAztecNodeAdmin implements AztecNodeAdmin {
   constructor() {}
-  setConfig(config: Partial<SequencerConfig & ProverConfig & SlasherConfig>): Promise<void> {
+  setConfig(config: Partial<SequencerConfig & ProverConfig & SlasherConfig & { logLevel: string }>): Promise<void> {
     expect(config.coinbase).toBeInstanceOf(EthAddress);
+    expect(config.logLevel).toBe('debug;trace:p2p');
     return Promise.resolve();
   }
   getSlashOffenses(): Promise<Offense[]> {
@@ -98,9 +101,13 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     ]);
   }
   getConfig(): Promise<
-    ValidatorClientFullConfig & SequencerConfig & ProverConfig & SlasherConfig & { maxPendingTxCount: number }
+    ValidatorClientFullConfig &
+      SequencerConfig &
+      ProverConfig &
+      SlasherConfig & { maxPendingTxCount: number; logLevel: string }
   > {
     return Promise.resolve({
+      logLevel: 'info',
       realProofs: false,
       proverTestDelayType: 'fixed',
       proverTestDelayMs: 100,
