@@ -65,7 +65,10 @@ export async function waitForTx(node: AztecNode, txHash: TxHash, opts?: WaitOpts
 
   const receipt = await retryUntil(
     async () => {
-      const txReceipt = await node.getTxReceipt(txHash);
+      const txReceipt = await node.getTxReceipt(txHash).catch(() => undefined);
+      if (!txReceipt) {
+        return undefined;
+      }
       // If receipt is not yet available, try again
       if (txReceipt.isPending()) {
         return undefined;
