@@ -22,6 +22,16 @@ RESULT=$(aztec-wallet simulate balance_of_public -ca last --args accounts:test0 
 section "Account public balance is ${RESULT}"
 assert_eq ${RESULT} "${AMOUNT}n"
 
+source $flows/shared/deploy_sponsored_fpc_and_token.sh
+PAYMENT_METHOD="--payment method=fpc-sponsored,fpc=contracts:sponsoredFPC"
+
+section "Deploy with --universal and sponsored fees, without -f (deployer should be 0x0)"
+OUTPUT2=$(aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:test0 --universal $PAYMENT_METHOD --salt 0x2)
+echo "$OUTPUT2"
+DEPLOYER2=$(echo "$OUTPUT2" | grep "Deployer:" | awk '{print $2}')
+section "Deployer is ${DEPLOYER2}"
+assert_eq "${DEPLOYER2}" "${ZERO_ADDR}"
+
 section "Deploy without --universal (deployer should be sender, not 0x0)"
 OUTPUT3=$(aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:test0 -f test0 --salt 0x3)
 echo "$OUTPUT3"

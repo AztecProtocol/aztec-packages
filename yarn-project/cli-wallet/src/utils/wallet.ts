@@ -13,7 +13,8 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type Aliased } from '@aztec/aztec.js/wallet';
 import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
-import { DefaultEntrypoint } from '@aztec/entrypoints/default';
+import type { EntrypointInterface } from '@aztec/entrypoints/interfaces';
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { LogFn } from '@aztec/foundation/log';
@@ -305,9 +306,13 @@ export class CLIWallet extends BaseWallet {
     return { account: stubAccount, instance };
   }
 
+  protected override createDefaultEntrypoint(): EntrypointInterface {
+    return new DefaultMultiCallEntrypoint();
+  }
+
   /**
    * Uses a stub account for kernelless simulation, bypassing real account authorization.
-   * Uses DefaultEntrypoint directly for NO_FROM transactions.
+   * Uses the default multi-call entrypoint directly for NO_FROM transactions.
    */
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
@@ -324,7 +329,7 @@ export class CLIWallet extends BaseWallet {
     let overrides: SimulationOverrides | undefined;
     let txRequest: TxExecutionRequest;
     if (from === NO_FROM) {
-      const entrypoint = new DefaultEntrypoint();
+      const entrypoint = this.createDefaultEntrypoint();
       txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
     } else {
       const { account, instance } = await this.getFakeAccountDataFor(from);
