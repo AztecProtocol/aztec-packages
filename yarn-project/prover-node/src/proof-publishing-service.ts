@@ -329,6 +329,7 @@ export class ProofPublishingService {
   private async runPublish(candidate: PublishCandidate, publisher: PublisherLike): Promise<PublishOutcome> {
     const submitArgs = {
       epochNumber: candidate.epoch,
+      kind: candidate.kind,
       fromCheckpoint: candidate.fromCheckpoint,
       toCheckpoint: candidate.toCheckpoint,
       publicInputs: candidate.publicInputs,

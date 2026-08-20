@@ -81,6 +81,8 @@ export class ProverNodePublisher {
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
     headers: CheckpointHeader[];
+    /** Whether the range covers the whole epoch. Governs whether an already-overtaken proof is still worth sending. */
+    kind: 'full' | 'partial';
     /** Wall-clock deadline (proof-submission window end) past which the L1 tx should stop retrying. */
     deadline?: Date;
   }): Promise<boolean> {
@@ -131,6 +133,7 @@ export class ProverNodePublisher {
   }
 
   private async validateEpochProofSubmission(args: {
+    epochNumber: EpochNumber;
     fromCheckpoint: CheckpointNumber;
     toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
@@ -138,13 +141,18 @@ export class ProverNodePublisher {
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
     headers: CheckpointHeader[];
+    kind: 'full' | 'partial';
   }) {
-    const { fromCheckpoint, toCheckpoint, publicInputs, batchedBlobInputs } = args;
+    const { epochNumber, fromCheckpoint, toCheckpoint, publicInputs, batchedBlobInputs, kind } = args;
 
     // Check that the checkpoint numbers match the expected epoch to be proven
     const { pending, proven } = await this.rollupContract.getTips();
-    // Don't publish if proven is beyond our toCheckpoint, pointless to do so
-    if (proven > toCheckpoint) {
+    // A partial proof shorter than what is already proven earns nothing: rewards go only to provers holding
+    // shares in the epoch's longest proven length, which a shorter range can never reach. A full-epoch proof
+    // always matches that length, and the rollup accepts any proof whose predecessor is proven, so it still
+    // registers our shares once the proven tip has run past this epoch entirely (another prover proving into a
+    // later one) and stays worth sending until the epoch's submission window closes.
+    if (kind === 'partial' && proven > toCheckpoint) {
       throw new Error(
         `Cannot submit epoch proof for ${fromCheckpoint}-${toCheckpoint} as proven checkpoint is ${proven}`,
       );
@@ -153,6 +161,17 @@ export class ProverNodePublisher {
     if (toCheckpoint > pending) {
       throw new Error(
         `Cannot submit epoch proof for ${fromCheckpoint}-${toCheckpoint} as proposed checkpoint is ${pending}`,
+      );
+    }
+
+    // The rollup reverts on a second submission from the same prover for the same epoch and length, so don't
+    // spend gas on one. Reachable when re-running an epoch we have already submitted a proof for.
+    const proverId = EthAddress.fromField(publicInputs.constants.proverId);
+    const length = toCheckpoint - fromCheckpoint + 1;
+    if (await this.rollupContract.getHasSubmittedProof(epochNumber, length, proverId)) {
+      throw new Error(
+        `Cannot submit epoch proof for ${fromCheckpoint}-${toCheckpoint} as prover ${proverId} ` +
+          `already submitted a proof of ${length} checkpoints for epoch ${epochNumber}`,
       );
     }
 
@@ -212,6 +231,8 @@ export class ProverNodePublisher {
     batchedBlobInputs: BatchedBlob;
     attestations: ViemCommitteeAttestation[];
     headers: CheckpointHeader[];
+    /** Whether the range covers the whole epoch. Governs whether an already-overtaken proof is still worth sending. */
+    kind: 'full' | 'partial';
   }): Promise<void> {
     const { epochNumber, fromCheckpoint, toCheckpoint } = args;
 
