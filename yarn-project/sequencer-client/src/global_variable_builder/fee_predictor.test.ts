@@ -9,7 +9,6 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import { FEE_ORACLE_LAG, type GasFees, ManaUsageEstimate, computeExcessMana } from '@aztec/stdlib/gas';
 
@@ -118,20 +117,27 @@ describe('FeePredictor', () => {
     return afterCheckpoint > BigInt(currentSlot) ? afterCheckpoint : BigInt(currentSlot);
   }
 
+  /** Builds a predictor and refreshes it against the current L1 block, mirroring how FeeProviderImpl drives it. */
+  async function makeRefreshedPredictor(): Promise<FeePredictor> {
+    const predictor = new FeePredictor(rollup, dateProvider, feePredictorConfig);
+    await predictor.refreshState(await publicClient.getBlockNumber({ cacheTime: 0 }));
+    return predictor;
+  }
+
   it('slot 0 matches L1 getManaMinFeeAt for all ManaUsageEstimate values', async () => {
     const startSlot = await getPredictionStartSlot();
     const l1Fee = await rollup.getManaMinFeeAt(getTimestamp(startSlot), true);
 
     for (const manaUsage of Object.values(ManaUsageEstimate)) {
-      const predictor = new FeePredictor(rollup, publicClient, dateProvider, feePredictorConfig);
-      const predicted = await predictor.getPredictedMinFees(manaUsage);
+      const predictor = await makeRefreshedPredictor();
+      const predicted = predictor.getPredictedMinFees(manaUsage);
       expect(predicted[0].feePerL2Gas).toBe(l1Fee);
     }
   });
 
   it('all slots match L1 with ManaUsageEstimate.None and zero congestion', async () => {
-    const predictor = new FeePredictor(rollup, publicClient, dateProvider, feePredictorConfig);
-    const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.None);
+    const predictor = await makeRefreshedPredictor();
+    const predicted = predictor.getPredictedMinFees(ManaUsageEstimate.None);
 
     const startSlot = await getPredictionStartSlot();
     const pendingCheckpointNumber = await rollup.getCheckpointNumber();
@@ -164,8 +170,8 @@ describe('FeePredictor', () => {
     await cheatCodes.mine();
     await rollupCheatCodes.updateL1GasFeeOracle();
 
-    const predictor = new FeePredictor(rollup, publicClient, dateProvider, feePredictorConfig);
-    const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.None);
+    const predictor = await makeRefreshedPredictor();
+    const predicted = predictor.getPredictedMinFees(ManaUsageEstimate.None);
 
     const startSlot = await getPredictionStartSlot();
     const pendingCheckpointNumber = await rollup.getCheckpointNumber();
@@ -195,8 +201,8 @@ describe('FeePredictor', () => {
     await cheatCodes.mine();
     await rollupCheatCodes.advanceSlots(3);
 
-    const predictor = new FeePredictor(rollup, publicClient, dateProvider, feePredictorConfig);
-    const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.None);
+    const predictor = await makeRefreshedPredictor();
+    const predicted = predictor.getPredictedMinFees(ManaUsageEstimate.None);
 
     const startSlot = await getPredictionStartSlot();
     const l1Fee = await rollup.getManaMinFeeAt(getTimestamp(startSlot), true);
@@ -204,8 +210,8 @@ describe('FeePredictor', () => {
   });
 
   it('returns exactly FEE_ORACLE_LAG entries', async () => {
-    const predictor = new FeePredictor(rollup, publicClient, dateProvider, feePredictorConfig);
-    const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.Target);
+    const predictor = await makeRefreshedPredictor();
+    const predicted = predictor.getPredictedMinFees(ManaUsageEstimate.Target);
     expect(predicted.length).toBe(FEE_ORACLE_LAG);
   });
 
@@ -233,8 +239,8 @@ describe('FeePredictor', () => {
       const assumedManaUsed =
         estimate === ManaUsageEstimate.None ? 0n : estimate === ManaUsageEstimate.Target ? manaTarget : manaLimit;
 
-      const predictor = new FeePredictor(rollup, publicClient, dateProvider, feePredictorConfig);
-      const predicted = await predictor.getPredictedMinFees(estimate);
+      const predictor = await makeRefreshedPredictor();
+      const predicted = predictor.getPredictedMinFees(estimate);
 
       const startSlot = await getPredictionStartSlot();
       const pendingCheckpointNumber = await rollup.getCheckpointNumber();
@@ -306,8 +312,8 @@ describe('FeePredictor', () => {
 
     // Step through 6 successive slots, creating a fresh predictor each time.
     for (let step = 0; step < 6; step++) {
-      const predictor = new FeePredictor(rollup, publicClient, dateProvider, feePredictorConfig);
-      const predicted = await predictor.getPredictedMinFees(ManaUsageEstimate.None);
+      const predictor = await makeRefreshedPredictor();
+      const predicted = predictor.getPredictedMinFees(ManaUsageEstimate.None);
 
       expect(predicted.length).toBe(FEE_ORACLE_LAG);
 
@@ -356,63 +362,39 @@ describe('FeePredictor', () => {
 });
 
 describe('FeePredictor state caching', () => {
-  it('recovers from a transient L1 read failure without waiting for a new L1 block', async () => {
-    const blockNumber = 1n;
-    const getBlockNumber = jest.fn<() => Promise<bigint>>(() => Promise.resolve(blockNumber));
-    const state = { manaTarget: 1n } as unknown;
-    const fetchState = jest
-      .fn<() => Promise<unknown>>()
-      .mockRejectedValueOnce(new Error('L1 RPC request failed'))
-      .mockResolvedValue(state);
-
+  it('getState() returns undefined until refreshState() has been called', () => {
     const predictor: FeePredictor = Object.create(FeePredictor.prototype);
-    Reflect.set(predictor, 'publicClient', { getBlockNumber });
-    Reflect.set(predictor, 'cachedL1BlockNumber', undefined);
-    Reflect.set(predictor, 'cachedState', undefined);
-    Reflect.set(predictor, 'fetchState', fetchState);
-
-    const getState = Reflect.get(FeePredictor.prototype, 'getState') as () => Promise<unknown>;
-
-    await expect(getState.call(predictor)).rejects.toThrow('L1 RPC request failed');
-    // Same L1 block: must recompute rather than replay the cached rejection.
-    await expect(getState.call(predictor)).resolves.toBe(state);
-    expect(fetchState).toHaveBeenCalledTimes(2);
+    expect(predictor.getState()).toBeUndefined();
   });
 
-  it('does not clear the block marker when a stale fetch for an older block rejects', async () => {
-    const blockN = 1n;
-    const blockNext = 2n;
-    const getBlockNumber = jest
-      .fn<() => Promise<bigint>>()
-      .mockResolvedValueOnce(blockN)
-      .mockResolvedValueOnce(blockNext);
-
-    const fetchN = promiseWithResolvers<unknown>();
+  it('refreshState() caches the fetched state for getState() to return, with no further I/O', async () => {
     const state = { manaTarget: 1n } as unknown;
-    const fetchState = jest
-      .fn<() => Promise<unknown>>()
-      .mockImplementationOnce(() => fetchN.promise)
-      .mockResolvedValue(state);
+    const fetchState = jest.fn<() => Promise<unknown>>().mockResolvedValue(state);
 
     const predictor: FeePredictor = Object.create(FeePredictor.prototype);
-    Reflect.set(predictor, 'publicClient', { getBlockNumber });
-    Reflect.set(predictor, 'cachedL1BlockNumber', undefined);
-    Reflect.set(predictor, 'cachedState', undefined);
     Reflect.set(predictor, 'fetchState', fetchState);
 
-    const getState = Reflect.get(FeePredictor.prototype, 'getState') as () => Promise<unknown>;
+    await expect(predictor.refreshState(1n)).resolves.toBe(state);
+    expect(predictor.getState()).toBe(state);
+    expect(predictor.getState()).toBe(state);
+    expect(fetchState).toHaveBeenCalledTimes(1);
+  });
 
-    // Fetch for block N stays in flight; the block N+1 call advances the marker meanwhile.
-    const callN = getState.call(predictor);
-    const callNext = getState.call(predictor);
+  it('preserves the last known-good state if refreshState() fails', async () => {
+    const goodState = { manaTarget: 1n } as unknown;
+    const fetchState = jest
+      .fn<() => Promise<unknown>>()
+      .mockResolvedValueOnce(goodState)
+      .mockRejectedValueOnce(new Error('L1 RPC request failed'));
 
-    // The stale N fetch now rejects. It must NOT clear the marker (which now points at N+1).
-    fetchN.reject(new Error('stale L1 RPC request failed'));
+    const predictor: FeePredictor = Object.create(FeePredictor.prototype);
+    Reflect.set(predictor, 'fetchState', fetchState);
 
-    await expect(callN).rejects.toThrow('stale L1 RPC request failed');
-    await expect(callNext).resolves.toBe(state);
+    await predictor.refreshState(1n);
+    expect(predictor.getState()).toBe(goodState);
 
-    expect(Reflect.get(predictor, 'cachedL1BlockNumber')).toBe(blockNext);
-    expect(fetchState).toHaveBeenCalledTimes(2);
+    await expect(predictor.refreshState(2n)).rejects.toThrow('L1 RPC request failed');
+    // The failed refresh must not have clobbered the last known-good state.
+    expect(predictor.getState()).toBe(goodState);
   });
 });
