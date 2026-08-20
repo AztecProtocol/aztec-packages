@@ -26,10 +26,13 @@ jobs:
     # The auto acceptance test validates published releases, which are only cut from the
     # public aztec-packages repo. Don't let the workflow_run trigger fire in the private
     # mirror, where it runs against non-release branches (e.g. v5-next) and always fails.
+    #
+    # This repo only releases the v5 line, so later tags have no CLI to install.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run'
        && github.event.workflow_run.conclusion == 'success'
+       && startsWith(github.event.workflow_run.head_branch, 'v5.')
        && !contains(github.event.workflow_run.head_branch, '-commit.')
        && github.repository != 'AztecProtocol/aztec-packages-private')
     env:
