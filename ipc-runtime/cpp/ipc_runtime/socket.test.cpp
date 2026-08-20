@@ -85,10 +85,10 @@ class TestPool {
 };
 
 // run_reactor() must (a) execute pipelined requests on one connection
-// concurrently across the pool, and (b) still deliver responses in
-// per-connection request order even when handlers complete out of order. The
-// handler sleeps LONGER for earlier indices, so completions arrive roughly
-// reversed — the reorder buffer has to hold them until each is next-in-sequence.
+// concurrently across the pool, and (b) send each response as its handler
+// completes, correlated by echoed request id — there is no FIFO contract. The
+// handler sleeps LONGER for earlier ids, so completions (and responses) arrive
+// roughly reversed.
 TEST(SocketTest, ReactorPipelinedConcurrencyAndOrder)
 {
     std::string path = test_socket_path("reactor");
@@ -114,15 +114,18 @@ TEST(SocketTest, ReactorPipelinedConcurrencyAndOrder)
     ASSERT_TRUE(client->connect());
 
     auto t0 = std::chrono::steady_clock::now();
-    for (uint32_t i = 0; i < N; i++) {
-        ASSERT_TRUE(client->send(i + 1, &i, sizeof(i), 1'000'000'000ULL));
+    // Request ids are 1-based (id 0 is reserved for server-initiated frames —
+    // see constants.hpp); the id doubles as the payload.
+    for (uint32_t id = 1; id <= N; id++) {
+        ASSERT_TRUE(client->send(id, &id, sizeof(id), 1'000'000'000ULL));
     }
     // Responses arrive in completion order (earlier indices sleep longer, so
     // they arrive out of send order); the echoed request id pairs each frame
     // with its request.
-    uint32_t seen_mask = 0;
+    std::vector<bool> seen(N + 1, false);
     bool in_send_order = true;
-    for (uint32_t i = 0; i < N; i++) {
+    uint64_t prev_rid = 0;
+    for (uint32_t n = 0; n < N; n++) {
         uint64_t rid = 0;
         auto resp = client->receive(5'000'000'000ULL, rid);
         ASSERT_EQ(resp.size(), sizeof(uint32_t));
@@ -130,22 +133,27 @@ TEST(SocketTest, ReactorPipelinedConcurrencyAndOrder)
         std::memcpy(&got, resp.data(), sizeof(got));
         ASSERT_GE(rid, 1U);
         ASSERT_LE(rid, N);
-        EXPECT_EQ(got, static_cast<uint32_t>(rid - 1)) << "response payload does not match its echoed request id";
-        EXPECT_EQ(seen_mask & (1U << got), 0U) << "duplicate response for index " << got;
-        seen_mask |= 1U << got;
-        if (got != i) {
+        EXPECT_EQ(got, static_cast<uint32_t>(rid)) << "response payload does not match its echoed request id";
+        EXPECT_FALSE(seen[rid]) << "duplicate response for request id " << rid;
+        seen[rid] = true;
+        // Ids are sent in increasing order and each arrives exactly once, so a
+        // monotonically increasing drain means FIFO arrival.
+        if (rid < prev_rid) {
             in_send_order = false;
         }
+        prev_rid = rid;
         client->release(resp.size());
     }
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
 
-    EXPECT_EQ(seen_mask, (1U << N) - 1) << "not every request was answered exactly once";
+    for (uint32_t id = 1; id <= N; id++) {
+        EXPECT_TRUE(seen[id]) << "request id " << id << " was never answered";
+    }
     // Reversed sleeps guarantee out-of-order completions; a fully in-order
     // arrival would mean responses are being re-serialized somewhere.
     EXPECT_FALSE(in_send_order) << "responses arrived strictly in send order — head-of-line blocking is back?";
 
-    // Serial execution would be the sum of all sleeps (~456ms). With 8 workers
+    // Serial execution would be the sum of all sleeps (~440ms). With 8 workers
     // it should be a small multiple of the longest single sleep; allow headroom.
     EXPECT_LT(ms, 250) << "pipelined requests did not execute concurrently (took " << ms << "ms)";
 
