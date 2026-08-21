@@ -1,6 +1,8 @@
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
@@ -9,15 +11,22 @@ import type { FeeProvider } from '@aztec/stdlib/tx';
 import { FeePredictor } from './fee_predictor.js';
 import type { GlobalVariableBuilderConfig } from './global_builder.js';
 
-/** Provides current and predicted fee information based on on-chain state. */
+/** Default interval for the background L1 refresh loop, well below L1's block time. */
+const DEFAULT_REFRESH_POLLING_INTERVAL_MS = 1000;
+
+/**
+ * Provides current and predicted fee information based on on-chain state.
+ */
 export class FeeProviderImpl implements FeeProvider {
-  private currentMinFees: Promise<GasFees> = Promise.resolve(new GasFees(0, 0));
+  private currentMinFees = new GasFees(0, 0);
   private currentL1BlockNumber: bigint | undefined = undefined;
+  private refreshLoop: RunningPromise | undefined;
 
   private readonly rollupContract: RollupContract;
   private readonly feePredictor: FeePredictor;
   private readonly ethereumSlotDuration: number;
   private readonly l1GenesisTime: bigint;
+  private readonly log: Logger = createLogger('sequencer-client:fee-provider');
 
   constructor(
     private readonly dateProvider: DateProvider,
@@ -28,11 +37,37 @@ export class FeeProviderImpl implements FeeProvider {
     this.l1GenesisTime = config.l1GenesisTime;
 
     this.rollupContract = new RollupContract(this.publicClient, config.rollupAddress);
-    this.feePredictor = new FeePredictor(this.rollupContract, this.publicClient, this.dateProvider, {
+    this.feePredictor = new FeePredictor(this.rollupContract, this.dateProvider, {
       slotDuration: config.slotDuration,
       l1GenesisTime: config.l1GenesisTime,
       ethereumSlotDuration: config.ethereumSlotDuration,
     });
+  }
+
+  public async start(pollingIntervalMs = DEFAULT_REFRESH_POLLING_INTERVAL_MS): Promise<void> {
+    await this.refreshFromL1();
+    this.refreshLoop = new RunningPromise(() => this.refreshFromL1(), this.log, pollingIntervalMs);
+    this.refreshLoop.start();
+  }
+
+  public async stop(): Promise<void> {
+    await this.refreshLoop?.stop();
+  }
+
+  /**
+   * Checks the current L1 block number and, if it has advanced, refreshes both the current and
+   * predicted min fees for that block.
+   */
+  private async refreshFromL1(): Promise<void> {
+    const blockNumber = await this.publicClient.getBlockNumber({ cacheTime: 0 });
+    if (this.currentL1BlockNumber !== undefined && blockNumber <= this.currentL1BlockNumber) {
+      return;
+    }
+
+    const currentMinFees = await this.computeCurrentMinFees();
+    await this.feePredictor.refreshState(blockNumber);
+    this.currentMinFees = currentMinFees;
+    this.currentL1BlockNumber = blockNumber;
   }
 
   /**
@@ -57,41 +92,13 @@ export class FeeProviderImpl implements FeeProvider {
     return new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true));
   }
 
-  public async getCurrentMinFees(): Promise<GasFees> {
-    // Get the current block number
-    const blockNumber = await this.publicClient.getBlockNumber({ cacheTime: 0 });
-
-    // If the L1 block number has changed then chain a new promise to get the current min fees.
-    // We chain off the previous promise's settlement (via a swallowing catch) rather than its
-    // fulfillment, so a prior rejection does not short-circuit the new computation. If the new
-    // computation fails (e.g. a transient L1 RPC error), reset the cached block number so the
-    // next call recomputes instead of permanently replaying the rejected promise — otherwise a
-    // single transient failure would wedge fee estimation until the next L1 block arrives. Only
-    // clear it if it still points at the block this attempt was for, so a stale rejection from an
-    // older block cannot wipe a marker a newer call already advanced (which would also defeat the
-    // monotonic block-number guard).
-    if (this.currentL1BlockNumber === undefined || blockNumber > this.currentL1BlockNumber) {
-      this.currentL1BlockNumber = blockNumber;
-      this.currentMinFees = this.currentMinFees
-        .catch(() => undefined)
-        .then(() =>
-          this.computeCurrentMinFees().catch(err => {
-            if (this.currentL1BlockNumber === blockNumber) {
-              this.currentL1BlockNumber = undefined;
-            }
-            throw err;
-          }),
-        );
-    }
-    return this.currentMinFees;
+  public getCurrentMinFees(): Promise<GasFees> {
+    return Promise.resolve(this.currentMinFees);
   }
 
-  public async getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
-    const [currentMinFees, predictedMinFees] = await Promise.all([
-      this.getCurrentMinFees(),
-      this.feePredictor.getPredictedMinFees(manaUsage ?? ManaUsageEstimate.Target),
-    ]);
-
-    return [currentMinFees, ...predictedMinFees];
+  public getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
+    const currentMinFees = this.currentMinFees;
+    const predictedMinFees = this.feePredictor.getPredictedMinFees(manaUsage ?? ManaUsageEstimate.Target);
+    return Promise.resolve([currentMinFees, ...predictedMinFees]);
   }
 }
