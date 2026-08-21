@@ -64,7 +64,7 @@ impl BalanceSet<&mut PrivateContext> {
 
         // try_sub may have subtracted more or less than amount. We must ensure that we subtracted at least as much as
         // we needed, and then create a new note for the owner for the change (if any).
-        assert(subtracted >= amount, "Balance too low");
+        assert(subtracted >= amount, "Balance too low or too fragmented: selected notes do not cover the amount");
         self.add(subtracted - amount)
     }
 
