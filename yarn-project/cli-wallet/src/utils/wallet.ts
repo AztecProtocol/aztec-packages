@@ -117,7 +117,7 @@ export class CLIWallet extends BaseWallet {
     increasedFee: InteractionFeeOptions,
   ) {
     const executionPayload = ExecutionPayload.empty();
-    const gasSettings = await this.calculateGasSettings(increasedFee.gasSettings);
+    const gasSettings = await this.calculateGasSettings(increasedFee.gasSettings, false);
     const accountFeePaymentMethodOptions = this.decideAccountFeePaymentMethodOptions(from, executionPayload.feePayer);
     const fromAccount = await this.getAccountFromAddress(from);
     const chainInfo = await this.getChainInfo();

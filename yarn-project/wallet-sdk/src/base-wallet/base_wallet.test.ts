@@ -60,8 +60,8 @@ class BasicWallet extends BaseWallet {
   }
 
   public calculateGasSettingsForTest(
-    initGasSettings?: Partial<FieldsOf<GasSettings>>,
-    forEstimation?: boolean,
+    initGasSettings: Partial<FieldsOf<GasSettings>> | undefined,
+    forEstimation: boolean,
     congestionEstimate?: ManaUsageEstimate,
   ): Promise<GasSettings> {
     return super.calculateGasSettings(initGasSettings, forEstimation, congestionEstimate);
@@ -361,30 +361,39 @@ describe('BaseWallet', () => {
     });
 
     it('fills in the network admission limit when no gas limits are declared', async () => {
-      const gasSettings = await wallet.calculateGasSettingsForTest();
+      const gasSettings = await wallet.calculateGasSettingsForTest(undefined, false);
       expect(gasSettings.gasLimits).toEqual(new Gas(1000, 2000));
     });
 
     it('accepts caller-provided gas limits at or below the network admission limit', async () => {
-      const gasSettings = await wallet.calculateGasSettingsForTest({
-        gasLimits: Gas.from({ daGas: 1000, l2Gas: 2000 }),
-      });
+      const gasSettings = await wallet.calculateGasSettingsForTest(
+        {
+          gasLimits: Gas.from({ daGas: 1000, l2Gas: 2000 }),
+        },
+        false,
+      );
       expect(gasSettings.gasLimits).toEqual(new Gas(1000, 2000));
     });
 
     it('rejects caller-provided da gas limit above the network admission limit', async () => {
       await expect(
-        wallet.calculateGasSettingsForTest({
-          gasLimits: Gas.from({ daGas: 1001, l2Gas: 2000 }),
-        }),
+        wallet.calculateGasSettingsForTest(
+          {
+            gasLimits: Gas.from({ daGas: 1001, l2Gas: 2000 }),
+          },
+          false,
+        ),
       ).rejects.toThrow('Declared DA gas limit (1001) exceeds the maximum this network allows per tx (1000)');
     });
 
     it('rejects caller-provided l2 gas limit above the network admission limit', async () => {
       await expect(
-        wallet.calculateGasSettingsForTest({
-          gasLimits: Gas.from({ daGas: 1000, l2Gas: 2001 }),
-        }),
+        wallet.calculateGasSettingsForTest(
+          {
+            gasLimits: Gas.from({ daGas: 1000, l2Gas: 2001 }),
+          },
+          false,
+        ),
       ).rejects.toThrow('Declared L2 gas limit (2001) exceeds the maximum this network allows per tx (2000)');
     });
 

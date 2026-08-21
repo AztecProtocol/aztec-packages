@@ -285,7 +285,7 @@ export abstract class BaseWallet implements Wallet {
    */
   protected async calculateGasSettings(
     initGasSettings: Partial<FieldsOf<GasSettings>> | undefined,
-    forEstimation?: boolean,
+    forEstimation: boolean,
     congestionEstimate?: ManaUsageEstimate,
   ): Promise<GasSettings> {
     const maxFeesPerGas =
