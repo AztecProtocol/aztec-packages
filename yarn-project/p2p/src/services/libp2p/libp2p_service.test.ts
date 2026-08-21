@@ -1769,6 +1769,26 @@ describe('LibP2PService', () => {
       await ipService.stop();
     });
   });
+
+  describe('updateConfig', () => {
+    it('hands preferred peers over to the peer manager', async () => {
+      const peerManager = mock<PeerManagerInterface>();
+      const service = createTestLibP2PService({ peerManager, node: mock<PubSubLibp2p>() });
+
+      await service.updateConfig({ preferredPeers: ['enr:-preferred-peer'] });
+
+      expect(peerManager.updatePreferredPeers).toHaveBeenCalledWith(['enr:-preferred-peer']);
+    });
+
+    it('leaves preferred peers alone when the update does not carry them', async () => {
+      const peerManager = mock<PeerManagerInterface>();
+      const service = createTestLibP2PService({ peerManager, node: mock<PubSubLibp2p>() });
+
+      await service.updateConfig({ skipIncomingProposals: true });
+
+      expect(peerManager.updatePreferredPeers).not.toHaveBeenCalled();
+    });
+  });
 });
 
 /** Mock type for tx objects used in block txs validation tests. */

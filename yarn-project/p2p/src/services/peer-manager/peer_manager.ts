@@ -47,6 +47,11 @@ type CachedPeer = {
   addedUnixMs: number;
 };
 
+type DirectPeer = {
+  peerId: PeerId;
+  multiaddrTcp: Multiaddr;
+};
+
 type TimedOutPeer = {
   peerId: string;
   timeoutUntilMs: number;
@@ -251,17 +256,9 @@ export class PeerManager implements PeerManagerInterface {
 
     const directPeers = compactArray(
       await Promise.all(
-        preferredPeersEnrs.map(async enr => {
+        this.config.preferredPeers.map(async enr => {
           try {
-            const peerId = await enr.peerId();
-            const address = enr.getLocationMultiaddr('tcp');
-            if (address === undefined) {
-              throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
-            }
-            return {
-              id: peerId,
-              addrs: [address],
-            };
+            return await resolveDirectPeer(enr);
           } catch (err) {
             // A malformed configured ENR shouldn't abort preferred-peer setup — skip it and log.
             this.logger.warn(`Skipping preferred peer with invalid ENR`, { err });
@@ -271,15 +268,61 @@ export class PeerManager implements PeerManagerInterface {
       ),
     );
 
-    await Promise.all(
-      directPeers.map(peer => {
-        this.libP2PNode.services.pubsub.direct.add(peer.id.toString());
-
-        return this.libP2PNode.peerStore.merge(peer.id, { multiaddrs: peer.addrs });
-      }),
-    );
+    await Promise.all(directPeers.map(peer => this.addDirectPeer(peer)));
 
     this.initializedPreferredPeers = true;
+  }
+
+  /**
+   * Replaces the set of preferred peers with the ones encoded in the given ENRs. New peers are added to the
+   * gossipsub direct-peer set (gossipsub dials them on its next direct-connect tick) and to the peer store,
+   * while peers that are no longer preferred are dropped from both.
+   * @param enrs - The ENRs of the peers that should be preferred from now on.
+   * @throws If any of the given ENRs is malformed or carries no TCP address; no state is mutated in that case.
+   */
+  public async updatePreferredPeers(enrs: string[]): Promise<void> {
+    const resolved = await Promise.all(enrs.map(enr => resolveDirectPeer(enr)));
+
+    const updatedPeerIds = new Set(resolved.map(peer => peer.peerId.toString()));
+    const removed = Array.from(this.preferredPeers).filter(peerIdStr => !updatedPeerIds.has(peerIdStr));
+    const added = resolved.filter(peer => !this.preferredPeers.has(peer.peerId.toString()));
+
+    for (const peerIdStr of removed) {
+      this.preferredPeers.delete(peerIdStr);
+      this.libP2PNode.services.pubsub.direct.delete(peerIdStr);
+    }
+
+    await Promise.all(added.map(peer => this.addDirectPeer(peer)));
+
+    // Peer authorization is only evaluated when a connection is established, so a peer that just lost its
+    // preferred status would otherwise stay connected indefinitely despite no longer being allowed in.
+    if (this.config.p2pAllowOnlyValidators) {
+      for (const peerIdStr of removed) {
+        const peerId = peerIdFromString(peerIdStr);
+        if (this.libP2PNode.getConnections(peerId).length > 0 && !this.isAuthenticatedPeer(peerId)) {
+          this.markPeerForDisconnect(peerId);
+        }
+      }
+    }
+
+    // PeerManager holds its own reference to the config, so it needs updating independently of the p2p service,
+    // and the validator-gated direct peer setup needs to run again against the new set.
+    this.config = { ...this.config, preferredPeers: enrs };
+    this.initializedPreferredPeers = false;
+
+    this.logger.info(`Updated preferred peers to ${this.preferredPeers.size} peers`, {
+      added: added.map(peer => peer.peerId.toString()),
+      removed,
+      preferredPeerCount: this.preferredPeers.size,
+    });
+  }
+
+  /** Registers a peer as preferred and as a gossipsub direct peer, and records its address in the peer store. */
+  private async addDirectPeer(peer: DirectPeer): Promise<void> {
+    const peerIdStr = peer.peerId.toString();
+    this.preferredPeers.add(peerIdStr);
+    this.libP2PNode.services.pubsub.direct.add(peerIdStr);
+    await this.libP2PNode.peerStore.merge(peer.peerId, { multiaddrs: [peer.multiaddrTcp] });
   }
 
   /**
@@ -1176,6 +1219,20 @@ export class PeerManager implements PeerManagerInterface {
       this.authenticatedValidatorAddressToPeerId.delete(address);
     }
   }
+}
+
+/**
+ * Decodes an ENR string into the peer id and TCP address needed to register it as a gossipsub direct peer.
+ * @throws If the ENR cannot be decoded or does not advertise a TCP address.
+ */
+async function resolveDirectPeer(enr: string): Promise<DirectPeer> {
+  const decoded = ENR.decodeTxt(enr);
+  const peerId = await decoded.peerId();
+  const multiaddrTcp = decoded.getLocationMultiaddr('tcp');
+  if (multiaddrTcp === undefined) {
+    throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr}`);
+  }
+  return { peerId, multiaddrTcp };
 }
 
 /**
