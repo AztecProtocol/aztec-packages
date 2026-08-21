@@ -77,12 +77,27 @@ export interface AztecMap<K extends Key, V extends Value> extends AztecBaseMap<K
 /**
  * A map backed by a persistent store.
  */
+/** Options for {@link AztecAsyncMap.getManyAsync}. */
+export type GetManyOptions = {
+  /** Maximum keys per backend request. */
+  chunkSize?: number;
+};
+
 export interface AztecAsyncMap<K extends Key, V extends Value> extends AztecBaseMap<K, V> {
   /**
    * Gets the value at the given key.
    * @param key - The key to get the value from
    */
   getAsync(key: K): Promise<V | undefined>;
+
+  /**
+   * Gets the values at the given keys, batching them into as few round trips as the backend supports.
+   * @param keys - The keys to get the values from
+   * @param opts - `chunkSize` caps the keys sent per backend request (default 1024); ignored by backends that read
+   * keys individually
+   * @returns One entry per input key, in input order, `undefined` where the key is absent
+   */
+  getManyAsync(keys: K[], opts?: GetManyOptions): Promise<(V | undefined)[]>;
 
   /**
    * Checks if a key exists in the map.
