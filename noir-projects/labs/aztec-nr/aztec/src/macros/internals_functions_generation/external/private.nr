@@ -16,7 +16,7 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     // Private functions undergo a lot of transformations from their Aztec.nr form into a circuit that can be fed to
     // the Private Kernel Circuit. First we change the function signature so that it also receives
     // `PrivateContextInputs`, which contain information about the execution context (e.g. the caller).
-    let original_params = f.parameters();
+    let original_params = f.parameters().map(|param| (param.name(), param.typ()));
 
     let original_params_quotes =
         original_params.map(|(param_name, param_type)| quote { $param_name: $param_type }).join(quote {, });

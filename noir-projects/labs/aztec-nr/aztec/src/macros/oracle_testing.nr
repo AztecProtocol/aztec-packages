@@ -194,9 +194,9 @@ comptime fn option_synth() -> TestValueSynthesizer {
         scenarios: |t: Type, seed: Quoted| {
             @[named(quote { "some" }, some_value_expr(t, seed)), named(quote { "none" }, none_value_expr(t, seed))]
         },
-        width: |t: Type| 1 + flat_width(t.as_data_type().unwrap().1[0]),
+        width: |t: Type| 1 + flat_width(t.as_data_type().unwrap().generics()[0]),
         pinned: |t: Type| {
-            let inner = t.as_data_type().unwrap().1[0];
+            let inner = t.as_data_type().unwrap().generics()[0];
             let pinned_inner = pinned_type(inner);
             quote { Option<$pinned_inner> }
         },
@@ -205,7 +205,7 @@ comptime fn option_synth() -> TestValueSynthesizer {
 
 /// `Option::some` around the inner type's value.
 comptime fn some_value_expr(typ: Type, seed: Quoted) -> Quoted {
-    let inner = typ.as_data_type().unwrap().1[0];
+    let inner = typ.as_data_type().unwrap().generics()[0];
     let inner_value = value_expr(inner, seed, 0);
     quote { Option::some($inner_value) }
 }
@@ -213,7 +213,7 @@ comptime fn some_value_expr(typ: Type, seed: Quoted) -> Quoted {
 /// `Option::none`, with the inner type pinned in the turbofish so generic lengths resolve even though no inner
 /// value is built.
 comptime fn none_value_expr(typ: Type, _seed: Quoted) -> Quoted {
-    let inner = typ.as_data_type().unwrap().1[0];
+    let inner = typ.as_data_type().unwrap().generics()[0];
     let pinned_inner = pinned_type(inner);
     quote { Option::<$pinned_inner>::none() }
 }
@@ -223,12 +223,16 @@ comptime fn array_synth() -> TestValueSynthesizer {
         matches: |t: Type| t.as_array().is_some(),
         scenarios: |t: Type, seed: Quoted| @[unnamed(array_value_expr(t, seed))],
         width: |t: Type| {
-            let (element_type, length_type) = t.as_array().unwrap();
+            let array_type = t.as_array().unwrap();
+            let element_type = array_type.element_type();
+            let length_type = array_type.length_type();
             let length = length_type.as_constant().unwrap_or(TEST_COLLECTION_LEN);
             length * flat_width(element_type)
         },
         pinned: |t: Type| {
-            let (element_type, length_type) = t.as_array().unwrap();
+            let array_type = t.as_array().unwrap();
+            let element_type = array_type.element_type();
+            let length_type = array_type.length_type();
             let pinned_element = pinned_type(element_type);
             // A concrete length (e.g. `[T; 1]`) is part of the oracle's signature and must be kept; only a generic
             // length has no value to instantiate and gets pinned.
@@ -243,7 +247,9 @@ comptime fn array_synth() -> TestValueSynthesizer {
 
 /// A call to [`oracle_test_array`], with the element's builder and the pinned element type and length.
 comptime fn array_value_expr(typ: Type, seed: Quoted) -> Quoted {
-    let (element_type, length_type) = typ.as_array().unwrap();
+    let array_type = typ.as_array().unwrap();
+    let element_type = array_type.element_type();
+    let length_type = array_type.length_type();
     let length = length_type.as_constant().unwrap_or(TEST_COLLECTION_LEN);
     let len_expr = f"{length}".quoted_contents();
     let pinned_element = pinned_type(element_type);
@@ -267,12 +273,12 @@ comptime fn bounded_vec_synth() -> TestValueSynthesizer {
         matches: |t: Type| is_data_type_named(t, quote { BoundedVec }),
         scenarios: |t: Type, seed: Quoted| @[unnamed(bounded_vec_value_expr(t, seed))],
         width: |t: Type| {
-            let generics = t.as_data_type().unwrap().1;
+            let generics = t.as_data_type().unwrap().generics();
             let max_length = generics[1].as_constant().unwrap_or(TEST_BOUNDED_VEC_CAP);
             max_length * flat_width(generics[0]) + 1
         },
         pinned: |t: Type| {
-            let generics = t.as_data_type().unwrap().1;
+            let generics = t.as_data_type().unwrap().generics();
             let pinned_element = pinned_type(generics[0]);
             let capacity = generics[1].as_constant().unwrap_or(TEST_BOUNDED_VEC_CAP);
             let cap = f"{capacity}".quoted_contents();
@@ -283,7 +289,7 @@ comptime fn bounded_vec_synth() -> TestValueSynthesizer {
 
 /// A call to [`oracle_test_bounded_vec`], with the element's builder and the pinned element type and capacity.
 comptime fn bounded_vec_value_expr(typ: Type, seed: Quoted) -> Quoted {
-    let generics = typ.as_data_type().unwrap().1;
+    let generics = typ.as_data_type().unwrap().generics();
     let element_type = generics[0];
     // A concrete capacity is part of the oracle's signature and is kept (the TS side must map it as
     // FIXED_BOUNDED_VEC); only a generic capacity gets pinned.
@@ -361,11 +367,10 @@ comptime fn struct_synth() -> TestValueSynthesizer {
         matches: |t: Type| t.as_data_type().is_some(),
         scenarios: |t: Type, seed: Quoted| @[unnamed(struct_value_expr(t, seed))],
         width: |t: Type| {
-            let (definition, generics) = t.as_data_type().unwrap();
+            let data_type = t.as_data_type().unwrap();
             let mut width: u32 = 0;
-            for field in definition.fields(generics) {
-                let (_name, field_type, _visibility) = field;
-                width += flat_width(field_type);
+            for field in data_type.definition().fields(data_type.generics()) {
+                width += flat_width(field.typ());
             }
             width
         },
@@ -376,15 +381,16 @@ comptime fn struct_synth() -> TestValueSynthesizer {
 /// The struct literal building `typ`'s canonical value inline: ordinary typed code whose fields recurse through
 /// leaf builders, nested literals and composites, each seeded at its flat wire offset.
 comptime fn struct_value_expr(typ: Type, seed: Quoted) -> Quoted {
-    let (definition, generics) = typ.as_data_type().unwrap();
+    let data_type = typ.as_data_type().unwrap();
     let mut initializers: [Quoted] = @[];
     let mut offset: u32 = 0;
-    for field in definition.fields(generics) {
-        let (field_name, field_type, visibility) = field;
+    for field in data_type.definition().fields(data_type.generics()) {
+        let field_name = field.name();
+        let field_type = field.typ();
         // A private field cannot be initialized from the generated test's module, and would fail with a bare
         // privacy error deep inside the generated code.
         assert(
-            visibility != quote {},
+            !field.visibility().is_private(),
             f"cannot build an oracle test value for {typ}: its field {field_name} is private. Register the type in scalars(), or exclude this oracle via generate_oracle_tests_excluding",
         );
         let field_value = value_expr(field_type, offset_seed(seed, offset), 0);
@@ -509,7 +515,7 @@ comptime fn oracle_test_for(f: FunctionDefinition) -> Quoted {
 ///   assertion = `assert_eq(get_witness_oracle(…), Option::some(…), "…");`
 comptime fn prepare_scenarios(f: FunctionDefinition) -> [(Quoted, Quoted)] {
     let oracle = f.name();
-    let params = f.parameters();
+    let params = f.parameters().map(|param| (param.name(), param.typ()));
     let return_type = f.return_type();
     let count = total_scenarios(params, return_type);
     let mut result: [(Quoted, Quoted)] = @[];
@@ -648,5 +654,5 @@ comptime fn pinned_type(typ: Type) -> Quoted {
 
 /// Whether `typ` is a named data type (struct) whose name is `name`, e.g. `is_data_type_named(typ, quote { Option })`.
 comptime fn is_data_type_named(typ: Type, name: Quoted) -> bool {
-    typ.as_data_type().map(|(s, _generics): (TypeDefinition, [Type])| s.name() == name).unwrap_or(false)
+    typ.as_data_type().map(|data_type| data_type.definition().name() == name).unwrap_or(false)
 }

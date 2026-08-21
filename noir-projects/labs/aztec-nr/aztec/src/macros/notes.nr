@@ -149,14 +149,19 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
     let note_fields = s.fields_as_written();
 
     let properties_types = note_fields
-        .map(|(name, typ, _)| quote { pub $name: aztec::note::note_getter_options::PropertySelector<$typ> })
+        .map(|field| {
+            let name = field.name();
+            let typ = field.typ();
+            quote { pub $name: aztec::note::note_getter_options::PropertySelector<$typ> }
+        })
         .join(quote {,});
 
     let mut properties_list = @[];
     // The packed offset of the field being processed, i.e. the sum of the packed lengths of all preceding fields.
     let mut accumulated_offset = quote { 0 };
     for i in 0..note_fields.len() {
-        let (name, field_type, _) = note_fields[i];
+        let name = note_fields[i].name();
+        let field_type = note_fields[i].typ();
         properties_list = properties_list.push_back(
             quote {
                 $name: aztec::note::note_getter_options::PropertySelector {

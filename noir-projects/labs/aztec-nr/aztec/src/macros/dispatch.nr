@@ -26,7 +26,7 @@ pub comptime fn generate_public_dispatch(m: Module, generate_emit_public_init_nu
     // worth extracting into helpers.
     let signature_counts = &mut CHashMap::<Quoted, u32>::new();
     for function in functions {
-        let parameters = function.parameters();
+        let parameters = function.parameters().map(|param| (param.name(), param.typ()));
         if parameters.len() != 0 {
             let key = signature_key(parameters);
             let prior = signature_counts.get(key).unwrap_or(0);
@@ -40,7 +40,7 @@ pub comptime fn generate_public_dispatch(m: Module, generate_emit_public_init_nu
     let unpack_helpers: &mut [Quoted] = &mut @[];
 
     let mut ifs = functions.map(|function: FunctionDefinition| {
-        let parameters = function.parameters();
+        let parameters = function.parameters().map(|param| (param.name(), param.typ()));
         let return_type = function.return_type();
 
         let fn_name = function.name();

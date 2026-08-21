@@ -1,4 +1,5 @@
 pub use serde::serialization::{derive_deserialize, derive_serialize};
+use std::meta::type_def::StructField;
 
 pub mod utils;
 
@@ -33,9 +34,10 @@ comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
 
     if generics.len() > 0 {
         let generics_declarations_items = generics
-            .map(|(name, maybe_integer_typ)| {
-                // The second item in the generics tuple is an Option of an integer type that is Some only if
-                // the generic is numeric.
+            .map(|generic| {
+                let name = generic.typ();
+                let maybe_integer_typ = generic.numeric_type();
+                // numeric_type is Some only when the generic is numeric.
                 if maybe_integer_typ.is_some() {
                     // The generic is numeric, so we return a quote defined as e.g. "let N: u32"
                     let integer_type = maybe_integer_typ.unwrap();
@@ -82,14 +84,16 @@ comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
 comptime fn get_where_trait_clause(s: TypeDefinition, trait_name: Quoted) -> Quoted {
     let generics = s.generics();
 
-    // The second item in the generics tuple is an Option of an integer type that is Some only if the generic is
-    // numeric.
-    let non_numeric_generics =
-        generics.filter(|(_, maybe_integer_typ)| maybe_integer_typ.is_none());
+    // numeric_type is Some only when the generic is numeric.
+    let non_numeric_generics = generics.filter(|generic| generic.numeric_type().is_none());
 
     if non_numeric_generics.len() > 0 {
-        let non_numeric_generics_declarations =
-            non_numeric_generics.map(|(name, _)| quote {$name: $trait_name}).join(quote {,});
+        let non_numeric_generics_declarations = non_numeric_generics
+            .map(|generic| {
+                let name = generic.typ();
+                quote {$name: $trait_name}
+            })
+            .join(quote {,});
         quote {where $non_numeric_generics_declarations}
     } else {
         // There are no non-numeric generics, so we return an empty quote.
@@ -165,7 +169,7 @@ comptime fn get_where_trait_clause(s: TypeDefinition, trait_name: Quoted) -> Quo
 pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();
-    let params = nested_struct.0.fields(nested_struct.1);
+    let params = nested_struct.definition().fields(nested_struct.generics());
 
     // Generates the generic parameter declarations (to be placed after the `impl` keyword) and the `where` clause
     // for the `Packable` trait.
@@ -177,7 +181,8 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     // (or 0 if the struct has no members)
     let right_hand_side_of_definition_of_n = if params.len() > 0 {
         params
-            .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
+            .map(|field: StructField| {
+                let param_type = field.typ();
                 quote {
             <$param_type as $crate::traits::Packable>::N
         }
@@ -197,7 +202,9 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
         // 2. Copies the packed fields into the result array at the correct offset
         // 3. Updates the offset for the next member
         let packing_of_struct_members = params
-            .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+            .map(|field: StructField| {
+                let param_name = field.name();
+                let param_type = field.typ();
                 quote {
                     let packed_member = $crate::traits::Packable::pack(self.$param_name);
                     let packed_member_len = <$param_type as $crate::traits::Packable>::N;
@@ -218,7 +225,7 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
             result
         }
     } else if params.len() == 1 {
-        let param_name = params[0].0;
+        let param_name = params[0].name();
         quote {
             $crate::traits::Packable::pack(self.$param_name)
         }
@@ -238,7 +245,9 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
         // 2. Copies packed fields into member array at correct offset
         // 3. Updates offset for next member
         let unpacking_of_struct_members = params
-            .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+            .map(|field: StructField| {
+                let param_name = field.name();
+                let param_type = field.typ();
                 quote {
                     let mut member_fields = [0; <$param_type as $crate::traits::Packable>::N];
                     for i in 0..<$param_type as $crate::traits::Packable>::N {
@@ -252,7 +261,10 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
 
         // We join the struct member names with a comma to be used in the `Self { ... }` syntax
         let struct_members = params
-            .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
+            .map(|field: StructField| {
+                let param_name = field.name();
+                quote { $param_name }
+            })
             .join(quote {,});
 
         quote {
@@ -261,7 +273,7 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
             Self { $struct_members }
         }
     } else if params.len() == 1 {
-        let param_name = params[0].0;
+        let param_name = params[0].name();
         quote {
             Self { $param_name: $crate::traits::Packable::unpack(packed) }
         }

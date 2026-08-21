@@ -60,7 +60,9 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition, is_pri
     let (from_arg_name, nonce_arg_name) = authorize_once_args;
     let name: Quoted = f.name();
 
-    let from_arg_candidates = f.parameters().filter(|(name, _)| name == f"{from_arg_name}".quoted_contents());
+    let from_arg_candidates = f.parameters().map(|param| (param.name(), param.typ())).filter(|(name, _)| {
+        name == f"{from_arg_name}".quoted_contents()
+    });
     let (from_arg_name_quoted, from_arg_type) = if from_arg_candidates.len() == 1 {
         from_arg_candidates[0]
     } else {
@@ -74,7 +76,9 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition, is_pri
         )
     }
 
-    let nonce_arg_candidates = f.parameters().filter(|(name, _)| name == f"{nonce_arg_name}".quoted_contents());
+    let nonce_arg_candidates = f.parameters().map(|param| (param.name(), param.typ())).filter(|(name, _)| {
+        name == f"{nonce_arg_name}".quoted_contents()
+    });
     let (nonce_arg_name_quoted, nonce_arg_type) = if nonce_arg_candidates.len() == 1 {
         nonce_arg_candidates[0]
     } else {
@@ -91,7 +95,7 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition, is_pri
     let nonce_check_quote = f"{nonce_arg_name_quoted} == 0".quoted_contents();
 
     let fn_call = if is_private {
-        let params = f.parameters();
+        let params = f.parameters().map(|param| (param.name(), param.typ()));
         let serialized_len_quote = if params.len() == 0 {
             quote { 0 }
         } else {

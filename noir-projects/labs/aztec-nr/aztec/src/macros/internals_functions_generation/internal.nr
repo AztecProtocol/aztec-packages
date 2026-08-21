@@ -8,8 +8,14 @@ pub(crate) comptime fn generate_private_internal(f: FunctionDefinition) -> Quote
     let fn_name = f"__aztec_nr_internals__{original_function_name}".quoted_contents();
     let return_type = f.return_type();
 
-    let original_params =
-        f.parameters().map(|(param_name, param_type)| quote { $param_name: $param_type }).join(quote {, });
+    let original_params = f
+        .parameters()
+        .map(|param| {
+            let param_name = param.name();
+            let param_type = param.typ();
+            quote { $param_name: $param_type }
+        })
+        .join(quote {, });
 
     let params = quote {
         context: &mut aztec::context::PrivateContext,
@@ -60,8 +66,14 @@ pub(crate) comptime fn generate_public_internal(f: FunctionDefinition) -> Quoted
     let fn_name = f"__aztec_nr_internals__{original_function_name}".quoted_contents();
     let return_type = f.return_type();
 
-    let original_params =
-        f.parameters().map(|(param_name, param_type)| quote { $param_name: $param_type }).join(quote {, });
+    let original_params = f
+        .parameters()
+        .map(|param| {
+            let param_name = param.name();
+            let param_type = param.typ();
+            quote { $param_name: $param_type }
+        })
+        .join(quote {, });
 
     let params = quote {
         context: aztec::context::PublicContext,

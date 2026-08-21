@@ -71,7 +71,7 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
     let module_has_initializer = module_has_initializer(f.module());
 
     // Public functions undergo a lot of transformations from their Aztec.nr form.
-    let original_params = f.parameters();
+    let original_params = f.parameters().map(|param| (param.name(), param.typ()));
 
     let args_len_quote = if original_params.len() == 0 {
         // If the function has no parameters, we set the args_len to 0.

@@ -1,4 +1,5 @@
 use crate::{reader::Reader, writer::Writer};
+use std::meta::type_def::StructField;
 
 /// Trait for serializing Noir types into arrays of Fields.
 ///
@@ -83,9 +84,7 @@ pub trait Serialize {
 pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();
-
-    // We care only about the name and type so we drop the last item of the tuple
-    let params = nested_struct.0.fields(nested_struct.1).map(|(name, typ, _)| (name, typ));
+    let params = nested_struct.definition().fields(nested_struct.generics());
 
     // Generates the generic parameter declarations (to be placed after the `impl` keyword) and the `where` clause
     // for the `Serialize` trait.
@@ -95,7 +94,8 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let params_len_quote = get_params_len_quote(params);
 
     let function_body = params
-        .map(|(name, _typ): (Quoted, Type)| {
+        .map(|field: StructField| {
+            let name = field.name();
             quote {
                 $crate::serialization::Serialize::stream_serialize(self.$name, writer);
             }
@@ -207,7 +207,7 @@ pub trait Deserialize {
 pub comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();
-    let params = nested_struct.0.fields(nested_struct.1);
+    let params = nested_struct.definition().fields(nested_struct.generics());
 
     // Generates the generic parameter declarations (to be placed after the `impl` keyword) and the `where` clause
     // for the `Deserialize` trait.
@@ -219,7 +219,8 @@ pub comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     // (or 0 if the struct has no members)
     let right_hand_side_of_definition_of_n = if params.len() > 0 {
         params
-            .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
+            .map(|field: StructField| {
+                let param_type = field.typ();
                 quote {
             <$param_type as $crate::serialization::Deserialize>::N
         }
@@ -236,7 +237,9 @@ pub comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let function_body = if params.len() > 1 {
         // This generates deserialization code for each struct member and concatenates them together.
         let deserialization_of_struct_members = params
-            .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+            .map(|field: StructField| {
+                let param_name = field.name();
+                let param_type = field.typ();
                 quote {
                     let $param_name = <$param_type as Deserialize>::stream_deserialize(reader);
                 }
@@ -246,7 +249,10 @@ pub comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
         // We join the struct member names with a comma to be used in the `Self { ... }` syntax
         // This will give us e.g. `a, b, c` for a struct with three fields named `a`, `b`, and `c`.
         let struct_members = params
-            .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
+            .map(|field: StructField| {
+                let param_name = field.name();
+                quote { $param_name }
+            })
             .join(quote {,});
 
         quote {
@@ -255,7 +261,7 @@ pub comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
             Self { $struct_members }
         }
     } else if params.len() == 1 {
-        let param_name = params[0].0;
+        let param_name = params[0].name();
         quote {
             Self { $param_name: $crate::serialization::Deserialize::stream_deserialize(reader) }
         }
@@ -289,19 +295,19 @@ pub comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
 /// Generates a quoted expression that computes the total serialized length of function parameters.
 ///
 /// # Parameters
-/// * `params` - An array of tuples where each tuple contains a quoted parameter name and its Type. The type needs
-///              to implement the Serialize trait.
+/// * `params` - The struct fields to serialize. Each field's type needs to implement the Serialize trait.
 ///
 /// # Returns
 /// A quoted expression that evaluates to:
 /// * `0` if there are no parameters
 /// * `(<type1 as Serialize>::N + <type2 as Serialize>::N + ...)` for one or more parameters
-comptime fn get_params_len_quote(params: [(Quoted, Type)]) -> Quoted {
+comptime fn get_params_len_quote(params: [StructField]) -> Quoted {
     if params.len() == 0 {
         quote { 0 }
     } else {
         let params_quote_without_parentheses = params
-            .map(|(_, param_type): (Quoted, Type)| {
+            .map(|field: StructField| {
+                let param_type = field.typ();
                 quote {
                     <$param_type as $crate::serialization::Serialize>::N
                 }
@@ -316,9 +322,10 @@ comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
 
     if generics.len() > 0 {
         let generics_declarations_items = generics
-            .map(|(name, maybe_integer_typ)| {
-                // The second item in the generics tuple is an Option of an integer type that is Some only if
-                // the generic is numeric.
+            .map(|generic| {
+                let name = generic.typ();
+                let maybe_integer_typ = generic.numeric_type();
+                // numeric_type is Some only when the generic is numeric.
                 if maybe_integer_typ.is_some() {
                     // The generic is numeric, so we return a quote defined as e.g. "let N: u32"
                     let integer_type = maybe_integer_typ.unwrap();
@@ -339,14 +346,16 @@ comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
 comptime fn get_where_trait_clause(s: TypeDefinition, trait_name: Quoted) -> Quoted {
     let generics = s.generics();
 
-    // The second item in the generics tuple is an Option of an integer type that is Some only if the generic is
-    // numeric.
-    let non_numeric_generics =
-        generics.filter(|(_, maybe_integer_typ)| maybe_integer_typ.is_none());
+    // numeric_type is Some only when the generic is numeric.
+    let non_numeric_generics = generics.filter(|generic| generic.numeric_type().is_none());
 
     if non_numeric_generics.len() > 0 {
-        let non_numeric_generics_declarations =
-            non_numeric_generics.map(|(name, _)| quote {$name: $trait_name}).join(quote {,});
+        let non_numeric_generics_declarations = non_numeric_generics
+            .map(|generic| {
+                let name = generic.typ();
+                quote {$name: $trait_name}
+            })
+            .join(quote {,});
         quote {where $non_numeric_generics_declarations}
     } else {
         // There are no non-numeric generics, so we return an empty quote.

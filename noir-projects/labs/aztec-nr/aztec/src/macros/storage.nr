@@ -36,7 +36,8 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
     let mut storage_layout_constructors = @[];
 
     for storage_struct_member in s.fields_as_written() {
-        let (name, typ, _) = storage_struct_member;
+        let name = storage_struct_member.name();
+        let typ = storage_struct_member.typ();
 
         let maybe_storage_size = std::meta::typ::fresh_type_variable();
         let _maybe_context = std::meta::typ::fresh_type_variable();

@@ -32,7 +32,14 @@ use std::meta::type_of;
 /// type. Our toolchain requires access to these original signatures.
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
-    let mut parameters = f.parameters().map(|(name, typ): (Quoted, Type)| quote { pub $name: $typ }).join(quote {,});
+    let mut parameters = f
+        .parameters()
+        .map(|param| {
+            let name = param.name();
+            let typ = param.typ();
+            quote { pub $name: $typ }
+        })
+        .join(quote {,});
 
     let parameters_struct_name = f"{name}_parameters".quoted_contents();
     let parameters = quote {

@@ -393,8 +393,9 @@ pub comptime fn internal(f: FunctionDefinition, f_type: CtString) {
 
 comptime fn assert_valid_private(f: FunctionDefinition) {
     let visibility = f.visibility();
-    if visibility != quote {} {
+    if !visibility.is_private() {
         let name = f.name();
+        let visibility = visibility.as_quoted();
         panic(
             f"A function marked as #[external(\"private\")] or #[internal(\"private\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
         );
@@ -410,8 +411,9 @@ comptime fn assert_valid_private(f: FunctionDefinition) {
 
 comptime fn assert_valid_public(f: FunctionDefinition) {
     let visibility = f.visibility();
-    if visibility != quote {} {
+    if !visibility.is_private() {
         let name = f.name();
+        let visibility = visibility.as_quoted();
         panic(
             f"A function marked as #[external(\"public\")] or #[internal(\"public\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
         );
@@ -446,8 +448,9 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
 
 comptime fn assert_valid_utility(f: FunctionDefinition) {
     let visibility = f.visibility();
-    if visibility != quote {} {
+    if !visibility.is_private() {
         let name = f.name();
+        let visibility = visibility.as_quoted();
         panic(
             f"A function marked as #[external(\"utility\")] must not have public Noir visibility - {name}'s visibility is '{visibility}'",
         );

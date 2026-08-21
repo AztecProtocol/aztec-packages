@@ -47,8 +47,9 @@ comptime fn signature_of_type(typ: Type) -> CtString {
     if typ.is_field() {
         "Field".as_ctstring()
     } else if typ.as_integer().is_some() {
-        let (is_signed, bit_size) = typ.as_integer().unwrap();
-        if is_signed {
+        let integer_type = typ.as_integer().unwrap();
+        let bit_size = integer_type.bits();
+        if integer_type.is_signed() {
             f"i{bit_size}".as_ctstring()
         } else {
             f"u{bit_size}".as_ctstring()
@@ -60,7 +61,9 @@ comptime fn signature_of_type(typ: Type) -> CtString {
         let str_len = str_len_typ.as_constant().unwrap();
         f"str<{str_len}>".as_ctstring()
     } else if typ.as_array().is_some() {
-        let (element_type, array_len) = typ.as_array().unwrap();
+        let array_type = typ.as_array().unwrap();
+        let element_type = array_type.element_type();
+        let array_len = array_type.length_type();
         let array_len = if array_len.as_constant().is_some() {
             let const_len = array_len.as_constant().unwrap();
             f"{const_len}".as_ctstring()
@@ -74,8 +77,12 @@ comptime fn signature_of_type(typ: Type) -> CtString {
         let element_typ_quote = signature_of_type(element_type);
         f"[{element_typ_quote};{array_len}]".as_ctstring()
     } else if typ.as_data_type().is_some() {
-        let (s, generics) = typ.as_data_type().unwrap();
-        let field_signatures = s.fields(generics).map(|(_, typ, _)| signature_of_type(typ)).join(",".as_ctstring());
+        let data_type = typ.as_data_type().unwrap();
+        let field_signatures = data_type
+            .definition()
+            .fields(data_type.generics())
+            .map(|field| signature_of_type(field.typ()))
+            .join(",".as_ctstring());
         f"({field_signatures})".as_ctstring()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
@@ -116,10 +123,10 @@ pub(crate) comptime fn compute_struct_selector(s: TypeDefinition, from_signature
     let struct_name = s.name();
     let args_signatures = s
         .fields_as_written()
-        .map(|(_, typ, _)| {
+        .map(|field| {
             // signature_of_type can handle structs, so this supports nested structs FIXME: Field generics are not
             // handled here!
-            signature_of_type(typ)
+            signature_of_type(field.typ())
         })
         .join(",".as_ctstring());
     let signature_quote = f"{struct_name}({args_signatures})".as_ctstring();
@@ -179,7 +186,8 @@ pub(crate) comptime fn assert_params_serializable(f: FunctionDefinition) {
     let fn_name = f.name();
 
     for param in f.parameters() {
-        let (name, param_type) = param;
+        let name = param.name();
+        let param_type = param.typ();
         let serialize_constraint = quote { crate::protocol::traits::Serialize }.as_trait_constraint();
         assert(
             param_type.implements(serialize_constraint),
