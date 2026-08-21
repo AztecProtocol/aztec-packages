@@ -302,7 +302,7 @@ describe('FactStore', () => {
       );
       await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
 
-      await kv.transactionAsync(() => store.rollback(5));
+      await kv.transactionAsync(() => store.rollbackToBlock(5));
 
       const { facts } = (await store.getFactCollection(collectionKey1, CHANGE_SET))!;
       expect(hexSet(facts.map(f => f.payload[0]))).toEqual(hexSet([nonRetractable]));
@@ -318,7 +318,7 @@ describe('FactStore', () => {
       );
       await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
 
-      await kv.transactionAsync(() => store.rollback(5));
+      await kv.transactionAsync(() => store.rollbackToBlock(5));
 
       expect(await store.getFactCollection(collectionKey1, CHANGE_SET)).toBeUndefined();
       expect(await store.getFactCollectionsByType(typeKey, CHANGE_SET)).toHaveLength(0);
@@ -342,32 +342,32 @@ describe('FactStore', () => {
       );
       await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
 
-      await kv.transactionAsync(() => store.rollback(7));
+      await kv.transactionAsync(() => store.rollbackToBlock(7));
       expect(
         (await store.getFactCollection(collectionKey1, CHANGE_SET))!.facts.map(f => f.originBlock?.blockNumber),
       ).toEqual([5]);
       await store.discardStaged(CHANGE_SET);
 
-      await kv.transactionAsync(() => store.rollback(4));
+      await kv.transactionAsync(() => store.rollbackToBlock(4));
       expect(await store.getFactCollection(collectionKey1, CHANGE_SET)).toBeUndefined();
     });
 
     it('rollback throws while a change set has staged writes', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, 'uncommitted-change-set');
-      await expect(kv.transactionAsync(() => store.rollback(0))).rejects.toThrow(
+      await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).rejects.toThrow(
         'PXE fact store rollback is not allowed while staged writes are pending',
       );
       await store.discardStaged('uncommitted-change-set');
-      await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
+      await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).resolves.not.toThrow();
     });
 
     it('a change set that has only read still blocks rollback until it is discarded', async () => {
       await store.getFactCollection(collectionKey1, 'reader-change-set');
-      await expect(kv.transactionAsync(() => store.rollback(0))).rejects.toThrow(
+      await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).rejects.toThrow(
         'PXE fact store rollback is not allowed while staged writes are pending',
       );
       await store.discardStaged('reader-change-set');
-      await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
+      await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).resolves.not.toThrow();
     });
   });
 

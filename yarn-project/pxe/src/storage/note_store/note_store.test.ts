@@ -798,7 +798,7 @@ describe('NoteStore', () => {
   });
 });
 
-describe('NoteStore.rollback', () => {
+describe('NoteStore.rollbackToBlock', () => {
   const CHANGE_SET = 'note-store-test-change-set';
   const scope = AztecAddress.fromBigIntUnsafe(1n);
   const contract = AztecAddress.fromBigIntUnsafe(100n);
@@ -836,7 +836,7 @@ describe('NoteStore.rollback', () => {
     );
     await store.commitStaged(CHANGE_SET);
 
-    await kv.transactionAsync(() => store.rollback(9));
+    await kv.transactionAsync(() => store.rollbackToBlock(9));
 
     // Only note A survives.
     expect(await store.nullifiersOfNotesAtBlock(9)).toEqual([noteA.siloedNullifier.toString()]);
@@ -864,7 +864,7 @@ describe('NoteStore.rollback', () => {
     await store.addNotes([noteLow, noteHigh], scope, CHANGE_SET);
     await store.commitStaged(CHANGE_SET);
 
-    await kv.transactionAsync(() => store.rollback(9));
+    await kv.transactionAsync(() => store.rollbackToBlock(9));
 
     expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
     expect(await store.nullifiersOfNotesAtBlock(50)).toHaveLength(0);
@@ -887,7 +887,7 @@ describe('NoteStore.rollback', () => {
     );
     await store.commitStaged(CHANGE_SET);
 
-    await kv.transactionAsync(() => store.rollback(16));
+    await kv.transactionAsync(() => store.rollbackToBlock(16));
 
     // The creation row at block 10 is untouched.
     expect(await store.nullifiersOfNotesAtBlock(10)).toEqual([noteB.siloedNullifier.toString()]);
@@ -907,11 +907,11 @@ describe('NoteStore.rollback', () => {
     await store.addNotes([noteB], scope, CHANGE_SET);
     await store.commitStaged(CHANGE_SET);
 
-    await kv.transactionAsync(() => store.rollback(9));
+    await kv.transactionAsync(() => store.rollbackToBlock(9));
     expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
 
     // Second run hits the missing-row guard: no throw, state unchanged.
-    await kv.transactionAsync(() => store.rollback(9));
+    await kv.transactionAsync(() => store.rollbackToBlock(9));
     expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
   });
 
@@ -925,13 +925,13 @@ describe('NoteStore.rollback', () => {
     });
     await store.addNotes([staged], scope, 'uncommitted-change-set');
 
-    await expect(kv.transactionAsync(() => store.rollback(0))).rejects.toThrow(
+    await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).rejects.toThrow(
       'PXE note store rollback is not allowed while staged writes are pending',
     );
 
     await store.discardStaged('uncommitted-change-set');
 
-    await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
+    await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).resolves.not.toThrow();
   });
 
   afterEach(async () => {
