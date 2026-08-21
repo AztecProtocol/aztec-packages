@@ -27,7 +27,7 @@ import { computeSiloedTagForIndex, extractTags } from '../testing/tag_query_test
 const FAR_FUTURE_BLOCK_NUMBER = BlockNumber(100);
 const CURRENT_TIMESTAMP = BigInt(Math.floor(Date.now() / 1000));
 const ANCHOR_BLOCK_HEADER = BlockHeader.random({ blockNumber: FAR_FUTURE_BLOCK_NUMBER, timestamp: CURRENT_TIMESTAMP });
-const JOB_ID = 'test-job';
+const CHANGE_SET_ID = 'test-change-set';
 const FINALIZED_BLOCK_NUMBER = BlockNumber(10);
 // Old enough that the log is past MAX_TX_LIFETIME and may advance the aged index.
 const AGED_TIMESTAMP = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
@@ -83,7 +83,7 @@ describe('syncTaggedPrivateLogs', () => {
     finalizedBlockNumber = FINALIZED_BLOCK_NUMBER,
     header = ANCHOR_BLOCK_HEADER,
   ) {
-    return syncTaggedPrivateLogs(secrets, aztecNode, taggingStore, header, finalizedBlockNumber, JOB_ID);
+    return syncTaggedPrivateLogs(secrets, aztecNode, taggingStore, header, finalizedBlockNumber, CHANGE_SET_ID);
   }
 
   /** The tags queried by the `callIndex`-th RPC call. */
@@ -159,13 +159,13 @@ describe('syncTaggedPrivateLogs', () => {
     const logs = await sync(secrets);
 
     expect(logs).toHaveLength(2);
-    expect(await taggingStore.getHighestAgedIndex(secrets[0], JOB_ID)).toBe(log1Index);
-    expect(await taggingStore.getHighestFinalizedIndex(secrets[0], JOB_ID)).toBe(log1Index);
-    expect(await taggingStore.getHighestAgedIndex(secrets[1], JOB_ID)).toBe(log2Index);
-    expect(await taggingStore.getHighestFinalizedIndex(secrets[1], JOB_ID)).toBe(log2Index);
+    expect(await taggingStore.getHighestAgedIndex(secrets[0], CHANGE_SET_ID)).toBe(log1Index);
+    expect(await taggingStore.getHighestFinalizedIndex(secrets[0], CHANGE_SET_ID)).toBe(log1Index);
+    expect(await taggingStore.getHighestAgedIndex(secrets[1], CHANGE_SET_ID)).toBe(log2Index);
+    expect(await taggingStore.getHighestFinalizedIndex(secrets[1], CHANGE_SET_ID)).toBe(log2Index);
     // secrets[2] found nothing, so its store must be untouched
-    expect(await taggingStore.getHighestAgedIndex(secrets[2], JOB_ID)).toBeUndefined();
-    expect(await taggingStore.getHighestFinalizedIndex(secrets[2], JOB_ID)).toBeUndefined();
+    expect(await taggingStore.getHighestAgedIndex(secrets[2], CHANGE_SET_ID)).toBeUndefined();
+    expect(await taggingStore.getHighestFinalizedIndex(secrets[2], CHANGE_SET_ID)).toBeUndefined();
   });
 
   it('does not advance aged index for recent logs', async () => {
@@ -182,8 +182,8 @@ describe('syncTaggedPrivateLogs', () => {
 
     // The recent log is still returned to the caller: recency only gates the aged index, not delivery.
     expect(logs).toHaveLength(1);
-    expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(logIndex);
-    expect(await taggingStore.getHighestAgedIndex(secret, JOB_ID)).toBeUndefined();
+    expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBe(logIndex);
+    expect(await taggingStore.getHighestAgedIndex(secret, CHANGE_SET_ID)).toBeUndefined();
   });
 
   it('updates store correctly when multiple iterations are needed', async () => {
@@ -199,8 +199,8 @@ describe('syncTaggedPrivateLogs', () => {
     const logs = await sync([secret]);
 
     expect(logs).toHaveLength(2);
-    expect(await taggingStore.getHighestAgedIndex(secret, JOB_ID)).toBe(newWindowIndex);
-    expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(newWindowIndex);
+    expect(await taggingStore.getHighestAgedIndex(secret, CHANGE_SET_ID)).toBe(newWindowIndex);
+    expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBe(newWindowIndex);
   });
 
   it('respects pre-existing store indexes', async () => {
@@ -208,8 +208,8 @@ describe('syncTaggedPrivateLogs', () => {
 
     const existingAgedIndex = 5;
     const existingFinalizedIndex = 8;
-    await taggingStore.updateHighestAgedIndex(secret, existingAgedIndex, JOB_ID);
-    await taggingStore.updateHighestFinalizedIndex(secret, existingFinalizedIndex, JOB_ID);
+    await taggingStore.updateHighestAgedIndex(secret, existingAgedIndex, CHANGE_SET_ID);
+    await taggingStore.updateHighestFinalizedIndex(secret, existingFinalizedIndex, CHANGE_SET_ID);
     mockNodeWithLogs([]);
 
     await sync([secret]);
@@ -240,8 +240,8 @@ describe('syncTaggedPrivateLogs', () => {
       const logs = await sync([secret]);
 
       expect(logs).toHaveLength(3);
-      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(2);
-      expect(await taggingStore.getHighestAgedIndex(secret, JOB_ID)).toBeUndefined();
+      expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBe(2);
+      expect(await taggingStore.getHighestAgedIndex(secret, CHANGE_SET_ID)).toBeUndefined();
     });
 
     it('advances the finalized index only through the finalized prefix', async () => {
@@ -259,7 +259,7 @@ describe('syncTaggedPrivateLogs', () => {
       // The unfinalized logs (4, 5) are returned to the caller, but the finalized index only advances to the finalized
       // prefix (3): probe advancement is decoupled from the finalized index.
       expect(logs).toHaveLength(6);
-      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(3);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBe(3);
     });
 
     it('advances the probe past an unfinalized-only first probe', async () => {
@@ -275,7 +275,7 @@ describe('syncTaggedPrivateLogs', () => {
 
       expect(logs).toHaveLength(2);
       // Nothing finalized, so the finalized index must not advance.
-      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBeUndefined();
+      expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBeUndefined();
 
       // Round 1 probes [0, 1] and advances on the unfinalized hits; round 2 probes [2..5] and stops at the gap (2).
       expect(callSizes()).toEqual([2, 4]);
@@ -287,7 +287,7 @@ describe('syncTaggedPrivateLogs', () => {
       expect(secondSyncLogs).toHaveLength(2);
       expect(calledTags()).toEqual(await computeSiloedTags(secret, [0, 1]));
       // The repeat sync saw the same unfinalized-only hits, so the finalized index must still not advance.
-      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBeUndefined();
+      expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBeUndefined();
     });
 
     // Pins the probe schedule: the probe doubles each round (2, 4, 8, ...) until the first miss, so K-deep
@@ -297,13 +297,13 @@ describe('syncTaggedPrivateLogs', () => {
       const secret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
 
       // Recipient already synced index 0; three new finalized logs sit at indexes 1..3.
-      await taggingStore.updateHighestFinalizedIndex(secret, 0, JOB_ID);
+      await taggingStore.updateHighestFinalizedIndex(secret, 0, CHANGE_SET_ID);
       mockNodeWithLogs(await computeSiloedTagRange(secret, 3, 1));
 
       const logs = await sync([secret]);
 
       expect(logs).toHaveLength(3);
-      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(3);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBe(3);
 
       // Probe windows double each round: [1,2], then [3,4,5,6] where index 4 is the terminating miss.
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
@@ -318,14 +318,14 @@ describe('syncTaggedPrivateLogs', () => {
 
       // Recipient already synced index 0; a deep run of finalized logs sits past multiple capped probe windows.
       const newLogs = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN * 3;
-      await taggingStore.updateHighestFinalizedIndex(secret, 0, JOB_ID);
+      await taggingStore.updateHighestFinalizedIndex(secret, 0, CHANGE_SET_ID);
       mockNodeWithLogs(await computeSiloedTagRange(secret, newLogs, 1));
 
       const logs = await sync([secret]);
 
       expect(logs).toHaveLength(newLogs);
       // The capped catch-up still drains the run fully.
-      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(newLogs);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBe(newLogs);
 
       // Fixed golden probe sizes for the WINDOW_LEN*3 (=252) run: the probe doubles (2, 4, 8, 16, 32, 64) until the
       // next step would exceed the window, then saturates at the cap (WINDOW_LEN = 84) for the last two rounds. The 84s
@@ -377,7 +377,7 @@ describe('syncTaggedPrivateLogs', () => {
       // First sync catches up the whole run; the finalized index lands on the last index and the probe saturated the
       // cap along the way.
       await sync([secret]);
-      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBe(totalLogs - 1);
       expect(Math.max(...callSizes())).toBe(UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
 
       // Drop the catch-up's recorded calls (mockClear keeps the implementation; mockReset would not) so the next
@@ -397,7 +397,7 @@ describe('syncTaggedPrivateLogs', () => {
     it('steady state probes only the initial probe length in a single round', async () => {
       const secret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
       const finalizedIndex = 8;
-      await taggingStore.updateHighestFinalizedIndex(secret, finalizedIndex, JOB_ID);
+      await taggingStore.updateHighestFinalizedIndex(secret, finalizedIndex, CHANGE_SET_ID);
       mockNodeWithLogs([]);
 
       await sync([secret]);
@@ -430,13 +430,13 @@ describe('syncTaggedPrivateLogs', () => {
       const secret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
 
       // Recipient already synced index 0; K new contiguous finalized logs sit at indexes 1..K.
-      await taggingStore.updateHighestFinalizedIndex(secret, 0, JOB_ID);
+      await taggingStore.updateHighestFinalizedIndex(secret, 0, CHANGE_SET_ID);
       mockNodeWithLogs(await computeSiloedTagRange(secret, newLogs, 1));
 
       const logs = await sync([secret]);
 
       expect(logs).toHaveLength(newLogs);
-      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(newLogs);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBe(newLogs);
       expect(aztecNode.getPrivateLogsByTags.mock.calls).toHaveLength(expectedRoundTrips);
     });
 
@@ -450,9 +450,9 @@ describe('syncTaggedPrivateLogs', () => {
       // The straggler is at index 0 with 3 new contiguous logs at indexes 1..3.
       const idleFinalizedIndex = 5;
       for (const secret of idleSecrets) {
-        await taggingStore.updateHighestFinalizedIndex(secret, idleFinalizedIndex, JOB_ID);
+        await taggingStore.updateHighestFinalizedIndex(secret, idleFinalizedIndex, CHANGE_SET_ID);
       }
-      await taggingStore.updateHighestFinalizedIndex(straggler, 0, JOB_ID);
+      await taggingStore.updateHighestFinalizedIndex(straggler, 0, CHANGE_SET_ID);
       mockNodeWithLogs(await computeSiloedTags(straggler, [1, 2, 3]));
 
       const logs = await sync([...idleSecrets, straggler]);
@@ -460,12 +460,12 @@ describe('syncTaggedPrivateLogs', () => {
 
       // Round 1: 4 idle probes + straggler[1,2]. Round 2 is straggler-only: [3..6] (terminating miss at 4).
       expect(callSizes()).toEqual([10, 4]);
-      expect(await taggingStore.getHighestFinalizedIndex(straggler, JOB_ID)).toBe(3);
+      expect(await taggingStore.getHighestFinalizedIndex(straggler, CHANGE_SET_ID)).toBe(3);
 
       // Dropping out also means no writes: the caught-up secrets' finalized indexes are untouched by the
       // straggler-driven rounds.
       for (const secret of idleSecrets) {
-        expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(idleFinalizedIndex);
+        expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBe(idleFinalizedIndex);
       }
     });
   });
@@ -485,7 +485,7 @@ describe('syncTaggedPrivateLogs', () => {
       // The whole run is returned and the finalized index lands on the last index, even though the run is longer than
       // a single window.
       expect(logs).toHaveLength(totalLogs);
-      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBe(totalLogs - 1);
 
       // Fixed golden probe sizes for the cold-start WINDOW_LEN+2 run: pure doubling with no cap saturation, since the
       // run drains inside the 64-tag round. Depends on INITIAL_CONSTRAINED_PROBE_LEN and, via the run length, on
@@ -509,8 +509,8 @@ describe('syncTaggedPrivateLogs', () => {
       // Every log is returned and both stored indexes land on the last index. The aged index advances since the logs
       // are old enough, unlike a constrained secret, which never tracks an aged index.
       expect(logs).toHaveLength(totalLogs);
-      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
-      expect(await taggingStore.getHighestAgedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, CHANGE_SET_ID)).toBe(totalLogs - 1);
+      expect(await taggingStore.getHighestAgedIndex(secret, CHANGE_SET_ID)).toBe(totalLogs - 1);
 
       // The first round spans the full cold-start window (WINDOW_LEN, the same bound the sender store permits fresh
       // pending indexes under). Because every index hit, the next round re-anchors to another full WINDOW_LEN window
@@ -535,9 +535,9 @@ describe('syncTaggedPrivateLogs', () => {
       const logs = await sync([constrainedSecret, unconstrainedSecret]);
 
       expect(logs).toHaveLength(4);
-      expect(await taggingStore.getHighestFinalizedIndex(constrainedSecret, JOB_ID)).toBe(1);
-      expect(await taggingStore.getHighestAgedIndex(constrainedSecret, JOB_ID)).toBeUndefined();
-      expect(await taggingStore.getHighestFinalizedIndex(unconstrainedSecret, JOB_ID)).toBe(5);
+      expect(await taggingStore.getHighestFinalizedIndex(constrainedSecret, CHANGE_SET_ID)).toBe(1);
+      expect(await taggingStore.getHighestAgedIndex(constrainedSecret, CHANGE_SET_ID)).toBeUndefined();
+      expect(await taggingStore.getHighestFinalizedIndex(unconstrainedSecret, CHANGE_SET_ID)).toBe(5);
 
       // Both kinds share one batched query rather than one query per kind.
       const firstCallTags = calledTags();

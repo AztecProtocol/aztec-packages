@@ -7,13 +7,12 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DataInBlock } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
-import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { NotesFilter } from '../../notes_filter.js';
+import type { ChangeSetId, StagedStore } from '../staged_write_coordinator.js';
 import { StoredNote } from './stored_note.js';
 
 /// Alias types for kv map readability
 type SiloedNullifier = string;
-type JobId = string;
 type AddressStr = string;
 type BlockNum = number;
 type StoredNoteBuffer = Buffer;
@@ -60,18 +59,15 @@ export class NoteStore implements StagedStore {
   // nullification block number => nullifier
   #nullifierEmissionsByBlockNumber: AztecAsyncMultiMap<BlockNum, SiloedNullifier>;
 
-  // In-memory changes performed during a not-yet committed job. When `commit` is called with said job's id, these
-  // changes are persisted in the DB maps specified above and cleared.
-  // jobId => nullifier => StoredNote
-  #notesForJob: Map<JobId, Map<SiloedNullifier, StoredNote>>;
+  // In-memory changes performed during a not-yet committed change set. When `commit` is called with said change set's
+  // id, these changes are persisted in the DB maps specified above and cleared. changeSetId => nullifier => StoredNote
+  #notesForChangeSet: Map<ChangeSetId, Map<SiloedNullifier, StoredNote>>;
 
-  // Staged nullifier emissions per job.
-  // jobId => nullifier => emission block number
-  #nullifierEmissionsForJob: Map<JobId, Map<SiloedNullifier, BlockNum>>;
+  // Staged nullifier emissions per change set. changeSetId => nullifier => emission block number
+  #nullifierEmissionsForChangeSet: Map<ChangeSetId, Map<SiloedNullifier, BlockNum>>;
 
-  // Per job locks to prevent multiple concurrent writes to affect each other.
-  // jobId => lock
-  #jobLocks: Map<JobId, Semaphore>;
+  // Per-change-set locks to prevent multiple concurrent writes from affecting each other. changeSetId => lock
+  #changeSetLocks: Map<ChangeSetId, Semaphore>;
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
@@ -81,9 +77,9 @@ export class NoteStore implements StagedStore {
     this.#nullifierEmissions = store.openMap('note_nullifications_by_nullifier');
     this.#nullifierEmissionsByBlockNumber = store.openMultiMap('note_nullifications_by_block');
 
-    this.#jobLocks = new Map();
-    this.#notesForJob = new Map();
-    this.#nullifierEmissionsForJob = new Map();
+    this.#changeSetLocks = new Map();
+    this.#notesForChangeSet = new Map();
+    this.#nullifierEmissionsForChangeSet = new Map();
   }
 
   /**
@@ -94,50 +90,50 @@ export class NoteStore implements StagedStore {
    *
    * @param notes - Notes to store
    * @param scope - The scope (user/account) under which to store the notes
-   * @param jobId - The job context for staged writes
+   * @param changeSetId - The change set to stage writes under
    */
-  public addNotes(notes: NoteDao[], scope: AztecAddress, jobId: string): Promise<void[]> {
-    return this.#withJobLock(jobId, () =>
+  public addNotes(notes: NoteDao[], scope: AztecAddress, changeSetId: ChangeSetId): Promise<void[]> {
+    return this.#withChangeSetLock(changeSetId, () =>
       this.#store.transactionAsync(() =>
         allToCompletion(
           notes.map(async note => {
-            const noteForJob =
-              (await this.#readNote(note.siloedNullifier.toString(), jobId)) ?? new StoredNote(note, new Set());
-            noteForJob.addScope(scope.toString());
-            this.#writeNote(noteForJob, jobId);
+            const noteForChangeSet =
+              (await this.#readNote(note.siloedNullifier.toString(), changeSetId)) ?? new StoredNote(note, new Set());
+            noteForChangeSet.addScope(scope.toString());
+            this.#writeNote(noteForChangeSet, changeSetId);
           }),
         ),
       ),
     );
   }
 
-  async #readNote(nullifier: string, jobId: string): Promise<StoredNote | undefined> {
+  async #readNote(nullifier: string, changeSetId: ChangeSetId): Promise<StoredNote | undefined> {
     // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
     // are no pending read requests). The staged value still takes precedence if it exists.
     const noteBuffer = await this.#notes.getAsync(nullifier);
-    const noteForJob = this.#getNotesForJob(jobId).get(nullifier);
-    return noteForJob ?? (noteBuffer ? StoredNote.fromBuffer(noteBuffer) : undefined);
+    const noteForChangeSet = this.#getNotesForChangeSet(changeSetId).get(nullifier);
+    return noteForChangeSet ?? (noteBuffer ? StoredNote.fromBuffer(noteBuffer) : undefined);
   }
 
-  #writeNote(note: StoredNote, jobId: string) {
-    this.#getNotesForJob(jobId).set(note.noteDao.siloedNullifier.toString(), note);
+  #writeNote(note: StoredNote, changeSetId: ChangeSetId) {
+    this.#getNotesForChangeSet(changeSetId).set(note.noteDao.siloedNullifier.toString(), note);
   }
 
   /**
-   * Reads the block number at which a note's nullifier was emitted, layering the current job's staged emission over
+   * Reads the block number at which a note's nullifier was emitted, layering the current change set's emission over
    * committed state, the nullifier emission counterpart to {@link #readNote}. Returns the emission block number if the
-   * nullifier has been emitted (committed or staged in this job), or `undefined` if it has not.
+   * nullifier has been emitted (committed or currently staged), or `undefined` if it has not.
    */
-  async #readNullifierEmission(nullifier: string, jobId: string): Promise<number | undefined> {
+  async #readNullifierEmission(nullifier: string, changeSetId: ChangeSetId): Promise<number | undefined> {
     // Always issue the DB read to keep the IndexedDB transaction alive (see #readNote); the staged emission still takes
     // precedence if present.
     const committed = await this.#nullifierEmissions.getAsync(nullifier);
-    const staged = this.#getNullifierEmissionsForJob(jobId).get(nullifier);
+    const staged = this.#getNullifierEmissionsForChangeSet(changeSetId).get(nullifier);
     return staged ?? committed;
   }
 
-  #writeNullifierEmission(nullifier: string, blockNumber: BlockNum, jobId: string): void {
-    this.#getNullifierEmissionsForJob(jobId).set(nullifier, blockNumber);
+  #writeNullifierEmission(nullifier: string, blockNumber: BlockNum, changeSetId: ChangeSetId): void {
+    this.#getNullifierEmissionsForChangeSet(changeSetId).set(nullifier, blockNumber);
   }
 
   /**
@@ -149,10 +145,10 @@ export class NoteStore implements StagedStore {
    *
    * @param filter - Filter criteria including contractAddress (required), and optional owner,
    *                 storageSlot, status, scopes, and siloedNullifier.
-   * @param jobId - the job context to read from.
+   * @param changeSetId - the change set to read staged data from.
    * @returns Filtered and deduplicated notes (a note might be present in multiple scopes, but returned at most once)
    */
-  getNotes(filter: NotesFilter, jobId: string): Promise<NoteDao[]> {
+  getNotes(filter: NotesFilter, changeSetId: ChangeSetId): Promise<NoteDao[]> {
     if (filter.scopes.length === 0) {
       return Promise.resolve([]);
     }
@@ -171,19 +167,19 @@ export class NoteStore implements StagedStore {
       // Committed notes indexed by contract address
       for await (const nullifier of this.#notesByContractAddress.getValuesAsync(filter.contractAddress.toString())) {
         candidates.set(nullifier, {
-          notePromise: this.#readNote(nullifier, jobId),
-          nullificationPromise: this.#readNullifierEmission(nullifier, jobId),
+          notePromise: this.#readNote(nullifier, changeSetId),
+          nullificationPromise: this.#readNullifierEmission(nullifier, changeSetId),
         });
       }
 
-      // Staged notes from the current job (not yet committed to the DB index)
-      for (const storedNote of this.#getNotesForJob(jobId).values()) {
+      // Staged notes from the current change set (not yet committed to the DB index)
+      for (const storedNote of this.#getNotesForChangeSet(changeSetId).values()) {
         if (storedNote.noteDao.contractAddress.equals(filter.contractAddress)) {
           const nullifier = storedNote.noteDao.siloedNullifier.toString();
           if (!candidates.has(nullifier)) {
             candidates.set(nullifier, {
               notePromise: Promise.resolve(storedNote),
-              nullificationPromise: this.#readNullifierEmission(nullifier, jobId),
+              nullificationPromise: this.#readNullifierEmission(nullifier, changeSetId),
             });
           }
         }
@@ -206,12 +202,12 @@ export class NoteStore implements StagedStore {
       const foundNotes: Map<string, NoteDao> = new Map();
 
       for (const note of notes) {
-        // Defensive: hitting this case means we're mishandling contract indices or in-memory job data
+        // Defensive: hitting this case means we're mishandling contract indices or in-memory staged data
         if (!note) {
           throw new Error('PXE note database is corrupted.');
         }
 
-        // A note is nullified once its nullifier emission has been recorded (committed or staged in this job).
+        // A note is nullified once its nullifier emission has been recorded (committed or currently staged).
         const nullified = emissionByNullifier.get(note.noteDao.siloedNullifier.toString()) !== undefined;
 
         if (targetStatus === NoteStatus.ACTIVE && nullified) {
@@ -259,16 +255,16 @@ export class NoteStore implements StagedStore {
    * notes of scopes they track, and a note is always discovered before the nullifier that spends it, so a nullifier
    * with no matching note signals a bug (broken nonce/index discovery, a sync-ordering error, store corruption, etc).
    *
-   * `applyNullifiers` is idempotent: a nullifier whose emission is already recorded (committed or staged in this job) is
+   * `applyNullifiers` is idempotent: a nullifier whose emission is already recorded (committed or currently staged) is
    * skipped, so re-applying it neither re-writes the emission, changes note visibility, nor appears in the result.
    *
    * @param siloedNullifiers - Array of nullifiers with their block locations to record
-   * @param jobId - The job context for staged writes
+   * @param changeSetId - The change set to stage writes under
    * @returns The notes that transition from active to nullified in this call; already-nullified notes are skipped, so
    *          a repeat application returns an empty array.
    * @throws If any nullifier has no matching note in this store, or was emitted at block 0.
    */
-  applyNullifiers(siloedNullifiers: DataInBlock<Fr>[], jobId: string): Promise<NoteDao[]> {
+  applyNullifiers(siloedNullifiers: DataInBlock<Fr>[], changeSetId: ChangeSetId): Promise<NoteDao[]> {
     if (siloedNullifiers.length === 0) {
       return Promise.resolve([]);
     }
@@ -277,7 +273,7 @@ export class NoteStore implements StagedStore {
       return Promise.reject(new Error('applyNullifiers: nullifiers cannot have been emitted at block 0'));
     }
 
-    return this.#withJobLock(jobId, () =>
+    return this.#withChangeSetLock(changeSetId, () =>
       this.#store.transactionAsync(async () => {
         // Kick off the note read and the existing-emission read together during the synchronous map so all are in
         // flight before the first await, which keeps the IndexedDB transaction alive.
@@ -285,8 +281,8 @@ export class NoteStore implements StagedStore {
           siloedNullifiers.map(async nullifier => {
             const key = nullifier.data.toString();
             const [storedNote, existingEmission] = await allToCompletion([
-              this.#readNote(key, jobId),
-              this.#readNullifierEmission(key, jobId),
+              this.#readNote(key, changeSetId),
+              this.#readNullifierEmission(key, changeSetId),
             ]);
             if (!storedNote) {
               throw new Error(`Attempted to mark a note as nullified which does not exist in PXE DB: ${key}`);
@@ -302,7 +298,7 @@ export class NoteStore implements StagedStore {
           if (alreadyEmitted) {
             continue;
           }
-          this.#writeNullifierEmission(nullifier.data.toString(), nullifier.l2BlockNumber, jobId);
+          this.#writeNullifierEmission(nullifier.data.toString(), nullifier.l2BlockNumber, changeSetId);
           affected.push(storedNote.noteDao);
         }
 
@@ -312,51 +308,51 @@ export class NoteStore implements StagedStore {
   }
 
   /**
-   * Commits in-memory job data to persistent storage.
+   * Commits in-memory staged data to persistent storage.
    *
-   * Called by JobCoordinator when a job completes successfully.
+   * Called by StagedWriteCoordinator when an operation completes successfully.
    *
-   * Note: JobCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync here
-   * (and using one would throw on IndexedDB as it does not support nested txs).
+   * Note: StagedWriteCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync
+   * here (and using one would throw on IndexedDB as it does not support nested txs).
    *
-   * @param jobId - The jobId identifying which staged data to commit
+   * @param changeSetId - The changeSetId identifying which staged data to commit
    */
-  async commit(jobId: string): Promise<void> {
-    for (const [nullifier, storedNote] of this.#getNotesForJob(jobId)) {
+  async commitStaged(changeSetId: ChangeSetId): Promise<void> {
+    for (const [nullifier, storedNote] of this.#getNotesForChangeSet(changeSetId)) {
       await this.#notes.set(nullifier, storedNote.toBuffer());
       await this.#notesByContractAddress.set(storedNote.noteDao.contractAddress.toString(), nullifier);
       await this.#notesByBlockNumber.set(storedNote.noteDao.l2BlockNumber, nullifier);
     }
 
-    for (const [nullifier, blockNumber] of this.#getNullifierEmissionsForJob(jobId)) {
+    for (const [nullifier, blockNumber] of this.#getNullifierEmissionsForChangeSet(changeSetId)) {
       await this.#nullifierEmissions.set(nullifier, blockNumber);
       await this.#nullifierEmissionsByBlockNumber.set(blockNumber, nullifier);
     }
 
-    this.#clearJobData(jobId);
+    this.#clearChangeSetData(changeSetId);
   }
 
-  discardStaged(jobId: string): Promise<void> {
-    this.#clearJobData(jobId);
+  discardStaged(changeSetId: ChangeSetId): Promise<void> {
+    this.#clearChangeSetData(changeSetId);
     return Promise.resolve();
   }
 
-  #clearJobData(jobId: string) {
-    this.#notesForJob.delete(jobId);
-    this.#nullifierEmissionsForJob.delete(jobId);
-    this.#jobLocks.delete(jobId);
+  #clearChangeSetData(changeSetId: ChangeSetId) {
+    this.#notesForChangeSet.delete(changeSetId);
+    this.#nullifierEmissionsForChangeSet.delete(changeSetId);
+    this.#changeSetLocks.delete(changeSetId);
   }
 
   /**
-   * Functions run withJobLock are forced to wait for each other, i.e. if they share a `jobId`, they run serially
-   * instead of concurrently. This is needed because staged data is stored in memory, and concurrent async operations
-   * (e.g., allToCompletion in `validateAndStoreNote`) could otherwise interleave and corrupt state.
+   * Functions run withChangeSetLock are forced to wait for each other, i.e. if they share a `changeSetId`, they run
+   * serially instead of concurrently. This is needed because staged data is stored in memory, and concurrent async
+   * operations (e.g., allToCompletion in `validateAndStoreNote`) could otherwise interleave and corrupt state.
    */
-  async #withJobLock<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
-    let lock = this.#jobLocks.get(jobId);
+  async #withChangeSetLock<T>(changeSetId: ChangeSetId, fn: () => Promise<T>): Promise<T> {
+    let lock = this.#changeSetLocks.get(changeSetId);
     if (!lock) {
       lock = new Semaphore(1);
-      this.#jobLocks.set(jobId, lock);
+      this.#changeSetLocks.set(changeSetId, lock);
     }
     await lock.acquire();
     try {
@@ -366,22 +362,22 @@ export class NoteStore implements StagedStore {
     }
   }
 
-  #getNotesForJob(jobId: string): Map<string, StoredNote> {
-    let notesForJob = this.#notesForJob.get(jobId);
-    if (!notesForJob) {
-      notesForJob = new Map();
-      this.#notesForJob.set(jobId, notesForJob);
+  #getNotesForChangeSet(changeSetId: ChangeSetId): Map<string, StoredNote> {
+    let notesForChangeSet = this.#notesForChangeSet.get(changeSetId);
+    if (!notesForChangeSet) {
+      notesForChangeSet = new Map();
+      this.#notesForChangeSet.set(changeSetId, notesForChangeSet);
     }
-    return notesForJob;
+    return notesForChangeSet;
   }
 
-  #getNullifierEmissionsForJob(jobId: string): Map<string, BlockNum> {
-    let nullificationsForJob = this.#nullifierEmissionsForJob.get(jobId);
-    if (!nullificationsForJob) {
-      nullificationsForJob = new Map();
-      this.#nullifierEmissionsForJob.set(jobId, nullificationsForJob);
+  #getNullifierEmissionsForChangeSet(changeSetId: ChangeSetId): Map<string, BlockNum> {
+    let nullificationsForChangeSet = this.#nullifierEmissionsForChangeSet.get(changeSetId);
+    if (!nullificationsForChangeSet) {
+      nullificationsForChangeSet = new Map();
+      this.#nullifierEmissionsForChangeSet.set(changeSetId, nullificationsForChangeSet);
     }
-    return nullificationsForJob;
+    return nullificationsForChangeSet;
   }
 
   /** Returns the nullifiers (note ids) of all notes created at the given block number. Used by delete-on-prune. */
@@ -400,12 +396,12 @@ export class NoteStore implements StagedStore {
    * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own, because the
    * reorg path wraps it together with other store operations, and IndexedDB has no nested transaction support).
    *
-   * Throws if any job has uncommitted staged writes, since rolling back mid-job could later re-introduce notes or
-   * nullifier emissions anchored to deleted blocks.
+   * Throws if any change set has uncommitted staged writes, since rolling back mid-change-set could later re-introduce
+   * notes or nullifier emissions anchored to deleted blocks.
    */
   public async rollback(toBlock: number): Promise<void> {
-    if (this.#notesForJob.size > 0 || this.#nullifierEmissionsForJob.size > 0) {
-      throw new Error('PXE note store rollback is not allowed while jobs are running');
+    if (this.#notesForChangeSet.size > 0 || this.#nullifierEmissionsForChangeSet.size > 0) {
+      throw new Error('PXE note store rollback is not allowed while staged writes are pending');
     }
     // Snapshot the orphaned (block, nullifier) pairs before mutating so we never delete from the cursor we are
     // iterating. Scanning from `toBlock + 1` upward covers everything above the rollback target without needing to know

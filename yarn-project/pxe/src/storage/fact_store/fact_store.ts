@@ -4,11 +4,10 @@ import { allToCompletion } from '@aztec/foundation/promise';
 import { Semaphore } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 
-import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
+import type { ChangeSetId, StagedStore } from '../staged_write_coordinator.js';
 import { FactCollectionKey, type FactCollectionTypeKey, type OriginBlock } from './fact_store_keys.js';
 import { type Fact, StoredFact, factKeyStrOf } from './stored_fact.js';
 
-type JobId = string;
 type BlockNum = number;
 type FactBuffer = Buffer;
 type FactCollectionTypeKeyStr = string;
@@ -21,7 +20,7 @@ export type FactCollection = { key: FactCollectionKey; facts: Fact[] };
 /** Internal auxiliary type assembling a collection. */
 type CollectionWithFacts = { key: FactCollectionKey; facts: Map<FactKeyStr, Fact> };
 
-/** A pending operation for a job: record a fact, or delete a fact collection. */
+/** A pending operation for a change set: record a fact, or delete a fact collection. */
 type StagedOp = { kind: 'recordFact'; fact: StoredFact } | { kind: 'deleteFactCollection'; key: FactCollectionKey };
 
 /**
@@ -49,7 +48,7 @@ type StagedOp = { kind: 'recordFact'; fact: StoredFact } | { kind: 'deleteFactCo
  * provide the guarantees mentioned above. That way, concepts such as offchain delivery or partial notes are completely
  * defined by Aztec.nr, opening the door to further extension without the need for ad-hoc PXE support.
  *
- * As with most other PXE stores, writes are staged per-job and flushed atomically on commit.
+ * As with most other PXE stores, writes are staged per change set ID and flushed atomically on commit.
  */
 export class FactStore implements StagedStore {
   readonly storeName: string = 'fact';
@@ -65,11 +64,11 @@ export class FactStore implements StagedStore {
   /** Index for delete-on-prune of retractable facts (those with an origin block). */
   #factsByBlock: AztecAsyncMultiMap<BlockNum, FactKeyStr>;
 
-  /** Job uncommitted data */
-  #opsForJob: Map<JobId, StagedOp[]>;
+  /** Uncommitted data, keyed by change set ID */
+  #opsForChangeSet: Map<ChangeSetId, StagedOp[]>;
 
-  /** Per-job locks */
-  #jobLocks: Map<JobId, Semaphore>;
+  /** Per-change-set locks */
+  #changeSetLocks: Map<ChangeSetId, Semaphore>;
 
   logger = createLogger('fact_store');
 
@@ -78,8 +77,8 @@ export class FactStore implements StagedStore {
     this.#facts = store.openMap('facts');
     this.#factsByCollection = store.openMultiMap('facts_by_collection');
     this.#factsByBlock = store.openMultiMap('facts_by_block');
-    this.#opsForJob = new Map();
-    this.#jobLocks = new Map();
+    this.#opsForChangeSet = new Map();
+    this.#changeSetLocks = new Map();
   }
 
   /**
@@ -99,10 +98,10 @@ export class FactStore implements StagedStore {
     factTypeId: Fr,
     payload: Fr[],
     originBlock: OriginBlock | undefined,
-    jobId: string,
+    changeSetId: ChangeSetId,
   ): Promise<void> {
-    return this.#withJobLock(jobId, () => {
-      this.#stagedOpsFor(jobId).push({
+    return this.#withChangeSetLock(changeSetId, () => {
+      this.#stagedOpsFor(changeSetId).push({
         kind: 'recordFact',
         fact: new StoredFact(factCollectionKey, factTypeId, payload, originBlock),
       });
@@ -115,9 +114,9 @@ export class FactStore implements StagedStore {
    *
    * Idempotent: deleting a collection that does not exist is a no-op.
    */
-  deleteFactCollection(factCollectionKey: FactCollectionKey, jobId: string): Promise<void> {
-    return this.#withJobLock(jobId, () => {
-      this.#stagedOpsFor(jobId).push({ kind: 'deleteFactCollection', key: factCollectionKey });
+  deleteFactCollection(factCollectionKey: FactCollectionKey, changeSetId: ChangeSetId): Promise<void> {
+    return this.#withChangeSetLock(changeSetId, () => {
+      this.#stagedOpsFor(changeSetId).push({ kind: 'deleteFactCollection', key: factCollectionKey });
       return Promise.resolve();
     });
   }
@@ -125,11 +124,14 @@ export class FactStore implements StagedStore {
   /**
    * Returns the fact collection for the (scope-qualified) key, or undefined if it has no facts.
    */
-  async getFactCollection(factCollectionKey: FactCollectionKey, jobId: string): Promise<FactCollection | undefined> {
+  async getFactCollection(
+    factCollectionKey: FactCollectionKey,
+    changeSetId: ChangeSetId,
+  ): Promise<FactCollection | undefined> {
     const collectionKey = factCollectionKey.toString();
     const committed = await this.#store.transactionAsync(() => this.#readCollectionsFromDb([factCollectionKey]));
 
-    const collection = this.#foldStagedOps(committed, jobId).get(collectionKey);
+    const collection = this.#foldStagedOps(committed, changeSetId).get(collectionKey);
     if (!collection) {
       return undefined;
     }
@@ -142,27 +144,27 @@ export class FactStore implements StagedStore {
    */
   async getFactCollectionsByType(
     factCollectionTypeKey: FactCollectionTypeKey,
-    jobId: string,
+    changeSetId: ChangeSetId,
   ): Promise<FactCollection[]> {
     const typeKey = factCollectionTypeKey.toString();
     const committed = await this.#readCollectionsFromDbByType(typeKey);
 
-    return Array.from(this.#foldStagedOps(committed, jobId, typeKey).values())
+    return Array.from(this.#foldStagedOps(committed, changeSetId, typeKey).values())
       .map(collection => ({ key: collection.key, facts: [...collection.facts.values()] }))
       .filter(collection => collection.facts.length > 0);
   }
 
   /**
-   * Commits all staged operations for the given job to persistent storage.
+   * Commits all staged operations for the given change set to persistent storage.
    *
-   * Must be called inside a transaction owned by the caller (JobCoordinator wraps all commits in a single
+   * Must be called inside a transaction owned by the caller (StagedWriteCoordinator wraps all commits in a single
    * transactionAsync, and IndexedDB does not support nested transactions).
    *
-   * DO NOT call `#withJobLock` here: awaiting the lock creates a microtask boundary that causes IndexedDB to
+   * DO NOT call `#withChangeSetLock` here: awaiting the lock creates a microtask boundary that causes IndexedDB to
    * auto-commit the outer transaction.
    */
-  async commit(jobId: string): Promise<void> {
-    for (const op of this.#stagedOpsFor(jobId)) {
+  async commitStaged(changeSetId: ChangeSetId): Promise<void> {
+    for (const op of this.#stagedOpsFor(changeSetId)) {
       switch (op.kind) {
         case 'recordFact':
           await this.#commitFact(op.fact);
@@ -176,12 +178,12 @@ export class FactStore implements StagedStore {
         }
       }
     }
-    this.#clearJobData(jobId);
+    this.#clearChangeSetData(changeSetId);
   }
 
-  /** Discards all staged operations for the given job without persisting them. */
-  discardStaged(jobId: string): Promise<void> {
-    this.#clearJobData(jobId);
+  /** Discards all staged operations for the given change set without persisting them. */
+  discardStaged(changeSetId: ChangeSetId): Promise<void> {
+    this.#clearChangeSetData(changeSetId);
     return Promise.resolve();
   }
 
@@ -191,12 +193,13 @@ export class FactStore implements StagedStore {
    * Non-retractable facts are untouched. Must run inside a caller-owned transaction (because it needs to share the
    * transaction with other stores and IndexedDB has no nested transactions).
    *
-   * Throws if any job is in flight (has accessed the store and not yet committed or discarded), since rolling back
-   * mid-job could re-introduce records originating from deleted blocks or change state underneath a job's view.
+   * Throws if any change set is in flight (has accessed the store and not yet committed or discarded), since rolling
+   * back mid-change-set could re-introduce records originating from deleted blocks or change state underneath a change
+   * set's view.
    */
   async rollback(toBlock: BlockNum): Promise<void> {
-    if (this.#opsForJob.size > 0) {
-      throw new Error('PXE fact store rollback is not allowed while jobs are running');
+    if (this.#opsForChangeSet.size > 0) {
+      throw new Error('PXE fact store rollback is not allowed while staged writes are pending');
     }
 
     const removedFacts = await this.#retractFacts(toBlock);
@@ -331,7 +334,7 @@ export class FactStore implements StagedStore {
    */
   #foldStagedOps(
     committed: Map<FactCollectionKeyStr, CollectionWithFacts>,
-    jobId: string,
+    changeSetId: ChangeSetId,
     typeKey?: FactCollectionTypeKeyStr,
   ): Map<FactCollectionKeyStr, CollectionWithFacts> {
     const result = new Map<FactCollectionKeyStr, CollectionWithFacts>();
@@ -340,7 +343,7 @@ export class FactStore implements StagedStore {
     for (const [collectionKey, { key, facts }] of committed) {
       result.set(collectionKey, { key, facts: new Map(facts) });
     }
-    for (const op of this.#stagedOpsFor(jobId)) {
+    for (const op of this.#stagedOpsFor(changeSetId)) {
       switch (op.kind) {
         case 'recordFact':
           this.#foldRecordFact(result, op, typeKey);
@@ -456,27 +459,27 @@ export class FactStore implements StagedStore {
   }
 
   /**
-   * Returns the job's staged-ops array, creating it on first access.
+   * Returns the change set's staged-ops array, creating it on first access.
    * */
-  #stagedOpsFor(jobId: string): StagedOp[] {
-    let ops = this.#opsForJob.get(jobId);
+  #stagedOpsFor(changeSetId: ChangeSetId): StagedOp[] {
+    let ops = this.#opsForChangeSet.get(changeSetId);
     if (ops === undefined) {
       ops = [];
-      this.#opsForJob.set(jobId, ops);
+      this.#opsForChangeSet.set(changeSetId, ops);
     }
     return ops;
   }
 
-  #clearJobData(jobId: string) {
-    this.#opsForJob.delete(jobId);
-    this.#jobLocks.delete(jobId);
+  #clearChangeSetData(changeSetId: ChangeSetId) {
+    this.#opsForChangeSet.delete(changeSetId);
+    this.#changeSetLocks.delete(changeSetId);
   }
 
-  async #withJobLock<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
-    let lock = this.#jobLocks.get(jobId);
+  async #withChangeSetLock<T>(changeSetId: ChangeSetId, fn: () => Promise<T>): Promise<T> {
+    let lock = this.#changeSetLocks.get(changeSetId);
     if (!lock) {
       lock = new Semaphore(1);
-      this.#jobLocks.set(jobId, lock);
+      this.#changeSetLocks.set(changeSetId, lock);
     }
     await lock.acquire();
     try {

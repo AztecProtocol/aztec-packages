@@ -2,6 +2,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { AppTaggingSecret } from '@aztec/stdlib/logs';
 
+import type { ChangeSetId } from '../../storage/staged_write_coordinator.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { unfinalizedTaggingIndexesWindowEnd } from '../constants.js';
 import type { LogQueryAnchor } from '../get_all_logs_by_tags.js';
@@ -26,7 +27,7 @@ export async function syncSenderTaggingIndexes(
   taggingStore: SenderTaggingStore,
   finalizedBlockNumber: BlockNumber,
   anchor: LogQueryAnchor,
-  jobId: string,
+  changeSetId: ChangeSetId,
 ): Promise<void> {
   // # Explanation of how syncing works
   //
@@ -47,7 +48,7 @@ export async function syncSenderTaggingIndexes(
   // derived from the log block numbers and the locally-synced finalized tip, without a per-tx node call. See
   // `resolvePendingTxs` for the txs that the logs cannot settle and what they cost.
 
-  const finalizedIndex = await taggingStore.getLastFinalizedIndex(secret, jobId);
+  const finalizedIndex = await taggingStore.getLastFinalizedIndex(secret, changeSetId);
 
   let start = finalizedIndex === undefined ? 0 : finalizedIndex + 1;
   // The loop only extends the window when the finalized index moves,
@@ -58,10 +59,18 @@ export async function syncSenderTaggingIndexes(
   let newFinalizedIndex = undefined;
 
   while (true) {
-    const txsInLogs = await loadAndStoreNewTaggingIndexes(secret, start, end, aztecNode, taggingStore, anchor, jobId);
+    const txsInLogs = await loadAndStoreNewTaggingIndexes(
+      secret,
+      start,
+      end,
+      aztecNode,
+      taggingStore,
+      anchor,
+      changeSetId,
+    );
 
     // Pending txs for this window: prior syncs, txs this PXE itself sent, and what the logs just stored.
-    const pendingTxs = await taggingStore.getPendingTxs(secret, start, end, jobId);
+    const pendingTxs = await taggingStore.getPendingTxs(secret, start, end, changeSetId);
     if (pendingTxs.length === 0) {
       break;
     }
@@ -69,17 +78,17 @@ export async function syncSenderTaggingIndexes(
     const { txHashesFinalizedFromLogs, txHashesFinalizedFromReceipts, txHashesDropped, receiptsWithExecutionReverted } =
       await resolvePendingTxs(pendingTxs, txsInLogs, finalizedBlockNumber, aztecNode);
 
-    await taggingStore.dropPendingIndexes(txHashesDropped, jobId);
+    await taggingStore.dropPendingIndexes(txHashesDropped, changeSetId);
     // The logs are queried per secret, so they only evidence this one's indexes. A receipt covers the whole tx.
-    await taggingStore.finalizePendingIndexesOfSecret(secret, txHashesFinalizedFromLogs, jobId);
-    await taggingStore.finalizePendingIndexes(txHashesFinalizedFromReceipts, jobId);
+    await taggingStore.finalizePendingIndexesOfSecret(secret, txHashesFinalizedFromLogs, changeSetId);
+    await taggingStore.finalizePendingIndexes(txHashesFinalizedFromReceipts, changeSetId);
 
     for (const receipt of receiptsWithExecutionReverted) {
-      await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(receipt.txEffect, jobId);
+      await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(receipt.txEffect, changeSetId);
     }
 
     // We check if the finalized index has been updated.
-    newFinalizedIndex = await taggingStore.getLastFinalizedIndex(secret, jobId);
+    newFinalizedIndex = await taggingStore.getLastFinalizedIndex(secret, changeSetId);
     if (previousFinalizedIndex !== newFinalizedIndex) {
       // A new finalized index was found, so we'll run the loop again. For example:
       // - Previous finalized index: 10

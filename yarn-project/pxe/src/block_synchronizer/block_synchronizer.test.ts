@@ -99,7 +99,7 @@ describe('BlockSynchronizer', () => {
   const noteAt = (contract: AztecAddress, block: L2BlockId): Promise<NoteDao> =>
     NoteDao.random({ contractAddress: contract, l2BlockNumber: block.number, l2BlockHash: block.hash });
 
-  // Stores one private event anchored to the given block id under the 'event-job' (caller commits).
+  // Stores one private event anchored to the given block id under the 'event-change-set' (caller commits).
   const storeEvent = (contract: AztecAddress, scope: AztecAddress, eventId: Fr, block: L2BlockId) =>
     privateEventStore.storePrivateEventLog(
       EventSelector.random(),
@@ -115,7 +115,7 @@ describe('BlockSynchronizer', () => {
         txIndexInBlock: 0,
         eventIndexInTx: 0,
       },
-      'event-job',
+      'event-change-set',
     );
 
   beforeEach(async () => {
@@ -251,8 +251,8 @@ describe('BlockSynchronizer', () => {
       const noteAt3 = await noteAt(contract, await blockId(forkBlock));
       const noteAt4 = await noteAt(contract, block4);
       const noteAt5 = await noteAt(contract, block5);
-      await noteStore.addNotes([noteAt3, noteAt4, noteAt5], scope, 'note-job');
-      await noteStore.commit('note-job');
+      await noteStore.addNotes([noteAt3, noteAt4, noteAt5], scope, 'note-change-set');
+      await noteStore.commitStaged('note-change-set');
 
       // Seed an event at each block.
       const eventIdAt3 = Fr.random();
@@ -261,7 +261,7 @@ describe('BlockSynchronizer', () => {
       await storeEvent(contract, scope, eventIdAt3, await blockId(forkBlock));
       await storeEvent(contract, scope, eventIdAt4, block4);
       await storeEvent(contract, scope, eventIdAt5, block5);
-      await privateEventStore.commit('event-job');
+      await privateEventStore.commitStaged('event-change-set');
 
       // Set the anchor to block 5 so the prune guard passes.
       const anchorBlock5 = await L2Block.random(BlockNumber(5));
@@ -304,14 +304,14 @@ describe('BlockSynchronizer', () => {
       const block9 = makeL2BlockId(BlockNumber(9), Fr.random().toString());
       const note8 = await noteAt(contract, block8);
       const note9 = await noteAt(contract, block9);
-      await noteStore.addNotes([note8, note9], scope, 'note-job');
-      await noteStore.commit('note-job');
+      await noteStore.addNotes([note8, note9], scope, 'note-change-set');
+      await noteStore.commitStaged('note-change-set');
 
       const eventId8 = Fr.random();
       const eventId9 = Fr.random();
       await storeEvent(contract, scope, eventId8, block8);
       await storeEvent(contract, scope, eventId9, block9);
-      await privateEventStore.commit('event-job');
+      await privateEventStore.commitStaged('event-change-set');
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',
@@ -327,7 +327,7 @@ describe('BlockSynchronizer', () => {
     });
 
     it('chain-pruned retracts facts at pruned block heights or above, dropping collections left empty', async () => {
-      const jobId = 'fact-job';
+      const changeSetId = 'fact-change-set';
 
       // Block 5 will be the fork point: the prune keeps it and abandons only blocks strictly above it.
       const lastSurvivingBlock = await L2Block.random(BlockNumber(5));
@@ -351,7 +351,7 @@ describe('BlockSynchronizer', () => {
         Fr.random(),
         [Fr.random()],
         { blockNumber: lastSurvivingBlock.number, blockHash: (await lastSurvivingBlock.hash()).toFr() },
-        jobId,
+        changeSetId,
       );
 
       // A collection whose only fact is retractable and originates just above the fork (block 6): the prune deletes the
@@ -368,15 +368,15 @@ describe('BlockSynchronizer', () => {
         Fr.random(),
         [Fr.random()],
         { blockNumber: lastSurvivingBlock.number + 1, blockHash: Fr.random() },
-        jobId,
+        changeSetId,
       );
 
-      await store.transactionAsync(() => factStore.commit(jobId));
+      await store.transactionAsync(() => factStore.commitStaged(changeSetId));
 
       // Both collections must be present before the prune.
-      expect(await factStore.getFactCollectionsByType(typeKey, jobId)).toHaveLength(2);
-      // Release the read job so the prune's rollback is not blocked by an in-flight job.
-      await factStore.discardStaged(jobId);
+      expect(await factStore.getFactCollectionsByType(typeKey, changeSetId)).toHaveLength(2);
+      // Release the read change set so the prune's rollback is not blocked by an in-flight change set.
+      await factStore.discardStaged(changeSetId);
 
       // Some blocks later...
       const anchorBlock10 = await L2Block.random(BlockNumber(10));
@@ -400,15 +400,15 @@ describe('BlockSynchronizer', () => {
       });
 
       // Only the fork-point collection survives. The one whose sole fact originated above the fork is gone.
-      const collections = await factStore.getFactCollectionsByType(typeKey, jobId);
+      const collections = await factStore.getFactCollectionsByType(typeKey, changeSetId);
       expect(collections).toHaveLength(1);
       expect(collections[0].key.factCollectionId.equals(survivingCollectionId)).toBe(true);
-      expect(await factStore.getFactCollection(retractedCollectionKey, jobId)).toBeUndefined();
-      expect((await factStore.getFactCollection(survivingCollectionKey, jobId))!.facts).toHaveLength(1);
+      expect(await factStore.getFactCollection(retractedCollectionKey, changeSetId)).toBeUndefined();
+      expect((await factStore.getFactCollection(survivingCollectionKey, changeSetId))!.facts).toHaveLength(1);
     });
 
     it('chain-pruned keeps a collection and its facts up to the fork point, deleting only those above it', async () => {
-      const jobId = 'fact-job';
+      const changeSetId = 'fact-change-set';
 
       // Block 5 is the fork point: the prune keeps it and abandons only blocks strictly above it.
       const lastSurvivingBlock = await L2Block.random(BlockNumber(5));
@@ -428,28 +428,28 @@ describe('BlockSynchronizer', () => {
       // A collection carrying three facts: a non-retractable one, a retractable one anchored to the fork point (block
       // 5), and a retractable one originating just above it (block 6). The prune must keep the collection, its
       // non-retractable fact, and the fork-point fact, deleting only the orphaned fact.
-      await factStore.recordFact(collectionKey, nonRetractableFactType, [Fr.random()], undefined, jobId);
+      await factStore.recordFact(collectionKey, nonRetractableFactType, [Fr.random()], undefined, changeSetId);
       await factStore.recordFact(
         collectionKey,
         forkPointFactType,
         [],
         { blockNumber: lastSurvivingBlock.number, blockHash: (await lastSurvivingBlock.hash()).toFr() },
-        jobId,
+        changeSetId,
       );
       await factStore.recordFact(
         collectionKey,
         retractedFactType,
         [],
         { blockNumber: lastSurvivingBlock.number + 1, blockHash: Fr.random() },
-        jobId,
+        changeSetId,
       );
-      await store.transactionAsync(() => factStore.commit(jobId));
+      await store.transactionAsync(() => factStore.commitStaged(changeSetId));
 
       // The collection and all three facts must be present before the prune.
-      expect(await factStore.getFactCollectionsByType(typeKey, jobId)).toHaveLength(1);
-      expect((await factStore.getFactCollection(collectionKey, jobId))!.facts).toHaveLength(3);
-      // Release the read job so the prune's rollback is not blocked by an in-flight job.
-      await factStore.discardStaged(jobId);
+      expect(await factStore.getFactCollectionsByType(typeKey, changeSetId)).toHaveLength(1);
+      expect((await factStore.getFactCollection(collectionKey, changeSetId))!.facts).toHaveLength(3);
+      // Release the read change set so the prune's rollback is not blocked by an in-flight change set.
+      await factStore.discardStaged(changeSetId);
 
       // Some blocks later...
       const anchorBlock10 = await L2Block.random(BlockNumber(10));
@@ -474,11 +474,11 @@ describe('BlockSynchronizer', () => {
 
       // The collection survives, keeping its non-retractable fact and the fork-point fact. Only the fact originating
       // above the fork is gone.
-      const collections = await factStore.getFactCollectionsByType(typeKey, jobId);
+      const collections = await factStore.getFactCollectionsByType(typeKey, changeSetId);
       expect(collections).toHaveLength(1);
       expect(collections[0].key.factCollectionId.equals(factCollectionId)).toBe(true);
 
-      const remainingFactTypes = (await factStore.getFactCollection(collectionKey, jobId))!.facts.map(
+      const remainingFactTypes = (await factStore.getFactCollection(collectionKey, changeSetId))!.facts.map(
         fact => fact.factTypeId,
       );
       expect(remainingFactTypes).toHaveLength(2);
@@ -499,8 +499,8 @@ describe('BlockSynchronizer', () => {
       const noteAt1 = await noteAt(contract, await blockId(forkBlock));
       const noteAt2 = await noteAt(contract, block2);
       const noteAt3 = await noteAt(contract, block3);
-      await noteStore.addNotes([noteAt1, noteAt2, noteAt3], scope, 'note-job');
-      await noteStore.commit('note-job');
+      await noteStore.addNotes([noteAt1, noteAt2, noteAt3], scope, 'note-change-set');
+      await noteStore.commitStaged('note-change-set');
 
       // Anchor at block 3.
       const anchorBlock3 = await L2Block.random(BlockNumber(3));
@@ -531,7 +531,7 @@ describe('BlockSynchronizer', () => {
       expect(await noteStore.nullifiersOfNotesAtBlock(1)).toEqual([noteAt1.siloedNullifier.toString()]);
       const found = await noteStore.getNotes(
         { contractAddress: contract, scopes: [scope], status: NoteStatus.ACTIVE },
-        'read-job',
+        'read-change-set',
       );
       expect(found).toHaveLength(1);
       expect(found[0].siloedNullifier.equals(noteAt1.siloedNullifier)).toBe(true);

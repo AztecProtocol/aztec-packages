@@ -326,7 +326,7 @@ describe('PrivateExecutionOracle', () => {
       txResolver: mock<TxResolverService>(),
       contractSyncService: mock<ContractSyncService>(),
       l2TipsStore: mock<L2TipsProvider>(),
-      jobId: 'test',
+      changeSetId: 'test',
       scopes: [],
       simulator: new WASMSimulator(),
       transientArrayService: new TransientArrayService(),
