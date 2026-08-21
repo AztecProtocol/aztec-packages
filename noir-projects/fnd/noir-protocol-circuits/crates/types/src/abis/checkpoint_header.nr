@@ -14,7 +14,10 @@ pub struct CheckpointHeader {
     pub last_archive_root: Field,
     pub block_headers_hash: Field,
     pub blobs_hash: Field,
-    pub in_hash: Field,
+    // Inbox rolling-hash chain value after consuming all L1-to-L2 messages bundled into this checkpoint:
+    // the truncated-to-field sha256 chain the L1 Inbox accumulates. This is the checkpoint's only inbox
+    // commitment.
+    pub inbox_rolling_hash: Field,
     // The root of the epoch out hash balanced tree. The out hash of the first checkpoint in the epoch is inserted at
     // index 0, the second at index 1, and so on.
     // Note: This is not necessarily the final epoch out hash. It includes only the out hashes of checkpoints up to and
@@ -39,7 +42,7 @@ impl Empty for CheckpointHeader {
             last_archive_root: 0,
             block_headers_hash: 0,
             blobs_hash: 0,
-            in_hash: 0,
+            inbox_rolling_hash: 0,
             epoch_out_hash: 0,
             slot_number: 0,
             timestamp: 0,
@@ -57,7 +60,7 @@ impl CheckpointHeader {
         let last_archive_root_bytes: [u8; 32] = self.last_archive_root.to_be_bytes();
         let block_headers_hash_bytes: [u8; 32] = self.block_headers_hash.to_be_bytes();
         let blobs_hash_bytes: [u8; 32] = self.blobs_hash.to_be_bytes();
-        let in_hash_bytes: [u8; 32] = self.in_hash.to_be_bytes();
+        let inbox_rolling_hash_bytes: [u8; 32] = self.inbox_rolling_hash.to_be_bytes();
         let epoch_out_hash_bytes: [u8; 32] = self.epoch_out_hash.to_be_bytes();
         let slot_number_bytes: [u8; 32] = self.slot_number.to_be_bytes();
         let timestamp_bytes: [u8; 8] = (self.timestamp as Field).to_be_bytes();
@@ -77,7 +80,7 @@ impl CheckpointHeader {
         last_archive_root_bytes
             .concat(block_headers_hash_bytes)
             .concat(blobs_hash_bytes)
-            .concat(in_hash_bytes)
+            .concat(inbox_rolling_hash_bytes)
             .concat(epoch_out_hash_bytes)
             .concat(slot_number_bytes)
             .concat(timestamp_bytes)
@@ -113,7 +116,7 @@ fn checkpoint_header_hash_matches_ts() {
         last_archive_root: 123,
         block_headers_hash: 456,
         blobs_hash: 77,
-        in_hash: 88,
+        inbox_rolling_hash: 89,
         epoch_out_hash: 99,
         slot_number: 1234,
         timestamp: 5678,
@@ -131,7 +134,7 @@ fn checkpoint_header_hash_matches_ts() {
 
     // Generated from checkpoint_header.test.ts
     let checkpoint_header_hash_from_ts =
-        0x00d0dc440023ae006b0880b29ebfd5fda599d1aa7707f925229a362c5f24f3fc;
+        0x00751391e842cd7b2014478255dd3309df86327197a0feb03f0af1b758f62ba5;
 
     assert_eq(header.hash(), checkpoint_header_hash_from_ts);
 }
@@ -144,7 +147,7 @@ fn checkpoint_header_hash_large_values_matches_ts() {
         last_archive_root: MAX_FIELD_VALUE - 123,
         block_headers_hash: MAX_FIELD_VALUE - 456,
         blobs_hash: MAX_FIELD_VALUE - 77,
-        in_hash: MAX_FIELD_VALUE - 88,
+        inbox_rolling_hash: MAX_FIELD_VALUE - 89,
         epoch_out_hash: MAX_FIELD_VALUE - 99,
         slot_number: MAX_FIELD_VALUE - 1234,
         timestamp: MAX_U64_VALUE - 5678,
@@ -164,7 +167,7 @@ fn checkpoint_header_hash_large_values_matches_ts() {
 
     // Generated from checkpoint_header.test.ts
     let checkpoint_header_hash_large_values_from_ts =
-        0x0077f763e5840cc3f24686ac79f58ef8a7f08c6418fd757e7e84566dc2eb032a;
+        0x005bd09725c6e77a4a28a7ccdaf7875ba5882431ca3c82e62db96e8a12769ce5;
 
     assert_eq(header.hash(), checkpoint_header_hash_large_values_from_ts);
 }

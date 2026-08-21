@@ -12,7 +12,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
+import {ProposedHeader, ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {
   IRollupCore,
@@ -67,7 +67,8 @@ contract RollupTest is RollupBase {
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
       TestConstants.AZTEC_EPOCH_DURATION,
-      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS,
+      TestConstants.ETHEREUM_SLOT_DURATION
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
@@ -171,16 +172,6 @@ contract RollupTest is RollupBase {
   function testPrune() public setUpFor("mixed_checkpoint_1") {
     _proposeCheckpoint("mixed_checkpoint_1", 1);
 
-    assertEq(
-      inbox.getInProgress(),
-      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG + 1,
-      "Invalid in progress"
-    );
-
-    // @note  Fetch the inbox root of checkpoint 2. This should be frozen when checkpoint 1 is proposed.
-    //        Even if we end up reverting checkpoint 1, we should still see the same root in the inbox.
-    bytes32 inboxRoot2 = inbox.getRoot(2);
-
     CheckpointLog memory checkpoint = rollup.getCheckpoint(1);
     Slot prunableAt = checkpoint.slotNumber + Epoch.wrap(2).toSlots();
 
@@ -191,11 +182,6 @@ contract RollupTest is RollupBase {
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
 
     rollup.prune();
-    assertEq(
-      inbox.getInProgress(),
-      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG + 1,
-      "Invalid in progress"
-    );
     assertEq(rollup.getPendingCheckpointNumber(), 0, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
 
@@ -207,12 +193,6 @@ contract RollupTest is RollupBase {
     // @note  We prune the pending chain as part of the propose call.
     _proposeCheckpoint("empty_checkpoint_1", Slot.unwrap(prunableAt));
 
-    assertEq(
-      inbox.getInProgress(),
-      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG + 1,
-      "Invalid in progress"
-    );
-    assertEq(inbox.getRoot(2), inboxRoot2, "Invalid inbox root");
     assertEq(rollup.getPendingCheckpointNumber(), 1, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
   }
@@ -237,7 +217,8 @@ contract RollupTest is RollupBase {
     bytes32[] memory blobHashes = new bytes32[](1);
     blobHashes[0] = bytes32(uint256(1));
     vm.blobhashes(blobHashes);
-    ProposeArgs memory args = ProposeArgs({header: data.header, archive: data.archive, oracleInput: OracleInput(0)});
+    ProposeArgs memory args =
+      ProposeArgs({header: data.header, archive: data.archive, oracleInput: OracleInput(0), bucketHint: 0});
     bytes32 realBlobHash = this.getBlobHashes(data.blobCommitments)[0];
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0], realBlobHash));
     rollup.propose(
@@ -326,7 +307,8 @@ contract RollupTest is RollupBase {
     skipBlobCheck(address(rollup));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroDaFee.selector));
-    ProposeArgs memory args = ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0)});
+    ProposeArgs memory args =
+      ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0), bucketHint: 0});
     rollup.propose(
       args,
       AttestationLibHelper.packAttestations(attestations),
@@ -353,7 +335,8 @@ contract RollupTest is RollupBase {
 
     // When not canonical, we expect the fee to be 0
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaMinFee.selector, expectedFee, 1));
-    ProposeArgs memory args = ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0)});
+    ProposeArgs memory args =
+      ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0), bucketHint: 0});
     rollup.propose(
       args,
       AttestationLibHelper.packAttestations(attestations),
@@ -461,8 +444,12 @@ contract RollupTest is RollupBase {
       interim.feeAmount = interim.manaUsed * interim.minFee + interim.portalBalance;
       header.accumulatedFees = interim.feeAmount;
 
+      // Streaming Inbox: nothing is seeded here, so reference the genesis bucket (hash 0).
+      header.inboxRollingHash = bytes32(0);
+
       // Assert that balance have NOT been increased by proposing the checkpoint
-      ProposeArgs memory args = ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0)});
+      ProposeArgs memory args =
+        ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0), bucketHint: 0});
       rollup.propose(
         args,
         AttestationLibHelper.packAttestations(attestations),
@@ -668,7 +655,8 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
-    ProposeArgs memory args = ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0)});
+    ProposeArgs memory args =
+      ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0), bucketHint: 0});
     rollup.propose(
       args,
       AttestationLibHelper.packAttestations(attestations),
@@ -694,7 +682,8 @@ contract RollupTest is RollupBase {
     vm.blobhashes(blobHashes);
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidCoinbase.selector));
-    ProposeArgs memory args = ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0)});
+    ProposeArgs memory args =
+      ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0), bucketHint: 0});
     rollup.propose(
       args,
       AttestationLibHelper.packAttestations(attestations),
@@ -770,7 +759,8 @@ contract RollupTest is RollupBase {
     header.gasFees.feePerL2Gas = uint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoBlobsInCheckpoint.selector));
-    ProposeArgs memory args = ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0)});
+    ProposeArgs memory args =
+      ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0), bucketHint: 0});
     rollup.propose(
       args,
       AttestationLibHelper.packAttestations(attestations),
@@ -874,6 +864,111 @@ contract RollupTest is RollupBase {
     assertEq(outbox.getRootData(Epoch.wrap(0), 2), outHash2, "Root at K=2 should be outHash2");
   }
 
+  // getEpochProofPublicInputs is the view that the prover-publisher calls off-chain to validate its inputs before
+  // submitting. Because the fee recipient/value public inputs are taken from the supplied headers, the header check
+  // must run here too - not only on the submit path - so a mismatch is caught before publishing rather than reverting
+  // on-chain.
+  function testGetEpochProofPublicInputsVerifiesHeaders() public setUpFor("empty_checkpoint_1") {
+    _proposeCheckpoint("empty_checkpoint_1", 1);
+
+    DecoderBase.Data memory data = load("empty_checkpoint_1").checkpoint;
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
+
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: checkpoint.archive,
+      endArchive: data.archive,
+      outHash: data.header.outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: proposedHeaders[1].inboxRollingHash,
+      proverId: address(0)
+    });
+
+    ProposedHeader[] memory headers = new ProposedHeader[](1);
+    headers[0] = proposedHeaders[1];
+
+    // With the canonical header, the getter assembles the public inputs, sourcing the fee recipient/value from the
+    // header.
+    bytes32[] memory publicInputs = rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
+    assertEq(publicInputs.length, Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH, "Unexpected public inputs length");
+
+    uint256 feesOffset = 5 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
+    assertEq(
+      publicInputs[feesOffset], bytes32(uint256(uint160(headers[0].coinbase))), "Coinbase not sourced from header"
+    );
+    assertEq(
+      publicInputs[feesOffset + 1], bytes32(headers[0].accumulatedFees), "Accumulated fees not sourced from header"
+    );
+
+    // Tamper a fee field so the header no longer hashes to the stored value; the getter must reject it.
+    bytes32 expectedHeaderHash = ProposedHeaderLib.hash(headers[0]);
+    headers[0].accumulatedFees += 1;
+    bytes32 providedHeaderHash = ProposedHeaderLib.hash(headers[0]);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__InvalidCheckpointHeader.selector, expectedHeaderHash, providedHeaderHash)
+    );
+    rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
+  }
+
+  // The epoch-proof anchoring pins the rolling-hash chain start to the record written at propose for checkpoint
+  // start - 1, mirroring previousArchive. A wrong previousInboxRollingHash must be rejected.
+  function testGetEpochProofPublicInputsRejectsWrongPreviousInboxRollingHash() public setUpFor("empty_checkpoint_1") {
+    _proposeCheckpoint("empty_checkpoint_1", 1);
+
+    DecoderBase.Data memory data = load("empty_checkpoint_1").checkpoint;
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
+
+    ProposedHeader[] memory headers = new ProposedHeader[](1);
+    headers[0] = proposedHeaders[1];
+
+    // Checkpoint 0 is genesis with a zero rolling hash, so any non-zero chain start is wrong.
+    bytes32 wrongPrevious = bytes32(uint256(1));
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: checkpoint.archive,
+      endArchive: data.archive,
+      outHash: data.header.outHash,
+      previousInboxRollingHash: wrongPrevious,
+      endInboxRollingHash: proposedHeaders[1].inboxRollingHash,
+      proverId: address(0)
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__InvalidPreviousInboxRollingHash.selector, bytes32(0), wrongPrevious)
+    );
+    rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
+  }
+
+  // The end of the rolling-hash chain segment needs no storage comparison: the supplied value is passed through to
+  // the root rollup public inputs verbatim, where the circuit binds end_inbox_rolling_hash to the last checkpoint
+  // header — whose hash verifyHeaders ties to storage — so a wrong end value fails proof verification. This test
+  // pins that pass-through: the wrong value must land in the public inputs (making the proof unsatisfiable), not be
+  // silently replaced by the stored one.
+  function testGetEpochProofPublicInputsPassesEndInboxRollingHashThrough() public setUpFor("empty_checkpoint_1") {
+    _proposeCheckpoint("empty_checkpoint_1", 1);
+
+    DecoderBase.Data memory data = load("empty_checkpoint_1").checkpoint;
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
+
+    ProposedHeader[] memory headers = new ProposedHeader[](1);
+    headers[0] = proposedHeaders[1];
+
+    bytes32 storedEnd = proposedHeaders[1].inboxRollingHash;
+    bytes32 wrongEnd = bytes32(uint256(storedEnd) + 1);
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: checkpoint.archive,
+      endArchive: data.archive,
+      outHash: data.header.outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: wrongEnd,
+      proverId: address(0)
+    });
+
+    bytes32[] memory publicInputs = rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
+    // Public-input layout: [previousArchive, endArchive, outHash, previousInboxRollingHash, endInboxRollingHash, ...]
+    assertEq(publicInputs[4], wrongEnd, "supplied end rolling hash must pass through to the public inputs");
+    assertNotEq(publicInputs[4], storedEnd, "wrong end must not be replaced by the stored value");
+  }
+
   function _submitEpochProof(
     uint256 _start,
     uint256 _end,
@@ -895,7 +990,12 @@ contract RollupTest is RollupBase {
     address _prover
   ) internal {
     PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: _prevArchive, endArchive: _archive, outHash: _outHash, proverId: _prover
+      previousArchive: _prevArchive,
+      endArchive: _archive,
+      outHash: _outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: proposedHeaders[_end].inboxRollingHash,
+      proverId: _prover
     });
 
     uint256 size = _end - _start + 1;

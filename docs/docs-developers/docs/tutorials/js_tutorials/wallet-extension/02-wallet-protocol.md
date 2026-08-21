@@ -2,6 +2,7 @@
 title: "2. Wallet Protocol"
 description: Implementing the Aztec wallet SDK protocol - discovery, ECDH key exchange, and secure messaging
 sidebar_position: 2
+references: ["docs/examples/webapp-tutorial/test-extension/src/background.ts", "yarn-project/wallet-sdk/src/*"]
 ---
 
 # Wallet Protocol

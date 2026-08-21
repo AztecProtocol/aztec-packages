@@ -20,9 +20,13 @@ export const GAS_ESTIMATION_DA_GAS_LIMIT = GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT 
 /** Gas usage and fees limits set by the transaction sender for different dimensions and phases. */
 export class GasSettings {
   constructor(
+    /** Total gas the tx may consume across all phases, teardown included. */
     public readonly gasLimits: Gas,
+    /** Portion of gasLimits reserved for the teardown phase, billed in full when the tx has a teardown call. */
     public readonly teardownGasLimits: Gas,
+    /** Maximum fees per gas unit the sender is willing to pay. */
     public readonly maxFeesPerGas: GasFees,
+    /** Maximum priority fees per gas unit the sender is willing to pay on top of the base fee. */
     public readonly maxPriorityFeesPerGas: GasFees,
   ) {}
   // docs:end:gas_settings_vars
@@ -132,9 +136,9 @@ export class GasSettings {
    * the effective gas available for app logic is gasLimits - teardownGasLimits - privateOverhead.
    * To ensure estimation never hits gas caps, we set both limits above what the protocol allows:
    * teardown gets MAX_PROCESSABLE and gasLimits gets teardown + MAX_PROCESSABLE, so the full
-   * processable amount remains available for each phase independently. To be used in conjunction
-   * with skipTxValidation: true during public simulation, or the node would reject the transaction
-   * outright due to gas limits being above protocol max.
+   * processable amount remains available for each phase independently. Tx validation exempts
+   * simulated txs from gas-limit admission (`isValidTx` with `isSimulation: true`), so these
+   * inflated limits pass validation; the wallet clamps the real tx to the admission limit afterward.
    */
   static forEstimation(overrides: {
     gasLimits?: Gas;

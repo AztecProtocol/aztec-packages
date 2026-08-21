@@ -4,6 +4,7 @@ sidebar_position: 5
 title: Blob upload
 description: Learn how to host a blob file store to contribute to the Aztec network.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/blob-client/src/client/config.ts", "yarn-project/blob-client/src/filestore/filestore_blob_client.ts", "yarn-project/blob-client/src/filestore/healthcheck.ts"]
 ---
 
 ## Overview

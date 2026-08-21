@@ -3,6 +3,7 @@ id: sequencer-troubleshooting
 title: Sequencer troubleshooting
 description: A symptom-first guide to diagnosing a sequencer that is running but not proposing or attesting, covering publisher balance, L1 RPC, peer count, and coinbase configuration.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/sequencer-client/src/publisher/*", "yarn-project/p2p/src/config.ts", "yarn-project/ethereum/src/l1_reader.ts", "yarn-project/node-keystore/src/*"]
 ---
 
 Your node is running but proposals or attestations are not landing. This page is a decision tree for the most common causes, in the order worth checking them. Each branch points to the page with the full fix.
@@ -50,8 +51,18 @@ Full causes and fixes for all of these are in [L1 RPC requirements](./l1-rpc#the
 
 A node isolated from the network cannot receive the transactions and attestations it needs, or broadcast its own.
 
+Since v5.2.0 a node with **zero** connected peers stops acting rather than acting blindly, and says so in its logs:
+
+- It logs `Node has no connected peers; gossip and tx propagation are unavailable` at warn, repeated roughly once a minute, and one info line when connectivity returns.
+- It skips building and proposing checkpoints while below `SEQ_MIN_PEERS_TO_PROPOSE` (default 1), logging `Skipping checkpoint proposal for slot N since we have too few connected peers`. L1-only duties (governance and slashing votes, prune, invalidation) still run.
+- It does not file data-withholding slashing offenses for slots probed while peerless, since an empty local mempool is not evidence without gossip.
+- It rejects incoming `sendTx` calls instead of silently dropping them.
+
+Setups that disable p2p entirely (local network, single node) are unaffected by all four gates.
+
 - **Check (no monitoring stack):** confirm your P2P port is reachable from outside your network with `nc -zv <your-external-IP> 40400`. A closed port is the usual reason a node cannot find peers. The node logs also report peer activity as it connects.
 - **Check (with monitoring):** `aztec_peer_manager_peer_count_peers`. Below 5 indicates a reachability problem.
+- **Check (health endpoint):** `curl http://localhost:8080/status` reports p2p connectivity per component. Set `P2P_HEALTH_MIN_PEERS` (default 0, report-only) to make a low peer count fail the health check.
 - **Fix:** confirm your external IP is correct and that the P2P port is forwarded and open in your firewall (TCP and UDP). See [Monitoring and metrics](./monitoring#what-every-operator-should-alert-on).
 
 ## 5. Is the coinbase set correctly?

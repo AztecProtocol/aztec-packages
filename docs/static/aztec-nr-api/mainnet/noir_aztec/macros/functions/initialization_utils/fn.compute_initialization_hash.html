@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Function compute_initialization_hash documentation</title>
 </head>
 <body>
@@ -33,7 +36,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">macros</a>::<a href="../index.html">functions</a>::<a href="index.html">initialization_utils</a></div>
-<h1>Function <span class="fn">compute_initialization_hash</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">compute_initialization_hash</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn compute_initialization_hash(
     init_selector: <a href="../../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a>,
     init_args_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
@@ -42,6 +51,7 @@
 <div class="comments">
 <p>This function is not only used in macros but it's also used by external people to check that an instance has been
 initialized with the correct constructor arguments. Don't hide this unless you implement factory functionality.</p>
+</div>
 </div>
 </main>
 </span>

@@ -156,12 +156,21 @@ self-identify its release type, set `RELEASE_TYPE` explicitly.
 cd docs
 RELEASE_TYPE=<release_type> yarn generate:aztec-nr-api <nodeVersion>
 RELEASE_TYPE=<release_type> yarn generate:typescript-api <nodeVersion>
+./scripts/aztecjs_reference_generation/update_docs.sh current
 ```
 
 This creates/updates the API docs in:
 
 - `docs/static/aztec-nr-api/<release_type>/` (e.g. `mainnet/`, `testnet/`)
 - `docs/static/typescript-api/<release_type>/`
+- `docs/docs-developers/docs/aztec-js/aztec_js_reference.md`
+
+`docs/bootstrap.sh` fails CI when the Aztec.js reference drifts, so in practice it
+should already be current; run it anyway so a release never ships a stale page
+(`yarn generate:aztecjs-reference` is an equivalent shortcut). It regenerates from
+the working tree's `yarn-project/aztec.js/src` — checked out at the release tag
+(Step 2) — so the page reflects exactly what shipped, and it is snapshotted into
+the versioned docs at cut time (Step 11).
 
 **Prerequisites — you MUST build dependencies before generating API docs:**
 
@@ -268,6 +277,71 @@ docs (Step 11), the generated content is included in the snapshot automatically.
    ```
 
 5. Present draft entries for user review before adding them
+
+### Step 8b: Sweep the Docs for the Release's Syntax Changes
+
+The migration notes (Step 8) record what broke, but nothing applies those changes to
+the rest of the docs: hand-written snippets, prose that names APIs, and pages nobody
+touched since the tag all drift silently. CI only protects code that compiles —
+`#include_code` snippets and `docs/examples/` — so this sweep targets everything else.
+Run it **before the cut** (Step 11) so the frozen snapshot is already correct.
+
+**1. Enumerate the release's syntax changes.** The source of truth is the
+migration-notes diff over the tag range, not the GitHub release body (which is
+hand-written prose) and not the `## <version>` headings (whose version attribution
+is unreliable — entries get filed under the wrong heading):
+
+```bash
+git diff v<old_version>..v<new_version> -- docs/docs-developers/docs/resources/migration_notes.md
+```
+
+Parse every added `### [Component] …` entry and its `**Migration:**` ```diff block
+into `(component, old syntax, new syntax)` triples. Cross-check against breaking
+commits that never got a migration note:
+
+```bash
+git log --oneline v<old_version>..v<new_version> --grep='!:' -- yarn-project/ noir-projects/
+```
+
+(The repo uses only the conventional-commit `!` marker — no `BREAKING CHANGE:`
+body trailers — so `--grep='!:'` is the complete filter.) Optionally read the
+GitHub release body for the tag as a human cross-check — it sometimes lists
+breakage outside its `## Breaking changes` section — but never as the enumerable
+source.
+
+**2. Locate candidate usages.** For each triple, grep the source docs for the old
+syntax:
+
+```bash
+cd docs && grep -rn "<old_symbol>" docs-developers/ docs-operate/ docs-participate/ docs/ examples/
+```
+
+Prioritize surfaces with no compiler gate: hand-written inline code blocks
+(concentrated in `docs-developers/docs/aztec-nr/` and everything under
+`docs-operate/`), prose that names functions/flags, and install/CLI commands.
+`#include_code` targets and `docs/examples/` are already CI-verified — a hit there
+usually means the docs build would have failed already, so treat those as
+lower priority cross-checks.
+
+**3. Adjudicate every candidate — do not fix from grep hits alone.** Raw symbol
+grep is high-noise and blind to signature/argument drift (a function can keep its
+name while its required arguments change). For each candidate:
+
+- Verify against the source **at the tag**: `git show v<new_version>:<path_to_source>`.
+- Leave third-party SDK snippets alone (e.g. external FPC SDKs) — they document
+  someone else's API and are usually marked illustrative.
+- Skip historical references: migration-note entries, changelog prose, and
+  "in vX, Y was removed" sentences are *supposed* to name the old syntax.
+- Skip auto-generated files (`aztec_js_reference.md`, CLI references,
+  `node-api-reference.md`) — they are fixed by regeneration (Steps 6–7b), not
+  by hand-editing.
+- Conversely, check for **semantic** drift the diff implies even where the symbol
+  survives: renamed arguments, new required parameters, changed return shapes.
+
+**4. Fix and report.** Apply confirmed fixes to the source docs (they flow into
+the snapshot at cut time). Present a summary table for user review:
+`component | old → new | files fixed | candidates dismissed and why`, and
+explicitly list anything that could not be verified.
 
 ### Step 9: Resolve Missing Contract Addresses & Update Network Info
 
@@ -834,6 +908,11 @@ Check for stash conflicts. Then report to the user:
 - **Functionally validate before shipping**: run the guides, tutorials, and Aztec.js
   examples on a real local network of the new version (Step 15) — the build only checks
   links and spelling, not whether the documented commands work.
+- **Sweep the release's syntax changes into the docs before cutting**: enumerate
+  breaking changes from the migration-notes diff over the tag range (not the GitHub
+  release body), grep the hand-written docs for the old syntax, adjudicate each hit
+  against the source at the tag, and fix confirmed drift (Step 8b). CI only protects
+  `#include_code` snippets and `docs/examples/`; everything else drifts silently.
 - **User confirmation required**: Ask before deleting old versioned docs and before
   adding migration note entries.
 - **Changes land on `next`**: All changes are stashed and moved to the `next` branch
@@ -846,7 +925,11 @@ Check for stash conflicts. Then report to the user:
 - **API ref docs**: Generated in Step 6 into `docs/static/typescript-api/` and
   `docs/static/aztec-nr-api/` with stable folder names (`mainnet`, `testnet`,
   `devnet`, `nightly`). The `#api_ref_version` macro resolves to the matching
-  folder name for each release type (see `include_version.js`).
+  folder name for each release type (see `include_version.js`). The single-page
+  Aztec.js reference (`aztec_js_reference.md`) is regenerated in the same step via
+  `yarn generate:aztecjs-reference`; CI fails on drift (`update_docs.sh --check`
+  in `docs/bootstrap.sh`), but regenerate on the tag anyway so the cut snapshot
+  matches what shipped.
 - **Update `docs/README.md`**: If any new generation scripts, build steps, or
   tooling changes were added during the release, update `docs/README.md` to
   document them (e.g. new `yarn generate:*` commands).

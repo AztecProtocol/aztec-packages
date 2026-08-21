@@ -116,6 +116,24 @@ describe('validateCheckpointStructure', () => {
     expect(() => validateCheckpointStructure(checkpoint)).toThrow(/indexWithinCheckpoint/);
   });
 
+  it('passes when a block after the first has no txs', async () => {
+    const checkpoint = await makeValidCheckpoint(2);
+    checkpoint.blocks[1].body.txEffects = [];
+    expect(() => validateCheckpointStructure(checkpoint)).not.toThrow();
+  });
+
+  it('passes when the first block of a checkpoint has no txs', async () => {
+    const checkpoint = await makeValidCheckpoint(2);
+    checkpoint.blocks[0].body.txEffects = [];
+    expect(() => validateCheckpointStructure(checkpoint)).not.toThrow();
+  });
+
+  it('passes on a single-block checkpoint with no txs', async () => {
+    const checkpoint = await makeValidCheckpoint(1);
+    checkpoint.blocks[0].body.txEffects = [];
+    expect(() => validateCheckpointStructure(checkpoint)).not.toThrow();
+  });
+
   it('throws when block numbers are not sequential', async () => {
     const checkpoint = await makeValidCheckpoint(2);
     // Manually set block[1] to a non-sequential number (block[0].number + 2)

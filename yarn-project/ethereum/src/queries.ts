@@ -5,7 +5,6 @@ import { BaseError, type Block } from 'viem';
 import { DefaultL1ContractsConfig, type L1ContractsConfig } from './config.js';
 import { ReadOnlyGovernanceContract } from './contracts/governance.js';
 import { GovernanceProposerContract } from './contracts/governance_proposer.js';
-import { InboxContract } from './contracts/inbox.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { ViemClient, ViemPublicClient } from './types.js';
 
@@ -92,8 +91,6 @@ export async function getL1ContractsConfig(
   const rollup = new RollupContract(publicClient, rollupAddress.toString());
   const slasherProposer = await rollup.getSlashingProposer();
   const slasher = await rollup.getSlasherContract();
-  const rollupAddresses = await rollup.getRollupAddresses();
-  const inboxContract = new InboxContract(publicClient, rollupAddresses.inboxAddress.toString());
 
   const [
     l1StartBlock,
@@ -104,7 +101,6 @@ export async function getL1ContractsConfig(
     aztecTargetCommitteeSize,
     lagInEpochsForValidatorSet,
     lagInEpochsForRandao,
-    inboxLag,
     activationThreshold,
     ejectionThreshold,
     localEjectionThreshold,
@@ -132,7 +128,6 @@ export async function getL1ContractsConfig(
     rollup.getTargetCommitteeSize(),
     rollup.getLagInEpochsForValidatorSet(),
     rollup.getLagInEpochsForRandao(),
-    inboxContract.getLag(),
     rollup.getActivationThreshold(),
     rollup.getEjectionThreshold(),
     rollup.getLocalEjectionThreshold(),
@@ -162,7 +157,6 @@ export async function getL1ContractsConfig(
     aztecTargetCommitteeSize: Number(aztecTargetCommitteeSize),
     lagInEpochsForValidatorSet: Number(lagInEpochsForValidatorSet),
     lagInEpochsForRandao: Number(lagInEpochsForRandao),
-    inboxLag: Number(inboxLag),
     governanceProposerQuorum: Number(governanceProposerQuorum),
     governanceProposerRoundSize: Number(governanceProposerRoundSize),
     governanceVotingDuration: DefaultL1ContractsConfig.governanceVotingDuration,

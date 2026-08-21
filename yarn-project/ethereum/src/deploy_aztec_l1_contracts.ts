@@ -576,12 +576,12 @@ export function getDeployRollupForUpgradeEnvVars(
     PROTOCOL_CONTRACTS_HASH: args.protocolContractsHash.toString(),
     GENESIS_ARCHIVE_ROOT: args.genesisArchiveRoot.toString(),
     // Rollup config
+    ETHEREUM_SLOT_DURATION: args.ethereumSlotDuration.toString(),
     AZTEC_SLOT_DURATION: args.aztecSlotDuration.toString(),
     AZTEC_EPOCH_DURATION: args.aztecEpochDuration.toString(),
     AZTEC_TARGET_COMMITTEE_SIZE: args.aztecTargetCommitteeSize.toString(),
     AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET: args.lagInEpochsForValidatorSet.toString(),
     AZTEC_LAG_IN_EPOCHS_FOR_RANDAO: args.lagInEpochsForRandao.toString(),
-    AZTEC_INBOX_LAG: args.inboxLag?.toString(),
     AZTEC_PROOF_SUBMISSION_EPOCHS: args.aztecProofSubmissionEpochs.toString(),
     AZTEC_LOCAL_EJECTION_THRESHOLD: args.localEjectionThreshold.toString(),
     AZTEC_SLASHING_LIFETIME_IN_ROUNDS: args.slashingLifetimeInRounds.toString(),

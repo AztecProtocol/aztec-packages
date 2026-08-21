@@ -9,12 +9,15 @@ import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS,
   CHONK_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-  L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+  INBOX_PARITY_SIZE_SMALL,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_CHECKPOINTS_PER_EPOCH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
+  MAX_L1_TO_L2_MSGS_PER_BLOCK,
+  MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_CALL,
@@ -34,9 +37,6 @@ import {
   NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
-  NUM_MSGS_PER_BASE_PARITY,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -129,10 +129,11 @@ import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import type { LogResult } from '../logs/log_result.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
+import { L1ToL2MessageBundle } from '../messaging/l1_to_l2_message_bundle.js';
+import { L1ToL2MessageSponge } from '../messaging/l1_to_l2_message_sponge.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
-import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
+import { InboxParityPrivateInputs } from '../parity/inbox_parity_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
-import { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
 import { ProofData, ProofDataForFixedVk } from '../proofs/index.js';
 import { Proof } from '../proofs/proof.js';
 import { makeRecursiveProof } from '../proofs/recursive_proof.js';
@@ -141,7 +142,7 @@ import { BlockConstantData } from '../rollup/block_constant_data.js';
 import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup_private_inputs.js';
 import { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import {
-  BlockRootFirstRollupPrivateInputs,
+  BlockRootRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
 } from '../rollup/block_root_rollup_private_inputs.js';
 import { CheckpointConstantData } from '../rollup/checkpoint_constant_data.js';
@@ -786,11 +787,16 @@ export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
     makeSpongeBlob(seed + 0x700),
     BigInt(seed + 0x800),
     fr(seed + 0x820),
-    fr(seed + 0x830),
+    makeL1ToL2MessageSponge(seed + 0x835),
+    makeL1ToL2MessageSponge(seed + 0x838),
     fr(seed + 0x840),
     fr(seed + 0x850),
     fr(seed + 0x860),
   );
+}
+
+export function makeL1ToL2MessageSponge(seed = 0): L1ToL2MessageSponge {
+  return new L1ToL2MessageSponge(makeSpongeBlob(seed).sponge, seed % (INBOX_PARITY_SIZE_SMALL + 1));
 }
 
 export function makeCheckpointRollupPublicInputs(seed = 0) {
@@ -800,6 +806,8 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeAppendOnlyTreeSnapshot(seed + 0x300),
     makeAppendOnlyTreeSnapshot(seed + 0x350),
+    fr(seed + 0x360),
+    fr(seed + 0x370),
     makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => fr(seed), 0x400),
     makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => makeFeeRecipient(seed), 0x500),
     makeBlobAccumulator(seed + 0x600),
@@ -810,25 +818,18 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
 
 export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
   return new ParityPublicInputs(
-    new Fr(BigInt(seed + 0x200)),
-    new Fr(BigInt(seed + 0x300)),
     new Fr(BigInt(seed + 0x400)),
     new Fr(BigInt(seed + 0x500)),
+    makeL1ToL2MessageSponge(seed + 0x580),
+    new Fr(BigInt(seed + 0x800)),
   );
 }
 
-export function makeParityBasePrivateInputs(seed = 0): ParityBasePrivateInputs {
-  return new ParityBasePrivateInputs(
-    makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000),
-    new Fr(seed + 0x4000),
-    new Fr(seed + 0x5000),
-  );
-}
-
-export function makeParityRootPrivateInputs(seed = 0) {
-  return new ParityRootPrivateInputs(
-    makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, () => makeProofData(seed, makeParityPublicInputs)),
-  );
+export function makeInboxParityPrivateInputs(seed = 0): InboxParityPrivateInputs {
+  const size = INBOX_PARITY_SIZE_SMALL;
+  const numMsgs = seed % (size + 1);
+  const messages = Array.from({ length: size }, (_, i) => (i < numMsgs ? fr(i + seed + 0x3000) : Fr.ZERO));
+  return new InboxParityPrivateInputs(size, messages, numMsgs, new Fr(seed + 0x3500), new Fr(seed + 0x5000));
 }
 
 /**
@@ -842,6 +843,8 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x100),
     fr(seed + 0x200),
     fr(seed + 0x300),
+    fr(seed + 0x320),
+    fr(seed + 0x340),
     makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => fr(seed), 0x400),
     makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
@@ -869,7 +872,7 @@ export function makeCheckpointHeader(seed = 0, overrides: Partial<FieldsOf<Check
     lastArchiveRoot: fr(seed + 0x100),
     blockHeadersHash: fr(seed + 0x150),
     blobsHash: fr(seed + 0x200),
-    inHash: fr(seed + 0x210),
+    inboxRollingHash: fr(seed + 0x215),
     epochOutHash: fr(seed + 0x220),
     slotNumber: SlotNumber(seed + 0x300),
     timestamp: BigInt(seed + 0x400),
@@ -889,14 +892,14 @@ export function makeCheckpointHeader(seed = 0, overrides: Partial<FieldsOf<Check
  */
 export function makeStateReference(seed = 0): StateReference {
   return new StateReference(
-    makeAppendOnlyTreeSnapshot(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * seed),
+    makeAppendOnlyTreeSnapshot(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT * seed),
     makePartialStateReference(seed + 1),
   );
 }
 
 function makeTreeSnapshots(seed = 0) {
   return new TreeSnapshots(
-    makeAppendOnlyTreeSnapshot(seed * NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+    makeAppendOnlyTreeSnapshot(seed * MAX_L1_TO_L2_MSGS_PER_CHECKPOINT),
     makeAppendOnlyTreeSnapshot((seed + 0x10) * MAX_NOTE_HASHES_PER_TX),
     makeAppendOnlyTreeSnapshot((seed + 0x20) * MAX_NULLIFIERS_PER_TX),
     makeAppendOnlyTreeSnapshot((seed + 0x30) * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
@@ -943,12 +946,13 @@ export function makeTxMergeRollupPrivateInputs(seed = 0): TxMergeRollupPrivateIn
   ]);
 }
 
-export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
-  return new BlockRootFirstRollupPrivateInputs(
-    makeProofData(seed, makeParityPublicInputs),
+export function makeBlockRootRollupPrivateInputs(seed = 0) {
+  return new BlockRootRollupPrivateInputs(
     [makeProofData(seed + 0x1000, makeTxRollupPublicInputs), makeProofData(seed + 0x2000, makeTxRollupPublicInputs)],
+    new L1ToL2MessageBundle(makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500), MAX_L1_TO_L2_MSGS_PER_BLOCK),
     makeAppendOnlyTreeSnapshot(seed + 0x3000),
-    makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH),
+    makeL1ToL2MessageSponge(seed + 0x3500),
+    makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_TREE_HEIGHT),
     makeSiblingPath(seed + 0x5000, ARCHIVE_HEIGHT),
   );
 }
@@ -956,7 +960,11 @@ export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
 export function makeBlockRootSingleTxRollupPrivateInputs(seed = 0) {
   return new BlockRootSingleTxRollupPrivateInputs(
     makeProofData(seed + 0x1000, makeTxRollupPublicInputs),
-    makeSiblingPath(seed + 0x4000, ARCHIVE_HEIGHT),
+    new L1ToL2MessageBundle(makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500), 0),
+    makeAppendOnlyTreeSnapshot(seed + 0x2800),
+    makeL1ToL2MessageSponge(seed + 0x3000),
+    makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_TREE_HEIGHT),
+    makeSiblingPath(seed + 0x5000, ARCHIVE_HEIGHT),
   );
 }
 

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Trait MessageEncryption documentation</title>
 </head>
 <body>
@@ -34,15 +37,21 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">encryption</a>::<a href="index.html">message_encryption</a></div>
-<h1>Trait <span id="trait" class="trait">MessageEncryption</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Trait <span id="trait" class="trait">MessageEncryption</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub trait MessageEncryption {
     <span class="comment">// Required methods</span>
-    pub fn <a href="#encrypt"><span class="fn">encrypt</span></a>&lt;let PlaintextLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    pub fn <a href="#encrypt" class="fn">encrypt</a>&lt;let PlaintextLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
         plaintext: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; PlaintextLen],
         recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
         contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     ) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 15];
-    pub unconstrained fn <a href="#decrypt"><span class="fn">decrypt</span></a>(
+    pub unconstrained fn <a href="#decrypt" class="fn">decrypt</a>(
         ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;,
         recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
         contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
@@ -64,7 +73,7 @@ logs) or offchain, as well as decrypting those messages back into their original
 indistinguishable onchain. Implementations of this trait must handle padding the encrypted log to match this
 standardized length.</p></div>
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="encrypt" class="code-header">pub fn <a href="#encrypt"><span class="fn">encrypt</span></a>&lt;let PlaintextLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+<div class="padded-methods"><code id="encrypt" class="code-header">pub fn <a href="#encrypt" class="fn">encrypt</a>&lt;let PlaintextLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     plaintext: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; PlaintextLen],
     recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
@@ -81,7 +90,7 @@ random padding in order to always produce equal length message ciphertexts regar
 length.</p>
 <p>These properties make it secure to distribute the ciphertext publicly, e.g. on blockchain logs (assuming the
 encryption function is itself secure).</p></div>
-</div><code id="decrypt" class="code-header">pub unconstrained fn <a href="#decrypt"><span class="fn">decrypt</span></a>(
+</div><code id="decrypt" class="code-header">pub unconstrained fn <a href="#decrypt" class="fn">decrypt</a>(
     ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;,
     recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
@@ -98,6 +107,7 @@ to a point on the curve. In all such cases, <a href="../../../../std/option/stru
 </div></div><h2>Implementors</h2>
 <h3 id="impl-MessageEncryption-for-AES128"><code class="code-header">impl <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html" class="trait">MessageEncryption</a> for <a href="../../../../noir_aztec/messages/encryption/aes128/struct.AES128.html" class="struct">AES128</a></code></h3>
 
+</div>
 </main>
 </span>
 </body>

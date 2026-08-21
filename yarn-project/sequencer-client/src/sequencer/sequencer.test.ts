@@ -1,4 +1,3 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { type EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import {
@@ -35,7 +34,9 @@ import type { ChainConfig } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
+  type MerkleTreeWriteOperations,
   type SequencerConfig,
+  type TreeInfo,
   WorldStateRunningState,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
@@ -166,6 +167,8 @@ describe('sequencer', () => {
       expect.any(Checkpoint),
       attestationsAndSigners,
       getSignatures()[0].signature,
+      // Streaming inbox: the checkpoint job passes the parent bucket hint (genesis => 0n).
+      0n,
       expect.objectContaining({
         txTimeoutAt: expect.any(Date),
       }),
@@ -230,7 +233,7 @@ describe('sequencer', () => {
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
-    publisher.validateBlockHeader.mockResolvedValue();
+    publisher.validateCheckpointHeader.mockResolvedValue();
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
@@ -268,6 +271,7 @@ describe('sequencer', () => {
     p2p = mock<P2P>({
       getStatus: mockFn().mockResolvedValue({ syncedToL2Block: { number: lastBlockNumber, hash } }),
       getCheckpointAttestationsForSlot: mockFn().mockResolvedValue([]),
+      getP2PConnectivity: mockFn().mockResolvedValue({ enabled: true, connectedPeers: 5 }),
     });
 
     worldState = mock<WorldStateSynchronizer>({
@@ -285,6 +289,13 @@ describe('sequencer', () => {
         },
       } satisfies WorldStateSynchronizerStatus),
     });
+    // Streaming inbox: the checkpoint job forks world state and resolves the parent Inbox bucket
+    // from the fork's L1-to-L2 tree leaf count. Default to an empty tree so it starts at the genesis bucket.
+    const mockFork = mock<MerkleTreeWriteOperations>({
+      [Symbol.asyncDispose]: jest.fn().mockReturnValue(Promise.resolve()) as () => Promise<void>,
+    });
+    mockFork.getTreeInfo.mockResolvedValue({ size: 0n } as TreeInfo);
+    worldState.fork.mockResolvedValue(mockFork);
 
     // Create fake CheckpointsBuilder and CheckpointBuilder
     // Uses blockProvider to return the current `block` variable (set per-test)
@@ -338,7 +349,6 @@ describe('sequencer', () => {
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
-      getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
         checkpointed: {
@@ -354,6 +364,14 @@ describe('sequencer', () => {
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
         },
       }),
+    });
+    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
+      seq: 0n,
+      inboxRollingHash: Fr.ZERO,
+      totalMsgCount: 0n,
+      timestamp: 0n,
+      msgCount: 0,
+      lastMessageIndex: 0n,
     });
 
     validatorClient = mock<ValidatorClient>();
@@ -642,6 +660,63 @@ describe('sequencer', () => {
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
     });
 
+    it('does not build a block when no peers are connected', async () => {
+      await setupSingleTxBlock();
+      p2p.getP2PConnectivity.mockResolvedValue({ enabled: true, connectedPeers: 0 });
+
+      await sequencer.work();
+
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+      expect(publisher.canProposeAt).not.toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      // The slot is marked as attempted so the gate is not re-evaluated within the same slot.
+      expect(sequencer.getLastSlotForCheckpointProposalJob()).toEqual(SlotNumber(newSlotNumber));
+    });
+
+    it('votes without building when no peers are connected', async () => {
+      await setupSingleTxBlock();
+      p2p.getP2PConnectivity.mockResolvedValue({ enabled: true, connectedPeers: 0 });
+
+      const governancePayload = EthAddress.random();
+      sequencer.updateConfig({ governanceProposerPayload: governancePayload });
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalledWith(
+        governancePayload,
+        SlotNumber(newSlotNumber),
+        expect.any(EthAddress),
+        expect.any(Function),
+      );
+      expect(publisher.sendRequestsAt).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+    });
+
+    it('builds a block with zero peers when p2p is disabled', async () => {
+      await setupSingleTxBlock();
+      p2p.getP2PConnectivity.mockResolvedValue({ enabled: false, connectedPeers: 0 });
+
+      await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
+
+      expectPublisherProposeL2Block();
+    });
+
+    it('builds a block with zero peers when minPeersToPropose is zero', async () => {
+      await setupSingleTxBlock();
+      p2p.getP2PConnectivity.mockResolvedValue({ enabled: true, connectedPeers: 0 });
+      sequencer.updateConfig({ minPeersToPropose: 0 });
+
+      await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
+
+      expectPublisherProposeL2Block();
+    });
+
     it('builds a checkpoint when it is their turn', async () => {
       await setupSingleTxBlock();
 
@@ -708,12 +783,12 @@ describe('sequencer', () => {
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
     });
 
-    // TODO(palla/mbps): Reinstante the validateBlockHeader call
+    // TODO(palla/mbps): Reinstante the validateCheckpointHeader call
     it.skip('aborts building a block if the chain moves underneath it', async () => {
       await setupSingleTxBlock();
 
       // This could practically be for any reason, e.g., could also be that we have entered a new slot.
-      publisher.validateBlockHeader.mockRejectedValueOnce(new Error('No block for you'));
+      publisher.validateCheckpointHeader.mockRejectedValueOnce(new Error('No block for you'));
 
       await sequencer.work();
 
@@ -764,7 +839,7 @@ describe('sequencer', () => {
         const pub = mockDeep<SequencerPublisher>();
         pub.epochCache = epochCache;
         pub.getSenderAddress.mockImplementation(() => EthAddress.random());
-        pub.validateBlockHeader.mockResolvedValue();
+        pub.validateCheckpointHeader.mockResolvedValue();
         pub.enqueueProposeCheckpoint.mockResolvedValue(undefined);
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);
@@ -839,6 +914,8 @@ describe('sequencer', () => {
           expect.any(Checkpoint),
           attestationsAndSigners,
           getSignatures()[0].signature,
+          // Streaming inbox: the checkpoint job passes the parent bucket hint (genesis => 0n).
+          0n,
           expect.objectContaining({
             txTimeoutAt: expect.any(Date),
           }),
@@ -1554,6 +1631,7 @@ describe('sequencer', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
+        inboxMsgTotal: 0n,
       });
 
       await sequencer.work();
@@ -1679,6 +1757,7 @@ describe('sequencer', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
+        inboxMsgTotal: 0n,
       });
 
       await sequencer.work();
@@ -1808,6 +1887,7 @@ describe('sequencer', () => {
           blockCount: 1,
           totalManaUsed: 0n,
           feeAssetPriceModifier: 0n,
+          inboxMsgTotal: 0n,
         },
       });
 

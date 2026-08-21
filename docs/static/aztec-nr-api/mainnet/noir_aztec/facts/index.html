@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Module facts documentation</title>
 </head>
 <body>
@@ -53,7 +56,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::facts</div>
-<h1>Module <span id="mod" class="module">facts</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">facts</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <div class="comments">
 <p>Per-contract storage of immutable facts grouped into collections.</p>
 <p>A fact is a contract-defined, typed, immutable datum. Facts are grouped into collections identified by a
@@ -77,6 +86,7 @@ itself is deleted. Re-recording an identical fact is a no-op.</div></li>
 <li><div class="item-name"><a href="fn.record_retractable_fact.html" class="fn">record_retractable_fact</a></div><div class="item-description">Records a retractable fact into a collection: PXE prunes it if <code>origin_block</code> is reorg'd away. Re-recording an
 identical fact is a no-op.</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

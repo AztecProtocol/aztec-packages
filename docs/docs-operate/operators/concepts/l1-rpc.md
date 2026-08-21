@@ -3,6 +3,7 @@ id: l1-rpc
 title: L1 RPC requirements
 description: What kind of Ethereum L1 endpoint an Aztec node needs, why a blob-serving consensus client is required, how much RPC load a node generates, and how to avoid the most common L1-side failures.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/ethereum/src/l1_reader.ts", "yarn-project/archiver/src/config.ts", "yarn-project/blob-client/src/client/config.ts", "yarn-project/foundation/src/config/env_var.ts"]
 ---
 
 Every Aztec node needs L1 access through **three endpoints**, all of which can point at the same Ethereum node:
@@ -77,6 +78,8 @@ The minimum self-hosted setup is one execution client (Geth, Nethermind, Besu, o
 For installers and helper scripts that set up an execution plus consensus client with the right flags, see [Operator tooling](/operate/operators/tooling).
 
 If you do use a hosted provider, confirm it offers all three: a blob-serving beacon API (`/eth/v1/beacon/blob_sidecars/{block_id}`), execution RPC, and `debug`/`trace` method support.
+
+Server-side filter methods (`eth_newFilter` / `eth_getFilterChanges`) are **not** required. As of v5.2.0 the node's L1 event watchers poll `eth_getLogs` over a bounded block range instead of installing server-side filters. Before this, a load-balanced RPC endpoint could route filter polls to a backend that had never seen the filter, producing request storms of 30 to 40 req/s and silently missing slashing and governance events. If you saw that on an earlier version behind a load balancer, upgrading is the fix.
 
 ## Tuning polling intervals
 

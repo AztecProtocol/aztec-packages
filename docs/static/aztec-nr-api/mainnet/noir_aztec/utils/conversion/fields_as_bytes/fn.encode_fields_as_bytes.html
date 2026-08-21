@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Function encode_fields_as_bytes documentation</title>
 </head>
 <body>
@@ -26,7 +29,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">utils</a>::<a href="../index.html">conversion</a>::<a href="index.html">fields_as_bytes</a></div>
-<h1>Function <span class="fn">encode_fields_as_bytes</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">encode_fields_as_bytes</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn encode_fields_as_bytes&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; N]) -> [<a href="../../../../std/primitive.u8.html" class="primitive">u8</a>; N * 32]</code></pre>
 
 <div class="comments">
@@ -43,6 +52,7 @@ recover the original fields.</p>
 <p>The BN254 modulus is <code>&lt; 2^254</code>, so every 32-byte chunk has its top bit at zero and the next bit biased. The output
 is therefore distinguishable from uniform random bytes; take this into account when feeding it into anything that
 assumes uniform randomness (e.g. ciphertexts meant to look random).</p></div>
+</div>
 </main>
 </span>
 </body>

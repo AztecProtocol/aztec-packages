@@ -15,6 +15,7 @@ import type { TypedDataDefinition } from 'viem';
 import type { L2BlockInfo } from '../block/l2_block_info.js';
 import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
 import { DutyType, type SigningContext } from '../ha-signing/index.js';
+import { InboxBucketRef } from '../messaging/inbox_bucket.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/index.js';
@@ -69,6 +70,11 @@ export type CheckpointLastBlock = Omit<CheckpointLastBlockData, 'txs'> & {
   signature: Signature;
   /** The signed transactions in the last block (optional, for DA guarantees) */
   signedTxs?: SignedTxs;
+  /**
+   * Reference to the Inbox bucket the last block proposes to consume. When set, its rolling hash must equal the
+   * checkpoint header's `inboxRollingHash` (enforced at construction).
+   */
+  bucketRef?: InboxBucketRef;
 };
 
 /**
@@ -104,10 +110,11 @@ export class CheckpointProposal extends Gossipable implements Signable {
   ) {
     super();
 
-    // Check that last block properties match those of the checkpoint.
-    if (lastBlock && 'inHash' in lastBlock && !lastBlock.inHash.equals(checkpointHeader.inHash)) {
+    // Check that last block properties match those of the checkpoint. The last block's bucket reference
+    // commits to the same rolling hash as the checkpoint header. Only enforced when the reference is set.
+    if (lastBlock?.bucketRef && !lastBlock.bucketRef.inboxRollingHash.equals(checkpointHeader.inboxRollingHash)) {
       throw new Error(
-        `CheckpointProposal lastBlock inHash ${lastBlock.inHash} does not match checkpoint inHash ${checkpointHeader.inHash}`,
+        `CheckpointProposal lastBlock bucketRef rolling hash ${lastBlock.bucketRef.inboxRollingHash} does not match checkpoint inboxRollingHash ${checkpointHeader.inboxRollingHash}`,
       );
     }
     if (lastBlock && 'archiveRoot' in lastBlock && !lastBlock.archiveRoot.equals(archive)) {
@@ -134,7 +141,6 @@ export class CheckpointProposal extends Gossipable implements Signable {
 
   /**
    * Extract a BlockProposal from the last block info.
-   * Uses inHash from checkpointHeader.contentCommitment.inHash
    */
   getBlockProposal(): BlockProposal | undefined {
     if (!this.lastBlock) {
@@ -144,12 +150,12 @@ export class CheckpointProposal extends Gossipable implements Signable {
     return new BlockProposal(
       this.lastBlock.blockHeader,
       this.lastBlock.indexWithinCheckpoint,
-      this.checkpointHeader.inHash,
       this.archive,
       this.lastBlock.txHashes,
       this.lastBlock.signature,
       this.signatureContext,
       this.lastBlock.signedTxs,
+      this.lastBlock.bucketRef,
     );
   }
 
@@ -288,6 +294,12 @@ export class CheckpointProposal extends Gossipable implements Signable {
       } else {
         buffer.push(0); // hasSignedTxs = false
       }
+      // Optional bucket-reference tail. Appended only when set, so a proposal without a reference
+      // serializes without the tail and a decoder that reaches EOF reads it as unset.
+      if (this.lastBlock.bucketRef) {
+        buffer.push(1); // hasBucketRef = true
+        buffer.push(this.lastBlock.bucketRef.toBuffer());
+      }
     } else {
       buffer.push(0); // hasLastBlock = false
     }
@@ -324,12 +336,23 @@ export class CheckpointProposal extends Gossipable implements Signable {
         }
       }
 
+      // Optional bucket-reference tail. A buffer that ends after the signedTxs flag decodes as
+      // "no reference", so proposals written without the tail round-trip cleanly.
+      let bucketRef: InboxBucketRef | undefined;
+      if (!reader.isEmpty()) {
+        const hasBucketRef = reader.readNumber();
+        if (hasBucketRef) {
+          bucketRef = InboxBucketRef.fromBuffer(reader);
+        }
+      }
+
       return new CheckpointProposal(checkpointHeader, archive, feeAssetPriceModifier, signature, signatureContext, {
         blockHeader,
         indexWithinCheckpoint,
         txHashes,
         signature: blockSignature,
         signedTxs,
+        bucketRef,
       });
     }
 
@@ -354,7 +377,8 @@ export class CheckpointProposal extends Gossipable implements Signable {
         4 /* txHashes.length */ +
         this.lastBlock.txHashes.length * TxHash.SIZE +
         4 /* hasSignedTxs flag */ +
-        (this.lastBlock.signedTxs ? this.lastBlock.signedTxs.getSize() : 0);
+        (this.lastBlock.signedTxs ? this.lastBlock.signedTxs.getSize() : 0) +
+        (this.lastBlock.bucketRef ? 4 /* hasBucketRef flag */ + this.lastBlock.bucketRef.getSize() : 0);
     }
 
     return size;
@@ -400,6 +424,7 @@ export class CheckpointProposal extends Gossipable implements Signable {
             indexWithinCheckpoint: this.lastBlock.indexWithinCheckpoint,
             txHashes: this.lastBlock.txHashes.map(h => h.toString()),
             signature: this.lastBlock.signature.toString(),
+            bucketRef: this.lastBlock.bucketRef?.toInspect(),
           }
         : undefined,
     };

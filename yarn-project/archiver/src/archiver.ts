@@ -435,7 +435,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         type: L2BlockSourceEvents.L2BlockSourceUpdated,
         fromTips,
         toTips,
-        blocksAdded,
       });
     }
   }
@@ -765,14 +764,14 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       `Removing checkpoints after checkpoint ${targetCheckpointNumber} (target block ${targetL2BlockNumber})`,
     );
     await this.updater.removeCheckpointsAfter(targetCheckpointNumber);
-    this.log.info(`Rolling back L1 to L2 messages to checkpoint ${targetCheckpointNumber}`);
-    await this.stores.messages.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
+    this.log.info(`Rolling back L1 to L2 messages inserted after L1 block ${targetL1BlockNumber}`);
+    await this.stores.messages.rollbackL1ToL2MessagesAfterL1Block(targetL1BlockNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
     await this.stores.blocks.setSynchedL1BlockNumber(targetL1BlockNumber);
-    await this.stores.messages.setMessageSyncState(
-      { l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash },
-      undefined,
-    );
+    await this.stores.messages.setMessageSyncState({
+      l1BlockNumber: targetL1BlockNumber,
+      l1BlockHash: targetL1BlockHash,
+    });
     if (targetL2BlockNumber < currentProvenBlock) {
       this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
       await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);

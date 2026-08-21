@@ -2,6 +2,7 @@
 title: Support
 sidebar_position: 5
 description: Where to ask questions, report bugs, request features, and disclose security issues for the Aztec stack.
+references: [".github/ISSUE_TEMPLATE/bug_report.yml", ".github/ISSUE_TEMPLATE/feature_request.yml", "SECURITY.md", "CONTRIBUTING.md"]
 ---
 
 This page tells you where to go when something does not work, when you want to file a bug, when you have a feature idea, or when you have found a possible security issue. Pick the section that matches your situation.

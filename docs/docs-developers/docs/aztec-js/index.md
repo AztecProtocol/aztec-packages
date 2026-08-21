@@ -3,6 +3,7 @@ title: Aztec.js
 sidebar_position: 0
 tags: [aztec.js, javascript, typescript]
 description: Complete guide to Aztec.js library for managing accounts and interacting with contracts on the Aztec network, including installation, importing, and core workflow functions.
+references: ["yarn-project/aztec.js/src/*", "yarn-project/wallets/src/*", "yarn-project/accounts/src/*"]
 ---
 
 import DocCardList from "@theme/DocCardList";

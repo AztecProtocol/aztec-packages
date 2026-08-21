@@ -3,6 +3,7 @@ id: building_from_source
 title: Building Node Software from Source
 description: Build the Aztec node Docker image from source code for development, testing, or running a specific version.
 displayed_sidebar: operatorsSidebar
+references: ["build-images/src/Dockerfile", "release-image/Dockerfile", "release-image/Dockerfile.base", "release-image/bootstrap.sh", "bootstrap.sh"]
 ---
 
 ## Overview

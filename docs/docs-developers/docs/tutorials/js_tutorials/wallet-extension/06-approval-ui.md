@@ -2,6 +2,7 @@
 title: "6. Approval UI"
 description: Building React popups for connection and transaction approval in Aztec wallet extensions
 sidebar_position: 6
+references: ["docs/examples/webapp-tutorial/test-extension/src/popup/*"]
 ---
 
 # Approval UI

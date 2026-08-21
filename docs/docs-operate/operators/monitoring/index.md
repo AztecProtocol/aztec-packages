@@ -3,6 +3,7 @@ displayed_sidebar: operatorsSidebar
 id: monitoring
 title: Monitoring and Observability
 description: Learn how to monitor your Aztec node with metrics, OpenTelemetry, Prometheus, and Grafana.
+references: ["yarn-project/telemetry-client/src/metrics.ts", "yarn-project/telemetry-client/src/config.ts"]
 ---
 
 ## Overview

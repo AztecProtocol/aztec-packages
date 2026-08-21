@@ -2,6 +2,7 @@
 title: Wallets
 description: Explore Aztec wallets, their unique responsibilities, and hardware wallet support.
 displayed_sidebar: participateSidebar
+references: ["yarn-project/stdlib/src/keys/*", "yarn-project/cli-wallet/src/*"]
 ---
 
 # Wallets on Aztec

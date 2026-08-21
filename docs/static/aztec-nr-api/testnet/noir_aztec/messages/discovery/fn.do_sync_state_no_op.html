@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function do_sync_state_no_op documentation</title>
 </head>
 <body>
@@ -40,7 +43,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">discovery</a></div>
-<h1>Function <span class="fn">do_sync_state_no_op</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">do_sync_state_no_op</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub unconstrained fn do_sync_state_no_op(
     _contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     _compute_note_hash: <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteHash.html" class="type">ComputeNoteHash</a>,
@@ -54,6 +63,7 @@
 <p>A <a href="../../../noir_aztec/messages/discovery/type.CustomSyncHandler.html"><code>CustomSyncHandler</code></a> that skips state synchronization entirely.</p>
 <p>For contracts that hold no private state and emit no messages, there is nothing to discover: syncing would only
 perform unnecessary RPC calls.</p></div>
+</div>
 </main>
 </span>
 </body>

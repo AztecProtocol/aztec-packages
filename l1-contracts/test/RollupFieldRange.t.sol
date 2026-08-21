@@ -60,7 +60,8 @@ contract RollupFieldRangeTest is RollupBase {
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
       TestConstants.AZTEC_EPOCH_DURATION,
-      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS,
+      TestConstants.ETHEREUM_SLOT_DURATION
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
   }
@@ -164,7 +165,6 @@ contract RollupFieldRangeTest is RollupBase {
     vm.warp(max(block.timestamp, Timestamp.unwrap(ts)));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
-    header.inHash = rollup.getInbox().getRoot(full.checkpoint.checkpointNumber);
     header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaMinFeeAt(ts, true));
 
     // Every field the range check guards, set to the maximal in-range value.
@@ -175,7 +175,11 @@ contract RollupFieldRangeTest is RollupBase {
 
     vm.blobhashes(this.getBlobHashes(full.checkpoint.blobCommitments));
 
-    ProposeArgs memory args = ProposeArgs({header: header, archive: bytes32(FIELD_MAX), oracleInput: OracleInput(0)});
+    // Streaming Inbox: nothing is seeded here, so reference the genesis bucket (hash 0).
+    header.inboxRollingHash = bytes32(0);
+
+    ProposeArgs memory args =
+      ProposeArgs({header: header, archive: bytes32(FIELD_MAX), oracleInput: OracleInput(0), bucketHint: 0});
 
     rollup.propose(
       args,
@@ -202,7 +206,8 @@ contract RollupFieldRangeTest is RollupBase {
     skipBlobCheck(address(rollup));
 
     bytes32 archive = _useFixtureArchive ? full.checkpoint.archive : bytes32(_archive);
-    return ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0)});
+    // Boundary tests revert on a field-range check before Inbox consumption; the genesis bucket hint suffices.
+    return ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0), bucketHint: 0});
   }
 
   function _expectFieldOutOfRange(ProposeArgs memory _args, bytes32 _value) internal {

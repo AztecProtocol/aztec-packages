@@ -3,6 +3,7 @@ title: Circuits
 sidebar_position: 0
 tags: [protocol, circuits]
 description: Explore Aztec's core protocol circuits that enforce privacy rules and transaction validity through zero-knowledge proofs, enabling private state and function execution.
+references: ["noir-projects/fnd/noir-protocol-circuits/crates/*"]
 ---
 
 Central to Aztec's operations are 'circuits' derived both from the core protocol and the developer-written Aztec.nr contracts.

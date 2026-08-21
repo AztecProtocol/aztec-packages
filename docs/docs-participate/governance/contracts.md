@@ -2,6 +2,7 @@
 title: L1 Contracts
 description: Overview of the L1 smart contracts that power Aztec network governance.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/governance/Registry.sol", "l1-contracts/src/governance/Governance.sol", "l1-contracts/src/governance/proposer/GovernanceProposer.sol", "l1-contracts/src/governance/GSE.sol"]
 ---
 
 # L1 Contracts

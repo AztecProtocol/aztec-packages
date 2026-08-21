@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct MessageDelivery documentation</title>
 </head>
 <body>
@@ -46,7 +49,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">delivery</a></div>
-<h1>Struct <span id="struct" class="struct">MessageDelivery</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">MessageDelivery</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct MessageDelivery
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -69,7 +78,7 @@ use <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html#o
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html" class="struct">MessageDelivery</a></code></h3>
 
-<div class="padded-methods"><code id="offchain" class="code-header">pub fn <a href="#offchain"><span class="fn">offchain</span></a>() -> <a href="../../../noir_aztec/messages/delivery/struct.OffchainDelivery.html" class="struct">OffchainDelivery</a></code>
+<div class="padded-methods"><code id="offchain" class="code-header">pub fn <a href="#offchain" class="fn">offchain</a>() -> <a href="../../../noir_aztec/messages/delivery/struct.OffchainDelivery.html" class="struct">OffchainDelivery</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Delivers the message fully off-chain, with no guarantees whatsoever.</p>
@@ -105,7 +114,7 @@ authenticated anyway. Therefore, off-chain messages do not affect proving time a
 reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
 keys in order to obtain the plaintext.</p>
 </div>
-</div><code id="onchain_unconstrained" class="code-header">pub fn <a href="#onchain_unconstrained"><span class="fn">onchain_unconstrained</span></a>() -> <a href="../../../noir_aztec/messages/delivery/struct.OnchainUnconstrainedDelivery.html" class="struct">OnchainUnconstrainedDelivery</a></code>
+</div><code id="onchain_unconstrained" class="code-header">pub fn <a href="#onchain_unconstrained" class="fn">onchain_unconstrained</a>() -> <a href="../../../noir_aztec/messages/delivery/struct.OnchainUnconstrainedDelivery.html" class="struct">OnchainUnconstrainedDelivery</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Delivers the message on-chain, but with no guarantees on the content.</p>
@@ -146,7 +155,7 @@ recipient's cooperation. Delivering to one of the wallet's own accounts instead 
 secret and reveals nothing.</p>
 <p>Delivering the message does produce on-chain information in the form of private logs, so transactions that
 deliver many messages this way might be identifiable by the large number of logs.</p></div>
-</div><code id="onchain_constrained" class="code-header">pub fn <a href="#onchain_constrained"><span class="fn">onchain_constrained</span></a>() -> <a href="../../../noir_aztec/messages/delivery/struct.OnchainConstrainedDelivery.html" class="struct">OnchainConstrainedDelivery</a></code>
+</div><code id="onchain_constrained" class="code-header">pub fn <a href="#onchain_constrained" class="fn">onchain_constrained</a>() -> <a href="../../../noir_aztec/messages/delivery/struct.OnchainConstrainedDelivery.html" class="struct">OnchainConstrainedDelivery</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Delivers the message on-chain, guaranteeing the recipient will receive the correct content.</p>
@@ -183,7 +192,8 @@ nor the contents. An interactive handshake (<a href="../../../noir_aztec/message
 not leak this, but it requires the recipient's cooperation.</p>
 <p>Delivering the message does produce on-chain information in the form of private logs and nullifiers, so
 transactions that deliver many messages this way might be identifiable by these markers.</p></div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

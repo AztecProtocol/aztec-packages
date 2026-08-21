@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Module notes documentation</title>
 </head>
 <body>
@@ -43,7 +46,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::notes</div>
-<h1>Module <span id="mod" class="module">notes</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">notes</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.custom_note.html" class="fn">custom_note</a></div><div class="item-description">Generates code for a custom note implementation that requires specialized note hash or nullifier computation.</div></li>
 <li><div class="item-name"><a href="fn.note.html" class="fn">note</a></div><div class="item-description">Generates the core note functionality for a struct:</div></li>
@@ -51,6 +60,7 @@
 <h2 id="globals">Globals</h2><ul class="item-list">
 <li><div class="item-name"><a href="global.NOTES.html" class="global">NOTES</a></div><div class="item-description">A BoundedVec containing all the note types within this contract.</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

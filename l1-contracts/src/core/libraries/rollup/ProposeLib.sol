@@ -5,9 +5,11 @@ pragma solidity >=0.8.27;
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {RollupStore, IRollupCore, CheckpointHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
+import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {CoordinationSignatureLib} from "@aztec/core/libraries/rollup/CoordinationSignatureLib.sol";
@@ -17,6 +19,7 @@ import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelec
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {ProposedHeader, ProposedHeaderLib} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
 
@@ -24,6 +27,10 @@ struct ProposeArgs {
   bytes32 archive;
   OracleInput oracleInput;
   ProposedHeader header;
+  // Sequence number of the Inbox bucket the header's `inboxRollingHash` corresponds to.
+  // Unsigned lookup aid kept out of the attested payload digest: a wrong hint can only revert, never change what is
+  // accepted, since integrity comes from the rolling-hash equality check against the committee-signed header.
+  uint256 bucketHint;
 }
 
 struct ProposePayload {
@@ -37,7 +44,9 @@ struct InterimProposeValues {
   bytes32[] blobHashes;
   bytes32 blobsHashesCommitment;
   bytes[] blobCommitments;
-  bytes32 inHash;
+  bytes32 blobCommitmentsHash;
+  FeeHeader feeHeader;
+  uint256 consumedInboxMsgTotal;
   bytes32 headerHash;
   bytes32 attestationsHash;
   bytes32 payloadDigest;
@@ -112,6 +121,7 @@ library ProposeLib {
   using TimeLib for Epoch;
   using CompressedTimeMath for CompressedSlot;
   using ChainTipsLib for CompressedChainTips;
+  using SafeCast for uint256;
 
   /**
    * @notice  Publishes a new checkpoint to the pending chain.
@@ -125,7 +135,7 @@ library ProposeLib {
    *          - Checkpoint header validations (see validateHeader function for details)
    *          - Proposer signature is valid for designated slot proposer:
    *            Errors.ValidatorSelection__MissingProposerSignature
-   *          - Inbox hash matches expected value: Errors.Rollup__InvalidInHash
+   *          - Streaming Inbox consumption is valid: Errors.Rollup__InvalidInboxRollingHash
    *          - Archive root is within the scalar field: Errors.Rollup__FieldElementOutOfRange
    *
    *          Validations NOT performed:
@@ -137,7 +147,7 @@ library ProposeLib {
    *          - Store archive root for the new checkpoint number
    *          - Store checkpoint metadata in circular storage (TempCheckpointLog)
    *          - Update L1 gas fee oracle
-   *          - Consume inbox messages
+   *          - Validate streaming Inbox consumption against the parent checkpoint
    *          - Setup epoch for validator selection (first block of the epoch)
    *
    * @param _args - The arguments to propose the checkpoint
@@ -252,17 +262,31 @@ library ProposeLib {
     uint256 checkpointNumber = tips.getPending() + 1;
     tips = tips.updatePending(checkpointNumber);
 
+    // Validate the streaming Inbox consumption against the parent checkpoint's consumed position.
+    // The parent is checkpointNumber - 1, always available: checkpoint 0 carries the {0,0,0} genesis base
+    // case written at initialization. rollupStore.tips is not committed until below, so the parent read still sees
+    // the parent as the pending tip. The returned cumulative total is stored in this checkpoint's record so its
+    // child validates against it and, since temp-log records rewind with the pending chain on a prune, the record
+    // stays prune-consistent.
+    v.consumedInboxMsgTotal = validateInboxConsumption(
+      rollupStore.config.inbox,
+      v.header.inboxRollingHash,
+      _args.bucketHint,
+      v.header.slotNumber,
+      STFLib.getInboxMsgTotal(checkpointNumber - 1)
+    );
+
     // Calculate accumulated blob commitments hash for this checkpoint
     // Blob commitments are collected and proven per root rollup proof (per epoch),
     // so we need to know whether we are at the epoch start:
     v.isFirstCheckpointOfEpoch =
       v.currentEpoch > STFLib.getEpochForCheckpoint(checkpointNumber - 1) || checkpointNumber == 1;
-    bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
+    v.blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
       STFLib.getBlobCommitmentsHash(checkpointNumber - 1), v.blobCommitments, v.isFirstCheckpointOfEpoch
     );
 
     // Compute fee header for checkpoint metadata
-    FeeHeader memory feeHeader = FeeLib.computeFeeHeader(
+    v.feeHeader = FeeLib.computeFeeHeader(
       checkpointNumber,
       _args.oracleInput.feeAssetPriceModifier,
       v.header.totalManaUsed,
@@ -280,19 +304,16 @@ library ProposeLib {
     STFLib.addTempCheckpointLog(
       TempCheckpointLog({
         headerHash: v.headerHash,
-        blobCommitmentsHash: blobCommitmentsHash,
+        blobCommitmentsHash: v.blobCommitmentsHash,
         outHash: v.header.outHash,
         attestationsHash: v.attestationsHash,
         payloadDigest: v.payloadDigest,
         slotNumber: v.header.slotNumber,
-        feeHeader: feeHeader
+        feeHeader: v.feeHeader,
+        inboxRollingHash: v.header.inboxRollingHash,
+        inboxMsgTotal: v.consumedInboxMsgTotal.toUint64()
       })
     );
-
-    // Consume pending L1->L2 messages and validate against header commitment
-    // @note  The checkpoint number here will always be >=1 as the genesis checkpoint is at 0
-    v.inHash = rollupStore.config.inbox.consume(checkpointNumber);
-    require(v.header.inHash == v.inHash, Errors.Rollup__InvalidInHash(v.inHash, v.header.inHash));
 
     {
       bytes32 archive = _args.archive;
@@ -368,6 +389,89 @@ library ProposeLib {
       _args.header.gasFees.feePerL2Gas == _args.manaMinFee,
       Errors.Rollup__InvalidManaMinFee(_args.manaMinFee, _args.header.gasFees.feePerL2Gas)
     );
+  }
+
+  /**
+   * @notice Validates a checkpoint's Inbox consumption against the streaming inbox buckets and returns how
+   *         far consumption has reached. Called from propose() as the enforced consumption path.
+   *
+   * @dev Read-only; performs no Inbox write. Checks, in order:
+   *      1. The checkpoint header's `inboxRollingHash` must equal the rolling hash snapshotted in the Inbox
+   *         bucket referenced by `_bucketHint`. The hint is a plain calldata lookup aid, not signed and not
+   *         part of the header: a wrong hint cannot change what gets accepted, it only reverts. A checkpoint
+   *         that consumes no messages references the same bucket as its parent.
+   *      2. The referenced bucket must be settled: a bucket that can still absorb another message is not a
+   *         snapshot of anything.
+   *      3. Consumption moves forward: the referenced bucket's cumulative total must be at least the parent
+   *         checkpoint's (equal consumes nothing; behind is a hard revert). This precedes the subtractions
+   *         below, which rely on `bucket.totalMsgCount >= _parentTotalMsgCount` to not underflow.
+   *      4. Cap upper bound: a single checkpoint cannot consume more than MAX_L1_TO_L2_MSGS_PER_CHECKPOINT
+   *         messages, the maximum the circuits can insert.
+   *      5. Mandatory consumption (the censorship assert): the first unconsumed bucket (`_bucketHint + 1`)
+   *         must either not exist, sit past the consumption cutoff, or be cap-escaped — consuming through it
+   *         would exceed MAX_L1_TO_L2_MSGS_PER_CHECKPOINT messages since the parent checkpoint's cumulative
+   *         total. The cutoff (`TimeLib.getInboxCutoffTimestamp`) sits one configured L1 slot before the
+   *         previous Aztec slot: everything on L1 by then was visible to every node for the entire previous
+   *         slot, while validators are not required to have seen buckets that appeared later than that.
+   *
+   *      No consumed-bucket pointer is written here. The caller (FI-14) stores the returned consumed
+   *      position in the checkpoint's temp-log record, which is the authoritative consumed total: temp logs
+   *      rewind with the pending chain on a prune, so the record stays prune-consistent — unlike an
+   *      Inbox-side pointer advanced with the pending chain, which would sit ahead of the replacement chain.
+   *
+   * @param _inbox - The Inbox holding the rolling-hash buckets
+   * @param _inboxRollingHash - The checkpoint header's inbox rolling hash
+   * @param _bucketHint - Sequence number of the bucket the header's rolling hash corresponds to
+   * @param _slotNumber - The slot the checkpoint is proposed in
+   * @param _parentTotalMsgCount - Cumulative Inbox message count consumed as of the parent checkpoint
+   * @return The cumulative Inbox message count consumed as of this checkpoint (`bucket.totalMsgCount`), for
+   *         the caller to store in the checkpoint's temp-log record
+   */
+  function validateInboxConsumption(
+    IInbox _inbox,
+    bytes32 _inboxRollingHash,
+    uint256 _bucketHint,
+    Slot _slotNumber,
+    uint256 _parentTotalMsgCount
+  ) internal view returns (uint256) {
+    IInbox.InboxBucket memory bucket = _inbox.getBucket(_bucketHint);
+    require(
+      bucket.rollingHash == _inboxRollingHash,
+      Errors.Rollup__InvalidInboxRollingHash(bucket.rollingHash, _inboxRollingHash)
+    );
+
+    // A bucket that can still absorb a message mutates in place: a proposer bundling a send after its own propose
+    // in one L1 transaction would leave the checkpoint committed to a rolling hash that exists neither on L1 nor
+    // in any node, which only ever observes a bucket's end-of-block state, and no honest node could then resolve
+    // the consumed position. Settled is the negation of the Inbox's rollover condition: the genesis bucket never
+    // absorbs, a bucket whose L1 block has passed cannot be reopened, and a full bucket spills the next message
+    // into a new one.
+    require(
+      _bucketHint == 0 || bucket.timestamp < block.timestamp || bucket.msgCount == MAX_MSGS_PER_BUCKET,
+      Errors.Rollup__InboxBucketStillMutable(_bucketHint)
+    );
+
+    require(
+      bucket.totalMsgCount >= _parentTotalMsgCount,
+      Errors.Rollup__InboxConsumptionBehindParent(_parentTotalMsgCount, bucket.totalMsgCount)
+    );
+
+    require(
+      bucket.totalMsgCount - _parentTotalMsgCount <= Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+      Errors.Rollup__TooManyInboxMessagesConsumed(bucket.totalMsgCount - _parentTotalMsgCount)
+    );
+
+    if (_bucketHint < _inbox.getCurrentBucketSeq()) {
+      IInbox.InboxBucket memory next = _inbox.getBucket(_bucketHint + 1);
+      Timestamp cutoff = TimeLib.getInboxCutoffTimestamp(_slotNumber);
+      require(
+        next.timestamp > Timestamp.unwrap(cutoff)
+          || next.totalMsgCount - _parentTotalMsgCount > Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+        Errors.Rollup__UnconsumedInboxMessages(_bucketHint + 1)
+      );
+    }
+
+    return bucket.totalMsgCount;
   }
 
   /**

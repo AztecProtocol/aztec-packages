@@ -26,8 +26,13 @@ import { CheckpointReexecutionTracker, L1PublishedData, PublishedCheckpoint } fr
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
-import { type BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
+import { InboxBucketRef } from '@aztec/stdlib/messaging';
+import {
+  type BlockProposal,
+  CheckpointProposal,
+  ValidatedBlockProposal,
+  ValidatedCheckpointProposalCore,
+} from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { BlockHeader, type CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
@@ -48,7 +53,9 @@ jest.setTimeout(60_000);
 describe('ValidatorClient Integration', () => {
   // Constants for L1
   const l1Constants: L1RollupConstants = {
-    l1GenesisTime: 0n,
+    // Non-zero genesis time so the slot-1 validation clock is well past the minimum bucket age; otherwise the
+    // streaming Inbox acceptance check rejects even a genesis-timestamp (0) bucket as `bucket_too_new`.
+    l1GenesisTime: 1_700_000_000n,
     slotDuration: 24,
     epochDuration: 16,
     ethereumSlotDuration: 12,
@@ -238,7 +245,7 @@ describe('ValidatorClient Integration', () => {
 
   type BlockProposalResult = { block: L2Block; proposal: BlockProposal };
 
-  /** Builds a new block proposal with the given txs and l1-to-l2 messages */
+  /** Builds a new block proposal with the given txs and L1-to-L2 message bundle */
   const buildBlockProposal = async (
     checkpointBuilder: CheckpointBuilder,
     blockNumber: BlockNumber,
@@ -246,24 +253,32 @@ describe('ValidatorClient Integration', () => {
     txs: Tx[] = [],
     l1ToL2Messages: Fr[] = [],
   ): Promise<{ block: L2Block; proposal: BlockProposal }> => {
-    const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
     const blockTimestamp = getTimestampForSlot(checkpointBuilder.getConstantData().slotNumber, l1Constants);
     const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, blockTimestamp, {
       isBuildingProposal: true,
       maxBlocksPerCheckpoint: 1,
       perBlockAllocationMultiplier: 1.2,
       minValidTxs: 0,
+      l1ToL2Messages,
     });
+
+    // Resolve the Inbox bucket this block consumed through (keyed by its cumulative L1-to-L2 leaf count) and attach
+    // the reference, mirroring the sequencer's block-building loop which carries a bucketRef on every proposal.
+    // Without it the validator's streaming acceptance check rejects the proposal as
+    // `bucket_unknown`. A block that consumed nothing resolves to the genesis (or reused parent) bucket.
+    const blockTotal = BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+    const bucket = await proposer.archiver.getInboxBucketByTotalMsgCount(blockTotal);
+    const bucketRef = bucket ? InboxBucketRef.fromBucket(bucket) : undefined;
 
     const proposal = await proposer.validator.createBlockProposal(
       block.header,
       cpNumber,
       block.indexWithinCheckpoint,
-      inHash,
       block.archive.root,
       usedTxs,
       proposerSigner.address,
       {},
+      bucketRef,
     );
 
     logger.warn(`Built block proposal for block ${blockNumber}`, { ...block.toBlockInfo() });
@@ -332,8 +347,8 @@ describe('ValidatorClient Integration', () => {
       checkpointNumber,
       globalVariables,
       0n,
-      l1ToL2Messages,
       previousCheckpointOutHashes,
+      Fr.ZERO,
       fork,
     );
 
@@ -341,7 +356,15 @@ describe('ValidatorClient Integration', () => {
     for (let i = 0; i < blockCount; i++) {
       const blockNumber = BlockNumber(startBlockNumber + i);
       const txs = await getTxsForBlock(blockNumber, blocks);
-      const block = await buildBlockProposal(builder, blockNumber, checkpointNumber, txs, l1ToL2Messages);
+      // The checkpoint's whole message bundle goes into its first block, matching how a validator derives each
+      // block's bundle from the block's own L1-to-L2 leaf-count delta.
+      const block = await buildBlockProposal(
+        builder,
+        blockNumber,
+        checkpointNumber,
+        txs,
+        i === 0 ? l1ToL2Messages : [],
+      );
       blocks.push(block);
     }
 
@@ -365,7 +388,9 @@ describe('ValidatorClient Integration', () => {
     for (const block of blocks) {
       setBuildTimeForSlot(block.proposal.slotNumber);
       logger.warn(`Validating block proposal ${block.proposal.blockNumber}`);
-      expect(await attestor.validator.validateBlockProposal(block.proposal, mockPeerId)).toBe(true);
+      expect(await attestor.validator.validateBlockProposal(ValidatedBlockProposal(block.proposal), mockPeerId)).toBe(
+        true,
+      );
     }
   };
 
@@ -441,7 +466,10 @@ describe('ValidatorClient Integration', () => {
 
       await attestorValidateBlocks(blocks);
 
-      const attestations = await attestor.validator.attestToCheckpointProposal(proposal, mockPeerId);
+      const attestations = await attestor.validator.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(proposal),
+        mockPeerId,
+      );
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
       expect(attestations![0].getSender()).toEqual(validatorSigner.address);
@@ -458,9 +486,9 @@ describe('ValidatorClient Integration', () => {
 
     it('validates and attests with txs anchored to proposed blocks and non-empty l1-to-l2 messages', async () => {
       // Create l1 to l2 messages and seed them into the archivers
-      const l1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
-      await proposer.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
-      await attestor.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
+      const l1ToL2Messages = makeInboxMessages(4);
+      await proposer.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
+      await attestor.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
 
       // Build txs anchored to the previously proposed block
       const { blocks, proposal } = await buildCheckpoint(
@@ -476,7 +504,10 @@ describe('ValidatorClient Integration', () => {
 
       await attestorValidateBlocks(blocks);
 
-      const attestations = await attestor.validator.attestToCheckpointProposal(proposal, mockPeerId);
+      const attestations = await attestor.validator.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(proposal),
+        mockPeerId,
+      );
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
       expect(attestations![0].getSender()).toEqual(validatorSigner.address);
@@ -532,7 +563,10 @@ describe('ValidatorClient Integration', () => {
 
       await attestorValidateBlocks(blocks2);
 
-      const attestations = await attestor.validator.attestToCheckpointProposal(proposal2, mockPeerId);
+      const attestations = await attestor.validator.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(proposal2),
+        mockPeerId,
+      );
       expect(attestations).toBeDefined();
       expect(attestations).toHaveLength(1);
 
@@ -569,7 +603,10 @@ describe('ValidatorClient Integration', () => {
 
       // Attestation should fail because block 3 wasn't validated
       // The validator will timeout waiting for block with matching archive
-      const attestations = await attestor.validator.attestToCheckpointProposal(proposal, mockPeerId);
+      const attestations = await attestor.validator.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(proposal),
+        mockPeerId,
+      );
       expect(attestations).toBeUndefined();
     });
 
@@ -603,7 +640,10 @@ describe('ValidatorClient Integration', () => {
       dateProvider.setTime(Number(getTimestampForSlot(SlotNumber(slotNumber + 1), l1Constants)) * 1000);
 
       // Attestation should fail because archive doesn't match any block
-      const attestations = await attestor.validator.attestToCheckpointProposal(badProposal, mockPeerId);
+      const attestations = await attestor.validator.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(badProposal),
+        mockPeerId,
+      );
       expect(attestations).toBeUndefined();
     });
 
@@ -624,7 +664,10 @@ describe('ValidatorClient Integration', () => {
       epochCache.setCurrentSlot(slot2);
 
       // Block proposal validator should reject the old proposal
-      const isValid = await attestor.validator.validateBlockProposal(blocks[0].proposal, mockPeerId);
+      const isValid = await attestor.validator.validateBlockProposal(
+        ValidatedBlockProposal(blocks[0].proposal),
+        mockPeerId,
+      );
       expect(isValid).toBe(false);
     });
 
@@ -653,16 +696,19 @@ describe('ValidatorClient Integration', () => {
 
       // Block 3 should fail: remaining checkpoint mana is 0, so the processor
       // stops after the first tx's actual gas exceeds the limit.
-      const isValid = await attestor.validator.validateBlockProposal(blocks[2].proposal, mockPeerId);
+      const isValid = await attestor.validator.validateBlockProposal(
+        ValidatedBlockProposal(blocks[2].proposal),
+        mockPeerId,
+      );
       expect(isValid).toBe(false);
     });
 
     it('refuses block proposal with mismatching l1 to l2 messages', async () => {
-      const l1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
-      await proposer.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
+      const l1ToL2Messages = makeInboxMessages(4);
+      await proposer.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
 
-      const otherL1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
-      await attestor.archiver.dataStores.messages.addL1ToL2Messages(otherL1ToL2Messages);
+      const otherL1ToL2Messages = makeInboxMessages(4);
+      await attestor.archiver.dataStores.messages.addL1ToL2MessageBuckets(otherL1ToL2Messages);
 
       const { blocks } = await buildCheckpoint(
         CheckpointNumber(1),
@@ -680,7 +726,10 @@ describe('ValidatorClient Integration', () => {
       epochCache.setCurrentSlot(slot2);
 
       // Block proposal validator should reject the old proposal
-      const isValid = await attestor.validator.validateBlockProposal(blocks[0].proposal, mockPeerId);
+      const isValid = await attestor.validator.validateBlockProposal(
+        ValidatedBlockProposal(blocks[0].proposal),
+        mockPeerId,
+      );
       expect(isValid).toBe(false);
     });
   });

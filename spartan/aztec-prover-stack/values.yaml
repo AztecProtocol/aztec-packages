@@ -87,6 +87,9 @@ agent:
   nodeType: "prover-agent"
   replicaCount: 1
 
+  # -- Give agents time to finish an in-flight proof on scale-down
+  terminationGracePeriodSeconds: 180
+
   autoscaling:
     keda:
       enabled: false

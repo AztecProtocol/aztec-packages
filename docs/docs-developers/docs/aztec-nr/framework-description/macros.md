@@ -3,6 +3,7 @@ title: Aztec Macros
 description: Learn about macros available in Aztec.nr for code generation and abstraction.
 sidebar_position: 9
 tags: [contracts, functions]
+references: ["noir-projects/labs/aztec-nr/aztec/src/macros/*"]
 ---
 
 Aztec.nr provides macros (attributes) that transform your code during compilation to handle the complexities of private execution, proof generation, and state management.

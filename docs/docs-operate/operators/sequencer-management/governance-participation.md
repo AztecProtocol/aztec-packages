@@ -3,6 +3,7 @@ id: creating_and_voting_on_proposals
 displayed_sidebar: operatorsSidebar
 title: Governance and Proposal Process
 description: Learn how to participate in protocol governance as a sequencer, including signaling support, creating proposals, and voting
+references: ["l1-contracts/src/governance/Governance.sol", "l1-contracts/src/governance/proposer/GovernanceProposer.sol", "l1-contracts/src/governance/GSE.sol", "l1-contracts/src/governance/interfaces/IPayload.sol", "yarn-project/stdlib/src/interfaces/aztec-node-admin.ts"]
 ---
 
 ## Overview
@@ -192,6 +193,8 @@ docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
 Search for `governanceProposerPayload` in the response to confirm it matches your configured address.
 
 Once configured, your sequencer automatically signals support for this payload each time you propose a block. Each signal counts toward the quorum requirement.
+
+Since v5.2.0 the node stops signalling on its own once the payload's proposal goes live or has already been executed, instead of burning roughly 100k gas per slot on a signal that can no longer do anything. You will see `Payload 0x... has a live governance proposal, stopping signals` or `Payload 0x... was executed by governance within lookback, stopping signals` in the logs. A proposal that was merely rejected, dropped, or expired is still re-signalled. For a payload deliberately designed to be executed more than once, set `GOVERNANCE_PROPOSER_FORCE_PAYLOAD_VOTE=true` to keep signalling anyway.
 
 ## Creating a Proposal
 

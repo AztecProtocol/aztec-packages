@@ -35,7 +35,7 @@ _extract_from_directory() {
   local search_dir="$1"
   local output_file="$2"
 
-  find "$search_dir" -type f -name "*.md" -print0 | while IFS= read -r -d '' doc_file; do
+  find "$search_dir" -type f \( -name "*.md" -o -name "*.mdx" \) -print0 | while IFS= read -r -d '' doc_file; do
     awk -v doc="$doc_file" '
       BEGIN { in_frontmatter = 0 }
       /^---$/ {

@@ -2,6 +2,7 @@
 title: Addresses
 description: Learn how addresses work on Aztec - from smart contract accounts to deterministic address derivation.
 displayed_sidebar: participateSidebar
+references: ["yarn-project/stdlib/src/contract/complete_address.ts", "yarn-project/stdlib/src/aztec-address/*"]
 ---
 
 # Addresses on Aztec

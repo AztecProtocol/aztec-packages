@@ -107,6 +107,11 @@ impl TestBuilder {
         assert_eq(pi.new_out_hash, right.new_out_hash);
         assert(pi.previous_out_hash != pi.new_out_hash);
 
+        // The merged range spans from the left checkpoint's start to the right checkpoint's end; continuity across the
+        // two ranges is enforced in `validate_consecutive_checkpoint_rollups`.
+        assert_eq(pi.start_inbox_rolling_hash, left.start_inbox_rolling_hash);
+        assert_eq(pi.end_inbox_rolling_hash, right.end_inbox_rolling_hash);
+
         let mut expected_header_hashes = [0; MAX_CHECKPOINTS_PER_EPOCH];
         let mut expected_fees = [FeeRecipient::empty(); MAX_CHECKPOINTS_PER_EPOCH];
         for i in 0..self.num_left_checkpoints as u32 {

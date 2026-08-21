@@ -35,33 +35,9 @@ These functions allow you to query the current state of the Inbox.
 
 | Function                   | Returns           | Description                                      |
 | -------------------------- | ----------------- | ------------------------------------------------ |
-| `getRoot(uint256)`         | `bytes32`         | Returns the root of a message tree for a given checkpoint number. |
-| `getState()`               | `InboxState`      | Returns the current inbox state (rolling hash, total messages inserted, in-progress checkpoint). |
+| `getState()`               | `InboxState`      | Returns the current inbox state (rolling hash, total messages inserted). |
 | `getTotalMessagesInserted()` | `uint64`        | Returns the total number of messages inserted into the inbox. |
-| `getInProgress()`          | `uint64`          | Returns the checkpoint number currently being filled. |
 | `getFeeAssetPortal()`      | `address`         | Returns the address of the Fee Juice portal. |
-
-## Internal functions
-
-:::note
-The following functions are only callable by the Rollup contract and are documented here for completeness.
-:::
-
-### `consume()`
-
-Consumes a message tree for a given checkpoint number.
-
-#include_code consume l1-contracts/src/core/interfaces/messagebridge/IInbox.sol solidity
-
-| Name        | Type      | Description                              |
-| ----------- | --------- | ---------------------------------------- |
-| _toConsume  | `uint256` | The checkpoint number to consume.        |
-| ReturnValue | `bytes32` | The root of the consumed message tree.   |
-
-#### Edge cases
-
-- Will revert with `Inbox__Unauthorized()` if `msg.sender != ROLLUP`.
-- Will revert with `Inbox__MustBuildBeforeConsume()` if trying to consume a checkpoint that hasn't been built yet.
 
 ## Related pages
 

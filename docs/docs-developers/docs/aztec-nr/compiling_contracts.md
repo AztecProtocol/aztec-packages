@@ -3,6 +3,7 @@ title: Compiling Contracts
 tags: [contracts]
 sidebar_position: 2
 description: Compile your Aztec smart contracts into deployable artifacts using aztec command.
+references: ["yarn-project/aztec/src/cli/cmds/compile.ts", "noir-projects/labs/aztec-nr/aztec/src/macros/calls_generation/*"]
 ---
 
 This guide shows you how to compile your Aztec contracts into artifacts ready for deployment and interaction.

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Function privately_check_timestamp documentation</title>
 </head>
 <body>
@@ -25,13 +28,20 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">public_checks</a></div>
-<h1>Function <span class="fn">privately_check_timestamp</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">privately_check_timestamp</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn privately_check_timestamp(operation: <a href="../../std/primitive.u8.html" class="primitive">u8</a>, value: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, context: &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>)</code></pre>
 
 <div class="comments">
 <p>Asserts that the current timestamp in the enqueued public call enqueued by <code>check_timestamp</code> satisfies
 the <code>operation</code> with respect to the <code>value. Preserves privacy by performing the check via the public checks contract. This conceals an address of the calling contract by setting </code>context.msg_sender` to the public checks contract
 address.</p>
+</div>
 </div>
 </main>
 </span>

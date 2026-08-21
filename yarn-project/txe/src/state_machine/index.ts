@@ -82,6 +82,7 @@ export class TXEStateMachine {
       contractClassService,
       noteStore,
       createLogger('txe:contract_sync'),
+      { concurrentContractSyncEnabled: false },
     );
 
     const txResolver = new TxResolverService(node);
@@ -114,7 +115,7 @@ export class TXEStateMachine {
       block.archive,
       CheckpointHeader.from({
         lastArchiveRoot: block.header.lastArchive.root,
-        inHash: Fr.ZERO,
+        inboxRollingHash: Fr.ZERO,
         blobsHash: Fr.ZERO,
         blockHeadersHash: Fr.ZERO,
         epochOutHash: Fr.ZERO,

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Module events documentation</title>
 </head>
 <body>
@@ -43,7 +46,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::events</div>
-<h1>Module <span id="mod" class="module">events</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">events</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.event.html" class="fn">event</a></div><div class="item-description">Generates the core event functionality for a struct, including the
 <a href="../../../noir_aztec/event/event_interface/trait.EventInterface.html"><code>EventInterface</code></a> implementation (which provides the event type
@@ -53,6 +62,7 @@ id) and a <a href="../../../serde/serialization/trait.Serialize.html"><code>Seri
 <li><div class="item-name"><a href="global.EVENT_SELECTORS.html" class="global">EVENT_SELECTORS</a></div><div class="item-description">A map from event selector to event name indicating whether the event selector has already been seen during the
 contract compilation - prevents event selector collisions.</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

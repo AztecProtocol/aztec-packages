@@ -3,6 +3,7 @@ title: Paying Fees
 tags: [fees, transactions, accounts, mana, gas]
 sidebar_position: 7
 description: Pay transaction fees on Aztec, understand mana costs, estimate gas, and retrieve fees from receipts.
+references: ["docs/examples/ts/aztecjs_advanced/index.ts", "docs/examples/ts/aztecjs_connection/index.ts", "yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts", "yarn-project/aztec.js/src/fee/*"]
 ---
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
@@ -185,10 +186,12 @@ After this transaction is minted on L1 and a few blocks pass, you can claim the 
 
 Gas settings specify limits and fees for both DA and L2 dimensions:
 
-- **gasLimits**: Maximum mana for main execution phase
-- **teardownGasLimits**: Maximum mana for teardown phase (used by FPCs for refunds)
+- **gasLimits**: Maximum mana the transaction may consume in total, across all phases including teardown
+- **teardownGasLimits**: Portion of `gasLimits` reserved for the teardown phase (used by FPCs for refunds)
 - **maxFeesPerGas**: Maximum price you're willing to pay per mana unit
 - **maxPriorityFeesPerGas**: Priority fee for faster inclusion
+
+Teardown gas is not added on top of `gasLimits`: it is a reservation carved out of the total, so the mana available to the rest of the transaction is `gasLimits - teardownGasLimits`. A transaction with a teardown call is billed the full `teardownGasLimits`, regardless of how much teardown actually consumes.
 
 The fee limit is calculated as `gasLimits × maxFeesPerGas` for each dimension.
 

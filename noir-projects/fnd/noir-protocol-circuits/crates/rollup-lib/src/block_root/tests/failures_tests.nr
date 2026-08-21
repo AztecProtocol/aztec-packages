@@ -161,32 +161,48 @@ fn incorrect_l1_to_l2_tree_next_available_leaf_index__first_single_tx_block() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "The vk tree root of the parity root does not match the rollup's vk tree root")]
-fn mismatched_vk_tree_root_from_parity__first_block() {
-    let mut builder = TestBuilder::default(true, false);
+// Non-first blocks also insert their own bundle and must pin the post-bundle snapshot in their tx constants, so a
+// non-first block whose constants snapshot differs from its computed post-bundle root must fail (same-block
+// consumption). Both child rollups are tweaked together so the mismatch surfaces here rather than as unequal
+// constants between the two tx rollups.
+#[test(should_fail_with = "l1_to_l2 tree snapshot in constants does not match the computed value")]
+fn incorrect_l1_to_l2_tree_root__non_first_block() {
+    let mut builder = TestBuilder::default(false, false);
 
-    // Tweak the vk tree root of the parity root.
-    builder.parity_root.vk_tree_root += 1;
-
-    builder.execute_and_fail();
-}
-
-#[test(should_fail_with = "The vk tree root of the parity root does not match the rollup's vk tree root")]
-fn mismatched_vk_tree_root_from_parity__first_single_tx_block() {
-    let mut builder = TestBuilder::default(true, true);
-
-    // Tweak the vk tree root of the parity root.
-    builder.parity_root.vk_tree_root += 1;
+    // Tweak the root of the l1_to_l2_tree_snapshot in the rollups' constants.
+    builder.left_rollup.constants.l1_to_l2_tree_snapshot.root += 1;
+    builder.right_rollup.constants.l1_to_l2_tree_snapshot.root += 1;
 
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "The vk tree root of the parity root does not match the rollup's vk tree root")]
-fn mismatched_vk_tree_root_from_parity__first_empty_block() {
-    let mut builder = TestBuilder::new_empty();
+#[test(should_fail_with = "l1_to_l2 tree snapshot in constants does not match the computed value")]
+fn incorrect_l1_to_l2_tree_next_available_leaf_index__non_first_block() {
+    let mut builder = TestBuilder::default(false, false);
 
-    // Tweak the vk tree root of the parity root.
-    builder.parity_root.vk_tree_root += 1;
+    // Tweak the next_available_leaf_index of the l1_to_l2_tree_snapshot in the rollups' constants.
+    builder.left_rollup.constants.l1_to_l2_tree_snapshot.next_available_leaf_index += 1;
+    builder.right_rollup.constants.l1_to_l2_tree_snapshot.next_available_leaf_index += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "l1_to_l2 tree snapshot in constants does not match the computed value")]
+fn incorrect_l1_to_l2_tree_root__non_first_single_tx_block() {
+    let mut builder = TestBuilder::default(false, true);
+
+    // Tweak the root of the l1_to_l2_tree_snapshot in the rollup's constants.
+    builder.left_rollup.constants.l1_to_l2_tree_snapshot.root += 1;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "l1_to_l2 tree snapshot in constants does not match the computed value")]
+fn incorrect_l1_to_l2_tree_next_available_leaf_index__non_first_single_tx_block() {
+    let mut builder = TestBuilder::default(false, true);
+
+    // Tweak the next_available_leaf_index of the l1_to_l2_tree_snapshot in the rollup's constants.
+    builder.left_rollup.constants.l1_to_l2_tree_snapshot.next_available_leaf_index += 1;
 
     builder.execute_and_fail();
 }

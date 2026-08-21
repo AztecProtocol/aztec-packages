@@ -2,6 +2,7 @@
 title: "4. Contract Interaction & Gameplay"
 sidebar_position: 4
 description: "Deploy and call the Pod Racing contract from the webapp, handle game lobby and private gameplay"
+references: ["docs/examples/webapp-tutorial/src/components/GameLobby.tsx", "docs/examples/webapp-tutorial/src/components/GameBoard.tsx", "docs/examples/webapp-tutorial/src/components/GameStatus.tsx"]
 ---
 
 # Contract Interaction & Gameplay

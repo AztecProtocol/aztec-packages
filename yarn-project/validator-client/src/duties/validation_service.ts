@@ -4,6 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
+import type { InboxBucketRef } from '@aztec/stdlib/messaging';
 import {
   BlockProposal,
   type BlockProposalOptions,
@@ -34,7 +35,6 @@ export class ValidationService {
    *
    * @param blockHeader - The block header
    * @param blockIndexWithinCheckpoint - The block index within checkpoint for HA signing context
-   * @param inHash - Hash of L1 to L2 messages for this checkpoint
    * @param archive - The archive of the current block
    * @param txs - Ordered list of transactions (Tx[])
    * @param proposerAttesterAddress - The address of the proposer/attester, or undefined
@@ -48,11 +48,11 @@ export class ValidationService {
     blockHeader: BlockHeader,
     checkpointNumber: CheckpointNumber,
     blockIndexWithinCheckpoint: IndexWithinCheckpoint,
-    inHash: Fr,
     archive: Fr,
     txs: Tx[],
     proposerAttesterAddress: EthAddress | undefined,
     options: BlockProposalOptions,
+    bucketRef?: InboxBucketRef,
   ): Promise<BlockProposal> {
     // For testing: change the new archive to trigger state_mismatch validation failure
     if (options.broadcastInvalidBlockProposal) {
@@ -75,13 +75,13 @@ export class ValidationService {
       blockHeader,
       checkpointNumber,
       blockIndexWithinCheckpoint,
-      inHash,
       archive,
       txs.map(tx => tx.getTxHash()),
       options.publishFullTxs ? txs : undefined,
       this.signatureContext,
       payloadSigner,
       txsSigner,
+      bucketRef,
     );
   }
 

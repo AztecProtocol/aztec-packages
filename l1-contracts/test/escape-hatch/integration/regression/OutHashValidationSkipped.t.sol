@@ -60,6 +60,8 @@ contract OutHashValidationSkippedTest is EscapeHatchIntegrationBase {
       previousArchive: rollup.archiveAt(0),
       endArchive: rollup.archiveAt(1),
       outHash: wrongOutHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: 0,
       proverId: address(this)
     });
 

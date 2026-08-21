@@ -1,11 +1,14 @@
-use crate::{abis::BlockRollupPublicInputs, block_merge::validate_consecutive_block_rollups};
+use crate::{
+    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge},
+    block_merge::validate_consecutive_block_rollups,
+};
 use types::{
     abis::block_header::BlockHeader,
     blob_data::SpongeBlob,
-    constants::ARCHIVE_HEIGHT,
+    constants::{ARCHIVE_HEIGHT, MAX_BLOCKS_PER_CHECKPOINT},
     merkle_tree::{check_membership, MembershipWitness},
     proof::proof_data::RollupHonkProofData,
-    traits::Hash,
+    traits::{Empty, Hash},
 };
 
 pub struct CheckpointRootInputsValidator<let NumPreviousRollups: u32, let NumVkIndices: u32> {
@@ -40,7 +43,20 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
             );
         }
 
+        self.validate_num_blocks();
         self.validate_start_states();
+    }
+
+    /// Caps how many blocks a checkpoint may contain. Blocks carry no reward of their own and may be fully empty, so
+    /// without this cap a proposer could stuff a checkpoint with cheap blocks and leave the epoch prover with an
+    /// unbounded number of block-root and block-merge proofs to produce.
+    fn validate_num_blocks(self) {
+        let mut num_blocks = 0;
+        for i in 0..NumPreviousRollups {
+            num_blocks += self.previous_rollups[i].public_inputs.num_blocks() as u32;
+        }
+
+        assert(num_blocks <= MAX_BLOCKS_PER_CHECKPOINT, "The checkpoint contains too many blocks");
     }
 
     fn validate_previous_rollup_proofs_and_vks(self) {
@@ -59,6 +75,16 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
         }
     }
 
+    /// The four asserts below are the *sole* anchoring of a checkpoint to its start: no block root variant is
+    /// position-specific, so nothing else distinguishes the checkpoint's first block from any later one. Each start
+    /// value of the leftmost block is pinned here to its expected initial value, and the block merge threads those
+    /// values across the rest of the checkpoint. Do not drop or weaken any of them on the assumption that some flag
+    /// still marks the first block — none does.
+    ///
+    /// Together they also pin the first-block behaviour of the block roots themselves: a block absorbs the l1-to-l2
+    /// tree root into its blob data exactly when its start sponge blob is still uninitialized, which the sponge blob
+    /// assert below allows only for the leftmost block (every block absorbs its block-end fields, so a mid-checkpoint
+    /// block always inherits a sponge blob with fields already absorbed).
     fn validate_start_states(self) {
         let first_rollup = self.previous_rollups[0].public_inputs;
 
@@ -86,15 +112,13 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
             "The start timestamp must be after the previous block's timestamp",
         );
 
-        // `in_hash` must be set using the **first** block root rollup circuit for the first block in a checkpoint.
-        // In `validate_consecutive_block_rollups`, it ensures that the hash only propagates through all merge steps
-        // exclusively via the left rollup. The value in the left rollup must not be 0 when it reaches the checkpoint
-        // root (this point).
-        // Note: If the L1 subtree being copied to L2 is empty, then the in_hash will be the root of a tree whose
-        // leaves are empty (0) messages.
-        assert(
-            first_rollup.in_hash != 0,
-            "in_hash must be set via the first block root in the checkpoint",
+        // The message sponge resets per checkpoint, so the leftmost block must start from the empty sponge. Combined
+        // with the checkpoint root asserting the merged end equals the parity root's sponge, this anchors the sponge
+        // chain to exactly this checkpoint's messages.
+        assert_eq(
+            first_rollup.start_msg_sponge,
+            L1ToL2MessageSponge::empty(),
+            "The message sponge of the first block was not correctly initialized",
         );
 
         // `previous_block_header` is provided as a private input and is used to validate the values above.

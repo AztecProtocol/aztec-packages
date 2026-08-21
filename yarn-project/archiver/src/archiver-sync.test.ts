@@ -16,6 +16,7 @@ import { sum, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -23,7 +24,6 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { GENESIS_BLOCK_HEADER_HASH, L2BlockSourceEvents, type L2BlockSourceUpdatedEvent } from '@aztec/stdlib/block';
 import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
@@ -37,7 +37,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
 import { Archiver, type ArchiverEmitter } from './archiver.js';
-import { BlockOrCheckpointSlotExpiredError, L1ToL2MessagesNotReadyError } from './errors.js';
+import { BlockOrCheckpointSlotExpiredError } from './errors.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { type ArchiverDataStores, createArchiverDataStores } from './store/data_stores.js';
@@ -187,6 +187,11 @@ describe('Archiver Sync', () => {
     await archiver?.stop();
   });
 
+  // Returns every stored L1-to-L2 message leaf (as hex), in insertion order (compact indexing).
+  const getStoredLeaves = async () =>
+    (await toArray(archiverStore.messages.iterateL1ToL2Messages())).map(m => m.leaf.toString());
+  const asHex = (leaves: Fr[]) => leaves.map(l => l.toString());
+
   describe('basic sync', () => {
     it('syncs l1 to l2 messages and checkpoints', async () => {
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
@@ -221,7 +226,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Verify messages for checkpoint 1
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toEqual(msgs1);
+      expect(await getStoredLeaves()).toEqual(asHex(msgs1));
 
       // Mark checkpoint 1 as proven
       fake.markCheckpointAsProven(CheckpointNumber(1));
@@ -234,11 +239,8 @@ describe('Archiver Sync', () => {
       await archiver.syncImmediate();
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
 
-      // Verify messages for all checkpoints
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toEqual(msgs1);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(2))).toEqual(msgs2);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toEqual(msgs3);
-      await expect(archiver.getL1ToL2Messages(CheckpointNumber(4))).rejects.toThrow(L1ToL2MessagesNotReadyError);
+      // Verify messages for all checkpoints, stored contiguously in insertion order.
+      expect(await getStoredLeaves()).toEqual(asHex([...msgs1, ...msgs2, ...msgs3]));
 
       // Verify private logs are surfaced through the block body.
       for (const checkpoint of [cp1, cp2, cp3]) {
@@ -259,6 +261,34 @@ describe('Archiver Sync', () => {
       expect(
         (await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 100 })).map(b => b.checkpoint.number),
       ).toEqual([1, 2, 3]);
+
+      // Inbox buckets: each of the three L1 message blocks opened its own bucket, in insertion order.
+      const t1 = fake.getTimestampAtL1Block(98n);
+      const t2 = fake.getTimestampAtL1Block(2504n);
+      const t3 = fake.getTimestampAtL1Block(2511n);
+
+      expect(await archiver.getInboxBucket(1n)).toMatchObject({
+        seq: 1n,
+        msgCount: 3,
+        totalMsgCount: 3n,
+        timestamp: t1,
+      });
+      expect(await archiver.getInboxBucket(3n)).toMatchObject({
+        seq: 3n,
+        msgCount: 3,
+        totalMsgCount: 9n,
+        timestamp: t3,
+      });
+
+      // At-or-before lookups resolve the latest bucket not opened after the given timestamp.
+      expect((await archiver.getLatestInboxBucketAtOrBefore(t3))!.seq).toEqual(3n);
+      expect((await archiver.getLatestInboxBucketAtOrBefore(t2))!.seq).toEqual(2n);
+      expect(await archiver.getLatestInboxBucketAtOrBefore(t1 - 1n)).toBeUndefined();
+
+      // Messages between buckets, in insertion order.
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual([...msgs1, ...msgs2, ...msgs3]);
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual(msgs2);
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual(msgs3);
     }, 30_000);
 
     it('ignores checkpoint 3 because it has been pruned', async () => {
@@ -307,53 +337,6 @@ describe('Archiver Sync', () => {
         }),
       );
     });
-
-    it('stop processing if one of the checkpoints has a mismatch inHash', async () => {
-      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
-
-      // Add checkpoint 1 and 2 with all messages visible
-      await fake.addCheckpoint(CheckpointNumber(1), {
-        l1BlockNumber: 70n,
-        messagesL1BlockNumber: 50n,
-        numL1ToL2Messages: 3,
-      });
-
-      await fake.addCheckpoint(CheckpointNumber(2), {
-        l1BlockNumber: 80n,
-        messagesL1BlockNumber: 60n,
-        numL1ToL2Messages: 3,
-      });
-
-      // Add checkpoint 3 with 3 messages at L1 block 100n
-      const { checkpoint: cp3, messages: msgs3 } = await fake.addCheckpoint(CheckpointNumber(3), {
-        l1BlockNumber: 90n,
-        messagesL1BlockNumber: 100n,
-        numL1ToL2Messages: 3,
-      });
-
-      // Move last 2 messages of checkpoint 3 to L1 block 103n (beyond current L1 block)
-      // This simulates partial message visibility
-      const totalMessages = 3 + 3 + 3; // 9 messages total
-      fake.moveMessageAtIndexToL1Block(totalMessages - 1, 103n); // Move last message
-      fake.moveMessageAtIndexToL1Block(totalMessages - 2, 103n); // Move second to last
-
-      // Set current L1 block to 102n - only 1 message from checkpoint 3 will be visible
-      fake.setL1BlockNumber(102n);
-
-      // The archiver will compute inHash from only the first message,
-      // which won't match the checkpoint's inHash (computed from all 3 messages)
-      const visibleMessages = msgs3.slice(0, 1);
-      const computedInHash = computeInHashFromL1ToL2Messages(visibleMessages);
-
-      // Run archiver (expect failure)
-      await expect(() => archiver.syncImmediate()).rejects.toThrow(
-        new RegExp(`mismatch inHash for checkpoint 3.*${computedInHash}.*${cp3.header.inHash}`, 'i'),
-      );
-
-      // Should still be at checkpoint 0 since the error prevents checkpoint processing
-      // (checkpoints 1 and 2 also fail because they're in the same batch)
-      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
-    }, 10_000);
 
     it('skip event search if no changes found', async () => {
       const loggerSpy = jest.spyOn(syncLogger, 'debug');
@@ -478,9 +461,9 @@ describe('Archiver Sync', () => {
     });
 
     it('does not fetch messages when local and remote state both have zero messages', async () => {
-      // When there are no messages on L1, the remote inbox state has messagesRollingHash = Buffer16.ZERO
-      // and totalMessagesInserted = 0. The local store also returns 0 messages and undefined lastMessage.
-      // The fallback for the local rolling hash must use Buffer16.ZERO (not Buffer32.ZERO) to match.
+      // When there are no messages on L1, the remote Inbox live state is genesis (rolling hash Fr.ZERO,
+      // total 0). The local store also returns 0 messages and undefined lastMessage, whose rolling-hash fallback
+      // is Fr.ZERO — so local and remote state match and no message fetch is attempted.
       fake.setL1BlockNumber(100n);
 
       // Add a checkpoint with zero messages so the sync has something to process
@@ -1112,10 +1095,7 @@ describe('Archiver Sync', () => {
       // Sync
       await archiver.syncImmediate();
 
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(2))).toHaveLength(0);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(4);
-      await expect(archiver.getL1ToL2Messages(CheckpointNumber(4))).rejects.toThrow(L1ToL2MessagesNotReadyError);
+      expect(await getStoredLeaves()).toEqual(asHex([...msgs1, ...msgs3]));
 
       // Simulate L1 reorg: remove last 2 messages from checkpoint 3, add new messages for checkpoints 4 and 5
       logger.warn('Reorging L1 to L2 messages');
@@ -1132,18 +1112,8 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(111n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(2))).toHaveLength(0);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(2); // Reduced from 4 to 2
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(1);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(5))).toHaveLength(2);
-
-      expect((await archiver.getL1ToL2Messages(CheckpointNumber(4))).map(leaf => leaf.toString())).toEqual(
-        [msg40].map(leaf => leaf.toString()),
-      );
-      expect((await archiver.getL1ToL2Messages(CheckpointNumber(5))).map(leaf => leaf.toString())).toEqual(
-        [msg50, msg51].map(leaf => leaf.toString()),
-      );
+      // The reorg kept the first 4 messages (2 from CP1, 2 from CP3) and appended the new ones.
+      expect(await getStoredLeaves()).toEqual(asHex([msgs1[0], msgs1[1], msgs3[0], msgs3[1], msg40, msg50, msg51]));
     });
 
     it('short-circuits rollback at the finalized L1 block', async () => {
@@ -1159,8 +1129,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(110n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(4);
+      expect(await getStoredLeaves()).toEqual(asHex([...msgs1, ...msgs3]));
 
       // Simulate L1 reorg: remove the last 2 messages from checkpoint 3 and add new ones.
       fake.removeMessagesAfter(4);
@@ -1181,8 +1150,7 @@ describe('Archiver Sync', () => {
       );
       expect(callsAtFinalizedOrBelow).toHaveLength(0);
 
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(1);
+      expect(await getStoredLeaves()).toEqual(asHex([msgs1[0], msgs1[1], msgs3[0], msgs3[1], msg40]));
     });
 
     it('falls back to per-message log queries when finalized block is undefined', async () => {
@@ -1211,8 +1179,7 @@ describe('Archiver Sync', () => {
       // 2 messages mismatch on remote (msgs3[2], msgs3[3]) and one matches (msgs3[1]) before we break.
       expect(eventByHashSpy).toHaveBeenCalledTimes(3);
 
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
-      expect(await archiver.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(1);
+      expect(await getStoredLeaves()).toEqual(asHex([msgs1[0], msgs1[1], msgs3[0], msgs3[1], msg40]));
     });
 
     it('persists the finalized L1 block monotonically after message sync', async () => {
@@ -2555,7 +2522,7 @@ describe('Archiver Sync', () => {
       archiver.events.off(L2BlockSourceEvents.L2BlockSourceUpdated, updateSpy);
     });
 
-    it('emits a single aggregate event carrying fromTips, toTips and blocksAdded for a checkpoint sync', async () => {
+    it('emits a single aggregate event carrying fromTips and toTips for a checkpoint sync', async () => {
       const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
         l1BlockNumber: 70n,
         messagesL1BlockNumber: 60n,
@@ -2572,7 +2539,6 @@ describe('Archiver Sync', () => {
       expect(event.fromTips.proposed.number).toEqual(BlockNumber(0));
       expect(event.toTips.proposed.number).toEqual(lastBlock);
       expect(event.toTips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
-      expect(event.blocksAdded.map(b => b.number)).toEqual(cp1.blocks.map(b => b.number));
     });
 
     it('emits no aggregate event on a fully-synced no-op pass', async () => {
@@ -2613,18 +2579,15 @@ describe('Archiver Sync', () => {
       updateSpy.mockClear();
       await archiver.syncImmediate();
 
-      // The conflicting local blocks are pruned and replaced by the L1 chain. The aggregate event carries the
-      // newly-fetched L1 blocks (the prune itself is reflected by the moved tips, not by the delta).
+      // The conflicting local blocks are pruned and replaced by the L1 chain, which the single aggregate event
+      // reports through its moved tips.
       expect(updateSpy).toHaveBeenCalledTimes(1);
       const event = updateSpy.mock.calls[0][0] as L2BlockSourceUpdatedEvent;
-      expect(event.blocksAdded.map(b => b.number)).toEqual(
-        expect.arrayContaining(differentCp2.blocks.map(b => b.number)),
-      );
       expect(event.toTips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
       expect(event.toTips.proposed.number).toEqual(differentCp2.blocks.at(-1)!.number);
     }, 15_000);
 
-    it('emits an aggregate event with no blocks added when only the proven tip advances', async () => {
+    it('emits an aggregate event when only the proven tip advances', async () => {
       const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), { l1BlockNumber: 70n });
       fake.setL1BlockNumber(100n);
       await archiver.syncImmediate();
@@ -2640,7 +2603,6 @@ describe('Archiver Sync', () => {
       expect(updateSpy).toHaveBeenCalledTimes(1);
       const event = updateSpy.mock.calls[0][0] as L2BlockSourceUpdatedEvent;
       // No blocks were added; the event still fires because the proven tip moved (proposed/checkpointed unchanged).
-      expect(event.blocksAdded).toEqual([]);
       expect(event.fromTips.proven.checkpoint.number).toEqual(CheckpointNumber(0));
       expect(event.toTips.proven.checkpoint.number).toEqual(CheckpointNumber(1));
       expect(event.fromTips.proposed.number).toEqual(event.toTips.proposed.number);

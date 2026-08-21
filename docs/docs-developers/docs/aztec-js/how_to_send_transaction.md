@@ -3,6 +3,7 @@ title: Sending Transactions
 sidebar_position: 4
 description: Send transactions to Aztec contracts using Aztec.js with various options and error handling
 tags: [transactions, contracts, aztec.js]
+references: ["docs/examples/ts/aztecjs_advanced/index.ts", "yarn-project/aztec.js/src/contract/*"]
 ---
 
 This guide shows you how to send transactions to smart contracts on Aztec.
@@ -37,6 +38,7 @@ When using `EmbeddedWallet`, calling `send()` triggers a **simulation** step bef
 
 1. **Estimates gas limits** based on actual execution, with a configurable padding (default 10%) to avoid reverts. If you provide explicit gas limits via `fee.gasSettings`, they take precedence.
 2. **Generates private authwits automatically**. If the contract you're calling requires a private [authentication witness](./how_to_use_authwit.md) (e.g., a token transfer on behalf of the sender), the wallet detects this during simulation and creates the authwit on the fly — no manual setup needed.
+3. **Delays the first receipt poll.** After the transaction is sent, `.wait()` holds off one poll interval before its first `getTxReceipt` call, since the transaction cannot have been mined yet. Environments where receipts are available immediately (for example automine) can pass `initialDelay: 0` to `.wait()`.
 
 This means a simple `.send()` is all most apps need. You can adjust the gas padding if desired:
 

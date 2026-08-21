@@ -2,6 +2,7 @@
 title: Key Metrics Reference
 description: Comprehensive guide to understanding and using the metrics exposed by your Aztec node for monitoring and observability.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/telemetry-client/src/metrics.ts", "yarn-project/telemetry-client/src/attributes.ts"]
 ---
 
 ## Overview
@@ -286,6 +287,29 @@ Measure block production efficiency:
   - Identify performance bottlenecks
   - Compare performance against network averages
 
+### Own-validator slashing votes
+
+Detect the network voting to slash one of your own validators while there is still time to react. New in v5.2.0.
+
+- **Metric**: `aztec_slasher_own_validator_current_round_votes_max`
+- **Description**: highest number of votes cast against any committee position held by your own validators in the current slashing round. Resets when a new round starts.
+- **Compare against**: `aztec_slasher_quorum_size`, the number of votes a validator must receive in a round to be slashed.
+
+**Alert rule**:
+
+```yaml
+- alert: OwnValidatorNearSlashQuorum
+  expr: aztec_slasher_own_validator_current_round_votes_max >= 0.5 * aztec_slasher_quorum_size
+  for: 1m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Own validator approaching slash quorum"
+    description: "{{ $value }} votes cast against one of your validators this round. Check node logs for 'targeted by slashing vote'."
+```
+
+Related counters: `aztec_slasher_own_validator_targeted_count` (votes naming one of your validators), `aztec_slasher_own_validator_slashed_count` and `aztec_slasher_own_validator_slashed_amount` (executed slashes). Votes cast while your node is offline are not counted, so treat these as a floor.
+
 ## Prover Metrics
 
 If you're running a prover node, track these metrics for proof generation workload and resource utilization.
@@ -329,6 +353,20 @@ Measure proof generation capacity:
   - Capacity planning
   - Performance optimization
   - SLA monitoring
+
+## JSON-RPC server metrics
+
+Every Aztec JSON-RPC server (node, prover broker, prover agent) reports request-level metrics. New in v5.2.0. Use these to spot a saturated or rejecting RPC endpoint.
+
+- `aztec_json_rpc_server_request_count`: completed JSON-RPC server requests
+- `aztec_json_rpc_server_request_duration_ms`: request handler duration
+- `aztec_json_rpc_server_request_validation_duration_ms`: request parameter validation duration
+- `aztec_json_rpc_server_rejected_request_count`: requests rejected before handler dispatch (batch-size or body-size limits, bad params)
+- `aztec_json_rpc_server_batch_count`: JSON-RPC batches received
+- `aztec_json_rpc_server_batch_duration_ms`: batch processing duration
+- `aztec_json_rpc_server_batch_size_requests`: number of requests per batch
+
+A rising `rejected_request_count` on a prover broker or agent usually means `RPC_MAX_BODY_SIZE` or `RPC_MAX_BATCH_SIZE` is too low for your payloads.
 
 ## System Metrics
 

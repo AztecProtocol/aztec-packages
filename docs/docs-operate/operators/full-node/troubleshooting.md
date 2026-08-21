@@ -3,6 +3,7 @@ id: troubleshooting
 title: Full node troubleshooting
 description: Common issues operators hit when running a full node, and how to fix them.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/p2p/src/config.ts", "yarn-project/ethereum/src/config.ts"]
 ---
 
 ## Troubleshooting

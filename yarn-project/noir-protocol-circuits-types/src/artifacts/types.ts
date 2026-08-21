@@ -27,17 +27,16 @@ export type ClientProtocolArtifact =
 
 // These are all circuits that should generate proofs with the `recursive` flag.
 export type ServerProtocolArtifact =
-  | 'ParityBaseArtifact'
-  | 'ParityRootArtifact'
+  | 'InboxParity64Artifact'
+  | 'InboxParity256Artifact'
+  | 'InboxParity1024Artifact'
   | 'PublicChonkVerifier'
   | 'PrivateTxBaseRollupArtifact'
   | 'PublicTxBaseRollupArtifact'
   | 'TxMergeRollupArtifact'
-  | 'BlockRootFirstRollupArtifact'
-  | 'BlockRootSingleTxFirstRollupArtifact'
-  | 'BlockRootEmptyTxFirstRollupArtifact'
   | 'BlockRootRollupArtifact'
   | 'BlockRootSingleTxRollupArtifact'
+  | 'BlockRootNoTxsRollupArtifact'
   | 'BlockMergeRollupArtifact'
   | 'CheckpointRootRollupArtifact'
   | 'CheckpointRootSingleBlockRollupArtifact'
@@ -59,10 +58,12 @@ export interface ArtifactProvider {
 
 export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact): CircuitName {
   switch (artifact) {
-    case 'ParityBaseArtifact':
-      return 'parity-base';
-    case 'ParityRootArtifact':
-      return 'parity-root';
+    case 'InboxParity64Artifact':
+      return 'inbox-parity-64';
+    case 'InboxParity256Artifact':
+      return 'inbox-parity-256';
+    case 'InboxParity1024Artifact':
+      return 'inbox-parity-1024';
     case 'PublicChonkVerifier':
       return 'chonk-verifier-public';
     case 'PrivateTxBaseRollupArtifact':
@@ -71,16 +72,12 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
       return 'rollup-tx-base-public';
     case 'TxMergeRollupArtifact':
       return 'rollup-tx-merge';
-    case 'BlockRootFirstRollupArtifact':
-      return 'rollup-block-root-first';
-    case 'BlockRootSingleTxFirstRollupArtifact':
-      return 'rollup-block-root-first-single-tx';
-    case 'BlockRootEmptyTxFirstRollupArtifact':
-      return 'rollup-block-root-first-empty-tx';
     case 'BlockRootRollupArtifact':
       return 'rollup-block-root';
     case 'BlockRootSingleTxRollupArtifact':
       return 'rollup-block-root-single-tx';
+    case 'BlockRootNoTxsRollupArtifact':
+      return 'rollup-block-root-no-txs';
     case 'BlockMergeRollupArtifact':
       return 'rollup-block-merge';
     case 'CheckpointRootRollupArtifact':

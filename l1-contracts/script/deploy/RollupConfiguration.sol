@@ -105,12 +105,12 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     uint256 aztecEpochDuration = vm.envUint("AZTEC_EPOCH_DURATION");
     uint256 slashingRoundSize = vm.envUint("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS") * aztecEpochDuration;
 
+    config.ethereumSlotDuration = vm.envUint("ETHEREUM_SLOT_DURATION");
     config.aztecSlotDuration = vm.envUint("AZTEC_SLOT_DURATION");
     config.aztecEpochDuration = aztecEpochDuration;
     config.targetCommitteeSize = vm.envUint("AZTEC_TARGET_COMMITTEE_SIZE");
     config.lagInEpochsForValidatorSet = vm.envUint("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET");
     config.lagInEpochsForRandao = vm.envUint("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO");
-    config.inboxLag = vm.envUint("AZTEC_INBOX_LAG");
     config.aztecProofSubmissionEpochs = vm.envUint("AZTEC_PROOF_SUBMISSION_EPOCHS");
     config.localEjectionThreshold = vm.envUint("AZTEC_LOCAL_EJECTION_THRESHOLD");
     config.slashingQuorum = vm.envOr("AZTEC_SLASHING_QUORUM", slashingRoundSize / 2 + 1);

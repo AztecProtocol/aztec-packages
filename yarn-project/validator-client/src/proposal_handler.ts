@@ -1,7 +1,12 @@
 import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, encodeCheckpointBlobDataFromBlocks, getBlobsPerL1Block } from '@aztec/blob-lib';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import {
+  INITIAL_L2_BLOCK_NUM,
+  MAX_BLOCKS_PER_CHECKPOINT,
+  MAX_L1_TO_L2_MSGS_PER_BLOCK,
+  MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+} from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { validateFeeAssetPriceModifier } from '@aztec/ethereum/contracts';
 import {
@@ -20,10 +25,13 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { isErrorClass } from '@aztec/foundation/types';
 import type { P2P, PeerId } from '@aztec/p2p';
-import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker, ReexecutionOutcome } from '@aztec/stdlib/checkpoint';
-import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  getPreviousCheckpointInboxRollingHash,
+  getPreviousCheckpointOutHashes,
+  validateCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type {
@@ -35,9 +43,16 @@ import type {
 import {
   type L1ToL2MessageSource,
   accumulateCheckpointOutHashes,
-  computeInHashFromL1ToL2Messages,
+  getInboxCutoffTimestamp,
+  isInboxConsumptionSufficient,
 } from '@aztec/stdlib/messaging';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposalCore,
+  ValidatedBlockProposal,
+  ValidatedCheckpointProposalCore,
+} from '@aztec/stdlib/p2p';
 import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { CheckpointGlobalVariables, FailedTx, Tx, TxHash } from '@aztec/stdlib/tx';
@@ -53,13 +68,20 @@ import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/te
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorMetrics } from './metrics.js';
+import {
+  type StreamingBlockCheckReason,
+  type StreamingBlockMetadataCheckResult,
+  checkStreamingBlockProposalMetadata,
+  getStreamingBlockBundle,
+} from './streaming_inbox_checks.js';
 
 export type BlockProposalValidationFailureReason =
   | 'invalid_signature'
   | 'invalid_proposal'
   | 'parent_block_not_found'
   | 'parent_block_wrong_slot'
-  | 'in_hash_mismatch'
+  // Streaming Inbox per-block acceptance failures.
+  | StreamingBlockCheckReason
   | 'global_variables_mismatch'
   | 'block_number_already_exists'
   | 'txs_not_available'
@@ -109,6 +131,8 @@ export type CheckpointProposalValidationFailureReason =
   | 'checkpoint_header_mismatch'
   | 'archive_mismatch'
   | 'out_hash_mismatch'
+  // Streaming Inbox last-block censorship failure.
+  | 'inbox_consumption_insufficient'
   | 'checkpoint_validation_failed';
 
 /**
@@ -134,6 +158,7 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   checkpoint_header_mismatch: 'invalid',
   archive_mismatch: 'invalid',
   out_hash_mismatch: 'invalid',
+  inbox_consumption_insufficient: 'invalid',
   checkpoint_validation_failed: 'invalid',
 };
 
@@ -175,7 +200,6 @@ export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidation
   'global_variables_mismatch',
   'invalid_proposal',
   'parent_block_wrong_slot',
-  'in_hash_mismatch',
   'duplicate_txs',
   'invalid_embedded_txs',
 ];
@@ -198,6 +222,9 @@ export const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<
   ['last_block_archive_mismatch']: true,
 
   // disabled
+  // Streaming Inbox last-block censorship: kept out of slashing while the streaming path is new; L1 `propose` is the
+  // authoritative reject (Rollup__UnconsumedInboxMessages).
+  ['inbox_consumption_insufficient']: false,
   ['invalid_signature']: false,
   ['last_block_not_found']: false,
   ['block_fetch_error']: false,
@@ -248,7 +275,6 @@ export class ProposalHandler {
     private blockSource: L2BlockSource & L2BlockSink,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private txProvider: ITxProvider,
-    private blockProposalValidator: BlockProposalValidator,
     private epochCache: EpochCache,
     private timetable: ConsensusTimetable,
     private config: ValidatorClientFullConfig,
@@ -328,7 +354,7 @@ export class ProposalHandler {
 
     // Non-validator handler that processes or re-executes for monitoring but does not attest.
     // Returns boolean indicating whether the proposal was valid.
-    const blockHandler = async (proposal: BlockProposal, proposalSender: PeerId): Promise<boolean> => {
+    const blockHandler = async (proposal: ValidatedBlockProposal, proposalSender: PeerId): Promise<boolean> => {
       try {
         const { slotNumber, blockNumber } = proposal;
         const result = await this.handleBlockProposal(proposal, proposalSender, shouldReexecute);
@@ -378,7 +404,7 @@ export class ProposalHandler {
     // Runs for all nodes (validators and non-validators). Validators get the cached result in the
     // validator-specific callback (attestToCheckpointProposal) which runs after this one.
     const checkpointHandler = async (
-      proposal: CheckpointProposalCore,
+      proposal: ValidatedCheckpointProposalCore,
       _sender: PeerId,
     ): Promise<CheckpointAttestation[] | undefined> => {
       try {
@@ -446,8 +472,15 @@ export class ProposalHandler {
     return this;
   }
 
+  /**
+   * Processes a block proposal: collects its txs and, if requested, re-executes them to check the resulting
+   * block against the proposal. Expects the proposal to have already passed p2p ingress validation (signature
+   * context, signature, expected proposer, index within checkpoint, tx field checks, and the receive-window
+   * timeliness check) — none of those are re-applied here, and only deterministic properties of the payload
+   * are validated before processing.
+   */
   async handleBlockProposal(
-    proposal: BlockProposal,
+    proposal: ValidatedBlockProposal,
     proposalSender: PeerId,
     shouldReexecute: boolean,
   ): Promise<BlockProposalValidationResult> {
@@ -472,13 +505,9 @@ export class ProposalHandler {
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
 
-    // Check that the proposal is from the current proposer, or the next proposer
-    // This should have been handled by the p2p layer, but we double check here out of caution
-    const validationResult = await this.blockProposalValidator.validate(proposal);
-    if (validationResult.result !== 'accept') {
-      this.log.warn(`Proposal is not valid, skipping processing`, proposalInfo);
-      return { isValid: false, reason: 'invalid_proposal' };
-    }
+    // The receive-window check from p2p ingress is deliberately not re-applied here: its outcome depends on
+    // the wall clock at evaluation time, so re-running it turned node-local processing latency into an
+    // invalid-proposal verdict against an honest proposer, which then fed the invalid-block slashing path.
 
     // A tx can only appear once in a block: the second copy would emit nullifiers already emitted by the
     // first. This is not a relaying-peer fault, so it passes gossip validation and is classified here as
@@ -545,9 +574,29 @@ export class ProposalHandler {
       return { isValid: false, blockNumber, reason: 'block_number_already_exists' };
     }
 
+    // Streaming Inbox: run the metadata checks before committing to any network work. They are point lookups
+    // against our own Inbox view, so a proposal carrying a bucket reference that does not resolve locally is
+    // rejected without a proposer being able to make us spend the validation window collecting its txs.
+    const streamingMetadata = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
+    if (!streamingMetadata.accepted) {
+      this.log.warn(`Streaming Inbox block acceptance check failed, skipping processing`, {
+        reason: streamingMetadata.reason,
+        bucketRef: proposal.bucketRef?.toInspect(),
+        ...proposalInfo,
+      });
+      return { isValid: false, blockNumber, reason: streamingMetadata.reason };
+    }
+
     // Collect txs from the proposal. We start doing this as early as possible,
     // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
-    const collected = await this.collectProposalTxs(proposal, blockNumber, proposalSender, proposalInfo);
+    // The block's message bundle is an independent read, so derive it concurrently with the collection.
+    const txsPromise = this.collectProposalTxs(proposal, blockNumber, proposalSender, proposalInfo);
+    const bundlePromise = getStreamingBlockBundle(this.l1ToL2MessageSource, streamingMetadata);
+    // Promise.all settles on the first rejection, so without a handler of its own the loser's later rejection
+    // would surface as an unhandled rejection. Awaiting below still observes whichever rejected first.
+    txsPromise.catch(() => {});
+    bundlePromise.catch(() => {});
+    const [collected, l1ToL2Messages] = await Promise.all([txsPromise, bundlePromise]);
     if (collected === 'invalid_embedded_txs') {
       return { isValid: false, blockNumber, reason: collected };
     }
@@ -573,19 +622,6 @@ export class ProposalHandler {
     const checkpointNumber = checkpointResult.checkpointNumber;
     proposalInfo.checkpointNumber = checkpointNumber;
 
-    // Check that I have the same set of l1ToL2Messages as the proposal
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
-    const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const proposalInHash = proposal.inHash;
-    if (!computedInHash.equals(proposalInHash)) {
-      this.log.warn(`L1 to L2 messages in hash mismatch, skipping processing`, {
-        proposalInHash: proposalInHash.toString(),
-        computedInHash: computedInHash.toString(),
-        ...proposalInfo,
-      });
-      return { isValid: false, blockNumber, reason: 'in_hash_mismatch' };
-    }
-
     // Check that all of the transactions in the proposal are available
     if (missingTxs.length > 0) {
       this.log.warn(`Missing ${missingTxs.length} txs to process proposal`, { ...proposalInfo, missingTxs });
@@ -605,6 +641,12 @@ export class ProposalHandler {
       log: this.log,
     });
 
+    const previousInboxRollingHash = await getPreviousCheckpointInboxRollingHash({
+      blockSource: this.blockSource,
+      checkpointNumber,
+      log: this.log,
+    });
+
     // Try re-executing the transactions in the proposal if needed
     let reexecutionResult;
     try {
@@ -616,6 +658,7 @@ export class ProposalHandler {
         txs,
         l1ToL2Messages,
         previousCheckpointOutHashes,
+        previousInboxRollingHash,
       );
     } catch (error) {
       this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
@@ -926,6 +969,121 @@ export class ProposalHandler {
     }
   }
 
+  /**
+   * Runs the streaming-Inbox per-block metadata checks for a block proposal, returning the bucket range its message
+   * bundle derives from or a rejection reason. The parent block's consumed total and the checkpoint's starting total
+   * are derived from L1-to-L2 tree leaf counts; a parent whose count does not sit on a bucket boundary is rejected
+   * inside {@link checkStreamingBlockProposalMetadata}.
+   */
+  private async checkStreamingBlockMetadata(
+    proposal: BlockProposal,
+    blockNumber: BlockNumber,
+    parentBlock: 'genesis' | BlockData,
+  ): Promise<StreamingBlockMetadataCheckResult> {
+    const parentTotalMsgCount = this.getConsumedMsgTotal(parentBlock);
+    const checkpointStartTotalMsgCount = await this.resolveCheckpointStartTotal(
+      blockNumber,
+      proposal.indexWithinCheckpoint,
+      parentTotalMsgCount,
+    );
+    if (checkpointStartTotalMsgCount === undefined) {
+      // The block before the checkpoint's first block has not synced locally, so the per-checkpoint cap origin is
+      // unavailable: treat as an unknown local view. There is no bounded wait for the missing block yet.
+      return { accepted: false, reason: 'bucket_unknown' };
+    }
+    const nowSeconds = BigInt(Math.floor(this.dateProvider.now() / 1000));
+    return checkStreamingBlockProposalMetadata({
+      messageSource: this.l1ToL2MessageSource,
+      bucketRef: proposal.bucketRef,
+      parentTotalMsgCount,
+      checkpointStartTotalMsgCount,
+      nowSeconds,
+      minBucketAgeSeconds: this.epochCache.getL1Constants().ethereumSlotDuration,
+      perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
+      perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+    });
+  }
+
+  /** A block's L1-to-L2 message tree leaf count: the cumulative Inbox message count it consumed through. */
+  private blockLeafCount(block: BlockData | L2Block): bigint {
+    return BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+  }
+
+  /** The cumulative Inbox message count consumed through a block: its L1-to-L2 tree leaf count (0 at genesis). */
+  private getConsumedMsgTotal(block: 'genesis' | BlockData): bigint {
+    return block === 'genesis' ? 0n : this.blockLeafCount(block);
+  }
+
+  /**
+   * The cumulative Inbox message count consumed as of the parent checkpoint (the per-checkpoint cap origin). For a
+   * checkpoint's first block this is the parent block's total; for a later block it is the leaf count of the block
+   * before the checkpoint's first block. Returns undefined when that block has not synced locally.
+   */
+  private resolveCheckpointStartTotal(
+    blockNumber: BlockNumber,
+    indexWithinCheckpoint: number,
+    parentTotalMsgCount: bigint,
+  ): Promise<bigint | undefined> {
+    return indexWithinCheckpoint === 0
+      ? Promise.resolve(parentTotalMsgCount)
+      : this.getPreBlockConsumedTotal(blockNumber - indexWithinCheckpoint);
+  }
+
+  /**
+   * The cumulative Inbox message count consumed as of the block immediately before `firstBlockNumber` (its L1-to-L2
+   * tree leaf count): 0 when that block is genesis, undefined when it has not synced locally.
+   */
+  private async getPreBlockConsumedTotal(firstBlockNumber: number): Promise<bigint | undefined> {
+    const preBlockNumber = firstBlockNumber - 1;
+    if (preBlockNumber < INITIAL_L2_BLOCK_NUM) {
+      return 0n;
+    }
+    const preBlock = await this.blockSource.getBlockData({ number: BlockNumber(preBlockNumber) });
+    return preBlock === undefined ? undefined : this.blockLeafCount(preBlock);
+  }
+
+  /**
+   * Enforces the streaming-Inbox last-block minimum-consumption (censorship) rule for a checkpoint, mirroring
+   * `ProposeLib.validateInboxConsumption`: the first bucket the checkpoint left unconsumed must be absent, past the
+   * cutoff, or a cap-escape. Returns true (sufficient) when the checkpoint's consumption cannot be resolved against
+   * the local Inbox view, deferring to L1 `propose` as the authoritative reject.
+   */
+  private async isLastBlockConsumptionSufficient(slot: SlotNumber, blocks: L2Block[]): Promise<boolean> {
+    const lastBlockTotal = this.blockLeafCount(blocks[blocks.length - 1]);
+    const checkpointStartTotal = await this.getPreBlockConsumedTotal(blocks[0].number);
+    const lastConsumedBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(lastBlockTotal);
+    if (checkpointStartTotal === undefined || lastConsumedBucket === undefined) {
+      return true;
+    }
+    const nextBucket = await this.l1ToL2MessageSource.getInboxBucket(lastConsumedBucket.seq + 1n);
+    const cutoffTimestamp = getInboxCutoffTimestamp(slot, this.epochCache.getL1Constants());
+    return isInboxConsumptionSufficient({
+      nextBucket,
+      cutoffTimestamp,
+      checkpointStartTotalMsgCount: checkpointStartTotal,
+      perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+    });
+  }
+
+  /**
+   * Derives the ordered list of L1-to-L2 messages a checkpoint consumed across its blocks, from the Inbox buckets
+   * between the parent checkpoint's consumed position and the checkpoint's last block. Empty when
+   * the checkpoint consumed nothing or its consumption cannot be resolved against the local Inbox view.
+   */
+  private async deriveCheckpointConsumedMessages(blocks: L2Block[]): Promise<Fr[]> {
+    const checkpointStartTotal = await this.getPreBlockConsumedTotal(blocks[0].number);
+    const lastBlockTotal = this.blockLeafCount(blocks[blocks.length - 1]);
+    if (checkpointStartTotal === undefined || lastBlockTotal <= checkpointStartTotal) {
+      return [];
+    }
+    const startBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(checkpointStartTotal);
+    const endBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(lastBlockTotal);
+    if (startBucket === undefined || endBucket === undefined) {
+      return [];
+    }
+    return this.l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
+  }
+
   async reexecuteTransactions(
     proposal: BlockProposal,
     blockNumber: BlockNumber,
@@ -933,6 +1091,7 @@ export class ProposalHandler {
     txs: Tx[],
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
+    previousInboxRollingHash: Fr,
   ): Promise<ReexecuteTransactionsResult> {
     const { blockHeader, txHashes } = proposal;
 
@@ -974,13 +1133,15 @@ export class ProposalHandler {
       gasFees: blockHeader.globalVariables.gasFees,
     };
 
-    // Create checkpoint builder with prior blocks
+    // Create checkpoint builder with prior blocks. The messages the prior blocks consumed are not needed: this path
+    // only re-executes and compares the new block, never completing the checkpoint (whose rolling hash they seed).
     const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(
       checkpointNumber,
       constants,
       0n, // only takes effect in the following checkpoint.
-      l1ToL2Messages,
+      [],
       previousCheckpointOutHashes,
+      previousInboxRollingHash,
       fork,
       priorBlocks,
       this.log.getBindings(),
@@ -999,6 +1160,7 @@ export class ProposalHandler {
       expectedEndState: blockHeader.state,
       maxTransactions: this.config.validateMaxTxsPerBlock,
       maxBlockGas,
+      l1ToL2Messages,
     });
 
     const { block, failedTxs } = result;
@@ -1054,9 +1216,11 @@ export class ProposalHandler {
    * Validates a checkpoint proposal, caches the result, and uploads blobs if configured.
    * Returns a cached result if the same proposal (archive + slot) was already validated.
    * Used by both the all-nodes callback (via register) and the validator client (via delegation).
+   * Expects the proposal to have already passed p2p ingress validation (expected proposer and receive-window
+   * timeliness); only deterministic properties of the signed payload are checked here.
    */
   async handleCheckpointProposal(
-    proposal: CheckpointProposalCore,
+    proposal: ValidatedCheckpointProposalCore,
     proposalInfo: LogData,
   ): Promise<CheckpointProposalValidationResult> {
     const slot = proposal.slotNumber;
@@ -1184,9 +1348,15 @@ export class ProposalHandler {
       };
     }
 
-    // Note this condition should never trigger, since we dont process block proposals that exceed indexWithinCheckpoint
-    const maxBlocksPerCheckpoint = this.config.maxBlocksPerCheckpoint;
-    if (maxBlocksPerCheckpoint !== undefined && blocks.length > maxBlocksPerCheckpoint) {
+    // The checkpoint root circuit caps how many blocks a checkpoint may contain, and L1 cannot check it when the
+    // checkpoint is proposed (`ProposedHeader` carries no block count, only `blockHeadersHash`). An over-cap
+    // checkpoint would therefore be accepted on L1 and then be unprovable, forcing an epoch reorg, so validators
+    // reject it before attesting. An operator-configured limit may only tighten the protocol cap, never relax it.
+    const maxBlocksPerCheckpoint = Math.min(
+      this.config.maxBlocksPerCheckpoint ?? MAX_BLOCKS_PER_CHECKPOINT,
+      MAX_BLOCKS_PER_CHECKPOINT,
+    );
+    if (blocks.length > maxBlocksPerCheckpoint) {
       this.log.warn(`Checkpoint proposal exceeds maxBlocksPerCheckpoint`, {
         ...proposalInfo,
         blocksInProposal: blocks.length,
@@ -1209,8 +1379,20 @@ export class ProposalHandler {
     const constants = this.extractCheckpointConstants(firstBlock);
     const checkpointNumber = firstBlock.checkpointNumber;
 
-    // Get L1-to-L2 messages for this checkpoint
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
+    // Streaming Inbox: on the last block of a checkpoint, enforce the minimum-consumption
+    // (censorship) rule before attesting. Reject (no attestation) if a mandatory bucket was left unconsumed.
+    if (!(await this.isLastBlockConsumptionSufficient(slot, blocks))) {
+      this.log.warn(`Streaming Inbox last-block censorship check failed, refusing to attest`, {
+        ...proposalInfo,
+        checkpointNumber,
+      });
+      return { isValid: false, reason: 'inbox_consumption_insufficient', checkpointNumber };
+    }
+
+    // Derive the checkpoint's consumed L1-to-L2 message list from the Inbox buckets between the parent checkpoint's
+    // consumed position and the last block's (compact indexing). The messages are already in the db from per-block
+    // validation; this list only drives the checkpoint's rolling-hash recomputation in completeCheckpoint.
+    const l1ToL2Messages = await this.deriveCheckpointConsumedMessages(blocks);
 
     // Collect the out hashes of all the checkpoints before this one in the same epoch.
     // See note on the analogous block-proposal site: the helper handles pipelining lag.
@@ -1221,6 +1403,12 @@ export class ProposalHandler {
       checkpointNumber,
       l1Constants: this.epochCache.getL1Constants(),
       pipeliningEnabled: true,
+      log: this.log,
+    });
+
+    const previousInboxRollingHash = await getPreviousCheckpointInboxRollingHash({
+      blockSource: this.blockSource,
+      checkpointNumber,
       log: this.log,
     });
 
@@ -1267,6 +1455,7 @@ export class ProposalHandler {
       proposal.feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
+      previousInboxRollingHash,
       fork,
       blocks,
       this.log.getBindings(),

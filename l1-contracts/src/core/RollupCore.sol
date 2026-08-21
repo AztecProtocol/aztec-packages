@@ -15,9 +15,9 @@ import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {EpochProofExtLib} from "@aztec/core/libraries/rollup/EpochProofExtLib.sol";
 import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperationsExtLib.sol";
 import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
 import {SlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/SlasherDeploymentExtLib.sol";
@@ -27,7 +27,7 @@ import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Inbox, INBOX_BUCKET_RING_SIZE} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {ISlasher} from "@aztec/core/slashing/Slasher.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
@@ -234,7 +234,11 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     );
 
     TimeLib.initialize(
-      block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
+      block.timestamp,
+      _config.aztecSlotDuration,
+      _config.aztecEpochDuration,
+      _config.aztecProofSubmissionEpochs,
+      _config.ethereumSlotDuration
     );
 
     ISlasher slasher = _deploySlasher(_config, _governance);
@@ -466,7 +470,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _args Contains the epoch range, public inputs, fees, attestations, and the ZK proof
    */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external override(IRollupCore) {
-    RollupOperationsExtLib.submitEpochRootProof(_args);
+    EpochProofExtLib.submitEpochRootProof(_args);
   }
 
   /**
@@ -619,11 +623,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     rollupStore.config.epochProofVerifier = _epochProofVerifier;
     rollupStore.config.version = _config.version;
 
-    IInbox inbox = IInbox(
-      address(
-        new Inbox(address(this), _feeAsset, _config.version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT, _config.inboxLag)
-      )
-    );
+    IInbox inbox = IInbox(address(new Inbox(address(this), _feeAsset, _config.version, INBOX_BUCKET_RING_SIZE)));
 
     rollupStore.config.inbox = inbox;
     rollupStore.config.outbox = IOutbox(address(new Outbox(address(this), _config.version)));

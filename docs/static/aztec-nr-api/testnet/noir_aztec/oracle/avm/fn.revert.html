@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function revert documentation</title>
 </head>
 <body>
@@ -52,13 +55,20 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">avm</a></div>
-<h1>Function <span class="fn">revert</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">revert</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub unconstrained fn revert(revertdata: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>])</code></pre>
 
 <div class="comments">
 <p>This opcode reverts using the exact data given. In general it should only be used to do rethrows, where the revert
 data is the same as the original revert data. For normal reverts, use Noir's <code>assert</code> which, on top of reverting,
 will also add an error selector to the revert data.</p>
+</div>
 </div>
 </main>
 </span>

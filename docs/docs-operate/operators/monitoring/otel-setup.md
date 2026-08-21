@@ -1,6 +1,7 @@
 ---
 title: OpenTelemetry Collector Setup
 description: Configure OpenTelemetry Collector to receive metrics from your Aztec node and export them to Prometheus.
+references: ["yarn-project/telemetry-client/src/config.ts", "yarn-project/telemetry-client/src/otel.ts"]
 ---
 
 ## Overview

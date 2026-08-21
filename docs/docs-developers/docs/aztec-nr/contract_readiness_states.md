@@ -3,6 +3,7 @@ title: Contract Deployment Reference
 sidebar_position: 3
 tags: [contracts, deployment, initialization]
 description: A practical guide to determine which deployment steps your Aztec contract needs and when functions become callable.
+references: ["yarn-project/aztec.js/src/deployment/*", "noir-projects/fnd/noir-contracts/contracts/protocol/contract_instance_registry_contract/*", "noir-projects/fnd/noir-contracts/contracts/protocol/contract_class_registry_contract/*", "noir-projects/labs/aztec-nr/aztec/src/macros/functions/initialization_utils.nr"]
 ---
 
 This guide helps you quickly determine which deployment steps your contract needs. For conceptual background on how contract deployment works, see [Contract Deployment](../foundational-topics/contract_creation.md).

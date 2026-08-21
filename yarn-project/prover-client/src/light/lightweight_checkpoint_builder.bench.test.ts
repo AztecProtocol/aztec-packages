@@ -146,18 +146,18 @@ describe('LightweightCheckpointBuilder benchmarks', () => {
       const constants = makeCheckpointConstants(slotNumber);
       const fork = await worldState.fork();
 
-      const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
+      const builder = LightweightCheckpointBuilder.startNewCheckpoint(
         CheckpointNumber(1),
         constants,
         [],
-        [],
+        Fr.ZERO,
         fork,
       );
 
       const globalVariables = makeGlobalVariables(blockNumber, slotNumber);
       const txs = await timesAsync(numTxs, i => makeTx(globalVariables, 5000 + i));
 
-      const { timings } = await builder.addBlock(globalVariables, txs, { insertTxsEffects: true });
+      const { timings } = await builder.addBlock(globalVariables, txs, [], { insertTxsEffects: true });
 
       const prefix = `addBlock/${label}/${numTxs} txs`;
       for (const [step, ms] of Object.entries(timings)) {

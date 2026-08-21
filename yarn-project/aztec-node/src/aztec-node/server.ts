@@ -529,6 +529,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     const timer = new Timer();
     const txHash = tx.getTxHash().toString();
 
+    const connectivity = await this.p2pClient.getP2PConnectivity();
+    if (connectivity.enabled && connectivity.connectedPeers === 0) {
+      this.metrics.receivedTx(timer.ms(), false);
+      this.log.warn(`Rejecting tx ${txHash}: node has no connected peers`, { txHash });
+      throw new Error('Cannot accept tx: node has no connected peers to propagate it');
+    }
+
     const valid = await this.isValidTx(tx);
     if (valid.result !== 'valid') {
       const reason = valid.reason.join(', ');
@@ -672,8 +679,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.worldStateQueries.getL1ToL2MessageMembershipWitness(referenceBlock, l1ToL2Message);
   }
 
-  public getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
-    return this.worldStateQueries.getL1ToL2MessageCheckpoint(l1ToL2Message);
+  public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return this.worldStateQueries.getL1ToL2MessageIndex(l1ToL2Message);
   }
 
   /**

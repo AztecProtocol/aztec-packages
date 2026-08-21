@@ -3,6 +3,7 @@ title: State Variables
 sidebar_position: 3
 tags: [contracts, storage, data-types, smart-contracts]
 description: Define and manage storage state in your Aztec smart contracts using various storage types.
+references: ["noir-projects/labs/aztec-nr/aztec/src/state_vars/*", "noir-projects/labs/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/labs/noir-contracts/contracts/app/simple_token_contract/src/main.nr", "noir-projects/labs/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/labs/noir-contracts/contracts/app/private_token_contract/src/main.nr", "noir-projects/labs/noir-contracts/contracts/app/app_subscription_contract/src/main.nr"]
 ---
 
 # State Variables
@@ -297,12 +298,12 @@ The snippet below shows a contract with two private state variables: an admin ad
 
 ```rust
 #[note]
-struct AddressNote {
+pub struct AddressNote {
     value: AztecAddress,
 }
 
 #[note]
-struct UintNote {
+pub struct UintNote {
     value: u128,
 }
 

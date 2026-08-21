@@ -26,6 +26,10 @@ export class RootRollupPublicInputs {
      * The out hash of the first checkpoint in the epoch is inserted at index 0, the second at index 1, and so on.
      */
     public outHash: Fr,
+    /** Inbox rolling hash before the epoch's first checkpoint's messages. */
+    public previousInboxRollingHash: Fr,
+    /** Inbox rolling hash after the epoch's last checkpoint's messages. */
+    public endInboxRollingHash: Fr,
     /** Hashes of checkpoint headers for this rollup. */
     public checkpointHeaderHashes: Tuple<Fr, typeof MAX_CHECKPOINTS_PER_EPOCH>,
     public fees: Tuple<FeeRecipient, typeof MAX_CHECKPOINTS_PER_EPOCH>,
@@ -38,6 +42,8 @@ export class RootRollupPublicInputs {
       fields.previousArchiveRoot,
       fields.endArchiveRoot,
       fields.outHash,
+      fields.previousInboxRollingHash,
+      fields.endInboxRollingHash,
       fields.checkpointHeaderHashes,
       fields.fees,
       fields.constants,
@@ -65,6 +71,8 @@ export class RootRollupPublicInputs {
   public static fromBuffer(buffer: Buffer | BufferReader): RootRollupPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new RootRollupPublicInputs(
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -96,6 +104,8 @@ export class RootRollupPublicInputs {
   /** Creates a random instance. Used for testing only - will not prove/verify. */
   static random() {
     return new RootRollupPublicInputs(
+      Fr.random(),
+      Fr.random(),
       Fr.random(),
       Fr.random(),
       Fr.random(),

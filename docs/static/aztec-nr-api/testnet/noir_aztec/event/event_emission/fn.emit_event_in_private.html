@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function emit_event_in_private documentation</title>
 </head>
 <body>
@@ -28,7 +31,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">event</a>::<a href="index.html">event_emission</a></div>
-<h1>Function <span class="fn">emit_event_in_private</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">emit_event_in_private</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn emit_event_in_private&lt;Event&gt;(
     context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
     event: Event,
@@ -39,6 +48,7 @@
 
 <div class="comments">
 <p>Equivalent to <code>self.emit(event)</code>: see <a href="../../../noir_aztec/contract_self/contract_self_private/struct.ContractSelfPrivate.html#emit"><code>crate::contract_self::ContractSelfPrivate::emit</code></a>.</p></div>
+</div>
 </main>
 </span>
 </body>

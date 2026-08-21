@@ -1,8 +1,9 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec/constants';
+import { MAX_L1_TO_L2_MSGS_PER_BLOCK, PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { parseBooleanEnv } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
@@ -51,7 +52,8 @@ describe('prover/bb_prover/full-rollup', () => {
       const checkpoints = await timesAsync(numCheckpoints, () =>
         context.makeCheckpoint(numBlockPerCheckpoint, {
           numTxsPerBlock,
-          numL1ToL2Messages: NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+          // makeCheckpoint puts the whole message list into the first block, so cap at the per-block limit.
+          numL1ToL2Messages: MAX_L1_TO_L2_MSGS_PER_BLOCK,
           makeProcessedTxOpts: (_, txIndex) => ({ privateOnly: txIndex % 2 === 0 }),
         }),
       );
@@ -67,6 +69,9 @@ describe('prover/bb_prover/full-rollup', () => {
         for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
           const { constants, blocks, l1ToL2Messages, previousBlockHeader, checkpoint } = checkpoints[checkpointIndex];
 
+          const previousInboxRollingHash =
+            checkpointIndex === 0 ? Fr.ZERO : checkpoints[checkpointIndex - 1].checkpoint.header.inboxRollingHash;
+
           log.info(`Starting new checkpoint #${checkpointIndex}`);
           const subTree = await CheckpointSubTreeOrchestrator.start(
             context.worldState,
@@ -78,6 +83,7 @@ describe('prover/bb_prover/full-rollup', () => {
             makeTestDeferredJobQueue(),
             constants,
             l1ToL2Messages,
+            previousInboxRollingHash,
             numBlockPerCheckpoint,
             previousBlockHeader,
           );
@@ -88,7 +94,7 @@ describe('prover/bb_prover/full-rollup', () => {
             const { blockNumber, timestamp } = header.globalVariables;
 
             log.info(`Starting new block #${blockNumber}`);
-            await subTree.startNewBlock(blockNumber, timestamp, txs.length);
+            await subTree.startNewBlock(blockNumber, timestamp, txs.length, i === 0 ? l1ToL2Messages : []);
             if (txs.length > 0) {
               await subTree.addTxs(txs);
             }
@@ -98,7 +104,9 @@ describe('prover/bb_prover/full-rollup', () => {
           }
 
           topTreeData.push({
-            blockProofs: subTree.getSubTreeResult().then(r => r.blockProofOutputs),
+            subTreeProofs: subTree
+              .getSubTreeResult()
+              .then(r => ({ blockProofOutputs: r.blockProofOutputs, inboxParityProof: r.inboxParityProof })),
             l2ToL1MsgsPerBlock: blocks.map(b => b.txs.map(tx => tx.txEffect.l2ToL1Msgs)),
             blobFields: checkpoint.toBlobFields(),
             previousBlockHeader,

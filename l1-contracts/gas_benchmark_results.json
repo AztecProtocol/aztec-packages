@@ -2,62 +2,62 @@
   "no_validators": {
     "propose": {
       "calls": 150,
-      "min": 182373,
-      "mean": 195988,
-      "median": 191762,
-      "max": 222201,
-      "calldata_size": 932,
-      "calldata_gas": 14912
+      "min": 185722,
+      "mean": 199366,
+      "median": 195111,
+      "max": 225550,
+      "calldata_size": 996,
+      "calldata_gas": 15936
     },
     "setupEpoch": {
       "calls": 150,
-      "min": 29264,
-      "mean": 31998,
-      "median": 29264,
-      "max": 113793
+      "min": 29309,
+      "mean": 32042,
+      "median": 29309,
+      "max": 113837
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 676491,
-      "mean": 697655,
-      "median": 685300,
-      "max": 743529,
-      "calldata_size": 2820,
-      "calldata_gas": 45120
+      "min": 972329,
+      "mean": 991032,
+      "median": 981138,
+      "max": 1029525,
+      "calldata_size": 14148,
+      "calldata_gas": 226368
     }
   },
   "validators": {
     "propose": {
       "calls": 150,
-      "min": 302105,
-      "mean": 324449,
-      "median": 323910,
-      "max": 351604,
-      "calldata_size": 4452,
-      "calldata_gas": 71232
+      "min": 305434,
+      "mean": 327774,
+      "median": 327227,
+      "max": 355591,
+      "calldata_size": 4516,
+      "calldata_gas": 72256
     },
     "setupEpoch": {
       "calls": 150,
-      "min": 29264,
-      "mean": 46459,
-      "median": 29264,
-      "max": 547626
+      "min": 29309,
+      "mean": 46504,
+      "median": 29309,
+      "max": 547670
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 874924,
-      "mean": 896101,
-      "median": 883769,
-      "max": 941944,
-      "calldata_size": 5316,
-      "calldata_gas": 85056
+      "min": 1460323,
+      "mean": 1572081,
+      "median": 1579041,
+      "max": 1669921,
+      "calldata_size": 16644,
+      "calldata_gas": 266304
     },
     "aggregate3": {
       "calls": 55,
-      "min": 362015,
-      "mean": 373118,
-      "median": 372828,
-      "max": 386457
+      "min": 365547,
+      "mean": 376665,
+      "median": 376350,
+      "max": 390039
     }
   }
 }

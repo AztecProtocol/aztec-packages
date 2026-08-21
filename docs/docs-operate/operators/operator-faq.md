@@ -8,6 +8,7 @@ tags:
   - node
   - tutorial
   - infrastructure
+references: ["yarn-project/ethereum/src/config.ts", "yarn-project/p2p/src/config.ts", "yarn-project/node-keystore/src/schemas.ts", "yarn-project/node-lib/src/config/index.ts"]
 ---
 
 ## Overview

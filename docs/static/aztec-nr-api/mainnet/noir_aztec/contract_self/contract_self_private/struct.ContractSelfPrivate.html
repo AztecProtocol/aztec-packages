@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct ContractSelfPrivate documentation</title>
 </head>
 <body>
@@ -52,7 +55,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">contract_self</a>::<a href="index.html">contract_self_private</a></div>
-<h1>Struct <span id="struct" class="struct">ContractSelfPrivate</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">ContractSelfPrivate</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct ContractSelfPrivate&lt;Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal, CallSelfUtility&gt; {
     pub address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     pub storage: Storage,
@@ -156,9 +165,9 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 <pre><code><span class="comment">// Safety: result is unconstrained</span>
 <span class="kw">unsafe</span> { self.utility.call(MyContract::at(address).my_utility_function(args)) }</code></pre></div>
 </div><h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;CallInternal, CallSelf, CallSelfStatic, CallSelfUtility, EnqueueSelf, EnqueueSelfStatic, Storage&gt; <a href="../../../noir_aztec/contract_self/contract_self_private/struct.ContractSelfPrivate.html" class="struct">ContractSelfPrivate</a>&lt;Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal, CallSelfUtility&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal, CallSelfUtility&gt; <a href="../../../noir_aztec/contract_self/contract_self_private/struct.ContractSelfPrivate.html" class="struct">ContractSelfPrivate</a>&lt;Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal, CallSelfUtility&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>(
     context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
     storage: Storage,
     call_self: CallSelf,
@@ -173,7 +182,7 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 <p>Creates a new <code>ContractSelfPrivate</code> instance for a private function.</p>
 <p>This constructor is called automatically by the macro system and should not be called directly.</p>
 </div>
-</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender" class="fn">msg_sender</a>(self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>The address of the contract address that made this function call.</p>
@@ -183,7 +192,7 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 executed in a transaction (i.e. transaction entrypoint) does <strong>not</strong> have a caller. This function panics when
 executed in such a context.</p>
 <p>If you need to handle these cases, use <a href="../../../noir_aztec/context/struct.PrivateContext.html#maybe_msg_sender"><code>PrivateContext::maybe_msg_sender</code></a>.</p></div>
-</div><code id="emit" class="code-header">pub fn <a href="#emit"><span class="fn">emit</span></a>&lt;Event&gt;(&mut self, event: Event) -> <a href="../../../noir_aztec/event/struct.EventMessage.html" class="struct">EventMessage</a>&lt;Event&gt;
+</div><code id="emit" class="code-header">pub fn <a href="#emit" class="fn">emit</a>&lt;Event&gt;(&mut self, event: Event) -> <a href="../../../noir_aztec/event/struct.EventMessage.html" class="struct">EventMessage</a>&lt;Event&gt;
 <div class="where-clause">where
     Event: <a href="../../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
     Event: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
@@ -214,7 +223,7 @@ associated to delivery.</p>
 <p>The nullifier created when emitting a private event leaks nothing about the content of the event - it's a
 commitment that includes a random value, so even with full knowledge of the event preimage determining if an
 event was emitted or not requires brute-forcing the entire <code>Field</code> space.</p></div>
-</div><code id="call" class="code-header">pub fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;) -> T
+</div><code id="call" class="code-header">pub fn <a href="#call" class="fn">call</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;) -> T
 <div class="where-clause">where
     T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
@@ -267,7 +276,7 @@ ideally agree on some standard.</li>
 <li>Side effects from the called function are included in this transaction</li>
 <li>The call inherits the current transaction's context and gas limits</li>
 </ul></div>
-</div><code id="view" class="code-header">pub fn <a href="#view"><span class="fn">view</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../../noir_aztec/context/calls/struct.PrivateStaticCall.html" class="struct">PrivateStaticCall</a>&lt;M, N, T&gt;) -> T
+</div><code id="view" class="code-header">pub fn <a href="#view" class="fn">view</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../../noir_aztec/context/calls/struct.PrivateStaticCall.html" class="struct">PrivateStaticCall</a>&lt;M, N, T&gt;) -> T
 <div class="where-clause">where
     T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
@@ -285,7 +294,7 @@ emit events. Any nested calls are constrained to also be static calls.</p>
 </ul>
 <h4>Example</h4>
 <pre><code>self.view(Token::at(address).balance_of_private(recipient));</code></pre></div>
-</div><code id="enqueue" class="code-header">pub fn <a href="#enqueue"><span class="fn">enqueue</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
+</div><code id="enqueue" class="code-header">pub fn <a href="#enqueue" class="fn">enqueue</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a public contract call function.</p>
@@ -296,13 +305,17 @@ public function is being executed, the private function which called it has alre
 fact, the private function has been executed and proven, along with all other private function calls of the
 user's tx. A single proof of the tx has been submitted to the Aztec network, and some time later a proposer has
 picked the tx up from the mempool and begun executing all of the enqueued public functions).</p>
-<h4>Privacy warning Enqueueing a public function call is an inherently leaky action. Many interesting applications will require some interaction with public state, but smart contract developers should try to use public function calls sparingly, and carefully. <em>Internal</em> public function calls are especially leaky, because they completely leak which private contract made the call. See also: <a href="https://docs.aztec.network/developers/resources/considerations/privacy_considerations">https://docs.aztec.network/developers/resources/considerations/privacy_considerations</a></h4>
+<h4>Privacy warning Enqueueing a public function call is an inherently leaky action. Many interesting applications</h4>
+<p>will require some interaction with public state, but smart contract developers should try to use public function
+calls sparingly, and carefully. <em>Internal</em> public function calls are especially leaky, because they completely
+leak which private contract made the call. See also:
+<a href="https://docs.aztec.network/developers/resources/considerations/privacy_considerations">https://docs.aztec.network/developers/resources/considerations/privacy_considerations</a></p>
 <h4>Arguments</h4>
 <ul>
 <li><code>call</code> - The interface representing the public function to enqueue.</li>
 </ul>
 </div>
-</div><code id="enqueue_view" class="code-header">pub fn <a href="#enqueue_view"><span class="fn">enqueue_view</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+</div><code id="enqueue_view" class="code-header">pub fn <a href="#enqueue_view" class="fn">enqueue_view</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     &mut self,
     call: <a href="../../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
 )</code>
@@ -317,7 +330,7 @@ emit events. Any nested calls are constrained to also be static calls.</p>
 </ul>
 <h4>Example</h4>
 <pre><code>self.enqueue_view(MyContract::at(address).assert_timestamp_less_than(timestamp));</code></pre></div>
-</div><code id="enqueue_incognito" class="code-header">pub fn <a href="#enqueue_incognito"><span class="fn">enqueue_incognito</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
+</div><code id="enqueue_incognito" class="code-header">pub fn <a href="#enqueue_incognito" class="fn">enqueue_incognito</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a privacy-preserving public contract call function.</p>
@@ -350,7 +363,7 @@ function call to NULL_MSG_SENDER_CONTRACT_ADDRESS.</li>
 <li>When the called public function calls <code>PublicContext::msg_sender()</code>, aztec-nr will translate
 NULL_MSG_SENDER_CONTRACT_ADDRESS into <code>Option&lt;AztecAddress&gt;::none</code> for familiarity to devs.</li>
 </ul></div>
-</div><code id="enqueue_view_incognito" class="code-header">pub fn <a href="#enqueue_view_incognito"><span class="fn">enqueue_view_incognito</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+</div><code id="enqueue_view_incognito" class="code-header">pub fn <a href="#enqueue_view_incognito" class="fn">enqueue_view_incognito</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     &mut self,
     call: <a href="../../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
 )</code>
@@ -365,7 +378,7 @@ NULL_MSG_SENDER_CONTRACT_ADDRESS into <code>Option&lt;AztecAddress&gt;::none</co
 </ul>
 <h4>Example</h4>
 <pre><code>self.enqueue_view_incognito(MyContract::at(address).assert_timestamp_less_than(timestamp));</code></pre></div>
-</div><code id="set_as_teardown" class="code-header">pub fn <a href="#set_as_teardown"><span class="fn">set_as_teardown</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
+</div><code id="set_as_teardown" class="code-header">pub fn <a href="#set_as_teardown" class="fn">set_as_teardown</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(&mut self, call: <a href="../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Enqueues a call to the public function defined by the <code>call</code> parameter, and designates it to be the teardown
@@ -388,7 +401,7 @@ function reverts very early). Wallet/FPC/Paymaster developers should be mindful 
 <li><code>call</code> - The object representing the public function to designate as teardown.</li>
 </ul>
 </div>
-</div><code id="set_as_teardown_incognito" class="code-header">pub fn <a href="#set_as_teardown_incognito"><span class="fn">set_as_teardown_incognito</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+</div><code id="set_as_teardown_incognito" class="code-header">pub fn <a href="#set_as_teardown_incognito" class="fn">set_as_teardown_incognito</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     &mut self,
     call: <a href="../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
 )</code>
@@ -399,7 +412,8 @@ function for this tx. Only one teardown function call can be made by a tx.</p>
 <p>As per <code>set_as_teardown</code>, but hides this calling contract's address from the target public function.</p>
 <p>See <code>enqueue_incognito</code> for more details relating to hiding msg_sender.</p>
 </div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

@@ -2,6 +2,7 @@
 title: "5. Transactions & Fees"
 sidebar_position: 6
 description: "Learn about the Aztec transaction lifecycle and fee payment with SponsoredFPC"
+references: ["docs/examples/webapp-tutorial/src/components/TxStatus.tsx", "docs/examples/webapp-tutorial/src/fees.ts"]
 ---
 
 # Transactions & Fees

@@ -2,6 +2,7 @@
 displayed_sidebar: operatorsSidebar
 title: Claiming Rewards
 description: Learn how to claim your sequencer rewards from the Aztec Rollup contract using cast commands.
+references: ["l1-contracts/src/core/Rollup.sol", "l1-contracts/src/core/libraries/rollup/RewardLib.sol", "l1-contracts/src/core/interfaces/IRollup.sol"]
 ---
 
 ## Overview

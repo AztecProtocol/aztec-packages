@@ -3,6 +3,7 @@ title: Data Packing and Serialization
 sidebar_position: 7
 tags: [contracts, storage, gas, optimization]
 description: Understand Serialize, Deserialize, and Packable traits, when each is used, how to write custom packing, and the cost implications.
+references: ["docs/examples/contracts/packing_example/src/types.nr", "noir-projects/fnd/noir-protocol-circuits/crates/types/src/traits/packable.nr"]
 ---
 
 Aztec contracts use two separate encoding schemes to convert structs into `Field` arrays. This page tells you which one to reach for and when.

@@ -2,6 +2,7 @@
 title: Key storage methods
 description: Learn about different methods for storing and accessing private keys in Aztec keystores, including inline keys, remote signers, JSON V3 keystores, and mnemonics.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/node-keystore/src/schemas.ts", "yarn-project/node-keystore/src/loader.ts", "yarn-project/node-keystore/src/signer.ts", "yarn-project/node-keystore/src/keystore_manager.ts"]
 ---
 
 ## Overview

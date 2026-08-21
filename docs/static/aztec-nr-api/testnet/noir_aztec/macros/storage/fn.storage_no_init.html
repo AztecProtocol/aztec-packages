@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function storage_no_init documentation</title>
 </head>
 <body>
@@ -28,7 +31,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::<a href="index.html">storage</a></div>
-<h1>Function <span class="fn">storage_no_init</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">storage_no_init</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub comptime fn storage_no_init(s: <a href="../../../std/primitive.TypeDefinition.html" class="primitive">TypeDefinition</a>)</code></pre>
 
 <div class="comments">
@@ -39,6 +48,7 @@ allocation. Similarly, no <code>StorageLayout</code> struct will be created.</p>
 all functions as an instance of the struct this macro was applied to.</p>
 <p>Only a single struct in the entire contract can have this macro (or storage_no_init) applied to it, and the struct
 has to be called 'Storage'.</p>
+</div>
 </div>
 </main>
 </span>

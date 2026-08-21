@@ -2,6 +2,7 @@
 title: Fees
 description: Understand how transaction fees work on Aztec, how $AZTEC becomes Fee Juice through the Fee Juice Portal, and how to get Fee Juice with Azguard and Shield.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/core/messagebridge/FeeJuicePortal.sol", "l1-contracts/src/core/libraries/rollup/FeeLib.sol", "noir-projects/fnd/noir-contracts/contracts/protocol/fee_juice_contract/*", "noir-projects/labs/noir-contracts/contracts/fees/sponsored_fpc_contract/*"]
 ---
 
 # Fees on Aztec

@@ -65,13 +65,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     [ProvingRequestType.ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
     [ProvingRequestType.BLOCK_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
-      provingJobComparator,
-    ),
-    [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
-      provingJobComparator,
-    ),
+    [ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
@@ -82,8 +76,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
-    [ProvingRequestType.PARITY_BASE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.PARITY_ROOT]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.INBOX_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
   };
 
   // Scheduling metadata for every known job (id, type, epochNumber). The large `inputsUri` is NOT held
@@ -458,54 +451,85 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
         : Object.values(ProvingRequestType).filter((x): x is ProvingRequestType => typeof x === 'number');
     allowedProofs.sort(proofTypeComparator);
 
-    for (const proofType of allowedProofs) {
-      const queue = this.queues[proofType];
-      let enqueuedJob: EnqueuedProvingJob | undefined;
-      // exhaust the queue and make sure we're not sending a job that's already in progress
-      // or has already been completed
-      // this can happen if the broker crashes and restarts
-      // it's possible agents will report progress or results for jobs that are in the queue (after the restart)
-      while ((enqueuedJob = queue.getImmediate())) {
-        const meta = this.jobsCache.get(enqueuedJob.id);
-        if (meta && !this.inProgress.has(enqueuedJob.id) && !this.resultsCache.has(enqueuedJob.id)) {
-          const time = this.msTimeSource();
-          // Claim the job synchronously (before the await below) so a concurrent dispatch can't re-pick
-          // it. The same id can sit in a queue more than once (an abort leaves a stale entry that a
-          // later revive re-enqueues alongside), so this in-progress claim — not the queue pop — is what
-          // dedups those copies across concurrently-polling agents. It must be set before the await.
-          this.inProgress.set(meta.id, {
-            id: meta.id,
-            startedAt: time,
-            lastUpdatedAt: time,
-          });
-
-          // The large inputs are not kept in memory; read them from the database. They were durably
-          // persisted (addProvingJob's write commits) before the job became dispatchable, so this hits.
-          const inputsUri = await this.database.getProvingJobInputs(meta.id);
-          if (!inputsUri) {
-            // The job was cleaned up (or its inputs lost) after we claimed it — release the claim and
-            // keep draining the queue for another candidate. Nothing else was mutated yet, so there is
-            // no wait metric or enqueued-at timer to unwind.
-            this.inProgress.delete(meta.id);
-            this.logger.warn(`No inputs found for proving job id=${meta.id}; skipping dispatch`, {
-              provingJobId: meta.id,
-            });
-            continue;
+    // Select the oldest-epoch job across the allowed queues, tie-breaking by proof-type priority: an epoch's
+    // remaining jobs always outrank younger epochs' work, so the oldest epoch completes instead of starving
+    // behind the continuous arrival of new higher-priority-type jobs. The legacy L1-to-L2 tree got this ordering
+    // for free (block roots waited on parity outputs); the streaming inbox parity only gates the checkpoint
+    // root, so a purely type-major order would leave it unscheduled under sustained block production.
+    //
+    // The outer loop re-selects when the winner turns out to have no inputs: the losing candidates went back
+    // onto their queues, while the claimed winner was popped and stays off, so it cannot be re-selected.
+    for (;;) {
+      let selected:
+        | { proofType: ProvingRequestType; enqueuedJob: EnqueuedProvingJob; meta: ProvingJobMetadata }
+        | undefined;
+      for (const proofType of allowedProofs) {
+        const queue = this.queues[proofType];
+        let enqueuedJob: EnqueuedProvingJob | undefined;
+        let candidate: { enqueuedJob: EnqueuedProvingJob; meta: ProvingJobMetadata } | undefined;
+        // exhaust the queue and make sure we're not sending a job that's already in progress
+        // or has already been completed
+        // this can happen if the broker crashes and restarts
+        // it's possible agents will report progress or results for jobs that are in the queue (after the restart)
+        while ((enqueuedJob = queue.getImmediate())) {
+          const meta = this.jobsCache.get(enqueuedJob.id);
+          if (meta && !this.inProgress.has(enqueuedJob.id) && !this.resultsCache.has(enqueuedJob.id)) {
+            candidate = { enqueuedJob, meta };
+            break;
           }
-
-          // The dispatch is now committed: record the queue wait and clear the enqueued-at timer.
-          const enqueuedAt = this.enqueuedAt.get(meta.id);
-          if (enqueuedAt) {
-            this.instrumentation.recordJobWait(meta.type, enqueuedAt);
-            this.enqueuedAt.delete(meta.id);
+        }
+        if (!candidate) {
+          continue;
+        }
+        if (selected === undefined || candidate.enqueuedJob.epochNumber < selected.enqueuedJob.epochNumber) {
+          if (selected) {
+            this.queues[selected.proofType].put(selected.enqueuedJob);
           }
-          const job: ProvingJob = { id: meta.id, type: meta.type, epochNumber: meta.epochNumber, inputsUri };
-          return { job, time };
+          selected = { proofType, ...candidate };
+        } else {
+          queue.put(candidate.enqueuedJob);
         }
       }
-    }
 
-    return undefined;
+      if (!selected) {
+        return undefined;
+      }
+
+      const { meta } = selected;
+      const time = this.msTimeSource();
+      // Claim the job synchronously (before the await below) so a concurrent dispatch can't re-pick
+      // it. The same id can sit in a queue more than once (an abort leaves a stale entry that a
+      // later revive re-enqueues alongside), so this in-progress claim — not the queue pop — is what
+      // dedups those copies across concurrently-polling agents. It must be set before the await.
+      this.inProgress.set(meta.id, {
+        id: meta.id,
+        startedAt: time,
+        lastUpdatedAt: time,
+      });
+
+      // The large inputs are not kept in memory; read them from the database. They were durably
+      // persisted (addProvingJob's write commits) before the job became dispatchable, so this hits.
+      const inputsUri = await this.database.getProvingJobInputs(meta.id);
+      if (!inputsUri) {
+        // The job was cleaned up (or its inputs lost) after we claimed it — release the claim and
+        // select again. Nothing else was mutated yet, so there is no wait metric or enqueued-at
+        // timer to unwind.
+        this.inProgress.delete(meta.id);
+        this.logger.warn(`No inputs found for proving job id=${meta.id}; skipping dispatch`, {
+          provingJobId: meta.id,
+        });
+        continue;
+      }
+
+      // The dispatch is now committed: record the queue wait and clear the enqueued-at timer.
+      const enqueuedAt = this.enqueuedAt.get(meta.id);
+      if (enqueuedAt) {
+        this.instrumentation.recordJobWait(meta.type, enqueuedAt);
+        this.enqueuedAt.delete(meta.id);
+      }
+      const job: ProvingJob = { id: meta.id, type: meta.type, epochNumber: meta.epochNumber, inputsUri };
+      return { job, time };
+    }
   }
 
   async #reportProvingJobError(
@@ -848,11 +872,9 @@ function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 |
  */
 export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.ROOT_ROLLUP,
-  ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP,
-  ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP,
-  ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP,
   ProvingRequestType.BLOCK_MERGE_ROLLUP,
   ProvingRequestType.CHECKPOINT_ROOT_ROLLUP,
   ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP,
@@ -863,6 +885,5 @@ export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
   ProvingRequestType.PUBLIC_VM,
   ProvingRequestType.PUBLIC_CHONK_VERIFIER,
-  ProvingRequestType.PARITY_ROOT,
-  ProvingRequestType.PARITY_BASE,
+  ProvingRequestType.INBOX_PARITY,
 ];

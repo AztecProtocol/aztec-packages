@@ -3,6 +3,7 @@ title: Logging from Contracts
 sidebar_position: 4
 tags: [contracts, logging, debugging, aztec.nr]
 description: Add log statements to your Aztec contracts and control log verbosity in tests and local networks.
+references: ["docs/examples/contracts/logging_example/src/main.nr", "noir-projects/labs/aztec-nr/aztec/src/logging.nr"]
 ---
 
 Aztec contracts can emit log messages at seven severity levels. Private function logs appear immediately during local simulation in the Private eXecution Environment (PXE), while public function logs are collected and displayed in test mode.

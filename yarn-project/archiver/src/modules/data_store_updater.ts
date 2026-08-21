@@ -103,11 +103,12 @@ export class ArchiverDataStoreUpdater {
     },
     evictProposedFrom?: CheckpointNumber,
   ): Promise<ReconcileCheckpointsResult> {
+    const validateOpts = { rollupManaLimit: this.opts?.rollupManaLimit };
     for (const checkpoint of checkpoints) {
-      validateCheckpoint(checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
+      validateCheckpoint(checkpoint.checkpoint, validateOpts);
     }
     if (promoteProposed) {
-      validateCheckpoint(promoteProposed.checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
+      validateCheckpoint(promoteProposed.checkpoint.checkpoint, validateOpts);
     }
 
     const result = await this.stores.db.transactionAsync(async () => {

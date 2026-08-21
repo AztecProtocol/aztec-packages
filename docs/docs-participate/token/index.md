@@ -2,6 +2,7 @@
 title: Overview
 description: Learn about the $AZTEC token - its utility, economics, and how to participate in the network.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/governance/CoinIssuer.sol", "l1-contracts/src/governance/RewardDistributor.sol"]
 ---
 
 # $AZTEC Token Overview

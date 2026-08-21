@@ -3,6 +3,7 @@ id: registering_sequencer
 displayed_sidebar: operatorsSidebar
 title: Registering a Sequencer
 description: Learn how to register your sequencer on the Aztec network using the staking dashboard for self-staking.
+references: ["yarn-project/cli/src/cmds/validator_keys/staker.ts", "yarn-project/cli/src/cmds/validator_keys/new.ts"]
 ---
 
 ## Overview

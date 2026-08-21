@@ -34,7 +34,14 @@ struct TempCheckpointLog {
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   Slot slotNumber;
+  // Streaming Inbox consumption count: the cumulative Inbox message count consumed as of this checkpoint (the
+  // child's parent-total origin). Declared next to the slot number so the two share one storage slot (4 + 8 of 32
+  // bytes): propose writes and reads that slot for the slot-progression check anyway.
+  uint64 inboxMsgTotal;
   FeeHeader feeHeader;
+  // The consensus Inbox rolling hash the checkpoint header committed to, in a slot of its own: epoch proofs anchor
+  // both ends of their consumed chain segment against it.
+  bytes32 inboxRollingHash;
 }
 
 struct CompressedTempCheckpointLog {
@@ -44,7 +51,9 @@ struct CompressedTempCheckpointLog {
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   CompressedSlot slotNumber;
+  uint64 inboxMsgTotal;
   CompressedFeeHeader feeHeader;
+  bytes32 inboxRollingHash;
 }
 
 library CompressedTempCheckpointLogLib {
@@ -61,7 +70,9 @@ library CompressedTempCheckpointLogLib {
       attestationsHash: _checkpoint.attestationsHash,
       payloadDigest: _checkpoint.payloadDigest,
       slotNumber: _checkpoint.slotNumber.compress(),
-      feeHeader: _checkpoint.feeHeader.compress()
+      inboxMsgTotal: _checkpoint.inboxMsgTotal,
+      feeHeader: _checkpoint.feeHeader.compress(),
+      inboxRollingHash: _checkpoint.inboxRollingHash
     });
   }
 
@@ -77,7 +88,9 @@ library CompressedTempCheckpointLogLib {
       attestationsHash: _compressedCheckpoint.attestationsHash,
       payloadDigest: _compressedCheckpoint.payloadDigest,
       slotNumber: _compressedCheckpoint.slotNumber.decompress(),
-      feeHeader: _compressedCheckpoint.feeHeader.decompress()
+      inboxMsgTotal: _compressedCheckpoint.inboxMsgTotal,
+      feeHeader: _compressedCheckpoint.feeHeader.decompress(),
+      inboxRollingHash: _compressedCheckpoint.inboxRollingHash
     });
   }
 }

@@ -3,6 +3,7 @@ id: overview
 title: Prover overview
 description: What an Aztec prover does, the broker / agent architecture, and minimum hardware requirements.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/prover-node/src/*", "yarn-project/prover-client/src/proving_broker/*"]
 ---
 
 ## Overview

@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 
 /**
@@ -48,5 +49,20 @@ library Hash {
    */
   function sha256ToField(bytes memory _data) internal pure returns (bytes32) {
     return bytes32(bytes.concat(new bytes(1), bytes31(sha256(_data))));
+  }
+
+  /**
+   * @notice Advances the Inbox consensus rolling hash by one message leaf
+   * @dev Each link is `sha256ToField(DOM_SEP__INBOX_ROLLING_HASH || rollingHash || leaf)` over the 4-byte big-endian
+   * domain separator followed by the two 32-byte big-endian values. The separator keeps a chain link from being
+   * reinterpreted as an untagged two-field sha256 hash, such as an `outHash` merkle node. Truncated at every link so
+   * the value is always a field element; the rollup circuits recompute the identical chain over the message leaves
+   * they insert. The genesis value is zero.
+   * @param _rollingHash - The current rolling hash
+   * @param _leaf - The message leaf to absorb
+   * @return The updated rolling hash
+   */
+  function accumulateInboxRollingHash(bytes32 _rollingHash, bytes32 _leaf) internal pure returns (bytes32) {
+    return sha256ToField(abi.encodePacked(uint32(Constants.DOM_SEP__INBOX_ROLLING_HASH), _rollingHash, _leaf));
   }
 }

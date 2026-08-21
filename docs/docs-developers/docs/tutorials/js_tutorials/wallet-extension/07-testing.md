@@ -2,6 +2,7 @@
 title: "7. Testing"
 description: Loading the wallet extension in Chrome and testing with the Pod Racing dApp
 sidebar_position: 7
+references: ["docs/examples/webapp-tutorial/esbuild.extension.mjs", "docs/examples/webapp-tutorial/test-extension/*"]
 ---
 
 # Testing the Wallet Extension

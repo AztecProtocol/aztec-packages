@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Struct CallPublicOptions documentation</title>
 </head>
 <body>
@@ -42,7 +45,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">test</a>::<a href="../index.html">helpers</a>::<a href="index.html">test_environment</a></div>
-<h1>Struct <span id="struct" class="struct">CallPublicOptions</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">CallPublicOptions</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct CallPublicOptions
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -56,30 +65,30 @@ MyContract::at(addr).<span class="kw">fn</span>());</code></pre>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPublicOptions.html" class="struct">CallPublicOptions</a></code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>() -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Creates a new <code>CallPublicOptions</code> with default values, i.e. the same as if using
 <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#call_public"><code>TestEnvironment::call_public</code></a> without the <code>_opts</code> variant.</p></div>
-</div><code id="with_gas_limits" class="code-header">pub fn <a href="#with_gas_limits"><span class="fn">with_gas_limits</span></a>(&mut self, gas_limits: <a href="../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>) -> Self</code>
+</div><code id="with_gas_limits" class="code-header">pub fn <a href="#with_gas_limits" class="fn">with_gas_limits</a>(&mut self, gas_limits: <a href="../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets the gas limits for the transaction.</p>
 <p>If not set, defaults to the maximum the protocol allows.</p>
 </div>
-</div><code id="with_teardown_gas_limits" class="code-header">pub fn <a href="#with_teardown_gas_limits"><span class="fn">with_teardown_gas_limits</span></a>(&mut self, teardown_gas_limits: <a href="../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>) -> Self</code>
+</div><code id="with_teardown_gas_limits" class="code-header">pub fn <a href="#with_teardown_gas_limits" class="fn">with_teardown_gas_limits</a>(&mut self, teardown_gas_limits: <a href="../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets the teardown gas limits for the transaction.</p>
 <p>If not set, defaults to 1/8 of the protocol maximum.</p>
 </div>
-</div><code id="with_max_fees_per_gas" class="code-header">pub fn <a href="#with_max_fees_per_gas"><span class="fn">with_max_fees_per_gas</span></a>(&mut self, max_fees_per_gas: <a href="../../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>) -> Self</code>
+</div><code id="with_max_fees_per_gas" class="code-header">pub fn <a href="#with_max_fees_per_gas" class="fn">with_max_fees_per_gas</a>(&mut self, max_fees_per_gas: <a href="../../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets the maximum fees per gas unit the sender is willing to pay.</p>
 <p>If not set, defaults to zero.</p>
 </div>
-</div><code id="with_max_priority_fees_per_gas" class="code-header">pub fn <a href="#with_max_priority_fees_per_gas"><span class="fn">with_max_priority_fees_per_gas</span></a>(
+</div><code id="with_max_priority_fees_per_gas" class="code-header">pub fn <a href="#with_max_priority_fees_per_gas" class="fn">with_max_priority_fees_per_gas</a>(
     &mut self,
     max_priority_fees_per_gas: <a href="../../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>,
 ) -> Self</code>
@@ -88,7 +97,7 @@ MyContract::at(addr).<span class="kw">fn</span>());</code></pre>
 <p>Sets the maximum priority fees per gas unit.</p>
 <p>If not set, defaults to zero.</p>
 </div>
-</div><code id="with_gas_settings" class="code-header">pub fn <a href="#with_gas_settings"><span class="fn">with_gas_settings</span></a>(&mut self, gas_settings: <a href="../../../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a>) -> Self</code>
+</div><code id="with_gas_settings" class="code-header">pub fn <a href="#with_gas_settings" class="fn">with_gas_settings</a>(&mut self, gas_settings: <a href="../../../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Convenience method to set all four gas settings fields at once.</p>
@@ -96,7 +105,8 @@ MyContract::at(addr).<span class="kw">fn</span>());</code></pre>
 <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPublicOptions.html#with_teardown_gas_limits"><code>with_teardown_gas_limits</code></a>,
 <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPublicOptions.html#with_max_fees_per_gas"><code>with_max_fees_per_gas</code></a>, and
 <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPublicOptions.html#with_max_priority_fees_per_gas"><code>with_max_priority_fees_per_gas</code></a> individually.</p></div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

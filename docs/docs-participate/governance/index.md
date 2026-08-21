@@ -2,6 +2,7 @@
 title: Governance Overview
 description: Learn how the Aztec network is governed through onchain voting, sequencer signaling, and stake-based voting power.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/governance/Registry.sol", "l1-contracts/src/governance/Governance.sol", "l1-contracts/src/governance/proposer/GovernanceProposer.sol", "l1-contracts/src/governance/proposer/EmpireBase.sol", "l1-contracts/src/governance/GSE.sol", "l1-contracts/src/governance/interfaces/IPayload.sol"]
 ---
 
 import Image from "@theme/IdealImage";

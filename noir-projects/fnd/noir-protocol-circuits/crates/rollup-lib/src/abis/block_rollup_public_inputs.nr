@@ -1,3 +1,4 @@
+use crate::abis::L1ToL2MessageSponge;
 use protocol_test_utils::make_fixture;
 use types::{
     abis::{
@@ -39,9 +40,12 @@ pub struct BlockRollupPublicInputs {
     // stored in the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
     pub block_headers_hash: Field,
 
-    // Root of the `l1_to_l2` message subtree, set in the first block root and propagated to the checkpoint root.
-    // Block root rollups that are not the first in a checkpoint will have an `in_hash` value of 0.
-    pub in_hash: Field,
+    // Poseidon2 message-bundle sponge threaded across the blocks of the checkpoint. The leftmost block starts from the
+    // empty sponge and each block absorbs its bundle's leaves; `validate_consecutive_block_rollups` asserts
+    // `right.start_msg_sponge == left.end_msg_sponge`, and merges take `start` from the left and `end` from the right.
+    // The checkpoint root asserts the merged end equals the parity root's sponge over the same (padded) leaf list.
+    pub start_msg_sponge: L1ToL2MessageSponge,
+    pub end_msg_sponge: L1ToL2MessageSponge,
 
     // Root of the *wonky* tree composed of all tx out hashes in this block. It will be combined with the `out_hash`
     // values from other blocks within the same checkpoint to form a *wonky* tree.

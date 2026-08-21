@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Trait IndexedTreeLeafValue documentation</title>
 </head>
 <body>
@@ -36,18 +39,24 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol</a>::<a href="../index.html">merkle_tree</a>::<a href="index.html">leaf_preimage</a></div>
-<h1>Trait <span id="trait" class="trait">IndexedTreeLeafValue</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Trait <span id="trait" class="trait">IndexedTreeLeafValue</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub trait IndexedTreeLeafValue: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>
 <div class="where-clause">where
     _: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div>{
     <span class="comment">// Required methods</span>
-    pub fn <a href="#get_key"><span class="fn">get_key</span></a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>
+    pub fn <a href="#get_key" class="fn">get_key</a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>
 <div class="where-clause">    where
         Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div>;
 }</code></pre>
 
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="get_key" class="code-header">pub fn <a href="#get_key"><span class="fn">get_key</span></a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>
+<div class="padded-methods"><code id="get_key" class="code-header">pub fn <a href="#get_key" class="fn">get_key</a>(self) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>
 <div class="where-clause">where
     Self: <a href="../../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a></div></code>
 
@@ -56,6 +65,7 @@
 
 <h3 id="impl-IndexedTreeLeafValue-for-PublicDataTreeLeaf"><code class="code-header">impl <a href="../../../../protocol_types/merkle_tree/leaf_preimage/trait.IndexedTreeLeafValue.html" class="trait">IndexedTreeLeafValue</a> for <a href="../../../../protocol_types/data/public_data_tree_leaf/struct.PublicDataTreeLeaf.html" class="struct">PublicDataTreeLeaf</a></code></h3>
 
+</div>
 </main>
 </span>
 </body>

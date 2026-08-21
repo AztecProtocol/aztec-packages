@@ -2,6 +2,7 @@
 title: Transactions
 description: Learn about the Aztec transaction lifecycle, from creation to settlement, including client-side proving.
 displayed_sidebar: participateSidebar
+references: ["yarn-project/pxe/src/*", "yarn-project/stdlib/src/tx/*"]
 ---
 
 # Transactions on Aztec

@@ -108,6 +108,13 @@ export interface P2PConfig
   /** The maximum number of peers (a peer count above this will cause the node to refuse connection attempts) */
   maxPeerCount: number;
 
+  /**
+   * Minimum number of connected peers for the p2p component to report itself as healthy on the node status endpoint.
+   * Defaults to zero, so p2p health is reported but never fails the check: the first node of a fresh network
+   * legitimately runs with no peers, and failing readiness by default would prevent bootstrapping the network.
+   */
+  p2pHealthMinPeers: number;
+
   /** If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false. */
   queryForIp: boolean;
 
@@ -370,6 +377,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MAX_PEERS',
     description: 'The maximum number of peers to connect to.',
     ...numberConfigHelper(100),
+  },
+  p2pHealthMinPeers: {
+    env: 'P2P_HEALTH_MIN_PEERS',
+    description:
+      'Minimum number of connected peers for p2p to be reported as healthy on the status endpoint. Zero never fails the check.',
+    ...numberConfigHelper(0),
   },
   queryForIp: {
     env: 'P2P_QUERY_FOR_IP',

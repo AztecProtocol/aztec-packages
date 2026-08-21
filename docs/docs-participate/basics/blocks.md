@@ -2,6 +2,7 @@
 title: Blocks and Epochs
 description: Learn how blocks are produced on Aztec, the role of sequencers and provers, and how epochs organize proving work.
 displayed_sidebar: participateSidebar
+references: ["l1-contracts/src/core/Rollup.sol", "l1-contracts/src/core/libraries/rollup/ValidatorSelectionLib.sol", "l1-contracts/src/core/libraries/rollup/EpochProofLib.sol"]
 ---
 
 # Blocks and Epochs

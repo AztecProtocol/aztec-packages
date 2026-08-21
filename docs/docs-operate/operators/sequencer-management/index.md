@@ -3,6 +3,7 @@ displayed_sidebar: operatorsSidebar
 id: sequencer_management_overview
 title: Sequencer Management
 description: Learn how to manage your sequencer operations including governance participation, delegated stake, and contract queries.
+references: ["l1-contracts/src/core/Rollup.sol", "l1-contracts/src/governance/Governance.sol"]
 ---
 
 ## Overview

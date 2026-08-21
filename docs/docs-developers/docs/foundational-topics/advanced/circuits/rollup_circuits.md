@@ -3,6 +3,7 @@ title: Rollup Circuits
 sidebar_position: 4
 tags: [protocol, circuits]
 description: Learn how Rollup Circuits compress transactions into a single proof using a hierarchical tree topology for efficient verification on Ethereum.
+references: ["noir-projects/fnd/noir-protocol-circuits/crates/rollup-lib/*", "noir-projects/fnd/noir-protocol-circuits/crates/rollup-root/*"]
 ---
 
 The rollup circuits compress thousands of transactions into a single SNARK proof for verification on Ethereum. They aggregate proofs from private kernel and AVM execution, validate state transitions, and produce the final epoch proof submitted to L1.

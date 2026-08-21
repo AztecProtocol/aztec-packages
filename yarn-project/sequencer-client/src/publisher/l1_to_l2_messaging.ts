@@ -79,7 +79,7 @@ export async function sendL1ToL2Message(
   // We already have the decoded event
   const topics = messageSentLogs[0].decoded;
   const receivedMsgHash = topics.args.hash;
-  const receivedGlobalLeafIndex = topics.args.index;
+  const receivedGlobalLeafIndex = topics.args.message.index;
 
   return { msgHash: Fr.fromHexString(receivedMsgHash), globalLeafIndex: new Fr(receivedGlobalLeafIndex), txReceipt };
 }

@@ -150,16 +150,8 @@ export class ProvingJobController {
         return await this.circuitProver.getTxMergeRollupProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP: {
-        return await this.circuitProver.getBlockRootFirstRollupProof(inputs, signal, this.epochNumber);
-      }
-
-      case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP: {
-        return await this.circuitProver.getBlockRootSingleTxFirstRollupProof(inputs, signal, this.epochNumber);
-      }
-
-      case ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP: {
-        return await this.circuitProver.getBlockRootEmptyTxFirstRollupProof(inputs, signal, this.epochNumber);
+      case ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP: {
+        return await this.circuitProver.getBlockRootNoTxsRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.BLOCK_ROOT_ROLLUP: {
@@ -194,12 +186,8 @@ export class ProvingJobController {
         return await this.circuitProver.getRootRollupProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.PARITY_BASE: {
-        return await this.circuitProver.getBaseParityProof(inputs, signal, this.epochNumber);
-      }
-
-      case ProvingRequestType.PARITY_ROOT: {
-        return await this.circuitProver.getRootParityProof(inputs, signal, this.epochNumber);
+      case ProvingRequestType.INBOX_PARITY: {
+        return await this.circuitProver.getInboxParityProof(inputs, signal, this.epochNumber);
       }
 
       default: {

@@ -18,6 +18,7 @@ import type { L2Block } from '../block/l2_block.js';
 import type { L2BlockInfo } from '../block/l2_block_info.js';
 import { MAX_TXS_PER_BLOCK } from '../deserialization/index.js';
 import { DutyType, type SigningContext } from '../ha-signing/index.js';
+import { InboxBucketRef } from '../messaging/inbox_bucket.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/index.js';
 import type { Tx } from '../tx/tx.js';
@@ -70,9 +71,6 @@ export class BlockProposal extends Gossipable implements Signable {
     /** Index of this block within the checkpoint (0-indexed) */
     public readonly indexWithinCheckpoint: IndexWithinCheckpoint,
 
-    /** Hash of L1 to L2 messages for this checkpoint (constant across all blocks in checkpoint) */
-    public readonly inHash: Fr,
-
     /** Archive root after this block is applied */
     public readonly archiveRoot: Fr,
 
@@ -87,6 +85,13 @@ export class BlockProposal extends Gossipable implements Signable {
 
     /** The signed transactions in the block (optional, for DA guarantees) */
     public readonly signedTxs?: SignedTxs,
+
+    /**
+     * Reference to the Inbox bucket this block proposes to consume, when the proposer commits to one. Validators
+     * resolve it against their own Inbox view and derive the consumed message bundle from it rather than trusting a
+     * proposer-supplied message list. Covered by the proposal signature (part of `getPayloadToSign`).
+     */
+    public readonly bucketRef?: InboxBucketRef,
   ) {
     super();
   }
@@ -124,16 +129,18 @@ export class BlockProposal extends Gossipable implements Signable {
 
   /**
    * Get the payload to sign for this block proposal.
-   * The signature is over: blockHeader + indexWithinCheckpoint + inHash + archiveRoot + txHashes
+   * The signature is over: blockHeader + indexWithinCheckpoint + archiveRoot + txHashes, plus the bucket reference
+   * when set. Appending only when set binds the reference to the signature so a relay cannot strip or inject it
+   * without breaking recovery.
    */
   getPayloadToSign(): Buffer {
     return serializeToBuffer([
       this.blockHeader,
       this.indexWithinCheckpoint,
-      this.inHash,
       this.archiveRoot,
       this.txHashes.length,
       this.txHashes,
+      ...(this.bucketRef ? [this.bucketRef] : []),
     ]);
   }
 
@@ -156,23 +163,24 @@ export class BlockProposal extends Gossipable implements Signable {
     blockHeader: BlockHeader,
     checkpointNumber: CheckpointNumber,
     indexWithinCheckpoint: IndexWithinCheckpoint,
-    inHash: Fr,
     archiveRoot: Fr,
     txHashes: TxHash[],
     txs: Tx[] | undefined,
     signatureContext: CoordinationSignatureContext,
     proposalSigner: (typedData: TypedDataDefinition, context: SigningContext) => Promise<Signature>,
     txsSigner?: (typedData: TypedDataDefinition, context: SigningContext) => Promise<Signature>,
+    bucketRef?: InboxBucketRef,
   ): Promise<BlockProposal> {
     // Create a temporary proposal to get the payload to sign
     const tempProposal = new BlockProposal(
       blockHeader,
       indexWithinCheckpoint,
-      inHash,
       archiveRoot,
       txHashes,
       Signature.empty(),
       signatureContext,
+      undefined,
+      bucketRef,
     );
 
     // Create the block signing context
@@ -202,12 +210,12 @@ export class BlockProposal extends Gossipable implements Signable {
     return new BlockProposal(
       blockHeader,
       indexWithinCheckpoint,
-      inHash,
       archiveRoot,
       txHashes,
       sig,
       signatureContext,
       signedTxs,
+      bucketRef,
     );
   }
 
@@ -248,7 +256,6 @@ export class BlockProposal extends Gossipable implements Signable {
     const buffer: any[] = [
       this.blockHeader,
       this.indexWithinCheckpoint,
-      this.inHash,
       this.archiveRoot,
       this.signature,
       serializeCoordinationSignatureContext(this.signatureContext),
@@ -261,6 +268,12 @@ export class BlockProposal extends Gossipable implements Signable {
     } else {
       buffer.push(0); // hasSignedTxs = false
     }
+    // Optional bucket-reference tail. Appended only when set, so a proposal without a reference
+    // serializes without the tail and a decoder that reaches EOF reads it as unset.
+    if (this.bucketRef) {
+      buffer.push(1); // hasBucketRef = true
+      buffer.push(this.bucketRef.toBuffer());
+    }
     return serializeToBuffer(buffer);
   }
 
@@ -269,7 +282,6 @@ export class BlockProposal extends Gossipable implements Signable {
 
     const blockHeader = reader.readObject(BlockHeader);
     const indexWithinCheckpoint = IndexWithinCheckpoint(reader.readNumber());
-    const inHash = reader.readObject(Fr);
     const archiveRoot = reader.readObject(Fr);
     const signature = reader.readObject(Signature);
     const signatureContext = readCoordinationSignatureContext(reader);
@@ -279,31 +291,33 @@ export class BlockProposal extends Gossipable implements Signable {
     }
     const txHashes = reader.readArray(txHashCount, TxHash);
 
+    let signedTxs: SignedTxs | undefined;
     if (!reader.isEmpty()) {
       const hasSignedTxs = reader.readNumber();
       if (hasSignedTxs) {
-        const signedTxs = SignedTxs.fromBuffer(reader);
-        return new BlockProposal(
-          blockHeader,
-          indexWithinCheckpoint,
-          inHash,
-          archiveRoot,
-          txHashes,
-          signature,
-          signatureContext,
-          signedTxs,
-        );
+        signedTxs = SignedTxs.fromBuffer(reader);
+      }
+    }
+
+    // Optional bucket-reference tail. A buffer that ends after the signedTxs flag decodes as
+    // "no reference", so proposals written without the tail round-trip cleanly.
+    let bucketRef: InboxBucketRef | undefined;
+    if (!reader.isEmpty()) {
+      const hasBucketRef = reader.readNumber();
+      if (hasBucketRef) {
+        bucketRef = InboxBucketRef.fromBuffer(reader);
       }
     }
 
     return new BlockProposal(
       blockHeader,
       indexWithinCheckpoint,
-      inHash,
       archiveRoot,
       txHashes,
       signature,
       signatureContext,
+      signedTxs,
+      bucketRef,
     );
   }
 
@@ -311,7 +325,6 @@ export class BlockProposal extends Gossipable implements Signable {
     return (
       this.blockHeader.getSize() +
       4 /* indexWithinCheckpoint */ +
-      this.inHash.size +
       this.archiveRoot.size +
       this.signature.getSize() +
       4 /* chainId */ +
@@ -319,7 +332,8 @@ export class BlockProposal extends Gossipable implements Signable {
       4 /* txHashes.length */ +
       this.txHashes.length * TxHash.SIZE +
       4 /* hasSignedTxs flag */ +
-      (this.signedTxs ? this.signedTxs.getSize() : 0)
+      (this.signedTxs ? this.signedTxs.getSize() : 0) +
+      (this.bucketRef ? 4 /* hasBucketRef flag */ + this.bucketRef.getSize() : 0)
     );
   }
 
@@ -327,7 +341,6 @@ export class BlockProposal extends Gossipable implements Signable {
     return new BlockProposal(
       BlockHeader.empty(),
       IndexWithinCheckpoint(0),
-      Fr.ZERO,
       Fr.ZERO,
       [],
       Signature.empty(),
@@ -340,7 +353,6 @@ export class BlockProposal extends Gossipable implements Signable {
       BlockHeader.random(),
       IndexWithinCheckpoint(Math.floor(Math.random() * 5)),
       Fr.random(),
-      Fr.random(),
       [TxHash.random(), TxHash.random()],
       Signature.random(),
       EMPTY_COORDINATION_SIGNATURE_CONTEXT,
@@ -351,12 +363,12 @@ export class BlockProposal extends Gossipable implements Signable {
     return {
       blockHeader: this.blockHeader.toInspect(),
       indexWithinCheckpoint: this.indexWithinCheckpoint,
-      inHash: this.inHash.toString(),
       archiveRoot: this.archiveRoot.toString(),
       signature: this.signature.toString(),
       txHashes: this.txHashes.map(h => h.toString()),
       chainId: this.signatureContext.chainId,
       rollupAddress: this.signatureContext.rollupAddress.toString(),
+      bucketRef: this.bucketRef?.toInspect(),
     };
   }
 
@@ -378,11 +390,12 @@ export class BlockProposal extends Gossipable implements Signable {
     return new BlockProposal(
       this.blockHeader,
       this.indexWithinCheckpoint,
-      this.inHash,
       this.archiveRoot,
       this.txHashes,
       this.signature,
       this.signatureContext,
+      undefined,
+      this.bucketRef,
     );
   }
 }

@@ -10,17 +10,23 @@ import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import { DEFAULT_MAX_BLOCKS_PER_CHECKPOINT } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { type BlockMinFeesProvider, GasFees, getNetworkTxGasLimits } from '@aztec/stdlib/gas';
-import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  ClientProtocolCircuitVerifier,
+  P2PConnectivity,
+  PeerInfo,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import {
   BlockProposal,
   CheckpointAttestation,
   CheckpointProposal,
-  type CheckpointProposalCore,
   type Gossipable,
   P2PMessage,
   PeerErrorSeverity,
   PeerErrorSeverityByHarshness,
   TopicType,
+  ValidatedBlockProposal,
+  ValidatedCheckpointProposalCore,
   createTopicString,
   getTopicsForConfig,
   metricsTopicStrToLabels,
@@ -303,13 +309,13 @@ export class LibP2PService extends WithTracer implements P2PService {
     };
 
     this.allNodesCheckpointReceivedCallback = (
-      _checkpoint: CheckpointProposalCore,
+      _checkpoint: ValidatedCheckpointProposalCore,
     ): Promise<CheckpointAttestation[] | undefined> => {
       throw new CheckpointProposalReceivedCallbackNotRegisteredError();
     };
 
     this.validatorCheckpointReceivedCallback = (
-      _checkpoint: CheckpointProposalCore,
+      _checkpoint: ValidatedCheckpointProposalCore,
     ): Promise<CheckpointAttestation[] | undefined> => {
       return Promise.resolve(undefined);
     };
@@ -728,6 +734,11 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   public getPeers(includePending?: boolean): PeerInfo[] {
     return this.peerManager.getPeers(includePending);
+  }
+
+  public getP2PConnectivity(): P2PConnectivity {
+    const connectedPeers = this.peerManager.getPeers().filter(peer => peer.status === 'connected').length;
+    return { enabled: true, connectedPeers };
   }
 
   public getGossipMeshPeerCount(topicType: TopicType): number {
@@ -1321,7 +1332,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       return;
     }
 
-    await this.processValidBlockProposal(block, source);
+    await this.processValidBlockProposal(ValidatedBlockProposal(block), source);
   }
 
   /** Validates a block proposal. Triggers a penalization to the peer that sent it if invalid. Adds to the mempool if valid. */
@@ -1424,7 +1435,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.P2P_ID]: await block.p2pMessageLoggingIdentifier().then(i => i.toString()),
   }))
-  protected async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
+  protected async processValidBlockProposal(block: ValidatedBlockProposal, sender: PeerId) {
     const slot = block.slotNumber;
     this.logger.verbose(`Received block proposal for slot ${slot} from external peer ${sender.toString()}.`, {
       p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier(),
@@ -1448,7 +1459,7 @@ export class LibP2PService extends WithTracer implements P2PService {
    * rejected, and letting the error escape would leave the proposal's tx protections in place.
    * Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
    */
-  private async tryBlockReceivedCallback(block: BlockProposal, sender: PeerId): Promise<boolean> {
+  private async tryBlockReceivedCallback(block: ValidatedBlockProposal, sender: PeerId): Promise<boolean> {
     try {
       const isValid = await this.blockReceivedCallback(block, sender);
       if (!isValid) {
@@ -1484,14 +1495,14 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Process checkpoint proposal if valid and neither equivocated nor oversized.
     const processCheckpointFn = () =>
       result === TopicValidatorResult.Accept && checkpoint && !isEquivocated && !isOversized
-        ? this.processValidCheckpointProposal(checkpoint.toCore(), source)
+        ? this.processValidCheckpointProposal(ValidatedCheckpointProposalCore(checkpoint.toCore()), source)
         : Promise.resolve();
 
     // If the checkpoint contained a valid last block, we process it even if the checkpoint itself is to be rejected
     // TODO(palla/mbps): Is this ok? Should we be considering a block from a checkpoint that was equivocated?
     const processBlockFn = () =>
       processBlock && checkpoint && checkpoint.getBlockProposal()
-        ? this.processValidBlockProposal(checkpoint.getBlockProposal()!, source)
+        ? this.processValidBlockProposal(ValidatedBlockProposal(checkpoint.getBlockProposal()!), source)
         : Promise.resolve();
 
     // A node that skips checkpoint validation attests without re-executing the embedded last block, so run
@@ -1640,7 +1651,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     [Attributes.BLOCK_ARCHIVE]: checkpoint.archive.toString(),
     [Attributes.P2P_ID]: await checkpoint.p2pMessageLoggingIdentifier().then(i => i.toString()),
   }))
-  protected async processValidCheckpointProposal(checkpoint: CheckpointProposalCore, sender: PeerId) {
+  protected async processValidCheckpointProposal(checkpoint: ValidatedCheckpointProposalCore, sender: PeerId) {
     const slot = checkpoint.slotNumber;
     this.logger.verbose(`Received checkpoint proposal for slot ${slot} from external peer ${sender.toString()}.`, {
       p2pMessageIdentifier: await checkpoint.p2pMessageLoggingIdentifier(),

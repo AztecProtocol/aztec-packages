@@ -59,7 +59,6 @@ describe('single-node/block-building/debug_trace', () => {
       // enough to reach it, where the proposer selection changes and the propose silently reverts.
       aztecEpochDuration: 32,
       aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
-      inboxLag: 2,
     });
     ({ aztecNode, logger, aztecNodeAdmin, config } = test.context);
     sequencer = test.context.sequencer! as TestSequencerClient;

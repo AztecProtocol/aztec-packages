@@ -20,7 +20,7 @@ import {
   makeCheckpointProposal,
   mockTx,
 } from '@aztec/stdlib/testing';
-import { TX_ERROR_INCORRECT_VK_TREE_ROOT, TxArray, type TxHash, TxHashArray } from '@aztec/stdlib/tx';
+import { TX_ERROR_INCORRECT_VK_TREE_ROOT, TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 import { InvalidBlockProposalTxsError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { ServerWorldStateSynchronizer } from '@aztec/world-state';
@@ -315,6 +315,25 @@ describe('LibP2PService', () => {
         source: 'gossip',
       });
       expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Accept);
+    });
+  });
+
+  describe('getP2PConnectivity', () => {
+    it('reports p2p as enabled and counts only connected peers', () => {
+      mockPeerManager.getPeers.mockReturnValue([
+        { status: 'connected', id: 'a', score: 0 },
+        { status: 'dialing', id: 'b', dialStatus: 'queued', addresses: [] },
+        { status: 'connected', id: 'c', score: 1 },
+        { status: 'cached', id: 'd', addresses: [], enr: 'enr', dialAttempts: 1 },
+      ]);
+
+      expect(service.getP2PConnectivity()).toEqual({ enabled: true, connectedPeers: 2 });
+    });
+
+    it('reports zero connected peers when there are none', () => {
+      mockPeerManager.getPeers.mockReturnValue([]);
+
+      expect(service.getP2PConnectivity()).toEqual({ enabled: true, connectedPeers: 0 });
     });
   });
 
@@ -839,8 +858,8 @@ describe('LibP2PService', () => {
     });
 
     // Regression for A-1013: payloads sharing (slot, position, archive) but differing on another
-    // signed field (e.g. inHash) used to dedup by archive only and silently drop the second one.
-    // The pool now dedups by signed-payload hash, so the equivocation surfaces.
+    // signed field (e.g. the transaction set) used to dedup by archive only and silently drop the
+    // second one. The pool now dedups by signed-payload hash, so the equivocation surfaces.
     it('same archive but different signed payload triggers slash callback', async () => {
       const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
       const indexWithinCheckpoint = IndexWithinCheckpoint(0);
@@ -850,7 +869,7 @@ describe('LibP2PService', () => {
         signer,
         blockHeader,
         indexWithinCheckpoint,
-        inHash: Fr.fromString('0x1'),
+        txHashes: [TxHash.fromField(new Fr(1))],
         archiveRoot: sharedArchive,
       });
       await service.processBlockFromPeer(proposal1.toBuffer(), 'msg-1', mockPeerId);
@@ -860,7 +879,7 @@ describe('LibP2PService', () => {
         signer,
         blockHeader,
         indexWithinCheckpoint,
-        inHash: Fr.fromString('0x2'),
+        txHashes: [TxHash.fromField(new Fr(2))],
         archiveRoot: sharedArchive,
       });
       expect(proposal2.archive.toString()).toBe(proposal1.archive.toString());

@@ -1,8 +1,8 @@
 import {
+  MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
@@ -50,13 +50,9 @@ export async function updateBlockState(block: L2Block, l1ToL2Messages: Fr[], for
     padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
   );
 
-  const l1ToL2MessagesPadded =
-    block.indexWithinCheckpoint === 0
-      ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
-      : l1ToL2Messages;
-
+  // Every block appends its real message leaves unpadded at compact indices.
   const noteHashInsert = fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
-  const messageInsert = fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+  const messageInsert = fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
   await Promise.all([publicDataInsert, nullifierInsert, noteHashInsert, messageInsert]);
 
   const state = await fork.getStateReference();
@@ -77,16 +73,32 @@ export async function updateBlockState(block: L2Block, l1ToL2Messages: Fr[], for
   block.archive = new AppendOnlyTreeSnapshot(Fr.fromBuffer(archiveState.root), Number(archiveState.size));
 }
 
-export async function mockBlock(
+export function mockBlock(
   blockNum: BlockNumber,
   size: number,
   fork: MerkleTreeWriteOperations,
   maxEffects: number | undefined = 1000, // Defaults to the maximum tx effects.
-  numL1ToL2Messages: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  numL1ToL2Messages: number = MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   isFirstBlockInCheckpoint: boolean = true,
 ) {
+  return mockBlockWithIndex(blockNum, isFirstBlockInCheckpoint ? 0 : 1, size, fork, numL1ToL2Messages, maxEffects);
+}
+
+/**
+ * Builds a mock L2 block at an explicit position within its checkpoint, applying its state (including its L1-to-L2
+ * message bundle) to the given fork. Unlike {@link mockBlock}, the caller chooses the `indexWithinCheckpoint`, so
+ * non-first blocks can carry message bundles — exercising the per-block message insertion path.
+ */
+export async function mockBlockWithIndex(
+  blockNum: BlockNumber,
+  indexWithinCheckpoint: number,
+  size: number,
+  fork: MerkleTreeWriteOperations,
+  numL1ToL2Messages: number = MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+  maxEffects: number | undefined = 1000, // Defaults to the maximum tx effects.
+) {
   const block = await L2Block.random(blockNum, {
-    indexWithinCheckpoint: isFirstBlockInCheckpoint ? IndexWithinCheckpoint(0) : IndexWithinCheckpoint(1),
+    indexWithinCheckpoint: IndexWithinCheckpoint(indexWithinCheckpoint),
     txsPerBlock: size,
     txOptions: { maxEffects },
   });

@@ -3,6 +3,7 @@ title: Privacy Considerations
 description: Learn about key privacy considerations when building applications on Aztec.
 sidebar_position: 5
 tags: [protocol, PXE]
+references: ["noir-projects/labs/aztec-nr/aztec/src/context/*"]
 ---
 
 Privacy is a core value of Aztec Protocol. Keeping information private is difficult, and once information is leaked, it cannot be unleaked. This page outlines key privacy considerations that developers should understand when building applications on Aztec.

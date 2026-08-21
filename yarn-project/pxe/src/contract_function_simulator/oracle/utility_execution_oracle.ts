@@ -1,4 +1,9 @@
-import { ARCHIVE_HEIGHT, type NOTE_HASH_TREE_HEIGHT, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
+import {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  type NOTE_HASH_TREE_HEIGHT,
+  PRIVATE_LOG_CIPHERTEXT_LEN,
+} from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
@@ -29,7 +34,7 @@ import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/k
 import { AppTaggingSecret, FlatPublicLogs, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { type UnsiloedMessageNullifier, getL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
-import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
   CallContext,
@@ -69,9 +74,14 @@ import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
+import {
+  type NullifierMembershipWitnessData,
+  toNullifierMembershipWitnessData,
+} from '../noir-structs/nullifier_membership_witness_data.js';
 import { Option } from '../noir-structs/option.js';
 import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import type { PublicDataWitnessData } from '../noir-structs/public_data_witness_data.js';
 import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
@@ -304,14 +314,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  public async getNullifierMembershipWitness(blockHash: BlockHash, nullifier: Fr): Promise<NullifierMembershipWitness> {
+  public async getNullifierMembershipWitness(
+    blockHash: BlockHash,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitnessData> {
     const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
       this.aztecNode.getNullifierMembershipWitness(blockHash, nullifier),
     );
     if (!witness) {
       throw new Error(`Nullifier membership witness not found at block ${blockHash.toString()}.`);
     }
-    return witness;
+    return toNullifierMembershipWitnessData(witness);
   }
 
   /**
@@ -326,7 +339,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   public async getLowNullifierMembershipWitness(
     blockHash: BlockHash,
     nullifier: Fr,
-  ): Promise<NullifierMembershipWitness> {
+  ): Promise<NullifierMembershipWitnessData> {
     const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
       this.aztecNode.getLowNullifierMembershipWitness(blockHash, nullifier),
     );
@@ -335,7 +348,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         `Low nullifier witness not found for nullifier ${nullifier} at block hash ${blockHash.toString()}.`,
       );
     }
-    return witness;
+    return toNullifierMembershipWitnessData(witness);
   }
 
   /**
@@ -344,14 +357,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public async getPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness> {
+  public async getPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitnessData> {
     const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
       this.aztecNode.getPublicDataWitness(blockHash, leafSlot),
     );
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${leafSlot} at block hash ${blockHash.toString()}.`);
     }
-    return witness;
+    return {
+      index: witness.index,
+      leafPreimage: witness.leafPreimage,
+      siblingPath: witness.siblingPath.toTuple(),
+    };
   }
 
   /**
@@ -520,7 +537,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.anchorBlockHeader.hash(),
     );
 
-    return { index: messageIndex, siblingPath };
+    return new MembershipWitness(L1_TO_L2_MSG_TREE_HEIGHT, messageIndex, siblingPath.toTuple());
   }
 
   /**
@@ -1053,14 +1070,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         }
       }
 
-      await this.contractSyncService.ensureContractSynced(
-        targetContractAddress,
-        functionSelector,
-        this.utilityExecutor,
-        this.anchorBlockHeader,
-        this.jobId,
-        this.scopes,
-      );
+      await this.contractSyncService.ensureContractSynced({
+        contract: targetContractAddress,
+        functionToInvokeAfterSync: functionSelector,
+        utilityExecutor: this.utilityExecutor,
+        anchorBlockHeader: this.anchorBlockHeader,
+        jobId: this.jobId,
+        scopes: this.scopes,
+        triggeredBy: { address: this.contractAddress, selector: this.callContext.functionSelector },
+      });
     }
 
     this.logger.debug(

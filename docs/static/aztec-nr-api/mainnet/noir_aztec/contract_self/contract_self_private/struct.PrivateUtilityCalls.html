@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct PrivateUtilityCalls documentation</title>
 </head>
 <body>
@@ -34,7 +37,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">contract_self</a>::<a href="index.html">contract_self_private</a></div>
-<h1>Struct <span id="struct" class="struct">PrivateUtilityCalls</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">PrivateUtilityCalls</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct PrivateUtilityCalls&lt;CallSelf&gt; {
     pub call_self: CallSelf,
 }
@@ -59,7 +68,7 @@ as <code>CallSelf</code> in [<code>ContractSelfUtility</code>])</li>
 </div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;CallSelf&gt; <a href="../../../noir_aztec/contract_self/contract_self_private/struct.PrivateUtilityCalls.html" class="struct">PrivateUtilityCalls</a>&lt;CallSelf&gt;</code></h3>
 
-<div class="padded-methods"><code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+<div class="padded-methods"><code id="call" class="code-header">pub unconstrained fn <a href="#call" class="fn">call</a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
     call: <a href="../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,
 ) -> T
@@ -80,7 +89,8 @@ private state to the caller, so it requires explicit authorization. A call that 
 <h4>Example</h4>
 <pre><code><span class="comment">// Safety: result is unconstrained</span>
 <span class="kw">unsafe</span> { self.utility.call(Token::at(address).get_balance_of(owner)) }</code></pre></div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

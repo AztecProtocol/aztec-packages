@@ -1,11 +1,10 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
-import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
 import type { CheckpointProposedLog, InboxContract, MessageSentLog, RollupContract } from '@aztec/ethereum/contracts';
 import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { type BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -14,7 +13,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
-import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -30,8 +29,6 @@ import {
   multicall3Abi,
   toHex,
 } from 'viem';
-
-import { updateRollingHash } from '../structs/inbox_message.js';
 
 /** Configuration for the fake L1 state. */
 export type FakeL1StateConfig = {
@@ -105,11 +102,14 @@ type CheckpointData = {
 /** Data stored for a message. */
 type MessageData = {
   l1BlockNumber: bigint;
-  checkpointNumber: CheckpointNumber;
   index: bigint;
   leaf: Fr;
-  rollingHash: Buffer16;
+  inboxRollingHash: Fr;
+  bucketSeq: bigint;
 };
+
+// Mirror of the on-chain per-bucket message cap: further messages in the same L1 block spill into the next bucket.
+const MAX_MSGS_PER_BUCKET = 256;
 
 /**
  * Stateful fake for L1 data used by the archiver.
@@ -137,7 +137,11 @@ export class FakeL1State {
   private l1BlockNumber: bigint;
   private checkpoints: CheckpointData[] = [];
   private messages: MessageData[] = [];
-  private messagesRollingHash: Buffer16 = Buffer16.ZERO;
+  // Consensus rolling-hash and bucket-ring state, mirroring the on-chain Inbox.
+  private messagesConsensusRollingHash: Fr = Fr.ZERO;
+  private currentBucketSeq: bigint = 0n;
+  private currentBucketTimestamp: bigint = 0n;
+  private currentBucketMsgCount: number = 0;
   private lastArchive: AppendOnlyTreeSnapshot;
   private provenCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
   private targetCommitteeSize: number = 0;
@@ -165,18 +169,53 @@ export class FakeL1State {
    * Note: For most use cases, use `addCheckpoint` which creates both checkpoint and messages.
    * Use this method only when you need to add messages without creating a checkpoint (e.g., for reorg tests).
    */
-  addMessages(checkpointNumber: CheckpointNumber, l1BlockNumber: bigint, messageLeaves: Fr[]): void {
-    messageLeaves.forEach((leaf, i) => {
-      const index = InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) + BigInt(i);
-      this.messagesRollingHash = updateRollingHash(this.messagesRollingHash, leaf);
+  addMessages(_checkpointNumber: CheckpointNumber, l1BlockNumber: bigint, messageLeaves: Fr[]): void {
+    const timestamp = this.getTimestampAtL1Block(l1BlockNumber);
+    messageLeaves.forEach(leaf => {
+      // Compact global insertion index: the position in the Inbox's insertion order.
+      const index = BigInt(this.messages.length);
+      const { bucketSeq, inboxRollingHash } = this.absorbIntoBucket(leaf, timestamp);
 
       this.messages.push({
         l1BlockNumber,
-        checkpointNumber,
         index,
         leaf,
-        rollingHash: this.messagesRollingHash,
+        inboxRollingHash,
+        bucketSeq,
       });
+    });
+  }
+
+  /** Mirrors the on-chain `_absorbIntoBucket`: opens a new bucket on a strictly larger timestamp or a full bucket. */
+  private absorbIntoBucket(leaf: Fr, timestamp: bigint): { bucketSeq: bigint; inboxRollingHash: Fr } {
+    if (
+      this.currentBucketSeq === 0n ||
+      this.currentBucketTimestamp < timestamp ||
+      this.currentBucketMsgCount === MAX_MSGS_PER_BUCKET
+    ) {
+      this.currentBucketSeq += 1n;
+      this.currentBucketTimestamp = timestamp;
+      this.currentBucketMsgCount = 0;
+    }
+    this.messagesConsensusRollingHash = updateInboxRollingHash(this.messagesConsensusRollingHash, leaf);
+    this.currentBucketMsgCount += 1;
+    return { bucketSeq: this.currentBucketSeq, inboxRollingHash: this.messagesConsensusRollingHash };
+  }
+
+  /** Rebuilds all per-message derived state (rolling hashes and bucket assignments) after the message set changes. */
+  private recomputeDerivedMessageState(): void {
+    this.messagesConsensusRollingHash = Fr.ZERO;
+    this.currentBucketSeq = 0n;
+    this.currentBucketTimestamp = 0n;
+    this.currentBucketMsgCount = 0;
+    this.messages.forEach((msg, i) => {
+      const { bucketSeq, inboxRollingHash } = this.absorbIntoBucket(
+        msg.leaf,
+        this.getTimestampAtL1Block(msg.l1BlockNumber),
+      );
+      msg.index = BigInt(i);
+      msg.inboxRollingHash = inboxRollingHash;
+      msg.bucketSeq = bucketSeq;
     });
   }
 
@@ -354,8 +393,7 @@ export class FakeL1State {
    */
   removeMessagesAfter(totalIndex: number): void {
     this.messages = this.messages.slice(0, totalIndex);
-    // Recalculate rolling hash
-    this.messagesRollingHash = this.messages.reduce((hash, msg) => updateRollingHash(hash, msg.leaf), Buffer16.ZERO);
+    this.recomputeDerivedMessageState();
   }
 
   /**
@@ -418,11 +456,6 @@ export class FakeL1State {
     return this.checkpoints.findLast(cpData => cpData.checkpointNumber === checkpointNumber)?.checkpoint;
   }
 
-  /** Gets messages for a checkpoint. */
-  getMessages(checkpointNumber: CheckpointNumber): Fr[] {
-    return this.messages.filter(m => m.checkpointNumber === checkpointNumber).map(m => m.leaf);
-  }
-
   /** Gets the blobs for a checkpoint. */
   getCheckpointBlobs(checkpointNumber: CheckpointNumber): Blob[] {
     return this.checkpoints.findLast(cpData => cpData.checkpointNumber === checkpointNumber)?.blobs ?? [];
@@ -467,34 +500,16 @@ export class FakeL1State {
   createMockInboxContract(_publicClient: MockProxy<ViemPublicClient>): MockProxy<InboxContract> {
     const mockInbox = mock<InboxContract>();
 
+    // Mirror the on-chain Inbox live state: its consensus rolling hash and cumulative total are the chain
+    // position the archiver's message sync compares against, read atomically.
     mockInbox.getState.mockImplementation((opts: { blockTag?: string; blockNumber?: bigint } = {}) => {
-      // Filter messages visible at the given block number (or all if not specified)
       const blockNumber = opts.blockNumber ?? this.l1BlockNumber;
       const visibleMessages = this.messages.filter(m => m.l1BlockNumber <= blockNumber);
-
-      // treeInProgress must be > any sealed checkpoint. On L1, a checkpoint can only be proposed
-      // after its messages are sealed, so treeInProgress > checkpointNumber for all published checkpoints.
-      const maxFromMessages =
-        visibleMessages.length > 0 ? Math.max(...visibleMessages.map(m => Number(m.checkpointNumber))) + 1 : 0;
-      const maxFromCheckpoints =
-        this.checkpoints.length > 0
-          ? Math.max(
-              ...this.checkpoints
-                .filter(cp => !cp.pruned && cp.l1BlockNumber <= blockNumber)
-                .map(cp => Number(cp.checkpointNumber)),
-              0,
-            ) + 1
-          : 0;
-      const treeInProgress = Math.max(maxFromMessages, maxFromCheckpoints, INITIAL_CHECKPOINT_NUMBER);
-
-      // Compute rolling hash only for visible messages
-      const rollingHash =
-        visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].rollingHash : Buffer16.ZERO;
-
+      const last = visibleMessages.at(-1);
       return Promise.resolve({
-        messagesRollingHash: rollingHash,
+        rollingHash: last?.inboxRollingHash ?? Fr.ZERO,
         totalMessagesInserted: BigInt(visibleMessages.length),
-        treeInProgress: BigInt(treeInProgress),
+        currentBucketSeq: last?.bucketSeq ?? 0n,
       });
     });
 
@@ -623,11 +638,13 @@ export class FakeL1State {
         l1BlockNumber: msg.l1BlockNumber,
         l1BlockHash: Buffer32.fromBigInt(msg.l1BlockNumber),
         l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
+        l1BlockTimestamp: this.getTimestampAtL1Block(msg.l1BlockNumber),
         args: {
-          checkpointNumber: msg.checkpointNumber,
           index: msg.index,
           leaf: msg.leaf,
-          rollingHash: msg.rollingHash,
+          inboxRollingHash: msg.inboxRollingHash,
+          bucketSeq: msg.bucketSeq,
+          message: this.makeFakeMessageSentMessage(msg.index),
         },
       }));
   }
@@ -646,12 +663,26 @@ export class FakeL1State {
       l1BlockNumber: msg.l1BlockNumber,
       l1BlockHash: Buffer32.fromBigInt(msg.l1BlockNumber),
       l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
+      l1BlockTimestamp: this.getTimestampAtL1Block(msg.l1BlockNumber),
       args: {
-        checkpointNumber: msg.checkpointNumber,
         index: msg.index,
         leaf: msg.leaf,
-        rollingHash: msg.rollingHash,
+        inboxRollingHash: msg.inboxRollingHash,
+        bucketSeq: msg.bucketSeq,
+        message: this.makeFakeMessageSentMessage(msg.index),
       },
+    };
+  }
+
+  // The fake tracks only leaves, so the emitted message carries placeholder fields; nothing in the archiver
+  // consumes them (it stores leaf and consensus metadata only).
+  private makeFakeMessageSentMessage(index: bigint) {
+    return {
+      sender: { actor: `0x${'0'.repeat(40)}` as `0x${string}`, chainId: 1n },
+      recipient: { actor: Fr.ZERO, version: 1n },
+      content: Fr.ZERO,
+      secretHash: Fr.ZERO,
+      index,
     };
   }
 
@@ -692,6 +723,7 @@ export class FakeL1State {
           header,
           archive,
           oracleInput: { feeAssetPriceModifier: 0n },
+          bucketHint: 0n,
         },
         verbatimAttestations,
         attestationsAndSigners.getSigners().map(signer => signer.toString()),

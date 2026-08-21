@@ -3,6 +3,7 @@ title: Profiling Transactions
 sidebar_position: 2
 tags: [contracts, profiling]
 description: How to profile Aztec transactions and identify performance bottlenecks using aztec profile, aztec-wallet, and aztec.js.
+references: ["yarn-project/aztec/src/cli/cmds/profile_gates.ts", "yarn-project/aztec/src/cli/cmds/profile_flamegraph.ts", "yarn-project/cli-wallet/src/cmds/profile.ts", "yarn-project/aztec.js/src/contract/contract_function_interaction.ts"]
 ---
 
 This guide shows you how to profile Aztec transactions to understand gate counts and identify optimization opportunities.

@@ -1,15 +1,12 @@
 import type { NoirCompiledCircuit, NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import PublicChonkVerifierJson from '../../artifacts/chonk_verifier_public.json' with { type: 'json' };
-import ParityBaseJson from '../../artifacts/parity_base.json' with { type: 'json' };
-import ParityRootJson from '../../artifacts/parity_root.json' with { type: 'json' };
+import InboxParity64Json from '../../artifacts/inbox_parity_64.json' with { type: 'json' };
+import InboxParity256Json from '../../artifacts/inbox_parity_256.json' with { type: 'json' };
+import InboxParity1024Json from '../../artifacts/inbox_parity_1024.json' with { type: 'json' };
 import BlockMergeRollupJson from '../../artifacts/rollup_block_merge.json' with { type: 'json' };
 import BlockRootRollupJson from '../../artifacts/rollup_block_root.json' with { type: 'json' };
-import BlockRootFirstRollupJson from '../../artifacts/rollup_block_root_first.json' with { type: 'json' };
-import BlockRootEmptyTxFirstRollupJson from '../../artifacts/rollup_block_root_first_empty_tx.json' with { type: 'json' };
-import BlockRootFirstRollupSimulatedJson from '../../artifacts/rollup_block_root_first_simulated.json' with { type: 'json' };
-import BlockRootSingleTxFirstRollupJson from '../../artifacts/rollup_block_root_first_single_tx.json' with { type: 'json' };
-import BlockRootSingleTxFirstRollupSimulatedJson from '../../artifacts/rollup_block_root_first_single_tx_simulated.json' with { type: 'json' };
+import BlockRootNoTxsRollupJson from '../../artifacts/rollup_block_root_no_txs.json' with { type: 'json' };
 import BlockRootRollupSimulatedJson from '../../artifacts/rollup_block_root_simulated.json' with { type: 'json' };
 import BlockRootSingleTxRollupJson from '../../artifacts/rollup_block_root_single_tx.json' with { type: 'json' };
 import BlockRootSingleTxRollupSimulatedJson from '../../artifacts/rollup_block_root_single_tx_simulated.json' with { type: 'json' };
@@ -28,17 +25,16 @@ import TxMergeRollupJson from '../../artifacts/rollup_tx_merge.json' with { type
 import type { ServerProtocolArtifact } from './types.js';
 
 export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
-  ParityBaseArtifact: ParityBaseJson as NoirCompiledCircuit,
-  ParityRootArtifact: ParityRootJson as NoirCompiledCircuit,
+  InboxParity64Artifact: InboxParity64Json as NoirCompiledCircuit,
+  InboxParity256Artifact: InboxParity256Json as NoirCompiledCircuit,
+  InboxParity1024Artifact: InboxParity1024Json as NoirCompiledCircuit,
   PublicChonkVerifier: PublicChonkVerifierJson as NoirCompiledCircuit,
   PrivateTxBaseRollupArtifact: PrivateTxBaseRollupJson as NoirCompiledCircuit,
   PublicTxBaseRollupArtifact: PublicTxBaseRollupJson as NoirCompiledCircuit,
   TxMergeRollupArtifact: TxMergeRollupJson as NoirCompiledCircuit,
-  BlockRootFirstRollupArtifact: BlockRootFirstRollupJson as NoirCompiledCircuit,
-  BlockRootSingleTxFirstRollupArtifact: BlockRootSingleTxFirstRollupJson as NoirCompiledCircuit,
-  BlockRootEmptyTxFirstRollupArtifact: BlockRootEmptyTxFirstRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
   BlockRootSingleTxRollupArtifact: BlockRootSingleTxRollupJson as NoirCompiledCircuit,
+  BlockRootNoTxsRollupArtifact: BlockRootNoTxsRollupJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   CheckpointRootRollupArtifact: CheckpointRootRollupJson as NoirCompiledCircuit,
   CheckpointRootSingleBlockRollupArtifact: CheckpointRootSingleBlockRollupJson as NoirCompiledCircuit,
@@ -48,17 +44,20 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
 };
 
 export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
-  ParityBaseArtifact: ParityBaseJson as NoirCompiledCircuit,
-  ParityRootArtifact: ParityRootJson as NoirCompiledCircuit,
+  // No separate simulated build for the inbox parity ladder: they verify no child proofs, so the constrained
+  // artifacts are used for simulation too.
+  InboxParity64Artifact: InboxParity64Json as NoirCompiledCircuit,
+  InboxParity256Artifact: InboxParity256Json as NoirCompiledCircuit,
+  InboxParity1024Artifact: InboxParity1024Json as NoirCompiledCircuit,
   PublicChonkVerifier: PublicChonkVerifierJson as NoirCompiledCircuit,
   PrivateTxBaseRollupArtifact: PrivateTxBaseRollupSimulatedJson as NoirCompiledCircuit,
   PublicTxBaseRollupArtifact: PublicTxBaseRollupSimulatedJson as NoirCompiledCircuit,
   TxMergeRollupArtifact: TxMergeRollupJson as NoirCompiledCircuit,
-  BlockRootFirstRollupArtifact: BlockRootFirstRollupSimulatedJson as NoirCompiledCircuit,
-  BlockRootSingleTxFirstRollupArtifact: BlockRootSingleTxFirstRollupSimulatedJson as NoirCompiledCircuit,
-  BlockRootEmptyTxFirstRollupArtifact: BlockRootEmptyTxFirstRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupSimulatedJson as NoirCompiledCircuit,
   BlockRootSingleTxRollupArtifact: BlockRootSingleTxRollupSimulatedJson as NoirCompiledCircuit,
+  // No separate simulated build: the transaction-less block root verifies no child proofs, so the constrained
+  // artifact is used for simulation too.
+  BlockRootNoTxsRollupArtifact: BlockRootNoTxsRollupJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   CheckpointRootRollupArtifact: CheckpointRootRollupSimulatedJson as NoirCompiledCircuit,
   CheckpointRootSingleBlockRollupArtifact: CheckpointRootSingleBlockRollupSimulatedJson as NoirCompiledCircuit,

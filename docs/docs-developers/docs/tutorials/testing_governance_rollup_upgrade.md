@@ -3,6 +3,7 @@ title: Testing Governance Rollup Upgrade on Local Network
 sidebar_position: 5
 tags: [local_network, governance, testing]
 description: Deploy a new rollup and execute a governance upgrade on a local Aztec network for testing.
+references: ["l1-contracts/script/deploy/DeployRollupForUpgrade.s.sol", "l1-contracts/src/periphery/RegisterNewRollupVersionPayload.sol", "l1-contracts/src/governance/*", "yarn-project/cli/src/cmds/l1/*"]
 ---
 
 This guide walks through deploying a new rollup and executing a governance upgrade on a local Aztec network.
@@ -89,7 +90,6 @@ export AZTEC_EPOCH_DURATION=16
 export AZTEC_TARGET_COMMITTEE_SIZE=48
 export AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET=2
 export AZTEC_LAG_IN_EPOCHS_FOR_RANDAO=2
-export AZTEC_INBOX_LAG=2
 export AZTEC_PROOF_SUBMISSION_EPOCHS=2
 export AZTEC_LOCAL_EJECTION_THRESHOLD=0
 export AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS=1

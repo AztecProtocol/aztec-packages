@@ -52,7 +52,6 @@ describe('e2e_p2p_late_prover_tx_collection', () => {
         // Only build blocks that actually carry txs, so the chain idles after our block is mined and
         // the late prover is never auto-triggered to collect for a different block.
         minTxsPerBlock: 1,
-        inboxLag: 2,
       },
     });
 

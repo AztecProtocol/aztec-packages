@@ -17,16 +17,15 @@ import { type TxBlobData, decodeTxBlobData, encodeTxBlobData } from './tx_blob_d
 
 // Must match the implementation in `noir-protocol-circuits/crates/types/src/blob_data/block_blob_data.nr`.
 
-export const NUM_BLOCK_END_BLOB_FIELDS = 6;
-export const NUM_FIRST_BLOCK_END_BLOB_FIELDS = 7;
+// Every block carries the L1-to-L2 message tree root: once any block can insert its own
+// message bundle, the root is per-block, so blob-syncing nodes reconstruct each block's message-tree root from the
+// blob alone.
+export const NUM_BLOCK_END_BLOB_FIELDS = 7;
 export const NUM_CHECKPOINT_END_MARKER_FIELDS = 1;
 
-/**
- * Returns the number of blob fields used for block end data.
- * @param isFirstBlockInCheckpoint - Whether this is the first block in a checkpoint.
- */
-export function getNumBlockEndBlobFields(isFirstBlockInCheckpoint: boolean): number {
-  return isFirstBlockInCheckpoint ? NUM_FIRST_BLOCK_END_BLOB_FIELDS : NUM_BLOCK_END_BLOB_FIELDS;
+/** Returns the number of blob fields used for block end data. */
+export function getNumBlockEndBlobFields(): number {
+  return NUM_BLOCK_END_BLOB_FIELDS;
 }
 
 export interface BlockEndBlobData {
@@ -36,7 +35,7 @@ export interface BlockEndBlobData {
   noteHashRoot: Fr;
   nullifierRoot: Fr;
   publicDataRoot: Fr;
-  l1ToL2MessageRoot: Fr | undefined;
+  l1ToL2MessageRoot: Fr;
 }
 
 export interface BlockBlobData extends BlockEndBlobData {
@@ -51,14 +50,14 @@ export function encodeBlockEndBlobData(blockEndBlobData: BlockEndBlobData): Fr[]
     blockEndBlobData.noteHashRoot,
     blockEndBlobData.nullifierRoot,
     blockEndBlobData.publicDataRoot,
-    ...(blockEndBlobData.l1ToL2MessageRoot ? [blockEndBlobData.l1ToL2MessageRoot] : []),
+    blockEndBlobData.l1ToL2MessageRoot,
   ];
 }
 
-export function decodeBlockEndBlobData(fields: Fr[] | FieldReader, isFirstBlock: boolean): BlockEndBlobData {
+export function decodeBlockEndBlobData(fields: Fr[] | FieldReader): BlockEndBlobData {
   const reader = FieldReader.asReader(fields);
 
-  const numBlockEndData = getNumBlockEndBlobFields(isFirstBlock);
+  const numBlockEndData = getNumBlockEndBlobFields();
   if (numBlockEndData > reader.remainingFields()) {
     throw new BlobDeserializationError(
       `Incorrect encoding of blob fields: not enough fields for block end data. Expected ${numBlockEndData} fields, only ${reader.remainingFields()} remaining.`,
@@ -72,7 +71,7 @@ export function decodeBlockEndBlobData(fields: Fr[] | FieldReader, isFirstBlock:
     noteHashRoot: reader.readField(),
     nullifierRoot: reader.readField(),
     publicDataRoot: reader.readField(),
-    l1ToL2MessageRoot: isFirstBlock ? reader.readField() : undefined,
+    l1ToL2MessageRoot: reader.readField(),
   };
 }
 
@@ -80,7 +79,7 @@ export function encodeBlockBlobData(blockBlobData: BlockBlobData): Fr[] {
   return [...blockBlobData.txs.map(tx => encodeTxBlobData(tx)).flat(), ...encodeBlockEndBlobData(blockBlobData)];
 }
 
-export function decodeBlockBlobData(fields: Fr[] | FieldReader, isFirstBlock: boolean): BlockBlobData {
+export function decodeBlockBlobData(fields: Fr[] | FieldReader): BlockBlobData {
   const reader = FieldReader.asReader(fields);
 
   const txs: TxBlobData[] = [];
@@ -98,7 +97,7 @@ export function decodeBlockBlobData(fields: Fr[] | FieldReader, isFirstBlock: bo
     }
   }
 
-  const blockEndBlobData = decodeBlockEndBlobData(reader, isFirstBlock);
+  const blockEndBlobData = decodeBlockEndBlobData(reader);
 
   const blockEndMarker = blockEndBlobData.blockEndMarker;
   if (blockEndMarker.numTxs !== txs.length) {

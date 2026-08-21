@@ -3,6 +3,7 @@ title: Pay Fees Privately
 tags: [fees, privacy, fpc]
 sidebar_position: 8
 description: Learn how private fee payment works on Aztec and walk through an example using a community-built fully private Fee Payment Contract.
+references: ["yarn-project/aztec.js/src/fee/private_fee_payment_method.ts", "noir-projects/labs/noir-contracts/contracts/fees/fpc_contract/*"]
 ---
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';

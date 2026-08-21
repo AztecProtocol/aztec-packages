@@ -90,7 +90,7 @@ test('generates Rust constants', () => {
   assert.match(output, /pub const DOM_SEP__MERKLE_HASH: u128 = 2982624097;/);
 });
 
-test('generates Solidity constants', () => {
+test('generates Solidity constants and domain separators', () => {
   const output = generateToString(generateSolidityConstants);
 
   assert.match(
@@ -98,6 +98,7 @@ test('generates Solidity constants', () => {
     /uint256 internal constant MAX_FIELD_VALUE = 21888242871839275222246405745257275088548364400416034343698204186575808495616;/,
   );
   assert.match(output, /uint256 internal constant ARCHIVE_HEIGHT = 30;/);
+  assert.match(output, /uint256 internal constant DOM_SEP__MERKLE_HASH = 2982624097;/);
 });
 
 test('the CLI generates one output per invocation with its selection', () => {

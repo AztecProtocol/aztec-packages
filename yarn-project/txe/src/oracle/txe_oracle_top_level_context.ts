@@ -1,4 +1,4 @@
-import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -209,17 +209,18 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       return;
     }
 
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      contractAddress,
-      null,
-      async (call, execScopes) => {
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    await this.stateMachine.contractSyncService.ensureContractSynced({
+      contract: contractAddress,
+      functionToInvokeAfterSync: null,
+      utilityExecutor: async (call, execScopes) => {
         await this.executeUtilityCall(call, { scopes: execScopes, jobId });
       },
-      blockHeader,
+      anchorBlockHeader,
       jobId,
-      [scope],
-    );
+      scopes: [scope],
+      triggeredBy: undefined,
+    });
   }
 
   async getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
@@ -451,14 +452,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       await this.executeUtilityCall(call, { scopes: execScopes, jobId });
     };
 
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      targetContractAddress,
-      functionSelector,
+    await this.stateMachine.contractSyncService.ensureContractSynced({
+      contract: targetContractAddress,
+      functionToInvokeAfterSync: functionSelector,
       utilityExecutor,
-      blockHeader,
+      anchorBlockHeader: blockHeader,
       jobId,
       scopes,
-    );
+      triggeredBy: undefined,
+    });
 
     const blockNumber = await this.getNextBlockNumber();
 
@@ -663,8 +665,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
-    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
-    await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
+    // TXE blocks carry no L1-to-L2 messages, so the message tree is left unadvanced.
 
     const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 
@@ -828,8 +829,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
-    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
-    await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
+    // TXE blocks carry no L1-to-L2 messages, so the message tree is left unadvanced.
 
     const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 
@@ -859,16 +859,17 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
 
     // Sync notes before executing utility function to discover notes from previous transactions
-    await this.stateMachine.contractSyncService.ensureContractSynced(
-      targetContractAddress,
-      functionSelector,
-      async (call, execScopes) => {
+    await this.stateMachine.contractSyncService.ensureContractSynced({
+      contract: targetContractAddress,
+      functionToInvokeAfterSync: functionSelector,
+      utilityExecutor: async (call, execScopes) => {
         await this.executeUtilityCall(call, { scopes: execScopes, jobId });
       },
-      blockHeader,
+      anchorBlockHeader: blockHeader,
       jobId,
-      await this.keyStore.getAccounts(),
-    );
+      scopes: await this.keyStore.getAccounts(),
+      triggeredBy: undefined,
+    });
 
     const call = FunctionCall.from({
       name: artifact.name,

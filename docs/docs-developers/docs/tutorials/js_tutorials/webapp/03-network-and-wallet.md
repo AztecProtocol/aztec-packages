@@ -2,6 +2,7 @@
 title: "3. Network & Wallet"
 sidebar_position: 3
 description: "Connect to Aztec using an embedded wallet for local dev or the wallet SDK for browser extensions"
+references: ["docs/examples/webapp-tutorial/src/config.ts", "docs/examples/webapp-tutorial/src/embedded-wallet.ts", "docs/examples/webapp-tutorial/src/wallet-connection.ts", "docs/examples/webapp-tutorial/src/fees.ts", "docs/examples/webapp-tutorial/src/components/*"]
 ---
 
 # Network & Wallet

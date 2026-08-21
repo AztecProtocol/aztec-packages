@@ -94,7 +94,8 @@ contract Tmnt207Test is RollupBase {
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
       TestConstants.AZTEC_EPOCH_DURATION,
-      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS,
+      TestConstants.ETHEREUM_SLOT_DURATION
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
@@ -230,6 +231,8 @@ contract Tmnt207Test is RollupBase {
           previousArchive: rollup.getCheckpoint(0).archive,
           endArchive: rollup.getCheckpoint(1).archive,
           outHash: rollup.getCheckpoint(1).outHash,
+          previousInboxRollingHash: 0,
+          endInboxRollingHash: 0,
           proverId: address(0)
         }),
         headers: headers,
@@ -261,8 +264,13 @@ contract Tmnt207Test is RollupBase {
     header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
     header.totalManaUsed = MANA_TARGET;
 
-    ProposeArgs memory proposeArgs =
-      ProposeArgs({header: header, archive: archiveRoot, oracleInput: OracleInput({feeAssetPriceModifier: 0})});
+    // Streaming Inbox: reference the newest bucket (genesis here; nothing is seeded).
+    uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
+    header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
+
+    ProposeArgs memory proposeArgs = ProposeArgs({
+      header: header, archive: archiveRoot, oracleInput: OracleInput({feeAssetPriceModifier: 0}), bucketHint: bucketHint
+    });
 
     CommitteeAttestation[] memory attestations;
     address[] memory signers;

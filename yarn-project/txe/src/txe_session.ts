@@ -331,6 +331,10 @@ export class TXESession implements TXESessionStateHandler {
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
 
+    const archiver = new TXEArchiver(store);
+    const anchorBlockStore = new AnchorBlockStore(store);
+    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
+
     const jobCoordinator = new JobCoordinator(store);
     jobCoordinator.registerStores([
       capsuleStore,
@@ -339,11 +343,8 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore,
       privateEventStore,
       noteStore,
+      stateMachine.contractSyncService,
     ]);
-
-    const archiver = new TXEArchiver(store);
-    const anchorBlockStore = new AnchorBlockStore(store);
-    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());

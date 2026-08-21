@@ -3,6 +3,7 @@ id: monitoring
 title: Monitoring and metrics
 description: The handful of metrics that actually matter for keeping your sequencer alive, plus what to alert on and where the dashboards live.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/telemetry-client/src/*", "docs/static/scripts/aztec-monitoring.sh"]
 ---
 
 The Aztec node exposes over 250 Prometheus metrics. Most operators only need to watch a small handful to keep their sequencer healthy.
@@ -116,9 +117,9 @@ Use a distinct, durable value for each node (for example `my-sequencer-01`, `my-
 
 ## What about alerting on slashing risk
 
-The Aztec node does not natively emit a "you are about to be slashed" metric. The slashing voting process happens on L1 through the TallySlashingProposer contract; by the time a slash payload is queued, it is too late to fix the underlying behavior.
+Since v5.2.0 the node warns you directly when the network votes to slash one of your own validators. It watches slashing votes that name your attesters, logs `Own validator 0x... targeted by slashing vote (N of Q votes needed to slash)` on every such vote, and logs `Own validator 0x... was slashed for ...` once a round executes. The same signal is exported as metrics: alert on `aztec_slasher_own_validator_current_round_votes_max` approaching `aztec_slasher_quorum_size`. Votes cast while your node is offline are not counted, so treat the metric as a floor.
 
-The actionable proxies:
+The slashing vote itself still happens on L1 through the TallySlashingProposer contract, so once a slash payload is queued it is too late to fix the underlying behavior. Use these additional proxies as early warning:
 
 - Alert on **missed attestations and missed proposals**. Inactivity slashing is the accumulation of missed duties, so sustained failures are the direct early warning: they precede an inactivity penalty. The [installer](#set-up-monitoring-with-the-installer) ships alert rules for both (failed attestations and failed proposals in the last hour), so a stack set up that way warns you before the pattern becomes slashable.
 - Watch `aztec_l1_publisher_balance_eth` (above). A dry publisher is a common upstream cause of missed proposals; the installer alerts on it too.

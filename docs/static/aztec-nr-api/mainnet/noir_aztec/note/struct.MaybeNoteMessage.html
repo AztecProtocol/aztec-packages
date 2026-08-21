@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct MaybeNoteMessage documentation</title>
 </head>
 <body>
@@ -45,7 +48,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">note</a></div>
-<h1>Struct <span id="struct" class="struct">MaybeNoteMessage</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">MaybeNoteMessage</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct MaybeNoteMessage&lt;Note&gt;
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -54,42 +63,42 @@
 created depending on runtime conditions (e.g. a token transfer change note is not created if there is no change).</p>
 <p>Other than that, it and <a href="../../noir_aztec/note/struct.MaybeNoteMessage.html#deliver"><code>MaybeNoteMessage::deliver</code></a> behave the exact same way as <a href="../../noir_aztec/note/struct.NoteMessage.html"><code>NoteMessage</code></a>.</p></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/note/struct.MaybeNoteMessage.html" class="struct">MaybeNoteMessage</a>&lt;Note&gt;</code></h3>
-
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(maybe_new_note: <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../noir_aztec/note/lifecycle/struct.NewNote.html" class="struct">NewNote</a>&lt;Note&gt;&gt;, context: &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> Self
+<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/note/struct.MaybeNoteMessage.html" class="struct">MaybeNoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = _&gt;</div></code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>(maybe_new_note: <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../noir_aztec/note/lifecycle/struct.NewNote.html" class="struct">NewNote</a>&lt;Note&gt;&gt;, context: &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> Self
+<div class="where-clause">where
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
-<code id="deliver" class="code-header">pub fn <a href="#deliver"><span class="fn">deliver</span></a>&lt;D&gt;(self, delivery_mode: D)
+<code id="deliver" class="code-header">pub fn <a href="#deliver" class="fn">deliver</a>&lt;D&gt;(self, delivery_mode: D)
 <div class="where-clause">where
     D: <a href="../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Same as <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver"><code>NoteMessage::deliver</code></a>, except the message will only be delivered if it actually exists.</p>
 <p>Messages delivered using [<code>crate::messages::delivery::MessageDelivery::onchain_constrained()</code>] will
 pay proving costs regardless of whether the message exists or not.</p></div>
-</div><code id="deliver_to" class="code-header">pub fn <a href="#deliver_to"><span class="fn">deliver_to</span></a>&lt;D&gt;(self, recipient: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: D)
+</div><code id="deliver_to" class="code-header">pub fn <a href="#deliver_to" class="fn">deliver_to</a>&lt;D&gt;(self, recipient: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: D)
 <div class="where-clause">where
     D: <a href="../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Same as <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver_to"><code>NoteMessage::deliver_to</code></a>, except the message will only be delivered if it actually exists.</p>
 <p>Messages delivered using [<code>crate::messages::delivery::MessageDelivery::onchain_constrained()</code>] will
 pay proving costs regardless of whether the message exists or not.</p></div>
-</div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;Note&gt;
+</div><code id="get_note" class="code-header">pub fn <a href="#get_note" class="fn">get_note</a>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;Note&gt;
 <div class="where-clause">where
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the note contained in the message.</p>
 </div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

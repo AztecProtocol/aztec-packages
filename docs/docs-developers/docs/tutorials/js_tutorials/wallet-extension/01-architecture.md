@@ -2,6 +2,7 @@
 title: "1. Extension Architecture"
 description: Understanding Chrome extension architecture for Aztec wallets - service workers, offscreen documents, and message passing
 sidebar_position: 1
+references: ["docs/examples/webapp-tutorial/test-extension/src/content-script.ts", "docs/examples/webapp-tutorial/test-extension/src/background.ts", "docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts", "docs/examples/webapp-tutorial/test-extension/src/config.ts"]
 ---
 
 # Extension Architecture

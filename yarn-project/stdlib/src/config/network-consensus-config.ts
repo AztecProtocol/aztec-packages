@@ -1,7 +1,9 @@
 import { type L1ContractsConfig, l1ContractsConfigMappings, validateSlotDurations } from '@aztec/ethereum/config';
 import { type EnvVar, pickConfigMappings } from '@aztec/foundation/config';
 
+import { MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
 import type { SequencerConfig } from '../interfaces/configs.js';
+import { MIN_BLOCKS_FOR_INBOX_CATCHUP } from '../messaging/inbox_consumption.js';
 import {
   DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
   DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
@@ -47,7 +49,6 @@ export const NETWORK_CONSENSUS_ENV_VARS = [
   'AZTEC_EJECTION_THRESHOLD',
   'AZTEC_LOCAL_EJECTION_THRESHOLD',
   'AZTEC_EXIT_DELAY_SECONDS',
-  'AZTEC_INBOX_LAG',
   'AZTEC_PROOF_SUBMISSION_EPOCHS',
   'AZTEC_MANA_TARGET',
   'AZTEC_PROVING_COST_PER_MANA',
@@ -142,7 +143,8 @@ export function getConsensusConfigFromNetworkEnv(
  * The check requires `maxBlocksPerCheckpoint` to be *exactly* what a {@link ProposerTimetable} built from the
  * same slot timings and the production default budgets derives. This exact-equality requirement ensures the
  * published network value is precisely what the production default budgets produce, so every node running those
- * defaults agrees on the per-checkpoint block count without clamping.
+ * defaults agrees on the per-checkpoint block count without clamping. It must also be at least
+ * {@link MIN_BLOCKS_FOR_INBOX_CATCHUP}, without which the network is permanently haltable.
  */
 export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): string[] {
   const errors: string[] = [];
@@ -165,8 +167,19 @@ export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): 
       `blockDurationMs (${config.blockDurationMs}ms) exceeds aztecSlotDuration (${config.aztecSlotDuration}s)`,
     );
   }
-  if (config.maxBlocksPerCheckpoint < 1) {
-    errors.push(`maxBlocksPerCheckpoint must be at least 1 (got ${config.maxBlocksPerCheckpoint})`);
+  if (config.maxBlocksPerCheckpoint < MIN_BLOCKS_FOR_INBOX_CATCHUP) {
+    errors.push(
+      `maxBlocksPerCheckpoint must be at least ${MIN_BLOCKS_FOR_INBOX_CATCHUP} so a checkpoint can always clear a ` +
+        `mandatory streaming-Inbox backlog (got ${config.maxBlocksPerCheckpoint}); lower the block duration or raise ` +
+        `the slot duration so the proposer budgets derive at least that many blocks`,
+    );
+  }
+  if (config.maxBlocksPerCheckpoint > MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT) {
+    errors.push(
+      `maxBlocksPerCheckpoint (${config.maxBlocksPerCheckpoint}) exceeds the ` +
+        `${MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT} blocks nodes will build or attest to, so the network would ` +
+        `reject block indices its own configuration admits`,
+    );
   }
   if (config.checkpointProposalSyncGraceSeconds < 0) {
     errors.push(

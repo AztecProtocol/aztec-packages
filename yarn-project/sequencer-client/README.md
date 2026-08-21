@@ -142,7 +142,7 @@ Inside `execute()`:
    - Transitions to `INITIALIZING_CHECKPOINT`. If there is a pending invalidation, enqueue it.
    - Builds **pipelined-parent simulation overrides**: when building on top of a parent that hasn't landed on L1 yet, the fee-asset price modifier must be computed against the parent fee header we predicted (not the L1 one), so all in-flight checkpoints in the pipeline agree on the same modifier.
    - Asks the global variables builder for the slot's `CheckpointGlobalVariables` (`coinbase`, `feeRecipient`, `timestamp`, `gasFees`, `chainId`, `version`, `slotNumber`). These are shared across every block within the checkpoint — only `blockNumber` increments.
-   - Computes `inHash` from the L1→L2 messages for the checkpoint, and collects `previousCheckpointOutHashes` for prior checkpoints in the same epoch.
+   - Resolves the streaming Inbox consumption cursor (the parent checkpoint's last-consumed bucket, from the fork's L1→L2 leaf count), and collects `previousCheckpointOutHashes` for prior checkpoints in the same epoch. Each block then selects its own message bundle against the cursor (AZIP-22 Fast Inbox).
    - Forks world state at the parent (`closeDelayMs: 12 s`) and asks `FullNodeCheckpointsBuilder` for a `CheckpointBuilder` bound to that fork.
    - Runs `buildBlocksForCheckpoint()` — the per-block loop, described below.
    - Transitions to `ASSEMBLING_CHECKPOINT`, asks the builder to `completeCheckpoint()`, validates it against the configured caps, and asks the validator client to sign the `CheckpointProposal` (which bundles the final block proposal so the two travel together).
@@ -206,7 +206,7 @@ See the [Block Building Timetable Spec](../stdlib/src/timetable/README.md) for t
 Key entry points:
 
 - `canProposeAt(archive, msgSender, simulationOverridesPlan?)` — eth_call simulation of `Rollup.canProposeAt`. The sequencer runs this before deciding to build.
-- `enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, opts)` — adds the propose call, with a `preCheck` that re-validates the proposal against real L1 state when it is finally sent (catches drift between build time and submit time).
+- `enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, bucketHint, opts)` — adds the propose call, with a `preCheck` that re-validates the proposal against real L1 state when it is finally sent (catches drift between build time and submit time).
 - `enqueueInvalidateCheckpoint`, `enqueueGovernanceCastSignal`, `enqueueSlashingActions` — the rest of the actions a proposer may bundle.
 - `sendRequests(targetSlot?)` — immediately flushes the queue as one Multicall3 transaction. Used by the `AutomineSequencer` for synchronous in-slot publishing.
 - `sendRequestsAt(targetSlot)` — the production (pipelined) path: sleeps (cancellable) until the ideal L1 send time, runs each request's `preCheck` (dropping those that fail), and then calls `sendRequests(targetSlot)`, which filters expired requests, sorts the remainder, and submits one Multicall3 that mines inside the target slot.
@@ -261,6 +261,7 @@ The configuration object is `SequencerConfig` (`src/sequencer/config.ts` + `src/
 | `governanceProposerPayload` / `GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS` | unset | Payload signaled in the governance vote each slot. |
 | `secondsBeforeInvalidatingBlockAsCommitteeMember` | 144 | When *not* the proposer, committee members may invalidate a stuck checkpoint after this many seconds into the slot. |
 | `secondsBeforeInvalidatingBlockAsNonCommitteeMember` | 432 | Same for any node — last resort. |
+| `minPeersToPropose` / `SEQ_MIN_PEERS_TO_PROPOSE` | 1 | Minimum connected p2p peers required to build a checkpoint. Zero disables the check; ignored when p2p is disabled by config. |
 
 The full list (including test/fault-injection hooks like `pauseProposingForSlots` and `skipPublishingCheckpointsPercent`) lives in `src/config.ts`.
 
@@ -271,6 +272,7 @@ The full list (including test/fault-injection hooks like `pauseProposingForSlots
 - **Insufficient txs in a sub-slot**: `CheckpointBuilder.buildBlock` returns `insufficient-txs`. The sub-slot is skipped without committing state; the next sub-slot retries. On the last sub-slot, if `buildCheckpointIfEmpty` is true, the block is still built with whatever is available (possibly zero txs).
 - **Sub-slot deadline exceeded**: `CheckpointBuilder` enforces the deadline and stops executing further txs. The block is finalized with whatever fit.
 - **Build start deadline exceeded**: the work loop abandons the slot before building and marks it as attempted so the same checkpoint is not retried. Inside the job, sub-slot and attestation deadlines bound their own phases.
+- **No connected peers**: with p2p enabled and fewer than `minPeersToPropose` peers, the proposer skips building entirely (the proposal could never reach the committee, and a node with enough committee seats to self-attest would publish a checkpoint whose data was never gossiped). Governance/slashing votes and prune still go out, and the slot is marked as attempted.
 - **Pipelined parent fails on L1**: `waitForValidParentCheckpointOnL1` returns false. The whole proposal is discarded (`pipelined-checkpoint-discarded`), the parent is enqueued for invalidation, and the L1 submission for *this* checkpoint is not sent.
 - **L1 submission reverts or expires**: `checkpoint-publish-failed` is emitted with the individual action results so observability can break down which actions in the Multicall3 went through and which didn't.
 

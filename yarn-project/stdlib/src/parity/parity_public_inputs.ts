@@ -4,28 +4,26 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
+import { L1ToL2MessageSponge } from '../messaging/l1_to_l2_message_sponge.js';
+
 export class ParityPublicInputs {
   constructor(
-    /** Root of the SHA256 tree. */
-    public shaRoot: Fr,
-    /** Root of the converted tree. */
-    public convertedRoot: Fr,
-    /** Root of the VK tree */
-    public vkTreeRoot: Fr,
+    /** Inbox rolling hash before absorbing this checkpoint's messages. */
+    public startRollingHash: Fr,
+    /** Inbox rolling hash after absorbing the checkpoint's real messages. */
+    public endRollingHash: Fr,
+    /** Message-bundle sponge after absorbing the same real messages into the empty per-checkpoint sponge. */
+    public endSponge: L1ToL2MessageSponge,
     /** Prover identity committed to by the circuit, for sybil protection. */
     public proverId: Fr,
-  ) {
-    if (shaRoot.toBuffer()[0] != 0) {
-      throw new Error(`shaRoot buffer must be 31 bytes. Got 32 bytes`);
-    }
-  }
+  ) {}
 
   /**
    * Serializes the inputs to a buffer.
    * @returns The inputs serialized to a buffer.
    */
   toBuffer() {
-    return serializeToBuffer(...ParityPublicInputs.getFields(this));
+    return serializeToBuffer(this.startRollingHash, this.endRollingHash, this.endSponge, this.proverId);
   }
 
   /**
@@ -56,7 +54,7 @@ export class ParityPublicInputs {
    * @returns The instance fields.
    */
   static getFields(fields: FieldsOf<ParityPublicInputs>) {
-    return [fields.shaRoot, fields.convertedRoot, fields.vkTreeRoot, fields.proverId] as const;
+    return [fields.startRollingHash, fields.endRollingHash, fields.endSponge, fields.proverId] as const;
   }
 
   /**
@@ -69,7 +67,7 @@ export class ParityPublicInputs {
     return new ParityPublicInputs(
       reader.readObject(Fr),
       reader.readObject(Fr),
-      Fr.fromBuffer(reader),
+      reader.readObject(L1ToL2MessageSponge),
       Fr.fromBuffer(reader),
     );
   }

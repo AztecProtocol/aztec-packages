@@ -3,6 +3,7 @@ title: Reading Contract Data
 tags: [functions, simulation, events, logs]
 sidebar_position: 5
 description: How to read data from contracts including simulating functions, reading logs, and retrieving events.
+references: ["docs/examples/ts/aztecjs_connection/index.ts", "docs/examples/ts/aztecjs_advanced/index.ts", "yarn-project/end-to-end/src/automine/effects/event_logs.test.ts", "yarn-project/aztec.js/src/contract/contract_function_interaction.ts"]
 ---
 
 This guide shows you how to read data from Aztec contracts in TypeScript, including simulating function calls, reading raw logs, and retrieving typed events.

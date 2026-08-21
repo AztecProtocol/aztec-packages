@@ -3,6 +3,7 @@ id: reading_logs
 title: Reading your logs
 description: A reference for common sequencer, prover, and node log messages, which are safe to ignore, and which need action.
 displayed_sidebar: operatorsSidebar
+references: ["yarn-project/node-keystore/src/*", "yarn-project/p2p/src/*", "yarn-project/sequencer-client/src/*", "yarn-project/archiver/src/*", "yarn-project/prover-client/src/proving_broker/*"]
 ---
 
 Node logs carry a mix of routine network noise and messages that need action. This page catalogues the ones operators see most often, grouped by subsystem, with a severity and what to do.
@@ -44,6 +45,24 @@ A file in your keystore directory is a JSON **array**, but a keystore must be a 
 
 **Action:** set a valid P2P address in your node config and make sure the P2P port is reachable. See [the setup guide](/operate/operators/solo-sequencer/configure-environment) for the relevant variables.
 
+### `FATAL ... Failed to start p2p service`
+
+**Severity: Urgent.** The node will not start. Since v5.2.0 a p2p service that fails to start aborts node startup instead of leaving the node running with a dead libp2p stack. The usual cause is the TCP listener failing to bind: a port already in use, or an invalid `P2P_LISTEN_ADDR` / `P2P_PORT`.
+
+**Action:** free or change the P2P port and restart. A node that used to run past this error was peerless and silently useless, so the hard failure is the fix, not a regression.
+
+### `WARN ... Node has no connected peers; gossip and tx propagation are unavailable`
+
+**Severity: Urgent.** Your node has been at zero peers for several consecutive peer-manager heartbeats. It repeats about once a minute until peers return, then logs one info line when connectivity is restored. While peerless the node will not propose checkpoints, will not file data-withholding offenses, and rejects incoming transactions. New in v5.2.0.
+
+**Action:** check that your P2P port is reachable (`nc -zv <your-external-IP> 40400`) and that your advertised IP matches your external address. See [Sequencer troubleshooting](/operate/operators/concepts/sequencer-troubleshooting).
+
+### `WARN ... Skipping checkpoint proposal for slot N since we have too few connected peers`
+
+**Severity: Urgent.** You were the proposer for that slot but had fewer than `SEQ_MIN_PEERS_TO_PROPOSE` peers (default 1), so the node deliberately skipped building. New in v5.2.0.
+
+**Action:** same as above, fix peer connectivity. Setting `SEQ_MIN_PEERS_TO_PROPOSE=0` disables the gate but does not fix the underlying isolation.
+
 ## Sequencer
 
 ### `AttestationTimeoutError: Timeout collecting attestations for slot N: X/Y`
@@ -51,6 +70,18 @@ A file in your keystore directory is a JSON **array**, but a keystore must be a 
 **Severity: Investigate.** As the slot's proposer, you did not collect two-thirds of the committee's attestations in time, so that slot was missed. `X/Y` is how many attestations you collected versus how many were needed. The usual cause is that not enough of the committee's attesters were online that round.
 
 **Action:** every timed-out slot is a block you did not produce, so you earn no reward for it. Check your own peer count and connectivity first, since a low peer count or a slow connection can keep you from collecting attestations in time. If your node is healthy and this happens across many slots, it reflects a wider network liveness condition (not enough of the committee online) rather than a problem you can fix locally. A single miss is not slashable on its own, but persistent misses cost rewards, and missing nearly all of your duties for a full epoch contributes to inactivity.
+
+### `WARN ... Dropping N txs from mempool due to failures during block building for slot S`
+
+**Severity: Investigate.** Since v5.2.0 every transaction the block builder removes from the local mempool is logged at warn with its per-tx `reason`, alongside `slot` and `checkpointNumber`. Before this, these drops were only visible at verbose or debug level, so transactions disappeared with no recorded cause.
+
+**Action:** read the `failures` field for the reason. A burst of the same reason right after a reorg is expected and self-correcting. A steady trickle on a healthy chain points at transactions your node consistently rejects.
+
+### `WARN ... Own validator 0x... targeted by slashing vote (N of Q votes needed to slash)`
+
+**Severity: Urgent.** The network is voting to slash one of your validators, and `N` of the `Q` votes needed for quorum have been cast in this round. New in v5.2.0. A follow-up `Own validator 0x... was slashed for ...` is logged if the round executes.
+
+**Action:** react while the round is open. Confirm your node is attesting and proposing (this is almost always inactivity), then check [Slashing](/operate/operators/concepts/slashing). The same signal is available as `aztec_slasher_own_validator_current_round_votes_max` versus `aztec_slasher_quorum_size`.
 
 ## Archiver
 

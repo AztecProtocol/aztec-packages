@@ -1,4 +1,4 @@
-import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -264,19 +264,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    const isFirstBlock = l2Block.indexWithinCheckpoint === 0;
-    if (!isFirstBlock && l1ToL2Messages.length > 0) {
-      throw new Error(
-        `L1 to L2 messages must be empty for non-first blocks, but got ${l1ToL2Messages.length} messages for block ${l2Block.number}.`,
-      );
-    }
+    // Any block may carry an L1-to-L2 message bundle and transition the L1-to-L2 message tree by its real (unpadded,
+    // compact) leaves, matching how the circuits build the tree.
 
-    // We have to pad the given l1 to l2 messages, and the note hashes and nullifiers within tx effects, because that's
-    // how the trees are built by circuits.
-    const paddedL1ToL2Messages = isFirstBlock
-      ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
-      : [];
-
+    // We have to pad the note hashes and nullifiers within tx effects because that's how the trees are built by
+    // circuits.
     const paddedNoteHashes = l2Block.body.txEffects.flatMap(txEffect =>
       padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );
@@ -301,7 +293,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         // Forwarded so the native sync verifies the archive root against canonical and rejects a divergent tree.
         expectedArchiveRoot: l2Block.archive.root.toBuffer(),
         expectedPreviousArchiveRoot: l2Block.header.lastArchive.root.toBuffer(),
-        paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
+        paddedL1ToL2Messages: l1ToL2Messages.map(serializeLeaf),
         paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
         paddedNullifiers: paddedNullifiers.map(serializeLeaf),
         publicDataWrites: publicDataWrites.map(serializeLeaf),
