@@ -1,8 +1,7 @@
 import type { ComponentLogger, Logger } from '@libp2p/interface';
 
-import { getLogLevelFromFilters } from './log-filters.js';
 import type { LogLevel } from './log-levels.js';
-import { type LoggerBindings, logFilters, logger } from './pino-logger.js';
+import { type LoggerBindings, createPinoChild } from './pino-logger.js';
 
 /**
  * Creates a libp2p compatible logger that wraps our pino logger.
@@ -28,12 +27,7 @@ function replaceFormatting(message: string) {
 
 function createLibp2pLogger(component: string, bindings?: LoggerBindings): Logger {
   // Create a direct pino logger instance for libp2p that supports string interpolation
-  const actor = bindings?.actor;
-  const instanceId = bindings?.instanceId;
-  const log = logger.child(
-    { module: component, ...(actor && { actor }), ...(instanceId && { instanceId }) },
-    { level: getLogLevelFromFilters(logFilters, component) },
-  );
+  const log = createPinoChild(component, bindings);
 
   const logIfEnabled = (level: LogLevel, message: string, ...args: unknown[]) => {
     if (!log.isLevelEnabled(level)) {
@@ -48,7 +42,7 @@ function createLibp2pLogger(component: string, bindings?: LoggerBindings): Logge
     logIfEnabled('trace', message, ...args);
   };
 
-  return Object.assign(logFn, {
+  const libp2pLogger = Object.assign(logFn, {
     enabled: log.isLevelEnabled('debug'),
     error(message: string, ...args: unknown[]) {
       // We write error outputs as debug as they are often expected, e.g. connection errors can happen in happy paths
@@ -71,6 +65,9 @@ function createLibp2pLogger(component: string, bindings?: LoggerBindings): Logge
       logIfEnabled('trace', message, ...args);
     },
   });
+  // Redefine as a getter so the flag tracks live level changes made via setLogLevel.
+  Object.defineProperty(libp2pLogger, 'enabled', { get: () => log.isLevelEnabled('debug'), enumerable: true });
+  return libp2pLogger;
 }
 
 function formatArgs(message: string, args: unknown[]) {

@@ -1,5 +1,6 @@
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { isValidLogLevelSpec } from '@aztec/foundation/log';
 
 import { z } from 'zod';
 
@@ -93,6 +94,12 @@ export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, keyof L1Contr
     maxPendingTxCount: number;
     // Keep in sync with P2PConfig.skipIncomingProposals (circular dep prevents Pick<P2PConfig, ...> here)
     skipIncomingProposals?: boolean;
+    /**
+     * Log level spec in `LOG_LEVEL` env var format (e.g. `info` or `debug;trace:sequencer,p2p`). Setting it updates
+     * all loggers in the node process immediately; spawned processes keep their own configuration. Not persisted:
+     * a restart reverts to the `LOG_LEVEL` env var.
+     */
+    logLevel?: string;
   };
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
@@ -105,7 +112,13 @@ export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConf
       skipValidateCheckpointAttestations: true,
     }),
   )
-  .merge(z.object({ maxPendingTxCount: z.number(), skipIncomingProposals: z.boolean().optional() }));
+  .merge(
+    z.object({
+      maxPendingTxCount: z.number(),
+      skipIncomingProposals: z.boolean().optional(),
+      logLevel: z.string().refine(isValidLogLevelSpec, 'Invalid log level spec').optional(),
+    }),
+  );
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   getConfig: z.function({ input: z.tuple([]), output: AztecNodeAdminConfigSchema }),
