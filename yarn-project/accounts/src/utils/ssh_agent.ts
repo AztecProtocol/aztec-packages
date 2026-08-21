@@ -105,7 +105,11 @@ export function signWithAgent(keyType: Buffer, curveName: Buffer, publicKey: Buf
         keyType,
         Buffer.from([0, 0, 0, curveName.length]),
         curveName,
-        Buffer.from([0, 0, 0, publicKey.length + 1, 4]),
+        (() => {
+          const lengthBuffer = Buffer.alloc(4);
+          lengthBuffer.writeUInt32BE(publicKey.length, 0);
+          return lengthBuffer;
+        })(),
         publicKey,
       ]);
       const request = Buffer.concat([
