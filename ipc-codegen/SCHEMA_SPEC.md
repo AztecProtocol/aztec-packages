@@ -156,11 +156,17 @@ is serialized. The golden corpus pins these encodings across all languages.
 
 ### Framing
 
-All messages use length-prefix framing:
+Framing is owned by ipc-runtime, below this spec: every message travels as
 
 ```
-[4 bytes: payload length, little-endian uint32][payload: msgpack bytes]
+[4 bytes: length, LE uint32][8 bytes: request id, LE uint64][payload: msgpack bytes]
 ```
+
+where the length counts the id plus the payload. The request id is assigned
+by the client and echoed on the response; responses arrive in completion
+order and are correlated by id, entirely inside the transports — the msgpack
+payloads this spec describes never contain the id, and generated code never
+sees it.
 
 ### Request wire format
 

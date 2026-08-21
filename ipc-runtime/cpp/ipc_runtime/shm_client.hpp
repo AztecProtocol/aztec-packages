@@ -74,28 +74,32 @@ class ShmClient : public IpcClient {
         return false;
     }
 
-    bool send(const void* data, size_t len, uint64_t timeout_ns) override
+    bool send(uint64_t request_id, const void* data, size_t len, uint64_t timeout_ns) override
     {
         if (!request_ring_.has_value()) {
             return false;
         }
-        return ring_send_msg(request_ring_.value(), data, len, normalize_call_timeout(timeout_ns));
+        return ring_send_msg(request_ring_.value(), request_id, data, len, normalize_call_timeout(timeout_ns));
     }
 
-    std::span<const uint8_t> receive(uint64_t timeout_ns) override
+    std::span<const uint8_t> receive(uint64_t timeout_ns, uint64_t& request_id) override
     {
         if (!response_ring_.has_value()) {
             return {};
         }
-        return ring_receive_msg(response_ring_.value(), normalize_call_timeout(timeout_ns));
+        return ring_receive_msg(response_ring_.value(), normalize_call_timeout(timeout_ns), request_id);
     }
+
+    // Rings persist across occupants (slot reclaim / reattach), so leftover
+    // frames from a previous connection are expected and skipped by id.
+    bool may_have_stale_frames() const override { return true; }
 
     void release(size_t message_size) override
     {
         if (!response_ring_.has_value()) {
             return;
         }
-        response_ring_->release(sizeof(uint32_t) + message_size);
+        response_ring_->release(sizeof(uint32_t) + FRAME_ID_SIZE + message_size);
     }
 
     void close() override

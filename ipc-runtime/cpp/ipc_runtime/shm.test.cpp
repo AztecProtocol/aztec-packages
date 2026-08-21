@@ -35,7 +35,7 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
     constexpr size_t NUM_ITERATIONS = 10000000;
     // Sizing ensures that no matter that state of the internal ring buffer, we
     // can't deadlock.
-    constexpr size_t MAX_MSG_SIZE = (RING_SIZE / 2) - 4;
+    constexpr size_t MAX_MSG_SIZE = (RING_SIZE / 2) - 4 - FRAME_ID_SIZE;
 
     // Use short name for macOS compatibility (31-char limit)
     std::string wrap_test_shm = "shm_wrap_" + std::to_string(getpid());
@@ -56,7 +56,8 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
                 continue;
             }
 
-            auto request_buf = server->receive(client_id);
+            uint64_t request_id = 0;
+            auto request_buf = server->receive(client_id, request_id);
             // std::cerr << "Server received " << request.size() << " bytes" << '\n';
 
             if (request_buf.empty()) {
@@ -83,7 +84,7 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
             }
 
             // Retry send until success.
-            while (!server->send(client_id, request.data(), request.size())) {
+            while (!server->send(client_id, request_id, request.data(), request.size())) {
                 // Timeout - retry (response ring might be full)
                 std::cerr << iter << " Server send size " << request.size() << " timeout, retrying..." << '\n';
                 dynamic_cast<ShmServer*>(server.get())->debug_dump();
@@ -104,63 +105,68 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
     std::mt19937 gen(rd());
     std::uniform_int_distribution<size_t> size_dist(1, MAX_MSG_SIZE);
 
-    // Store sizes for each iteration so receiver knows what to expect
-    std::vector<size_t> iteration_sizes(NUM_ITERATIONS);
-    for (size_t i = 0; i < NUM_ITERATIONS; i++) {
-        iteration_sizes[i] = size_dist(gen);
-        // iteration_sizes[i] = MAX_MSG_SIZE - 1;
+    // Size of each request, indexed by request id. Ids are 1-based (id 0 is
+    // reserved for server-initiated frames — see constants.hpp), so the array
+    // has NUM_ITERATIONS + 1 slots with slot 0 unused.
+    std::vector<size_t> request_sizes(NUM_ITERATIONS + 1);
+    for (size_t id = 1; id <= NUM_ITERATIONS; id++) {
+        request_sizes[id] = size_dist(gen);
+        // request_sizes[id] = MAX_MSG_SIZE - 1;
     }
 
     // Sender thread: continuously send requests
     std::thread sender_thread([&]() {
         std::vector<uint8_t> send_buffer(MAX_MSG_SIZE);
 
-        for (size_t iter = 0; iter < NUM_ITERATIONS; iter++) {
-            size_t size = iteration_sizes[iter];
-            // std::cerr << "Client: Iteration " << iter << ": sending " << size << "
-            // bytes" << '\n';
+        for (size_t id = 1; id <= NUM_ITERATIONS; id++) {
+            size_t size = request_sizes[id];
+            // std::cerr << "Client: id " << id << ": sending " << size << " bytes" << '\n';
 
-            // Fill buffer with iteration-specific pattern
-            // First byte is iteration number (mod 256), rest is XOR pattern with
-            // offset
-            uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
+            // Fill buffer with an id-specific pattern: first byte is the id
+            // (mod 256), rest is an XOR pattern with offset.
+            uint8_t id_byte = static_cast<uint8_t>(id & 0xFF);
             for (size_t i = 0; i < size; i++) {
-                send_buffer[i] = static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
+                send_buffer[i] = static_cast<uint8_t>((id_byte ^ i) & 0xFF);
             }
 
-            // Retry send until success - timeouts are expected under extreme load
-            while (!client->send(send_buffer.data(), size, 100000000)) {
+            // Retry send until success - timeouts are expected under extreme load.
+            // Explicit request id: the receiver thread runs concurrently, so the
+            // serial auto-id convenience API cannot be used.
+            while (!client->send(id, send_buffer.data(), size, 100000000)) {
                 // Timeout - retry (ring might be full, server might be slow)
-                std::cerr << iter << " Client send size " << size << " timeout, retrying..." << '\n';
+                std::cerr << id << " Client send size " << size << " timeout, retrying..." << '\n';
                 dynamic_cast<ShmClient*>(client.get())->debug_dump();
             }
         }
     });
 
-    // Receiver thread: continuously receive and validate responses
+    // Receiver thread: continuously receive and validate responses. The echoed
+    // request id selects the expected size and pattern, so validation is
+    // independent of response order.
     std::thread receiver_thread([&]() {
-        for (size_t iter = 0; iter < NUM_ITERATIONS; iter++) {
-            size_t expected_size = iteration_sizes[iter];
-
+        for (size_t n = 0; n < NUM_ITERATIONS; n++) {
             // Retry recv until success - timeouts are expected under extreme load
             std::span<const uint8_t> response;
-            while ((response = client->receive(100000000)).empty()) {
-                std::cerr << iter << " Client receive timeout, retrying..." << '\n';
+            uint64_t rid = 0;
+            while ((response = client->receive(100000000, rid)).empty()) {
+                std::cerr << n << " Client receive timeout, retrying..." << '\n';
                 // Timeout - retry
             }
-            // std::cerr << "Client received response of " << response.size() << "
-            // bytes" << '\n';
+            ASSERT_GE(rid, 1U);
+            ASSERT_LE(rid, NUM_ITERATIONS);
+            size_t expected_size = request_sizes[rid];
+            // std::cerr << "Client received response of " << response.size() << " bytes" << '\n';
 
-            ASSERT_EQ(response.size(), expected_size) << "Size mismatch at iteration " << iter;
+            ASSERT_EQ(response.size(), expected_size) << "Size mismatch for request id " << rid;
 
-            // Validate entire response - check iteration byte and pattern
-            uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
+            // Validate entire response - check id byte and pattern
+            uint8_t id_byte = static_cast<uint8_t>(rid & 0xFF);
             if (response.size() > 0) {
-                ASSERT_EQ(response[0], iter_byte) << "Iteration byte mismatch at iteration " << iter;
+                ASSERT_EQ(response[0], id_byte) << "Id byte mismatch for request id " << rid;
                 for (size_t i = 0; i < response.size(); i++) {
-                    uint8_t expected = static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
+                    uint8_t expected = static_cast<uint8_t>((id_byte ^ i) & 0xFF);
                     if (response[i] != expected) {
-                        FAIL() << "Data corruption at iteration " << iter << " offset " << i
+                        FAIL() << "Data corruption for request id " << rid << " offset " << i
                                << ": expected=" << (int)expected << " actual=" << (int)response[i];
                     }
                 }
@@ -250,7 +256,8 @@ TEST(ShmTest, TimeoutDoesNotWrapAbove4Seconds)
     EXPECT_LT(elapsed.count(), 4400);
 
     sender.join();
-    auto request = server->receive(0);
+    uint64_t drain_id = 0;
+    auto request = server->receive(0, drain_id);
     if (!request.empty()) {
         server->release(0, request.size());
     }
@@ -278,7 +285,8 @@ TEST(ShmTest, RingRejectsCorruptLengthPrefix)
     std::memcpy(buf, &bogus_len, sizeof(bogus_len));
     producer.publish(8);
 
-    EXPECT_THROW((void)ring_receive_msg(consumer, 10'000'000ULL), std::runtime_error);
+    uint64_t corrupt_id = 0;
+    EXPECT_THROW((void)ring_receive_msg(consumer, 10'000'000ULL, corrupt_id), std::runtime_error);
 
     SpscShm::unlink(ring_name);
 }
@@ -310,13 +318,14 @@ TEST(ShmTest, MpscEchoTwoClients)
             if (client_id < 0) {
                 continue;
             }
-            auto request_buf = server->receive(client_id);
+            uint64_t request_id = 0;
+            auto request_buf = server->receive(client_id, request_id);
             if (request_buf.empty()) {
                 continue;
             }
             std::vector<uint8_t> request(request_buf.begin(), request_buf.end());
             server->release(client_id, request.size());
-            while (!server->send(client_id, request.data(), request.size())) {
+            while (!server->send(client_id, request_id, request.data(), request.size())) {
                 // Retry if the client's response ring is full.
             }
         }
@@ -439,7 +448,7 @@ class ReactorTestPool {
 // the reactor must observe inside its futex-arm window (see MpscConsumer::notify
 // / wait_for_data). Pipeline N requests on one connection whose handlers sleep
 // LONGER for earlier indices, so completions arrive reversed: a lost wake would
-// stall, and a missing reorder buffer would deliver out of order.
+// stall. Responses arrive in completion order, correlated by echoed id.
 TEST(ShmTest, MpscReactorPipelinedConcurrencyAndOrder)
 {
     constexpr uint32_t N = 16;
@@ -468,16 +477,18 @@ TEST(ShmTest, MpscReactorPipelinedConcurrencyAndOrder)
     ASSERT_TRUE(client->connect()) << "MPSC reactor client failed to connect";
 
     auto t0 = std::chrono::steady_clock::now();
-    for (uint32_t i = 0; i < N; i++) {
-        while (!client->send(&i, sizeof(i), 100'000'000ULL)) {
+    for (uint32_t id = 1; id <= N; id++) {
+        while (!client->send(id, &id, sizeof(id), 100'000'000ULL)) {
             // Retry on a transient full request ring.
         }
     }
     bool stalled = false;
-    for (uint32_t i = 0; i < N; i++) {
+    std::vector<bool> seen(N + 1, false);
+    for (uint32_t n = 0; n < N; n++) {
         std::span<const uint8_t> resp;
+        uint64_t rid = 0;
         size_t empties = 0;
-        while ((resp = client->receive(100'000'000ULL)).empty()) {
+        while ((resp = client->receive(100'000'000ULL, rid)).empty()) {
             if (++empties > 50) { // 5s grace — a lost wake shows up as a stall
                 stalled = true;
                 break;
@@ -489,13 +500,22 @@ TEST(ShmTest, MpscReactorPipelinedConcurrencyAndOrder)
         ASSERT_EQ(resp.size(), sizeof(uint32_t));
         uint32_t got = 0;
         std::memcpy(&got, resp.data(), sizeof(got));
-        EXPECT_EQ(got, i) << "responses must arrive in per-connection request order";
+        ASSERT_GE(rid, 1U);
+        ASSERT_LE(rid, N);
+        EXPECT_EQ(got, static_cast<uint32_t>(rid)) << "response payload does not match its echoed request id";
+        EXPECT_FALSE(seen[rid]) << "duplicate response for request id " << rid;
+        seen[rid] = true;
         client->release(resp.size());
+    }
+    if (!stalled) {
+        for (uint32_t id = 1; id <= N; id++) {
+            EXPECT_TRUE(seen[id]) << "request id " << id << " was never answered";
+        }
     }
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
 
     EXPECT_FALSE(stalled) << "receiver stalled — a completion wake was lost over MPSC";
-    // Serial would be the sum of sleeps (~456ms); 8 workers should be far less.
+    // Serial would be the sum of sleeps (~440ms); 8 workers should be far less.
     EXPECT_LT(ms, 250) << "pipelined requests did not execute concurrently (took " << ms << "ms)";
 
     client->close();
@@ -518,7 +538,7 @@ TEST(ShmTest, MpscSingleClientPipelinedFlood)
 {
     constexpr size_t RING_SIZE = 2UL * 1024;
     constexpr size_t NUM_ITERATIONS = 200000;
-    constexpr size_t MAX_MSG_SIZE = (RING_SIZE / 2) - 4;
+    constexpr size_t MAX_MSG_SIZE = (RING_SIZE / 2) - 4 - FRAME_ID_SIZE;
     constexpr size_t NUM_CLIENTS = 1;
 
     std::string base_name = "shm_mpscflood_" + std::to_string(getpid());
@@ -535,7 +555,8 @@ TEST(ShmTest, MpscSingleClientPipelinedFlood)
             if (client_id < 0) {
                 continue;
             }
-            auto request_buf = server->receive(client_id);
+            uint64_t request_id = 0;
+            auto request_buf = server->receive(client_id, request_id);
             if (request_buf.empty()) {
                 continue;
             }
@@ -548,7 +569,7 @@ TEST(ShmTest, MpscSingleClientPipelinedFlood)
                     break;
                 }
             }
-            while (!server->send(client_id, request.data(), request.size())) {
+            while (!server->send(client_id, request_id, request.data(), request.size())) {
                 // Response ring full - retry.
             }
         }
@@ -562,9 +583,9 @@ TEST(ShmTest, MpscSingleClientPipelinedFlood)
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<size_t> size_dist(1, MAX_MSG_SIZE);
-    std::vector<size_t> iteration_sizes(NUM_ITERATIONS);
-    for (size_t i = 0; i < NUM_ITERATIONS; i++) {
-        iteration_sizes[i] = size_dist(gen);
+    std::vector<size_t> request_sizes(NUM_ITERATIONS + 1);
+    for (size_t id = 1; id <= NUM_ITERATIONS; id++) {
+        request_sizes[id] = size_dist(gen);
     }
 
     // Set by the receiver if it gives up; lets the sender abandon its send-retry
@@ -573,13 +594,13 @@ TEST(ShmTest, MpscSingleClientPipelinedFlood)
 
     std::thread sender_thread([&]() {
         std::vector<uint8_t> send_buffer(MAX_MSG_SIZE);
-        for (size_t iter = 0; iter < NUM_ITERATIONS && !abort_flood.load(std::memory_order_acquire); iter++) {
-            size_t size = iteration_sizes[iter];
-            uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
+        for (size_t id = 1; id <= NUM_ITERATIONS && !abort_flood.load(std::memory_order_acquire); id++) {
+            size_t size = request_sizes[id];
+            uint8_t id_byte = static_cast<uint8_t>(id & 0xFF);
             for (size_t i = 0; i < size; i++) {
-                send_buffer[i] = static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
+                send_buffer[i] = static_cast<uint8_t>((id_byte ^ i) & 0xFF);
             }
-            while (!client->send(send_buffer.data(), size, 100000000)) {
+            while (!client->send(id, send_buffer.data(), size, 100000000)) {
                 if (abort_flood.load(std::memory_order_acquire)) {
                     return;
                 }
@@ -590,22 +611,26 @@ TEST(ShmTest, MpscSingleClientPipelinedFlood)
     std::atomic<size_t> received{ 0 };
     std::atomic<bool> stalled{ false };
     std::thread receiver_thread([&]() {
-        for (size_t iter = 0; iter < NUM_ITERATIONS; iter++) {
-            size_t expected_size = iteration_sizes[iter];
+        for (size_t n = 0; n < NUM_ITERATIONS; n++) {
             std::span<const uint8_t> response;
+            uint64_t rid = 0;
             size_t empties = 0;
             // 50 * 100ms = 5s grace; a lost message shows up as a stall here.
-            while ((response = client->receive(100000000)).empty()) {
+            while ((response = client->receive(100000000, rid)).empty()) {
                 if (++empties > 50) {
                     stalled.store(true);
                     abort_flood.store(true, std::memory_order_release);
                     return;
                 }
             }
-            bool ok = response.size() == expected_size;
-            uint8_t iter_byte = static_cast<uint8_t>(iter & 0xFF);
+            // The echoed id identifies the request, so validation is
+            // independent of response order.
+            bool ok = rid >= 1 && rid <= NUM_ITERATIONS;
+            size_t expected_size = ok ? request_sizes[rid] : 0;
+            ok = ok && response.size() == expected_size;
+            uint8_t id_byte = static_cast<uint8_t>(rid & 0xFF);
             for (size_t i = 0; ok && i < response.size(); i++) {
-                ok = response[i] == static_cast<uint8_t>((iter_byte ^ i) & 0xFF);
+                ok = response[i] == static_cast<uint8_t>((id_byte ^ i) & 0xFF);
             }
             client->release(response.size());
             if (!ok) {
@@ -661,13 +686,14 @@ TEST(ShmTest, MpscSingleClientBurst)
             if (client_id < 0) {
                 continue;
             }
-            auto request_buf = server->receive(client_id);
+            uint64_t request_id = 0;
+            auto request_buf = server->receive(client_id, request_id);
             if (request_buf.empty()) {
                 continue;
             }
             std::vector<uint8_t> request(request_buf.begin(), request_buf.end());
             server->release(client_id, request.size());
-            while (!server->send(client_id, request.data(), request.size())) {
+            while (!server->send(client_id, request_id, request.data(), request.size())) {
                 // Response ring full - retry.
             }
         }
@@ -680,22 +706,27 @@ TEST(ShmTest, MpscSingleClientBurst)
 
     size_t total_received = 0;
     bool stalled = false;
+    // The payload tag doubles as the request id (1-based, unique across rounds).
+    uint32_t next_tag = 1;
     for (size_t round = 0; round < NUM_ROUNDS && !stalled; round++) {
         // Fire the whole burst with no interleaved receive: BURST requests and
         // their responses are all in flight before we drain any.
         for (size_t i = 0; i < BURST; i++) {
             std::vector<uint8_t> payload(MSG_SIZE, 0);
-            uint32_t tag = static_cast<uint32_t>(round * BURST + i);
+            uint32_t tag = next_tag++;
             std::memcpy(payload.data(), &tag, sizeof(tag));
-            while (!client->send(payload.data(), payload.size(), 1'000'000'000ULL)) {
+            while (!client->send(tag, payload.data(), payload.size(), 1'000'000'000ULL)) {
                 // Ring full - retry.
             }
         }
-        // Drain the burst; responses come back in FIFO (send) order.
+        // Drain the burst; each response is paired to its request by the
+        // echoed id (the serve loop is serial here, but the contract is
+        // correlation, not order).
         for (size_t i = 0; i < BURST; i++) {
             std::span<const uint8_t> resp;
+            uint64_t rid = 0;
             size_t empties = 0;
-            while ((resp = client->receive(100'000'000ULL)).empty()) {
+            while ((resp = client->receive(100'000'000ULL, rid)).empty()) {
                 if (++empties > 50) { // 5s grace
                     stalled = true;
                     break;
@@ -706,7 +737,7 @@ TEST(ShmTest, MpscSingleClientBurst)
             }
             uint32_t tag = 0;
             std::memcpy(&tag, resp.data(), sizeof(tag));
-            EXPECT_EQ(tag, static_cast<uint32_t>(round * BURST + i)) << "lost/out-of-order at round " << round;
+            EXPECT_EQ(static_cast<uint64_t>(tag), rid) << "payload does not match its echoed id at round " << round;
             EXPECT_EQ(resp.size(), MSG_SIZE);
             client->release(resp.size());
             total_received++;
@@ -716,6 +747,60 @@ TEST(ShmTest, MpscSingleClientBurst)
     EXPECT_FALSE(stalled) << "receiver stalled after " << total_received
                           << " responses — a request or response was lost over MPSC burst";
     EXPECT_EQ(total_received, BURST * NUM_ROUNDS) << "did not receive all responses over MPSC burst";
+
+    client->close();
+    server_running.store(false);
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+}
+
+// A reclaimed slot's response ring can hold a leftover frame addressed to the
+// previous occupant. The serial convenience receive() must recognise it by id,
+// release it, and keep waiting for the real response — closing here would fail
+// the new occupant's first call through no fault of its own.
+TEST(ShmTest, SerialClientSkipsStaleFrameFromPreviousOccupant)
+{
+    constexpr size_t RING_SIZE = 4UL * 1024;
+    std::string base_name = "shm_stale_" + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, 1, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen());
+
+    std::atomic<bool> server_running{ true };
+    std::thread server_thread([&]() {
+        while (server_running.load(std::memory_order_acquire)) {
+            server->accept();
+            int client_id = server->wait_for_data(10000000); // 10ms
+            if (client_id < 0) {
+                continue;
+            }
+            uint64_t request_id = 0;
+            auto request = server->receive(client_id, request_id);
+            if (request.data() == nullptr) {
+                continue;
+            }
+            std::vector<uint8_t> payload(request.begin(), request.end());
+            server->release(client_id, payload.size());
+            // Inject a leftover addressed to a previous occupant's id, THEN the
+            // real echo. The serial client must skip the first frame.
+            uint8_t junk[3] = { 0xBA, 0xAD, 0x01 };
+            while (!server->send(client_id, 0xDEADBEEFULL, junk, sizeof(junk))) {
+            }
+            while (!server->send(client_id, request_id, payload.data(), payload.size())) {
+            }
+        }
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    auto client = IpcClient::create_mpsc_shm(base_name, 0);
+    ASSERT_TRUE(client->connect());
+
+    uint8_t msg[4] = { 1, 2, 3, 4 };
+    ASSERT_TRUE(client->send(msg, sizeof(msg), 1'000'000'000ULL));
+    auto resp = client->receive(2'000'000'000ULL);
+    ASSERT_EQ(resp.size(), sizeof(msg)) << "stale frame was not skipped";
+    EXPECT_EQ(0, std::memcmp(resp.data(), msg, sizeof(msg)));
+    client->release(resp.size());
 
     client->close();
     server_running.store(false);
@@ -739,9 +824,9 @@ TEST(ShmTest, MpscReactorMultiClientResponseRouting)
         server->run_reactor([&pool](int, std::span<const uint8_t> req, IpcServer::Respond respond) {
             std::vector<uint8_t> r(req.begin(), req.end());
             pool.enqueue([r = std::move(r), respond = std::move(respond)]() mutable {
-                uint32_t seq = 0;
-                std::memcpy(&seq, r.data() + sizeof(uint32_t), sizeof(uint32_t));
-                std::this_thread::sleep_for(std::chrono::microseconds(20 * (seq % 8)));
+                uint32_t id = 0;
+                std::memcpy(&id, r.data() + sizeof(uint32_t), sizeof(uint32_t));
+                std::this_thread::sleep_for(std::chrono::microseconds(20 * (id % 8)));
                 respond(std::move(r));
             });
         });
@@ -749,7 +834,7 @@ TEST(ShmTest, MpscReactorMultiClientResponseRouting)
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     std::atomic<int> wrong_client{ 0 };
-    std::atomic<int> out_of_order{ 0 };
+    std::atomic<int> mispaired{ 0 };
     std::atomic<int> stalls{ 0 };
 
     auto run_client = [&](uint32_t c) {
@@ -758,15 +843,19 @@ TEST(ShmTest, MpscReactorMultiClientResponseRouting)
             stalls++;
             return;
         }
-        for (uint32_t s = 0; s < K; s++) {
-            uint32_t msg[2] = { c, s };
-            while (!client->send(msg, sizeof(msg), 100'000'000ULL)) {
+        for (uint32_t id = 1; id <= K; id++) {
+            uint32_t msg[2] = { c, id };
+            while (!client->send(id, msg, sizeof(msg), 100'000'000ULL)) {
             }
         }
-        for (uint32_t s = 0; s < K; s++) {
+        // Responses arrive in completion order; pair each to its request via
+        // the echoed id and require every request answered exactly once.
+        std::vector<bool> seen(K + 1, false);
+        for (uint32_t n = 0; n < K; n++) {
             std::span<const uint8_t> resp;
+            uint64_t rid = 0;
             size_t empties = 0;
-            while ((resp = client->receive(100'000'000ULL)).empty()) {
+            while ((resp = client->receive(100'000'000ULL, rid)).empty()) {
                 if (++empties > 50) {
                     stalls++;
                     break;
@@ -780,8 +869,10 @@ TEST(ShmTest, MpscReactorMultiClientResponseRouting)
             if (got[0] != c) {
                 wrong_client++;
             }
-            if (got[1] != s) {
-                out_of_order++;
+            if (rid < 1 || rid > K || got[1] != static_cast<uint32_t>(rid) || seen[rid]) {
+                mispaired++;
+            } else {
+                seen[rid] = true;
             }
             client->release(resp.size());
         }
@@ -801,7 +892,7 @@ TEST(ShmTest, MpscReactorMultiClientResponseRouting)
     server->close();
 
     EXPECT_EQ(wrong_client.load(), 0) << "responses were routed to the wrong client";
-    EXPECT_EQ(out_of_order.load(), 0) << "responses arrived out of order within a client";
+    EXPECT_EQ(mispaired.load(), 0) << "a response did not pair with its request id exactly once";
     EXPECT_EQ(stalls.load(), 0) << "a client stalled waiting for its responses";
 }
 
@@ -820,9 +911,9 @@ TEST(ShmTest, MpscReactorAutoClaimMultiClient)
         server->run_reactor([&pool](int, std::span<const uint8_t> req, IpcServer::Respond respond) {
             std::vector<uint8_t> r(req.begin(), req.end());
             pool.enqueue([r = std::move(r), respond = std::move(respond)]() mutable {
-                uint32_t seq = 0;
-                std::memcpy(&seq, r.data() + sizeof(uint32_t), sizeof(uint32_t));
-                std::this_thread::sleep_for(std::chrono::microseconds(20 * (seq % 8)));
+                uint32_t id = 0;
+                std::memcpy(&id, r.data() + sizeof(uint32_t), sizeof(uint32_t));
+                std::this_thread::sleep_for(std::chrono::microseconds(20 * (id % 8)));
                 respond(std::move(r));
             });
         });
@@ -830,7 +921,7 @@ TEST(ShmTest, MpscReactorAutoClaimMultiClient)
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     std::atomic<int> wrong_client{ 0 };
-    std::atomic<int> out_of_order{ 0 };
+    std::atomic<int> mispaired{ 0 };
     std::atomic<int> stalls{ 0 };
 
     auto run_client = [&](uint32_t c) {
@@ -839,15 +930,19 @@ TEST(ShmTest, MpscReactorAutoClaimMultiClient)
             stalls++;
             return;
         }
-        for (uint32_t s = 0; s < K; s++) {
-            uint32_t msg[2] = { c, s };
-            while (!client->send(msg, sizeof(msg), 100'000'000ULL)) {
+        for (uint32_t id = 1; id <= K; id++) {
+            uint32_t msg[2] = { c, id };
+            while (!client->send(id, msg, sizeof(msg), 100'000'000ULL)) {
             }
         }
-        for (uint32_t s = 0; s < K; s++) {
+        // Responses arrive in completion order; pair each to its request via
+        // the echoed id and require every request answered exactly once.
+        std::vector<bool> seen(K + 1, false);
+        for (uint32_t n = 0; n < K; n++) {
             std::span<const uint8_t> resp;
+            uint64_t rid = 0;
             size_t empties = 0;
-            while ((resp = client->receive(100'000'000ULL)).empty()) {
+            while ((resp = client->receive(100'000'000ULL, rid)).empty()) {
                 if (++empties > 50) {
                     stalls++;
                     break;
@@ -861,8 +956,10 @@ TEST(ShmTest, MpscReactorAutoClaimMultiClient)
             if (got[0] != c) {
                 wrong_client++;
             }
-            if (got[1] != s) {
-                out_of_order++;
+            if (rid < 1 || rid > K || got[1] != static_cast<uint32_t>(rid) || seen[rid]) {
+                mispaired++;
+            } else {
+                seen[rid] = true;
             }
             client->release(resp.size());
         }
@@ -882,7 +979,7 @@ TEST(ShmTest, MpscReactorAutoClaimMultiClient)
     server->close();
 
     EXPECT_EQ(wrong_client.load(), 0) << "self-allocated clients aliased onto a shared slot";
-    EXPECT_EQ(out_of_order.load(), 0) << "responses arrived out of order within a client";
+    EXPECT_EQ(mispaired.load(), 0) << "a response did not pair with its request id exactly once";
     EXPECT_EQ(stalls.load(), 0) << "a client stalled";
 }
 

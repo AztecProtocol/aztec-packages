@@ -29,8 +29,8 @@ class SocketClient : public IpcClient {
     SocketClient& operator=(SocketClient&&) = delete;
 
     bool connect() override;
-    bool send(const void* data, size_t len, uint64_t timeout_ns) override;
-    std::span<const uint8_t> receive(uint64_t timeout_ns) override;
+    bool send(uint64_t request_id, const void* data, size_t len, uint64_t timeout_ns) override;
+    std::span<const uint8_t> receive(uint64_t timeout_ns, uint64_t& request_id) override;
     void release(size_t message_size) override;
     void close() override;
 
