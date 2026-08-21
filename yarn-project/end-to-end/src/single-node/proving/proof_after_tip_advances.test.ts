@@ -43,6 +43,11 @@ describe('single-node/proving/proof_after_tip_advances', () => {
     const fastProver = (await test.createProverNode({ dontStart: true })).getProverNode()! as TestProverNode;
     const slowProver = (await test.createProverNode({ dontStart: true })).getProverNode()! as TestProverNode;
 
+    // Session hooks can only be installed on a started prover node, since the session manager is created in
+    // start(). Start the slow one first and gate it before the fast one begins racing it: a session has to
+    // prove all of its checkpoints before it reaches this hook, so it cannot slip past in the meantime.
+    await slowProver.start();
+
     // Hold the slow prover just before it proves its top tree, so it is still sitting on an unpublished
     // epoch proof while the fast prover moves the proven tip past that epoch.
     const gate = promiseWithResolvers<void>();
@@ -64,7 +69,7 @@ describe('single-node/proving/proof_after_tip_advances', () => {
       },
     });
 
-    await Promise.all([fastProver.start(), slowProver.start()]);
+    await fastProver.start();
 
     const gated = await retryUntil(
       () => Promise.resolve(gatedSession),
