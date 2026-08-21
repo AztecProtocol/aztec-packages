@@ -321,8 +321,13 @@ export class LibP2PService extends WithTracer implements P2PService {
     };
   }
 
-  public updateConfig(config: Partial<P2PReqRespConfig & Pick<P2PConfig, 'skipIncomingProposals'>>) {
+  public async updateConfig(
+    config: Partial<P2PReqRespConfig & Pick<P2PConfig, 'skipIncomingProposals' | 'preferredPeers'>>,
+  ): Promise<void> {
     this.reqresp.updateConfig(config);
+    if (config.preferredPeers !== undefined) {
+      await this.peerManager.updatePreferredPeers(config.preferredPeers);
+    }
     this.config = merge(this.config, config);
   }
 

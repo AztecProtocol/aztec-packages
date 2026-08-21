@@ -15,6 +15,15 @@ export interface PeerManagerInterface {
   addTrustedPeer(peerId: PeerId): void;
   addPrivatePeer(peerId: PeerId): void;
   addPreferredPeer(peerId: PeerId): void;
+
+  /**
+   * Replaces the set of preferred peers with the ones encoded in the given ENRs, adding the new peers to the
+   * gossipsub direct-peer set and dropping the ones no longer preferred.
+   * @param enrs - The ENRs of the peers that should be preferred from now on.
+   * @throws If any of the given ENRs is malformed or carries no TCP address; no state is mutated in that case.
+   */
+  updatePreferredPeers(enrs: string[]): Promise<void>;
+
   goodbyeReceived(peerId: PeerId, reason: GoodByeReason): void;
   penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity): void;
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
