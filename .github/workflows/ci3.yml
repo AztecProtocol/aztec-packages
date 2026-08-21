@@ -24,6 +24,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Labs-owned code has moved to aztec-labs-eng/aztec-node and must not change here.
+  # The path list mirrors what the root Makefile's fast-labs target builds.
+  labs-ownership-guard:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork != true && github.event.pull_request.base.ref == 'next'
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Fail if the PR modifies labs-owned paths
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          labs_paths='^(aztec-up|docs|labs-aztec-toolchain|noir-projects/labs|playground|release-image|spartan|yarn-project)/'
+          offending=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename' \
+            | grep -E "$labs_paths" || true)
+          if [ -n "$offending" ]; then
+            echo "Labs-owned files modified by this PR:"
+            echo "$offending" | sed 's/^/  /'
+            echo "::error::This PR tries to modify labs-owned code"
+            echo "Labs-owned code now lives in https://github.com/aztec-labs-eng/aztec-node - make the change there instead."
+            exit 1
+          fi
+          echo "No labs-owned paths modified."
+
   # The main CI job for Aztec pull requests. It gatekeeps merges to next, intended for the merge queue.
   #
   # This orchestrates AWS EC2 spot instances then remotely runs ./bootstrap.sh
