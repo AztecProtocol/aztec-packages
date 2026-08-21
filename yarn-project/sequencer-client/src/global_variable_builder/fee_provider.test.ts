@@ -1,4 +1,6 @@
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { sleep } from '@aztec/foundation/sleep';
 import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
 
 import { jest } from '@jest/globals';
@@ -7,31 +9,24 @@ import { FeeProviderImpl } from './fee_provider.js';
 
 describe('FeeProviderImpl', () => {
   function makeProvider(currentMinFees: GasFees, predictedMinFees: GasFees[]) {
-    const blockNumber = 1n;
-    const getBlockNumber = jest.fn<() => Promise<bigint>>(() => Promise.resolve(blockNumber));
-    const getPredictedMinFees = jest.fn<(manaUsage: ManaUsageEstimate) => Promise<GasFees[]>>(() =>
-      Promise.resolve(predictedMinFees),
-    );
+    const getPredictedMinFees = jest.fn<(manaUsage: ManaUsageEstimate) => GasFees[]>(() => predictedMinFees);
     const provider: FeeProviderImpl = Object.create(FeeProviderImpl.prototype);
 
-    Reflect.set(provider, 'publicClient', { getBlockNumber });
-    Reflect.set(provider, 'currentL1BlockNumber', blockNumber);
-    Reflect.set(provider, 'currentMinFees', Promise.resolve(currentMinFees));
+    Reflect.set(provider, 'currentMinFees', currentMinFees);
     Reflect.set(provider, 'feePredictor', { getPredictedMinFees });
 
-    return { provider, getBlockNumber, getPredictedMinFees };
+    return { provider, getPredictedMinFees };
   }
 
   it('prepends current min fees to predicted future fees', async () => {
     const currentMinFees = new GasFees(1, 2);
     const predictedMinFees = [new GasFees(3, 4), new GasFees(5, 6)];
-    const { provider, getBlockNumber, getPredictedMinFees } = makeProvider(currentMinFees, predictedMinFees);
+    const { provider, getPredictedMinFees } = makeProvider(currentMinFees, predictedMinFees);
 
     await expect(provider.getPredictedMinFees(ManaUsageEstimate.Limit)).resolves.toEqual([
       currentMinFees,
       ...predictedMinFees,
     ]);
-    expect(getBlockNumber).toHaveBeenCalledWith({ cacheTime: 0 });
     expect(getPredictedMinFees).toHaveBeenCalledWith(ManaUsageEstimate.Limit);
   });
 
@@ -43,61 +38,126 @@ describe('FeeProviderImpl', () => {
     expect(getPredictedMinFees).toHaveBeenCalledWith(ManaUsageEstimate.Target);
   });
 
-  it('recovers from a transient L1 read failure without waiting for a new L1 block', async () => {
-    const blockNumber = 1n;
-    const getBlockNumber = jest.fn<() => Promise<bigint>>(() => Promise.resolve(blockNumber));
-    const computeCurrentMinFees = jest
-      .fn<() => Promise<GasFees>>()
-      .mockRejectedValueOnce(new Error('L1 RPC request failed'))
-      .mockResolvedValue(new GasFees(0, 42));
+  describe('background refresh loop', () => {
+    function makeBackgroundProvider() {
+      const getBlockNumber = jest.fn<() => Promise<bigint>>().mockResolvedValue(1n);
+      const computeCurrentMinFees = jest.fn<() => Promise<GasFees>>().mockResolvedValue(new GasFees(0, 42));
+      const feePredictorRefreshState = jest
+        .fn<(blockNumber: bigint) => Promise<unknown>>()
+        .mockResolvedValue(undefined);
+      const getPredictedMinFees = jest.fn<(manaUsage: ManaUsageEstimate) => GasFees[]>().mockReturnValue([]);
 
-    const provider: FeeProviderImpl = Object.create(FeeProviderImpl.prototype);
-    Reflect.set(provider, 'publicClient', { getBlockNumber });
-    Reflect.set(provider, 'currentL1BlockNumber', undefined);
-    Reflect.set(provider, 'currentMinFees', Promise.resolve(new GasFees(0, 0)));
-    Reflect.set(provider, 'computeCurrentMinFees', computeCurrentMinFees);
+      const provider: FeeProviderImpl = Object.create(FeeProviderImpl.prototype);
+      Reflect.set(provider, 'publicClient', { getBlockNumber });
+      Reflect.set(provider, 'currentL1BlockNumber', undefined);
+      Reflect.set(provider, 'currentMinFees', new GasFees(0, 0));
+      Reflect.set(provider, 'computeCurrentMinFees', computeCurrentMinFees);
+      Reflect.set(provider, 'feePredictor', {
+        refreshState: feePredictorRefreshState,
+        getPredictedMinFees,
+      });
+      Reflect.set(provider, 'log', createLogger('test:fee-provider'));
 
-    // First call fails on the transient L1 read.
-    await expect(provider.getCurrentMinFees()).rejects.toThrow('L1 RPC request failed');
+      return { provider, getBlockNumber, computeCurrentMinFees, feePredictorRefreshState, getPredictedMinFees };
+    }
 
-    // A subsequent call at the SAME L1 block must recompute rather than replay the cached rejection.
-    await expect(provider.getCurrentMinFees()).resolves.toEqual(new GasFees(0, 42));
-    expect(computeCurrentMinFees).toHaveBeenCalledTimes(2);
-  });
+    it('warms the cache on start() and serves it with no further L1 calls', async () => {
+      const { provider, getBlockNumber, computeCurrentMinFees, feePredictorRefreshState } = makeBackgroundProvider();
 
-  it('does not clear the block marker when a stale computation for an older block rejects', async () => {
-    const blockN = 1n;
-    const blockNext = 2n;
-    const getBlockNumber = jest
-      .fn<() => Promise<bigint>>()
-      .mockResolvedValueOnce(blockN)
-      .mockResolvedValueOnce(blockNext);
+      // A long polling interval so the loop's scheduled tick never fires again during this test.
+      await provider.start(60_000);
 
-    const computeN = promiseWithResolvers<GasFees>();
-    const computeCurrentMinFees = jest
-      .fn<() => Promise<GasFees>>()
-      .mockImplementationOnce(() => computeN.promise)
-      .mockResolvedValue(new GasFees(0, 42));
+      // start() performs the required warmup, then RunningPromise begins with an immediate tick.
+      // The second block-number check is a cheap no-op since the block has not advanced.
+      expect(getBlockNumber).toHaveBeenCalledTimes(2);
+      expect(computeCurrentMinFees).toHaveBeenCalledTimes(1);
+      expect(feePredictorRefreshState).toHaveBeenCalledWith(1n);
 
-    const provider: FeeProviderImpl = Object.create(FeeProviderImpl.prototype);
-    Reflect.set(provider, 'publicClient', { getBlockNumber });
-    Reflect.set(provider, 'currentL1BlockNumber', undefined);
-    Reflect.set(provider, 'currentMinFees', Promise.resolve(new GasFees(0, 0)));
-    Reflect.set(provider, 'computeCurrentMinFees', computeCurrentMinFees);
+      getBlockNumber.mockClear();
+      computeCurrentMinFees.mockClear();
 
-    // Call at block N starts a computation that stays in flight.
-    const callN = provider.getCurrentMinFees();
-    // Call at block N+1 advances the marker while the N computation is still pending.
-    const callNext = provider.getCurrentMinFees();
+      await expect(provider.getCurrentMinFees()).resolves.toEqual(new GasFees(0, 42));
+      await expect(provider.getPredictedMinFees()).resolves.toEqual([new GasFees(0, 42)]);
 
-    // The stale N computation now rejects. It must NOT clear the marker (which now points at N+1).
-    computeN.reject(new Error('stale L1 RPC request failed'));
+      expect(getBlockNumber).not.toHaveBeenCalled();
+      expect(computeCurrentMinFees).not.toHaveBeenCalled();
 
-    await expect(callN).rejects.toThrow('stale L1 RPC request failed');
-    await expect(callNext).resolves.toEqual(new GasFees(0, 42));
+      await provider.stop();
+    });
 
-    // Marker still reflects the newer block; the N+1 computation ran exactly once (no spurious recompute).
-    expect(Reflect.get(provider, 'currentL1BlockNumber')).toBe(blockNext);
-    expect(computeCurrentMinFees).toHaveBeenCalledTimes(2);
+    it('fails to start if the initial cache refresh fails', async () => {
+      const { provider, getBlockNumber } = makeBackgroundProvider();
+      getBlockNumber.mockRejectedValue(new Error('L1 unavailable'));
+
+      const startError = await provider.start(60_000).then(
+        () => undefined,
+        err => err,
+      );
+      await provider.stop();
+
+      expect(startError).toEqual(new Error('L1 unavailable'));
+    });
+
+    it('keeps serving the last known-good fees when a background tick fails, and retries the same block', async () => {
+      const { provider, getBlockNumber, computeCurrentMinFees } = makeBackgroundProvider();
+      await provider.start(60_000);
+      await expect(provider.getCurrentMinFees()).resolves.toEqual(new GasFees(0, 42));
+
+      getBlockNumber.mockResolvedValue(2n);
+      computeCurrentMinFees.mockRejectedValueOnce(new Error('transient L1 error'));
+      const refreshFromL1 = Reflect.get(FeeProviderImpl.prototype, 'refreshFromL1') as () => Promise<void>;
+
+      await expect(refreshFromL1.call(provider)).rejects.toThrow('transient L1 error');
+      await expect(provider.getCurrentMinFees()).resolves.toEqual(new GasFees(0, 42));
+
+      computeCurrentMinFees.mockResolvedValueOnce(new GasFees(0, 99));
+      await refreshFromL1.call(provider);
+
+      await expect(provider.getCurrentMinFees()).resolves.toEqual(new GasFees(0, 99));
+
+      await provider.stop();
+    });
+
+    it('serves the cached fees until the complete refresh has succeeded', async () => {
+      const { provider, getBlockNumber, computeCurrentMinFees, feePredictorRefreshState } = makeBackgroundProvider();
+      await provider.start(60_000);
+
+      getBlockNumber.mockResolvedValueOnce(2n);
+      const computeGate = promiseWithResolvers<GasFees>();
+      computeCurrentMinFees.mockReturnValueOnce(computeGate.promise);
+      const predictorGate = promiseWithResolvers<unknown>();
+      feePredictorRefreshState.mockReturnValueOnce(predictorGate.promise);
+
+      const refreshFromL1 = Reflect.get(FeeProviderImpl.prototype, 'refreshFromL1') as () => Promise<void>;
+      const tick = refreshFromL1.call(provider);
+      await sleep(0);
+
+      const whileCurrentFeesRefresh = await Promise.race([provider.getCurrentMinFees(), sleep(0, new GasFees(0, 999))]);
+      expect(whileCurrentFeesRefresh).toEqual(new GasFees(0, 42));
+      expect(feePredictorRefreshState).not.toHaveBeenCalledWith(2n);
+
+      computeGate.resolve(new GasFees(0, 77));
+      await sleep(0);
+
+      expect(feePredictorRefreshState).toHaveBeenCalledWith(2n);
+      await expect(provider.getCurrentMinFees()).resolves.toEqual(new GasFees(0, 42));
+
+      predictorGate.resolve(undefined);
+      await tick;
+      await expect(provider.getCurrentMinFees()).resolves.toEqual(new GasFees(0, 77));
+
+      await provider.stop();
+    });
+
+    it('stops polling once stopped', async () => {
+      const { provider, getBlockNumber } = makeBackgroundProvider();
+      await provider.start(10);
+      await provider.stop();
+
+      getBlockNumber.mockClear();
+      await sleep(50);
+
+      expect(getBlockNumber).not.toHaveBeenCalled();
+    });
   });
 });

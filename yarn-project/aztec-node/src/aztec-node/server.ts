@@ -598,6 +598,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await tryStop(this.automineSequencer);
     await tryStop(this.proverNode);
     await tryStop(this.p2pClient);
+    await tryStop(this.feeProvider);
     await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
     await tryStop(this.blobClient);
