@@ -40,6 +40,7 @@ import {
   createVerboseOption,
   integerArgParser,
 } from '../utils/options/index.js';
+import { DEFAULT_TEST_MNEMONIC, assertSafeL1Signer } from './default_mnemonic_guard.js';
 
 function parseWaitForStatus(status: string): TxStatus {
   switch (status) {
@@ -496,11 +497,16 @@ export function injectCommands(
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
-      'test test test test test test test test test test test junk',
+      DEFAULT_TEST_MNEMONIC,
     )
     .option('--mint', 'Mint the tokens on L1', false)
     .option('--l1-private-key <string>', 'The private key to the eth account bridging', PRIVATE_KEY)
     .addOption(l1ChainIdOption)
+    .option(
+      '--i-know-this-uses-the-public-test-mnemonic',
+      'Allow the public default test mnemonic on a non-local L1 network',
+      false,
+    )
     .option('--json', 'Output the claim in JSON format')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
@@ -510,10 +516,28 @@ export function injectCommands(
         .default('60')
         .conflicts('wait'),
     )
-    .action(async (amount, recipient, options) => {
-      const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
-      const { l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
+    .action(async (amount, recipient, options, command) => {
+      const {
+        l1ChainId,
+        l1RpcUrls,
+        l1PrivateKey,
+        mnemonic,
+        mint,
+        json,
+        wait,
+        interval: intervalS,
+        iKnowThisUsesThePublicTestMnemonic,
+      } = options;
 
+      assertSafeL1Signer({
+        chainId: l1ChainId,
+        privateKey: l1PrivateKey,
+        mnemonic,
+        mnemonicWasExplicit: command.getOptionValueSource('mnemonic') !== 'default',
+        allowDefaultMnemonic: iKnowThisUsesThePublicTestMnemonic,
+      });
+
+      const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
       const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
         amount,
         recipient,
