@@ -651,7 +651,15 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath Conten
 
     for (uint32_t level = 0; level < depth_ - subtree_depth; ++level) {
         NodePayload nodePayload;
-        store_->get_node_by_hash(hash, nodePayload, tx, requestContext.includeUncommitted);
+        bool success = store_->get_node_by_hash(hash, nodePayload, tx, requestContext.includeUncommitted);
+        if (!success && hash != zero_hashes_[level]) {
+            // An empty subtree is legitimately unstored, in which case `hash` is the level's zero hash and the
+            // children are synthesised as zero below. A missing node for any *other* hash means real node data is
+            // gone (e.g. a historical fork whose root DAG was pruned); failing here avoids silently synthesising a
+            // zero prefix, which would corrupt the appended tree and still report success.
+            throw std::runtime_error(
+                format("Unable to find node ", hash, " while deriving append sibling path from tree root"));
+        }
         bool is_right = static_cast<bool>(leaf_index & mask);
         // std::cout << "Level: " << level << ", mask: " << mask << ", is right: " << is_right << ", parent: " << hash
         //           << ", left has value: " << nodePayload.left.has_value()
