@@ -33,6 +33,25 @@ Poseidon2Permutation::Response Poseidon2Permutation::execute(BB_UNUSED BBApiRequ
     return { Permutation::permutation(inputs) };
 }
 
+Poseidon2AbsorbChain::Response Poseidon2AbsorbChain::execute(BB_UNUSED BBApiRequest& request) &&
+{
+    using Permutation = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
+    constexpr size_t RATE = 3;
+    constexpr size_t FIELD_BYTES = 32;
+    constexpr size_t CHUNK_BYTES = RATE * FIELD_BYTES;
+
+    BB_ASSERT(inputs.size() % CHUNK_BYTES == 0,
+              "Poseidon2AbsorbChain: inputs must be chunks of 3-field block with each field being 32-bytes");
+
+    for (size_t chunk = 0; chunk < inputs.size(); chunk += CHUNK_BYTES) {
+        for (size_t i = 0; i < RATE; i++) {
+            state[i] += fr::serialize_from_buffer(&inputs[chunk + (i * FIELD_BYTES)]);
+        }
+        state = Permutation::permutation(state);
+    }
+    return { state };
+}
+
 PedersenCommit::Response PedersenCommit::execute(BB_UNUSED BBApiRequest& request) &&
 {
     crypto::GeneratorContext<curve::Grumpkin> ctx;
