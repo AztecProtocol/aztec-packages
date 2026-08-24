@@ -46,6 +46,17 @@ docker run hello-world
 
 **On macOS:** Install [Docker Desktop](https://docs.docker.com/desktop/install/mac-install/), which includes both Docker and Docker Compose.
 
+### Node.js
+
+Node.js 24.12.0 is required. Install it using [nvm](https://github.com/nvm-sh/nvm):
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.nvm/nvm.sh
+nvm install 24.12.0
+nvm alias default 24.12.0
+```
+
 ### Aztec Toolchain
 
 The Aztec toolchain provides CLI utilities for key generation, validator registration, and other operational tasks. While not required for running nodes (which use Docker Compose), it is needed for:
