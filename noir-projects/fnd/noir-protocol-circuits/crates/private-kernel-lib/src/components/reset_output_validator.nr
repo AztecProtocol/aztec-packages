@@ -335,6 +335,14 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         // would effectively become a fingerprint for the nature of the tx. An observer would be able to
         // infer with confidence which contracts have been executed and in what order.
 
+        // Known limitation: sorting two kinds by the same key leaves their relative positions aligned, and
+        // scrubbing the counters afterwards does not undo that. Dropping `PrivateLogData::note_hash_counter`
+        // therefore does not on its own unlink a note log from its note, and was never expected to - the
+        // alignment is an accepted consequence of preserving emission order above.
+        // It is a rank correlation rather than a pairing, since a note may carry no log or several, and a
+        // private log need not belong to a note at all (events, and constrained-tagged note logs, which carry
+        // `note_hash_counter == 0`).
+
         // note_hashes
         if NoteHashSiloingAmount == 0 {
             // No sorting or siloing or padding.
