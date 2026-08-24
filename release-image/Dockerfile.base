@@ -35,7 +35,7 @@ COPY --from=build /opt/foundry/bin/forge /opt/foundry/bin/forge
 COPY --from=build /opt/foundry/bin/cast /opt/foundry/bin/cast
 ENV PATH="/opt/foundry/bin:$PATH" FOUNDRY_DISABLE_NIGHTLY_WARNING="1"
 # Use tcmalloc for reduced memory fragmentation and improved allocation performance.
-ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4"
+ENV LD_PRELOAD="libtcmalloc_minimal.so.4"
 # Copy in production dependencies.
 COPY --from=build /usr/src/yarn-project/node_modules /usr/src/yarn-project/node_modules
 # We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
