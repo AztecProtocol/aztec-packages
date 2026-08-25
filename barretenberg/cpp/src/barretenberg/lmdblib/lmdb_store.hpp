@@ -48,6 +48,13 @@ class LMDBStore : public LMDBStoreBase {
 
     void put(std::vector<PutData>& data);
     void get(KeysVector& keys, OptionalValuesVector& values, const std::string& name);
+    /**
+     * @brief Reads the given keys against an already open read transaction, so the values observed belong to that
+     * transaction's snapshot rather than to whatever is committed at call time.
+     * @note LMDB read transactions are not thread safe. The caller must ensure no other operation runs against `tx`
+     * concurrently.
+     */
+    void get(KeysVector& keys, OptionalValuesVector& values, const std::string& name, ReadTransaction::SharedPtr tx);
     void has(const KeyOptionalValuesVector& entries, std::vector<bool>& results, const std::string& name);
 
     Cursor::Ptr create_cursor(ReadTransaction::SharedPtr tx, const std::string& dbName);
@@ -63,7 +70,7 @@ class LMDBStore : public LMDBStoreBase {
              KeyOptionalValuesVector& toDelete,
              const LMDBDatabase& db,
              LMDBWriteTransaction& tx);
-    void get(KeysVector& keys, OptionalValuesVector& values, LMDBDatabase::SharedPtr db);
+    void get(KeysVector& keys, OptionalValuesVector& values, LMDBDatabase::SharedPtr db, ReadTransaction::SharedPtr tx);
     // Returns the database of the given name
     Database::SharedPtr get_database(const std::string& name);
     // Returns all databases
