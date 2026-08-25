@@ -33,6 +33,12 @@ export type L1SubmitEpochProofArgs = {
   proof: Proof;
 };
 
+/**
+ * Result of a proof submission attempt. `'already-submitted'` means this prover had already registered a proof of
+ * the same length for the epoch on L1, so nothing was sent; it is not a failure.
+ */
+export type SubmitEpochProofResult = 'published' | 'already-submitted' | 'failed';
+
 export class ProverNodePublisher {
   private metrics: ProverNodePublisherMetrics;
 
@@ -85,18 +91,33 @@ export class ProverNodePublisher {
     kind: 'full' | 'partial';
     /** Wall-clock deadline (proof-submission window end) past which the L1 tx should stop retrying. */
     deadline?: Date;
-  }): Promise<boolean> {
-    const { epochNumber, fromCheckpoint, toCheckpoint } = args;
+  }): Promise<SubmitEpochProofResult> {
+    const { epochNumber, fromCheckpoint, toCheckpoint, publicInputs } = args;
     const ctx = { epochNumber, fromCheckpoint, toCheckpoint };
 
     const timer = new Timer();
+
+    // The rollup reverts on a second submission from the same prover for the same epoch and length, so don't
+    // spend gas on one. Reachable when re-running an epoch we have already submitted a proof for, which is
+    // not a failure: our reward shares for it are already registered.
+    const proverId = EthAddress.fromField(publicInputs.constants.proverId);
+    const length = toCheckpoint - fromCheckpoint + 1;
+    if (await this.rollupContract.getHasSubmittedProof(epochNumber, length, proverId)) {
+      this.log.warn(`Skipping epoch proof submission as prover already submitted a proof for this epoch`, {
+        ...ctx,
+        proverId,
+        length,
+      });
+      return 'already-submitted';
+    }
+
     // Validate epoch proof range and hashes are correct before submitting
     await this.validateEpochProofSubmission(args);
 
     const txReceipt = await this.sendSubmitEpochProofTx(args);
     if (!txReceipt) {
       this.log.error(`Failed to mine submitEpochProof tx`, undefined, ctx);
-      return false;
+      return 'failed';
     }
 
     try {
@@ -124,16 +145,15 @@ export class ProverNodePublisher {
       };
       this.log.info(`Published epoch proof to L1 rollup contract`, { ...stats, ...ctx });
       this.metrics.recordSubmitProof(timer.ms(), stats);
-      return true;
+      return 'published';
     }
 
     this.metrics.recordFailedTx();
     this.log.error(`Rollup submitEpochProof tx reverted ${txReceipt.transactionHash}`, undefined, ctx);
-    return false;
+    return 'failed';
   }
 
   private async validateEpochProofSubmission(args: {
-    epochNumber: EpochNumber;
     fromCheckpoint: CheckpointNumber;
     toCheckpoint: CheckpointNumber;
     publicInputs: RootRollupPublicInputs;
@@ -143,7 +163,7 @@ export class ProverNodePublisher {
     headers: CheckpointHeader[];
     kind: 'full' | 'partial';
   }) {
-    const { epochNumber, fromCheckpoint, toCheckpoint, publicInputs, batchedBlobInputs, kind } = args;
+    const { fromCheckpoint, toCheckpoint, publicInputs, batchedBlobInputs, kind } = args;
 
     // Check that the checkpoint numbers match the expected epoch to be proven
     const { pending, proven } = await this.rollupContract.getTips();
@@ -161,17 +181,6 @@ export class ProverNodePublisher {
     if (toCheckpoint > pending) {
       throw new Error(
         `Cannot submit epoch proof for ${fromCheckpoint}-${toCheckpoint} as proposed checkpoint is ${pending}`,
-      );
-    }
-
-    // The rollup reverts on a second submission from the same prover for the same epoch and length, so don't
-    // spend gas on one. Reachable when re-running an epoch we have already submitted a proof for.
-    const proverId = EthAddress.fromField(publicInputs.constants.proverId);
-    const length = toCheckpoint - fromCheckpoint + 1;
-    if (await this.rollupContract.getHasSubmittedProof(epochNumber, length, proverId)) {
-      throw new Error(
-        `Cannot submit epoch proof for ${fromCheckpoint}-${toCheckpoint} as prover ${proverId} ` +
-          `already submitted a proof of ${length} checkpoints for epoch ${epochNumber}`,
       );
     }
 

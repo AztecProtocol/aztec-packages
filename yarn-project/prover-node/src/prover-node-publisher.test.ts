@@ -348,13 +348,12 @@ describe('prover-node-publisher', () => {
     },
   );
 
-  it('does not submit a proof this prover has already submitted for the epoch', async () => {
+  it('reports already-submitted without sending when this prover has already submitted for the epoch', async () => {
     const args = setupPublishData(65, 32, 33, 64);
     rollup.getHasSubmittedProof.mockResolvedValue(true);
 
-    await expect(publisher.submitEpochProof(args)).rejects.toThrow(
-      'already submitted a proof of 32 checkpoints for epoch 2',
-    );
+    await expect(publisher.submitEpochProof(args)).resolves.toEqual('already-submitted');
+    expect(rollup.getHasSubmittedProof).toHaveBeenCalledWith(EpochNumber(2), 32, expect.anything());
     expect(l1Utils.sendAndMonitorTransaction).not.toHaveBeenCalled();
   });
 
@@ -502,7 +501,7 @@ describe('prover-node-publisher', () => {
       attestations: [],
     });
 
-    expect(result).toBe(false);
+    expect(result).toBe('failed');
   });
 
   describe('proof submission target', () => {
