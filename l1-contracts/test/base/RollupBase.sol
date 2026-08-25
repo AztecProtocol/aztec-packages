@@ -135,12 +135,30 @@ contract RollupBase is DecoderBase {
     _proposeCheckpoint(_name, _slotNumber, _manaUsed, _extraBlobHashes, "");
   }
 
+  // Proposes without seeding the fixture's L1 to L2 messages, so the checkpoint references the bucket its parent
+  // already consumed and adds no messages.
+  function _proposeCheckpointWithoutInboxMessages(string memory _name, uint256 _slotNumber) internal {
+    bytes32[] memory extraBlobHashes = new bytes32[](0);
+    _proposeCheckpoint(_name, _slotNumber, 0, extraBlobHashes, "", false);
+  }
+
   function _proposeCheckpoint(
     string memory _name,
     uint256 _slotNumber,
     uint256 _manaUsed,
     bytes32[] memory _extraBlobHashes,
     bytes memory _revertMsg
+  ) private {
+    _proposeCheckpoint(_name, _slotNumber, _manaUsed, _extraBlobHashes, _revertMsg, true);
+  }
+
+  function _proposeCheckpoint(
+    string memory _name,
+    uint256 _slotNumber,
+    uint256 _manaUsed,
+    bytes32[] memory _extraBlobHashes,
+    bytes memory _revertMsg,
+    bool _seedInbox
   ) private {
     DecoderBase.Full memory full = load(_name);
     bytes memory blobCommitments = full.checkpoint.blobCommitments;
@@ -167,7 +185,9 @@ contract RollupBase is DecoderBase {
 
     // Seed the Inbox before jumping to the checkpoint's L1 block: propose rejects a bucket that is still
     // accumulating, and a bucket keeps accumulating for the whole L1 block that opened it.
-    _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
+    if (_seedInbox) {
+      _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
+    }
 
     // We jump to the time of the block, always past the L1 block the messages above landed in.
     vm.warp(max(block.timestamp + 1, Timestamp.unwrap(full.checkpoint.header.timestamp)));

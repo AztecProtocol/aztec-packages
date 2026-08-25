@@ -985,6 +985,25 @@ contract RollupTest is RollupBase {
     assertEq(inbox.getRingHeadroom(), INBOX_BUCKET_RING_SIZE, "the whole ring is available again");
   }
 
+  // An epoch that consumed no messages proves with equal start and end rolling hashes, and the proven-tip advance
+  // skips the Inbox write since the record could not move.
+  function testEmptyInboxEpochProofSkipsInboxWrite() public setUpFor("mixed_checkpoint_1") {
+    _proposeCheckpoint("mixed_checkpoint_1", 1);
+    _proveCheckpoints("mixed_checkpoint_", 1, 1, address(this));
+    uint64 provenConsumedBucket = inbox.getProvenConsumedBucketSeq();
+    assertGt(provenConsumedBucket, 0, "the first epoch consumed L1 to L2 messages");
+
+    // The next epoch's checkpoint references the same bucket, adding no messages.
+    _proposeCheckpointWithoutInboxMessages("mixed_checkpoint_2", EPOCH_DURATION);
+    assertEq(inbox.getCurrentBucketSeq(), provenConsumedBucket, "no new bucket was opened");
+
+    vm.expectCall(address(inbox), abi.encodeWithSelector(inbox.markProvenConsumed.selector), 0);
+    _proveCheckpoints("mixed_checkpoint_", 2, 2, address(this));
+
+    assertEq(rollup.getProvenCheckpointNumber(), 2, "second epoch proven");
+    assertEq(inbox.getProvenConsumedBucketSeq(), provenConsumedBucket, "record unchanged");
+  }
+
   // A prune rewinds the pending chain along with the temp-log records of what it consumed, but the buckets that
   // chain referenced are exactly the ones the replacement chain has to re-consume, so eviction stays locked.
   function testPruneDoesNotAdvanceProvenConsumed() public setUpFor("mixed_checkpoint_1") {
