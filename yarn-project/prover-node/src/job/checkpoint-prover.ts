@@ -19,6 +19,7 @@ import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ForkMerkleTreeOperations, ITxProvider } from '@aztec/stdlib/interfaces/server';
+import { type InboxMessageBundle, bundleLength, flattenBundle } from '@aztec/stdlib/messaging';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader, ProcessedTx, Tx, TxHash } from '@aztec/stdlib/tx';
@@ -67,7 +68,7 @@ export type CheckpointProverArgs = {
   epochNumber: EpochNumber;
   attestations: CommitteeAttestation[];
   previousBlockHeader: BlockHeader;
-  l1ToL2Messages: Fr[];
+  l1ToL2Messages: InboxMessageBundle;
   /** Inbox rolling hash of the previous checkpoint (this checkpoint's chain start); genesis is zero. */
   previousInboxRollingHash: Fr;
   previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>;
@@ -101,7 +102,7 @@ export class CheckpointProver {
   readonly slotNumber: SlotNumber;
   readonly attestations: CommitteeAttestation[];
   readonly previousBlockHeader: BlockHeader;
-  readonly l1ToL2Messages: Fr[];
+  readonly l1ToL2Messages: InboxMessageBundle;
   readonly previousInboxRollingHash: Fr;
   readonly previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>;
 
@@ -151,7 +152,7 @@ export class CheckpointProver {
       epochNumber: this.epochNumber,
       slotNumber: this.slotNumber,
       blockCount: this.checkpoint.blocks.length,
-      l1ToL2MessageCount: this.l1ToL2Messages.length,
+      l1ToL2MessageCount: bundleLength(this.l1ToL2Messages),
       archiveRoot: this.checkpoint.archive.root.toString(),
     });
     // Kick off the eager gather + sub-tree pipeline.
@@ -377,7 +378,8 @@ export class CheckpointProver {
       // each block's slice runs from its parent block's L1-to-L2 leaf count to its own (compact indices make leaf
       // count equal cumulative message count).
       const l1ToL2LeafCount = (block: L2Block) => Number(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
-      const checkpointStartLeafCount = l1ToL2LeafCount(this.checkpoint.blocks.at(-1)!) - this.l1ToL2Messages.length;
+      const checkpointLeaves = flattenBundle(this.l1ToL2Messages);
+      const checkpointStartLeafCount = l1ToL2LeafCount(this.checkpoint.blocks.at(-1)!) - checkpointLeaves.length;
 
       for (let blockIndex = 0; blockIndex < this.checkpoint.blocks.length; blockIndex++) {
         const blockTimer = new Timer();
@@ -387,7 +389,7 @@ export class CheckpointProver {
 
         const prevLeafCount =
           blockIndex === 0 ? checkpointStartLeafCount : l1ToL2LeafCount(this.checkpoint.blocks[blockIndex - 1]);
-        const blockMessages = this.l1ToL2Messages.slice(
+        const blockMessages = checkpointLeaves.slice(
           prevLeafCount - checkpointStartLeafCount,
           l1ToL2LeafCount(block) - checkpointStartLeafCount,
         );

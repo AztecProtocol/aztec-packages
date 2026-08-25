@@ -337,6 +337,13 @@ export function mapFieldArrayToNoir<N extends number>(
   return mapTupleToNoir(assertLength(array, length), mapFieldToNoir);
 }
 
+export function mapBoolArrayToNoir<N extends number>(
+  array: boolean[],
+  length: N = array.length as N,
+): FixedLengthArray<boolean, N> {
+  return mapTupleToNoir(assertLength(array, length), (value: boolean) => value);
+}
+
 export function mapClaimedLengthArrayFromNoir<T extends Serializable, N extends number, S>(
   claimedLengthArray: ClaimedLengthArrayNoir<N, S>,
   mapper: (item: S) => T,

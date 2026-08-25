@@ -40,7 +40,12 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import type { LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
-import type { InboxBucket, L1ToL2MessageSource, L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type {
+  InboxBucket,
+  InboxMessageBundle,
+  L1ToL2MessageSource,
+  L2ToL1MembershipWitness,
+} from '@aztec/stdlib/messaging';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import type { BlockHeader, IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -332,11 +337,11 @@ export abstract class ArchiverDataSourceBase
     return this.stores.messages.getInboxBucketByTotalMsgCount(totalMsgCount);
   }
 
-  public getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
+  public getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<InboxMessageBundle> {
     return this.stores.messages.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
   }
 
-  public getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+  public getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageBundle> {
     return this.stores.messages.getL1ToL2MessagesBetweenLeafCounts(startLeafCount, endLeafCount);
   }
 

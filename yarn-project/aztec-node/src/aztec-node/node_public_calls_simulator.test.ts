@@ -127,7 +127,7 @@ describe('NodePublicCallsSimulator', () => {
       msgCount: Number(totalMsgCount),
       lastMessageIndex: totalMsgCount === 0n ? 0n : totalMsgCount - 1n,
     });
-    const bundle = [new Fr(0x1234), new Fr(0x5678)];
+    const bundle = [[new Fr(0x1234), new Fr(0x5678)]];
     l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(makeBucket(0n, 0n));
     l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(makeBucket(1n, 2n));
     l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
@@ -262,7 +262,7 @@ describe('NodePublicCallsSimulator', () => {
 
       await simulator.simulate(tx);
 
-      expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle);
+      expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle.flat());
     });
 
     it('simulates against the tip when the parent Inbox bucket is not synced', async () => {
@@ -335,7 +335,7 @@ describe('NodePublicCallsSimulator', () => {
       await expect(simulator.simulate(tx)).resolves.toBeDefined();
 
       // Only the first block's worth of messages: a fresh checkpoint starts its per-checkpoint budget at the tip.
-      expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle);
+      expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle.flat());
     });
 
     it('targets parentSlot + 1 and carries the parent overrides when pipelining on a proposed checkpoint', async () => {

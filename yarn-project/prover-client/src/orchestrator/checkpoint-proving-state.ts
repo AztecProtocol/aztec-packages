@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
+import { type InboxMessageBundle, L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
 import { InboxParityPrivateInputs, type ParityPublicInputs } from '@aztec/stdlib/parity';
 import { BlockMergeRollupPrivateInputs, BlockRollupPublicInputs, CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -38,7 +38,7 @@ export class CheckpointProvingState {
     public readonly totalNumBlocks: number,
     private readonly headerOfLastBlockInPreviousCheckpoint: BlockHeader,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
-    private readonly l1ToL2Messages: Fr[],
+    private readonly l1ToL2Messages: InboxMessageBundle,
     // Inbox rolling hash before this checkpoint's messages (the previous checkpoint's end value; genesis is zero).
     // Threaded into the InboxParity circuit so the resulting checkpoint header rolling hash matches the proposer's.
     private readonly startInboxRollingHash: Fr,
@@ -52,8 +52,8 @@ export class CheckpointProvingState {
     this.firstBlockNumber = BlockNumber(headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber + 1);
   }
 
-  /** The checkpoint's real L1-to-L2 messages (unpadded), consumed across its blocks. */
-  public getL1ToL2Messages(): Fr[] {
+  /** The checkpoint's real L1-to-L2 messages (unpadded), grouped per Inbox bucket, consumed across its blocks. */
+  public getL1ToL2Messages(): InboxMessageBundle {
     return this.l1ToL2Messages;
   }
 

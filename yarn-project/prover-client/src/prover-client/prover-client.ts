@@ -17,6 +17,7 @@ import {
   type ServerCircuitProver,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
+import type { InboxMessageBundle } from '@aztec/stdlib/messaging';
 import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -55,7 +56,7 @@ export interface EpochProverFactory {
     chonkCache: ChonkCache,
     epochNumber: EpochNumber,
     checkpointConstants: CheckpointConstantData,
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     startInboxRollingHash: Fr,
     totalNumBlocks: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
@@ -133,7 +134,7 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     chonkCache: ChonkCache,
     epochNumber: EpochNumber,
     checkpointConstants: CheckpointConstantData,
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     startInboxRollingHash: Fr,
     totalNumBlocks: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,

@@ -12,7 +12,7 @@ import {
   type CustomRange,
   mapRange,
 } from '@aztec/kv-store';
-import { type InboxBucket, updateInboxRollingHash } from '@aztec/stdlib/messaging';
+import { type InboxBucket, type InboxMessageBundle, updateInboxRollingHash } from '@aztec/stdlib/messaging';
 
 import { InboxBucketBoundaryNotSyncedError, InboxBucketNotSyncedError } from '../errors.js';
 import { type InboxMessage, deserializeInboxMessage, serializeInboxMessage } from '../structs/inbox_message.js';
@@ -230,9 +230,11 @@ export class MessageStore {
         }
 
         // Check the consensus rolling-hash chain is valid: each message's rolling hash must
-        // continue the chain from the previously inserted message.
+        // continue the chain from the previously inserted message. A message whose bucket differs from the previous
+        // message's is the first of its bucket, so it takes the bucket-start separator.
         const previousInboxRollingHash = lastMessage?.inboxRollingHash ?? Fr.ZERO;
-        const expectedInboxRollingHash = updateInboxRollingHash(previousInboxRollingHash, message.leaf);
+        const opensBucket = message.bucketSeq !== lastMessage?.bucketSeq;
+        const expectedInboxRollingHash = updateInboxRollingHash(previousInboxRollingHash, message.leaf, opensBucket);
         if (!expectedInboxRollingHash.equals(message.inboxRollingHash)) {
           throw new MessageStoreError(
             `Invalid inbox rolling hash for incoming L1 to L2 message ${message.leaf.toString()} ` +
@@ -449,7 +451,10 @@ export class MessageStore {
    * themselves. Both bounds must land on a bucket boundary this archiver has synced; it throws otherwise, since a
    * caller asking for a range always expects the messages in it.
    */
-  public async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+  public async getL1ToL2MessagesBetweenLeafCounts(
+    startLeafCount: bigint,
+    endLeafCount: bigint,
+  ): Promise<InboxMessageBundle> {
     if (startLeafCount > endLeafCount) {
       throw new Error(`Invalid Inbox leaf count range [${startLeafCount}, ${endLeafCount})`);
     }
@@ -497,7 +502,10 @@ export class MessageStore {
    * `InboxBucketNotSyncedError` to their own catch-up handling. Sequence 0 is the genesis base case and always
    * resolves: the range then starts at the first message of the Inbox.
    */
-  public async getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
+  public async getL1ToL2MessagesBetweenBuckets(
+    fromExclusive: bigint,
+    toInclusive: bigint,
+  ): Promise<InboxMessageBundle> {
     if (fromExclusive > toInclusive) {
       throw new Error(`Invalid Inbox bucket range (${fromExclusive}, ${toInclusive}]`);
     }
@@ -510,16 +518,28 @@ export class MessageStore {
     return this.getMessageLeavesInIndexRange(startIndex, endIndexExclusive);
   }
 
-  /** Collects the message leaves in the global index range `[startIndex, endIndexExclusive)`, in insertion order. */
-  private async getMessageLeavesInIndexRange(startIndex: bigint, endIndexExclusive: bigint): Promise<Fr[]> {
-    const leaves: Fr[] = [];
+  /**
+   * Collects the message leaves in the global index range `[startIndex, endIndexExclusive)`, in insertion order,
+   * grouped per Inbox bucket. A group is only started by a message, so no group is ever empty.
+   */
+  private async getMessageLeavesInIndexRange(
+    startIndex: bigint,
+    endIndexExclusive: bigint,
+  ): Promise<InboxMessageBundle> {
+    const bundle: InboxMessageBundle = [];
+    let currentBucketSeq: bigint | undefined;
     for await (const msgBuffer of this.#l1ToL2Messages.valuesAsync({
       start: this.indexToKey(startIndex),
       end: this.indexToKey(endIndexExclusive),
     })) {
-      leaves.push(deserializeInboxMessage(msgBuffer).leaf);
+      const message = deserializeInboxMessage(msgBuffer);
+      if (message.bucketSeq !== currentBucketSeq) {
+        bundle.push([]);
+        currentBucketSeq = message.bucketSeq;
+      }
+      bundle.at(-1)!.push(message.leaf);
     }
-    return leaves;
+    return bundle;
   }
 
   private async getBucketSnapshotBySeq(seq: bigint): Promise<BucketSnapshot | undefined> {

@@ -1,48 +1,77 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 
+import { bucketStartsOf, bundleLength, flattenBundle } from './inbox_message_bundle.js';
 import { accumulateInboxRollingHash, updateInboxRollingHash } from './inbox_rolling_hash.js';
 
 describe('inbox rolling hash', () => {
-  // Shared test vectors pinned against the noir `accumulate_inbox_rolling_hash` helper (FI-02). Any divergence here
-  // means the L1 / noir / TS rolling hashes would disagree.
+  // Shared test vectors, derived independently of the L1, noir and TS implementations by
+  // `l1-contracts/scripts/inbox_rolling_hash_vectors.py`. Any divergence here means the three rolling hashes would
+  // disagree.
   const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => new Fr(from + i));
 
   it('chains a single leaf from zero', () => {
-    expect(accumulateInboxRollingHash(Fr.ZERO, [new Fr(11)])).toEqual(
-      Fr.fromHexString('0x00066dfa22681f66d50aae7d84f190e3555d2d82e4a5e33c2291c3060d441f04'),
+    expect(accumulateInboxRollingHash(Fr.ZERO, [[new Fr(11)]])).toEqual(
+      Fr.fromHexString('0x00551b59fed79dcce036e55050cf38ef367abfec03557e234866ac023879b245'),
     );
   });
 
-  it('chains three leaves from zero', () => {
-    expect(accumulateInboxRollingHash(Fr.ZERO, [new Fr(11), new Fr(22), new Fr(33)])).toEqual(
-      Fr.fromHexString('0x0077423b713a725ce4bf0b792847c68da87c316d52921de25652756bfe4c3e81'),
+  it('chains three leaves in one bucket from zero', () => {
+    expect(accumulateInboxRollingHash(Fr.ZERO, [[new Fr(11), new Fr(22), new Fr(33)]])).toEqual(
+      Fr.fromHexString('0x00e6cba8a055d279f8568edc4d0969a107fcda0c48347afdfd3dfeb053aa22c7'),
     );
   });
 
-  it('chains 256 leaves from zero', () => {
-    expect(accumulateInboxRollingHash(Fr.ZERO, range(1, 256))).toEqual(
-      Fr.fromHexString('0x0030493fcb5915459bba42f03f283b58dfaa082dac02fbb3a494d5db8063238b'),
+  it('chains 256 leaves in one bucket from zero', () => {
+    expect(accumulateInboxRollingHash(Fr.ZERO, [range(1, 256)])).toEqual(
+      Fr.fromHexString('0x009ff152cad9525e1c092ae6d4fb390149de5599eac09b76b0ebd1c6e26bb504'),
     );
   });
 
   it('chains from a non-zero start', () => {
-    expect(accumulateInboxRollingHash(new Fr(0x2a), [new Fr(7), new Fr(8)])).toEqual(
-      Fr.fromHexString('0x00a64d14c4b0234f5d835dc202bf8f9a857bc0734baf281dccd4b4978a48b2f9'),
+    expect(accumulateInboxRollingHash(new Fr(0x2a), [[new Fr(7), new Fr(8)]])).toEqual(
+      Fr.fromHexString('0x00d84d0b60599b1c7380a723d84310d40efaa4f5673dd62e0af41b03bc9a07a6'),
     );
   });
 
   it('is continuous across segments', () => {
     const start = new Fr(0x2a);
-    const mid = updateInboxRollingHash(start, new Fr(7));
-    expect(mid).toEqual(Fr.fromHexString('0x0048097cafad7fed00ccb578806b3855d5ee7bf11045fb8d41b2880ba36ef28f'));
-    // chain(chain(0x2a, [7]), [8]) == chain(0x2a, [7, 8])
-    expect(accumulateInboxRollingHash(mid, [new Fr(8)])).toEqual(
-      accumulateInboxRollingHash(start, [new Fr(7), new Fr(8)]),
+    const mid = updateInboxRollingHash(start, new Fr(7), true);
+    expect(mid).toEqual(Fr.fromHexString('0x00f13cb848052a7ab6f1de788a5979f5a5caa8c11cf176715d63481618e3b575'));
+    // Continuing the same bucket in a second segment matches chaining both leaves at once.
+    expect(updateInboxRollingHash(mid, new Fr(8), false)).toEqual(
+      accumulateInboxRollingHash(start, [[new Fr(7), new Fr(8)]]),
     );
   });
 
-  it('returns the start unchanged for an empty list', () => {
+  it('commits to the bucket boundaries', () => {
+    const leaves = [new Fr(11), new Fr(22), new Fr(33), new Fr(44)];
+    const oneBucket = accumulateInboxRollingHash(Fr.ZERO, [leaves]);
+    const twoBuckets = accumulateInboxRollingHash(Fr.ZERO, [leaves.slice(0, 2), leaves.slice(2)]);
+
+    expect(oneBucket).toEqual(Fr.fromHexString('0x00e37b7cc5526ab379c54209bc1c6a4ba2c457d024330281b97a533561701551'));
+    expect(twoBuckets).toEqual(Fr.fromHexString('0x00fa0346e7c4ee1bdf29a48af28182fdc236e2936e4d0c2e951dbd4b9b6464fc'));
+    expect(oneBucket).not.toEqual(twoBuckets);
+  });
+
+  it('returns the start unchanged for an empty bundle', () => {
     const start = new Fr(0x2a);
     expect(accumulateInboxRollingHash(start, [])).toEqual(start);
+  });
+});
+
+describe('inbox message bundle', () => {
+  const bundle = [[new Fr(11), new Fr(22)], [new Fr(33)]];
+
+  it('flattens the buckets in insertion order', () => {
+    expect(flattenBundle(bundle)).toEqual([new Fr(11), new Fr(22), new Fr(33)]);
+    expect(bundleLength(bundle)).toBe(3);
+  });
+
+  it('flags the first leaf of every bucket', () => {
+    expect(bucketStartsOf(bundle)).toEqual([true, false, true]);
+  });
+
+  it('rejects an empty bucket', () => {
+    expect(() => bucketStartsOf([[new Fr(11)], []])).toThrow('empty bucket at index 1');
   });
 });

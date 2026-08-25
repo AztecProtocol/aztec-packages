@@ -12,6 +12,7 @@ import type { L2Block } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+import { EMPTY_BUNDLE } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
@@ -169,7 +170,7 @@ async function buildCheckpointProver(ctx: RerunContext, index: number, log: Logg
     index === 0 ? jobData.previousBlockHeader : jobData.checkpoints[index - 1].blocks.at(-1)!.header;
   const previousInboxRollingHash =
     index === 0 ? jobData.previousInboxRollingHash : jobData.checkpoints[index - 1].header.inboxRollingHash;
-  const l1ToL2Messages = jobData.l1ToL2Messages[checkpoint.number] ?? [];
+  const l1ToL2Messages = jobData.l1ToL2Messages[checkpoint.number] ?? EMPTY_BUNDLE;
   const previousArchiveSiblingPath = await getLastSiblingPath(
     MerkleTreeId.ARCHIVE,
     worldState.getSnapshot(BlockNumber(checkpoint.blocks[0].number - 1)),

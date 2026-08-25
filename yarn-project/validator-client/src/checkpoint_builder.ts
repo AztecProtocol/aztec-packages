@@ -33,6 +33,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import { type DebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
+import { type InboxMessageBundle, bundleLength } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type CheckpointGlobalVariables, GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -370,7 +371,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
     feeAssetPriceModifier: bigint,
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     previousCheckpointOutHashes: Fr[],
     previousInboxRollingHash: Fr,
     fork: MerkleTreeWriteOperations,
@@ -381,9 +382,9 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
     if (existingBlocks.length === 0) {
-      if (l1ToL2Messages.length > 0) {
+      if (bundleLength(l1ToL2Messages) > 0) {
         throw new Error(
-          `Cannot open checkpoint ${checkpointNumber} with ${l1ToL2Messages.length} messages and no existing blocks: ` +
+          `Cannot open checkpoint ${checkpointNumber} with ${bundleLength(l1ToL2Messages)} messages and no existing blocks: ` +
             `a fresh checkpoint consumes its messages per block`,
         );
       }
@@ -400,7 +401,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
 
     this.log.verbose(`Resuming checkpoint ${checkpointNumber} with ${existingBlocks.length} existing blocks`, {
       checkpointNumber,
-      msgCount: l1ToL2Messages.length,
+      msgCount: bundleLength(l1ToL2Messages),
       existingBlockCount: existingBlocks.length,
       initialStateReference: stateReference.toInspect(),
       initialArchiveRoot: bufferToHex(archiveTree.root),

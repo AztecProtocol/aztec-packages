@@ -3,7 +3,6 @@ import { MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { type EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -24,7 +23,13 @@ import {
   getTimestampForSlot,
 } from '@aztec/stdlib/epoch-helpers';
 import { InsufficientValidTxsError, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { type L1ToL2MessageSource, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
+import {
+  EMPTY_BUNDLE,
+  type InboxMessageBundle,
+  type L1ToL2MessageSource,
+  bundleLength,
+  getInboxCutoffTimestamp,
+} from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { FailedTx, Tx } from '@aztec/stdlib/tx';
@@ -491,7 +496,7 @@ export class AutomineSequencer {
       isLastBlock: true,
       cutoffTimestamp: getInboxCutoffTimestamp(SlotNumber(targetSlot), this.deps.l1Constants),
     });
-    const streamingBundle = selection.consume ? selection.bundle : [];
+    const streamingBundle = selection.consume ? selection.bundle : EMPTY_BUNDLE;
     const bucketHint = selection.consume ? selection.bucket.seq : parentBucket.seq;
 
     const checkpointBuilder = await this.deps.checkpointsBuilder.startCheckpoint(
@@ -787,7 +792,7 @@ export class AutomineSequencer {
     timestamp: bigint,
     allowEmpty: boolean,
     checkpointNumber: CheckpointNumber,
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
   ): Promise<BuildBlockInCheckpointResult | undefined> {
     let buildResult: BuildBlockInCheckpointResult;
     try {
@@ -795,7 +800,7 @@ export class AutomineSequencer {
         maxTransactions: this.deps.config.maxTxsPerBlock,
         // Allow empty for explicit-empty builds; a message-only block (non-empty streaming bundle) also builds
         // with zero txs.
-        minValidTxs: allowEmpty || l1ToL2Messages.length > 0 ? 0 : 1,
+        minValidTxs: allowEmpty || bundleLength(l1ToL2Messages) > 0 ? 0 : 1,
         isBuildingProposal: true,
         maxBlocksPerCheckpoint: 1,
         perBlockAllocationMultiplier: 1,

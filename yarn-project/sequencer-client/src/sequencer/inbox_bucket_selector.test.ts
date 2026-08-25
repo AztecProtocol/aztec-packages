@@ -41,19 +41,17 @@ function makeSource(specs: TestBucketSpec[]): {
       return Promise.resolve(eligible.length === 0 ? undefined : eligible[eligible.length - 1]);
     },
     getL1ToL2MessagesBetweenBuckets: (fromExclusive: bigint, toInclusive: bigint) => {
-      const toBucket = buckets.get(toInclusive);
-      if (toBucket === undefined) {
+      if (buckets.get(toInclusive) === undefined || (fromExclusive > 0n && buckets.get(fromExclusive) === undefined)) {
         return Promise.resolve([]);
       }
-      let startIndex = 0n;
-      if (fromExclusive > 0n) {
-        const fromBucket = buckets.get(fromExclusive);
-        if (fromBucket === undefined) {
-          return Promise.resolve([]);
-        }
-        startIndex = fromBucket.lastMessageIndex + 1n;
-      }
-      return Promise.resolve(leaves.slice(Number(startIndex), Number(toBucket.lastMessageIndex + 1n)));
+      // One group per bucket in the range, as the archiver returns them.
+      return Promise.resolve(
+        ordered
+          .filter(bucket => bucket.seq > fromExclusive && bucket.seq <= toInclusive && bucket.msgCount > 0)
+          .map(bucket =>
+            leaves.slice(Number(bucket.lastMessageIndex + 1n) - bucket.msgCount, Number(bucket.lastMessageIndex + 1n)),
+          ),
+      );
     },
   };
 
@@ -106,7 +104,8 @@ describe('selectInboxBucketForBlock', () => {
     expect(result).toMatchObject({ consume: true });
     if (result.consume) {
       expect(result.bucket.seq).toBe(2n);
-      expect(result.bundle).toHaveLength(5); // buckets 1 (3) + 2 (2)
+      expect(result.bundle.flat()).toHaveLength(5); // buckets 1 (3) + 2 (2)
+      expect(result.bundle).toHaveLength(2); // one group per bucket
     }
   });
 
@@ -148,7 +147,7 @@ describe('selectInboxBucketForBlock', () => {
     expect(result).toMatchObject({ consume: true });
     if (result.consume) {
       expect(result.bucket.seq).toBe(2n);
-      expect(result.bundle).toHaveLength(400);
+      expect(result.bundle.flat()).toHaveLength(400);
     }
   });
 
@@ -199,7 +198,7 @@ describe('selectInboxBucketForBlock', () => {
     expect(second).toMatchObject({ consume: true });
     if (second.consume) {
       expect(second.bucket.seq).toBe(2n);
-      expect(second.bundle).toHaveLength(3); // only bucket 2's messages, not bucket 1's
+      expect(second.bundle.flat()).toHaveLength(3); // only bucket 2's messages, not bucket 1's
       expect(second.bundle).toEqual(await source.getL1ToL2MessagesBetweenBuckets(1n, 2n));
     }
   });

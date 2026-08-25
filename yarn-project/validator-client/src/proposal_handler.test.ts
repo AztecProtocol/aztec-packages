@@ -1060,7 +1060,7 @@ describe('ProposalHandler checkpoint validation', () => {
     it('re-executes with the bundle derived from the buckets when the checks pass', async () => {
       const ref = new InboxBucketRef(1n, 100n, new Fr(0xabc));
       const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref);
-      const derivedBundle = [new Fr(1000), new Fr(1001)];
+      const derivedBundle = [[new Fr(1000), new Fr(1001)]];
       l1ToL2MessageSource.getInboxBucket.mockResolvedValue(bucket());
       l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
         bucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),

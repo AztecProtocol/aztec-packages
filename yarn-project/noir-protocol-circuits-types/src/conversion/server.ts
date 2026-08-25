@@ -116,6 +116,7 @@ import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
   mapBlockHeaderToNoir,
+  mapBoolArrayToNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
   mapFieldArrayToNoir,
@@ -720,6 +721,7 @@ function mapTreeSnapshotDiffHintsToNoir(hints: TreeSnapshotDiffHints): TreeSnaps
 export function mapInboxParityPrivateInputsToNoir(inputs: InboxParityPrivateInputs) {
   return {
     msgs: mapFieldArrayToNoir(inputs.messages),
+    bucket_starts: mapBoolArrayToNoir(inputs.bucketStarts),
     num_msgs: mapNumberToNoir(inputs.numMessages),
     start_rolling_hash: mapFieldToNoir(inputs.startRollingHash),
     prover_id: mapFieldToNoir(inputs.proverId),

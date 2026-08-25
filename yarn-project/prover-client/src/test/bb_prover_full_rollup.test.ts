@@ -67,7 +67,8 @@ describe('prover/bb_prover/full-rollup', () => {
         // Drive each checkpoint through its own sub-tree, mirroring the production
         // CheckpointProver flow. The top tree starts proving as each sub-tree completes.
         for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
-          const { constants, blocks, l1ToL2Messages, previousBlockHeader, checkpoint } = checkpoints[checkpointIndex];
+          const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader, checkpoint } =
+            checkpoints[checkpointIndex];
 
           const previousInboxRollingHash =
             checkpointIndex === 0 ? Fr.ZERO : checkpoints[checkpointIndex - 1].checkpoint.header.inboxRollingHash;
@@ -82,7 +83,7 @@ describe('prover/bb_prover/full-rollup', () => {
             /* cancelJobsOnStop */ false,
             makeTestDeferredJobQueue(),
             constants,
-            l1ToL2Messages,
+            l1ToL2MessageBundle,
             previousInboxRollingHash,
             numBlockPerCheckpoint,
             previousBlockHeader,

@@ -285,10 +285,10 @@ describe('Archiver Sync', () => {
       expect((await archiver.getLatestInboxBucketAtOrBefore(t2))!.seq).toEqual(2n);
       expect(await archiver.getLatestInboxBucketAtOrBefore(t1 - 1n)).toBeUndefined();
 
-      // Messages between buckets, in insertion order.
-      expect(await archiver.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual([...msgs1, ...msgs2, ...msgs3]);
-      expect(await archiver.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual(msgs2);
-      expect(await archiver.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual(msgs3);
+      // Messages between buckets, in insertion order, one group per bucket.
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual([msgs1, msgs2, msgs3]);
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual([msgs2]);
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual([msgs3]);
     }, 30_000);
 
     it('ignores checkpoint 3 because it has been pruned', async () => {

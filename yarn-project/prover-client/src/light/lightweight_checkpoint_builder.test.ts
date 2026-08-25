@@ -292,7 +292,7 @@ describe('LightweightCheckpointBuilder', () => {
 
       const messages = [new Fr(0xb00), new Fr(0xb01)];
       const globalVariables2 = makeGlobalVariables(BlockNumber(2), slotNumber);
-      const { block } = await checkpointBuilder.addBlock(globalVariables2, [], messages, { insertTxsEffects: true });
+      const { block } = await checkpointBuilder.addBlock(globalVariables2, [], [messages], { insertTxsEffects: true });
 
       expect(block.body.txEffects.length).toBe(0);
       expect(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex).toBe(messages.length);

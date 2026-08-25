@@ -20,7 +20,12 @@ import type { L2BlockSource, L2Tips } from '@aztec/stdlib/block';
 import { type ProposedCheckpointData, buildCheckpointSimulationOverridesPlan } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { type L1ToL2MessageSource, appendL1ToL2MessagesToTree, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
+import {
+  type L1ToL2MessageSource,
+  appendL1ToL2MessagesToTree,
+  flattenBundle,
+  getInboxCutoffTimestamp,
+} from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -290,14 +295,15 @@ export class NodePublicCallsSimulator {
         isLastBlock: false,
         cutoffTimestamp: getInboxCutoffTimestamp(opts.slotNumber, l1Constants),
       });
-      if (!selection.consume || selection.bundle.length === 0) {
+      const leaves = selection.consume ? flattenBundle(selection.bundle) : [];
+      if (!selection.consume || leaves.length === 0) {
         return;
       }
 
-      await appendL1ToL2MessagesToTree(fork, selection.bundle);
-      this.log.debug(`Appended ${selection.bundle.length} predicted L1-to-L2 messages to the simulation fork`, {
+      await appendL1ToL2MessagesToTree(fork, leaves);
+      this.log.debug(`Appended ${leaves.length} predicted L1-to-L2 messages to the simulation fork`, {
         bucketSeq: selection.bucket.seq,
-        messageCount: selection.bundle.length,
+        messageCount: leaves.length,
       });
     } catch (err) {
       this.log.verbose(`Could not predict the next block's L1-to-L2 messages, simulating against the tip: ${err}`);

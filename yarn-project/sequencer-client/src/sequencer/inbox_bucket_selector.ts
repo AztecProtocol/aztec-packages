@@ -1,5 +1,9 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
-import { type InboxBucket, type L1ToL2MessageSource, isInboxConsumptionSufficient } from '@aztec/stdlib/messaging';
+import {
+  type InboxBucket,
+  type InboxMessageBundle,
+  type L1ToL2MessageSource,
+  isInboxConsumptionSufficient,
+} from '@aztec/stdlib/messaging';
 
 /** The subset of the archiver's Inbox-bucket queries the selector needs. */
 export type InboxBucketSource = Pick<
@@ -51,8 +55,8 @@ type InboxBucketConsumption =
       consume: true;
       /** The newest bucket this block consumes through. */
       bucket: InboxBucket;
-      /** The message leaves consumed this block, in insertion order (may be empty for an empty bucket). */
-      bundle: Fr[];
+      /** The message leaves consumed this block, grouped per Inbox bucket in insertion order. */
+      bundle: InboxMessageBundle;
     }
   | {
       /** The block consumes nothing; it reuses the parent bucket reference. */

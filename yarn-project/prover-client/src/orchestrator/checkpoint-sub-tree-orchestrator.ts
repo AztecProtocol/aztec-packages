@@ -20,7 +20,7 @@ import type {
   ReadonlyWorldStateAccess,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
-import { appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
+import { type InboxMessageBundle, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseRollupHints,
@@ -197,7 +197,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     cancelJobsOnStop: boolean,
     deferredJobQueue: SerialQueue,
     checkpointConstants: CheckpointConstantData,
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     startInboxRollingHash: Fr,
     totalNumBlocks: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
@@ -518,7 +518,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
    */
   private async startCheckpoint(
     constants: CheckpointConstantData,
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     startInboxRollingHash: Fr,
     totalNumBlocks: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,

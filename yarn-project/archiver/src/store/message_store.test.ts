@@ -225,17 +225,16 @@ describe('MessageStore', () => {
   describe('Inbox buckets', () => {
     // Builds `count` consecutive valid messages, then reassigns their bucket sequence and timestamp per the given
     // per-message spec so we can exercise multi-message and rollover buckets.
-    const makeBucketedMessages = (
-      spec: { seq: bigint; timestamp: bigint; l1BlockNumber?: bigint }[],
-    ): InboxMessage[] => {
-      const msgs = makeInboxMessages(spec.length);
-      msgs.forEach((msg, i) => {
-        msg.bucketSeq = spec[i].seq;
-        msg.bucketTimestamp = spec[i].timestamp;
-        msg.l1BlockNumber = spec[i].l1BlockNumber ?? msg.l1BlockNumber;
+    const makeBucketedMessages = (spec: { seq: bigint; timestamp: bigint; l1BlockNumber?: bigint }[]): InboxMessage[] =>
+      // Reassign the buckets through the override so the rolling-hash chain is built over the final bucket layout.
+      makeInboxMessages(spec.length, {
+        overrideFn: (msg, i) => ({
+          ...msg,
+          bucketSeq: spec[i].seq,
+          bucketTimestamp: spec[i].timestamp,
+          l1BlockNumber: spec[i].l1BlockNumber ?? msg.l1BlockNumber,
+        }),
       });
-      return msgs;
-    };
 
     // Builds a valid message continuing the chain after `previous`, absorbed into the given bucket.
     const makeNextMessage = (previous: InboxMessage, bucket: { seq: bigint; timestamp: bigint }): InboxMessage => {
@@ -244,7 +243,7 @@ describe('MessageStore', () => {
         ...previous,
         leaf,
         index: previous.index + 1n,
-        inboxRollingHash: updateInboxRollingHash(previous.inboxRollingHash, leaf),
+        inboxRollingHash: updateInboxRollingHash(previous.inboxRollingHash, leaf, bucket.seq !== previous.bucketSeq),
         bucketSeq: bucket.seq,
         bucketTimestamp: bucket.timestamp,
       };
@@ -380,14 +379,19 @@ describe('MessageStore', () => {
       expect((await messageStore.getLatestInboxBucketAtOrBefore(200n))!.seq).toEqual(3n);
     });
 
-    it('returns messages between buckets in insertion order', async () => {
+    it('returns messages between buckets grouped per bucket, in insertion order', async () => {
       const msgs = makeBucketedMessages(threeBucketSpec);
       await messageStore.addL1ToL2MessageBuckets(msgs);
       const leaves = msgs.map(m => m.leaf);
 
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual(leaves);
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual(leaves.slice(3, 5));
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual(leaves.slice(5));
+      // Bucket 1 = [0,1,2], bucket 2 = [3,4], bucket 3 = [5]; each range comes back as one group per bucket.
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual([
+        leaves.slice(0, 3),
+        leaves.slice(3, 5),
+        leaves.slice(5),
+      ]);
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual([leaves.slice(3, 5)]);
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual([leaves.slice(5)]);
       // An empty (fromExclusive, toInclusive] range yields no messages.
       expect(await messageStore.getL1ToL2MessagesBetweenBuckets(3n, 3n)).toEqual([]);
     });
@@ -410,10 +414,14 @@ describe('MessageStore', () => {
       const leaves = msgs.map(m => m.leaf);
 
       // Bucket boundaries sit at cumulative counts 0 (genesis), 3, 5 and 6.
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 6n)).toEqual(leaves);
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 3n)).toEqual(leaves.slice(0, 3));
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(3n, 5n)).toEqual(leaves.slice(3, 5));
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 6n)).toEqual(leaves.slice(5));
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 6n)).toEqual([
+        leaves.slice(0, 3),
+        leaves.slice(3, 5),
+        leaves.slice(5),
+      ]);
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 3n)).toEqual([leaves.slice(0, 3)]);
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(3n, 5n)).toEqual([leaves.slice(3, 5)]);
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 6n)).toEqual([leaves.slice(5)]);
       // An empty range consumes nothing, at a bucket boundary or at genesis.
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 5n)).toEqual([]);
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 0n)).toEqual([]);

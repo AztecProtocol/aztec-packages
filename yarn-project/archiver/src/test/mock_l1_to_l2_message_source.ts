@@ -1,7 +1,8 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { CheckpointId, L2BlockId, L2TipId, L2Tips } from '@aztec/stdlib/block';
-import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { InboxBucket, InboxMessageBundle, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
 /**
  * A mocked implementation of L1ToL2MessageSource to be used in tests.
@@ -43,14 +44,14 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     return Promise.resolve(atOrBefore.at(-1));
   }
 
-  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
+  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<InboxMessageBundle> {
     const seqs = [...this.messagesPerBucket.keys()]
       .filter(seq => seq > fromExclusive && seq <= toInclusive)
       .sort((a, b) => Number(a - b));
-    return Promise.resolve(seqs.flatMap(seq => this.messagesPerBucket.get(seq) ?? []));
+    return Promise.resolve(compactArray(seqs.map(seq => this.messagesPerBucket.get(seq))).filter(m => m.length > 0));
   }
 
-  async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+  async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageBundle> {
     const startBucket = await this.getInboxBucketByTotalMsgCount(startLeafCount);
     const endBucket = await this.getInboxBucketByTotalMsgCount(endLeafCount);
     if (startBucket === undefined || endBucket === undefined) {
