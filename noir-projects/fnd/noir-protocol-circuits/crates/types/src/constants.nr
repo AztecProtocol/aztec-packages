@@ -731,6 +731,13 @@ pub global DOM_SEP__RETRIEVED_BYTECODES_MERKLE: u32 = 2789215184;
 /// hash, in particular the `out_hash` merkle node hash, which absorbs the same 64-byte two-field preimage shape.
 pub global DOM_SEP__INBOX_ROLLING_HASH: u32 = 3737216265;
 
+/// Domain separator for an Inbox rolling-hash link whose leaf is the first message of an L1 bucket.
+///
+/// Buckets group the messages inserted in a single L1 block, so tagging the first leaf of each bucket makes the chain
+/// itself commit to the bucket boundaries: a chain over the same leaves regrouped into different buckets yields a
+/// different hash.
+pub global DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START: u32 = 3204844280;
+
 // ---------------------------------------------------------------
 // Contract Address
 
