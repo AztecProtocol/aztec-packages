@@ -13,6 +13,7 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
+import type { InboxMessageBundle } from '@aztec/stdlib/messaging';
 import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { mockProcessedTx } from '@aztec/stdlib/testing';
 import { MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -200,6 +201,8 @@ export class TestContext {
     // Build l1 to l2 messages. Appended unpadded at compact indices; the mock assigns them all to
     // the checkpoint's first block, matching how the per-block driver slices them.
     const l1ToL2Messages = times(numL1ToL2Messages, i => new Fr(slotNumber * 100 + i));
+    // The mock puts the whole checkpoint in one Inbox bucket carried by its first block.
+    const l1ToL2MessageBundle: InboxMessageBundle = l1ToL2Messages.length > 0 ? [l1ToL2Messages] : [];
     await fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, fork);
 
@@ -263,7 +266,7 @@ export class TestContext {
       const { block } = await builder.applyEffectsAndSealBlock(
         blockGlobalVariables[i],
         txs,
-        i === 0 ? l1ToL2Messages : [],
+        i === 0 ? l1ToL2MessageBundle : [],
         { expectedEndState: state },
       );
 
@@ -287,6 +290,7 @@ export class TestContext {
       header: checkpoint.header,
       blocks,
       l1ToL2Messages,
+      l1ToL2MessageBundle,
       previousBlockHeader,
       startInboxRollingHash,
     };
@@ -327,6 +331,8 @@ export class TestContext {
 
     const constants = makeCheckpointConstants(slotNumber, constantOpts);
     const l1ToL2Messages = l1ToL2MessagesPerBlock.flat();
+    // Each non-empty per-block slice is one Inbox bucket; the checkpoint's bundle is their concatenation.
+    const l1ToL2MessageBundle: InboxMessageBundle = l1ToL2MessagesPerBlock.filter(slice => slice.length > 0);
 
     const fork = await this.worldState.fork();
 
@@ -388,12 +394,10 @@ export class TestContext {
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const { block } = await builder.applyEffectsAndSealBlock(
-        blockGlobalVariables[i],
-        txs,
-        l1ToL2MessagesPerBlock[i],
-        { expectedEndState: state },
-      );
+      const blockBundle: InboxMessageBundle = l1ToL2MessagesPerBlock[i].length > 0 ? [l1ToL2MessagesPerBlock[i]] : [];
+      const { block } = await builder.applyEffectsAndSealBlock(blockGlobalVariables[i], txs, blockBundle, {
+        expectedEndState: state,
+      });
 
       const header = block.header;
       this.headers.set(block.number, header);
@@ -414,6 +418,7 @@ export class TestContext {
       header: checkpoint.header,
       blocks,
       l1ToL2Messages,
+      l1ToL2MessageBundle,
       l1ToL2MessagesPerBlock,
       previousBlockHeader,
       startInboxRollingHash,

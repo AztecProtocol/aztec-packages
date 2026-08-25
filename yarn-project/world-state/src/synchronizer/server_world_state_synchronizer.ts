@@ -20,7 +20,7 @@ import {
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, flattenBundle } from '@aztec/stdlib/messaging';
 import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import type { L2BlockHandledStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId, type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -382,7 +382,7 @@ export class ServerWorldStateSynchronizer
         if (startBucket !== undefined && endBucket !== undefined) {
           messagesForBlocks.set(
             block.number,
-            await this.l2BlockSource.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq),
+            flattenBundle(await this.l2BlockSource.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq)),
           );
         }
       }

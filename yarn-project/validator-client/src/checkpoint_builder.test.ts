@@ -836,7 +836,7 @@ describe('CheckpointBuilder', () => {
 
       const { block } = await builder.buildBlock([], firstBlockNumber, 1000n, {
         ...validatorOpts(),
-        l1ToL2Messages: messages,
+        l1ToL2Messages: [messages],
       });
 
       // The AVM must read the same post-append tree the prover and the block-root circuit use.
@@ -851,7 +851,7 @@ describe('CheckpointBuilder', () => {
       processor.process.mockRejectedValue(new Error('processor failure'));
 
       await expect(
-        builder.buildBlock([], firstBlockNumber, 1000n, { ...validatorOpts(), l1ToL2Messages: messages }),
+        builder.buildBlock([], firstBlockNumber, 1000n, { ...validatorOpts(), l1ToL2Messages: [messages] }),
       ).rejects.toThrow('processor failure');
 
       expect(await getL1ToL2TreeSize()).toBe(0n);
@@ -864,7 +864,7 @@ describe('CheckpointBuilder', () => {
       await expect(
         builder.buildBlock([], firstBlockNumber, 1000n, {
           ...validatorOpts({ minValidTxs: 1 }),
-          l1ToL2Messages: messages,
+          l1ToL2Messages: [messages],
         }),
       ).rejects.toThrow(InsufficientValidTxsError);
 

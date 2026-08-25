@@ -151,7 +151,8 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
 
       try {
         for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
-          const { constants, blocks, l1ToL2Messages, previousBlockHeader, checkpoint } = checkpoints[checkpointIndex];
+          const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader, checkpoint } =
+            checkpoints[checkpointIndex];
 
           // First checkpoint starts from genesis; the multi-checkpoint scenario carries no messages,
           // so every checkpoint's previous rolling hash is zero.
@@ -166,7 +167,7 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
             /* cancelJobsOnStop */ false,
             makeTestDeferredJobQueue(),
             constants,
-            l1ToL2Messages,
+            l1ToL2MessageBundle,
             previousInboxRollingHash,
             numBlocksPerCheckpoint,
             previousBlockHeader,

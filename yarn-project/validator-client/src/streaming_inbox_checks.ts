@@ -1,5 +1,10 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
-import type { InboxBucket, InboxBucketRef, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import {
+  EMPTY_BUNDLE,
+  type InboxBucket,
+  type InboxBucketRef,
+  type InboxMessageBundle,
+  type L1ToL2MessageSource,
+} from '@aztec/stdlib/messaging';
 
 /**
  * Reason a streaming-Inbox block proposal fails the per-block acceptance checks. Follows the
@@ -65,7 +70,7 @@ export type StreamingBlockCheckResult =
   | {
       /** All checks passed; `bundle` is the message-leaf bundle this block consumes, for re-execution. */
       accepted: true;
-      bundle: Fr[];
+      bundle: InboxMessageBundle;
     }
   | {
       /** A check failed; `reason` mirrors the L1 acceptance condition that would have rejected the proposal. */
@@ -158,10 +163,10 @@ export async function checkStreamingBlockProposalMetadata(
 export function getStreamingBlockBundle(
   messageSource: Pick<StreamingInboxBucketSource, 'getL1ToL2MessagesBetweenBuckets'>,
   range: StreamingBlockBucketRange,
-): Promise<Fr[]> {
+): Promise<InboxMessageBundle> {
   const { bucket, parentBucket } = range;
   return parentBucket.seq === bucket.seq
-    ? Promise.resolve([])
+    ? Promise.resolve(EMPTY_BUNDLE)
     : messageSource.getL1ToL2MessagesBetweenBuckets(parentBucket.seq, bucket.seq);
 }
 

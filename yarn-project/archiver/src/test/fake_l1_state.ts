@@ -197,7 +197,11 @@ export class FakeL1State {
       this.currentBucketTimestamp = timestamp;
       this.currentBucketMsgCount = 0;
     }
-    this.messagesConsensusRollingHash = updateInboxRollingHash(this.messagesConsensusRollingHash, leaf);
+    this.messagesConsensusRollingHash = updateInboxRollingHash(
+      this.messagesConsensusRollingHash,
+      leaf,
+      this.currentBucketMsgCount === 0,
+    );
     this.currentBucketMsgCount += 1;
     return { bucketSeq: this.currentBucketSeq, inboxRollingHash: this.messagesConsensusRollingHash };
   }

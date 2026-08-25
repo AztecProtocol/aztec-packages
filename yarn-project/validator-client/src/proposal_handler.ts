@@ -41,6 +41,8 @@ import type {
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import {
+  EMPTY_BUNDLE,
+  type InboxMessageBundle,
   type L1ToL2MessageSource,
   accumulateCheckpointOutHashes,
   getInboxCutoffTimestamp,
@@ -1160,16 +1162,16 @@ export class ProposalHandler {
    * between the parent checkpoint's consumed position and the checkpoint's last block. Empty when
    * the checkpoint consumed nothing or its consumption cannot be resolved against the local Inbox view.
    */
-  private async deriveCheckpointConsumedMessages(blocks: L2Block[]): Promise<Fr[]> {
+  private async deriveCheckpointConsumedMessages(blocks: L2Block[]): Promise<InboxMessageBundle> {
     const checkpointStartTotal = await this.getPreBlockConsumedTotal(blocks[0].number);
     const lastBlockTotal = this.blockLeafCount(blocks[blocks.length - 1]);
     if (checkpointStartTotal === undefined || lastBlockTotal <= checkpointStartTotal) {
-      return [];
+      return EMPTY_BUNDLE;
     }
     const startBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(checkpointStartTotal);
     const endBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(lastBlockTotal);
     if (startBucket === undefined || endBucket === undefined) {
-      return [];
+      return EMPTY_BUNDLE;
     }
     return this.l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
   }
@@ -1179,7 +1181,7 @@ export class ProposalHandler {
     blockNumber: BlockNumber,
     checkpointNumber: CheckpointNumber,
     txs: Tx[],
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     previousCheckpointOutHashes: Fr[],
     previousInboxRollingHash: Fr,
   ): Promise<ReexecuteTransactionsResult> {

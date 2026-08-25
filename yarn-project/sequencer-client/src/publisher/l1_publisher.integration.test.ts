@@ -79,6 +79,7 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { EMPTY_BUNDLE, type InboxMessageBundle } from '@aztec/stdlib/messaging';
 import {
   CheckpointProposal,
   ConsensusPayload,
@@ -491,7 +492,7 @@ describe('L1Publisher integration', () => {
   const buildCheckpoint = async (
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     previousCheckpointOutHashes: Fr[] = [],
     previousInboxRollingHash: Fr = Fr.ZERO,
   ): Promise<Checkpoint> => {
@@ -526,7 +527,7 @@ describe('L1Publisher integration', () => {
   };
 
   const buildSingleCheckpoint = async (
-    opts: { l1ToL2Messages?: Fr[]; blockNumber?: BlockNumber; slot?: SlotNumber } = {},
+    opts: { l1ToL2Messages?: InboxMessageBundle; blockNumber?: BlockNumber; slot?: SlotNumber } = {},
   ) => {
     // By default a single checkpoint consumes no Inbox messages (bucketHint 0 against the genesis bucket).
     const l1ToL2Messages = opts.l1ToL2Messages ?? [];
@@ -550,7 +551,7 @@ describe('L1Publisher integration', () => {
   };
 
   const buildSingleCheckpointForPipelinedProposer = async (
-    opts: { l1ToL2Messages?: Fr[]; blockNumber?: BlockNumber } = {},
+    opts: { l1ToL2Messages?: InboxMessageBundle; blockNumber?: BlockNumber } = {},
   ) => {
     const slot = await getPipelinedProposalSlot();
     proposer = await epochCache.getProposerAttesterAddressInSlot(slot);
@@ -685,7 +686,7 @@ describe('L1Publisher integration', () => {
           isLastBlock: true,
           cutoffTimestamp,
         });
-        const currentL1ToL2Messages = selection.consume ? selection.bundle : [];
+        const currentL1ToL2Messages = selection.consume ? selection.bundle : EMPTY_BUNDLE;
         const bucketHint = selection.consume ? selection.bucket.seq : parent.seq;
 
         const checkpoint = await buildCheckpoint(
@@ -1088,7 +1089,7 @@ describe('L1Publisher integration', () => {
     it(`shows propose custom errors if tx simulation fails`, async () => {
       // Set up different l1-to-l2 messages than the ones on the inbox, so the checkpoint's inboxRollingHash does not
       // match the referenced Inbox bucket and the submission reverts at the streaming-consumption check.
-      const l1ToL2Messages = new Array(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT).fill(new Fr(1n));
+      const l1ToL2Messages = [new Array(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT).fill(new Fr(1n))];
       const { checkpoint } = await buildSingleCheckpoint({ l1ToL2Messages });
 
       // Enqueue no longer simulates per action — the bundle simulate at send time drops the

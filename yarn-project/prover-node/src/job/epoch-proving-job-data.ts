@@ -3,6 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import type { InboxMessageBundle } from '@aztec/stdlib/messaging';
 import { BlockHeader, Tx } from '@aztec/stdlib/tx';
 
 /** All data from an epoch used in proving. */
@@ -10,7 +11,7 @@ export type EpochProvingJobData = {
   epochNumber: EpochNumber;
   checkpoints: Checkpoint[];
   txs: Map<string, Tx>;
-  l1ToL2Messages: Record<CheckpointNumber, Fr[]>;
+  l1ToL2Messages: Record<CheckpointNumber, InboxMessageBundle>;
   previousBlockHeader: BlockHeader;
   /** Inbox rolling hash of the checkpoint before the epoch's first checkpoint (its chain start); genesis is zero. */
   previousInboxRollingHash: Fr;
@@ -40,10 +41,11 @@ export function validateEpochProvingJobData(data: EpochProvingJobData) {
 export function serializeEpochProvingJobData(data: EpochProvingJobData): Buffer {
   const checkpoints = data.checkpoints.map(checkpoint => checkpoint.toBuffer());
   const txs = Array.from(data.txs.values()).map(tx => tx.toBuffer());
-  const l1ToL2Messages = Object.entries(data.l1ToL2Messages).map(([checkpointNumber, messages]) => [
+  // Each checkpoint's bundle is written as a bucket count followed by one length-prefixed vector per bucket.
+  const l1ToL2Messages = Object.entries(data.l1ToL2Messages).map(([checkpointNumber, bundle]) => [
     Number(checkpointNumber),
-    messages.length,
-    ...messages,
+    bundle.length,
+    ...bundle.map(bucket => [bucket.length, ...bucket]),
   ]);
   const attestations = data.attestations.map(attestation => attestation.toBuffer());
 
@@ -71,11 +73,11 @@ export function deserializeEpochProvingJobData(buf: Buffer): EpochProvingJobData
   const txArray = reader.readVector(Tx);
 
   const l1ToL2MessageCheckpointCount = reader.readNumber();
-  const l1ToL2Messages: Record<number, Fr[]> = {};
+  const l1ToL2Messages: Record<number, InboxMessageBundle> = {};
   for (let i = 0; i < l1ToL2MessageCheckpointCount; i++) {
     const checkpointNumber = CheckpointNumber(reader.readNumber());
-    const messages = reader.readVector(Fr);
-    l1ToL2Messages[checkpointNumber] = messages;
+    const bucketCount = reader.readNumber();
+    l1ToL2Messages[checkpointNumber] = Array.from({ length: bucketCount }, () => reader.readVector(Fr));
   }
 
   const attestations = reader.readVector(CommitteeAttestation);

@@ -1,5 +1,4 @@
 import { BlockNumber, type EpochNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -15,6 +14,7 @@ import {
   getSlotRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 import type { EpochProvingJobState } from '@aztec/stdlib/interfaces/server';
+import type { InboxMessageBundle } from '@aztec/stdlib/messaging';
 
 import type { CheckpointStore } from './checkpoint-store.js';
 import { CheckpointProver } from './job/checkpoint-prover.js';
@@ -443,7 +443,7 @@ export class SessionManager {
     // for the snapshot. The pool retains them past the proving window (A-1274), so this is durable.
     const perCheckpoint = await Promise.all(checkpoints.map(async c => ({ c, txs: await c.getTxsForUpload() })));
     const txs = new Map();
-    const l1ToL2Messages: Record<number, Fr[]> = {};
+    const l1ToL2Messages: Record<number, InboxMessageBundle> = {};
     for (const { c, txs: checkpointTxs } of perCheckpoint) {
       for (const [hash, tx] of checkpointTxs) {
         txs.set(hash, tx);

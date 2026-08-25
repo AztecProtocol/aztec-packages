@@ -37,9 +37,10 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
   it('resolves the sub-tree result with block-level proofs for a single-block checkpoint', async () => {
     const numBlocks = 1;
     const numTxsPerBlock = 1;
-    const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(numBlocks, {
-      numTxsPerBlock,
-    });
+    const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader } =
+      await context.makeCheckpoint(numBlocks, {
+        numTxsPerBlock,
+      });
 
     const subTree = await CheckpointSubTreeOrchestrator.start(
       context.worldState,
@@ -50,7 +51,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       false,
       makeTestDeferredJobQueue(),
       constants,
-      l1ToL2Messages,
+      l1ToL2MessageBundle,
       Fr.ZERO,
       numBlocks,
       previousBlockHeader,
@@ -83,9 +84,10 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
   it('resolves with two block proofs for a two-block checkpoint', async () => {
     const numBlocks = 2;
     const numTxsPerBlock = 1;
-    const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(numBlocks, {
-      numTxsPerBlock,
-    });
+    const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader } =
+      await context.makeCheckpoint(numBlocks, {
+        numTxsPerBlock,
+      });
 
     const subTree = await CheckpointSubTreeOrchestrator.start(
       context.worldState,
@@ -96,7 +98,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       false,
       makeTestDeferredJobQueue(),
       constants,
-      l1ToL2Messages,
+      l1ToL2MessageBundle,
       Fr.ZERO,
       numBlocks,
       previousBlockHeader,
@@ -126,10 +128,11 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     // Cross-chain messages flow into the checkpoint's first block via the L1-to-L2
     // message tree; the sub-tree must prove them through without error (A-1039).
     const numBlocks = 1;
-    const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(numBlocks, {
-      numTxsPerBlock: 1,
-      numL1ToL2Messages: 3,
-    });
+    const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader } =
+      await context.makeCheckpoint(numBlocks, {
+        numTxsPerBlock: 1,
+        numL1ToL2Messages: 3,
+      });
     expect(l1ToL2Messages.length).toBe(3);
 
     const subTree = await CheckpointSubTreeOrchestrator.start(
@@ -141,7 +144,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       false,
       makeTestDeferredJobQueue(),
       constants,
-      l1ToL2Messages,
+      l1ToL2MessageBundle,
       Fr.ZERO,
       numBlocks,
       previousBlockHeader,
@@ -170,13 +173,14 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     // L2-to-L1 (cross-chain) messages are carried on the public tx effects; the sub-tree
     // must prove them through the base/block rollups without error (A-1039).
     const numBlocks = 1;
-    const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(numBlocks, {
-      numTxsPerBlock: 1,
-      makeProcessedTxOpts: () => ({
-        privateOnly: false,
-        avmAccumulatedData: { l2ToL1Msgs: makeL2ToL1Messages(2) },
-      }),
-    });
+    const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader } =
+      await context.makeCheckpoint(numBlocks, {
+        numTxsPerBlock: 1,
+        makeProcessedTxOpts: () => ({
+          privateOnly: false,
+          avmAccumulatedData: { l2ToL1Msgs: makeL2ToL1Messages(2) },
+        }),
+      });
     // Confirm the fixture actually attached the messages.
     expect(blocks[0].txs[0].txEffect.l2ToL1Msgs.length).toBe(2);
 
@@ -189,7 +193,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       false,
       makeTestDeferredJobQueue(),
       constants,
-      l1ToL2Messages,
+      l1ToL2MessageBundle,
       Fr.ZERO,
       numBlocks,
       previousBlockHeader,
@@ -229,10 +233,8 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     // checkpoint root), not one output per block.
     const l1ToL2MessagesPerBlock = [[new Fr(1001), new Fr(1002)], [], [new Fr(1003), new Fr(1004), new Fr(1005)]];
     const numBlocks = l1ToL2MessagesPerBlock.length;
-    const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpointWithMessagesPerBlock(
-      l1ToL2MessagesPerBlock,
-      { numTxsPerBlock: [1, 1, 0] },
-    );
+    const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader } =
+      await context.makeCheckpointWithMessagesPerBlock(l1ToL2MessagesPerBlock, { numTxsPerBlock: [1, 1, 0] });
     expect(l1ToL2Messages.length).toBe(5);
 
     const subTree = await CheckpointSubTreeOrchestrator.start(
@@ -244,7 +246,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       false,
       makeTestDeferredJobQueue(),
       constants,
-      l1ToL2Messages,
+      l1ToL2MessageBundle,
       Fr.ZERO,
       numBlocks,
       previousBlockHeader,

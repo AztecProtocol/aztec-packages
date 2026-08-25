@@ -47,7 +47,7 @@ describe('prover/bb_prover/parity', () => {
       const messages = Array.from({ length: size }, () => Fr.random());
       const proverId = Fr.random();
 
-      const inputs = InboxParityPrivateInputs.fromMessages(messages, Fr.ZERO, proverId);
+      const inputs = InboxParityPrivateInputs.fromMessages([messages], Fr.ZERO, proverId);
       expect(inputs.size).toBe(size);
 
       const output = await context.prover.getInboxParityProof(inputs);

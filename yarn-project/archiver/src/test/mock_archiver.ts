@@ -2,7 +2,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { InboxBucket, InboxMessageBundle, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
 import { MockL1ToL2MessageSource } from './mock_l1_to_l2_message_source.js';
 import { MockL2BlockSource } from './mock_l2_block_source.js';
@@ -34,11 +34,11 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
     return this.messageSource.getInboxBucketByTotalMsgCount(totalMsgCount);
   }
 
-  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
+  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<InboxMessageBundle> {
     return this.messageSource.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
   }
 
-  getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+  getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageBundle> {
     return this.messageSource.getL1ToL2MessagesBetweenLeafCounts(startLeafCount, endLeafCount);
   }
 }

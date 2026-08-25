@@ -7,10 +7,12 @@ import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import {
+  type InboxMessageBundle,
   accumulateCheckpointOutHashes,
   accumulateInboxRollingHash,
   appendL1ToL2MessagesToTree,
   computeCheckpointOutHash,
+  flattenBundle,
 } from '@aztec/stdlib/messaging';
 import { CheckpointHeader, computeBlockHeadersHash } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
@@ -45,7 +47,7 @@ export class LightweightCheckpointBuilder {
     public readonly checkpointNumber: CheckpointNumber,
     public readonly constants: CheckpointGlobalVariables,
     public feeAssetPriceModifier: bigint,
-    public readonly l1ToL2Messages: Fr[],
+    public readonly l1ToL2Messages: InboxMessageBundle,
     private readonly previousCheckpointOutHashes: Fr[],
     // Inbox rolling hash of the previous checkpoint (this checkpoint's chain start); genesis is zero.
     private readonly previousInboxRollingHash: Fr,
@@ -95,7 +97,7 @@ export class LightweightCheckpointBuilder {
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
     feeAssetPriceModifier: bigint,
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     previousCheckpointOutHashes: Fr[],
     previousInboxRollingHash: Fr,
     db: MerkleTreeWriteOperations,
@@ -106,7 +108,8 @@ export class LightweightCheckpointBuilder {
       checkpointNumber,
       constants,
       feeAssetPriceModifier,
-      l1ToL2Messages,
+      // Copied because `addBlock` appends to this list; the caller's bundle (often a shared empty one) must not move.
+      [...l1ToL2Messages],
       previousCheckpointOutHashes,
       previousInboxRollingHash,
       db,
@@ -168,13 +171,13 @@ export class LightweightCheckpointBuilder {
    * Seals a block whose state updates are already in the db: the caller has inserted the tx effects and appended the
    * block's L1-to-L2 messages to the tree (so the AVM read the same post-append tree the prover and the block-root
    * circuit use). Reads the end state, builds the header and body, and records the block in the checkpoint.
-   * @param l1ToL2Messages - The message leaves this block consumes from the Inbox, in insertion order.
+   * @param l1ToL2Messages - The message leaves this block consumes from the Inbox, grouped per Inbox bucket.
    * @param opts.expectedEndState - If set, the db's end state must match it or the block is rejected.
    */
   public sealBlock(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     opts: { expectedEndState?: StateReference } = {},
   ): Promise<{ block: L2Block; timings: Record<string, number> }> {
     return this.addBlock(globalVariables, txs, l1ToL2Messages, { ...opts, applyStateUpdates: false });
@@ -183,13 +186,13 @@ export class LightweightCheckpointBuilder {
   /**
    * Inserts the txs' side effects into the db, appends the block's L1-to-L2 messages to the tree, and then seals the
    * block as `sealBlock` does.
-   * @param l1ToL2Messages - The message leaves this block consumes from the Inbox, in insertion order.
+   * @param l1ToL2Messages - The message leaves this block consumes from the Inbox, grouped per Inbox bucket.
    * @param opts.expectedEndState - If set, the db's end state must match it or the block is rejected.
    */
   public applyEffectsAndSealBlock(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     opts: { expectedEndState?: StateReference } = {},
   ): Promise<{ block: L2Block; timings: Record<string, number> }> {
     return this.addBlock(globalVariables, txs, l1ToL2Messages, { ...opts, applyStateUpdates: true });
@@ -198,7 +201,7 @@ export class LightweightCheckpointBuilder {
   private async addBlock(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     opts: { applyStateUpdates: boolean; expectedEndState?: StateReference },
   ): Promise<{ block: L2Block; timings: Record<string, number> }> {
     const timings: Record<string, number> = {};
@@ -231,7 +234,7 @@ export class LightweightCheckpointBuilder {
     // mid-build failure does not pollute the checkpoint's rolling hash; the rolling hash is recomputed over them at
     // checkpoint completion.
     if (opts.applyStateUpdates) {
-      await appendL1ToL2MessagesToTree(this.db, l1ToL2Messages);
+      await appendL1ToL2MessagesToTree(this.db, flattenBundle(l1ToL2Messages));
     }
 
     const [msGetEndState, endState] = await elapsed(() => this.db.getStateReference());

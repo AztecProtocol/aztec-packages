@@ -14,7 +14,6 @@ import {
   generateRecoverableSignature,
   generateUnrecoverableSignature,
 } from '@aztec/foundation/crypto/secp256k1-signer';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -54,9 +53,12 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import {
+  EMPTY_BUNDLE,
   type InboxBucket,
   InboxBucketRef,
+  type InboxMessageBundle,
   type L1ToL2MessageSource,
+  bundleLength,
   getInboxCutoffTimestamp,
   isInboxConsumptionSufficient,
 } from '@aztec/stdlib/messaging';
@@ -1031,7 +1033,11 @@ export class CheckpointProposalJob implements Traceable {
         break;
       }
 
-      const streamingBundle = streamingState ? (selection && selection.consume ? selection.bundle : []) : undefined;
+      const streamingBundle = streamingState
+        ? selection && selection.consume
+          ? selection.bundle
+          : EMPTY_BUNDLE
+        : undefined;
 
       const buildResult = await this.buildSingleBlock(checkpointBuilder, {
         // Create all blocks with the same timestamp
@@ -1256,7 +1262,7 @@ export class CheckpointProposalJob implements Traceable {
       buildDeadline: Date | undefined;
       txHashesAlreadyIncluded: Set<string>;
       /** Streaming Inbox message bundle for this block's L1-to-L2 tree; undefined when it consumes nothing. */
-      l1ToL2Messages?: Fr[];
+      l1ToL2Messages?: InboxMessageBundle;
     },
   ): Promise<
     { block: L2Block; usedTxs: Tx[] } | { failure: 'insufficient-txs' | 'insufficient-valid-txs' } | { error: Error }
@@ -1327,7 +1333,7 @@ export class CheckpointProposalJob implements Traceable {
       // nor messages past the first block is pure padding, so the floor for minValidTxs is 1 there.
       const configuredMinValidTxs = forceCreate ? 0 : (this.config.minValidTxsPerBlock ?? minTxs);
       const minValidTxs =
-        indexWithinCheckpoint > 0 && (l1ToL2Messages?.length ?? 0) === 0
+        indexWithinCheckpoint > 0 && bundleLength(l1ToL2Messages ?? EMPTY_BUNDLE) === 0
           ? Math.max(configuredMinValidTxs, 1)
           : configuredMinValidTxs;
       const blockBuilderOptions: BlockBuilderOptions = {
@@ -1477,7 +1483,7 @@ export class CheckpointProposalJob implements Traceable {
     indexWithinCheckpoint: IndexWithinCheckpoint;
     buildDeadline: Date | undefined;
     /** Streaming Inbox message bundle this block consumes; a non-empty bundle permits a zero-tx (message-only) block. */
-    l1ToL2Messages?: Fr[];
+    l1ToL2Messages?: InboxMessageBundle;
   }): Promise<{ canStartBuilding: boolean; minTxs: number }> {
     const { indexWithinCheckpoint, blockNumber, buildDeadline, forceCreate } = opts;
 
@@ -1485,7 +1491,7 @@ export class CheckpointProposalJob implements Traceable {
     // regardless of minTxsPerBlock, so the messages get inserted (message-only block).
     // Without a bundle, a non-first block needs at least one tx to avoid empty filler blocks even when
     // minTxsPerBlock is zero.
-    const hasStreamingBundle = (opts.l1ToL2Messages?.length ?? 0) > 0;
+    const hasStreamingBundle = bundleLength(opts.l1ToL2Messages ?? EMPTY_BUNDLE) > 0;
     const minTxs = hasStreamingBundle
       ? 0
       : indexWithinCheckpoint > 0 && this.config.minTxsPerBlock === 0

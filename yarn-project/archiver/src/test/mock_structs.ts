@@ -46,9 +46,9 @@ export function makeInboxMessage(
   const { leaf = Fr.random() } = overrides;
   // Compact global insertion index: defaults to the first slot.
   const { index = 0n } = overrides;
-  const { inboxRollingHash = updateInboxRollingHash(previousInboxRollingHash, leaf) } = overrides;
-  // Default each message to its own bucket, keyed monotonically off its global index.
+  // Default each message to its own bucket, keyed monotonically off its global index, so it opens that bucket.
   const { bucketSeq = index + 1n } = overrides;
+  const { inboxRollingHash = updateInboxRollingHash(previousInboxRollingHash, leaf, true) } = overrides;
   const { bucketTimestamp = index + 1n } = overrides;
   // A bucket is opened by the first message of its L1 block timestamp, so derive the block from that timestamp.
   const { l1BlockNumber = makeL1BlockNumberForBucket(bucketTimestamp) } = overrides;
@@ -67,32 +67,35 @@ export function makeInboxMessage(
 
 /**
  * Builds a contiguous run of `totalCount` inbox messages with compact global indices starting at `initialIndex`
- * and a chained consensus rolling hash starting from `initialInboxHash`.
+ * and a chained consensus rolling hash starting from `initialInboxHash`. The chain is computed after `overrideFn`
+ * runs, so a message reassigned to another bucket still gets the rolling hash the Inbox would have produced.
  */
 export function makeInboxMessages(
   totalCount: number,
   opts: {
     initialInboxHash?: Fr;
     initialIndex?: bigint;
+    /** Bucket of the message preceding this run; the first message opens a bucket unless it matches. */
+    previousBucketSeq?: bigint;
     overrideFn?: (msg: InboxMessage, index: number) => InboxMessage;
   } = {},
 ): InboxMessage[] {
-  const { initialInboxHash = Fr.ZERO, initialIndex = 0n, overrideFn = msg => msg } = opts;
+  const { initialInboxHash = Fr.ZERO, initialIndex = 0n, previousBucketSeq, overrideFn = msg => msg } = opts;
 
   const messages: InboxMessage[] = [];
   let inboxRollingHash = initialInboxHash;
+  let lastBucketSeq = previousBucketSeq;
   for (let i = 0; i < totalCount; i++) {
-    const leaf = Fr.random();
-    inboxRollingHash = updateInboxRollingHash(inboxRollingHash, leaf);
     const message = overrideFn(
       makeInboxMessage(Fr.ZERO, {
-        leaf,
+        leaf: Fr.random(),
         index: initialIndex + BigInt(i),
-        inboxRollingHash,
       }),
       i,
     );
-    messages.push(message);
+    inboxRollingHash = updateInboxRollingHash(inboxRollingHash, message.leaf, message.bucketSeq !== lastBucketSeq);
+    lastBucketSeq = message.bucketSeq;
+    messages.push({ ...message, inboxRollingHash });
   }
   return messages;
 }

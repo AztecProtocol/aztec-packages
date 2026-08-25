@@ -829,7 +829,16 @@ export function makeInboxParityPrivateInputs(seed = 0): InboxParityPrivateInputs
   const size = INBOX_PARITY_SIZE_SMALL;
   const numMsgs = seed % (size + 1);
   const messages = Array.from({ length: size }, (_, i) => (i < numMsgs ? fr(i + seed + 0x3000) : Fr.ZERO));
-  return new InboxParityPrivateInputs(size, messages, numMsgs, new Fr(seed + 0x3500), new Fr(seed + 0x5000));
+  // A single bucket holding every real message: lane 0 opens it, padding lanes claim nothing.
+  const bucketStarts = Array.from({ length: size }, (_, i) => i === 0 && numMsgs > 0);
+  return new InboxParityPrivateInputs(
+    size,
+    messages,
+    bucketStarts,
+    numMsgs,
+    new Fr(seed + 0x3500),
+    new Fr(seed + 0x5000),
+  );
 }
 
 /**

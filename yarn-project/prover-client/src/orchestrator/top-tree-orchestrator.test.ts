@@ -59,7 +59,7 @@ describe('prover/orchestrator/top-tree', () => {
       false,
       makeTestDeferredJobQueue(),
       fixture.constants,
-      fixture.l1ToL2Messages,
+      fixture.l1ToL2MessageBundle,
       fixture.startInboxRollingHash,
       fixture.blocks.length,
       fixture.previousBlockHeader,
@@ -209,10 +209,10 @@ describe('prover/orchestrator/top-tree', () => {
 
       // The epoch's rolling-hash range binds the exact message sequence consumed, in block order, across all three
       // checkpoints; L1 validates this range against the Inbox when the proof lands.
-      const epochMessages = [...a.fixture.l1ToL2Messages, ...b.fixture.l1ToL2Messages];
-      expect(epochMessages.length).toBe(7); // sanity: the fixtures really did carry messages
+      const epochBundle = [...a.fixture.l1ToL2MessageBundle, ...b.fixture.l1ToL2MessageBundle];
+      expect(epochBundle.flat().length).toBe(7); // sanity: the fixtures really did carry messages
       expect(result.publicInputs.previousInboxRollingHash).toEqual(Fr.ZERO);
-      expect(result.publicInputs.endInboxRollingHash).toEqual(accumulateInboxRollingHash(Fr.ZERO, epochMessages));
+      expect(result.publicInputs.endInboxRollingHash).toEqual(accumulateInboxRollingHash(Fr.ZERO, epochBundle));
     } finally {
       await topTree.stop();
     }

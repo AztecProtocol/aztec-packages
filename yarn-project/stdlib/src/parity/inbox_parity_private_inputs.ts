@@ -5,6 +5,8 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
+import { type InboxMessageBundle, bucketStartsOf, flattenBundle } from '../messaging/inbox_message_bundle.js';
+
 /** The InboxParity size ladder, ascending. One VK per size; the prover proves the smallest that fits. */
 export const INBOX_PARITY_SIZES = [INBOX_PARITY_SIZE_SMALL, INBOX_PARITY_SIZE_MEDIUM, INBOX_PARITY_SIZE_LARGE] as const;
 
@@ -35,6 +37,11 @@ export class InboxParityPrivateInputs {
     public readonly size: InboxParitySize,
     /** The checkpoint's L1-to-L2 messages, padded with zeros to `size`; the first `numMessages` are real. */
     public readonly messages: Fr[],
+    /**
+     * Flags the messages that are the first of their L1 Inbox bucket, so the rolling hash commits to the bucket
+     * boundaries. Aligned with `messages` and padded with `false` to `size`.
+     */
+    public readonly bucketStarts: boolean[],
     /** Number of real (non-padding) messages in `messages`. */
     public readonly numMessages: number,
     /** Inbox rolling hash before this checkpoint's messages (the previous checkpoint's end; genesis is zero). */
@@ -45,18 +52,25 @@ export class InboxParityPrivateInputs {
     if (messages.length !== size) {
       throw new Error(`InboxParity messages length (${messages.length}) must equal size (${size})`);
     }
+    if (bucketStarts.length !== size) {
+      throw new Error(`InboxParity bucketStarts length (${bucketStarts.length}) must equal size (${size})`);
+    }
   }
 
   /**
-   * Builds the inputs from a checkpoint's real messages, sizing the circuit by the message count and padding the
-   * message array out to that size.
+   * Builds the inputs from a checkpoint's message bundle, sizing the circuit by the message count and padding the
+   * message and flag arrays out to that size. This is the only place the per-bucket grouping is turned into the
+   * flat leaves and bucket-start flags the circuit takes.
    */
-  static fromMessages(messages: Fr[], startRollingHash: Fr, proverId: Fr): InboxParityPrivateInputs {
+  static fromMessages(bundle: InboxMessageBundle, startRollingHash: Fr, proverId: Fr): InboxParityPrivateInputs {
+    const messages = flattenBundle(bundle);
+    const bucketStarts = bucketStartsOf(bundle);
     const size = pickInboxParitySize(messages.length);
     // Explicit `<Fr, number>` keeps the result `Fr[]`; padding to the union-literal `size` would infer a deep tuple.
     return new InboxParityPrivateInputs(
       size,
       padArrayEnd<Fr, number>(messages, Fr.ZERO, size),
+      padArrayEnd<boolean, number>(bucketStarts, false, size),
       messages.length,
       startRollingHash,
       proverId,
@@ -68,6 +82,7 @@ export class InboxParityPrivateInputs {
     return serializeToBuffer(
       new Fr(this.size),
       this.messages,
+      this.bucketStarts,
       new Fr(this.numMessages),
       this.startRollingHash,
       this.proverId,
@@ -88,9 +103,11 @@ export class InboxParityPrivateInputs {
     const size = Fr.fromBuffer(reader).toNumber() as InboxParitySize;
     // Array.from keeps the type `Fr[]`; readArray with the union-literal `size` would infer a deep tuple.
     const messages = Array.from({ length: size }, () => Fr.fromBuffer(reader));
+    const bucketStarts = Array.from({ length: size }, () => reader.readBoolean());
     return new InboxParityPrivateInputs(
       size,
       messages,
+      bucketStarts,
       Fr.fromBuffer(reader).toNumber(),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),

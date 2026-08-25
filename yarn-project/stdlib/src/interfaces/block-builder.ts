@@ -7,6 +7,7 @@ import type { L2Block } from '../block/l2_block.js';
 import type { ChainConfig, SequencerConfig } from '../config/chain-config.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import type { Gas } from '../gas/gas.js';
+import type { InboxMessageBundle } from '../messaging/inbox_message_bundle.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { CheckpointGlobalVariables, GlobalVariables } from '../tx/global_variables.js';
 import type { FailedTx, ProcessedTx } from '../tx/processed_tx.js';
@@ -57,10 +58,10 @@ type BlockBuilderOptionsBase = PublicProcessorLimits & {
   /** Minimum number of successfully processed txs required. Block is rejected if fewer succeed. */
   minValidTxs: number;
   /**
-   * L1-to-L2 message leaves this block consumes, inserted into the fork's L1-to-L2 message tree before the block
-   * header is built. Omitted when the block consumes nothing from the Inbox.
+   * L1-to-L2 message leaves this block consumes, grouped per Inbox bucket, inserted into the fork's L1-to-L2 message
+   * tree before the block header is built. Omitted when the block consumes nothing from the Inbox.
    */
-  l1ToL2Messages?: Fr[];
+  l1ToL2Messages?: InboxMessageBundle;
 };
 
 /** Proposer mode: redistribution params are required. */

@@ -26,7 +26,7 @@ import { CheckpointReexecutionTracker, L1PublishedData, PublishedCheckpoint } fr
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { InboxBucketRef } from '@aztec/stdlib/messaging';
+import { InboxBucketRef, type InboxMessageBundle } from '@aztec/stdlib/messaging';
 import {
   type BlockProposal,
   CheckpointProposal,
@@ -63,7 +63,7 @@ describe('ValidatorClient Integration', () => {
     rollupManaLimit: 200_000_000,
   };
 
-  const emptyL1ToL2Messages: Fr[] = [];
+  const emptyL1ToL2Messages: InboxMessageBundle = [];
   const emptyPreviousCheckpointOutHashes: Fr[] = [];
 
   type ValidatorContext = {
@@ -249,7 +249,7 @@ describe('ValidatorClient Integration', () => {
     blockNumber: BlockNumber,
     cpNumber: CheckpointNumber,
     txs: Tx[] = [],
-    l1ToL2Messages: Fr[] = [],
+    l1ToL2Messages: InboxMessageBundle = [],
   ): Promise<{ block: L2Block; proposal: BlockProposal }> => {
     const blockTimestamp = getTimestampForSlot(checkpointBuilder.getConstantData().slotNumber, l1Constants);
     const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, blockTimestamp, {
@@ -318,7 +318,7 @@ describe('ValidatorClient Integration', () => {
   const buildCheckpoint = async (
     checkpointNumber: CheckpointNumber,
     slot: SlotNumber,
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     previousCheckpointOutHashes: Fr[],
     startBlockNumber: BlockNumber,
     blockCount: number,
@@ -327,7 +327,7 @@ describe('ValidatorClient Integration', () => {
     blocks: BlockProposalResult[];
     checkpoint: Awaited<ReturnType<CheckpointBuilder['completeCheckpoint']>>;
     proposal: Awaited<ReturnType<typeof proposer.validator.createCheckpointProposal>>;
-    l1ToL2Messages: Fr[];
+    l1ToL2Messages: InboxMessageBundle;
     globalVariables: CheckpointGlobalVariables;
   }> => {
     const globalVariables: CheckpointGlobalVariables = {
@@ -492,7 +492,8 @@ describe('ValidatorClient Integration', () => {
       const { blocks, proposal } = await buildCheckpoint(
         CheckpointNumber(1),
         slotNumber,
-        l1ToL2Messages.map(m => m.leaf),
+        // Each mocked message sits in its own Inbox bucket, so the bundle is one group per message.
+        l1ToL2Messages.map(m => [m.leaf]),
         emptyPreviousCheckpointOutHashes,
         BlockNumber(1),
         3,
@@ -711,7 +712,8 @@ describe('ValidatorClient Integration', () => {
       const { blocks } = await buildCheckpoint(
         CheckpointNumber(1),
         slotNumber,
-        l1ToL2Messages.map(m => m.leaf),
+        // Each mocked message sits in its own Inbox bucket, so the bundle is one group per message.
+        l1ToL2Messages.map(m => [m.leaf]),
         emptyPreviousCheckpointOutHashes,
         BlockNumber(1),
         1,

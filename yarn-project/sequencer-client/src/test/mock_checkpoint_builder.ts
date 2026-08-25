@@ -11,6 +11,7 @@ import type {
   ICheckpointsBuilder,
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
+import type { InboxMessageBundle } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
 import type { CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
@@ -210,7 +211,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
   public openCheckpointCalls: Array<{
     checkpointNumber: CheckpointNumber;
     constants: CheckpointGlobalVariables;
-    l1ToL2Messages: Fr[];
+    l1ToL2Messages: InboxMessageBundle;
     previousCheckpointOutHashes: Fr[];
     existingBlocks: L2Block[];
     feeAssetPriceModifier: bigint;
@@ -287,7 +288,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
     feeAssetPriceModifier: bigint,
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
     previousCheckpointOutHashes: Fr[],
     _previousInboxRollingHash: Fr,
     _fork: MerkleTreeWriteOperations,

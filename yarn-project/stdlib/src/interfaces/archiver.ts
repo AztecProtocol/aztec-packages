@@ -26,6 +26,7 @@ import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogResultSchema } from '../logs/log_result.js';
 import { PrivateLogsQuerySchema, PublicLogsQuerySchema } from '../logs/logs_query.js';
 import { InboxBucketSchema } from '../messaging/inbox_bucket.js';
+import { InboxMessageBundleSchema } from '../messaging/inbox_message_bundle.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { optional, schemas } from '../schemas/schemas.js';
@@ -148,11 +149,11 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   }),
   getL1ToL2MessagesBetweenBuckets: z.function({
     input: z.tuple([schemas.BigInt, schemas.BigInt]),
-    output: z.array(schemas.Fr),
+    output: InboxMessageBundleSchema,
   }),
   getL1ToL2MessagesBetweenLeafCounts: z.function({
     input: z.tuple([schemas.BigInt, schemas.BigInt]),
-    output: z.array(schemas.Fr),
+    output: InboxMessageBundleSchema,
   }),
   getDebugFunctionName: z.function({
     input: z.tuple([schemas.AztecAddress, schemas.FunctionSelector]),

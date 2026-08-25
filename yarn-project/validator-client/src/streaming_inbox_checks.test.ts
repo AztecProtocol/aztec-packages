@@ -1,6 +1,6 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { InboxBucket } from '@aztec/stdlib/messaging';
+import type { InboxBucket, InboxMessageBundle } from '@aztec/stdlib/messaging';
 import { InboxBucketRef } from '@aztec/stdlib/messaging';
 
 import { describe, expect, it } from '@jest/globals';
@@ -70,20 +70,23 @@ class FakeInboxView implements StreamingInboxBucketSource {
     return Promise.resolve([...this.buckets.values()].find(b => b.totalMsgCount === totalMsgCount));
   }
 
-  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
+  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<InboxMessageBundle> {
     const toBucket = this.buckets.get(toInclusive);
     if (toBucket === undefined) {
       return Promise.resolve([]);
     }
-    let startIndex = 0n;
-    if (fromExclusive > 0n) {
-      const fromBucket = this.buckets.get(fromExclusive);
-      if (fromBucket === undefined) {
-        return Promise.resolve([]);
-      }
-      startIndex = fromBucket.lastMessageIndex + 1n;
+    if (fromExclusive > 0n && this.buckets.get(fromExclusive) === undefined) {
+      return Promise.resolve([]);
     }
-    return Promise.resolve(this.leaves.slice(Number(startIndex), Number(toBucket.lastMessageIndex + 1n)));
+    // One group per bucket in the range, mirroring the archiver's per-bucket grouping.
+    const inRange = [...this.buckets.values()]
+      .filter(b => b.seq > fromExclusive && b.seq <= toInclusive && b.msgCount > 0)
+      .sort((a, b) => Number(a.seq - b.seq));
+    return Promise.resolve(
+      inRange.map(b =>
+        this.leaves.slice(Number(b.lastMessageIndex + 1n) - b.msgCount, Number(b.lastMessageIndex + 1n)),
+      ),
+    );
   }
 }
 
@@ -157,7 +160,7 @@ describe('checkStreamingBlockProposal', () => {
       const view = new FakeInboxView();
       const bucket = view.addBucket(1, 2, Number(NOW) - 1);
       const result = await checkStreamingBlockProposal(baseInput({ messageSource: view, bucketRef: refFor(bucket) }));
-      expect(result).toEqual({ accepted: true, bundle: [new Fr(1000), new Fr(1001)] });
+      expect(result).toEqual({ accepted: true, bundle: [[new Fr(1000), new Fr(1001)]] });
     });
   });
 
@@ -204,7 +207,7 @@ describe('checkStreamingBlockProposal', () => {
       const result = await checkStreamingBlockProposal(
         baseInput({ messageSource: view, bucketRef: refFor(bucket), parentTotalMsgCount: 0n }),
       );
-      expect(result).toEqual({ accepted: true, bundle: [new Fr(1000), new Fr(1001), new Fr(1002)] });
+      expect(result).toEqual({ accepted: true, bundle: [[new Fr(1000), new Fr(1001), new Fr(1002)]] });
     });
 
     it('derives the bundle spanning multiple buckets since the parent', async () => {
@@ -215,8 +218,9 @@ describe('checkStreamingBlockProposal', () => {
       const result = await checkStreamingBlockProposal(
         baseInput({ messageSource: view, bucketRef: refFor(proposed), parentTotalMsgCount: 2n }),
       );
-      // Bundle = leaves at global indices 2,3,4 (buckets 2 and 3), derived after resolving the parent bucket (seq 1).
-      expect(result).toEqual({ accepted: true, bundle: [new Fr(1002), new Fr(1003), new Fr(1004)] });
+      // Bundle = leaves at global indices 2,3,4 (buckets 2 and 3), derived after resolving the parent bucket (seq 1),
+      // grouped per bucket.
+      expect(result).toEqual({ accepted: true, bundle: [[new Fr(1002), new Fr(1003)], [new Fr(1004)]] });
     });
 
     it('rejects when the parent leaf count does not sit on a bucket boundary (padded legacy parent)', async () => {

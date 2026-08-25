@@ -2,6 +2,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { InboxBucket } from './inbox_bucket.js';
+import type { InboxMessageBundle } from './inbox_message_bundle.js';
 
 /**
  * Interface of classes allowing for the retrieval of L1 to L2 messages.
@@ -42,24 +43,24 @@ export interface L1ToL2MessageSource {
 
   /**
    * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion
-   * order, for streaming message-bundle derivation. Both bounds must name buckets the source
+   * order and grouped per bucket, for streaming message-bundle derivation. Both bounds must name buckets the source
    * has synced; it throws otherwise, so that an empty result means the range holds no messages instead of hiding an
    * unsynced bound. Callers that can tolerate an unsynced source resolve both bounds first, or map the failure to
    * their own catch-up handling.
    * @param fromExclusive - The lower bucket sequence bound, exclusive (0 means from the start of the Inbox).
    * @param toInclusive - The upper bucket sequence bound, inclusive.
    */
-  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]>;
+  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<InboxMessageBundle>;
 
   /**
    * Returns the message leaves in the cumulative Inbox message-count range `[startLeafCount, endLeafCount)`, in
-   * insertion order. The bounds are compact L1-to-L2 tree leaf counts, which every block header
+   * insertion order and grouped per Inbox bucket. The bounds are compact L1-to-L2 tree leaf counts, which every block header
    * carries, so a consumer can ask for the messages a block or checkpoint consumed without resolving Inbox buckets
    * itself. Both bounds must land on a bucket boundary the source has synced; it throws otherwise.
    * @param startLeafCount - The cumulative Inbox message count the range starts at, inclusive.
    * @param endLeafCount - The cumulative Inbox message count the range ends at, exclusive.
    */
-  getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]>;
+  getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageBundle>;
 
   /**
    * Returns the tips of the L2 chain.
