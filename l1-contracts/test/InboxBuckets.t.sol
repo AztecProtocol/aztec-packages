@@ -28,12 +28,16 @@ contract InboxBucketsTest is Test {
   }
 
   function _send(InboxHarness _inbox, uint256 _salt) internal returns (bytes32) {
+    uint64 seqBefore = _inbox.getCurrentBucketSeq();
     (bytes32 leaf,) = _inbox.sendL2Message(
       DataStructures.L2Actor({actor: bytes32(uint256(0x1000 + _salt)), version: version}),
       bytes32(uint256(0x2000 + _salt)),
       bytes32(uint256(0x3000 + _salt))
     );
-    expectedRollingHash = Hash.accumulateInboxRollingHash(expectedRollingHash, leaf);
+    // A message opens a bucket exactly when it advances the bucket sequence: the first message of an L1 block, or
+    // the message that spills over out of a full bucket.
+    bool opensBucket = _inbox.getCurrentBucketSeq() != seqBefore;
+    expectedRollingHash = Hash.accumulateInboxRollingHash(expectedRollingHash, leaf, opensBucket);
     return leaf;
   }
 
@@ -52,27 +56,45 @@ contract InboxBucketsTest is Test {
     gasUsed = gasBefore - gasleft();
   }
 
-  // Shared test vectors for the rolling-hash chain, pinned across the noir circuits, the TS mirror,
-  // and this L1 implementation. Generated from an independent sha256 implementation.
+  // Shared test vectors for the rolling-hash chain, pinned across the noir circuits, the TS mirror, and this L1
+  // implementation. Derived independently of all three by `scripts/inbox_rolling_hash_vectors.py`. Leaves are
+  // grouped per bucket: the first leaf of each group opens a bucket.
   function testRollingHashTestVectors() public pure {
-    bytes32 h = Hash.accumulateInboxRollingHash(bytes32(0), bytes32(uint256(11)));
-    assertEq(h, 0x00066dfa22681f66d50aae7d84f190e3555d2d82e4a5e33c2291c3060d441f04, "chain(0, [11])");
+    bytes32 h = Hash.accumulateInboxRollingHash(bytes32(0), bytes32(uint256(11)), true);
+    assertEq(h, 0x00551b59fed79dcce036e55050cf38ef367abfec03557e234866ac023879b245, "chain(0, [[11]])");
 
-    h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(22)));
-    h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(33)));
-    assertEq(h, 0x0077423b713a725ce4bf0b792847c68da87c316d52921de25652756bfe4c3e81, "chain(0, [11, 22, 33])");
+    h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(22)), false);
+    h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(33)), false);
+    assertEq(h, 0x00e6cba8a055d279f8568edc4d0969a107fcda0c48347afdfd3dfeb053aa22c7, "chain(0, [[11, 22, 33]])");
 
     h = bytes32(0);
     for (uint256 i = 1; i <= 256; i++) {
-      h = Hash.accumulateInboxRollingHash(h, bytes32(i));
+      h = Hash.accumulateInboxRollingHash(h, bytes32(i), i == 1);
     }
-    assertEq(h, 0x0030493fcb5915459bba42f03f283b58dfaa082dac02fbb3a494d5db8063238b, "chain(0, [1..=256])");
+    assertEq(h, 0x009ff152cad9525e1c092ae6d4fb390149de5599eac09b76b0ebd1c6e26bb504, "chain(0, [[1..=256]])");
 
-    h = Hash.accumulateInboxRollingHash(bytes32(uint256(0x2a)), bytes32(uint256(7)));
-    assertEq(h, 0x0048097cafad7fed00ccb578806b3855d5ee7bf11045fb8d41b2880ba36ef28f, "chain(0x2a, [7])");
+    h = Hash.accumulateInboxRollingHash(bytes32(uint256(0x2a)), bytes32(uint256(7)), true);
+    assertEq(h, 0x00f13cb848052a7ab6f1de788a5979f5a5caa8c11cf176715d63481618e3b575, "chain(0x2a, [[7]])");
 
-    h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(8)));
-    assertEq(h, 0x00a64d14c4b0234f5d835dc202bf8f9a857bc0734baf281dccd4b4978a48b2f9, "chain(0x2a, [7, 8])");
+    h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(8)), false);
+    assertEq(h, 0x00d84d0b60599b1c7380a723d84310d40efaa4f5673dd62e0af41b03bc9a07a6, "chain(0x2a, [[7, 8]])");
+
+    // The same four leaves in one bucket and split across two buckets reach different chain positions.
+    h = bytes32(0);
+    uint256[4] memory leaves = [uint256(11), 22, 33, 44];
+    for (uint256 i = 0; i < 4; i++) {
+      h = Hash.accumulateInboxRollingHash(h, bytes32(leaves[i]), i == 0);
+    }
+    assertEq(h, 0x00e37b7cc5526ab379c54209bc1c6a4ba2c457d024330281b97a533561701551, "chain(0, [[11, 22, 33, 44]])");
+
+    bytes32 split = bytes32(0);
+    for (uint256 i = 0; i < 4; i++) {
+      split = Hash.accumulateInboxRollingHash(split, bytes32(leaves[i]), i == 0 || i == 2);
+    }
+    assertEq(
+      split, 0x00fa0346e7c4ee1bdf29a48af28182fdc236e2936e4d0c2e951dbd4b9b6464fc, "chain(0, [[11, 22], [33, 44]])"
+    );
+    assertTrue(h != split, "bucket boundaries change the chain");
   }
 
   function testGenesisBucket() public {
@@ -101,12 +123,13 @@ contract InboxBucketsTest is Test {
   }
 
   function testAccumulationWithinSingleBlock() public {
+    // Only the first message of the block opens a bucket; the rest continue it.
     bytes32 leaf1 = _send(inbox, 1);
-    bytes32 chain1 = Hash.accumulateInboxRollingHash(bytes32(0), leaf1);
+    bytes32 chain1 = Hash.accumulateInboxRollingHash(bytes32(0), leaf1, true);
     bytes32 leaf2 = _send(inbox, 2);
-    bytes32 chain2 = Hash.accumulateInboxRollingHash(chain1, leaf2);
+    bytes32 chain2 = Hash.accumulateInboxRollingHash(chain1, leaf2, false);
     bytes32 leaf3 = _send(inbox, 3);
-    bytes32 chain3 = Hash.accumulateInboxRollingHash(chain2, leaf3);
+    bytes32 chain3 = Hash.accumulateInboxRollingHash(chain2, leaf3, false);
 
     assertEq(inbox.getCurrentBucketSeq(), 1, "all messages share one bucket");
 
@@ -115,6 +138,25 @@ contract InboxBucketsTest is Test {
     assertEq(bucket.totalMsgCount, 3, "bucket cumulative total");
     assertEq(bucket.timestamp, uint64(block.timestamp), "bucket timestamp");
     assertEq(bucket.msgCount, 3, "bucket msg count");
+  }
+
+  function testBucketBoundariesChangeTheChain() public {
+    // Two messages sent in one L1 block share a bucket; the same two messages one L1 block apart open two buckets.
+    // The leaves are identical either way, so only the bucket-start separator tells the two histories apart.
+    InboxHarness oneBucket = _deployInbox(TestConstants.AZTEC_INBOX_BUCKET_RING_SIZE);
+    bytes32 leafA = _send(oneBucket, 1);
+    bytes32 leafB = _send(oneBucket, 2);
+    assertEq(oneBucket.getCurrentBucketSeq(), 1, "both messages in one bucket");
+    bytes32 oneBucketHash = oneBucket.getState().rollingHash;
+
+    InboxHarness twoBuckets = _deployInbox(TestConstants.AZTEC_INBOX_BUCKET_RING_SIZE);
+    assertEq(_send(twoBuckets, 1), leafA, "same first leaf");
+    vm.roll(block.number + 1);
+    vm.warp(block.timestamp + 12);
+    assertEq(_send(twoBuckets, 2), leafB, "same second leaf");
+    assertEq(twoBuckets.getCurrentBucketSeq(), 2, "one bucket per block");
+
+    assertTrue(oneBucketHash != twoBuckets.getState().rollingHash, "packing is committed to");
   }
 
   function testStateReturnsCurrentPositionAtomically() public {
@@ -161,7 +203,7 @@ contract InboxBucketsTest is Test {
       index: inbox.getState().totalMessagesInserted
     });
     bytes32 leaf = Hash.sha256ToField(message);
-    bytes32 inboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf);
+    bytes32 inboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf, true);
 
     vm.expectEmit(true, true, true, true, address(inbox));
     emit IInbox.MessageSent(leaf, inboxRollingHash, 1, message);
@@ -189,7 +231,7 @@ contract InboxBucketsTest is Test {
 
     // The new bucket continues the chain from the previous bucket.
     IInbox.InboxBucket memory bucket2 = inbox.getBucket(2);
-    assertEq(bucket2.rollingHash, Hash.accumulateInboxRollingHash(bucket1.rollingHash, leaf3), "chain continuity");
+    assertEq(bucket2.rollingHash, Hash.accumulateInboxRollingHash(bucket1.rollingHash, leaf3, true), "chain continuity");
     assertEq(bucket2.rollingHash, expectedRollingHash, "chain matches reference");
     assertEq(bucket2.totalMsgCount, 3, "cumulative total spans buckets");
     assertEq(bucket2.timestamp, uint64(block.timestamp), "bucket 2 timestamp");
@@ -210,7 +252,7 @@ contract InboxBucketsTest is Test {
     assertEq(inbox.getCurrentBucketSeq(), 2, "rollover opened next bucket");
 
     IInbox.InboxBucket memory bucket2 = inbox.getBucket(2);
-    assertEq(bucket2.rollingHash, Hash.accumulateInboxRollingHash(bucket1.rollingHash, leaf), "chain continuity");
+    assertEq(bucket2.rollingHash, Hash.accumulateInboxRollingHash(bucket1.rollingHash, leaf, true), "chain continuity");
     assertEq(bucket2.totalMsgCount, cap + 1, "cumulative total");
     assertEq(bucket2.timestamp, bucket1.timestamp, "same block, same timestamp");
     assertEq(bucket2.msgCount, 1, "spilled message only");

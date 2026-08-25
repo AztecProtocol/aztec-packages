@@ -187,6 +187,9 @@ contract Inbox is IInbox {
    * open reverts unless the proven chain has consumed that entry, so in-flight messages are never destroyed —
    * sends halt instead until proving catches up.
    *
+   * The first message of a bucket is tagged with its own domain separator in the rolling hash, so the chain
+   * commits to the bucket boundaries and not just to the message order.
+   *
    * @param _leaf - The message leaf to absorb
    *
    * @return The sequence number of the bucket the leaf was absorbed into and the updated rolling hash
@@ -217,7 +220,7 @@ contract Inbox is IInbox {
       });
     }
 
-    bucket.rollingHash = Hash.accumulateInboxRollingHash(bucket.rollingHash, _leaf);
+    bucket.rollingHash = Hash.accumulateInboxRollingHash(bucket.rollingHash, _leaf, bucket.msgCount == 0);
     bucket.totalMsgCount += 1;
     bucket.msgCount += 1;
     buckets[bucketSeq % BUCKET_RING_SIZE] = bucket;

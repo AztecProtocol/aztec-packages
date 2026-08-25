@@ -168,7 +168,9 @@ contract InboxOverwriteProtectionTest is Test {
     (bytes32 leaf, uint256 index) = _send(inbox, 1234);
 
     IInbox.InboxBucket memory opened = inbox.getBucket(RING_SIZE + 1);
-    assertEq(opened.rollingHash, Hash.accumulateInboxRollingHash(headHash, leaf), "chain continues from the ring head");
+    assertEq(
+      opened.rollingHash, Hash.accumulateInboxRollingHash(headHash, leaf, true), "chain continues from the ring head"
+    );
     assertEq(index, totalBefore, "the failed send consumed no index");
     assertEq(opened.totalMsgCount, totalBefore + 1, "cumulative total advanced by one");
   }
