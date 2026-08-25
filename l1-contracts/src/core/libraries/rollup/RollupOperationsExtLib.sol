@@ -4,6 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
@@ -11,6 +12,7 @@ import {AttestationLib} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {
   ProposeLib,
   ProposeArgs,
+  ProposeConfig,
   CommitteeAttestations,
   ValidateHeaderArgs,
   ValidatorSelectionLib
@@ -61,9 +63,17 @@ library RollupOperationsExtLib {
     address[] calldata _signers,
     Signature calldata _attestationsAndSignersSignature,
     bytes calldata _blobInput,
-    bool _checkBlob
+    bool _checkBlob,
+    IInbox _inbox
   ) external {
-    ProposeLib.propose(_args, _attestations, _signers, _attestationsAndSignersSignature, _blobInput, _checkBlob);
+    ProposeLib.propose(
+      _args,
+      _attestations,
+      _signers,
+      _attestationsAndSignersSignature,
+      _blobInput,
+      ProposeConfig({inbox: _inbox, checkBlob: _checkBlob})
+    );
   }
 
   function prune() external {

@@ -362,12 +362,12 @@ describe('Rollup', () => {
   });
 
   describe('getVkTreeRoot and getProtocolContractsHash', () => {
-    it('reads vkTreeRoot from storage', async () => {
+    it('reads vkTreeRoot', async () => {
       const result = await rollup.getVkTreeRoot();
       expect(result).toEqual(vkTreeRoot);
     });
 
-    it('reads protocolContractsHash from storage', async () => {
+    it('reads protocolContractsHash', async () => {
       const result = await rollup.getProtocolContractsHash();
       expect(result).toEqual(protocolContractsHash);
     });
