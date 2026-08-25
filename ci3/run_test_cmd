@@ -31,8 +31,6 @@ track_test_history=0
 track_test_fail=0
 # If enabled, notify slack on flakes.
 slack_notify_flake=0
-# If enabled, notify slack on fails.
-slack_notify_fail=0
 
 if [ "$CI" -eq 1 ]; then
   # CI overrides.
@@ -57,9 +55,6 @@ if [ "$CI" -eq 1 ]; then
       || "$REF_NAME" == "backport-to-v2-staging" \
       || "$REF_NAME" == "merge-train/spartan" \
       || "$REF_NAME" == "merge-train/spartan-v5" ]] && slack_notify_flake=1
-
-  # Notify on fails for scenario tests.
-  [[ ${SCENARIO_TESTS:-0} -eq 1 ]] && slack_notify_fail=1
 fi
 
 # Env overrides.
@@ -70,7 +65,6 @@ allow_flakes=${ALLOW_FLAKES:-$allow_flakes}
 track_test_history=${TRACK_TEST_HISTORY:-$track_test_history}
 track_test_fail=${TRACK_TEST_FAIL:-$track_test_fail}
 slack_notify_flake=${SLACK_NOTIFY_FLAKE:-$slack_notify_flake}
-slack_notify_fail=${SLACK_NOTIFY_FAIL:-$slack_notify_fail}
 
 # The "key" is used for test caching (should re-run or not). It includes all test framework arguments.
 key=$(hash_str_orig "$cmd")
@@ -332,10 +326,6 @@ function fail {
   [ "$track_test_fail" -eq 1 ] && track_test_failed "$track_line"
   [ "$publish" -eq 1 ] && publish_redis "failed"
   [ "$CI" -eq 1 ] && post_github_failure_status
-
-  if [ "$slack_notify_fail" -eq 1 ]; then
-    slack_notify "Test FAILED on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` $DASHBOARD_URL/$log_key" "#alerts-next-scenario"
-  fi
 
   exit $code
 }

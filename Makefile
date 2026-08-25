@@ -273,7 +273,10 @@ bb-ts-cross-copy: bb-ts bb-cpp-cross
 bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native
 	$(call build,$@,barretenberg/ts,build_bb_avm_sim)
 
-bb-avm-sim-cross-copy: bb-avm-sim bb-cpp-cross
+# Ordered after bb-cdb for the same reason bb-cdb is ordered after bb-avm-sim:
+# all three regenerate the same barretenberg/ts workspaces and install into the
+# same node_modules.
+bb-avm-sim-cross-copy: bb-avm-sim bb-cdb bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy_bb_avm_sim)
 
 # Generated @aztec/cdb server bindings. Ordered after bb-avm-sim rather than run
