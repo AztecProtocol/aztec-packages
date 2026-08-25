@@ -313,15 +313,37 @@ set -euo pipefail
 ./noir-projects/labs/precommit.sh
 ./yarn-project/constants/precommit.sh
 ./docs/examples/ts/precommit.sh
+# Hooks are shared by every branch of this clone; older branches have no labs-patches.
+if [ -x ./labs-patches/bootstrap.sh ]; then ./labs-patches/bootstrap.sh check_staged; fi
 EOF
   chmod +x $hooks_dir/pre-commit
 
+  # A failed patch apply must not fail the git operation that triggered it: report and let
+  # the developer re-run apply.
   cat <<EOF >$hooks_dir/post-merge
 #!/usr/bin/env bash
 set -euo pipefail
 git submodule update --init --recursive
+if [ -x ./labs-patches/bootstrap.sh ]; then
+  ./labs-patches/bootstrap.sh apply || echo "labs-patches: apply failed; run ./labs-patches/bootstrap.sh apply" >&2
+fi
 EOF
   chmod +x $hooks_dir/post-merge
+
+  # Third argument is 1 for a branch checkout, 0 for a file checkout. Only a checkout that
+  # moved the labs gitlink or the series needs a re-apply; rebases and bisects step through
+  # many commits and would otherwise reset labs/ at each one.
+  cat <<EOF >$hooks_dir/post-checkout
+#!/usr/bin/env bash
+set -euo pipefail
+[ "\$3" = 1 ] || exit 0
+[ -x ./labs-patches/bootstrap.sh ] || exit 0
+if git rev-parse -q --verify "\$1^{commit}" >/dev/null && git diff --quiet "\$1" "\$2" -- labs labs-patches; then
+  exit 0
+fi
+./labs-patches/bootstrap.sh apply || echo "labs-patches: apply failed; run ./labs-patches/bootstrap.sh apply" >&2
+EOF
+  chmod +x $hooks_dir/post-checkout
 }
 
 function pull_submodules {
@@ -332,6 +354,8 @@ function pull_submodules {
     rm -rf noir/noir-repo
   fi
   denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags &>/dev/null"
+  # labs is update=none: only labs-patches checks it out, so the patch series always sits on top.
+  denoise "./labs-patches/bootstrap.sh apply"
 }
 
 function start_txes {

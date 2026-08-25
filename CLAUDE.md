@@ -56,12 +56,16 @@ Follow Conventional Commits: `fix:`, `feat:`, `chore:`, `refactor:`, `docs:`, `t
 </commits_and_prs>
 
 <git_staging>
-When staging files, prefer `git add -u` or name specific files rather than `git add -A` or `git add .`. The aggregate flags will pick up unrelated untracked working directories (e.g. personal scratch projects at the repo root) and quietly stage them. Subagents must always name specific files in `git add` — never `-u`, `-A`, or `.` — because they lack the main conversation's context for judging which changes belong to the current task.
+When staging files, prefer `git add -u` or name specific files rather than `git add -A` or `git add .`. The aggregate flags will pick up unrelated untracked working directories (e.g. personal scratch projects at the repo root) and quietly stage them. `git add -u` and `git commit -a` also stage the `labs` gitlink whenever the patch series is applied (`git status` shows ` M labs`); unstage it with `git restore --staged labs` (see `<labs_submodule_patches>`). Subagents must always name specific files in `git add` — never `-u`, `-A`, or `.` — because they lack the main conversation's context for judging which changes belong to the current task.
 </git_staging>
 
 <lockfile_discipline>
 Never bulk-update lockfiles (`Cargo.lock`, `yarn.lock`). Use targeted updates only: `cargo update --precise <version> --package <name>` for Rust, and `yarn up <package>@<version>` in the relevant workspace for TypeScript. Bulk updates drag in unrelated transitive changes that make review impossible and frequently break reproducibility.
 </lockfile_discipline>
+
+<labs_submodule_patches>
+`labs/` (the aztec-node submodule) carries the foundation's patch series from `labs-patches/*.patch`, applied with `git am` by `labs-patches/bootstrap.sh apply` (run by the root bootstrap, the git hooks and `make labs-patched`), so `labs/` HEAD normally sits ahead of the recorded gitlink. Never `git add labs` by hand — that records a patch commit that does not exist upstream; move the pin with `labs-patches/bootstrap.sh bump <ref>`. To change a patch, commit inside `labs/` on top of the applied series and run `labs-patches/bootstrap.sh export`, then commit the regenerated `.patch` files. See `labs-patches/README.md`.
+</labs_submodule_patches>
 
 <standard_contract_repin>
 Never run `noir-projects/labs/noir-contracts/bootstrap.sh pin-standard-build` on your own initiative. The pin exists so ordinary source or bytecode changes do NOT move the standard contracts' canonical addresses, and CI does not fail when the bytecode drifts. A re-pin is a deliberate redeploy decision for a human to make: if a change seems to need one, leave the pin, rebuild against it, and ask. See the comment on `pin-standard-build` for why re-pinning is breaking.
@@ -108,7 +112,7 @@ Never append `; echo "EXIT: $?"` or similar exit-code suffixes to any command. T
 </bash_hygiene>
 
 <do_not_edit>
-Never edit vendored submodules (all paths listed in `.gitmodules`) or files that contain a `DO NOT EDIT` / `generated` header. Edit the upstream source or the generator input and regenerate. CI enforces this — hand edits to generated files will be overwritten or rejected.
+Never edit vendored submodules (all paths listed in `.gitmodules`, except `labs/`, whose edits go through the patch series described in `<labs_submodule_patches>`) or files that contain a `DO NOT EDIT` / `generated` header. Edit the upstream source or the generator input and regenerate. CI enforces this — hand edits to generated files will be overwritten or rejected.
 </do_not_edit>
 
 <editorial_test>

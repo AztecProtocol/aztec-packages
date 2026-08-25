@@ -68,6 +68,7 @@ fast-foundation: barretenberg bb-tests \
 		fnd-release-tests \
 		ipc-runtime ipc-codegen-tests \
 		constants-codegen constants-codegen-tests \
+		labs-patches-tests \
 		claude-tests
 
 fast-labs: yarn-project yarn-project-tests \
@@ -398,6 +399,21 @@ wsdb: ipc-codegen ipc-runtime bb-cpp-native
 .PHONY: claude-tests
 claude-tests:
 	$(call test,$@,.claude)
+
+#==============================================================================
+# Labs (aztec-node, checked out as the labs/ submodule)
+#==============================================================================
+
+# Checks the submodule out at its gitlink with the labs-patches series applied (no-op when
+# already there).
+.PHONY: labs-patched labs-patches-tests
+labs-patched:
+	$(call run_command,$@,$(ROOT),./labs-patches/bootstrap.sh apply)
+
+# The tooling's sandbox lifecycle test and the series check. After labs-patched: check must
+# not race apply on the same submodule.
+labs-patches-tests: labs-patched
+	$(call test,$@,labs-patches)
 
 #==============================================================================
 # Labs Aztec Toolchain

@@ -5,6 +5,11 @@
 /build-images/ @charlielye
 /ci3/ @charlielye
 
+# The labs submodule, its patch series and the scripts that drive it
+/labs @ludamad
+/labs-patches/ @ludamad
+/scripts/labs_* @ludamad
+
 # Notify the Noir team of divergences to upstream
 /noir/noir-repo.patch @TomAFrench
 
