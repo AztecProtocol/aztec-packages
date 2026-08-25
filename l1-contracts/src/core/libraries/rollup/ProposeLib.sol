@@ -321,7 +321,8 @@ library ProposeLib {
         slotNumber: v.header.slotNumber,
         feeHeader: v.feeHeader,
         inboxRollingHash: v.header.inboxRollingHash,
-        inboxMsgTotal: v.consumedInboxMsgTotal.toUint64()
+        inboxMsgTotal: v.consumedInboxMsgTotal.toUint64(),
+        inboxConsumedBucket: _args.bucketHint.toUint64()
       })
     );
 
