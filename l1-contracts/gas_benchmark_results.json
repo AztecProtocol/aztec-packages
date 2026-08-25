@@ -18,10 +18,10 @@
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 981430,
-      "mean": 1000133,
-      "median": 990239,
-      "max": 1038626,
+      "min": 972370,
+      "mean": 991073,
+      "median": 981179,
+      "max": 1029566,
       "calldata_size": 14148,
       "calldata_gas": 226368
     }
@@ -45,10 +45,10 @@
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 1469424,
-      "mean": 1581182,
-      "median": 1588142,
-      "max": 1679022,
+      "min": 1460364,
+      "mean": 1572122,
+      "median": 1579082,
+      "max": 1669962,
       "calldata_size": 16644,
       "calldata_gas": 266304
     },
