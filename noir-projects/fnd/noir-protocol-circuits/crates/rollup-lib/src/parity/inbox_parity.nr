@@ -32,7 +32,8 @@ pub struct InboxParityPrivateInputs<let S: u32> {
 /// - Absorbs the same real messages into the empty message sponge (real-count absorb; the checkpoint root asserts this
 ///   equals the sponge the block roots accumulate). The sponge resets per checkpoint and there is one proof per
 ///   checkpoint, so the start is always the empty sponge and is hard-coded rather than witnessed.
-/// - Asserts the padding lanes past `num_msgs` are zero so they cannot silently enter either accumulator
+/// - Asserts the padding lanes past `num_msgs` are zero so they cannot silently enter either accumulator, and that
+///   they claim no bucket start; a consuming checkpoint must also open a bucket at lane 0
 ///
 /// The output feeds the Checkpoint Root circuits, which verify this proof against the `{64, 256, 1024}` VK ladder.
 ///
