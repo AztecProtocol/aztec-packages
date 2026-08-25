@@ -13,7 +13,8 @@ import {
   EthPerFeeAssetE12,
   CheckpointHeaderValidationFlags,
   FeeHeader,
-  RollupConfigInput
+  RollupConfigInput,
+  RollupStore
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IStaking, AttesterConfig, Exit, AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection, IEmperor} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -28,7 +29,6 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {CompressedSlot, CompressedTimestamp, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ChainTipsLib, CompressedChainTips} from "./libraries/compressed-data/Tips.sol";
-import {ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {RewardExtLib, RewardConfig} from "./libraries/rollup/RewardExtLib.sol";
 import {DepositArgs} from "./libraries/StakingQueue.sol";
 import {
@@ -46,7 +46,6 @@ import {
   ValidatorOperationsExtLib,
   EthValue,
   STFLib,
-  RollupStore,
   IInbox,
   IOutbox
 } from "./RollupCore.sol";
