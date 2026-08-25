@@ -5,10 +5,13 @@ pragma solidity >=0.8.27;
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
+import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -16,6 +19,10 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {BitMaps} from "@oz/utils/structs/BitMaps.sol";
 
 type Bps is uint32;
+
+interface IRegistryProvider {
+  function getRegistry() external view returns (address);
+}
 
 library BpsLib {
   function mul(uint256 _a, Bps _b) internal pure returns (uint256) {
@@ -32,6 +39,13 @@ struct EpochRewards {
   uint128 longestProvenLength;
   uint128 rewards;
   mapping(uint256 length => SubEpochRewards) subEpoch;
+}
+
+uint256 constant MAX_REGISTRY_REWARD_OVERRIDES = 2;
+
+struct RegistryRewardOverride {
+  address registry;
+  uint96 sequencerReward;
 }
 
 struct RewardConfig {
@@ -60,8 +74,15 @@ struct Values {
   address sequencer;
   uint256 proverFee;
   uint256 sequencerFee;
-  uint256 sequencerCheckpointReward;
+  uint256[] sequencerCheckpointRewards;
   uint256 manaUsed;
+}
+
+struct SequencerRewardContext {
+  uint256[] proposerRewards;
+  uint256 cachedProposers;
+  GSE gse;
+  RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] registryRewardOverrides;
 }
 
 struct Totals {
@@ -78,6 +99,8 @@ library RewardLib {
   using SafeCast for uint256;
 
   bytes32 private constant REWARD_STORAGE_POSITION = keccak256("aztec.reward.storage");
+
+  uint256 private constant REGISTRY_PROBE_GAS_LIMIT = 50_000;
 
   // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold
   // offerings,
@@ -151,7 +174,12 @@ library RewardLib {
     return accumulatedRewards;
   }
 
-  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) internal {
+  function handleRewardsAndFees(
+    SubmitEpochRootProofArgs calldata _args,
+    Epoch _endEpoch,
+    address[] memory _committee,
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _registryRewardOverrides
+  ) internal {
     RollupStore storage rollupStore = STFLib.getStorage();
     RewardStorage storage rewardStorage = getStorage();
 
@@ -181,11 +209,32 @@ library RewardLib {
 
     if (length > $er.longestProvenLength) {
       Values memory v;
-      Totals memory t;
 
       {
         uint256 added = length - $er.longestProvenLength;
-        uint256 checkpointRewardsDesired = added * getCheckpointReward();
+        uint256 checkpointReward = getCheckpointReward();
+        uint256 defaultSequencerRewardPerCheckpoint = BpsLib.mul(checkpointReward, rewardStorage.config.sequencerBps);
+
+        (uint256 desiredSequencerRewardsTotal, uint256[] memory sequencerCheckpointRewards) = computeDesiredSequencerRewards(
+          _args,
+          _endEpoch,
+          _committee,
+          _registryRewardOverrides,
+          $er.longestProvenLength,
+          defaultSequencerRewardPerCheckpoint
+        );
+
+        v.sequencerCheckpointRewards = sequencerCheckpointRewards;
+
+        uint256 proverRewardPerCheckpoint = checkpointReward - defaultSequencerRewardPerCheckpoint;
+        uint256 checkpointRewardsDesired = proverRewardPerCheckpoint * added + desiredSequencerRewardsTotal;
+        uint256 maximumCheckpointRewards = added * checkpointReward;
+
+        require(
+          checkpointRewardsDesired <= maximumCheckpointRewards,
+          Errors.RewardLib__CheckpointRewardsAboveMaximum(checkpointRewardsDesired, maximumCheckpointRewards)
+        );
+
         uint256 checkpointRewardsAvailable = 0;
 
         if (checkpointRewardsDesired > 0) {
@@ -200,17 +249,26 @@ library RewardLib {
           }
         }
 
-        uint256 sequenceCheckpointRewards = BpsLib.mul(checkpointRewardsAvailable, rewardStorage.config.sequencerBps);
-        v.sequencerCheckpointReward = sequenceCheckpointRewards / added;
+        uint256 sequencerCheckpointRewardTotal = desiredSequencerRewardsTotal;
+        if (checkpointRewardsAvailable < checkpointRewardsDesired) {
+          sequencerCheckpointRewardTotal = 0;
+          for (uint256 i = $er.longestProvenLength; i < length; i++) {
+            uint256 index = i - $er.longestProvenLength;
+            sequencerCheckpointRewards[index] =
+              Math.mulDiv(v.sequencerCheckpointRewards[index], checkpointRewardsAvailable, checkpointRewardsDesired);
+            sequencerCheckpointRewardTotal += v.sequencerCheckpointRewards[index];
+          }
+        }
 
-        uint256 dust = sequenceCheckpointRewards - (v.sequencerCheckpointReward * added);
-        uint256 proverCheckpointRewards = checkpointRewardsAvailable - sequenceCheckpointRewards + dust;
+        uint256 proverCheckpointRewards = checkpointRewardsAvailable - sequencerCheckpointRewardTotal;
         if (proverCheckpointRewards > 0) {
           $er.rewards += proverCheckpointRewards.toUint128();
         }
       }
 
+      Totals memory t;
       for (uint256 i = $er.longestProvenLength; i < length; i++) {
+        uint256 index = i - $er.longestProvenLength;
         CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
 
         v.manaUsed = feeHeader.getManaUsed();
@@ -231,7 +289,7 @@ library RewardLib {
 
         {
           v.sequencer = _args.headers[i].coinbase;
-          uint256 toSequencer = v.sequencerCheckpointReward + v.sequencerFee;
+          uint256 toSequencer = v.sequencerCheckpointRewards[index] + v.sequencerFee;
           if (toSequencer > 0) {
             rewardStorage.sequencerRewards[v.sequencer] += toSequencer;
           }
@@ -293,10 +351,143 @@ library RewardLib {
     return (se.shares[_prover] * er.rewards / se.summedShares);
   }
 
+  function tryGetRegistry(address _withdrawer) internal view returns (bool responded, address registry) {
+    if (_withdrawer.code.length == 0) {
+      return (false, address(0));
+    }
+
+    uint256 selector = uint32(IRegistryProvider.getRegistry.selector);
+
+    assembly ("memory-safe") {
+      mstore(0x00, shl(224, selector))
+      let callSucceeded := staticcall(REGISTRY_PROBE_GAS_LIMIT, _withdrawer, 0x00, 0x04, 0x20, 0x20)
+      let result := mload(0x20)
+      responded := and(and(callSucceeded, eq(returndatasize(), 0x20)), iszero(shr(160, result)))
+      registry := 0
+      if responded {
+        registry := and(result, sub(shl(160, 1), 1))
+      }
+    }
+  }
+
+  function validateRegistryRewardOverrides(
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _overrides,
+    RewardConfig memory _rewardConfig
+  ) internal pure {
+    uint256 defaultSequencerReward = BpsLib.mul(_rewardConfig.checkpointReward, _rewardConfig.sequencerBps);
+
+    for (uint256 i = 0; i < MAX_REGISTRY_REWARD_OVERRIDES; i++) {
+      RegistryRewardOverride memory current = _overrides[i];
+      if (current.registry == address(0)) {
+        require(
+          current.sequencerReward == 0,
+          Errors.RewardLib__InvalidRegistryRewardOverride(current.registry, current.sequencerReward)
+        );
+        continue;
+      }
+
+      require(
+        current.sequencerReward <= defaultSequencerReward,
+        Errors.RewardLib__RegistryRewardOverrideAboveDefault(
+          current.registry, current.sequencerReward, defaultSequencerReward
+        )
+      );
+
+      for (uint256 j = 0; j < i; j++) {
+        require(
+          _overrides[j].registry != current.registry,
+          Errors.RewardLib__DuplicateRegistryRewardOverride(current.registry)
+        );
+      }
+    }
+  }
+
   function getStorage() internal pure returns (RewardStorage storage storageStruct) {
     bytes32 position = REWARD_STORAGE_POSITION;
     assembly {
       storageStruct.slot := position
     }
+  }
+
+  function computeDesiredSequencerRewards(
+    SubmitEpochRootProofArgs calldata _args,
+    Epoch _endEpoch,
+    address[] memory _committee,
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _registryRewardOverrides,
+    uint256 _from,
+    uint256 _defaultSequencerRewardPerCheckpoint
+  ) private view returns (uint256, uint256[] memory) {
+    uint256[] memory desiredSequencerCheckpointRewards = new uint256[](_args.end - _args.start + 1 - _from);
+
+    if (_committee.length == 0 || !hasRegistryRewardOverrides(_registryRewardOverrides)) {
+      for (uint256 i = 0; i < desiredSequencerCheckpointRewards.length; i++) {
+        desiredSequencerCheckpointRewards[i] = _defaultSequencerRewardPerCheckpoint;
+      }
+
+      return (
+        _defaultSequencerRewardPerCheckpoint * desiredSequencerCheckpointRewards.length,
+        desiredSequencerCheckpointRewards
+      );
+    }
+
+    uint256 seed = ValidatorSelectionLib.getSampleSeed(_endEpoch);
+    uint256 desiredSequencerRewardsTotal = 0;
+    SequencerRewardContext memory context;
+    context.proposerRewards = new uint256[](_committee.length);
+    context.gse = StakingLib.getStorage().gse;
+    context.registryRewardOverrides = _registryRewardOverrides;
+    for (uint256 i = 0; i < desiredSequencerCheckpointRewards.length; i++) {
+      uint256 proposerIndex = ValidatorSelectionLib.computeProposerIndex(
+        _endEpoch, _args.headers[_from + i].slotNumber, seed, _committee.length
+      );
+      uint256 proposerMask = uint256(1) << proposerIndex;
+      if (context.cachedProposers & proposerMask == 0) {
+        context.proposerRewards[proposerIndex] = getDesiredSequencerRewardForProposer(
+          _committee[proposerIndex], context, _defaultSequencerRewardPerCheckpoint
+        );
+        context.cachedProposers |= proposerMask;
+      }
+
+      uint256 reward = context.proposerRewards[proposerIndex];
+      desiredSequencerCheckpointRewards[i] = reward;
+      desiredSequencerRewardsTotal += reward;
+    }
+
+    return (desiredSequencerRewardsTotal, desiredSequencerCheckpointRewards);
+  }
+
+  function getDesiredSequencerRewardForProposer(
+    address _proposer,
+    SequencerRewardContext memory _context,
+    uint256 _defaultSequencerRewardPerCheckpoint
+  ) private view returns (uint256) {
+    address withdrawer = _context.gse.getWithdrawer(_proposer);
+    (bool responded, address registry) = tryGetRegistry(withdrawer);
+    if (!responded || registry == address(0)) {
+      return _defaultSequencerRewardPerCheckpoint;
+    }
+
+    for (uint256 i = 0; i < MAX_REGISTRY_REWARD_OVERRIDES; i++) {
+      RegistryRewardOverride memory current = _context.registryRewardOverrides[i];
+      if (current.registry == registry) {
+        return Math.min(_defaultSequencerRewardPerCheckpoint, current.sequencerReward);
+      }
+    }
+
+    return _defaultSequencerRewardPerCheckpoint;
+  }
+
+  function hasRegistryRewardOverrides(RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _registryRewardOverrides)
+    private
+    pure
+    returns (bool)
+  {
+    for (uint256 i = 0; i < MAX_REGISTRY_REWARD_OVERRIDES; i++) {
+      if (_registryRewardOverrides[i].registry != address(0)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

@@ -222,6 +222,12 @@ library Errors {
   error RewardBooster__InvalidConfig();
 
   error RewardLib__InvalidSequencerBps();
+  error RewardLib__InvalidRegistryRewardOverride(address registry, uint256 sequencerReward);
+  error RewardLib__DuplicateRegistryRewardOverride(address registry);
+  error RewardLib__RegistryRewardOverrideAboveDefault(
+    address registry, uint256 sequencerReward, uint256 defaultSequencerReward
+  );
+  error RewardLib__CheckpointRewardsAboveMaximum(uint256 checkpointRewards, uint256 maximumCheckpointRewards);
   error RewardLib__ZeroShares(address prover);
 
   // SlashingProposer
