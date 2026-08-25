@@ -486,7 +486,7 @@ proof = [
   start_inbox_rolling_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
   end_inbox_rolling_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
   checkpoint_header_hashes = [
-  "0x0020b52a29d455f41db5b2ab594a19cc1d54cde2744df797fb4ad636c02c530e",
+  "0x00bc4d9adb04df45102526dfee8e7ba8206e67db1f268a15dfb7d5254834d805",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -523,7 +523,7 @@ proof = [
     [inputs.previous_rollups.public_inputs.constants]
     chain_id = "0x0000000000000000000000000000000000000000000000000000000000000000"
     version = "0x0000000000000000000000000000000000000000000000000000000000000000"
-    vk_tree_root = "0x17f4111918fd7fd073ef3c7b0685a0b0f9de9c06978162bfb3284f1949143cfb"
+    vk_tree_root = "0x29b7bb0a371549fbde9a7c1967f9368c8b78f8d537b1c0a47626757643283c1d"
     protocol_contracts_hash = "0x14cec0ae6f31e913c3be04691c6d49c3ec07b3f2d024c9558693ea62fc530bbf"
     prover_id = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
@@ -532,7 +532,7 @@ proof = [
     next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000001"
 
     [inputs.previous_rollups.public_inputs.new_archive]
-    root = "0x1758f6b8dee66a7853b3b5caf367258a2d08320c56b6dd919d448c881ccd54b0"
+    root = "0x2af6738039af401e1a5060d0987e2c055c3cef20e1d77df9fe6e35d38b481cbb"
     next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000002"
 
     [inputs.previous_rollups.public_inputs.previous_out_hash]
@@ -774,15 +774,15 @@ proof = [
 ]
 
     [inputs.previous_rollups.public_inputs.end_blob_accumulator]
-    blob_commitments_hash_acc = "0x00a64c6c1344bb53c8b16408964fc4ae8b2d25031c162dd44e0f8f24c8fc85c8"
-    z_acc = "0x050b676c523ba7f24abe2c8c579d6a4c2adf90a5d815e5ab91c1268979ed51e8"
-    gamma_acc = "0x0a0d40d3381bee9f5de2b0c8a163e7439127722bca9bac2ff79d2c71dfdba80a"
+    blob_commitments_hash_acc = "0x0098cbc3e5cb0d332bc4128da2b7ffbacf4f4dcfa9d355c1a8a9c76232cd225d"
+    z_acc = "0x185616adcd1c0bab9b0f61db3855d604afa0ff1e52a7dff01e9dbca658fa746e"
+    gamma_acc = "0x2d344f64fe7440b6769094eeea3928b4d0e0c23a7b3b17b25586f44a0106b0e0"
 
       [inputs.previous_rollups.public_inputs.end_blob_accumulator.y_acc]
       limbs = [
-  "0xb449395155b8c48df89114b8f7b4e8",
-  "0xdee2f23f7891f3f8d8321a9b6f0784",
-  "0x4f0f"
+  "0x7e18576eb31b1510b326215417a988",
+  "0x3306c6d16469c513778b40790d2cf8",
+  "0x463c"
 ]
 
       [inputs.previous_rollups.public_inputs.end_blob_accumulator.c_acc]
@@ -790,35 +790,35 @@ proof = [
 
         [inputs.previous_rollups.public_inputs.end_blob_accumulator.c_acc.x]
         limbs = [
-  "0x85ebe5dfff0a47b629909c2cb9e019",
-  "0xe96ae1b66aabb5b95f19fb7bb667c6",
-  "0xb4fc7c13c8f44350bc2d1718706d25",
-  "0x147a73"
+  "0x633c6563442ae35b0a393340ad6f87",
+  "0x69c1addec79df2ca6670aff7b54adc",
+  "0xfbd028e8d5fc32e7c648d385afbb8f",
+  "0x01ac95"
 ]
 
         [inputs.previous_rollups.public_inputs.end_blob_accumulator.c_acc.y]
         limbs = [
-  "0xf25b45ca073d71d37107d1935edf86",
-  "0xe587ba8582544c5f89e0edda8ce7f9",
-  "0x38d5e766d97fd1e056eb9c27b139aa",
-  "0x0d1061"
+  "0xb9904455e6e480fc1d04ab68adb066",
+  "0xbb9ba7db013afee70656c7430cf1e9",
+  "0x89d0193d074fa493b7a228aa61c6cc",
+  "0x16170a"
 ]
 
       [inputs.previous_rollups.public_inputs.end_blob_accumulator.gamma_pow_acc]
       limbs = [
-  "0xffeae17c28cdb649a9ab3e3910959c",
-  "0xc8d17b4db7caa676cdf716e5f89e0b",
-  "0x0015"
+  "0x919f7cc0dab4317c12798ca8df4aa9",
+  "0x6dfac5bd57a22620637cb7c7d4deed",
+  "0x0bb5"
 ]
 
     [inputs.previous_rollups.public_inputs.final_blob_challenges]
-    z = "0x20dd8e06b175404201b14b67a4ddfd46ee473fc3e58213a98382f411cfa41350"
+    z = "0x2986f0bec70b9cf1cc17ec1c01c31cce54f7d672c1763394f893dc185dda3945"
 
       [inputs.previous_rollups.public_inputs.final_blob_challenges.gamma]
       limbs = [
-  "0xffeae17c28cdb649a9ab3e3910959c",
-  "0xc8d17b4db7caa676cdf716e5f89e0b",
-  "0x0015"
+  "0x919f7cc0dab4317c12798ca8df4aa9",
+  "0x6dfac5bd57a22620637cb7c7d4deed",
+  "0x0bb5"
 ]
 
   [inputs.previous_rollups.vk_data]
@@ -830,7 +830,7 @@ proof = [
   "0x02dfab3acbc7708b1b3654912e946fe846568b8cb0e8af8da6a1845278664e55",
   "0x29ef5024937c71b580f6cfb649bd06b4a62241ec399bd579b0d0b2bec78c4cae",
   "0x0db3ab63c7556f8724d86819156701855018cc79140a052893d67fb67c99c1f1",
-  "0x011ce78c298fc81d89c739267f5a1f69e22587103f51d97947d04724c545a848"
+  "0x08b0c1ac4553f1257a42dcf5a95191fc747ad0228ffc5c16e6244c4ed4858fea"
 ]
 
     [inputs.previous_rollups.vk_data.vk]
@@ -1441,7 +1441,7 @@ proof = [
   start_inbox_rolling_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
   end_inbox_rolling_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
   checkpoint_header_hashes = [
-  "0x008838f828a909c8437776e6e579bec161452199117611bcb5c9cfa2de614507",
+  "0x0090d9297d9d7c1de5e794142a49e395ec3dd4f0ffcb829ca42ad2a7b3912ea7",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -1478,16 +1478,16 @@ proof = [
     [inputs.previous_rollups.public_inputs.constants]
     chain_id = "0x0000000000000000000000000000000000000000000000000000000000000000"
     version = "0x0000000000000000000000000000000000000000000000000000000000000000"
-    vk_tree_root = "0x17f4111918fd7fd073ef3c7b0685a0b0f9de9c06978162bfb3284f1949143cfb"
+    vk_tree_root = "0x29b7bb0a371549fbde9a7c1967f9368c8b78f8d537b1c0a47626757643283c1d"
     protocol_contracts_hash = "0x14cec0ae6f31e913c3be04691c6d49c3ec07b3f2d024c9558693ea62fc530bbf"
     prover_id = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.previous_rollups.public_inputs.previous_archive]
-    root = "0x1758f6b8dee66a7853b3b5caf367258a2d08320c56b6dd919d448c881ccd54b0"
+    root = "0x2af6738039af401e1a5060d0987e2c055c3cef20e1d77df9fe6e35d38b481cbb"
     next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000002"
 
     [inputs.previous_rollups.public_inputs.new_archive]
-    root = "0x2b6d7e94bd1348bc84ac58e03f55bd02c81bd4b3d76a55e5e88f83b7a947d54e"
+    root = "0x23c70cda9ddf7f006c7ba6ae755bba84dedf050077ac3b79c754cd00cf0b48a2"
     next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000003"
 
     [inputs.previous_rollups.public_inputs.previous_out_hash]
@@ -1691,15 +1691,15 @@ proof = [
       inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.previous_rollups.public_inputs.start_blob_accumulator]
-    blob_commitments_hash_acc = "0x00a64c6c1344bb53c8b16408964fc4ae8b2d25031c162dd44e0f8f24c8fc85c8"
-    z_acc = "0x050b676c523ba7f24abe2c8c579d6a4c2adf90a5d815e5ab91c1268979ed51e8"
-    gamma_acc = "0x0a0d40d3381bee9f5de2b0c8a163e7439127722bca9bac2ff79d2c71dfdba80a"
+    blob_commitments_hash_acc = "0x0098cbc3e5cb0d332bc4128da2b7ffbacf4f4dcfa9d355c1a8a9c76232cd225d"
+    z_acc = "0x185616adcd1c0bab9b0f61db3855d604afa0ff1e52a7dff01e9dbca658fa746e"
+    gamma_acc = "0x2d344f64fe7440b6769094eeea3928b4d0e0c23a7b3b17b25586f44a0106b0e0"
 
       [inputs.previous_rollups.public_inputs.start_blob_accumulator.y_acc]
       limbs = [
-  "0xb449395155b8c48df89114b8f7b4e8",
-  "0xdee2f23f7891f3f8d8321a9b6f0784",
-  "0x4f0f"
+  "0x7e18576eb31b1510b326215417a988",
+  "0x3306c6d16469c513778b40790d2cf8",
+  "0x463c"
 ]
 
       [inputs.previous_rollups.public_inputs.start_blob_accumulator.c_acc]
@@ -1707,37 +1707,37 @@ proof = [
 
         [inputs.previous_rollups.public_inputs.start_blob_accumulator.c_acc.x]
         limbs = [
-  "0x85ebe5dfff0a47b629909c2cb9e019",
-  "0xe96ae1b66aabb5b95f19fb7bb667c6",
-  "0xb4fc7c13c8f44350bc2d1718706d25",
-  "0x147a73"
+  "0x633c6563442ae35b0a393340ad6f87",
+  "0x69c1addec79df2ca6670aff7b54adc",
+  "0xfbd028e8d5fc32e7c648d385afbb8f",
+  "0x01ac95"
 ]
 
         [inputs.previous_rollups.public_inputs.start_blob_accumulator.c_acc.y]
         limbs = [
-  "0xf25b45ca073d71d37107d1935edf86",
-  "0xe587ba8582544c5f89e0edda8ce7f9",
-  "0x38d5e766d97fd1e056eb9c27b139aa",
-  "0x0d1061"
+  "0xb9904455e6e480fc1d04ab68adb066",
+  "0xbb9ba7db013afee70656c7430cf1e9",
+  "0x89d0193d074fa493b7a228aa61c6cc",
+  "0x16170a"
 ]
 
       [inputs.previous_rollups.public_inputs.start_blob_accumulator.gamma_pow_acc]
       limbs = [
-  "0xffeae17c28cdb649a9ab3e3910959c",
-  "0xc8d17b4db7caa676cdf716e5f89e0b",
-  "0x0015"
+  "0x919f7cc0dab4317c12798ca8df4aa9",
+  "0x6dfac5bd57a22620637cb7c7d4deed",
+  "0x0bb5"
 ]
 
     [inputs.previous_rollups.public_inputs.end_blob_accumulator]
-    blob_commitments_hash_acc = "0x00771a9e93c756e2d34c05997d3f392aa8d36b0e1120ffb2cb81de511129199f"
-    z_acc = "0x1a0c6e449d156d191add5e3b0d37027b2480dc205f8ec009165bc4a0ad5adc5b"
-    gamma_acc = "0x13d45af539c9fd0c236ff6b7a7416a03d10a935864002c6a578c28ff6b1b4d54"
+    blob_commitments_hash_acc = "0x008995253eebf93c3d7aaa58c1478caae2c6ff3c8696c762f4fc4a4b08484c50"
+    z_acc = "0x25a4eaa47570c69f721ccb4e92b8b131ec85f11821d2ad9f95b7880d8bc9659f"
+    gamma_acc = "0x2dcc2e03b93607b12d0d95a155f38a8a9854202d51f2d2581c5608477e92a246"
 
       [inputs.previous_rollups.public_inputs.end_blob_accumulator.y_acc]
       limbs = [
-  "0xef4eb6f373dddd6c73c84385a0b5a0",
-  "0x05dd516e51404c876fd73885b54f55",
-  "0x71fd"
+  "0x80b35955348433fc7a68b473a15650",
+  "0x768b90ef08c5d307a1e10cbf739b48",
+  "0x7148"
 ]
 
       [inputs.previous_rollups.public_inputs.end_blob_accumulator.c_acc]
@@ -1745,35 +1745,35 @@ proof = [
 
         [inputs.previous_rollups.public_inputs.end_blob_accumulator.c_acc.x]
         limbs = [
-  "0xa307eb3902f506138520f68ba71044",
-  "0x16517b4764337f763fd3da6c920508",
-  "0x196de8a12d40a79f8839063b31fe16",
-  "0x059c9c"
+  "0x79fbdf1a447d706b58c654d1a7e0cc",
+  "0x2250b9a737a1e38a0a4099ecef1f52",
+  "0x8ad0e8112518702ee5455d1f500fe8",
+  "0x03b602"
 ]
 
         [inputs.previous_rollups.public_inputs.end_blob_accumulator.c_acc.y]
         limbs = [
-  "0x19e00489a527a6114a879adfed39b7",
-  "0x851b8e7d51b18cc50ad7a35f9433f1",
-  "0x3c165f7846fe72fb2316544de914bf",
-  "0x032c1f"
+  "0x062c3d14b07e1d6ea6ee55e1627bd4",
+  "0xff15dc978e58aed898f0cbb947d04c",
+  "0xeb5c34260e4ba8d90f549d6d6a5861",
+  "0x10a79e"
 ]
 
       [inputs.previous_rollups.public_inputs.end_blob_accumulator.gamma_pow_acc]
       limbs = [
-  "0xfcccda7b40f7bc7d6c3ccc9592662c",
-  "0xef35d48ca019120ee2b09d04c96606",
-  "0x1539"
+  "0x916bd32e3d5ff5e8c793a3bd4b1064",
+  "0xa2c65d77418c839cab8d1924aa1c74",
+  "0x1d7d"
 ]
 
     [inputs.previous_rollups.public_inputs.final_blob_challenges]
-    z = "0x20dd8e06b175404201b14b67a4ddfd46ee473fc3e58213a98382f411cfa41350"
+    z = "0x2986f0bec70b9cf1cc17ec1c01c31cce54f7d672c1763394f893dc185dda3945"
 
       [inputs.previous_rollups.public_inputs.final_blob_challenges.gamma]
       limbs = [
-  "0xffeae17c28cdb649a9ab3e3910959c",
-  "0xc8d17b4db7caa676cdf716e5f89e0b",
-  "0x0015"
+  "0x919f7cc0dab4317c12798ca8df4aa9",
+  "0x6dfac5bd57a22620637cb7c7d4deed",
+  "0x0bb5"
 ]
 
   [inputs.previous_rollups.vk_data]
@@ -1785,7 +1785,7 @@ proof = [
   "0x02dfab3acbc7708b1b3654912e946fe846568b8cb0e8af8da6a1845278664e55",
   "0x29ef5024937c71b580f6cfb649bd06b4a62241ec399bd579b0d0b2bec78c4cae",
   "0x0db3ab63c7556f8724d86819156701855018cc79140a052893d67fb67c99c1f1",
-  "0x011ce78c298fc81d89c739267f5a1f69e22587103f51d97947d04724c545a848"
+  "0x08b0c1ac4553f1257a42dcf5a95191fc747ad0228ffc5c16e6244c4ed4858fea"
 ]
 
     [inputs.previous_rollups.vk_data.vk]
