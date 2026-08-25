@@ -136,7 +136,8 @@ library STFLib {
         // Genesis Inbox consumption base case, matching the Inbox's genesis bucket-0 sentinel {0, 0, 0}, so
         // checkpoint 1 validates its consumption against it.
         inboxRollingHash: bytes32(0),
-        inboxMsgTotal: 0
+        inboxMsgTotal: 0,
+        inboxConsumedBucket: 0
       }).compress();
   }
 
@@ -327,6 +328,17 @@ library STFLib {
    */
   function getInboxRollingHash(uint256 _checkpointNumber) internal view returns (bytes32) {
     return getStorageTempCheckpointLog(_checkpointNumber).inboxRollingHash;
+  }
+
+  /**
+   * @notice Retrieves the sequence number of the newest Inbox bucket a checkpoint consumed
+   * @dev Gas-efficient accessor reading only the streaming-inbox bucket sequence. Reverts if the checkpoint is
+   *      stale.
+   * @param _checkpointNumber The checkpoint number to get the consumed bucket for
+   * @return The sequence number of the newest Inbox bucket consumed as of the checkpoint
+   */
+  function getInboxConsumedBucket(uint256 _checkpointNumber) internal view returns (uint64) {
+    return getStorageTempCheckpointLog(_checkpointNumber).inboxConsumedBucket;
   }
 
   /**

@@ -34,10 +34,13 @@ struct TempCheckpointLog {
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   Slot slotNumber;
-  // Streaming Inbox consumption count: the cumulative Inbox message count consumed as of this checkpoint (the
-  // child's parent-total origin). Declared next to the slot number so the two share one storage slot (4 + 8 of 32
-  // bytes): propose writes and reads that slot for the slot-progression check anyway.
+  // Streaming Inbox consumption counts. `inboxMsgTotal` is the cumulative Inbox message count
+  // consumed as of this checkpoint (the child's parent-total origin), read back by the child's propose;
+  // `inboxConsumedBucket` is the bucket sequence number the header's rolling hash corresponds to, read back on a
+  // proven-tip advance to release the Inbox ring up to it. Declared next to the slot number so the three share one
+  // storage slot (4 + 8 + 8 of 32 bytes): propose writes and reads that slot for the slot-progression check anyway.
   uint64 inboxMsgTotal;
+  uint64 inboxConsumedBucket;
   FeeHeader feeHeader;
   // The consensus Inbox rolling hash the checkpoint header committed to, in a slot of its own: epoch proofs anchor
   // both ends of their consumed chain segment against it.
@@ -52,6 +55,7 @@ struct CompressedTempCheckpointLog {
   bytes32 payloadDigest;
   CompressedSlot slotNumber;
   uint64 inboxMsgTotal;
+  uint64 inboxConsumedBucket;
   CompressedFeeHeader feeHeader;
   bytes32 inboxRollingHash;
 }
@@ -71,6 +75,7 @@ library CompressedTempCheckpointLogLib {
       payloadDigest: _checkpoint.payloadDigest,
       slotNumber: _checkpoint.slotNumber.compress(),
       inboxMsgTotal: _checkpoint.inboxMsgTotal,
+      inboxConsumedBucket: _checkpoint.inboxConsumedBucket,
       feeHeader: _checkpoint.feeHeader.compress(),
       inboxRollingHash: _checkpoint.inboxRollingHash
     });
@@ -89,6 +94,7 @@ library CompressedTempCheckpointLogLib {
       payloadDigest: _compressedCheckpoint.payloadDigest,
       slotNumber: _compressedCheckpoint.slotNumber.decompress(),
       inboxMsgTotal: _compressedCheckpoint.inboxMsgTotal,
+      inboxConsumedBucket: _compressedCheckpoint.inboxConsumedBucket,
       feeHeader: _compressedCheckpoint.feeHeader.decompress(),
       inboxRollingHash: _compressedCheckpoint.inboxRollingHash
     });

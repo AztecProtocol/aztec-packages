@@ -487,16 +487,17 @@ describe('Rollup', () => {
       );
     });
 
-    it('packs the inbox consumption count into the slot-number word', async () => {
+    it('packs the inbox consumption counts into the slot-number word', async () => {
       const checkpointNumber = CheckpointNumber(13);
       const override = await rollup.makeTempCheckpointLogOverride(checkpointNumber, {
         slotNumber: SlotNumber(7),
         inboxMsgTotal: 300n,
+        inboxConsumedBucket: 5n,
       });
       const { map, slotFor } = getDiffMap(checkpointNumber, override);
       expect(override[0].stateDiff).toHaveLength(1);
       expect(map.get(await slotFor(TempCheckpointLogField.SlotNumber))).toBe(
-        `0x${(7n | (300n << 32n)).toString(16).padStart(64, '0')}`.toLowerCase(),
+        `0x${(7n | (300n << 32n) | (5n << 96n)).toString(16).padStart(64, '0')}`.toLowerCase(),
       );
     });
 

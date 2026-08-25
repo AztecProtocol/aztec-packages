@@ -126,6 +126,10 @@ library EpochProofLib {
     if (_args.end > rollupStore.tips.getProven()) {
       rollupStore.tips = rollupStore.tips.updateProven(_args.end);
 
+      // Unlock Inbox ring eviction up to the bucket the newly proven tip consumed; its temp-log record was
+      // validated against the Inbox at propose time.
+      rollupStore.config.inbox.markProvenConsumed(STFLib.getInboxConsumedBucket(_args.end));
+
       // Handle L2->L1 message processing.
       // The circuit outputs an empty out hash tree root if the epoch contains no messages.
       // Since the out hash tree is append-only, with the first checkpoint at index 0, the second at index 1, and so on,
