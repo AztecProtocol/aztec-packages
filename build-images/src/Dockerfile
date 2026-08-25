@@ -44,7 +44,7 @@ RUN curl -L https://foundry.paradigm.xyz | bash \
     && $FOUNDRY_BIN_DIR/foundryup -i $FOUNDRY_VERSION \
     && mkdir -p /opt/foundry/bin \
     && for t in forge cast anvil chisel; do \
-        mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
+        cp -Lp $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
         strip /opt/foundry/bin/$t; \
     done \
     && rm -rf $FOUNDRY_BIN_DIR
