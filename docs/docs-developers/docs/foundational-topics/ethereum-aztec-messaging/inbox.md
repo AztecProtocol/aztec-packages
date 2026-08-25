@@ -29,14 +29,30 @@ Sends a message from L1 to L2.
 - Will revert with `Inbox__ContentTooLarge(bytes32 content)` if the content is larger than the field size (~254 bits).
 - Will revert with `Inbox__SecretHashTooLarge(bytes32 secretHash)` if the secret hash is larger than the field size (~254 bits).
 
+## Buckets and the rolling hash
+
+Every message inserted into the Inbox extends a rolling hash: a truncated sha256 chain over the message leaves, which
+the rollup circuits recompute and L1 checks when a checkpoint is proposed. Messages are grouped into **buckets**: a
+bucket holds the messages sent within a single L1 block (up to a per-bucket maximum, after which further messages in
+the same block spill into the next bucket), and buckets are identified by a dense, monotonically increasing sequence
+number. A checkpoint always consumes whole buckets.
+
+Each link of the chain is `sha256ToField(separator || previousRollingHash || leaf)` over a 4-byte big-endian domain
+separator followed by the two 32-byte values. There are two separators: `DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START` is
+used when the leaf is the first message of its bucket, and `DOM_SEP__INBOX_ROLLING_HASH` for every other message. The
+chain therefore commits to how the messages were packed into buckets, not only to their order: the same messages
+regrouped across a different set of L1 blocks produce a different rolling hash. The genesis value is zero.
+
 ## View functions
 
 These functions allow you to query the current state of the Inbox.
 
 | Function                   | Returns           | Description                                      |
 | -------------------------- | ----------------- | ------------------------------------------------ |
-| `getState()`               | `InboxState`      | Returns the current inbox state (rolling hash, total messages inserted). |
+| `getState()`               | `InboxState`      | Returns the current inbox state (rolling hash, total messages inserted, current bucket sequence). |
 | `getTotalMessagesInserted()` | `uint64`        | Returns the total number of messages inserted into the inbox. |
+| `getCurrentBucketSeq()`    | `uint64`          | Returns the sequence number of the bucket messages are currently absorbed into. |
+| `getBucket(uint256 seq)`   | `InboxBucket`     | Returns the snapshot of the bucket with the given sequence number (rolling hash, cumulative and per-bucket message counts, opening timestamp). Reverts if the bucket is outside the ring the Inbox retains. |
 | `getFeeAssetPortal()`      | `address`         | Returns the address of the Fee Juice portal. |
 
 ## Related pages
