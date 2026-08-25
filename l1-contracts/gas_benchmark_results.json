@@ -2,10 +2,10 @@
   "no_validators": {
     "propose": {
       "calls": 150,
-      "min": 186030,
-      "mean": 199674,
-      "median": 195419,
-      "max": 225858,
+      "min": 184137,
+      "mean": 197781,
+      "median": 193527,
+      "max": 223965,
       "calldata_size": 996,
       "calldata_gas": 15936
     },
@@ -18,10 +18,10 @@
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 972370,
-      "mean": 991073,
-      "median": 981179,
-      "max": 1029566,
+      "min": 961647,
+      "mean": 980266,
+      "median": 970345,
+      "max": 1018730,
       "calldata_size": 14148,
       "calldata_gas": 226368
     }
@@ -29,10 +29,10 @@
   "validators": {
     "propose": {
       "calls": 150,
-      "min": 305747,
-      "mean": 328086,
-      "median": 327540,
-      "max": 355904,
+      "min": 303859,
+      "mean": 326198,
+      "median": 325652,
+      "max": 354016,
       "calldata_size": 4516,
       "calldata_gas": 72256
     },
@@ -45,19 +45,19 @@
     },
     "submitEpochRootProof": {
       "calls": 4,
-      "min": 1460364,
-      "mean": 1572122,
-      "median": 1579082,
-      "max": 1669962,
+      "min": 1449546,
+      "mean": 1561332,
+      "median": 1568320,
+      "max": 1659142,
       "calldata_size": 16644,
       "calldata_gas": 266304
     },
     "aggregate3": {
       "calls": 55,
-      "min": 365860,
-      "mean": 376978,
-      "median": 376662,
-      "max": 390352
+      "min": 363972,
+      "mean": 375090,
+      "median": 374774,
+      "max": 388464
     }
   }
 }

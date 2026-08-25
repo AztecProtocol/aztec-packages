@@ -93,20 +93,14 @@ library STFLib {
   bytes32 private constant STF_STORAGE_POSITION = keccak256("aztec.stf.storage");
 
   /**
-   * @notice Initializes the rollup state with genesis configuration
-   * @dev Sets up the initial state of the rollup including verification keys and the genesis archive root.
-   *      This function should only be called once during rollup deployment.
+   * @notice Writes the genesis archive root at checkpoint 0
+   * @dev Should only be called once during rollup deployment. The remaining genesis fields
+   *      (vkTreeRoot, protocolContractsHash) are held in the Rollup's immutables.
    *
-   * @param _genesisState The initial state configuration containing:
-   *        - vkTreeRoot: Root of the verification key tree for circuit verification
-   *        - protocolContractsHash: Root containing protocol contract addresses and configurations
-   *        - genesisArchiveRoot: Initial archive root representing the genesis state
+   * @param _genesisState The initial state configuration; only `genesisArchiveRoot` is read here
    */
   function initialize(GenesisState memory _genesisState) internal {
     RollupStore storage rollupStore = STFLib.getStorage();
-
-    rollupStore.config.vkTreeRoot = _genesisState.vkTreeRoot;
-    rollupStore.config.protocolContractsHash = _genesisState.protocolContractsHash;
 
     // The genesis archive root is decoded as an Fr off chain and propagates into the first header's lastArchiveRoot,
     // so it must be a valid field element.

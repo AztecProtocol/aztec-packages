@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {RollupConfig, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
@@ -105,22 +105,20 @@ library RewardLib {
     rewardStorage.config.checkpointReward = _config.checkpointReward;
   }
 
-  function claimSequencerRewards(address _sequencer) internal returns (uint256) {
+  function claimSequencerRewards(address _sequencer, IERC20 _feeAsset) internal returns (uint256) {
     RewardStorage storage rewardStorage = getStorage();
-    RollupStore storage rollupStore = STFLib.getStorage();
     uint256 amount = rewardStorage.sequencerRewards[_sequencer];
 
     if (amount > 0) {
       rewardStorage.sequencerRewards[_sequencer] = 0;
-      rollupStore.config.feeAsset.safeTransfer(_sequencer, amount);
+      _feeAsset.safeTransfer(_sequencer, amount);
     }
 
     return amount;
   }
 
-  function claimProverRewards(address _prover, Epoch[] memory _epochs) internal returns (uint256) {
+  function claimProverRewards(address _prover, Epoch[] memory _epochs, IERC20 _feeAsset) internal returns (uint256) {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    RollupStore storage rollupStore = STFLib.getStorage();
 
     RewardStorage storage rewardStorage = getStorage();
 
@@ -145,14 +143,15 @@ library RewardLib {
     }
 
     if (accumulatedRewards > 0) {
-      rollupStore.config.feeAsset.safeTransfer(_prover, accumulatedRewards);
+      _feeAsset.safeTransfer(_prover, accumulatedRewards);
     }
 
     return accumulatedRewards;
   }
 
-  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) internal {
-    RollupStore storage rollupStore = STFLib.getStorage();
+  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch, RollupConfig memory _config)
+    internal
+  {
     RewardStorage storage rewardStorage = getStorage();
 
     uint256 length = _args.end - _args.start + 1;
@@ -241,11 +240,11 @@ library RewardLib {
       $er.longestProvenLength = length.toUint128();
 
       if (t.feesToClaim > 0) {
-        rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
+        _config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
       }
 
       if (t.totalBurn > 0) {
-        rollupStore.config.feeAsset.safeTransfer(BURN_ADDRESS, t.totalBurn);
+        _config.feeAsset.safeTransfer(BURN_ADDRESS, t.totalBurn);
       }
     }
   }
