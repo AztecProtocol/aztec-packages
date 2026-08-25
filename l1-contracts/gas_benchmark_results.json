@@ -2,10 +2,10 @@
   "no_validators": {
     "propose": {
       "calls": 150,
-      "min": 184137,
-      "mean": 197781,
-      "median": 193527,
-      "max": 223965,
+      "min": 184096,
+      "mean": 197740,
+      "median": 193486,
+      "max": 223924,
       "calldata_size": 996,
       "calldata_gas": 15936
     },
@@ -29,10 +29,10 @@
   "validators": {
     "propose": {
       "calls": 150,
-      "min": 303859,
-      "mean": 326198,
-      "median": 325652,
-      "max": 354016,
+      "min": 303820,
+      "mean": 326159,
+      "median": 325613,
+      "max": 353977,
       "calldata_size": 4516,
       "calldata_gas": 72256
     },
@@ -54,10 +54,10 @@
     },
     "aggregate3": {
       "calls": 55,
-      "min": 363972,
-      "mean": 375090,
-      "median": 374774,
-      "max": 388464
+      "min": 363933,
+      "mean": 375051,
+      "median": 374735,
+      "max": 388425
     }
   }
 }

@@ -90,24 +90,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function validateHeaderWithAttestations(
     ProposedHeader calldata _header,
-    CommitteeAttestations memory _attestations,
+    CommitteeAttestations calldata _attestations,
     address[] calldata _signers,
-    Signature memory _attestationsAndSignersSignature,
+    Signature calldata _attestationsAndSignersSignature,
     bytes32 _digest,
     bytes32 _blobsHash,
-    CheckpointHeaderValidationFlags memory _flags
+    CheckpointHeaderValidationFlags calldata _flags
   ) external override(IRollup) {
     RollupOperationsExtLib.validateHeaderWithAttestations(
-      ValidateHeaderArgs({
-        header: _header,
-        digest: _digest,
-        manaMinFee: getManaMinFeeAt(Timestamp.wrap(block.timestamp), true),
-        blobsHashesCommitment: _blobsHash,
-        flags: _flags
-      }),
-      _attestations,
-      _signers,
-      _attestationsAndSignersSignature
+      _header, _attestations, _signers, _attestationsAndSignersSignature, _digest, _blobsHash, _flags
     );
   }
 

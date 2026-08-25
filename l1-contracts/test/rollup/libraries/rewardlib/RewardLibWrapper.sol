@@ -138,6 +138,7 @@ contract RewardLibWrapper {
     return RewardLib.getSequencerRewards(_sequencer);
   }
 
+  // Only the fields handleRewardsAndFees reads are populated; the rest stay zero.
   function _rollupConfig() internal view returns (RollupConfig memory config) {
     config.feeAsset = FEE_ASSET;
     config.feeAssetPortal = FEE_ASSET_PORTAL;
