@@ -133,7 +133,7 @@ export EC2_SPOT=$(cat "$state_dir/spot" 2>/dev/null || echo "unknown")
 export GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/tmp/gcp-key.json}
 export NETWORK_ENV_FILE=${NETWORK_ENV_FILE:-/tmp/network.env}
 if [ -f "${GOOGLE_APPLICATION_CREDENTIALS}" ]; then
-  export GCP_SA_KEY_B64=$(cat "${GOOGLE_APPLICATION_CREDENTIALS}" | base64 -w 0)
+  export GCP_PRIVATE_NPM_DEPLOY_B64=$(cat "${GOOGLE_APPLICATION_CREDENTIALS}" | base64 -w 0)
 fi
 if [ -f "${NETWORK_ENV_FILE}" ]; then
   export NETWORK_ENV_FILE_B64=$(cat "${NETWORK_ENV_FILE}" | base64 -w 0)
@@ -315,8 +315,8 @@ NETWORK_ENV_FILE=\${NETWORK_ENV_FILE:-/tmp/network.env}
 
 # Decode GCP service account key if provided (base64-encoded by the caller).
 echo "HOST: decoding credentials..."
-if [ -n "${GCP_SA_KEY_B64:-}" ]; then
-  echo "${GCP_SA_KEY_B64:-}" | base64 -d > "\${GOOGLE_APPLICATION_CREDENTIALS}"
+if [ -n "${GCP_PRIVATE_NPM_DEPLOY_B64:-}" ]; then
+  echo "${GCP_PRIVATE_NPM_DEPLOY_B64:-}" | base64 -d > "\${GOOGLE_APPLICATION_CREDENTIALS}"
 fi
 
 # Decode network env file if provided.

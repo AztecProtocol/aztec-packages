@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Authenticate against our internal GCP Artifact Registry, used by PRIVATE_RELEASE builds.
 #
-# Activates the CI service account (GCP_SA_KEY -> GOOGLE_APPLICATION_CREDENTIALS, the same key
+# Activates the CI service account (GCP_PRIVATE_NPM_DEPLOY -> GOOGLE_APPLICATION_CREDENTIALS, the same key
 # .github/ci3.sh stores) so callers can mint access tokens for the AR npm repo. When
 # INTERNAL_DOCKER_REGISTRY is set (e.g. us-west1-docker.pkg.dev/<project>/<repo>), also registers
 # docker's gcloud credential helper for that registry host.
@@ -9,9 +9,9 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 # Ensure a service-account key is on disk, mirroring .github/ci3.sh's setup_environment.
 if [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] || [ ! -f "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
-  : "${GCP_SA_KEY:?GCP_SA_KEY or GOOGLE_APPLICATION_CREDENTIALS required for a private release}"
+  : "${GCP_PRIVATE_NPM_DEPLOY:?GCP_PRIVATE_NPM_DEPLOY or GOOGLE_APPLICATION_CREDENTIALS required for a private release}"
   export GOOGLE_APPLICATION_CREDENTIALS=$(mktemp)
-  (umask 077; printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS")
+  (umask 077; printf '%s' "$GCP_PRIVATE_NPM_DEPLOY" > "$GOOGLE_APPLICATION_CREDENTIALS")
 fi
 
 set +x  # Never echo the access token.

@@ -57,7 +57,8 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-wakeup-pr-after-merge')
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-wakeup-pr-after-merge --repo ${{ github.repository }} || true
+        # REST: `gh pr edit` needs a read:org-scoped token for its viewer query and fails silently.
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/ci-wakeup-pr-after-merge" >/dev/null || true
 
       # Do NOT bump actions/checkout to v6 here. v6 ("persist creds to a separate file", #2286)
       # stores the persisted github.token in a temp credentials file pulled in via includeIf, which
@@ -101,7 +102,8 @@ jobs:
           CI_USE_SSH: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && '1' || '0' }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          # Only set in the private repo: the service account private releases deploy npm packages with.
+          GCP_PRIVATE_NPM_DEPLOY: ${{ secrets.GCP_PRIVATE_NPM_DEPLOY }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -169,3 +171,45 @@ jobs:
           COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: ./ci3/upload_benchmarks "Aztec Benchmarks" "bench/${BENCH_BRANCH:-}" ./bench-out/bench.json "$COMMIT_SHA"
 
+  # Publishes the npm packages a release build packed (bootstrap.sh release → deploy_npm pack mode →
+  # build cache) with npm trusted publishing: this runner's OIDC token is the only credential, so the
+  # EC2 build machine never holds npm publish rights. Public repo only — the private repo publishes
+  # to the internal GCP Artifact Registry straight from EC2 (bootstrap.sh private_release).
+  publish-npm:
+    needs: ci
+    if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'AztecProtocol/aztec-packages'
+    runs-on: ubuntu-latest
+    # Same environment as the release build above: the AWS OIDC role trusts tokens minted for it, and
+    # it is the environment to name when configuring each package's npm trusted publisher.
+    environment: master
+    permissions:
+      id-token: write   # AWS OIDC for the cache download, npm OIDC for trusted publishing
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: publish-npm-${{ github.run_id }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Trusted publishing needs npm >= 11.5.1; Node 22 ships an older npm.
+      - name: Update npm
+        run: npm install -g npm@^11.5.1 && npm --version
+
+      - name: Download the packed release
+        run: ./ci3/cache_download "npm-release-${GITHUB_REF_NAME}.tar.gz" .
+
+      - name: Publish
+        run: ./ci3/publish_npm_release npm-release
