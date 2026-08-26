@@ -49,8 +49,11 @@ export type PublishCandidate = {
   headers: CheckpointHeader[];
 };
 
-/** Terminal outcome for a candidate. The promise from `submit()` resolves with one of these. */
-export type PublishOutcome = 'published' | 'superseded' | 'failed' | 'withdrawn' | 'expired';
+/**
+ * Terminal outcome for a candidate. The promise from `submit()` resolves with one of these. `'already-submitted'`
+ * means L1 already holds a proof of this length from this prover for the epoch, so nothing was sent.
+ */
+export type PublishOutcome = 'published' | 'already-submitted' | 'superseded' | 'failed' | 'withdrawn' | 'expired';
 
 /** Subset of `ProverPublisherFactory` the service uses — single async `create()` call. */
 export type PublisherFactoryLike = Pick<ProverPublisherFactory, 'create'>;
@@ -131,7 +134,8 @@ export class ProofPublishingService {
   /**
    * Offers a proof candidate to the service. The returned promise resolves once the
    * service settles the candidate's fate: `'published'` if it wins and L1 accepts it,
-   * `'superseded'` if a longer candidate for the same epoch wins, `'failed'` if the
+   * `'already-submitted'` if this prover had already registered a proof of the same length
+   * for the epoch, `'superseded'` if a longer candidate for the same epoch wins, `'failed'` if the
    * L1 submission errored, `'withdrawn'` if the originating session cancelled,
    * `'expired'` if the candidate's `deadline` elapsed before publishing started.
    */
@@ -329,6 +333,7 @@ export class ProofPublishingService {
   private async runPublish(candidate: PublishCandidate, publisher: PublisherLike): Promise<PublishOutcome> {
     const submitArgs = {
       epochNumber: candidate.epoch,
+      kind: candidate.kind,
       fromCheckpoint: candidate.fromCheckpoint,
       toCheckpoint: candidate.toCheckpoint,
       publicInputs: candidate.publicInputs,
@@ -357,8 +362,7 @@ export class ProofPublishingService {
     }
 
     try {
-      const success = await publisher.submitEpochProof(submitArgs);
-      return success ? 'published' : 'failed';
+      return await publisher.submitEpochProof(submitArgs);
     } catch (err) {
       this.log.error(`Error publishing candidate ${candidate.id}`, err, {
         candidateId: candidate.id,
