@@ -54,7 +54,6 @@ function check_cache {
     "fast"
     "full"
     "full-no-test-cache"
-    "docs"
     "barretenberg"
     "ci-release-pr"
   )

@@ -1,6 +1,0 @@
-global:
-  namespace: "smoke"
-
-validatorFailure:
-  enabled: true
-  duration: "60s"

@@ -6,8 +6,7 @@
 # resulting tree is inconsistent and downstream builds / CI break:
 #   1. the noir/noir-repo submodule pointer
 #   2. avm-transpiler/Cargo.lock  (the transpiler depends on noir crates by path)
-#   3. yarn-project/yarn.lock     (picks up noir JS package version / file: hash changes)
-#   4. noir-projects formatting   (a compiler bump can change formatter output)
+#   3. noir-projects formatting   (a compiler bump can change formatter output)
 #
 # Usage:
 #   noir/scripts/bump_noir_compiler.sh <ref>
@@ -88,32 +87,20 @@ if [[ -n "$EXPECTED_VERSION" ]]; then
     || echo "warning: avm-transpiler/Cargo.lock does not mention expected noir version $EXPECTED_VERSION; check the update." >&2
 fi
 
-# --- 3. yarn-project/yarn.lock ------------------------------------------------
-echo "==> Refreshing yarn-project/yarn.lock"
-# --mode=update-lockfile skips linking and build scripts; it just reconciles the
-# lockfile with the new noir JS package versions / file: hashes. Resolution still
-# reads every portal target's manifest, so noir/packages must already be built
-# (`(cd noir && ./bootstrap.sh)`) or yarn aborts with "Manifest not found".
-corepack enable 2>/dev/null || true
-(cd yarn-project && yarn install --mode=update-lockfile) \
-  || echo "warning: yarn lockfile update failed; yarn.lock may be unchanged" >&2
-
-# --- 4. noir-projects formatting ----------------------------------------------
+# --- 3. noir-projects formatting ----------------------------------------------
 echo "==> Formatting noir-projects"
 # A compiler bump can change how the formatter handles identical code; skipping
 # this reformat is a CI failure. Needs a built nargo (noir/noir-repo/target/release/nargo);
 # run `(cd noir && ./bootstrap.sh)` first if the format step reports nargo is missing.
-for workspace in fnd labs; do
-  (cd "noir-projects/$workspace" && ./bootstrap.sh format) \
-    || echo "warning: noir-projects/$workspace format failed (is nargo built?); run '(cd noir-projects/$workspace && ./bootstrap.sh format)' before committing, or CI will fail." >&2
-done
+(cd noir-projects/fnd && ./bootstrap.sh format) \
+  || echo "warning: noir-projects/fnd format failed (is nargo built?); run '(cd noir-projects/fnd && ./bootstrap.sh format)' before committing, or CI will fail." >&2
 
 echo "==> Staging changes"
-git add "$SUBMODULE" avm-transpiler/Cargo.lock yarn-project/yarn.lock noir-projects
+git add "$SUBMODULE" avm-transpiler/Cargo.lock noir-projects
 
 cat <<EOF
 
-Done. Staged: $SUBMODULE, avm-transpiler/Cargo.lock, yarn-project/yarn.lock, noir-projects
+Done. Staged: $SUBMODULE, avm-transpiler/Cargo.lock, noir-projects
 
   Old: $CURRENT_TAG ($CURRENT_COMMIT)
   New: $REF ($NEW_COMMIT)

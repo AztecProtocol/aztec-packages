@@ -126,19 +126,19 @@ else
   pass "Noir file unchanged with nargo fmt hint"
 fi
 
-# --- 6. TypeScript (requires yarn-project bootstrap) ---
-# Skipped if yarn-project hasn't been installed; the hook's hint branch is
+# --- 6. TypeScript (requires labs/yarn-project to be built) ---
+# Skipped if labs/yarn-project hasn't been installed; the hook's hint branch is
 # asserted by test 1 (hook never fails the edit). When prettier IS available,
 # verify the hook invokes it and the @trivago sort-imports plugin is active
 # so the yarn-project prettier config keeps working end-to-end.
 echo "--- 6. TypeScript + import sort plugin ---"
 
-REAL_PRETTIER="$ROOT/yarn-project/node_modules/.bin/prettier"
+REAL_PRETTIER="$ROOT/labs/yarn-project/node_modules/.bin/prettier"
 if [[ ! -x "$REAL_PRETTIER" ]]; then
-  echo "  (skipped: $REAL_PRETTIER not present — bootstrap yarn-project to enable this test)"
+  echo "  (skipped: $REAL_PRETTIER not present — build labs/yarn-project to enable this test)"
 else
   mkdir -p "$TMP/fake-yarn-project/foundation/src"
-  cp "$ROOT/yarn-project/foundation/.prettierrc.json" "$TMP/fake-yarn-project/foundation/.prettierrc.json"
+  cp "$ROOT/labs/yarn-project/foundation/.prettierrc.json" "$TMP/fake-yarn-project/foundation/.prettierrc.json"
   cat > "$TMP/fake-yarn-project/foundation/src/mod.ts" <<'EOF'
 import { z } from 'zod';
 import { foo } from './local.js';

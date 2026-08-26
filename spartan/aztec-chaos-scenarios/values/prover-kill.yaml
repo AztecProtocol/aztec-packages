@@ -1,6 +1,0 @@
-global:
-  namespace: "smoke"
-
-proverKill:
-  enabled: true
-  percent: 100
