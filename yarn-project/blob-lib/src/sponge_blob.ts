@@ -1,6 +1,6 @@
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, TWO_POW_64 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
-import { poseidon2Permutation } from '@aztec/foundation/crypto/poseidon';
+import { poseidon2AbsorbChain, poseidon2Permutation } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import {
   BufferReader,
@@ -153,15 +153,48 @@ export class Poseidon2Sponge {
     if (this.squeezeMode) {
       throw new Error(`Poseidon sponge is not able to absorb more inputs.`);
     }
-    for (const field of fields) {
-      if (this.cacheSize == this.cache.length) {
-        await this.performDuplex();
-        this.cache[0] = field;
-        this.cacheSize = 1;
-      } else {
+    // Bail out early if nothing to absorb
+    if (fields.length === 0) {
+      return;
+    }
+    // Instead of calling out to bb.js per duplex, send out an array of chunks of 3 field elements
+    // to the poseidon2AbsorbChain call. For larger arrays this saves significant communication overhead.
+    // However, since it only works on chunks of 3, we track any additional fields that we need to "fix up" at the end.
+
+    // This is the total number of elements that need to be absorbed (what was remaining in the cache and new incoming inputs)
+    const total = this.cacheSize + fields.length;
+    // The number of fields that comprise our chunks of 3 we can send to the poseidon2AbsorbChain
+    // We do (total - 1) since we do 1 less duplex round in this function if total % 3 == 0. I.e. if the cache is full at
+    // the end we leave it that way for a final squeeze function
+    const numChunkedFields = Math.floor((total - 1) / 3) * 3;
+    if (numChunkedFields === 0) {
+      // What we absorbed and what was in the cache wasn't enough to induce a duplex round.
+      // So we just add to the cache
+      for (const field of fields) {
         this.cache[this.cacheSize++] = field;
       }
+      return;
     }
+
+    // We got stuff we want to duplex
+    const chain: Fr[] = new Array(numChunkedFields);
+    // Copy the elements from the cache
+    for (let i = 0; i < this.cacheSize; i++) {
+      chain[i] = this.cache[i];
+    }
+    // Copy the input elements that will round out the chunks of 3 that will be absorbed
+    for (let i = this.cacheSize; i < numChunkedFields; i++) {
+      chain[i] = fields[i - this.cacheSize];
+    }
+    const state = await poseidon2AbsorbChain(this.state, chain);
+    // ts doesn't understand that the above always gives 4
+    this.state = [state[0], state[1], state[2], state[3]];
+    // Place the remaining 1..3 fields into the cache.
+    const remaining = total - numChunkedFields;
+    for (let i = 0; i < remaining; i++) {
+      this.cache[i] = fields[fields.length - remaining + i];
+    }
+    this.cacheSize = remaining;
   }
 
   async squeeze(): Promise<Fr> {

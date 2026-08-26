@@ -68,6 +68,35 @@ export async function poseidon2Permutation(input: Fieldable[]): Promise<Fr[]> {
   }
 }
 
+/**
+ * Compute chain of Poseidon2 permutation rounds over chunks of 3-field blocks in a single API call.
+ * @param state - The sponge state, size 4.
+ * @param inputs - The fields to absorb; length must be a multiple of 3.
+ * @returns the output state, size 4.
+ */
+export async function poseidon2AbsorbChain(state: Fr[], inputs: Fr[]): Promise<Fr[]> {
+  // The fields travel as one flat 32-byte-per-field buffer
+  const flat = Buffer.allocUnsafe(inputs.length * 32);
+  for (let i = 0; i < inputs.length; i++) {
+    flat.set(inputs[i].toBuffer(), i * 32);
+  }
+  const command = {
+    state: state.map(s => s.toBuffer()),
+    inputs: flat,
+  };
+  if (IS_BROWSER) {
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.poseidon2AbsorbChain(command);
+    return response.state.map(o => Fr.fromBuffer(Buffer.from(o)));
+  } else {
+    await Barretenberg.initSingleton();
+    const api = Barretenberg.getSingleton();
+    const response = await api.poseidon2AbsorbChain(command);
+    return response.state.map(o => Fr.fromBuffer(Buffer.from(o)));
+  }
+}
+
 export function poseidon2HashBytes(input: Buffer): Promise<Fr> {
   const inputFields = [];
   for (let i = 0; i < input.length; i += 31) {
