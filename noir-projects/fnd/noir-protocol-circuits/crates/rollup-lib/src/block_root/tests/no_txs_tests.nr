@@ -143,6 +143,8 @@ impl TestBuilder {
             last_archive: pi.previous_archive,
             state: pi.end_state,
             sponge_blob_hash,
+            // A block with no txs has an empty tx effects tree.
+            tx_effects_tree_root: 0,
             global_variables: self.constants_as_global_variables(),
             total_fees: pi.accumulated_fees,
             total_mana_used: pi.accumulated_mana_used,
