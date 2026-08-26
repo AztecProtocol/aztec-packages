@@ -169,3 +169,43 @@ jobs:
           COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: ./ci3/upload_benchmarks "Aztec Benchmarks" "bench/${BENCH_BRANCH:-}" ./bench-out/bench.json "$COMMIT_SHA"
 
+  # Publishes the npm packages a release build packed (bootstrap.sh release → deploy_npm pack mode →
+  # build cache) with npm trusted publishing: this runner's OIDC token is the only credential, so the
+  # EC2 build machine never holds npm publish rights. Public repo only — the private repo publishes
+  # to the internal GCP Artifact Registry straight from EC2 (bootstrap.sh private_release).
+  publish-npm:
+    needs: ci
+    if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'AztecProtocol/aztec-packages'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write   # AWS OIDC for the cache download, npm OIDC for trusted publishing
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: publish-npm-${{ github.run_id }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Trusted publishing needs npm >= 11.5.1; Node 22 ships an older npm.
+      - name: Update npm
+        run: npm install -g npm@^11.5.1 && npm --version
+
+      - name: Download the packed release
+        run: ./ci3/cache_download "npm-release-${GITHUB_REF_NAME}.tar.gz" .
+
+      - name: Publish
+        run: ./ci3/publish_npm_release npm-release
