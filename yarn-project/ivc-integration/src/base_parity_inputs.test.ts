@@ -52,7 +52,6 @@ describe('Inbox Parity Benchmark Inputs', () => {
       num_msgs: inputs.numMessages,
       // eslint-disable-next-line camelcase
       start_rolling_hash: inputs.startRollingHash.toString(),
-       
       // eslint-disable-next-line camelcase
       prover_id: inputs.proverId.toString(),
     };
