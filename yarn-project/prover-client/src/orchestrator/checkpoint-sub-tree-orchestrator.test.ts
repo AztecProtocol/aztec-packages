@@ -4,7 +4,13 @@ import { padArrayEnd, sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { L1ToL2MessageSponge, ScopedL2ToL1Message, computeBlockOutHash } from '@aztec/stdlib/messaging';
+import {
+  L1ToL2MessageSponge,
+  ScopedL2ToL1Message,
+  bucketStartsOf,
+  computeBlockOutHash,
+  flattenBundle,
+} from '@aztec/stdlib/messaging';
 import { makeScopedL2ToL1Message } from '@aztec/stdlib/testing';
 
 import { TestContext, makeTestDeferredJobQueue } from '../mocks/test_context.js';
@@ -37,7 +43,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
   it('resolves the sub-tree result with block-level proofs for a single-block checkpoint', async () => {
     const numBlocks = 1;
     const numTxsPerBlock = 1;
-    const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader } =
+    const { constants, blocks, l1ToL2MessageBundle, l1ToL2MessageBundlesPerBlock, previousBlockHeader } =
       await context.makeCheckpoint(numBlocks, {
         numTxsPerBlock,
       });
@@ -61,7 +67,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
 
       for (const [blockIndex, block] of blocks.entries()) {
         const { blockNumber, timestamp } = block.header.globalVariables;
-        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, blockIndex === 0 ? l1ToL2Messages : []);
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, l1ToL2MessageBundlesPerBlock[blockIndex]);
         if (block.txs.length > 0) {
           await subTree.addTxs(block.txs);
         }
@@ -84,7 +90,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
   it('resolves with two block proofs for a two-block checkpoint', async () => {
     const numBlocks = 2;
     const numTxsPerBlock = 1;
-    const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader } =
+    const { constants, blocks, l1ToL2MessageBundle, l1ToL2MessageBundlesPerBlock, previousBlockHeader } =
       await context.makeCheckpoint(numBlocks, {
         numTxsPerBlock,
       });
@@ -108,7 +114,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
 
       for (const [blockIndex, block] of blocks.entries()) {
         const { blockNumber, timestamp } = block.header.globalVariables;
-        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, blockIndex === 0 ? l1ToL2Messages : []);
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, l1ToL2MessageBundlesPerBlock[blockIndex]);
         if (block.txs.length > 0) {
           await subTree.addTxs(block.txs);
         }
@@ -128,11 +134,17 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     // Cross-chain messages flow into the checkpoint's first block via the L1-to-L2
     // message tree; the sub-tree must prove them through without error (A-1039).
     const numBlocks = 1;
-    const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader } =
-      await context.makeCheckpoint(numBlocks, {
-        numTxsPerBlock: 1,
-        numL1ToL2Messages: 3,
-      });
+    const {
+      constants,
+      blocks,
+      l1ToL2Messages,
+      l1ToL2MessageBundle,
+      l1ToL2MessageBundlesPerBlock,
+      previousBlockHeader,
+    } = await context.makeCheckpoint(numBlocks, {
+      numTxsPerBlock: 1,
+      numL1ToL2Messages: 3,
+    });
     expect(l1ToL2Messages.length).toBe(3);
 
     const subTree = await CheckpointSubTreeOrchestrator.start(
@@ -154,7 +166,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
 
       for (const [blockIndex, block] of blocks.entries()) {
         const { blockNumber, timestamp } = block.header.globalVariables;
-        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, blockIndex === 0 ? l1ToL2Messages : []);
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, l1ToL2MessageBundlesPerBlock[blockIndex]);
         if (block.txs.length > 0) {
           await subTree.addTxs(block.txs);
         }
@@ -173,7 +185,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     // L2-to-L1 (cross-chain) messages are carried on the public tx effects; the sub-tree
     // must prove them through the base/block rollups without error (A-1039).
     const numBlocks = 1;
-    const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader } =
+    const { constants, blocks, l1ToL2MessageBundle, l1ToL2MessageBundlesPerBlock, previousBlockHeader } =
       await context.makeCheckpoint(numBlocks, {
         numTxsPerBlock: 1,
         makeProcessedTxOpts: () => ({
@@ -203,7 +215,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
 
       for (const [blockIndex, block] of blocks.entries()) {
         const { blockNumber, timestamp } = block.header.globalVariables;
-        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, blockIndex === 0 ? l1ToL2Messages : []);
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, l1ToL2MessageBundlesPerBlock[blockIndex]);
         if (block.txs.length > 0) {
           await subTree.addTxs(block.txs);
         }
@@ -233,8 +245,14 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     // checkpoint root), not one output per block.
     const l1ToL2MessagesPerBlock = [[new Fr(1001), new Fr(1002)], [], [new Fr(1003), new Fr(1004), new Fr(1005)]];
     const numBlocks = l1ToL2MessagesPerBlock.length;
-    const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader } =
-      await context.makeCheckpointWithMessagesPerBlock(l1ToL2MessagesPerBlock, { numTxsPerBlock: [1, 1, 0] });
+    const {
+      constants,
+      blocks,
+      l1ToL2Messages,
+      l1ToL2MessageBundle,
+      l1ToL2MessageBundlesPerBlock,
+      previousBlockHeader,
+    } = await context.makeCheckpointWithMessagesPerBlock(l1ToL2MessagesPerBlock, { numTxsPerBlock: [1, 1, 0] });
     expect(l1ToL2Messages.length).toBe(5);
 
     const subTree = await CheckpointSubTreeOrchestrator.start(
@@ -256,7 +274,7 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
 
       for (const [blockIndex, block] of blocks.entries()) {
         const { blockNumber, timestamp } = block.header.globalVariables;
-        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, l1ToL2MessagesPerBlock[blockIndex]);
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, l1ToL2MessageBundlesPerBlock[blockIndex]);
         if (block.txs.length > 0) {
           await subTree.addTxs(block.txs);
         }
@@ -300,7 +318,8 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
         // Sponge continuity: this output starts from the previous one's end sponge and absorbs its blocks' slices.
         expect(inputs.startMsgSponge.toBuffer()).toEqual(expectedSponge.toBuffer());
         for (const blockIndex of blockIndexes) {
-          await expectedSponge.absorb(l1ToL2MessagesPerBlock[blockIndex]);
+          const blockBundle = l1ToL2MessageBundlesPerBlock[blockIndex];
+          await expectedSponge.absorb(flattenBundle(blockBundle), bucketStartsOf(blockBundle));
         }
         expect(inputs.endMsgSponge.toBuffer()).toEqual(expectedSponge.toBuffer());
       }

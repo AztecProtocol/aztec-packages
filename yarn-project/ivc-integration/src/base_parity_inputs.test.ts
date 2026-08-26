@@ -15,6 +15,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { Noir } from '@aztec/noir-noir_js';
 import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
 import { InboxParityPrivateInputs } from '@aztec/stdlib/parity';
+import { randomL1ToL2MessageLeaf } from '@aztec/stdlib/testing';
 
 import { jest } from '@jest/globals';
 import * as fs from 'fs/promises';
@@ -37,7 +38,7 @@ describe('Inbox Parity Benchmark Inputs', () => {
 
     // Generate random L1-to-L2 messages that fill the 256-message rung.
     logger.info(`Generating ${INBOX_PARITY_SIZE_MEDIUM} random L1-to-L2 messages...`);
-    const l1ToL2Messages = new Array(INBOX_PARITY_SIZE_MEDIUM).fill(null).map(() => Fr.random());
+    const l1ToL2Messages = new Array(INBOX_PARITY_SIZE_MEDIUM).fill(null).map(randomL1ToL2MessageLeaf);
 
     // Create InboxParity inputs (picks the 256 rung for 256 messages).
     const inputs = InboxParityPrivateInputs.fromMessages([l1ToL2Messages], Fr.ZERO, Fr.random());

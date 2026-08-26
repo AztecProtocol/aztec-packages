@@ -37,8 +37,26 @@ pub fn accumulate_inbox_rolling_hash<let N: u32>(
     acc
 }
 
+/// Asserts that the bucket-start flags of a consumed run of `num` messages are well-formed.
+///
+/// The run must open a bucket: a bucket is only ever consumed from its first unconsumed message onwards, so whoever
+/// starts consuming (a checkpoint, or a block within it) always starts at a bucket boundary. Padding lanes past the
+/// run must not claim a bucket start, mirroring the zero-padding guard on the leaves themselves.
+pub fn assert_valid_bucket_starts<let N: u32>(bucket_starts: [bool; N], num: u32) {
+    if num > 0 {
+        assert(bucket_starts[0], "First consumed message must open a bucket");
+    }
+    let mut is_padding = false;
+    for i in 0..N {
+        is_padding |= i == num;
+        if is_padding {
+            assert(!bucket_starts[i], "Found bucket start after breakpoint");
+        }
+    }
+}
+
 mod tests {
-    use super::accumulate_inbox_rolling_hash;
+    use super::{accumulate_inbox_rolling_hash, assert_valid_bucket_starts};
     use types::{
         constants::{DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START, INBOX_PARITY_SIZE_MEDIUM},
         hash::{accumulate_sha256, accumulate_sha256_with_separator},
@@ -180,5 +198,23 @@ mod tests {
     #[test(should_fail_with = "num_leaves is greater than the leaves array length")]
     fn num_leaves_past_array_fails() {
         let _ = accumulate_inbox_rolling_hash(0, [11, 22, 33], only_first_is_bucket_start(), 4);
+    }
+
+    #[test]
+    fn valid_bucket_starts_accepted() {
+        assert_valid_bucket_starts([true, false, false, false], 3);
+        assert_valid_bucket_starts([true, true, true], 3);
+        assert_valid_bucket_starts([false, false], 0);
+        assert_valid_bucket_starts([true, false], 2);
+    }
+
+    #[test(should_fail_with = "First consumed message must open a bucket")]
+    fn bucket_starts_not_opening_a_bucket_fails() {
+        assert_valid_bucket_starts([false, true, false], 2);
+    }
+
+    #[test(should_fail_with = "Found bucket start after breakpoint")]
+    fn bucket_start_in_padding_lane_fails() {
+        assert_valid_bucket_starts([true, false, true], 2);
     }
 }

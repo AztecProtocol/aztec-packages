@@ -43,5 +43,31 @@ export function bucketStartsOf(bundle: InboxMessageBundle): boolean[] {
   });
 }
 
+/**
+ * The sub-bundle holding the leaves at flat positions `[start, end)`, keeping the bucket grouping. Boundaries outside
+ * the bundle simply select fewer leaves, as with `Array.prototype.slice`.
+ *
+ * Used to cut a checkpoint's bundle into the per-block bundles the block roots prove. Both boundaries must fall
+ * between buckets: a block consumes whole buckets, and a slice that cut one in half could only be expressed as a
+ * bundle whose first leaf claims to open a bucket it does not.
+ * @throws If `start` or `end` falls inside a bucket.
+ */
+export function sliceBundle(bundle: InboxMessageBundle, start: number, end: number): InboxMessageBundle {
+  const slice: InboxMessageBundle = [];
+  let offset = 0;
+  for (const bucket of bundle) {
+    const bucketEnd = offset + bucket.length;
+    if (offset >= start && bucketEnd <= end) {
+      slice.push(bucket);
+    } else if (bucketEnd > start && offset < end) {
+      throw new Error(
+        `Inbox message bundle slice [${start}, ${end}) cuts the bucket at leaves [${offset}, ${bucketEnd})`,
+      );
+    }
+    offset = bucketEnd;
+  }
+  return slice;
+}
+
 /** Schema for a bundle crossing an RPC boundary; rejects the empty buckets the type forbids. */
 export const InboxMessageBundleSchema = z.array(z.array(schemas.Fr).nonempty());

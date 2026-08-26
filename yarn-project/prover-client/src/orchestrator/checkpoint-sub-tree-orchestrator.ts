@@ -20,7 +20,7 @@ import type {
   ReadonlyWorldStateAccess,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
-import { type InboxMessageBundle, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
+import { type InboxMessageBundle, appendL1ToL2MessagesToTree, flattenBundle } from '@aztec/stdlib/messaging';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseRollupHints,
@@ -264,7 +264,12 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
   @trackSpan('CheckpointSubTreeOrchestrator.startNewBlock', blockNumber => ({
     [Attributes.BLOCK_NUMBER]: blockNumber,
   }))
-  public async startNewBlock(blockNumber: BlockNumber, timestamp: UInt64, totalNumTxs: number, l1ToL2Messages: Fr[]) {
+  public async startNewBlock(
+    blockNumber: BlockNumber,
+    timestamp: UInt64,
+    totalNumTxs: number,
+    l1ToL2Messages: InboxMessageBundle,
+  ) {
     if (!this.provingState) {
       throw new Error('Empty proving state. The checkpoint sub-tree has not been started.');
     }
@@ -299,7 +304,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       await getFrontierSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
       L1_TO_L2_MSG_TREE_HEIGHT,
     );
-    await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
+    await appendL1ToL2MessagesToTree(db, flattenBundle(l1ToL2Messages));
     const endL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
 
     const blockProvingState = await this.provingState.startNewBlock(

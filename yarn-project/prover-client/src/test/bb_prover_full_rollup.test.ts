@@ -67,8 +67,14 @@ describe('prover/bb_prover/full-rollup', () => {
         // Drive each checkpoint through its own sub-tree, mirroring the production
         // CheckpointProver flow. The top tree starts proving as each sub-tree completes.
         for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
-          const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader, checkpoint } =
-            checkpoints[checkpointIndex];
+          const {
+            constants,
+            blocks,
+            l1ToL2MessageBundle,
+            l1ToL2MessageBundlesPerBlock,
+            previousBlockHeader,
+            checkpoint,
+          } = checkpoints[checkpointIndex];
 
           const previousInboxRollingHash =
             checkpointIndex === 0 ? Fr.ZERO : checkpoints[checkpointIndex - 1].checkpoint.header.inboxRollingHash;
@@ -95,7 +101,7 @@ describe('prover/bb_prover/full-rollup', () => {
             const { blockNumber, timestamp } = header.globalVariables;
 
             log.info(`Starting new block #${blockNumber}`);
-            await subTree.startNewBlock(blockNumber, timestamp, txs.length, i === 0 ? l1ToL2Messages : []);
+            await subTree.startNewBlock(blockNumber, timestamp, txs.length, l1ToL2MessageBundlesPerBlock[i]);
             if (txs.length > 0) {
               await subTree.addTxs(txs);
             }

@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { type InboxMessageBundle, L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
+import { type InboxMessageBundle, L1ToL2MessageSponge, bucketStartsOf, flattenBundle } from '@aztec/stdlib/messaging';
 import { InboxParityPrivateInputs, type ParityPublicInputs } from '@aztec/stdlib/parity';
 import { BlockMergeRollupPrivateInputs, BlockRollupPublicInputs, CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -71,7 +71,7 @@ export class CheckpointProvingState {
     startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
-    l1ToL2Messages: Fr[],
+    l1ToL2Messages: InboxMessageBundle,
   ): Promise<BlockProvingState> {
     const index = Number(blockNumber) - Number(this.firstBlockNumber);
     if (index >= this.totalNumBlocks) {
@@ -96,7 +96,7 @@ export class CheckpointProvingState {
       throw new Error('Cannot start a new block before the previous block in the checkpoint has been started.');
     }
     const endMsgSponge = startMsgSponge.clone();
-    await endMsgSponge.absorb(l1ToL2Messages);
+    await endMsgSponge.absorb(flattenBundle(l1ToL2Messages), bucketStartsOf(l1ToL2Messages));
 
     const block = new BlockProvingState(
       index,

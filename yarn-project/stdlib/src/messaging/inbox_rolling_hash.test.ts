@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import { bucketStartsOf, bundleLength, flattenBundle } from './inbox_message_bundle.js';
+import { bucketStartsOf, bundleLength, flattenBundle, sliceBundle } from './inbox_message_bundle.js';
 import { accumulateInboxRollingHash, updateInboxRollingHash } from './inbox_rolling_hash.js';
 
 describe('inbox rolling hash', () => {
@@ -73,5 +73,23 @@ describe('inbox message bundle', () => {
 
   it('rejects an empty bucket', () => {
     expect(() => bucketStartsOf([[new Fr(11)], []])).toThrow('empty bucket at index 1');
+  });
+
+  it('slices whole buckets out of a bundle', () => {
+    expect(sliceBundle(bundle, 0, 2)).toEqual([[new Fr(11), new Fr(22)]]);
+    expect(sliceBundle(bundle, 2, 3)).toEqual([[new Fr(33)]]);
+    expect(sliceBundle(bundle, 0, 3)).toEqual(bundle);
+    expect(sliceBundle(bundle, 2, 2)).toEqual([]);
+  });
+
+  it('refuses to slice through a bucket', () => {
+    expect(() => sliceBundle(bundle, 0, 1)).toThrow('cuts the bucket at leaves [0, 2)');
+    expect(() => sliceBundle(bundle, 1, 3)).toThrow('cuts the bucket at leaves [0, 2)');
+  });
+
+  it('clamps boundaries outside the bundle', () => {
+    expect(sliceBundle(bundle, 0, 9)).toEqual(bundle);
+    expect(sliceBundle(bundle, 2, 1)).toEqual([]);
+    expect(sliceBundle([], 3, 7)).toEqual([]);
   });
 });

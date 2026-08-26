@@ -28,6 +28,7 @@ struct TestBuilder {
     start_sponge_blob: SpongeBlob,
     start_msg_sponge: L1ToL2MessageSponge,
     l1_to_l2_messages: [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK],
+    bucket_starts: [bool; MAX_L1_TO_L2_MSGS_PER_BLOCK],
     num_msgs: u32,
     l1_to_l2_message_frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
     new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
@@ -81,6 +82,7 @@ impl TestBuilder {
             start_sponge_blob,
             start_msg_sponge,
             l1_to_l2_messages,
+            bucket_starts: fixture_builder.build_bucket_starts(TEST_NUM_MSGS),
             num_msgs: TEST_NUM_MSGS,
             l1_to_l2_message_frontier_hint,
             new_archive_sibling_path,
@@ -99,6 +101,7 @@ impl TestBuilder {
             start_msg_sponge: self.start_msg_sponge,
             message_bundle: L1ToL2MessageBundle {
                 messages: self.l1_to_l2_messages,
+                bucket_starts: self.bucket_starts,
                 num_msgs: self.num_msgs,
             },
             l1_to_l2_message_frontier_hint: self.l1_to_l2_message_frontier_hint,
@@ -133,7 +136,7 @@ impl TestBuilder {
         // --- Message sponge: threaded from the provided start, absorbing this block's bundle. ---
         assert_eq(pi.start_msg_sponge, self.start_msg_sponge);
         let mut expected_end_msg_sponge = self.start_msg_sponge;
-        expected_end_msg_sponge.absorb(self.l1_to_l2_messages, self.num_msgs);
+        expected_end_msg_sponge.absorb(self.l1_to_l2_messages, self.bucket_starts, self.num_msgs);
         assert_eq(pi.end_msg_sponge, expected_end_msg_sponge);
 
         // --- Archive: the block header hash is inserted at the next available index. ---
@@ -207,6 +210,7 @@ fn no_txs_block_root_accepts_empty_bundle() {
 
     builder.num_msgs = 0;
     builder.l1_to_l2_messages = [0; MAX_L1_TO_L2_MSGS_PER_BLOCK];
+    builder.bucket_starts = [false; MAX_L1_TO_L2_MSGS_PER_BLOCK];
     builder.new_l1_to_l2 = builder.previous_state.l1_to_l2_message_tree;
 
     let pi = builder.execute();
@@ -215,4 +219,52 @@ fn no_txs_block_root_accepts_empty_bundle() {
     // With no messages the l1-to-l2 tree and the message sponge are both untouched.
     assert_eq(pi.end_state.l1_to_l2_message_tree, pi.start_state.l1_to_l2_message_tree);
     assert_eq(pi.end_msg_sponge, pi.start_msg_sponge);
+}
+
+// A block that consumes messages must start at an L1 bucket boundary: it may not pick up the tail of a bucket a
+// previous block left half-consumed.
+#[test(should_fail_with = "First consumed message must open a bucket")]
+fn no_txs_block_root_rejects_mid_bucket_start() {
+    let mut builder = TestBuilder::new();
+
+    let mut bucket_starts = [false; MAX_L1_TO_L2_MSGS_PER_BLOCK];
+    bucket_starts[1] = true;
+    builder.bucket_starts = bucket_starts;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Found bucket start after breakpoint")]
+fn no_txs_block_root_rejects_bucket_start_in_padding_lane() {
+    let mut builder = TestBuilder::new();
+
+    builder.bucket_starts[TEST_NUM_MSGS] = true;
+
+    builder.execute_and_fail();
+}
+
+#[test]
+fn no_txs_block_root_accepts_several_whole_buckets() {
+    let mut builder = TestBuilder::new();
+
+    // Three buckets of sizes 1, 2 and 2, all consumed whole by this block.
+    builder.bucket_starts[1] = true;
+    builder.bucket_starts[3] = true;
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+}
+
+#[test]
+fn no_txs_block_root_msg_sponge_commits_to_bucket_starts() {
+    let one_bucket = TestBuilder::new();
+    let mut two_buckets = TestBuilder::new();
+    two_buckets.bucket_starts[2] = true;
+
+    let one_bucket_pi = one_bucket.execute();
+    let two_buckets_pi = two_buckets.execute();
+
+    // Same leaves, same tree, but the grouping differs — so the sponge the checkpoint root checks differs too.
+    assert_eq(one_bucket_pi.end_state, two_buckets_pi.end_state);
+    assert(one_bucket_pi.end_msg_sponge != two_buckets_pi.end_msg_sponge);
 }

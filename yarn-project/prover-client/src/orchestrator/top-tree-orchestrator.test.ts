@@ -7,7 +7,12 @@ import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { ScopedL2ToL1Message, accumulateInboxRollingHash, computeEpochOutHash } from '@aztec/stdlib/messaging';
+import {
+  type InboxMessageBundle,
+  ScopedL2ToL1Message,
+  accumulateInboxRollingHash,
+  computeEpochOutHash,
+} from '@aztec/stdlib/messaging';
 import { makeScopedL2ToL1Message } from '@aztec/stdlib/testing';
 
 import { TestContext, makeTestDeferredJobQueue } from '../mocks/test_context.js';
@@ -46,10 +51,10 @@ describe('prover/orchestrator/top-tree', () => {
   type CheckpointFixture = Awaited<ReturnType<TestContext['makeCheckpoint']>>;
 
   /**
-   * Drives a checkpoint fixture through `CheckpointSubTreeOrchestrator`, feeding block `i` the message slice
-   * `messagesPerBlock[i]`, and returns the assembled `CheckpointTopTreeData` plus the originating fixture.
+   * Drives a checkpoint fixture through `CheckpointSubTreeOrchestrator`, feeding block `i` the message bundle
+   * `bundlesPerBlock[i]`, and returns the assembled `CheckpointTopTreeData` plus the originating fixture.
    */
-  async function driveFixture(fixture: CheckpointFixture, messagesPerBlock: Fr[][]) {
+  async function driveFixture(fixture: CheckpointFixture, bundlesPerBlock: InboxMessageBundle[]) {
     const subTree = await CheckpointSubTreeOrchestrator.start(
       context.worldState,
       context.prover,
@@ -68,7 +73,7 @@ describe('prover/orchestrator/top-tree', () => {
 
     for (const [blockIndex, block] of fixture.blocks.entries()) {
       const { blockNumber, timestamp } = block.header.globalVariables;
-      await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, messagesPerBlock[blockIndex]);
+      await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, bundlesPerBlock[blockIndex]);
       if (block.txs.length > 0) {
         await subTree.addTxs(block.txs);
       }
@@ -105,8 +110,7 @@ describe('prover/orchestrator/top-tree', () => {
           ? () => ({ privateOnly: false, avmAccumulatedData: { l2ToL1Msgs: makeL2ToL1Messages(numL2ToL1Messages) } })
           : undefined,
     });
-    const messagesPerBlock = fixture.blocks.map((_, i) => (i === 0 ? fixture.l1ToL2Messages : []));
-    return await driveFixture(fixture, messagesPerBlock);
+    return await driveFixture(fixture, fixture.l1ToL2MessageBundlesPerBlock);
   }
 
   /**
@@ -116,7 +120,7 @@ describe('prover/orchestrator/top-tree', () => {
    */
   async function driveSubTreeWithMessageSlices(l1ToL2MessagesPerBlock: Fr[][], numTxsPerBlock: number[]) {
     const fixture = await context.makeCheckpointWithMessagesPerBlock(l1ToL2MessagesPerBlock, { numTxsPerBlock });
-    return await driveFixture(fixture, l1ToL2MessagesPerBlock);
+    return await driveFixture(fixture, fixture.l1ToL2MessageBundlesPerBlock);
   }
 
   it('produces an epoch proof for a single-checkpoint, single-block, single-tx epoch', async () => {

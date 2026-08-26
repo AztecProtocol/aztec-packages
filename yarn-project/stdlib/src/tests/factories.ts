@@ -46,6 +46,7 @@ import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
+import { randomBytes } from '@aztec/foundation/crypto/random';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
@@ -958,7 +959,11 @@ export function makeTxMergeRollupPrivateInputs(seed = 0): TxMergeRollupPrivateIn
 export function makeBlockRootRollupPrivateInputs(seed = 0) {
   return new BlockRootRollupPrivateInputs(
     [makeProofData(seed + 0x1000, makeTxRollupPublicInputs), makeProofData(seed + 0x2000, makeTxRollupPublicInputs)],
-    new L1ToL2MessageBundle(makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500), MAX_L1_TO_L2_MSGS_PER_BLOCK),
+    new L1ToL2MessageBundle(
+      makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500),
+      makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, i => i === 0),
+      MAX_L1_TO_L2_MSGS_PER_BLOCK,
+    ),
     makeAppendOnlyTreeSnapshot(seed + 0x3000),
     makeL1ToL2MessageSponge(seed + 0x3500),
     makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_TREE_HEIGHT),
@@ -969,7 +974,11 @@ export function makeBlockRootRollupPrivateInputs(seed = 0) {
 export function makeBlockRootSingleTxRollupPrivateInputs(seed = 0) {
   return new BlockRootSingleTxRollupPrivateInputs(
     makeProofData(seed + 0x1000, makeTxRollupPublicInputs),
-    new L1ToL2MessageBundle(makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500), 0),
+    new L1ToL2MessageBundle(
+      makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500),
+      makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, () => false),
+      0,
+    ),
     makeAppendOnlyTreeSnapshot(seed + 0x2800),
     makeL1ToL2MessageSponge(seed + 0x3000),
     makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_TREE_HEIGHT),
@@ -1622,6 +1631,15 @@ export async function makeAvmCircuitInputs(
  */
 export function fr(n: number): Fr {
   return new Fr(BigInt(n));
+}
+
+/**
+ * A random L1-to-L2 message leaf. Real leaves are `sha256ToField` outputs — a sha256 digest with its last byte dropped
+ * — so they always fit in 248 bits, which the message sponge relies on to pack a leaf's bucket-start flag above it.
+ * `Fr.random()` spans the whole field and would be rejected by the sponge and by `InboxParity`.
+ */
+export function randomL1ToL2MessageLeaf(): Fr {
+  return Fr.fromBuffer(Buffer.concat([Buffer.alloc(1), randomBytes(31)]));
 }
 
 /** Creates a random {@link LogResult} with private-log-shaped data. `includeEffects` populates `noteHashes` + `nullifiers`. */

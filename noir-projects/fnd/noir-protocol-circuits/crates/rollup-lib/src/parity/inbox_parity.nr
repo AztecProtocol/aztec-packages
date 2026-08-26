@@ -1,6 +1,6 @@
 use crate::{
     abis::{L1ToL2MessageSponge, ParityPublicInputs},
-    inbox_rolling_hash::accumulate_inbox_rolling_hash,
+    inbox_rolling_hash::{accumulate_inbox_rolling_hash, assert_valid_bucket_starts},
 };
 use types::utils::arrays::assert_trailing_zeros;
 
@@ -29,8 +29,10 @@ pub struct InboxParityPrivateInputs<let S: u32> {
 /// This circuit:
 /// - Chains the `num_msgs` real messages into the rolling hash (two sha256 compressions per leaf), tagging each link
 ///   as a bucket start or a bucket continuation
-/// - Absorbs the same real messages into the empty message sponge (real-count absorb; the checkpoint root asserts this
-///   equals the sponge the block roots accumulate). The sponge resets per checkpoint and there is one proof per
+/// - Absorbs the same real messages, each packed with its bucket-start flag, into the empty message sponge
+///   (real-count absorb; the checkpoint root asserts this equals the sponge the block roots accumulate). Absorbing the
+///   flags is what forces every block to start consuming at a bucket boundary: a block that split a bucket would have
+///   to claim a boundary the checkpoint does not have. The sponge resets per checkpoint and there is one proof per
 ///   checkpoint, so the start is always the empty sponge and is hard-coded rather than witnessed.
 /// - Asserts the padding lanes past `num_msgs` are zero so they cannot silently enter either accumulator, and that
 ///   they claim no bucket start; a consuming checkpoint must also open a bucket at lane 0
@@ -43,18 +45,8 @@ pub fn execute<let S: u32>(inputs: InboxParityPrivateInputs<S>) -> ParityPublicI
     assert_trailing_zeros(inputs.msgs, inputs.num_msgs);
 
     // A checkpoint always begins consuming at a bucket boundary, since a bucket is only ever consumed from its first
-    // unconsumed message onwards and the previous checkpoint stopped at a bucket end.
-    if inputs.num_msgs > 0 {
-        assert(inputs.bucket_starts[0], "First consumed message must open a bucket");
-    }
-    // Padding lanes must not claim to open a bucket, mirroring the zero-padding guard on `msgs`.
-    let mut is_padding = false;
-    for i in 0..S {
-        is_padding |= i == inputs.num_msgs;
-        if is_padding {
-            assert(!inputs.bucket_starts[i], "Found bucket start after breakpoint");
-        }
-    }
+    // unconsumed message onwards and the previous checkpoint stopped at a bucket end. Padding lanes claim no start.
+    assert_valid_bucket_starts(inputs.bucket_starts, inputs.num_msgs);
 
     let end_rolling_hash = accumulate_inbox_rolling_hash(
         inputs.start_rolling_hash,
@@ -64,7 +56,7 @@ pub fn execute<let S: u32>(inputs: InboxParityPrivateInputs<S>) -> ParityPublicI
     );
 
     let mut end_sponge = L1ToL2MessageSponge::new();
-    end_sponge.absorb(inputs.msgs, inputs.num_msgs);
+    end_sponge.absorb(inputs.msgs, inputs.bucket_starts, inputs.num_msgs);
 
     ParityPublicInputs {
         start_rolling_hash: inputs.start_rolling_hash,

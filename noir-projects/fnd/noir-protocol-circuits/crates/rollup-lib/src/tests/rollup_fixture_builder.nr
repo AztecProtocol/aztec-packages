@@ -240,6 +240,16 @@ impl RollupFixtureBuilder {
         (previous, leaves, frontier_hint, new)
     }
 
+    /// Bucket-start flags for a block bundle that consumes one whole L1 bucket: lane 0 opens it, later lanes continue
+    /// it, and padding lanes claim nothing. This is the shape `with_message_bundle` requires of every block.
+    pub fn build_bucket_starts(_self: Self, num_msgs: u32) -> [bool; MAX_L1_TO_L2_MSGS_PER_BLOCK] {
+        let mut bucket_starts = [false; MAX_L1_TO_L2_MSGS_PER_BLOCK];
+        if num_msgs > 0 {
+            bucket_starts[0] = true;
+        }
+        bucket_starts
+    }
+
     pub fn build_out_hash_tree_for_insertion(
         self,
         slot_number: Field,
@@ -469,7 +479,7 @@ impl RollupFixtureBuilder {
     /// end sponge) and its parity root (as its end sponge), so the checkpoint root's equality check passes.
     pub fn get_msg_sponge(_self: Self, slot_number: Field) -> L1ToL2MessageSponge {
         let mut sponge = L1ToL2MessageSponge::new();
-        sponge.absorb([slot_number, slot_number * 7, slot_number * 13], 3);
+        sponge.absorb([slot_number, slot_number * 7, slot_number * 13], [true, false, false], 3);
         sponge
     }
 
