@@ -30,11 +30,10 @@ function build {
 }
 
 function test_cmds {
-  i=0
+  # All TXE tests share the single TXE server (sessions are isolated per test).
+  local txe_port=14730
   $NARGO test --list-tests --silence-warnings | grep -v __oracle_test__ | sort | while read -r package test; do
-    # We assume there are 8 txe's running.
-    port=$((14730 + (i++ % ${NUM_TXES:-1})))
-    echo "$hash noir-projects/labs/scripts/run_test.sh aztec-nr $package $test $port"
+    echo "$hash noir-projects/labs/scripts/run_test.sh aztec-nr $package $test $txe_port"
   done
 
   # Oracle roundtrip tests run against a dedicated resolver instead of TXE

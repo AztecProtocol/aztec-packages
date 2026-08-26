@@ -173,9 +173,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 # Enable abbreviated output by default.
 export DENOISE=${DENOISE:-1}
 
-# Number of TXE servers to run when testing.
-export NUM_TXES=1
-
 # Number of jobs for make. Defaults to number of CPUs.
 # TODO: We should dial this back on consumer hardware, maybe to just 1.
 export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
@@ -200,7 +197,7 @@ function cleanup {
     wait $make_pid
     make_pid=
   fi
-  stop_txes
+  stop_txe
 }
 trap cleanup EXIT
 
@@ -334,7 +331,7 @@ function pull_submodules {
   denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags &>/dev/null"
 }
 
-function start_txes {
+function start_txe {
   # Until Kev's kzg lib stops using Tokio.
   export TOKIO_WORKER_THREADS=1
 
@@ -349,20 +346,20 @@ function start_txes {
     fi
   }
 
-  # Starting txe servers with incrementing port numbers.
-  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
-  local txe_base_port=14730
-  for i in $(seq 0 $((NUM_TXES-1))); do
-    port=$((txe_base_port + i))
-    kill_port $port
-    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
-    txe_pids+="$! "
-  done
+  # Like the test engine: own session (so stop_txe can kill the whole group) with labeled
+  # output, and denoise so the server's full log lives in its own CI log. The previous
+  # dump_fail wrapper discarded TXE output whenever the process exited cleanly, which made
+  # server-side context for flaky TXE tests unrecoverable.
+  # Port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
+  local txe_port=14730
+  kill_port $txe_port
+  setsid color_prefix "txe" "denoise \"LOG_LEVEL=info TXE_PORT=$txe_port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'\"" &
+  txe_pids+="$! "
 
   # Start the oracle test resolver for __oracle_test__-prefixed tests.
   local resolver_port=14830
   kill_port $resolver_port
-  dump_fail "LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js" &
+  setsid color_prefix "oracle-resolver" "denoise \"LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js\"" &
   txe_pids+="$! "
 
   wait_for_port() {
@@ -378,16 +375,18 @@ function start_txes {
       j=$((j+1))
     done
   }
-  for i in $(seq 0 $((NUM_TXES-1))); do
-    wait_for_port $((txe_base_port + i)) "TXE $i"
-  done
+  wait_for_port $txe_port "TXE"
   wait_for_port $resolver_port "oracle test resolver"
 }
 
-function stop_txes {
+function stop_txe {
   if [ -n "${txe_pids:-}" ]; then
     echo "Stopping TXE processes..."
-    kill -SIGTERM $txe_pids &>/dev/null || true
+    # Each pid is a setsid session leader; kill the group so node dies with its wrappers.
+    # denoise still publishes its log on SIGTERM.
+    for pid in $txe_pids; do
+      kill -SIGTERM -- -$pid &>/dev/null || true
+    done
     wait $txe_pids || true
     txe_pids=
   fi
@@ -429,11 +428,11 @@ function build_and_test {
 
     # If make succeeded, start txes and add tests that depend on them.
     if [ "$finished" == "$make_pid" ]; then
-      echo "Makefile build complete, starting TXEs and adding dependent tests..."
+      echo "Makefile build complete, starting TXE and adding dependent tests..."
       make_pid=
 
       # TODO: Handle this better so they can be run as part of the Makefile dependency tree.
-      start_txes
+      start_txe
       make noir-projects-txe-tests
 
       # Benches (full builds only). Uploadable runs (BENCH_UPLOAD=1 — the first instance of
@@ -458,7 +457,7 @@ function build_and_test {
     fi
   done
 
-  stop_txes
+  stop_txe
 
   # Benches (full builds only). Inline benches above are a breakage check only — the
   # dedicated box is the sole uploader. Wait on it here: fatal, matching the old inline
