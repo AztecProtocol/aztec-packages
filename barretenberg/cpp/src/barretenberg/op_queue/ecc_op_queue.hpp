@@ -85,7 +85,7 @@ class ECCOpQueue {
     EccvmRowTracker eccvm_row_tracker;
 
   public:
-    static const size_t OP_QUEUE_SIZE = 1 << CONST_OP_QUEUE_LOG_SIZE;
+    static constexpr size_t OP_QUEUE_SIZE = 1 << CONST_OP_QUEUE_LOG_SIZE;
     /**
      * @brief Instantiate an initial ECC op subtable.
      */
@@ -109,7 +109,7 @@ class ECCOpQueue {
      * @brief Compute the fixed append offset for the final APPEND merge.
      */
     size_t get_append_offset_for_prover() const { return get_append_offset(get_current_subtable_size()); }
-    static size_t get_append_offset_for_verifier() { return get_append_offset(bb::HIDING_KERNEL_ULTRA_OPS); }
+    static constexpr size_t get_append_offset_for_verifier() { return get_append_offset(bb::HIDING_KERNEL_ULTRA_OPS); }
 
     // Shift size of the merge / row offset at which the fixed-append subtable's polynomial begins.
     // See UltraEccOpsTable::compute_fixed_append_offset.
@@ -430,7 +430,7 @@ class ECCOpQueue {
      * The appended subtable carries UltraEccOpsTable::APPEND_TRACE_OFFSET leading zero rows internally,
      * matching the appender flavor's ecc_op_wire layout.
      */
-    static size_t get_append_offset(size_t current_subtable_size)
+    static constexpr size_t get_append_offset(size_t current_subtable_size)
     {
         constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
         constexpr size_t zk_op_slots = UltraEccOpsTable::ZK_ULTRA_OPS / UltraEccOpsTable::NUM_ROWS_PER_OP;

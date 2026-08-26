@@ -179,6 +179,16 @@ rows (matching the appender flavor's `TRACE_OFFSET`), so that it matches the com
 Because a single shift $\ell$ is applied uniformly to $L$, $R$ and $M$, the concatenation identity is
 the plain $M_j(X) = L_j(X) + X^\ell R_j(X)$.
 
+`get_append_offset` is defined so that the appended polynomial ends exactly at the Translator
+mini-circuit size: with $H =$ `HIDING_KERNEL_ULTRA_OPS`,
+
+$$\ell + \texttt{APPEND\_TRACE\_OFFSET} + \texttt{NUM\_ROWS\_PER\_OP} \cdot H = 2^{\texttt{CONST\_TRANSLATOR\_MINI\_CIRCUIT\_LOG\_SIZE}}$$
+
+for every $H$ (`goblin.hpp` asserts this at compile time). The hiding kernel's last `NUM_RANDOM_OPS_END`
+ops are random ops (`Chonk::hide_op_queue_content_in_hiding`), so the Translator's end-masking band
+`[MINI - NUM_MASKED_ROWS_END, MINI)` holds those random ops and never a real operation; no earlier
+subtable can reach it because $\deg(L) < \ell$.
+
 ## Protocol Description
 
 ### Commitment Layout Summary
