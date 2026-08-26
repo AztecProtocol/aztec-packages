@@ -264,10 +264,12 @@ export class TestContext {
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, i === 0 ? l1ToL2MessageBundle : [], {
-        expectedEndState: state,
-        insertTxsEffects: true,
-      });
+      const { block } = await builder.applyEffectsAndSealBlock(
+        blockGlobalVariables[i],
+        txs,
+        i === 0 ? l1ToL2MessageBundle : [],
+        { expectedEndState: state },
+      );
 
       const header = block.header;
       this.headers.set(block.number, header);
@@ -397,10 +399,12 @@ export class TestContext {
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, l1ToL2MessageBundlesPerBlock[i], {
-        expectedEndState: state,
-        insertTxsEffects: true,
-      });
+      const { block } = await builder.applyEffectsAndSealBlock(
+        blockGlobalVariables[i],
+        txs,
+        l1ToL2MessageBundlesPerBlock[i],
+        { expectedEndState: state },
+      );
 
       const header = block.header;
       this.headers.set(block.number, header);

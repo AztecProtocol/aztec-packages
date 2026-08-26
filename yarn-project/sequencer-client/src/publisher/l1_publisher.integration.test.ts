@@ -510,7 +510,7 @@ describe('L1Publisher integration', () => {
       tempFork,
     );
 
-    await builder.addBlock(globalVariables, txs, l1ToL2Messages, { insertTxsEffects: true });
+    await builder.applyEffectsAndSealBlock(globalVariables, txs, l1ToL2Messages);
     const checkpoint = await builder.completeCheckpoint();
 
     await tempFork.close();

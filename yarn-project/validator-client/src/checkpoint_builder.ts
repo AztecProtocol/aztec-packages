@@ -145,11 +145,8 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       // Commit the fork checkpoint
       await forkCheckpoint.commit();
 
-      // Add block to checkpoint. The bundle is already in the fork; addBlock only accumulates it into the
-      // checkpoint's message list for the rolling hash.
-      const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, l1ToL2Messages, {
+      const { block } = await this.checkpointBuilder.sealBlock(globalVariables, processedTxs, l1ToL2Messages, {
         expectedEndState: opts.expectedEndState,
-        insertL1ToL2Messages: false,
       });
 
       this.contractsDB.commitCheckpoint();

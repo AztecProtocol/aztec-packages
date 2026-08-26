@@ -174,7 +174,7 @@ describe('CheckpointBuilder', () => {
 
     async function mockSuccessfulBlock() {
       const block = await L2Block.random(blockNumber);
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block, timings: {} });
+      lightweightCheckpointBuilder.sealBlock.mockResolvedValue({ block, timings: {} });
       processor.process.mockResolvedValue([[{ hash: TxHash.random() } as ProcessedTx], [], [], [], []]);
       return block;
     }
@@ -209,7 +209,7 @@ describe('CheckpointBuilder', () => {
       lightweightCheckpointBuilder.getBlockCount.mockReturnValue(0);
 
       const expectedBlock = await L2Block.random(blockNumber);
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      lightweightCheckpointBuilder.sealBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
 
       processor.process.mockResolvedValue([
         [{ hash: Fr.random() } as unknown as ProcessedTx],
@@ -224,12 +224,12 @@ describe('CheckpointBuilder', () => {
       expect(result.block).toBe(expectedBlock);
       expect(result.numTxs).toBe(1);
       expect(result.failedTxs).toEqual([]);
-      expect(lightweightCheckpointBuilder.addBlock).toHaveBeenCalled();
+      expect(lightweightCheckpointBuilder.sealBlock).toHaveBeenCalled();
     });
 
     it('allows building an empty block when minValidTxs is 0', async () => {
       const expectedBlock = await L2Block.random(blockNumber, { txsPerBlock: 0 });
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      lightweightCheckpointBuilder.sealBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
 
       // No transactions processed
       processor.process.mockResolvedValue([
@@ -244,7 +244,7 @@ describe('CheckpointBuilder', () => {
 
       expect(result.block).toBe(expectedBlock);
       expect(result.numTxs).toBe(0);
-      expect(lightweightCheckpointBuilder.addBlock).toHaveBeenCalled();
+      expect(lightweightCheckpointBuilder.sealBlock).toHaveBeenCalled();
     });
 
     it('throws InsufficientValidTxsError when fewer txs than minValidTxs', async () => {
@@ -261,7 +261,7 @@ describe('CheckpointBuilder', () => {
         checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts({ minValidTxs: 1 })),
       ).rejects.toThrow(InsufficientValidTxsError);
 
-      expect(lightweightCheckpointBuilder.addBlock).not.toHaveBeenCalled();
+      expect(lightweightCheckpointBuilder.sealBlock).not.toHaveBeenCalled();
     });
 
     it('does not update state when some txs succeed but below minValidTxs', async () => {
@@ -283,19 +283,19 @@ describe('CheckpointBuilder', () => {
       expect(err).toBeInstanceOf(InsufficientValidTxsError);
       expect((err as InsufficientValidTxsError).processedCount).toBe(1);
       expect((err as InsufficientValidTxsError).minRequired).toBe(2);
-      expect(lightweightCheckpointBuilder.addBlock).not.toHaveBeenCalled();
+      expect(lightweightCheckpointBuilder.sealBlock).not.toHaveBeenCalled();
     });
 
     it('defaults to minValidTxs=0 when not specified, allowing empty blocks', async () => {
       const expectedBlock = await L2Block.random(blockNumber, { txsPerBlock: 0 });
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      lightweightCheckpointBuilder.sealBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
 
       processor.process.mockResolvedValue([[], [], [], [], []]);
 
       const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n, validatorOpts());
 
       expect(result.numTxs).toBe(0);
-      expect(lightweightCheckpointBuilder.addBlock).toHaveBeenCalled();
+      expect(lightweightCheckpointBuilder.sealBlock).toHaveBeenCalled();
     });
   });
 
@@ -581,7 +581,7 @@ describe('CheckpointBuilder', () => {
       ]);
 
       const expectedBlock = await L2Block.random(blockNumber);
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      lightweightCheckpointBuilder.sealBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
       processor.process.mockResolvedValue([[{ hash: Fr.random() } as unknown as ProcessedTx], [], [], [], []]);
 
       // Build block 2
@@ -599,7 +599,7 @@ describe('CheckpointBuilder', () => {
       setupBuilder({ rollupManaLimit });
 
       const expectedBlock = await L2Block.random(blockNumber);
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      lightweightCheckpointBuilder.sealBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
       processor.process.mockResolvedValue([[{ hash: Fr.random() } as unknown as ProcessedTx], [], [], [], []]);
 
       const capturedL2GasLimits: number[] = [];
@@ -632,7 +632,7 @@ describe('CheckpointBuilder', () => {
       setupBuilder({ rollupManaLimit });
 
       const expectedBlock = await L2Block.random(blockNumber);
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      lightweightCheckpointBuilder.sealBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
       processor.process.mockResolvedValue([[{ hash: Fr.random() } as unknown as ProcessedTx], [], [], [], []]);
 
       const capturedL2GasLimits: number[] = [];
@@ -670,7 +670,7 @@ describe('CheckpointBuilder', () => {
       setupBuilder({ rollupManaLimit });
 
       const expectedBlock = await L2Block.random(blockNumber);
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
+      lightweightCheckpointBuilder.sealBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
       processor.process.mockResolvedValue([[{ hash: Fr.random() } as unknown as ProcessedTx], [], [], [], []]);
 
       // Explicit per-block limit (100k) is TIGHTER than redistribution.
