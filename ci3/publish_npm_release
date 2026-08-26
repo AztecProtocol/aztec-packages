@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Publishes the npm tarballs a release build packed (ci3/deploy_npm with NPM_PACK_DIR) from a GitHub
+# runner using npm trusted publishing: the runner's OIDC token is the credential, so no NPM_TOKEN is
+# involved and `--provenance` links every package to this workflow run. Requires npm >= 11.5.1.
+#   usage: publish_npm_release <dir-of-tgz>
+# DRY_RUN=1 runs `npm publish --dry-run` instead.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+dir=${1:?usage: $(basename "$0") <dir-of-tgz>}
+dry_run=${DRY_RUN:-0}
+
+tarballs=("$dir"/*.tgz)
+if [ ! -e "${tarballs[0]}" ]; then
+  echo_stderr "No npm tarballs found in $dir."
+  exit 1
+fi
+
+# Same dist-tag policy as deploy_npm: 'latest' for stable releases, 'prerelease' for everything else.
+function dist_tag_for {
+  if [ -n "$(semver prerelease "$1")" ]; then echo prerelease; else echo latest; fi
+}
+
+for tgz in "${tarballs[@]}"; do
+  pkg_json=$(tar -xOzf "$tgz" package/package.json)
+  name=$(jq -r .name <<<"$pkg_json")
+  version=$(jq -r .version <<<"$pkg_json")
+  tag=$(dist_tag_for "$version")
+  echo_header "publishing $name@$version ($tag)"
+  if [ "$dry_run" -eq 1 ]; then
+    npm publish "$tgz" --ignore-scripts --dry-run --tag "$tag" --access public
+  elif npm view "$name@$version" version >/dev/null 2>&1; then
+    # Re-run of a release: the version is already out, only make sure the dist-tag points at it.
+    npm dist-tag add "$name@$version" "$tag"
+  else
+    retry "npm publish \"$tgz\" --ignore-scripts --tag \"$tag\" --access public --provenance"
+  fi
+done
