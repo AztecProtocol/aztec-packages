@@ -119,11 +119,11 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const forkCheckpoint = await ForkCheckpoint.new(this.fork);
 
     try {
-      // Insert this block's streaming L1-to-L2 message bundle before executing its txs. The prover node appends the
-      // bundle to its fork before re-executing, and the block-root circuit pins each tx's L1-to-L2 tree snapshot to
-      // the post-bundle root, so the AVM here must read the same tree or a tx consuming a message from this block's
-      // bundle would revert at proposal time and succeed at proving time. Appending inside the fork checkpoint means
-      // a failed block rolls the leaves back together with the tx effects.
+      // Insert this block's streaming L1-to-L2 messages before executing its txs. The prover node appends them to its
+      // fork before re-executing, and the block-root circuit pins each tx's L1-to-L2 tree snapshot to the post-append
+      // root, so the AVM here must read the same tree or a tx consuming a message this block inserts would revert at
+      // proposal time and succeed at proving time. Appending inside the fork checkpoint means a failed block rolls the
+      // leaves back together with the tx effects.
       const l1ToL2Messages = opts.l1ToL2Messages ?? [];
       await appendL1ToL2MessagesToTree(this.fork, l1ToL2Messages);
 
@@ -140,11 +140,8 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       // Commit the fork checkpoint
       await forkCheckpoint.commit();
 
-      // Add block to checkpoint. The bundle is already in the fork; addBlock only accumulates it into the
-      // checkpoint's message list for the rolling hash.
-      const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, l1ToL2Messages, {
+      const { block } = await this.checkpointBuilder.sealBlock(globalVariables, processedTxs, l1ToL2Messages, {
         expectedEndState: opts.expectedEndState,
-        insertL1ToL2Messages: false,
       });
 
       this.contractsDB.commitCheckpoint();
