@@ -217,4 +217,29 @@ The prover controls several values: $N$, the subtable sizes $s_i$, the column co
 - **Concatenation:** The random evaluation check proves that the aggregate commitments open to the concatenation determined by the same size parameters.
 - **PCS openings:** Shplonk batches all openings, and KZG reduces the final claim to pairing points.
 
-The remaining failure probabilities are the usual Schwartz-Zippel probability for the random evaluation point, batching soundness for the degree-check challenge, Shplonk batching soundness, KZG binding, and the hash-chain collision probability described above.
+### Subtable sizes are bounded only from below
+
+The sizes $\sigma_i$ come from the prover, and the degree identity proves only $\deg(C_i) < \sigma_i$. Nothing
+ties $\sigma_i$ to the true size of $C_i$ or bounds $\sum_i \sigma_i$ beyond the per-slot range constraint, so a
+prover can over-state a size and place zeros after that subtable. The aggregate commitment is therefore not
+canonical: one hash-bound set of subtables has several accepted aggregates, differing only in zeros.
+
+This is harmless. The aggregate table is consumed only by the Translator (via the latest merge), and the
+following in-circuit constraints leave no way to turn the zeros into a false statement:
+
+1. The concatenation identity at a random point forces $T = \sum_i C_i X^{\text{off}_i}$ as a polynomial, so the
+   extra rows are zero; subtable content, order and non-overlap are fixed by the hash, the slot index and
+   the degree bound.
+2. An odd number of zero rows shifts every later operation onto an odd Translator row, where the opcode
+   must be zero (`relations/translator_vm/translator_extra_relations.hpp`); a real op there fails the proof.
+3. An even number of zero rows decodes as no-ops. The Translator's no-op leaves the accumulator unchanged.
+   The ECCVM's matching no-op rows force its accumulator empty
+   (`relations/ecc_vm/ecc_transcript_relation_impl.hpp`, `accumulator_infinity_from_noop`), which can only
+   make a later `eq` fail: every Goblin `batch_mul` opens with a mul and closes with eq+reset, so the
+   accumulator is already empty at every subtable boundary.
+4. No zeros can move a real operation into the hiding-kernel region or the Translator's masking band: the
+   latest merge enforces $\deg(L) < \ell$ with $\ell$ fixed in the verifier.
+
+Binding $\sigma_i$ would need a hash-bound per-circuit op count in the Mega verification key, buying a
+canonical commitment that nothing consumes. Removing or relaxing any of the four constraints above
+invalidates this argument.
