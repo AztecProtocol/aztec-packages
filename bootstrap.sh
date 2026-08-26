@@ -606,6 +606,11 @@ function release {
   # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
   release_bb_github
 
+  # The npm packages are only packed here (deploy_npm pack mode) and handed to the GitHub runner
+  # through the build cache; ci3.yml's publish-npm job publishes them with npm trusted publishing.
+  export NPM_PACK_DIR=$root/npm-release
+  rm -rf "$NPM_PACK_DIR"
+
   # Only the foundation packages are published from here; the labs packages (yarn-project, playground,
   # aztec-up, aztec-nr, the docker release-image) are published from the labs repo.
   projects=(
@@ -623,6 +628,12 @@ function release {
   for project in "${projects[@]}"; do
     $project/bootstrap.sh release
   done
+
+  # Keyed by the release tag and force-uploaded so a re-run of the release refreshes the bundle.
+  # A dry run packs but does not upload.
+  if [ "${DRY_RUN:-0}" != 1 ]; then
+    S3_FORCE_UPLOAD=1 cache_upload "npm-release-$REF_NAME.tar.gz" npm-release
+  fi
 }
 
 function release_dryrun {
@@ -962,12 +973,12 @@ case "$cmd" in
     # npm packages to the internal GCP Artifact Registry.
     # Same publishing path the private-release.yml workflow runs, minus EC2 and the compat-e2e gating.
     # Build first so the artifacts the publishes pack exist; set SKIP_BUILD=1 to reuse an existing
-    # build. Requires GCP creds (GCP_SA_KEY or GOOGLE_APPLICATION_CREDENTIALS) in the environment.
+    # build. Requires GCP creds (GCP_PRIVATE_NPM_DEPLOY or GOOGLE_APPLICATION_CREDENTIALS) in the environment.
     export CI=${CI:-1}
     export PRIVATE_RELEASE=1
     export REF_NAME=${REF_NAME:-v0.0.1-commit.$(git rev-parse --short HEAD)}
     # Local convenience: default GCP creds to ~/sa.json (the CI service-account key) when present.
-    [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
+    [ -z "${GCP_PRIVATE_NPM_DEPLOY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
       export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"
     [ "${SKIP_BUILD:-0}" = 1 ] || ./bootstrap.sh build release
     ./bootstrap.sh release

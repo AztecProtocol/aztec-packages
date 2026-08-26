@@ -64,7 +64,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PRIVATE_NPM_DEPLOY: ${{ secrets.GCP_PRIVATE_NPM_DEPLOY }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
