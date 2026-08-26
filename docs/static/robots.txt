@@ -1,8 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://docs.aztec.network/sitemap.xml
-
-# LLM-friendly documentation index (llmstxt.org):
-# https://docs.aztec.network/llms.txt
-# https://docs.aztec.network/llms-full.txt

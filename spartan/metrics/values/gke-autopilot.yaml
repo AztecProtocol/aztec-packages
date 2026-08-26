@@ -1,4 +1,0 @@
-# This file isn't used by default. It is here if you need to install metrics on GKE autopilot.
-prometheus:
-  prometheus-node-exporter:
-    enabled: false

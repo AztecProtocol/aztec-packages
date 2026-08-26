@@ -157,14 +157,25 @@ git -C "$fnd" checkout -q -- labs-patches
 git -C "$fnd/labs" reset -q --hard HEAD~1
 ok "wip survives state-file loss"
 
-# 10. test_cmds is root-relative whichever directory it runs from
+# 10. a commit touching a file the submodule marks `-diff` (its yarn.lock) is still recognised
+#     as exported: format-patch writes binary hunks, so the patch-id check must read them too
+printf 'lock -diff\n' > "$fnd/labs/.gitattributes"; printf 'v1\n' > "$fnd/labs/lock"
+g -C "$fnd/labs" add .gitattributes lock; g -C "$fnd/labs" commit -qm "patch three: lock"
+"$lp" export >/dev/null
+grep -q "GIT binary patch" "$fnd/labs-patches"/*-patch-three-lock.patch || fail "export: binary hunk for -diff file"
+rm -f "$(git -C "$fnd/labs" rev-parse --absolute-git-dir)/labs-patches.state"
+"$lp" apply | grep -q "already applied" || fail "apply: -diff commit not recognised as exported"
+g -C "$fnd" add labs-patches; g -C "$fnd" commit -q -m "series with lock"
+ok "-diff files round-trip"
+
+# 11. test_cmds is root-relative whichever directory it runs from
 n=$(cd "$fnd/labs-patches" && ./bootstrap.sh test_cmds | grep -c '^[0-9a-f]\{16\} labs-patches/')
 [ "$n" = 2 ] || fail "test_cmds from labs-patches/: $n commands"
 n=$(cd "$fnd" && labs-patches/bootstrap.sh test_cmds | grep -c '^[0-9a-f]\{16\} labs-patches/')
 [ "$n" = 2 ] || fail "test_cmds from root: $n commands"
 ok "test_cmds from any cwd"
 
-# 11. check verifies without touching labs/
+# 12. check verifies without touching labs/
 before=$(git -C "$fnd/labs" rev-parse HEAD)
 "$lp" check >/dev/null || fail "check"
 [ "$(git -C "$fnd/labs" rev-parse HEAD)" = "$before" ] || fail "check moved labs/"

@@ -1,7 +1,5 @@
 /.devcontainer/ @charlielye
 /.github/ @charlielye
-/aztec-up/ @charlielye
-/release-image/ @charlielye
 /build-images/ @charlielye
 /ci3/ @charlielye
 
@@ -22,25 +20,12 @@
 /barretenberg/cpp/pil @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to AVM C++ code
 /barretenberg/cpp/src/barretenberg/vm2 @MirandaWood @jeanmon @IlyasRidhuan
-# on changes to public context in aztec-nr
-/noir-projects/labs/aztec-nr/aztec/src/context/public_context.nr @MirandaWood @jeanmon @IlyasRidhuan
-# on changes to the AVM simulator and supporting modules
-/yarn-project/simulator/src/public @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to the AVM transpiler
 /avm-transpiler/src @MirandaWood @jeanmon @IlyasRidhuan @sirasistant
 #####################################################
-
-# Notify fairies of changes to playground bundler config
-/playground/vite.config.ts @Thunkar
 
 # Notify turtles of changes to L1-contracts
 /l1-contracts/src @just-mitch
 
 # Notify the circuit team of changes to the protocol circuits
 /noir-projects/fnd/noir-protocol-circuits @LeilaWang
-
-# Notify nventuro of changes to aztec-nr
-/noir-projects/labs/aztec-nr @nventuro
-
-# Notify devrel of changes to docs examples
-/docs/examples @AztecProtocol/devrel
