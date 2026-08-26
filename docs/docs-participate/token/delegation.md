@@ -56,7 +56,7 @@ You must stake a minimum of 200,000 AZTEC per validator — similar to how Ether
 
 ### Step 1: Connect Your Wallet
 
-Navigate to [staking.aztec.network](https://staking.aztec.network) and click **Connect Wallet**. Connect the wallet that owns your Token Vaults.
+Navigate to [stake.aztec.network](https://stake.aztec.network/) and click **Connect Wallet**. Connect the wallet that owns your Token Vaults.
 
 The dashboard displays all your Token Vaults and an overview of the assets under your control. Click on any Token Vault to view details such as its vesting schedule.
 
