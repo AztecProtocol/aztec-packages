@@ -12,6 +12,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { Noir } from '@aztec/noir-noir_js';
 import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
 import { InboxParityPrivateInputs } from '@aztec/stdlib/parity';
+import { randomL1ToL2MessageLeaf } from '@aztec/stdlib/testing';
 
 import { jest } from '@jest/globals';
 import * as proc from 'child_process';
@@ -54,7 +55,7 @@ describe('BB.js Debug Wrapper', () => {
     debugDir = await fs.mkdtemp(path.join(process.env.BB_WORKING_DIRECTORY || '/tmp', 'bb-debug-test-'));
 
     // Generate inbox parity inputs (same approach as base_parity_inputs.test.ts)
-    const l1ToL2Messages = new Array(INBOX_PARITY_SIZE_MEDIUM).fill(null).map(() => Fr.random());
+    const l1ToL2Messages = new Array(INBOX_PARITY_SIZE_MEDIUM).fill(null).map(randomL1ToL2MessageLeaf);
     const inboxParityInputs = InboxParityPrivateInputs.fromMessages([l1ToL2Messages], Fr.ZERO, Fr.random());
 
     const noirInputs = {

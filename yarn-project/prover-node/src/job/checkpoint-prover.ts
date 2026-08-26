@@ -19,7 +19,7 @@ import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ForkMerkleTreeOperations, ITxProvider } from '@aztec/stdlib/interfaces/server';
-import { type InboxMessageBundle, bundleLength, flattenBundle } from '@aztec/stdlib/messaging';
+import { type InboxMessageBundle, bundleLength, flattenBundle, sliceBundle } from '@aztec/stdlib/messaging';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader, ProcessedTx, Tx, TxHash } from '@aztec/stdlib/tx';
@@ -389,7 +389,10 @@ export class CheckpointProver {
 
         const prevLeafCount =
           blockIndex === 0 ? checkpointStartLeafCount : l1ToL2LeafCount(this.checkpoint.blocks[blockIndex - 1]);
-        const blockMessages = checkpointLeaves.slice(
+        // Slicing the grouped bundle (rather than the flat leaves) rejects a block that would split an L1 bucket,
+        // which is what the block-root circuits refuse to prove.
+        const blockMessages = sliceBundle(
+          this.l1ToL2Messages,
           prevLeafCount - checkpointStartLeafCount,
           l1ToL2LeafCount(block) - checkpointStartLeafCount,
         );
@@ -399,7 +402,7 @@ export class CheckpointProver {
           return;
         }
 
-        const db = await this.createFork(BlockNumber(block.number - 1), blockMessages);
+        const db = await this.createFork(BlockNumber(block.number - 1), flattenBundle(blockMessages));
         try {
           if (signal.aborted) {
             return;

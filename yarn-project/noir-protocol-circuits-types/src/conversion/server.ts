@@ -818,6 +818,7 @@ function mapL1ToL2MessageBundleToNoir(bundle: L1ToL2MessageBundle) {
     // `messages` is a plain `Fr[]` (padded to the cap) rather than a fixed tuple, so pass the length explicitly to
     // get the fixed-length `FixedLengthArray` the generated `L1ToL2MessageBundle.messages` type requires.
     messages: mapFieldArrayToNoir(bundle.messages, MAX_L1_TO_L2_MSGS_PER_BLOCK),
+    bucket_starts: mapBoolArrayToNoir(bundle.bucketStarts, MAX_L1_TO_L2_MSGS_PER_BLOCK),
     num_msgs: mapNumberToNoir(bundle.numMsgs),
   };
 }

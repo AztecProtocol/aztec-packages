@@ -1,5 +1,7 @@
-use super::TestBuilder;
-use types::constants::{PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX};
+use super::{TEST_NUM_MSGS, TestBuilder};
+use types::constants::{
+    MAX_L1_TO_L2_MSGS_PER_BLOCK, PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
+};
 
 global IS_FIRST_BLOCK_ROOT: bool = true;
 
@@ -51,4 +53,65 @@ fn corrupted_pinned_frontier_hint_lane_fails() {
     builder.l1_to_l2_message_frontier_hint[0] += 1;
 
     builder.execute_and_fail();
+}
+
+// A block that consumes messages must start at an L1 bucket boundary: it may not pick up the tail of a bucket a
+// previous block left half-consumed. Otherwise a proposer could split one L1 bucket across two blocks.
+#[test(should_fail_with = "First consumed message must open a bucket")]
+fn block_starting_mid_bucket_fails() {
+    let mut builder = TestBuilder::default(IS_FIRST_BLOCK_ROOT, false);
+
+    let mut bucket_starts = [false; MAX_L1_TO_L2_MSGS_PER_BLOCK];
+    bucket_starts[1] = true;
+    builder.bucket_starts = bucket_starts;
+
+    builder.execute_and_fail();
+}
+
+#[test(should_fail_with = "Found bucket start after breakpoint")]
+fn bucket_start_in_padding_lane_fails() {
+    let mut builder = TestBuilder::default(IS_FIRST_BLOCK_ROOT, false);
+
+    builder.bucket_starts[TEST_NUM_MSGS] = true;
+
+    builder.execute_and_fail();
+}
+
+#[test]
+fn block_consuming_several_whole_buckets_succeeds() {
+    let mut builder = TestBuilder::default(IS_FIRST_BLOCK_ROOT, false);
+
+    // Two more buckets opened inside the block's own run; every one of them is consumed whole.
+    builder.bucket_starts[1] = true;
+    builder.bucket_starts[3] = true;
+
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+}
+
+#[test(should_fail_with = "First consumed message must open a bucket")]
+fn single_tx_block_starting_mid_bucket_fails_too() {
+    // The single-tx variant runs the same composer, so the guard holds there as well.
+    let mut builder = TestBuilder::default(IS_FIRST_BLOCK_ROOT, true);
+
+    let mut bucket_starts = [false; MAX_L1_TO_L2_MSGS_PER_BLOCK];
+    bucket_starts[2] = true;
+    builder.bucket_starts = bucket_starts;
+
+    builder.execute_and_fail();
+}
+
+#[test]
+fn msg_sponge_commits_to_bucket_starts() {
+    let one_bucket = TestBuilder::default(IS_FIRST_BLOCK_ROOT, false);
+    let mut two_buckets = TestBuilder::default(IS_FIRST_BLOCK_ROOT, false);
+    two_buckets.bucket_starts[2] = true;
+
+    let one_bucket_pi = one_bucket.execute();
+    let two_buckets_pi = two_buckets.execute();
+
+    // Same leaves and same tree, but a different grouping — so the sponge the checkpoint root checks differs too,
+    // which is what stops a block's flags from disagreeing with the checkpoint's `InboxParity` flags.
+    assert_eq(one_bucket_pi.end_state, two_buckets_pi.end_state);
+    assert(one_bucket_pi.end_msg_sponge != two_buckets_pi.end_msg_sponge);
 }

@@ -42,6 +42,7 @@ struct TestBuilder {
     is_first_block_root: bool,
     // Message bundle appended by this block.
     l1_to_l2_messages: [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK],
+    bucket_starts: [bool; MAX_L1_TO_L2_MSGS_PER_BLOCK],
     num_msgs: u32,
     l1_to_l2_message_frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
     previous_l1_to_l2: AppendOnlyTreeSnapshot,
@@ -164,6 +165,7 @@ impl TestBuilder {
             num_right_txs,
             is_first_block_root,
             l1_to_l2_messages,
+            bucket_starts: fixture_builder.build_bucket_starts(TEST_NUM_MSGS),
             num_msgs: TEST_NUM_MSGS,
             l1_to_l2_message_frontier_hint,
             previous_l1_to_l2,
@@ -250,10 +252,14 @@ impl TestBuilder {
         let _ = self.execute();
     }
 
-    // The block's message bundle: exactly `num_msgs` real leaves, appended compactly to the tree and absorbed into the
-    // message sponge.
+    // The block's message bundle: exactly `num_msgs` real leaves opening whole buckets, appended compactly to the tree
+    // and absorbed into the message sponge.
     fn message_bundle(self) -> L1ToL2MessageBundle {
-        L1ToL2MessageBundle { messages: self.l1_to_l2_messages, num_msgs: self.num_msgs }
+        L1ToL2MessageBundle {
+            messages: self.l1_to_l2_messages,
+            bucket_starts: self.bucket_starts,
+            num_msgs: self.num_msgs,
+        }
     }
 
     pub fn assert_expected_public_inputs(self, pi: BlockRollupPublicInputs) {
@@ -367,7 +373,7 @@ impl TestBuilder {
         assert_eq(pi.start_msg_sponge, expected_start_msg_sponge);
 
         let mut expected_end_msg_sponge = expected_start_msg_sponge;
-        expected_end_msg_sponge.absorb(self.l1_to_l2_messages, self.num_msgs);
+        expected_end_msg_sponge.absorb(self.l1_to_l2_messages, self.bucket_starts, self.num_msgs);
         assert_eq(pi.end_msg_sponge, expected_end_msg_sponge);
 
         // --- Out hash --

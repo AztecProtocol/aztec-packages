@@ -5,6 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/server';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { INBOX_PARITY_SIZES, InboxParityPrivateInputs, type InboxParitySize } from '@aztec/stdlib/parity';
+import { randomL1ToL2MessageLeaf } from '@aztec/stdlib/testing';
 
 import { TestContext } from '../mocks/test_context.js';
 
@@ -44,7 +45,7 @@ describe('prover/bb_prover/parity', () => {
     'proves and verifies the inbox parity circuit at size %i',
     async size => {
       // Fill the rung with real messages so `numMessages === size` (the largest circuit for that rung).
-      const messages = Array.from({ length: size }, () => Fr.random());
+      const messages = Array.from({ length: size }, randomL1ToL2MessageLeaf);
       const proverId = Fr.random();
 
       const inputs = InboxParityPrivateInputs.fromMessages([messages], Fr.ZERO, proverId);

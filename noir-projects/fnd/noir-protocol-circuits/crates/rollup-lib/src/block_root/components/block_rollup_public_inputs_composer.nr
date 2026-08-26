@@ -1,5 +1,6 @@
 use crate::{
     abis::{BlockRollupPublicInputs, L1ToL2MessageBundle, L1ToL2MessageSponge, TxRollupPublicInputs},
+    inbox_rolling_hash::assert_valid_bucket_starts,
     tx_merge::merge_tx_rollups,
 };
 use types::{
@@ -128,6 +129,10 @@ impl BlockRollupPublicInputsComposer {
     /// A single `bundle.num_msgs` count drives both the compact (unpadded) tree append and the message-sponge absorb,
     /// so the sponge matches the checkpoint's variable-size `InboxParity` proof. The lanes past
     /// `num_msgs` must be zero.
+    ///
+    /// A block consumes whole L1 Inbox buckets: it must begin at a bucket boundary, so the checkpoint's bucket-start
+    /// flags are exactly the concatenation of its blocks'. The sponge absorbs the flags alongside the leaves, which
+    /// is what makes a block claiming a boundary it does not have diverge from the `InboxParity` sponge.
     pub fn with_message_bundle(
         &mut self,
         previous_l1_to_l2: AppendOnlyTreeSnapshot,
@@ -140,6 +145,7 @@ impl BlockRollupPublicInputsComposer {
 
         // Real messages occupy the leading lanes; everything past `num_msgs` is zero padding.
         assert_trailing_zeros(bundle.messages, bundle.num_msgs);
+        assert_valid_bucket_starts(bundle.bucket_starts, bundle.num_msgs);
 
         // Append the real leaves to the l1-to-l2 message tree at its current (compact, unaligned) next-available index.
         self.new_l1_to_l2 = append_only_tree::append_leaves_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, _>(
@@ -149,10 +155,11 @@ impl BlockRollupPublicInputsComposer {
             frontier_hint,
         );
 
-        // Absorb the same real leaves into the message sponge, threading it from the previous block.
+        // Absorb the same real leaves and their bucket-start flags into the message sponge, threading it from the
+        // previous block.
         self.start_msg_sponge = start_msg_sponge;
         let mut end_msg_sponge = start_msg_sponge;
-        end_msg_sponge.absorb(bundle.messages, bundle.num_msgs);
+        end_msg_sponge.absorb(bundle.messages, bundle.bucket_starts, bundle.num_msgs);
         self.end_msg_sponge = end_msg_sponge;
 
         *self

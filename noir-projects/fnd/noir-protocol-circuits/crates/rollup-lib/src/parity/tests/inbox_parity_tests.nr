@@ -40,9 +40,10 @@ fn public_inputs_match_expected() {
         accumulate_inbox_rolling_hash(0, msgs, bucket_starts, S),
     );
 
-    // The sponge absorbs exactly the real messages (real-count) into the empty sponge the circuit starts from.
+    // The sponge absorbs exactly the real messages (real-count) and their flags into the empty sponge the circuit
+    // starts from.
     let mut expected_end_sponge = L1ToL2MessageSponge::empty();
-    expected_end_sponge.absorb(msgs, S);
+    expected_end_sponge.absorb(msgs, bucket_starts, S);
     assert_eq(public_inputs.end_sponge, expected_end_sponge);
 }
 
@@ -79,8 +80,9 @@ fn bucket_starts_are_committed_to() {
     );
 
     assert(single.end_rolling_hash != split.end_rolling_hash);
-    // The sponge is unaffected: it only sees the leaves.
-    assert_eq(single.end_sponge, split.end_sponge);
+    // The sponge absorbs the flags too, so it diverges as well. This is what ties the checkpoint's grouping to the
+    // per-block bundles the block roots absorb.
+    assert(single.end_sponge != split.end_sponge);
 }
 
 #[test]
@@ -101,9 +103,9 @@ fn sponge_matches_block_root_real_count_absorb() {
     };
     let public_inputs = inbox_parity::execute(private_inputs);
 
-    // A block root absorbing the same two real leaves out of its wider bundle reaches the same sponge.
+    // A block root absorbing the same two real leaves and flags out of its wider bundle reaches the same sponge.
     let mut block_sponge = L1ToL2MessageSponge::empty();
-    block_sponge.absorb([101, 202, 0, 0, 0], 2);
+    block_sponge.absorb([101, 202, 0, 0, 0], [true, false, false, false, false], 2);
     assert_eq(public_inputs.end_sponge, block_sponge);
 }
 

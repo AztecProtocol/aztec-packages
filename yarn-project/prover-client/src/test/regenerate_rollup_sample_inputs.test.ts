@@ -151,8 +151,14 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
 
       try {
         for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
-          const { constants, blocks, l1ToL2Messages, l1ToL2MessageBundle, previousBlockHeader, checkpoint } =
-            checkpoints[checkpointIndex];
+          const {
+            constants,
+            blocks,
+            l1ToL2MessageBundle,
+            l1ToL2MessageBundlesPerBlock,
+            previousBlockHeader,
+            checkpoint,
+          } = checkpoints[checkpointIndex];
 
           // First checkpoint starts from genesis; the multi-checkpoint scenario carries no messages,
           // so every checkpoint's previous rolling hash is zero.
@@ -178,8 +184,7 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
             const { header, txs } = blocks[i];
             const { blockNumber, timestamp } = header.globalVariables;
 
-            const blockMessages = l1ToL2MessagesPerBlock?.[i] ?? (i === 0 ? l1ToL2Messages : []);
-            await subTree.startNewBlock(blockNumber, timestamp, txs.length, blockMessages);
+            await subTree.startNewBlock(blockNumber, timestamp, txs.length, l1ToL2MessageBundlesPerBlock[i]);
             if (txs.length > 0) {
               await subTree.addTxs(txs);
             }

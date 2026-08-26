@@ -9,7 +9,13 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { L1ToL2MessageBundle, type L1ToL2MessageSponge, makeL1ToL2MessageBundle } from '@aztec/stdlib/messaging';
+import {
+  type InboxMessageBundle,
+  L1ToL2MessageBundle,
+  type L1ToL2MessageSponge,
+  bundleLength,
+  makeL1ToL2MessageBundle,
+} from '@aztec/stdlib/messaging';
 import {
   BlockRollupPublicInputs,
   BlockRootNoTxsRollupPrivateInputs,
@@ -77,8 +83,8 @@ export class BlockProvingState {
     public readonly newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     // Full-height frontier (left-sibling path) at the block's start index, pinning the append at a compact index.
     private readonly l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
-    // This block's own real L1-to-L2 message leaves (unpadded slice).
-    private readonly l1ToL2Messages: Fr[],
+    // This block's own real L1-to-L2 message leaves, grouped by the L1 Inbox bucket they came from.
+    private readonly l1ToL2Messages: InboxMessageBundle,
     // Message sponge threaded across the checkpoint's blocks: the start is the previous block's
     // end sponge (empty for the first block), the end absorbs this block's own slice. Block merges assert the
     // continuity, so the end is exposed for the next block to inherit.
@@ -357,7 +363,7 @@ export class BlockProvingState {
    * compact indices and absorbed into its block-root message sponge.
    */
   #getMessageBundle(): L1ToL2MessageBundle {
-    return this.l1ToL2Messages.length === 0
+    return bundleLength(this.l1ToL2Messages) === 0
       ? L1ToL2MessageBundle.empty()
       : makeL1ToL2MessageBundle(this.l1ToL2Messages);
   }
