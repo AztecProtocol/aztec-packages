@@ -1,6 +1,24 @@
-use crate::{constants::{MAX_TX_BLOB_DATA_SIZE_IN_FIELDS, TX_START_PREFIX}, traits::ToField};
+use crate::{
+    abis::{
+        contract_class_log::ContractClassLog, private_log::PrivateLog,
+        public_data_write::PublicDataWrite,
+    },
+    constants::{
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS,
+        PRIVATE_LOG_SIZE_IN_FIELDS, TX_START_PREFIX,
+    },
+    traits::ToField,
+};
 use super::tx_effect::TxEffect;
 use std::static_assert;
+
+pub global PUBLIC_DATA_WRITES_BLOB_FIELDS_LENGTH: u32 =
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
+pub global PRIVATE_LOGS_BLOB_FIELDS_LENGTH: u32 =
+    MAX_PRIVATE_LOGS_PER_TX * (PRIVATE_LOG_SIZE_IN_FIELDS + 1);
+pub global CONTRACT_CLASS_LOGS_BLOB_FIELDS_LENGTH: u32 =
+    MAX_CONTRACT_CLASS_LOGS_PER_TX * (CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1);
 
 pub struct TxEffectArrayLengths {
     pub note_hashes: u32,
@@ -120,6 +138,151 @@ pub fn create_tx_start_marker(
 
     marker += TX_START_PREFIX * shift;
     marker
+}
+
+/// The blob encoding of a tx effect's `public_data_writes`: the leaf slot and value of each write.
+///
+/// @returns the encoded fields, zero-padded, and the number of encoded fields.
+pub fn create_public_data_writes_blob_fields(
+    public_data_writes: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    num_public_data_writes: u32,
+) -> ([Field; PUBLIC_DATA_WRITES_BLOB_FIELDS_LENGTH], u32) {
+    let mut blob_fields = [0; PUBLIC_DATA_WRITES_BLOB_FIELDS_LENGTH];
+
+    let mut include_write = true;
+    for i in 0..public_data_writes.len() {
+        include_write &= i != num_public_data_writes;
+        if include_write {
+            blob_fields[i * 2] = public_data_writes[i].leaf_slot;
+            blob_fields[i * 2 + 1] = public_data_writes[i].value;
+        }
+    }
+
+    (blob_fields, num_public_data_writes * 2)
+}
+
+/// The blob encoding of a tx effect's `private_logs`: for each log, its length followed by its fields.
+///
+/// The encoding is built by an unconstrained hint and then verified element by element, rather than being written
+/// directly. Because each log's position depends on the lengths of the preceding logs, writing it directly would
+/// mean writes at run-time offsets, which barretenberg lowers to a RAM block whose access-count range constraint
+/// caps out at `2^16 - 1` — far below the ~72k accesses of this array. Verifying a hint instead only ever reads at
+/// run-time offsets, which becomes an (uncapped) ROM block.
+///
+/// Only the first `num_blob_fields` returned fields are constrained; the padding beyond them is unconstrained, so
+/// callers must not read past the returned length. This matches what `create_tx_blob_data` guarantees for the
+/// concatenated encoding.
+///
+/// Assumes every `log.length <= PRIVATE_LOG_SIZE_IN_FIELDS`, which is asserted on tail (see
+/// `previous_kernel_for_tail_validator.nr`). An oversized length would break soundness here: the verification
+/// loop below only checks up to `fields.len()` elements but advances `offset` by the full `length`, leaving the
+/// blob fields in between unconstrained.
+///
+/// @returns the encoded fields, zero-padded, and the number of encoded fields (the sum of all log lengths plus one
+/// length field per log).
+pub fn create_private_logs_blob_fields(
+    private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
+    num_private_logs: u32,
+) -> ([Field; PRIVATE_LOGS_BLOB_FIELDS_LENGTH], u32) {
+    // Safety: every field up to `num_blob_fields` is constrained against `private_logs` below, and
+    // `num_blob_fields` is checked against the offset the verified encoding ends at.
+    let (blob_fields, num_blob_fields) =
+        unsafe { get_private_logs_blob_fields_unsafe(private_logs, num_private_logs) };
+
+    let mut offset = 0;
+    let mut include_log = true;
+    for i in 0..private_logs.len() {
+        include_log &= i != num_private_logs;
+        if include_log {
+            let log = private_logs[i];
+            assert_eq(
+                blob_fields[offset],
+                log.length as Field,
+                "Incorrect private log length in blob data",
+            );
+            offset += 1;
+
+            let mut include_elt = true;
+            for j in 0..log.fields.len() {
+                include_elt &= j != log.length;
+                if include_elt {
+                    assert_eq(
+                        blob_fields[offset + j],
+                        log.fields[j],
+                        "Incorrect private log field in blob data",
+                    );
+                }
+            }
+            offset += log.length;
+        }
+    }
+
+    assert_eq(offset, num_blob_fields, "Incorrect number of private log fields in blob data");
+
+    (blob_fields, num_blob_fields)
+}
+
+unconstrained fn get_private_logs_blob_fields_unsafe(
+    private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
+    num_private_logs: u32,
+) -> ([Field; PRIVATE_LOGS_BLOB_FIELDS_LENGTH], u32) {
+    let mut blob_fields = [0; PRIVATE_LOGS_BLOB_FIELDS_LENGTH];
+
+    let mut offset = 0;
+    for i in 0..num_private_logs {
+        let log = private_logs[i];
+        blob_fields[offset] = log.length as Field;
+        offset += 1;
+
+        for j in 0..log.length {
+            blob_fields[offset + j] = log.fields[j];
+        }
+        offset += log.length;
+    }
+
+    (blob_fields, offset)
+}
+
+/// The blob encoding of a tx effect's `contract_class_logs`: for each log, its contract address followed by its
+/// fields. Note the log length is not encoded here: it is carried by the tx start marker.
+///
+/// Because `MAX_CONTRACT_CLASS_LOGS_PER_TX` is 1, every index written below is a compile-time constant. If that
+/// constant is ever raised, the writes become run-time offsets and lower to a barretenberg RAM block whose
+/// access-count range constraint caps at `2^16 - 1`; follow `create_private_logs_blob_fields` and verify an
+/// unconstrained hint with reads instead.
+///
+/// Assumes `log.length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS`, which is asserted on tail (see
+/// `previous_kernel_for_tail_validator.nr`). An oversized length would advance `offset` past the written
+/// fields, overstating the encoded length carried by the tx start marker.
+///
+/// @returns the encoded fields, zero-padded, and the number of encoded fields.
+pub fn create_contract_class_logs_blob_fields(
+    contract_class_logs: [ContractClassLog; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    num_contract_class_logs: u32,
+) -> ([Field; CONTRACT_CLASS_LOGS_BLOB_FIELDS_LENGTH], u32) {
+    let mut blob_fields = [0; CONTRACT_CLASS_LOGS_BLOB_FIELDS_LENGTH];
+
+    let mut offset = 0;
+    let mut include_log = true;
+    for i in 0..contract_class_logs.len() {
+        include_log &= i != num_contract_class_logs;
+        if include_log {
+            let log = contract_class_logs[i];
+            blob_fields[offset] = log.contract_address.to_field();
+            offset += 1;
+
+            let mut include_elt = true;
+            for j in 0..log.log.fields.len() {
+                include_elt &= j != log.log.length;
+                if include_elt {
+                    blob_fields[offset + j] = log.log.fields[j];
+                }
+            }
+            offset += log.log.length;
+        }
+    }
+
+    (blob_fields, offset)
 }
 
 pub fn create_tx_blob_data(
@@ -351,27 +514,23 @@ unconstrained fn get_tx_blob_fields_unsafe(
     }
     offset += array_lengths.l2_to_l1_msgs;
 
-    let public_data_writes = tx_effect.public_data_writes;
-    for i in 0..array_lengths.public_data_writes {
-        tx_blob_fields[offset + i * 2] = public_data_writes[i].leaf_slot;
-        tx_blob_fields[offset + i * 2 + 1] = public_data_writes[i].value;
+    let (public_data_write_fields, num_public_data_write_fields) = create_public_data_writes_blob_fields(
+        tx_effect.public_data_writes,
+        array_lengths.public_data_writes,
+    );
+    for i in 0..num_public_data_write_fields {
+        tx_blob_fields[offset + i] = public_data_write_fields[i];
     }
-    offset += array_lengths.public_data_writes * 2;
+    offset += num_public_data_write_fields;
 
-    let private_logs = tx_effect.private_logs;
-    let mut private_logs_length = 0;
-    for i in 0..array_lengths.private_logs {
-        let log = private_logs[i];
-        let log_len = log.length;
-        private_logs_length += log_len;
-        tx_blob_fields[offset] = log_len as Field;
-        offset += 1;
-
-        for j in 0..log_len {
-            tx_blob_fields[offset + j] = log.fields[j];
-        }
-        offset += log_len;
+    let (private_log_fields, num_private_log_fields) =
+        create_private_logs_blob_fields(tx_effect.private_logs, array_lengths.private_logs);
+    for i in 0..num_private_log_fields {
+        tx_blob_fields[offset + i] = private_log_fields[i];
     }
+    offset += num_private_log_fields;
+    // Each log contributes a length field on top of its fields.
+    let private_logs_length = num_private_log_fields - array_lengths.private_logs;
 
     let public_logs = tx_effect.public_logs;
     for i in 0..public_logs.length {
@@ -379,18 +538,14 @@ unconstrained fn get_tx_blob_fields_unsafe(
     }
     offset += public_logs.length;
 
-    let contract_class_logs = tx_effect.contract_class_logs;
-    for i in 0..array_lengths.contract_class_logs {
-        let log = contract_class_logs[i];
-        let log_len = log.log.length;
-        tx_blob_fields[offset] = log.contract_address.to_field();
-        offset += 1;
-
-        for j in 0..log_len {
-            tx_blob_fields[offset + j] = log.log.fields[j];
-        }
-        offset += log_len;
+    let (contract_class_log_fields, num_contract_class_log_fields) = create_contract_class_logs_blob_fields(
+        tx_effect.contract_class_logs,
+        array_lengths.contract_class_logs,
+    );
+    for i in 0..num_contract_class_log_fields {
+        tx_blob_fields[offset + i] = contract_class_log_fields[i];
     }
+    offset += num_contract_class_log_fields;
 
     // Now we know the number of fields appended, we can assign the first value:
     tx_blob_fields[0] = create_tx_start_marker(

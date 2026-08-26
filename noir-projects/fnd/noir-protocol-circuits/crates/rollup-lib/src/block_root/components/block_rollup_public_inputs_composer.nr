@@ -26,6 +26,7 @@ pub struct BlockRollupPublicInputsComposer {
     end_sponge_blob: SpongeBlob,
     timestamp: u64,
     out_hash: Field,
+    tx_effects_tree_root: Field,
     accumulated_fees: Field,
     accumulated_mana_used: Field,
     num_txs: u16,
@@ -63,6 +64,7 @@ impl BlockRollupPublicInputsComposer {
             timestamp,
             // The followings are 0 since there are no tx effects in this block.
             out_hash: 0,
+            tx_effects_tree_root: 0,
             accumulated_fees: 0,
             accumulated_mana_used: 0,
             num_txs: 0,
@@ -100,6 +102,9 @@ impl BlockRollupPublicInputsComposer {
             end_sponge_blob: rollup.end_sponge_blob,
             timestamp: global_variables.timestamp,
             out_hash: rollup.out_hash,
+            // For a single tx, this is the tx's leaf, left unhashed: the 1-leaf tree convention of
+            // `UnbalancedMerkleTree`. For more txs, it is the root accumulated through the tx merges.
+            tx_effects_tree_root: rollup.tx_effects_tree_root,
             accumulated_fees: rollup.accumulated_fees,
             accumulated_mana_used: rollup.accumulated_mana_used,
             num_txs: rollup.num_txs,
@@ -270,6 +275,7 @@ impl BlockRollupPublicInputsComposer {
             last_archive,
             state,
             sponge_blob_hash,
+            tx_effects_tree_root: self.tx_effects_tree_root,
             global_variables,
             total_fees: self.accumulated_fees,
             total_mana_used: self.accumulated_mana_used,
