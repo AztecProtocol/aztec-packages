@@ -1344,6 +1344,31 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, fork_append_after_historic_p
     EXPECT_FALSE(append_succeeded);
 }
 
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, genesis_with_initial_values_matches_memory_tree)
+{
+    // A fresh store has a zero root sentinel. The genesis append of the initial values must derive its sibling
+    // path from a genuinely empty tree rather than failing on (or zero-filling from) a missing node.
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    ThreadPoolPtr pool = make_thread_pool(1);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    std::vector<fr> initial_values{ 1, 2, 3 };
+    TreeType tree(std::move(store), pool, initial_values);
+
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+    for (size_t i = 0; i < initial_values.size(); ++i) {
+        memdb.update_element(i, initial_values[i]);
+    }
+    check_size(tree, initial_values.size());
+    check_root(tree, memdb.root());
+
+    memdb.update_element(initial_values.size(), 4);
+    add_value(tree, 4);
+    check_size(tree, initial_values.size() + 1);
+    check_root(tree, memdb.root());
+}
+
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_data)
 {
     constexpr size_t depth = 10;

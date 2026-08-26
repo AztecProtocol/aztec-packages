@@ -334,6 +334,10 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
         meta.initialRoot = meta.root = current;
         meta.initialSize = meta.size = 0;
     } else {
+        // A fresh store carries a zero root sentinel rather than the empty-tree root. Seed the empty root first so
+        // the genesis append derives its sibling path from a genuinely empty tree instead of a missing node.
+        meta.root = current;
+        store_->put_meta(meta);
         Signal signal(1);
         TypedResponse<AddDataResponse> result;
         add_values(initial_values, [&](const TypedResponse<AddDataResponse>& resp) {
