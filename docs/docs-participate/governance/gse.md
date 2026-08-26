@@ -208,23 +208,33 @@ The long lock prevents governance attacks while ensuring the network can always 
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Best Practices
+## Withdrawing from the GSE
 
-### For Validators
+Withdrawals from the GSE are subject to the Governance Withdrawal Delay, calculated by `Governance` as `votingDelay/5 + votingDuration + executionDelay`. On mainnet this is approximately **38 days**; on testnet, approximately **1.6 days**.
+
+This delay is enforced on every `initiateWithdraw` call routed through the GSE, so all stake (including stake deposited via Token Vault delegations) waits it out before finalization. It applies whether or not the depositor ever cast a vote. For the full picture of how this interacts with the rollup-level staking exit delay, see [Staking tokens, exit delays](/participate/token/staking#exit-delays).
+
+:::note Upcoming change (AZIP-1)
+[AZIP-1](https://github.com/AztecProtocol/governance/pull/4) will cut the execution delay from 30 days to 2 days, reducing the mainnet withdrawal delay to ~10 days. The figure above reflects the current live parameters.
+:::
+
+## Best practices
+
+### For validators
 
 1. **Use `moveWithLatestRollup = true`** if you want automatic migration
 2. **Delegate to yourself** if you want to vote independently
 3. **Monitor governance proposals** even if your stake moves automatically
 
-### For Governance Proposals
+### For governance proposals
 
 1. **Ensure new rollups use the same GSE** for stake continuity
 2. **Test that sufficient stake will be available** before signaling
 3. **Allow time for validators to prepare** before execution
 
-## Related Topics
+## Related topics
 
-- [Voting](./voting) - How voting power and delegation work
-- [Proposal Lifecycle](./proposal-lifecycle) - How GSEPayload wrapping fits in
-- [Upgrades](./upgrades) - End-to-end upgrade process
-- [Staking Tokens](/participate/token/staking) - How staking works at the protocol level
+- [Voting](./voting): how voting power and delegation work
+- [Proposal lifecycle](./proposal-lifecycle): how GSEPayload wrapping fits in
+- [Upgrades](./upgrades): end-to-end upgrade process
+- [Staking tokens](/participate/token/staking): how staking works at the protocol level

@@ -56,6 +56,10 @@ The L1 contract defines three fixed slashing tiers that can be configured for di
 On mainnet, **offenses are currently configured to slash 2,000 tokens for small offenses and 5,000 tokens for medium and large offenses (1% and 2.5% of the Activation Threshold - the minimum stake required to join the validator set)**. A validator is ejected when a slash would drop its stake below the rollup's local ejection threshold (190,000 tokens on mainnet, 95% of the Activation Threshold). A validator that joined at exactly the 200,000 token Activation Threshold is therefore ejected by the first slash that would push its total slashed amount above 10,000 tokens (5% of its stake). See [Ejection from the validator set](#ejection-from-the-validator-set) for details.
 :::
 
+:::tip For delegators
+If you delegated stake to an operator and want to understand how slashing affects your balance specifically (not how to configure your own sequencer), see [Delegating stake, what happens if your operator is slashed](/participate/token/delegation#what-happens-if-your-operator-is-slashed). Each attester is funded by a single Token Vault, so a slash comes entirely out of your delegated position; the operator does not stake into the same attester and does not share the loss.
+:::
+
 ## Slashable offenses
 
 Your sequencer automatically detects and votes to slash the following offenses. The set of offenses, and the rationale behind them, is specified in [AZIP-7](https://github.com/AztecProtocol/governance/blob/main/AZIPs/azip-7-update_slashing.md).
