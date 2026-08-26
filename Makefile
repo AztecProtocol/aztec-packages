@@ -1,8 +1,15 @@
 # Aztec Packages Build System
 #
 # This Makefile is called by the root bootstrap.sh build and build_and_test functions.
-# It coordinates the build order and dependencies between projects.
-# The actual build logic remains in each project's bootstrap.sh script.
+# It coordinates the build order and dependencies between projects. The actual build
+# logic remains in each project's bootstrap.sh script.
+#
+# This Makefile (or `./bootstrap.sh build <target>`, which runs toolchain checks then
+# invokes make) is the only place that encodes the full dependency graph between
+# components. Per-component bootstrap.sh scripts assume their dependencies are already
+# built and do not re-enter the graph, so running them directly without a prior baseline
+# `make fast` will fail (missing upstream artifacts) or silently link against stale ones.
+# Prefer driving rebuilds from this Makefile.
 #
 # Note that "test" targets don't *run* tests, they just output test commands to /tmp/test_cmds.
 #
