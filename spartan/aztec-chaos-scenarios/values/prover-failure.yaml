@@ -1,6 +1,0 @@
-global:
-  namespace: "smoke"
-
-proverFailure:
-  enabled: true
-  duration: 13m

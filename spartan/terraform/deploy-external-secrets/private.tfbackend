@@ -1,2 +1,0 @@
-bucket="aztec-terraform"
-prefix="terraform/state/deploy-external-secrets/aztec-gke-private"

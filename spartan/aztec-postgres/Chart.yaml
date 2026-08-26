@@ -1,6 +1,0 @@
-apiVersion: v2
-name: aztec-postgres
-description: Simple PostgreSQL for Aztec validator HA signing
-type: application
-version: 0.1.0
-appVersion: "18"

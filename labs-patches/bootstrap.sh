@@ -103,7 +103,7 @@ function series_patch_ids {
 }
 
 function commit_patch_id {
-  git_labs diff-tree -p --format= "$1" | git patch-id --stable | cut -d' ' -f1
+  git_labs diff-tree -p --binary --format= "$1" | git patch-id --stable | cut -d' ' -f1
 }
 
 # Every non-marker commit above $1, oldest first: what export turns into the series.

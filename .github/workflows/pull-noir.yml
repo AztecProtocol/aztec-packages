@@ -64,7 +64,7 @@ jobs:
         if: steps.noir_versions.outputs.update_needed == 'true'
         # Delegates to the same script used for manual bumps so the submodule +
         # lockfile update logic lives in one place. It fetches the ref, refreshes
-        # avm-transpiler/Cargo.lock and yarn-project/yarn.lock, and stages them.
+        # avm-transpiler/Cargo.lock, and stages them.
         run: ./noir/scripts/bump_noir_compiler.sh "${{ steps.noir_versions.outputs.latest_nightly }}"
 
       - name: Check for existing PR

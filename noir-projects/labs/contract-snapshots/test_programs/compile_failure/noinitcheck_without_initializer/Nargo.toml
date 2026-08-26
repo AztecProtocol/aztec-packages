@@ -1,7 +1,0 @@
-[package]
-name = "noinitcheck_without_initializer"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }
