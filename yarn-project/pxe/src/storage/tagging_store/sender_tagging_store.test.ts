@@ -771,7 +771,7 @@ describe('SenderTaggingStore', () => {
       {
         const commitChangeSetId: ChangeSetId = 'commit-change-set';
         await taggingStore.storePendingIndexes([range(secret1, 3)], committedTxHash, commitChangeSetId);
-        await taggingStore.commitStaged(commitChangeSetId);
+        await taggingStore.commitChangeSet(commitChangeSetId);
       }
 
       const stagedTxHash = TxHash.random();
@@ -796,7 +796,7 @@ describe('SenderTaggingStore', () => {
         const commitChangeSetId: ChangeSetId = 'commit-change-set';
         await taggingStore.storePendingIndexes([range(secret1, 3)], txHash1, commitChangeSetId);
         await taggingStore.finalizePendingIndexes([txHash1], commitChangeSetId);
-        await taggingStore.commitStaged(commitChangeSetId);
+        await taggingStore.commitChangeSet(commitChangeSetId);
       }
 
       const txHash2 = TxHash.random();
@@ -813,7 +813,7 @@ describe('SenderTaggingStore', () => {
       expect(await taggingStore.getLastFinalizedIndex(secret1, stagedChangeSetId)).toBe(7);
     });
 
-    it('discardStaged removes staged data without affecting persistent storage', async () => {
+    it('discardChangeSet removes staged data without affecting persistent storage', async () => {
       {
         const txHash1 = TxHash.random();
         const txHash2 = TxHash.random();
@@ -821,7 +821,7 @@ describe('SenderTaggingStore', () => {
         await taggingStore.storePendingIndexes([range(secret1, 2)], txHash1, commitChangeSetId);
         await taggingStore.storePendingIndexes([range(secret1, 3)], txHash2, commitChangeSetId);
         await taggingStore.finalizePendingIndexes([txHash1], commitChangeSetId);
-        await taggingStore.commitStaged(commitChangeSetId);
+        await taggingStore.commitChangeSet(commitChangeSetId);
       }
 
       const stagedChangeSetId: ChangeSetId = 'staged';
@@ -829,7 +829,7 @@ describe('SenderTaggingStore', () => {
         const txHash3 = TxHash.random();
         await taggingStore.storePendingIndexes([range(secret1, 7)], txHash3, stagedChangeSetId);
         await taggingStore.finalizePendingIndexes([txHash3], stagedChangeSetId);
-        await taggingStore.discardStaged(stagedChangeSetId);
+        taggingStore.discardChangeSet(stagedChangeSetId);
       }
 
       // Should still get the committed finalized index

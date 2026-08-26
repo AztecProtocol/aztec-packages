@@ -283,7 +283,7 @@ export class PrivateEventStore implements StagedStore, Rollbackable {
    *
    * @param changeSetId - The changeSetId identifying which staged data to commit
    */
-  async commitStaged(changeSetId: ChangeSetId): Promise<void> {
+  async commitChangeSet(changeSetId: ChangeSetId): Promise<void> {
     // Note: Don't use #withChangeSetLock here - commit runs within StagedWriteCoordinator's transactionAsync,
     // and awaiting the lock would create a microtask boundary with no pending DB request,
     // causing IndexedDB to auto-commit the transaction.
@@ -304,9 +304,8 @@ export class PrivateEventStore implements StagedStore, Rollbackable {
   /**
    * Discards in-memory staged data without persisting it.
    */
-  discardStaged(changeSetId: ChangeSetId): Promise<void> {
+  discardChangeSet(changeSetId: ChangeSetId): void {
     this.#clearChangeSetData(changeSetId);
-    return Promise.resolve();
   }
 
   /**

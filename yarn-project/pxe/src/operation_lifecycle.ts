@@ -52,7 +52,7 @@ export async function runOperation<T>(args: RunOperationArgs, fn: () => Promise<
   } catch (err) {
     log.verbose(`Aborting operation ${changeSetId}`, { changeSetId });
     await settleContributorsLoggingFailures(args);
-    await stagedWriteCoordinator.abort(changeSetId);
+    stagedWriteCoordinator.abort(changeSetId);
     notifyOperationEnd(args, 'discarded');
     throw err;
   }

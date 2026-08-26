@@ -389,7 +389,7 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commitStaged('test');
+          await capsuleStore.commitChangeSet('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -407,7 +407,7 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commitStaged('test');
+          await capsuleStore.commitChangeSet('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -425,7 +425,7 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commitStaged('test');
+          await capsuleStore.commitChangeSet('test');
         });
 
         // Append a single element
@@ -438,7 +438,7 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commitStaged('test');
+          await capsuleStore.commitChangeSet('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -456,14 +456,14 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commitStaged('test');
+          await capsuleStore.commitChangeSet('test');
         });
 
         // We just move the entire thing one slot.
         await capsuleStore.copyCapsule(contract, new Fr(0), new Fr(1), NUMBER_OF_ITEMS, 'test', scope);
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commitStaged('test');
+          await capsuleStore.commitChangeSet('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -481,13 +481,13 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commitStaged('test');
+          await capsuleStore.commitChangeSet('test');
         });
 
         await capsuleStore.readCapsuleArray(contract, new Fr(0), 'test', scope);
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commitStaged('test');
+          await capsuleStore.commitChangeSet('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -505,13 +505,13 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commitStaged('test');
+          await capsuleStore.commitChangeSet('test');
         });
 
         await capsuleStore.setCapsuleArray(contract, new Fr(0), [], 'test', scope);
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commitStaged('test');
+          await capsuleStore.commitChangeSet('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -531,11 +531,11 @@ describe('capsule data provider', () => {
 
       // After this commit, 'change-set-1' should logically be reset
       // Any read of contract-slot after this should see committedValues1
-      await capsuleStore.commitStaged('change-set-1');
+      await capsuleStore.commitChangeSet('change-set-1');
 
       // Any read of contract-slot should see committedValues2
       capsuleStore.setCapsule(contract, slot, committedValues2, 'change-set-2', scope);
-      await capsuleStore.commitStaged('change-set-2');
+      await capsuleStore.commitChangeSet('change-set-2');
 
       // If we failed to properly dispose 'change-set-1's staged writes on commit, Instead of reading committedValues2
       // (as we should), we would end up reading committedValues1 (which would be wrong)
@@ -552,7 +552,7 @@ describe('capsule data provider', () => {
 
       // First set a committed capsule (using a different change set that we commit)
       capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
-      await capsuleStore.commitStaged(commitChangeSetId);
+      await capsuleStore.commitChangeSet(commitChangeSetId);
 
       // Then set a staged capsule (not committed)
       capsuleStore.setCapsule(contract, slot, stagedValues, stagedWrites1, scope);
@@ -573,7 +573,7 @@ describe('capsule data provider', () => {
 
       // First set a committed capsule
       capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
-      await capsuleStore.commitStaged(commitChangeSetId);
+      await capsuleStore.commitChangeSet(commitChangeSetId);
 
       // Delete in change set (not committed)
       capsuleStore.deleteCapsule(contract, slot, stagedWrites1, scope);
@@ -592,16 +592,16 @@ describe('capsule data provider', () => {
       const deleteChangeSetId: ChangeSetId = 'delete-change-set';
 
       capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
-      await capsuleStore.commitStaged(commitChangeSetId);
+      await capsuleStore.commitChangeSet(commitChangeSetId);
       capsuleStore.deleteCapsule(contract, slot, deleteChangeSetId, scope);
 
-      await capsuleStore.commitStaged(deleteChangeSetId);
+      await capsuleStore.commitChangeSet(deleteChangeSetId);
 
       // Now any change set should see this null (deleted)
       expect(await capsuleStore.getCapsule(contract, slot, 'any-change-set-sees-this', scope)).toBeNull();
     });
 
-    it('discardStaged removes staged data without affecting main', async () => {
+    it('discardChangeSet removes staged data without affecting main', async () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
       const stagedValues = [Fr.random()];
@@ -609,10 +609,10 @@ describe('capsule data provider', () => {
       const stagedChangeSetId: ChangeSetId = 'staged';
 
       capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
-      await capsuleStore.commitStaged(commitChangeSetId);
+      await capsuleStore.commitChangeSet(commitChangeSetId);
       capsuleStore.setCapsule(contract, slot, stagedValues, stagedChangeSetId, scope);
 
-      await capsuleStore.discardStaged(stagedChangeSetId);
+      capsuleStore.discardChangeSet(stagedChangeSetId);
 
       // Should still get committed capsule
       expect(await capsuleStore.getCapsule(contract, slot, 'any-change-set', scope)).toEqual(committedValues);

@@ -21,7 +21,7 @@ describe('RecipientTaggingStore', () => {
 
       expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-2')).toBeUndefined();
 
-      await taggingStore.commitStaged('change-set-1');
+      await taggingStore.commitChangeSet('change-set-1');
 
       expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-2')).toBe(5);
     });
@@ -31,7 +31,7 @@ describe('RecipientTaggingStore', () => {
 
       expect(await taggingStore.getHighestFinalizedIndex(secret1, 'change-set-2')).toBeUndefined();
 
-      await taggingStore.commitStaged('change-set-1');
+      await taggingStore.commitChangeSet('change-set-1');
 
       expect(await taggingStore.getHighestFinalizedIndex(secret1, 'change-set-2')).toBe(10);
     });
@@ -42,7 +42,7 @@ describe('RecipientTaggingStore', () => {
       await taggingStore.updateHighestFinalizedIndex(secret1, 3, 'change-set-1');
       await taggingStore.updateHighestFinalizedIndex(secret2, 6, 'change-set-1');
 
-      await taggingStore.commitStaged('change-set-1');
+      await taggingStore.commitChangeSet('change-set-1');
 
       expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-2')).toBe(5);
       expect(await taggingStore.getHighestAgedIndex(secret2, 'change-set-2')).toBe(8);
@@ -52,13 +52,13 @@ describe('RecipientTaggingStore', () => {
 
     it('clears staged data after commit', async () => {
       await taggingStore.updateHighestAgedIndex(secret1, 5, 'change-set-1');
-      await taggingStore.commitStaged('change-set-1');
+      await taggingStore.commitChangeSet('change-set-1');
 
       // Updating again with a higher value in the same change set should work
       // (if staged data wasn't cleared, it would still have the old value cached)
       await taggingStore.updateHighestAgedIndex(secret1, 10, 'change-set-2');
       expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-2')).toBe(10);
-      await taggingStore.commitStaged('change-set-2');
+      await taggingStore.commitChangeSet('change-set-2');
 
       expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-1')).toBe(10);
     });
@@ -67,7 +67,7 @@ describe('RecipientTaggingStore', () => {
       await taggingStore.updateHighestAgedIndex(secret1, 5, 'change-set-1');
       await taggingStore.updateHighestAgedIndex(secret1, 10, 'change-set-2');
 
-      await taggingStore.commitStaged('change-set-2');
+      await taggingStore.commitChangeSet('change-set-2');
 
       // change-set-1's staged value should still be intact
       expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-1')).toBe(5);
@@ -75,13 +75,13 @@ describe('RecipientTaggingStore', () => {
 
     it('discards staged highest aged index without persisting', async () => {
       await taggingStore.updateHighestAgedIndex(secret1, 5, 'change-set-1');
-      await taggingStore.discardStaged('change-set-1');
+      taggingStore.discardChangeSet('change-set-1');
       expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-1')).toBeUndefined();
     });
 
     it('discards staged highest finalized index without persisting', async () => {
       await taggingStore.updateHighestFinalizedIndex(secret1, 5, 'change-set-1');
-      await taggingStore.discardStaged('change-set-1');
+      taggingStore.discardChangeSet('change-set-1');
       expect(await taggingStore.getHighestFinalizedIndex(secret1, 'change-set-1')).toBeUndefined();
     });
   });
@@ -100,7 +100,7 @@ describe('RecipientTaggingStore', () => {
 
       await taggingStore.updateHighestFinalizedIndex(unconstrained, 4, 'change-set-1');
       await taggingStore.updateHighestFinalizedIndex(constrained, 9, 'change-set-1');
-      await taggingStore.commitStaged('change-set-1');
+      await taggingStore.commitChangeSet('change-set-1');
 
       expect(await taggingStore.getHighestFinalizedIndex(unconstrained, 'change-set-2')).toBe(4);
       expect(await taggingStore.getHighestFinalizedIndex(constrained, 'change-set-2')).toBe(9);

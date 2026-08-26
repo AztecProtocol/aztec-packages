@@ -164,7 +164,7 @@ export class FactStore implements StagedStore, Rollbackable {
    * DO NOT call `#withChangeSetLock` here: awaiting the lock creates a microtask boundary that causes IndexedDB to
    * auto-commit the outer transaction.
    */
-  async commitStaged(changeSetId: ChangeSetId): Promise<void> {
+  async commitChangeSet(changeSetId: ChangeSetId): Promise<void> {
     for (const op of this.#stagedOpsFor(changeSetId)) {
       switch (op.kind) {
         case 'recordFact':
@@ -183,9 +183,8 @@ export class FactStore implements StagedStore, Rollbackable {
   }
 
   /** Discards all staged operations for the given change set without persisting them. */
-  discardStaged(changeSetId: ChangeSetId): Promise<void> {
+  discardChangeSet(changeSetId: ChangeSetId): void {
     this.#clearChangeSetData(changeSetId);
-    return Promise.resolve();
   }
 
   /**

@@ -104,7 +104,7 @@ export class SenderTaggingStore implements StagedStore {
    * @remark This method must run in a DB transaction context. It's designed to be called from
    * {@link StagedWriteCoordinator.commit}.
    */
-  async commitStaged(changeSetId: ChangeSetId): Promise<void> {
+  async commitChangeSet(changeSetId: ChangeSetId): Promise<void> {
     const pendingIndexesForChangeSet = this.#pendingIndexesForChangeSet.get(changeSetId);
     if (pendingIndexesForChangeSet) {
       for (const [secret, pendingIndexes] of pendingIndexesForChangeSet.entries()) {
@@ -123,13 +123,12 @@ export class SenderTaggingStore implements StagedStore {
       }
     }
 
-    return this.discardStaged(changeSetId);
+    this.discardChangeSet(changeSetId);
   }
 
-  discardStaged(changeSetId: ChangeSetId): Promise<void> {
+  discardChangeSet(changeSetId: ChangeSetId): void {
     this.#pendingIndexesForChangeSet.delete(changeSetId);
     this.#lastFinalizedIndexesForChangeSet.delete(changeSetId);
-    return Promise.resolve();
   }
 
   /**

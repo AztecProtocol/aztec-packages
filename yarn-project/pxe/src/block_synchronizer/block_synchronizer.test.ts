@@ -17,7 +17,7 @@ import {
   makeL2CheckpointId,
 } from '@aztec/stdlib/block';
 import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
-import { NoteDao } from '@aztec/stdlib/note';
+import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -27,6 +27,7 @@ import type { ContractSyncService } from '../contract/contract_sync_service.js';
 import { type CachingAztecNode, withCache } from '../node/caching_aztec_node.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
+import { readNotes } from '../storage/note_store/test_utils.js';
 import type { Rollbackable } from '../storage/rollbackable.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
 
@@ -290,8 +291,9 @@ describe('BlockSynchronizer', () => {
       const scope = await AztecAddress.random();
       const forkBlock = await L2Block.random(BlockNumber(3));
       const orphanedNote = await noteAt(contract, makeL2BlockId(BlockNumber(4), Fr.random().toString()));
+      noteStore.beginChangeSet('note-change-set');
       await noteStore.addNotes([orphanedNote], scope, 'note-change-set');
-      await noteStore.commitStaged('note-change-set');
+      await noteStore.commitChangeSet('note-change-set');
 
       await stagePruneTo(forkBlock, BlockNumber(5));
 
@@ -301,7 +303,12 @@ describe('BlockSynchronizer', () => {
 
       // Nothing from the failed attempt stuck: the orphaned note is back, the anchor still sits above the fork, and
       // the tips cursor never advanced onto the prune target.
-      expect(await noteStore.nullifiersOfNotesAtBlock(4)).toEqual([orphanedNote.siloedNullifier.toString()]);
+      const kept = await readNotes(noteStore, {
+        contractAddress: contract,
+        scopes: [scope],
+        status: NoteStatus.ACTIVE,
+      });
+      expect(kept.map(note => note.l2BlockNumber)).toEqual([4]);
       expect((await anchorBlockStore.getBlockHeader()).getBlockNumber()).toBe(5);
       expect((await tipsStore.getL2Tips()).proposed.number).toBe(0);
 
@@ -311,7 +318,12 @@ describe('BlockSynchronizer', () => {
 
       await synchronizer.handleBlockStreamEvent(prunedEvent(await blockId(forkBlock)));
 
-      expect(await noteStore.nullifiersOfNotesAtBlock(4)).toHaveLength(0);
+      const afterReplay = await readNotes(noteStore, {
+        contractAddress: contract,
+        scopes: [scope],
+        status: NoteStatus.ACTIVE,
+      });
+      expect(afterReplay).toEqual([]);
       expect((await anchorBlockStore.getBlockHeader()).getBlockNumber()).toBe(3);
       expect((await tipsStore.getL2Tips()).proposed.number).toBe(3);
     });
@@ -326,15 +338,21 @@ describe('BlockSynchronizer', () => {
       const forkBlock = await L2Block.random(BlockNumber(3));
       const noteAtFork = await noteAt(contract, await blockId(forkBlock));
       const orphanedNote = await noteAt(contract, makeL2BlockId(BlockNumber(4), Fr.random().toString()));
+      noteStore.beginChangeSet('note-change-set');
       await noteStore.addNotes([noteAtFork, orphanedNote], scope, 'note-change-set');
-      await noteStore.commitStaged('note-change-set');
+      await noteStore.commitChangeSet('note-change-set');
 
       await stagePruneTo(forkBlock, BlockNumber(5));
 
       await synchronizer.handleBlockStreamEvent(prunedEvent(await blockId(forkBlock)));
 
-      expect(await noteStore.nullifiersOfNotesAtBlock(4)).toHaveLength(0);
-      expect(await noteStore.nullifiersOfNotesAtBlock(3)).toEqual([noteAtFork.siloedNullifier.toString()]);
+      const remaining = await readNotes(noteStore, {
+        contractAddress: contract,
+        scopes: [scope],
+        status: NoteStatus.ACTIVE,
+      });
+      expect(remaining.map(note => note.l2BlockNumber)).toEqual([3]);
+      expect(remaining[0].siloedNullifier.equals(noteAtFork.siloedNullifier)).toBe(true);
     });
   });
 
