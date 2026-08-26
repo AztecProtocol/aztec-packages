@@ -606,6 +606,11 @@ function release {
   # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
   release_bb_github
 
+  # The npm packages are only packed here (deploy_npm pack mode) and handed to the GitHub runner
+  # through the build cache; ci3.yml's publish-npm job publishes them with npm trusted publishing.
+  export NPM_PACK_DIR=$root/npm-release
+  rm -rf "$NPM_PACK_DIR"
+
   # Only the foundation packages are published from here; the labs packages (yarn-project, playground,
   # aztec-up, aztec-nr, the docker release-image) are published from the labs repo.
   projects=(
@@ -623,6 +628,12 @@ function release {
   for project in "${projects[@]}"; do
     $project/bootstrap.sh release
   done
+
+  # Keyed by the release tag and force-uploaded so a re-run of the release refreshes the bundle.
+  # A dry run packs but does not upload.
+  if [ "${DRY_RUN:-0}" != 1 ]; then
+    S3_FORCE_UPLOAD=1 cache_upload "npm-release-$REF_NAME.tar.gz" npm-release
+  fi
 }
 
 function release_dryrun {

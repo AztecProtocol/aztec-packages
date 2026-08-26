@@ -37,3 +37,4 @@ __pycache__
 
 # Local opt-in: install nargo from the matching official noir release instead of building from source.
 noir-from-release.flag
+npm-release
