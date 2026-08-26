@@ -1,7 +1,0 @@
-[package]
-name = "external_and_internal_together"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

@@ -29,10 +29,10 @@ For each issue number provided:
 
 Work through each confirmed issue **sequentially** in the main checkout:
 
-1. **Stash & branch**: Stash any uncommitted changes, then create a branch from `merge-train/spartan` using the issue's `gitBranchName` from Linear. For a fix scoped to the v5 release line, branch from `merge-train/spartan-v5` (which targets `v5-next`) instead.
+1. **Stash & branch**: Stash any uncommitted changes, then create a branch from `next` using the issue's `gitBranchName` from Linear (or the component's merge train, see CLAUDE.md). For a fix scoped to the v5 release line, branch from `v5-next` instead.
    ```
    git stash
-   git checkout -B <gitBranchName> origin/merge-train/spartan
+   git checkout -B <gitBranchName> origin/next
    ```
 
 2. **Implement the fix**: Edit the relevant files.
@@ -43,10 +43,10 @@ Work through each confirmed issue **sequentially** in the main checkout:
    - Message format: `fix: <short description> (A-XXX)`
    - Include `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
 
-5. **Push & PR**: Push the branch and create a draft PR. Use `--base merge-train/spartan-v5` for v5-scoped fixes.
+5. **Push & PR**: Push the branch and create a draft PR. Use `--base v5-next` for v5-scoped fixes.
    ```
    git push -u origin <gitBranchName>
-   gh pr create --draft --base merge-train/spartan --title "fix: ..." --body "..."
+   gh pr create --draft --base next --title "fix: ..." --body "..."
    ```
    - The PR body should reference the Linear issue (e.g. `Fixes A-XXX`).
 

@@ -1,8 +1,0 @@
-[package]
-name = "bob_token"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }
-balance_set = { path = "../../../../aztec-nr/balance-set" }

@@ -1,2 +1,0 @@
-[workspace]
-members = ["simple_contract", "simple_circuit", "simple_circuit_2"]

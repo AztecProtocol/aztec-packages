@@ -1,8 +1,0 @@
-[package]
-name = "packing_example"
-authors = [""]
-compiler_version = ">=0.25.0"
-type = "contract"
-
-[dependencies]
-aztec = { path = "../../../../noir-projects/labs/aztec-nr/aztec" }

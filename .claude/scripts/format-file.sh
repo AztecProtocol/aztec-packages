@@ -17,16 +17,16 @@ hint() { printf 'format-file.sh: %s\n' "$*" >&2; }
 case "$file" in
   *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json)
     root=""
-    if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] && [[ -f "$CLAUDE_PROJECT_DIR/yarn-project/package.json" ]]; then
+    if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]] && [[ -f "$CLAUDE_PROJECT_DIR/labs/yarn-project/package.json" ]]; then
       root="$CLAUDE_PROJECT_DIR"
     else
       root=$(git -C "$(dirname "$file")" rev-parse --show-toplevel 2>/dev/null || true)
     fi
-    if [[ -n "$root" && -x "$root/yarn-project/node_modules/.bin/prettier" ]]; then
-      "$root/yarn-project/node_modules/.bin/prettier" --write --log-level=warn "$file" \
+    if [[ -n "$root" && -x "$root/labs/yarn-project/node_modules/.bin/prettier" ]]; then
+      "$root/labs/yarn-project/node_modules/.bin/prettier" --write --log-level=warn "$file" \
         || hint "prettier failed on $file"
     else
-      hint "prettier not found — run yarn-project bootstrap to enable format-on-edit"
+      hint "prettier not found — build labs/yarn-project to enable format-on-edit"
     fi
     ;;
   *.cpp|*.cxx|*.cc|*.hpp|*.hxx|*.h)

@@ -31,11 +31,9 @@ jobs:
           # other train tracks next. Sync only the trains fed by the branch
           # that was just pushed.
           if [[ "${{ github.ref_name }}" == "v5-next" ]]; then
-            for branch in merge-train/spartan-v5 merge-train/fairies-v5; do
-              ./scripts/merge-train/merge-next.sh "$branch" v5-next || true
-            done
+            echo "No merge trains track v5-next any more."
           else
-            for branch in merge-train/avm merge-train/barretenberg merge-train/ci merge-train/docs merge-train/fairies merge-train/spartan; do
+            for branch in merge-train/avm merge-train/barretenberg merge-train/ci; do
               ./scripts/merge-train/merge-next.sh "$branch" || true
             done
           fi

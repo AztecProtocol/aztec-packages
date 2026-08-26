@@ -1,7 +1,0 @@
-[package]
-name = "allow_phase_change_on_utility_fn"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

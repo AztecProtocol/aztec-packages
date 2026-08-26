@@ -1,6 +1,0 @@
-{
-  "scripts": {
-    "test": "vitest run",
-    "test:browser": "bash scripts/run-browser-tests.sh"
-  }
-}

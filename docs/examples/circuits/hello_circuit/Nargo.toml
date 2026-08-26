@@ -1,8 +1,0 @@
-# docs:start:circuit_nargo_toml
-[package]
-name = "hello_circuit"
-type = "bin"
-authors = [""]
-
-[dependencies]
-# docs:end:circuit_nargo_toml
