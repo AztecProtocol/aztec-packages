@@ -167,13 +167,16 @@ export class LightweightCheckpointBuilder {
   /**
    * Adds a new block to the checkpoint. The tx effects must have already been inserted into the db if
    * this is called after tx processing, if that's not the case, then set `insertTxsEffects` to true.
+   * Likewise, the block's L1-to-L2 messages are appended to the tree here by default; a caller that already
+   * appended them before executing the block's txs (so the AVM reads the same post-append tree the prover and
+   * the block-root circuit use) sets `insertL1ToL2Messages` to false.
    * @param l1ToL2Messages - The message leaves this block consumes from the Inbox, in insertion order.
    */
   public async addBlock(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
     l1ToL2Messages: Fr[],
-    opts: { insertTxsEffects?: boolean; expectedEndState?: StateReference } = {},
+    opts: { insertTxsEffects?: boolean; insertL1ToL2Messages?: boolean; expectedEndState?: StateReference } = {},
   ): Promise<{ block: L2Block; timings: Record<string, number> }> {
     const timings: Record<string, number> = {};
     const isFirstBlock = this.blocks.length === 0;
@@ -199,12 +202,14 @@ export class LightweightCheckpointBuilder {
       timings.insertSideEffects = msInsertSideEffects;
     }
 
-    // Streaming Inbox: insert this block's L1-to-L2 message bundle before reading the end state,
-    // so the block header's L1-to-L2 tree snapshot reflects it. Bundles are appended compactly (unpadded, at the
-    // tree's current next-available index). The logical messages are accumulated only once the block is fully built
-    // (below), so a mid-build failure does not pollute the checkpoint's rolling hash; the rolling hash is recomputed
-    // over them at checkpoint completion.
-    await appendL1ToL2MessagesToTree(this.db, l1ToL2Messages);
+    // Streaming Inbox: unless the caller appended them already, insert this block's L1-to-L2 messages before reading
+    // the end state, so the block header's L1-to-L2 tree snapshot reflects them. Messages are appended compactly
+    // (unpadded, at the tree's current next-available index). The logical messages are accumulated only once the block
+    // is fully built (below), so a mid-build failure does not pollute the checkpoint's rolling hash; the rolling hash
+    // is recomputed over them at checkpoint completion.
+    if (opts.insertL1ToL2Messages ?? true) {
+      await appendL1ToL2MessagesToTree(this.db, l1ToL2Messages);
+    }
 
     const [msGetEndState, endState] = await elapsed(() => this.db.getStateReference());
     timings.getEndState = msGetEndState;

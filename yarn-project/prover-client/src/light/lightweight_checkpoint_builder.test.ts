@@ -9,9 +9,9 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { EthAddress } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
-import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
+import { accumulateCheckpointOutHashes, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import { mockProcessedTx } from '@aztec/stdlib/testing';
-import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import type { CheckpointGlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
@@ -302,6 +302,42 @@ describe('LightweightCheckpointBuilder', () => {
       expect(checkpoint.blocks[1].number).toEqual(BlockNumber(2));
 
       await fork.close();
+    });
+
+    it('insertL1ToL2Messages: false reuses leaves already in the fork and produces the same block', async () => {
+      const checkpointNumber = CheckpointNumber(1);
+      const slotNumber = SlotNumber(15);
+      const constants = makeCheckpointConstants(slotNumber);
+      const messages = [new Fr(0xb00), new Fr(0xb01), new Fr(0xb02)];
+      const globalVariables = makeGlobalVariables(BlockNumber(1), slotNumber);
+
+      // Default path: addBlock appends the messages itself.
+      const fork1 = await worldState.fork();
+      const builder1 = LightweightCheckpointBuilder.startNewCheckpoint(checkpointNumber, constants, [], Fr.ZERO, fork1);
+      const { block: block1 } = await builder1.addBlock(globalVariables, [], messages, { insertTxsEffects: true });
+
+      // Caller path: the messages are appended before the block is added, and addBlock is told not to append them again.
+      const fork2 = await worldState.fork();
+      const builder2 = LightweightCheckpointBuilder.startNewCheckpoint(checkpointNumber, constants, [], Fr.ZERO, fork2);
+      await appendL1ToL2MessagesToTree(fork2, messages);
+      const { block: block2 } = await builder2.addBlock(globalVariables, [], messages, {
+        insertTxsEffects: true,
+        insertL1ToL2Messages: false,
+      });
+
+      expect(block2.header.equals(block1.header)).toBe(true);
+      expect(block1.header.state.l1ToL2MessageTree.nextAvailableLeafIndex).toBe(messages.length);
+      expect((await fork1.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size).toBe(BigInt(messages.length));
+      expect((await fork2.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size).toBe(BigInt(messages.length));
+
+      // The messages are still accumulated into the checkpoint's message list when the append is skipped.
+      const checkpoint1 = await builder1.completeCheckpoint();
+      const checkpoint2 = await builder2.completeCheckpoint();
+      expect(checkpoint2.header.inboxRollingHash).toEqual(checkpoint1.header.inboxRollingHash);
+      expect(checkpoint1.header.inboxRollingHash).not.toEqual(Fr.ZERO);
+
+      await fork1.close();
+      await fork2.close();
     });
   });
 
