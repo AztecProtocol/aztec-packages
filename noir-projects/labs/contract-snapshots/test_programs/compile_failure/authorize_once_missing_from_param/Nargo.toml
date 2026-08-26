@@ -1,7 +1,0 @@
-[package]
-name = "authorize_once_missing_from_param"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

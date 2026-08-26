@@ -1,5 +1,0 @@
-[package]
-name = "test_contract"
-type = "contract"
-
-[dependencies]

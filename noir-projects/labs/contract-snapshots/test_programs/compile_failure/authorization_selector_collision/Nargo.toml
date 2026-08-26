@@ -1,7 +1,0 @@
-[package]
-name = "authorization_selector_collision"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

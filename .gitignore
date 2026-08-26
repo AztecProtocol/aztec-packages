@@ -27,8 +27,6 @@ tmux-client-*.log
 joblog.txt
 .logged_test_flakes
 
-docs/.yarn/install-state.gz
-docs/docs/protocol-specs/public-vm/gen/
 
 __pycache__
 

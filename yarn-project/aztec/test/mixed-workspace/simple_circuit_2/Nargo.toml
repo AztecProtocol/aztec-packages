@@ -1,7 +1,0 @@
-[package]
-name = "simple_circuit_2"
-authors = [""]
-compiler_version = ">=0.25.0"
-type = "bin"
-
-[dependencies]

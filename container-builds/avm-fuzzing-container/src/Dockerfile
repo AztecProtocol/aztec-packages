@@ -31,8 +31,8 @@ RUN git clone https://github.com/AztecProtocol/aztec-packages.git --depth 1 --br
 
 WORKDIR /root/aztec-packages
 
-# Run bootstrap up to yarn-project (release-image needs docker which isn't available)
-RUN ./bootstrap.sh build yarn-project
+# Build the foundation and the labs submodule's yarn-project against it.
+RUN ./bootstrap.sh build labs-yarn-project
 
 # Build the tx fuzzer
 WORKDIR /root/aztec-packages/barretenberg/cpp
@@ -72,9 +72,9 @@ COPY --from=builder /root/aztec-packages/barretenberg/cpp/build-fuzzing-avm/bin/
 COPY --from=builder /root/aztec-packages/barretenberg/cpp/src/barretenberg/avm_fuzzer/run_fuzzer.sh \
     ./aztec-packages/barretenberg/cpp/src/barretenberg/avm_fuzzer/
 
-# Copy yarn-project (fully built)
-COPY --from=builder /root/aztec-packages/yarn-project \
-    ./aztec-packages/yarn-project/
+# Copy the labs submodule's yarn-project (fully built)
+COPY --from=builder /root/aztec-packages/labs/yarn-project \
+    ./aztec-packages/labs/yarn-project/
 
 # Copy barretenberg/ts (for @aztec/bb.js)
 COPY --from=builder /root/aztec-packages/barretenberg/ts \

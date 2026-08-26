@@ -43,7 +43,6 @@ A daily bulk sweep (distinct from the per-PR `port-to-next` label) that keeps `n
 Merge-train branches influence CI mode:
 - `merge_group` events or `ci-merge-queue` label → `merge-queue` mode
 - If the merge-group event is for `merge-train/spartan-v5` → upgraded to `merge-queue-heavy` mode (10 parallel grind runs instead of 4)
-- Target branch `merge-train/docs` → `ci-docs` mode
 - Target branch `merge-train/barretenberg` → `ci-barretenberg` mode
 
 ### CI Concurrency (`.github/workflows/ci3.yml`)
@@ -66,7 +65,6 @@ Merge-train PRs get a unique instance postfix (commit count) to allow parallel E
 
 ### CI Modes in bootstrap.sh
 
-- `ci-docs`: Only builds and tests documentation
 - `ci-barretenberg`: Only builds and tests barretenberg (AVM disabled)
 - `ci-barretenberg-full`: Full barretenberg CI including acir_tests
 - `merge-queue`: 4x AMD64 full + 1x ARM64 fast in parallel
@@ -131,7 +129,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 | `ci3/merge_train_failure_slack_notify` | Slack failure notification with branch-to-channel mapping |
 | `ci3/run_test_cmd` | Test history tracking for merge-train branches |
 | `ci3/bootstrap_ec2` | EC2 failure notification trigger |
-| `bootstrap.sh` | CI mode definitions (`ci-docs`, `ci-barretenberg`, etc.) |
+| `bootstrap.sh` | CI mode definitions (`ci-barretenberg`, `ci-full`, etc.) |
 
 ### Other Scripts
 
