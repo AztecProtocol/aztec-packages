@@ -53,19 +53,21 @@ library Hash {
 
   /**
    * @notice Advances the Inbox consensus rolling hash by one message leaf
-   * @dev Each link is `sha256ToField(separator || rollingHash || leaf)` over the 4-byte big-endian domain separator
-   * followed by the two 32-byte big-endian values. The separator is `DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START` when
-   * the leaf is the first message of a bucket and `DOM_SEP__INBOX_ROLLING_HASH` otherwise, so the chain commits to
-   * how the messages were packed into buckets and not just to their order. Both separators keep a chain link from
-   * being reinterpreted as an untagged two-field sha256 hash, such as an `outHash` merkle node. Truncated at every
-   * link so the value is always a field element; the rollup circuits recompute the identical chain over the message
-   * leaves they insert. The genesis value is zero.
+   * @dev Each link is `sha256ToField(separator || rollingHash || leaf || timestamp)` over the 4-byte big-endian
+   * domain separator, the two 32-byte big-endian values, and the 8-byte big-endian bucket timestamp. The separator is
+   * `DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START` when the leaf is the first message of a bucket and
+   * `DOM_SEP__INBOX_ROLLING_HASH` otherwise, so the chain commits to every consensus-relevant fact about a bucket:
+   * its leaves, their order, where it begins, and the L1 time it was opened at. Both separators keep a chain link
+   * from being reinterpreted as an untagged two-field sha256 hash, such as an `outHash` merkle node. Truncated at
+   * every link so the value is always a field element; the rollup circuits recompute the identical chain over the
+   * message leaves they insert. The genesis value is zero.
    * @param _rollingHash - The current rolling hash
    * @param _leaf - The message leaf to absorb
    * @param _opensBucket - Whether the leaf is the first message of its bucket
+   * @param _timestamp - The timestamp of the bucket the leaf is absorbed into
    * @return The updated rolling hash
    */
-  function accumulateInboxRollingHash(bytes32 _rollingHash, bytes32 _leaf, bool _opensBucket)
+  function accumulateInboxRollingHash(bytes32 _rollingHash, bytes32 _leaf, bool _opensBucket, uint64 _timestamp)
     internal
     pure
     returns (bytes32)
@@ -73,6 +75,6 @@ library Hash {
     uint32 separator = _opensBucket
       ? uint32(Constants.DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START)
       : uint32(Constants.DOM_SEP__INBOX_ROLLING_HASH);
-    return sha256ToField(abi.encodePacked(separator, _rollingHash, _leaf));
+    return sha256ToField(abi.encodePacked(separator, _rollingHash, _leaf, _timestamp));
   }
 }

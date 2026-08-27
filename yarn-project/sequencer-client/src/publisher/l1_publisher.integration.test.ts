@@ -1089,7 +1089,7 @@ describe('L1Publisher integration', () => {
     it(`shows propose custom errors if tx simulation fails`, async () => {
       // Set up different l1-to-l2 messages than the ones on the inbox, so the checkpoint's inboxRollingHash does not
       // match the referenced Inbox bucket and the submission reverts at the streaming-consumption check.
-      const l1ToL2Messages = [new Array(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT).fill(new Fr(1n))];
+      const l1ToL2Messages = [{ timestamp: 0n, leaves: new Array(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT).fill(new Fr(1n)) }];
       const { checkpoint } = await buildSingleCheckpoint({ l1ToL2Messages });
 
       // Enqueue no longer simulates per action — the bundle simulate at send time drops the

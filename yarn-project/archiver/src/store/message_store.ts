@@ -252,7 +252,12 @@ export class MessageStore {
         // message's is the first of its bucket, so it takes the bucket-start separator.
         const previousInboxRollingHash = lastMessage?.inboxRollingHash ?? Fr.ZERO;
         const opensBucket = message.bucketSeq !== lastMessage?.bucketSeq;
-        const expectedInboxRollingHash = updateInboxRollingHash(previousInboxRollingHash, message.leaf, opensBucket);
+        const expectedInboxRollingHash = updateInboxRollingHash(
+          previousInboxRollingHash,
+          message.leaf,
+          opensBucket,
+          message.bucketTimestamp,
+        );
         if (!expectedInboxRollingHash.equals(message.inboxRollingHash)) {
           throw new MessageStoreError(
             `Invalid inbox rolling hash for incoming L1 to L2 message ${message.leaf.toString()} ` +
@@ -550,7 +555,8 @@ export class MessageStore {
 
   /**
    * Collects the message leaves in the global index range `[startIndex, endIndexExclusive)`, in insertion order,
-   * grouped per Inbox bucket. A group is only started by a message, so no group is ever empty.
+   * grouped per Inbox bucket together with each bucket's timestamp. A group is only started by a message, so no group
+   * is ever empty.
    */
   private async getMessageLeavesInIndexRange(
     startIndex: bigint,
@@ -564,10 +570,10 @@ export class MessageStore {
     })) {
       const message = deserializeInboxMessage(msgBuffer);
       if (message.bucketSeq !== currentBucketSeq) {
-        bundle.push([]);
+        bundle.push({ timestamp: message.bucketTimestamp, leaves: [] });
         currentBucketSeq = message.bucketSeq;
       }
-      bundle.at(-1)!.push(message.leaf);
+      bundle.at(-1)!.leaves.push(message.leaf);
     }
     return bundle;
   }

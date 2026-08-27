@@ -147,6 +147,8 @@ export class FakeL1State {
   private targetCommitteeSize: number = 0;
   private version: bigint = 1n;
   private canPruneResult: boolean = false;
+  // L1 block timestamps that deviate from the uniform-slot formula, simulating a block re-mined by an L1 reorg.
+  private l1BlockTimestampOverrides = new Map<bigint, bigint>();
 
   // Computed from checkpoints based on L1 block visibility
   private pendingCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
@@ -201,6 +203,7 @@ export class FakeL1State {
       this.messagesConsensusRollingHash,
       leaf,
       this.currentBucketMsgCount === 0,
+      this.currentBucketTimestamp,
     );
     this.currentBucketMsgCount += 1;
     return { bucketSeq: this.currentBucketSeq, inboxRollingHash: this.messagesConsensusRollingHash };
@@ -316,6 +319,10 @@ export class FakeL1State {
 
   /** Returns the timestamp at the given L1 block (assuming all L1 blocks are mined) */
   public getTimestampAtL1Block(l1BlockNumber: bigint): bigint {
+    const override = this.l1BlockTimestampOverrides.get(l1BlockNumber);
+    if (override !== undefined) {
+      return override;
+    }
     const { l1GenesisTime, l1StartBlock, ethereumSlotDuration } = this.config;
     return l1GenesisTime + (l1BlockNumber - l1StartBlock) * BigInt(ethereumSlotDuration);
   }
@@ -327,6 +334,15 @@ export class FakeL1State {
   setL1BlockNumber(blockNumber: bigint): void {
     this.l1BlockNumber = blockNumber;
     this.updatePendingCheckpointNumber();
+  }
+
+  /**
+   * Overrides the timestamp of an L1 block, simulating an L1 reorg that re-mined it at a different timestamp.
+   * Rebuilds the derived message state, since bucket packing and rolling hashes depend on block timestamps.
+   */
+  setL1BlockTimestamp(l1BlockNumber: bigint, timestamp: bigint): void {
+    this.l1BlockTimestampOverrides.set(l1BlockNumber, timestamp);
+    this.recomputeDerivedMessageState();
   }
 
   /**
@@ -433,6 +449,14 @@ export class FakeL1State {
     if (this.messages[index]) {
       this.messages[index].l1BlockNumber = toL1Block;
     }
+  }
+
+  /**
+   * Rebuilds bucket assignments and rolling hashes from the current message set. Call after the `move*` methods,
+   * which relocate messages without repacking them, to simulate an L1 reorg that repacked the Inbox.
+   */
+  recomputeMessageBuckets(): void {
+    this.recomputeDerivedMessageState();
   }
 
   /** Gets current rollup status. */
@@ -553,7 +577,7 @@ export class FakeL1State {
       }
       return {
         number: blockNum,
-        timestamp: BigInt(blockNum) * BigInt(this.config.ethereumSlotDuration) + this.config.l1GenesisTime,
+        timestamp: this.getTimestampAtL1Block(blockNum),
         hash: Buffer32.fromBigInt(blockNum).toString(),
       } as FormattedBlock;
     }) as any);

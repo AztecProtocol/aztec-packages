@@ -1223,8 +1223,8 @@ describe('CheckpointProposalJob', () => {
         .mockResolvedValueOnce(makeBucket(2n, 2n, 1n))
         .mockResolvedValue(makeBucket(3n, 4n, 3n));
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets
-        .mockResolvedValueOnce([[new Fr(1), new Fr(2)]])
-        .mockResolvedValue([[new Fr(3), new Fr(4)]]);
+        .mockResolvedValueOnce([{ timestamp: 0n, leaves: [new Fr(1), new Fr(2)] }])
+        .mockResolvedValue([{ timestamp: 0n, leaves: [new Fr(3), new Fr(4)] }]);
 
       const { lastBlock } = await setupMultipleBlocks(2, [2, 0]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
@@ -1233,7 +1233,9 @@ describe('CheckpointProposalJob', () => {
       await job.executeAndAwait();
 
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
-      expect(checkpointBuilder.buildBlockCalls[1].opts.l1ToL2Messages).toEqual([[new Fr(3), new Fr(4)]]);
+      expect(checkpointBuilder.buildBlockCalls[1].opts.l1ToL2Messages).toEqual([
+        { timestamp: 0n, leaves: [new Fr(3), new Fr(4)] },
+      ]);
       expect(checkpointBuilder.buildBlockCalls[1].opts.minValidTxs).toBe(0);
     });
 
@@ -1508,7 +1510,7 @@ describe('CheckpointProposalJob', () => {
         l1BlockNumber: 2n,
         l1BlockHash: Buffer32.fromBigInt(2n),
       };
-      const bundle = [Array.from({ length: 5 }, (_, i) => new Fr(i + 1))];
+      const bundle = [{ timestamp: 0n, leaves: Array.from({ length: 5 }, (_, i) => new Fr(i + 1)) }];
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
 
@@ -1550,7 +1552,7 @@ describe('CheckpointProposalJob', () => {
         l1BlockNumber: 2n,
         l1BlockHash: Buffer32.fromBigInt(2n),
       };
-      const bundle = [Array.from({ length: 5 }, (_, i) => new Fr(i + 1))];
+      const bundle = [{ timestamp: 0n, leaves: Array.from({ length: 5 }, (_, i) => new Fr(i + 1)) }];
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
 
@@ -1590,7 +1592,7 @@ describe('CheckpointProposalJob', () => {
         l1BlockNumber: 2n,
         l1BlockHash: Buffer32.fromBigInt(2n),
       };
-      const bundle = [Array.from({ length: 5 }, (_, i) => new Fr(i + 1))];
+      const bundle = [{ timestamp: 0n, leaves: Array.from({ length: 5 }, (_, i) => new Fr(i + 1)) }];
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
 
@@ -1639,9 +1641,13 @@ describe('CheckpointProposalJob', () => {
       l1ToL2MessageSource.getInboxBucket.mockImplementation(seq => Promise.resolve(buckets[Number(seq) - 1]));
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockImplementation((from, to) =>
         Promise.resolve([
-          Array.from({ length: Number(totals[Number(to) - 1] - (from === 0n ? 0n : totals[Number(from) - 1])) }, () =>
-            Fr.random(),
-          ),
+          {
+            timestamp: 0n,
+            leaves: Array.from(
+              { length: Number(totals[Number(to) - 1] - (from === 0n ? 0n : totals[Number(from) - 1])) },
+              () => Fr.random(),
+            ),
+          },
         ]),
       );
 

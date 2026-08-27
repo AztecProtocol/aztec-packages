@@ -26,6 +26,7 @@ import {
   type PublicProcessorValidator,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
+import type { InboxMessageBundle } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type CheckpointGlobalVariables,
@@ -800,7 +801,7 @@ describe('CheckpointBuilder', () => {
     let lightweight: LightweightCheckpointBuilder;
     let builder: TestCheckpointBuilder;
 
-    const messages = [new Fr(0xb00), new Fr(0xb01), new Fr(0xb02)];
+    const bundle: InboxMessageBundle = [{ timestamp: 1000n, leaves: [new Fr(0xb00), new Fr(0xb01), new Fr(0xb02)] }];
     const firstBlockNumber = BlockNumber(1);
 
     const getL1ToL2TreeSize = () => realFork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE).then(info => info.size);
@@ -830,13 +831,16 @@ describe('CheckpointBuilder', () => {
       let leafIndicesDuringExecution: (bigint | undefined)[] | undefined;
       processor.process.mockImplementation(async () => {
         treeSizeDuringExecution = await getL1ToL2TreeSize();
-        leafIndicesDuringExecution = await realFork.findLeafIndices(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messages);
+        leafIndicesDuringExecution = await realFork.findLeafIndices(
+          MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+          bundle[0].leaves,
+        );
         return [[], [], [], [], []];
       });
 
       const { block } = await builder.buildBlock([], firstBlockNumber, 1000n, {
         ...validatorOpts(),
-        l1ToL2Messages: [messages],
+        l1ToL2Messages: bundle,
       });
 
       // The AVM must read the same post-append tree the prover and the block-root circuit use.
@@ -851,7 +855,7 @@ describe('CheckpointBuilder', () => {
       processor.process.mockRejectedValue(new Error('processor failure'));
 
       await expect(
-        builder.buildBlock([], firstBlockNumber, 1000n, { ...validatorOpts(), l1ToL2Messages: [messages] }),
+        builder.buildBlock([], firstBlockNumber, 1000n, { ...validatorOpts(), l1ToL2Messages: bundle }),
       ).rejects.toThrow('processor failure');
 
       expect(await getL1ToL2TreeSize()).toBe(0n);
@@ -864,7 +868,7 @@ describe('CheckpointBuilder', () => {
       await expect(
         builder.buildBlock([], firstBlockNumber, 1000n, {
           ...validatorOpts({ minValidTxs: 1 }),
-          l1ToL2Messages: [messages],
+          l1ToL2Messages: bundle,
         }),
       ).rejects.toThrow(InsufficientValidTxsError);
 

@@ -40,7 +40,7 @@ import { Archiver, type ArchiverEmitter } from './archiver.js';
 import { BlockOrCheckpointSlotExpiredError } from './errors.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
-import { type ArchiverDataStores, createArchiverDataStores } from './store/data_stores.js';
+import { type ArchiverDataStores, createArchiverDataStores, getArchiverSynchPoint } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 import { FakeL1State } from './test/fake_l1_state.js';
 
@@ -191,6 +191,8 @@ describe('Archiver Sync', () => {
   const getStoredLeaves = async () =>
     (await toArray(archiverStore.messages.iterateL1ToL2Messages())).map(m => m.leaf.toString());
   const asHex = (leaves: Fr[]) => leaves.map(l => l.toString());
+  // Returns the Inbox bucket snapshots for the first three bucket sequences; undefined for a sequence not synced.
+  const getBuckets = () => Promise.all([1n, 2n, 3n].map(seq => archiverStore.messages.getInboxBucket(seq)));
 
   describe('basic sync', () => {
     it('syncs l1 to l2 messages and checkpoints', async () => {
@@ -289,10 +291,14 @@ describe('Archiver Sync', () => {
       expect((await archiver.getLatestInboxBucketAtOrBefore(t2))!.seq).toEqual(2n);
       expect(await archiver.getLatestInboxBucketAtOrBefore(t1 - 1n)).toBeUndefined();
 
-      // Messages between buckets, in insertion order, one group per bucket.
-      expect(await archiver.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual([msgs1, msgs2, msgs3]);
-      expect(await archiver.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual([msgs2]);
-      expect(await archiver.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual([msgs3]);
+      // Messages between buckets, in insertion order, one group per bucket, each carrying its bucket's L1 timestamp.
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual([
+        { timestamp: t1, leaves: msgs1 },
+        { timestamp: t2, leaves: msgs2 },
+        { timestamp: t3, leaves: msgs3 },
+      ]);
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual([{ timestamp: t2, leaves: msgs2 }]);
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual([{ timestamp: t3, leaves: msgs3 }]);
     }, 30_000);
 
     it('ignores checkpoint 3 because it has been pruned', async () => {
@@ -1081,6 +1087,129 @@ describe('Archiver Sync', () => {
       expect(await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 })).toEqual([]);
     }, 10_000);
 
+    // Syncs an Inbox holding two buckets: #1={A,B} absorbed at L1 block 100 and #2={C} at L1 block 101.
+    const syncTwoInboxBuckets = async () => {
+      const leaves = [Fr.random(), Fr.random(), Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 100n, leaves.slice(0, 2));
+      fake.addMessages(CheckpointNumber(1), 101n, leaves.slice(2));
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      return { leaves, ts100: fake.getTimestampAtL1Block(100n), ts101: fake.getTimestampAtL1Block(101n) };
+    };
+
+    it('re-syncs bucket snapshots when an L1 reorg repacks the same messages into different buckets', async () => {
+      const { leaves, ts100, ts101 } = await syncTwoInboxBuckets();
+      const [msgA, msgB, msgC] = leaves;
+
+      // The reorg re-mines B into L1 block 101, so B opens a bucket and C joins it: #1={A}, #2={B,C}. The messages,
+      // their order and their count are unchanged; only the packing (and so the rolling hashes of B and C) differs.
+      fake.moveMessageAtIndexToL1Block(1, 101n);
+      fake.recomputeMessageBuckets();
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([msgA, msgB, msgC]));
+
+      const remote = await inboxContract.getState();
+      const storedMessages = await toArray(archiverStore.messages.iterateL1ToL2Messages());
+      expect(await getBuckets()).toEqual([
+        {
+          seq: 1n,
+          msgCount: 1,
+          totalMsgCount: 1n,
+          timestamp: ts100,
+          l1BlockNumber: 100n,
+          l1BlockHash: Buffer32.fromBigInt(100n),
+          lastMessageIndex: 0n,
+          inboxRollingHash: storedMessages[0].inboxRollingHash,
+        },
+        {
+          seq: 2n,
+          msgCount: 2,
+          totalMsgCount: 3n,
+          timestamp: ts101,
+          l1BlockNumber: 101n,
+          l1BlockHash: Buffer32.fromBigInt(101n),
+          lastMessageIndex: 2n,
+          inboxRollingHash: remote.rollingHash,
+        },
+        undefined,
+      ]);
+
+      expect(remote.currentBucketSeq).toEqual(2n);
+      expect((await archiverStore.messages.getLastMessage())!.bucketSeq).toEqual(remote.currentBucketSeq);
+      expect(await archiverStore.messages.getL1ToL2MessagesBetweenBuckets(0n, 2n)).toEqual([
+        { timestamp: ts100, leaves: [msgA] },
+        { timestamp: ts101, leaves: [msgB, msgC] },
+      ]);
+      expect((await archiverStore.messages.getLatestInboxBucketAtOrBefore(ts101))!.seq).toEqual(2n);
+    });
+
+    it('rewinds the bucket sequence when an L1 reorg merges two buckets into one', async () => {
+      const { leaves, ts100, ts101 } = await syncTwoInboxBuckets();
+      const [msgA, msgB, msgC] = leaves;
+
+      // The reorg re-mines C into L1 block 100, where it no longer opens a bucket: L1 now holds #1={A,B,C} and no
+      // bucket 2, so the rollback must drop bucket 2 and re-deliver bucket 1 in full.
+      fake.moveMessageAtIndexToL1Block(2, 100n);
+      fake.recomputeMessageBuckets();
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([msgA, msgB, msgC]));
+
+      const remote = await inboxContract.getState();
+      expect(await getBuckets()).toEqual([
+        {
+          seq: 1n,
+          msgCount: 3,
+          totalMsgCount: 3n,
+          timestamp: ts100,
+          l1BlockNumber: 100n,
+          l1BlockHash: Buffer32.fromBigInt(100n),
+          lastMessageIndex: 2n,
+          inboxRollingHash: remote.rollingHash,
+        },
+        undefined,
+        undefined,
+      ]);
+
+      expect(remote.currentBucketSeq).toEqual(1n);
+      expect((await archiverStore.messages.getLastMessage())!.bucketSeq).toEqual(remote.currentBucketSeq);
+      // The dropped bucket took its own timestamp index entry with it.
+      expect((await archiverStore.messages.getLatestInboxBucketAtOrBefore(ts101))!.seq).toEqual(1n);
+      expect((await archiverStore.messages.getInboxBucketByTotalMsgCount(3n))?.seq).toEqual(1n);
+    });
+
+    it('refreshes a bucket timestamp when its L1 block is re-mined at a different timestamp', async () => {
+      const { leaves, ts101 } = await syncTwoInboxBuckets();
+      const [bucket1Before, bucket2Before] = await getBuckets();
+
+      // The reorg re-mines L1 block 101 five seconds later, keeping the same messages in the same buckets. Bucket 2
+      // now opens at a later timestamp, which is the recency key consumers compare against L1 (validator lag
+      // eligibility, sequencer bucket cutoff), so a stale snapshot timestamp makes them disagree with the chain.
+      fake.setL1BlockTimestamp(101n, ts101 + 5n);
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      const remote = await inboxContract.getState();
+      const bucket2After = (await archiverStore.messages.getInboxBucket(2n))!;
+      expect(bucket2After.timestamp).toEqual(ts101 + 5n);
+      expect(bucket2After.timestamp).toEqual(fake.getTimestampAtL1Block(101n));
+      // Every rolling-hash link commits to the timestamp of the bucket it lands in, so re-timing the block moves the
+      // hash of the bucket as well.
+      expect(bucket2After.inboxRollingHash).toEqual(remote.rollingHash);
+      expect(bucket2After.inboxRollingHash).not.toEqual(bucket2Before!.inboxRollingHash);
+
+      // The timestamp index follows the bucket to its new opening timestamp.
+      expect((await archiverStore.messages.getLatestInboxBucketAtOrBefore(ts101))!.seq).toEqual(1n);
+      expect((await archiverStore.messages.getLatestInboxBucketAtOrBefore(ts101 + 5n))!.seq).toEqual(2n);
+
+      // The reorg neither added nor removed messages, and left the bucket before it untouched.
+      expect(await getStoredLeaves()).toEqual(asHex(leaves));
+      expect(await archiverStore.messages.getInboxBucket(1n)).toEqual(bucket1Before);
+    });
+
     it('handles updated messages due to L1 reorg', async () => {
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
@@ -1118,6 +1247,28 @@ describe('Archiver Sync', () => {
 
       // The reorg kept the first 4 messages (2 from CP1, 2 from CP3) and appended the new ones.
       expect(await getStoredLeaves()).toEqual(asHex([msgs1[0], msgs1[1], msgs3[0], msgs3[1], msg40, msg50, msg51]));
+
+      // The rollback cut inside bucket 2 (the common message is not the last of its bucket), so the bucket was
+      // rewritten from the messages it kept and then extended by the replacement message at the same L1 block.
+      const ts102 = fake.getTimestampAtL1Block(102n);
+      const storedMessages = await toArray(archiverStore.messages.iterateL1ToL2Messages());
+      expect(await archiverStore.messages.getInboxBucket(2n)).toEqual({
+        seq: 2n,
+        msgCount: 3,
+        totalMsgCount: 5n,
+        timestamp: fake.getTimestampAtL1Block(101n),
+        l1BlockNumber: 101n,
+        l1BlockHash: Buffer32.fromBigInt(101n),
+        lastMessageIndex: 4n,
+        inboxRollingHash: storedMessages[4].inboxRollingHash,
+      });
+      expect(await archiverStore.messages.getInboxBucket(3n)).toMatchObject({
+        msgCount: 2,
+        totalMsgCount: 7n,
+        timestamp: ts102,
+      });
+      expect(await archiverStore.messages.getInboxBucket(1n)).toMatchObject({ msgCount: 2, totalMsgCount: 2n });
+      expect((await archiverStore.messages.getLatestInboxBucketAtOrBefore(ts102))!.seq).toEqual(3n);
     });
 
     it('short-circuits rollback at the finalized L1 block', async () => {
@@ -1135,10 +1286,12 @@ describe('Archiver Sync', () => {
 
       expect(await getStoredLeaves()).toEqual(asHex([...msgs1, ...msgs3]));
 
-      // Simulate L1 reorg: remove the last 2 messages from checkpoint 3 and add new ones.
-      fake.removeMessagesAfter(4);
+      // Simulate L1 reorg: every message above the finalized L1 block is gone, replaced at L1 block 101. No local
+      // message past the finalized block survives on L1, so the rollback walk must reach the finalized one.
+      fake.removeMessagesAfter(2);
       const msg40 = Fr.random();
-      fake.addMessages(CheckpointNumber(4), 102n, [msg40]);
+      const msg41 = Fr.random();
+      fake.addMessages(CheckpointNumber(4), 101n, [msg40, msg41]);
 
       fake.setL1BlockNumber(111n);
 
@@ -1154,7 +1307,26 @@ describe('Archiver Sync', () => {
       );
       expect(callsAtFinalizedOrBelow).toHaveLength(0);
 
-      expect(await getStoredLeaves()).toEqual(asHex([msgs1[0], msgs1[1], msgs3[0], msgs3[1], msg40]));
+      expect(await getStoredLeaves()).toEqual(asHex([...msgs1, msg40, msg41]));
+
+      // The finalized bucket is untouched, while bucket 2 is rebuilt in full from the replacement L1 block.
+      const remote = await inboxContract.getState();
+      expect(await archiverStore.messages.getInboxBucket(1n)).toMatchObject({
+        msgCount: 2,
+        totalMsgCount: 2n,
+        timestamp: fake.getTimestampAtL1Block(100n),
+      });
+      expect(await archiverStore.messages.getInboxBucket(2n)).toEqual({
+        seq: 2n,
+        msgCount: 2,
+        totalMsgCount: 4n,
+        timestamp: fake.getTimestampAtL1Block(101n),
+        l1BlockNumber: 101n,
+        l1BlockHash: Buffer32.fromBigInt(101n),
+        lastMessageIndex: 3n,
+        inboxRollingHash: remote.rollingHash,
+      });
+      expect((await getArchiverSynchPoint(archiverStore)).messagesSynchedTo?.l1BlockNumber).toEqual(111n);
     });
 
     it('falls back to per-message log queries when finalized block is undefined', async () => {

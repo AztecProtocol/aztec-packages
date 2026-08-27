@@ -235,12 +235,12 @@ describe('ArchiverApiSchema', () => {
 
   it('getL1ToL2MessagesBetweenBuckets', async () => {
     const result = await context.client.getL1ToL2MessagesBetweenBuckets(0n, 3n);
-    expect(result).toEqual([[expect.any(Fr)]]);
+    expect(result).toEqual([{ timestamp: 1000n, leaves: [expect.any(Fr)] }]);
   });
 
   it('getL1ToL2MessagesBetweenLeafCounts', async () => {
     const result = await context.client.getL1ToL2MessagesBetweenLeafCounts(0n, 3n);
-    expect(result).toEqual([[expect.any(Fr)]]);
+    expect(result).toEqual([{ timestamp: 1000n, leaves: [expect.any(Fr)] }]);
   });
 
   it('registerContractFunctionSignatures', async () => {
@@ -644,12 +644,12 @@ class MockArchiver implements ArchiverApi {
   getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<InboxMessageBundle> {
     expect(typeof fromExclusive).toEqual('bigint');
     expect(typeof toInclusive).toEqual('bigint');
-    return Promise.resolve([[Fr.random()]]);
+    return Promise.resolve([{ timestamp: 1000n, leaves: [Fr.random()] }]);
   }
   getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageBundle> {
     expect(typeof startLeafCount).toEqual('bigint');
     expect(typeof endLeafCount).toEqual('bigint');
-    return Promise.resolve([[Fr.random()]]);
+    return Promise.resolve([{ timestamp: 1000n, leaves: [Fr.random()] }]);
   }
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);

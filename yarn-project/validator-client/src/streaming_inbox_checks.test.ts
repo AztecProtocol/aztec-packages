@@ -1,7 +1,7 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { InboxBucket, InboxMessageBundle } from '@aztec/stdlib/messaging';
-import { InboxBucketRef } from '@aztec/stdlib/messaging';
+import { InboxBucketRef, accumulateInboxRollingHash } from '@aztec/stdlib/messaging';
 
 import { describe, expect, it } from '@jest/globals';
 
@@ -83,9 +83,10 @@ class FakeInboxView implements StreamingInboxBucketSource {
       .filter(b => b.seq > fromExclusive && b.seq <= toInclusive && b.msgCount > 0)
       .sort((a, b) => Number(a.seq - b.seq));
     return Promise.resolve(
-      inRange.map(b =>
-        this.leaves.slice(Number(b.lastMessageIndex + 1n) - b.msgCount, Number(b.lastMessageIndex + 1n)),
-      ),
+      inRange.map(b => ({
+        timestamp: b.timestamp,
+        leaves: this.leaves.slice(Number(b.lastMessageIndex + 1n) - b.msgCount, Number(b.lastMessageIndex + 1n)),
+      })),
     );
   }
 }
@@ -132,6 +133,32 @@ describe('checkStreamingBlockProposal', () => {
       );
       expect(result).toEqual({ accepted: false, reason: 'bucket_hash_mismatch' });
     });
+
+    it('rejects a proposal built on a stale bucket timestamp', async () => {
+      // The rolling hash absorbs the bucket's L1 timestamp, so a proposer whose view of the bucket is stale after an
+      // L1 reorg that only re-timed the block computes a different hash over the very same leaves. That disagreement
+      // is what makes a stale-timestamp proposal rejectable rather than silently accepted.
+      const view = new FakeInboxView();
+      const leaves = [new Fr(1000), new Fr(1001)];
+      const bucket = view.addBucket(1, 2, 100, accumulateInboxRollingHash(Fr.ZERO, [{ timestamp: 100n, leaves }]));
+
+      const staleHash = accumulateInboxRollingHash(Fr.ZERO, [{ timestamp: 95n, leaves }]);
+      expect(staleHash).not.toEqual(bucket.inboxRollingHash);
+
+      const result = await checkStreamingBlockProposal(
+        baseInput({ messageSource: view, bucketRef: new InboxBucketRef(bucket.seq, 95n, staleHash) }),
+      );
+      expect(result).toEqual({ accepted: false, reason: 'bucket_hash_mismatch' });
+    });
+
+    it('accepts a proposal whose bucket timestamp matches the local snapshot', async () => {
+      const view = new FakeInboxView();
+      const leaves = [new Fr(1000), new Fr(1001)];
+      const bucket = view.addBucket(1, 2, 100, accumulateInboxRollingHash(Fr.ZERO, [{ timestamp: 100n, leaves }]));
+
+      const result = await checkStreamingBlockProposal(baseInput({ messageSource: view, bucketRef: refFor(bucket) }));
+      expect(result).toEqual({ accepted: true, bundle: [{ timestamp: 100n, leaves }] });
+    });
   });
 
   describe('check 2: consumption moves forward', () => {
@@ -160,7 +187,10 @@ describe('checkStreamingBlockProposal', () => {
       const view = new FakeInboxView();
       const bucket = view.addBucket(1, 2, Number(NOW) - 1);
       const result = await checkStreamingBlockProposal(baseInput({ messageSource: view, bucketRef: refFor(bucket) }));
-      expect(result).toEqual({ accepted: true, bundle: [[new Fr(1000), new Fr(1001)]] });
+      expect(result).toEqual({
+        accepted: true,
+        bundle: [{ timestamp: bucket.timestamp, leaves: [new Fr(1000), new Fr(1001)] }],
+      });
     });
   });
 
@@ -207,7 +237,10 @@ describe('checkStreamingBlockProposal', () => {
       const result = await checkStreamingBlockProposal(
         baseInput({ messageSource: view, bucketRef: refFor(bucket), parentTotalMsgCount: 0n }),
       );
-      expect(result).toEqual({ accepted: true, bundle: [[new Fr(1000), new Fr(1001), new Fr(1002)]] });
+      expect(result).toEqual({
+        accepted: true,
+        bundle: [{ timestamp: 100n, leaves: [new Fr(1000), new Fr(1001), new Fr(1002)] }],
+      });
     });
 
     it('derives the bundle spanning multiple buckets since the parent', async () => {
@@ -220,7 +253,13 @@ describe('checkStreamingBlockProposal', () => {
       );
       // Bundle = leaves at global indices 2,3,4 (buckets 2 and 3), derived after resolving the parent bucket (seq 1),
       // grouped per bucket.
-      expect(result).toEqual({ accepted: true, bundle: [[new Fr(1002), new Fr(1003)], [new Fr(1004)]] });
+      expect(result).toEqual({
+        accepted: true,
+        bundle: [
+          { timestamp: 100n, leaves: [new Fr(1002), new Fr(1003)] },
+          { timestamp: 100n, leaves: [new Fr(1004)] },
+        ],
+      });
     });
 
     it('rejects when the parent leaf count does not sit on a bucket boundary (padded legacy parent)', async () => {

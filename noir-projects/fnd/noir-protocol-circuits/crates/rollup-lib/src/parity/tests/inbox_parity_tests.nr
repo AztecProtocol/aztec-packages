@@ -7,12 +7,26 @@ use types::traits::Empty;
 
 global S: u32 = 64;
 
+global TS: u64 = 1000;
+
 // Flags for a checkpoint consuming a single contiguous run out of one bucket: lane 0 opens the bucket and every
 // other lane continues it.
 fn only_first_is_bucket_start() -> [bool; S] {
     let mut bucket_starts = [false; S];
     bucket_starts[0] = true;
     bucket_starts
+}
+
+// Timestamps for a checkpoint whose `num_msgs` real messages all came out of one bucket opened at `TS`; the padding
+// lanes must stay zero.
+fn one_bucket_timestamps(num_msgs: u32) -> [u64; S] {
+    let mut bucket_timestamps = [0; S];
+    for i in 0..S {
+        if i < num_msgs {
+            bucket_timestamps[i] = TS;
+        }
+    }
+    bucket_timestamps
 }
 
 #[test]
@@ -22,9 +36,11 @@ fn public_inputs_match_expected() {
         msgs[i] = i as Field;
     }
     let bucket_starts = only_first_is_bucket_start();
+    let bucket_timestamps = one_bucket_timestamps(S);
     let private_inputs = InboxParityPrivateInputs {
         msgs,
         bucket_starts,
+        bucket_timestamps,
         num_msgs: S,
         start_rolling_hash: 0,
         prover_id: 7,
@@ -37,7 +53,7 @@ fn public_inputs_match_expected() {
     assert_eq(public_inputs.start_rolling_hash, 0);
     assert_eq(
         public_inputs.end_rolling_hash,
-        accumulate_inbox_rolling_hash(0, msgs, bucket_starts, S),
+        accumulate_inbox_rolling_hash(0, msgs, bucket_starts, bucket_timestamps, S),
     );
 
     // The sponge absorbs exactly the real messages (real-count) and their flags into the empty sponge the circuit
@@ -64,6 +80,7 @@ fn bucket_starts_are_committed_to() {
         InboxParityPrivateInputs {
             msgs,
             bucket_starts: one_bucket,
+            bucket_timestamps: one_bucket_timestamps(3),
             num_msgs: 3,
             start_rolling_hash: 0,
             prover_id: 7,
@@ -73,6 +90,7 @@ fn bucket_starts_are_committed_to() {
         InboxParityPrivateInputs {
             msgs,
             bucket_starts: split_at_third,
+            bucket_timestamps: one_bucket_timestamps(3),
             num_msgs: 3,
             start_rolling_hash: 0,
             prover_id: 7,
@@ -97,6 +115,7 @@ fn sponge_matches_block_root_real_count_absorb() {
     let private_inputs = InboxParityPrivateInputs {
         msgs,
         bucket_starts: only_first_is_bucket_start(),
+        bucket_timestamps: one_bucket_timestamps(2),
         num_msgs: 2,
         start_rolling_hash: 0,
         prover_id: 7,
@@ -120,6 +139,7 @@ fn non_zero_padding_lane_fails() {
     let private_inputs = InboxParityPrivateInputs {
         msgs,
         bucket_starts: only_first_is_bucket_start(),
+        bucket_timestamps: one_bucket_timestamps(2),
         num_msgs: 2,
         start_rolling_hash: 0,
         prover_id: 7,
@@ -136,6 +156,7 @@ fn first_message_not_a_bucket_start_fails() {
     let private_inputs = InboxParityPrivateInputs {
         msgs,
         bucket_starts: [false; S],
+        bucket_timestamps: one_bucket_timestamps(2),
         num_msgs: 2,
         start_rolling_hash: 0,
         prover_id: 7,
@@ -155,6 +176,7 @@ fn bucket_start_in_padding_lane_fails() {
     let private_inputs = InboxParityPrivateInputs {
         msgs,
         bucket_starts,
+        bucket_timestamps: one_bucket_timestamps(2),
         num_msgs: 2,
         start_rolling_hash: 0,
         prover_id: 7,
@@ -168,6 +190,7 @@ fn empty_checkpoint_needs_no_bucket_start() {
         InboxParityPrivateInputs {
             msgs: [0; S],
             bucket_starts: [false; S],
+            bucket_timestamps: [0; S],
             num_msgs: 0,
             start_rolling_hash: 0x2a,
             prover_id: 7,
@@ -181,7 +204,69 @@ fn num_msgs_greater_than_size_fails() {
     let private_inputs = InboxParityPrivateInputs {
         msgs: [0; S],
         bucket_starts: only_first_is_bucket_start(),
+        bucket_timestamps: one_bucket_timestamps(S),
         num_msgs: S + 1,
+        start_rolling_hash: 0,
+        prover_id: 7,
+    };
+    let _ = inbox_parity::execute(private_inputs);
+}
+
+#[test]
+fn bucket_timestamps_are_committed_to() {
+    // Two checkpoints over the same messages in the same buckets, with the second bucket opened one second later,
+    // reach different rolling hashes: the chain pins each bucket's L1 time. The sponge is unaffected — it absorbs the
+    // leaves and their flags only — so the rolling hash is the sole commitment to bucket time.
+    let mut msgs = [0; S];
+    msgs[0] = 101;
+    msgs[1] = 202;
+    msgs[2] = 303;
+
+    let mut bucket_starts = only_first_is_bucket_start();
+    bucket_starts[2] = true;
+
+    let mut retimed = one_bucket_timestamps(3);
+    retimed[2] = TS + 1;
+
+    let original = inbox_parity::execute(
+        InboxParityPrivateInputs {
+            msgs,
+            bucket_starts,
+            bucket_timestamps: one_bucket_timestamps(3),
+            num_msgs: 3,
+            start_rolling_hash: 0,
+            prover_id: 7,
+        },
+    );
+    let re_timed = inbox_parity::execute(
+        InboxParityPrivateInputs {
+            msgs,
+            bucket_starts,
+            bucket_timestamps: retimed,
+            num_msgs: 3,
+            start_rolling_hash: 0,
+            prover_id: 7,
+        },
+    );
+
+    assert(original.end_rolling_hash != re_timed.end_rolling_hash);
+    assert_eq(original.end_sponge, re_timed.end_sponge);
+}
+
+#[test(should_fail_with = "Found bucket timestamp after breakpoint")]
+fn bucket_timestamp_in_padding_lane_fails() {
+    let mut msgs = [0; S];
+    msgs[0] = 11;
+    msgs[1] = 22;
+
+    let mut bucket_timestamps = one_bucket_timestamps(2);
+    bucket_timestamps[5] = TS;
+
+    let private_inputs = InboxParityPrivateInputs {
+        msgs,
+        bucket_starts: only_first_is_bucket_start(),
+        bucket_timestamps,
+        num_msgs: 2,
         start_rolling_hash: 0,
         prover_id: 7,
     };

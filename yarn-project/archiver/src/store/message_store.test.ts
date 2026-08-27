@@ -251,7 +251,12 @@ describe('MessageStore', () => {
         ...previous,
         leaf,
         index: previous.index + 1n,
-        inboxRollingHash: updateInboxRollingHash(previous.inboxRollingHash, leaf, bucket.seq !== previous.bucketSeq),
+        inboxRollingHash: updateInboxRollingHash(
+          previous.inboxRollingHash,
+          leaf,
+          bucket.seq !== previous.bucketSeq,
+          bucket.timestamp,
+        ),
         bucketSeq: bucket.seq,
         bucketTimestamp: bucket.timestamp,
       };
@@ -451,15 +456,15 @@ describe('MessageStore', () => {
       const msgs = makeBucketedMessages(threeBucketSpec);
       await messageStore.addL1ToL2MessageBuckets(msgs);
       const leaves = msgs.map(m => m.leaf);
+      // Each group carries its bucket's L1 timestamp, which is what the rolling hash links its leaves with.
+      const bucket1 = { timestamp: 100n, leaves: leaves.slice(0, 3) };
+      const bucket2 = { timestamp: 200n, leaves: leaves.slice(3, 5) };
+      const bucket3 = { timestamp: 300n, leaves: leaves.slice(5) };
 
       // Bucket 1 = [0,1,2], bucket 2 = [3,4], bucket 3 = [5]; each range comes back as one group per bucket.
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual([
-        leaves.slice(0, 3),
-        leaves.slice(3, 5),
-        leaves.slice(5),
-      ]);
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual([leaves.slice(3, 5)]);
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual([leaves.slice(5)]);
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual([bucket1, bucket2, bucket3]);
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual([bucket2]);
+      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual([bucket3]);
       // An empty (fromExclusive, toInclusive] range yields no messages.
       expect(await messageStore.getL1ToL2MessagesBetweenBuckets(3n, 3n)).toEqual([]);
     });
@@ -480,16 +485,15 @@ describe('MessageStore', () => {
       const msgs = makeBucketedMessages(threeBucketSpec);
       await messageStore.addL1ToL2MessageBuckets(msgs);
       const leaves = msgs.map(m => m.leaf);
+      const bucket1 = { timestamp: 100n, leaves: leaves.slice(0, 3) };
+      const bucket2 = { timestamp: 200n, leaves: leaves.slice(3, 5) };
+      const bucket3 = { timestamp: 300n, leaves: leaves.slice(5) };
 
       // Bucket boundaries sit at cumulative counts 0 (genesis), 3, 5 and 6.
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 6n)).toEqual([
-        leaves.slice(0, 3),
-        leaves.slice(3, 5),
-        leaves.slice(5),
-      ]);
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 3n)).toEqual([leaves.slice(0, 3)]);
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(3n, 5n)).toEqual([leaves.slice(3, 5)]);
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 6n)).toEqual([leaves.slice(5)]);
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 6n)).toEqual([bucket1, bucket2, bucket3]);
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 3n)).toEqual([bucket1]);
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(3n, 5n)).toEqual([bucket2]);
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 6n)).toEqual([bucket3]);
       // An empty range consumes nothing, at a bucket boundary or at genesis.
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 5n)).toEqual([]);
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 0n)).toEqual([]);
@@ -572,18 +576,34 @@ describe('MessageStore', () => {
     it('reindexes a bucket re-delivered from an L1 block with a different timestamp', async () => {
       const msgs = makeBucketedMessages(threeBucketSpec);
       await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 3));
-      await messageStore.removeL1ToL2Messages(msgs[2].index);
+      // The reorged L1 block holding bucket 1 was re-mined at a later timestamp with the same leaves. Since the
+      // rolling hash absorbs the bucket timestamp, the chain diverges from the bucket's first message, so the
+      // synchronizer's rollback drops the whole bucket before the re-delivery.
+      await messageStore.removeL1ToL2Messages(msgs[0].index);
 
-      // The reorged L1 block holding bucket 1 was re-mined at a later timestamp.
-      const replayed = [msgs[0], msgs[1], makeNextMessage(msgs[1], { seq: 1n, timestamp: 100n })].map(msg => ({
-        ...msg,
-        bucketTimestamp: 150n,
-      }));
+      let rollingHash = Fr.ZERO;
+      const replayed = msgs.slice(0, 3).map((msg, i) => {
+        rollingHash = updateInboxRollingHash(rollingHash, msg.leaf, i === 0, 150n);
+        return { ...msg, bucketTimestamp: 150n, inboxRollingHash: rollingHash };
+      });
+      // Same leaves, same packing, only the bucket's L1 time differs: every hash in the bucket changes.
+      expect(replayed.map(m => m.inboxRollingHash)).not.toEqual(msgs.slice(0, 3).map(m => m.inboxRollingHash));
+
       await messageStore.addL1ToL2MessageBuckets(replayed);
 
-      expect(await messageStore.getInboxBucket(1n)).toMatchObject({ timestamp: 150n, msgCount: 3 });
+      expect(await messageStore.getInboxBucket(1n)).toEqual({
+        seq: 1n,
+        inboxRollingHash: replayed[2].inboxRollingHash,
+        totalMsgCount: 3n,
+        timestamp: 150n,
+        l1BlockNumber: replayed[0].l1BlockNumber,
+        l1BlockHash: replayed[0].l1BlockHash,
+        msgCount: 3,
+        lastMessageIndex: replayed[2].index,
+      });
       expect(await messageStore.getLatestInboxBucketAtOrBefore(100n)).toBeUndefined();
       expect((await messageStore.getLatestInboxBucketAtOrBefore(150n))!.seq).toEqual(1n);
+      expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual(replayed);
     });
 
     it('rolls back whole buckets past an L1 block', async () => {

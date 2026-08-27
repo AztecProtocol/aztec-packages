@@ -286,7 +286,11 @@ describe('LightweightCheckpointBuilder', () => {
 
       const messages = [new Fr(0xb00), new Fr(0xb01)];
       const globalVariables2 = makeGlobalVariables(BlockNumber(2), slotNumber);
-      const { block } = await checkpointBuilder.applyEffectsAndSealBlock(globalVariables2, [], [messages]);
+      const { block } = await checkpointBuilder.applyEffectsAndSealBlock(
+        globalVariables2,
+        [],
+        [{ timestamp: 1000n, leaves: messages }],
+      );
 
       expect(block.body.txEffects.length).toBe(0);
       expect(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex).toBe(messages.length);
@@ -308,13 +312,14 @@ describe('LightweightCheckpointBuilder', () => {
       // applyEffectsAndSealBlock appends the messages itself.
       const fork1 = await worldState.fork();
       const builder1 = LightweightCheckpointBuilder.startNewCheckpoint(checkpointNumber, constants, [], Fr.ZERO, fork1);
-      const { block: block1 } = await builder1.applyEffectsAndSealBlock(globalVariables, [], [messages]);
+      const bundle = [{ timestamp: 1000n, leaves: messages }];
+      const { block: block1 } = await builder1.applyEffectsAndSealBlock(globalVariables, [], bundle);
 
       // sealBlock expects the caller to have appended the messages already.
       const fork2 = await worldState.fork();
       const builder2 = LightweightCheckpointBuilder.startNewCheckpoint(checkpointNumber, constants, [], Fr.ZERO, fork2);
       await appendL1ToL2MessagesToTree(fork2, messages);
-      const { block: block2 } = await builder2.sealBlock(globalVariables, [], [messages]);
+      const { block: block2 } = await builder2.sealBlock(globalVariables, [], bundle);
 
       expect(block2.header.equals(block1.header)).toBe(true);
       expect(block1.header.state.l1ToL2MessageTree.nextAvailableLeafIndex).toBe(messages.length);

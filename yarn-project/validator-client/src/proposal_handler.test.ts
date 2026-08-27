@@ -1063,7 +1063,7 @@ describe('ProposalHandler checkpoint validation', () => {
     it('re-executes with the bundle derived from the buckets when the checks pass', async () => {
       const ref = new InboxBucketRef(1n, 100n, new Fr(0xabc));
       const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref);
-      const derivedBundle = [[new Fr(1000), new Fr(1001)]];
+      const derivedBundle = [{ timestamp: 100n, leaves: [new Fr(1000), new Fr(1001)] }];
       l1ToL2MessageSource.getInboxBucket.mockResolvedValue(bucket());
       l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
         bucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),
@@ -1110,7 +1110,9 @@ describe('ProposalHandler checkpoint validation', () => {
         l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
           eligibleBucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),
         );
-        l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue([[new Fr(1000), new Fr(1001)]]);
+        l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue([
+          { timestamp: 10n, leaves: [new Fr(1000), new Fr(1001)] },
+        ]);
       }
 
       it('attests once the referenced bucket shows up on a later archiver sync', async () => {

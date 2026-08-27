@@ -1,6 +1,11 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type InboxBucket, MIN_BLOCKS_FOR_INBOX_CATCHUP, isInboxConsumptionSufficient } from '@aztec/stdlib/messaging';
+import {
+  type InboxBucket,
+  MIN_BLOCKS_FOR_INBOX_CATCHUP,
+  bundleLength,
+  isInboxConsumptionSufficient,
+} from '@aztec/stdlib/messaging';
 
 import { BlockNotFoundError } from 'viem';
 
@@ -63,9 +68,13 @@ function makeSource(specs: TestBucketSpec[]): {
       return Promise.resolve(
         ordered
           .filter(bucket => bucket.seq > fromExclusive && bucket.seq <= toInclusive && bucket.msgCount > 0)
-          .map(bucket =>
-            leaves.slice(Number(bucket.lastMessageIndex + 1n) - bucket.msgCount, Number(bucket.lastMessageIndex + 1n)),
-          ),
+          .map(bucket => ({
+            timestamp: bucket.timestamp,
+            leaves: leaves.slice(
+              Number(bucket.lastMessageIndex + 1n) - bucket.msgCount,
+              Number(bucket.lastMessageIndex + 1n),
+            ),
+          })),
       );
     },
   };
@@ -137,7 +146,7 @@ describe('selectInboxBucketForBlock', () => {
     expect(result).toMatchObject({ consume: true });
     if (result.consume) {
       expect(result.bucket.seq).toBe(2n);
-      expect(result.bundle.flat()).toHaveLength(5); // buckets 1 (3) + 2 (2)
+      expect(bundleLength(result.bundle)).toBe(5); // buckets 1 (3) + 2 (2)
       expect(result.bundle).toHaveLength(2); // one group per bucket
     }
   });
@@ -159,7 +168,7 @@ describe('selectInboxBucketForBlock', () => {
     expect(result).toMatchObject({ consume: true });
     if (result.consume) {
       expect(result.bucket.seq).toBe(2n);
-      expect(result.bundle.flat()).toHaveLength(5); // buckets 1 (3) + 2 (2)
+      expect(bundleLength(result.bundle)).toBe(5); // buckets 1 (3) + 2 (2)
     }
     // The walk starts at the archiver's head bucket and stops at the first eligible one.
     expect(isEligible.asked).toEqual([3n, 2n]);
@@ -298,7 +307,7 @@ describe('selectInboxBucketForBlock', () => {
     expect(result).toMatchObject({ consume: true });
     if (result.consume) {
       expect(result.bucket.seq).toBe(2n);
-      expect(result.bundle.flat()).toHaveLength(400);
+      expect(bundleLength(result.bundle)).toBe(400);
     }
   });
 
@@ -349,7 +358,7 @@ describe('selectInboxBucketForBlock', () => {
     expect(second).toMatchObject({ consume: true });
     if (second.consume) {
       expect(second.bucket.seq).toBe(2n);
-      expect(second.bundle.flat()).toHaveLength(3); // only bucket 2's messages, not bucket 1's
+      expect(bundleLength(second.bundle)).toBe(3); // only bucket 2's messages, not bucket 1's
       expect(second.bundle).toEqual(await source.getL1ToL2MessagesBetweenBuckets(1n, 2n));
     }
   });

@@ -11,6 +11,7 @@ import {
   type InboxMessageBundle,
   ScopedL2ToL1Message,
   accumulateInboxRollingHash,
+  bundleLength,
   computeEpochOutHash,
 } from '@aztec/stdlib/messaging';
 import { makeScopedL2ToL1Message } from '@aztec/stdlib/testing';
@@ -214,7 +215,7 @@ describe('prover/orchestrator/top-tree', () => {
       // The epoch's rolling-hash range binds the exact message sequence consumed, in block order, across all three
       // checkpoints; L1 validates this range against the Inbox when the proof lands.
       const epochBundle = [...a.fixture.l1ToL2MessageBundle, ...b.fixture.l1ToL2MessageBundle];
-      expect(epochBundle.flat().length).toBe(7); // sanity: the fixtures really did carry messages
+      expect(bundleLength(epochBundle)).toBe(7); // sanity: the fixtures really did carry messages
       expect(result.publicInputs.previousInboxRollingHash).toEqual(Fr.ZERO);
       expect(result.publicInputs.endInboxRollingHash).toEqual(accumulateInboxRollingHash(Fr.ZERO, epochBundle));
     } finally {

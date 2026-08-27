@@ -48,7 +48,16 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     const seqs = [...this.messagesPerBucket.keys()]
       .filter(seq => seq > fromExclusive && seq <= toInclusive)
       .sort((a, b) => Number(a - b));
-    return Promise.resolve(compactArray(seqs.map(seq => this.messagesPerBucket.get(seq))).filter(m => m.length > 0));
+    return Promise.resolve(
+      compactArray(
+        seqs.map(seq => {
+          const leaves = this.messagesPerBucket.get(seq);
+          return leaves === undefined || leaves.length === 0
+            ? undefined
+            : { timestamp: this.buckets.get(seq)?.timestamp ?? 0n, leaves };
+        }),
+      ),
+    );
   }
 
   async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageBundle> {

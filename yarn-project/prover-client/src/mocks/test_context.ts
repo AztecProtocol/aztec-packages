@@ -202,7 +202,8 @@ export class TestContext {
     // the checkpoint's first block, matching how the per-block driver slices them.
     const l1ToL2Messages = times(numL1ToL2Messages, i => new Fr(slotNumber * 100 + i));
     // The mock puts the whole checkpoint in one Inbox bucket carried by its first block.
-    const l1ToL2MessageBundle: InboxMessageBundle = l1ToL2Messages.length > 0 ? [l1ToL2Messages] : [];
+    const l1ToL2MessageBundle: InboxMessageBundle =
+      l1ToL2Messages.length > 0 ? [{ timestamp: BigInt(slotNumber * 26), leaves: l1ToL2Messages }] : [];
     const l1ToL2MessageBundlesPerBlock = times(numBlocks, i => (i === 0 ? l1ToL2MessageBundle : []));
     await fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, fork);
@@ -334,10 +335,10 @@ export class TestContext {
     const constants = makeCheckpointConstants(slotNumber, constantOpts);
     const l1ToL2Messages = l1ToL2MessagesPerBlock.flat();
     // Each non-empty per-block slice is one Inbox bucket; the checkpoint's bundle is their concatenation.
-    const l1ToL2MessageBundle: InboxMessageBundle = l1ToL2MessagesPerBlock.filter(slice => slice.length > 0);
-    const l1ToL2MessageBundlesPerBlock: InboxMessageBundle[] = l1ToL2MessagesPerBlock.map(slice =>
-      slice.length > 0 ? [slice] : [],
+    const l1ToL2MessageBundlesPerBlock: InboxMessageBundle[] = l1ToL2MessagesPerBlock.map((slice, i) =>
+      slice.length > 0 ? [{ timestamp: BigInt(slotNumber * 26 + i), leaves: slice }] : [],
     );
+    const l1ToL2MessageBundle: InboxMessageBundle = l1ToL2MessageBundlesPerBlock.flat();
 
     const fork = await this.worldState.fork();
 
