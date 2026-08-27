@@ -449,13 +449,16 @@ labs-use-local: labs-patched labs-deps
 # bootstrap-side collectors (scripts/labs_test_cmds.sh).
 LABS_MAKE := $(ROOT)/scripts/labs_env.sh $(MAKE)
 
+# fast covers what a foundation change can break: labs compiled against the portals and its
+# unit/e2e tests, and the contracts against this tree's nargo/bb. docs, spartan, playground and
+# the claude tooling only consume yarn-project and go in full (the pin-bump PR runs full).
 labs-fast: labs-use-local
 	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) \
-	  yarn-project yarn-project-tests aztec-nr noir-contracts contract-snapshots-tests \
-	  spartan playground playground-tests docs docs-tests claude-tests)
+	  yarn-project yarn-project-tests aztec-nr noir-contracts contract-snapshots-tests)
 
 labs-full: labs-fast
-	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) yarn-project-benches)
+	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) \
+	  spartan playground playground-tests docs docs-tests claude-tests yarn-project-benches)
 
 # Just the labs yarn-project, for callers that need its build output and nothing else.
 labs-yarn-project: labs-use-local

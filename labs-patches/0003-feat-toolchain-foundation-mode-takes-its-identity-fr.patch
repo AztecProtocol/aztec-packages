@@ -13,7 +13,7 @@ use-local rewrite, and this directory is hashed the same way as in pinned mode.
 A dirty provider disables caching here as it would there.
 
 diff --git a/labs-aztec-toolchain/bootstrap.sh b/labs-aztec-toolchain/bootstrap.sh
-index e68f935c6dd3387f5f589ad76ce21a4be620b5d8..c7dd78bd26ec6e9e8d37cbcbfc00c4a175e4a325 100755
+index e68f935c6dd3387f5f589ad76ce21a4be620b5d8..cd3c95fb09b28cb24bd014a29a2ca0c759ee4ea4 100755
 --- a/labs-aztec-toolchain/bootstrap.sh
 +++ b/labs-aztec-toolchain/bootstrap.sh
 @@ -28,6 +28,10 @@ NOIR_PROFILER_BINARY=noir-profiler
@@ -27,10 +27,41 @@ index e68f935c6dd3387f5f589ad76ce21a4be620b5d8..c7dd78bd26ec6e9e8d37cbcbfc00c4a1
  
  # Pinned versions installed in pinned mode (see build_pinned; foundation mode links the
  # locally built binaries instead and ignores these). These versions are also hardcoded in
-@@ -434,17 +438,20 @@ function hash {
-       echo_stderr "noir-profiler: $(realpath -m "$noir_profiler")"
-       exit 1
-     fi
+@@ -422,68 +426,38 @@ function noir_version {
+ }
+ 
+ function hash {
++  # The identity is this directory's committed content: in pinned mode the pins name immutable
++  # releases and the provisioning logic decides what lands in bin/; in foundation mode the
++  # driving checkout records the content hashes of every component it provides in
++  # fnd-hashes, committed alongside the use-local rewrite. Either way the hash is computable
++  # on a fresh checkout, before anything is provisioned, and does not read a provisioned byte
++  # (a corrupted bin/ cannot mint a valid-looking key; bytes are verified at provision time,
++  # see labs_pin_record/is_current). cache_content_hash mixes in the platform tag; dirty
++  # toolchain files, or a provider that was dirty when fnd-hashes was written, disable caching.
++  local content_hash
++  content_hash=$(cache_content_hash "^labs-aztec-toolchain/")
++  if [ "$content_hash" == "disabled-cache" ] || grep -qs "disabled-cache" "$FND_HASHES_FILE"; then
++    echo disabled-cache
++    return
++  fi
++  # What the toolchain provides on this machine, including an optional binary's absence, is
++  # part of its identity and is known without provisioning: the foundation records the
++  # optional binaries it built; from a release, bb-avm ships for linux only and acvm is
++  # compiled locally exactly where cargo exists.
++  local expected=""
+   if [ -n "$FND_ROOT" ]; then
+     check_fnd_root
+-    local bb="$TARGET_DIR/$BB_BINARY"
+-    local nargo="$TARGET_DIR/$NARGO_BINARY"
+-    local noir_profiler="$TARGET_DIR/$NOIR_PROFILER_BINARY"
+-    if [ ! -f "$bb" ] || [ ! -f "$nargo" ] || [ ! -f "$noir_profiler" ]; then
+-      echo_stderr "Cannot compute toolchain hash, binaries not found (build first):"
+-      echo_stderr "bb: $(realpath -m "$bb")"
+-      echo_stderr "nargo: $(realpath -m "$nargo")"
+-      echo_stderr "noir-profiler: $(realpath -m "$noir_profiler")"
+-      exit 1
+-    fi
 -    # The toolchain's identity is the SOURCE identity of its providers, not the bytes of the
 -    # built binaries: bb/bb-avm get the current commit hash stamped into them on non-release
 -    # builds (inject_version in barretenberg/cpp/bootstrap.sh), so hashing bytes makes every
@@ -39,34 +70,51 @@ index e68f935c6dd3387f5f589ad76ce21a4be620b5d8..c7dd78bd26ec6e9e8d37cbcbfc00c4a1
 -    # Composing the upstream content hashes keys rebuilds on exactly the same inputs that decide
 -    # whether the binaries themselves rebuild.
 -    #
-+    # The identity is this directory's committed content, as in pinned mode: the driving
-+    # foundation checkout records the content hashes of every component it provides (the
-+    # binaries and the packages the manifests portal into) in fnd-hashes here, committed
-+    # alongside the use-local rewrite, so every consumer's cache key follows the foundation
-+    # tree without this repo knowing anything about it. A provider that was dirty when the
-+    # record was written disables caching here too.
-+    local content_hash
-+    content_hash=$(cache_content_hash "^labs-aztec-toolchain/")
-+    if [ "$content_hash" == "disabled-cache" ] || grep -qs "disabled-cache" "$FND_HASHES_FILE"; then
-+      echo disabled-cache
-+      return
-+    fi
-     # The optional binaries contribute presence only: what the toolchain provides (including
+-    # The optional binaries contribute presence only: what the toolchain provides (including
 -    # their absence) is part of its identity, but their content is already covered by the
 -    # provider hashes.
-+    # their absence) is part of its identity.
-     local provided=""
-     local optional
-     for optional in "$TARGET_DIR/$BB_AVM_BINARY" "$TARGET_DIR/$ACVM_BINARY"; do
-@@ -452,10 +459,7 @@ function hash {
-         provided+=" $(basename "$optional")"
-       fi
-     done
+-    local provided=""
+-    local optional
+-    for optional in "$TARGET_DIR/$BB_AVM_BINARY" "$TARGET_DIR/$ACVM_BINARY"; do
+-      if [ -f "$optional" ]; then
+-        provided+=" $(basename "$optional")"
+-      fi
+-    done
 -    hash_str \
 -      $("$FND_ROOT"/barretenberg/cpp/bootstrap.sh hash) \
 -      $("$FND_ROOT"/noir/bootstrap.sh hash) \
 -      "$provided"
-+    hash_str "$content_hash" "$provided"
++    [ -f "$FND_HASHES_FILE" ] || { echo_stderr "$FND_HASHES_FILE not found: the foundation checkout writes it before building (make labs-use-local)."; exit 1; }
++    expected=$(sed -n 's/^optional=//p' "$FND_HASHES_FILE")
    else
-     # Pinned mode: the identity is this directory's committed content — the pins name
-     # immutable releases and the provisioning logic decides what lands in bin/, so together
+-    # Pinned mode: the identity is this directory's committed content — the pins name
+-    # immutable releases and the provisioning logic decides what lands in bin/, so together
+-    # they determine the toolchain without reading a single provisioned byte. That keeps the
+-    # hash computable on a fresh checkout (before any build), commit-independent, and immune
+-    # to a corrupted bin/ minting a fresh valid-looking cache key; byte verification against
+-    # the pins happens at provision time instead (see labs_pin_record/is_current).
+-    # cache_content_hash mixes in the platform tag, and dirty toolchain files must disable
+-    # caching rather than being laundered into a stable-looking key.
+-    local content_hash
+-    content_hash=$(cache_content_hash "^labs-aztec-toolchain/")
+-    if [ "$content_hash" == "disabled-cache" ]; then
+-      echo disabled-cache
+-      return
+-    fi
+-    # Mirror foundation mode: what the toolchain provides on this machine (including an
+-    # optional binary's absence) is part of its identity. Both facts are known without
+-    # provisioning: bb-avm is released for linux only, and acvm is compiled locally so it
+-    # exists exactly where cargo does.
+-    local expected=""
+     if bb_avm_released_here; then
+       expected+=" $BB_AVM_BINARY"
+     fi
+     if command -v cargo &>/dev/null; then
+       expected+=" $ACVM_BINARY"
+     fi
+-    hash_str "$content_hash" "$expected"
+   fi
++  hash_str "$content_hash" "$expected"
+ }
+ 
+ case "$cmd" in

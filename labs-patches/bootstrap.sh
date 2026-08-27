@@ -276,6 +276,15 @@ function commit_use_local {
   local amend=()
   [ "$(git_labs log -1 --format=%s)" = "$MARKER_SUBJECT" ] && amend=(--amend)
   echo "$rewrite" | xargs git -C "$labs" add --
+  # The lockfile refresh should only touch the entries use-local rewrote (and what those
+  # packages pull in); yarn also re-resolves tag ranges such as `latest`, which would move
+  # every labs cache key without a foundation change. Surface anything of that kind.
+  local drift
+  drift=$(git_labs diff --cached -U0 -- '*yarn.lock' | grep -E '^[-+]"' | grep -vE 'portal:|file:|link:|@aztec' | sed 's/^\([-+]\)"\([^"]*\)".*/  \1 \2/' | sort -u || true)
+  if [ -n "$drift" ]; then
+    echo "labs-patches: note: lockfile entries changed outside the portal rewrite (yarn re-resolved them):" >&2
+    echo "$drift" >&2
+  fi
   git_labs -c user.name=labs-patches -c user.email=labs-patches@localhost \
     commit -q ${amend[@]+"${amend[@]}"} -m "$MARKER_SUBJECT" -m "Manifests rewritten by labs-aztec-toolchain use-local to consume the foundation checkout this submodule sits in. Not part of the patch series."
   echo "Committed the use-local rewrite as $(git_labs rev-parse --short HEAD)."
