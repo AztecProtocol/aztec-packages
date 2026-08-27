@@ -52,7 +52,13 @@ export async function runOperation<T>(args: RunOperationArgs, fn: () => Promise<
   } catch (err) {
     log.verbose(`Aborting operation ${changeSetId}`, { changeSetId });
     await settleContributorsLoggingFailures(args);
-    stagedWriteCoordinator.abort(changeSetId);
+    try {
+      stagedWriteCoordinator.abort(changeSetId);
+    } catch (abortErr) {
+      // Nothing here can undo a failed abort, so it is logged, but the error that ended the operation is the one
+      // reported.
+      log.error(`Failed to abort operation ${changeSetId}`, abortErr, { changeSetId });
+    }
     notifyOperationEnd(args, 'discarded');
     throw err;
   }

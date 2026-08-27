@@ -136,6 +136,34 @@ describe('runOperation', () => {
     expect(notified).toEqual(['committed', 'discarded']);
   });
 
+  it('reports the operation error and still notifies contributors when the abort fails', async () => {
+    coordinator = new StagedWriteCoordinator({
+      kvStore: store,
+      stagedStores: [
+        {
+          storeName: 'undiscardable_store',
+          commitChangeSet: () => Promise.resolve(),
+          discardChangeSet: () => {
+            throw new Error('cannot discard');
+          },
+        },
+      ],
+    });
+    const notified: string[] = [];
+    const contributors: OperationContributor[] = [
+      {
+        onOperationEnd: (_, outcome) => {
+          notified.push(outcome);
+        },
+      },
+    ];
+
+    await expect(run(contributors, () => Promise.reject(new Error('operation failed'))).operation).rejects.toThrow(
+      'operation failed',
+    );
+    expect(notified).toEqual(['discarded']);
+  });
+
   /** Begins a change set and runs `fn` as an operation over it. */
   function run<T>(contributors: OperationContributor[], fn: () => Promise<T>) {
     const changeSetId = coordinator.begin();

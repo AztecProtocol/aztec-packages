@@ -87,7 +87,11 @@ export class StagedWriteCoordinator {
   /**
    * Opens a change set and returns its ID for staged writes.
    *
+   * All or nothing: if a store fails to open the change set, the stores that already opened it discard it again and
+   * nothing is left active, so a later change set can still be opened on this PXE instance.
+   *
    * @returns Change set ID to pass to store operations
+   * @throws If a change set is already open, or if a store rejects the new one.
    */
   begin(): ChangeSetId {
     if (this.#currentChangeSetId) {
@@ -98,12 +102,8 @@ export class StagedWriteCoordinator {
     }
 
     const changeSetId = randomBytes(8).toString('hex');
+    this.#beginChangeSetOnStores(changeSetId);
     this.#currentChangeSetId = changeSetId;
-
-    for (const store of this.#stagedStores.values()) {
-      store.beginChangeSet?.(changeSetId);
-    }
-
     this.#log.debug(`Opened change set ${changeSetId}`, { changeSetId });
     return changeSetId;
   }
@@ -111,7 +111,11 @@ export class StagedWriteCoordinator {
   /**
    * Commits by promoting all staged data to persistent storage.
    *
+   * Unlike {@link begin} and {@link abort}, a failed commit leaves the change set open, so the caller must still
+   * {@link abort} it before another can be opened.
+   *
    * @param changeSetId - The change set ID returned from begin
+   * @throws If `changeSetId` is not the open change set, or if a store failed to commit.
    */
   async commit(changeSetId: ChangeSetId): Promise<void> {
     if (this.#currentChangeSetId !== changeSetId) {
@@ -137,7 +141,11 @@ export class StagedWriteCoordinator {
   /**
    * Aborts by discarding all staged data.
    *
+   * Every store gets to drop its staged data even if an earlier one failed, and the change set always ends, so a
+   * failed abort never blocks later change sets.
+   *
    * @param changeSetId - The change set ID returned from begin
+   * @throws If `changeSetId` is not the open change set, or if any store failed to discard.
    */
   abort(changeSetId: ChangeSetId): void {
     if (this.#currentChangeSetId !== changeSetId) {
@@ -149,12 +157,56 @@ export class StagedWriteCoordinator {
 
     this.#log.debug(`Aborting change set ${changeSetId}`, { changeSetId });
 
-    for (const store of this.#stagedStores.values()) {
-      store.discardChangeSet(changeSetId);
+    this.#currentChangeSetId = undefined;
+    this.#discardChangeSetOnStores(this.#stagedStores.values(), changeSetId);
+
+    this.#log.debug(`Change set ${changeSetId} aborted`, { changeSetId });
+  }
+
+  /** Opens the change set on every store, undoing it on any that accepted if a later one rejects, and rethrows. */
+  #beginChangeSetOnStores(changeSetId: ChangeSetId): void {
+    const begunStores: StagedStore[] = [];
+    try {
+      for (const store of this.#stagedStores.values()) {
+        store.beginChangeSet?.(changeSetId);
+        begunStores.push(store);
+      }
+    } catch (err) {
+      try {
+        this.#discardChangeSetOnStores(begunStores, changeSetId);
+      } catch (discardError) {
+        // The original error is that a store failed to begin the changeset, and we're throwing that
+        // unconditionally, so we just log this additional failure.
+        this.#log.error(`Failed to roll back change set ${changeSetId} after a store rejected it`, discardError, {
+          changeSetId,
+        });
+      }
+      throw err;
+    }
+  }
+
+  /** Discards the change set on every store in `stores`, throwing only once they have all had the chance. */
+  #discardChangeSetOnStores(stores: Iterable<StagedStore>, changeSetId: ChangeSetId): void {
+    // A store that fails must not stop the ones after it, so the failures are collected and thrown at the end.
+    const failures: Error[] = [];
+    for (const store of stores) {
+      try {
+        store.discardChangeSet(changeSetId);
+      } catch (err) {
+        failures.push(
+          new Error(
+            `Store "${store.storeName}" failed to discard change set ${changeSetId} and may still hold staged data.`,
+            { cause: err },
+          ),
+        );
+      }
     }
 
-    this.#currentChangeSetId = undefined;
-    this.#log.debug(`Change set ${changeSetId} aborted`, { changeSetId });
+    if (failures.length === 1) {
+      throw failures[0];
+    } else if (failures.length > 1) {
+      throw new AggregateError(failures);
+    }
   }
 }
 
