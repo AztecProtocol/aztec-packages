@@ -3,7 +3,7 @@ title: Contract Artifacts
 description: Understand the structure and contents of Aztec smart contract artifacts.
 tags: [contracts]
 sidebar_position: 13
-references: ["noir-projects/labs/noir-contracts/contracts/test/test_contract/src/main.nr", "yarn-project/stdlib/src/abi/contract_artifact.ts"]
+references: ["noir-projects/labs/noir-contracts/contracts/test/test_contract/src/main.nr", "yarn-project/stdlib/src/abi/contract_artifact.ts", "yarn-project/builder/src/contract-interface-gen/typescript.ts"]
 ---
 
 Compiling an Aztec contract produces a contract artifact file (`.json`) containing everything needed to interact with that contract: its name, functions, their interfaces, and compiled bytecode. Since private function bytecode is never published to the network, you need this artifact file to call private functions.
@@ -60,7 +60,23 @@ pub contract Globals {
 
 The example creates two groups under `outputs.globals`: `constants` and `limits`. Each group is an array of `{ name, value }` entries. Stacking attributes on `EXPORTED_SHARED_CONSTANT` exports the same global under both tags.
 
-When working directly with an artifact, use `getGlobalsByTag` to return the named entries for one tag as raw `AbiValue` objects:
+In TypeScript application code, run `aztec codegen` and read exported globals from the generated contract class. Codegen derives a static, read-only `globals` getter from `ContractArtifact.outputs.globals`, with decoded values grouped by tag:
+
+```typescript
+GlobalsContract.globals.constants.EXPORTED_FIELD_CONSTANT; // 1234n
+GlobalsContract.globals.constants.EXPORTED_STRING_CONSTANT; // 'exported'
+GlobalsContract.globals.limits.EXPORTED_LIMIT_CONSTANT; // 100n
+GlobalsContract.globals.constants.EXPORTED_SHARED_CONSTANT; // 7n
+GlobalsContract.globals.limits.EXPORTED_SHARED_CONSTANT; // 7n
+```
+
+The generated `globals` getter omits the `storage` tag. Aztec.nr reserves that tag for the generated storage layout, which the contract class exposes through its `storage` getter.
+
+:::warning
+Do not apply `#[abi(storage)]` to your own globals. Noir compiles the attribute without complaint, but the entry lands next to the generated storage layout and loading the artifact then fails with `Global '<name>' is exported under the reserved #[abi(storage)] tag`. Pick any other tag.
+:::
+
+When building tooling that works directly with artifacts instead of generated contract classes, use `getGlobalsByTag` to return the named entries for one tag as raw `AbiValue` objects:
 
 ```typescript
 import { getGlobalsByTag } from '@aztec/aztec.js/abi';

@@ -404,6 +404,33 @@ export interface ContractArtifact {
   fileMap: DebugFileMap;
 }
 
+/**
+ * Like `z.record(z.string(), value)`, but keeps a `__proto__` key: zod's record parser skips that key to protect
+ * itself from prototype pollution, silently dropping the entry. `__proto__` is a valid Noir identifier, so artifact
+ * record keys derived from user code (ABI tags, storage field names) can legitimately carry it. Entries are added
+ * with `Object.defineProperty`, which defines an own property instead of invoking the inherited `__proto__` setter.
+ */
+function recordSchemaWithProtoKey<TValue extends z.ZodType>(valueSchema: TValue) {
+  return z.unknown().transform((input, ctx): Record<string, z.output<TValue>> => {
+    if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+      ctx.addIssue({ code: 'custom', message: `Invalid input: expected record, received ${typeof input}` });
+      return z.NEVER;
+    }
+    const out: Record<string, z.output<TValue>> = {};
+    for (const key of Object.keys(input)) {
+      const parsed = valueSchema.safeParse((input as Record<string, unknown>)[key]);
+      if (!parsed.success) {
+        for (const issue of parsed.error.issues) {
+          ctx.addIssue({ code: 'custom', message: issue.message, path: [key, ...issue.path] });
+        }
+        continue;
+      }
+      Object.defineProperty(out, key, { value: parsed.data, writable: true, enumerable: true, configurable: true });
+    }
+    return out;
+  });
+}
+
 export const ContractArtifactSchema = zodFor<ContractArtifact>()(
   z.object({
     name: z.string(),
@@ -423,9 +450,9 @@ export const ContractArtifactSchema = zodFor<ContractArtifact>()(
         }
         return structs;
       }),
-      globals: z.record(z.string(), z.array(AbiNamedValueSchema)),
+      globals: recordSchemaWithProtoKey(z.array(AbiNamedValueSchema)),
     }),
-    storageLayout: z.record(z.string(), z.object({ slot: schemas.Fr })),
+    storageLayout: recordSchemaWithProtoKey(z.object({ slot: schemas.Fr })),
     fileMap: z.record(
       z.coerce.number(),
       z.object({

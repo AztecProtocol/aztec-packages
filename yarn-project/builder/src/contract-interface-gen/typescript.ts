@@ -1,12 +1,14 @@
 import {
   type ABIParameter,
   type ABIVariable,
+  type AbiValue,
   type ContractArtifact,
   EventSelector,
   type FunctionAbi,
   decodeFunctionSignature,
   getAllFunctionAbis,
   getDefaultInitializer,
+  getGlobalsByTag,
   isAztecAddressStruct,
   isBoundedVecStruct,
   isEthAddressStruct,
@@ -225,11 +227,11 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
     return '';
   }
 
-  const storageFieldsUnionType = entries.map(([name]) => `'${name}'`).join(' | ');
+  const storageFieldsUnionType = entries.map(([name]) => JSON.stringify(name)).join(' | ');
   const layout = entries
     .map(
       ([name, { slot }]) =>
-        `${name}: {
+        `${objectPropertyKey(name)}: {
       slot: new Fr(${slot.toBigInt()}n),
     }`,
     )
@@ -241,6 +243,74 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
       } as ContractStorageLayout<${storageFieldsUnionType}>;
     }
     `;
+}
+
+/**
+ * Renders a Noir name as an object literal property key.
+ */
+function objectPropertyKey(name: string): string {
+  // A literal `__proto__` key (quoted or not) sets the object's prototype instead of defining a
+  // property; the computed form defines a regular own property.
+  if (name === '__proto__') {
+    return `['__proto__']`;
+  }
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
+}
+
+/**
+ * Renders an AbiValue as a typescript literal: integers as bigints, strings/booleans as-is,
+ * arrays/tuples as array literals, and structs as object literals.
+ */
+function abiValueToTsLiteral(value: AbiValue): string {
+  switch (value.kind) {
+    case 'boolean':
+      return value.value.toString();
+    case 'string':
+      return JSON.stringify(value.value);
+    case 'integer': {
+      const magnitude = BigInt(`0x${value.value}`);
+      return `${value.sign ? -magnitude : magnitude}n`;
+    }
+    case 'array':
+      return `[${value.value.map(abiValueToTsLiteral).join(', ')}]`;
+    case 'tuple':
+      return `[${value.fields.map(abiValueToTsLiteral).join(', ')}]`;
+    case 'struct':
+      return `{ ${value.fields.map(f => `${objectPropertyKey(f.name)}: ${abiValueToTsLiteral(f.value)}`).join(', ')} }`;
+  }
+}
+
+/**
+ * Generates a getter exposing the globals exported with `#[abi(tag)]` as decoded values, grouped by tag.
+ * @param input - The contract artifact.
+ */
+function generateGlobalsGetter(input: ContractArtifact) {
+  // The `storage` tag is reserved by the aztec-nr macros for the storage layout, which is already
+  // exposed decoded through the `storage` getter.
+  const tags = Object.entries(input.outputs.globals)
+    .filter(([tag]) => tag !== 'storage')
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  if (tags.length === 0) {
+    return '';
+  }
+
+  const groups = tags.map(([tag]) => {
+    const fields = Object.entries(getGlobalsByTag(input, tag)).map(
+      ([name, value]) => `${objectPropertyKey(name)}: ${abiValueToTsLiteral(value)},`,
+    );
+    return `${objectPropertyKey(tag)}: {
+        ${fields.join('\n        ')}
+      },`;
+  });
+
+  return `/** Decoded values of the globals exported in this contract artifact with \`#[abi(tag)]\`, grouped by tag. */
+  public static get globals() {
+    return {
+      ${groups.join('\n      ')}
+    } as const;
+  }
+  `;
 }
 
 // events is of type AbiType
@@ -310,6 +380,7 @@ export async function generateTypescriptContractInterface(input: ContractArtifac
   const artifactStatement = artifactImportPath && generateAbiStatement(input.name, artifactImportPath);
   const artifactGetter = artifactImportPath && generateArtifactGetters(input.name);
   const storageLayoutGetter = artifactImportPath && generateStorageLayoutGetter(input);
+  const globalsGetter = artifactImportPath && generateGlobalsGetter(input);
   const { eventDefs, events } = await generateEvents(input.outputs.structs?.events);
 
   return `
@@ -340,6 +411,8 @@ export class ${input.name}Contract extends ContractBase {
   ${artifactGetter}
 
   ${storageLayoutGetter}
+
+  ${globalsGetter}
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {

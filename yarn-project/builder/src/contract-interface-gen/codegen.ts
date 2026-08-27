@@ -8,6 +8,9 @@ import path from 'path';
 import { generateTypescriptContractInterface } from './typescript.js';
 
 const cacheFilePath = './codegenCache.json';
+// Bump when the generated output changes (e.g. the typescript template), so caches written by older
+// generators are invalidated even though the artifact hashes they store are still current.
+const cacheVersion = 1;
 let cache: Record<string, { contractName: string; hash: string }> = {};
 
 /** Generate code options */
@@ -44,8 +47,11 @@ async function generateFromNoirAbi(outputPath: string, noirAbiPath: string, opts
   const currentHash = await generateFileHash(noirAbiPath);
   const cachedInstance = isCacheValid(fileName, currentHash);
   if (cachedInstance && !opts.force) {
-    console.log(`${fileName} has not changed. Skipping generation.`);
-    return `${outputPath}/${cachedInstance.contractName}.ts`;
+    const outputFilePath = `${outputPath}/${cachedInstance.contractName}.ts`;
+    if (await exists(outputFilePath)) {
+      console.log(`${fileName} has not changed. Skipping generation.`);
+      return outputFilePath;
+    }
   }
 
   const file = await readFile(noirAbiPath, 'utf8');
@@ -86,12 +92,15 @@ async function generateFileHash(filePath: string) {
 async function readCache() {
   if (await exists(cacheFilePath)) {
     const cacheRaw = await readFile(cacheFilePath, 'utf8');
-    cache = JSON.parse(cacheRaw);
+    const parsed = JSON.parse(cacheRaw);
+    cache = parsed.cacheVersion === cacheVersion ? parsed.contracts : {};
+  } else {
+    cache = {};
   }
 }
 
 async function writeCache() {
-  await writeFile(cacheFilePath, JSON.stringify(cache, null, 2), 'utf8');
+  await writeFile(cacheFilePath, JSON.stringify({ cacheVersion, contracts: cache }, null, 2), 'utf8');
 }
 
 function isCacheValid(contractName: string, currentHash: string) {
