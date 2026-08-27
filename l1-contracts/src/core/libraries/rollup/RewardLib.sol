@@ -80,13 +80,6 @@ library RewardLib {
 
   bytes32 private constant REWARD_STORAGE_POSITION = keccak256("aztec.reward.storage");
 
-  // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold
-  // offerings,
-  // such as sacrificial hearts, during rituals performed within temples.
-  // Deploy-time default for `protocolFeeRecipient`: the protocol fee is burned until governance
-  // redirects it via {updateProtocolFeeRecipient}.
-  address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
-
   /// @notice One-shot writer used during rollup construction. Writes every field of
   ///         {RewardConfig}, including the immutable `rewardDistributor` and `booster`.
   /// @dev Must only be reachable from the constructor path. Post-deployment updates go through
@@ -95,7 +88,8 @@ library RewardLib {
     require(Bps.unwrap(_config.sequencerBps) <= 10_000, Errors.RewardLib__InvalidSequencerBps());
     RewardStorage storage rewardStorage = getStorage();
     rewardStorage.config = _config;
-    rewardStorage.protocolFeeRecipient = BURN_ADDRESS;
+    // A Cuauhxicalli ("eagle gourd bowl") is a ceremonial Aztec vessel used to hold offerings.
+    rewardStorage.protocolFeeRecipient = address(bytes20("CUAUHXICALLI"));
   }
 
   /// @notice Owner-gated post-deployment writer for the protocol fee recipient.

@@ -119,7 +119,7 @@ interface IRollupCore {
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenCheckpointNumber, uint256 pendingCheckpointNumber);
   event ProtocolFeeMarginUpdated(uint16 oldBps, uint16 newBps);
-  event ProtocolFeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
+  event ProtocolFeeRecipientUpdated(address oldRecipient, address newRecipient);
 
   function claimSequencerRewards(address _recipient) external returns (uint256);
   function claimProverRewards(address _recipient, Epoch[] memory _epochs) external returns (uint256);
