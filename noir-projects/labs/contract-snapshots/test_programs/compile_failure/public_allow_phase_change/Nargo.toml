@@ -1,7 +1,0 @@
-[package]
-name = "public_allow_phase_change"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

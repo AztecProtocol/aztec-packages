@@ -1,8 +1,0 @@
-[package]
-name = "aave_bridge"
-type = "contract"
-
-[dependencies]
-aztec = { path = "../../../../noir-projects/labs/aztec-nr/aztec" }
-token_portal_content_hash_lib = { path = "../../../../noir-projects/labs/noir-contracts/contracts/libs/token_portal_content_hash_lib" }
-token = { path = "../../../../noir-projects/labs/noir-contracts/contracts/app/token_contract" }

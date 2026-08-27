@@ -74,7 +74,7 @@ function main {
 
   local explicit_ci_mode_labels=()
   local mode_label
-  for mode_label in ci-merge-queue ci-release-pr ci-full ci-full-no-test-cache ci-docs ci-barretenberg-full ci-barretenberg; do
+  for mode_label in ci-merge-queue ci-release-pr ci-full ci-full-no-test-cache ci-barretenberg-full ci-barretenberg; do
     if has_label "$mode_label"; then
       explicit_ci_mode_labels+=("$mode_label")
     fi
@@ -137,8 +137,6 @@ function main {
     ci_mode="full-no-test-cache"
   # elif has_label "ci-test-network"; then
   #   ci_mode="full-no-test-cache"
-  elif has_label "ci-docs" || [ "$target_branch" == "merge-train/docs" ]; then
-    ci_mode="docs"
   elif has_label "ci-barretenberg-full"; then
     ci_mode="barretenberg-full"
   elif has_label "ci-barretenberg" || [ "$target_branch" == "merge-train/barretenberg" ]; then

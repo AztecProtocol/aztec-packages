@@ -7,7 +7,7 @@
 # Options:
 #   --severity LEVEL   Minimum severity to fix: critical, high, medium, low (default: critical)
 #   --dry-run          Discover and report vulnerabilities without applying fixes or committing
-#   --workspaces LIST  Space-separated workspace roots (default: "yarn-project docs l1-contracts playground")
+#   --workspaces LIST  Space-separated workspace roots (default: "barretenberg/ts l1-contracts")
 #
 # Prerequisites:
 #   - Socket CLI: npm install -g socket
@@ -43,7 +43,7 @@ gh_output() {
 # --- Defaults ---
 SEVERITY="critical"
 DRY_RUN=false
-WORKSPACES="yarn-project docs l1-contracts playground"
+WORKSPACES="barretenberg/ts l1-contracts"
 
 # --- Parse args ---
 while [[ $# -gt 0 ]]; do
@@ -104,7 +104,7 @@ for workspace in $WORKSPACES; do
   log "Discovering vulnerabilities in $workspace"
   log "========================================="
 
-  output_file="/tmp/socket-fix-${workspace}-discovery.json"
+  output_file="/tmp/socket-fix-${workspace//\//-}-discovery.json"
 
   # CI= unsets the CI env var so socket CLI runs in interactive mode (avoids CI-only behavior).
   # Don't skip the workspace on non-zero exit — socket may still have written partial results.

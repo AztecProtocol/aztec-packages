@@ -1,7 +1,0 @@
-[package]
-name = "aztec_macro_too_many_args"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

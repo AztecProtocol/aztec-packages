@@ -1,7 +1,0 @@
-[package]
-name = "view_on_utility_fn"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

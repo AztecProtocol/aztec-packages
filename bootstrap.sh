@@ -307,12 +307,8 @@ function install_hooks {
 #!/usr/bin/env bash
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
-./yarn-project/precommit.sh
 ./noir/precommit.sh
 ./noir-projects/fnd/precommit.sh
-./noir-projects/labs/precommit.sh
-./yarn-project/constants/precommit.sh
-./docs/examples/ts/precommit.sh
 # Hooks are shared by every branch of this clone; older branches have no labs-patches.
 if [ -x ./labs-patches/bootstrap.sh ]; then ./labs-patches/bootstrap.sh check_staged; fi
 EOF
@@ -503,7 +499,10 @@ function labs_bench_cmds {
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/{fnd/noir-protocol-circuits,labs/noir-contracts} l1-contracts
+    set -- barretenberg/{ts,cpp,sol} noir-projects/fnd/noir-protocol-circuits l1-contracts
+    parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
+    labs_bench_cmds
+    return
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
@@ -747,7 +746,7 @@ function release_compat_e2e {
   # Pre-populate the legacy contract cache on the host. Test containers run with --net=none, so the
   # jest resolver's on-demand npm install would fail with EAI_AGAIN. Install here where we have network.
   for ver in "${versions[@]}"; do
-    node yarn-project/end-to-end/src/install_legacy_contracts.cjs "$ver"
+    (cd labs && env -u root -u ci3 node yarn-project/end-to-end/src/install_legacy_contracts.cjs "$ver")
   done
 
   # Build and run the compat test commands in an isolated subshell so the bespoke test settings
@@ -977,12 +976,6 @@ case "$cmd" in
   ##########################
   # MERGE TRAIN CI SUBSETS #
   ##########################
-  "ci-docs")
-    export CI=1
-    export USE_TEST_CACHE=1
-    ./bootstrap.sh build yarn-project
-    docs/bootstrap.sh ci
-    ;;
   "ci-barretenberg-debug")
     export CI=1
     export NATIVE_PRESET=debug
@@ -1019,36 +1012,6 @@ case "$cmd" in
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
-    ;;
-
-  #######################
-  # AVM QA ONE OFF JOBS #
-  #######################
-  "ci-avm-inputs-collection")
-    # Nightly job: Run e2e tests with AVM circuit inputs dumping, upload to cache
-    export CI=1
-    # Use tree hash for tarball name - consistent across all environments
-    export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
-    build
-    yarn-project/end-to-end/bootstrap.sh test_and_collect_avm_inputs
-    ;;
-  "ci-avm-check-circuit")
-    # Nightly job: Download cached AVM inputs and run check-circuit on each
-    export CI=1
-    # Use tree hash for tarball name - consistent across all environments
-    export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
-    build
-    yarn-project/end-to-end/bootstrap.sh avm_check_circuit
-    ;;
-  ##########################################
-  # ROLLUP UPGRADE DEPLOYMENT              #
-  ##########################################
-  "ci-deploy-rollup-upgrade")
-    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
-    # Args: <registry_address> [KEY=VALUE...]
-    export CI=1
-    build
-    exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
     ;;
 
   #################

@@ -1,7 +1,0 @@
-[package]
-name = "pub_utility_external_fn"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

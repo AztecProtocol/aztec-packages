@@ -1,9 +1,0 @@
-[package]
-name = "counter_contract_test"
-authors = [""]
-compiler_version = ">=0.25.0"
-type = "lib"
-
-[dependencies]
-aztec = { path = "../../../../noir-projects/labs/aztec-nr/aztec" }
-counter_contract = { path = "../counter_contract" }
