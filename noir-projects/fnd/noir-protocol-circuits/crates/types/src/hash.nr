@@ -207,41 +207,6 @@ pub fn accumulate_sha256(v0: Field, v1: Field) -> Field {
     sha256_to_field(hash_input_flattened)
 }
 
-/// Computes sha256 hash of 2 input fields, prefixed by a domain separator, so that the result cannot collide with an
-/// [`accumulate_sha256`] over the same two fields.
-///
-/// @returns A truncated field (i.e., the first byte is always 0).
-pub fn accumulate_sha256_with_separator(separator: u32, v0: Field, v1: Field) -> Field {
-    // Concatenate the separator and two fields into 4 + 32 x 2 = 68 bytes
-    let separator_as_bytes: [u8; 4] = (separator as Field).to_be_bytes();
-    let v0_as_bytes: [u8; 32] = v0.to_be_bytes();
-    let v1_as_bytes: [u8; 32] = v1.to_be_bytes();
-    let hash_input_flattened = separator_as_bytes.concat(v0_as_bytes).concat(v1_as_bytes);
-
-    sha256_to_field(hash_input_flattened)
-}
-
-/// Computes sha256 hash of 2 input fields prefixed by a domain separator and suffixed by a `u64`, so that the result
-/// cannot collide with an [`accumulate_sha256`] or [`accumulate_sha256_with_separator`] over the same values.
-///
-/// @returns A truncated field (i.e., the first byte is always 0).
-pub fn accumulate_sha256_with_separator_and_u64(
-    separator: u32,
-    v0: Field,
-    v1: Field,
-    suffix: u64,
-) -> Field {
-    // Concatenate the separator, two fields and the suffix into 4 + 32 x 2 + 8 = 76 bytes
-    let separator_as_bytes: [u8; 4] = (separator as Field).to_be_bytes();
-    let v0_as_bytes: [u8; 32] = v0.to_be_bytes();
-    let v1_as_bytes: [u8; 32] = v1.to_be_bytes();
-    let suffix_as_bytes: [u8; 8] = (suffix as Field).to_be_bytes();
-    let hash_input_flattened =
-        separator_as_bytes.concat(v0_as_bytes).concat(v1_as_bytes).concat(suffix_as_bytes);
-
-    sha256_to_field(hash_input_flattened)
-}
-
 pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
     poseidon::poseidon2::Poseidon2::hash(inputs, N)
 }

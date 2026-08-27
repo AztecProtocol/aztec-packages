@@ -1,7 +1,31 @@
 use types::{
     constants::{DOM_SEP__INBOX_ROLLING_HASH, DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START},
-    hash::accumulate_sha256_with_separator_and_u64,
+    hash::sha256_to_field,
 };
+
+/// Advances the Inbox rolling hash by one message leaf: `sha256ToField(separator || prev || leaf || bucket_timestamp)`
+/// over the 4-byte big-endian separator, the two 32-byte big-endian fields and the 8-byte big-endian timestamp of the
+/// bucket the leaf belongs to. The separator is `DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START` when the leaf opens its
+/// bucket and `DOM_SEP__INBOX_ROLLING_HASH` otherwise.
+pub fn update_inbox_rolling_hash(
+    prev: Field,
+    leaf: Field,
+    opens_bucket: bool,
+    bucket_timestamp: u64,
+) -> Field {
+    let separator = if opens_bucket {
+        DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START
+    } else {
+        DOM_SEP__INBOX_ROLLING_HASH
+    };
+    let separator_bytes: [u8; 4] = (separator as Field).to_be_bytes();
+    let prev_bytes: [u8; 32] = prev.to_be_bytes();
+    let leaf_bytes: [u8; 32] = leaf.to_be_bytes();
+    let timestamp_bytes: [u8; 8] = (bucket_timestamp as Field).to_be_bytes();
+    sha256_to_field(
+        separator_bytes.concat(prev_bytes).concat(leaf_bytes).concat(timestamp_bytes),
+    )
+}
 
 /// Extends the Inbox rolling sha256 chain by the first `num_leaves` of `leaves`, returning the new rolling hash.
 ///
@@ -29,17 +53,7 @@ pub fn accumulate_inbox_rolling_hash<let N: u32>(
     let mut acc = start;
     for i in 0..N {
         if i < num_leaves {
-            let separator = if bucket_starts[i] {
-                DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START
-            } else {
-                DOM_SEP__INBOX_ROLLING_HASH
-            };
-            acc = accumulate_sha256_with_separator_and_u64(
-                separator,
-                acc,
-                leaves[i],
-                bucket_timestamps[i],
-            );
+            acc = update_inbox_rolling_hash(acc, leaves[i], bucket_starts[i], bucket_timestamps[i]);
         } else {
             assert(bucket_timestamps[i] == 0, "Found bucket timestamp after breakpoint");
         }
@@ -66,11 +80,10 @@ pub fn assert_valid_bucket_starts<let N: u32>(bucket_starts: [bool; N], num: u32
 }
 
 mod tests {
-    use super::{accumulate_inbox_rolling_hash, assert_valid_bucket_starts};
-    use types::{
-        constants::{DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START, INBOX_PARITY_SIZE_MEDIUM},
-        hash::{accumulate_sha256, accumulate_sha256_with_separator_and_u64},
+    use super::{
+        accumulate_inbox_rolling_hash, assert_valid_bucket_starts, update_inbox_rolling_hash,
     };
+    use types::{constants::INBOX_PARITY_SIZE_MEDIUM, hash::accumulate_sha256};
 
     // The pinned hashes below are derived independently of every implementation of this chain by
     // `l1-contracts/scripts/inbox_rolling_hash_vectors.py` (plain `hashlib`); the same values are pinned in the L1
@@ -101,10 +114,7 @@ mod tests {
     fn empty_bundle_passes_start_through() {
         assert_eq(accumulate_inbox_rolling_hash(0, [0; 8], [false; 8], [0; 8], 0), 0);
         // A non-zero start with no leaves is returned unchanged (segment threading base case).
-        assert_eq(
-            accumulate_inbox_rolling_hash(0x2a, [11, 22, 33], [false; 3], [0; 3], 0),
-            0x2a,
-        );
+        assert_eq(accumulate_inbox_rolling_hash(0x2a, [11, 22, 33], [false; 3], [0; 3], 0), 0x2a);
     }
 
     #[test]
@@ -122,15 +132,7 @@ mod tests {
             ),
             expected,
         );
-        assert_eq(
-            accumulate_sha256_with_separator_and_u64(
-                DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START,
-                0,
-                11,
-                TS,
-            ),
-            expected,
-        );
+        assert_eq(update_inbox_rolling_hash(0, 11, true, TS), expected);
     }
 
     #[test]
