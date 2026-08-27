@@ -577,7 +577,7 @@ export class ProposalHandler {
     // Streaming Inbox: run the metadata checks before committing to any network work. They are point lookups
     // against our own Inbox view, so a proposal carrying a bucket reference that does not resolve locally is
     // rejected without a proposer being able to make us spend the validation window collecting its txs.
-    const streamingMetadata = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
+    const streamingMetadata = await this.awaitStreamingBlockMetadata(proposal, blockNumber, parentBlock, proposalInfo);
     if (!streamingMetadata.accepted) {
       this.log.warn(`Streaming Inbox block acceptance check failed, skipping processing`, {
         reason: streamingMetadata.reason,
@@ -729,6 +729,40 @@ export class ProposalHandler {
     }
   }
 
+  /**
+   * Re-runs `resolve` against this node's local view, forcing an archiver L1 sync before every attempt, until it
+   * yields a value or the slot's attestation deadline passes. Returns `undefined` when the deadline had already
+   * passed on entry (nothing is forced in that case) or when it passes while waiting; anything other than the
+   * timeout propagates. Callers own their own logging and whatever they fall back to on `undefined`, and check
+   * the deadline themselves when they need to tell "no budget on entry" apart from "timed out while waiting".
+   */
+  private async awaitLocalSync<T>(
+    slotNumber: SlotNumber,
+    what: string,
+    resolve: () => Promise<T | undefined>,
+  ): Promise<T | undefined> {
+    const deadline = this.getReexecutionDeadline(slotNumber);
+    if (deadline.getTime() - this.dateProvider.now() <= 0) {
+      return undefined;
+    }
+    try {
+      return await retryUntil(
+        async () => {
+          await this.blockSource.syncImmediate();
+          return await resolve();
+        },
+        what,
+        { deadline, dateProvider: this.dateProvider },
+        0.5,
+      );
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        return undefined;
+      }
+      throw err;
+    }
+  }
+
   private async getParentBlock(proposal: BlockProposal): Promise<'genesis' | BlockData | undefined> {
     const parentArchive = proposal.blockHeader.lastArchive.root;
     const { genesisArchiveRoot } = await this.blockSource.getGenesisValues();
@@ -737,28 +771,23 @@ export class ProposalHandler {
       return 'genesis';
     }
 
-    const deadline = this.getReexecutionDeadline(proposal.slotNumber);
-    const timeoutDurationMs = deadline.getTime() - this.dateProvider.now();
-
     try {
-      return (
-        (await this.blockSource.getBlockData({ archive: parentArchive })) ??
-        (timeoutDurationMs <= 0
-          ? undefined
-          : await retryUntil(
-              () =>
-                this.blockSource.syncImmediate().then(() => this.blockSource.getBlockData({ archive: parentArchive })),
-              'force archiver sync',
-              { deadline, dateProvider: this.dateProvider },
-              0.5,
-            ))
-      );
-    } catch (err) {
-      if (err instanceof TimeoutError) {
-        this.log.debug(`Timed out getting parent block by archive root`, { parentArchive });
-      } else {
-        this.log.error('Error getting parent block by archive root', err, { parentArchive });
+      const parentBlock = await this.blockSource.getBlockData({ archive: parentArchive });
+      if (parentBlock !== undefined) {
+        return parentBlock;
       }
+      if (this.getReexecutionDeadline(proposal.slotNumber).getTime() - this.dateProvider.now() <= 0) {
+        return undefined;
+      }
+      const synced = await this.awaitLocalSync(proposal.slotNumber, 'force archiver sync', () =>
+        this.blockSource.getBlockData({ archive: parentArchive }),
+      );
+      if (synced === undefined) {
+        this.log.debug(`Timed out getting parent block by archive root`, { parentArchive });
+      }
+      return synced;
+    } catch (err) {
+      this.log.error('Error getting parent block by archive root', err, { parentArchive });
       return undefined;
     }
   }
@@ -784,8 +813,7 @@ export class ProposalHandler {
 
     // A different block already occupies this number: it may be a stale fork being pruned during a reorg, not a
     // genuine duplicate. Wait for the local prune rather than permanently rejecting the proposal.
-    const deadline = this.getReexecutionDeadline(slotNumber);
-    if (deadline.getTime() - this.dateProvider.now() <= 0) {
+    if (this.getReexecutionDeadline(slotNumber).getTime() - this.dateProvider.now() <= 0) {
       return existingBlock;
     }
 
@@ -795,29 +823,19 @@ export class ProposalHandler {
       proposalArchive: proposalArchive.toString(),
     });
 
-    try {
-      const { block } = await retryUntil(
-        async () => {
-          await this.blockSource.syncImmediate();
-          const block = await this.blockSource.getBlockData({ number: blockNumber });
-          // Resolve once the existing block is gone (pruned) or has been replaced by one matching the
-          // proposal — the same condition as the early return above. A matching block is returned so the
-          // caller still treats it as a genuine duplicate; an `undefined` (pruned) block lets the proposal
-          // be processed. Wrap in an object so the `undefined` case is still a truthy retry result.
-          return block === undefined || block.archive.root.equals(proposalArchive) ? { block } : undefined;
-        },
-        `prune of stale block ${blockNumber}`,
-        { deadline, dateProvider: this.dateProvider },
-        0.5,
-      );
-      return block;
-    } catch (err) {
-      if (err instanceof TimeoutError) {
-        this.log.warn(`Timed out waiting for stale block ${blockNumber} to be pruned`, { blockNumber });
-        return existingBlock;
-      }
-      throw err;
+    const pruned = await this.awaitLocalSync(slotNumber, `prune of stale block ${blockNumber}`, async () => {
+      const block = await this.blockSource.getBlockData({ number: blockNumber });
+      // Resolve once the existing block is gone (pruned) or has been replaced by one matching the
+      // proposal — the same condition as the early return above. A matching block is returned so the
+      // caller still treats it as a genuine duplicate; an `undefined` (pruned) block lets the proposal
+      // be processed. Wrap in an object so the `undefined` case is still a truthy retry result.
+      return block === undefined || block.archive.root.equals(proposalArchive) ? { block } : undefined;
+    });
+    if (pruned === undefined) {
+      this.log.warn(`Timed out waiting for stale block ${blockNumber} to be pruned`, { blockNumber });
+      return existingBlock;
     }
+    return pruned.block;
   }
 
   private computeCheckpointNumber(
@@ -970,6 +988,80 @@ export class ProposalHandler {
   }
 
   /**
+   * Runs the streaming-Inbox metadata checks, waiting out a local sync lag. A bucket the proposer consumed is at
+   * least one Ethereum slot old, so it is on L1 by the time the proposal arrives: a bucket this node cannot
+   * resolve is almost always its own archiver trailing L1, not a divergence. That case (and the equivalent one
+   * where the block before the checkpoint's first block has not synced) forces an archiver sync and re-checks
+   * every half second until it resolves or the attestation deadline passes, instead of dropping the attestation
+   * on the spot. A hash mismatch on a bucket we do know gets exactly one forced sync and one re-check, because
+   * this node may be the stale side of an L1 reorg and that sync performs the rollback; a mismatch that survives
+   * it will not resolve by waiting. Every other reason is a structural rejection and returns immediately.
+   *
+   * The wait is bounded by the same consensus deadline as the other sync waits here, so a proposer referencing a
+   * bucket that never appears can at most make validators poll their own archiver for the remainder of its own
+   * slot — which it could waste anyway by not proposing.
+   */
+  private async awaitStreamingBlockMetadata(
+    proposal: BlockProposal,
+    blockNumber: BlockNumber,
+    parentBlock: 'genesis' | BlockData,
+    proposalInfo: LogData,
+  ): Promise<StreamingBlockMetadataCheckResult> {
+    const first = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
+    const bucketRef = proposal.bucketRef;
+    if (first.accepted || bucketRef === undefined) {
+      return first;
+    }
+
+    const slotNumber = proposal.slotNumber;
+    const bucketSeq = bucketRef.bucketSeq;
+    const outOfBudget = this.getReexecutionDeadline(slotNumber).getTime() - this.dateProvider.now() <= 0;
+
+    if (first.reason === 'bucket_hash_mismatch') {
+      if (outOfBudget) {
+        return first;
+      }
+      await this.blockSource.syncImmediate();
+      const rechecked = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
+      if (!rechecked.accepted && rechecked.reason === 'bucket_hash_mismatch') {
+        this.log.warn(`Inbox bucket ${bucketSeq} still disagrees with the proposal after forcing an archiver sync`, {
+          reason: 'bucket_hash_mismatch_after_sync',
+          bucketSeq,
+          expected: bucketRef.inboxRollingHash.toString(),
+          actual: (await this.l1ToL2MessageSource.getInboxBucket(bucketSeq))?.inboxRollingHash.toString(),
+          ...proposalInfo,
+        });
+      }
+      return rechecked;
+    }
+
+    if (first.reason !== 'bucket_unknown') {
+      return first;
+    }
+
+    this.log.info(`Referenced Inbox bucket ${bucketSeq} not synced locally, awaiting archiver sync`, {
+      bucketSeq,
+      ...proposalInfo,
+    });
+    const timer = new Timer();
+    const resolved = await this.awaitLocalSync(slotNumber, `inbox bucket ${bucketSeq}`, async () => {
+      const result = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
+      return !result.accepted && result.reason === 'bucket_unknown' ? undefined : result;
+    });
+    if (resolved === undefined) {
+      this.log.warn(`Timed out waiting for Inbox bucket ${bucketSeq} to sync, rejecting proposal`, {
+        reason: 'bucket_sync_timeout',
+        slot: slotNumber,
+        bucketSeq,
+        waitedMs: timer.ms(),
+        ...proposalInfo,
+      });
+      return first;
+    }
+    return resolved;
+  }
+
+  /**
    * Runs the streaming-Inbox per-block metadata checks for a block proposal, returning the bucket range its message
    * bundle derives from or a rejection reason. The parent block's consumed total and the checkpoint's starting total
    * are derived from L1-to-L2 tree leaf counts; a parent whose count does not sit on a bucket boundary is rejected
@@ -988,7 +1080,8 @@ export class ProposalHandler {
     );
     if (checkpointStartTotalMsgCount === undefined) {
       // The block before the checkpoint's first block has not synced locally, so the per-checkpoint cap origin is
-      // unavailable: treat as an unknown local view. There is no bounded wait for the missing block yet.
+      // unavailable: treat as an unknown local view. Like an unknown bucket this is local lag rather than a
+      // divergence, and `awaitStreamingBlockMetadata` waits it out by re-running the whole check after a sync.
       return { accepted: false, reason: 'bucket_unknown' };
     }
     const nowSeconds = BigInt(Math.floor(this.dateProvider.now() / 1000));
