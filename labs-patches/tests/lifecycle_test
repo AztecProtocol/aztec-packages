@@ -164,7 +164,18 @@ n=$(cd "$fnd" && labs-patches/bootstrap.sh test_cmds | grep -c '^[0-9a-f]\{16\} 
 [ "$n" = 2 ] || fail "test_cmds from root: $n commands"
 ok "test_cmds from any cwd"
 
-# 11. check verifies without touching labs/
+# 11. upstream prepares one patch as a branch at the recorded base, under the caller's identity
+base=$(git -C "$fnd" rev-parse HEAD:labs)
+out=$("$lp" upstream 1 fnd/one) && grep -q "Prepared fnd/one" <<<"$out" || fail "upstream: output"
+[ "$(git -C "$fnd/labs" rev-list --count "$base..fnd/one")" = 1 ] || fail "upstream: one commit above the base"
+[ "$(git -C "$fnd/labs" show fnd/one:config)" = "a=2" ] || fail "upstream: patch content"
+[ "$(git -C "$fnd/labs" log -1 --format=%cn fnd/one)" = "test" ] || fail "upstream: committer identity"
+expect_fail "$lp" upstream 1 fnd/one || fail "upstream: existing branch accepted"
+"$lp" upstream "$fnd/labs-patches"/0002-*.patch >/dev/null || fail "upstream: by path"
+git -C "$fnd/labs" show-ref -q --verify refs/heads/fnd/patch-two-extra || fail "upstream: default branch name"
+ok "upstream branch"
+
+# 12. check verifies without touching labs/
 before=$(git -C "$fnd/labs" rev-parse HEAD)
 "$lp" check >/dev/null || fail "check"
 [ "$(git -C "$fnd/labs" rev-parse HEAD)" = "$before" ] || fail "check moved labs/"

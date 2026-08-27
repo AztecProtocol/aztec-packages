@@ -29,6 +29,9 @@ labs=$fnd_root/labs
 MARKER_SUBJECT="labs-patches: use-local rewrite (never exported)"
 # Fixed committer identity and author dates keep the applied SHAs identical on every machine,
 # and mark every commit this script makes so check_staged can tell them from upstream ones.
+# The caller's own identity is kept for commits meant to leave this clone (upstream).
+caller_committer_name=${GIT_COMMITTER_NAME:-}
+caller_committer_email=${GIT_COMMITTER_EMAIL:-}
 export GIT_COMMITTER_NAME=labs-patches
 export GIT_COMMITTER_EMAIL=labs-patches@localhost
 git_labs() { git -C "$labs" -c commit.gpgsign=false "$@"; }
@@ -299,6 +302,44 @@ function check_staged {
   fi
 }
 
+# Prepares one patch as an aztec-node branch: a branch in labs/'s repository at the recorded
+# base with just that patch applied under your own git identity, ready to push and open as the
+# upstream PR. Nothing is pushed; the commands to do so are printed. Once the PR lands and the
+# pin is bumped past it, the patch drops out of the next export on its own.
+function upstream {
+  local sel=${1:-} branch=${2:-}
+  [ -n "$sel" ] || die "usage: upstream <patch number or file> [branch]"
+  initialized || die "labs/ is not checked out; run apply first"
+  local p
+  if [ -f "$sel" ]; then p=$sel; else
+    p=$(patches | grep "/0*${sel#0}-[^/]*\.patch\$" | head -1)
+    [ -n "$p" ] || die "no patch matching '$sel' in $patch_dir"
+  fi
+  local slug; slug=$(basename "$p" .patch | sed 's/^[0-9]*-//')
+  branch=${branch:-fnd/$slug}
+  if git_labs show-ref -q --verify "refs/heads/$branch"; then
+    die "branch $branch already exists in labs/; pick another name or delete it"
+  fi
+  local base; base=$(base_sha)
+  git_labs worktree prune
+  local tmp; tmp=$(mktemp -d)
+  trap "rm -rf '$tmp'; git -C '$labs' worktree prune" EXIT
+  git_labs worktree add -q -b "$branch" "$tmp" "$base"
+  local ident=()
+  if [ -n "$caller_committer_name" ]; then
+    ident=("GIT_COMMITTER_NAME=$caller_committer_name" "GIT_COMMITTER_EMAIL=$caller_committer_email")
+  fi
+  if ! env -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL ${ident[@]+"${ident[@]}"} \
+      git -C "$tmp" -c commit.gpgsign=false am -q --3way "$p"; then
+    git -C "$tmp" am --abort || true
+    git_labs branch -q -D "$branch"
+    die "$(basename "$p") does not apply to $base"
+  fi
+  echo "Prepared $branch in labs/ ($(git -C "$tmp" rev-parse --short HEAD) on $base): $(basename "$p")"
+  echo "  git -C labs push origin $branch"
+  echo "  gh pr create --repo aztec-labs-eng/aztec-node --head $branch --base main --fill"
+}
+
 function status {
   local base; base=$(base_sha)
   echo "base:    $base"
@@ -337,6 +378,7 @@ case "${1:-apply}" in
   commit-use-local) commit_use_local ;;
   check_staged) check_staged ;;
   status) status ;;
+  upstream) upstream "${2:-}" "${3:-}" ;;
   test_cmds) test_cmds ;;
   test) "$patch_dir/tests/lifecycle_test" && check ;;
   *) die "unknown command: $1" ;;
