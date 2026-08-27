@@ -93,7 +93,7 @@ if(IPC_RUNTIME_BUILD_TESTS AND NOT WASM)
     endif()
 endif()
 
-# ---- Node native addon (consumed by @aztec/ipc-runtime) --------------------
+# ---- Node native addon (consumed by @aztec-foundation/ipc-runtime) --------------------
 
 if(IPC_RUNTIME_BUILD_NAPI AND NOT WASM)
     add_subdirectory(napi)

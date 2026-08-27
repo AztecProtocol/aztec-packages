@@ -1,5 +1,5 @@
 import { EchoService, SyncApi, type EchoTransport } from "./index.js";
-import { createNapiShmSyncClient } from "@aztec/ipc-runtime";
+import { createNapiShmSyncClient } from "@aztec-foundation/ipc-runtime";
 
 const args = process.argv.slice(2);
 const transportArg = args[args.indexOf("--transport") + 1] ?? "uds";

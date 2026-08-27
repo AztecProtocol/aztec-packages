@@ -9,7 +9,7 @@
     "serve": "serve -n -L -p ${PORT:-8080} -c ../serve.json dest"
   },
   "devDependencies": {
-    "@aztec/bb.js": "portal:../../ts/bb.js",
+    "@aztec-foundation/bb.js": "portal:../../ts/bb.js",
     "@types/pako": "^2.0.3",
     "html-webpack-plugin": "^5.6.0",
     "pako": "^2.1.0",
