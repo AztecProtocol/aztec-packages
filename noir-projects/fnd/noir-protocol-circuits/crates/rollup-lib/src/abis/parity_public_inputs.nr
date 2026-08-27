@@ -6,9 +6,8 @@ pub struct ParityPublicInputs {
     // Rolling hash of the Inbox message chain before absorbing this checkpoint's messages.
     pub start_rolling_hash: Field,
     // Rolling hash of the Inbox message chain after absorbing the checkpoint's real messages. Each link is
-    // `accumulate_sha256_with_separator(sep, prev, msg)`, matching the domain-separated truncated-to-field sha256 the
-    // L1 Inbox accumulates, with `sep` being `DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START` for the first message of an
-    // L1 bucket and `DOM_SEP__INBOX_ROLLING_HASH` for every other message.
+    // `update_inbox_rolling_hash(prev, msg, opens_bucket, bucket_timestamp)`, matching the domain-separated
+    // truncated-to-field sha256 the L1 Inbox accumulates.
     pub end_rolling_hash: Field,
     // Message-bundle sponge after absorbing the same real messages into the empty sponge the circuit starts from. The
     // checkpoint root asserts this equals the sponge accumulated across the checkpoint's block roots, tying the
