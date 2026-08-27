@@ -37,11 +37,13 @@ bucket holds the messages sent within a single L1 block (up to a per-bucket maxi
 the same block spill into the next bucket), and buckets are identified by a dense, monotonically increasing sequence
 number. A checkpoint always consumes whole buckets.
 
-Each link of the chain is `sha256ToField(separator || previousRollingHash || leaf)` over a 4-byte big-endian domain
-separator followed by the two 32-byte values. There are two separators: `DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START` is
-used when the leaf is the first message of its bucket, and `DOM_SEP__INBOX_ROLLING_HASH` for every other message. The
-chain therefore commits to how the messages were packed into buckets, not only to their order: the same messages
-regrouped across a different set of L1 blocks produce a different rolling hash. The genesis value is zero.
+Each link of the chain is `sha256ToField(separator || previousRollingHash || leaf || timestamp)` over a 4-byte
+big-endian domain separator, the two 32-byte values, and the 8-byte big-endian timestamp of the bucket the leaf was
+absorbed into. There are two separators: `DOM_SEP__INBOX_ROLLING_HASH_BUCKET_START` is used when the leaf is the first
+message of its bucket, and `DOM_SEP__INBOX_ROLLING_HASH` for every other message. The chain therefore commits to how
+the messages were packed into buckets and to when each bucket was opened, not only to the message order: the same
+messages regrouped across a different set of L1 blocks, or delivered in blocks with different timestamps, produce a
+different rolling hash. The genesis value is zero.
 
 ## View functions
 

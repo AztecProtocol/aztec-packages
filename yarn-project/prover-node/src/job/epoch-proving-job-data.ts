@@ -1,6 +1,6 @@
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { InboxMessageBundle } from '@aztec/stdlib/messaging';
@@ -41,11 +41,12 @@ export function validateEpochProvingJobData(data: EpochProvingJobData) {
 export function serializeEpochProvingJobData(data: EpochProvingJobData): Buffer {
   const checkpoints = data.checkpoints.map(checkpoint => checkpoint.toBuffer());
   const txs = Array.from(data.txs.values()).map(tx => tx.toBuffer());
-  // Each checkpoint's bundle is written as a bucket count followed by one length-prefixed vector per bucket.
+  // Each checkpoint's bundle is written as a bucket count followed by, per bucket, its timestamp and a
+  // length-prefixed vector of leaves.
   const l1ToL2Messages = Object.entries(data.l1ToL2Messages).map(([checkpointNumber, bundle]) => [
     Number(checkpointNumber),
     bundle.length,
-    ...bundle.map(bucket => [bucket.length, ...bucket]),
+    ...bundle.map(bucket => [bigintToUInt64BE(bucket.timestamp), bucket.leaves.length, ...bucket.leaves]),
   ]);
   const attestations = data.attestations.map(attestation => attestation.toBuffer());
 
@@ -77,7 +78,10 @@ export function deserializeEpochProvingJobData(buf: Buffer): EpochProvingJobData
   for (let i = 0; i < l1ToL2MessageCheckpointCount; i++) {
     const checkpointNumber = CheckpointNumber(reader.readNumber());
     const bucketCount = reader.readNumber();
-    l1ToL2Messages[checkpointNumber] = Array.from({ length: bucketCount }, () => reader.readVector(Fr));
+    l1ToL2Messages[checkpointNumber] = Array.from({ length: bucketCount }, () => ({
+      timestamp: reader.readUInt64(),
+      leaves: reader.readVector(Fr),
+    }));
   }
 
   const attestations = reader.readVector(CommitteeAttestation);

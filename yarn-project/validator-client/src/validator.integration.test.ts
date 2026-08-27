@@ -495,7 +495,7 @@ describe('ValidatorClient Integration', () => {
         CheckpointNumber(1),
         slotNumber,
         // Each mocked message sits in its own Inbox bucket, so the bundle is one group per message.
-        l1ToL2Messages.map(m => [m.leaf]),
+        l1ToL2Messages.map(m => ({ timestamp: m.bucketTimestamp, leaves: [m.leaf] })),
         emptyPreviousCheckpointOutHashes,
         BlockNumber(1),
         3,
@@ -715,7 +715,7 @@ describe('ValidatorClient Integration', () => {
         CheckpointNumber(1),
         slotNumber,
         // Each mocked message sits in its own Inbox bucket, so the bundle is one group per message.
-        l1ToL2Messages.map(m => [m.leaf]),
+        l1ToL2Messages.map(m => ({ timestamp: m.bucketTimestamp, leaves: [m.leaf] })),
         emptyPreviousCheckpointOutHashes,
         BlockNumber(1),
         1,

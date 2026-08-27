@@ -66,7 +66,7 @@ contract InboxTest is Test {
     DataStructures.L1ToL2Msg memory message = _boundMessage(_message, globalLeafIndex);
 
     bytes32 leaf = message.sha256ToField();
-    bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf, true);
+    bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf, true, uint64(block.timestamp));
     vm.expectEmit(true, true, true, true);
     // event we expect
     emit IInbox.MessageSent(leaf, expectedInboxRollingHash, 1, message);

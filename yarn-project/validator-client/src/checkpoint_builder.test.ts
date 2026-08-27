@@ -801,7 +801,7 @@ describe('CheckpointBuilder', () => {
     let lightweight: LightweightCheckpointBuilder;
     let builder: TestCheckpointBuilder;
 
-    const bundle: InboxMessageBundle = [[new Fr(0xb00), new Fr(0xb01), new Fr(0xb02)]];
+    const bundle: InboxMessageBundle = [{ timestamp: 1000n, leaves: [new Fr(0xb00), new Fr(0xb01), new Fr(0xb02)] }];
     const firstBlockNumber = BlockNumber(1);
 
     const getL1ToL2TreeSize = () => realFork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE).then(info => info.size);
@@ -831,7 +831,10 @@ describe('CheckpointBuilder', () => {
       let leafIndicesDuringExecution: (bigint | undefined)[] | undefined;
       processor.process.mockImplementation(async () => {
         treeSizeDuringExecution = await getL1ToL2TreeSize();
-        leafIndicesDuringExecution = await realFork.findLeafIndices(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle[0]);
+        leafIndicesDuringExecution = await realFork.findLeafIndices(
+          MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+          bundle[0].leaves,
+        );
         return [[], [], [], [], []];
       });
 

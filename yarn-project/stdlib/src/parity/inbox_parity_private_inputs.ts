@@ -2,10 +2,15 @@ import { INBOX_PARITY_SIZE_LARGE, INBOX_PARITY_SIZE_MEDIUM, INBOX_PARITY_SIZE_SM
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { type InboxMessageBundle, bucketStartsOf, flattenBundle } from '../messaging/inbox_message_bundle.js';
+import {
+  type InboxMessageBundle,
+  bucketStartsOf,
+  bucketTimestampsOf,
+  flattenBundle,
+} from '../messaging/inbox_message_bundle.js';
 
 /** The InboxParity size ladder, ascending. One VK per size; the prover proves the smallest that fits. */
 export const INBOX_PARITY_SIZES = [INBOX_PARITY_SIZE_SMALL, INBOX_PARITY_SIZE_MEDIUM, INBOX_PARITY_SIZE_LARGE] as const;
@@ -42,6 +47,11 @@ export class InboxParityPrivateInputs {
      * boundaries. Aligned with `messages` and padded with `false` to `size`.
      */
     public readonly bucketStarts: boolean[],
+    /**
+     * L1 timestamp of the bucket each message belongs to, so the rolling hash commits to when L1 opened each bucket.
+     * Aligned with `messages` and padded with zero to `size`.
+     */
+    public readonly bucketTimestamps: bigint[],
     /** Number of real (non-padding) messages in `messages`. */
     public readonly numMessages: number,
     /** Inbox rolling hash before this checkpoint's messages (the previous checkpoint's end; genesis is zero). */
@@ -55,22 +65,27 @@ export class InboxParityPrivateInputs {
     if (bucketStarts.length !== size) {
       throw new Error(`InboxParity bucketStarts length (${bucketStarts.length}) must equal size (${size})`);
     }
+    if (bucketTimestamps.length !== size) {
+      throw new Error(`InboxParity bucketTimestamps length (${bucketTimestamps.length}) must equal size (${size})`);
+    }
   }
 
   /**
    * Builds the inputs from a checkpoint's message bundle, sizing the circuit by the message count and padding the
-   * message and flag arrays out to that size. This is the only place the per-bucket grouping is turned into the
-   * flat leaves and bucket-start flags the circuit takes.
+   * message, flag and timestamp arrays out to that size. This is the only place the per-bucket grouping is turned
+   * into the flat leaves, bucket-start flags and per-lane bucket timestamps the circuit takes.
    */
   static fromMessages(bundle: InboxMessageBundle, startRollingHash: Fr, proverId: Fr): InboxParityPrivateInputs {
     const messages = flattenBundle(bundle);
     const bucketStarts = bucketStartsOf(bundle);
+    const bucketTimestamps = bucketTimestampsOf(bundle);
     const size = pickInboxParitySize(messages.length);
     // Explicit `<Fr, number>` keeps the result `Fr[]`; padding to the union-literal `size` would infer a deep tuple.
     return new InboxParityPrivateInputs(
       size,
       padArrayEnd<Fr, number>(messages, Fr.ZERO, size),
       padArrayEnd<boolean, number>(bucketStarts, false, size),
+      padArrayEnd<bigint, number>(bucketTimestamps, 0n, size),
       messages.length,
       startRollingHash,
       proverId,
@@ -83,6 +98,7 @@ export class InboxParityPrivateInputs {
       new Fr(this.size),
       this.messages,
       this.bucketStarts,
+      this.bucketTimestamps.map(timestamp => bigintToUInt64BE(timestamp)),
       new Fr(this.numMessages),
       this.startRollingHash,
       this.proverId,
@@ -104,10 +120,12 @@ export class InboxParityPrivateInputs {
     // Array.from keeps the type `Fr[]`; readArray with the union-literal `size` would infer a deep tuple.
     const messages = Array.from({ length: size }, () => Fr.fromBuffer(reader));
     const bucketStarts = Array.from({ length: size }, () => reader.readBoolean());
+    const bucketTimestamps = Array.from({ length: size }, () => reader.readUInt64());
     return new InboxParityPrivateInputs(
       size,
       messages,
       bucketStarts,
+      bucketTimestamps,
       Fr.fromBuffer(reader).toNumber(),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),

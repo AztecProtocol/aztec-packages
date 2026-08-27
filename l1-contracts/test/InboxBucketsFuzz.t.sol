@@ -150,8 +150,9 @@ contract InboxBucketsFuzzTest is Test {
       assertLe(bucket.msgCount, cap, "per-bucket cap");
 
       for (uint256 i = 0; i < bucket.msgCount; i++) {
-        // The first message of each bucket opens it and so takes the bucket-start separator.
-        rollingHash = Hash.accumulateInboxRollingHash(rollingHash, leaves[counted + i], i == 0);
+        // The first message of each bucket opens it and so takes the bucket-start separator; every message of the
+        // bucket links with the bucket's timestamp.
+        rollingHash = Hash.accumulateInboxRollingHash(rollingHash, leaves[counted + i], i == 0, bucket.timestamp);
       }
       counted += bucket.msgCount;
 

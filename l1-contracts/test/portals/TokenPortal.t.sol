@@ -120,7 +120,8 @@ contract TokenPortalTest is Test {
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPrivateL1ToL2Message(expectedIndex);
 
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
-    bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), expectedLeaf, true);
+    bytes32 expectedInboxRollingHash =
+      Hash.accumulateInboxRollingHash(bytes32(0), expectedLeaf, true, uint64(block.timestamp));
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
@@ -147,7 +148,8 @@ contract TokenPortalTest is Test {
     uint256 expectedIndex = 0;
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPublicL1ToL2Message(expectedIndex);
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
-    bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), expectedLeaf, true);
+    bytes32 expectedInboxRollingHash =
+      Hash.accumulateInboxRollingHash(bytes32(0), expectedLeaf, true, uint64(block.timestamp));
 
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);

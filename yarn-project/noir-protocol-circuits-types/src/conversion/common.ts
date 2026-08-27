@@ -344,6 +344,13 @@ export function mapBoolArrayToNoir<N extends number>(
   return mapTupleToNoir(assertLength(array, length), (value: boolean) => value);
 }
 
+export function mapU64ArrayToNoir<N extends number>(
+  array: UInt64[],
+  length: N = array.length as N,
+): FixedLengthArray<U64Noir, N> {
+  return mapTupleToNoir(assertLength(array, length), mapU64ToNoir);
+}
+
 export function mapClaimedLengthArrayFromNoir<T extends Serializable, N extends number, S>(
   claimedLengthArray: ClaimedLengthArrayNoir<N, S>,
   mapper: (item: S) => T,

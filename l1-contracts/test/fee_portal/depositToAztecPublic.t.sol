@@ -86,7 +86,8 @@ contract DepositToAztecPublic is Test {
 
     assertEq(inbox.getTotalMessagesInserted(), 0);
 
-    bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), expectedKey, true);
+    bytes32 expectedInboxRollingHash =
+      Hash.accumulateInboxRollingHash(bytes32(0), expectedKey, true, uint64(block.timestamp));
     vm.expectEmit(true, true, true, true, address(inbox));
     emit IInbox.MessageSent(expectedKey, expectedInboxRollingHash, 1, message);
     vm.expectEmit(true, true, true, true, address(feeJuicePortal));

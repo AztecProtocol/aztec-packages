@@ -24,10 +24,13 @@ describe('EpochProvingJobData', () => {
       ),
       txs,
       l1ToL2Messages: {
-        [CheckpointNumber(0)]: [[Fr.random(), Fr.random()]],
-        [CheckpointNumber(1)]: [[Fr.random()], [Fr.random(), Fr.random()]],
-        [CheckpointNumber(2)]: [[Fr.random(), Fr.random(), Fr.random()]],
-        [CheckpointNumber(3)]: [[Fr.random()]],
+        [CheckpointNumber(0)]: [{ timestamp: 100n, leaves: [Fr.random(), Fr.random()] }],
+        [CheckpointNumber(1)]: [
+          { timestamp: 112n, leaves: [Fr.random()] },
+          { timestamp: 124n, leaves: [Fr.random(), Fr.random()] },
+        ],
+        [CheckpointNumber(2)]: [{ timestamp: 136n, leaves: [Fr.random(), Fr.random(), Fr.random()] }],
+        [CheckpointNumber(3)]: [{ timestamp: 148n, leaves: [Fr.random()] }],
       },
       previousBlockHeader: BlockHeader.random(),
       previousInboxRollingHash: Fr.random(),

@@ -149,6 +149,7 @@ import {
   mapStateReferenceToNoir,
   mapTupleFromNoir,
   mapTxConstantDataFromNoir,
+  mapU64ArrayToNoir,
   mapU64FromNoir,
   mapU64ToNoir,
   mapVkDataToNoir,
@@ -722,6 +723,7 @@ export function mapInboxParityPrivateInputsToNoir(inputs: InboxParityPrivateInpu
   return {
     msgs: mapFieldArrayToNoir(inputs.messages),
     bucket_starts: mapBoolArrayToNoir(inputs.bucketStarts),
+    bucket_timestamps: mapU64ArrayToNoir(inputs.bucketTimestamps),
     num_msgs: mapNumberToNoir(inputs.numMessages),
     start_rolling_hash: mapFieldToNoir(inputs.startRollingHash),
     prover_id: mapFieldToNoir(inputs.proverId),

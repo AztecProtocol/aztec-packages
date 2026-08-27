@@ -41,7 +41,11 @@ describe('Inbox Parity Benchmark Inputs', () => {
     const l1ToL2Messages = new Array(INBOX_PARITY_SIZE_MEDIUM).fill(null).map(randomL1ToL2MessageLeaf);
 
     // Create InboxParity inputs (picks the 256 rung for 256 messages).
-    const inputs = InboxParityPrivateInputs.fromMessages([l1ToL2Messages], Fr.ZERO, Fr.random());
+    const inputs = InboxParityPrivateInputs.fromMessages(
+      [{ timestamp: 1000n, leaves: l1ToL2Messages }],
+      Fr.ZERO,
+      Fr.random(),
+    );
     logger.info('Created inbox parity inputs');
 
     // Convert inputs to Noir format (inline the mapping since it's simple)
@@ -49,6 +53,8 @@ describe('Inbox Parity Benchmark Inputs', () => {
       msgs: inputs.messages.map(m => m.toString()),
       // eslint-disable-next-line camelcase
       bucket_starts: inputs.bucketStarts,
+      // eslint-disable-next-line camelcase
+      bucket_timestamps: inputs.bucketTimestamps.map(t => t.toString()),
       // eslint-disable-next-line camelcase
       num_msgs: inputs.numMessages,
       // eslint-disable-next-line camelcase

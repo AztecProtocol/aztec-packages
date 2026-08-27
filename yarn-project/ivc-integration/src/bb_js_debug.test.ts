@@ -56,12 +56,18 @@ describe('BB.js Debug Wrapper', () => {
 
     // Generate inbox parity inputs (same approach as base_parity_inputs.test.ts)
     const l1ToL2Messages = new Array(INBOX_PARITY_SIZE_MEDIUM).fill(null).map(randomL1ToL2MessageLeaf);
-    const inboxParityInputs = InboxParityPrivateInputs.fromMessages([l1ToL2Messages], Fr.ZERO, Fr.random());
+    const inboxParityInputs = InboxParityPrivateInputs.fromMessages(
+      [{ timestamp: 1000n, leaves: l1ToL2Messages }],
+      Fr.ZERO,
+      Fr.random(),
+    );
 
     const noirInputs = {
       msgs: inboxParityInputs.messages.map(m => m.toString()),
       // eslint-disable-next-line camelcase
       bucket_starts: inboxParityInputs.bucketStarts,
+      // eslint-disable-next-line camelcase
+      bucket_timestamps: inboxParityInputs.bucketTimestamps.map(t => t.toString()),
       // eslint-disable-next-line camelcase
       num_msgs: inboxParityInputs.numMessages,
       // eslint-disable-next-line camelcase

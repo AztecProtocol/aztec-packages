@@ -14,6 +14,9 @@ pub struct InboxParityPrivateInputs<let S: u32> {
     // Per-lane flag marking the leaves that are the first message of an L1 bucket, so the rolling hash commits to the
     // bucket boundaries. False beyond `num_msgs`.
     pub(crate) bucket_starts: [bool; S],
+    // Per-lane L1 timestamp of the bucket each leaf belongs to, so the rolling hash commits to when L1 opened each
+    // bucket. Every leaf of a bucket carries the same value. Zero beyond `num_msgs`.
+    pub(crate) bucket_timestamps: [u64; S],
     // Number of real (non-padding) messages in `msgs`.
     pub(crate) num_msgs: u32,
     // Rolling hash of the Inbox chain before this checkpoint's messages (the previous checkpoint's end value; genesis
@@ -35,7 +38,7 @@ pub struct InboxParityPrivateInputs<let S: u32> {
 ///   to claim a boundary the checkpoint does not have. The sponge resets per checkpoint and there is one proof per
 ///   checkpoint, so the start is always the empty sponge and is hard-coded rather than witnessed.
 /// - Asserts the padding lanes past `num_msgs` are zero so they cannot silently enter either accumulator, and that
-///   they claim no bucket start; a consuming checkpoint must also open a bucket at lane 0
+///   they claim no bucket start and no bucket timestamp; a consuming checkpoint must also open a bucket at lane 0
 ///
 /// The output feeds the Checkpoint Root circuits, which verify this proof against the `{64, 256, 1024}` VK ladder.
 ///
@@ -48,10 +51,12 @@ pub fn execute<let S: u32>(inputs: InboxParityPrivateInputs<S>) -> ParityPublicI
     // unconsumed message onwards and the previous checkpoint stopped at a bucket end. Padding lanes claim no start.
     assert_valid_bucket_starts(inputs.bucket_starts, inputs.num_msgs);
 
+    // Padding lanes must also carry a zero timestamp; `accumulate_inbox_rolling_hash` asserts it.
     let end_rolling_hash = accumulate_inbox_rolling_hash(
         inputs.start_rolling_hash,
         inputs.msgs,
         inputs.bucket_starts,
+        inputs.bucket_timestamps,
         inputs.num_msgs,
     );
 

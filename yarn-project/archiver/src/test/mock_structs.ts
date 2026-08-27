@@ -31,8 +31,9 @@ export function makeInboxMessage(
   const { index = 0n } = overrides;
   // Default each message to its own bucket, keyed monotonically off its global index, so it opens that bucket.
   const { bucketSeq = index + 1n } = overrides;
-  const { inboxRollingHash = updateInboxRollingHash(previousInboxRollingHash, leaf, true) } = overrides;
   const { bucketTimestamp = index + 1n } = overrides;
+  const { inboxRollingHash = updateInboxRollingHash(previousInboxRollingHash, leaf, true, bucketTimestamp) } =
+    overrides;
 
   return {
     index,
@@ -73,7 +74,12 @@ export function makeInboxMessages(
       }),
       i,
     );
-    inboxRollingHash = updateInboxRollingHash(inboxRollingHash, message.leaf, message.bucketSeq !== lastBucketSeq);
+    inboxRollingHash = updateInboxRollingHash(
+      inboxRollingHash,
+      message.leaf,
+      message.bucketSeq !== lastBucketSeq,
+      message.bucketTimestamp,
+    );
     lastBucketSeq = message.bucketSeq;
     messages.push({ ...message, inboxRollingHash });
   }
