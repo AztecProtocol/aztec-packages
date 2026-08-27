@@ -13,7 +13,7 @@ use-local rewrite, and this directory is hashed the same way as in pinned mode.
 A dirty provider disables caching here as it would there.
 
 diff --git a/labs-aztec-toolchain/bootstrap.sh b/labs-aztec-toolchain/bootstrap.sh
-index e68f935c6dd3387f5f589ad76ce21a4be620b5d8..cd3c95fb09b28cb24bd014a29a2ca0c759ee4ea4 100755
+index 3a5faa9fb29668d549becb6b57b5e3a317ffba88..c40f0f6e66068387362aaa03cca665c971496447 100755
 --- a/labs-aztec-toolchain/bootstrap.sh
 +++ b/labs-aztec-toolchain/bootstrap.sh
 @@ -28,6 +28,10 @@ NOIR_PROFILER_BINARY=noir-profiler
