@@ -235,6 +235,12 @@ function pin-build {
     noir-protocol-circuits
 }
 
+# Identity of the protocol circuits and contracts for consumers' cache keys. Their inputs
+# beyond the sources (nargo, bb) are hashed by the consumer alongside this.
+function hash {
+  cache_content_hash "^noir-projects/fnd/"
+}
+
 case "$cmd" in
   "")
     build

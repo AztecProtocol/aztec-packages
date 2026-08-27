@@ -358,6 +358,7 @@ function pull_submodules {
   denoise "./labs-patches/bootstrap.sh apply"
 }
 
+# The TXE is built by the labs submodule (yarn-project/txe); only labs tests use it.
 function start_txes {
   # Until Kev's kzg lib stops using Tokio.
   export TOKIO_WORKER_THREADS=1
@@ -379,14 +380,14 @@ function start_txes {
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((txe_base_port + i))
     kill_port $port
-    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
+    dump_fail "cd labs && LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
   # Start the oracle test resolver for __oracle_test__-prefixed tests.
   local resolver_port=14830
   kill_port $resolver_port
-  dump_fail "LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js" &
+  dump_fail "cd labs && LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js" &
   txe_pids+="$! "
 
   wait_for_port() {
@@ -493,6 +494,11 @@ function build_and_test {
   fi
 
   return 0
+}
+
+# The labs benches come from the submodule's own bench_cmds, run from labs/ with its ci3.
+function labs_bench_cmds {
+  scripts/labs_test_cmds.sh ./bootstrap.sh bench_cmds
 }
 
 function bench_cmds {
@@ -755,7 +761,7 @@ function release_compat_e2e {
     export NO_FAIL_FAST=1
     build
     for ver in "${versions[@]}"; do
-      yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
+      scripts/labs_test_cmds.sh yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
     done | filter_test_cmds | parallelize
   )
 }
