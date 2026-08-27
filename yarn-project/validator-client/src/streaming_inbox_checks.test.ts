@@ -193,6 +193,64 @@ describe('checkStreamingBlockProposal', () => {
       const result = await checkStreamingBlockProposal(baseInput({ messageSource: view, bucketRef: refFor(bucket) }));
       expect(result).toEqual({ accepted: false, reason: 'bucket_too_new' });
     });
+
+    it('accepts a bucket one second too new when the tolerated clock disparity covers it', async () => {
+      const view = new FakeInboxView();
+      const bucket = view.addBucket(1, 2, Number(NOW) - MIN_BUCKET_AGE_SECONDS + 1);
+      const result = await checkStreamingBlockProposal(
+        baseInput({ messageSource: view, bucketRef: refFor(bucket), clockDisparityMs: 500 }),
+      );
+      expect(result.accepted).toBe(true);
+    });
+
+    it('rejects a bucket two seconds too new for a sub-second tolerance', async () => {
+      const view = new FakeInboxView();
+      const bucket = view.addBucket(1, 2, Number(NOW) - MIN_BUCKET_AGE_SECONDS + 2);
+      const result = await checkStreamingBlockProposal(
+        baseInput({ messageSource: view, bucketRef: refFor(bucket), clockDisparityMs: 500 }),
+      );
+      expect(result).toEqual({ accepted: false, reason: 'bucket_too_new' });
+    });
+
+    it('rounds a non-multiple tolerance up to whole seconds', async () => {
+      const view = new FakeInboxView();
+      const accepted = await checkStreamingBlockProposal(
+        baseInput({
+          messageSource: view,
+          bucketRef: refFor(view.addBucket(1, 2, Number(NOW) - MIN_BUCKET_AGE_SECONDS + 2)),
+          clockDisparityMs: 1500,
+        }),
+      );
+      expect(accepted.accepted).toBe(true);
+
+      const rejectedView = new FakeInboxView();
+      const rejected = await checkStreamingBlockProposal(
+        baseInput({
+          messageSource: rejectedView,
+          bucketRef: refFor(rejectedView.addBucket(1, 2, Number(NOW) - MIN_BUCKET_AGE_SECONDS + 3)),
+          clockDisparityMs: 1500,
+        }),
+      );
+      expect(rejected).toEqual({ accepted: false, reason: 'bucket_too_new' });
+    });
+
+    it('rejects a bucket opened right now regardless of the tolerance', async () => {
+      const view = new FakeInboxView();
+      const bucket = view.addBucket(1, 2, Number(NOW));
+      const result = await checkStreamingBlockProposal(
+        baseInput({ messageSource: view, bucketRef: refFor(bucket), clockDisparityMs: 500 }),
+      );
+      expect(result).toEqual({ accepted: false, reason: 'bucket_too_new' });
+    });
+
+    it('applies no tolerance when the clock disparity is zero', async () => {
+      const view = new FakeInboxView();
+      const bucket = view.addBucket(1, 2, Number(NOW) - MIN_BUCKET_AGE_SECONDS + 1);
+      const result = await checkStreamingBlockProposal(
+        baseInput({ messageSource: view, bucketRef: refFor(bucket), clockDisparityMs: 0 }),
+      );
+      expect(result).toEqual({ accepted: false, reason: 'bucket_too_new' });
+    });
   });
 
   describe('check 4: caps', () => {

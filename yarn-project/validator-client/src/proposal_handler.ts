@@ -1001,6 +1001,7 @@ export class ProposalHandler {
       checkpointStartTotalMsgCount,
       nowSeconds,
       minBucketAgeSeconds: this.epochCache.getL1Constants().ethereumSlotDuration,
+      clockDisparityMs: this.config.maxGossipClockDisparityMs ?? 0,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
       perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
     });

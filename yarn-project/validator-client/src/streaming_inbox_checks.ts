@@ -47,6 +47,13 @@ export type StreamingBlockMetadataCheckInput = {
    * the archiver records each bucket's `l1BlockNumber`.
    */
   minBucketAgeSeconds: number;
+  /**
+   * Tolerated clock disparity between this node and the proposer, in milliseconds. Check 3 accepts a bucket that would
+   * be old enough under any clock up to this much ahead of ours, so a validator whose clock lags the proposer's does
+   * not reject a bucket the proposer legitimately selected. Rounded up to whole seconds because bucket timestamps are
+   * L1 block timestamps. Defaults to 0 (no tolerance).
+   */
+  clockDisparityMs?: number;
   /** Maximum number of messages this block may consume (`MAX_L1_TO_L2_MSGS_PER_BLOCK`). */
   perBlockCap: number;
   /** Maximum number of messages the checkpoint may consume in total (`MAX_L1_TO_L2_MSGS_PER_CHECKPOINT`). */
@@ -104,7 +111,9 @@ export type StreamingBlockCheckResult =
  *    Equal totals mean the block consumes nothing (empty bundle).
  * 3. **Not too new**: the bucket is at least `minBucketAgeSeconds` old at validation time
  *    (`timestamp <= now - minBucketAgeSeconds`, inclusive — a bucket exactly that old is eligible, matching L1's
- *    strict `>` "too new" test).
+ *    strict `>` "too new" test), widened by `clockDisparityMs` in the permissive direction only. The proposer selects
+ *    against its own clock with no such tolerance, so widening here only covers the case where this node's clock lags
+ *    the proposer's; it never lets an honest proposer's selection get younger.
  * 4. **Caps**: the per-block message count and the running per-checkpoint total fit their respective caps.
  * 5. **Parent boundary**: the parent block's cumulative total sits on a bucket boundary, so the consumed range is
  *    well defined.
@@ -124,6 +133,7 @@ export async function checkStreamingBlockProposalMetadata(
     checkpointStartTotalMsgCount,
     nowSeconds,
     minBucketAgeSeconds,
+    clockDisparityMs,
     perBlockCap,
     perCheckpointCap,
   } = input;
@@ -147,8 +157,10 @@ export async function checkStreamingBlockProposalMetadata(
     return { accepted: false, reason: 'bucket_moves_backwards' };
   }
 
-  // Check 3: the bucket is at least `minBucketAgeSeconds` old at validation time.
-  if (bucket.timestamp > nowSeconds - BigInt(minBucketAgeSeconds)) {
+  // Check 3: the bucket is at least `minBucketAgeSeconds` old at validation time, allowing for a clock up to
+  // `clockDisparityMs` ahead of ours.
+  const toleranceSeconds = BigInt(Math.ceil((clockDisparityMs ?? 0) / 1000));
+  if (bucket.timestamp > nowSeconds + toleranceSeconds - BigInt(minBucketAgeSeconds)) {
     return { accepted: false, reason: 'bucket_too_new' };
   }
 

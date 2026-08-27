@@ -969,8 +969,15 @@ describe('ProposalHandler checkpoint validation', () => {
       ...overrides,
     });
 
+    // A bucket opened at t=100 is exactly one second too young at this wall clock, given the 4s Ethereum slot the
+    // mocked L1 constants carry: `now - ethereumSlotDuration` is 99, one short of the bucket's timestamp.
+    const ONE_SECOND_TOO_NEW_MS = 103_000;
+
     /** Genesis-parent streaming block proposal at slot 1, with the handler wired to reach the streaming checks. */
-    async function setupStreamingProposal(bucketRef: InboxBucketRef | undefined) {
+    async function setupStreamingProposal(
+      bucketRef: InboxBucketRef | undefined,
+      options: { nowMs?: number; maxGossipClockDisparityMs?: number } = {},
+    ) {
       const proposal = ValidatedBlockProposal(
         await makeBlockProposal({
           blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
@@ -987,8 +994,8 @@ describe('ProposalHandler checkpoint validation', () => {
       const txProvider = mock<ITxProvider>();
       txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
 
-      // Well past the minimum bucket age (one 12s Ethereum slot) for a bucket opened at t=100.
-      dateProvider.setTime(1_000_000);
+      // Well past the minimum bucket age (one Ethereum slot) for a bucket opened at t=100, unless overridden.
+      dateProvider.setTime(options.nowMs ?? 1_000_000);
 
       const blockHandler = new ProposalHandler(
         checkpointsBuilder,
@@ -998,7 +1005,7 @@ describe('ProposalHandler checkpoint validation', () => {
         txProvider,
         epochCache,
         consensusTimetable,
-        config,
+        { ...config, maxGossipClockDisparityMs: options.maxGossipClockDisparityMs },
         mock<BlobClientInterface>(),
         new CheckpointReexecutionTracker(),
         metrics,
@@ -1085,6 +1092,48 @@ describe('ProposalHandler checkpoint validation', () => {
         expect.anything(),
         expect.anything(),
       );
+    });
+
+    // The proposer selects buckets against its own clock; a validator lagging it by less than the configured gossip
+    // clock disparity must not reject the selection as too new.
+    it('accepts a bucket one second too new by its own clock when a clock disparity is configured', async () => {
+      const ref = new InboxBucketRef(1n, 100n, new Fr(0xabc));
+      const { proposal, blockHandler } = await setupStreamingProposal(ref, {
+        nowMs: ONE_SECOND_TOO_NEW_MS,
+        maxGossipClockDisparityMs: 500,
+      });
+      l1ToL2MessageSource.getInboxBucket.mockResolvedValue(bucket());
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
+        bucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),
+      );
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue([
+        { timestamp: 100n, leaves: [new Fr(1000), new Fr(1001)] },
+      ]);
+      jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: undefined } as any);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+      expect(result.isValid).toBe(true);
+    });
+
+    it('rejects the same bucket when no clock disparity is configured', async () => {
+      const ref = new InboxBucketRef(1n, 100n, new Fr(0xabc));
+      const { proposal, blockHandler } = await setupStreamingProposal(ref, {
+        nowMs: ONE_SECOND_TOO_NEW_MS,
+        maxGossipClockDisparityMs: 0,
+      });
+      l1ToL2MessageSource.getInboxBucket.mockResolvedValue(bucket());
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
+        bucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),
+      );
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'bucket_too_new',
+      });
     });
   });
 
