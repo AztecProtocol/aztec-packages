@@ -13,26 +13,27 @@ describe('RecipientTaggingStore', () => {
     taggingStore = new RecipientTaggingStore(await openTmpStore('test'));
     secret1 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
     secret2 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
+
+    // Leave a change set open for the tests to operate under: every store operation requires one.
+    taggingStore.beginChangeSet('change-set-1');
   });
 
   describe('staged writes', () => {
     it('persists staged highest aged index to the store', async () => {
       await taggingStore.updateHighestAgedIndex(secret1, 5, 'change-set-1');
 
-      expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-2')).toBeUndefined();
-
       await taggingStore.commitChangeSet('change-set-1');
 
+      taggingStore.beginChangeSet('change-set-2');
       expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-2')).toBe(5);
     });
 
     it('persists staged highest finalized index to the store', async () => {
       await taggingStore.updateHighestFinalizedIndex(secret1, 10, 'change-set-1');
 
-      expect(await taggingStore.getHighestFinalizedIndex(secret1, 'change-set-2')).toBeUndefined();
-
       await taggingStore.commitChangeSet('change-set-1');
 
+      taggingStore.beginChangeSet('change-set-2');
       expect(await taggingStore.getHighestFinalizedIndex(secret1, 'change-set-2')).toBe(10);
     });
 
@@ -44,6 +45,7 @@ describe('RecipientTaggingStore', () => {
 
       await taggingStore.commitChangeSet('change-set-1');
 
+      taggingStore.beginChangeSet('change-set-2');
       expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-2')).toBe(5);
       expect(await taggingStore.getHighestAgedIndex(secret2, 'change-set-2')).toBe(8);
       expect(await taggingStore.getHighestFinalizedIndex(secret1, 'change-set-2')).toBe(3);
@@ -54,35 +56,29 @@ describe('RecipientTaggingStore', () => {
       await taggingStore.updateHighestAgedIndex(secret1, 5, 'change-set-1');
       await taggingStore.commitChangeSet('change-set-1');
 
-      // Updating again with a higher value in the same change set should work
-      // (if staged data wasn't cleared, it would still have the old value cached)
+      // Updating again with a higher value in a new change set should work
+      // (if staged data wasn't cleared on commit, the old value would still be cached)
+      taggingStore.beginChangeSet('change-set-2');
       await taggingStore.updateHighestAgedIndex(secret1, 10, 'change-set-2');
       expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-2')).toBe(10);
       await taggingStore.commitChangeSet('change-set-2');
 
-      expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-1')).toBe(10);
-    });
-
-    it('does not affect other change sets when committing', async () => {
-      await taggingStore.updateHighestAgedIndex(secret1, 5, 'change-set-1');
-      await taggingStore.updateHighestAgedIndex(secret1, 10, 'change-set-2');
-
-      await taggingStore.commitChangeSet('change-set-2');
-
-      // change-set-1's staged value should still be intact
-      expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-1')).toBe(5);
+      taggingStore.beginChangeSet('change-set-3');
+      expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-3')).toBe(10);
     });
 
     it('discards staged highest aged index without persisting', async () => {
       await taggingStore.updateHighestAgedIndex(secret1, 5, 'change-set-1');
       taggingStore.discardChangeSet('change-set-1');
-      expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-1')).toBeUndefined();
+      taggingStore.beginChangeSet('change-set-2');
+      expect(await taggingStore.getHighestAgedIndex(secret1, 'change-set-2')).toBeUndefined();
     });
 
     it('discards staged highest finalized index without persisting', async () => {
       await taggingStore.updateHighestFinalizedIndex(secret1, 5, 'change-set-1');
       taggingStore.discardChangeSet('change-set-1');
-      expect(await taggingStore.getHighestFinalizedIndex(secret1, 'change-set-1')).toBeUndefined();
+      taggingStore.beginChangeSet('change-set-2');
+      expect(await taggingStore.getHighestFinalizedIndex(secret1, 'change-set-2')).toBeUndefined();
     });
   });
 
@@ -102,6 +98,7 @@ describe('RecipientTaggingStore', () => {
       await taggingStore.updateHighestFinalizedIndex(constrained, 9, 'change-set-1');
       await taggingStore.commitChangeSet('change-set-1');
 
+      taggingStore.beginChangeSet('change-set-2');
       expect(await taggingStore.getHighestFinalizedIndex(unconstrained, 'change-set-2')).toBe(4);
       expect(await taggingStore.getHighestFinalizedIndex(constrained, 'change-set-2')).toBe(9);
     });
