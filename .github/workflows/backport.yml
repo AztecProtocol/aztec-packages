@@ -11,17 +11,15 @@ jobs:
     outputs:
       state: ${{ steps.check.outputs.state }}
     steps:
-      # The agilepathway label-checker action only supports a single prefix in
-      # prefix_mode, so `any_of: backport-to-,port-to-next` errored out and the
-      # gate never opened (silently breaking both backports and forward-ports).
-      # Check the prefixes directly instead.
+      # Checked directly rather than through the agilepathway label-checker action,
+      # whose prefix_mode silently failed to open the gate.
       - id: check
         shell: bash
         env:
           LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
           echo "Labels: $LABELS_JSON"
-          if echo "$LABELS_JSON" | jq -e 'any(.[]; startswith("backport-to-") or startswith("port-to-next"))' >/dev/null; then
+          if echo "$LABELS_JSON" | jq -e 'any(.[]; startswith("backport-to-"))' >/dev/null; then
             echo "Label detection status: success"
             echo "state=success" >> "$GITHUB_OUTPUT"
           else
@@ -49,27 +47,16 @@ jobs:
           LABELS="$LABELS_JSON"
           echo "All labels: $LABELS"
 
-          # port-to-next is a fixed-target port straight into next. Because next
-          # enforces squashed PRs, the staging PR carries ci-no-squash. It takes
-          # precedence over backport-to-* if both are somehow present.
-          if echo "$LABELS" | jq -e 'index("port-to-next")' >/dev/null; then
-            TARGET_BRANCH="next"
-            STAGING_BRANCH="port-to-next-staging"
-            STAGING_PR_TITLE="chore: Accumulated ports to next"
-            STAGING_PR_LABELS="ci-no-squash"
-            VERB="ported"
-          else
-            # Extract the branch name from a backport-to-* label
-            TARGET_BRANCH=$(echo "$LABELS" | jq -r '.[] | select(startswith("backport-to-")) | sub("backport-to-"; "")')
-            if [ -z "$TARGET_BRANCH" ]; then
-              echo "No backport-to-* or port-to-next label found"
-              exit 1
-            fi
-            STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
-            STAGING_PR_TITLE="chore: Accumulated backports to $TARGET_BRANCH"
-            STAGING_PR_LABELS=""
-            VERB="backported"
+          # Extract the branch name from a backport-to-* label
+          TARGET_BRANCH=$(echo "$LABELS" | jq -r '.[] | select(startswith("backport-to-")) | sub("backport-to-"; "")')
+          if [ -z "$TARGET_BRANCH" ]; then
+            echo "No backport-to-* label found"
+            exit 1
           fi
+          STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
+          STAGING_PR_TITLE="chore: Accumulated backports to $TARGET_BRANCH"
+          STAGING_PR_LABELS=""
+          VERB="backported"
 
           echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
           echo "staging_branch=$STAGING_BRANCH" >> $GITHUB_OUTPUT
