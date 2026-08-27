@@ -56,12 +56,25 @@ Follow Conventional Commits: `fix:`, `feat:`, `chore:`, `refactor:`, `docs:`, `t
 </commits_and_prs>
 
 <git_staging>
-When staging files, prefer `git add -u` or name specific files rather than `git add -A` or `git add .`. The aggregate flags will pick up unrelated untracked working directories (e.g. personal scratch projects at the repo root) and quietly stage them. Subagents must always name specific files in `git add` — never `-u`, `-A`, or `.` — because they lack the main conversation's context for judging which changes belong to the current task.
-</git_staging>
+When staging files, prefer `git add -u` or name specific files rather than `git add -A` or `git add .`. The aggregate flags will pick up unrelated untracked working directories (e.g. personal scratch projects at the repo root) and quietly stage them. `git add -u` and `git commit -a` also stage the `labs` gitlink whenever the patch series is applied (`git status` shows ` M labs`); unstage it with `git restore --staged labs` (see `<labs_submodule_patches>
+`labs/` (the aztec-node submodule) carries the foundation's patch series from `labs-patches/*.patch`, applied with `git am` by `labs-patches/bootstrap.sh apply` (run by the root bootstrap, the git hooks and `make labs-patched`), so `labs/` HEAD normally sits ahead of the recorded gitlink. Never `git add labs` by hand — that records a patch commit that does not exist upstream; move the pin with `labs-patches/bootstrap.sh bump <ref>`. To change a patch, commit inside `labs/` on top of the applied series and run `labs-patches/bootstrap.sh export`, then commit the regenerated `.patch` files. To send a patch to aztec-node, `labs-patches/bootstrap.sh upstream <n>` prepares the branch and prints the push/PR commands. See `labs-patches/README.md`.
 
-<lockfile_discipline>
-Never bulk-update lockfiles (`Cargo.lock`, `yarn.lock`). Use targeted updates only: `cargo update --precise <version> --package <name>` for Rust, and `yarn up <package>@<version>` in the relevant workspace for TypeScript. Bulk updates drag in unrelated transitive changes that make review impossible and frequently break reproducibility.
-</lockfile_discipline>
+The tooling, all in `labs-patches/bootstrap.sh` (foundation-owned; only the `.patch` contents ever go upstream):
+
+| Command | What it does |
+|---|---|
+| `apply` | Checks out the gitlink (`update = none` submodule) and `git am`s the series with a fixed committer identity, so the applied SHAs are identical everywhere. Idempotent; refuses to drop `labs/` commits that are not in the series (`LABS_PATCHES_FORCE=1` overrides); stashes uncommitted edits. |
+| `export` | Regenerates `*.patch` from the commits above the gitlink, skipping marker commits. Run it after committing inside `labs/`. |
+| `check` | Applies the committed series to the gitlink in a temporary worktree; CI runs it. |
+| `bump <ref>` | Fetches an aztec-node ref, stages the new gitlink and re-applies; refuses on unexported work. |
+| `upstream <n> [branch]` | Creates `fnd/<patch-slug>` in `labs/`'s repository with only patch `n` applied under your own identity, and prints the push and `gh pr create` commands. |
+| `status` | Base, checkout, series, whether it is applied, and unexported commits. |
+| `commit-use-local` | Commits the build's manifest rewrite as the marker commit (`labs-patches: use-local rewrite (never exported)`), staging only `package.json`/`yarn.lock`/`Nargo.toml`/`fnd-hashes`. Called by the build, not by hand. |
+| `check_staged` | The `pre-commit` hook: rejects a staged gitlink that is a series or marker commit. |
+| `test`, `test_cmds` | Run / list the tooling's tests: `tests/lifecycle_test` (a sandbox fixture exercising every command) and `check`; `make labs-patches-tests` runs them in CI. |
+
+State lives in `.git/modules/labs/labs-patches.state` (stamp of base + series, applied commits); the series is recognised by `git patch-id`, so a lost state file is re-derived from content. `post-merge`/`post-checkout` hooks re-run `apply` only when the gitlink or the series changed.
+</labs_submodule_patches>
 
 <standard_contract_repin>
 Never run `noir-projects/labs/noir-contracts/bootstrap.sh pin-standard-build` on your own initiative. The pin exists so ordinary source or bytecode changes do NOT move the standard contracts' canonical addresses, and CI does not fail when the bytecode drifts. A re-pin is a deliberate redeploy decision for a human to make: if a change seems to need one, leave the pin, rebuild against it, and ask. See the comment on `pin-standard-build` for why re-pinning is breaking.
@@ -108,7 +121,7 @@ Never append `; echo "EXIT: $?"` or similar exit-code suffixes to any command. T
 </bash_hygiene>
 
 <do_not_edit>
-Never edit vendored submodules (all paths listed in `.gitmodules`) or files that contain a `DO NOT EDIT` / `generated` header. Edit the upstream source or the generator input and regenerate. CI enforces this — hand edits to generated files will be overwritten or rejected.
+Never edit vendored submodules (all paths listed in `.gitmodules`, except `labs/`, whose edits go through the patch series described in `<labs_submodule_patches>`) or files that contain a `DO NOT EDIT` / `generated` header. Edit the upstream source or the generator input and regenerate. CI enforces this — hand edits to generated files will be overwritten or rejected.
 </do_not_edit>
 
 <editorial_test>
