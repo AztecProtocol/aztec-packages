@@ -43,16 +43,18 @@ export class WalletDB {
     },
     log: LogFn = this.userLog,
   ) {
-    if (alias) {
-      await this.aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
-    }
-    await this.accounts.set(accountKey('type', address), Buffer.from(type));
-    await this.accounts.set(accountKey('sk', address), secretKey.toBuffer());
-    await this.accounts.set(accountKey('salt', address), salt.toBuffer());
-    await this.accounts.set(
-      accountKey('signingKey', address),
-      'toBuffer' in signingKey ? signingKey.toBuffer() : signingKey,
-    );
+    await this.store.transactionAsync(async () => {
+      if (alias) {
+        await this.aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
+      }
+      await this.accounts.set(accountKey('type', address), Buffer.from(type));
+      await this.accounts.set(accountKey('sk', address), secretKey.toBuffer());
+      await this.accounts.set(accountKey('salt', address), salt.toBuffer());
+      await this.accounts.set(
+        accountKey('signingKey', address),
+        'toBuffer' in signingKey ? signingKey.toBuffer() : signingKey,
+      );
+    });
     log(`Account stored in database${alias ? ` with alias ${alias}` : ''}`);
   }
 
@@ -119,19 +121,27 @@ export class WalletDB {
     return addresses;
   }
 
+  /**
+   * Deletes an account's stored data and every alias pointing at it atomically. Deletion is local to this store;
+   * any state the PXE holds for the account is unaffected.
+   */
   async deleteAccount(address: AztecAddress) {
-    await Promise.all([
-      this.accounts.delete(accountKey('sk', address)),
-      this.accounts.delete(accountKey('salt', address)),
-      this.accounts.delete(accountKey('type', address)),
-      this.accounts.delete(accountKey('signingKey', address)),
-    ]);
-    // Clean up alias if one exists
-    const aliasesByAddress = await this.#readAccountAliases();
-    const alias = aliasesByAddress.get(address.toString());
-    if (alias) {
-      await this.aliases.delete(`accounts:${alias}`);
-    }
+    await this.store.transactionAsync(async () => {
+      await Promise.all([
+        this.accounts.delete(accountKey('sk', address)),
+        this.accounts.delete(accountKey('salt', address)),
+        this.accounts.delete(accountKey('type', address)),
+        this.accounts.delete(accountKey('signingKey', address)),
+      ]);
+
+      const aliasKeys: string[] = [];
+      for await (const [key, item] of this.aliases.entriesAsync({ start: 'accounts:', end: 'accounts:\uffff' })) {
+        if (item.toString() === address.toString()) {
+          aliasKeys.push(key);
+        }
+      }
+      await Promise.all(aliasKeys.map(key => this.aliases.delete(key)));
+    });
   }
 
   async close() {
