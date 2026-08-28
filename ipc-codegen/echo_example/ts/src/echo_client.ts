@@ -1,6 +1,6 @@
 /**
  * Echo IPC client (TypeScript) — uses the GENERATED AsyncApi client over the
- * @aztec/ipc-runtime transport. Defaults to UDS; pass `--transport shm` to
+ * @aztec-foundation/ipc-runtime transport. Defaults to UDS; pass `--transport shm` to
  * drive the bundled NAPI SHM client (`createNapiShmAsyncClient`) instead.
  * Path suffix follows the same convention as ipc::make_client on the C++
  * side: `.sock` for UDS, `.shm` for MPSC-SHM rings.
@@ -12,7 +12,7 @@ import {
   createNapiShmAsyncClient,
   UdsIpcClient,
   type IpcClientAsync,
-} from "@aztec/ipc-runtime";
+} from "@aztec-foundation/ipc-runtime";
 import { AsyncApi } from "./generated/async.js";
 
 const args = process.argv.slice(2);
