@@ -233,6 +233,13 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       Errors.Staking__ExitDelayAboveSlasherDelay(_config.exitDelaySeconds, StakingLib.SLASHER_EXECUTION_DELAY)
     );
 
+    // We can only figure out if the epoch is full once it closes,
+    // so we need to allow proofs to be accepted in a later epoch
+    require(
+      _config.aztecProofSubmissionEpochs > 0,
+      Errors.Rollup__InvalidProofSubmissionEpochs(1, _config.aztecProofSubmissionEpochs)
+    );
+
     TimeLib.initialize(
       block.timestamp,
       _config.aztecSlotDuration,
