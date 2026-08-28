@@ -24,7 +24,13 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
-import { GovernanceProposerContract, RollupContract, SimulationOverridesBuilder } from '@aztec/ethereum/contracts';
+import {
+  GovernanceProposerContract,
+  InboxContract,
+  type MessageSentLog,
+  RollupContract,
+  SimulationOverridesBuilder,
+} from '@aztec/ethereum/contracts';
 import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { TxUtilsState, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
@@ -49,7 +55,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
@@ -88,7 +94,7 @@ import { NativeWorldStateService, ServerWorldStateSynchronizer, type WorldStateC
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type Address, encodeFunctionData, getAbiItem, getAddress, getContract, multicall3Abi } from 'viem';
+import { type Address, encodeFunctionData, getAbiItem, getAddress, multicall3Abi } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -574,11 +580,7 @@ describe('L1Publisher integration', () => {
       // then reuses the production `selectInboxBucketForBlock` (which mirrors `ProposeLib.validateInboxConsumption`) to
       // pick exactly the buckets it must consume, deriving the consumed bundle, the propose bucket hint, and the header
       // rolling hash from that one selection so header, world state, and L1 agree by construction.
-      const inbox = getContract({
-        address: getAddress(l1ContractAddresses.inboxAddress.toString()),
-        abi: InboxAbi,
-        client: l1Client,
-      });
+      const inbox = new InboxContract(l1Client, l1ContractAddresses.inboxAddress);
       // Every message sent to the Inbox, in insertion order, so each bucket's leaves can be mirrored into messageSource.
       const allSentMessages: Fr[] = [];
       let mirroredThroughSeq = 0n;
@@ -596,6 +598,9 @@ describe('L1Publisher integration', () => {
         // and causes a chain prune
         const l1ToL2Content = range(Math.min(16, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT), 128 * i + 1 + 0x400).map(fr);
 
+        // Uncached: viem caches getBlockNumber for its polling interval, and a stale head here would leave the
+        // MessageSent query below short of the blocks the sends land in.
+        const l1BlockBeforeSending = await l1Client.getBlockNumber({ cacheTime: 0 });
         const sentThisCheckpoint: Fr[] = [];
         for (let j = 0; j < l1ToL2Content.length; j++) {
           sentThisCheckpoint.push(await sendToL2(l1ToL2Content[j], recipientAddress));
@@ -604,23 +609,33 @@ describe('L1Publisher integration', () => {
 
         // Mirror the Inbox's new buckets (seq, timestamp, rolling hash, totals) and their leaves into messageSource,
         // so the selector, the world-state synchronizer, and L1 all read the same bucket state.
-        const currentBucketSeq = await inbox.read.getCurrentBucketSeq();
-        // Every message above was sent within the last few L1 blocks, so the chain head stands in for the L1 block
-        // each new bucket was opened in; nothing under test reads it back.
-        const latestL1Block = await l1Client.getBlock();
+        const currentBucketSeq = await inbox.getCurrentBucketSeq();
+        // The MessageSent log of a bucket's first message names the L1 block the bucket was opened in, which is
+        // what the archiver records for it.
+        const openingLogs = new Map<bigint, MessageSentLog>();
+        const l1BlockAfterSending = await l1Client.getBlockNumber({ cacheTime: 0 });
+        for (const log of await inbox.getMessageSentEvents(l1BlockBeforeSending, l1BlockAfterSending)) {
+          if (!openingLogs.has(log.args.bucketSeq)) {
+            openingLogs.set(log.args.bucketSeq, log);
+          }
+        }
         for (let seq = mirroredThroughSeq + 1n; seq <= currentBucketSeq; seq++) {
-          const bucket = await inbox.read.getBucket([seq]);
+          const bucket = await inbox.getBucket(seq);
+          const openingLog = openingLogs.get(seq);
+          if (openingLog === undefined) {
+            throw new Error(`No MessageSent log found for inbox bucket ${seq}`);
+          }
           const bucketMessages = allSentMessages.slice(Number(mirroredThroughTotal), Number(bucket.totalMsgCount));
           messageSource.setInboxBucket(
             {
               seq,
-              inboxRollingHash: Fr.fromString(bucket.rollingHash),
+              inboxRollingHash: bucket.rollingHash,
               totalMsgCount: bucket.totalMsgCount,
               timestamp: bucket.timestamp,
               msgCount: Number(bucket.msgCount),
               lastMessageIndex: bucket.totalMsgCount - 1n,
-              l1BlockNumber: latestL1Block.number,
-              l1BlockHash: Buffer32.fromString(latestL1Block.hash),
+              l1BlockNumber: openingLog.l1BlockNumber,
+              l1BlockHash: openingLog.l1BlockHash,
             },
             bucketMessages,
           );

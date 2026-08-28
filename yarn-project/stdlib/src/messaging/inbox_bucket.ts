@@ -28,11 +28,17 @@ export type InboxBucket = {
   msgCount: number;
   /** Global leaf index of the last message absorbed into this bucket. */
   lastMessageIndex: bigint;
-  /** L1 block in which this bucket was opened. */
+  /**
+   * L1 block in which this bucket was opened. Buckets are keyed by L1 block timestamp, so on a chain that allows
+   * consecutive blocks to share a timestamp (anvil with manual mining, for instance) a bucket may span several L1
+   * blocks and only the opening one is recorded. Production Ethereum timestamps are strictly increasing, so there a
+   * bucket never spans more than one block.
+   */
   l1BlockNumber: bigint;
   /**
    * Hash of that L1 block as seen when the bucket was synced; lets callers test whether the bucket is still on the
-   * canonical chain.
+   * canonical chain. Since only the opening block is recorded, a reorg that touches only a later co-timestamped block
+   * of the same bucket is not detectable from this hash.
    */
   l1BlockHash: Buffer32;
 };
