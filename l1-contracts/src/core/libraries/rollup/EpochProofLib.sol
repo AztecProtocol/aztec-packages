@@ -140,7 +140,10 @@ library EpochProofLib {
       }
     }
 
-    RewardLib.handleRewardsAndFees(_args, endEpoch);
+    bool fullEpochProof = isFullEpochProof(_args.end, endEpoch);
+
+    // Activity score depends on whether the proof is a full epoch proof
+    RewardLib.handleRewardsAndFees(_args, endEpoch, fullEpochProof);
 
     emit IRollupCore.L2ProofVerified(_args.end, _args.args.proverId);
   }
@@ -466,6 +469,34 @@ library EpochProofLib {
     );
 
     return endEpoch;
+  }
+
+  /*
+  * @notice Checks if the submitted proof is a full epoch proof
+  *
+  * @param _end End checkpoint of the proof
+  * @param _endEpoch Proof epoch
+  * @return true if the proof covers the whole epoch
+  */
+  function isFullEpochProof(uint256 _end, Epoch _endEpoch) private view returns (bool) {
+    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+
+    // Another checkpoint could be proposed if the epoch being proven is the current one, so we can't be sure that the
+    // proof is a full epoch proof
+    if (_endEpoch >= currentEpoch) {
+      return false;
+    }
+
+    uint256 pendingCheckpointNumber = STFLib.getStorage().tips.getPending();
+
+    // If the last proof checkpoint is a pending checkpoint while the epoch is closed, then it's the last checkpoint of
+    // proof epoch
+    if (_end == pendingCheckpointNumber) {
+      return true;
+    }
+
+    // If the next checkpoint is in a different epoch, then this one is the final one in the proof epoch
+    return STFLib.getEpochForCheckpoint(_end + 1) > _endEpoch;
   }
 
   /**
