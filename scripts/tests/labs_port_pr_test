@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# scripts/labs_port_pr.sh against the checked-out labs/: a labs-only diff ports onto HEAD as a
+# branch with one commit, a diff touching the foundation is refused, a diff mixing the in-tree
+# and patch-file layouts is refused. Offline (--no-fetch, --onto HEAD).
+set -euo pipefail
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
+port=$root/scripts/labs_port_pr.sh
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"; git -C "$root/labs" branch -q -D port/t-ok port/t-mixed 2>/dev/null || true' EXIT
+PASS=0
+function ok { echo "  ok  $1"; PASS=$((PASS + 1)); }
+function fail { echo "  FAIL  $1" >&2; exit 1; }
+
+# a diff in the in-tree layout: append a line to a labs file
+f=docs/README.md
+git -C "$root/labs" show "HEAD:$f" > "$tmp/before"; { cat "$tmp/before"; echo; echo "ported line"; } > "$tmp/after"
+{ echo "diff --git a/$f b/$f"; diff -u --label "a/$f" --label "b/$f" "$tmp/before" "$tmp/after" || true; } > "$tmp/ok.diff"
+"$port" --diff "$tmp/ok.diff" --title "docs: ported line" --onto HEAD --branch port/t-ok --no-fetch > "$tmp/out" || fail "port: labs-only diff refused: $(cat "$tmp/out")"
+grep -q "Prepared port/t-ok" "$tmp/out" || fail "port: output"
+[ "$(git -C "$root/labs" rev-list --count HEAD..port/t-ok)" = 1 ] || fail "port: one commit"
+git -C "$root/labs" show "port/t-ok:$f" | grep -q "ported line" || fail "port: content"
+git -C "$root/labs" log -1 --format=%s port/t-ok | grep -q "^docs: ported line$" || fail "port: subject"
+ok "labs-only diff ported as one commit"
+
+# a foundation path is refused, and no branch is left behind
+{ echo "diff --git a/barretenberg/cpp/x b/barretenberg/cpp/x"; echo "--- a/barretenberg/cpp/x"; echo "+++ b/barretenberg/cpp/x"; echo "@@ -0,0 +1 @@"; echo "+x"; } > "$tmp/bad.diff"
+if "$port" --diff "$tmp/bad.diff" --title x --onto HEAD --branch port/t-bad --no-fetch >/dev/null 2>"$tmp/err"; then fail "refuse: foundation diff accepted"; fi
+grep -q "barretenberg/cpp/x" "$tmp/err" || fail "refuse: offending file not listed"
+git -C "$root/labs" show-ref -q --verify refs/heads/port/t-bad && fail "refuse: branch left behind"
+ok "foundation paths refused"
+
+# in-tree files and patch files in one diff are refused
+cat "$tmp/ok.diff" > "$tmp/mixed.diff"; { echo "diff --git a/labs-patches/0009-x.patch b/labs-patches/0009-x.patch"; echo "--- /dev/null"; echo "+++ b/labs-patches/0009-x.patch"; echo "@@ -0,0 +1 @@"; echo "+x"; } >> "$tmp/mixed.diff"
+if "$port" --diff "$tmp/mixed.diff" --title x --onto HEAD --branch port/t-mixed --no-fetch >/dev/null 2>"$tmp/err"; then fail "refuse: mixed diff accepted"; fi
+grep -q "mixes" "$tmp/err" || fail "refuse: mixed message"
+ok "mixed layouts refused"
+
+echo "labs_port_pr: $PASS checks passed"
