@@ -135,6 +135,7 @@ jobs:
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
         run: ./.github/ci3.sh $CI_MODE
 
+
       - name: Post-Actions
         env:
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
