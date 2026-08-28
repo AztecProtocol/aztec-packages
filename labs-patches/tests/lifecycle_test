@@ -181,13 +181,16 @@ ok "test_cmds from any cwd"
 
 # 12. upstream prepares one patch as a branch at the recorded base, under the caller's identity
 base=$(git -C "$fnd" rev-parse HEAD:labs)
-out=$("$lp" upstream 1 fnd/one) && grep -q "Prepared fnd/one" <<<"$out" || fail "upstream: output"
+out=$("$lp" upstream 1 --branch fnd/one) && grep -q "Prepared fnd/one" <<<"$out" || fail "upstream: output"
 [ "$(git -C "$fnd/labs" rev-list --count "$base..fnd/one")" = 1 ] || fail "upstream: one commit above the base"
 [ "$(git -C "$fnd/labs" show fnd/one:config)" = "a=2" ] || fail "upstream: patch content"
 [ "$(git -C "$fnd/labs" log -1 --format=%cn fnd/one)" = "test" ] || fail "upstream: committer identity"
-expect_fail "$lp" upstream 1 fnd/one || fail "upstream: existing branch accepted"
+expect_fail "$lp" upstream 1 --branch fnd/one || fail "upstream: existing branch accepted"
 "$lp" upstream "$fnd/labs-patches"/0002-*.patch >/dev/null || fail "upstream: by path"
 git -C "$fnd/labs" show-ref -q --verify refs/heads/fnd/patch-two-extra || fail "upstream: default branch name"
+"$lp" upstream 2 1 --branch fnd/both >/dev/null || fail "upstream: several patches"
+[ "$(git -C "$fnd/labs" rev-list --count "$base..fnd/both")" = 2 ] || fail "upstream: two commits above the base"
+[ "$(git -C "$fnd/labs" log --format=%s --reverse "$base..fnd/both" | head -1)" = "patch one: config" ] || fail "upstream: series order"
 ok "upstream branch"
 
 # 13. check verifies without touching labs/
