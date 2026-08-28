@@ -6,7 +6,7 @@ Build from this directory:
 ./bootstrap.sh
 ```
 
-The package consumes `@aztec/ipc-runtime` via a repo-relative `file:`
+The package consumes `@aztec-foundation/ipc-runtime` via a repo-relative `file:`
 dependency. The bootstrap builds `ipc-runtime/ts` before installing this
 example so the file-linked package contains compiled output.
 

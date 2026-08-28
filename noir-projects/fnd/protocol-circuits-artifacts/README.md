@@ -1,4 +1,4 @@
-# @aztec/protocol-circuits-artifacts
+# @aztec-foundation/protocol-circuits-artifacts
 
 Compiled protocol circuit artifacts, published so consumers can generate TypeScript bindings without a
 Noir toolchain.

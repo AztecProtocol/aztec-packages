@@ -5,9 +5,9 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@aztec/ipc-runtime@workspace:.":
+"@aztec-foundation/ipc-runtime@workspace:.":
   version: 0.0.0-use.local
-  resolution: "@aztec/ipc-runtime@workspace:."
+  resolution: "@aztec-foundation/ipc-runtime@workspace:."
   dependencies:
     "@types/node": "npm:^22"
     typescript: "npm:^5.6.3"
