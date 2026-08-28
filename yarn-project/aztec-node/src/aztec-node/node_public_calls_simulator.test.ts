@@ -117,7 +117,7 @@ describe('NodePublicCallsSimulator', () => {
 
   /**
    * Mocks the Inbox so the next-block prediction selects a two-message bundle: the fork's message total (0)
-   * resolves to bucket 0, and bucket 1 is lag-eligible and holds both messages.
+   * resolves to bucket 0, and bucket 1 holds both messages.
    */
   const mockInboxSelection = () => {
     const makeBucket = (seq: bigint, totalMsgCount: bigint): InboxBucket => ({

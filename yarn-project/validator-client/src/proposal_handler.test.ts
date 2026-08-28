@@ -879,8 +879,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
     it('processes a rebuilt proposal once the stale fork at this number is pruned', async () => {
       const { proposal, blockHandler } = await setupGenesisProposal(Fr.random());
-      // Past the minimum bucket age but well before the slot-1 attestation deadline (40s), so the prune wait has
-      // budget to retry.
+      // Well before the slot-1 attestation deadline (40s), so the prune wait has budget to retry.
       dateProvider.setTime(5_000);
       // Stale block (different archive) on the first read, then pruned (undefined) on the retry.
       blockSource.getBlockData.mockResolvedValueOnce(blockAt(Fr.random())).mockResolvedValue(undefined);
@@ -992,7 +991,6 @@ describe('ProposalHandler checkpoint validation', () => {
       const txProvider = mock<ITxProvider>();
       txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
 
-      // Well past the minimum bucket age (one 12s Ethereum slot) for a bucket opened at t=100, unless overridden.
       dateProvider.setTime(options.nowMs ?? 1_000_000);
 
       const blockHandler = new ProposalHandler(
@@ -1104,7 +1102,7 @@ describe('ProposalHandler checkpoint validation', () => {
       const PAST_DEADLINE_MS = DEADLINE_MS + 1_000;
       const WAIT_INTERVAL_MS = 500;
 
-      /** A bucket old enough to be lag-eligible at {@link BEFORE_DEADLINE_MS}. */
+      /** The bucket a proposal under test consumes through. */
       const eligibleBucket = (overrides: Partial<InboxBucket> = {}) => bucket({ timestamp: 10n, ...overrides });
 
       /** Wires the parent-bucket lookup and the bundle read for a proposal that consumes `eligibleBucket()`. */

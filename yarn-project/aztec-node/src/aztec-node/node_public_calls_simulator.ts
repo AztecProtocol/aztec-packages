@@ -12,7 +12,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { type InboxBucketSource, selectInboxBucketForBlock } from '@aztec/sequencer-client';
+import { type InboxBucketSource, immediateEligibility, selectInboxBucketForBlock } from '@aztec/sequencer-client';
 import { type AvmSimulator, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -241,9 +241,9 @@ export class NodePublicCallsSimulator {
   /**
    * Appends the L1-to-L2 message bundle the next block would consume to the simulation fork, so a transaction
    * consuming a message that has reached the Inbox but no block yet simulates against the state it will run in.
-   * Runs the same bucket selection the sequencer runs (lag eligibility plus the per-block and per-checkpoint caps),
-   * treating the next block as non-final: the censorship cutoff only widens consumption on a checkpoint's last
-   * block, and the node cannot know whether the next block is it.
+   * Runs the same bucket selection the sequencer runs (the per-block and per-checkpoint caps), treating the next
+   * block as non-final: the censorship cutoff only widens consumption on a checkpoint's last block, and the node
+   * cannot know whether the next block is it.
    *
    * Best-effort. Any failure — Inbox buckets not synced yet, a torn archiver snapshot — leaves the fork at the tip
    * state, which is what the transaction sees if the next block consumes nothing.
@@ -282,7 +282,9 @@ export class NodePublicCallsSimulator {
       const selection = await selectInboxBucketForBlock({
         messageSource: this.l1ToL2MessageSource,
         now: BigInt(Math.floor(this.dateProvider.now() / 1000)),
-        minBucketAgeSeconds: BigInt(l1Constants.ethereumSlotDuration),
+        // Every synced bucket counts: this is a best-effort prediction of what the next proposer will consume, and
+        // the node does not read L1 to track which buckets the proposer considers confirmed.
+        isEligible: immediateEligibility,
         parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
         checkpointStartTotalMsgCount,
         perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,

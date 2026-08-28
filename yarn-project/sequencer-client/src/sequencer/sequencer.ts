@@ -780,6 +780,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.p2pClient,
       this.worldState,
       this.l1ToL2MessageSource,
+      this.rollupContract.client,
       this.l2BlockSource,
       this.checkpointsBuilder,
       this.l2BlockSource,

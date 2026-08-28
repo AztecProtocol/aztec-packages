@@ -84,6 +84,7 @@ import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
+import { InboxBucketConfirmationTracker, type L1BlockReader } from './inbox_bucket_eligibility.js';
 import {
   type ConsumedBucketCursor,
   type InboxBucketSelection,
@@ -148,6 +149,12 @@ export class CheckpointProposalJob implements Traceable {
   private interrupted = false;
 
   /**
+   * Tracks which Inbox buckets have gained a canonical L1 descendant. One per job, so its confirmation cache lives
+   * exactly as long as the slot whose blocks consult it.
+   */
+  private readonly inboxBucketConfirmations: InboxBucketConfirmationTracker;
+
+  /**
    * Chain state overrides built once per slot in proposeCheckpoint after the checkpoint is
    * complete. Carries the pending parent override (archive + slot + fee header) for pipelining,
    * or the invalidation pending override when rolling back. Consumed by
@@ -175,6 +182,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly p2pClient: P2P,
     private readonly worldState: WorldStateSynchronizer,
     private readonly l1ToL2MessageSource: L1ToL2MessageSource,
+    private readonly l1Client: L1BlockReader,
     private readonly l2BlockSource: L2BlockSource,
     private readonly checkpointsBuilder: FullNodeCheckpointsBuilder,
     private readonly blockSink: L2BlockSink & ProposedCheckpointSink,
@@ -203,6 +211,11 @@ export class CheckpointProposalJob implements Traceable {
     this.checkpointEventLog = createLogger('sequencer:checkpoint-events', {
       ...bindings,
       instanceId: `slot-${this.getBuildSlot()}`,
+    });
+    this.inboxBucketConfirmations = new InboxBucketConfirmationTracker({
+      l1Client: this.l1Client,
+      ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
+      log: this.log,
     });
   }
 
@@ -1207,7 +1220,7 @@ export class CheckpointProposalJob implements Traceable {
     return selectInboxBucketForBlock({
       messageSource: this.l1ToL2MessageSource,
       now: BigInt(Math.floor(nowSeconds)),
-      minBucketAgeSeconds: BigInt(this.l1Constants.ethereumSlotDuration),
+      isEligible: this.inboxBucketConfirmations.isEligible,
       parent: state.parent,
       checkpointStartTotalMsgCount: state.checkpointStartTotalMsgCount,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,

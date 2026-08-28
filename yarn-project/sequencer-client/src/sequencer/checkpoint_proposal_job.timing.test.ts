@@ -50,6 +50,7 @@ import {
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
+import type { L1BlockReader } from './inbox_bucket_eligibility.js';
 import type { SequencerMetrics } from './metrics.js';
 import { RequestsTracker } from './requests_tracker.js';
 import { SequencerState } from './utils.js';
@@ -189,6 +190,15 @@ class TimingTestCheckpointProposalJob extends CheckpointProposalJob {
     this.blockBuildTimes.push({ blockNumber, startTime, endTime });
   }
 }
+
+/**
+ * L1 view in which every bucket's opening block already has a canonical child, so the job's confirmation tracker
+ * admits every bucket the archiver mock returns.
+ */
+const confirmingL1Client = {
+  getBlock: ({ blockNumber }: { blockNumber: bigint }) =>
+    Promise.resolve({ parentHash: Buffer32.fromBigInt(blockNumber - 1n).toString() }),
+} as unknown as L1BlockReader;
 
 describe('CheckpointProposalJob Timing Tests', () => {
   // Realistic production-like timing configuration
@@ -332,6 +342,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       p2p,
       worldState,
       l1ToL2MessageSource,
+      confirmingL1Client,
       l2BlockSource,
       checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
       blockSink,

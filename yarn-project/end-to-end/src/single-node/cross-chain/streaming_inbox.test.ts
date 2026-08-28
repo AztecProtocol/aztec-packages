@@ -22,8 +22,8 @@ jest.setTimeout(600_000);
 // entered at the first block of the *next* checkpoint, mid-checkpoint inclusion, message-only blocks, and
 // per-block streaming latency had no observable surface. Runs the production
 // pipelining sequencer via CrossChainMessagingTest with a widened slot (36s / 6s blocks -> up to ~4 blocks
-// per checkpoint) so a message can become lag-eligible partway through a checkpoint and land in a non-first
-// block. minTxsPerBlock=0 lets a checkpoint carry a zero-tx block whose only content is a streaming bundle.
+// per checkpoint) so a message's bucket can become eligible partway through a checkpoint and land in a
+// non-first block. minTxsPerBlock=0 lets a checkpoint carry a zero-tx block whose only content is a streaming bundle.
 //
 // Grounded on l1_to_l2.test.ts (send/wait helpers, TestContract arbitrary-sender consume) and
 // cross_chain_public_message.test.ts (same-block public consume). All cases share one node stood up once.
@@ -46,9 +46,9 @@ describe('single-node/cross-chain/streaming_inbox', () => {
     t = new CrossChainMessagingTest(
       'streaming_inbox',
       // A 36s slot with 6s blocks yields up to ~4 blocks per checkpoint (the pipelining timing model gives
-      // maxBlocks = floor((36 - 0.5 - (0.5 + D)) / D) = 4 for D=6), which is what lets a message aged past
-      // the minimum bucket age land in a non-first block of the same checkpoint. minTxsPerBlock=0 permits a
-      // zero-tx message-only block (the FI-05 relaxation).
+      // maxBlocks = floor((36 - 0.5 - (0.5 + D)) / D) = 4 for D=6), which is what lets a message whose bucket
+      // is confirmed mid-checkpoint land in a non-first block of the same checkpoint. minTxsPerBlock=0 permits
+      // a zero-tx message-only block (the FI-05 relaxation).
       { ...PIPELINING_SETUP_OPTS, aztecSlotDuration: 36, blockDurationMs: 6000, minTxsPerBlock: 0 },
       { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4 },
       { syncChainTip: 'checkpointed' },
@@ -133,7 +133,7 @@ describe('single-node/cross-chain/streaming_inbox', () => {
   // Test 1 (mid-checkpoint inclusion): a message sent mid-checkpoint becomes available in a *later* block of
   // the same checkpoint (indexWithinCheckpoint > 0), which the legacy first-block-of-next-checkpoint flow
   // could never produce. Feeds a steady tx stream so checkpoints fill to multiple blocks, times the send so
-  // the message ages past the minimum bucket age partway through a checkpoint's build, then locates the inserting
+  // the message's bucket becomes eligible partway through a checkpoint's build, then locates the inserting
   // block. Retries with fresh messages so a message that happens to age exactly at a checkpoint boundary (and
   // lands at index 0) does not fail the run.
   it('includes a message in a non-first block of a checkpoint (mid-checkpoint streaming)', async () => {
@@ -203,10 +203,9 @@ describe('single-node/cross-chain/streaming_inbox', () => {
   // Test 2 (latency bound): the delay between a message's L1 inclusion and the L2 block that makes it
   // available stays within the streaming bound. Asserted in slot-denominated terms (L1/L2 timestamps, not
   // wall-clock): the including block's timestamp minus the message's L1 timestamp must be at most
-  // ethereumSlotDuration + 2 * slotDuration (the minimum bucket age + a full slot straddle + one slot of CI
-  // slack). No lower bound
-  // is asserted (eligibility is already enforced by L1 and the validator). The wall-clock latency is logged
-  // for information only.
+  // ethereumSlotDuration + 2 * slotDuration (the descendant-confirmation wait + a full slot straddle + one slot
+  // of CI slack). No lower bound is asserted: when a bucket becomes consumable is the proposer's own policy. The
+  // wall-clock latency is logged for information only.
   it('makes a message available within the streaming latency bound', async () => {
     const { slotDuration } = t.constants;
     const maxDelaySeconds = BigInt(t.constants.ethereumSlotDuration) + 2n * BigInt(slotDuration);
@@ -332,11 +331,10 @@ describe('single-node/cross-chain/streaming_inbox', () => {
   // and the block-root circuit (which pins each tx's L1-to-L2 tree snapshot to the post-append root); if it did
   // not, this tx would revert at proposal time and succeed at proving time, making the epoch unprovable. The node
   // simulates public calls against the messages predicted for the next block, so a consume tx sent as soon as the
-  // message's bucket becomes lag-eligible passes simulation and lands in the pool before the inserting block is
+  // message's bucket becomes eligible passes simulation and lands in the pool before the inserting block is
   // built. The send is timed to that instant and retried with fresh messages when a block slips in between.
   it('consumes a message in the same block that inserts it', async () => {
     const l1Account = t.ethAccount;
-    const minBucketAge = BigInt(t.constants.ethereumSlotDuration);
     const maxAttempts = 5;
     let sameBlockReceipt: { blockNumber: BlockNumber; msgHash: Fr; globalLeafIndex: bigint } | undefined;
 
@@ -345,13 +343,18 @@ describe('single-node/cross-chain/streaming_inbox', () => {
       const message = { recipient: testContract.address, content: Fr.random(), secretHash };
       const { msgHash, globalLeafIndex, txReceipt: l1Receipt } = await sendMessageToL2(message);
       const messageL1Ts = await getMessageL1Timestamp(l1Receipt.blockNumber!);
-      const eligibleAt = messageL1Ts + minBucketAge;
-      log.warn(`Attempt ${attempt}: sent message ${msgHash.toString()}, eligible at L1 timestamp ${eligibleAt}`);
+      const messageL1Block = l1Receipt.blockNumber!;
+      // The proposer consumes a bucket once its opening L1 block has a canonical descendant, falling back to
+      // "two Ethereum slots have elapsed and the block is still canonical" when the next L1 slot is missed.
+      const fallbackAt = messageL1Ts + 2n * BigInt(t.constants.ethereumSlotDuration);
+      log.warn(`Attempt ${attempt}: sent message ${msgHash.toString()} in L1 block ${messageL1Block}`);
 
       // Do not drive L2 blocks while waiting: an extra block here only shifts the timing of the inserting block.
       await retryUntil(
-        async () => BigInt(await t.cheatCodes.eth.lastBlockTimestamp()) >= eligibleAt,
-        `message bucket becomes eligible at ${eligibleAt}`,
+        async () =>
+          (await t.harnessL1Client.getBlockNumber()) > messageL1Block ||
+          BigInt(await t.cheatCodes.eth.lastBlockTimestamp()) >= fallbackAt,
+        `message bucket gains an L1 descendant (or reaches ${fallbackAt})`,
         Number(t.constants.slotDuration) * 3,
         0.2,
       );

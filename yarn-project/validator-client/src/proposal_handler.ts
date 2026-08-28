@@ -1084,14 +1084,11 @@ export class ProposalHandler {
       // divergence, and `awaitStreamingBlockMetadata` waits it out by re-running the whole check after a sync.
       return { accepted: false, reason: 'bucket_unknown' };
     }
-    const nowSeconds = BigInt(Math.floor(this.dateProvider.now() / 1000));
     return checkStreamingBlockProposalMetadata({
       messageSource: this.l1ToL2MessageSource,
       bucketRef: proposal.bucketRef,
       parentTotalMsgCount,
       checkpointStartTotalMsgCount,
-      nowSeconds,
-      minBucketAgeSeconds: this.epochCache.getL1Constants().ethereumSlotDuration,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
       perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
     });
