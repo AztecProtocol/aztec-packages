@@ -1,3 +1,4 @@
+import type { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -27,6 +28,13 @@ export type InboxBucket = {
   msgCount: number;
   /** Global leaf index of the last message absorbed into this bucket. */
   lastMessageIndex: bigint;
+  /** L1 block in which this bucket was opened. */
+  l1BlockNumber: bigint;
+  /**
+   * Hash of that L1 block as seen when the bucket was synced; lets callers test whether the bucket is still on the
+   * canonical chain.
+   */
+  l1BlockHash: Buffer32;
 };
 
 export const InboxBucketSchema = z.object({
@@ -36,6 +44,8 @@ export const InboxBucketSchema = z.object({
   timestamp: schemas.BigInt,
   msgCount: schemas.Integer,
   lastMessageIndex: schemas.BigInt,
+  l1BlockNumber: schemas.BigInt,
+  l1BlockHash: schemas.Buffer32,
 }) satisfies z.ZodType<InboxBucket>;
 
 /**

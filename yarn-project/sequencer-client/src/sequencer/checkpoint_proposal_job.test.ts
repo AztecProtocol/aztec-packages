@@ -6,6 +6,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -258,6 +259,8 @@ describe('CheckpointProposalJob', () => {
       timestamp: 0n,
       msgCount: 0,
       lastMessageIndex: 0n,
+      l1BlockNumber: 0n,
+      l1BlockHash: Buffer32.ZERO,
     });
 
     l2BlockSource = mock<L2BlockSource>();
@@ -1199,6 +1202,8 @@ describe('CheckpointProposalJob', () => {
         timestamp: 0n,
         msgCount: 2,
         lastMessageIndex,
+        l1BlockNumber: seq,
+        l1BlockHash: Buffer32.fromBigInt(seq),
       });
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore
         .mockResolvedValueOnce(makeBucket(2n, 2n, 1n))
@@ -1486,6 +1491,8 @@ describe('CheckpointProposalJob', () => {
         timestamp: 0n,
         msgCount: 2,
         lastMessageIndex: 4n,
+        l1BlockNumber: 2n,
+        l1BlockHash: Buffer32.fromBigInt(2n),
       };
       const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
@@ -1526,6 +1533,8 @@ describe('CheckpointProposalJob', () => {
         timestamp: 0n,
         msgCount: 2,
         lastMessageIndex: 4n,
+        l1BlockNumber: 2n,
+        l1BlockHash: Buffer32.fromBigInt(2n),
       };
       const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
@@ -1564,6 +1573,8 @@ describe('CheckpointProposalJob', () => {
         timestamp: 0n,
         msgCount: 2,
         lastMessageIndex: 4n,
+        l1BlockNumber: 2n,
+        l1BlockHash: Buffer32.fromBigInt(2n),
       };
       const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
@@ -1607,6 +1618,8 @@ describe('CheckpointProposalJob', () => {
         timestamp: 0n,
         msgCount: Number(totalMsgCount - (i === 0 ? 0n : totals[i - 1])),
         lastMessageIndex: totalMsgCount - 1n,
+        l1BlockNumber: BigInt(i + 1),
+        l1BlockHash: Buffer32.fromBigInt(BigInt(i + 1)),
       }));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(buckets[3]);
       l1ToL2MessageSource.getInboxBucket.mockImplementation(seq => Promise.resolve(buckets[Number(seq) - 1]));

@@ -1,3 +1,4 @@
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -79,6 +80,8 @@ export class MockPrefilledArchiver extends MockArchiver {
         timestamp: 0n,
         msgCount: 0,
         lastMessageIndex: 0n,
+        l1BlockNumber: 0n,
+        l1BlockHash: Buffer32.ZERO,
       },
       [],
     );
@@ -99,6 +102,8 @@ export class MockPrefilledArchiver extends MockArchiver {
           timestamp: bucketSeq,
           msgCount: messages.length,
           lastMessageIndex: totalMsgCount - 1n,
+          l1BlockNumber: bucketSeq,
+          l1BlockHash: Buffer32.fromBigInt(bucketSeq),
         },
         messages,
       );

@@ -13,6 +13,7 @@ import {
   makeInboxMessage,
   makeInboxMessages,
   makeInboxMessagesWithFullBlocks,
+  makeL1BlockHash,
   makePublishedCheckpoint,
   makeStateForBlock,
 } from '../test/mock_structs.js';
@@ -232,7 +233,9 @@ describe('MessageStore', () => {
       msgs.forEach((msg, i) => {
         msg.bucketSeq = spec[i].seq;
         msg.bucketTimestamp = spec[i].timestamp;
-        msg.l1BlockNumber = spec[i].l1BlockNumber ?? msg.l1BlockNumber;
+        // A bucket lives entirely within one L1 block, so default each bucket to an L1 block of its own.
+        msg.l1BlockNumber = spec[i].l1BlockNumber ?? spec[i].seq;
+        msg.l1BlockHash = makeL1BlockHash(msg.l1BlockNumber);
       });
       return msgs;
     };
@@ -271,6 +274,8 @@ describe('MessageStore', () => {
         timestamp: 100n,
         msgCount: 3,
         lastMessageIndex: msgs[2].index,
+        l1BlockNumber: 1n,
+        l1BlockHash: makeL1BlockHash(1n),
       });
       expect(await messageStore.getInboxBucket(2n)).toEqual({
         seq: 2n,
@@ -279,6 +284,8 @@ describe('MessageStore', () => {
         timestamp: 200n,
         msgCount: 2,
         lastMessageIndex: msgs[4].index,
+        l1BlockNumber: 2n,
+        l1BlockHash: makeL1BlockHash(2n),
       });
       expect(await messageStore.getInboxBucket(3n)).toEqual({
         seq: 3n,
@@ -287,6 +294,8 @@ describe('MessageStore', () => {
         timestamp: 300n,
         msgCount: 1,
         lastMessageIndex: msgs[5].index,
+        l1BlockNumber: 3n,
+        l1BlockHash: makeL1BlockHash(3n),
       });
       expect(await messageStore.getInboxBucket(4n)).toBeUndefined();
     });
@@ -336,8 +345,37 @@ describe('MessageStore', () => {
         timestamp: 100n,
         msgCount: 3,
         lastMessageIndex: replacement.index,
+        l1BlockNumber: 1n,
+        l1BlockHash: makeL1BlockHash(1n),
       });
       expect(await messageStore.getTotalL1ToL2MessageCount()).toEqual(3n);
+    });
+
+    it('records the L1 block a bucket is re-delivered in after a rollback', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec).slice(0, 3);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+      expect(await messageStore.getInboxBucket(1n)).toMatchObject({
+        l1BlockNumber: 1n,
+        l1BlockHash: makeL1BlockHash(1n),
+      });
+
+      // The L1 block holding bucket 1 was reorged out and re-mined with the same messages under a different hash.
+      await messageStore.rollbackL1ToL2MessagesAfterL1Block(0n);
+      const replayed = msgs.map(msg => ({ ...msg, l1BlockHash: makeL1BlockHash(99n) }));
+      await messageStore.addL1ToL2MessageBuckets(replayed);
+
+      expect(await messageStore.getInboxBucket(1n)).toMatchObject({
+        msgCount: 3,
+        l1BlockNumber: 1n,
+        l1BlockHash: makeL1BlockHash(99n),
+      });
+    });
+
+    it('rejects a bucket whose messages come from more than one L1 block', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      msgs[2].l1BlockNumber += 1n;
+
+      await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(/Inbox bucket 1 spans L1 blocks 1 to 2/);
     });
 
     it('rejects a message opening a bucket older than the newest stored one', async () => {
@@ -453,6 +491,8 @@ describe('MessageStore', () => {
         timestamp: 200n,
         msgCount: 1,
         lastMessageIndex: msgs[3].index,
+        l1BlockNumber: 2n,
+        l1BlockHash: makeL1BlockHash(2n),
       });
       expect(await messageStore.getInboxBucket(1n)).toMatchObject({ msgCount: 3, totalMsgCount: 3n });
 

@@ -294,6 +294,8 @@ describe('L1Publisher integration', () => {
         timestamp: 0n,
         msgCount: 0,
         lastMessageIndex: 0n,
+        l1BlockNumber: 0n,
+        l1BlockHash: Buffer32.ZERO,
       },
       [],
     );
@@ -603,6 +605,9 @@ describe('L1Publisher integration', () => {
         // Mirror the Inbox's new buckets (seq, timestamp, rolling hash, totals) and their leaves into messageSource,
         // so the selector, the world-state synchronizer, and L1 all read the same bucket state.
         const currentBucketSeq = await inbox.read.getCurrentBucketSeq();
+        // Every message above was sent within the last few L1 blocks, so the chain head stands in for the L1 block
+        // each new bucket was opened in; nothing under test reads it back.
+        const latestL1Block = await l1Client.getBlock();
         for (let seq = mirroredThroughSeq + 1n; seq <= currentBucketSeq; seq++) {
           const bucket = await inbox.read.getBucket([seq]);
           const bucketMessages = allSentMessages.slice(Number(mirroredThroughTotal), Number(bucket.totalMsgCount));
@@ -614,6 +619,8 @@ describe('L1Publisher integration', () => {
               timestamp: bucket.timestamp,
               msgCount: Number(bucket.msgCount),
               lastMessageIndex: bucket.totalMsgCount - 1n,
+              l1BlockNumber: latestL1Block.number,
+              l1BlockHash: Buffer32.fromString(latestL1Block.hash),
             },
             bucketMessages,
           );

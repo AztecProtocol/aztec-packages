@@ -19,14 +19,15 @@ import { type InboxMessage, deserializeInboxMessage, serializeInboxMessage } fro
 
 /**
  * Persisted snapshot of an Inbox rolling-hash bucket. Mirrors the fields the on-chain Inbox tracks per bucket, plus
- * the L1 block the bucket was opened in and the index span of its messages, so rollbacks and range queries can work
- * off bucket records alone without scanning messages.
+ * the number and hash of the L1 block the bucket was opened in and the index span of its messages, so rollbacks,
+ * range queries and canonicality checks can work off bucket records alone without scanning messages.
  */
 type BucketSnapshot = {
   inboxRollingHash: Fr;
   totalMsgCount: bigint;
   timestamp: bigint;
   l1BlockNumber: bigint;
+  l1BlockHash: Buffer32;
   msgCount: number;
   firstMessageIndex: bigint;
   lastMessageIndex: bigint;
@@ -38,6 +39,7 @@ function serializeBucketSnapshot(snapshot: BucketSnapshot): Buffer {
     bigintToUInt64BE(snapshot.totalMsgCount),
     bigintToUInt64BE(snapshot.timestamp),
     bigintToUInt64BE(snapshot.l1BlockNumber),
+    snapshot.l1BlockHash,
     numToUInt32BE(snapshot.msgCount),
     bigintToUInt64BE(snapshot.firstMessageIndex),
     bigintToUInt64BE(snapshot.lastMessageIndex),
@@ -50,10 +52,20 @@ function deserializeBucketSnapshot(buffer: Buffer): BucketSnapshot {
   const totalMsgCount = reader.readUInt64();
   const timestamp = reader.readUInt64();
   const l1BlockNumber = reader.readUInt64();
+  const l1BlockHash = Buffer32.fromBuffer(reader.readBytes(Buffer32.SIZE));
   const msgCount = reader.readNumber();
   const firstMessageIndex = reader.readUInt64();
   const lastMessageIndex = reader.readUInt64();
-  return { inboxRollingHash, totalMsgCount, timestamp, l1BlockNumber, msgCount, firstMessageIndex, lastMessageIndex };
+  return {
+    inboxRollingHash,
+    totalMsgCount,
+    timestamp,
+    l1BlockNumber,
+    l1BlockHash,
+    msgCount,
+    firstMessageIndex,
+    lastMessageIndex,
+  };
 }
 
 /** The messages of a single Inbox bucket within an incoming batch, in insertion order. */
@@ -90,6 +102,8 @@ const GENESIS_INBOX_BUCKET: InboxBucket = {
   timestamp: 0n,
   msgCount: 0,
   lastMessageIndex: 0n,
+  l1BlockNumber: 0n,
+  l1BlockHash: Buffer32.ZERO,
 };
 
 export class MessageStoreError extends Error {
@@ -262,7 +276,8 @@ export class MessageStore {
   /**
    * Rejects a batch that delivers an Inbox bucket the store already holds without replaying it from its first message,
    * or that opens a bucket older than the newest one stored. Either would produce a snapshot that disagrees with the
-   * messages it covers, since each snapshot is derived from the batch's messages for that bucket alone.
+   * messages it covers, since each snapshot is derived from the batch's messages for that bucket alone. Also rejects a
+   * bucket whose messages span more than one L1 block, since the snapshot records a single opening L1 block for it.
    */
   private async assertIncomingBucketsAreComplete(incomingBuckets: IncomingBucket[]): Promise<void> {
     const newestStoredSeq = await this.getNewestBucketSeq();
@@ -291,13 +306,23 @@ export class MessageStore {
           bucket.messages[0],
         );
       }
+
+      const lastInBucket = bucket.messages.at(-1)!;
+      if (lastInBucket.l1BlockNumber !== bucket.messages[0].l1BlockNumber) {
+        throw new MessageStoreError(
+          `Inbox bucket ${bucket.seq} spans L1 blocks ${bucket.messages[0].l1BlockNumber} to ` +
+            `${lastInBucket.l1BlockNumber}`,
+          lastInBucket,
+        );
+      }
     }
   }
 
   /**
    * Writes one snapshot per bucket in the batch, each derived from the bucket's complete message set. Cumulative
    * totals thread forward from the bucket preceding the batch, so a bucket re-delivered with extra messages shifts
-   * the totals of the buckets after it within the same batch.
+   * the totals of the buckets after it within the same batch. Every message of a bucket comes from the same L1 block
+   * (checked when the batch is validated), so the opening L1 block is read off the bucket's last message.
    */
   private async writeIncomingBucketSnapshots(incomingBuckets: IncomingBucket[]): Promise<void> {
     let cumulativeTotal = await this.getTotalMsgCountBeforeBucket(incomingBuckets[0].seq);
@@ -309,6 +334,7 @@ export class MessageStore {
         totalMsgCount: cumulativeTotal,
         timestamp: lastInBucket.bucketTimestamp,
         l1BlockNumber: lastInBucket.l1BlockNumber,
+        l1BlockHash: lastInBucket.l1BlockHash,
         msgCount: messages.length,
         firstMessageIndex: messages[0].index,
         lastMessageIndex: lastInBucket.index,
@@ -568,6 +594,8 @@ export class MessageStore {
       timestamp: snapshot.timestamp,
       msgCount: snapshot.msgCount,
       lastMessageIndex: snapshot.lastMessageIndex,
+      l1BlockNumber: snapshot.l1BlockNumber,
+      l1BlockHash: snapshot.l1BlockHash,
     };
   }
 

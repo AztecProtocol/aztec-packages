@@ -7,6 +7,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { omit, times, timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -372,6 +373,8 @@ describe('sequencer', () => {
       timestamp: 0n,
       msgCount: 0,
       lastMessageIndex: 0n,
+      l1BlockNumber: 0n,
+      l1BlockHash: Buffer32.ZERO,
     });
 
     validatorClient = mock<ValidatorClient>();

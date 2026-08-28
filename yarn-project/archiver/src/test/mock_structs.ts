@@ -3,7 +3,6 @@ import { makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
-import { randomBigInt } from '@aztec/foundation/crypto/random';
 import type { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -20,12 +19,15 @@ import { PartialStateReference, StateReference, TxEffect } from '@aztec/stdlib/t
 
 import type { InboxMessage } from '../structs/inbox_message.js';
 
+/** Deterministic, distinct L1 block hash for a block number, so tests can predict the hash a bucket records. */
+export function makeL1BlockHash(l1BlockNumber: bigint): Buffer32 {
+  return Buffer32.fromBigInt(l1BlockNumber);
+}
+
 export function makeInboxMessage(
   previousInboxRollingHash = Fr.ZERO,
   overrides: Partial<InboxMessage> = {},
 ): InboxMessage {
-  const { l1BlockNumber = randomBigInt(100n) + 1n } = overrides;
-  const { l1BlockHash = Buffer32.random() } = overrides;
   const { leaf = Fr.random() } = overrides;
   // Compact global insertion index: defaults to the first slot.
   const { index = 0n } = overrides;
@@ -33,6 +35,9 @@ export function makeInboxMessage(
   // Default each message to its own bucket, keyed monotonically off its global index.
   const { bucketSeq = index + 1n } = overrides;
   const { bucketTimestamp = index + 1n } = overrides;
+  // A bucket is opened and closed within a single L1 block, so default each bucket to an L1 block of its own.
+  const { l1BlockNumber = bucketSeq } = overrides;
+  const { l1BlockHash = makeL1BlockHash(l1BlockNumber) } = overrides;
 
   return {
     index,
@@ -85,7 +90,13 @@ export function makeInboxMessagesWithFullBlocks(blockCount: number): InboxMessag
   return makeInboxMessages(MAX_L1_TO_L2_MSGS_PER_BLOCK * blockCount, {
     overrideFn: (msg, i) => {
       const bucketSeq = BigInt(Math.floor(i / MAX_L1_TO_L2_MSGS_PER_BLOCK)) + 1n;
-      return { ...msg, bucketSeq, bucketTimestamp: bucketSeq };
+      return {
+        ...msg,
+        bucketSeq,
+        bucketTimestamp: bucketSeq,
+        l1BlockNumber: bucketSeq,
+        l1BlockHash: makeL1BlockHash(bucketSeq),
+      };
     },
   });
 }

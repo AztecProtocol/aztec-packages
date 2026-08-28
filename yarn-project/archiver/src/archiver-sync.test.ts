@@ -272,12 +272,16 @@ describe('Archiver Sync', () => {
         msgCount: 3,
         totalMsgCount: 3n,
         timestamp: t1,
+        l1BlockNumber: 98n,
+        l1BlockHash: Buffer32.fromBigInt(98n),
       });
       expect(await archiver.getInboxBucket(3n)).toMatchObject({
         seq: 3n,
         msgCount: 3,
         totalMsgCount: 9n,
         timestamp: t3,
+        l1BlockNumber: 2511n,
+        l1BlockHash: Buffer32.fromBigInt(2511n),
       });
 
       // At-or-before lookups resolve the latest bucket not opened after the given timestamp.
