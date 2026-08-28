@@ -17,7 +17,10 @@
     "allow": [
       "Bash(yarn:*)",
       "Bash(forge:*)",
-      "Bash(env LOG_LEVEL=* yarn *)",
+      "Bash(env LOG_LEVEL=verbose yarn *)",
+      "Bash(env LOG_LEVEL=debug yarn *)",
+      "Bash(env LOG_LEVEL=trace yarn *)",
+      "Bash(env LOG_LEVEL=info yarn *)",
       "Bash(./bootstrap.sh:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
