@@ -29,17 +29,17 @@ fetches the ref, stages the new gitlink and re-applies the series. If a patch no
 
 `bootstrap.sh check` verifies the series applies to the gitlink in a temporary worktree without touching `labs/`. CI runs it, together with `tests/lifecycle_test` (the tooling exercised end to end against a sandbox fixture: apply, export, marker commits, bumps, the guards), through `make labs-patches-tests`; `bootstrap.sh test` runs both locally.
 
-## Upstreaming a patch
+## Upstreaming patches
 
-The series is a queue of things to upstream: every patch here is carried through every bump, so open the aztec-node PR early and let the patch drop out when it lands.
+The series is a queue of things to upstream: every patch here is carried through every bump, so open the aztec-node PR early and let the patches drop out when it lands. One PR per patch is not the rule — batch the patches that belong together, typically the ones that do not depend on a foundation version bump; a patch that does has to wait for the release that bump points at.
 
 ```
-./labs-patches/bootstrap.sh upstream 3            # or a .patch path; optional branch name as 2nd arg
-git -C labs push origin fnd/<patch-slug>
-gh pr create --repo aztec-labs-eng/aztec-node --head fnd/<patch-slug> --base main --fill
+./labs-patches/bootstrap.sh upstream 1 2 3          # patch numbers or .patch paths; --branch <name> to choose the branch
+git -C labs push origin fnd/<slug>-and-2-more
+gh pr create --repo aztec-labs-eng/aztec-node --head fnd/<slug>-and-2-more --base main --fill
 ```
 
-`upstream` creates the branch in `labs/`'s repository at the recorded base with only that patch applied, under your own git identity (the series itself is applied with a fixed one). It pushes nothing; the two commands it prints do. When the PR is merged, `bump` past it and the patch disappears from the next `export`.
+`upstream` creates the branch in `labs/`'s repository at the recorded base with the named patches applied in series order, under your own git identity (the series itself is applied with a fixed one). It pushes nothing; the two commands it prints do. When the PR is merged, `bump` past it and those patches disappear from the next `export`.
 
 Everything else in this directory (`bootstrap.sh`, the tests, `test_cmd_skip`) is the foundation's own tooling and never goes upstream.
 
