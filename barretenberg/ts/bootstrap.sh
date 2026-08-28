@@ -3,8 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 ROOT=$(git rev-parse --show-toplevel)
 BB_AVM_SIM_BINARY=bb-avm-sim
-BB_AVM_SIM_PACKAGE=@aztec/bb-avm-sim
-CDB_PACKAGE=@aztec/cdb
+BB_AVM_SIM_PACKAGE=@aztec-foundation/bb-avm-sim
+CDB_PACKAGE=@aztec-foundation/cdb
 
 hash=$(hash_str \
   $(bb.js/bootstrap.sh hash) \
