@@ -139,6 +139,8 @@ export class MessageStore {
    * leaves its rollover siblings indexed.
    */
   #bucketTimestampToSeq: AztecAsyncMultiMap<number, number>;
+  /** Stores the sequence number through which bucket canonicality has been verified against a finalized L1 chain. */
+  #canonicalVerifiedThroughSeq: AztecAsyncSingleton<bigint>;
 
   #log = createLogger('archiver:message_store');
 
@@ -150,6 +152,7 @@ export class MessageStore {
     this.#messagesFinalizedL1Block = db.openSingleton('archiver_messages_finalized_l1_block');
     this.#inboxBuckets = db.openMap('archiver_inbox_buckets');
     this.#bucketTimestampToSeq = db.openMultiMap('archiver_inbox_bucket_timestamps');
+    this.#canonicalVerifiedThroughSeq = db.openSingleton('archiver_inbox_canonical_verified_through_seq');
   }
 
   public async getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -406,8 +409,9 @@ export class MessageStore {
    *
    * The bucket holding the last surviving message is rewritten from the messages it has left, because a removal can
    * cut inside a bucket: the synchronizer rolls back to the last message it still shares with L1 after a reorg, and
-   * that message need not be the last of its bucket. Must run inside the removal transaction, after the total message
-   * count has been updated.
+   * that message need not be the last of its bucket. The canonicality watermark is lowered to the surviving tip, so
+   * that buckets re-delivered above it are verified against L1 again. Must run inside the removal transaction, after
+   * the total message count has been updated.
    */
   private async rewindBucketsAfterRemoval(): Promise<void> {
     const lastRemaining = await this.getLastMessage();
@@ -418,6 +422,14 @@ export class MessageStore {
       const snapshot = deserializeBucketSnapshot(snapBuffer);
       await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(snapshot.timestamp), seqKey);
       await this.#inboxBuckets.delete(seqKey);
+    }
+
+    // The surviving tip bucket is rewritten below from the messages it has left, so it is no longer the bucket that
+    // was verified either; the watermark stops one short of it.
+    const verifiedThroughSeq = await this.getCanonicalVerifiedThroughSeq();
+    const survivingVerifiedSeq = boundarySeq === undefined ? 0n : boundarySeq - 1n;
+    if (verifiedThroughSeq > survivingVerifiedSeq) {
+      await this.setCanonicalVerifiedThroughSeq(survivingVerifiedSeq);
     }
 
     if (lastRemaining === undefined || boundarySeq === undefined) {
@@ -518,6 +530,38 @@ export class MessageStore {
       latestSeqKey = latestSeqKey === undefined ? seqKey : Math.max(latestSeqKey, seqKey);
     }
     return latestSeqKey === undefined ? undefined : this.getInboxBucket(BigInt(latestSeqKey));
+  }
+
+  /** Returns the Inbox bucket with the highest sequence number, or undefined if none has been synced. */
+  public async getNewestInboxBucket(): Promise<InboxBucket | undefined> {
+    const seq = await this.getNewestBucketSeq();
+    return seq === undefined ? undefined : this.getInboxBucket(seq);
+  }
+
+  /**
+   * Iterates over the synced Inbox buckets in sequence order. The genesis sentinel (sequence 0) is never stored, so
+   * it is not yielded.
+   */
+  public async *iterateInboxBuckets(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxBucket> {
+    const entriesRange = mapRange(range, this.bucketSeqToKey);
+    for await (const [seqKey, snapBuffer] of this.#inboxBuckets.entriesAsync(entriesRange)) {
+      yield this.toInboxBucket(BigInt(seqKey), deserializeBucketSnapshot(snapBuffer));
+    }
+  }
+
+  /**
+   * Returns the sequence number through which this archiver has verified that the buckets it holds were opened in L1
+   * blocks that are canonical and finalized, or 0 (the genesis sentinel) if it has verified none. Buckets at or below
+   * it need no further checking; buckets above it may still sit on an orphaned L1 block, even one that is now below
+   * the finalized block, if the node was not watching when it was reorged out.
+   */
+  public async getCanonicalVerifiedThroughSeq(): Promise<bigint> {
+    return (await this.#canonicalVerifiedThroughSeq.getAsync()) ?? 0n;
+  }
+
+  /** Records the sequence number through which bucket canonicality has been verified. */
+  public async setCanonicalVerifiedThroughSeq(seq: bigint): Promise<void> {
+    await this.#canonicalVerifiedThroughSeq.set(seq);
   }
 
   /**

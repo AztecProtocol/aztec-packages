@@ -1568,6 +1568,181 @@ describe('Archiver Sync', () => {
     }, 15_000);
   });
 
+  describe('inbox bucket canonicality', () => {
+    // Counts the reads of a specific L1 block, which is how the canonicality check verifies a bucket.
+    const countBlockReads = (spy: jest.Spied<ViemPublicClient['getBlock']>, l1BlockNumber: bigint) =>
+      spy.mock.calls.filter(([args]) => (args as { blockNumber?: bigint } | undefined)?.blockNumber === l1BlockNumber)
+        .length;
+
+    const countReorgWarnings = (spy: jest.Spied<Logger['warn']>) =>
+      spy.mock.calls.filter(([msg]) => msg.includes('no longer canonical')).length;
+
+    it('re-times a bucket whose L1 block was replaced with one carrying the same messages', async () => {
+      const msgs = [Fr.random(), Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      const before = await archiverStore.messages.getInboxBucket(1n);
+      expect(before).toMatchObject({
+        seq: 1n,
+        msgCount: 2,
+        l1BlockNumber: 100n,
+        timestamp: fake.getTimestampAtL1Block(100n),
+      });
+
+      // Block 100 is orphaned and its two messages are re-mined in block 101: same messages in the same order, so
+      // the Inbox's total and rolling hash are untouched and only the bucket metadata moves.
+      const warnSpy = jest.spyOn(syncLogger, 'warn');
+      fake.retimeMessages(100n, 101n);
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+      expect(await archiverStore.messages.getInboxBucket(1n)).toEqual({
+        ...before,
+        timestamp: fake.getTimestampAtL1Block(101n),
+        l1BlockNumber: 101n,
+        l1BlockHash: fake.getL1BlockHash(101n),
+      });
+      expect(countReorgWarnings(warnSpy)).toEqual(1);
+    });
+
+    it('merges two buckets when a reorg re-mines a block into the next one', async () => {
+      const msgsA = [Fr.random(), Fr.random()];
+      const msgsB = [Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 100n, msgsA);
+      fake.addMessages(CheckpointNumber(2), 101n, msgsB);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      expect(await archiverStore.messages.getInboxBucket(1n)).toMatchObject({ msgCount: 2, totalMsgCount: 2n });
+      expect(await archiverStore.messages.getInboxBucket(2n)).toMatchObject({ msgCount: 1, totalMsgCount: 3n });
+
+      fake.retimeMessages(100n, 101n);
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      // The three messages keep their indices, but they now belong to a single bucket opened at block 101.
+      expect(await getStoredLeaves()).toEqual(asHex([...msgsA, ...msgsB]));
+      expect(await archiverStore.messages.getInboxBucket(1n)).toMatchObject({
+        msgCount: 3,
+        totalMsgCount: 3n,
+        lastMessageIndex: 2n,
+        l1BlockNumber: 101n,
+        timestamp: fake.getTimestampAtL1Block(101n),
+      });
+      expect(await archiverStore.messages.getInboxBucket(2n)).toBeUndefined();
+    });
+
+    it('rolls back to the last canonical bucket when a reorg reorders a block', async () => {
+      const msgs1 = [Fr.random(), Fr.random()];
+      const msgs2 = [Fr.random(), Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 100n, msgs1);
+      fake.addMessages(CheckpointNumber(2), 102n, msgs2);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      const canonicalBucket = await archiverStore.messages.getInboxBucket(1n);
+      const rollingHashBefore = (await archiverStore.messages.getInboxBucket(2n))!.inboxRollingHash;
+
+      // Only block 102 is replaced, so bucket 1 stays canonical and the rollback stops at it.
+      const warnSpy = jest.spyOn(syncLogger, 'warn');
+      const eventByHashSpy = jest.spyOn(inboxContract, 'getMessageSentEventByHash');
+      fake.reorderMessagesAtL1Block(102n);
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      // The bucket walk resolves this on its own: the per-message log queries of the rolling-hash fallback are
+      // never reached.
+      expect(countReorgWarnings(warnSpy)).toEqual(1);
+      expect(eventByHashSpy).not.toHaveBeenCalled();
+      expect(await getStoredLeaves()).toEqual(asHex([...msgs1, msgs2[1], msgs2[0]]));
+      expect(await archiverStore.messages.getInboxBucket(1n)).toEqual(canonicalBucket);
+      expect((await archiverStore.messages.getInboxBucket(2n))!.inboxRollingHash).not.toEqual(rollingHashBefore);
+    });
+
+    it('checks a bucket that is already below the finalized block, then never again', async () => {
+      fake.addMessages(CheckpointNumber(1), 100n, [Fr.random()]);
+      fake.setFinalizedL1BlockNumber(105n);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      // The bucket is downloaded on this pass, so nothing has been verified yet.
+      expect(await archiverStore.messages.getCanonicalVerifiedThroughSeq()).toEqual(0n);
+
+      const getBlockSpy = jest.spyOn(publicClient, 'getBlock');
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      // Being below the finalized block does not exempt a bucket this node has never checked itself.
+      expect(countBlockReads(getBlockSpy, 100n)).toEqual(1);
+      expect(await archiverStore.messages.getCanonicalVerifiedThroughSeq()).toEqual(1n);
+
+      getBlockSpy.mockClear();
+      fake.setL1BlockNumber(112n);
+      await archiver.syncImmediate();
+
+      expect(countBlockReads(getBlockSpy, 100n)).toEqual(0);
+    });
+
+    it('keeps checking a bucket that has not been finalized yet', async () => {
+      fake.addMessages(CheckpointNumber(1), 100n, [Fr.random()]);
+      fake.setFinalizedL1BlockNumber(90n);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      const getBlockSpy = jest.spyOn(publicClient, 'getBlock');
+      for (const l1BlockNumber of [111n, 112n]) {
+        fake.setL1BlockNumber(l1BlockNumber);
+        await archiver.syncImmediate();
+      }
+
+      expect(countBlockReads(getBlockSpy, 100n)).toEqual(2);
+      expect(await archiverStore.messages.getCanonicalVerifiedThroughSeq()).toEqual(0n);
+    });
+
+    it('detects a bucket reorged out while it was not syncing, even below the finalized block', async () => {
+      const msgs = [Fr.random(), Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setFinalizedL1BlockNumber(90n);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      expect(await archiverStore.messages.getInboxBucket(1n)).toMatchObject({ l1BlockNumber: 100n });
+
+      // The archiver holds no bucket state in memory, so an outage is just a gap between sync passes. Across that
+      // gap block 100 is orphaned, its messages are re-mined one block later, and finality moves past both.
+      fake.retimeMessages(100n, 101n);
+      fake.setFinalizedL1BlockNumber(105n);
+      fake.setL1BlockNumber(120n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+      expect(await archiverStore.messages.getInboxBucket(1n)).toMatchObject({
+        l1BlockNumber: 101n,
+        l1BlockHash: fake.getL1BlockHash(101n),
+        timestamp: fake.getTimestampAtL1Block(101n),
+      });
+    });
+
+    it('catches up over many buckets from bulk events alone', async () => {
+      // Nothing here reads per-bucket state from L1, so it makes no difference how many buckets the on-chain ring
+      // has overwritten since the archiver last synced.
+      const msgs = times(20, () => Fr.random());
+      msgs.forEach((msg, i) => fake.addMessages(CheckpointNumber(1), 100n + BigInt(i), [msg]));
+
+      const eventByHashSpy = jest.spyOn(inboxContract, 'getMessageSentEventByHash');
+      const eventsSpy = jest.spyOn(inboxContract, 'getMessageSentEvents');
+      fake.setL1BlockNumber(200n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+      expect((await archiverStore.messages.getNewestInboxBucket())!.seq).toEqual(20n);
+      expect(eventsSpy).toHaveBeenCalled();
+      expect(eventByHashSpy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('finalized checkpoint', () => {
     it('reports no finalized blocks before any checkpoint is proven', async () => {
       fake.setL1BlockNumber(100n);
