@@ -29,6 +29,7 @@ import { type P2P, createTxValidatorForAcceptingTxsOverRPC, getDefaultAllowedSet
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { ProverNode } from '@aztec/prover-node';
 import { SequencerClient } from '@aztec/sequencer-client';
+import type { L1BlockReader } from '@aztec/sequencer-client';
 import { AutomineSequencer } from '@aztec/sequencer-client/automine';
 import type { AvmSimulator } from '@aztec/simulator/server';
 import type { SlasherClientInterface } from '@aztec/slasher';
@@ -151,6 +152,11 @@ export interface AztecNodeServiceDeps {
   keyStoreManager?: KeystoreManager;
   debugLogStore?: DebugLogStore;
   automineSequencer?: AutomineSequencer;
+  /**
+   * L1 client the public-calls simulator reads blocks from, to predict which Inbox buckets the next proposer will
+   * consider confirmed. Absent in unit/TXE nodes, which fall back to predicting against every synced bucket.
+   */
+  l1Client?: L1BlockReader;
   // AVM execution backend for public simulation. Wired in production (factory.ts); absent in unit/TXE nodes
   // that don't drive public execution, hence optional and asserted at the simulation call site. Owned by the
   // node (disposed on stop), so it must be disposable — a spawned process pool + CDB IPC server.
@@ -248,6 +254,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       rollupContract: this.rollupContract,
       epochCache: this.epochCache,
       signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
+      l1Client: deps.l1Client,
       config: this.config,
       avmSimulator: this.avmSimulator,
       telemetry: this.telemetry,

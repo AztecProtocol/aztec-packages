@@ -6,7 +6,12 @@ export { Sequencer, SequencerState, type SequencerEvents } from './sequencer/ind
 // Used by the node to simulate public parts of transactions. Should these be moved to a shared library?
 // ISSUE(#9832)
 export * from './global_variable_builder/index.js';
-export { type InboxBucketEligibility, immediateEligibility } from './sequencer/inbox_bucket_eligibility.js';
+export {
+  InboxBucketConfirmationTracker,
+  type InboxBucketEligibility,
+  type L1BlockReader,
+  immediateEligibility,
+} from './sequencer/inbox_bucket_eligibility.js';
 export {
   type ConsumedBucketCursor,
   type InboxBucketSelection,
