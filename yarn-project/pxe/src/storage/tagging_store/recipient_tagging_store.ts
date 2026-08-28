@@ -63,13 +63,13 @@ export class RecipientTaggingStore extends BaseStagingStore<RecipientTaggingChan
   }
 
   getHighestAgedIndex(secret: AppTaggingSecret, changeSetId: ChangeSetId): Promise<Index | undefined> {
-    return this.withChangeSet(changeSetId, (changeSet, db) =>
+    return this.withChangeSetAndDb(changeSetId, (changeSet, db) =>
       this.#readHighestAgedIndex(changeSet, db, secret.toString()),
     );
   }
 
   updateHighestAgedIndex(secret: AppTaggingSecret, index: Index, changeSetId: ChangeSetId): Promise<void> {
-    return this.withChangeSet(changeSetId, async (changeSet, db) => {
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
       const currentIndex = await this.#readHighestAgedIndex(changeSet, db, secret.toString());
       if (currentIndex !== undefined && index <= currentIndex) {
         // Log sync should never set a lower highest aged index.
@@ -80,13 +80,13 @@ export class RecipientTaggingStore extends BaseStagingStore<RecipientTaggingChan
   }
 
   getHighestFinalizedIndex(secret: AppTaggingSecret, changeSetId: ChangeSetId): Promise<Index | undefined> {
-    return this.withChangeSet(changeSetId, (changeSet, db) =>
+    return this.withChangeSetAndDb(changeSetId, (changeSet, db) =>
       this.#readHighestFinalizedIndex(changeSet, db, secret.toString()),
     );
   }
 
   updateHighestFinalizedIndex(secret: AppTaggingSecret, index: Index, changeSetId: ChangeSetId): Promise<void> {
-    return this.withChangeSet(changeSetId, async (changeSet, db) => {
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
       const currentIndex = await this.#readHighestFinalizedIndex(changeSet, db, secret.toString());
       if (currentIndex !== undefined && index < currentIndex) {
         // Log sync should never set a lower highest finalized index but it can happen that it would try to set the same

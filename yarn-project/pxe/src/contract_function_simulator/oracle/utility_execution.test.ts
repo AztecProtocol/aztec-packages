@@ -118,6 +118,7 @@ describe('Utility Execution test suite', () => {
     taggingSecretSourcesStore = mock<TaggingSecretSourcesStore>();
     capsuleStore = mock<CapsuleStore>();
     factStore = new FactStore(await openTmpStore('utility-exec-fact-test'));
+    factStore.beginChangeSet('test-change-set-id');
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();

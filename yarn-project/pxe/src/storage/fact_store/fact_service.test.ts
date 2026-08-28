@@ -34,6 +34,7 @@ describe('FactService', () => {
   beforeEach(async () => {
     kv = await openTmpStore('fact-service-test');
     store = new FactStore(kv);
+    store.beginChangeSet(changeSetId);
   });
 
   it('delegates record+get for an allowed scope', async () => {
