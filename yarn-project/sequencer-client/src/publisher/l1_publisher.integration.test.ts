@@ -677,6 +677,7 @@ describe('L1Publisher integration', () => {
           // message set stays pinned to the slot it belongs to.
           now: cutoffTimestamp,
           isEligible: immediateEligibility,
+          ethereumSlotDuration: config.ethereumSlotDuration,
           parent,
           checkpointStartTotalMsgCount: parent.totalMsgCount,
           perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,

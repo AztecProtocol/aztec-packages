@@ -285,6 +285,7 @@ export class NodePublicCallsSimulator {
         // Every synced bucket counts: this is a best-effort prediction of what the next proposer will consume, and
         // the node does not read L1 to track which buckets the proposer considers confirmed.
         isEligible: immediateEligibility,
+        ethereumSlotDuration: l1Constants.ethereumSlotDuration,
         parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
         checkpointStartTotalMsgCount,
         perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,

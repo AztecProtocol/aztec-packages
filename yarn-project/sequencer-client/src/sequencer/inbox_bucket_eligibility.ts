@@ -59,10 +59,13 @@ export class InboxBucketConfirmationTracker {
   private readonly clockToleranceSeconds: bigint;
   private readonly log: Logger;
 
-  /** Buckets whose opening block has a confirmed descendant. Confirmed never becomes unconfirmed. */
+  /**
+   * Opening L1 blocks known to have a canonical descendant. Confirmed never becomes unconfirmed. Keyed by block
+   * identity rather than by bucket, so the many buckets a busy L1 block opens all resolve from one read.
+   */
   private readonly confirmed = new Set<string>();
 
-  /** Buckets known to be ineligible, keyed to the sub-slot clock the answer was computed at. */
+  /** Opening L1 blocks known to be unconfirmed, keyed to the sub-slot clock the answer was computed at. */
   private readonly rejectedAt = new Map<string, bigint>();
 
   constructor(deps: InboxBucketConfirmationTrackerDeps) {
@@ -96,7 +99,7 @@ export class InboxBucketConfirmationTracker {
       return true;
     }
 
-    const key = `${bucket.seq}:${bucket.l1BlockHash.toString()}`;
+    const key = `${bucket.l1BlockNumber}:${bucket.l1BlockHash.toString()}`;
     if (this.confirmed.has(key)) {
       return true;
     }

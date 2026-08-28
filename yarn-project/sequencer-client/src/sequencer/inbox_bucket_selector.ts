@@ -5,10 +5,12 @@ import { type InboxBucket, type L1ToL2MessageSource, isInboxConsumptionSufficien
 import type { InboxBucketEligibility } from './inbox_bucket_eligibility.js';
 
 /**
- * How many buckets back from the archiver's head the eligibility walk looks before giving up for this sub-slot. On a
- * healthy chain only the newest bucket or two can still be unconfirmed, so a longer walk only burns L1 reads.
+ * How many distinct L1 blocks back from the archiver's head the eligibility walk looks before falling back. The bound
+ * counts L1 blocks rather than buckets because eligibility is a property of the opening block: a busy L1 block that
+ * rolls the Inbox over several times yields many buckets that all resolve from a single L1 read, and bounding by
+ * buckets would let one such block hide every older, already-confirmed bucket behind it.
  */
-const MAX_ELIGIBILITY_WALK = 8;
+const MAX_ELIGIBILITY_WALK_L1_BLOCKS = 8;
 
 const log: Logger = createLogger('sequencer:inbox-bucket-selector');
 
@@ -39,6 +41,12 @@ export type SelectInboxBucketInput = {
    * censorship cutoff and the caps allow, whenever it is proposed.
    */
   isEligible: InboxBucketEligibility;
+  /**
+   * Ethereum slot duration in seconds. Only used to pick the fallback bucket when the eligibility walk hits its
+   * bound: a bucket opened at or before `now - 2 * ethereumSlotDuration` can be decided outright, without waiting
+   * for a descendant to appear.
+   */
+  ethereumSlotDuration: number;
   /** The last bucket consumed by this checkpoint so far (parent checkpoint's at the first block). */
   parent: ConsumedBucketCursor;
   /** Cumulative Inbox message count consumed as of the parent checkpoint; the per-checkpoint cap origin. */
@@ -87,7 +95,9 @@ export type InboxBucketSelection = InboxBucketConsumption & {
  * `ProposeLib.validateInboxConsumption`. The policy, per block:
  *
  * 1. Pick the newest eligible bucket per the caller's eligibility rule (descendant-confirmed for the live sequencer,
- *    immediate for automine), walking back from the archiver's head bucket and stopping at the first eligible one. On
+ *    immediate for automine), walking back from the archiver's head bucket and stopping at the first eligible one.
+ *    The walk spans a bounded number of distinct opening L1 blocks, past which it jumps straight to the newest bucket
+ *    old enough to decide without waiting for a descendant. On
  *    the checkpoint's last block, also consider the cutoff bucket (newest opened at or before `cutoffTimestamp`) and
  *    take whichever is newer, so the checkpoint reaches the censorship floor even when eligibility preferred less: a
  *    mandatory bucket is consumed whether or not it is confirmed.
@@ -171,23 +181,31 @@ async function selectConsumption(input: SelectInboxBucketInput): Promise<InboxBu
   return { consume: false };
 }
 
+/** Identity of the L1 block a bucket was opened in; buckets sharing it also share their eligibility answer. */
+const openingL1Block = (bucket: InboxBucket) => `${bucket.l1BlockNumber}:${bucket.l1BlockHash.toString()}`;
+
 /**
  * Step 1 of {@link selectInboxBucketForBlock}: the newest bucket the caller's eligibility rule admits, found by
- * walking back from the archiver's head bucket. The walk is bounded by {@link MAX_ELIGIBILITY_WALK}; hitting the
- * bound means the whole visible tail is unconfirmed, which on a healthy chain does not happen.
+ * walking back from the archiver's head bucket. The walk is bounded by {@link MAX_ELIGIBILITY_WALK_L1_BLOCKS} distinct
+ * opening L1 blocks; hitting the bound means the whole visible tail is unconfirmed, which on a healthy chain does not
+ * happen, and the walk then falls back to the newest bucket old enough to be decided outright
+ * ({@link selectSettledBucket}) rather than consuming nothing.
  */
 async function selectEligibleBucket(input: SelectInboxBucketInput): Promise<InboxBucket | undefined> {
   const { messageSource, now, isEligible, parent } = input;
 
+  const walkedL1Blocks = new Set<string>();
   let candidate = await messageSource.getLatestInboxBucketAtOrBefore(now);
-  for (let walked = 0; candidate !== undefined && candidate.seq > parent.seq; walked++) {
-    if (walked === MAX_ELIGIBILITY_WALK) {
-      log.warn(`Gave up looking for a consumable Inbox bucket after ${MAX_ELIGIBILITY_WALK} buckets`, {
-        headBucketSeq: candidate.seq,
-        parentBucketSeq: parent.seq,
-        now,
-      });
-      return undefined;
+  while (candidate !== undefined && candidate.seq > parent.seq) {
+    walkedL1Blocks.add(openingL1Block(candidate));
+    if (walkedL1Blocks.size > MAX_ELIGIBILITY_WALK_L1_BLOCKS) {
+      const settled = await selectSettledBucket(input);
+      log.warn(
+        `No eligible Inbox bucket within ${MAX_ELIGIBILITY_WALK_L1_BLOCKS} L1 blocks of the head bucket; ` +
+          (settled === undefined ? 'consuming nothing' : `falling back to bucket ${settled.seq}`),
+        { headBucketSeq: candidate.seq, parentBucketSeq: parent.seq, fallbackBucketSeq: settled?.seq, now },
+      );
+      return settled;
     }
     if (await isEligible(candidate, now)) {
       return candidate;
@@ -195,4 +213,21 @@ async function selectEligibleBucket(input: SelectInboxBucketInput): Promise<Inbo
     candidate = await messageSource.getInboxBucket(candidate.seq - 1n);
   }
   return candidate;
+}
+
+/**
+ * The newest bucket whose opening L1 block is old enough that eligibility no longer depends on a descendant showing
+ * up: past `now - 2 * ethereumSlotDuration` the descendant-confirmed rule decides from the opening block alone, so
+ * one read settles it. Used only when the eligibility walk gives up, so a long tail of unconfirmed buckets still
+ * lets a checkpoint consume the messages behind it.
+ */
+async function selectSettledBucket(input: SelectInboxBucketInput): Promise<InboxBucket | undefined> {
+  const { messageSource, now, isEligible, parent, ethereumSlotDuration } = input;
+
+  const settledBy = now - 2n * BigInt(ethereumSlotDuration);
+  const settled = await messageSource.getLatestInboxBucketAtOrBefore(settledBy);
+  if (settled === undefined || settled.seq <= parent.seq) {
+    return undefined;
+  }
+  return (await isEligible(settled, now)) ? settled : undefined;
 }

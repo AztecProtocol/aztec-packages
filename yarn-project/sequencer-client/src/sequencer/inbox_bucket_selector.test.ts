@@ -12,8 +12,12 @@ import {
 } from './inbox_bucket_eligibility.js';
 import { type InboxBucketSource, selectInboxBucketForBlock } from './inbox_bucket_selector.js';
 
-/** A test bucket: its cumulative totals and leaves are derived from a running message count. */
-type TestBucketSpec = { seq: bigint; timestamp: bigint; msgCount: number };
+/**
+ * A test bucket: its cumulative totals and leaves are derived from a running message count. `l1BlockNumber` defaults
+ * to the sequence number (one bucket per L1 block); set it explicitly to model an L1 block that rolled the Inbox over
+ * more than once.
+ */
+type TestBucketSpec = { seq: bigint; timestamp: bigint; msgCount: number; l1BlockNumber?: bigint };
 
 /**
  * Builds an in-memory {@link InboxBucketSource} from a list of bucket specs, mirroring the archiver's dense,
@@ -39,8 +43,8 @@ function makeSource(specs: TestBucketSpec[]): {
       timestamp: spec.timestamp,
       msgCount: spec.msgCount,
       lastMessageIndex: total - 1n,
-      l1BlockNumber: spec.seq,
-      l1BlockHash: Buffer32.fromBigInt(spec.seq),
+      l1BlockNumber: spec.l1BlockNumber ?? spec.seq,
+      l1BlockHash: Buffer32.fromBigInt(spec.l1BlockNumber ?? spec.seq),
     });
   }
 
@@ -100,6 +104,7 @@ function trackingEligibility(inner: InboxBucketEligibility): InboxBucketEligibil
 describe('selectInboxBucketForBlock', () => {
   const baseInput = {
     isEligible: eligibleAfterOneEthereumSlot,
+    ethereumSlotDuration: Number(ETHEREUM_SLOT_DURATION),
     checkpointStartTotalMsgCount: 0n,
     perBlockCap: 1024,
     perCheckpointCap: 1024,
@@ -176,12 +181,35 @@ describe('selectInboxBucketForBlock', () => {
     expect(result.consume).toBe(false);
   });
 
-  it('stops the eligibility walk after a bounded number of buckets', async () => {
-    const { source } = makeSource(
-      Array.from({ length: 12 }, (_, i) => ({ seq: BigInt(i + 1), timestamp: BigInt((i + 1) * 10), msgCount: 1 })),
-    );
-    // Only the oldest bucket is eligible, which is well past the walk bound from the head.
-    const isEligible = trackingEligibility(bucket => Promise.resolve(bucket.seq === 1n));
+  it('falls back to the newest settled bucket once the walk runs out of L1 blocks', async () => {
+    // Buckets 5..12 were all opened within the last Ethereum slot and none of them is confirmed; buckets 1..4 are
+    // old enough that eligibility no longer depends on a descendant showing up.
+    const { source } = makeSource([
+      ...Array.from({ length: 4 }, (_, i) => ({ seq: BigInt(i + 1), timestamp: BigInt((i + 1) * 100), msgCount: 1 })),
+      ...Array.from({ length: 8 }, (_, i) => ({ seq: BigInt(i + 5), timestamp: 977n + BigInt(i), msgCount: 1 })),
+    ]);
+    const isEligible = trackingEligibility(bucket => Promise.resolve(bucket.seq <= 4n));
+    const result = await selectInboxBucketForBlock({
+      ...baseInput,
+      isEligible,
+      messageSource: source,
+      now: 1_000n,
+      parent: GENESIS_PARENT,
+    });
+    expect(result).toMatchObject({ consume: true });
+    if (result.consume) {
+      expect(result.bucket.seq).toBe(4n);
+    }
+    // Eight distinct L1 blocks are walked, then the newest bucket at or before now - 2 * ethereumSlotDuration (976).
+    expect(isEligible.asked).toEqual([12n, 11n, 10n, 9n, 8n, 7n, 6n, 5n, 4n]);
+  });
+
+  it('consumes nothing when the settled fallback bucket is ineligible too', async () => {
+    const { source } = makeSource([
+      ...Array.from({ length: 4 }, (_, i) => ({ seq: BigInt(i + 1), timestamp: BigInt((i + 1) * 100), msgCount: 1 })),
+      ...Array.from({ length: 8 }, (_, i) => ({ seq: BigInt(i + 5), timestamp: 977n + BigInt(i), msgCount: 1 })),
+    ]);
+    const isEligible = trackingEligibility(() => Promise.resolve(false));
     const result = await selectInboxBucketForBlock({
       ...baseInput,
       isEligible,
@@ -190,7 +218,47 @@ describe('selectInboxBucketForBlock', () => {
       parent: GENESIS_PARENT,
     });
     expect(result.consume).toBe(false);
-    expect(isEligible.asked).toEqual([12n, 11n, 10n, 9n, 8n, 7n, 6n, 5n]);
+    expect(isEligible.asked).toEqual([12n, 11n, 10n, 9n, 8n, 7n, 6n, 5n, 4n]);
+  });
+
+  it('spends one L1 read on all the buckets a single L1 block opened', async () => {
+    // One busy L1 block rolled the Inbox over ten times. Those ten buckets share an opening block, so they share one
+    // eligibility answer and must not crowd out the confirmed bucket behind them.
+    const { source } = makeSource([
+      { seq: 1n, timestamp: 100n, msgCount: 1, l1BlockNumber: 99n },
+      ...Array.from({ length: 10 }, (_, i) => ({
+        seq: BigInt(i + 2),
+        timestamp: 200n,
+        msgCount: 1,
+        l1BlockNumber: 100n,
+      })),
+    ]);
+    // Block 100 has no child yet; block 99 does, and it is the bucket's own opening block.
+    const reads: bigint[] = [];
+    const l1Client = {
+      getBlock: ({ blockNumber }: { blockNumber: bigint }) => {
+        reads.push(blockNumber);
+        return blockNumber === 100n
+          ? Promise.resolve({ parentHash: Buffer32.fromBigInt(99n).toString() })
+          : Promise.reject(new BlockNotFoundError({ blockNumber }));
+      },
+    } as unknown as L1BlockReader;
+    const tracker = new InboxBucketConfirmationTracker({ l1Client, ethereumSlotDuration: 12 });
+
+    const result = await selectInboxBucketForBlock({
+      ...baseInput,
+      isEligible: tracker.isEligible,
+      messageSource: source,
+      now: 214n, // block 100 could have a child by now, but none is visible; block 99's child is block 100
+      parent: GENESIS_PARENT,
+    });
+
+    expect(result).toMatchObject({ consume: true });
+    if (result.consume) {
+      expect(result.bucket.seq).toBe(1n);
+    }
+    // One read per distinct opening L1 block, not per bucket: the ten siblings cost a single lookup.
+    expect(reads).toEqual([101n, 100n]);
   });
 
   it('consumes every bucket the archiver has under immediate eligibility', async () => {

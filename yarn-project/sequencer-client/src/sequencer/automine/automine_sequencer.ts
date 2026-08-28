@@ -487,6 +487,7 @@ export class AutomineSequencer {
       messageSource: this.deps.l1ToL2MessageSource,
       now: BigInt(Math.floor(this.deps.dateProvider.now() / 1000)),
       isEligible: immediateEligibility,
+      ethereumSlotDuration: this.deps.l1Constants.ethereumSlotDuration,
       parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
       checkpointStartTotalMsgCount: parentTotalMsgCount,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,

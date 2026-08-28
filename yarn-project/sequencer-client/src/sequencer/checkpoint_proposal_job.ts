@@ -1221,6 +1221,7 @@ export class CheckpointProposalJob implements Traceable {
       messageSource: this.l1ToL2MessageSource,
       now: BigInt(Math.floor(nowSeconds)),
       isEligible: this.inboxBucketConfirmations.isEligible,
+      ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
       parent: state.parent,
       checkpointStartTotalMsgCount: state.checkpointStartTotalMsgCount,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
