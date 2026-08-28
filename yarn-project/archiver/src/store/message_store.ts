@@ -19,11 +19,12 @@ import { type InboxMessage, deserializeInboxMessage, serializeInboxMessage } fro
 
 /**
  * Persisted snapshot of an Inbox rolling-hash bucket. Mirrors the fields the on-chain Inbox tracks per bucket, plus
- * the number and hash of the L1 block the bucket was opened in and the index span of its messages, so rollbacks,
- * range queries and canonicality checks can work off bucket records alone without scanning messages.
+ * the L1 blocks the bucket was opened and closed in and the index span of its messages, so rollbacks, range queries
+ * and canonicality checks can work off bucket records alone without scanning messages.
  *
  * The Inbox keys buckets by `block.timestamp`, so on a chain that allows consecutive blocks to share a timestamp
- * (anvil with manual mining, for instance) a bucket may span several L1 blocks. Only the opening one is recorded.
+ * (anvil with manual mining, for instance) a bucket may absorb messages from several L1 blocks. The opening and the
+ * closing block are both recorded; on a chain with strictly increasing timestamps they are the same block.
  */
 type BucketSnapshot = {
   inboxRollingHash: Fr;
@@ -31,6 +32,9 @@ type BucketSnapshot = {
   timestamp: bigint;
   l1BlockNumber: bigint;
   l1BlockHash: Buffer32;
+  /** L1 block the bucket's last message was absorbed in; equal to `l1BlockNumber` unless the bucket spans blocks. */
+  lastL1BlockNumber: bigint;
+  lastL1BlockHash: Buffer32;
   msgCount: number;
   firstMessageIndex: bigint;
   lastMessageIndex: bigint;
@@ -43,6 +47,8 @@ function serializeBucketSnapshot(snapshot: BucketSnapshot): Buffer {
     bigintToUInt64BE(snapshot.timestamp),
     bigintToUInt64BE(snapshot.l1BlockNumber),
     snapshot.l1BlockHash,
+    bigintToUInt64BE(snapshot.lastL1BlockNumber),
+    snapshot.lastL1BlockHash,
     numToUInt32BE(snapshot.msgCount),
     bigintToUInt64BE(snapshot.firstMessageIndex),
     bigintToUInt64BE(snapshot.lastMessageIndex),
@@ -56,6 +62,8 @@ function deserializeBucketSnapshot(buffer: Buffer): BucketSnapshot {
   const timestamp = reader.readUInt64();
   const l1BlockNumber = reader.readUInt64();
   const l1BlockHash = Buffer32.fromBuffer(reader.readBytes(Buffer32.SIZE));
+  const lastL1BlockNumber = reader.readUInt64();
+  const lastL1BlockHash = Buffer32.fromBuffer(reader.readBytes(Buffer32.SIZE));
   const msgCount = reader.readNumber();
   const firstMessageIndex = reader.readUInt64();
   const lastMessageIndex = reader.readUInt64();
@@ -65,10 +73,47 @@ function deserializeBucketSnapshot(buffer: Buffer): BucketSnapshot {
     timestamp,
     l1BlockNumber,
     l1BlockHash,
+    lastL1BlockNumber,
+    lastL1BlockHash,
     msgCount,
     firstMessageIndex,
     lastMessageIndex,
   };
+}
+
+/**
+ * The L1 blocks an Inbox bucket was opened and closed in, plus the index of its last message. A bucket that absorbed
+ * messages from several co-timestamped L1 blocks can be split by a reorg of any of them, so both ends have to be
+ * compared against the live chain; `lastMessageIndex` is where a rollback to this bucket cuts the message log.
+ */
+export type InboxBucketL1Span = {
+  seq: bigint;
+  lastMessageIndex: bigint;
+  openedAt: L1BlockId;
+  closedAt: L1BlockId;
+};
+
+function toBucketL1Span(seq: bigint, snapshot: BucketSnapshot): InboxBucketL1Span {
+  return {
+    seq,
+    lastMessageIndex: snapshot.lastMessageIndex,
+    openedAt: { l1BlockNumber: snapshot.l1BlockNumber, l1BlockHash: snapshot.l1BlockHash },
+    closedAt: { l1BlockNumber: snapshot.lastL1BlockNumber, l1BlockHash: snapshot.lastL1BlockHash },
+  };
+}
+
+/**
+ * Whether two snapshots of the same bucket place it at the same point on L1: same timestamp, same opening and closing
+ * blocks.
+ */
+function sameL1Identity(a: BucketSnapshot, b: BucketSnapshot): boolean {
+  return (
+    a.timestamp === b.timestamp &&
+    a.l1BlockNumber === b.l1BlockNumber &&
+    a.l1BlockHash.equals(b.l1BlockHash) &&
+    a.lastL1BlockNumber === b.lastL1BlockNumber &&
+    a.lastL1BlockHash.equals(b.lastL1BlockHash)
+  );
 }
 
 /** The messages of a single Inbox bucket within an incoming batch, in insertion order. */
@@ -319,8 +364,8 @@ export class MessageStore {
    * Writes one snapshot per bucket in the batch, each derived from the bucket's complete message set. Cumulative
    * totals thread forward from the bucket preceding the batch, so a bucket re-delivered with extra messages shifts
    * the totals of the buckets after it within the same batch. A bucket always arrives complete from its first message
-   * (checked when the batch is validated), so the opening L1 block is read off that first message; a bucket whose
-   * later messages come from a co-timestamped L1 block still records the block it was opened in.
+   * (checked when the batch is validated), so the opening L1 block is read off that first message and the closing one
+   * off the last; a bucket whose later messages come from a co-timestamped L1 block records both.
    */
   private async writeIncomingBucketSnapshots(incomingBuckets: IncomingBucket[]): Promise<void> {
     let cumulativeTotal = await this.getTotalMsgCountBeforeBucket(incomingBuckets[0].seq);
@@ -342,6 +387,8 @@ export class MessageStore {
         timestamp: lastInBucket.bucketTimestamp,
         l1BlockNumber: openingMessage.l1BlockNumber,
         l1BlockHash: openingMessage.l1BlockHash,
+        lastL1BlockNumber: lastInBucket.l1BlockNumber,
+        lastL1BlockHash: lastInBucket.l1BlockHash,
         msgCount: messages.length,
         firstMessageIndex: openingMessage.index,
         lastMessageIndex: lastInBucket.index,
@@ -447,8 +494,23 @@ export class MessageStore {
       ...stored,
       inboxRollingHash: lastRemaining.inboxRollingHash,
       totalMsgCount: await this.getTotalL1ToL2MessageCount(),
+      lastL1BlockNumber: lastRemaining.l1BlockNumber,
+      lastL1BlockHash: lastRemaining.l1BlockHash,
       msgCount,
       lastMessageIndex: lastRemaining.index,
+    });
+  }
+
+  /**
+   * Atomically drops every message from `startIndex` on (when given) and rewinds the message sync point, so that an
+   * interruption cannot leave truncated messages behind a sync point that would never fetch them again.
+   */
+  public rewindMessagesTo(syncPoint: L1BlockId, startIndex?: bigint): Promise<void> {
+    return this.db.transactionAsync(async () => {
+      if (startIndex !== undefined) {
+        await this.removeL1ToL2Messages(startIndex);
+      }
+      await this.setSynchedL1Block(syncPoint);
     });
   }
 
@@ -539,13 +601,22 @@ export class MessageStore {
   }
 
   /**
-   * Iterates over the synced Inbox buckets in sequence order. The genesis sentinel (sequence 0) is never stored, so
-   * it is not yielded.
+   * Returns the L1 blocks the bucket with the given sequence number was opened and closed in, or undefined if it has
+   * not been synced. Sequence 0 is the genesis sentinel, which is never stored and has no L1 block of its own.
    */
-  public async *iterateInboxBuckets(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxBucket> {
+  public async getInboxBucketL1Span(seq: bigint): Promise<InboxBucketL1Span | undefined> {
+    const snapshot = await this.getBucketSnapshotBySeq(seq);
+    return snapshot && toBucketL1Span(seq, snapshot);
+  }
+
+  /**
+   * Iterates over the L1 spans of the synced Inbox buckets in sequence order. The genesis sentinel (sequence 0) is
+   * never stored, so it is not yielded.
+   */
+  public async *iterateInboxBucketL1Spans(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxBucketL1Span> {
     const entriesRange = mapRange(range, this.bucketSeqToKey);
     for await (const [seqKey, snapBuffer] of this.#inboxBuckets.entriesAsync(entriesRange)) {
-      yield this.toInboxBucket(BigInt(seqKey), deserializeBucketSnapshot(snapBuffer));
+      yield toBucketL1Span(BigInt(seqKey), deserializeBucketSnapshot(snapBuffer));
     }
   }
 
@@ -611,10 +682,16 @@ export class MessageStore {
   }
 
   private async writeBucketSnapshot(seq: bigint, snapshot: BucketSnapshot): Promise<void> {
-    // A reorg can re-deliver a bucket from an L1 block mined at a different timestamp, so drop the stale index entry.
     const stored = await this.getBucketSnapshotBySeq(seq);
-    if (stored !== undefined && stored.timestamp !== snapshot.timestamp) {
-      await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(stored.timestamp), this.bucketSeqToKey(seq));
+    if (stored !== undefined && !sameL1Identity(stored, snapshot)) {
+      // A reorg can re-deliver a bucket from an L1 block mined at a different timestamp, so drop the stale index
+      // entry, and stop trusting whatever canonicality check was run against the bucket's previous L1 blocks.
+      if (stored.timestamp !== snapshot.timestamp) {
+        await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(stored.timestamp), this.bucketSeqToKey(seq));
+      }
+      if ((await this.getCanonicalVerifiedThroughSeq()) >= seq) {
+        await this.setCanonicalVerifiedThroughSeq(seq - 1n);
+      }
     }
     await this.#inboxBuckets.set(this.bucketSeqToKey(seq), serializeBucketSnapshot(snapshot));
     await this.#bucketTimestampToSeq.set(this.timestampToKey(snapshot.timestamp), this.bucketSeqToKey(seq));
