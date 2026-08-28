@@ -254,8 +254,10 @@ bb-cpp-release-dir: bb-cpp-native bb-cpp-cross bb-cpp-wasm bb-cpp-wasm-threads
 
 bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
 
-# BB TypeScript - TypeScript bindings
-bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
+# BB TypeScript - TypeScript bindings. Ordered after bb-cdb (itself after bb-avm-sim): all three
+# regenerate the same barretenberg/ts workspaces and `yarn install` into the same node_modules, so
+# running them in parallel races whenever the node_modules cache misses.
+bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime bb-cdb
 	$(call build,$@,barretenberg/ts,build_bb_js)
 
 # Copies the cross-compiles into bb.js.
@@ -271,7 +273,7 @@ bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native
 bb-avm-sim-cross-copy: bb-avm-sim bb-cdb bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy_bb_avm_sim)
 
-# Generated @aztec/cdb server bindings. Ordered after bb-avm-sim rather than run
+# Generated @aztec-foundation/cdb server bindings. Ordered after bb-avm-sim rather than run
 # alongside it: both regenerate the same barretenberg/ts workspaces and install
 # into the same node_modules.
 bb-cdb: ipc-codegen ipc-runtime bb-avm-sim
@@ -539,7 +541,7 @@ l1-contracts-src: l1-contracts-solc
 l1-contracts-verifier: noir-protocol-circuits l1-contracts-src
 	$(call build,$@,l1-contracts,build_verifier)
 
-# l1-contracts-artifacts: Generate the @aztec/l1-artifacts TS package (ABIs/bytecode/storage) and the
+# l1-contracts-artifacts: Generate the @aztec-foundation/l1-artifacts TS package (ABIs/bytecode/storage) and the
 # self-contained foundry bundle used by the runtime forge deploy path. Must depend on the verifier, not
 # just build_src: the generated artifact list includes HonkVerifier, and its real implementation is only
 # produced by build_verifier (which compiles generated/HonkVerifier.sol, copied from noir-projects).
