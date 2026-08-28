@@ -1,5 +1,6 @@
 import { Body } from '@aztec/aztec.js/block';
 import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -10,6 +11,7 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, CheckpointAttestation, CheckpointProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -214,4 +216,32 @@ export async function setupTxsAndBlock(
   const block = await makeBlock(txs, globalVariables);
   mockPendingTxs(p2p, txs);
   return { txs, block };
+}
+
+/** The genesis Inbox sentinel bucket (sequence 0), as the archiver synthesizes it for an empty Inbox. */
+export const GENESIS_INBOX_BUCKET: InboxBucket = {
+  seq: 0n,
+  inboxRollingHash: Fr.ZERO,
+  totalMsgCount: 0n,
+  timestamp: 0n,
+  msgCount: 0,
+  lastMessageIndex: 0n,
+  l1BlockNumber: 0n,
+  l1BlockHash: Buffer32.ZERO,
+};
+
+/**
+ * Wires the Inbox lookups a checkpoint proposal job makes outside bundle selection: the consumption cursor's start
+ * (resolved from the fork's L1-to-L2 leaf count, which defaults to an empty tree) and the L1 propose bucket hint
+ * (re-resolved from the rolling hash the checkpoint header commits to). Buckets are served on top of the genesis
+ * sentinel, so a test that seeds none gets a checkpoint that consumes nothing.
+ */
+export function mockInboxBuckets(source: MockProxy<L1ToL2MessageSource>, buckets: InboxBucket[] = []): void {
+  const all = [GENESIS_INBOX_BUCKET, ...buckets];
+  source.getInboxBucketByTotalMsgCount.mockImplementation(totalMsgCount =>
+    Promise.resolve(all.find(bucket => bucket.totalMsgCount === totalMsgCount)),
+  );
+  source.getInboxBucketByRollingHash.mockImplementation(inboxRollingHash =>
+    Promise.resolve(all.find(bucket => bucket.inboxRollingHash.equals(inboxRollingHash))),
+  );
 }

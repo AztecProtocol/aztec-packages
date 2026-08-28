@@ -7,7 +7,6 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { omit, times, timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -55,7 +54,7 @@ import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { AttestorPublisherPair, SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { MockCheckpointBuilder, MockCheckpointsBuilder } from '../test/utils.js';
+import { MockCheckpointBuilder, MockCheckpointsBuilder, mockInboxBuckets } from '../test/utils.js';
 import * as TestUtils from '../test/utils.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
@@ -366,16 +365,7 @@ describe('sequencer', () => {
         },
       }),
     });
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
-      seq: 0n,
-      inboxRollingHash: Fr.ZERO,
-      totalMsgCount: 0n,
-      timestamp: 0n,
-      msgCount: 0,
-      lastMessageIndex: 0n,
-      l1BlockNumber: 0n,
-      l1BlockHash: Buffer32.ZERO,
-    });
+    mockInboxBuckets(l1ToL2MessageSource);
 
     validatorClient = mock<ValidatorClient>();
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve(getCheckpointAttestations()));

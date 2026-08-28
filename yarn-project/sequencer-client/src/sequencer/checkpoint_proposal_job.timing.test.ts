@@ -45,6 +45,7 @@ import {
   makeBlock,
   makeProposerTimetable,
   makeTx,
+  mockInboxBuckets,
   mockTxIterator,
 } from '../test/utils.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
@@ -470,16 +471,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     worldState.fork.mockResolvedValue(mockFork);
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
-      seq: 0n,
-      inboxRollingHash: Fr.ZERO,
-      totalMsgCount: 0n,
-      timestamp: 0n,
-      msgCount: 0,
-      lastMessageIndex: 0n,
-      l1BlockNumber: 0n,
-      l1BlockHash: Buffer32.ZERO,
-    });
+    mockInboxBuckets(l1ToL2MessageSource);
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);

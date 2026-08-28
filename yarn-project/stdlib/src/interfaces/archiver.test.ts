@@ -232,6 +232,12 @@ describe('ArchiverApiSchema', () => {
     expect(result).toMatchObject({ seq: 2n, totalMsgCount: 3n, msgCount: 3 });
   });
 
+  it('getInboxBucketByRollingHash', async () => {
+    const inboxRollingHash = Fr.random();
+    const result = await context.client.getInboxBucketByRollingHash(inboxRollingHash);
+    expect(result).toMatchObject({ seq: 4n, inboxRollingHash });
+  });
+
   it('getL1ToL2MessagesBetweenBuckets', async () => {
     const result = await context.client.getL1ToL2MessagesBetweenBuckets(0n, 3n);
     expect(result).toEqual([expect.any(Fr)]);
@@ -633,6 +639,19 @@ class MockArchiver implements ArchiverApi {
       seq: 2n,
       inboxRollingHash: Fr.random(),
       totalMsgCount,
+      timestamp: 100n,
+      msgCount: 3,
+      lastMessageIndex: 2n,
+      l1BlockNumber: 20n,
+      l1BlockHash: Buffer32.fromBigInt(20n),
+    });
+  }
+  getInboxBucketByRollingHash(inboxRollingHash: Fr): Promise<InboxBucket | undefined> {
+    expect(inboxRollingHash).toBeInstanceOf(Fr);
+    return Promise.resolve({
+      seq: 4n,
+      inboxRollingHash,
+      totalMsgCount: 3n,
       timestamp: 100n,
       msgCount: 3,
       lastMessageIndex: 2n,

@@ -17,6 +17,7 @@ import {
   type ChainConfig,
   DEFAULT_BLOCK_DURATION_MS,
   DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
+  type InboxL1Confirmations,
   type SequencerConfig,
   chainConfigMappings,
   sharedSequencerConfigMappings,
@@ -35,6 +36,25 @@ import {
 
 export * from './publisher/config.js';
 export type { SequencerConfig };
+
+/** Default number of L1 confirmations a proposer waits for before consuming an Inbox bucket. */
+export const DEFAULT_INBOX_L1_CONFIRMATIONS: InboxL1Confirmations = 0;
+
+/** Supported values of `SEQ_INBOX_L1_CONFIRMATIONS`. Deeper confirmations are not implemented. */
+const SUPPORTED_INBOX_L1_CONFIRMATIONS: InboxL1Confirmations[] = [0, 1];
+
+/** Parses `SEQ_INBOX_L1_CONFIRMATIONS`, rejecting anything but the two supported depths. */
+function parseInboxL1Confirmations(value: string): InboxL1Confirmations {
+  const parsed = Number(value);
+  const supported = SUPPORTED_INBOX_L1_CONFIRMATIONS.find(depth => depth === parsed);
+  if (supported === undefined) {
+    throw new Error(
+      `Unsupported Inbox L1 confirmation depth '${value}'; supported values are ` +
+        `${SUPPORTED_INBOX_L1_CONFIRMATIONS.join(' and ')}`,
+    );
+  }
+  return supported;
+}
 
 /**
  * Default values for SequencerConfig.
@@ -70,6 +90,7 @@ export const DefaultSequencerConfig = {
   skipPublishingCheckpointsPercent: 0,
   maxBlocksPerCheckpoint: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
   minPeersToPropose: 1,
+  inboxL1Confirmations: DEFAULT_INBOX_L1_CONFIRMATIONS,
 } satisfies ResolvedSequencerConfig;
 
 /**
@@ -286,6 +307,16 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
       'Minimum number of connected p2p peers required to build and propose a checkpoint (zero to disable the check).' +
       ' Ignored when p2p is disabled by config.',
     ...numberConfigHelper(DefaultSequencerConfig.minPeersToPropose),
+  },
+  inboxL1Confirmations: {
+    env: 'SEQ_INBOX_L1_CONFIRMATIONS',
+    description:
+      'How many L1 blocks must build on top of an L1-to-L2 message before this proposer consumes it. ' +
+      '0: bridged messages reach L2 in the next block, and a shallow L1 reorg can cost this proposer its slot. ' +
+      '1: roughly one Ethereum slot (~12s) of extra latency per message, immune to one-block reorgs. ' +
+      'The automine sequencer ignores this and always consumes immediately.',
+    parseEnv: parseInboxL1Confirmations,
+    defaultValue: DEFAULT_INBOX_L1_CONFIRMATIONS,
   },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
 };

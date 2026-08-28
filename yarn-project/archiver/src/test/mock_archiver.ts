@@ -34,6 +34,10 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
     return this.messageSource.getInboxBucketByTotalMsgCount(totalMsgCount);
   }
 
+  getInboxBucketByRollingHash(inboxRollingHash: Fr): Promise<InboxBucket | undefined> {
+    return this.messageSource.getInboxBucketByRollingHash(inboxRollingHash);
+  }
+
   getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
     return this.messageSource.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
   }

@@ -1203,6 +1203,23 @@ describe('ProposalHandler checkpoint validation', () => {
         expect(elapsedMs).toBeLessThan(WAIT_INTERVAL_MS);
       });
 
+      // Under immediate consumption a proposer can consume a bucket whose L1 block is then reorged and re-mined at
+      // a different timestamp. The rolling hash commits to the messages alone, so a re-time leaves it unchanged and
+      // the proposal stays valid against a validator still holding the pre-reorg bucket.
+      it('attests to a proposal referencing a re-timed bucket, whose rolling hash a re-time leaves alone', async () => {
+        const ref = new InboxBucketRef(1n, 26n, new Fr(0xabc));
+        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
+        mockAcceptedSurroundings();
+        // This node still holds the orphaned block's timestamp; only the rolling hash is compared.
+        l1ToL2MessageSource.getInboxBucket.mockResolvedValue(eligibleBucket({ timestamp: 14n }));
+        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: undefined } as any);
+
+        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+        expect(result.isValid).toBe(true);
+        expect(blockSource.syncImmediate).not.toHaveBeenCalled();
+      });
+
       it('attests when the forced sync replaces our stale bucket with the proposed one', async () => {
         // This validator held the orphaned side of an L1 reorg; the forced sync rolls it back and re-syncs.
         const ref = new InboxBucketRef(1n, 10n, new Fr(0xabc));

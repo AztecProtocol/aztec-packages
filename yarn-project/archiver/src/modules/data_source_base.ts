@@ -332,6 +332,10 @@ export abstract class ArchiverDataSourceBase
     return this.stores.messages.getInboxBucketByTotalMsgCount(totalMsgCount);
   }
 
+  public getInboxBucketByRollingHash(inboxRollingHash: Fr): Promise<InboxBucket | undefined> {
+    return this.stores.messages.getInboxBucketByRollingHash(inboxRollingHash);
+  }
+
   public getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
     return this.stores.messages.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
   }

@@ -11,6 +11,19 @@ This changelog documents all configuration changes, new features, and breaking c
 
 ## Version history
 
+### [v6.0.0](./v6.md)
+
+Adds a per-proposer choice of when L1-to-L2 messages are consumed.
+
+**Key changes:**
+- New setting: `SEQ_INBOX_L1_CONFIRMATIONS` (`0` consumes a bridged message in the next block, `1` waits one L1 block first)
+
+**Migration difficulty**: Low
+
+[View full changelog →](./v6.md)
+
+---
+
 ### [v5.2.0](./v5.2.md)
 
 Node-operator hardening release: peerless nodes stop acting, slashing votes against your own validators are surfaced, and the RPC server gains timeout and CORS configuration.

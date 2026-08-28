@@ -41,6 +41,16 @@ export interface L1ToL2MessageSource {
   getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined>;
 
   /**
+   * Returns the Inbox bucket whose consensus rolling hash equals `inboxRollingHash`, or undefined if no synced
+   * bucket carries it. A bucket's rolling hash is a commitment to every message the Inbox absorbed up to it, so it
+   * identifies the bucket by content: an L1 reorg that re-times or merges buckets can move a bucket's sequence
+   * number while leaving the hash intact, and a proposer resolves the sequence number it publishes this way rather
+   * than trusting the one it captured at build time. `Fr.ZERO` resolves the genesis sentinel bucket (sequence 0).
+   * @param inboxRollingHash - The consensus rolling hash to resolve to a bucket.
+   */
+  getInboxBucketByRollingHash(inboxRollingHash: Fr): Promise<InboxBucket | undefined>;
+
+  /**
    * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion
    * order, for streaming message-bundle derivation. Both bounds must name buckets the source
    * has synced; it throws otherwise, so that an empty result means the range holds no messages instead of hiding an

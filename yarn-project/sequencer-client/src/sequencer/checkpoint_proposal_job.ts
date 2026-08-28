@@ -84,7 +84,12 @@ import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
-import { InboxBucketConfirmationTracker, type L1BlockReader } from './inbox_bucket_eligibility.js';
+import {
+  InboxBucketConfirmationTracker,
+  type InboxBucketEligibility,
+  type L1BlockReader,
+  immediateEligibility,
+} from './inbox_bucket_eligibility.js';
 import {
   type ConsumedBucketCursor,
   type InboxBucketSelection,
@@ -106,11 +111,13 @@ type CheckpointProposalBroadcast = {
   blockProposedAt: number;
   /**
    * Sequence number of the last Inbox bucket the checkpoint consumed through — the L1 `propose` lookup aid, which
-   * must resolve to the bucket whose rolling hash the checkpoint header committed to. Taken from the streaming
-   * consumption cursor rather than the held last-block proposal, which is absent when the checkpoint's final block
-   * fails to build after earlier blocks already consumed messages.
+   * must resolve to the bucket whose rolling hash the checkpoint header committed to. Resolved from that rolling
+   * hash rather than from the held last-block proposal, which is absent when the checkpoint's final block fails to
+   * build after earlier blocks already consumed messages.
    */
   bucketHint: bigint;
+  /** The checkpoint's final consumption cursor, so the bucket hint can be re-resolved before submission. */
+  streamingState: StreamingCheckpointState;
 };
 
 /** Result after attestation collection and signing, ready for L1 submission. */
@@ -149,10 +156,11 @@ export class CheckpointProposalJob implements Traceable {
   private interrupted = false;
 
   /**
-   * Tracks which Inbox buckets have gained a canonical L1 descendant. One per job, so its confirmation cache lives
-   * exactly as long as the slot whose blocks consult it.
+   * The rule deciding which Inbox buckets this job may consume, chosen from `inboxL1Confirmations`. At depth 1 it is
+   * backed by a tracker built here, so its confirmation cache lives exactly as long as the slot whose blocks
+   * consult it.
    */
-  private readonly inboxBucketConfirmations: InboxBucketConfirmationTracker;
+  private readonly isInboxBucketEligible: InboxBucketEligibility;
 
   /**
    * Chain state overrides built once per slot in proposeCheckpoint after the checkpoint is
@@ -212,11 +220,14 @@ export class CheckpointProposalJob implements Traceable {
       ...bindings,
       instanceId: `slot-${this.getBuildSlot()}`,
     });
-    this.inboxBucketConfirmations = new InboxBucketConfirmationTracker({
-      l1Client: this.l1Client,
-      ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
-      log: this.log,
-    });
+    this.isInboxBucketEligible =
+      this.config.inboxL1Confirmations === 0
+        ? immediateEligibility
+        : new InboxBucketConfirmationTracker({
+            l1Client: this.l1Client,
+            ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
+            log: this.log,
+          }).isEligible;
   }
 
   /**
@@ -336,11 +347,6 @@ export class CheckpointProposalJob implements Traceable {
     votesPromises: Promise<unknown>[],
   ): Promise<void> {
     const { checkpoint } = broadcast;
-    // The bucket the checkpoint consumed through, from the streaming cursor. Sourcing it from the held last-block
-    // proposal is wrong: when the checkpoint's final block fails to build after earlier blocks already consumed
-    // messages, no block is held, so the hint would fall back to genesis bucket 0 while the header commits to a
-    // non-genesis rolling hash, which L1 rejects with Rollup__InvalidInboxRollingHash.
-    const bucketHint = broadcast.bucketHint;
 
     try {
       // Wait for all votes actions, enqueued at the beginning, to resolve
@@ -352,7 +358,11 @@ export class CheckpointProposalJob implements Traceable {
       // Wait for the previous checkpoint to land on L1 before submitting, so we can check it
       // matches the proposed checkpoint we used as parent, and has valid attestations.
       if (signedAttestations && (await this.waitForValidParentCheckpointOnL1())) {
-        await this.enqueueCheckpointForSubmission({ checkpoint, ...signedAttestations, bucketHint });
+        // Attestation collection took seconds; re-resolve the hint once more in case L1 reorged in that window.
+        const bucketHint = await this.resolveBucketHint(broadcast.streamingState, 'publish-failed');
+        if (bucketHint !== undefined) {
+          await this.enqueueCheckpointForSubmission({ checkpoint, ...signedAttestations, bucketHint });
+        }
       }
 
       // If we failed to collect attestations, at least check if we need to issue an invalidation
@@ -853,6 +863,15 @@ export class CheckpointProposalJob implements Traceable {
         return undefined;
       }
 
+      // Re-resolve the L1 `propose` bucket hint by content before anything is gossiped. An L1 reorg between the
+      // first block's bucket selection and now can re-time the consumed bucket: the rolling hash commits to
+      // messages only, so the sealed header stays valid on L1, but a merge can move the bucket's sequence number
+      // and the hint captured at build time would point L1 at the wrong bucket.
+      const bucketHint = await this.resolveBucketHint(streamingState, 'build-failed');
+      if (bucketHint === undefined) {
+        return undefined;
+      }
+
       // Record checkpoint-level build metrics
       this.checkpointMetrics.recordCheckpointBuild(
         checkpointBuildTimer.ms(),
@@ -889,7 +908,8 @@ export class CheckpointProposalJob implements Traceable {
           checkpoint,
           proposal: undefined!,
           blockProposedAt: this.dateProvider.now(),
-          bucketHint: streamingState.lastBucketRef.bucketSeq,
+          bucketHint,
+          streamingState,
         };
       }
 
@@ -945,9 +965,8 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Return immediately after broadcast — attestation collection happens in the background. The bucket hint is
-      // the streaming cursor's final consumed bucket, which matches the header's rolling hash whether or not a last
-      // block was held for broadcast.
-      return { checkpoint, proposal, blockProposedAt, bucketHint: streamingState.lastBucketRef.bucketSeq };
+      // the bucket carrying the header's rolling hash, whether or not a last block was held for broadcast.
+      return { checkpoint, proposal, blockProposedAt, bucketHint, streamingState };
     } catch (err) {
       if (err && (err instanceof DutyAlreadySignedError || err instanceof SlashingProtectionError)) {
         // swallow this error. It's already been logged by a function deeper in the stack
@@ -1184,6 +1203,55 @@ export class CheckpointProposalJob implements Traceable {
   }
 
   /**
+   * Resolves the Inbox bucket sequence number to publish as the L1 `propose` bucket hint, by looking the bucket up
+   * from the rolling hash the checkpoint header committed to rather than from the sequence number captured when the
+   * bundle was selected.
+   *
+   * Under the message-only rolling hash a bucket that L1 re-timed keeps its hash, so the sealed header remains valid
+   * — but a reorg that merges buckets shifts the sequence numbers after the merge point, and the stale hint would
+   * make L1 read a bucket whose rolling hash does not match the header. When no local bucket carries the committed
+   * hash at all, the consumed prefix no longer ends on a bucket boundary (a reorder or a dropped message): nothing
+   * can be published for this slot, so the caller abandons it rather than sending a `propose` that would revert.
+   *
+   * @param failureEvent - Checkpoint event name to log an unresolvable hint under, naming the phase it failed in.
+   */
+  private async resolveBucketHint(
+    state: StreamingCheckpointState,
+    failureEvent: 'build-failed' | 'publish-failed',
+  ): Promise<bigint | undefined> {
+    const { bucketSeq: builtSeq, inboxRollingHash } = state.lastBucketRef;
+    const bucket = await this.l1ToL2MessageSource.getInboxBucketByRollingHash(inboxRollingHash);
+    if (bucket === undefined) {
+      const context = {
+        slot: this.targetSlot,
+        checkpointNumber: this.checkpointNumber,
+        builtSeq,
+        inboxRollingHash: inboxRollingHash.toString(),
+        reason: 'inbox_bucket_reorged',
+      };
+      const phase = failureEvent === 'build-failed' ? 'build' : 'publish';
+      this.logCheckpointEvent(failureEvent, `Checkpoint ${phase} failed for slot ${this.targetSlot}`, context);
+      this.log.warn(
+        `No Inbox bucket carries the rolling hash this checkpoint consumed through; abandoning slot ` +
+          `${this.targetSlot} after an L1 reorg reordered or dropped bridged messages`,
+        context,
+      );
+      this.metrics.recordCheckpointProposalFailed('inbox_bucket_reorged');
+      return undefined;
+    }
+    if (bucket.seq !== builtSeq) {
+      this.log.info(`Inbox bucket hint re-resolved after L1 reorg`, {
+        slot: this.targetSlot,
+        checkpointNumber: this.checkpointNumber,
+        builtSeq,
+        publishedSeq: bucket.seq,
+        inboxRollingHash: inboxRollingHash.toString(),
+      });
+    }
+    return bucket.seq;
+  }
+
+  /**
    * Whether the checkpoint's final consumed position satisfies the streaming-Inbox censorship floor, mirroring the
    * mandatory-consumption assert in `ProposeLib.validateInboxConsumption`: the first bucket left unconsumed must be
    * absent, past the cutoff, or a cap-escape. The bucket and cutoff the verdict was taken against are returned for
@@ -1220,7 +1288,7 @@ export class CheckpointProposalJob implements Traceable {
     return selectInboxBucketForBlock({
       messageSource: this.l1ToL2MessageSource,
       now: BigInt(Math.floor(nowSeconds)),
-      isEligible: this.inboxBucketConfirmations.isEligible,
+      isEligible: this.isInboxBucketEligible,
       ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
       parent: state.parent,
       checkpointStartTotalMsgCount: state.checkpointStartTotalMsgCount,
