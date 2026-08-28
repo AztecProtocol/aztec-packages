@@ -22,6 +22,18 @@ pub(crate) global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1239150694;
 /// Authentication Witness is a scheme for authenticating actions on Aztec, so users can allow third-parties (e.g.
 /// protocols or other users) to execute an action on their behalf.
 ///
+/// ## Trust level
+///
+/// Producing a witness for a third party grants execution authority, not a narrow permission. A witness is a bearer
+/// capability over the authorized message: whoever holds it can consume it in any transaction, at any time, in any
+/// surrounding call context, until it is nullified. It is not bound to the transaction it was requested for and it
+/// does not expire.
+///
+/// An account's entrypoint authorization deliberately lives in this same message space (see
+/// `crate::authwit::account`), with the account itself as the `consumer`. A party that can obtain witnesses of its
+/// choosing from an account can therefore act as that account. Treat anyone you produce witnesses for as fully
+/// trusted with the account, not as holding a lesser capability than sending a transaction.
+///
 /// This library provides helper functions to manage such witnesses. The authentication witness, is some "witness"
 /// (data) that authenticates a `message_hash`. The simplest example of an authentication witness, is a signature. The
 /// signature is the "evidence", that the signer has seen the message, agrees with it, and has allowed it. It does not

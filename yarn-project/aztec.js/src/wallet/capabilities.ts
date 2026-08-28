@@ -61,7 +61,13 @@ export interface AccountsCapability {
   /** Can get accounts from wallet. Maps to: getAccounts */
   canGet?: boolean;
 
-  /** Can create auth witnesses for accounts. Maps to: createAuthWit */
+  /**
+   * Can create auth witnesses for accounts. Maps to: createAuthWit
+   *
+   * Not a lesser capability than transaction authority: a holder able to request witnesses of its choosing can
+   * transact as the account. Grant only to parties trusted with the account, regardless of any per-contract or
+   * per-function restriction applied to the transaction capability.
+   */
   canCreateAuthWit?: boolean;
 }
 

@@ -1,3 +1,4 @@
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import {
   type FunctionAbi,
@@ -13,6 +14,30 @@ import { ExecutionPayload, HashedValues, TxContext, TxExecutionRequest } from '@
 
 import { EncodedAppEntrypointCalls } from './encoding.js';
 import type { AuthWitnessProvider, ChainInfo, EntrypointInterface } from './interfaces.js';
+
+/**
+ * Domain separator for the account entrypoint payload authorization message. Mirrors DOM_SEP__ENTRYPOINT_PAYLOAD
+ * in noir-projects/labs/aztec-nr/aztec/src/authwit/account.nr. Derived from the poseidon hash of
+ * "az_dom_sep__entrypoint_payload" truncated to a u32; kept in TypeScript by hand because the generated constants
+ * package only carries protocol-circuit constants, and pinned by a drift test that re-derives it.
+ */
+export const ENTRYPOINT_PAYLOAD_DOMAIN_SEPARATOR = 3045079954;
+
+/**
+ * Computes the inner hash the account authorizes when invoked through its entrypoint. Binds the app payload
+ * together with the fee-payment selector and cancellation flag so that the account's approval covers the fee-payer
+ * and cancellation side effects rather than the call list alone.
+ */
+export async function computeEntrypointPayloadHash(
+  encodedCalls: EncodedAppEntrypointCalls,
+  feePaymentMethod: AccountFeePaymentMethodOptions,
+  cancellable: boolean,
+): Promise<Fr> {
+  return poseidon2HashWithSeparator(
+    [await encodedCalls.hash(), new Fr(feePaymentMethod), new Fr(cancellable)],
+    ENTRYPOINT_PAYLOAD_DOMAIN_SEPARATOR,
+  );
+}
 
 /**
  * The mechanism via which an account contract will pay for a transaction in which it gets invoked.
@@ -142,7 +167,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
 
     const functionSelector = await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
 
-    const payloadHash = await encodedCalls.hash();
+    const payloadHash = await computeEntrypointPayloadHash(encodedCalls, feePaymentMethodOptions, !!cancellable);
     const messageHash = await computeOuterAuthWitHash(this.address, chainInfo.chainId, chainInfo.version, payloadHash);
     const payloadAuthWitness = await this.auth.createAuthWit(messageHash);
 
