@@ -1,5 +1,6 @@
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { executeTimeout } from '@aztec/foundation/timer';
 import type { InboxBucket } from '@aztec/stdlib/messaging';
 
 import { BlockNotFoundError } from 'viem';
@@ -26,8 +27,17 @@ export type InboxBucketConfirmationTrackerDeps = {
   ethereumSlotDuration: number;
   /** Wall-clock tolerance in seconds, applied in the permissive direction only. Defaults to 0. */
   clockToleranceSeconds?: number;
+  /**
+   * How long a single L1 block read may take before the bucket is treated as unconfirmed for now.
+   * Defaults to {@link DEFAULT_L1_READ_TIMEOUT_MS}. These reads sit on the block-building path, where the viem
+   * default (10s plus retries) would eat the sub-slot.
+   */
+  l1ReadTimeoutMs?: number;
   log?: Logger;
 };
+
+/** Default cap on a single confirmation read, well under a sub-slot. */
+const DEFAULT_L1_READ_TIMEOUT_MS = 2_000;
 
 /**
  * Decides when an Inbox bucket's opening L1 block is safe from the common one-block reorg, using only EL block reads.
@@ -49,14 +59,16 @@ export type InboxBucketConfirmationTrackerDeps = {
  * Waiting for evidence of a descendant is both cheaper (usually ~`T + 14`) and actually sound.
  *
  * One tracker is meant to live for one proposal job (one slot). It is frugal with RPCs: it performs no call before a
- * child could exist, caches confirmations for its lifetime, caches rejections for the sub-slot they were computed in,
- * and decides each branch from a single response — behind a load-balanced RPC two calls may see different heads, so
- * no branch ever compares two responses.
+ * child could exist, caches confirmations for its lifetime, caches rejections for the second they were computed in,
+ * answers every bucket a given L1 block opened from one read, and decides each branch from a single response —
+ * behind a load-balanced RPC two calls may see different heads, so no branch ever compares two responses. Every read
+ * is time-boxed: an L1 endpoint that hangs must not cost the proposer its sub-slot.
  */
 export class InboxBucketConfirmationTracker {
   private readonly l1Client: L1BlockReader;
   private readonly ethereumSlotDuration: bigint;
   private readonly clockToleranceSeconds: bigint;
+  private readonly l1ReadTimeoutMs: number;
   private readonly log: Logger;
 
   /**
@@ -65,13 +77,17 @@ export class InboxBucketConfirmationTracker {
    */
   private readonly confirmed = new Set<string>();
 
-  /** Opening L1 blocks known to be unconfirmed, keyed to the sub-slot clock the answer was computed at. */
+  /**
+   * Opening L1 blocks known to be unconfirmed, keyed to the `nowSeconds` the answer was computed at: a repeat call
+   * within the same second reuses it, a later one re-reads L1.
+   */
   private readonly rejectedAt = new Map<string, bigint>();
 
   constructor(deps: InboxBucketConfirmationTrackerDeps) {
     this.l1Client = deps.l1Client;
     this.ethereumSlotDuration = BigInt(deps.ethereumSlotDuration);
     this.clockToleranceSeconds = BigInt(deps.clockToleranceSeconds ?? 0);
+    this.l1ReadTimeoutMs = deps.l1ReadTimeoutMs ?? DEFAULT_L1_READ_TIMEOUT_MS;
     this.log = deps.log ?? createLogger('sequencer:inbox-bucket-confirmation');
   }
 
@@ -82,24 +98,26 @@ export class InboxBucketConfirmationTracker {
    * liveness.
    */
   public readonly isEligible: InboxBucketEligibility = async (bucket, nowSeconds) => {
-    try {
-      return await this.check(bucket, nowSeconds);
-    } catch (err) {
-      this.log.warn(`Failed to check L1 confirmation for Inbox bucket ${bucket.seq}: ${err}`, {
-        bucketSeq: bucket.seq,
-        l1BlockNumber: bucket.l1BlockNumber,
-      });
-      return false;
-    }
-  };
-
-  private async check(bucket: InboxBucket, nowSeconds: bigint): Promise<boolean> {
     // The genesis sentinel holds no messages and was never opened by an L1 block, so there is nothing to confirm.
     if (bucket.seq === 0n) {
       return true;
     }
 
     const key = `${bucket.l1BlockNumber}:${bucket.l1BlockHash.toString()}`;
+    try {
+      return await this.check(bucket, key, nowSeconds);
+    } catch (err) {
+      // A read that times out or fails leaves the block neither confirmed nor orphaned; it is pending, and the
+      // rejection is cached so a flaky endpoint costs one read per second rather than one per bucket.
+      this.log.debug(`Could not read L1 to confirm Inbox bucket ${bucket.seq}, treating it as pending: ${err}`, {
+        bucketSeq: bucket.seq,
+        l1BlockNumber: bucket.l1BlockNumber,
+      });
+      return this.reject(key, nowSeconds);
+    }
+  };
+
+  private async check(bucket: InboxBucket, key: string, nowSeconds: bigint): Promise<boolean> {
     if (this.confirmed.has(key)) {
       return true;
     }
@@ -161,7 +179,11 @@ export class InboxBucketConfirmationTracker {
 
   private async getBlockByNumber(blockNumber: bigint) {
     try {
-      return await this.l1Client.getBlock({ blockNumber, includeTransactions: false });
+      return await executeTimeout(
+        () => this.l1Client.getBlock({ blockNumber, includeTransactions: false }),
+        this.l1ReadTimeoutMs,
+        `L1 getBlock(${blockNumber})`,
+      );
     } catch (err) {
       if (err instanceof BlockNotFoundError) {
         return undefined;

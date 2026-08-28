@@ -109,13 +109,13 @@ describe('InboxBucketConfirmationTracker', () => {
     expect(l1Client.calls).toEqual([BLOCK_NUMBER + 1n]);
   });
 
-  it('reads L1 once per sub-slot, reusing the rejection within the same one', async () => {
+  it('reads L1 once per second, reusing the rejection within the same one', async () => {
     const { tracker, l1Client } = makeTracker([]);
     await expect(tracker.isEligible(makeBucket(), OPENED_AT + 14n)).resolves.toBe(false);
     await expect(tracker.isEligible(makeBucket(), OPENED_AT + 14n)).resolves.toBe(false);
     expect(l1Client.calls).toEqual([BLOCK_NUMBER + 1n]);
 
-    // A later sub-slot re-checks, still before the missed-slot fallback opens.
+    // A later second re-checks, still before the missed-slot fallback opens.
     await expect(tracker.isEligible(makeBucket(), OPENED_AT + 17n)).resolves.toBe(false);
     expect(l1Client.calls).toEqual([BLOCK_NUMBER + 1n, BLOCK_NUMBER + 1n]);
   });
@@ -157,11 +157,32 @@ describe('InboxBucketConfirmationTracker', () => {
     expect(l1Client.calls).toEqual([]);
   });
 
-  it('leaves a bucket ineligible when the L1 read fails outright', async () => {
+  it('leaves a bucket ineligible when the L1 read fails outright, without retrying in the same second', async () => {
+    const calls: bigint[] = [];
     const l1Client = {
-      getBlock: () => Promise.reject(new Error('connection reset')),
+      getBlock: ({ blockNumber }: { blockNumber: bigint }) => {
+        calls.push(blockNumber);
+        return Promise.reject(new Error('connection reset'));
+      },
     } as unknown as L1BlockReader;
     const tracker = new InboxBucketConfirmationTracker({ l1Client, ethereumSlotDuration: ETHEREUM_SLOT_DURATION });
+
+    await expect(tracker.isEligible(makeBucket(), OPENED_AT + 14n)).resolves.toBe(false);
+    await expect(tracker.isEligible(makeBucket(), OPENED_AT + 14n)).resolves.toBe(false);
+    expect(calls).toEqual([BLOCK_NUMBER + 1n]);
+
+    // The failure is not sticky: the next second tries again.
+    await expect(tracker.isEligible(makeBucket(), OPENED_AT + 15n)).resolves.toBe(false);
+    expect(calls).toEqual([BLOCK_NUMBER + 1n, BLOCK_NUMBER + 1n]);
+  });
+
+  it('leaves a bucket ineligible when the L1 read does not answer in time', async () => {
+    const l1Client = { getBlock: () => new Promise(() => {}) } as unknown as L1BlockReader;
+    const tracker = new InboxBucketConfirmationTracker({
+      l1Client,
+      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+      l1ReadTimeoutMs: 20,
+    });
     await expect(tracker.isEligible(makeBucket(), OPENED_AT + 14n)).resolves.toBe(false);
   });
 });
