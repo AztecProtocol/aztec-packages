@@ -20,7 +20,7 @@ upstream_repo=aztec-labs-eng/aztec-node
 labs_dirs=(yarn-project noir-projects/labs docs playground spartan aztec-up release-image labs-aztec-toolchain)
 foundation_refs='noir-projects/fnd|barretenberg/|l1-contracts/|protocol/constants-codegen|ipc-runtime/|wsdb/'
 
-pr="" onto=origin/main branch="" diff_file="" title="" fetch=1
+pr="" onto=origin/main branch="" diff_file="" title="" fetch=1 push=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --onto) onto=$2; shift 2 ;;
@@ -28,6 +28,7 @@ while [ $# -gt 0 ]; do
     --diff) diff_file=$2; shift 2 ;;
     --title) title=$2; shift 2 ;;
     --no-fetch) fetch=0; shift ;;
+    --push) push=1; shift ;;
     -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
     *) pr=$1; shift ;;
   esac
@@ -119,7 +120,7 @@ else
     if [ -z "$conflicts" ]; then cat "$tmp/apply.err" >&2; die "diff did not apply on $onto"; fi
   fi
   git -C "$wt" add -A
-  git -C "$wt" -c commit.gpgsign=false commit -q --allow-empty -m "$title$suffix" \
+  LABS_PATCHES_NO_AUTO_EXPORT=1 git -C "$wt" -c commit.gpgsign=false commit -q --allow-empty -m "$title$suffix" \
     -m "Ported from AztecProtocol/aztec-packages${pr:+#$pr}."
 fi
 
@@ -134,5 +135,10 @@ if grep -E "^\+.*($foundation_refs)" "$tmp/pr.diff" >/dev/null; then
   echo "Lines referencing foundation-only paths were ported verbatim; check them, aztec-node has no such tree:"
   grep -nE "^\+.*($foundation_refs)" "$tmp/pr.diff" | sed 's/^/  /' | head -20
 fi
-echo "  git -C labs push origin $branch"
-echo "  gh pr create --repo $upstream_repo --head $branch --base main --fill"
+if [ "$push" = 1 ] && [ -z "$conflicts" ]; then
+  git -C "$labs" push -q -u origin "$branch"
+  gh pr create --repo "$upstream_repo" --head "$branch" --base main --fill
+else
+  echo "  git -C labs push origin $branch"
+  echo "  gh pr create --repo $upstream_repo --head $branch --base main --fill"
+fi

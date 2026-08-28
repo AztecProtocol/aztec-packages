@@ -1,5 +1,7 @@
 # labs-patches
 
+The one-page workflow is `REPO.md` at the repo root; `scripts/labs <verb>` is the entry point for everything below.
+
 The foundation's changes to the labs repo, kept as a `git format-patch` series that is applied on top of the `labs/` submodule (aztec-node) every time it is checked out.
 
 `labs/` is pinned to an upstream commit (the gitlink). `bootstrap.sh apply` checks that commit out and runs `git am` over `*.patch` in name order, so the patches become real commits in the submodule and `labs/` HEAD sits ahead of the gitlink. It is idempotent and runs from the root `bootstrap.sh`, the `post-merge`/`post-checkout` hooks and `make labs-patched`, so a fresh clone, a pull and a build all land on the same patched tree. It never discards commits that are not in the series: if the base or the series changed under work in progress, it stops and asks you to `export` or drop it (`LABS_PATCHES_FORCE=1` discards them — a last resort, not a workflow). Uncommitted tracked edits in `labs/` are stashed (`git -C labs stash list`) rather than reset when a re-apply is needed.

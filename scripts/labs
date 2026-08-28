@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# The labs submodule workflow in one command; see REPO.md.
+#   scripts/labs apply|status|export|check|bump <ref> [--commit|--pr]|upstream <n>.. [--push]|port <pr> [--push]|run <cmd>|test
+exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)/labs-patches/bootstrap.sh" "$@"
