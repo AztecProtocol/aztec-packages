@@ -91,6 +91,35 @@ function build_bb_avm_sim {
   prepare_bb_avm_sim_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/$BB_AVM_SIM_BINARY"
 }
 
+# The bb and bb-avm binaries as npm packages: a meta package per binary (@aztec-foundation/bb,
+# @aztec-foundation/bb-avm) over one package per platform. Native builds stage this machine's
+# platform; a release stages every platform and checks each binary against the release tarball.
+function build_bb_bin {
+  echo_header "bb / bb-avm npm packages"
+  ./scripts/native_packages.sh stage bb
+  ./scripts/native_packages.sh stage bb-avm
+}
+
+function cross_copy_bb_bin {
+  ./scripts/native_packages.sh stage bb "$@"
+  ./scripts/native_packages.sh stage bb-avm "$@"
+  if [ -d ../cpp/build-release ]; then
+    ./scripts/native_packages.sh verify bb
+    ./scripts/native_packages.sh verify bb-avm
+  fi
+}
+
+function release_bb_bin {
+  local d p
+  for d in bb-cli bb-avm-cli; do
+    for p in "$d"/packages/*/; do
+      [ -d "$p/bin" ] || continue   # a platform not built here is not published
+      (cd "$p" && retry "deploy_npm ${REF_NAME#v}")
+    done
+    (cd "$d" && retry "deploy_npm ${REF_NAME#v}")
+  done
+}
+
 function build_cdb {
   echo_header "cdb package build"
   generate_packages
@@ -169,6 +198,7 @@ function release {
   (cd bb.js && ./bootstrap.sh release)
   release_bb_avm_sim
   release_cdb
+  release_bb_bin
 }
 
 export -f generate_bb_avm_sim_package copy_bb_avm_sim_native copy_bb_avm_sim_cross generate_cdb_package generate_packages

@@ -1,0 +1,27 @@
+{
+  "name": "@aztec-foundation/bb",
+  "version": "0.1.0",
+  "description": "The bb prover/verifier CLI",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "bb": "bin.js"
+  },
+  "files": [
+    "bin.js",
+    "platform.js",
+    "README.md"
+  ],
+  "optionalDependencies": {
+    "@aztec-foundation/bb-linux-x64": "*",
+    "@aztec-foundation/bb-linux-arm64": "*",
+    "@aztec-foundation/bb-darwin-x64": "*",
+    "@aztec-foundation/bb-darwin-arm64": "*",
+    "@aztec-foundation/bb-win32-x64": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AztecProtocol/aztec-packages.git",
+    "directory": "barretenberg/ts/bb-cli"
+  }
+}
