@@ -84,10 +84,13 @@ import { RequestsTracker } from './requests_tracker.js';
  * L1 view in which every bucket's opening block already has a canonical child, so the job's confirmation tracker
  * admits every bucket the archiver mock returns.
  */
-const confirmingL1Client = {
-  getBlock: ({ blockNumber }: { blockNumber: bigint }) =>
-    Promise.resolve({ parentHash: Buffer32.fromBigInt(blockNumber - 1n).toString() }),
-} as unknown as L1BlockReader;
+const confirmingL1Client: L1BlockReader = {
+  getBlock: ({ blockNumber }) =>
+    Promise.resolve({
+      hash: Buffer32.fromBigInt(blockNumber).toString(),
+      parentHash: Buffer32.fromBigInt(blockNumber - 1n).toString(),
+    }),
+};
 
 describe('CheckpointProposalJob', () => {
   let publisher: MockProxy<SequencerPublisher>;

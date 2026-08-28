@@ -8,6 +8,7 @@ import { BlockNotFoundError } from 'viem';
 import {
   InboxBucketConfirmationTracker,
   type L1BlockReader,
+  type L1BlockRef,
   immediateEligibility,
 } from './inbox_bucket_eligibility.js';
 
@@ -16,7 +17,7 @@ const OPENED_AT = 1_000n;
 const BLOCK_NUMBER = 500n;
 
 /** An L1 block as far as the tracker is concerned: only its hash and parent hash are read. */
-type FakeL1Block = { number: bigint; hash: string; parentHash: string };
+type FakeL1Block = L1BlockRef & { number: bigint };
 
 const hashOf = (blockNumber: bigint) => Buffer32.fromBigInt(blockNumber).toString();
 
@@ -38,13 +39,14 @@ function makeBucket(overrides: Partial<InboxBucket> = {}): InboxBucket {
 function makeL1Client(blocks: FakeL1Block[]): L1BlockReader & { calls: bigint[] } {
   const byNumber = new Map(blocks.map(block => [block.number, block]));
   const calls: bigint[] = [];
-  const getBlock = (args?: { blockNumber?: bigint }) => {
-    const blockNumber = args!.blockNumber!;
-    calls.push(blockNumber);
-    const block = byNumber.get(blockNumber);
-    return block === undefined ? Promise.reject(new BlockNotFoundError({ blockNumber })) : Promise.resolve(block);
+  return {
+    calls,
+    getBlock({ blockNumber }) {
+      calls.push(blockNumber);
+      const block = byNumber.get(blockNumber);
+      return block === undefined ? Promise.reject(new BlockNotFoundError({ blockNumber })) : Promise.resolve(block);
+    },
   };
-  return { getBlock, calls } as unknown as L1BlockReader & { calls: bigint[] };
 }
 
 /** A canonical child of the bucket's opening block. */
@@ -159,12 +161,12 @@ describe('InboxBucketConfirmationTracker', () => {
 
   it('leaves a bucket ineligible when the L1 read fails outright, without retrying in the same second', async () => {
     const calls: bigint[] = [];
-    const l1Client = {
-      getBlock: ({ blockNumber }: { blockNumber: bigint }) => {
+    const l1Client: L1BlockReader = {
+      getBlock({ blockNumber }) {
         calls.push(blockNumber);
         return Promise.reject(new Error('connection reset'));
       },
-    } as unknown as L1BlockReader;
+    };
     const tracker = new InboxBucketConfirmationTracker({ l1Client, ethereumSlotDuration: ETHEREUM_SLOT_DURATION });
 
     await expect(tracker.isEligible(makeBucket(), OPENED_AT + 14n)).resolves.toBe(false);
@@ -177,7 +179,7 @@ describe('InboxBucketConfirmationTracker', () => {
   });
 
   it('leaves a bucket ineligible when the L1 read does not answer in time', async () => {
-    const l1Client = { getBlock: () => new Promise(() => {}) } as unknown as L1BlockReader;
+    const l1Client: L1BlockReader = { getBlock: () => new Promise<L1BlockRef>(() => {}) };
     const tracker = new InboxBucketConfirmationTracker({
       l1Client,
       ethereumSlotDuration: ETHEREUM_SLOT_DURATION,

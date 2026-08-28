@@ -235,14 +235,17 @@ describe('selectInboxBucketForBlock', () => {
     ]);
     // Block 100 has no child yet; block 99 does, and it is the bucket's own opening block.
     const reads: bigint[] = [];
-    const l1Client = {
-      getBlock: ({ blockNumber }: { blockNumber: bigint }) => {
+    const l1Client: L1BlockReader = {
+      getBlock({ blockNumber }) {
         reads.push(blockNumber);
         return blockNumber === 100n
-          ? Promise.resolve({ parentHash: Buffer32.fromBigInt(99n).toString() })
+          ? Promise.resolve({
+              hash: Buffer32.fromBigInt(100n).toString(),
+              parentHash: Buffer32.fromBigInt(99n).toString(),
+            })
           : Promise.reject(new BlockNotFoundError({ blockNumber }));
       },
-    } as unknown as L1BlockReader;
+    };
     const tracker = new InboxBucketConfirmationTracker({ l1Client, ethereumSlotDuration: 12 });
 
     const result = await selectInboxBucketForBlock({
@@ -515,12 +518,15 @@ describe('selectInboxBucketForBlock', () => {
     const { source } = makeSource([{ seq: 1n, timestamp: cutoff, msgCount: 2 }]);
     const childVisibleAt = cutoff + 14n;
     let now = buildFrameStart;
-    const l1Client = {
-      getBlock: ({ blockNumber }: { blockNumber: bigint }) =>
+    const l1Client: L1BlockReader = {
+      getBlock: ({ blockNumber }) =>
         blockNumber === 2n && now >= childVisibleAt
-          ? Promise.resolve({ parentHash: Buffer32.fromBigInt(1n).toString() })
+          ? Promise.resolve({
+              hash: Buffer32.fromBigInt(2n).toString(),
+              parentHash: Buffer32.fromBigInt(1n).toString(),
+            })
           : Promise.reject(new BlockNotFoundError({ blockNumber })),
-    } as unknown as L1BlockReader;
+    };
     const tracker = new InboxBucketConfirmationTracker({ l1Client, ethereumSlotDuration: 12 });
 
     // First sub-slot of the build frame: the child is already visible, so the mandatory bucket is consumable

@@ -1,4 +1,3 @@
-import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { InboxBucket } from '@aztec/stdlib/messaging';
@@ -16,8 +15,18 @@ export type InboxBucketEligibility = (bucket: InboxBucket, nowSeconds: bigint) =
 /** Consumes every bucket the archiver has, with no L1 confirmation wait. Used by automine, which never waits. */
 export const immediateEligibility: InboxBucketEligibility = () => Promise.resolve(true);
 
-/** The single L1 read the confirmation tracker performs: a block by number. */
-export type L1BlockReader = Pick<ViemPublicClient, 'getBlock'>;
+/** What the confirmation tracker reads off an L1 block: its own identity and its parent link. */
+export type L1BlockRef = { hash: string | null; parentHash: string };
+
+/**
+ * The single L1 read the confirmation tracker performs: a block by number. Narrower than viem's `getBlock` on
+ * purpose, so tests and any other caller can supply a plain object instead of a whole public client; a viem public
+ * client satisfies it as-is.
+ */
+export interface L1BlockReader {
+  /** Fetches an L1 block header by number; rejects with viem's `BlockNotFoundError` when the block does not exist. */
+  getBlock(args: { blockNumber: bigint; includeTransactions?: false }): Promise<L1BlockRef>;
+}
 
 /** Dependencies of an {@link InboxBucketConfirmationTracker}. */
 export type InboxBucketConfirmationTrackerDeps = {
