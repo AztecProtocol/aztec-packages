@@ -43,17 +43,25 @@ export const DEFAULT_INBOX_L1_CONFIRMATIONS: InboxL1Confirmations = 0;
 /** Supported values of `SEQ_INBOX_L1_CONFIRMATIONS`. Deeper confirmations are not implemented. */
 const SUPPORTED_INBOX_L1_CONFIRMATIONS: InboxL1Confirmations[] = [0, 1];
 
-/** Parses `SEQ_INBOX_L1_CONFIRMATIONS`, rejecting anything but the two supported depths. */
-function parseInboxL1Confirmations(value: string): InboxL1Confirmations {
-  const parsed = Number(value);
-  const supported = SUPPORTED_INBOX_L1_CONFIRMATIONS.find(depth => depth === parsed);
-  if (supported === undefined) {
+/**
+ * Narrows an Inbox confirmation depth to one this node implements, throwing otherwise. The runtime config update
+ * path takes values that never passed through the env-var parser or the RPC schema, and an unrecognised depth
+ * silently falling back to the waiting rule would change consumption timing without the operator being told.
+ */
+export function assertSupportedInboxL1Confirmations(value: number): asserts value is InboxL1Confirmations {
+  if (!SUPPORTED_INBOX_L1_CONFIRMATIONS.some(depth => depth === value)) {
     throw new Error(
       `Unsupported Inbox L1 confirmation depth '${value}'; supported values are ` +
         `${SUPPORTED_INBOX_L1_CONFIRMATIONS.join(' and ')}`,
     );
   }
-  return supported;
+}
+
+/** Parses `SEQ_INBOX_L1_CONFIRMATIONS`, rejecting anything but the two supported depths. */
+function parseInboxL1Confirmations(value: string): InboxL1Confirmations {
+  const parsed = Number(value);
+  assertSupportedInboxL1Confirmations(parsed);
+  return parsed;
 }
 
 /**
@@ -312,7 +320,8 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_INBOX_L1_CONFIRMATIONS',
     description:
       'How many L1 blocks must build on top of an L1-to-L2 message before this proposer consumes it. ' +
-      '0: bridged messages reach L2 in the next block, and a shallow L1 reorg can cost this proposer its slot. ' +
+      '0: bridged messages reach L2 in the next block, and this proposer loses its slot only to an L1 reorg that ' +
+      'reorders or drops the messages it consumed, not to one that re-mines the same messages. ' +
       '1: roughly one Ethereum slot (~12s) of extra latency per message, immune to one-block reorgs. ' +
       'The automine sequencer ignores this and always consumes immediately.',
     parseEnv: parseInboxL1Confirmations,

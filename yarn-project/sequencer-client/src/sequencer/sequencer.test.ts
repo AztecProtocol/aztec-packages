@@ -30,7 +30,7 @@ import {
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
-import type { ChainConfig } from '@aztec/stdlib/config';
+import type { ChainConfig, InboxL1Confirmations } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
@@ -418,6 +418,24 @@ describe('sequencer', () => {
 
     it('accepts a multiplier at or above the network minimum', () => {
       expect(() => sequencer.updateConfig({ perBlockAllocationMultiplier: 1.5 })).not.toThrow();
+    });
+  });
+
+  describe('inboxL1Confirmations guard', () => {
+    it('rejects a confirmation depth this node does not implement', () => {
+      // Not reachable over the admin RPC, whose schema only admits 0 and 1, but the in-process update path is
+      // unvalidated and silently treating an unknown depth as "wait" would change consumption timing unannounced.
+      expect(() => sequencer.updateConfig({ inboxL1Confirmations: 2 as InboxL1Confirmations })).toThrow(
+        /confirmation depth/,
+      );
+      expect(sequencer.getConfig().inboxL1Confirmations).toBe(0);
+    });
+
+    it('accepts the supported depths', () => {
+      expect(() => sequencer.updateConfig({ inboxL1Confirmations: 1 })).not.toThrow();
+      expect(sequencer.getConfig().inboxL1Confirmations).toBe(1);
+      expect(() => sequencer.updateConfig({ inboxL1Confirmations: 0 })).not.toThrow();
+      expect(sequencer.getConfig().inboxL1Confirmations).toBe(0);
     });
   });
 
