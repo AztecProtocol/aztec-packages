@@ -306,16 +306,18 @@ export class ArchiverDataStoreUpdater {
   /**
    * Removes the proposed (not yet L1-checkpointed) blocks that consumed an L1-to-L2 message at or after
    * `firstRemovedIndex`, along with every block after them. A block's L1-to-L2 tree leaf count is the cumulative
-   * count of messages consumed through it, so the first proposed block whose leaf count exceeds the index is the
-   * first that consumed a message the local chain no longer has, and everything from it on is invalid. A block
-   * whose leaf count equals the index consumed only messages below it and is kept.
+   * count of messages consumed through it, so a leaf count above the index means the block consumed a message the
+   * local chain no longer has, and one equal to it means the block stopped below it.
    *
-   * Checkpointed blocks are never touched: only the comparison against the archive on L1 may unwind published
-   * state, since a message store that disagrees with an accepted checkpoint means one of the two views of L1 is
-   * mid-reorg and this one is not necessarily the right one. The predicate is only exact while the removed index
-   * sits at or above the checkpointed tip's leaf count; below it, every proposed descendant satisfies it and valid
-   * blocks would be dropped while the published parent that consumed the very same messages stays, so the whole
-   * disagreement is left to the checkpoint step.
+   * The index is where the rollback rewound to, not the first leaf whose value actually changed, so a reorg that
+   * re-mines the same messages in a different L1 block also prunes blocks whose trees are unchanged. That is
+   * deliberate: the bucket those blocks reference was re-timed and re-numbered, so L1 would reject a checkpoint
+   * carrying it anyway.
+   *
+   * Checkpointed blocks are never touched: a message store that disagrees with a checkpoint L1 accepted means one
+   * of the two views of L1 is mid-reorg and this one is not necessarily the right one, so only the archive
+   * comparison in the checkpoint step may unwind published state. For the same reason nothing is pruned when the
+   * rollback reaches below the checkpointed tip's leaf count, where every proposed descendant would qualify.
    *
    * @param firstRemovedIndex - Index of the first L1-to-L2 message that was removed from the store.
    * @returns The removed blocks.
@@ -338,7 +340,7 @@ export class ArchiverDataStoreUpdater {
     );
     if (firstRemovedIndex < checkpointedTipLeafCount) {
       this.log.warn(
-        `Skipping prune of proposed blocks: L1 to L2 messages were rolled back from index ${firstRemovedIndex}, below the ${checkpointedTipLeafCount} consumed by checkpointed block ${checkpointedBlockNumber}`,
+        `Not pruning proposed blocks: rollback index ${firstRemovedIndex} is below the checkpointed tip's leaf count`,
         { firstRemovedIndex, checkpointedTipLeafCount, checkpointedBlockNumber },
       );
       return [];

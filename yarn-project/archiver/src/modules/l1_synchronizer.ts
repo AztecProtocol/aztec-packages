@@ -694,13 +694,8 @@ export class ArchiverL1Synchronizer implements Traceable {
    * truncated messages behind a syncpoint that would never fetch them, nor a proposed chain built on messages the
    * store no longer holds.
    *
-   * Dropping those blocks is what stops the node from extending a chain it can no longer publish: L1 rejects a
-   * checkpoint whose Inbox reference does not resolve in its own chain, and a proposer building the next block off
-   * the orphaned one would resolve the parent's bucket by a message total that now belongs to different leaves.
-   *
-   * This runs in the message step of the sync pass, before the checkpoint step, so every consumer that reads the
-   * archiver after a poll — the world state through the tips, the sequencer and validators through their pull
-   * checks — sees a local view where messages and blocks agree.
+   * Runs in the message step of the sync pass, before the checkpoint step, so every consumer that reads the archiver
+   * after a poll sees a local view where messages and blocks agree.
    */
   private async rewindMessagesTo(messagesSyncPoint: L1BlockId, removeFromIndex?: bigint): Promise<L1BlockId> {
     let prunedBlocks: L2Block[] = [];
@@ -724,7 +719,7 @@ export class ArchiverL1Synchronizer implements Traceable {
 
     const firstPrunedBlock = prunedBlocks[0];
     this.log.warn(
-      `Pruning ${prunedBlocks.length} proposed blocks from block ${firstPrunedBlock.number} that consumed L1 to L2 messages rolled back from index ${firstRemovedIndex}`,
+      `Pruning ${prunedBlocks.length} proposed blocks from ${firstPrunedBlock.number} built on rolled back messages`,
       { firstRemovedIndex, firstPrunedBlockNumber: firstPrunedBlock.number, prunedCount: prunedBlocks.length },
     );
     this.instrumentation.recordPrune('inbox_rollback');

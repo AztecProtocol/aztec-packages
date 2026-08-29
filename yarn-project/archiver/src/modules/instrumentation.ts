@@ -85,7 +85,7 @@ export class ArchiverInstrumentation {
     this.pruneDuration = meter.createHistogram(Metrics.ARCHIVER_PRUNE_DURATION);
 
     this.pruneCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_PRUNE_COUNT, {
-      [Attributes.PRUNE_TYPE]: ['unproven', 'uncheckpointed', 'l1_conflict', 'orphan', 'l1_mismatch'],
+      [Attributes.PRUNE_TYPE]: ['unproven', 'uncheckpointed', 'l1_conflict', 'orphan', 'l1_mismatch', 'inbox_rollback'],
     });
 
     this.blockProposalTxTargetCount = createUpDownCounterWithDefault(
@@ -161,7 +161,8 @@ export class ArchiverInstrumentation {
    * type distinguishes the cause: 'uncheckpointed' (slot ended without a checkpoint), 'l1_conflict' (proposed blocks
    * conflicting with an L1 checkpoint), 'orphan' (no matching proposed checkpoint arrived before the deadline), or
    * 'l1_mismatch' (the local checkpointed tip diverged from L1 — an L1 reorg or a pruned/missed-proof checkpoint — so
-   * already-checkpointed blocks were rewound).
+   * already-checkpointed blocks were rewound), or 'inbox_rollback' (an L1 reorg orphaned Inbox messages the blocks
+   * had consumed).
    */
   public recordPrune(pruneType: 'uncheckpointed' | 'l1_conflict' | 'orphan' | 'l1_mismatch' | 'inbox_rollback') {
     this.pruneCount.add(1, { [Attributes.PRUNE_TYPE]: pruneType });

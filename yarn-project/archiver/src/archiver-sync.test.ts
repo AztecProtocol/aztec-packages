@@ -2264,7 +2264,9 @@ describe('Archiver Sync', () => {
 
       expect(await getStoredLeaves()).toEqual(asHex([...early, late[1], late[0]]));
       expect(await archiver.getBlockNumber()).toEqual(BlockNumber(1));
-      expect(pruneSpy).toHaveBeenCalledTimes(1);
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: L2BlockSourceEvents.L2PruneUncheckpointed, blocks: [blocks[1]] }),
+      );
     });
 
     // The rollback and the prune have to commit together: if the messages were dropped on their own, the next
