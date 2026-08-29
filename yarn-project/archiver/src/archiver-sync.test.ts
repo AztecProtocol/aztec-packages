@@ -27,6 +27,7 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -2162,6 +2163,128 @@ describe('Archiver Sync', () => {
       expect((await archiverStore.messages.getNewestInboxBucket())!.seq).toEqual(23n);
       expect(eventsSpy).toHaveBeenCalled();
       expect(eventByHashSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('pruning proposed blocks that consumed rolled back messages', () => {
+    let pruneSpy: jest.Mock;
+
+    // L1 is held here for the whole test: a reorg replaces the head at the same height, so the sync still runs,
+    // while the slot of the proposed blocks is never in the past and neither slot-based prune fires.
+    const l1BlockNumber = 110n;
+
+    beforeEach(() => {
+      pruneSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.L2PruneUncheckpointed, pruneSpy);
+    });
+
+    afterEach(() => {
+      archiver.events.off(L2BlockSourceEvents.L2PruneUncheckpointed, pruneSpy);
+    });
+
+    // Two messages on L1 block 100 (indices 0 and 1) and two on block 102 (indices 2 and 3), so a reorg of block
+    // 102 removes everything from index 2 on.
+    const addMessages = () => {
+      const early = [Fr.random(), Fr.random()];
+      const late = [Fr.random(), Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 100n, early);
+      fake.addMessages(CheckpointNumber(1), 102n, late);
+      return { early, late };
+    };
+
+    // Builds a chain of blocks whose L1-to-L2 tree leaf counts are the given cumulative totals of consumed messages.
+    const makeBlocksConsumingThrough = async (leafCounts: number[], builtAtL1Block = l1BlockNumber) => {
+      const blocks = await fake.makeBlocks(CheckpointNumber(1), {
+        numBlocks: leafCounts.length,
+        txsPerBlock: 1,
+        l1BlockNumber: builtAtL1Block,
+      });
+      blocks.forEach((block, i) => {
+        block.header.state.l1ToL2MessageTree = new AppendOnlyTreeSnapshot(Fr.random(), leafCounts[i]);
+      });
+      return blocks;
+    };
+
+    it('prunes from the first proposed block that consumed a removed message', async () => {
+      const { early } = addMessages();
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+
+      // Blocks 1 and 2 consumed only the two surviving messages (block 2 consumed none of its own), block 3
+      // consumed the two that the reorg removes, and block 4 consumed nothing but builds on block 3.
+      const blocks = await makeBlocksConsumingThrough([2, 2, 4, 4]);
+      for (const block of blocks) {
+        await archiver.addBlock(block);
+      }
+      await archiver.addProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty({ slotNumber: fake.getL2SlotAtL1Block(l1BlockNumber) }),
+        startBlock: BlockNumber(1),
+        blockCount: blocks.length,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      });
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(4));
+
+      // L1 block 102 is replaced by one that does not carry its two messages.
+      fake.removeMessagesAfter(2);
+      fake.reorgL1BlocksFrom(102n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(early));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+      // The tips the world state follows move back with the store, which is what unwinds it.
+      expect((await archiver.getL2Tips()).proposed.number).toEqual(BlockNumber(2));
+      // The proposed checkpoint covering the pruned blocks is evicted along with them.
+      expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeUndefined();
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: L2BlockSourceEvents.L2PruneUncheckpointed,
+          slotNumber: fake.getL2SlotAtL1Block(l1BlockNumber),
+          blocks: [blocks[2], blocks[3]],
+        }),
+      );
+    });
+
+    it('prunes when the reorg replaces the removed messages at the same indices', async () => {
+      const { early, late } = addMessages();
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+
+      const blocks = await makeBlocksConsumingThrough([2, 4]);
+      for (const block of blocks) {
+        await archiver.addBlock(block);
+      }
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+
+      // The replacement L1 block carries the same two messages in the opposite order: the message count is
+      // unchanged and indices 2 and 3 are filled again, but block 2 consumed the leaves that were there before.
+      fake.reorderMessagesAtL1Block(102n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([...early, late[1], late[0]]));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(1));
+      expect(pruneSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves checkpointed blocks alone when the messages they consumed are rolled back', async () => {
+      const { early } = addMessages();
+      const blocks = await makeBlocksConsumingThrough([2, 4], 105n);
+      await fake.addCheckpoint(CheckpointNumber(1), { blocks, l1BlockNumber: 105n, numL1ToL2Messages: 0 });
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+
+      // Only the L1 checkpoint comparison may unwind published state, so the message rollback leaves it in place
+      // even though block 2 consumed a message that is now gone.
+      fake.removeMessagesAfter(2);
+      fake.reorgL1BlocksFrom(102n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(early));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+      expect(pruneSpy).not.toHaveBeenCalled();
     });
   });
 

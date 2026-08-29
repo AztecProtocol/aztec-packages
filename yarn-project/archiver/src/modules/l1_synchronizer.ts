@@ -697,7 +697,40 @@ export class ArchiverL1Synchronizer implements Traceable {
     this.log.verbose(`Updated messages syncpoint to L1 block ${messagesSyncPoint.l1BlockNumber}`, {
       ...messagesSyncPoint,
     });
+    if (removeFromIndex !== undefined) {
+      await this.pruneProposedBlocksConsumingRemovedMessages(removeFromIndex);
+    }
     return messagesSyncPoint;
+  }
+
+  /**
+   * Drops the locally proposed blocks that consumed a message the rollback just removed, so the node stops
+   * extending a chain it can no longer publish: L1 rejects a checkpoint whose Inbox reference does not resolve in
+   * its own chain, and a proposer building the next block off the orphaned one would resolve the parent's bucket
+   * by a message total that now belongs to different leaves.
+   *
+   * This runs in the message step of the sync pass, before the checkpoint step, so every consumer that reads the
+   * archiver after a poll — the world state through the tips, the sequencer and validators through their pull
+   * checks — sees a local view where messages and blocks agree. Published checkpoints are left to the checkpoint
+   * step's archive comparison; see {@link ArchiverDataStoreUpdater.removeProposedBlocksConsumingMessagesFrom}.
+   */
+  private async pruneProposedBlocksConsumingRemovedMessages(firstRemovedIndex: bigint): Promise<void> {
+    const prunedBlocks = await this.updater.removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex);
+    if (prunedBlocks.length === 0) {
+      return;
+    }
+
+    const firstPrunedBlock = prunedBlocks[0];
+    this.log.warn(
+      `Pruning ${prunedBlocks.length} proposed blocks from block ${firstPrunedBlock.number} that consumed L1 to L2 messages rolled back from index ${firstRemovedIndex}`,
+      { firstRemovedIndex, firstPrunedBlockNumber: firstPrunedBlock.number, prunedCount: prunedBlocks.length },
+    );
+    this.instrumentation.recordPrune('inbox_rollback');
+    this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
+      type: L2BlockSourceEvents.L2PruneUncheckpointed,
+      slotNumber: firstPrunedBlock.header.getSlot(),
+      blocks: prunedBlocks,
+    });
   }
 
   /** Checks if the local consensus rolling hash and message count match the remote Inbox live state. */

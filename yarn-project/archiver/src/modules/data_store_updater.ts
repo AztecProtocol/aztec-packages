@@ -274,6 +274,43 @@ export class ArchiverDataStoreUpdater {
   }
 
   /**
+   * Removes the proposed (not yet L1-checkpointed) blocks that consumed an L1-to-L2 message at or after
+   * `firstRemovedIndex`, along with every block after them. A block's L1-to-L2 tree leaf count is the cumulative
+   * count of messages consumed through it, so the first proposed block whose leaf count exceeds the index is the
+   * first that consumed a message the local chain no longer has, and everything from it on is invalid. A block
+   * whose leaf count equals the index consumed only messages below it and is kept.
+   *
+   * Checkpointed blocks are never touched: only the comparison against the archive on L1 may unwind published
+   * state, since a message store that disagrees with an accepted checkpoint means one of the two views of L1 is
+   * mid-reorg and this one is not necessarily the right one.
+   *
+   * @param firstRemovedIndex - Index of the first L1-to-L2 message that was removed from the store.
+   * @returns The removed blocks.
+   */
+  public async removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex: bigint): Promise<L2Block[]> {
+    const [checkpointedBlockNumber, latestBlockNumber] = await Promise.all([
+      this.stores.blocks.getCheckpointedL2BlockNumber(),
+      this.stores.blocks.getLatestL2BlockNumber(),
+    ]);
+    if (latestBlockNumber <= checkpointedBlockNumber) {
+      return [];
+    }
+
+    const proposedBlocks = await this.stores.blocks.getBlocksData({
+      from: BlockNumber(checkpointedBlockNumber + 1),
+      limit: latestBlockNumber - checkpointedBlockNumber,
+    });
+    const firstAffected = proposedBlocks.find(
+      block => BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex) > firstRemovedIndex,
+    );
+    if (firstAffected === undefined) {
+      return [];
+    }
+
+    return await this.removeUncheckpointedBlocksAfter(BlockNumber(firstAffected.header.getBlockNumber() - 1));
+  }
+
+  /**
    * Removes all blocks without a proposed checkpoint strictly after the specified block number and cleans up associated contract data.
    * This handles removal of provisionally added blocks along with their contract classes/instances.
    * Verifies that each block being removed is not part of a stored checkpoint (proposed or not).
