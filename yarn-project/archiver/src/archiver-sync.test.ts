@@ -2267,6 +2267,39 @@ describe('Archiver Sync', () => {
       expect(pruneSpy).toHaveBeenCalledTimes(1);
     });
 
+    // The rollback and the prune have to commit together: if the messages were dropped on their own, the next
+    // sync pass would re-download the canonical ones, find the local state consistent with L1, and never come
+    // back to the proposed blocks built on the messages that are gone.
+    it('keeps the messages when pruning the proposed chain fails', async () => {
+      const { early, late } = addMessages();
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+
+      const blocks = await makeBlocksConsumingThrough([2, 4]);
+      for (const block of blocks) {
+        await archiver.addBlock(block);
+      }
+
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+      const pruneFailure = new Error('cannot remove blocks');
+      jest.spyOn(archiverStore.blocks, 'removeBlocksAfter').mockImplementationOnce(() => {
+        throw pruneFailure;
+      });
+
+      fake.removeMessagesAfter(2);
+      fake.reorgL1BlocksFrom(102n);
+      await expect(archiver.syncImmediate()).rejects.toThrow(pruneFailure);
+
+      expect(await getStoredLeaves()).toEqual(asHex([...early, ...late]));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+
+      // With the store rolled back, the next pass sees the same divergence again and completes both halves.
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(early));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(1));
+    });
+
     it('leaves checkpointed blocks alone when the messages they consumed are rolled back', async () => {
       const { early } = addMessages();
       const blocks = await makeBlocksConsumingThrough([2, 4], 105n);

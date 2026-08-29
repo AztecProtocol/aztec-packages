@@ -1,3 +1,4 @@
+import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { filterAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
@@ -255,22 +256,47 @@ export class ArchiverDataStoreUpdater {
    * @throws Error if any block to be removed is checkpointed.
    */
   public async removeUncheckpointedBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
-    const result = await this.stores.db.transactionAsync(async () => {
-      // Verify we're only removing uncheckpointed blocks
-      const lastCheckpointedBlockNumber = await this.stores.blocks.getCheckpointedL2BlockNumber();
-      if (blockNumber < lastCheckpointedBlockNumber) {
-        throw new Error(
-          `Cannot remove blocks after ${blockNumber} because checkpointed blocks exist up to ${lastCheckpointedBlockNumber}`,
-        );
-      }
-
-      const prunedBlocks = await this.removeBlocksAfter(blockNumber);
-      await this.evictProposedCheckpointsForPrunedBlocks(prunedBlocks);
-
-      return prunedBlocks;
-    });
+    const result = await this.stores.db.transactionAsync(() => this.removeUncheckpointedBlocksAfterInTx(blockNumber));
     await this.l2TipsCache?.refresh();
     return result;
+  }
+
+  /** Body of {@link removeUncheckpointedBlocksAfter}, for callers that supply the transaction and the tips refresh. */
+  private async removeUncheckpointedBlocksAfterInTx(blockNumber: BlockNumber): Promise<L2Block[]> {
+    // Verify we're only removing uncheckpointed blocks
+    const lastCheckpointedBlockNumber = await this.stores.blocks.getCheckpointedL2BlockNumber();
+    if (blockNumber < lastCheckpointedBlockNumber) {
+      throw new Error(
+        `Cannot remove blocks after ${blockNumber} because checkpointed blocks exist up to ${lastCheckpointedBlockNumber}`,
+      );
+    }
+
+    const prunedBlocks = await this.removeBlocksAfter(blockNumber);
+    await this.evictProposedCheckpointsForPrunedBlocks(prunedBlocks);
+
+    return prunedBlocks;
+  }
+
+  /**
+   * Rewinds the message sync point, dropping every L1-to-L2 message from `firstRemovedIndex` on, and prunes the
+   * proposed blocks that consumed one of them, in a single transaction.
+   *
+   * Splitting the two would make the prune unrecoverable: a crash after the messages were dropped leaves the
+   * proposed chain built on messages the store no longer holds, and the next sync pass re-downloads the canonical
+   * messages, finds the local state consistent with L1, and never comes back to those blocks.
+   *
+   * @returns The pruned blocks.
+   */
+  public async rewindMessagesAndPruneProposedBlocks(
+    messagesSyncPoint: L1BlockId,
+    firstRemovedIndex: bigint,
+  ): Promise<L2Block[]> {
+    const prunedBlocks = await this.stores.db.transactionAsync(async () => {
+      await this.stores.messages.rewindMessagesTo(messagesSyncPoint, firstRemovedIndex);
+      return await this.removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex);
+    });
+    await this.l2TipsCache?.refresh();
+    return prunedBlocks;
   }
 
   /**
@@ -287,7 +313,7 @@ export class ArchiverDataStoreUpdater {
    * @param firstRemovedIndex - Index of the first L1-to-L2 message that was removed from the store.
    * @returns The removed blocks.
    */
-  public async removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex: bigint): Promise<L2Block[]> {
+  private async removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex: bigint): Promise<L2Block[]> {
     const [checkpointedBlockNumber, latestBlockNumber] = await Promise.all([
       this.stores.blocks.getCheckpointedL2BlockNumber(),
       this.stores.blocks.getLatestL2BlockNumber(),
@@ -307,7 +333,7 @@ export class ArchiverDataStoreUpdater {
       return [];
     }
 
-    return await this.removeUncheckpointedBlocksAfter(BlockNumber(firstAffected.header.getBlockNumber() - 1));
+    return await this.removeUncheckpointedBlocksAfterInTx(BlockNumber(firstAffected.header.getBlockNumber() - 1));
   }
 
   /**

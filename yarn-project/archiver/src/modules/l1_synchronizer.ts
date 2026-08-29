@@ -689,33 +689,35 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   /**
-   * Rewinds the message syncpoint to the given L1 block, dropping the messages from `removeFromIndex` on in the same
-   * transaction, so an interruption cannot leave truncated messages behind a syncpoint that would never fetch them.
-   */
-  private async rewindMessagesTo(messagesSyncPoint: L1BlockId, removeFromIndex?: bigint): Promise<L1BlockId> {
-    await this.stores.messages.rewindMessagesTo(messagesSyncPoint, removeFromIndex);
-    this.log.verbose(`Updated messages syncpoint to L1 block ${messagesSyncPoint.l1BlockNumber}`, {
-      ...messagesSyncPoint,
-    });
-    if (removeFromIndex !== undefined) {
-      await this.pruneProposedBlocksConsumingRemovedMessages(removeFromIndex);
-    }
-    return messagesSyncPoint;
-  }
-
-  /**
-   * Drops the locally proposed blocks that consumed a message the rollback just removed, so the node stops
-   * extending a chain it can no longer publish: L1 rejects a checkpoint whose Inbox reference does not resolve in
-   * its own chain, and a proposer building the next block off the orphaned one would resolve the parent's bucket
-   * by a message total that now belongs to different leaves.
+   * Rewinds the message syncpoint to the given L1 block, dropping the messages from `removeFromIndex` on and the
+   * locally proposed blocks that consumed one of them, all in the same transaction: an interruption must not leave
+   * truncated messages behind a syncpoint that would never fetch them, nor a proposed chain built on messages the
+   * store no longer holds.
+   *
+   * Dropping those blocks is what stops the node from extending a chain it can no longer publish: L1 rejects a
+   * checkpoint whose Inbox reference does not resolve in its own chain, and a proposer building the next block off
+   * the orphaned one would resolve the parent's bucket by a message total that now belongs to different leaves.
    *
    * This runs in the message step of the sync pass, before the checkpoint step, so every consumer that reads the
    * archiver after a poll — the world state through the tips, the sequencer and validators through their pull
-   * checks — sees a local view where messages and blocks agree. Published checkpoints are left to the checkpoint
-   * step's archive comparison; see {@link ArchiverDataStoreUpdater.removeProposedBlocksConsumingMessagesFrom}.
+   * checks — sees a local view where messages and blocks agree.
    */
-  private async pruneProposedBlocksConsumingRemovedMessages(firstRemovedIndex: bigint): Promise<void> {
-    const prunedBlocks = await this.updater.removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex);
+  private async rewindMessagesTo(messagesSyncPoint: L1BlockId, removeFromIndex?: bigint): Promise<L1BlockId> {
+    let prunedBlocks: L2Block[] = [];
+    if (removeFromIndex === undefined) {
+      await this.stores.messages.rewindMessagesTo(messagesSyncPoint);
+    } else {
+      prunedBlocks = await this.updater.rewindMessagesAndPruneProposedBlocks(messagesSyncPoint, removeFromIndex);
+    }
+    this.log.verbose(`Updated messages syncpoint to L1 block ${messagesSyncPoint.l1BlockNumber}`, {
+      ...messagesSyncPoint,
+    });
+    this.reportPrunedProposedBlocks(prunedBlocks, removeFromIndex);
+    return messagesSyncPoint;
+  }
+
+  /** Logs, counts and announces the proposed blocks a message rollback dropped. */
+  private reportPrunedProposedBlocks(prunedBlocks: L2Block[], firstRemovedIndex: bigint | undefined): void {
     if (prunedBlocks.length === 0) {
       return;
     }
