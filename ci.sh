@@ -22,23 +22,13 @@ function print_usage {
   echo_cmd "fast"                  "Spin up an EC2 instance and run bootstrap ci-fast."
   echo_cmd "full"                  "Spin up an EC2 instance and run bootstrap ci-full."
   echo_cmd "full-no-test-cache"    "Spin up an EC2 instance and run bootstrap ci-full-no-test-cache."
-  echo_cmd "docs"                  "Spin up an EC2 instance and run docs-only CI."
   echo_cmd "barretenberg"          "Spin up an EC2 instance and run barretenberg-only CI."
   echo_cmd "grind"                 "Spin up EC2 instances to run parallel full CI runs."
   echo_cmd "merge-queue"           "Spin up EC2 instances to run the merge-queue jobs."
   echo_cmd "grind-test"            "Spin up an EC2 and grind a given test command."
-  echo_cmd "network-deploy"        "Spin up an EC2 instance to deploy a network."
-  echo_cmd "network-scenarios"     "Spin up EC2 instances to run network scenario tests in parallel."
-  echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
-  echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
-  echo_cmd "network-proving-bench" "Spin up an EC2 instance to deploy a network and run proving benchmarks. Set SKIP_NETWORK_DEPLOY=1 to skip deploy."
-  echo_cmd "network-bench-10tps"   "Spin up an EC2 instance to run the 10 TPS benchmark on bench-10tps."
-  echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
-  echo_cmd "network-tests-kind"    "Spin up an EC2 instance to run a KIND-based spartan test."
-  echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
   echo_cmd "chonk-input-update"    "Spin up an EC2 instance to update pinned Chonk IVC inputs and push the diff."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
-  echo_cmd "ci-private-release"     "Locally dry-run the release of every project except release-image, then publish release-image to the internal GCP Artifact Registry."
+  echo_cmd "ci-private-release"    "Locally run the private release flow: publish the foundation npm packages to the internal GCP Artifact Registry."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell-container"       "Shell into a running build container. Optional filter tokens (e.g. 'pr-123 bench') select the instance; defaults to the current branch."
   echo_cmd "shell-host"            "Shell into a running build host. Same instance selection as shell-container."
@@ -49,8 +39,6 @@ function print_usage {
   echo_cmd "ready"                 "Mark the current PR as ready (enable automatic CI runs when pushing)."
   echo_cmd "pr-url"                "Print the URL of the current PR associated with the branch."
   echo_cmd "barretenberg-nightly"  "Spin up an EC2 instance and run the bb tests that are too slow for the merge queue."
-  echo_cmd "avm-inputs-collection" "Run e2e tests, dump AVM circuit inputs, upload to cache."
-  echo_cmd "avm-check-circuit"     "Download cached AVM inputs, run check-circuit on each."
   echo_cmd "help"                  "Display this help message."
 }
 
@@ -173,7 +161,7 @@ case "$cmd" in
   dash)
     watch_ci -s next,prs --user --watch
     ;;
-  fast|docs|barretenberg|barretenberg-full)
+  fast|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
     # Route through multi_job_run (even for a single instance) so the runner-side
     # orchestration — including the spot/instance request — is captured into a
@@ -226,11 +214,6 @@ case "$cmd" in
     export AWS_SHUTDOWN_TIME=120
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
-  avm-inputs-collection|avm-check-circuit)
-    export CI_DASHBOARD="nightly"
-    export JOB_ID="x-$cmd"
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
-    ;;
   grind)
     # Grind a default of 5 times.
     export CI_DASHBOARD="local"
@@ -280,147 +263,6 @@ case "$cmd" in
     export CPUS=${CPUS:-192}
     bootstrap_ec2 "./bootstrap.sh ci-grind-test $(printf %q "$full_cmd") $timeout $jobs_pct $memsuspend_pct $commit" | DUP=1 cache_log "Grind test CI run" $RUN_ID
     ;;
-  ##########################################
-  # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
-  ##########################################
-  network-scenarios)
-    # Args: <scenario> <namespace> [docker_image] [test_set]
-    # If test_set provided, run just that set. Otherwise run both in parallel.
-    scenario="${1:?scenario is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    test_set="${4:-}"
-
-    export CI_DASHBOARD="network"
-    # Enough for the build, which should have a lot of caching, and the test harness.
-    # Resources are on GCP.
-    export CPUS=16
-    run() {
-      local set=$1
-      export JOB_ID="x-${namespace}-${set}"
-      export INSTANCE_POSTFIX="n-deploy-${set}"
-      bootstrap_ec2 "./bootstrap.sh ci-network-deploy $scenario ${namespace}-${set} \"$docker_image\" $set"
-    }
-    export -f run
-    export scenario namespace docker_image
-
-    if [[ -n "$test_set" ]]; then
-      run "$test_set"
-    else
-      parallel --jobs 2 --line-buffered ::: 'run 1' 'run 2'
-    fi
-    ;;
-  network-deploy)
-    # Args: <scenario> <namespace> [docker_image]
-    # If docker_image is not provided, ci-network-deploy will build and push to aztecdev.
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-${2:?namespace is required}-network-deploy"
-    export INSTANCE_POSTFIX="n-deploy"
-    # Enough for the build, which should have a lot of caching, and the test harness.
-    # Resources are on GCP.
-    export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-deploy $*"
-    ;;
-  network-tests)
-    # Args: <scenario> <namespace>
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-${2:?namespace is required}-network-tests"
-    export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
-    export INSTANCE_POSTFIX="n-tests"
-    # Enough for the build, which should have a lot of caching, and the test harness.
-    # Resources are on GCP.
-    export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-tests $*"
-    ;;
-  network-bench)
-    # Args: <scenario> <namespace> [docker_image]
-    # If docker_image is not provided, ci-network-bench will build and push to aztecdev.
-    # Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-${2:?namespace is required}-network-bench"
-    export INSTANCE_POSTFIX="n-bench"
-    # Enough for the build, which should have a lot of caching, and the test harness.
-    # Resources are on GCP.
-    export CPUS=16
-    skip_network_deploy=0
-    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
-    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-bench $*"
-    ;;
-  network-proving-bench)
-    # Args: <scenario> <namespace> [docker_image]
-    # Deploys network and runs proving benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-${2:?namespace is required}-network-proving-bench" CPUS=16
-    export INSTANCE_POSTFIX="n-proving-bench"
-    skip_network_deploy=0
-    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
-    bootstrap_ec2 "BENCH_SWEEP_ID=${BENCH_SWEEP_ID:-} BENCH_SWEEP_LABEL=${BENCH_SWEEP_LABEL:-} BENCH_BENCHMARK_TYPE=${BENCH_BENCHMARK_TYPE:-} SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-proving-bench $*"
-    ;;
-  network-block-capacity-bench)
-    # Args: <scenario> <namespace> [docker_image]
-    # Deploys network and runs block capacity benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-${2:?namespace is required}-network-block-capacity-bench" CPUS=16
-    export INSTANCE_POSTFIX="n-block-cap-bench"
-    skip_network_deploy=0
-    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
-    bootstrap_ec2 "BENCH_SWEEP_ID=${BENCH_SWEEP_ID:-} BENCH_SWEEP_LABEL=${BENCH_SWEEP_LABEL:-block-capacity} BENCH_BENCHMARK_TYPE=${BENCH_BENCHMARK_TYPE:-block-capacity} SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-block-capacity-bench $*"
-    ;;
-  network-bench-10tps)
-    # Args: <scenario> <namespace> [docker_image]
-    # Deploys the bench-10tps network and runs the 10-min 10 TPS benchmark.
-    # Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-${2:?namespace is required}-network-bench-10tps" CPUS=16
-    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
-    export INSTANCE_POSTFIX="n-bench-10tps"
-    skip_network_deploy=0
-    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
-    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-bench-10tps $*"
-    ;;
-  network-inclusion-sweep)
-    # Args: <env_file> <namespace> [docker_image]
-    # Runs one inclusion-sweep point at TARGET_TPS against an existing
-    # network, tagged with BENCH_SWEEP_ID. The workflow deploys/tears down each
-    # point's namespace separately, so this is normally called with
-    # SKIP_NETWORK_DEPLOY=1. TARGET_TPS / BENCH_SWEEP_ID / BENCH_SWEEP_LABEL come
-    # from the caller's env and are threaded into the remote command.
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-${2:?namespace is required}-network-inclusion-sweep" CPUS=16
-    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
-    export INSTANCE_POSTFIX="n-incl-sweep"
-    skip_network_deploy=0
-    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
-    bootstrap_ec2 "TARGET_TPS=${TARGET_TPS:-10} BENCH_SWEEP_ID=${BENCH_SWEEP_ID:-} BENCH_SWEEP_LABEL=${BENCH_SWEEP_LABEL:-inclusion-sweep} SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-inclusion-sweep $*"
-    ;;
-  network-teardown)
-    # Args: <scenario> <namespace>
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-${2:?namespace is required}-network-teardown"
-    export CPUS=4
-    export INSTANCE_POSTFIX="n-teardown"
-    bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
-    ;;
-
-  network-tests-kind)
-    # Runs KIND-based spartan tests on a 192 CPU instance.
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-network-kind"
-    export AWS_SHUTDOWN_TIME=180 # 3 hours for KIND tests
-    export CPUS=192
-    export INSTANCE_POSTFIX="n-kind"
-    bootstrap_ec2 "./bootstrap.sh ci-network-kind-tests"
-    ;;
-  deploy-rollup-upgrade)
-    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
-    # Args: <registry_address>
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-deploy-rollup-upgrade"
-    export CPUS=8
-    export INSTANCE_POSTFIX="rollup-upgrade"
-    bootstrap_ec2 "./bootstrap.sh ci-deploy-rollup-upgrade $*"
-    ;;
-
   ############
   # RELEASES #
   ############
@@ -591,7 +433,7 @@ case "$cmd" in
   ########################
   # BENCHMARK PROCESSING #
   ########################
-  gh-bench|gh-deploy-bench|gh-spartan-bench|gh-spartan-proving-bench|gh-spartan-block-capacity-bench)
+  gh-bench)
     cache_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
 

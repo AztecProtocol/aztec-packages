@@ -2,7 +2,7 @@
 # Runs on EC2 via ci3 infrastructure where yarn install works (submodules + toolchains present).
 #
 # Run locally with: scripts/socket-fix.sh --dry-run --severity high
-#                   scripts/socket-fix.sh --severity critical --workspaces "yarn-project"
+#                   scripts/socket-fix.sh --severity critical --workspaces "l1-contracts"
 name: Socket Fix Dependencies
 
 concurrency:

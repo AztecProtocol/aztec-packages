@@ -1,7 +1,0 @@
-[package]
-name = "user_defined_sync_state"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

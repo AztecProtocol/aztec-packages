@@ -106,7 +106,7 @@ However this will run _the entire repository test suite_. This isn't recommended
 
 You can provide one or more projects (a folder with another `./bootstrap.sh` script) as arguments. e.g.
 
-`./bootstrap.sh test yarn-project playground`
+`./bootstrap.sh test barretenberg/ts l1-contracts`
 
 This will run the tests for `yarn-project` and `playground`.
 
@@ -270,7 +270,6 @@ The following labels can be used to control CI behavior on pull requests:
 
 - **`ci-full`**: Forces a full CI run instead of the default fast run.
 
-- **`ci-docs`**: Runs only documentation-related CI checks.
 
 - **`ci-barretenberg`**: Runs only Barretenberg-related CI checks.
 
@@ -353,7 +352,7 @@ If a test successfully runs in CI, it won't be run again unless its redis key ch
 c533d7b87f00f64f ISOLATE=1 yarn-project/scripts/run_test.sh prover-node/dest/prover-node.test.js
 ```
 
-This is one of the tests output by `./yarn-project/bootstrap.sh test_cmds`. The first field is the test hash, the rest is the command you can run from the repository root. This entire line is what's hashed to make up the redis key.
+This is one of the tests output by `./barretenberg/ts/bootstrap.sh test_cmds` (labs' commands come through `labs/`, prefixed with a `cd labs`). The first field is the test hash, the rest is the command you can run from the repository root. This entire line is what's hashed to make up the redis key.
 
 Note that all cache entries expire after 7 days.
 
@@ -384,7 +383,7 @@ It also provides the ability to update our AWS AMI's which have the above build/
 ### I can't run `yarn clean` in a yarn-project sub project any more. How to do?
 
 ```
-yarn-project/bootstrap.sh clean <project_dir>
+labs/yarn-project/bootstrap.sh clean <project_dir>
 ```
 
 ### Where did all the `formatting` and `lint` package.json scripts go?
@@ -392,7 +391,7 @@ yarn-project/bootstrap.sh clean <project_dir>
 Performing this at the project level is inefficient, particularly for linting. We can offer a project wide optimal approach with:
 
 ```
-yarn-project/bootstrap.sh format
+labs/yarn-project/bootstrap.sh format
 ```
 
 ### Master CI runs do more then PR CI runs. How do I manually trigger that flow?

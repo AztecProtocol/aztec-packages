@@ -31,7 +31,7 @@ git checkout -B "$BRANCH_NAME"
 output_file=$(mktemp)
 export GITHUB_OUTPUT="$output_file"
 
-scripts/socket-fix.sh --severity "$SEVERITY" --workspaces "yarn-project"
+scripts/socket-fix.sh --severity "$SEVERITY" --workspaces "barretenberg/ts l1-contracts"
 
 # --- Parse outputs ---
 get_output() {
@@ -112,7 +112,7 @@ if [ "${commit_count:-0}" != "0" ] || [ "${remaining_count:-0}" != "0" ]; then
     fi
 
     if [ "${remaining_count:-0}" = "0" ]; then
-      TEXT="✅ Socket Fix: Fixed ${commit_count} ${SEVERITY} vulnerabilities in yarn-project
+      TEXT="✅ Socket Fix: Fixed ${commit_count} ${SEVERITY} vulnerabilities in barretenberg/ts and l1-contracts
 ${LINKS}"
     elif [ "${commit_count:-0}" != "0" ]; then
       TEXT="⚠️ Socket Fix: Fixed ${commit_count} ${SEVERITY} vulnerabilities, ${remaining_count} could not be auto-fixed

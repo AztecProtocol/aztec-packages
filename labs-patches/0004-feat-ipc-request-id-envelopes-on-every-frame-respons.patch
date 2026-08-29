@@ -1,0 +1,608 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Fri, 21 Aug 2026 15:17:23 +0100
+Subject: [PATCH] feat(ipc): request-id envelopes on every frame; responses in
+ completion order (#25196)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Stacked on #25150 (contains its commit until it merges; review the head
+commit only).
+
+## What
+
+Every ipc-runtime frame now carries a client-assigned request id, and
+clients correlate responses by id instead of position:
+
+```
+[4-byte LE length][8-byte LE request id][payload]      (length counts id + payload)
+```
+
+The server echoes the id on the response and sends responses in
+**completion order** — the reactor's reorder stash, its per-connection
+sequence counters, and the `drain_disconnected_clients()` GC hook are
+all deleted. `respond()` pushes onto a plain completion queue; the
+reactor drains and sends. A slow request no longer delays a fast one's
+response on the same connection (previously the stash re-serialized
+release even though the wsdb scheduler completed reads concurrently).
+
+Ids are per-connection, random-start (so a stale frame left in a
+recycled MPSC-SHM ring slot by a previous occupant can never pair with a
+live call — largely defusing the known SHM stale-ring follow-up), with 0
+reserved for server-initiated frames.
+
+## Why
+
+The TXE flake investigation (#25150) established that positional
+correlation makes any stale/mispaired frame a silent decode-roulette.
+Ids make the whole mispairing class *structurally impossible* and
+detectable: a frame that pairs with nothing is now a loud `failAll`
+(“response for unknown request id …”) instead of a `console.warn` —
+closing the original hardening ask.
+
+## How (ipc-runtime only — codegen and all generated packages untouched)
+
+- **C++ interface**: `IpcServer::receive(client, uint64_t& id)` /
+`send(client, id, …)`; `run()` echoes internally. `IpcClient` gains
+explicit-id `send`/`receive` virtuals plus **serial convenience
+overloads** (`send(data,…)`/`receive(t)`) that auto-assign ids and
+verify the echo — keeping the generated C++ clients and every FFI
+binding **source-compatible**. Pipelined callers must use the
+explicit-id API (the reactor tests do).
+- **Mismatched-id semantics are per-transport**
+(`IpcClient::may_have_stale_frames()`): SHM rings persist across
+occupants, so a frame addressed to a previous occupant's id is an
+*anticipated leftover* — the serial receive releases it and keeps
+waiting for the real response, and the TS async client discards it with
+a warning. Over UDS there is no reuse, so a foreign id is a genuine
+desync and fails loudly (serial: close; TS: `failAll`).
+- **Transports**: socket server/client (3-part writes, id strip on
+read), SPSC + MPSC SHM rings (`ring_send_msg`/`ring_receive_msg` carry
+the id inside the ring message), napi async glue (`call(id: bigint,
+buf)`, callback delivers `(id, buffer)`).
+- **TS**: `UdsIpcClient` and `NapiShmAsyncClient` hold `Map<bigint,
+pending>` (random-start ids); `UdsIpcServer` parses/echoes.
+`IpcClientAsync.call()` signature unchanged — consumers are untouched
+(CdbIpcServer wraps `UdsIpcServer`, so it rides along).
+- **C ABI**: `ipc_server_receive/send` gain the id parameter; the
+handler-loop APIs (`ipc_server_run*`) and the serial client calls are
+unchanged — so the **rust and zig bindings need zero changes**
+(verified: they bind only those surfaces).
+
+## Version-mismatch story
+
+This is a wire-protocol break; binaries and TS packages must move in
+lockstep (they already ship as matched pairs). Mismatches fail fast with
+explicit messages, both directions: a frame shorter than the id field is
+rejected as “IPC protocol mismatch (envelope ids); update the peer
+binary/package” (client-side `failAll`, server-side disconnect + log).
+Labs-side note: the acvm/wsdb npm + toolchain artifacts pick this up on
+their next republish pinned to a commit containing this change; the rust
+transport there is the same FFI crate, so no code change — just the
+lockstep bump.
+
+## Verification
+
+- `ipc_runtime_tests` 21/21 release and **21/21 ASAN** — including
+`SerialClientSkipsStaleFrameFromPreviousOccupant` (SHM: injected stale
+frame is skipped, real response delivered) and
+`SerialClientClosesOnForeignFrame` (UDS: same injection fails the call).
+Pipelined tests converted from FIFO-order assertions to id-pairing
+assertions (each request answered exactly once); the reactor tests now
+also assert responses arrive **out of send order** under reversed-sleep
+handlers — pinning the head-of-line-blocking removal — and the MPSC test
+keeps its lost-wake stall probe.
+- New TS tests: UDS unknown id → loud failAll; id-less (old-protocol)
+frame → explicit protocol-mismatch error; SHM async client discards a
+stale frame while resolving live calls (mock-addon unit tests, incl.
+out-of-order pairing). `ipc-runtime/ts` suite 18/18.
+- echo_example (generated clients over the new runtime, codegen
+untouched): package + reliability tests green over **uds and shm**,
+including the SyncApi.
+- Cross-stack: rebuilt `aztec-wsdb` + new TS client running the
+world-state suites — sigpipe blast-radius test, churn legs A/B/C/D with
+60s soaks (~1.2M id-paired calls, ~1.4k mid-flight-disconnect churn
+rounds), and the existing pipelined-read correlation suite over **both
+transports** — all green.
+
+diff --git a/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts b/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..c3ef34b8aa936e8b27da4651e3b691c5653d36f6
+--- /dev/null
++++ b/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts
+@@ -0,0 +1,402 @@
++import { Fr } from '@aztec/foundation/curves/bn254';
++import { type IpcClientAsync, UdsIpcClient, createNapiShmAsyncClient } from '@aztec/ipc-runtime';
++import { MerkleTreeId } from '@aztec/stdlib/trees';
++import { AsyncApi } from '@aztec/wsdb';
++
++import { jest } from '@jest/globals';
++
++import { NativeWorldStateService } from './native_world_state.js';
++
++// Load tests for the wsdb IPC response-correlation invariant: every response a client resolves must
++// be the response to ITS OWN request. The TS client correlates positionally (no request IDs), so any
++// server-side misordering — reactor reorder stash, per-fork scheduler, or slot reuse across
++// disconnects — surfaces here as a caller receiving another caller's payload.
++//
++// Detection design: connections must never share observable state, or a cross-connection swap of
++// same-type responses is invisible (identical requests have identical answers). Each connection
++// plants a private fork with leaves derived from its own seed, so ANY frame delivered to the wrong
++// connection produces a visibly wrong value — wrong index, wrong root, wrong size — not just a
++// wrong-type decode.
++//
++// Legs:
++//   C: single connection, sequential (sanity — must always pass).
++//   A: single connection, heavy pipelined contention (per-fork write serialisation → out-of-order
++//      completions feed the reorder stash) — models the long-lived world-state client.
++//   D: multi-connection read/write soak, NO connection churn. Readers verify recorded roots and
++//      exact leaf indices on their private forks; writers pipeline append→read-after-write with
++//      exact-index asserts. Independent of the disconnect-cleanup fixes — any failure here is a
++//      distinct IPC/reorder/scheduler bug.
++//   B: leg D's workload plus mid-flight churn — clients destroyed with calls in flight and
++//      replaced, recycling server slots. Guards the reactor's disconnect cleanup and the server's
++//      survival of mid-flight death.
++//
++// WSDB_SOAK_MS extends the D/B legs for grinding sessions (default a few seconds for CI).
++
++const SOAK_MS = Number(process.env.WSDB_SOAK_MS ?? 4_000);
++jest.setTimeout(Math.max(300_000, SOAK_MS * 4));
++
++const TRANSPORT = (process.env.WSDB_TRANSPORT === 'shm' ? 'shm' : 'uds') as 'shm' | 'uds';
++// Typed as plain number: the generated AsyncApi carries tree ids as numbers, so enum-typed
++// comparisons against response fields trip no-unsafe-enum-comparison.
++const TREE: number = MerkleTreeId.NOTE_HASH_TREE;
++const N = 64;
++/** Private leaves planted per connection identity. */
++const M = 32;
++
++/** Per-connection private state: a fork only this logical client touches. */
++interface ConnIdentity {
++  forkId: number;
++  rev: { forkId: number; blockNumber: number; includeUncommitted: boolean };
++  /** Leaves unique to this identity (and disjoint from every other identity and the seed fork). */
++  leaves: Uint8Array[];
++  /** Tree size before this identity's leaves were appended — leaf i lives at baseSize + i. */
++  baseSize: number;
++  /** Tree size including all writes so far (advanced by writer rounds). */
++  size: number;
++  /** Root recorded after planting; stable until the identity writes again. */
++  root: Uint8Array;
++}
++
++/** Unique leaf value: disjoint across identities, write rounds, and the shared seed fork. */
++const identityLeaf = (seed: number, i: number): Uint8Array =>
++  new Fr((BigInt(0xc0ffee) << 64n) + (BigInt(seed) << 32n) + BigInt(i) + 1n).toBuffer();
++
++/** Progress line every ~15s so long soaks show liveness and rate instead of going dark. */
++const makeHeartbeat = (leg: string) => {
++  const start = Date.now();
++  let lastLog = start;
++  return (rounds: number) => {
++    const now = Date.now();
++    if (now - lastLog >= 15_000) {
++      lastLog = now;
++      const elapsedS = (now - start) / 1000;
++      // eslint-disable-next-line no-console
++      console.log(
++        `[soak ${leg}] ${new Date(now).toISOString()} rounds=${rounds} ` +
++          `elapsed=${elapsedS.toFixed(0)}s rate=${(rounds / elapsedS).toFixed(1)}/s`,
++      );
++    }
++  };
++};
++
++describe(`wsdb IPC churn/contention correlation (transport=${TRANSPORT})`, () => {
++  let ws: NativeWorldStateService;
++  let ipcPath: string | undefined;
++  let leaves: Fr[];
++  // The generated AsyncApi is bytes-in/bytes-out (wire `Fr = Uint8Array`); the facade normally
++  // converts, but these tests drive AsyncApi directly, so pass raw 32-byte buffers.
++  let leafBytes: Uint8Array[];
++  /** A shared fork seeded with `leaves`; read with includeUncommitted. */
++  let seedForkId: number;
++  let seedRevision: { forkId: number; blockNumber: number; includeUncommitted: boolean };
++
++  const makeClient = async (clientId: number): Promise<{ api: AsyncApi; backend: IpcClientAsync }> => {
++    const backend: IpcClientAsync =
++      TRANSPORT === 'shm'
++        ? createNapiShmAsyncClient(ipcPath!.replace(/\.shm$/, ''), { clientId })
++        : await UdsIpcClient.connect(ipcPath!, { connectTimeoutMs: 5_000 });
++    return { api: new AsyncApi(backend), backend };
++  };
++
++  /** Create a private fork and plant this identity's unique leaves, recording size and root. */
++  const plantIdentity = async (api: AsyncApi, seed: number): Promise<ConnIdentity> => {
++    const forkId = (await api.createFork({ latest: true, blockNumber: 0 })).forkId;
++    const rev = { forkId, blockNumber: 0xffffffff, includeUncommitted: true };
++    const before = await api.getTreeInfo({ treeId: TREE, revision: rev });
++    const baseSize = Number(before.size);
++    const idLeaves = Array.from({ length: M }, (_, i) => identityLeaf(seed, i));
++    await api.appendLeaves({ treeId: TREE, leaves: idLeaves, forkId });
++    const after = await api.getTreeInfo({ treeId: TREE, revision: rev });
++    if (Number(after.size) !== baseSize + M) {
++      throw new Error(`plant(seed=${seed}): size ${after.size} != ${baseSize + M}`);
++    }
++    return { forkId, rev, leaves: idLeaves, baseSize, size: baseSize + M, root: after.root };
++  };
++
++  /**
++   * Pipelined reads whose responses each prove they belong to this identity's own requests: exact
++   * leaf indices on the private fork, and (when the identity has not written since planting) the
++   * recorded root. A frame swapped from any other connection fails these by value.
++   */
++  const identityChecks = (api: AsyncApi, id: ConnIdentity, tag: string, opts?: { checkRoot?: boolean }) => {
++    const checks: Promise<void>[] = [];
++    for (let i = 0; i < M; i++) {
++      const expectIdx = id.baseSize + i;
++      checks.push(
++        api.findLeafIndices({ treeId: TREE, revision: id.rev, leaves: [id.leaves[i]], startIndex: 0 }).then(r => {
++          const got = r.indices?.[0];
++          if (got === null || got === undefined || Number(got) !== expectIdx) {
++            throw new Error(`${tag}: findLeafIndices(own leaf ${i}) returned ${String(got)}, expected ${expectIdx}`);
++          }
++        }),
++      );
++      checks.push(
++        api.getSiblingPath({ treeId: TREE, revision: id.rev, leafIndex: expectIdx }).then(r => {
++          if (!Array.isArray(r.path) || r.path.length === 0) {
++            throw new Error(`${tag}: getSiblingPath(${expectIdx}) returned empty/invalid path`);
++          }
++        }),
++      );
++      checks.push(
++        api.getTreeInfo({ treeId: TREE, revision: id.rev }).then(r => {
++          if (r.treeId !== TREE || Number(r.size) < id.baseSize + M) {
++            throw new Error(`${tag}: getTreeInfo returned treeId=${r.treeId} size=${r.size} (min ${id.baseSize + M})`);
++          }
++          if (opts?.checkRoot && Buffer.compare(r.root, id.root) !== 0) {
++            throw new Error(`${tag}: getTreeInfo root mismatch — response belongs to another fork/connection`);
++          }
++        }),
++      );
++      checks.push(
++        api.getStateReference({ revision: id.rev }).then(r => {
++          if (!Array.isArray(r.state) || r.state.length === 0 || r.state.some(t => t.size === undefined)) {
++            throw new Error(`${tag}: getStateReference malformed: ${JSON.stringify(r).slice(0, 160)}`);
++          }
++        }),
++      );
++    }
++    return checks;
++  };
++
++  /**
++   * One writer round: pipeline an append of a fresh unique leaf and, behind it on the same
++   * connection, a read of that leaf — the per-fork scheduler must order the read after the write,
++   * and the leaf must land at exactly the pre-append size. Also refreshes the identity's root.
++   */
++  const writerRound = async (api: AsyncApi, id: ConnIdentity, seed: number, round: number, tag: string) => {
++    const leaf = identityLeaf(seed, M + round);
++    const expectIdx = id.size;
++    await Promise.all([
++      api.appendLeaves({ treeId: TREE, leaves: [leaf], forkId: id.forkId }),
++      api.findLeafIndices({ treeId: TREE, revision: id.rev, leaves: [leaf], startIndex: 0 }).then(r => {
++        const got = r.indices?.[0];
++        if (got === null || got === undefined || Number(got) !== expectIdx) {
++          throw new Error(
++            `${tag}: read-after-write of round-${round} leaf returned ${String(got)}, expected ${expectIdx}`,
++          );
++        }
++      }),
++      ...identityChecks(api, id, tag),
++    ]);
++    id.size++;
++    id.root = (await api.getTreeInfo({ treeId: TREE, revision: id.rev })).root;
++  };
++
++  beforeAll(async () => {
++    ws = await NativeWorldStateService.tmp();
++    try {
++      ipcPath = ws.getIpcPath();
++    } catch {
++      ipcPath = undefined; // in-process build — no IPC to exercise
++      return;
++    }
++    leaves = Array.from({ length: N }, (_, i) => new Fr(BigInt(i) * 0x1_0000_0001n + 1n));
++    leafBytes = leaves.map(l => l.toBuffer());
++
++    // Seed a shared fork (forks are shared world-state objects, not per-connection). Legs A/C use
++    // it; the multi-connection legs deliberately do NOT — see the detection-design note above.
++    const seeder = await makeClient(1);
++    try {
++      seedForkId = (await seeder.api.createFork({ latest: true, blockNumber: 0 })).forkId;
++      seedRevision = { forkId: seedForkId, blockNumber: 0xffffffff, includeUncommitted: true };
++      await seeder.api.appendLeaves({ treeId: TREE, leaves: leafBytes, forkId: seedForkId });
++      // Sanity: the seeded state must be readable exactly as planted, or every later check is void.
++      const probe = await seeder.api.findLeafIndices({
++        treeId: TREE,
++        revision: seedRevision,
++        leaves: [leafBytes[5]],
++        startIndex: 0,
++      });
++      if (Number(probe.indices?.[0]) !== 5) {
++        throw new Error(`seed verification failed: ${JSON.stringify(probe)}`);
++      }
++    } finally {
++      await seeder.backend.destroy();
++    }
++  });
++
++  afterAll(async () => {
++    await ws?.close();
++  });
++
++  // Shared-fork variant used by the single-connection legs (no cross-connection ambiguity there).
++  const selfCheckingReads = (api: AsyncApi, tag: string): Promise<void>[] => {
++    const checks: Promise<void>[] = [];
++    for (let i = 0; i < N; i++) {
++      checks.push(
++        api.getTreeInfo({ treeId: TREE, revision: seedRevision }).then(r => {
++          if (r.treeId !== TREE) {
++            throw new Error(`${tag}: getTreeInfo returned treeId=${r.treeId}, expected ${TREE}`);
++          }
++        }),
++      );
++      checks.push(
++        api.getStateReference({ revision: seedRevision }).then(r => {
++          if (!Array.isArray(r.state) || r.state.length === 0 || r.state.some(t => t.size === undefined)) {
++            throw new Error(`${tag}: getStateReference malformed: ${JSON.stringify(r).slice(0, 160)}`);
++          }
++        }),
++      );
++      const idx = i;
++      checks.push(
++        api.getSiblingPath({ treeId: TREE, revision: seedRevision, leafIndex: idx }).then(r => {
++          if (!Array.isArray(r.path) || r.path.length === 0) {
++            throw new Error(`${tag}: getSiblingPath(index=${idx}) returned empty/invalid path`);
++          }
++        }),
++      );
++      checks.push(
++        api.findLeafIndices({ treeId: TREE, revision: seedRevision, leaves: [leafBytes[i]], startIndex: 0 }).then(r => {
++          const got = r.indices?.[0];
++          if (got === null || got === undefined || Number(got) !== i) {
++            throw new Error(`${tag}: findLeafIndices(leaf ${i}) returned index ${String(got)}, expected ${i}`);
++          }
++        }),
++      );
++    }
++    return checks;
++  };
++
++  it('Leg C — single connection, sequential (sanity)', async () => {
++    if (!ipcPath) {
++      return;
++    }
++    const { api, backend } = await makeClient(1);
++    try {
++      for (let iter = 0; iter < 40; iter++) {
++        const idx = iter % N;
++        const r = await api.findLeafIndices({
++          treeId: TREE,
++          revision: seedRevision,
++          leaves: [leafBytes[idx]],
++          startIndex: 0,
++        });
++        const got = r.indices?.[0];
++        if (got === null || got === undefined || Number(got) !== idx) {
++          throw new Error(`Leg C: findLeafIndices(${idx}) returned ${String(got)}`);
++        }
++      }
++    } finally {
++      await backend.destroy();
++    }
++  });
++
++  it('Leg A — single connection, contended pipeline (writes + reads interleaved)', async () => {
++    if (!ipcPath) {
++      return;
++    }
++    const { api, backend } = await makeClient(1);
++    try {
++      // Private scratch fork for writes: uncommitted reads on it queue behind each write, driving
++      // the per-fork scheduler out of arrival order on this single connection. Reads of the seed
++      // fork run concurrently (different fork), stacking more reorder pressure.
++      const scratchForkId = (await api.createFork({ latest: true, blockNumber: 0 })).forkId;
++      const scratchRev = { forkId: scratchForkId, blockNumber: 0xffffffff, includeUncommitted: true };
++      for (let iter = 0; iter < 25; iter++) {
++        const inflight: Promise<unknown>[] = [...selfCheckingReads(api, `A/iter${iter}`)];
++        for (let w = 0; w < 8; w++) {
++          const extra = [new Fr(BigInt(0x5eed_0000) + BigInt(iter * 100 + w)).toBuffer()];
++          inflight.push(api.appendLeaves({ treeId: TREE, leaves: extra, forkId: scratchForkId }));
++          inflight.push(
++            api.getTreeInfo({ treeId: TREE, revision: scratchRev }).then(r => {
++              if (r.treeId !== TREE) {
++                throw new Error(`A/iter${iter}: scratch getTreeInfo returned treeId=${r.treeId}`);
++              }
++            }),
++          );
++        }
++        await Promise.all(inflight);
++      }
++    } finally {
++      await backend.destroy();
++    }
++  });
++
++  it('Leg D — multi-connection read/write soak, no churn', async () => {
++    if (!ipcPath) {
++      return;
++    }
++    const READERS = 3;
++    const WRITERS = 3;
++    const conns = await Promise.all(Array.from({ length: READERS + WRITERS }, (_, i) => makeClient(i + 1)));
++    try {
++      // Distinct identity per connection; readers keep theirs immutable so roots stay checkable.
++      const ids = [];
++      for (let c = 0; c < conns.length; c++) {
++        ids.push(await plantIdentity(conns[c].api, 100 + c));
++      }
++
++      const deadline = Date.now() + SOAK_MS;
++      const heartbeat = makeHeartbeat('D');
++      let round = 0;
++      do {
++        const inflight: Promise<unknown>[] = [];
++        for (let c = 0; c < READERS; c++) {
++          inflight.push(
++            Promise.all(identityChecks(conns[c].api, ids[c], `D/round${round}/reader${c}`, { checkRoot: true })),
++          );
++        }
++        for (let c = READERS; c < conns.length; c++) {
++          inflight.push(writerRound(conns[c].api, ids[c], 100 + c, round, `D/round${round}/writer${c}`));
++        }
++        // Fail fast: the first mispaired/malformed response aborts the soak with its tag.
++        await Promise.all(inflight);
++        round++;
++        heartbeat(round);
++      } while (Date.now() < deadline);
++      expect(round).toBeGreaterThan(0);
++    } finally {
++      await Promise.all(conns.map(({ backend }) => backend.destroy().catch(() => {})));
++    }
++  });
++
++  it('Leg B — churned multi-connection workload (slot recycling)', async () => {
++    if (!ipcPath) {
++      return;
++    }
++    const CONNS = 6;
++    const clients = await Promise.all(Array.from({ length: CONNS }, (_, i) => makeClient(i + 1)));
++    const ids: ConnIdentity[] = [];
++    for (let c = 0; c < CONNS; c++) {
++      ids.push(await plantIdentity(clients[c].api, 200 + c));
++    }
++    try {
++      const deadline = Date.now() + SOAK_MS;
++      const heartbeat = makeHeartbeat('B');
++      let iter = 0;
++      do {
++        // Every connection pipelines identity-verified reads (one writer mixes in writes). Only
++        // the round's victim may reject, and only with its own destroy error — anything else
++        // (mispaired value, decode failure, another connection's socket dying) aborts the soak
++        // immediately with its tag.
++        const victim = iter % (CONNS - 1); // never the writer, so its size/root model stays valid
++        const perConn = clients.map(({ api }, c) => {
++          const tag = `B/iter${iter}/conn${c}`;
++          const work =
++            c === CONNS - 1
++              ? writerRound(api, ids[c], 200 + c, iter, tag)
++              : Promise.all(identityChecks(api, ids[c], tag)).then(() => undefined);
++          return work.catch((e: Error) => {
++            if (c === victim && /destroyed/.test(e.message)) {
++              return; // the victim's own in-flight calls reject when we destroy it below
++            }
++            throw new Error(`${tag}: ${e.message}`);
++          });
++        });
++
++        // Churn: while those are in flight, destroy the victim (leaving its requests in flight
++        // server-side) and immediately replace it (reusing the freed server slot). The
++        // replacement gets a fresh identity — its old fork stays behind, like a killed AVM sim's.
++        await clients[victim].backend.destroy().catch(() => {});
++        clients[victim] = await makeClient(victim + 1);
++
++        await Promise.all(perConn);
++        ids[victim] = await plantIdentity(clients[victim].api, 200 + CONNS + iter);
++        iter++;
++        heartbeat(iter);
++      } while (Date.now() < deadline);
++    } finally {
++      await Promise.all(clients.map(({ backend }) => backend.destroy().catch(() => {})));
++    }
++  });
++});
+diff --git a/yarn-project/world-state/src/native/wsdb_sigpipe_death.test.ts b/yarn-project/world-state/src/native/wsdb_sigpipe_death.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..7badf2fcd9802c40ad17bb1c3fefca5acc134102
+--- /dev/null
++++ b/yarn-project/world-state/src/native/wsdb_sigpipe_death.test.ts
+@@ -0,0 +1,86 @@
++import { Fr } from '@aztec/foundation/curves/bn254';
++import { type IpcClientAsync, UdsIpcClient } from '@aztec/ipc-runtime';
++import { MerkleTreeId } from '@aztec/stdlib/trees';
++import { AsyncApi } from '@aztec/wsdb';
++
++import { jest } from '@jest/globals';
++
++import { NativeWorldStateService } from './native_world_state.js';
++
++// The wsdb server must survive a client that disconnects with requests still in flight: the
++// reactor drops the connection's late responses (their connection's reorder state is gone, and
++// client ids are never reused) and any write that races the disconnect yields EPIPE, not a
++// process-killing SIGPIPE. This is the cross-process guard for
++// that invariant — an in-process C++ test cannot reliably raise SIGPIPE because the kernel may
++// buffer writes to a just-closed local peer. A long-lived "monitor" connection (models the TS
++// world-state client, which never disconnects) proves the blast radius: it must keep reading
++// correct answers while an unrelated peer churns. Mid-flight client death is routine in
++// production: AVM simulator processes are killed on cancellation and teardown while their wsdb
++// requests are outstanding.
++
++jest.setTimeout(120_000);
++const TREE = MerkleTreeId.NOTE_HASH_TREE;
++
++describe('wsdb server survives a mid-flight client disconnect', () => {
++  let ws: NativeWorldStateService;
++  let ipcPath: string | undefined;
++  let seedRev: { forkId: number; blockNumber: number; includeUncommitted: boolean };
++  let leafBytes: Uint8Array[];
++
++  const connect = async (): Promise<{ api: AsyncApi; backend: IpcClientAsync }> => {
++    const backend = await UdsIpcClient.connect(ipcPath!, { connectTimeoutMs: 5_000 });
++    return { api: new AsyncApi(backend), backend };
++  };
++
++  beforeAll(async () => {
++    ws = await NativeWorldStateService.tmp();
++    try {
++      ipcPath = ws.getIpcPath();
++    } catch {
++      ipcPath = undefined; // in-process build — no IPC to exercise
++      return;
++    }
++    // The generated AsyncApi is bytes-in/bytes-out (wire `Fr = Uint8Array`), so pass raw buffers.
++    leafBytes = Array.from({ length: 64 }, (_, i) => new Fr(BigInt(i) * 0x1_0000_0001n + 1n).toBuffer());
++    const seeder = await connect();
++    const forkId = (await seeder.api.createFork({ latest: true, blockNumber: 0 })).forkId;
++    seedRev = { forkId, blockNumber: 0xffffffff, includeUncommitted: true };
++    await seeder.api.appendLeaves({ treeId: TREE, leaves: leafBytes, forkId });
++    await seeder.backend.destroy();
++  });
++
++  afterAll(async () => {
++    await ws?.close();
++  });
++
++  it('a long-lived monitor keeps working after an unrelated client disconnects mid-flight', async () => {
++    if (!ipcPath) {
++      return;
++    }
++    const monitor = await connect();
++    try {
++      const before = await monitor.api.getStateReference({ revision: seedRev });
++      expect(Array.isArray(before.state) && before.state.length > 0).toBe(true);
++
++      // Victim pipelines many reads, then destroys its connection WITHOUT draining them. The
++      // server completes them after the disconnect and must drop them cleanly.
++      for (let round = 0; round < 20; round++) {
++        const victim = await connect();
++        for (let i = 0; i < 200; i++) {
++          void victim.api.getStateReference({ revision: seedRev }).catch(() => {});
++          void victim.api.getSiblingPath({ treeId: TREE, revision: seedRev, leafIndex: i % 64 }).catch(() => {});
++        }
++        await victim.backend.destroy(); // close mid-flight
++
++        // The monitor must still get a correct answer; if the server died this read never
++        // resolves (or the connection resets), and if a stale frame leaked the decode fails.
++        const r = await monitor.api.getStateReference({ revision: seedRev });
++        if (!Array.isArray(r.state) || r.state.length === 0) {
++          throw new Error(`round ${round}: monitor read malformed after churn: ${JSON.stringify(r).slice(0, 160)}`);
++        }
++      }
++    } finally {
++      await monitor.backend.destroy().catch(() => {});
++    }
++  });
++});

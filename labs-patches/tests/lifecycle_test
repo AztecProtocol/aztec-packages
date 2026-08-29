@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+# Exercises labs-patches/bootstrap.sh against a sandbox: a fake upstream labs repo, a fake
+# foundation repo that carries it as the labs/ submodule (update=none), and a real patch
+# series exported from commits made in labs/. Covers the lifecycle the tooling exists for:
+# fresh apply, idempotency, export (marker excluded), commit-use-local scoping, a same-pin
+# and a forward bump, bumps refused on unexported work, uncommitted edits surviving a
+# re-apply, work in progress surviving a lost state file, a patch that no longer applies,
+# the pre-commit gitlink guard, and test_cmds from any cwd.
+#
+# Runs from any cwd; needs only git and bash.
+set -euo pipefail
+
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+script=$here/../bootstrap.sh
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+PASS=0
+function ok { echo "  ok  $1"; PASS=$((PASS + 1)); }
+function fail { echo "  FAIL  $1" >&2; exit 1; }
+function expect_fail { if "$@" >/dev/null 2>&1; then return 1; fi; }
+
+# The tooling exports a fixed committer identity (and the guard keys on it); the fixture's own
+# commits must not inherit it, or upstream commits would look like series commits.
+export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@localhost GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@localhost
+g() { git -c commit.gpgsign=false "$@"; }
+
+# --- upstream labs repo with two commits (v1, v2)
+up=$tmp/upstream
+g init -q -b main "$up"
+echo "a=1" > "$up/config"; echo "x" > "$up/src"; g -C "$up" add -A; g -C "$up" commit -q -m "upstream v1"
+v1=$(git -C "$up" rev-parse HEAD)
+echo "y" > "$up/src"; g -C "$up" commit -qam "upstream v2"
+v2=$(git -C "$up" rev-parse HEAD)
+git -C "$up" checkout -q "$v1"   # bare-ish: leave main at v2, worktree irrelevant
+
+# --- foundation repo: the tooling under labs-patches/, labs/ as update=none submodule at v1
+fnd=$tmp/fnd
+g init -q -b next "$fnd"
+mkdir -p "$fnd/labs-patches"
+cp "$script" "$fnd/labs-patches/bootstrap.sh"
+g -C "$fnd" -c protocol.file.allow=always submodule add -q -b main "$up" labs
+git -C "$fnd/labs" checkout -q "$v1"
+git -C "$fnd" config -f .gitmodules submodule.labs.update none
+g -C "$fnd" add -A; g -C "$fnd" commit -q -m "foundation with labs at v1"
+[ "$(git -C "$fnd" rev-parse HEAD:labs)" = "$v1" ] || fail "fixture gitlink"
+lp=$fnd/labs-patches/bootstrap.sh
+export -n GIT_DIR GIT_WORK_TREE 2>/dev/null || true
+
+# 1. fresh apply with an empty series, then a real one exported from labs/ commits
+"$lp" apply >/dev/null
+[ "$(git -C "$fnd/labs" rev-parse HEAD)" = "$v1" ] || fail "apply: empty series leaves HEAD at base"
+ok "fresh apply (empty series)"
+echo "a=2" > "$fnd/labs/config"; g -C "$fnd/labs" commit -qam "patch one: config"
+echo "z" > "$fnd/labs/extra"; g -C "$fnd/labs" add extra; g -C "$fnd/labs" commit -qm "patch two: extra"
+"$lp" export >/dev/null
+[ "$(ls "$fnd/labs-patches"/*.patch | wc -l | tr -d ' ')" = 2 ] || fail "export: two patches"
+grep -q '^index [0-9a-f]\{40\}\.\.' "$fnd/labs-patches"/0001-*.patch || fail "export: full index"
+ok "export two patches"
+g -C "$fnd" add labs-patches; g -C "$fnd" commit -q -m "series"
+
+# 2. idempotent, and reproducible from scratch
+"$lp" apply | grep -q "already applied" || fail "apply: idempotent"
+patched=$(git -C "$fnd/labs" rev-parse HEAD)
+rm -f "$(git -C "$fnd/labs" rev-parse --absolute-git-dir)/labs-patches.state"
+"$lp" apply >/dev/null
+[ "$(git -C "$fnd/labs" rev-parse HEAD)" = "$patched" ] || fail "apply: reproducible SHA after cold apply"
+ok "idempotent and reproducible apply"
+
+# 3. commit-use-local stages only manifests/lockfiles and leaves other edits alone
+echo '{"portal":1}' > "$fnd/labs/package.json"; g -C "$fnd/labs" add package.json; g -C "$fnd/labs" commit -q -m "add manifest"
+"$lp" export >/dev/null; g -C "$fnd" add labs-patches; g -C "$fnd" commit -q -m "series v2"
+echo '{"portal":2}' > "$fnd/labs/package.json"
+mkdir -p "$fnd/labs/labs-aztec-toolchain"; echo "barretenberg/cpp=abc" > "$fnd/labs/labs-aztec-toolchain/fnd-hashes"
+echo "wip" >> "$fnd/labs/src"
+"$lp" commit-use-local >/dev/null
+git -C "$fnd/labs" ls-files --error-unmatch labs-aztec-toolchain/fnd-hashes >/dev/null 2>&1 || fail "commit-use-local: fnd-hashes not committed"
+[ "$(git -C "$fnd/labs" log -1 --format=%s)" = "labs-patches: use-local rewrite (never exported)" ] || fail "marker commit"
+git -C "$fnd/labs" status --porcelain | grep -q '^ M src$' || fail "commit-use-local: unrelated edit left in worktree"
+git -C "$fnd/labs" diff --quiet -- package.json || fail "commit-use-local: manifest committed"
+"$lp" apply | grep -q "already applied" || fail "apply: marker on top still counts as applied"
+"$lp" export >/dev/null
+! grep -l "never exported" "$fnd/labs-patches"/*.patch >/dev/null || fail "export: marker excluded"
+ok "commit-use-local scoping and marker handling"
+git -C "$fnd/labs" checkout -q -- src
+
+# 4. pre-commit guard: staging the patched head is refused, an upstream commit is fine
+git -C "$fnd" add labs
+expect_fail "$lp" check_staged || fail "check_staged: patched head accepted"
+git -C "$fnd" restore --staged labs
+git -C "$fnd" update-index --cacheinfo "160000,$v2,labs"
+"$lp" check_staged >/dev/null || fail "check_staged: upstream commit refused"
+git -C "$fnd" restore --staged labs
+ok "check_staged guard"
+
+# 5. same-pin bump is a no-op re-apply; forward bump moves the gitlink and re-applies
+"$lp" bump "$v1" >/dev/null || fail "bump: same pin"
+[ "$(git -C "$fnd" rev-parse :labs)" = "$v1" ] || fail "bump same pin: gitlink"
+"$lp" bump "$v2" >/dev/null || fail "bump: forward"
+[ "$(git -C "$fnd" rev-parse :labs)" = "$v2" ] || fail "bump forward: gitlink moved"
+git -C "$fnd/labs" merge-base --is-ancestor "$v2" HEAD || fail "bump forward: series on new base"
+[ "$(git -C "$fnd/labs" rev-list --count "$v2..HEAD")" = 3 ] || { git -C "$fnd/labs" log --oneline "$v2..HEAD" >&2; git -C "$fnd/labs" log --oneline -6 >&2; fail "bump forward: three patches applied"; }
+grep -q "a=2" "$fnd/labs/config" && grep -q "y" "$fnd/labs/src" && [ -f "$fnd/labs/extra" ] || fail "bump forward: content"
+"$lp" apply | grep -q "already applied" || fail "bump forward: applied state recorded"
+ok "same-pin and forward bump"
+g -C "$fnd" commit -q -m "bump to v2"
+
+# 6. bump refuses on unexported work; apply refuses when the series changes under it
+g -C "$fnd/labs" commit -q --allow-empty -m "wip: local"
+expect_fail "$lp" bump "$v1" || fail "bump: unexported work accepted"
+sed -i.bak 's/^+a=2$/+a=3/' "$fnd/labs-patches"/0001-*.patch && rm -f "$fnd/labs-patches"/*.bak
+expect_fail "$lp" apply || fail "apply: series change over unexported work accepted"
+git -C "$fnd" checkout -q -- labs-patches
+git -C "$fnd/labs" reset -q --hard HEAD~1
+ok "unexported work protected"
+
+# 7. uncommitted tracked edits survive a re-apply (stashed, not discarded)
+echo "keep me" >> "$fnd/labs/src"
+sed -i.bak 's/^+a=2$/+a=3/' "$fnd/labs-patches"/0001-*.patch && rm -f "$fnd/labs-patches"/*.bak
+"$lp" apply >/dev/null
+grep -q "a=3" "$fnd/labs/config" || fail "apply: changed series applied"
+git -C "$fnd/labs" stash list | grep -q "labs-patches: worktree" || fail "apply: edit not stashed"
+git -C "$fnd/labs" stash show -p | grep -q "keep me" || fail "apply: stash content"
+git -C "$fnd/labs" stash drop -q
+git -C "$fnd" checkout -q -- labs-patches
+ok "uncommitted edits stashed on re-apply"
+
+# 8. a patch that no longer applies fails loudly and leaves no am in progress
+cat > "$fnd/labs-patches/0009-conflict.patch" <<'EOF'
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: test <test@localhost>
+Date: Mon, 1 Jan 2024 00:00:00 +0000
+Subject: [PATCH] conflicting
+
+diff --git a/config b/config
+--- a/config
++++ b/config
+@@ -1 +1 @@
+-a=999
++a=3
+EOF
+expect_fail "$lp" apply || fail "apply: conflicting patch accepted"
+[ ! -d "$(git -C "$fnd/labs" rev-parse --absolute-git-dir)/rebase-apply" ] || fail "apply: am left in progress"
+rm "$fnd/labs-patches/0009-conflict.patch"
+"$lp" apply >/dev/null
+ok "conflicting patch reported"
+
+# 9. work in progress above a lost state file is not recorded as applied: after apply
+#    re-derives the state by content, a later series edit must still refuse to drop it
+g -C "$fnd/labs" commit -q --allow-empty -m "wip: after state loss"
+rm -f "$(git -C "$fnd/labs" rev-parse --absolute-git-dir)/labs-patches.state"
+"$lp" apply | grep -q "already applied" || fail "apply: series by content with wip on top"
+grep -q "wip" <("$lp" status) || fail "status: wip listed as unexported"
+sed -i.bak 's/^+a=2$/+a=3/' "$fnd/labs-patches"/0001-*.patch && rm -f "$fnd/labs-patches"/*.bak
+expect_fail "$lp" apply || fail "apply: dropped wip recorded as applied after state loss"
+git -C "$fnd" checkout -q -- labs-patches
+git -C "$fnd/labs" reset -q --hard HEAD~1
+ok "wip survives state-file loss"
+
+# 10. a commit touching a file the submodule marks `-diff` (its yarn.lock) is still recognised
+#     as exported: format-patch writes binary hunks, so the patch-id check must read them too
+printf 'lock -diff\n' > "$fnd/labs/.gitattributes"; printf 'v1\n' > "$fnd/labs/lock"
+g -C "$fnd/labs" add .gitattributes lock; g -C "$fnd/labs" commit -qm "patch three: lock"
+"$lp" export >/dev/null
+grep -q "GIT binary patch" "$fnd/labs-patches"/*-patch-three-lock.patch || fail "export: binary hunk for -diff file"
+rm -f "$(git -C "$fnd/labs" rev-parse --absolute-git-dir)/labs-patches.state"
+"$lp" apply | grep -q "already applied" || fail "apply: -diff commit not recognised as exported"
+g -C "$fnd" add labs-patches; g -C "$fnd" commit -q -m "series with lock"
+ok "-diff files round-trip"
+
+# 11. test_cmds is root-relative whichever directory it runs from
+n=$(cd "$fnd/labs-patches" && ./bootstrap.sh test_cmds | grep -c '^[0-9a-f]\{16\} labs-patches/')
+[ "$n" = 2 ] || fail "test_cmds from labs-patches/: $n commands"
+n=$(cd "$fnd" && labs-patches/bootstrap.sh test_cmds | grep -c '^[0-9a-f]\{16\} labs-patches/')
+[ "$n" = 2 ] || fail "test_cmds from root: $n commands"
+ok "test_cmds from any cwd"
+
+# 12. upstream prepares one patch as a branch at the recorded base, under the caller's identity
+base=$(git -C "$fnd" rev-parse HEAD:labs)
+out=$("$lp" upstream 1 fnd/one) && grep -q "Prepared fnd/one" <<<"$out" || fail "upstream: output"
+[ "$(git -C "$fnd/labs" rev-list --count "$base..fnd/one")" = 1 ] || fail "upstream: one commit above the base"
+[ "$(git -C "$fnd/labs" show fnd/one:config)" = "a=2" ] || fail "upstream: patch content"
+[ "$(git -C "$fnd/labs" log -1 --format=%cn fnd/one)" = "test" ] || fail "upstream: committer identity"
+expect_fail "$lp" upstream 1 fnd/one || fail "upstream: existing branch accepted"
+"$lp" upstream "$fnd/labs-patches"/0002-*.patch >/dev/null || fail "upstream: by path"
+git -C "$fnd/labs" show-ref -q --verify refs/heads/fnd/patch-two-extra || fail "upstream: default branch name"
+ok "upstream branch"
+
+# 13. check verifies without touching labs/
+before=$(git -C "$fnd/labs" rev-parse HEAD)
+"$lp" check >/dev/null || fail "check"
+[ "$(git -C "$fnd/labs" rev-parse HEAD)" = "$before" ] || fail "check moved labs/"
+ok "check"
+
+echo "labs-patches lifecycle: $PASS checks passed"

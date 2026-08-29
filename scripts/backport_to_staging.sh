@@ -67,9 +67,7 @@ if [[ -z "$PR_NUMBER" || -z "$TARGET_BRANCH" ]]; then
 fi
 
 # STAGING_BRANCH, STAGING_PR_TITLE and STAGING_PR_LABELS may be pre-set in the
-# environment to reuse this script for non-backport ports (e.g. the
-# port-to-next label, which targets next and needs ci-no-squash). They default
-# to the backport naming with no extra labels.
+# environment; they default to the backport naming with no extra labels.
 STAGING_BRANCH="${STAGING_BRANCH:-backport-to-${TARGET_BRANCH}-staging}"
 STAGING_PR_TITLE="${STAGING_PR_TITLE:-chore: Accumulated backports to $TARGET_BRANCH}"
 STAGING_PR_LABELS="${STAGING_PR_LABELS:-}"
@@ -149,37 +147,6 @@ if [[ $CONTINUE_MODE -eq 0 ]]; then
   echo "Merge commit: $MERGE_COMMIT"
   git fetch origin "$MERGE_COMMIT"
 
-  # When forward-porting into next, skip release-line artifacts that are
-  # meaningless on the mainline: release-version bumps, per-release upgrade/deploy
-  # scripts, regenerated-fixture refreshes, and the plumbing commits a release
-  # line creates when it merges its own public snapshot. A PR is skipped only when
-  # its subject marks it as such, or every file it touches is an artifact path.
-  if [[ "$TARGET_BRANCH" == "next" ]]; then
-    EXCLUDE_SUBJECTS='^chore\(release\)|regenerate pinned|re-pin standard contracts|regenerate standard-contract|resolve v[0-9]+ -> v[0-9]+-next|public-v[0-9]+-next merge|refresh pinned'
-    EXCLUDE_GLOBS=('l1-contracts/src/periphery/V*UpgradePayload*' 'l1-contracts/script/deploy/DeployRollupForUpgrade*' 'l1-contracts/*/V*_UPGRADE_RUNBOOK.md' '.github/workflows/*-v*-next.yml')
-    MERGE_SUBJECT=$(git show -s --format=%s "$MERGE_COMMIT")
-    SKIP_ARTIFACT=0
-    if [[ "$MERGE_SUBJECT" =~ $EXCLUDE_SUBJECTS ]]; then
-      SKIP_ARTIFACT=1
-    else
-      ALL_EXCLUDED=1
-      while IFS= read -r f; do
-        [[ -z "$f" ]] && continue
-        matched=0
-        for g in "${EXCLUDE_GLOBS[@]}"; do
-          # shellcheck disable=SC2254
-          case "$f" in $g) matched=1; break ;; esac
-        done
-        [[ $matched -eq 0 ]] && { ALL_EXCLUDED=0; break; }
-      done < <(git diff --no-renames --name-only "${MERGE_COMMIT}^1" "$MERGE_COMMIT")
-      [[ $ALL_EXCLUDED -eq 1 ]] && SKIP_ARTIFACT=1
-    fi
-    if [[ $SKIP_ARTIFACT -eq 1 ]]; then
-      echo "Skipping PR #$PR_NUMBER: release-line artifact, not forward-ported to $TARGET_BRANCH."
-      exit 0
-    fi
-  fi
-
   # Detect if merge commit has multiple parents (merge commit vs squash commit)
   PARENT_COUNT=$(git rev-list --parents -n 1 "$MERGE_COMMIT" | wc -w)
   # First word is the commit itself, remaining are parents
@@ -193,9 +160,7 @@ if [[ $CONTINUE_MODE -eq 0 ]]; then
   echo "Cherry-picking $MERGE_COMMIT..."
   if ! git cherry-pick $CHERRY_PICK_ARGS "$MERGE_COMMIT" --no-edit; then
     # No unmerged paths means the patch applied to nothing: the change is already
-    # present in the target (e.g. a fix that also reached next independently, or
-    # a next->release backport bounced back). Skip it quietly instead of treating
-    # it as a conflict, so auto-forward-porting does not raise false alarms.
+    # present in the target. Skip it quietly instead of treating it as a conflict.
     if [[ -z "$(git diff --name-only --diff-filter=U)" ]]; then
       git cherry-pick --skip >/dev/null 2>&1 || git reset --hard >/dev/null
       echo "PR #$PR_NUMBER is already present in $TARGET_BRANCH; nothing to port."
