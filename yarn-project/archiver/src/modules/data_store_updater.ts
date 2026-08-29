@@ -58,6 +58,10 @@ export class ArchiverDataStoreUpdater {
    * @param pendingChainValidationStatus - Optional validation status to set.
    * @returns True if the operation is successful.
    */
+  // TODO: a block built before an L1 reorg rolled back the messages it consumed can be pushed here after
+  // `removeProposedBlocksConsumingMessagesFrom` already pruned the chain it belongs to, and lands on the parent that
+  // survived the prune with nothing left to remove it. Closing it needs the builder to carry the message-store state
+  // it built against so this insert can reject a stale one.
   public async addProposedBlock(
     block: L2Block,
     pendingChainValidationStatus?: ValidateCheckpointResult,
