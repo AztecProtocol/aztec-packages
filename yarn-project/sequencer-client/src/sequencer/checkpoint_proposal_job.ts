@@ -69,6 +69,7 @@ import type {
   CoordinationSignatureContext,
 } from '@aztec/stdlib/p2p';
 import { orderAttestations, trimAttestations } from '@aztec/stdlib/p2p';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import type { ProposerTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -78,6 +79,7 @@ import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telem
 import { CheckpointBuilder, type FullNodeCheckpointsBuilder, type ValidatorClient } from '@aztec/validator-client';
 import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validator-ha-signer/errors';
 
+import { DEFAULT_INBOX_L1_CONFIRMATIONS } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
@@ -116,7 +118,10 @@ type CheckpointProposalBroadcast = {
    * build after earlier blocks already consumed messages.
    */
   bucketHint: bigint;
-  /** The checkpoint's final consumption cursor, so the bucket hint can be re-resolved before submission. */
+  /**
+   * The checkpoint's final consumption cursor, so the bucket hint can be re-resolved and the censorship floor
+   * re-checked before submission.
+   */
   streamingState: StreamingCheckpointState;
 };
 
@@ -221,7 +226,7 @@ export class CheckpointProposalJob implements Traceable {
       instanceId: `slot-${this.getBuildSlot()}`,
     });
     this.isInboxBucketEligible =
-      this.config.inboxL1Confirmations === 0
+      (this.config.inboxL1Confirmations ?? DEFAULT_INBOX_L1_CONFIRMATIONS) === 0
         ? immediateEligibility
         : new InboxBucketConfirmationTracker({
             l1Client: this.l1Client,
@@ -359,7 +364,7 @@ export class CheckpointProposalJob implements Traceable {
       // matches the proposed checkpoint we used as parent, and has valid attestations.
       if (signedAttestations && (await this.waitForValidParentCheckpointOnL1())) {
         // Attestation collection took seconds; re-resolve the hint once more in case L1 reorged in that window.
-        const bucketHint = await this.resolveBucketHint(broadcast.streamingState, 'publish-failed');
+        const bucketHint = await this.resolveBucketHint(broadcast.streamingState, checkpoint.header, 'publish-failed');
         if (bucketHint !== undefined) {
           await this.enqueueCheckpointForSubmission({ checkpoint, ...signedAttestations, bucketHint });
         }
@@ -863,11 +868,11 @@ export class CheckpointProposalJob implements Traceable {
         return undefined;
       }
 
-      // Re-resolve the L1 `propose` bucket hint by content before anything is gossiped. An L1 reorg between the
-      // first block's bucket selection and now can re-time the consumed bucket: the rolling hash commits to
-      // messages only, so the sealed header stays valid on L1, but a merge can move the bucket's sequence number
-      // and the hint captured at build time would point L1 at the wrong bucket.
-      const bucketHint = await this.resolveBucketHint(streamingState, 'build-failed');
+      // Resolve the L1 `propose` bucket hint from the header the checkpoint just sealed, before the checkpoint
+      // proposal is gossiped. An L1 reorg since the last block was built can re-time the consumed bucket: the
+      // rolling hash commits to messages only, so the sealed header stays valid on L1, but a merge can move the
+      // bucket's sequence number and a hint carried over from build time would point L1 at the wrong bucket.
+      const bucketHint = await this.resolveBucketHint(streamingState, checkpoint.header, 'build-failed');
       if (bucketHint === undefined) {
         return undefined;
       }
@@ -1105,6 +1110,7 @@ export class CheckpointProposalJob implements Traceable {
           streamingState.parent = { seq: selection.bucket.seq, totalMsgCount: selection.bucket.totalMsgCount };
           streamingState.lastBucketRef = InboxBucketRef.fromBucket(selection.bucket);
         }
+        await this.refreshConsumedBucket(streamingState);
         blockBucketRef = streamingState.lastBucketRef;
       }
 
@@ -1203,23 +1209,60 @@ export class CheckpointProposalJob implements Traceable {
   }
 
   /**
+   * Re-points the consumption cursor at the bucket that currently carries its rolling hash.
+   *
+   * Under the message-only rolling hash an L1 reorg that merges buckets leaves the hash of the consumed prefix
+   * intact but shifts every sequence number after the merge point, so the number a bucket was selected at goes
+   * stale while the messages consumed do not change. Both L1 and the validators look the bucket up by sequence
+   * number, and a block proposal cannot be re-signed once slashing protection has recorded the duty, so the cursor
+   * is re-resolved here — before each proposal is signed — rather than after.
+   *
+   * Leaves the cursor alone when no bucket carries the hash any more: that is a reorder or a dropped message, which
+   * {@link resolveBucketHint} turns into an abandoned checkpoint before anything reaches L1.
+   */
+  private async refreshConsumedBucket(state: StreamingCheckpointState): Promise<void> {
+    const { bucketSeq: builtSeq, inboxRollingHash } = state.lastBucketRef;
+    const bucket = await this.l1ToL2MessageSource.getInboxBucketByRollingHash(inboxRollingHash);
+    if (bucket === undefined || bucket.seq === builtSeq) {
+      return;
+    }
+    this.log.info(`Inbox bucket reference re-resolved after L1 reorg`, {
+      slot: this.targetSlot,
+      checkpointNumber: this.checkpointNumber,
+      builtSeq,
+      resolvedSeq: bucket.seq,
+      inboxRollingHash: inboxRollingHash.toString(),
+    });
+    state.parent = { seq: bucket.seq, totalMsgCount: bucket.totalMsgCount };
+    state.lastBucketRef = InboxBucketRef.fromBucket(bucket);
+  }
+
+  /**
    * Resolves the Inbox bucket sequence number to publish as the L1 `propose` bucket hint, by looking the bucket up
-   * from the rolling hash the checkpoint header committed to rather than from the sequence number captured when the
-   * bundle was selected.
+   * from the rolling hash the sealed checkpoint header committed to. The header is the commitment L1 checks the
+   * hint's bucket against, so it — not the sequence number captured when the bundle was selected, and not the
+   * cursor that tracked it — is what the lookup is keyed on.
    *
    * Under the message-only rolling hash a bucket that L1 re-timed keeps its hash, so the sealed header remains valid
-   * — but a reorg that merges buckets shifts the sequence numbers after the merge point, and the stale hint would
+   * — but a reorg that merges buckets shifts the sequence numbers after the merge point, and a stale hint would
    * make L1 read a bucket whose rolling hash does not match the header. When no local bucket carries the committed
    * hash at all, the consumed prefix no longer ends on a bucket boundary (a reorder or a dropped message): nothing
    * can be published for this slot, so the caller abandons it rather than sending a `propose` that would revert.
    *
-   * @param failureEvent - Checkpoint event name to log an unresolvable hint under, naming the phase it failed in.
+   * The censorship floor is re-checked at the resolved position for the same reason: a bucket that syncs after the
+   * checkpoint was built, or one the reorg moved under the cutoff, can turn a position that satisfied the floor at
+   * build time into one `ProposeLib.validateInboxConsumption` rejects.
+   *
+   * @param failureEvent - Checkpoint event name to log an unpublishable checkpoint under, naming the phase it failed in.
    */
   private async resolveBucketHint(
     state: StreamingCheckpointState,
+    header: CheckpointHeader,
     failureEvent: 'build-failed' | 'publish-failed',
   ): Promise<bigint | undefined> {
-    const { bucketSeq: builtSeq, inboxRollingHash } = state.lastBucketRef;
+    const phase = failureEvent === 'build-failed' ? 'build' : 'publish';
+    const builtSeq = state.lastBucketRef.bucketSeq;
+    const inboxRollingHash = header.inboxRollingHash;
     const bucket = await this.l1ToL2MessageSource.getInboxBucketByRollingHash(inboxRollingHash);
     if (bucket === undefined) {
       const context = {
@@ -1229,7 +1272,6 @@ export class CheckpointProposalJob implements Traceable {
         inboxRollingHash: inboxRollingHash.toString(),
         reason: 'inbox_bucket_reorged',
       };
-      const phase = failureEvent === 'build-failed' ? 'build' : 'publish';
       this.logCheckpointEvent(failureEvent, `Checkpoint ${phase} failed for slot ${this.targetSlot}`, context);
       this.log.warn(
         `No Inbox bucket carries the rolling hash this checkpoint consumed through; abandoning slot ` +
@@ -1248,6 +1290,31 @@ export class CheckpointProposalJob implements Traceable {
         inboxRollingHash: inboxRollingHash.toString(),
       });
     }
+
+    const resolved = { ...state, parent: { seq: bucket.seq, totalMsgCount: bucket.totalMsgCount } };
+    const { sufficient, nextBucket, cutoffTimestamp } = await this.checkCheckpointConsumption(resolved);
+    if (!sufficient) {
+      const context = {
+        slot: this.targetSlot,
+        checkpointNumber: this.checkpointNumber,
+        checkpointStartTotalMsgCount: state.checkpointStartTotalMsgCount,
+        consumedBucketSeq: bucket.seq,
+        consumedTotalMsgCount: bucket.totalMsgCount,
+        unconsumedBucketSeq: nextBucket?.seq,
+        unconsumedBucketTotalMsgCount: nextBucket?.totalMsgCount,
+        cutoffTimestamp,
+        reason: 'inbox_consumption_insufficient',
+      };
+      this.logCheckpointEvent(failureEvent, `Checkpoint ${phase} failed for slot ${this.targetSlot}`, context);
+      this.log.warn(
+        `An Inbox bucket became mandatory after this checkpoint was built, leaving it below the censorship ` +
+          `floor; abandoning slot ${this.targetSlot}`,
+        context,
+      );
+      this.metrics.recordCheckpointProposalFailed('inbox_consumption_insufficient');
+      return undefined;
+    }
+
     return bucket.seq;
   }
 
