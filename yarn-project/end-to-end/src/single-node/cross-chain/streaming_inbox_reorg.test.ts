@@ -42,24 +42,30 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
   let test: SingleNodeTestContext;
 
   let l1Client: ExtendedViemWalletClient;
-  let l1ClientDelayer: Delayer;
+
+  // The replacement message is sent from its own account because the reorg below rewinds past the block holding the
+  // first message: that resets the sender's nonce, and a withheld tx signed with the nonce after it could never be
+  // mined into the replacement block.
+  let replacementL1Client: ExtendedViemWalletClient;
+  let replacementL1ClientDelayer: Delayer;
 
   beforeEach(async () => {
     t = new L1ReorgsTest();
     await t.setup();
     ({ test, context, logger, node, archiver, monitor, sequencerDelayer } = t);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = t);
-    ({ client: l1Client, delayer: l1ClientDelayer } = await test.createL1Client());
+    ({ client: l1Client } = await test.createL1Client());
+    ({ client: replacementL1Client, delayer: replacementL1ClientDelayer } = await test.createL1Client());
   });
 
   afterEach(async () => {
     await t.teardown();
   });
 
-  const sendMessage = async () =>
+  const sendMessage = async (client: ExtendedViemWalletClient) =>
     sendL1ToL2Message(
       { recipient: await AztecAddress.random(), content: Fr.random(), secretHash: Fr.random() },
-      { l1ContractAddresses: context.deployL1ContractsValues.l1ContractAddresses, l1Client },
+      { l1ContractAddresses: context.deployL1ContractsValues.l1ContractAddresses, l1Client: client },
     );
 
   it('prunes the proposed chain and consumes the replacement message after a reorg', async () => {
@@ -78,7 +84,7 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
     // proposed chain instead of being published: this is the state the reorg has to find them in.
     sequencerDelayer.cancelNextTx();
 
-    const msg = await sendMessage();
+    const msg = await sendMessage(l1Client);
     logger.warn(`Sent message on L1 block ${msg.txReceipt.blockNumber}`);
 
     // Readiness means the message sits at a leaf index the tip's L1-to-L2 tree has already grown past, so the
@@ -101,10 +107,10 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
 
     // Prepare the replacement message but keep its L1 tx out of the chain, so the reorg can mine it in the
     // block that replaces the orphaned one.
-    l1ClientDelayer.cancelNextTx();
-    const replacementMsgPromise = sendMessage();
+    replacementL1ClientDelayer.cancelNextTx();
+    const replacementMsgPromise = sendMessage(replacementL1Client);
     await retryUntil(
-      () => l1ClientDelayer.getCancelledTxs().length,
+      () => replacementL1ClientDelayer.getCancelledTxs().length,
       'replacement message tx withheld',
       L1_BLOCK_TIME_IN_S * 2,
       0.1,
@@ -116,7 +122,7 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
     const reorgDepth = l1BlockNumber - Number(msg.txReceipt.blockNumber) + 1;
     expect(reorgDepth).toBeGreaterThanOrEqual(2);
     logger.warn(`Triggering reorg of depth ${reorgDepth} replacing the message with a different one`);
-    await context.cheatCodes.eth.reorgWithReplacement(reorgDepth, [[l1ClientDelayer.getCancelledTxs()[0]]]);
+    await context.cheatCodes.eth.reorgWithReplacement(reorgDepth, [[replacementL1ClientDelayer.getCancelledTxs()[0]]]);
     const replacementMsg = await replacementMsgPromise;
     logger.warn(`Reorged-in replacement message on L1 block ${replacementMsg.txReceipt.blockNumber}`);
 

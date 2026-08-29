@@ -205,6 +205,8 @@ export class SingleNodeTestContext {
   public L1_BLOCK_TIME_IN_S!: number;
   public L2_SLOT_DURATION_IN_S!: number;
 
+  private l1ClientCount = 0;
+
   public static async setup<T extends SingleNodeTestContext>(this: new () => T, opts: SingleNodeTestOpts = {}) {
     const test = new this();
     await test.setup(opts);
@@ -462,8 +464,8 @@ export class SingleNodeTestContext {
     return node;
   }
 
-  protected getNextPrivateKey(): Hex {
-    const key = getPrivateKeyFromIndex(this.nodes.length + this.proverNodes.length + 1);
+  protected getNextPrivateKey(offset = 0): Hex {
+    const key = getPrivateKeyFromIndex(this.nodes.length + this.proverNodes.length + 1 + offset);
     return `0x${key!.toString('hex')}`;
   }
 
@@ -712,11 +714,14 @@ export class SingleNodeTestContext {
     return TestContract.at(instance.address, wallet);
   }
 
-  /** Creates an L1 client using a fresh account with funds from anvil, with a tx delayer already set up. */
+  /**
+   * Creates an L1 client using a fresh account with funds from anvil, with a tx delayer already set up. Each call
+   * gets its own account, so two clients never share a nonce sequence.
+   */
   public async createL1Client() {
     const rawClient = createExtendedL1Client(
       [...this.l1Client.chain.rpcUrls.default.http],
-      privateKeyToAccount(this.getNextPrivateKey()),
+      privateKeyToAccount(this.getNextPrivateKey(this.l1ClientCount++)),
       this.l1Client.chain,
     );
     const delayer = createDelayer(this.context.dateProvider, { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S }, {});
