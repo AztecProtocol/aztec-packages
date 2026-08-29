@@ -9,6 +9,7 @@ import type { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
+import { L2BlockSourceEvents, type L2PruneUncheckpointedEvent } from '@aztec/stdlib/block';
 
 import 'jest-extended';
 
@@ -66,6 +67,13 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
     await t.sendTransactions(TX_COUNT, 300);
     await test.waitUntilCheckpointNumber(CheckpointNumber(2), L2_SLOT_DURATION_IN_S * 6);
 
+    // Every proposed-chain prune is recorded, so the one the reorg causes can be identified by the blocks it
+    // carries rather than by the tip having moved for any reason.
+    const prunes: L2PruneUncheckpointedEvent[] = [];
+    archiver.events.on(L2BlockSourceEvents.L2PruneUncheckpointed, event => {
+      prunes.push(event);
+    });
+
     // Withhold the next checkpoint's propose tx, so the blocks that consume the message below stay in the
     // proposed chain instead of being published: this is the state the reorg has to find them in.
     sequencerDelayer.cancelNextTx();
@@ -78,6 +86,18 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
     await waitForL1ToL2MessageReady(node, msg.msgHash, { timeoutSeconds: L2_SLOT_DURATION_IN_S * 2 });
     const consumedAtBlockNumber = await archiver.getBlockNumber();
     logger.warn(`Message consumed by proposed block ${consumedAtBlockNumber}`);
+
+    // Wait for the withheld propose before reorging, and check it was the one covering the consuming block: the
+    // cancellation is armed before the message is even sent, so under pipelining it could otherwise have taken
+    // the previous slot's propose and left the consuming block published.
+    await retryUntil(
+      () => sequencerDelayer.getCancelledTxs().length,
+      'sequencer propose tx withheld',
+      L2_SLOT_DURATION_IN_S * 2,
+      0.2,
+    );
+    const tipsBeforeReorg = await archiver.getL2Tips();
+    expect(consumedAtBlockNumber).toBeGreaterThan(tipsBeforeReorg.checkpointed.block.number);
 
     // Prepare the replacement message but keep its L1 tx out of the chain, so the reorg can mine it in the
     // block that replaces the orphaned one.
@@ -104,13 +124,17 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
     // reorg. The bound is what separates this from the end-of-slot prune, which would only catch the same
     // blocks once the slot they were built for has run out.
     await retryUntil(
-      async () => (await archiver.getBlockNumber()) < consumedAtBlockNumber,
+      () => prunes.some(prune => prune.blocks.some(block => block.number === consumedAtBlockNumber)),
       'proposed chain pruned back past the consuming block',
       L2_SLOT_DURATION_IN_S / 2,
       0.2,
     );
-    // The checkpoint that would have published those blocks never reached L1, so they were only ever proposed.
-    expect(sequencerDelayer.getCancelledTxs().length).toBeGreaterThanOrEqual(1);
+    expect(await archiver.getBlockNumber()).toBeLessThan(consumedAtBlockNumber);
+
+    // Published state was not unwound: this path only ever drops proposed blocks, and the checkpoint that would
+    // have published the consuming ones never reached L1.
+    const tipsAfterPrune = await archiver.getL2Tips();
+    expect(tipsAfterPrune.checkpointed.block.number).toBeGreaterThanOrEqual(tipsBeforeReorg.checkpointed.block.number);
 
     // The orphaned message is gone for good, and no block can consume it again.
     expect(await isL1ToL2MessageReady(node, msg.msgHash)).toBe(false);
@@ -120,6 +144,11 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
     await waitForL1ToL2MessageReady(node, replacementMsg.msgHash, { timeoutSeconds: L2_SLOT_DURATION_IN_S * 3 });
     expect(await isL1ToL2MessageReady(node, msg.msgHash)).toBe(false);
 
-    await test.assertMultipleBlocksPerSlot(2, { wait: true });
+    // Proposing survives the prune: a checkpoint built after the reorg has to reach L1, not just any checkpoint.
+    const checkpointAfterReorg = CheckpointNumber(tipsBeforeReorg.checkpointed.checkpoint.number + 1);
+    await test.waitUntilCheckpointNumber(checkpointAfterReorg, L2_SLOT_DURATION_IN_S * 4);
+    const rebuiltCheckpoints = await archiver.getCheckpoints({ from: checkpointAfterReorg, limit: 10 });
+    expect(rebuiltCheckpoints.some(published => published.checkpoint.blocks.length >= 2)).toBe(true);
+    await test.assertMultipleBlocksPerSlot(2);
   });
 });
