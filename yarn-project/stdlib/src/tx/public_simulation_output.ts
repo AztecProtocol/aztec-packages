@@ -35,12 +35,7 @@ export class NestedProcessReturnValues {
   }
 
   static get schema(): ZodFor<NestedProcessReturnValues> {
-    return z
-      .object({
-        values: NullishToUndefined(z.array(schemas.Fr)),
-        nested: z.array(z.lazy(() => NestedProcessReturnValues.schema)),
-      })
-      .transform(({ values, nested }) => new NestedProcessReturnValues(values, nested));
+    return nestedProcessReturnValuesSchema;
   }
 
   static fromPlainObject(obj: any): NestedProcessReturnValues {
@@ -61,6 +56,15 @@ export class NestedProcessReturnValues {
     );
   }
 }
+
+// Built once at module load so that the self-reference below resolves to a single schema instance. Rebuilding it per
+// access (as a getter body would) makes the recursion unbounded.
+const nestedProcessReturnValuesSchema: ZodFor<NestedProcessReturnValues> = z
+  .object({
+    values: NullishToUndefined(z.array(schemas.Fr)),
+    nested: z.array(z.lazy(() => nestedProcessReturnValuesSchema)),
+  })
+  .transform(({ values, nested }) => new NestedProcessReturnValues(values, nested));
 
 /**
  * Outputs of processing the public component of a transaction.

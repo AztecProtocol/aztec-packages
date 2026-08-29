@@ -744,7 +744,7 @@ __metadata:
     tslib: "npm:^2.5.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -825,7 +825,7 @@ __metadata:
     typescript: "npm:^5.3.3"
     util: "npm:^0.12.5"
     viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -1041,7 +1041,7 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   bin:
     blob-client: ./dest/client/bin/index.js
   languageName: unknown
@@ -1096,7 +1096,7 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -1347,7 +1347,7 @@ __metadata:
     typescript: "npm:^5.3.3"
     util: "npm:^0.12.5"
     viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -1367,7 +1367,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -1391,7 +1391,7 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -1420,7 +1420,7 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -1480,7 +1480,7 @@ __metadata:
     typescript-eslint: "npm:^8.32.1"
     undici: "npm:^5.28.5"
     viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -1627,7 +1627,7 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -1906,7 +1906,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -2062,7 +2062,7 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -2131,7 +2131,7 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -2209,7 +2209,7 @@ __metadata:
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
     vitest: "npm:^4.0.0"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -2275,7 +2275,7 @@ __metadata:
     msgpackr: "npm:^1.11.2"
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.3.3"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   bin:
     txe: ./dest/bin/index.js
   languageName: unknown
@@ -2344,7 +2344,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -2419,7 +2419,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
-    zod: "npm:^4"
+    zod: "npm:~4.4.3"
   languageName: unknown
   linkType: soft
 
@@ -22340,7 +22340,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^4":
+"zod@npm:~4.4.3":
   version: 4.4.3
   resolution: "zod@npm:4.4.3"
   checksum: 10/804b9a42aa8f35f2b3c5a8dff906291cb749115f83ee2afe3576d70b5b5c53c965365c7f4967690647a9c54af9838ff232a85ff9577a0a36c44b68bc6cdefe36
