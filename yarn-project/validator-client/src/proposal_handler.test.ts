@@ -232,6 +232,36 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(blockSource.syncImmediate).not.toHaveBeenCalled();
     });
 
+    // The cached verdict is what the attestation path reads, and it rests on blocks this node holds. An archiver
+    // rollback between the two calls p2p makes for one proposal prunes those blocks, so the verdict has to be
+    // re-derived rather than replayed.
+    it('re-validates a cached valid result once the checkpoint blocks are gone', async () => {
+      const proposal = await makeProposal();
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
+      const validateSpy = jest
+        .spyOn(handler, 'validateCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(1) });
+
+      expect(await handler.handleCheckpointProposal(proposal, proposalInfo)).toEqual({
+        isValid: true,
+        checkpointNumber: CheckpointNumber(1),
+      });
+
+      // While the blocks are still local the verdict is replayed, so a validation that would now fail is not run.
+      validateSpy.mockResolvedValue({ isValid: false, reason: 'archive_mismatch' });
+      expect(await handler.handleCheckpointProposal(proposal, proposalInfo)).toEqual({
+        isValid: true,
+        checkpointNumber: CheckpointNumber(1),
+      });
+
+      // A rollback pruned the blocks the verdict was based on.
+      blockSource.getBlockData.mockResolvedValue(undefined);
+      expect(await handler.handleCheckpointProposal(proposal, proposalInfo)).toEqual({
+        isValid: false,
+        reason: 'archive_mismatch',
+      });
+    });
+
     it('does not use cache for a different proposal', async () => {
       blockSource.getBlockData.mockResolvedValue(undefined);
 
