@@ -2300,6 +2300,36 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(BlockNumber(1));
     });
 
+    // A rollback below what the published chain already consumed means the message store and a checkpoint L1
+    // accepted disagree about L1, and the message store is not necessarily the right view. Every proposed block
+    // then satisfies the predicate, so acting on it would drop blocks that consumed nothing removed while their
+    // published parent, which did, stays.
+    it('leaves proposed blocks alone when the rollback reaches below the checkpointed tip', async () => {
+      const { early } = addMessages();
+      const checkpointedBlocks = await makeBlocksConsumingThrough([2, 4], 105n);
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        blocks: checkpointedBlocks,
+        l1BlockNumber: 105n,
+        numL1ToL2Messages: 0,
+      });
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+
+      // A proposed block that consumed nothing of its own, sitting on the checkpointed tip.
+      const [proposed] = await fake.makeBlocks(CheckpointNumber(2), { numBlocks: 1, txsPerBlock: 1, l1BlockNumber });
+      proposed.header.state.l1ToL2MessageTree = new AppendOnlyTreeSnapshot(Fr.random(), 4);
+      await archiver.addBlock(proposed);
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(3));
+
+      fake.removeMessagesAfter(2);
+      fake.reorgL1BlocksFrom(102n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(early));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(3));
+      expect(pruneSpy).not.toHaveBeenCalled();
+    });
+
     it('leaves checkpointed blocks alone when the messages they consumed are rolled back', async () => {
       const { early } = addMessages();
       const blocks = await makeBlocksConsumingThrough([2, 4], 105n);

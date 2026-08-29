@@ -308,7 +308,10 @@ export class ArchiverDataStoreUpdater {
    *
    * Checkpointed blocks are never touched: only the comparison against the archive on L1 may unwind published
    * state, since a message store that disagrees with an accepted checkpoint means one of the two views of L1 is
-   * mid-reorg and this one is not necessarily the right one.
+   * mid-reorg and this one is not necessarily the right one. The predicate is only exact while the removed index
+   * sits at or above the checkpointed tip's leaf count; below it, every proposed descendant satisfies it and valid
+   * blocks would be dropped while the published parent that consumed the very same messages stays, so the whole
+   * disagreement is left to the checkpoint step.
    *
    * @param firstRemovedIndex - Index of the first L1-to-L2 message that was removed from the store.
    * @returns The removed blocks.
@@ -319,6 +322,21 @@ export class ArchiverDataStoreUpdater {
       this.stores.blocks.getLatestL2BlockNumber(),
     ]);
     if (latestBlockNumber <= checkpointedBlockNumber) {
+      return [];
+    }
+
+    const checkpointedTip =
+      checkpointedBlockNumber > 0
+        ? await this.stores.blocks.getBlockData({ number: BlockNumber(checkpointedBlockNumber) })
+        : undefined;
+    const checkpointedTipLeafCount = BigInt(
+      checkpointedTip?.header.state.l1ToL2MessageTree.nextAvailableLeafIndex ?? 0,
+    );
+    if (firstRemovedIndex < checkpointedTipLeafCount) {
+      this.log.warn(
+        `Skipping prune of proposed blocks: L1 to L2 messages were rolled back from index ${firstRemovedIndex}, below the ${checkpointedTipLeafCount} consumed by checkpointed block ${checkpointedBlockNumber}`,
+        { firstRemovedIndex, checkpointedTipLeafCount, checkpointedBlockNumber },
+      );
       return [];
     }
 
