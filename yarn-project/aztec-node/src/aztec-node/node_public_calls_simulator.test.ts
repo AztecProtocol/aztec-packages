@@ -377,6 +377,34 @@ describe('NodePublicCallsSimulator', () => {
         expect(l1Client.reads).toEqual([]);
       });
 
+      it('follows a runtime change to the confirmation depth', async () => {
+        const tx = await lowGasTx();
+        // Opened this very second, so the waiting rule the simulator starts on would not consume it yet.
+        const bundle = mockInboxSelection(nowSeconds());
+        const l1Client = makeL1Client();
+        const simulator = makeSimulator({ l1Client, inboxL1Confirmations: 1 });
+
+        simulator.updateConfig({ inboxL1Confirmations: 0 });
+        await simulator.simulate(tx);
+
+        expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle);
+        expect(l1Client.reads).toEqual([]);
+      });
+
+      it('keeps the configured depth when an update leaves it out', async () => {
+        const tx = await lowGasTx();
+        const bundle = mockInboxSelection(nowSeconds() - BigInt(ETHEREUM_SLOT_DURATION));
+        const l1Client = makeL1Client();
+        const simulator = makeSimulator({ l1Client, inboxL1Confirmations: 1 });
+
+        simulator.updateConfig({ inboxL1Confirmations: undefined });
+        await simulator.simulate(tx);
+
+        expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle);
+        // Still waiting for the opening block's child, as it was before the update.
+        expect(l1Client.reads).toEqual([2n]);
+      });
+
       it('never waits for a confirmation under automine, which mines on demand', async () => {
         const tx = await lowGasTx();
         const bundle = mockInboxSelection(nowSeconds());

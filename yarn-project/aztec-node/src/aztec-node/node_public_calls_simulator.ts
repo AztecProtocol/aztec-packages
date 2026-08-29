@@ -7,7 +7,7 @@ import {
   type SimulationOverridesPlan,
 } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { compactArray } from '@aztec/foundation/collection';
+import { compact, compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -126,7 +126,7 @@ export class NodePublicCallsSimulator {
   private readonly epochCache: EpochCacheInterface;
   private readonly signatureContext: CoordinationSignatureContext;
   private readonly l1Client: L1BlockReader | undefined;
-  private readonly config: NodePublicCallsSimulatorConfig;
+  private config: NodePublicCallsSimulatorConfig;
   /**
    * Shared by every simulation on this node. Its confirmations are permanent facts about L1, so a node-lifetime
    * cache is correct and keeps the RPC cost of the prediction near zero; its rejections expire every second.
@@ -151,6 +151,16 @@ export class NodePublicCallsSimulator {
     this.avmSimulator = deps.avmSimulator;
     this.telemetry = deps.telemetry ?? getTelemetryClient();
     this.log = deps.log ?? createLogger('node:public-calls-simulator');
+  }
+
+  /**
+   * Applies a runtime config update. The node replaces its own config object wholesale when an operator changes a
+   * setting, so the simulator is told about the change rather than reading through to it; otherwise a new
+   * `inboxL1Confirmations` would move the sequencer to a different consumption rule while the next-block prediction
+   * kept applying the old one. Keys absent from the update keep their current value.
+   */
+  public updateConfig(config: Partial<NodePublicCallsSimulatorConfig>): void {
+    this.config = { ...this.config, ...compact(config) };
   }
 
   /**
