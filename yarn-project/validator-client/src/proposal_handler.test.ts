@@ -1073,6 +1073,38 @@ describe('ProposalHandler checkpoint validation', () => {
       );
     });
 
+    // An L1 reorg that orphans the messages a proposal consumed reaches this node as an archiver rollback, which
+    // re-downloads the bucket at that position from the canonical chain with a different rolling hash. Resolving
+    // the reference by hash is what makes a proposal this node accepted before the rollback fail after it, so no
+    // attestation is signed for a block that L1 will not accept.
+    it('rejects a proposal it accepted before its archiver rewound the bucket', async () => {
+      const ref = new InboxBucketRef(new Fr(0xabc));
+      const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: 10_000 });
+      l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(bucket());
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
+        bucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),
+      );
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue([new Fr(1000), new Fr(1001)]);
+      jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: undefined } as any);
+
+      const beforeRollback = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+      expect(beforeRollback.isValid).toBe(true);
+
+      // The rollback replaced the messages the proposer consumed, so no bucket commits to the rolling hash the
+      // proposal signed any more. The handler cannot tell that from lag, so it waits out the remaining budget
+      // (held short here) and rejects.
+      l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(undefined);
+      dateProvider.setTime(38_000);
+
+      const afterRollback = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+      expect(afterRollback).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'bucket_unknown',
+      });
+    });
+
     // A bucket the proposer already consumed is on L1 by construction, so a bucket this node cannot resolve is
     // (usually) local archiver lag, not a divergence: the handler forces a sync and re-checks until the
     // attestation deadline instead of dropping the attestation on the spot.
