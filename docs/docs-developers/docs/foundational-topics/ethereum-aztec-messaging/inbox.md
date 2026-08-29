@@ -44,17 +44,19 @@ These functions allow you to query the current state of the Inbox.
 A message is available to L2 as soon as the L1 transaction that sent it is mined, but the block proposer decides
 when to consume it. That choice is a node setting, `SEQ_INBOX_L1_CONFIRMATIONS`, not a protocol rule:
 
-- **`0` (the default): consume immediately.** The message reaches L2 in the next block the proposer builds. If the
-  L1 block carrying it is then reorged out, the proposer's own view of the Inbox changes under it and it loses that
-  slot. At ten one-block L1 reorgs per day and messages in 30% of L1 blocks, this costs about 0.07% of slots
-  (roughly one or two per day) and nothing else — the chain is unaffected, and the next proposer consumes the
-  message.
+- **`0` (the default): consume immediately.** The message reaches L2 in the next block the proposer builds. The
+  proposer loses that slot only if an L1 reorg changes the messages themselves — reordering them, or dropping the
+  transaction that sent one. A reorg that re-mines the same messages costs nothing, because the proposer re-resolves
+  what it consumed before publishing. At ten one-block L1 reorgs per day and messages in 30% of L1 blocks, that
+  bounds the loss at about 0.07% of slots (one or two per day) and affects nothing else — the chain carries on, and
+  the next proposer consumes the message.
 - **`1`: wait for one L1 confirmation.** The proposer consumes a message only once another L1 block has built on
   top of the one carrying it, which makes it immune to the one-block reorgs above at the cost of roughly one
   Ethereum slot (~12s) of extra latency per message.
 
-Validators do not check how recently a message arrived: they accept whatever L1 accepts, so a network can run both
-settings side by side. The sandbox mines on demand and always consumes immediately, whatever the setting says.
+Validators do not check how recently a message arrived; they check what L1 checks, plus that the Inbox contents a
+proposal references match their own view of the Inbox. So a network can run both settings side by side. The sandbox
+mines on demand and always consumes immediately, whatever the setting says.
 
 ## Related pages
 

@@ -17,6 +17,7 @@ Adds a per-proposer choice of when L1-to-L2 messages are consumed.
 
 **Key changes:**
 - New setting: `SEQ_INBOX_L1_CONFIRMATIONS` (`0` consumes a bridged message in the next block, `1` waits one L1 block first)
+- The archiver database is rebuilt on first start, so the node resyncs from L1
 
 **Migration difficulty**: Low
 
