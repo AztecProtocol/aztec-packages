@@ -87,7 +87,7 @@
     "lodash.chunk": "^4.2.0",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
-    "zod": "^4"
+    "zod": "~4.4.3"
   },
   "devDependencies": {
     "@aztec/noir-contracts.js": "workspace:^",
