@@ -19,7 +19,11 @@ namespace ipc {
  * connection is closed (sockets) or the ring is declared corrupt (SHM),
  * instead of allocating/awaiting the claimed size.
  */
-inline constexpr uint32_t MAX_FRAME_SIZE = 256U * 1024 * 1024; // 256 MiB
+// 1 GiB: a checkpoint-root prove request carries the checkpoint's blob data inline and measures
+// ~315 MiB for a single-block checkpoint — the old 256 MiB cap made the server kill the prover's
+// connection (surfacing as ECONNRESET/EPIPE), so no epoch containing a checkpoint root could ever
+// prove over this transport.
+inline constexpr uint32_t MAX_FRAME_SIZE = 1024U * 1024 * 1024;
 
 /**
  * Every frame carries a client-assigned request id (little-endian u64) between
