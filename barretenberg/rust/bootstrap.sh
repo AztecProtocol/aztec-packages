@@ -2,15 +2,31 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# Hash depends on ts because ts generates the Rust bindings
-hash=$(hash_str $(../ts/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+# The crate generates its own bindings, so the hash covers the schema and
+# ipc-codegen (see .rebuild_patterns) rather than the whole ts build.
+hash=$(hash_str $(cache_content_hash .rebuild_patterns))
+
+# Generate the Rust client from the checked-in bb schema via ipc-codegen.
+# --ffi also emits the Backend trait, error type and FFI backend, so the
+# generated client never depends on hand-maintained copies of them.
+function generate {
+  local root=$(git rev-parse --show-toplevel)
+  (cd barretenberg-rs && node --experimental-strip-types --experimental-transform-types --no-warnings \
+    "$root/ipc-codegen/src/generate.ts" \
+    --schema "$root/barretenberg/cpp/src/barretenberg/bbapi/bb_schema.json" \
+    --lang rust \
+    --client \
+    --ffi \
+    --strip-method-prefix \
+    --strip-type-prefix \
+    --out src/generated)
+}
 
 function build {
   echo_header "barretenberg-rs build"
 
   if ! cache_download barretenberg-rs-$hash.tar.gz; then
-    # Generate Rust bindings from msgpack schema (uses ts-node, no build needed)
-    (cd ../ts/bb.js && yarn generate)
+    generate
 
     # Build all targets
     # BB_LIB_DIR tells build.rs to use local lib instead of downloading (ffi feature is on by default)
@@ -18,7 +34,7 @@ function build {
     BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" denoise "cargo build --release"
 
     # Upload build artifacts and generated source files to cache
-    cache_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated_types.rs barretenberg-rs/src/api.rs
+    cache_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated
   fi
 }
 
@@ -36,9 +52,9 @@ function test {
     source "$HOME/.cargo/env"
   fi
 
-  # Run PipeBackend tests (spawns bb binary)
-  # Use --no-default-features to skip FFI (which requires libbb-external.a)
-  denoise "cargo test --release --no-default-features --features native"
+  # Transport tests (spawn bb and talk to it through ipc-runtime)
+  # Transport tests only: --no-default-features skips FFI, which needs libbb-external.a
+  denoise "cargo test --release --no-default-features --features ipc-runtime"
 
   # Run FFI backend tests (requires libbb-external.a from cpp build)
   # BB_LIB_DIR tells build.rs to use local lib instead of downloading
@@ -58,9 +74,9 @@ function release {
   sed -i "s/^version = \".*\"/version = \"$version\"/" Cargo.toml
 
   # Generated files must exist (created during build step, or generate now)
-  if [ ! -f barretenberg-rs/src/api.rs ] || [ ! -f barretenberg-rs/src/generated_types.rs ]; then
-    echo "Generated files not found, running yarn generate..."
-    (cd ../ts/bb.js && yarn generate)
+  if [ ! -d barretenberg-rs/src/generated ]; then
+    echo "Generated files not found, generating..."
+    generate
   fi
 
   # Check if this version is already published on crates.io (idempotent re-runs).

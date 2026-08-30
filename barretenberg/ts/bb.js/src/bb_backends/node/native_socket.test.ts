@@ -86,13 +86,13 @@ describe('BarretenbergNativeSocketAsyncBackend', () => {
   it('fails with the exit cause when bb dies before creating its socket', async () => {
     const fakeBb = writeFakeBbScript(`#!/bin/bash\nexit 17\n`);
     await expect(BarretenbergNativeSocketAsyncBackend.new(fakeBb)).rejects.toThrow(
-      /exited before socket connection was established \(code=17/,
+      /exited before IPC connection was ready \(code=17/,
     );
   });
 
   it('fails with the spawn error when the bb binary does not exist', async () => {
     await expect(BarretenbergNativeSocketAsyncBackend.new('/nonexistent/bb-binary')).rejects.toThrow(
-      /Native backend process error/,
+      /Failed to spawn bb/,
     );
   });
 
@@ -103,7 +103,7 @@ describe('BarretenbergNativeSocketAsyncBackend', () => {
       expect(await backend.call(new Uint8Array([1]))).toEqual(new Uint8Array([1]));
 
       process.kill(fake.pids()[0], 'SIGKILL');
-      await waitUntil(() => !backend.isConnected());
+      await waitUntil(() => !isProcessAlive(fake.pids()[0]));
 
       const err = await backend.call(new Uint8Array([2])).catch(e => e);
       expect(isRetryable(err)).toBe(true);
@@ -119,7 +119,7 @@ describe('BarretenbergNativeSocketAsyncBackend', () => {
       expect(await backend.call(new Uint8Array([1]))).toEqual(new Uint8Array([1]));
 
       process.kill(fake.pids()[0], 'SIGKILL');
-      await waitUntil(() => !backend.isConnected());
+      await waitUntil(() => !isProcessAlive(fake.pids()[0]));
 
       expect(await backend.call(new Uint8Array([2]))).toEqual(new Uint8Array([2]));
       const pids = fake.pids();
@@ -134,7 +134,7 @@ describe('BarretenbergNativeSocketAsyncBackend', () => {
       await backend.call(new Uint8Array([1]));
 
       process.kill(fake.pids()[0], 'SIGKILL');
-      await waitUntil(() => !backend.isConnected());
+      await waitUntil(() => !isProcessAlive(fake.pids()[0]));
 
       const results = await Promise.all([1, 2, 3, 4].map(n => backend.call(new Uint8Array([n]))));
       expect(results).toEqual([1, 2, 3, 4].map(n => new Uint8Array([n])));
@@ -148,15 +148,14 @@ describe('BarretenbergNativeSocketAsyncBackend', () => {
       await backend.call(new Uint8Array([1]));
 
       process.kill(fake.pids()[0], 'SIGKILL');
-      await waitUntil(() => !backend.isConnected());
+      await waitUntil(() => !isProcessAlive(fake.pids()[0]));
 
       const call = backend.call(new Uint8Array([2])).catch(e => e);
       await backend.destroy();
-      expect(String(await call)).toMatch(/Backend connection closed/);
+      expect(String(await call)).toMatch(/destroy/);
 
-      // destroy() does not wait for the replacement, so watch for it to arrive and then go.
-      await waitUntil(() => fake.pids().length === 2);
-      await waitUntil(() => !isProcessAlive(fake.pids()[1]));
+      // Whether or not the replacement got as far as starting, nothing may be left running.
+      await waitUntil(() => fake.pids().every(pid => !isProcessAlive(pid)));
     });
 
     it('fails retryably when the replacement cannot start either', async () => {
@@ -177,12 +176,13 @@ describe('BarretenbergNativeSocketAsyncBackend', () => {
       const backend = await BarretenbergNativeSocketAsyncBackend.new(bb, undefined, undefined, undefined, true);
       await backend.call(new Uint8Array([1]));
 
-      process.kill(Number(fs.readFileSync(pidLog, 'utf-8').trim()), 'SIGKILL');
-      await waitUntil(() => !backend.isConnected());
+      const pid = Number(fs.readFileSync(pidLog, 'utf-8').trim());
+      process.kill(pid, 'SIGKILL');
+      await waitUntil(() => !isProcessAlive(pid));
 
       const err = await backend.call(new Uint8Array([2])).catch(e => e);
       expect(isRetryable(err)).toBe(true);
-      expect(String(err)).toMatch(/exited before socket connection was established/);
+      expect(String(err)).toMatch(/exited before IPC connection was ready/);
       await backend.destroy();
     });
 

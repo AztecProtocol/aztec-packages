@@ -26,14 +26,14 @@
     "README.md"
   ],
   "scripts": {
-    "clean": "rm -rf ./dest .tsbuildinfo .tsbuildinfo.cjs ./src/cbind/generated",
+    "clean": "rm -rf ./dest .tsbuildinfo .tsbuildinfo.cjs ./src/generated",
     "build": "yarn clean && yarn generate && yarn build:wasm && yarn build:native && yarn build:esm && yarn build:cjs && yarn build:browser",
     "build:wasm": "./scripts/copy_wasm.sh",
     "build:native": "./scripts/copy_native.sh",
     "build:esm": "tsgo -b tsconfig.esm.json && chmod +x ./dest/node/bin/index.js",
     "build:cjs": "tsgo -b tsconfig.cjs.json && ./scripts/cjs_postprocess.sh",
     "build:browser": "tsgo -b tsconfig.browser.json && ./scripts/browser_postprocess.sh",
-    "generate": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 ts-node src/cbind/generate.ts",
+    "generate": "./scripts/generate.sh",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
     "formatting:fix": "eslint --fix ./src && prettier -w ./src",
     "test": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests",
@@ -70,6 +70,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec-foundation/ipc-runtime": "@aztec-foundation/ipc-runtime",
     "comlink": "^4.4.1",
     "commander": "^12.1.0",
     "idb-keyval": "^6.2.1",

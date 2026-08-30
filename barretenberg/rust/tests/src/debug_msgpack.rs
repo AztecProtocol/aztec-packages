@@ -22,10 +22,7 @@ fn test_msgpack_format() {
 
 #[test]
 fn test_pedersen_msgpack_format() {
-    let inputs: Vec<Vec<u8>> = vec![
-        Fr::from_u64(4).to_buffer().to_vec(),
-        Fr::from_u64(8).to_buffer().to_vec(),
-    ];
+    let inputs = vec![Fr::from_u64(4).into(), Fr::from_u64(8).into()];
 
     let cmd = Command::PedersenHash(PedersenHash::new(inputs, 7));
     let bytes = rmp_serde::to_vec_named(&vec![cmd]).unwrap();

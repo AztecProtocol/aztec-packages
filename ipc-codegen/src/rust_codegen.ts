@@ -22,6 +22,8 @@ export interface RustCodegenOptions {
   backendImport?: string;
   /** Import path for error types. Defaults to 'crate::error::{IpcError, Result}' */
   errorImport?: string;
+  /** Strip the prefix from generated type and variant names (e.g. BbBlake2s -> Blake2s) */
+  stripTypePrefix?: boolean;
   /** Import path for generated types. Defaults to 'crate::types_gen::*' */
   typesImport?: string;
   /** Module doc comment for types file */
@@ -32,6 +34,23 @@ export interface RustCodegenOptions {
 
 export class RustCodegen {
   private errorTypeName: string = "ErrorResponse";
+
+  /**
+   * The generated identifier for a schema name: PascalCase, with the service
+   * prefix stripped when asked. Wire strings always keep the schema name, so
+   * this must never be used where a tag is emitted.
+   */
+  private typeName(schemaName: string): string {
+    let name = schemaName;
+    const prefix = this.opts?.stripTypePrefix ? this.opts.prefix : "";
+    if (prefix && name.startsWith(prefix)) {
+      const rest = name.slice(prefix.length);
+      if (rest && rest[0] === rest[0].toUpperCase()) {
+        name = rest;
+      }
+    }
+    return toPascalCase(name);
+  }
   private opts: Required<RustCodegenOptions>;
 
   constructor(options?: RustCodegenOptions) {
@@ -40,6 +59,7 @@ export class RustCodegen {
     this.opts = {
       prefix,
       stripMethodPrefix: options?.stripMethodPrefix ?? false,
+      stripTypePrefix: options?.stripTypePrefix ?? false,
       apiStructName: options?.apiStructName ?? `${name}Api`,
       backendImport: options?.backendImport ?? "super::backend::Backend",
       errorImport: options?.errorImport ?? `super::error::{IpcError, Result}`,
@@ -99,7 +119,7 @@ export class RustCodegen {
 
       case "struct":
         // Convert struct names to PascalCase for Rust conventions
-        return toPascalCase(type.struct!.name);
+        return this.typeName(type.struct!.name);
     }
 
     throw new Error(`Unsupported type kind: ${type.kind}`);
@@ -136,6 +156,28 @@ export class RustCodegen {
     );
   }
 
+  // Check if field needs serde(with = "serde_fixed_bytes") - for [u8; N].
+  // These are raw bytes on the wire (msgpack bin), not a sequence of integers,
+  // so they need an explicit codec: serde's default for [u8; N] is a sequence,
+  // which the C++ side rejects.
+  private needsSerdeFixedBytes(type: Type): boolean {
+    return (
+      type.kind === "array" &&
+      type.size! <= 32 &&
+      this.isU8(type.element!)
+    );
+  }
+
+  private isU8(type: Type): boolean {
+    return type.kind === "primitive" && type.primitive === "u8";
+  }
+
+  // Arrays of u8 above the size-32 cutoff map to Vec<u8>; they are still raw
+  // bytes on the wire, so they take the plain serde_bytes codec.
+  private needsSerdeLargeFixedBytes(type: Type): boolean {
+    return type.kind === "array" && type.size! > 32 && this.isU8(type.element!);
+  }
+
   // Check if field needs serde(with = "serde_opt_bytes")
   private needsSerdeOptBytes(type: Type): boolean {
     return type.kind === "optional" && this.needsSerdeBytes(type.element!);
@@ -153,7 +195,11 @@ export class RustCodegen {
     }
 
     // Add serde bytes handling
-    if (this.needsSerdeBytesArray(field.type)) {
+    if (this.needsSerdeLargeFixedBytes(field.type)) {
+      attrs += `    #[serde(with = "serde_bytes")]\n`;
+    } else if (this.needsSerdeFixedBytes(field.type)) {
+      attrs += `    #[serde(with = "serde_fixed_bytes")]\n`;
+    } else if (this.needsSerdeBytesArray(field.type)) {
       attrs += `    #[serde(with = "serde_bytes_array")]\n`;
     } else if (
       this.needsSerdeVecBytes(field.type) ||
@@ -171,7 +217,7 @@ export class RustCodegen {
 
   // Generate a struct definition
   private generateStruct(struct: Struct, isCommand: boolean): string {
-    const rustName = toPascalCase(struct.name);
+    const rustName = this.typeName(struct.name);
     const fields = struct.fields.map((f) => this.generateField(f)).join("\n");
 
     // Add serde rename if struct name changed
@@ -216,14 +262,14 @@ ${fieldInits}
     const names = schema.commands.map((c) => c.name);
     const variants = names
       .map((name) => {
-        const rustName = toPascalCase(name);
+        const rustName = this.typeName(name);
         return `    ${rustName}(${rustName}),`;
       })
       .join("\n");
 
     const serializeCases = names
       .map((name) => {
-        const rustName = toPascalCase(name);
+        const rustName = this.typeName(name);
         return `            Command::${rustName}(data) => {
                 tuple.serialize_element("${name}")?;
                 tuple.serialize_element(data)?;
@@ -233,7 +279,7 @@ ${fieldInits}
 
     const deserializeCases = names
       .map((name) => {
-        const rustName = toPascalCase(name);
+        const rustName = this.typeName(name);
         return `                    "${name}" => {
                         let data = seq.next_element()?
                             .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
@@ -300,14 +346,14 @@ ${deserializeCases}
       : commandResponseTypes;
     const variants = responseTypes
       .map((name) => {
-        const rustName = toPascalCase(name);
+        const rustName = this.typeName(name);
         return `    ${rustName}(${rustName}),`;
       })
       .join("\n");
 
     const serializeCases = responseTypes
       .map((name) => {
-        const rustName = toPascalCase(name);
+        const rustName = this.typeName(name);
         return `            Response::${rustName}(data) => {
                 tuple.serialize_element("${name}")?;
                 tuple.serialize_element(data)?;
@@ -317,7 +363,7 @@ ${deserializeCases}
 
     const deserializeCases = responseTypes
       .map((name) => {
-        const rustName = toPascalCase(name);
+        const rustName = this.typeName(name);
         return `                    "${name}" => {
                         let data = seq.next_element()?
                             .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
@@ -457,6 +503,41 @@ mod serde_bytes_array {
     }
 }
 
+mod serde_fixed_bytes {
+    use serde::{Deserializer, Serializer};
+    use serde::de::Visitor;
+
+    pub fn serialize<S, const N: usize>(bytes: &[u8; N], serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        serializer.serialize_bytes(bytes)
+    }
+    pub fn deserialize<'de, D, const N: usize>(deserializer: D) -> Result<[u8; N], D::Error>
+    where D: Deserializer<'de> {
+        struct FixedBytesVisitor<const N: usize>;
+        impl<'de, const N: usize> Visitor<'de> for FixedBytesVisitor<N> {
+            type Value = [u8; N];
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "{N} bytes")
+            }
+            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+            where E: serde::de::Error {
+                v.try_into().map_err(|_| E::invalid_length(v.len(), &self))
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where A: serde::de::SeqAccess<'de> {
+                // Tolerated for peers that still send a sequence of integers.
+                let mut arr = [0u8; N];
+                for (i, slot) in arr.iter_mut().enumerate() {
+                    *slot = seq.next_element::<u8>()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
+                }
+                Ok(arr)
+            }
+        }
+        deserializer.deserialize_bytes(FixedBytesVisitor::<N>)
+    }
+}
+
 mod serde_opt_bytes {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -542,6 +623,50 @@ impl Bin32 {
     pub fn as_slice(&self) -> &[u8] { &self.0 }
 }
 
+impl From<[u8; 32]> for Bin32 {
+    fn from(bytes: [u8; 32]) -> Self { Self(bytes) }
+}
+
+impl From<&[u8; 32]> for Bin32 {
+    fn from(bytes: &[u8; 32]) -> Self { Self(*bytes) }
+}
+
+// Bin32 replaced loose Vec<u8> scalars. Deref plus the cross-type equalities
+// below keep the byte-oriented surface callers already had - borrowing as a
+// slice, len(), is_empty(), indexing, and comparison against a Vec or a fixed
+// array - so upgrading does not force a rewrite at every read site.
+impl TryFrom<Vec<u8>> for Bin32 {
+    type Error = Vec<u8>;
+    fn try_from(bytes: Vec<u8>) -> std::result::Result<Self, Self::Error> {
+        Ok(Self(<[u8; 32]>::try_from(bytes.as_slice()).map_err(|_| bytes)?))
+    }
+}
+
+impl std::ops::Deref for Bin32 {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+impl PartialEq<Vec<u8>> for Bin32 {
+    fn eq(&self, other: &Vec<u8>) -> bool { self.0.as_slice() == other.as_slice() }
+}
+
+impl PartialEq<Bin32> for Vec<u8> {
+    fn eq(&self, other: &Bin32) -> bool { self.as_slice() == other.0.as_slice() }
+}
+
+impl<const N: usize> PartialEq<[u8; N]> for Bin32 {
+    fn eq(&self, other: &[u8; N]) -> bool { self.0.as_slice() == other.as_slice() }
+}
+
+impl<const N: usize> PartialEq<Bin32> for [u8; N] {
+    fn eq(&self, other: &Bin32) -> bool { self.as_slice() == other.0.as_slice() }
+}
+
+impl AsRef<[u8]> for Bin32 {
+    fn as_ref(&self) -> &[u8] { &self.0 }
+}
+
 impl Serialize for Bin32 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: serde::Serializer {
@@ -591,8 +716,8 @@ ${this.generateResponseEnum(schema)}
     responseType: string;
   }): string {
     const methodName = this.methodName(command.name);
-    const cmdRustName = toPascalCase(command.name);
-    const respRustName = toPascalCase(command.responseType);
+    const cmdRustName = this.typeName(command.name);
+    const respRustName = this.typeName(command.responseType);
 
     const params = command.fields
       .map((f) => {
@@ -624,7 +749,7 @@ ${this.generateResponseEnum(schema)}
         let cmd = Command::${cmdRustName}(${cmdRustName}::new(${paramConversions}));
         match self.execute(cmd)? {
             Response::${respRustName}(resp) => Ok(resp),
-            Response::${toPascalCase(this.errorTypeName)}(err) => Err(${errorType}::Backend(
+            Response::${this.typeName(this.errorTypeName)}(err) => Err(${errorType}::Backend(
                 err.message
             )),
             _ => Err(${errorType}::InvalidResponse(
@@ -698,13 +823,13 @@ ${apiMethods}
   generateServer(schema: CompiledSchema): string {
     this.errorTypeName = schema.errorTypeName;
     const { prefix, errorImport, typesImport } = this.opts;
-    const errorRespType = toPascalCase(this.errorTypeName);
+    const errorRespType = this.typeName(this.errorTypeName);
 
     const traitMethods = schema.commands
       .map((c) => {
         const methodName = this.methodName(c.name);
-        const cmdRustName = toPascalCase(c.name);
-        const respRustName = toPascalCase(c.responseType);
+        const cmdRustName = this.typeName(c.name);
+        const respRustName = this.typeName(c.responseType);
         return `    fn ${methodName}(&mut self, cmd: ${cmdRustName}, respond: Responder<${respRustName}>);`;
       })
       .join("\n");
@@ -712,8 +837,8 @@ ${apiMethods}
     const dispatchArms = schema.commands
       .map((c) => {
         const methodName = this.methodName(c.name);
-        const cmdRustName = toPascalCase(c.name);
-        const respRustName = toPascalCase(c.responseType);
+        const cmdRustName = this.typeName(c.name);
+        const respRustName = this.typeName(c.responseType);
         return `        Command::${cmdRustName}(cmd) => {
             handler.${methodName}(cmd, Responder { raw, wrap: Response::${respRustName} });
         }`;

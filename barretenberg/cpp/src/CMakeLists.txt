@@ -122,13 +122,9 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     add_subdirectory(barretenberg/world_state_reference)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
-    add_subdirectory(barretenberg/ipc)
     add_subdirectory(barretenberg/vm2_wsdb)
     add_subdirectory(barretenberg/cdb)
     add_subdirectory(barretenberg/avm)
-    # nodejs_module hosts only the msgpack_client NAPI wrappers now (bb.js's SHM
-    # transport). The lmdb_store kv-store NAPI moved to native-packages/kvdb.
-    add_subdirectory(barretenberg/nodejs_module)
 endif()
 
 # Pull in ipc-runtime as a C++ dependency. Provides the `ipc_runtime`
@@ -226,7 +222,7 @@ add_library(
 )
 
 # bb-external: static library for external consumers (e.g. barretenberg-rs).
-# Uses the core object list without lmdb/world_state — FFI consumers only need bbapi().
+# Uses the core object list without lmdb/world_state — FFI consumers only need ipc_ffi_entry().
 # Built with -fvisibility=hidden; only WASM_EXPORT symbols remain visible.
 if(NOT WASM)
     # world_state_reference (the in-memory reference merkle DB and its bb_wsref_* C ABI) rides

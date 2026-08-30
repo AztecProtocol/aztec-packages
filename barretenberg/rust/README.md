@@ -4,16 +4,18 @@ Rust bindings for the Barretenberg cryptographic library using msgpack protocol.
 
 ## Quick Start
 
-### Using PipeBackend (default)
+### Using an IPC transport (no linking required)
 
-Communicates with BB via stdin/stdout - no linking required:
+Talk to a `bb msgpack run` process over ipc-runtime. `IpcClient` implements the
+`Backend` trait, so this crate carries no transport code of its own: use
+`from_fds` for a child's stdin/stdout pipe, or `from_path` for a `.sock` (UDS)
+or `.shm` (shared memory) endpoint.
 
 ```rust
-use barretenberg_rs::{BarretenbergApi, backends::PipeBackend};
+use barretenberg_rs::{ipc_runtime::IpcClient, BbApi};
 
-// Create a pipe backend (requires BB binary)
-let backend = PipeBackend::new("/path/to/bb", Some(4))?;
-let mut api = BarretenbergApi::new(backend);
+let client = IpcClient::from_path("/tmp/bb.sock")?;
+let mut api = BbApi::new(client);
 
 // Hash some data
 let response = api.blake2s(b"hello world")?;
@@ -34,7 +36,7 @@ use barretenberg_rs::{BarretenbergApi, backends::FfiBackend};
 let backend = FfiBackend::new()?;
 let mut api = BarretenbergApi::new(backend);
 
-// Same API as PipeBackend
+// Same API as the IPC transports
 let response = api.blake2s(b"hello world")?;
 println!("Hash: {:?}", response.hash);
 ```
@@ -46,7 +48,8 @@ The library path is automatically configured via `build.rs`.
 
 The crate provides a pluggable backend system:
 
-- **PipeBackend**: Spawns BB process, communicates via stdin/stdout pipes
+- **ipc_runtime::IpcClient**: Talks to a `bb msgpack run` process over a pipe,
+  UDS or shared memory; the transport lives in ipc-runtime, not here
 - **FfiBackend**: Direct C FFI calls to libbarretenberg (no process overhead)
 - **Custom Backend**: Implement the `Backend` trait for WASM, JSI, or other IPC
 
@@ -64,7 +67,7 @@ The crate provides a pluggable backend system:
          │                    │
          ▼                    ▼
 ┌─────────────────┐  ┌─────────────────┐
-│   PipeBackend   │  │   FfiBackend    │
+│   IpcClient     │  │   FfiBackend    │
 │  (bb process)   │  │ (libbarretenberg)│
 └─────────────────┘  └─────────────────┘
 ```
@@ -76,7 +79,7 @@ The crate provides a pluggable backend system:
 cargo test --release
 
 # Run tests without FFI (pipe backend only)
-cargo test --release --no-default-features --features native
+cargo test --release --no-default-features --features ipc-runtime
 ```
 
 ## Generated Code
@@ -89,6 +92,6 @@ cd ../ts && yarn generate
 
 ## Features
 
-- `native` (default): Enables `PipeBackend` and async runtime
+- `ipc-runtime` (default): Enables the `ipc_runtime::IpcClient` transport backend
 - `ffi` (default): Enables `FfiBackend` for direct C FFI calls, auto-links to cpp/build/lib
 - `async`: Enables async/await support
