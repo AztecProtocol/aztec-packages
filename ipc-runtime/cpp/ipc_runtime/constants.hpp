@@ -19,7 +19,7 @@ namespace ipc {
  * connection is closed (sockets) or the ring is declared corrupt (SHM),
  * instead of allocating/awaiting the claimed size.
  */
-inline constexpr uint32_t MAX_FRAME_SIZE = 256U * 1024 * 1024; // 256 MiB
+inline constexpr uint32_t MAX_FRAME_SIZE = 1024U * 1024 * 1024; // 1 GiB
 
 /**
  * Every frame carries a client-assigned request id (little-endian u64) between
