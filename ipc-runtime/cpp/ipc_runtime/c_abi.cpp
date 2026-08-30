@@ -5,6 +5,8 @@
 #include "ipc_runtime/serve_helper.hpp"
 #include "ipc_runtime/signal_handlers.hpp"
 
+#include <unistd.h>
+
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -209,6 +211,30 @@ ipc_client_t* ipc_client_create_mpsc_shm(const char* base_name, size_t client_id
         return nullptr;
     }
     return wrap_client(ipc::IpcClient::create_mpsc_shm(base_name, client_id));
+}
+
+ipc_client_t* ipc_client_create_pipe(int in_fd, int out_fd)
+{
+    // PipeClient closes the descriptors it holds, but the caller (a spawning
+    // parent, typically) still owns the originals and will close them too.
+    // Duplicate so each side closes only its own: a double close frees an fd
+    // number the OS may already have reassigned, and the resulting EBADF
+    // surfaces far from here, in whatever unrelated code owns it by then.
+    int in_dup = ::dup(in_fd);
+    if (in_dup < 0) {
+        return nullptr;
+    }
+    int out_dup = ::dup(out_fd);
+    if (out_dup < 0) {
+        ::close(in_dup);
+        return nullptr;
+    }
+    auto* wrapped = wrap_client(ipc::IpcClient::create_pipe(in_dup, out_dup));
+    if (wrapped == nullptr) {
+        ::close(in_dup);
+        ::close(out_dup);
+    }
+    return wrapped;
 }
 
 void ipc_client_destroy(ipc_client_t* client)

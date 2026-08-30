@@ -22,6 +22,8 @@ export default [
     'eslint.config.js',
     'eslint.config.*.js',
     'src/jest/*.mjs',
+    // Codegen output; see .prettierignore.
+    'src/generated/**',
   ]),
   ...tseslint.config({
     extends: [
@@ -94,7 +96,7 @@ export default [
         'error',
         {
           // Generated later in bootstrap; the tracked wasm symlinks are broken in a clean checkout until the C++ build runs.
-          ignore: ['cbind/generated', '\\.wasm\\.gz$'],
+          ignore: ['generated', '\\.wasm\\.gz$'],
         },
       ],
       'import-x/no-extraneous-dependencies': 'error',

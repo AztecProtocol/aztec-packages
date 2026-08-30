@@ -16,6 +16,7 @@ barretenberg_modules.dot
 barretenberg_modules.png
 src/barretenberg/bb/config.hpp
 src/barretenberg/avm/generated/
+src/barretenberg/bbapi/generated/
 src/barretenberg/cdb/generated/
 bench-out
 *.bak

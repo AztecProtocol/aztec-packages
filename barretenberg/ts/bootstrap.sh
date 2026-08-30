@@ -14,6 +14,12 @@ hash=$(hash_str \
   $(cache_content_hash .rebuild_patterns) \
   $(semver check $REF_NAME && echo 1 || echo 0))
 
+# The workspaces resolve @aztec-foundation/ipc-runtime through a portal into
+# ipc-runtime/ts, so what node_modules ends up containing depends on that
+# package's manifest. Include it in the node-modules cache key; without it a
+# change there leaves a stale tree cached.
+IPC_RUNTIME_PKG="^ipc-runtime/ts/package\.json$"
+
 function generate_bb_avm_sim_package {
   node --experimental-strip-types --experimental-transform-types --no-warnings \
     "$ROOT/ipc-codegen/src/generate.ts" \
@@ -86,7 +92,7 @@ function build_bb_avm_sim {
   echo_header "bb-avm-sim package build"
   generate_packages
   copy_bb_avm_sim_native
-  npm_install_deps
+  npm_install_deps "$IPC_RUNTIME_PKG"
   yarn workspace "$BB_AVM_SIM_PACKAGE" build
   prepare_bb_avm_sim_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/$BB_AVM_SIM_BINARY"
 }
@@ -132,7 +138,7 @@ function release_bb_bin {
 function build_cdb {
   echo_header "cdb package build"
   generate_packages
-  npm_install_deps
+  npm_install_deps "$IPC_RUNTIME_PKG"
   yarn workspace "$CDB_PACKAGE" build
 }
 
@@ -161,7 +167,7 @@ function cross_copy_bb_js {
 function cross_copy_bb_avm_sim {
   generate_packages
   copy_bb_avm_sim_cross "$@"
-  npm_install_deps
+  npm_install_deps "$IPC_RUNTIME_PKG"
   yarn workspace "$BB_AVM_SIM_PACKAGE" build
   prepare_bb_avm_sim_arch_packages
 }
@@ -187,7 +193,7 @@ function release_bb_avm_sim {
   generate_packages
   copy_bb_avm_sim_native
   copy_bb_avm_sim_cross
-  npm_install_deps
+  npm_install_deps "$IPC_RUNTIME_PKG"
   yarn workspace "$BB_AVM_SIM_PACKAGE" build
   prepare_bb_avm_sim_arch_packages
   for package_dir in bb-avm-sim/packages/*; do
@@ -198,7 +204,7 @@ function release_bb_avm_sim {
 
 function release_cdb {
   generate_packages
-  npm_install_deps
+  npm_install_deps "$IPC_RUNTIME_PKG"
   yarn workspace "$CDB_PACKAGE" build
   (cd cdb && retry "deploy_npm ${REF_NAME#v}")
 }
