@@ -81,7 +81,7 @@ service, and invokes `generate.ts` with that local path.
 ## CLI: `src/generate.ts`
 
 Invoked once per (schema, language) pair. Run directly with
-`node --experimental-strip-types`, or via `bootstrap.sh`.
+`node --experimental-transform-types`, or via `bootstrap.sh`.
 
 ```
 node --experimental-strip-types --experimental-transform-types --no-warnings \
