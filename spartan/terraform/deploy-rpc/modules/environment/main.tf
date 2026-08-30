@@ -56,12 +56,17 @@ module "rpc" {
   RELEASE_PREFIX = var.RELEASE_PREFIX
 
   AZTEC_DOCKER_IMAGE                            = each.value.aztec_docker_image
+  LOG_LEVEL                                     = each.value.log_level
   ENV                                           = each.value.env
   L1_RPC_SECRET_NAME                            = each.value.l1_rpc_secret_name
   L1_CONSENSUS_HOST_URLS_SECRET_NAME            = each.value.l1_consensus_host_urls_secret_name
   L1_CONSENSUS_HOST_API_KEYS_SECRET_NAME        = each.value.l1_consensus_host_api_keys_secret_name
   L1_CONSENSUS_HOST_API_KEY_HEADERS_SECRET_NAME = each.value.l1_consensus_host_api_key_headers_secret_name
   STORAGE_SIZE                                  = each.value.storage_size
+  EXTRA_HELM_VALUES                             = each.value.extra_helm_values
+  MIN_REPLICAS                                  = each.value.min_replicas
+  FORCE_UPDATE                                  = each.value.force_update
+  RECREATE_PODS                                 = each.value.recreate_pods
   OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME       = var.OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME
 
   depends_on = [kubernetes_namespace_v1.rpc]

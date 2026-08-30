@@ -26,20 +26,20 @@ resource "helm_release" "rpc" {
   namespace        = var.NAMESPACE
   create_namespace = false
   upgrade_install  = true
-  force_update     = true
-  recreate_pods    = true
+  force_update     = var.FORCE_UPDATE
+  recreate_pods    = var.RECREATE_PODS
   reuse_values     = false
   timeout          = 3600 # 1h to sync
   wait             = true
   wait_for_jobs    = true
   take_ownership   = true
 
-  values = [
+  values = concat([
     file("${path.module}/values/prod.yaml"),
     file("${path.module}/values/prod-res.yaml"),
     yamlencode({
       fullnameOverride = local.workload_name
-      replicaCount     = 1
+      replicaCount     = var.MIN_REPLICAS
       extraObjects = concat(
         [
           {
@@ -149,7 +149,7 @@ resource "helm_release" "rpc" {
       }
 
       node = {
-        logLevel = "info"
+        logLevel = var.LOG_LEVEL
         startupProbe = {
           failureThreshold = 120
         }
@@ -212,7 +212,7 @@ resource "helm_release" "rpc" {
         }
       }
     })
-  ]
+  ], var.EXTRA_HELM_VALUES)
 }
 
 resource "kubernetes_manifest" "hpa" {
@@ -229,7 +229,7 @@ resource "kubernetes_manifest" "hpa" {
         kind       = "StatefulSet"
         name       = local.workload_name
       }
-      minReplicas = 1
+      minReplicas = var.MIN_REPLICAS
       maxReplicas = 4
       behavior = {
         scaleUp = {
