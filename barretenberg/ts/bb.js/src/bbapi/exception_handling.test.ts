@@ -1,5 +1,5 @@
 import { BarretenbergWasmSyncBackend } from '../bb_backends/wasm.js';
-import { SyncApi } from '../cbind/generated/sync.js';
+import { SyncApi } from '../generated/sync.js';
 
 describe('BBApi Exception Handling from bb.js', () => {
   let backend: BarretenbergWasmSyncBackend;

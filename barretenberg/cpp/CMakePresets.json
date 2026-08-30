@@ -543,7 +543,7 @@
     {
       "name": "amd64-windows",
       "displayName": "Build for Windows amd64 with Zig",
-      "description": "Cross-compile for Windows x86_64 using Zig (MinGW). Excludes ipc/lmdb/world_state/nodejs_module (no Windows support).",
+      "description": "Cross-compile for Windows x86_64 using Zig (MinGW). Excludes world_state (no Windows support).",
       "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target x86_64-windows-gnu",
@@ -801,25 +801,25 @@
       "name": "amd64-linux",
       "configurePreset": "amd64-linux",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "nodejs_module", "bb-external", "bb-avm-sim"]
+      "targets": ["bb", "bb-external", "bb-avm-sim"]
     },
     {
       "name": "arm64-linux",
       "configurePreset": "arm64-linux",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "bb-avm", "nodejs_module", "bb-external", "bb-avm-sim"]
+      "targets": ["bb", "bb-avm", "bb-external", "bb-avm-sim"]
     },
     {
       "name": "amd64-macos",
       "configurePreset": "amd64-macos",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "nodejs_module", "bb-external", "bb-avm-sim"]
+      "targets": ["bb", "bb-external", "bb-avm-sim"]
     },
     {
       "name": "arm64-macos",
       "configurePreset": "arm64-macos",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "nodejs_module", "bb-external", "bb-avm-sim"]
+      "targets": ["bb", "bb-external", "bb-avm-sim"]
     },
     {
       "name": "amd64-windows",
