@@ -10,6 +10,7 @@
 #![allow(non_camel_case_types)]
 
 use std::ffi::{c_void, CString};
+use std::os::fd::RawFd;
 use std::os::raw::{c_char, c_int};
 use std::ptr::NonNull;
 
@@ -64,6 +65,7 @@ mod sys {
         pub fn ipc_install_default_signal_handlers(server: *mut ipc_server);
 
         pub fn ipc_make_client(path: *const c_char, shm_client_id: usize) -> *mut ipc_client;
+        pub fn ipc_client_create_pipe(in_fd: c_int, out_fd: c_int) -> *mut ipc_client;
         pub fn ipc_client_destroy(client: *mut ipc_client);
         pub fn ipc_client_connect(client: *mut ipc_client) -> bool;
         pub fn ipc_client_close(client: *mut ipc_client);
@@ -240,6 +242,22 @@ impl IpcClient {
     /// (with `shm_client_id` slot).
     pub fn from_path(path: &str) -> Result<Self> {
         Self::from_path_with_id(path, 0)
+    }
+
+    /// Construct a client over an already-open fd pair, for talking to a child
+    /// process over its stdin/stdout. `in_fd` is read from, `out_fd` written
+    /// to; both stay owned by the caller and must outlive the client.
+    ///
+    /// # Safety
+    /// The descriptors must be valid and open for the client's lifetime.
+    pub unsafe fn from_fds(in_fd: RawFd, out_fd: RawFd) -> Result<Self> {
+        let raw = unsafe { sys::ipc_client_create_pipe(in_fd, out_fd) };
+        let inner = NonNull::new(raw).ok_or(Error::Connect("pipe".to_string()))?;
+        let client = IpcClient { inner };
+        if !unsafe { sys::ipc_client_connect(client.inner.as_ptr()) } {
+            return Err(Error::Connect("pipe".to_string()));
+        }
+        Ok(client)
     }
 
     pub fn from_path_with_id(path: &str, shm_client_id: usize) -> Result<Self> {

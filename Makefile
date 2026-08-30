@@ -149,21 +149,17 @@ bb-crs:
 bb-bbup:
 	$(call build,$@,barretenberg/bbup)
 
-# Yarn install for nodejs_module (needed by presets that build nodejs_module)
-bb-cpp-yarn:
-	$(call run_command,$@,$(ROOT)/barretenberg/cpp,$(ROOT)/ci3/denoise 'cd src/barretenberg/nodejs_module && yarn --immutable')
-
 # Format check (skipped if cache hit)
 bb-cpp-format-check:
 	$(call build,$@,barretenberg/cpp,build_format_check)
 
 # BB C++ Native - Split into compilation and linking phases
 # Compilation phase: Build barretenberg + vm2_sim objects (can run in parallel with avm-transpiler)
-bb-cpp-native-objects: bb-cpp-yarn
+bb-cpp-native-objects:
 	$(call build,$@,barretenberg/cpp,build_native_objects)
 
 # Linking phase: Link all native binaries (needs avm-transpiler)
-bb-cpp-native: bb-cpp-native-objects avm-transpiler-native bb-cpp-yarn bb-cpp-format-check
+bb-cpp-native: bb-cpp-native-objects avm-transpiler-native bb-cpp-format-check
 	$(call build,$@,barretenberg/cpp,build_native)
 
 bb-cpp-chonk-inputs:
@@ -178,25 +174,25 @@ bb-cpp-wasm-threads:
 	$(call build,$@,barretenberg/cpp,build_preset wasm-threads)
 
 # Cross-compile object phases (parallel with avm-transpiler cross-compile)
-bb-cpp-cross-arm64-linux-objects: bb-cpp-yarn
+bb-cpp-cross-arm64-linux-objects:
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-linux)
 
-bb-cpp-cross-amd64-macos-objects: bb-cpp-yarn
+bb-cpp-cross-amd64-macos-objects:
 	$(call build,$@,barretenberg/cpp,build_cross_objects amd64-macos)
 
-bb-cpp-cross-arm64-macos-objects: bb-cpp-yarn
+bb-cpp-cross-arm64-macos-objects:
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
 
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: bb-cpp-native bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux bb-cpp-yarn
+bb-cpp-cross-arm64-linux: bb-cpp-native bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux
 	$(call build,$@,barretenberg/cpp,build_preset arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
-bb-cpp-cross-amd64-macos: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos bb-cpp-yarn
+bb-cpp-cross-amd64-macos: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos
 	$(call build,$@,barretenberg/cpp,build_preset amd64-macos)
 
 # Cross-compile for ARM64 macOS (release or CI_FULL)
-bb-cpp-cross-arm64-macos: bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos bb-cpp-yarn
+bb-cpp-cross-arm64-macos: bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_preset arm64-macos)
 
 # Cross-compile for AMD64 Windows (release only)
