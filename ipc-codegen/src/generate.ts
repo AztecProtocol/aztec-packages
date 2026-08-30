@@ -12,7 +12,8 @@
  *
  * Run with no arguments for the full flag reference.
  *
- * Zero npm dependencies — runs with Node.js 22+ via --experimental-strip-types.
+ * Zero npm dependencies — runs with Node.js 22+ via --experimental-transform-types
+ * (which subsumes --experimental-strip-types; strip-only mode cannot handle this source).
  */
 
 import { createHash } from "crypto";
