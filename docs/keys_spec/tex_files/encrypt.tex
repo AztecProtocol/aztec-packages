@@ -1,0 +1,355 @@
+\section{Encrypt}
+
+Alice wants to send Bob a private message, e.g. the contents of a note.\\
+\\
+The goal of this section is to produce a so-called "log" which comprises:
+\begin{itemize}
+    \item Ephemeral public key. (\Mike{or maybe multiple ephemeral keys - see my questions later}).
+    \item Body ciphertext, which contains the actual note.
+    \item Outgoing ciphertext, which enables the sender to derive the symmetric key that was used to encrypt the body ciphertext.
+    \item Incoming header ciphertext. (\Mike{See below for lots of discussion on log layouts, and what this header might contain, depending on some pending decisions}).
+    \item Outgoing header ciphertext.
+\end{itemize}
+\noindent
+\Mike{Once we've been through the basic maths below, there's a section which discusses the difficult topic of log layouts in more detail.}\\
+\\
+Alice performs all the computations in this section, since she is the one sending data to Bob (and a record of the data to herself).\\
+
+\subsection{Ephemeral Keypair}
+
+$\esk \stackrel{\$}{\leftarrow} \Fr$\\
+\\
+$\Epk := \esk \cdot G \in \G$\\
+\\
+\Question{Now, we've touched on this briefly before: I'd like to use the same $(\esk, \Epk)$ pair for all the ciphertexts described here:\\
+\begin{itemize}
+    \item body ciphertext;
+    \item outgoing ciphertext
+    \item incoming header ciphertext;
+    \item outgoing header ciphertext;
+\end{itemize}
+Maybe I'll elaborate on this in a standalone section.
+}
+
+\subsection{Body ciphertext}
+
+The body ciphertext is denoted $\ctbody$.\\
+\\
+Derive a shared secret, using Bob's (possibly app-siloed) incoming viewing public key:\\
+\\
+$\sharedsecretbody := \esk \cdot \Ivpkapp^B$\\
+\\
+Note also: $\sharedsecretbody = \ivskapp^B \cdot \Epk$\\
+\\
+\Info{Notice: as a demonstration of a more-complex flow, I'm using $\Ivpkapp$ here, but it could just as easily be $\Ivpkm$ (in fact, using master keys will be recommended) or $\Ivpkappnonhardened$ or some other app-siloed key - whatever the app wants to do!}\\
+\\
+Derive a body symmetric key:\\
+\\
+\Flag{My AES terminology might need to be corrected, here.}\\
+\\
+$\aesrandomnessbody := \sha(\text{"az\_sym\_key\_body"}, \sharedsecretbody)$\\
+\\
+\Todo{Rigorous serialisation of data into functions, e.g. decomposing $\sharedsecretbody$ into bits}\\
+\\
+\Flag{Note to self: we can re-use $\sharedsecretbody$ to derive randomness for the note! This saves a field element from being included in the plaintext, and hence from being broadcast to L1! The note randomness can be derived as\\
+\\
+$\text{note\_randomness} := \poseidon(\text{"az\_note\_rand"}, \sharedsecretbody) \in \Fr$}\\
+\Question{In Aztec Connect we did this trick too, but we used sha256 to derive the note randomness. Can we use poseidon2 instead? 
+}\\
+\\
+\Patrick{Comment from the diagram: The ephemeral shared secret is indistinguishable from a uniformly random group element, but not necessarily from a uniformly random 256-bit string.
+It must first go through an extraction mechanism to get a uniformly random AES key.}\\
+\\
+\Mike{From a quick read of AES-128, it seems we only need 128 bits of secret randomness for a symmetric key, and 96 bits of public randomness for the IV.
+So 224 bits of randomness.
+Given that, can we do a poseidon2 hash instead of a sha256 hash, to get 254-bits of randomness for $\aesrandomnessbody$? It would save a huge amount of constraints.
+Iiuc, we're assuming we can use poseidon2 as a random oracle?}\\
+\\
+$\symkeybody := \aesrandomnessbody[0:128]$\\
+\\
+$\ivbody := \aesrandomnessbody[128:128 + 96]$\\
+\\
+$\ctbody := \aes(\ptbody; \ivbody, \symkeybody)$\\
+\\
+\Question{Do we want to use AES-128, AES-192, or AES-256?}\\
+\\
+Hooray! We have $\ctbody$!
+
+\subsection{Outgoing ciphertext}
+
+The outgoing ciphertext is effectively an encryption of the symmetric key $\symkeybody$, for the sender, so that they may re-sync a record of their historic activity in future.\\
+\\
+The outgoing plaintext is $\ptout := [ \esk, \Ivpkapp^B, \address_B ]$.\\
+\\
+\Mike{This is borrowed from Zcash (like most of this spec).
+You might wonder why we don't encrypt the $\aesrandomnessbody$ or $\symkeybody$ directly.
+I wonder the same. 
+I think it's because by including the $\esk$ in the plaintext, it serves as a MAC of sorts, enabling Alice to quickly identify that she's successfully decrypted $\ctout$ by computing $\esk \cdot G$, and comparing the result against the published $\Epk$.
+If $\esk$ weren't given, Alice would perhaps need to do more computation before realising that the message is or isn't for her: she'd need to decrypt the body ciphertext $\ctbody$, and then check whether the decrypted note actually exists on chain.
+One could maybe argue that if everyone uses tags, then Alice will already know whether or not the ciphertext is pertinent to her, so the MAC wouldn't be needed.
+I'm not sure if everyone will use tags.\\
+\\
+We'd be able to save on the amount of data being broadcast to L1 if we could replace $[ \esk, \Ivpkapp^B ]$ with $\symkeybody$ (my understanding of AES is that $iv$ is appended to the ciphertext and publicly visible?
+So we put this shorter value $\symkeybody$ inside $\ptout$ instead of the longer value $\aesrandomnessbody$).
+It's a nice potential optimisation to keep in mind.
+Unless Zcash had other reasons for designing $\ptout$ in this way...}\\
+\\
+$\aesrandomnessout := \poseidon(\text{"az\_sym\_key\_out"}, \ovskapp, \Epk)$\\
+\\
+\Mike{
+    \\
+    See p143 of the ZCash spec for why the $\Epk$ is needed in this hash.
+    I don't fully understand the reasoning, but you guys might!\\
+    \\
+    I guess including $\Epk$ also ensures this randomness is unique for each ciphertext; otherwise the sender would be computing the same $\aesrandomnessout$ for every outgoing ciphertext they create!\\
+    \\
+    Do you agree that it should be there?
+    \\
+    Also: zcash includes the note commitment and the note commitment's value (the value of zcash contained within the note) in this preimage and I'm not sure why.
+    Any ideas?
+    Maybe it's to further guarantee uniqueness of $\aesrandomnessout$, since the sender could intentionally repeat their choice of $\Epk$ for multiple transactions - but I'm not sure why they'd want to do that?
+    If the sender wanted to maliciously leak the recipient's note information, they could just leak it! I've removed the note commitment and note commitment's value in this derivation.\\
+    \\
+    ZCash use blake2b here. I'm using poseidon2 - is that ok? I ask a similar question in the previous "Body Ciphertext" section.
+}\\
+\\
+$\symkeyout := \aesrandomnessout[0:128]$\\
+\\
+$\ivout := \aesrandomnessout[128:128 + 96]$\\
+\\
+$\ctout := \aes(\ptout; \ivout, \symkeyout)$\\
+\\
+\Mike{See the "Body Ciphertext" section for questions which also apply identically here.}\\
+\\
+Hooray! We have $\ctout$!
+
+\Khashayar{Comment from the big Miro diagram: General question: do we need to prove correct computation of outgoing ciphertexts anyways?
+I might emit wrong longs for myself but I can't effect the public state (note hashes and nullifiers) with this.
+I could just create wrong logs that cause me to not be able to spend a note that is mine.
+Does this matter?}
+
+\Mike{I think it will depend on the app.
+In ZCash, for example, they don't constrain computation of any ciphertexts, since in the setting of money transfer, disputes around not recieving money can arguably happen offchain.
+Some apps might wish to guarantee these outgoing logs, so that the app developer or some 3rd party can access them, e.g. for some jurisdiction's regulatory reasons.}
+
+\subsection{Header ciphertexts}
+
+
+Ok, so we've created two ciphertexts:
+\begin{itemize}
+    \item $\ctbody$, which can be decrypted by Bob (the recipient), using his app-siloed incoming viewing key.
+    \item $\ctout$, which can be decrypted by Alice (the sender), using her app-siloed outgoing viewing key.
+\end{itemize}
+\noindent
+But how do Alice and Bob know which $\appaddress$ to use in order to derive the app-siloed secret keys that can decrypt these ciphertexts?
+The below proposes that the contract address gets encrypted with Alice and Bob's \textit{master} keys.
+\Info{Note: apps can choose how they silo keys - see the section on App-siloed keys for some options and their tradeoffs.}\\
+\\
+\Mike{Note: if we have tags, and if the tags are designed in such a way that they are app-siloed (see the section on tags), then the tags themselves might convey which contract address to use.
+Some apps might not use tags, though, so I'd rather solve this problem as outlined below.}
+
+\subsubsection{Incoming header ciphertext}\hfill\\
+\\
+$\ptheaderin := \appaddress$\\
+\\
+\Mike{In a later section on log layouts, the header plaintext becomes more complicated: it will include an id that describes the type of data included in the header, and it will include "offset" and "length" details of where to locate the $\ctbody$ and $\ctout$ in a big opaque blob of lots of ciphertexts.
+The reason for bundling ciphertexts into an opaque blob is to improve the privacy of what functions were executed in a transaction.}\\
+\\
+$\sharedsecretheaderin := \esk \cdot \Ivpkm^B$\\
+\\
+\Mike{Notice: as mentioned before, I'm wanting to re-use the same ephemeral keypair here. Pleeeeeeeease.
+It would save lots of bytes of data form being submitted to L1 (and therefore \$\$\$).\\
+Notice also we're using Bob's \textit{master} Ivpk here.}\\
+\\
+$\aesrandomnessheaderin := \sha(\text{"az\_sym\_key\_header\_in"}, \sharedsecretheaderin)$\Mike{It'd be very good if we could use poseidon2 here instead.}\\
+\\
+$\symkeyheaderin := \aesrandomnessheaderin[0:128]$\\
+\\
+$\ivheaderin := \aesrandomnessheaderin[128:128 + 96]$\\
+\\
+$\ctheaderin := \aes(\ptheaderin; \ivheaderin, \symkeyheaderin)$\\
+
+\subsubsection{Outgoing header ciphertext}\hfill\\
+\\
+$\ptheaderout := \appaddress$\\
+\\
+$\sharedsecretheaderout := \esk \cdot \Ovpkm^A$\\
+\\
+\Mike{Notice: as mentioned before, I'm wanting to re-use the same ephemeral keypair here, to save \$\$\$.\\
+\\
+Notice also we're using Alice's \textit{master outgoing} viewing \textit{public} key here.
+The reason we have to use the public key $\Ovpkm$ instead of the secret key $\ovskm$, is because a \textit{master} secret key MUST NOT enter an app circuit ever.
+So the sender encrypts $\ptheaderout$ to their own public key, and must use $\Epk$ to derive a symmetric key to decrypt.}\\
+\\
+$\aesrandomnessheaderout := \sha(\text{"az\_sym\_key\_header\_out"}, \sharedsecretheaderout)$\\
+\\
+\Mike{It'd be very good if we could use poseidon2 here instead for all the aes randomness values throughout.
+It would save thousands of constraints.}\\
+\\
+$\symkeyheaderout := \aesrandomnessheaderout[0:128]$\\
+\\
+$\ivheaderout := \aesrandomnessheaderout[128:128 + 96]$\\
+\\
+$\ctheaderout := \aes(\ptheaderout; \ivheaderout, \symkeyheaderout)$\\
+
+\subsubsection{The final log}\hfill\\
+\\
+$[\Epk, \ctheaderin, \ctheaderout, \ctout, \ctbody]$\\
+\\
+\Mike{This ignores tags for now.
+And has the open plea that we can re-use the same $\esk$ to derive the symmetric keys for three of these ciphertexts ($\ctout$ is derived using the secret $\ovskapp$ instead of $\esk$).
+The log layout gets much more consideration later.}
+
+
+
+
+
+
+
+
+
+
+
+
+\section{Decrypt}
+
+$[\Epk, \ctheaderin, \ctheaderout, \ctout, \ctbody]$
+
+\subsection{Incoming Viewing Header}
+
+Learning the $\appaddress$ that informs which app-siloed key to derive to then decrypt $\ctbody$.\\
+\\
+$\sharedsecretheaderin = \ivskm^B \cdot \Epk$\\
+\\
+$\aesrandomnessheaderin := \sha(\text{"az\_sym\_key\_header\_in"}, \sharedsecretheaderin)$\\
+\\
+$\symkeyheaderin = \aesrandomnessheaderin[0:128]$\\
+\\
+$\ivheaderin = \aesrandomnessheaderin[128:128 + 96]$\\
+\\
+$\ptheaderin = \aesdecrypt(\ctheaderin; ivheaderin, symkeyheaderin)$\\
+\\
+$\appaddress \leftarrow \ptheaderout \in \Fr$\\
+\\
+\Mike{Hmmm... there's no MAC here, so how does the decryptor know whether they've successfully decrypted this? In Aztec Connect, and maybe in ZCash, the user continued further, until they checked whether the eventually-computed note actually exists on-chain in the note hashes tree or not. That's a lot of extra computation before realising decryption failed. A MAC would be an extra field to broadcast on L1, which would be a big shame.}
+
+
+
+\subsection{Outgoing Viewing Header}
+
+Learning the $\appaddress$ that informs which app-siloed key to derive to then decrypt $\ctout$.\\
+\\
+$\sharedsecretheaderout = \ovskm^A \cdot \Epk$\\
+\\
+$\aesrandomnessheaderout := \sha(\text{"az\_sym\_key\_header\_out"}, \sharedsecretheaderout)$\\
+\\
+$\symkeyheaderout = \aesrandomnessheaderout[0:128]$\\
+\\
+$\ivheaderout = \aesrandomnessheaderout[128:128 + 96]$\\
+\\
+$\ptheaderout = \aesdecrypt(\ctheaderout; ivheaderout, symkeyheaderout)$\\
+\\
+$\appaddress \leftarrow \ptheaderout \in \Fr$\\
+
+\Mike{Hmmm... there's no MAC here, so how does the decryptor know whether they've successfully decrypted this? In Aztec Connect, and maybe in ZCash, the user continued further, until they checked whether the eventually-computed note actually exists on-chain in the note hashes tree or not. That's a lot of extra computation before realising decryption failed. A MAC would be an extra field to broadcast on L1, which would be a big shame.}
+
+
+
+\subsection{Outgoing ciphertext}
+
+Learning the symmetric key, by decrypting $\ctout$, so that the sender can then decrypt $\ctbody$.\\
+\\
+First derive the correct $\ovskapp$ from $\ovskm$ and the $\appaddress$ that we learned from decrypting $\ctheaderout$.\\
+\\
+$\aesrandomnessout := \poseidon(\text{"az\_sym\_key\_out"}, \ovskapp^A, \Epk)$\\
+\\
+$\symkeyout := \aesrandomnessout[0:128]$\\
+\\
+$\ivout := \aesrandomnessout[128:128 + 96]$\\
+\\
+$\ptout := \aesdecrypt(\ctout; \ivout, \symkeyout)$\\
+\\
+$[\esk, \Ivpkapp^B, \address_B]\leftarrow \ptout$\\
+\\
+We can now do $\esk \cdot G$ and compare the result against $\Epk$, as a sort-of MAC.
+\Mike{See an earlier question from me (in the 'encrypt' section) asking whether we need this check.}\\
+\\
+$\sharedsecretbody := \esk \cdot \Ivpkapp^B$\\
+\\
+See the next section for how to decrypt from here, as the recipient Bob will perform the same computations from here:
+
+
+
+\subsection{Body ciphertext}
+
+Learning the note data, by decrypting $\ctbody$.\\
+\\
+First derive the correct $\ivskapp$ from $\ivskm$ and the $\appaddress$ that we learned from decrypting $\ctheaderin$.\\
+\\
+$\sharedsecretbody := \ivskm^B \cdot \Epk$\\
+\\
+$\aesrandomnessbody := \sha(\text{"az\_sym\_key\_body"}, \sharedsecretbody)$\\
+\\
+$\symkeybody := \aesrandomnessbody[0:128]$\\
+\\
+$\ivbody := \aesrandomnessbody[128:128 + 96]$\\
+\\
+$\ptbody := \aesdecrypt(\ctbody; \ivbody, \symkeybody)$\\
+\\
+$note \leftarrow \ptbody$\\
+\\
+Hooray! We've decrypted the note! We can now check whether its note hash exists on-chain.\\
+\\
+\Mike{Note: the note can be hashed by calling a special unconstrained function in the app contract, since we know the $\appaddress$}.
+
+
+
+\subsection{Proving decryption without leaking secret keys to a contract or 3rd party}
+
+Suppose an app cannot adopt hardened app-siloed viewing keys, but it wants to protect its users from leaking their master secret keys to an app or 3rd party.\\
+\\
+Is there a way the user $\P$ can prove correct decryption (to a 3rd party or to a circuit $\V$) without leaking the master secret keys?\\
+\\
+The user $\P$ wants to prove, for a given tuple $(\Ivpkm, \Epk, \ct)$:
+\begin{itemize}
+    \item Knowledge of discrete log $\ivskm$ of $\Ivpkm$, with base $G$.
+    \item Knowledge of discrete log $\ivskm$ of $\sharedsecret$, with base $Epk$
+    \item That the same $\ivskm$ was used in both the above.
+\end{itemize}
+\noindent
+The verifier $\V$ is then convinced of the correctness of $\sharedsecret$, and can use it to decrypt $\ct$.\\
+\\
+I think we can use the Chaum-Pedersen protocol for this:
+
+\begin{itemize}
+    \item Define: $A := \Ivpkm$, $B := \sharedsecret$.
+    \item $\P$ samples random $\alpha \in \Fr$.
+    \item $\P$ computes:
+    \begin{itemize}
+        \item $A' \leftarrow \alpha \cdot G$
+        \item $B' \leftarrow \alpha \cdot Epk$
+    \end{itemize} 
+    \item $\P$ computes challenge $c \leftarrow \poseidon(G, \Epk, A, B, A', B') \in \Fr$. \Mike{If $\P$ is proving this outside of a circuit, then they should use a faster bit-twiddly hash here, e.g. sha256.}
+    \item $\P$ computes $t \leftarrow  \alpha - c \cdot \ivskm  \mod r \in \Fr$
+    \item $\P$ sends $((\Ivpkm =: A, \Epk, \ct), \sharedsecret =: B, A', B', t)$ to $\V$.
+    \item $\V$ computes challenge $c$ for themselves: $c \leftarrow \poseidon(G, \Epk, A, B, A', B') \in \Fr$.
+    \item $\V$ checks:
+    \begin{itemize}
+        \item $A' == t \cdot G + c \cdot A$
+        \item $B' == t \cdot \Epk + c \cdot B$
+    \end{itemize}
+\end{itemize}
+\noindent
+$\V$ can then use $\sharedsecret =: B$ to attempt to decrypt $\ct$, to hopefully uncover $\pt$\\
+\\
+So when interacting with an auditor, the auditor can ask "which of these $(\Epk, \ct)$ tuples are decryptable by you (your $\Ivpkm$)?\\
+\\
+The user can then provide lots of tuples $(\sharedsecret =: B, A', B', t)$ for every ciphertext, and the auditor can attempt to decrypt $\ct$ using $\sharedsecret$.\\
+\\
+This approach might be slow, if there are a lot of ciphertexts to prove attempted decryption.
+The set of ciphertexts to brute force with this approach can be greatly reduced if the auditor is also privy to the user's tags, or the user's handshake secret for the tags.
+Then the interaction becomes "Please give me the symmetric keys for all of these ciphertexts, because I know you were tagged".\\
+\\
+In the case of interacting with an auditor, this can all be done off-chain and outside of circuits, which will speed things up a lot.
+\\
+In the case of proving attempted decryption to a smart contract... well, the use case of proving attempted decryption to a smart contract is by its nature very slow, if there are lots of ciphertexts to trial.

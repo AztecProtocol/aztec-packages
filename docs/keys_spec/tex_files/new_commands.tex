@@ -1,0 +1,244 @@
+% Comments 
+
+\newcommand{\Patrick}[1]{\textcolor{blue}{{\bf Patrick}: #1}}
+\newcommand{\Khashayar}[1]{\textcolor{teal}{{\bf Khashayar}: #1}}
+\newcommand{\Mike}[1]{\textcolor{purple}{{\bf Mike}: #1}}
+
+% I started categorising things, but most things ended up being bundled under "Mike:"
+\newcommand{\Todo}[1]{\textcolor{gray}{{\bf Todo}: #1}}
+\newcommand{\Info}[1]{\textcolor{gray}{{\bf Info}: #1}}
+\newcommand{\Assumption}[1]{\textcolor{orange}{{\bf Assumption}: #1}}
+\newcommand{\Flag}[1]{\textcolor{red}{{\bf Flag}: #1}}
+\newcommand{\Question}[1]{\textcolor{red}{{\bf Question}: #1}}
+\newcommand{\Problem}[1]{\textcolor{red}{{\bf Problem}: #1}}
+
+% Fonts
+
+\newcommand{\partyfont}[1]{\mathcal{#1}}
+\newcommand{\algofont}[1]{\textproc{#1}}
+\newcommand{\iofont}[1]{\ensuremath{\mathit{#1}}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+% Language
+
+\newcommand{\ie}{i.e.,\@\xspace}
+\newcommand{\eg}{e.g.,\@\xspace}
+\newcommand{\etal}{et al.\@\xspace}
+\newcommand{\wrt}{w.r.t.\@\xspace}
+
+% Maths
+
+% \renewcommand{\vec}[1]{\mathbf{#1}}
+\renewcommand{\matrix}[1]{\mathbf{#1}}
+\newcommand{\trans}[1]{#1^\mathrm{T}}
+\newcommand{\D}{\mathcal{D}}
+\newcommand{\sample}{\gets_{\$}}
+\newcommand{\eeq}{\stackrel{{}_?}{=}}
+\renewcommand{\epsilon}{\varepsilon}
+\newcommand{\dlog}{\operatorname{dlog}}
+\newcommand{\ord}{\operatorname{ord}}
+
+	% Sets
+
+	\newcommand{\bin}{\{0, 1\}}
+	\newcommand{\N}{\mathbb{N}}
+	\newcommand{\Z}{\mathbb{Z}}
+	\newcommand{\F}{\mathbb{F}}
+	\newcommand{\Fr}{\mathbb{F}_r}
+	\newcommand{\Fq}{\mathbb{F}_q}
+	\newcommand{\G}{\mathbb{G}}
+	\renewcommand{\L}{\mathcal{L}}
+	\newcommand{\R}{\mathcal{R}}
+	%\newcommand{\llb}{\left\llbracket}
+	%\newcommand{\rrb}{\right\rrbracket} 
+
+% Parameters
+
+\newcommand{\secpar}{\lambda}
+\newcommand{\param}{\iofont{par}}
+\newcommand{\aux}{\iofont{aux}}
+\newcommand{\crs}{\iofont{crs}}
+\newcommand{\srs}{\iofont{srs}}
+
+% General Algorithms
+
+\newcommand{\Setup}{\algofont{Setup}}
+\newcommand{\KG}{\algofont{KG}}
+\newcommand{\SRSGen}{\algofont{SRSGen}}
+\newcommand{\Gen}{\algofont{G}}
+\newcommand{\Verf}{\algofont{Vf}}
+
+% Cryptographic Keys
+
+\newcommand{\seed}{\text{seed}}
+\newcommand{\pk}{\iofont{pk}}
+\newcommand{\sk}{\iofont{sk}}
+
+\newcommand{\nskm}{\iofont{nsk}_m}
+\newcommand{\ivskm}{\iofont{ivsk}_m}
+\newcommand{\ovskm}{\iofont{ovsk}_m}
+
+\newcommand{\Npkm}{\iofont{Npk}_{m}}
+\newcommand{\Ivpkm}{\iofont{Ivpk}_m}
+\newcommand{\Ovpkm}{\iofont{Ovpk}_m}
+
+\newcommand{\nskapp}{\iofont{nsk}_{app}}
+\newcommand{\ivskapp}{\iofont{ivsk}_{app}}
+\newcommand{\ivskappnonhardened}{\iofont{ivsk}_{app}^{\text{non-hardened}}}
+\newcommand{\ivsk}{\iofont{ivsk}}
+\newcommand{\ovskapp}{\iofont{ovsk}_{app}}
+\newcommand{\Ovskapp}{\iofont{Ovsk}_{app}}
+\newcommand{\Nskapp}{\iofont{Nsk}_{app}}
+\newcommand{\Npkapp}{\iofont{Npk}_{app}}
+\newcommand{\Ivpkapp}{\iofont{Ivpk}_{app}}
+\newcommand{\Ivpkappnonhardened}{\iofont{Ivpk}_{app}^{\text{non-hardened}}}
+\newcommand{\Ivpk}{\iofont{Ivpk}}
+\newcommand{\Ovpkapp}{\iofont{Ovpk}_{app}}
+
+\newcommand{\appaddress}{\text{app\_address}}
+\newcommand{\address}{\text{address}}
+
+\newcommand{\poseidon}{\text{poseidon2}}
+\newcommand{\sha}{\text{sha256}}
+\newcommand{\shahmac}{\text{sha512-hmac}}
+
+\newcommand{\Gsilo}{G_{\text{silo}}}
+\newcommand{\Gappaddress}{G_{\appaddress}}
+
+	% Encryption
+
+	\newcommand{\ek}{\iofont{ek}}
+	\newcommand{\dk}{\iofont{dk}}
+
+	\newcommand{\esk}{\iofont{esk}}
+	\newcommand{\Epk}{\iofont{Epk}}
+
+	\newcommand{\eskhs}{\iofont{esk_{hs}}}
+	\newcommand{\Epkhs}{\iofont{Epk_{hs}}}
+	\newcommand{\EpkhsA}{\iofont{Epk_{hs}^A}}
+
+	\newcommand{\ct}{\iofont{ct}}
+	\newcommand{\ctbody}{\ct_{\text{body}}}
+	\newcommand{\ctout}{\ct_{\text{out}}}
+	\newcommand{\ctheaderin}{\ct_{\text{header, in}}}
+	\newcommand{\ctheaderout}{\ct_{\text{header, out}}}
+	\newcommand{\cthsout}{\ct_{\text{hs, out}}}
+
+
+	\newcommand{\pt}{\iofont{pt}}
+	\newcommand{\ptbody}{\pt_{\text{body}}}
+	\newcommand{\ptout}{\pt_{\text{out}}}
+	\newcommand{\ptheaderin}{\pt_{\text{header, in}}}
+	\newcommand{\ptheaderout}{\pt_{\text{header, out}}}
+	\newcommand{\pthsout}{\pt_{\text{hs, out}}}
+
+
+	\newcommand{\sharedsecret}{\iofont{S}}
+	\newcommand{\sharedsecretbody}{\iofont{S}_{\text{body}}}
+	\newcommand{\sharedsecretheaderin}{\iofont{S}_{\text{header, in}}}
+	\newcommand{\sharedsecretheaderout}{\iofont{S}_{\text{header, out}}}
+	
+	\newcommand{\aesrandomnessbody}{\text{aes\_randomness}_{\text{body}}}
+	\newcommand{\aesrandomnessout}{\text{aes\_randomness}_{\text{out}}}
+	\newcommand{\aesrandomnessheaderin}{\text{aes\_randomness}_{\text{header, in}}}
+	\newcommand{\aesrandomnessheaderout}{\text{aes\_randomness}_{\text{header, out}}}
+	\newcommand{\aesrandomnesshsout}{\text{aes\_randomness}_{\text{hs, out}}}
+	
+	\newcommand{\symkeybody}{\iofont{sym}_{\text{body}}}
+	\newcommand{\symkeyout}{\iofont{sym}_{\text{out}}}
+	\newcommand{\symkeyheaderin}{\iofont{sym}_{\text{header, in}}}
+	\newcommand{\symkeyheaderout}{\iofont{sym}_{\text{header, out}}}
+	\newcommand{\symkeyhsout}{\iofont{sym}_{\text{hs, out}}}
+	
+	\newcommand{\ivbody}{\iofont{iv}_\text{body}}
+	\newcommand{\ivout}{\iofont{iv}_\text{out}}
+	\newcommand{\ivheaderin}{\iofont{iv}_\text{header, in}}
+	\newcommand{\ivheaderout}{\iofont{iv}_\text{header, out}}
+	\newcommand{\ivhsout}{\iofont{iv}_\text{hs, out}}
+	
+	\newcommand{\aes}{\text{AES128\_enc}}
+	\newcommand{\aesdecrypt}{\text{AES128\_dec}}
+	
+	
+	
+	
+	% Signatures
+	
+	\newcommand{\vk}{\iofont{vk}}
+	
+	% Commitments
+	
+	\newcommand{\ck}{\iofont{ck}}
+	
+	% Variables
+	
+	\newcommand{\st}{\iofont{st}}
+	\newcommand{\id}{\iofont{id}}
+	\newcommand{\msg}{\iofont{M}}
+	
+	% Encryption
+	
+	% \newcommand{\ct}{\iofont{C}}
+	
+	
+	% Signatures
+	
+	\newcommand{\sig}{\sigma}
+	
+	% Security Experiments
+	
+	\newcommand{\A}{\mathcal{A}}
+	\newcommand{\B}{\mathcal{B}}
+	\newcommand{\C}{\mathcal{C}}
+	\newcommand{\E}{\mathcal{E}}
+	\renewcommand{\H}{\mathcal{H}}
+	\renewcommand{\O}{\mathcal{O}}
+	\newcommand{\Adv}[3]{\mathbf{Adv}^{#1}_{#3}\left(#2\right)}
+	
+	% Encryption
+	
+	\newcommand{\PKE}{\algofont{PKE}}
+	\newcommand{\AEAD}{\algofont{AEAD}}
+	
+	% Algorithms
+	
+	\newcommand{\Enc}{\algofont{Enc}}
+	\newcommand{\Dec}{\algofont{Dec}}
+	
+	% Signatures
+	
+	\newcommand{\SIG}{\Sigma}
+	
+	% Algorithms
+	
+	\newcommand{\Sign}{\algofont{Sign}}
+	
+	% Commitments
+	
+	\newcommand{\Com}{\algofont{Com}}
+	\newcommand{\Open}{\algofont{Open}}
+	\newcommand{\ComVf}{\algofont{ComVf}}
+	
+	% Polynomial Commitments
+	
+	\newcommand{\Eval}{\algofont{Eval}}
+	
+	% Proof Systems
+	
+	\renewcommand{\P}{\partyfont{P}}
+	\newcommand{\V}{\partyfont{V}}
+	\newcommand{\Prove}{\algofont{Prove}}
+	
+	% PRFs
+	
+	\newcommand{\PRF}{\algofont{F}}
+	
+	% Other
+	
+	\newcommand{\sharedsecreths}{\iofont{S}_{hs}^{A \rightarrow B}}
+	\newcommand{\hashedsecret}{\text{hashed\_secret}}
+	\newcommand{\fuzzytaghs}{\text{fuzzy\_tag}_{hs}}
+	\newcommand{\sharedsecretnote}{\text{note\_hash}_{S^{A \rightarrow B}}}
+	\newcommand{\tagcounternullifier}{\text{nullifier}_{tag\_i}^{\appaddress}}
+	\newcommand{\nexttagcounternullifier}{\text{nullifier}_{tag\_\{i+1\}}^{\appaddress}}
+	\newcommand{\sharedsecretspam}{\iofont{S}_{spam}^{A \rightarrow B}}
