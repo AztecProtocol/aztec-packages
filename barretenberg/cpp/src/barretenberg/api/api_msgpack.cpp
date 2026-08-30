@@ -35,10 +35,24 @@ int process_msgpack_commands(std::istream& input_stream)
         if (input_stream.gcount() != sizeof(length)) {
             break; // EOF or incomplete length
         }
+        if (length < sizeof(uint64_t)) {
+            std::cerr << "Error: frame shorter than its request id" << '\n';
+            std::cout.rdbuf(original_cout_buf);
+            return 1;
+        }
 
-        std::vector<uint8_t> buffer(length);
-        input_stream.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(length));
-        if (input_stream.gcount() != static_cast<std::streamsize>(length)) {
+        uint64_t request_id = 0;
+        input_stream.read(reinterpret_cast<char*>(&request_id), sizeof(request_id));
+        if (input_stream.gcount() != sizeof(request_id)) {
+            std::cerr << "Error: Incomplete request id read" << '\n';
+            std::cout.rdbuf(original_cout_buf);
+            return 1;
+        }
+
+        const auto payload_length = static_cast<std::streamsize>(length - sizeof(uint64_t));
+        std::vector<uint8_t> buffer(static_cast<size_t>(payload_length));
+        input_stream.read(reinterpret_cast<char*>(buffer.data()), payload_length);
+        if (input_stream.gcount() != payload_length) {
             std::cerr << "Error: Incomplete msgpack buffer read" << '\n';
             std::cout.rdbuf(original_cout_buf);
             return 1;
@@ -49,8 +63,9 @@ int process_msgpack_commands(std::istream& input_stream)
         std::vector<uint8_t> response;
         handler(buffer, [&response](std::vector<uint8_t> r) { response = std::move(r); });
 
-        auto response_length = static_cast<uint32_t>(response.size());
+        auto response_length = static_cast<uint32_t>(response.size() + sizeof(uint64_t));
         stdout_stream.write(reinterpret_cast<const char*>(&response_length), sizeof(response_length));
+        stdout_stream.write(reinterpret_cast<const char*>(&request_id), sizeof(request_id));
         stdout_stream.write(reinterpret_cast<const char*>(response.data()),
                             static_cast<std::streamsize>(response.size()));
         stdout_stream.flush();
