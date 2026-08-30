@@ -9,8 +9,10 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <array>
 #include <cerrno>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <random>
 #if defined(__APPLE__)
@@ -253,7 +255,18 @@ RNG& get_debug_randomness(bool reset, std::uint_fast64_t seed)
 }
 
 /**
- * Default engine. If wanting consistent proof construction, uncomment the line to return the debug engine.
+ * Default engine.
+ *
+ * `BB_RNG_SEED=<u64>` replaces it with the seeded debug engine, making every draw reproducible:
+ * witness-map gap fills, in-circuit masking during recursive-verifier construction, and ZK masking
+ * all become a function of the seed. This exists so a proof can be reproduced byte-for-byte — by a
+ * differential test, a conformance suite, or a bug report — and it is NOT SAFE for production use:
+ * a predictable engine destroys the zero-knowledge property and the hiding of every commitment.
+ * It therefore announces itself loudly on stderr.
+ *
+ * Reproducibility additionally requires a deterministic draw ORDER. Non-ZK proving draws only in
+ * single-threaded phases and reproduces at any thread count, but ZK proving draws from parallel
+ * phases: pin `HARDWARE_CONCURRENCY=1` for those, or the same seed will yield different proofs.
  */
 RNG& get_randomness()
 {
@@ -261,6 +274,20 @@ RNG& get_randomness()
     // Use determinism for logging
     return get_debug_randomness();
 #else
+    static RNG* const seeded = []() -> RNG* {
+        const char* seed_env = std::getenv("BB_RNG_SEED");
+        if (seed_env == nullptr) {
+            return nullptr;
+        }
+        const uint64_t seed = std::strtoull(seed_env, nullptr, 10);
+        std::cerr << "\n*** BB_RNG_SEED=" << seed << " — randomness is SEEDED and PREDICTABLE. ***\n"
+                  << "*** Proofs are reproducible but NOT zero-knowledge. Never set this in production. ***\n"
+                  << "*** ZK proving additionally needs HARDWARE_CONCURRENCY=1 to reproduce. ***\n\n";
+        return &get_debug_randomness(/*reset=*/true, seed);
+    }();
+    if (seeded != nullptr) {
+        return *seeded;
+    }
     static RandomEngine engine;
     return engine;
 #endif
