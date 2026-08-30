@@ -4,7 +4,7 @@ import { BarretenbergWasmAsyncBackend, BarretenbergWasmSyncBackend } from '../wa
 import { BarretenbergNativeShmSyncBackend } from './native_shm.js';
 import { BarretenbergNativeShmAsyncBackend } from './native_shm_async.js';
 import { BarretenbergNativeSocketAsyncBackend } from './native_socket.js';
-import { findBbBinary, findNapiBinary } from './platform.js';
+import { findBbBinary } from './platform.js';
 
 /**
  * Create backend of specific type (no fallback)
@@ -34,12 +34,8 @@ export async function createAsyncBackend(
       if (!bbPath) {
         throw new Error('Native backend requires bb binary.');
       }
-      const napiPath = findNapiBinary(options.napiPath);
-      if (!napiPath) {
-        throw new Error('Native async backend requires napi client stub.');
-      }
       logger(`Using native shared memory async backend: ${bbPath}`);
-      return await BarretenbergNativeShmAsyncBackend.new(bbPath, napiPath, options.threads, options.logger);
+      return await BarretenbergNativeShmAsyncBackend.new(bbPath, options.napiPath, options.threads, options.logger);
     }
 
     case BackendType.Wasm:
@@ -80,12 +76,8 @@ export async function createSyncBackend(
       if (!bbPath) {
         throw new Error('Native backend requires bb binary.');
       }
-      const napiPath = findNapiBinary(options.napiPath);
-      if (!napiPath) {
-        throw new Error('Native sync backend requires napi client stub.');
-      }
       logger(`Using native shared memory backend: ${bbPath}`);
-      return await BarretenbergNativeShmSyncBackend.new(bbPath, napiPath, options.threads, options.logger);
+      return await BarretenbergNativeShmSyncBackend.new(bbPath, options.napiPath, options.threads, options.logger);
     }
 
     case BackendType.Wasm: {

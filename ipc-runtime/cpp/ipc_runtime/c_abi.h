@@ -115,6 +115,14 @@ ipc_client_t* ipc_make_client(const char* path, size_t shm_client_id);
 ipc_client_t* ipc_client_create_socket(const char* socket_path);
 ipc_client_t* ipc_client_create_mpsc_shm(const char* base_name, size_t client_id);
 
+/* Pipe transport over an already-open fd pair, for talking to a child process
+ * over its stdin/stdout. `in_fd` is read from, `out_fd` written to. There is
+ * no path form: a pipe endpoint is
+ * a pair of descriptors, not a name, so `ipc_make_client` cannot express it.
+ * The descriptors are duplicated: the caller keeps ownership of the originals
+ * and should close them as usual. */
+ipc_client_t* ipc_client_create_pipe(int in_fd, int out_fd);
+
 void ipc_client_destroy(ipc_client_t* client);
 
 bool ipc_client_connect(ipc_client_t* client);

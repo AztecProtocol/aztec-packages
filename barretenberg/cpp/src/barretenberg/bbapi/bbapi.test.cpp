@@ -45,7 +45,6 @@ TYPED_TEST(BBApiMsgpack, DefaultConstructorRoundtrip)
     typename TypeParam::Response response{};
     auto [actual_response, expected_response] = msgpack_roundtrip(response);
     EXPECT_EQ(actual_response, expected_response);
-    std::cout << msgpack_schema_to_string(command) << " " << msgpack_schema_to_string(response) << std::endl;
 }
 
 // Regression tests for input validation at API boundaries.

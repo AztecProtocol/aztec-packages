@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <unistd.h>
 
 namespace ipc {
 
@@ -16,6 +17,11 @@ bool ends_with(const std::string& s, const std::string& suffix)
 
 std::unique_ptr<IpcServer> make_server(const std::string& input_path, const ServerOptions& opts)
 {
+    // "-" is the conventional CLI spelling for stdio: serve the process's own
+    // stdin/stdout (a parent spawned us with piped stdio, PipeBackend-style).
+    if (input_path == "-") {
+        return IpcServer::create_pipe(STDIN_FILENO, STDOUT_FILENO);
+    }
     if (ends_with(input_path, ".sock")) {
         return IpcServer::create_socket(input_path, opts.socket_backlog);
     }

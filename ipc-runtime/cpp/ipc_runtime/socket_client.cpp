@@ -181,7 +181,7 @@ std::span<const uint8_t> SocketClient::receive(uint64_t timeout_ns, uint64_t& re
         close_internal();
         return {};
     }
-    msg_len -= FRAME_ID_SIZE;
+    msg_len -= static_cast<uint32_t>(FRAME_ID_SIZE);
 
     // Ensure buffer is large enough. Keep at least one byte so data() is
     // non-null for zero-length messages (null data() signals failure).

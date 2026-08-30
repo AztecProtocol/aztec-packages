@@ -12,7 +12,11 @@ interface PendingCall {
 }
 
 export interface UdsIpcClientConnectOptions {
-  /** Mark the socket as unref'd so it doesn't keep the Node event loop alive when idle. */
+  /**
+   * Unref the socket while idle so it doesn't keep the Node event loop
+   * alive; it is re-ref'd while calls are in flight so a response can never
+   * be lost to an early process exit.
+   */
   unref?: boolean;
   /**
    * Retry budget (ms) for the initial connect when the server has bound the
@@ -20,6 +24,13 @@ export interface UdsIpcClientConnectOptions {
    * ECONNREFUSED. Default CONNECT_RETRY_BUDGET_MS (5000).
    */
   connectTimeoutMs?: number;
+  /**
+   * Abandons the connect. Callers that race the connect against something
+   * else (a spawned server dying, say) must abort the loser: otherwise it
+   * keeps retrying on a timer until its budget expires, holding the event
+   * loop open long after the caller gave up.
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -42,7 +53,10 @@ export class UdsIpcClient implements IpcClientAsync {
   /** Set once the socket has errored/closed; new calls fail fast. */
   private closed = false;
 
-  private constructor(private conn: net.Socket) {
+  private constructor(
+    private conn: net.Socket,
+    private readonly idleUnref: boolean,
+  ) {
     conn.on("data", (chunk) => this.onData(chunk));
     conn.on("error", (err) =>
       this.failAll(
@@ -63,10 +77,11 @@ export class UdsIpcClient implements IpcClientAsync {
     const conn = await connectWithRetry(
       socketPath,
       opts?.connectTimeoutMs ?? CONNECT_RETRY_BUDGET_MS,
+      opts?.signal,
     );
     conn.setNoDelay(true);
     if (opts?.unref) conn.unref();
-    return new UdsIpcClient(conn);
+    return new UdsIpcClient(conn, opts?.unref ?? false);
   }
 
   /** Number of in-flight calls awaiting a response. */
@@ -90,6 +105,9 @@ export class UdsIpcClient implements IpcClientAsync {
     }
     return new Promise<Uint8Array>((resolve, reject) => {
       const requestId = this.nextRequestId++;
+      if (this.idleUnref && this.pending.size === 0) {
+        this.conn.ref();
+      }
       this.pending.set(requestId, { resolve, reject });
       const header = Buffer.allocUnsafe(12);
       header.writeUInt32LE(input.length + 8, 0); // length counts id + payload
@@ -143,6 +161,9 @@ export class UdsIpcClient implements IpcClientAsync {
       const next = this.pending.get(requestId);
       if (next) {
         this.pending.delete(requestId);
+        if (this.idleUnref && this.pending.size === 0) {
+          this.conn.unref();
+        }
         next.resolve(new Uint8Array(payload));
       } else {
         // A response that pairs with no pending call means the stream's
@@ -180,11 +201,15 @@ export class UdsIpcClient implements IpcClientAsync {
 async function connectWithRetry(
   socketPath: string,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<net.Socket> {
   const deadline = Date.now() + timeoutMs;
   let attempt = 0;
   let lastErr: Error | undefined;
   while (true) {
+    if (signal?.aborted) {
+      throw new IpcTransportError("UdsIpcClient: connect aborted");
+    }
     try {
       const remainingMs = Math.max(1, deadline - Date.now());
       return await attemptConnect(socketPath, remainingMs);
@@ -210,7 +235,7 @@ async function connectWithRetry(
         );
       }
       const delay = Math.min(50, 5 * 2 ** attempt++);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await sleep(delay, signal);
     }
   }
 }
@@ -246,5 +271,20 @@ function attemptConnect(
     }, timeoutMs);
     conn.once("connect", onConnect);
     conn.once("error", onError);
+  });
+}
+
+/** Wait `ms`, returning early (and clearing the timer) if `signal` aborts. */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
