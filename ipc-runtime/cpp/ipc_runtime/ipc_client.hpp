@@ -161,6 +161,11 @@ class IpcClient {
     // Multi-producer SHM: one request ring per client slot and one response
     // ring per client slot. This is what make_client("*.shm") selects.
     static std::unique_ptr<IpcClient> create_mpsc_shm(const std::string& base_name, size_t client_id = kAutoClientId);
+    // Talk to a PipeServer over an already-open fd pair (typically the pipes of
+    // a child spawned with piped stdio). Same framing as the socket transport.
+    // Pipe transport over an fd pair. The client takes ownership: both
+    // descriptors are closed on close()/destruction.
+    static std::unique_ptr<IpcClient> create_pipe(int in_fd, int out_fd);
 };
 
 /**

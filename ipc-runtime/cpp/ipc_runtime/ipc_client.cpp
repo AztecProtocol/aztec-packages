@@ -1,5 +1,6 @@
 #include "ipc_runtime/ipc_client.hpp"
 #include "ipc_runtime/mpsc_shm_client.hpp"
+#include "ipc_runtime/pipe_client.hpp"
 #include "ipc_runtime/shm_client.hpp"
 #include "ipc_runtime/socket_client.hpp"
 #include <cstddef>
@@ -21,6 +22,11 @@ std::unique_ptr<IpcClient> IpcClient::create_shm(const std::string& base_name)
 std::unique_ptr<IpcClient> IpcClient::create_mpsc_shm(const std::string& base_name, size_t client_id)
 {
     return std::make_unique<MpscShmClient>(base_name, client_id);
+}
+
+std::unique_ptr<IpcClient> IpcClient::create_pipe(int in_fd, int out_fd)
+{
+    return std::make_unique<PipeClient>(in_fd, out_fd);
 }
 
 } // namespace ipc

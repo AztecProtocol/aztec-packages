@@ -70,13 +70,13 @@ describe('BarretenbergNativeSocketAsyncBackend', () => {
   it('fails with the exit cause when bb dies before creating its socket', async () => {
     const fakeBb = writeFakeBbScript(`#!/bin/bash\nexit 17\n`);
     await expect(BarretenbergNativeSocketAsyncBackend.new(fakeBb)).rejects.toThrow(
-      /exited before socket connection was established \(code=17/,
+      /exited before IPC connection was ready \(code=17/,
     );
   });
 
   it('fails with the spawn error when the bb binary does not exist', async () => {
     await expect(BarretenbergNativeSocketAsyncBackend.new('/nonexistent/bb-binary')).rejects.toThrow(
-      /Native backend process error/,
+      /Failed to spawn bb/,
     );
   });
 });

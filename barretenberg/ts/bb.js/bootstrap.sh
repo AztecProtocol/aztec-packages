@@ -14,7 +14,9 @@ hash=$(hash_str \
 
 function prepare_project {
   (cd .. && ./bootstrap.sh generate_packages)
-  (cd .. && npm_install_deps)
+  # Same cache-key inputs as barretenberg/ts/bootstrap.sh: the workspaces
+  # portal into ipc-runtime/ts, so its manifest belongs in the key.
+  (cd .. && npm_install_deps "^ipc-runtime/ts/package\.json$")
 }
 
 function formatting {
