@@ -69,11 +69,12 @@ fast-foundation: barretenberg bb-tests \
 		ipc-runtime ipc-codegen-tests \
 		constants-codegen constants-codegen-tests \
 		labs-patches-tests \
+		ci3-tests \
 		claude-tests
 
 # The labs components are built from the aztec-node checkout in the labs/ submodule, against
 # this tree's packages and binaries (see the Labs section).
-fast-labs: labs-fast
+fast-labs: labs-fast labs-docs-refs-check
 
 fast: fast-foundation fast-labs
 
@@ -254,17 +255,19 @@ bb-cpp-release-dir: bb-cpp-native bb-cpp-cross bb-cpp-wasm bb-cpp-wasm-threads
 
 bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
 
-# BB TypeScript - TypeScript bindings. Ordered after bb-cdb (itself after bb-avm-sim): all three
-# regenerate the same barretenberg/ts workspaces and `yarn install` into the same node_modules, so
-# running them in parallel races whenever the node_modules cache misses.
-bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime bb-cdb
+# BB TypeScript - TypeScript bindings
+bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
 	$(call build,$@,barretenberg/ts,build_bb_js)
 
 # Copies the cross-compiles into bb.js.
 bb-ts-cross-copy: bb-ts bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy_bb_js)
 
-bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native
+# Ordered after bb-ts for the same reason bb-cdb is ordered after this: they install into
+# the same barretenberg/ts node_modules. bb-ts additionally emits the bb.js test commands,
+# which the test engine runs concurrently with the rest of the build out of that same tree,
+# so an unordered npm_install_deps here swaps files under a running node (SIGBUS).
+bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native bb-ts
 	$(call build,$@,barretenberg/ts,build_bb_avm_sim)
 
 # Ordered after bb-cdb for the same reason bb-cdb is ordered after bb-avm-sim:
@@ -393,6 +396,11 @@ wsdb: ipc-codegen ipc-runtime bb-cpp-native
 claude-tests:
 	$(call test,$@,.claude)
 
+# The ci3 scripts' own tests (redact, semver, cache, ...).
+.PHONY: ci3-tests
+ci3-tests:
+	$(call test,$@,ci3)
+
 #==============================================================================
 # Labs (aztec-node, checked out as the labs/ submodule)
 #==============================================================================
@@ -453,13 +461,26 @@ LABS_MAKE := $(ROOT)/scripts/labs_env.sh $(MAKE)
 # fast covers what a foundation change can break: labs compiled against the portals and its
 # unit/e2e tests, and the contracts against this tree's nargo/bb. docs, spartan, playground and
 # the claude tooling only consume yarn-project and go in full (the pin-bump PR runs full).
-labs-fast: labs-use-local
-	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) \
-	  yarn-project yarn-project-tests aztec-nr noir-contracts contract-snapshots-tests)
+LABS_FAST_GOALS := yarn-project yarn-project-tests aztec-nr noir-contracts contract-snapshots-tests
+LABS_FULL_GOALS := spartan playground playground-tests docs docs-tests claude-tests yarn-project-benches
 
-labs-full: labs-fast
-	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) \
-	  spartan playground playground-tests docs docs-tests claude-tests yarn-project-benches)
+# full runs one sub-make over both goal sets rather than chaining labs-full onto labs-fast.
+# make only de-duplicates targets within a process, so a second invocation rebuilds the
+# yarn-project target that every full goal depends on. That rebuild re-enters
+# yarn-project/bootstrap.sh, whose clean-lite wipes the gitignored build output (dest/) and
+# whose npm_install_deps re-extracts node_modules -- while the tests labs-fast already
+# streamed to the concurrent test engine are still reading that tree.
+labs-fast: labs-use-local
+	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) $(LABS_FAST_GOALS))
+
+labs-full: labs-use-local
+	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) $(LABS_FAST_GOALS) $(LABS_FULL_GOALS))
+
+# The docs build runs check_doc_references.sh, but the docs build is full-only, so a patch
+# with references the checker cannot resolve passes PR (fast) CI and fails the merge queue.
+# The check itself is seconds of bash; run it in fast.
+labs-docs-refs-check: labs-patched
+	$(call run_command,$@,$(LABS_DIR)/docs,./scripts/check_doc_references.sh docs)
 
 # Just the labs yarn-project, for callers that need its build output and nothing else.
 labs-yarn-project: labs-use-local
@@ -468,7 +489,7 @@ labs-yarn-project: labs-use-local
 labs-bench: labs-use-local
 	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) bench)
 
-.PHONY: labs-deps labs-patched labs-patches-tests labs-use-local labs-fast labs-full labs-bench labs-yarn-project fnd-artifacts-stage
+.PHONY: labs-deps labs-patched labs-patches-tests labs-use-local labs-fast labs-full labs-bench labs-yarn-project labs-docs-refs-check fnd-artifacts-stage
 
 #==============================================================================
 # Noir Projects
