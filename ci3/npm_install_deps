@@ -23,9 +23,24 @@ extra_deps=("$@")
 # The checking for ci-started makes sure we really *are* on a CI machine (it's created in bootstrap_ec2).
 if [ "$CI" -eq 1 ] && [ -f $HOME/ci-started ] && [ "${NO_CACHE:-0}" -eq 0 ]; then
   nm_hash=$(cache_content_hash "^$yarn_lock_path" "^$package_json_path" "${extra_deps[@]}")
+  # Several targets install the same project (e.g. barretenberg/ts is installed by
+  # build_bb_js, build_bb_avm_sim and build_cdb). Extracting the archive again is not
+  # harmless: tar unlinks each entry before recreating it, so a test that the engine is
+  # already running out of this tree sees a module vanish (ERR_MODULE_NOT_FOUND) or has a
+  # file it mapped replaced underneath it (SIGBUS). Record what is installed and do
+  # nothing when it already matches. The marker lives inside node_modules, so wiping the
+  # tree invalidates it, and it is written before upload so restores carry it too.
+  marker=node_modules/.ci3-nm-hash
+  if [ "$(cat $marker 2>/dev/null)" == "$nm_hash" ]; then
+    echo_stderr "node_modules already installed at $nm_hash."
+    exit 0
+  fi
   if ! cache_download node-modules-$nm_hash.zst; then
     denoise "retry 'find . -type d -iname node_modules -not -path \"*/node_modules/*\" | xargs rm -rf && yarn install --immutable'"
+    if [ -d node_modules ]; then echo "$nm_hash" >$marker; fi
     cache_upload node-modules-$nm_hash.zst $(find . -type d -iname node_modules -not -path "*/node_modules/*")
+  else
+    if [ -d node_modules ]; then echo "$nm_hash" >$marker; fi
   fi
 else
   if [ "$CI" -ne 1 ]; then
