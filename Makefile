@@ -255,10 +255,8 @@ bb-cpp-release-dir: bb-cpp-native bb-cpp-cross bb-cpp-wasm bb-cpp-wasm-threads
 
 bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
 
-# BB TypeScript - TypeScript bindings. Ordered after bb-cdb (itself after bb-avm-sim): all three
-# regenerate the same barretenberg/ts workspaces and `yarn install` into the same node_modules, so
-# running them in parallel races whenever the node_modules cache misses.
-bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime bb-cdb
+# BB TypeScript - TypeScript bindings
+bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
 	$(call build,$@,barretenberg/ts,build_bb_js)
 
 # Copies the cross-compiles into bb.js.
