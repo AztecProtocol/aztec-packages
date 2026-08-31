@@ -28,7 +28,7 @@ The bulk test drives a real public-tx flow: it **simulates** the `AvmTest` contr
 # 3. Refresh the AVM test contract artifact. Merge-train changes to constants.nr / AVM opcodes make the
 #    pinned AvmTest bytecode revert immediately (see "reverts with 0 instructions" below). nargo + the
 #    avm-transpiler must already be built (they are after any recent noir/noir-projects build).
-(cd noir-projects/labs/noir-contracts && ./bootstrap.sh build avm_test_contract)
+(cd labs/noir-projects/noir-contracts && ./bootstrap.sh build avm_test_contract)
 
 # 4. Link portals, regenerate the AvmTest TS wrapper from the fresh artifact, compile TS.
 (cd yarn-project && yarn install \
