@@ -313,15 +313,37 @@ set -euo pipefail
 ./noir-projects/labs/precommit.sh
 ./yarn-project/constants/precommit.sh
 ./docs/examples/ts/precommit.sh
+# Hooks are shared by every branch of this clone; older branches have no labs-patches.
+if [ -x ./labs-patches/bootstrap.sh ]; then ./labs-patches/bootstrap.sh check_staged; fi
 EOF
   chmod +x $hooks_dir/pre-commit
 
+  # A failed patch apply must not fail the git operation that triggered it: report and let
+  # the developer re-run apply.
   cat <<EOF >$hooks_dir/post-merge
 #!/usr/bin/env bash
 set -euo pipefail
 git submodule update --init --recursive
+if [ -x ./labs-patches/bootstrap.sh ]; then
+  ./labs-patches/bootstrap.sh apply || echo "labs-patches: apply failed; run ./labs-patches/bootstrap.sh apply" >&2
+fi
 EOF
   chmod +x $hooks_dir/post-merge
+
+  # Third argument is 1 for a branch checkout, 0 for a file checkout. Only a checkout that
+  # moved the labs gitlink or the series needs a re-apply; rebases and bisects step through
+  # many commits and would otherwise reset labs/ at each one.
+  cat <<EOF >$hooks_dir/post-checkout
+#!/usr/bin/env bash
+set -euo pipefail
+[ "\$3" = 1 ] || exit 0
+[ -x ./labs-patches/bootstrap.sh ] || exit 0
+if git rev-parse -q --verify "\$1^{commit}" >/dev/null && git diff --quiet "\$1" "\$2" -- labs labs-patches; then
+  exit 0
+fi
+./labs-patches/bootstrap.sh apply || echo "labs-patches: apply failed; run ./labs-patches/bootstrap.sh apply" >&2
+EOF
+  chmod +x $hooks_dir/post-checkout
 }
 
 function pull_submodules {
@@ -332,8 +354,11 @@ function pull_submodules {
     rm -rf noir/noir-repo
   fi
   denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags &>/dev/null"
+  # labs is update=none: only labs-patches checks it out, so the patch series always sits on top.
+  denoise "./labs-patches/bootstrap.sh apply"
 }
 
+# The TXE is built by the labs submodule (yarn-project/txe); only labs tests use it.
 function start_txes {
   # Until Kev's kzg lib stops using Tokio.
   export TOKIO_WORKER_THREADS=1
@@ -355,14 +380,14 @@ function start_txes {
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((txe_base_port + i))
     kill_port $port
-    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
+    dump_fail "cd labs && LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
   # Start the oracle test resolver for __oracle_test__-prefixed tests.
   local resolver_port=14830
   kill_port $resolver_port
-  dump_fail "LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js" &
+  dump_fail "cd labs && LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js" &
   txe_pids+="$! "
 
   wait_for_port() {
@@ -469,6 +494,11 @@ function build_and_test {
   fi
 
   return 0
+}
+
+# The labs benches come from the submodule's own bench_cmds, run from labs/ with its ci3.
+function labs_bench_cmds {
+  scripts/labs_test_cmds.sh ./bootstrap.sh bench_cmds
 }
 
 function bench_cmds {
@@ -731,7 +761,7 @@ function release_compat_e2e {
     export NO_FAIL_FAST=1
     build
     for ver in "${versions[@]}"; do
-      yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
+      scripts/labs_test_cmds.sh yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
     done | filter_test_cmds | parallelize
   )
 }
@@ -871,204 +901,6 @@ case "$cmd" in
     commit="${5:-}"
 
     grind_test "$full_cmd" "$timeout" "$jobs_pct" "$memsuspend_pct" "$commit"
-    ;;
-
-  ##########################################
-  # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
-  ##########################################
-  "ci-network-deploy")
-    # Args: <env_file> <namespace> [docker_image] [test_set]
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    test_set="${4:-}"
-    build
-    # If no docker image provided, build and push to aztecdev
-    if [ -z "$docker_image" ]; then
-      release-image/bootstrap.sh push_pr
-      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-    fi
-    # Set up environment and deploy using spartan
-    export NAMESPACE="$namespace"
-    export AZTEC_DOCKER_IMAGE="$docker_image"
-    deploy_exit_code=0
-    spartan/bootstrap.sh network_deploy "${env_file}" "$test_set" || deploy_exit_code=$?
-    # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload deploy-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    exit $deploy_exit_code
-    ;;
-  "ci-network-tests")
-    # Args: <env_file> <namespace>
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    build
-    # Set up environment for tests
-    export NAMESPACE="$namespace"
-    spartan/bootstrap.sh network_tests "${env_file}"
-    ;;
-  "ci-network-kind-tests")
-    export CI=1
-    [ "${SKIP_BUILD:-0}" -eq 0 ] && build
-    # Set the docker image to the locally built image and load it into KIND
-    export AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:$(git rev-parse HEAD)"
-    spartan/bootstrap.sh kind
-    kind load docker-image "$AZTEC_DOCKER_IMAGE"
-    # Just one test for now
-    spartan/bootstrap.sh test-kind-upgrade-rollup
-    ;;
-  "ci-network-bench")
-    # Args: <env_file> <namespace> [docker_image]
-    # Deploys network and runs benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    export NAMESPACE="$namespace"
-    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
-      # If no docker image provided, build and push to aztecdev
-      if [ -z "$docker_image" ]; then
-        release-image/bootstrap.sh push_pr
-        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-      fi
-      export AZTEC_DOCKER_IMAGE="$docker_image"
-      spartan/bootstrap.sh network_deploy "${env_file}"
-    else
-      echo "SKIP_NETWORK_DEPLOY=1, running benchmarks against existing network '$namespace'."
-    fi
-    # Run benchmarks
-    spartan/bootstrap.sh network_bench "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    ;;
-  "ci-network-proving-bench")
-    # Args: <env_file> <namespace> [docker_image]
-    # Deploys network and runs proving benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    export NAMESPACE="$namespace"
-    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
-      # If no docker image provided, build and push to aztecdev
-      if [ -z "$docker_image" ]; then
-        release-image/bootstrap.sh push_pr
-        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-      fi
-      export AZTEC_DOCKER_IMAGE="$docker_image"
-      spartan/bootstrap.sh network_deploy "${env_file}"
-    else
-      echo "SKIP_NETWORK_DEPLOY=1, running proving benchmarks against existing network '$namespace'."
-    fi
-    spartan/bootstrap.sh proving_bench "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-proving-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    ;;
-  "ci-network-block-capacity-bench")
-    # Args: <env_file> <namespace> [docker_image]
-    # Deploys network and runs block capacity benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    export NAMESPACE="$namespace"
-    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
-      # If no docker image provided, build and push to aztecdev
-      if [ -z "$docker_image" ]; then
-        release-image/bootstrap.sh push_pr
-        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-      fi
-      export AZTEC_DOCKER_IMAGE="$docker_image"
-      spartan/bootstrap.sh network_deploy "${env_file}"
-    else
-      echo "SKIP_NETWORK_DEPLOY=1, running block capacity benchmarks against existing network '$namespace'."
-    fi
-    # Run block capacity benchmarks
-    spartan/bootstrap.sh block_capacity_bench "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-block-capacity-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    ;;
-  "ci-network-bench-10tps")
-    # Args: <env_file> <namespace> [docker_image]
-    # Deploys bench-10tps and runs the 10-min sustained 10 TPS benchmark.
-    # Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    # Cleanup is done separately via ci-network-teardown.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    export NAMESPACE="$namespace"
-    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
-      # If no docker image provided, build and push to aztecdev
-      if [ -z "$docker_image" ]; then
-        release-image/bootstrap.sh push_pr
-        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-      fi
-      export AZTEC_DOCKER_IMAGE="$docker_image"
-      spartan/bootstrap.sh network_deploy "${env_file}"
-    else
-      echo "SKIP_NETWORK_DEPLOY=1, running the 10 TPS benchmark against existing network '$namespace'."
-    fi
-    # Run the 10 TPS benchmark
-    spartan/bootstrap.sh bench_10tps "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-bench-10tps-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    ;;
-  "ci-network-inclusion-sweep")
-    # Args: <env_file> <namespace> [docker_image]
-    # Runs one inclusion-sweep point (TARGET_TPS) on the given network.
-    # The v4 run JSON (tagged BENCH_SWEEP_ID) is uploaded to GCS inside
-    # bench_inclusion_point; deploy/teardown of each point's namespace is done by
-    # the workflow, so this is normally called with SKIP_NETWORK_DEPLOY=1.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    export NAMESPACE="$namespace"
-    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
-      # If no docker image provided, build and push to aztecdev
-      if [ -z "$docker_image" ]; then
-        release-image/bootstrap.sh push_pr
-        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-      fi
-      export AZTEC_DOCKER_IMAGE="$docker_image"
-      spartan/bootstrap.sh network_deploy "${env_file}"
-    else
-      echo "SKIP_NETWORK_DEPLOY=1, running inclusion-sweep point (${TARGET_TPS:-10} TPS) against existing network '$namespace'."
-    fi
-    # Run one inclusion-sweep point (TARGET_TPS / BENCH_SWEEP_ID from env).
-    spartan/bootstrap.sh bench_inclusion_point "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-bench-inclusion-${TARGET_TPS:-10}tps-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    ;;
-  "ci-network-teardown")
-    # Args: <env_file> <namespace>
-    # Tears down a deployed network.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    # Set up environment for teardown
-    export NAMESPACE="$namespace"
-    denoise "spartan/bootstrap.sh network_teardown ${env_file}"
     ;;
 
   ############

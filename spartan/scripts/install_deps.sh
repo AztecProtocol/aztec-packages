@@ -130,7 +130,7 @@ if ! command -v cast &> /dev/null; then
   curl -L https://foundry.paradigm.xyz | bash
   FOUNDRY_BIN_DIR="$FOUNDRY_DIR/bin"
   "$FOUNDRY_BIN_DIR/foundryup" -i "$FOUNDRY_VERSION"
-  sudo mv "$FOUNDRY_BIN_DIR/cast" /usr/local/bin/cast
+  sudo cp -L "$FOUNDRY_BIN_DIR/cast" /usr/local/bin/cast
   sudo chmod +x /usr/local/bin/cast
 fi
 
