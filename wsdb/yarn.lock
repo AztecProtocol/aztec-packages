@@ -5,63 +5,63 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@aztec/ipc-runtime@portal:../ipc-runtime/ts::locator=%40aztec%2Fwsdb-packages%40workspace%3A.":
+"@aztec-foundation/ipc-runtime@portal:../ipc-runtime/ts::locator=%40aztec-foundation%2Fwsdb-packages%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/ipc-runtime@portal:../ipc-runtime/ts::locator=%40aztec%2Fwsdb-packages%40workspace%3A."
+  resolution: "@aztec-foundation/ipc-runtime@portal:../ipc-runtime/ts::locator=%40aztec-foundation%2Fwsdb-packages%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/wsdb-darwin-arm64@npm:0.1.0, @aztec/wsdb-darwin-arm64@workspace:ts/packages/wsdb-darwin-arm64":
+"@aztec-foundation/wsdb-darwin-arm64@npm:0.1.0, @aztec-foundation/wsdb-darwin-arm64@workspace:ts/packages/wsdb-darwin-arm64":
   version: 0.0.0-use.local
-  resolution: "@aztec/wsdb-darwin-arm64@workspace:ts/packages/wsdb-darwin-arm64"
+  resolution: "@aztec-foundation/wsdb-darwin-arm64@workspace:ts/packages/wsdb-darwin-arm64"
   languageName: unknown
   linkType: soft
 
-"@aztec/wsdb-darwin-x64@npm:0.1.0, @aztec/wsdb-darwin-x64@workspace:ts/packages/wsdb-darwin-x64":
+"@aztec-foundation/wsdb-darwin-x64@npm:0.1.0, @aztec-foundation/wsdb-darwin-x64@workspace:ts/packages/wsdb-darwin-x64":
   version: 0.0.0-use.local
-  resolution: "@aztec/wsdb-darwin-x64@workspace:ts/packages/wsdb-darwin-x64"
+  resolution: "@aztec-foundation/wsdb-darwin-x64@workspace:ts/packages/wsdb-darwin-x64"
   languageName: unknown
   linkType: soft
 
-"@aztec/wsdb-linux-arm64@npm:0.1.0, @aztec/wsdb-linux-arm64@workspace:ts/packages/wsdb-linux-arm64":
+"@aztec-foundation/wsdb-linux-arm64@npm:0.1.0, @aztec-foundation/wsdb-linux-arm64@workspace:ts/packages/wsdb-linux-arm64":
   version: 0.0.0-use.local
-  resolution: "@aztec/wsdb-linux-arm64@workspace:ts/packages/wsdb-linux-arm64"
+  resolution: "@aztec-foundation/wsdb-linux-arm64@workspace:ts/packages/wsdb-linux-arm64"
   languageName: unknown
   linkType: soft
 
-"@aztec/wsdb-linux-x64@npm:0.1.0, @aztec/wsdb-linux-x64@workspace:ts/packages/wsdb-linux-x64":
+"@aztec-foundation/wsdb-linux-x64@npm:0.1.0, @aztec-foundation/wsdb-linux-x64@workspace:ts/packages/wsdb-linux-x64":
   version: 0.0.0-use.local
-  resolution: "@aztec/wsdb-linux-x64@workspace:ts/packages/wsdb-linux-x64"
+  resolution: "@aztec-foundation/wsdb-linux-x64@workspace:ts/packages/wsdb-linux-x64"
   languageName: unknown
   linkType: soft
 
-"@aztec/wsdb-packages@workspace:.":
+"@aztec-foundation/wsdb-packages@workspace:.":
   version: 0.0.0-use.local
-  resolution: "@aztec/wsdb-packages@workspace:."
+  resolution: "@aztec-foundation/wsdb-packages@workspace:."
   languageName: unknown
   linkType: soft
 
-"@aztec/wsdb@workspace:ts":
+"@aztec-foundation/wsdb@workspace:ts":
   version: 0.0.0-use.local
-  resolution: "@aztec/wsdb@workspace:ts"
+  resolution: "@aztec-foundation/wsdb@workspace:ts"
   dependencies:
-    "@aztec/ipc-runtime": "@aztec/ipc-runtime"
-    "@aztec/wsdb-darwin-arm64": "npm:0.1.0"
-    "@aztec/wsdb-darwin-x64": "npm:0.1.0"
-    "@aztec/wsdb-linux-arm64": "npm:0.1.0"
-    "@aztec/wsdb-linux-x64": "npm:0.1.0"
+    "@aztec-foundation/ipc-runtime": "@aztec-foundation/ipc-runtime"
+    "@aztec-foundation/wsdb-darwin-arm64": "npm:0.1.0"
+    "@aztec-foundation/wsdb-darwin-x64": "npm:0.1.0"
+    "@aztec-foundation/wsdb-linux-arm64": "npm:0.1.0"
+    "@aztec-foundation/wsdb-linux-x64": "npm:0.1.0"
     "@types/node": "npm:^22.15.17"
     msgpackr: "npm:^1.11.2"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
   dependenciesMeta:
-    "@aztec/wsdb-darwin-arm64":
+    "@aztec-foundation/wsdb-darwin-arm64":
       optional: true
-    "@aztec/wsdb-darwin-x64":
+    "@aztec-foundation/wsdb-darwin-x64":
       optional: true
-    "@aztec/wsdb-linux-arm64":
+    "@aztec-foundation/wsdb-linux-arm64":
       optional: true
-    "@aztec/wsdb-linux-x64":
+    "@aztec-foundation/wsdb-linux-x64":
       optional: true
   bin:
     aztec-wsdb: ./dest/bin.js

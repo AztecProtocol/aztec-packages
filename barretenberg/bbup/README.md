@@ -52,3 +52,7 @@ bbup # installs the barretenberg version matching your current nargo version
 bbup -nv 0.34.0 # installs the barretenberg version compatible with Noir 0.34.0 release
 bbup -nv nightly # installs the barretenberg version compatible with Noir nightly release
 ```
+
+## Where the binary comes from
+
+bbup installs from npm first — `@aztec-foundation/bb-<platform>` (`linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`), the same bytes as the GitHub release tarball of that version — and falls back to the GitHub release assets for versions that predate the packages. `BBUP_SOURCE=github` forces the release assets.

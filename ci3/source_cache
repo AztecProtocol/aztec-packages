@@ -65,14 +65,24 @@ function cache_persistent {
 
   cat | gzip > "$tmpfile"
 
-  # Write to Redis (synchronous)
-  cat "$tmpfile" | redis_cli -x SETEX "$key" "$expire" &>/dev/null
+  # Write to Redis (synchronous). Skipped when redis is unavailable: redis_cli would exit
+  # without draining, killing the cat with SIGPIPE and failing the caller under pipefail.
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    cat "$tmpfile" | redis_cli -x SETEX "$key" "$expire" &>/dev/null
+  fi
 
-  # Write to S3 in background
-  {
+  # Write to S3 in background, or in the foreground for a log that must outlive the caller:
+  # the build instance's top-level log is persisted as its last act, and a background upload
+  # is killed with the container before it lands.
+  if [ "${CACHE_PERSIST_SYNC:-0}" -eq 1 ]; then
     cat "$tmpfile" | cache_s3_transfer "$key"
     rm -f "$tmpfile"
-  } >&- 2>&- &
+  else
+    {
+      cat "$tmpfile" | cache_s3_transfer "$key"
+      rm -f "$tmpfile"
+    } >&- 2>&- &
+  fi
 }
 
 # Export functions

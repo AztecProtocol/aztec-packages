@@ -42,3 +42,8 @@ gh pr create --repo aztec-labs-eng/aztec-node --head fnd/<slug>-and-2-more --bas
 `upstream` creates the branch in `labs/`'s repository at the recorded base with the named patches applied in series order, under your own git identity (the series itself is applied with a fixed one). It pushes nothing; the two commands it prints do, and they need aztec-node write access — labs employees run that step. When the PR is merged, `bump` past it and those patches disappear from the next `export`.
 
 Everything else in this directory (`bootstrap.sh`, the tests, `test_cmd_skip`) is the foundation's own tooling and never goes upstream.
+
+## Disabled patches
+
+`apply` globs `*.patch`, so a patch renamed to `*.patch.disabled` is kept in the queue but
+not applied. None are currently disabled.

@@ -97,7 +97,7 @@ Optional:
   --package-ipc-path-args <args>
                            Comma-separated binary args for IPC path; use {path}
   --ipc-runtime-dependency <spec>
-                           package.json dependency spec for @aztec/ipc-runtime
+                           package.json dependency spec for @aztec-foundation/ipc-runtime
   --prefix <str>           Type prefix (auto-detected when >= 2 commands share one)
   --strip-method-prefix    Strip the prefix from generated method names in all
                            languages (e.g. BbCircuitProve -> circuitProve)
@@ -124,7 +124,7 @@ function parseArgs(argv: string[]): Args {
     binaryEnvVar: "",
     packageTransports: "uds",
     packageIpcPathArgs: "--socket,{path}",
-    ipcRuntimeDependency: "@aztec/ipc-runtime",
+    ipcRuntimeDependency: "@aztec-foundation/ipc-runtime",
     cppNamespace: "",
     cppWireNamespace: "wire",
     cppIncludeDir: "",
@@ -371,13 +371,13 @@ function generate(args: Args) {
       if (args.server) {
         writeFile("server.ts", gen.generateServerApi(compiled));
         // No transport template copy — consumers import UdsIpcServer from
-        // '@aztec/ipc-runtime' (or hand a compatible byte-handler in).
+        // '@aztec-foundation/ipc-runtime' (or hand a compatible byte-handler in).
       }
       if (args.client || (args.packageDir && !serverPackage)) {
         writeFile("async.ts", gen.generateAsyncApi(compiled));
         writeFile("sync.ts", gen.generateSyncApi(compiled));
         // No transport template copy — consumers import IpcClient from
-        // '@aztec/ipc-runtime' (or hand in a compatible byte backend).
+        // '@aztec-foundation/ipc-runtime' (or hand in a compatible byte backend).
       }
       if (args.curveConstants) {
         generateCurveConstants(absOut, resolve(args.curveConstants));

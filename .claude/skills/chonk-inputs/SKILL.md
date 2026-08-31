@@ -19,7 +19,7 @@ Use the scripts instead of open-coding URLs, hashes, temp paths, or bucket listi
 A bb/proof-system change that rotates VKs touches THREE tracked pins, and all of them feed the captured Chonk flows:
 
 - The mock artifact pin `noir-projects/fnd/mock-protocol-circuits/pinned-build.tar.gz` freezes mock protocol circuit bytecode and VKs used by Chonk fixture capture.
-- The standard-contracts pin `noir-projects/labs/noir-contracts/pinned-standard-contracts.tar.gz` freezes the `contracts/standard/` artifacts with their precomputed VKs and deterministic addresses. `noir-contracts/bootstrap.sh build` extracts it and excludes `standard/` from recompilation, so these VKs only refresh via `pin-standard-build` (step 5).
+- The standard-contracts pin `labs/noir-projects/noir-contracts/pinned-standard-contracts.tar.gz` freezes the `contracts/standard/` artifacts with their precomputed VKs and deterministic addresses. `noir-contracts/bootstrap.sh build` extracts it and excludes `standard/` from recompilation, so these VKs only refresh via `pin-standard-build` (step 5).
 - The Chonk flow pin `barretenberg/cpp/scripts/chonk-inputs.hash` points to the S3 tarball of captured `ivc-inputs.msgpack` flows. Those msgpacks embed bytecode, witnesses, circuit kinds, and precomputed VKs — including the standard-contract VKs above, so the standard-contracts pin must be correct *before* recapturing flows.
 
 `noir-projects/fnd/noir-protocol-circuits/pinned-build.tar.gz` is not a current tracked pin on the `next` line. `noir-projects/fnd/bootstrap.sh pin-build` may generate it as untracked local build output; do not commit it unless intentionally reintroducing that large artifact pin.
@@ -36,14 +36,14 @@ If a bb/proof-system change can affect VKs, refresh in this order:
 4. Remove the generated untracked `noir-projects/fnd/noir-protocol-circuits/pinned-build.tar.gz` unless intentionally reintroducing that large pin.
 5. Repin the standard contracts **iteratively, and regenerate their address stamps**. A stale standard-contracts pin surfaces as a "Computed VK differs from precomputed VK" mismatch on a `standard/` contract function during chonk capture verification. Repinning is not a single command: `pin-standard-build` compiles the standard contracts against the *current* `standard_addresses.nr` and tarballs them — it does NOT regenerate the stamps, and standard contracts can reference each other's deterministic addresses. Because a contract's address depends on its bytecode, which depends on the addresses it embeds, you must repeat the re-pin + stamp-regeneration until a round changes nothing (the addresses stop moving):
    ```bash
-   cd noir-projects/labs/noir-contracts
+   cd labs/noir-projects/noir-contracts
    # repeat this pair until `generate` makes no change (exits 0, no "Changed values"):
    BB=$(realpath ../../barretenberg/cpp/build/bin/bb-avm) ./bootstrap.sh pin-standard-build
    (cd ../../yarn-project && yarn workspace @aztec/standard-contracts generate)   # rewrites stamps; exits non-zero on drift
    ```
    `BB` defaults to non-AVM `bb`; set it to `bb-avm` explicitly. Once converged, run `make noir-projects` from the repo root once to recompile dependents against the final addresses, then commit the pin **together with** the two regenerated stamp files:
    - `yarn-project/standard-contracts/src/standard_contract_data.ts`
-   - `noir-projects/labs/aztec-nr/aztec/src/standard_addresses.nr`
+   - `labs/noir-projects/aztec-nr/aztec/src/standard_addresses.nr`
 
    Two failure modes if you cut corners: skipping the stamp regen rotates the contract addresses out from under the committed stamps → a cascade of contract-class / "address not updated" failures; stopping before the addresses stabilize leaves a pinned contract calling another standard contract's *previous* address → e2e capture aborts with `Function artifact not found for contract 0x…` during flow execution.
 6. Recapture and upload Chonk flows with `barretenberg/cpp/scripts/chonk_inputs.sh update` (only after step 5 is committed, since the capture embeds the standard-contract VKs).

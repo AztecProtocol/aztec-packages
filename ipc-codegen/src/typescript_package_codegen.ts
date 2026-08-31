@@ -97,7 +97,7 @@ export interface TypeScriptServerPackageOptions {
  * Package shell for a server-side binding package: pure generated TS (wire
  * types + Handler/dispatch) plus the schema itself. No binary, no arch
  * packages — the transport is provided by the consumer (e.g. UdsIpcServer
- * from @aztec/ipc-runtime).
+ * from @aztec-foundation/ipc-runtime).
  */
 export class TypeScriptServerPackageCodegen {
   constructor(private opts: TypeScriptServerPackageOptions) {}
@@ -149,10 +149,10 @@ export * from './generated/server.js';
 Generated TypeScript server bindings for the ${this.opts.prefix} IPC service:
 wire types, the \`Handler\` interface, and \`handleRequest\`/\`dispatch\`. The
 byte transport is provided by the consumer — e.g. \`UdsIpcServer\` from
-\`@aztec/ipc-runtime\`.
+\`@aztec-foundation/ipc-runtime\`.
 
 \`\`\`ts
-import { UdsIpcServer } from '@aztec/ipc-runtime';
+import { UdsIpcServer } from '@aztec-foundation/ipc-runtime';
 import { type Handler, handleRequest } from '${this.opts.packageName}';
 
 const handler: Handler = /* implement the generated interface */;
@@ -205,7 +205,7 @@ export class TypeScriptPackageCodegen {
       files: ["dest/", "README.md"],
       scripts,
       dependencies: {
-        "@aztec/ipc-runtime": this.opts.ipcRuntimeDependency,
+        "@aztec-foundation/ipc-runtime": this.opts.ipcRuntimeDependency,
         msgpackr: "^1.11.2",
         tslib: "^2.4.0",
       },
@@ -286,7 +286,7 @@ process.exit(result.status ?? 1);
       ? "uds"
       : this.opts.transports[0]!;
 
-    return `import { IpcSpawnError, SpawnedProcessBackend } from '@aztec/ipc-runtime';
+    return `import { IpcSpawnError, SpawnedProcessBackend } from '@aztec-foundation/ipc-runtime';
 import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
 import { ${findBinary} } from './platform.js';
 
