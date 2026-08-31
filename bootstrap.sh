@@ -973,12 +973,12 @@ case "$cmd" in
     # npm packages to the internal GCP Artifact Registry.
     # Same publishing path the private-release.yml workflow runs, minus EC2 and the compat-e2e gating.
     # Build first so the artifacts the publishes pack exist; set SKIP_BUILD=1 to reuse an existing
-    # build. Requires GCP creds (GCP_PRIVATE_NPM_DEPLOY or GOOGLE_APPLICATION_CREDENTIALS) in the environment.
+    # build. Requires GCP creds (GCP_PRIVATE_NPM_DEPLOY_KEY or GOOGLE_APPLICATION_CREDENTIALS) in the environment.
     export CI=${CI:-1}
     export PRIVATE_RELEASE=1
     export REF_NAME=${REF_NAME:-v0.0.1-commit.$(git rev-parse --short HEAD)}
     # Local convenience: default GCP creds to ~/sa.json (the CI service-account key) when present.
-    [ -z "${GCP_PRIVATE_NPM_DEPLOY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
+    [ -z "${GCP_PRIVATE_NPM_DEPLOY_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
       export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"
     [ "${SKIP_BUILD:-0}" = 1 ] || ./bootstrap.sh build release
     ./bootstrap.sh release

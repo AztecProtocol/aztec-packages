@@ -10,6 +10,18 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 dir=$(realpath "${1:?usage: $(basename "$0") <dir-of-tgz>}")
 dry_run=${DRY_RUN:-0}
 
+# The bundle comes from the build cache, which is keyed by tag and not content-addressed: refuse
+# any tarball that is not one of our packages at exactly the released version.
+expected_version=${EXPECTED_VERSION:-}
+if [ -z "$expected_version" ]; then
+  expected_version=${GITHUB_REF_NAME:-}
+  expected_version=${expected_version#v}
+fi
+if [ -z "$expected_version" ]; then
+  echo_stderr "EXPECTED_VERSION or GITHUB_REF_NAME required."
+  exit 1
+fi
+
 tarballs=("$dir"/*.tgz)
 if [ ! -e "${tarballs[0]}" ]; then
   echo_stderr "No npm tarballs found in $dir."
@@ -25,13 +37,29 @@ for tgz in "${tarballs[@]}"; do
   pkg_json=$(tar -xOzf "$tgz" package/package.json)
   name=$(jq -r .name <<<"$pkg_json")
   version=$(jq -r .version <<<"$pkg_json")
+  if [[ ! "$name" =~ ^@(aztec|aztec-foundation|noir-lang)/ ]]; then
+    echo_stderr "Refusing to publish unexpected package name '$name' from $(basename "$tgz")."
+    exit 1
+  fi
+  if [ "$version" != "$expected_version" ]; then
+    echo_stderr "Refusing $name@$version: this release publishes only version $expected_version."
+    exit 1
+  fi
   tag=$(dist_tag_for "$version")
   echo_header "publishing $name@$version ($tag)"
   if [ "$dry_run" -eq 1 ]; then
     npm publish "$tgz" --ignore-scripts --dry-run --tag "$tag" --access public
   elif npm view "$name@$version" version >/dev/null 2>&1; then
-    # Re-run of a release: the version is already out, only make sure the dist-tag points at it.
-    npm dist-tag add "$name@$version" "$tag"
+    # Re-run of a release: the version is already out. OIDC trusted publishing only authorizes
+    # `npm publish` (dist-tag add needs classic auth), so report rather than fail — a wrong tag
+    # after a partial release is a manual repair, not something a retry can fix.
+    current=$(npm view "$name" "dist-tags.$tag" 2>/dev/null || true)
+    if [ "$current" = "$version" ]; then
+      echo "$name@$version already published; dist-tag $tag already points at it."
+    else
+      echo "$name@$version already published; dist-tag $tag points at '${current:-none}'."
+      echo "To move it (needs npm auth): npm dist-tag add $name@$version $tag"
+    fi
   else
     retry "npm publish \"$tgz\" --ignore-scripts --tag \"$tag\" --access public --provenance"
   fi
