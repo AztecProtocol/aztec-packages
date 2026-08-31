@@ -69,11 +69,12 @@ fast-foundation: barretenberg bb-tests \
 		ipc-runtime ipc-codegen-tests \
 		constants-codegen constants-codegen-tests \
 		labs-patches-tests \
+		ci3-tests \
 		claude-tests
 
 # The labs components are built from the aztec-node checkout in the labs/ submodule, against
 # this tree's packages and binaries (see the Labs section).
-fast-labs: labs-fast
+fast-labs: labs-fast labs-docs-refs-check
 
 fast: fast-foundation fast-labs
 
@@ -96,7 +97,7 @@ bench-labs: labs-bench
 bench: bench-foundation bench-labs
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-release-foundation: fast-foundation bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy ipc-runtime-cross
+release-foundation: fast-foundation bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy bb-bin-cross-copy ipc-runtime-cross
 
 release-labs: fast-labs
 
@@ -135,7 +136,7 @@ avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm6
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-avm-sim bb-cdb bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-avm-sim bb-cdb bb-bin bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -262,7 +263,11 @@ bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
 bb-ts-cross-copy: bb-ts bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy_bb_js)
 
-bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native
+# Ordered after bb-ts for the same reason bb-cdb is ordered after this: they install into
+# the same barretenberg/ts node_modules. bb-ts additionally emits the bb.js test commands,
+# which the test engine runs concurrently with the rest of the build out of that same tree,
+# so an unordered npm_install_deps here swaps files under a running node (SIGBUS).
+bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native bb-ts
 	$(call build,$@,barretenberg/ts,build_bb_avm_sim)
 
 # Ordered after bb-cdb for the same reason bb-cdb is ordered after bb-avm-sim:
@@ -271,11 +276,19 @@ bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native
 bb-avm-sim-cross-copy: bb-avm-sim bb-cdb bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy_bb_avm_sim)
 
-# Generated @aztec/cdb server bindings. Ordered after bb-avm-sim rather than run
+# Generated @aztec-foundation/cdb server bindings. Ordered after bb-avm-sim rather than run
 # alongside it: both regenerate the same barretenberg/ts workspaces and install
 # into the same node_modules.
 bb-cdb: ipc-codegen ipc-runtime bb-avm-sim
 	$(call build,$@,barretenberg/ts,build_cdb)
+
+# bb and bb-avm as npm packages (meta + one package per platform).
+bb-bin: bb-cpp-native
+	$(call build,$@,barretenberg/ts,build_bb_bin)
+
+# Stages every platform and checks each binary against the release tarballs.
+bb-bin-cross-copy: bb-bin bb-cpp-cross bb-cpp-release-dir
+	$(call build,$@,barretenberg/ts,cross_copy_bb_bin)
 
 # BB Rust - barretenberg-rs FFI crate
 bb-rs: bb-ts bb-cpp-native
@@ -391,6 +404,11 @@ wsdb: ipc-codegen ipc-runtime bb-cpp-native
 claude-tests:
 	$(call test,$@,.claude)
 
+# The ci3 scripts' own tests (redact, semver, cache, ...).
+.PHONY: ci3-tests
+ci3-tests:
+	$(call test,$@,ci3)
+
 #==============================================================================
 # Labs (aztec-node, checked out as the labs/ submodule)
 #==============================================================================
@@ -451,13 +469,26 @@ LABS_MAKE := $(ROOT)/scripts/labs_env.sh $(MAKE)
 # fast covers what a foundation change can break: labs compiled against the portals and its
 # unit/e2e tests, and the contracts against this tree's nargo/bb. docs, spartan, playground and
 # the claude tooling only consume yarn-project and go in full (the pin-bump PR runs full).
-labs-fast: labs-use-local
-	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) \
-	  yarn-project yarn-project-tests aztec-nr noir-contracts contract-snapshots-tests)
+LABS_FAST_GOALS := yarn-project yarn-project-tests aztec-nr noir-contracts contract-snapshots-tests
+LABS_FULL_GOALS := spartan playground playground-tests docs docs-tests claude-tests yarn-project-benches
 
-labs-full: labs-fast
-	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) \
-	  spartan playground playground-tests docs docs-tests claude-tests yarn-project-benches)
+# full runs one sub-make over both goal sets rather than chaining labs-full onto labs-fast.
+# make only de-duplicates targets within a process, so a second invocation rebuilds the
+# yarn-project target that every full goal depends on. That rebuild re-enters
+# yarn-project/bootstrap.sh, whose clean-lite wipes the gitignored build output (dest/) and
+# whose npm_install_deps re-extracts node_modules -- while the tests labs-fast already
+# streamed to the concurrent test engine are still reading that tree.
+labs-fast: labs-use-local
+	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) $(LABS_FAST_GOALS))
+
+labs-full: labs-use-local
+	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) $(LABS_FAST_GOALS) $(LABS_FULL_GOALS))
+
+# The docs build runs check_doc_references.sh, but the docs build is full-only, so a patch
+# with references the checker cannot resolve passes PR (fast) CI and fails the merge queue.
+# The check itself is seconds of bash; run it in fast.
+labs-docs-refs-check: labs-patched
+	$(call run_command,$@,$(LABS_DIR)/docs,./scripts/check_doc_references.sh docs)
 
 # Just the labs yarn-project, for callers that need its build output and nothing else.
 labs-yarn-project: labs-use-local
@@ -466,7 +497,7 @@ labs-yarn-project: labs-use-local
 labs-bench: labs-use-local
 	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) bench)
 
-.PHONY: labs-deps labs-patched labs-patches-tests labs-use-local labs-fast labs-full labs-bench labs-yarn-project fnd-artifacts-stage
+.PHONY: labs-deps labs-patched labs-patches-tests labs-use-local labs-fast labs-full labs-bench labs-yarn-project labs-docs-refs-check fnd-artifacts-stage
 
 #==============================================================================
 # Noir Projects
@@ -539,7 +570,7 @@ l1-contracts-src: l1-contracts-solc
 l1-contracts-verifier: noir-protocol-circuits l1-contracts-src
 	$(call build,$@,l1-contracts,build_verifier)
 
-# l1-contracts-artifacts: Generate the @aztec/l1-artifacts TS package (ABIs/bytecode/storage) and the
+# l1-contracts-artifacts: Generate the @aztec-foundation/l1-artifacts TS package (ABIs/bytecode/storage) and the
 # self-contained foundry bundle used by the runtime forge deploy path. Must depend on the verifier, not
 # just build_src: the generated artifact list includes HonkVerifier, and its real implementation is only
 # produced by build_verifier (which compiles generated/HonkVerifier.sol, copied from noir-projects).

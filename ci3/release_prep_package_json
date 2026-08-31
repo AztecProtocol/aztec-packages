@@ -7,24 +7,31 @@ tmp=$(mktemp)
 
 jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
 
+# npm provenance (trusted publishing) is only accepted when repository.url names the repository the
+# package was built from; the noir packages carry noir-lang/noir and most others carry nothing.
+# NPM_PACKAGE_DIR is the package's directory in this tree (deploy_npm sets it before packing).
+repo_url="git+https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}.git"
+jq --arg u "$repo_url" --arg d "${NPM_PACKAGE_DIR:-}" \
+  '.repository = ({type: "git", url: $u} + (if $d == "" then {} else {directory: $d} end))' package.json >$tmp && mv $tmp package.json
+
 # We update every category of dependency.
 # While we don't strictly need to update devDependencies, 'workspace:^' is not a valid URL in npm.
 for deps in dependencies devDependencies peerDependencies optionalDependencies; do
-  # Update each dependency @aztec package version in package.json.
-  for pkg in $(jq --raw-output "(.$deps // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
+  # Update each dependency @aztec-foundation package version in package.json.
+  for pkg in $(jq --raw-output "(.$deps // {}) | keys[] | select(contains(\"@aztec-foundation/\"))" package.json); do
     jq --arg v $version ".$deps[\"$pkg\"] = \$v" package.json >$tmp
     mv $tmp package.json
   done
   # Update each dependency @noir-lang package version in package.json to point to renamed packages and versions.
   for pkg in $(jq --raw-output '(.'$deps' // {}) | keys[] | select(startswith("@noir-lang/"))' package.json); do
-    new_pkg="@aztec/noir-${pkg#@noir-lang/}"
+    new_pkg="@aztec-foundation/noir-${pkg#@noir-lang/}"
     jq --arg v "$version" --arg old "$pkg" --arg new "$new_pkg" '.'$deps'[$new] = $v | del(.'$deps'[$old])' package.json > tmp.json
     mv tmp.json package.json
   done
 done
 
 # Stamp aztec_version into any published noir contract artifacts in artifacts/*.json. The build-time stamp in
-# noir-projects/labs/noir-contracts/bootstrap.sh writes "dev"; $version here is the authoritative release version about to
+# labs/noir-projects/noir-contracts/bootstrap.sh writes "dev"; $version here is the authoritative release version about to
 # be written to package.json. We cannot stamp real version in bootstrap because there we don't have access to it.
 if [ -d artifacts ]; then
   for f in artifacts/*.json; do

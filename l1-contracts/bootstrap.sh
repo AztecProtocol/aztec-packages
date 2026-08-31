@@ -112,7 +112,7 @@ function build_verifier {
   fi
 }
 
-# Generates the TypeScript L1 artifacts package (@aztec/l1-artifacts): ABIs, bytecode and storage
+# Generates the TypeScript L1 artifacts package (@aztec-foundation/l1-artifacts): ABIs, bytecode and storage
 # layouts compiled to dest/, plus the self-contained foundry bundle under l1-artifacts/l1-contracts
 # used by the runtime forge deploy path. Consumed by yarn-project via a portal link.
 # Must run after build_verifier: generate reads out/ including the compiled HonkVerifier.
@@ -434,10 +434,10 @@ function coverage_serve {
   python3 -m http.server --directory "coverage" 8000
 }
 
-# Publishes the @aztec/l1-artifacts npm package (TS ABIs/bytecode + the bundled foundry subtree used
+# Publishes the @aztec-foundation/l1-artifacts npm package (TS ABIs/bytecode + the bundled foundry subtree used
 # by the runtime forge deploy path). yarn-project consumes this via portal in-repo and via the
 # published version downstream, so it must publish before yarn-project's release (whose smoke test
-# installs packages that depend on @aztec/l1-artifacts@<version>).
+# installs packages that depend on @aztec-foundation/l1-artifacts@<version>).
 function release {
   echo_header "l1-contracts release"
   local version=${REF_NAME#v}

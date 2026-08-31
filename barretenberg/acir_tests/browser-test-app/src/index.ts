@@ -1,4 +1,4 @@
-import { Barretenberg, CircuitKind, type ProofData } from '@aztec/bb.js';
+import { Barretenberg, CircuitKind, type ProofData } from '@aztec-foundation/bb.js';
 import { pino } from 'pino';
 import { unpack } from 'msgpackr';
 import { ungzip } from 'pako';
@@ -22,7 +22,7 @@ function installUltraHonkGlobals() {
     witness: Uint8Array,
     threads?: number,
   ): Promise<{ proofData: ProofData; verificationKey: Uint8Array }> {
-    const { UltraHonkBackend } = await import('@aztec/bb.js');
+    const { UltraHonkBackend } = await import('@aztec-foundation/bb.js');
 
     logger.debug('starting test...');
     const bb = await Barretenberg.new({ threads, logger: bbLogger });
@@ -37,7 +37,7 @@ function installUltraHonkGlobals() {
   }
 
   async function verify(proofData: ProofData, verificationKey: Uint8Array) {
-    const { UltraHonkVerifierBackend } = await import('@aztec/bb.js');
+    const { UltraHonkVerifierBackend } = await import('@aztec-foundation/bb.js');
 
     logger.debug(`verifying...`);
     const bb = await Barretenberg.new({ threads: 1, logger: bbLogger });
@@ -92,7 +92,7 @@ function installChonkGlobal() {
     ivcInputsBuf: Uint8Array,
     threads?: number,
   ): Promise<{ proof: Uint8Array; verificationKey: Uint8Array }> {
-    const { AztecClientBackend } = await import('@aztec/bb.js');
+    const { AztecClientBackend } = await import('@aztec-foundation/bb.js');
 
     const [acirBufs, witnessBufs, vkBufs, circuitNames, circuitKinds] = await processChonkInputs(ivcInputsBuf);
     logger.debug('starting test...');

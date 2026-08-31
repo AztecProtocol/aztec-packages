@@ -1,4 +1,4 @@
-# @aztec/mock-protocol-circuits-artifacts
+# @aztec-foundation/mock-protocol-circuits-artifacts
 
 Compiled artifacts for the mock protocol circuits, published so consumers can generate TypeScript
 bindings without a Noir toolchain.

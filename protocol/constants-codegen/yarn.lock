@@ -5,9 +5,9 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@aztec/constants-codegen@workspace:.":
+"@aztec-foundation/constants-codegen@workspace:.":
   version: 0.0.0-use.local
-  resolution: "@aztec/constants-codegen@workspace:."
+  resolution: "@aztec-foundation/constants-codegen@workspace:."
   dependencies:
     "@types/node": "npm:^22"
     typescript: "npm:^5.7.0"

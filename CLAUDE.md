@@ -3,7 +3,7 @@
 All paths below are relative to the git root. When working inside a component, also read that component's `CLAUDE.md` — each is self-contained and covers its own build, style, and test conventions.
 
 <components>
-`labs/` is the aztec-node repository (aztec-labs-eng/aztec-node) as a git submodule: the TypeScript monorepo (`labs/yarn-project`: node, client SDK, PXE/wallet, sequencer, prover, p2p stack, tooling), `labs/noir-projects/labs` (aztec-nr and example contracts), docs, playground, spartan. It is built here against this tree's packages (see `<labs_submodule_patches>` and `labs-patches/README.md`); its own conventions live in `labs/CLAUDE.md`.
+`labs/` is the aztec-node repository (aztec-labs-eng/aztec-node) as a git submodule: the TypeScript monorepo (`labs/yarn-project`: node, client SDK, PXE/wallet, sequencer, prover, p2p stack, tooling), `labs/noir-projects` (aztec-nr and example contracts), docs, playground, spartan. It is built here against this tree's packages (see `<labs_submodule_patches>` and `labs-patches/README.md`); its own conventions live in `labs/CLAUDE.md`.
 
 `barretenberg/` is the C++ ZK proving system (Honk, Chonk, ECCVM); see `barretenberg/CLAUDE.md` and `barretenberg/cpp/CLAUDE.md`. `barretenberg/cpp/src/barretenberg/vm2/` is the AVM (Aztec Virtual Machine) for public execution; see its `CLAUDE.md`. `barretenberg/sol/` is the Solidity on-chain verifier; see `barretenberg/sol/CLAUDE.md`. `barretenberg/ts/` contains the TypeScript bindings for barretenberg (bb.js).
 
@@ -88,13 +88,13 @@ How the labs submodule is built and tested against this tree (all foundation-own
 </labs_build_tooling>
 
 <standard_contract_repin>
-Never run `labs/noir-projects/labs/noir-contracts/bootstrap.sh pin-standard-build` on your own initiative. The pin exists so ordinary source or bytecode changes do NOT move the standard contracts' canonical addresses, and CI does not fail when the bytecode drifts. A re-pin is a deliberate redeploy decision for a human to make: if a change seems to need one, leave the pin, rebuild against it, and ask. See the comment on `pin-standard-build` for why re-pinning is breaking.
+Never run `labs/noir-projects/noir-contracts/bootstrap.sh pin-standard-build` on your own initiative. The pin exists so ordinary source or bytecode changes do NOT move the standard contracts' canonical addresses, and CI does not fail when the bytecode drifts. A re-pin is a deliberate redeploy decision for a human to make: if a change seems to need one, leave the pin, rebuild against it, and ask. See the comment on `pin-standard-build` for why re-pinning is breaking.
 </standard_contract_repin>
 
 </git_workflow>
 
 <code_formatting>
-Each language's formatter is documented in the relevant subdir `CLAUDE.md` — C++ conventions live in `barretenberg/cpp/CLAUDE.md`, TypeScript in `labs/yarn-project/CLAUDE.md`, and Noir in `labs/noir-projects/labs/aztec-nr/CLAUDE.md`. A post-edit hook runs the appropriate formatter automatically, so there is normally no need to invoke one by hand.
+Each language's formatter is documented in the relevant subdir `CLAUDE.md` — C++ conventions live in `barretenberg/cpp/CLAUDE.md`, TypeScript in `labs/yarn-project/CLAUDE.md`, and Noir in `labs/noir-projects/aztec-nr/CLAUDE.md`. A post-edit hook runs the appropriate formatter automatically, so there is normally no need to invoke one by hand.
 </code_formatting>
 
 <red_green_testing>

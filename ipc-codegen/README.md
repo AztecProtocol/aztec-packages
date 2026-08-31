@@ -135,7 +135,7 @@ flags below are only for legacy positional schemas, which have no `service`.
 | `--binary-name <name>` | Client package shell only; ignored by the server shell. Native service binary name to launch. |
 | `--binary-env-var <name>` | Client package shell only; ignored by the server shell. Environment variable that can override the binary path. Defaults to `<BINARY_NAME>_PATH`. |
 | `--package-transports <uds,shm>` | Client package shell only; ignored by the server shell. Comma-separated transports supported by the generated wrapper. |
-| `--ipc-runtime-dependency <spec>` | Client package shell only; ignored by the server shell. Dependency spec for `@aztec/ipc-runtime`, e.g. a release version or local `file:` dependency in examples. |
+| `--ipc-runtime-dependency <spec>` | Client package shell only; ignored by the server shell. Dependency spec for `@aztec-foundation/ipc-runtime`, e.g. a release version or local `file:` dependency in examples. |
 
 ## Worked examples
 
@@ -155,7 +155,7 @@ src/generate.ts \
 ```
 
 Produces `api_types.ts`, `async.ts`, `sync.ts`, `curve_constants.ts`. The TS
-client uses `@aztec/ipc-runtime`'s `UdsIpcClient` or `NapiShmSyncClient` for
+client uses `@aztec-foundation/ipc-runtime`'s `UdsIpcClient` or `NapiShmSyncClient` for
 transport — no template copy.
 
 ### TypeScript spawned-service package

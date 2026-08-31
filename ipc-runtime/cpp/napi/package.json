@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "packageManager": "yarn@4.13.0",
-  "description": "Node addon source for @aztec/ipc-runtime's SHM-IPC client. Built by CMake (see CMakeLists.txt); these npm deps only supply node-addon-api / node-api headers.",
+  "description": "Node addon source for @aztec-foundation/ipc-runtime's SHM-IPC client. Built by CMake (see CMakeLists.txt); these npm deps only supply node-addon-api / node-api headers.",
   "dependencies": {
     "node-addon-api": "^8.0.0",
     "node-api-headers": "^1.1.0"
