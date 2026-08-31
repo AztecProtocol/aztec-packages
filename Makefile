@@ -69,6 +69,7 @@ fast-foundation: barretenberg bb-tests \
 		ipc-runtime ipc-codegen-tests \
 		constants-codegen constants-codegen-tests \
 		labs-patches-tests \
+		ci3-tests \
 		claude-tests
 
 # The labs components are built from the aztec-node checkout in the labs/ submodule, against
@@ -394,6 +395,11 @@ wsdb: ipc-codegen ipc-runtime bb-cpp-native
 .PHONY: claude-tests
 claude-tests:
 	$(call test,$@,.claude)
+
+# The ci3 scripts' own tests (redact, semver, cache, ...).
+.PHONY: ci3-tests
+ci3-tests:
+	$(call test,$@,ci3)
 
 #==============================================================================
 # Labs (aztec-node, checked out as the labs/ submodule)

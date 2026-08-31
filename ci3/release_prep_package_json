@@ -7,6 +7,13 @@ tmp=$(mktemp)
 
 jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
 
+# npm provenance (trusted publishing) is only accepted when repository.url names the repository the
+# package was built from; the noir packages carry noir-lang/noir and most others carry nothing.
+# NPM_PACKAGE_DIR is the package's directory in this tree (deploy_npm sets it before packing).
+repo_url="git+https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}.git"
+jq --arg u "$repo_url" --arg d "${NPM_PACKAGE_DIR:-}" \
+  '.repository = ({type: "git", url: $u} + (if $d == "" then {} else {directory: $d} end))' package.json >$tmp && mv $tmp package.json
+
 # We update every category of dependency.
 # While we don't strictly need to update devDependencies, 'workspace:^' is not a valid URL in npm.
 for deps in dependencies devDependencies peerDependencies optionalDependencies; do

@@ -23,9 +23,19 @@ if [ -z "${INTERNAL_NPM_REGISTRY:-}" ]; then
 fi
 
 package_name=$(jq -r '.name' package.json)
-echo_header "publishing $package_name"
 
-published_version=$(npm show . version --tag $npm_tag 2>/dev/null | grep -vE '^@' || true)
+# Pack mode: with NPM_PACK_DIR set the release build only produces the publishable tarball (same
+# version stamping and workspace rewriting as a publish) and drops it into that directory. The public
+# release job then publishes the collected tarballs from a GitHub runner with npm trusted publishing
+# (ci3/publish_npm_release), so the build machine never holds npm credentials.
+pack_dir=${NPM_PACK_DIR:-}
+if [ -n "$pack_dir" ]; then
+  echo_header "packing $package_name"
+  published_version=""
+else
+  echo_header "publishing $package_name"
+  published_version=$(npm show . version --tag $npm_tag 2>/dev/null | grep -vE '^@' || true)
+fi
 
 # Check if there is already a published package equal to given version, assume this is a re-run of a deploy.
 if [ "$version" == "$published_version" ]; then
@@ -33,6 +43,10 @@ if [ "$version" == "$published_version" ]; then
   echo "Skipping publish."
   exit 0
 fi
+
+# Where this package lives in the tree, for the repository field release_prep_package_json stamps.
+export NPM_PACKAGE_DIR
+NPM_PACKAGE_DIR=$(python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$PWD" "$root" 2>/dev/null || true)
 
 # Create temp directory for publishing
 tmpdir=$(mktemp -d)
@@ -53,6 +67,14 @@ cd package
 
 # Replace workspace:^ with concrete versions.
 release_prep_package_json $version
+
+if [ -n "$pack_dir" ]; then
+  mkdir -p "$pack_dir"
+  # The pack above already ran the package's prepack scripts inside its workspace; this extracted
+  # copy has no workspace, so they must not run again (same reason publish uses --ignore-scripts).
+  npm pack --ignore-scripts --pack-destination "$pack_dir" --quiet
+  exit 0
+fi
 
 # Publish from temp dir
 if [ "$dry_run" -eq 1 ]; then

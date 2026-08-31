@@ -14,11 +14,11 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source_base
 function setup_environment {
   echo_header "Setup"
   # Store GCP key
-  if [ -n "${GCP_SA_KEY:-}" ]; then
+  if [ -n "${GCP_PRIVATE_NPM_DEPLOY_KEY:-}" ]; then
     export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
     set +x
     umask 077
-    printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+    printf '%s' "$GCP_PRIVATE_NPM_DEPLOY_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
     jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
     echo "GCP key stored"
   fi
@@ -80,7 +80,9 @@ function handle_release_pr {
   git tag "${tag_name}"
   git push origin "${tag_name}"
   echo "Created and pushed tag: ${tag_name}"
-  gh pr edit $PR_NUMBER --remove-label ci-release-pr || true
+  # REST, not `gh pr edit`: that starts with a GraphQL viewer query the bot token cannot make
+  # (needs read:org), so the label silently stayed and every later push re-ran the release.
+  gh api -X DELETE "repos/${github_repository}/issues/${PR_NUMBER}/labels/ci-release-pr" >/dev/null || true
 }
 
 function main {

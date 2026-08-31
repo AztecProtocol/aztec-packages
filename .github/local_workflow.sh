@@ -38,7 +38,7 @@ mkdir -p $REPO_ROOT/.github/.act-tool-cache
 act -j $workflow_name \
   --env RUNNER_TOOL_CACHE=/work/toolcache \
   -s GITHUB_TOKEN="$(gh auth token)" \
-  -s GCP_SA_KEY="$SA_KEY_JSON" \
+  -s GCP_PRIVATE_NPM_DEPLOY="$SA_KEY_JSON" \
   -s KUBECONFIG_B64="$(cat $HOME/.kube/config | base64 -w0)" \
   --container-options "-v $REPO_ROOT/.github/.act-tool-cache:/work/toolcache --user $(id -u):$(id -g)" \
   --bind \

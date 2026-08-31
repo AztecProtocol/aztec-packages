@@ -281,8 +281,8 @@ case "$cmd" in
     # Run the private release flow LOCALLY (no EC2): publish the foundation npm packages to the
     # internal GCP Artifact Registry. Override INTERNAL_NPM_REGISTRY / GOOGLE_APPLICATION_CREDENTIALS
     # as needed; SKIP_BUILD=1 reuses a build.
-    # Default to the local SA key if no GCP creds are set (a no-op in CI, where GCP_SA_KEY is used).
-    [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
+    # Default to the local SA key if no GCP creds are set (a no-op in CI, where GCP_PRIVATE_NPM_DEPLOY is used).
+    [ -z "${GCP_PRIVATE_NPM_DEPLOY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
       export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"
     ./bootstrap.sh ci-private-release
     ;;
