@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Adam Domurad <adomurad@Adams-MBP.ht.home>
+Date: Mon, 31 Aug 2026 10:55:42 -0400
+Subject: [PATCH] fix(docs): resolve reference paths against the superproject
+ when checked out as a submodule
+
+docs/scripts/check_doc_references.sh resolved every references: frontmatter path
+against git rev-parse --show-toplevel. When this repo is a submodule (the labs/
+checkout of aztec-packages), references to parent-repo components (l1-contracts/,
+barretenberg/, noir-projects/fnd/, avm-transpiler/) all failed the docs build.
+
+Paths missing from this repo now fall back to the superproject working tree when
+there is one. In a standalone checkout a path whose first segment does not exist
+here cannot be verified, so it is reported as a warning instead of failing; a
+missing path under a directory that does exist here is still an error.
+
+diff --git a/docs/scripts/check_doc_references.sh b/docs/scripts/check_doc_references.sh
+index 673171473f48601faba2d0ccc088c7353e96a400..d3fff57758ca53b080ea659d5263a11f596e1c8e 100755
+--- a/docs/scripts/check_doc_references.sh
++++ b/docs/scripts/check_doc_references.sh
+@@ -21,6 +21,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ REPO_ROOT=$(git rev-parse --show-toplevel)
+ cd "$REPO_ROOT"
+ 
++# References may point at components that live in a parent repository when this repo is
++# checked out as a submodule (e.g. l1-contracts/ or barretenberg/ in aztec-packages).
++# Resolve those against the superproject when there is one. Standalone checkouts cannot
++# verify them, so paths whose first segment does not exist here are reported but not fatal.
++SUPERPROJECT_ROOT=$(git rev-parse --show-superproject-working-tree)
++
+ # Source shared library for reference extraction
+ source "$SCRIPT_DIR/lib/extract_doc_references.sh"
+ 
+@@ -45,14 +51,31 @@ echo "Found $REF_COUNT unique referenced path(s)."
+ # Directory references use /* suffix (e.g., "src/context/*" means all files in that directory)
+ echo "Validating referenced paths exist..."
+ MISSING_PATHS=""
++UNVERIFIED_PATHS=""
+ while IFS='|' read -r ref_path doc_file; do
+   # Strip /* suffix for directory references before checking existence
+   check_path="${ref_path%/\*}"
+-  if [[ ! -e "$check_path" ]]; then
++  if [[ -e "$check_path" ]]; then
++    continue
++  fi
++  if [[ -n "$SUPERPROJECT_ROOT" ]]; then
++    if [[ ! -e "$SUPERPROJECT_ROOT/$check_path" ]]; then
++      MISSING_PATHS="${MISSING_PATHS}  - ${ref_path} (referenced in ${doc_file})\n"
++    fi
++  elif [[ ! -e "${check_path%%/*}" ]]; then
++    UNVERIFIED_PATHS="${UNVERIFIED_PATHS}  - ${ref_path} (referenced in ${doc_file})\n"
++  else
+     MISSING_PATHS="${MISSING_PATHS}  - ${ref_path} (referenced in ${doc_file})\n"
+   fi
+ done < "$MAPPING_FILE"
+ 
++if [[ -n "$UNVERIFIED_PATHS" ]]; then
++  echo ""
++  echo "WARNING: The following references point outside this repository and cannot be"
++  echo "verified without the parent repository checkout:"
++  echo -e "$UNVERIFIED_PATHS"
++fi
++
+ if [[ -n "$MISSING_PATHS" ]]; then
+   echo ""
+   echo "ERROR: The following referenced paths do not exist:"
+@@ -61,4 +84,8 @@ if [[ -n "$MISSING_PATHS" ]]; then
+   exit 1
+ fi
+ 
+-echo "All referenced paths exist."
++if [[ -n "$UNVERIFIED_PATHS" ]]; then
++  echo "All verifiable referenced paths exist."
++else
++  echo "All referenced paths exist."
++fi

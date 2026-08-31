@@ -73,7 +73,7 @@ fast-foundation: barretenberg bb-tests \
 
 # The labs components are built from the aztec-node checkout in the labs/ submodule, against
 # this tree's packages and binaries (see the Labs section).
-fast-labs: labs-fast
+fast-labs: labs-fast labs-docs-refs-check
 
 fast: fast-foundation fast-labs
 
@@ -470,6 +470,12 @@ labs-fast: labs-use-local
 labs-full: labs-use-local
 	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) $(LABS_FAST_GOALS) $(LABS_FULL_GOALS))
 
+# The docs build runs check_doc_references.sh, but the docs build is full-only, so a patch
+# with references the checker cannot resolve passes PR (fast) CI and fails the merge queue.
+# The check itself is seconds of bash; run it in fast.
+labs-docs-refs-check: labs-patched
+	$(call run_command,$@,$(LABS_DIR)/docs,./scripts/check_doc_references.sh docs)
+
 # Just the labs yarn-project, for callers that need its build output and nothing else.
 labs-yarn-project: labs-use-local
 	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) yarn-project)
@@ -477,7 +483,7 @@ labs-yarn-project: labs-use-local
 labs-bench: labs-use-local
 	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) bench)
 
-.PHONY: labs-deps labs-patched labs-patches-tests labs-use-local labs-fast labs-full labs-bench labs-yarn-project fnd-artifacts-stage
+.PHONY: labs-deps labs-patched labs-patches-tests labs-use-local labs-fast labs-full labs-bench labs-yarn-project labs-docs-refs-check fnd-artifacts-stage
 
 #==============================================================================
 # Noir Projects
