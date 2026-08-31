@@ -25,7 +25,7 @@ git add labs-patches && git commit # the .patch files are what your PR carries
 scripts/labs upstream 4 5 --push   # one aztec-node PR for the patches that belong together
 ```
 
-Batch patches that are independent of a foundation version bump; a patch that needs one waits for that release. When the aztec-node PR lands, the next `bump` drops the patch from the series. `scripts/labs status` shows unexported commits; `apply` never discards them (`LABS_PATCHES_FORCE=1` is the last resort).
+Batch patches that are independent of a foundation version bump; a patch that needs one waits for that release. `--push` (and the printed push/PR commands) need aztec-node write access — labs employees run that step; without access, stop after committing the patch files. When the aztec-node PR lands, the next `bump` drops the patch from the series. `scripts/labs status` shows unexported commits; `apply` never discards them (`LABS_PATCHES_FORCE=1` is the last resort).
 
 ## Port a whole PR to labs
 

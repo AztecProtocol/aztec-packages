@@ -17,4 +17,5 @@ Rules that prevent real mistakes:
 - Never stage the `labs` gitlink by hand; the pin moves only with `bump`. The pre-commit hook refuses a gitlink that points at a patch or marker commit.
 - Commits inside `labs/` re-export the series; commit the regenerated `labs-patches/*.patch` in the foundation PR.
 - A PR that mixes foundation and labs files is not ported; split it.
+- `--push` on `upstream`/`port` needs aztec-node write access (labs employees). Without it, stop after the patch files or the prepared branch — never attempt the push.
 - Private prototypes with no private content go into the private repo's `public-next`, never `next`.
