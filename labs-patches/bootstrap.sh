@@ -377,12 +377,12 @@ function check_staged {
   fi
 }
 
-# Builds a local preview of patches as they would land upstream: a branch in labs/'s repository
-# at the recorded base with the given patches (any number, in series order) applied under your
-# own git identity. Nothing is pushed and the branch is never pushed — the foundation side does
-# not push to aztec-node. The .patch files are the handoff: the labs team applies them directly,
-# and once a patch lands upstream and the pin is bumped past it, it drops out of the next export
-# on its own.
+# Prepares patches as an aztec-node branch: a branch in labs/'s repository at the recorded base
+# with the given patches (any number, in series order) applied under your own git identity,
+# a local preview of what the drained result will look like. Batch the patches that belong together — typically
+# the ones that do not depend on a foundation version bump. Nothing is pushed; the commands to do
+# so are printed. Once the PR lands and the pin is bumped past it, the patches drop out of the
+# next export on their own.
 function upstream {
   local sels=() branch="" a
   for a in "$@"; do
