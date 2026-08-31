@@ -24,7 +24,7 @@ async function generateProof({
   oracleHash?: string;
   multiThreaded?: boolean;
 }) {
-  const { UltraHonkBackend, Barretenberg, BackendType } = await import('@aztec/bb.js');
+  const { UltraHonkBackend, Barretenberg, BackendType } = await import('@aztec-foundation/bb.js');
 
   logger.debug(`Generating proof for ${bytecodePath}...`);
   const circuitArtifact = await fs.readFile(bytecodePath);
@@ -62,7 +62,7 @@ async function generateProof({
 }
 
 async function verifyProof({ directory }: { directory: string }) {
-  const { UltraHonkVerifierBackend, Barretenberg, BackendType } = await import('@aztec/bb.js');
+  const { UltraHonkVerifierBackend, Barretenberg, BackendType } = await import('@aztec-foundation/bb.js');
 
   const bb = await Barretenberg.new({ threads: 1, backend: BackendType.Wasm });
   const verifier = new UltraHonkVerifierBackend(bb);

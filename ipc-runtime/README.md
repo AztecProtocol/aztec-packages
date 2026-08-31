@@ -26,7 +26,7 @@ Per-language bindings build standalone:
 # Rust crate
 cd rust && cargo build
 
-# TypeScript package (publishes @aztec/ipc-runtime via file: link)
+# TypeScript package (publishes @aztec-foundation/ipc-runtime via file: link)
 cd ts && yarn install --immutable && yarn build
 
 # Zig binding (compiles the C++ sources itself; no prebuilt archive)
@@ -202,7 +202,7 @@ multi-slot MPSC-SHM, use `Client::from_path_with_id(path, client_id)`. The
 crate compiles the C++ sources via `build.rs` so there's no separate
 linker hook for downstream Cargo users.
 
-### TypeScript (`ts/`, published as `@aztec/ipc-runtime`)
+### TypeScript (`ts/`, published as `@aztec-foundation/ipc-runtime`)
 
 Two transport-specific clients:
 

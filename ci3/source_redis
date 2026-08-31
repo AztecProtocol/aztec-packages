@@ -11,9 +11,13 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   if nc -z $CI_REDIS 6379 &>/dev/null; then
     # Redis is found at given host, we're done.
     export CI_REDIS_AVAILABLE=1
-  elif [ -f ~/.ssh/build_instance_key ] && [ "${CI_SSM_MODE:-0}" -eq 0 ]; then
-    # We have the build_instance_key.
-    # Attempt to open a port to the remote redis cache via ssh through the bastion.
+  elif [ "${GITHUB_ACTIONS:-}" != "true" ] && [ -f ~/.ssh/build_instance_key ] && [ "${CI_SSM_MODE:-0}" -eq 0 ]; then
+    # The bastion tunnel is for developer machines only. A GitHub runner deliberately runs
+    # with no log or test cache: it only orchestrates the build instance, and the instance
+    # reaches CI_REDIS directly from inside the VPC, so everything from "instance up"
+    # onwards is still logged under the same CI_LOG_ID. Keeping the runner off the bastion
+    # means no CI path depends on an SSH credential to produce logs.
+    # Open a port to the remote redis cache via ssh through the bastion.
     echo_stderr "Opening port to remote redis..."
     ssh -N -L 6379:ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com:6379 \
       -o ControlMaster=auto -o ControlPath=/tmp/ssh_mux_%h_%p_%r -o ControlPersist=480m \
@@ -80,8 +84,15 @@ function redis_cli {
   fi
 }
 
+# Callers pipe log data into this. When redis is unavailable the data must still be read:
+# a reader that exits without draining kills the upstream writer with SIGPIPE, and under
+# `set -o pipefail` that 141 propagates out and fails the caller.
 function redis_setexz {
-  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  else
+    cat >/dev/null
+  fi
 }
 
 function redis_getz {
