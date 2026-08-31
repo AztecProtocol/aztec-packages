@@ -1,9 +1,9 @@
 /**
  * Echo IPC server (TypeScript) — uses the GENERATED handleRequest (framing,
- * dispatch, and error wrapping) over the @aztec/ipc-runtime UDS transport.
+ * dispatch, and error wrapping) over the @aztec-foundation/ipc-runtime UDS transport.
  * Usage: npx tsx echo_server.ts --socket /tmp/echo.sock
  */
-import { UdsIpcServer } from "@aztec/ipc-runtime";
+import { UdsIpcServer } from "@aztec-foundation/ipc-runtime";
 import { handleRequest } from "./generated/server.js";
 import type { Handler } from "./generated/server.js";
 import type {

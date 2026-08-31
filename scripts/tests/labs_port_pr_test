@@ -6,7 +6,7 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
 port=$root/scripts/labs_port_pr.sh
 tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"; git -C "$root/labs" branch -q -D port/t-ok port/t-mixed 2>/dev/null || true' EXIT
+trap 'rm -rf "$tmp"; git -C "$root/labs" branch -q -D port/t-ok port/t-mixed port/t-remap 2>/dev/null || true' EXIT
 PASS=0
 function ok { echo "  ok  $1"; PASS=$((PASS + 1)); }
 function fail { echo "  FAIL  $1" >&2; exit 1; }
@@ -21,6 +21,12 @@ grep -q "Prepared port/t-ok" "$tmp/out" || fail "port: output"
 git -C "$root/labs" show "port/t-ok:$f" | grep -q "ported line" || fail "port: content"
 git -C "$root/labs" log -1 --format=%s port/t-ok | grep -q "^docs: ported line$" || fail "port: subject"
 ok "labs-only diff ported as one commit"
+
+# an in-tree noir-projects/labs path lands at aztec-node's noir-projects root
+{ echo "diff --git a/noir-projects/labs/ported-note.md b/noir-projects/labs/ported-note.md"; echo "new file mode 100644"; echo "--- /dev/null"; echo "+++ b/noir-projects/labs/ported-note.md"; echo "@@ -0,0 +1 @@"; echo "+ported"; } > "$tmp/remap.diff"
+"$port" --diff "$tmp/remap.diff" --title "docs: remap" --onto HEAD --branch port/t-remap --no-fetch >/dev/null || fail "remap: diff refused"
+git -C "$root/labs" cat-file -e "port/t-remap:noir-projects/ported-note.md" 2>/dev/null || fail "remap: file not at noir-projects root"
+ok "noir-projects/labs remapped onto noir-projects"
 
 # a foundation path is refused, and no branch is left behind
 { echo "diff --git a/barretenberg/cpp/x b/barretenberg/cpp/x"; echo "--- a/barretenberg/cpp/x"; echo "+++ b/barretenberg/cpp/x"; echo "@@ -0,0 +1 @@"; echo "+x"; } > "$tmp/bad.diff"

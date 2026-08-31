@@ -5,66 +5,60 @@ __metadata:
   version: 8
   cacheKey: 10
 
-"@aztec/barretenberg-ts-packages@workspace:.":
+"@aztec-foundation/bb-avm-sim-darwin-arm64@npm:0.1.0, @aztec-foundation/bb-avm-sim-darwin-arm64@workspace:bb-avm-sim/packages/bb-avm-sim-darwin-arm64":
   version: 0.0.0-use.local
-  resolution: "@aztec/barretenberg-ts-packages@workspace:."
+  resolution: "@aztec-foundation/bb-avm-sim-darwin-arm64@workspace:bb-avm-sim/packages/bb-avm-sim-darwin-arm64"
   languageName: unknown
   linkType: soft
 
-"@aztec/bb-avm-sim-darwin-arm64@npm:0.1.0, @aztec/bb-avm-sim-darwin-arm64@workspace:bb-avm-sim/packages/bb-avm-sim-darwin-arm64":
+"@aztec-foundation/bb-avm-sim-darwin-x64@npm:0.1.0, @aztec-foundation/bb-avm-sim-darwin-x64@workspace:bb-avm-sim/packages/bb-avm-sim-darwin-x64":
   version: 0.0.0-use.local
-  resolution: "@aztec/bb-avm-sim-darwin-arm64@workspace:bb-avm-sim/packages/bb-avm-sim-darwin-arm64"
+  resolution: "@aztec-foundation/bb-avm-sim-darwin-x64@workspace:bb-avm-sim/packages/bb-avm-sim-darwin-x64"
   languageName: unknown
   linkType: soft
 
-"@aztec/bb-avm-sim-darwin-x64@npm:0.1.0, @aztec/bb-avm-sim-darwin-x64@workspace:bb-avm-sim/packages/bb-avm-sim-darwin-x64":
+"@aztec-foundation/bb-avm-sim-linux-arm64@npm:0.1.0, @aztec-foundation/bb-avm-sim-linux-arm64@workspace:bb-avm-sim/packages/bb-avm-sim-linux-arm64":
   version: 0.0.0-use.local
-  resolution: "@aztec/bb-avm-sim-darwin-x64@workspace:bb-avm-sim/packages/bb-avm-sim-darwin-x64"
+  resolution: "@aztec-foundation/bb-avm-sim-linux-arm64@workspace:bb-avm-sim/packages/bb-avm-sim-linux-arm64"
   languageName: unknown
   linkType: soft
 
-"@aztec/bb-avm-sim-linux-arm64@npm:0.1.0, @aztec/bb-avm-sim-linux-arm64@workspace:bb-avm-sim/packages/bb-avm-sim-linux-arm64":
+"@aztec-foundation/bb-avm-sim-linux-x64@npm:0.1.0, @aztec-foundation/bb-avm-sim-linux-x64@workspace:bb-avm-sim/packages/bb-avm-sim-linux-x64":
   version: 0.0.0-use.local
-  resolution: "@aztec/bb-avm-sim-linux-arm64@workspace:bb-avm-sim/packages/bb-avm-sim-linux-arm64"
+  resolution: "@aztec-foundation/bb-avm-sim-linux-x64@workspace:bb-avm-sim/packages/bb-avm-sim-linux-x64"
   languageName: unknown
   linkType: soft
 
-"@aztec/bb-avm-sim-linux-x64@npm:0.1.0, @aztec/bb-avm-sim-linux-x64@workspace:bb-avm-sim/packages/bb-avm-sim-linux-x64":
+"@aztec-foundation/bb-avm-sim@workspace:bb-avm-sim":
   version: 0.0.0-use.local
-  resolution: "@aztec/bb-avm-sim-linux-x64@workspace:bb-avm-sim/packages/bb-avm-sim-linux-x64"
-  languageName: unknown
-  linkType: soft
-
-"@aztec/bb-avm-sim@workspace:bb-avm-sim":
-  version: 0.0.0-use.local
-  resolution: "@aztec/bb-avm-sim@workspace:bb-avm-sim"
+  resolution: "@aztec-foundation/bb-avm-sim@workspace:bb-avm-sim"
   dependencies:
-    "@aztec/bb-avm-sim-darwin-arm64": "npm:0.1.0"
-    "@aztec/bb-avm-sim-darwin-x64": "npm:0.1.0"
-    "@aztec/bb-avm-sim-linux-arm64": "npm:0.1.0"
-    "@aztec/bb-avm-sim-linux-x64": "npm:0.1.0"
-    "@aztec/ipc-runtime": "@aztec/ipc-runtime"
+    "@aztec-foundation/bb-avm-sim-darwin-arm64": "npm:0.1.0"
+    "@aztec-foundation/bb-avm-sim-darwin-x64": "npm:0.1.0"
+    "@aztec-foundation/bb-avm-sim-linux-arm64": "npm:0.1.0"
+    "@aztec-foundation/bb-avm-sim-linux-x64": "npm:0.1.0"
+    "@aztec-foundation/ipc-runtime": "@aztec-foundation/ipc-runtime"
     "@types/node": "npm:^22.15.17"
     msgpackr: "npm:^1.11.2"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
   dependenciesMeta:
-    "@aztec/bb-avm-sim-darwin-arm64":
+    "@aztec-foundation/bb-avm-sim-darwin-arm64":
       optional: true
-    "@aztec/bb-avm-sim-darwin-x64":
+    "@aztec-foundation/bb-avm-sim-darwin-x64":
       optional: true
-    "@aztec/bb-avm-sim-linux-arm64":
+    "@aztec-foundation/bb-avm-sim-linux-arm64":
       optional: true
-    "@aztec/bb-avm-sim-linux-x64":
+    "@aztec-foundation/bb-avm-sim-linux-x64":
       optional: true
   bin:
     bb-avm-sim: ./dest/bin.js
   languageName: unknown
   linkType: soft
 
-"@aztec/bb.js@workspace:bb.js":
+"@aztec-foundation/bb.js@workspace:bb.js":
   version: 0.0.0-use.local
-  resolution: "@aztec/bb.js@workspace:bb.js"
+  resolution: "@aztec-foundation/bb.js@workspace:bb.js"
   dependencies:
     "@jest/globals": "npm:^30.0.0"
     "@swc/core": "npm:^1.10.1"
@@ -102,9 +96,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/cdb@workspace:cdb":
+"@aztec-foundation/cdb@workspace:cdb":
   version: 0.0.0-use.local
-  resolution: "@aztec/cdb@workspace:cdb"
+  resolution: "@aztec-foundation/cdb@workspace:cdb"
   dependencies:
     "@types/node": "npm:^22.15.17"
     msgpackr: "npm:^1.11.2"
@@ -113,10 +107,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbarretenberg-ts-packages%40workspace%3A.":
+"@aztec-foundation/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbarretenberg-ts-packages%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbarretenberg-ts-packages%40workspace%3A."
+  resolution: "@aztec-foundation/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbarretenberg-ts-packages%40workspace%3A."
   languageName: node
+  linkType: soft
+
+"@aztec/barretenberg-ts-packages@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/barretenberg-ts-packages@workspace:."
+  languageName: unknown
   linkType: soft
 
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.27.1":

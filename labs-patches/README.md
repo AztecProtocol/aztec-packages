@@ -39,7 +39,7 @@ git -C labs push origin fnd/<slug>-and-2-more
 gh pr create --repo aztec-labs-eng/aztec-node --head fnd/<slug>-and-2-more --base main --fill
 ```
 
-`upstream` creates the branch in `labs/`'s repository at the recorded base with the named patches applied in series order, under your own git identity (the series itself is applied with a fixed one). It pushes nothing; the two commands it prints do. When the PR is merged, `bump` past it and those patches disappear from the next `export`.
+`upstream` creates the branch in `labs/`'s repository at the recorded base with the named patches applied in series order, under your own git identity (the series itself is applied with a fixed one). It pushes nothing; the two commands it prints do, and they need aztec-node write access — labs employees run that step. When the PR is merged, `bump` past it and those patches disappear from the next `export`.
 
 Everything else in this directory (`bootstrap.sh`, the tests, `test_cmd_skip`) is the foundation's own tooling and never goes upstream.
 
@@ -52,3 +52,8 @@ gh pr create --repo aztec-labs-eng/aztec-node --head port/pr-24800 --base main -
 ```
 
 The PR must touch only the labs half of the tree: the in-tree layout (`yarn-project/`, `noir-projects/labs/`, `docs/`, `playground/`, `spartan/`, `aztec-up/`, `release-image/`, `labs-aztec-toolchain/` — v5 lines, or `next` before the split) or, after the split, only `labs-patches/*.patch`. Anything else is refused with the files listed; split such a PR rather than guessing. The diff is replayed onto aztec-node `main` with a 3-way merge (the pre-image blobs are copied from this repository), so context that moved upstream is adapted and an already-landed hunk merges as a no-op; files that still conflict are committed with markers and listed, as are lines that reference foundation-only paths, which aztec-node cannot resolve. Nothing is pushed.
+
+## Disabled patches
+
+`apply` globs `*.patch`, so a patch renamed to `*.patch.disabled` is kept in the queue but
+not applied. None are currently disabled.

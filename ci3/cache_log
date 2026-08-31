@@ -32,7 +32,8 @@ function publish_log {
 
 function publish_log_final {
   finalize_log
-  cat $outfile | cache_persistent $key $CI_REDIS_EXPIRE
+  # Synchronous: this is the run's top-level log and the instance goes away right after.
+  cat $outfile | CACHE_PERSIST_SYNC=1 cache_persistent $key $CI_REDIS_EXPIRE
 }
 
 function live_publish_log {

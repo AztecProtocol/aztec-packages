@@ -78,6 +78,10 @@ function test {
 
 function release {
   cross_copy
+  # The bundled binaries are restored from the build cache, which is keyed on source, not on
+  # the release: finalize them here so they carry this release's version like every other copy.
+  local f
+  for f in ./build/*/bb ./build/*/bb.exe; do [ -f "$f" ] && ../../cpp/bootstrap.sh finalize_bb_binary "$(realpath "$f")"; done
   retry "deploy_npm ${REF_NAME#v}"
 }
 

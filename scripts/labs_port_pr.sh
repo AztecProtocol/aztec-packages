@@ -105,9 +105,14 @@ if [ "${#patches[@]}" -gt 0 ]; then
   done
   [ -z "$conflicts" ] || die "patches did not apply on $onto:$conflicts — rebase them in labs/ first (apply, fix up, export)"
 else
-  # Paths are identical in both layouts; --3way adapts to context that moved upstream. The
-  # merge needs the diff's pre-image blobs, which live in this repository, not aztec-node's:
-  # copy the ones this checkout has (the PR head is fetched so they normally all are).
+  # aztec-node keeps noir-projects at its root (this repo's noir-projects/labs/<x> is its
+  # noir-projects/<x>); every other path is identical in both layouts. --3way adapts to
+  # context that moved upstream. The merge needs the diff's pre-image blobs, which live in
+  # this repository, not aztec-node's: copy the ones this checkout has (the PR head is
+  # fetched so they normally all are).
+  sed -i.orig -E \
+    -e 's#^(diff --git a/|--- a/|rename from |rename to |copy from |copy to )noir-projects/labs/#\1noir-projects/#' \
+    -e 's#( b/)noir-projects/labs/#\1noir-projects/#' "$tmp/pr.diff"
   [ -z "$pr" ] || git -C "$root" fetch -q origin "refs/pull/$pr/head" || true
   blobs=$( { grep -E '^index [0-9a-f]+\.\.[0-9a-f]+' "$tmp/pr.diff" || true; } | sed -E 's/^index ([0-9a-f]+)\.\.([0-9a-f]+).*/\1 \2/' | tr ' ' '\n' | grep -v '^0*$' | sort -u || true)
   for blob in $blobs; do
