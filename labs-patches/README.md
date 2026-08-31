@@ -55,5 +55,4 @@ The PR must touch only the labs half of the tree: the in-tree layout (`yarn-proj
 
 ## Disabled patches
 
-`apply` globs `*.patch`, so a patch renamed to `*.patch.disabled` is kept in the queue but
-not applied. None are currently disabled.
+`apply` globs `*.patch`, so a patch renamed to `*.patch.disabled` is kept in the queue but not applied.
