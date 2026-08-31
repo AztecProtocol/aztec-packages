@@ -103,12 +103,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           # Only set in the private repo: the service account private releases deploy npm packages with.
-          GCP_PRIVATE_NPM_DEPLOY: ${{ secrets.GCP_PRIVATE_NPM_DEPLOY }}
+          # The _KEY suffix keeps ci3/redact treating the value as sensitive.
+          GCP_PRIVATE_NPM_DEPLOY_KEY: ${{ secrets.GCP_PRIVATE_NPM_DEPLOY }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           # Used by docs CI scripts to post to #docs-alerts (the SLACK_BOT_TOKEN bot lacks access there).
@@ -208,8 +208,14 @@ jobs:
       - name: Update npm
         run: npm install -g npm@^11.5.1 && npm --version
 
+      # Authenticated S3 download using the runner's AWS OIDC role, not the plain-HTTP cache
+      # endpoint, and extracted outside the checkout. publish_npm_release then refuses any
+      # tarball that is not one of our packages at exactly this tag's version.
       - name: Download the packed release
-        run: ./ci3/cache_download "npm-release-${GITHUB_REF_NAME}.tar.gz" .
+        run: |
+          dir=$(mktemp -d)
+          echo "NPM_RELEASE_DIR=$dir" >> "$GITHUB_ENV"
+          S3_BUILD_CACHE_AWS_PARAMS="--region us-east-2" ./ci3/cache_download "npm-release-${GITHUB_REF_NAME}.tar.gz" "$dir"
 
       - name: Publish
-        run: ./ci3/publish_npm_release npm-release
+        run: ./ci3/publish_npm_release "$NPM_RELEASE_DIR/npm-release"
