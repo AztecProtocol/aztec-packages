@@ -31,14 +31,18 @@ fetches the ref, stages the new gitlink and re-applies the series. If a patch no
 
 ## Upstreaming patches
 
-The series is a queue of things to upstream: every patch here is carried through every bump, so open the aztec-node PR early and let the patches drop out when it lands. One PR per patch is not the rule — batch the patches that belong together, typically the ones that do not depend on a foundation version bump; a patch that does has to wait for the release that bump points at.
+The series is a queue of things to upstream: every patch here is carried through every bump until it lands in aztec-node. The foundation side pushes nothing to aztec-node — the `.patch` files in this directory are the handoff, and the labs team applies them directly:
+
+```
+git am <aztec-packages>/labs-patches/0005-*.patch    # from an aztec-node checkout
+```
+
+A patch that does not depend on a foundation version bump can land any time; one that does has to wait for the release that bump points at. When a patch lands upstream, `bump` past it and it disappears from the next `export`.
 
 ```
 ./labs-patches/bootstrap.sh upstream 1 2 3          # patch numbers or .patch paths; --branch <name> to choose the branch
-git -C labs push origin fnd/<slug>-and-2-more
-gh pr create --repo aztec-labs-eng/aztec-node --head fnd/<slug>-and-2-more --base main --fill
 ```
 
-`upstream` creates the branch in `labs/`'s repository at the recorded base with the named patches applied in series order, under your own git identity (the series itself is applied with a fixed one). It pushes nothing; the two commands it prints do. When the PR is merged, `bump` past it and those patches disappear from the next `export`.
+`upstream` builds a local preview: a branch in `labs/`'s repository at the recorded base with the named patches applied in series order, under your own git identity (the series itself is applied with a fixed one) — what the drained result will look like. It pushes nothing and the branch is never pushed.
 
 Everything else in this directory (`bootstrap.sh`, the tests, `test_cmd_skip`) is the foundation's own tooling and never goes upstream.

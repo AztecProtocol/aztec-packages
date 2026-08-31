@@ -324,12 +324,12 @@ function check_staged {
   fi
 }
 
-# Prepares patches as an aztec-node branch: a branch in labs/'s repository at the recorded base
-# with the given patches (any number, in series order) applied under your own git identity,
-# ready to push and open as one upstream PR. Batch the patches that belong together — typically
-# the ones that do not depend on a foundation version bump. Nothing is pushed; the commands to do
-# so are printed. Once the PR lands and the pin is bumped past it, the patches drop out of the
-# next export on their own.
+# Builds a local preview of patches as they would land upstream: a branch in labs/'s repository
+# at the recorded base with the given patches (any number, in series order) applied under your
+# own git identity. Nothing is pushed and the branch is never pushed — the foundation side does
+# not push to aztec-node. The .patch files are the handoff: the labs team applies them directly,
+# and once a patch lands upstream and the pin is bumped past it, it drops out of the next export
+# on its own.
 function upstream {
   local sels=() branch="" a
   for a in "$@"; do
@@ -376,10 +376,10 @@ function upstream {
       die "$(basename "$p") does not apply to $base"
     fi
   done
-  echo "Prepared $branch in labs/ ($(git -C "$tmp" rev-parse --short HEAD) on $base):"
+  echo "Prepared preview branch $branch in labs/ ($(git -C "$tmp" rev-parse --short HEAD) on $base):"
   echo "$ordered" | xargs -n1 basename | sed 's/^/  /'
-  echo "  git -C labs push origin $branch"
-  echo "  gh pr create --repo aztec-labs-eng/aztec-node --head $branch --base main --fill"
+  echo "The foundation pushes nothing to aztec-node. The labs team drains these patch files"
+  echo "directly (git am them from an aztec-node checkout); the branch is a local preview."
 }
 
 function status {
