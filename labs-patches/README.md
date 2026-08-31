@@ -46,13 +46,4 @@ Everything else in this directory (`bootstrap.sh`, the tests, `test_cmd_skip`) i
 ## Disabled patches
 
 `apply` globs `*.patch`, so a patch renamed to `*.patch.disabled` is kept in the queue but
-not applied. Currently disabled:
-
-- `0005-docs-release-time-syntax-sweep-aztec.js-reference-re.patch.disabled` — the docs it
-  adds carry `references:` frontmatter pointing at `l1-contracts/`, `noir-projects/fnd/`,
-  `barretenberg/cpp/` and `avm-transpiler/src/`. Those live in this repo, but
-  `docs/scripts/check_doc_references.sh` resolves references against
-  `git rev-parse --show-toplevel`, which inside the submodule is `labs/`, so it fails the
-  docs build. The references are correct; the checker has no notion of the parent repo.
-  Re-enable once it can resolve them (or skip paths whose first segment is absent), rather
-  than by deleting the references — a third of the patch's 157 reference lines cite this repo.
+not applied.
