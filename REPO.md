@@ -22,18 +22,18 @@ Labs cache keys follow the foundation tree (`labs/labs-aztec-toolchain/fnd-hashe
 scripts/labs apply                 # (already done by bootstrap) patched labs/ checkout
 cd labs && <edit> && git commit    # the series re-exports itself on commit
 git add labs-patches && git commit # the .patch files are what your PR carries
-scripts/labs upstream 4 5          # local preview of how the patches land upstream
+scripts/labs upstream 4 5 --push   # one aztec-node PR for the patches that belong together
 ```
 
-The `.patch` files are the handoff: the labs team drains them (`git am` from an aztec-node checkout); the foundation side never pushes to aztec-node. A patch that needs a foundation version bump waits for that release. When a patch lands upstream, the next `bump` drops it from the series. `scripts/labs status` shows unexported commits; `apply` never discards them (`LABS_PATCHES_FORCE=1` is the last resort).
+Batch patches that are independent of a foundation version bump; a patch that needs one waits for that release. When the aztec-node PR lands, the next `bump` drops the patch from the series. `scripts/labs status` shows unexported commits; `apply` never discards them (`LABS_PATCHES_FORCE=1` is the last resort).
 
 ## Port a whole PR to labs
 
 ```
-scripts/labs port 24800            # a v5 PR in the in-tree layout, or a next PR that only changes labs-patches/*.patch
+scripts/labs port 24800 --push     # a v5 PR in the in-tree layout, or a next PR that only changes labs-patches/*.patch
 ```
 
-The diff must touch only the labs half (in-tree `yarn-project/`, `noir-projects/labs/`, `docs/`, `playground/`, `spartan/`, `aztec-up/`, `release-image/`, `labs-aztec-toolchain/`, or `labs-patches/*.patch`); anything else is refused with the files listed. It is replayed 3-way onto aztec-node `main` (already-landed hunks become no-ops); remaining conflicts are committed with markers and listed, foundation-path references flagged. v5 PRs get the `port-to-aztec-node` label automatically; a person with aztec-node write access runs this and pushes the result (`--push`) — the foundation side itself never pushes to aztec-node.
+The diff must touch only the labs half (in-tree `yarn-project/`, `noir-projects/labs/`, `docs/`, `playground/`, `spartan/`, `aztec-up/`, `release-image/`, `labs-aztec-toolchain/`, or `labs-patches/*.patch`); anything else is refused with the files listed. It is replayed 3-way onto aztec-node `main` (already-landed hunks become no-ops); remaining conflicts are committed with markers and listed, foundation-path references flagged. v5 PRs get the `port-to-aztec-node` label automatically; a person runs this.
 
 ## Take labs changes in
 
@@ -59,5 +59,5 @@ scripts/labs bump main --pr        # move the pin, re-apply the series, commit g
 | `apply`: commits would be lost | `scripts/labs export`, or `git -C labs reset`, or `LABS_PATCHES_FORCE=1` |
 | CI red in a labs test | run the `/tmp/test_cmds` line from the root, or `scripts/labs run <cmd>` |
 | labs tests say `disabled-cache` locally | by design; per-package hashes resolve in CI only |
-| labs-only PR on a v5 line | `scripts/labs port <pr>` (someone with aztec-node access pushes) |
+| labs-only PR on a v5 line | `scripts/labs port <pr> --push` |
 | the private `public-next → next` merge is stuck | land the AztecBot pair |

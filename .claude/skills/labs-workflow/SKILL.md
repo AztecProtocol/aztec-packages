@@ -8,8 +8,8 @@ Read `REPO.md` at the repo root first; it is the whole workflow on one page. Eve
 | Verb | Use |
 |---|---|
 | `apply` / `status` / `export` / `check` | series on the checkout; `status` lists unexported commits |
-| `upstream <n>...` | local preview branch of the named patches; the labs team drains the `.patch` files, the foundation never pushes to aztec-node |
-| `port <pr> [--push]` | replay a labs-only aztec-packages PR onto aztec-node main (`--push` needs aztec-node write access) |
+| `upstream <n>... [--push]` | one aztec-node PR from the named patches (batch what belongs together) |
+| `port <pr> [--push]` | replay a labs-only aztec-packages PR onto aztec-node main |
 | `bump <ref> [--commit\|--pr]` | move the pin, re-apply, commit gitlink + foundry locks + patches, open the PR |
 | `run <cmd>` | a command inside labs/ with the right environment |
 

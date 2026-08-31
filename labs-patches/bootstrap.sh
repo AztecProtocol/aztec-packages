@@ -379,20 +379,21 @@ function check_staged {
 
 # Prepares patches as an aztec-node branch: a branch in labs/'s repository at the recorded base
 # with the given patches (any number, in series order) applied under your own git identity,
-# a local preview of what the drained result will look like. Batch the patches that belong together — typically
+# ready to push and open as one upstream PR. Batch the patches that belong together — typically
 # the ones that do not depend on a foundation version bump. Nothing is pushed; the commands to do
 # so are printed. Once the PR lands and the pin is bumped past it, the patches drop out of the
 # next export on their own.
 function upstream {
-  local sels=() branch="" a
+  local sels=() branch="" push=0 a
   for a in "$@"; do
     case "$a" in
+      --push) push=1; continue ;;
       --branch) ;;  # handled below
       *) if [ -n "${expect_branch:-}" ]; then branch=$a; expect_branch=""; else sels+=("$a"); fi ;;
     esac
     [ "$a" = "--branch" ] && expect_branch=1
   done
-  [ "${#sels[@]}" -gt 0 ] || die "usage: upstream <patch number or file>... [--branch <name>]"
+  [ "${#sels[@]}" -gt 0 ] || die "usage: upstream <patch number or file>... [--branch <name>] [--push]"
   initialized || die "labs/ is not checked out; run apply first"
   local files=() sel p
   for sel in "${sels[@]}"; do
@@ -429,10 +430,15 @@ function upstream {
       die "$(basename "$p") does not apply to $base"
     fi
   done
-  echo "Prepared preview branch $branch in labs/ ($(git -C "$tmp" rev-parse --short HEAD) on $base):"
+  echo "Prepared $branch in labs/ ($(git -C "$tmp" rev-parse --short HEAD) on $base):"
   echo "$ordered" | xargs -n1 basename | sed 's/^/  /'
-  echo "The foundation pushes nothing to aztec-node. The labs team drains these patch files"
-  echo "directly (git am them from an aztec-node checkout); the branch is a local preview."
+  if [ "$push" = 1 ]; then
+    git_labs push -q -u origin "$branch"
+    gh pr create --repo aztec-labs-eng/aztec-node --head "$branch" --base main --fill
+  else
+    echo "  git -C labs push origin $branch"
+    echo "  gh pr create --repo aztec-labs-eng/aztec-node --head $branch --base main --fill"
+  fi
 }
 
 function status {

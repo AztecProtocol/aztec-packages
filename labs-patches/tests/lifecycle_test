@@ -197,7 +197,7 @@ ok "test_cmds from any cwd"
 
 # 12. upstream prepares one patch as a branch at the recorded base, under the caller's identity
 base=$(git -C "$fnd" rev-parse HEAD:labs)
-out=$("$lp" upstream 1 --branch fnd/one) && grep -q "Prepared preview branch fnd/one" <<<"$out" && ! grep -q "git -C labs push" <<<"$out" || fail "upstream: output"
+out=$("$lp" upstream 1 --branch fnd/one) && grep -q "Prepared fnd/one" <<<"$out" || fail "upstream: output"
 [ "$(git -C "$fnd/labs" rev-list --count "$base..fnd/one")" = 1 ] || fail "upstream: one commit above the base"
 [ "$(git -C "$fnd/labs" show fnd/one:config)" = "a=2" ] || fail "upstream: patch content"
 [ "$(git -C "$fnd/labs" log -1 --format=%cn fnd/one)" = "test" ] || fail "upstream: committer identity"
