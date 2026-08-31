@@ -11,7 +11,7 @@
         "./target/bytecode.bin"
       ],
       "options": {
-        "cwd": "${workspaceFolder}/noir-projects/labs/noir-contracts"
+        "cwd": "${workspaceFolder}/labs/noir-projects/noir-contracts"
       },
       "problemMatcher": []
     },
@@ -21,7 +21,7 @@
       "command": "rm",
       "args": ["-f", "./target/bytecode.bin"],
       "options": {
-        "cwd": "${workspaceFolder}/noir-projects/labs/noir-contracts"
+        "cwd": "${workspaceFolder}/labs/noir-projects/noir-contracts"
       },
       "problemMatcher": []
     },

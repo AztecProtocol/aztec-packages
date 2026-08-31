@@ -9,10 +9,10 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 
 ## Popular packages
 
-- [Aztec.nr](./labs/noir-projects/labs/aztec-nr/): A [Noir](https://noir-lang.org) framework for smart contracts on Aztec.
+- [Aztec.nr](./labs/noir-projects/aztec-nr/): A [Noir](https://noir-lang.org) framework for smart contracts on Aztec.
 - [Aztec](./labs/yarn-project/aztec/): A package for starting up local dev net modules, including a local 'network' devnet, an Ethereum network, deployed rollup contracts and Aztec execution environment.
 - [Aztec.js](./labs/yarn-project/aztec.js/): A tool for interacting with the Aztec network. It communicates via the [Private Execution Environment (PXE)](./labs/yarn-project/pxe/).
-- [Example contracts](./labs/noir-projects/labs/noir-contracts/): Example contracts for the Aztec network, written in Noir.
+- [Example contracts](./labs/noir-projects/noir-contracts/): Example contracts for the Aztec network, written in Noir.
 - [End to end tests](./labs/yarn-project/end-to-end/): Integration tests written in Typescript--a good reference for how to use the packages for specific tasks.
 
 ## Issues Board

@@ -90,9 +90,9 @@ T "No secrets in text" "hello world" "hello world" "KEY_1=secret99"
 echo "--- 6. Multiline Support ---"
 T "Multiline Secret (Line 1)" "x ***" "x firstline" $'MULTI_SECRET=firstline\nsecondline'
 T "Multiline Secret (Line 2)" "x ***" "x secondline" $'MULTI_SECRET=firstline\nsecondline'
-T "Multiline JSON braces not redacted" '{"timestamp":12345}' '{"timestamp":12345}' $'GCP_PRIVATE_NPM_DEPLOY={\n  "type": "service_account",\n  "project_id": "my-project"\n}'
+T "Multiline JSON braces not redacted" '{"timestamp":12345}' '{"timestamp":12345}' $'GCP_PRIVATE_NPM_DEPLOY_KEY={\n  "type": "service_account",\n  "project_id": "my-project"\n}'
 T "Multiline JSON short lines ignored" '{ } end' '{ } end' $'MY_SECRET={\n  "longvalue": "something_secret_here",\n}'
-T "Multiline JSON long lines still redacted" 'x ***' 'x   "type": "service_account",' $'GCP_PRIVATE_NPM_DEPLOY={\n  "type": "service_account",\n  "project_id": "my-project"\n}'
+T "Multiline JSON long lines still redacted" 'x ***' 'x   "type": "service_account",' $'GCP_PRIVATE_NPM_DEPLOY_KEY={\n  "type": "service_account",\n  "project_id": "my-project"\n}'
 
 echo "--- 7. GitHub Actions ::add-mask:: Syntax ---"
 TM "add-mask stripped from output" "hello" $'::add-mask::secret123\nhello'
