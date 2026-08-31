@@ -23,9 +23,15 @@ fail() {
 
 echo "=== Denoise Test Suite ==="
 
+# A private output directory so the leak checks only see this test's tails: on a CI
+# machine every concurrent build runs denoise, so a global pgrep matches their tails too.
+denoise_tmp=$(mktemp -d)
+trap 'rm -rf "$denoise_tmp"' EXIT
+
 # Common env for denoise: enable it, disable redis, set narrow dot width for fast tests.
 DENOISE_ENV=(
   DENOISE=1
+  DENOISE_TMPDIR="$denoise_tmp"
   CI_REDIS_AVAILABLE=0
   DENOISE_WIDTH=4
   DUMP_FAIL=0
@@ -44,7 +50,7 @@ env "${DENOISE_ENV[@]}" "$ROOT/ci3/denoise" 'for i in $(seq 1 10); do echo line$
 # Check no tail -f is left from our denoise run.
 # Give a moment for any orphans to appear.
 sleep 0.5
-leftover=$(pgrep -f "tail --sleep-interval=0.2.*-f /tmp/" 2>/dev/null || true)
+leftover=$(pgrep -f "tail --sleep-interval=0.2.*-f $denoise_tmp/" 2>/dev/null || true)
 if [ -z "$leftover" ]; then
   pass "no leaked tail -f processes"
 else
@@ -81,7 +87,7 @@ wait $denoise_pid 2>/dev/null || true
 
 # After denoise exits, no tail should remain.
 sleep 0.3
-leftover_tail=$(pgrep -f "tail --sleep-interval=0.2.*-f /tmp/" 2>/dev/null || true)
+leftover_tail=$(pgrep -f "tail --sleep-interval=0.2.*-f $denoise_tmp/" 2>/dev/null || true)
 
 if [ "$tail_found" -eq 1 ]; then
   pass "tail -f was started during denoise"
