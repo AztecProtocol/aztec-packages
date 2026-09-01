@@ -144,7 +144,9 @@ if [ "$status" -ne 0 ]; then
   if [ "$status" -eq 143 ] || [ "$status" -eq 130 ]; then
     echo -e ". ${yellow}interrupted${reset} ($time)"
   else
-    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ]; then
+    # With no redis there is no log URL to point the reader at, so the output has to go
+    # inline or the failure is invisible.
+    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ] || [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
       echo -e "\nCommand exited with status $status. Dumping output:"
       cat $outfile
     fi
@@ -154,6 +156,12 @@ if [ "$status" -ne 0 ]; then
     fi
   fi
 else
+  # With no redis there is no log to link to, so a CI orchestrator (e.g. the GitHub runner
+  # driving bootstrap_ec2) would lose the output entirely, including the build's CI Log link.
+  if [ "$CI_REDIS_AVAILABLE" -eq 0 ] && [ "${CI:-0}" == "1" ]; then
+    echo -e "\nOutput (no log store available):"
+    cat $outfile
+  fi
   echo -e ". ${green}done${reset} ($time)"
 fi
 

@@ -28,16 +28,19 @@ function setup_environment {
     echo "INSTANCE_POSTFIX=$INSTANCE_POSTFIX" >> $GITHUB_ENV
     echo "Instance postfix set to: $INSTANCE_POSTFIX"
   fi
-  # Setup SSH key — needed for the Redis tunnel (denoise logs) even in SSM mode,
-  # and for direct SSH bootstrap when CI_USE_SSH=1.
-  if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+  # The SSH key is written only for the direct-SSH bootstrap path (CI_USE_SSH=1, set from
+  # the CI_USE_SSH repo variable as an escape hatch if SSM breaks). SSM mode authenticates
+  # to the build instance with an instance profile and needs no SSH credential at all, so
+  # the key is left unwritten: with no ~/.ssh/build_instance_key on the runner, source_redis
+  # cannot reach for the bastion tunnel, and a run cannot come to depend on that secret.
+  if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
+    : "${BUILD_INSTANCE_SSH_KEY:?CI_USE_SSH=1 needs BUILD_INSTANCE_SSH_KEY}"
     mkdir -p ~/.ssh
     echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
     chmod 600 ~/.ssh/build_instance_key
-    echo "SSH key configured"
-  fi
-  # Log SSM mode settings (defaults are baked into aws_request_instance_type).
-  if [ "${CI_USE_SSH:-0}" -eq 0 ]; then
+    echo "SSH mode: key configured"
+  else
+    # Defaults are baked into aws_request_instance_type.
     echo "SSM mode: instance profile ${CI3_INSTANCE_PROFILE_NAME:-ci3-build-instance-profile}, SG ${CI3_SECURITY_GROUP_ID:-sg-01fe61a1c1aaeb393}"
   fi
 }
