@@ -82,7 +82,7 @@
     "lodash.omit": "^4.5.0",
     "tslib": "^2.5.0",
     "viem": "npm:@aztec/viem@2.38.2",
-    "zod": "^4"
+    "zod": "~4.4.3"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",
