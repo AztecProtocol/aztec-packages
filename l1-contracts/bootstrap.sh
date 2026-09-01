@@ -216,6 +216,34 @@ function gas_report {
   mv gas_report.new.json gas_report.json
 }
 
+function partial_epoch_proof_gas_report {
+  check=${1:-"no"}
+  echo_header "l1-contracts partial epoch proof gas report"
+  forge --version
+
+  FORGE_GAS_REPORT=true forge test \
+    --match-contract "PartialEpochProof.*GasReportTest" \
+    --fuzz-seed 42 \
+    --json \
+    > partial_epoch_proof_gas_report.new.tmp
+  jq 'map(.functions |= with_entries(select(.key | startswith("gasReportSubmit"))) | select(.functions | length > 0))' \
+    partial_epoch_proof_gas_report.new.tmp > partial_epoch_proof_gas_report.new.json
+  rm partial_epoch_proof_gas_report.new.tmp
+  python3 scripts/render_partial_epoch_proof_gas_report.py \
+    partial_epoch_proof_gas_report.new.json \
+    partial_epoch_proof_gas_report.new.md
+  diff partial_epoch_proof_gas_report.new.json partial_epoch_proof_gas_report.json > partial_epoch_proof_gas_report.diff || true
+  diff partial_epoch_proof_gas_report.new.md partial_epoch_proof_gas_report.md >> partial_epoch_proof_gas_report.diff || true
+
+  if [ -s partial_epoch_proof_gas_report.diff -a "$check" = "check" ]; then
+    cat partial_epoch_proof_gas_report.diff
+    echo "Partial epoch proof gas report has changed. Please check the diffs above, then run './bootstrap.sh partial_epoch_proof_gas_report' to update it."
+    exit 1
+  fi
+  mv partial_epoch_proof_gas_report.new.json partial_epoch_proof_gas_report.json
+  mv partial_epoch_proof_gas_report.new.md partial_epoch_proof_gas_report.md
+}
+
 function bench_cmds {
   echo "$hash l1-contracts/bootstrap.sh bench"
 }

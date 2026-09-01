@@ -6,6 +6,7 @@ import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {Multicall3} from "./Multicall3.sol";
+import {PartialEpochProofGasReporter} from "./PartialEpochProofGasReporter.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -58,7 +59,7 @@ import {
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
-import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {Config, RollupBuilder} from "../builder/RollupBuilder.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
@@ -103,7 +104,7 @@ contract FakeCanonical is IRewardDistributor {
   }
 }
 
-contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
+abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
   using stdStorage for StdStorage;
   using TimeLib for Slot;
   using TimeLib for Timestamp;
@@ -154,7 +155,14 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   address internal slashingProposer;
 
   modifier prepare(uint256 _validatorCount, bool _noValidators, TestSlash _slashing) {
-    // We deploy a the rollup and sets the time and all to
+    _prepare(_validatorCount, _noValidators, _slashing);
+    _;
+  }
+
+  function _prepare(uint256 _validatorCount, bool _noValidators, TestSlash _slashing)
+    internal
+    returns (RollupBuilder builder)
+  {
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
 
     CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](_validatorCount);
@@ -176,8 +184,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = _validatorCount == 0 ? 1 : _validatorCount;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
-      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
+    builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(MANA_TARGET)
+      .setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
       .setValidators(initialValidators).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE)
       .setStakingQueueConfig(stakingQueueConfig);
 
@@ -192,8 +200,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     builder.deploy();
 
-    asset = builder.getConfig().testERC20;
-    rollup = builder.getConfig().rollup;
+    Config memory config = builder.getConfig();
+    asset = config.testERC20;
+    rollup = config.rollup;
     slasher = Slasher(rollup.getSlasher());
     slashingProposer = address(slasher) == address(0) ? address(0) : slasher.PROPOSER();
 
@@ -201,11 +210,24 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(asset), "ASSET");
     vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
-
-    _;
   }
 
-  function setUp() public {
+  function _installPartialEpochProofGasReporter(RollupBuilder _builder) internal {
+    Config memory config = _builder.getConfig();
+    PartialEpochProofGasReporter reporter = new PartialEpochProofGasReporter(
+      config.testERC20,
+      config.testERC20,
+      config.gse,
+      rollup.getEpochProofVerifier(),
+      address(this),
+      config.genesisState,
+      config.rollupConfigInput
+    );
+    // Keep the initialized rollup storage while exposing named gas-report entrypoints.
+    vm.etch(address(rollup), address(reporter).code);
+  }
+
+  function setUp() public virtual {
     full = load("single_tx_checkpoint_1");
 
     SLOT_DURATION = 72;
@@ -221,26 +243,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   function _loadL1Metadata(uint256 index) internal {
     vm.roll(l1Metadata[0].block_number + index);
     vm.warp(l1Metadata[0].timestamp + index * SLOT_DURATION);
-  }
-
-  function test_log_config() public {
-    emit log_named_uint("SLOT_DURATION", SLOT_DURATION);
-    emit log_named_uint("EPOCH_DURATION", EPOCH_DURATION);
-    emit log_named_uint("MANA_TARGET", MANA_TARGET);
-    emit log_named_uint("TARGET_COMMITTEE_SIZE", TARGET_COMMITTEE_SIZE);
-    emit log_named_uint("PROOFS_PER_EPOCH", PROOFS_PER_EPOCH);
-  }
-
-  function test_no_validators() public prepare(0, true, TestSlash.NONE) {
-    benchmark(TestSlash.NONE);
-  }
-
-  function test_100_validators() public prepare(100, false, TestSlash.NONE) {
-    benchmark(TestSlash.NONE);
-  }
-
-  function test_100_slashing_validators() public prepare(100, false, TestSlash.TALLY) {
-    benchmark(TestSlash.TALLY);
   }
 
   /**
@@ -540,5 +542,160 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         }
       }
     }
+  }
+}
+
+contract BenchmarkRollupTest is BenchmarkRollupBase {
+  function test_log_config() public {
+    emit log_named_uint("SLOT_DURATION", SLOT_DURATION);
+    emit log_named_uint("EPOCH_DURATION", EPOCH_DURATION);
+    emit log_named_uint("MANA_TARGET", MANA_TARGET);
+    emit log_named_uint("TARGET_COMMITTEE_SIZE", TARGET_COMMITTEE_SIZE);
+    emit log_named_uint("PROOFS_PER_EPOCH", PROOFS_PER_EPOCH);
+  }
+
+  function test_no_validators() public prepare(0, true, TestSlash.NONE) {
+    benchmark(TestSlash.NONE);
+  }
+
+  function test_100_validators() public prepare(100, false, TestSlash.NONE) {
+    benchmark(TestSlash.NONE);
+  }
+
+  function test_100_slashing_validators() public prepare(100, false, TestSlash.TALLY) {
+    benchmark(TestSlash.TALLY);
+  }
+}
+
+abstract contract PartialEpochProofGasReportBase is BenchmarkRollupBase {
+  uint256 internal constant ROOT_PROOF_SIZE = 331 * 32;
+  uint256 internal constant GAS_REPORT_EPOCH = 4;
+
+  bytes32 internal gasReportPreviousArchive;
+  mapping(uint256 checkpointNumber => bytes32 archive) internal gasReportArchives;
+  mapping(uint256 checkpointNumber => bytes32 outHash) internal gasReportOutHashes;
+  mapping(uint256 checkpointNumber => bytes32 inboxRollingHash) internal gasReportInboxRollingHashes;
+
+  function setUp() public virtual override {
+    super.setUp();
+    RollupBuilder builder = _prepare(48, false, TestSlash.NONE);
+    _installPartialEpochProofGasReporter(builder);
+    _prepareGasReportEpoch();
+  }
+
+  function _prepareGasReportEpoch() internal {
+    Slot firstSlot = Slot.wrap(EPOCH_DURATION * GAS_REPORT_EPOCH);
+    Slot endSlot = firstSlot + Slot.wrap(EPOCH_DURATION);
+
+    for (uint256 i = 0; i < l1Metadata.length; i++) {
+      _loadL1Metadata(i);
+
+      Slot currentSlot = rollup.getCurrentSlot();
+      if (currentSlot < firstSlot) {
+        continue;
+      }
+      if (currentSlot >= endSlot) {
+        break;
+      }
+
+      rollup.setupEpoch();
+
+      Checkpoint memory checkpoint = getCheckpoint();
+      address proposer = rollup.getCurrentProposer();
+
+      skipBlobCheck(address(rollup));
+
+      uint256 checkpointNumber = rollup.getPendingCheckpointNumber() + 1;
+      checkpointAttestations[checkpointNumber] = AttestationLibHelper.packAttestations(checkpoint.attestations);
+      checkpointHeaders[checkpointNumber] = checkpoint.proposeArgs.header;
+      gasReportArchives[checkpointNumber] = checkpoint.proposeArgs.archive;
+      gasReportOutHashes[checkpointNumber] = checkpoint.proposeArgs.header.outHash;
+      gasReportInboxRollingHashes[checkpointNumber] = checkpoint.proposeArgs.header.inboxRollingHash;
+
+      if (checkpointNumber == 1) {
+        gasReportPreviousArchive = checkpoint.proposeArgs.header.lastArchiveRoot;
+      }
+
+      CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(checkpoint.attestations);
+      vm.prank(proposer);
+      rollup.propose(
+        checkpoint.proposeArgs,
+        attestations,
+        checkpoint.signers,
+        checkpoint.attestationsAndSignersSignature,
+        checkpoint.blobInputs
+      );
+    }
+
+    assertEq(rollup.getPendingCheckpointNumber(), EPOCH_DURATION);
+    assertEq(rollup.getEpochCommittee(Epoch.wrap(GAS_REPORT_EPOCH)).length, 48);
+  }
+
+  function _getGasReportSubmission(uint256 _length) internal view returns (SubmitEpochRootProofArgs memory submitArgs) {
+    ProposedHeader[] memory headers = new ProposedHeader[](_length);
+    for (uint256 i = 0; i < _length; i++) {
+      headers[i] = checkpointHeaders[i + 1];
+    }
+
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: gasReportPreviousArchive,
+      endArchive: gasReportArchives[_length],
+      outHash: gasReportOutHashes[_length],
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: gasReportInboxRollingHashes[_length],
+      proverId: address(this)
+    });
+
+    // Root UltraKeccak proofs contain 331 fields; the mock verifier still needs production-sized calldata.
+    bytes memory proof = new bytes(ROOT_PROOF_SIZE);
+
+    submitArgs = SubmitEpochRootProofArgs({
+      start: 1,
+      end: _length,
+      args: args,
+      headers: headers,
+      attestations: checkpointAttestations[_length],
+      blobInputs: full.checkpoint.batchedBlobInputs,
+      proof: proof
+    });
+  }
+
+  function _gasReporter() internal view returns (PartialEpochProofGasReporter) {
+    return PartialEpochProofGasReporter(address(rollup));
+  }
+}
+
+contract PartialEpochProofGasReportTest is PartialEpochProofGasReportBase {
+  function testGasReportSubmit1Checkpoint() public {
+    _gasReporter().gasReportSubmit1Checkpoint(_getGasReportSubmission(1));
+    assertEq(rollup.getProvenCheckpointNumber(), 1);
+  }
+
+  function testGasReportSubmit8Checkpoints() public {
+    _gasReporter().gasReportSubmit8Checkpoints(_getGasReportSubmission(8));
+    assertEq(rollup.getProvenCheckpointNumber(), 8);
+  }
+
+  function testGasReportSubmit16Checkpoints() public {
+    _gasReporter().gasReportSubmit16Checkpoints(_getGasReportSubmission(16));
+    assertEq(rollup.getProvenCheckpointNumber(), 16);
+  }
+
+  function testGasReportSubmit32Checkpoints() public {
+    _gasReporter().gasReportSubmit32Checkpoints(_getGasReportSubmission(32));
+    assertEq(rollup.getProvenCheckpointNumber(), 32);
+  }
+}
+
+contract PartialEpochProofExtensionGasReportTest is PartialEpochProofGasReportBase {
+  function setUp() public override {
+    super.setUp();
+    rollup.submitEpochRootProof(_getGasReportSubmission(8));
+    assertEq(rollup.getProvenCheckpointNumber(), 8);
+  }
+
+  function testGasReportSubmit8MoreCheckpoints() public {
+    _gasReporter().gasReportSubmit8MoreCheckpoints(_getGasReportSubmission(16));
+    assertEq(rollup.getProvenCheckpointNumber(), 16);
   }
 }
