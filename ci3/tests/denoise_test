@@ -32,6 +32,9 @@ trap 'rm -rf "$denoise_tmp"' EXIT
 DENOISE_ENV=(
   DENOISE=1
   DENOISE_TMPDIR="$denoise_tmp"
+  # Under CI=1 denoise posts a real GitHub commit status for a failing command, and this
+  # suite runs failing commands on purpose.
+  CI=0
   CI_REDIS_AVAILABLE=0
   DENOISE_WIDTH=4
   DUMP_FAIL=0
