@@ -492,6 +492,7 @@ async function createTestLogService(
 ) {
   const keyStore = new KeyStore(await openTmpStore('test'));
   const recipientTaggingStore = new RecipientTaggingStore(await openTmpStore('test'));
+  recipientTaggingStore.beginChangeSet('test');
   const taggingSecretSourcesStore = new TaggingSecretSourcesStore(await openTmpStore('test'));
   const addressStore = new AddressStore(await openTmpStore('test'));
   const aztecNode = mock<AztecNode>();
