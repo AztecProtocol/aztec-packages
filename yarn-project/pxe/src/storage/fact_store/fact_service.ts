@@ -2,6 +2,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { assertAllowedScope } from '../allowed_scopes.js';
+import type { ChangeSetId } from '../staged_write_coordinator.js';
 import type { FactStore } from './fact_store.js';
 import type { FactCollectionKey, FactCollectionTypeKey, OriginBlock } from './fact_store_keys.js';
 import {
@@ -29,24 +30,24 @@ export class FactService {
     factTypeId: Fr,
     payload: Fr[],
     originBlock: OriginBlock | undefined,
-    jobId: string,
+    changeSetId: ChangeSetId,
   ): Promise<void> {
     assertAllowedScope(factCollectionKey.scope, this.allowedScopes);
-    return this.factStore.recordFact(factCollectionKey, factTypeId, payload, originBlock, jobId);
+    return this.factStore.recordFact(factCollectionKey, factTypeId, payload, originBlock, changeSetId);
   }
 
-  deleteFactCollection(factCollectionKey: FactCollectionKey, jobId: string): Promise<void> {
+  deleteFactCollection(factCollectionKey: FactCollectionKey, changeSetId: ChangeSetId): Promise<void> {
     assertAllowedScope(factCollectionKey.scope, this.allowedScopes);
-    return this.factStore.deleteFactCollection(factCollectionKey, jobId);
+    return this.factStore.deleteFactCollection(factCollectionKey, changeSetId);
   }
 
   async getFactCollection(
     factCollectionKey: FactCollectionKey,
     tips: TipBlockNumbers,
-    jobId: string,
+    changeSetId: ChangeSetId,
   ): Promise<FactCollectionWithOriginState | undefined> {
     assertAllowedScope(factCollectionKey.scope, this.allowedScopes);
-    const collection = await this.factStore.getFactCollection(factCollectionKey, jobId);
+    const collection = await this.factStore.getFactCollection(factCollectionKey, changeSetId);
     if (!collection) {
       return undefined;
     }
@@ -56,10 +57,10 @@ export class FactService {
   async getFactCollectionsByType(
     factCollectionTypeKey: FactCollectionTypeKey,
     tips: TipBlockNumbers,
-    jobId: string,
+    changeSetId: ChangeSetId,
   ): Promise<FactCollectionWithOriginState[]> {
     assertAllowedScope(factCollectionTypeKey.scope, this.allowedScopes);
-    const collections = await this.factStore.getFactCollectionsByType(factCollectionTypeKey, jobId);
+    const collections = await this.factStore.getFactCollectionsByType(factCollectionTypeKey, changeSetId);
     return collections.map(collection => ({ key: collection.key, facts: this.#annotate(collection.facts, tips) }));
   }
 

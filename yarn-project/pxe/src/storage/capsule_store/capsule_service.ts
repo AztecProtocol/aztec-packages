@@ -3,6 +3,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { Capsule } from '@aztec/stdlib/tx';
 
 import { assertAllowedScope } from '../allowed_scopes.js';
+import type { ChangeSetId } from '../staged_write_coordinator.js';
 import type { CapsuleStore } from './capsule_store.js';
 
 /**
@@ -20,15 +21,15 @@ export class CapsuleService {
     this.allowedScopes = [...allowedScopes, AztecAddress.ZERO];
   }
 
-  setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope: AztecAddress) {
+  setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], changeSetId: ChangeSetId, scope: AztecAddress) {
     assertAllowedScope(scope, this.allowedScopes);
-    this.capsuleStore.setCapsule(contractAddress, slot, capsule, jobId, scope);
+    this.capsuleStore.setCapsule(contractAddress, slot, capsule, changeSetId, scope);
   }
 
   async getCapsule(
     contractAddress: AztecAddress,
     slot: Fr,
-    jobId: string,
+    changeSetId: ChangeSetId,
     scope: AztecAddress,
     transientCapsules?: Capsule[],
   ): Promise<Fr[] | null> {
@@ -42,12 +43,12 @@ export class CapsuleService {
         (c.scope ?? AztecAddress.ZERO).equals(scope),
     )?.data;
 
-    return maybeTransientCapsule ?? (await this.capsuleStore.getCapsule(contractAddress, slot, jobId, scope));
+    return maybeTransientCapsule ?? (await this.capsuleStore.getCapsule(contractAddress, slot, changeSetId, scope));
   }
 
-  deleteCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope: AztecAddress) {
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr, changeSetId: ChangeSetId, scope: AztecAddress) {
     assertAllowedScope(scope, this.allowedScopes);
-    this.capsuleStore.deleteCapsule(contractAddress, slot, jobId, scope);
+    this.capsuleStore.deleteCapsule(contractAddress, slot, changeSetId, scope);
   }
 
   copyCapsule(
@@ -55,31 +56,42 @@ export class CapsuleService {
     srcSlot: Fr,
     dstSlot: Fr,
     numEntries: number,
-    jobId: string,
+    changeSetId: ChangeSetId,
     scope: AztecAddress,
   ): Promise<void> {
     assertAllowedScope(scope, this.allowedScopes);
-    return this.capsuleStore.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, jobId, scope);
+    return this.capsuleStore.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, changeSetId, scope);
   }
 
   appendToCapsuleArray(
     contractAddress: AztecAddress,
     baseSlot: Fr,
     content: Fr[][],
-    jobId: string,
+    changeSetId: ChangeSetId,
     scope: AztecAddress,
   ): Promise<void> {
     assertAllowedScope(scope, this.allowedScopes);
-    return this.capsuleStore.appendToCapsuleArray(contractAddress, baseSlot, content, jobId, scope);
+    return this.capsuleStore.appendToCapsuleArray(contractAddress, baseSlot, content, changeSetId, scope);
   }
 
-  readCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, jobId: string, scope: AztecAddress): Promise<Fr[][]> {
+  readCapsuleArray(
+    contractAddress: AztecAddress,
+    baseSlot: Fr,
+    changeSetId: ChangeSetId,
+    scope: AztecAddress,
+  ): Promise<Fr[][]> {
     assertAllowedScope(scope, this.allowedScopes);
-    return this.capsuleStore.readCapsuleArray(contractAddress, baseSlot, jobId, scope);
+    return this.capsuleStore.readCapsuleArray(contractAddress, baseSlot, changeSetId, scope);
   }
 
-  setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string, scope: AztecAddress) {
+  setCapsuleArray(
+    contractAddress: AztecAddress,
+    baseSlot: Fr,
+    content: Fr[][],
+    changeSetId: ChangeSetId,
+    scope: AztecAddress,
+  ) {
     assertAllowedScope(scope, this.allowedScopes);
-    return this.capsuleStore.setCapsuleArray(contractAddress, baseSlot, content, jobId, scope);
+    return this.capsuleStore.setCapsuleArray(contractAddress, baseSlot, content, changeSetId, scope);
   }
 }

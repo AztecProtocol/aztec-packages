@@ -1,6 +1,7 @@
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import type { ChangeSetId } from '../storage/staged_write_coordinator.js';
 import {
   ContractCallGraph,
   type ContractFunction,
@@ -25,8 +26,8 @@ describe('ContractCallGraph', () => {
     expect(calleesOf(accountEntrypoint)).toEqual([]);
   });
 
-  it('does not predict a callee until enough committed jobs observe the call', () => {
-    runJobs({
+  it('does not predict a callee until enough committed change sets observe the call', () => {
+    runChangeSets({
       count: PREDICTION_THRESHOLD - 1,
       calls: [
         { caller: accountEntrypoint, callee: tokenTransfer },
@@ -37,8 +38,8 @@ describe('ContractCallGraph', () => {
     expect(calleesOf(accountEntrypoint)).toEqual([]);
   });
 
-  it('predicts a callee once enough committed jobs observe the call', () => {
-    runJobs({
+  it('predicts a callee once enough committed change sets observe the call', () => {
+    runChangeSets({
       count: PREDICTION_THRESHOLD,
       calls: [
         { caller: accountEntrypoint, callee: tokenTransfer },
@@ -50,7 +51,7 @@ describe('ContractCallGraph', () => {
   });
 
   it('predicts only direct callees, not callees of callees', () => {
-    runJobs({
+    runChangeSets({
       count: PREDICTION_THRESHOLD,
       calls: [
         { caller: accountEntrypoint, callee: fpcFee },
@@ -63,57 +64,57 @@ describe('ContractCallGraph', () => {
   });
 
   it('keys calls per function, so a sibling function of the same contract predicts nothing', () => {
-    runJobs({ count: PREDICTION_THRESHOLD, calls: [{ caller: accountEntrypoint, callee: tokenTransfer }] });
+    runChangeSets({ count: PREDICTION_THRESHOLD, calls: [{ caller: accountEntrypoint, callee: tokenTransfer }] });
 
     expect(calleesOf(accountEntrypoint)).toEqual(callKeys([tokenTransfer]));
     expect(calleesOf(accountClaim)).toEqual([]);
   });
 
   it("predicts a function's callees even when its own callers rarely call it", () => {
-    runJob({
-      jobId: 'rare',
+    runChangeSet({
+      changeSetId: 'rare',
       calls: [{ caller: accountEntrypoint, callee: tokenTransfer }],
     });
-    runJobs({ count: PREDICTION_THRESHOLD, calls: [{ caller: tokenTransfer, callee: fpcFee }] });
+    runChangeSets({ count: PREDICTION_THRESHOLD, calls: [{ caller: tokenTransfer, callee: fpcFee }] });
 
     expect(calleesOf(accountEntrypoint)).toEqual([]);
     expect(calleesOf(tokenTransfer)).toEqual(callKeys([fpcFee]));
   });
 
   it('ignores same-contract calls', () => {
-    runJobs({ count: PREDICTION_THRESHOLD, calls: [{ caller: tokenTransfer, callee: tokenBalance }] });
+    runChangeSets({ count: PREDICTION_THRESHOLD, calls: [{ caller: tokenTransfer, callee: tokenBalance }] });
 
     expect(calleesOf(tokenTransfer)).toEqual([]);
   });
 
-  it('does not learn from discarded jobs', () => {
-    runJobs({ count: PREDICTION_THRESHOLD - 1, calls: [{ caller: accountEntrypoint, callee: tokenTransfer }] });
-    callGraph.recordCall({ jobId: 'discarded', caller: accountEntrypoint, callee: tokenTransfer });
-    callGraph.discardJob('discarded');
+  it('does not learn from discarded change sets', () => {
+    runChangeSets({ count: PREDICTION_THRESHOLD - 1, calls: [{ caller: accountEntrypoint, callee: tokenTransfer }] });
+    callGraph.recordCall({ changeSetId: 'discarded', caller: accountEntrypoint, callee: tokenTransfer });
+    callGraph.discard('discarded');
 
     expect(calleesOf(accountEntrypoint)).toEqual([]);
   });
 
-  it('leaves confidence untouched by jobs in which the caller makes no calls', () => {
-    runJobs({ count: PREDICTION_THRESHOLD, calls: [{ caller: accountEntrypoint, callee: tokenTransfer }] });
+  it('leaves confidence untouched by change sets in which the caller makes no calls', () => {
+    runChangeSets({ count: PREDICTION_THRESHOLD, calls: [{ caller: accountEntrypoint, callee: tokenTransfer }] });
 
-    // The account calls no one in these jobs, so the confidence of the callees it did not call is unaffected.
-    for (const jobId of ['read1', 'read2']) {
-      callGraph.commitJob(jobId);
+    // The account calls no one in these change sets, so the confidence of the callees it did not call is unaffected.
+    for (const changeSetId of ['read1', 'read2']) {
+      callGraph.learn(changeSetId);
     }
 
     expect(calleesOf(accountEntrypoint)).toEqual(callKeys([tokenTransfer]));
   });
 
   it('keeps predicting a callee at full confidence through every miss it tolerates', () => {
-    runJobs({
+    runChangeSets({
       count: MAX_CONFIDENCE,
       calls: [
         { caller: accountEntrypoint, callee: tokenTransfer },
         { caller: accountEntrypoint, callee: fpcFee },
       ],
     });
-    runJobs({
+    runChangeSets({
       count: MAX_CONFIDENCE - PREDICTION_THRESHOLD,
       calls: [{ caller: accountEntrypoint, callee: tokenTransfer }],
     });
@@ -122,14 +123,14 @@ describe('ContractCallGraph', () => {
   });
 
   it('caps confidence, so a heavily called callee stops being predicted one miss past that tolerance', () => {
-    runJobs({
+    runChangeSets({
       count: MAX_CONFIDENCE * 2,
       calls: [
         { caller: accountEntrypoint, callee: tokenTransfer },
         { caller: accountEntrypoint, callee: fpcFee },
       ],
     });
-    runJobs({
+    runChangeSets({
       count: MAX_CONFIDENCE - PREDICTION_THRESHOLD + 1,
       calls: [{ caller: accountEntrypoint, callee: tokenTransfer }],
     });
@@ -138,7 +139,7 @@ describe('ContractCallGraph', () => {
   });
 
   it('drops a callee below the threshold on a miss and predicts it again after one hit', () => {
-    runJobs({
+    runChangeSets({
       count: PREDICTION_THRESHOLD,
       calls: [
         { caller: accountEntrypoint, callee: tokenTransfer },
@@ -147,11 +148,11 @@ describe('ContractCallGraph', () => {
     });
     expect(calleesOf(accountEntrypoint)).toEqual(callKeys([tokenTransfer, fpcFee]));
 
-    runJob({ jobId: 'miss', calls: [{ caller: accountEntrypoint, callee: tokenTransfer }] });
+    runChangeSet({ changeSetId: 'miss', calls: [{ caller: accountEntrypoint, callee: tokenTransfer }] });
     expect(calleesOf(accountEntrypoint)).toEqual(callKeys([tokenTransfer]));
 
-    runJob({
-      jobId: 'refresh',
+    runChangeSet({
+      changeSetId: 'refresh',
       calls: [
         { caller: accountEntrypoint, callee: tokenTransfer },
         { caller: accountEntrypoint, callee: fpcFee },
@@ -163,7 +164,7 @@ describe('ContractCallGraph', () => {
 
   it('never records calls when disabled', () => {
     callGraph = new ContractCallGraph(false);
-    runJobs({
+    runChangeSets({
       count: PREDICTION_THRESHOLD,
       calls: [
         { caller: accountEntrypoint, callee: tokenTransfer },
@@ -174,19 +175,19 @@ describe('ContractCallGraph', () => {
     expect(calleesOf(accountEntrypoint)).toEqual([]);
   });
 
-  /** Runs `count` whole jobs, each observing the given direct calls. */
-  function runJobs({ count, calls }: { count: number; calls: Call[] }) {
+  /** Runs `count` whole change sets, each observing the given direct calls. */
+  function runChangeSets({ count, calls }: { count: number; calls: Call[] }) {
     for (let i = 0; i < count; i++) {
-      runJob({ jobId: `job${i}`, calls });
+      runChangeSet({ changeSetId: `change-set-${i}`, calls });
     }
   }
 
-  /** Runs a whole job: records each direct call and commits. */
-  function runJob({ jobId, calls }: { jobId: string; calls: Call[] }) {
+  /** Runs a whole change set: records each direct call and learns from it as committed. */
+  function runChangeSet({ changeSetId, calls }: { changeSetId: ChangeSetId; calls: Call[] }) {
     for (const { caller, callee } of calls) {
-      callGraph.recordCall({ jobId, caller, callee });
+      callGraph.recordCall({ changeSetId, caller, callee });
     }
-    callGraph.commitJob(jobId);
+    callGraph.learn(changeSetId);
   }
 
   /** Returns the direct callees predicted for the given function, as sorted `address:selector` strings. */
@@ -195,7 +196,7 @@ describe('ContractCallGraph', () => {
   }
 });
 
-/** A direct call observed by a job. */
+/** A direct call observed by a change set. */
 type Call = { caller: ContractFunction; callee: ContractFunction };
 
 function fn(contractIndex: number, functionIndex: number): ContractFunction {

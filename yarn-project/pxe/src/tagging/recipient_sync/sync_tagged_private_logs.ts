@@ -6,6 +6,7 @@ import type { AppTaggingSecret, LogResult } from '@aztec/stdlib/logs';
 import { AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
+import type { ChangeSetId } from '../../storage/staged_write_coordinator.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import {
   INITIAL_CONSTRAINED_PROBE_LEN,
@@ -88,7 +89,7 @@ export async function syncTaggedPrivateLogs(
   taggingStore: RecipientTaggingStore,
   anchorBlockHeader: BlockHeader,
   finalizedBlockNumber: BlockNumber,
-  jobId: string,
+  changeSetId: ChangeSetId,
 ): Promise<LogResult[]> {
   if (secrets.length === 0) {
     return [];
@@ -98,7 +99,7 @@ export async function syncTaggedPrivateLogs(
   const currentTimestamp = anchorBlockHeader.globalVariables.timestamp;
 
   // Read stored indexes from the db and compute the initial [start, end) range for each secret
-  let pending = await getIndexRangesForSecrets(secrets, taggingStore, jobId);
+  let pending = await getIndexRangesForSecrets(secrets, taggingStore, changeSetId);
   const allLogs: LogResult[] = [];
 
   while (pending.length > 0) {
@@ -124,7 +125,7 @@ export async function syncTaggedPrivateLogs(
               taggingStore,
               currentTimestamp,
               finalizedBlockNumber,
-              jobId,
+              changeSetId,
             )
           : await processUnconstrainedResults(
               pendingSecret,
@@ -132,7 +133,7 @@ export async function syncTaggedPrivateLogs(
               taggingStore,
               currentTimestamp,
               finalizedBlockNumber,
-              jobId,
+              changeSetId,
             );
       }),
     );
@@ -147,11 +148,11 @@ export async function syncTaggedPrivateLogs(
 function getIndexRangesForSecrets(
   secrets: AppTaggingSecret[],
   taggingStore: RecipientTaggingStore,
-  jobId: string,
+  changeSetId: ChangeSetId,
 ): Promise<PendingSecret[]> {
   return allToCompletion(
     secrets.map(async (secret): Promise<PendingSecret> => {
-      const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret, jobId);
+      const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret, changeSetId);
       const boundEnd = unfinalizedTaggingIndexesWindowEnd(currentHighestFinalizedIndex);
 
       if (secret.kind === AppTaggingSecretKind.CONSTRAINED) {
@@ -170,7 +171,7 @@ function getIndexRangesForSecrets(
       }
 
       // Unconstrained secrets can have gaps, so they scan the whole window starting past the highest aged index.
-      const highestAgedIndex = await taggingStore.getHighestAgedIndex(secret, jobId);
+      const highestAgedIndex = await taggingStore.getHighestAgedIndex(secret, changeSetId);
       const start = highestAgedIndex === undefined ? 0 : highestAgedIndex + 1;
       return { kind: AppTaggingSecretKind.UNCONSTRAINED, secret, start, end: boundEnd };
     }),
@@ -231,7 +232,7 @@ async function processConstrainedResults(
   taggingStore: RecipientTaggingStore,
   currentTimestamp: bigint,
   finalizedBlockNumber: BlockNumber,
-  jobId: string,
+  changeSetId: ChangeSetId,
 ): Promise<PendingSecret | undefined> {
   // Find where the contiguous run of indexes ends; all logs in the batch fall within this prefix.
   const indexesWithLogs = new Set(logsWithIndexes.map(l => l.taggingIndex));
@@ -245,7 +246,7 @@ async function processConstrainedResults(
   // This lets the next sync round skip already-finalized indexes.
   const { highestFinalizedIndex } = findHighestIndexes(logsWithIndexes, currentTimestamp, finalizedBlockNumber);
   if (highestFinalizedIndex !== undefined) {
-    await taggingStore.updateHighestFinalizedIndex(pending.secret, highestFinalizedIndex, jobId);
+    await taggingStore.updateHighestFinalizedIndex(pending.secret, highestFinalizedIndex, changeSetId);
   }
 
   // Advancing the probe is decoupled from persisting the finalized index: keep scanning as long as the probe was
@@ -288,7 +289,7 @@ async function processUnconstrainedResults(
   taggingStore: RecipientTaggingStore,
   currentTimestamp: bigint,
   finalizedBlockNumber: BlockNumber,
-  jobId: string,
+  changeSetId: ChangeSetId,
 ): Promise<PendingSecret | undefined> {
   const { highestAgedIndex, highestFinalizedIndex } = findHighestIndexes(
     logsWithIndexes,
@@ -298,7 +299,7 @@ async function processUnconstrainedResults(
 
   // Store updates in data provider and update local variables
   if (highestAgedIndex !== undefined) {
-    await taggingStore.updateHighestAgedIndex(pending.secret, highestAgedIndex, jobId);
+    await taggingStore.updateHighestAgedIndex(pending.secret, highestAgedIndex, changeSetId);
   }
 
   if (highestFinalizedIndex === undefined) {
@@ -313,7 +314,7 @@ async function processUnconstrainedResults(
     );
   }
 
-  await taggingStore.updateHighestFinalizedIndex(pending.secret, highestFinalizedIndex, jobId);
+  await taggingStore.updateHighestFinalizedIndex(pending.secret, highestFinalizedIndex, changeSetId);
 
   // For the next iteration we want to look only at indexes for which we have not yet fetched logs while
   // ensuring that we do not look further than WINDOW_LEN ahead of the highest finalized index.

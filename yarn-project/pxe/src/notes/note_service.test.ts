@@ -18,6 +18,7 @@ import { mock } from 'jest-mock-extended';
 
 import type { NoteValidationRequest } from '../contract_function_simulator/noir-structs/note_validation_request.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
+import type { ChangeSetId } from '../storage/staged_write_coordinator.js';
 import { NoteService, type NoteValidationTxData } from './note_service.js';
 
 describe('NoteService', () => {
@@ -82,16 +83,16 @@ describe('NoteService', () => {
     // Verify the note was removed by checking the spy
     expect(noteStore.applyNullifiers).toHaveBeenCalledTimes(1);
 
-    // Verify that the changes persist after job completion
+    // Verify that the changes persist after change set commit
     {
-      await noteStore.commit('test');
+      await noteStore.commitStaged('test');
       const remainingNotes = await noteStore.getNotes(
         {
           contractAddress,
           status: NoteStatus.ACTIVE,
           scopes: [recipient.address],
         },
-        'fresh-job',
+        'fresh-change-set',
       );
       expect(remainingNotes).toHaveLength(0);
     }
@@ -118,16 +119,16 @@ describe('NoteService', () => {
     expect(remainingNotes).toHaveLength(1);
     expect(remainingNotes[0]).toEqual(noteDao);
 
-    // Verify that the changes persist after job completion
+    // Verify that the changes persist after change set commit
     {
-      await noteStore.commit('test');
+      await noteStore.commitStaged('test');
       const remainingNotes = await noteStore.getNotes(
         {
           contractAddress,
           status: NoteStatus.ACTIVE,
           scopes: [recipient.address],
         },
-        'fresh-job',
+        'fresh-change-set',
       );
       expect(remainingNotes).toHaveLength(1);
       expect(remainingNotes[0]).toEqual(noteDao);
@@ -164,16 +165,16 @@ describe('NoteService', () => {
     expect(remainingNotes).toHaveLength(1);
     expect(remainingNotes[0]).toEqual(noteDao);
 
-    // Verify that the changes persist after job completion
+    // Verify that the changes persist after change set commit
     {
-      await noteStore.commit('test');
+      await noteStore.commitStaged('test');
       const remainingNotes = await noteStore.getNotes(
         {
           contractAddress,
           status: NoteStatus.ACTIVE,
           scopes: [recipient.address],
         },
-        'fresh-job',
+        'fresh-change-set',
       );
       expect(remainingNotes).toHaveLength(1);
       expect(remainingNotes[0]).toEqual(noteDao);
@@ -193,7 +194,7 @@ describe('NoteService', () => {
     // Verify applyNullifiers was called once for all accounts
     expect(getNotesSpy).toHaveBeenCalledTimes(1);
 
-    // Verify getNotes was called with the correct contract address and jobId
+    // Verify getNotes was called with the correct contract address and changeSetId
     expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }), 'test');
   });
 
@@ -280,11 +281,11 @@ describe('NoteService', () => {
       expect(notes).toHaveLength(1);
       expect(notes[0].noteHash.equals(noteHash)).toBe(true);
 
-      // Verify note is still stored after committing job
+      // Verify note is still stored after committing the change set
       {
-        await noteStore.commit('test');
+        await noteStore.commitStaged('test');
 
-        const notes = await noteStore.getNotes({ contractAddress, scopes: [recipient.address] }, 'fresh-job');
+        const notes = await noteStore.getNotes({ contractAddress, scopes: [recipient.address] }, 'fresh-change-set');
 
         expect(notes).toHaveLength(1);
         expect(notes[0].noteHash.equals(noteHash)).toBe(true);
@@ -365,7 +366,7 @@ describe('NoteService', () => {
 
       await noteService.validateAndStoreNotes([buildRequest()], recipient.address, defaultValidationTxDataMap());
 
-      const verifyNoteNullifiedInJobContext = async (jobId: string) => {
+      const verifyNoteNullifiedInChangeSetContext = async (changeSetId: ChangeSetId) => {
         // Now we verify that the note is stored as nullified by checking it can be retrieved only with
         // the ACTIVE_OR_NULLIFIED status on the input.
         const allNotes = await noteStore.getNotes(
@@ -374,7 +375,7 @@ describe('NoteService', () => {
             scopes: [recipient.address],
             status: NoteStatus.ACTIVE_OR_NULLIFIED,
           },
-          jobId,
+          changeSetId,
         );
         expect(allNotes).toHaveLength(1);
         expect(allNotes[0].noteHash.equals(noteHash)).toBe(true);
@@ -385,15 +386,15 @@ describe('NoteService', () => {
             scopes: [recipient.address],
             status: NoteStatus.ACTIVE,
           },
-          jobId,
+          changeSetId,
         );
         expect(activeNotes).toHaveLength(0);
       };
 
       // Verify store behaves correctly pre and post commit
-      await verifyNoteNullifiedInJobContext('test');
-      await noteStore.commit('test');
-      await verifyNoteNullifiedInJobContext('fresh-job');
+      await verifyNoteNullifiedInChangeSetContext('test');
+      await noteStore.commitStaged('test');
+      await verifyNoteNullifiedInChangeSetContext('fresh-change-set');
     });
 
     function defaultValidationTxDataMap() {

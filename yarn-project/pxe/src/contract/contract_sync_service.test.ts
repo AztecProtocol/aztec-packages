@@ -13,6 +13,7 @@ import { mock } from 'jest-mock-extended';
 
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
+import { tick } from '../test_utils.js';
 import { type ContractFunction, PREDICTION_THRESHOLD } from './contract_call_graph.js';
 import type { ContractClassService } from './contract_class_service.js';
 import { ContractSyncService, MAX_CONCURRENT_SCOPE_SYNCS, SYNC_STATE_SELECTOR } from './contract_sync_service.js';
@@ -28,7 +29,7 @@ describe('ContractSyncService', () => {
   const contractAddress = AztecAddress.fromBigIntUnsafe(100n);
   const scopeA = AztecAddress.fromBigIntUnsafe(200n);
   const scopeB = AztecAddress.fromBigIntUnsafe(201n);
-  const jobId = 'job-1';
+  const changeSetId = 'change-set-1';
   const anchorBlockHeader = makeBlockHeader(0);
   const classId = Fr.fromHexString('0xdeadbeef');
 
@@ -78,7 +79,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -91,7 +92,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -101,7 +102,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -114,7 +115,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -127,7 +128,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -136,7 +137,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeB],
         triggeredBy: undefined,
       });
@@ -149,7 +150,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -158,7 +159,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -172,7 +173,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [],
         triggeredBy: undefined,
       });
@@ -185,7 +186,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -194,7 +195,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -207,7 +208,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -216,7 +217,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -230,7 +231,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -239,7 +240,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeB],
         triggeredBy: undefined,
       });
@@ -268,7 +269,7 @@ describe('ContractSyncService', () => {
             functionToInvokeAfterSync: null,
             utilityExecutor,
             anchorBlockHeader,
-            jobId,
+            changeSetId,
             scopes,
             triggeredBy: undefined,
           });
@@ -282,7 +283,7 @@ describe('ContractSyncService', () => {
             functionToInvokeAfterSync: null,
             utilityExecutor,
             anchorBlockHeader,
-            jobId,
+            changeSetId,
             scopes: [scopeA],
             triggeredBy: undefined,
           }),
@@ -316,7 +317,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes,
         triggeredBy: undefined,
       });
@@ -344,7 +345,7 @@ describe('ContractSyncService', () => {
           functionToInvokeAfterSync: null,
           utilityExecutor,
           anchorBlockHeader,
-          jobId,
+          changeSetId,
           scopes: [scopeA],
           triggeredBy: undefined,
         }),
@@ -356,7 +357,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -372,7 +373,7 @@ describe('ContractSyncService', () => {
           functionToInvokeAfterSync: null,
           utilityExecutor,
           anchorBlockHeader,
-          jobId,
+          changeSetId,
           scopes: [scopeA],
           triggeredBy: undefined,
         }),
@@ -387,17 +388,17 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
-      await service.commit(jobId);
+      service.onOperationEnd(changeSetId, 'committed');
       await service.ensureContractSynced({
         contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -413,17 +414,17 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
-      await service.discardStaged(jobId);
+      service.onOperationEnd(changeSetId, 'discarded');
       await service.ensureContractSynced({
         contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -439,14 +440,14 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
       expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
       expect(noteStore.getNotes).toHaveBeenCalledWith(
         expect.objectContaining({ contractAddress, scopes: [scopeA, scopeB] }),
-        jobId,
+        changeSetId,
       );
     });
 
@@ -456,14 +457,14 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
       expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
       expect(noteStore.getNotes).toHaveBeenCalledWith(
         expect.objectContaining({ contractAddress, scopes: [scopeA] }),
-        jobId,
+        changeSetId,
       );
 
       noteStore.getNotes.mockClear();
@@ -472,7 +473,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -480,7 +481,7 @@ describe('ContractSyncService', () => {
       expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
       expect(noteStore.getNotes).toHaveBeenCalledWith(
         expect.objectContaining({ contractAddress, scopes: [scopeB] }),
-        jobId,
+        changeSetId,
       );
     });
 
@@ -490,7 +491,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -502,7 +503,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -510,7 +511,7 @@ describe('ContractSyncService', () => {
       expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
       expect(noteStore.getNotes).toHaveBeenCalledWith(
         expect.objectContaining({ contractAddress, scopes: [scopeA] }),
-        jobId,
+        changeSetId,
       );
     });
   });
@@ -524,7 +525,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -537,7 +538,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -551,7 +552,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -564,7 +565,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -578,7 +579,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -590,7 +591,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -605,7 +606,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -617,7 +618,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -630,7 +631,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -644,7 +645,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA, scopeB],
         triggeredBy: undefined,
       });
@@ -657,7 +658,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -666,7 +667,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -679,7 +680,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -688,7 +689,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -724,13 +725,13 @@ describe('ContractSyncService', () => {
         ],
       });
 
-      // A new job requests only contractAddress: its callee syncs, and so does its callee's callee.
+      // A new change set requests only contractAddress: its callee syncs, and so does its callee's callee.
       await service.ensureContractSynced({
         contract: contractAddress,
         functionToInvokeAfterSync: entryFn.selector,
         utilityExecutor,
         anchorBlockHeader,
-        jobId: 'job-3',
+        changeSetId: 'change-set-3',
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -753,7 +754,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: entryFn.selector,
         utilityExecutor,
         anchorBlockHeader,
-        jobId: 'job-3',
+        changeSetId: 'change-set-3',
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -762,7 +763,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: secondFn.selector,
         utilityExecutor,
         anchorBlockHeader,
-        jobId: 'job-3',
+        changeSetId: 'change-set-3',
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -785,7 +786,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId: 'job-3',
+        changeSetId: 'change-set-3',
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -812,7 +813,7 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: entryFn.selector,
         utilityExecutor,
         anchorBlockHeader,
-        jobId: 'job-3',
+        changeSetId: 'change-set-3',
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -829,14 +830,14 @@ describe('ContractSyncService', () => {
         ],
       });
 
-      // Each contract syncs exactly once: the job's set of already-speculated functions stops the recursion when the
-      // predicted graph loops back to a function it already speculated from.
+      // Each contract syncs exactly once: the change set's set of already-speculated functions stops the recursion when
+      // the predicted graph loops back to a function it already speculated from.
       await service.ensureContractSynced({
         contract: contractAddress,
         functionToInvokeAfterSync: entryFn.selector,
         utilityExecutor,
         anchorBlockHeader,
-        jobId: 'job-3',
+        changeSetId: 'change-set-3',
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -856,13 +857,13 @@ describe('ContractSyncService', () => {
       });
 
       // Each contract syncs exactly once: when the chain loops back to an already-syncing contract, the warm cache
-      // and the job's already-speculated set stop it.
+      // and the change set's already-speculated set stop it.
       await service.ensureContractSynced({
         contract: contractAddress,
         functionToInvokeAfterSync: null,
         utilityExecutor,
         anchorBlockHeader,
-        jobId: 'job-3',
+        changeSetId: 'change-set-3',
         scopes: [scopeA],
         triggeredBy: undefined,
       });
@@ -902,19 +903,19 @@ describe('ContractSyncService', () => {
         return Promise.resolve();
       });
 
-      // The job only requests contractAddress, so nothing awaits otherContract's speculative sync.
+      // The change set only requests contractAddress, so nothing awaits otherContract's speculative sync.
       await service.ensureContractSynced({
         contract: contractAddress,
         functionToInvokeAfterSync: entryFn.selector,
         utilityExecutor,
         anchorBlockHeader,
-        jobId: 'job-3',
+        changeSetId: 'change-set-3',
         scopes: [scopeA],
         triggeredBy: undefined,
       });
 
       let settled = false;
-      const settlePromise = service.settle('job-3').then(() => {
+      const settlePromise = service.settle('change-set-3').then(() => {
         settled = true;
       });
       await tick();
@@ -937,9 +938,9 @@ describe('ContractSyncService', () => {
         ],
       });
 
-      // otherContract's speculative sync is held until the job is already settling. When released, its sync_state
-      // makes a nested call to lateContract, whose predicted callee (thirdContract) fires a fresh speculative sync
-      // mid-drain, hanging until released.
+      // otherContract's speculative sync is held until the change set is already settling. When released, its
+      // sync_state makes a nested call to lateContract, whose predicted callee (thirdContract) fires a fresh
+      // speculative sync mid-drain, hanging until released.
       const { promise: otherGate, resolve: releaseOther } = promiseWithResolvers<void>();
       const { promise: thirdSync, resolve: releaseThird } = promiseWithResolvers<void>();
       utilityExecutor.mockImplementation(async call => {
@@ -950,7 +951,7 @@ describe('ContractSyncService', () => {
             functionToInvokeAfterSync: lateFn.selector,
             utilityExecutor,
             anchorBlockHeader,
-            jobId: 'job-3',
+            changeSetId: 'change-set-3',
             scopes: [scopeA],
             triggeredBy: otherFn,
           });
@@ -964,13 +965,13 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: entryFn.selector,
         utilityExecutor,
         anchorBlockHeader,
-        jobId: 'job-3',
+        changeSetId: 'change-set-3',
         scopes: [scopeA],
         triggeredBy: undefined,
       });
 
       let settled = false;
-      const settlePromise = service.settle('job-3').then(() => {
+      const settlePromise = service.settle('change-set-3').then(() => {
         settled = true;
       });
       releaseOther();
@@ -981,8 +982,8 @@ describe('ContractSyncService', () => {
       await settlePromise;
     });
 
-    it('resolves immediately when the job started no syncs', async () => {
-      await expect(service.settle('unknown-job')).resolves.toBeUndefined();
+    it('resolves immediately when the change set started no syncs', async () => {
+      await expect(service.settle('unknown-change-set')).resolves.toBeUndefined();
     });
 
     it('rejects when a speculative sync failed, even though no request observed the failure', async () => {
@@ -995,19 +996,20 @@ describe('ContractSyncService', () => {
         call.to.equals(otherContract) ? Promise.reject(new Error('speculative boom')) : Promise.resolve(),
       );
 
-      // The job only requests contractAddress, so the failed speculative sync of otherContract rejects no request.
+      // The change set only requests contractAddress, so the failed speculative sync of otherContract rejects no
+      // request.
       await service.ensureContractSynced({
         contract: contractAddress,
         functionToInvokeAfterSync: entryFn.selector,
         utilityExecutor,
         anchorBlockHeader,
-        jobId: 'job-3',
+        changeSetId: 'change-set-3',
         scopes: [scopeA],
         triggeredBy: undefined,
       });
       await tick();
 
-      const settleError = await service.settle('job-3').then(
+      const settleError = await service.settle('change-set-3').then(
         () => undefined,
         (err: AggregateError) => err,
       );
@@ -1018,8 +1020,8 @@ describe('ContractSyncService', () => {
   });
 
   /**
-   * Runs `count` committed jobs, each using the first caller as the entry and observing the given direct calls, then
-   * wipes the sync cache (as an anchor block change would) so the next job's syncs run for real.
+   * Runs `count` committed change sets, each using the first caller as the entry and observing the given direct calls,
+   * then wipes the sync cache (as an anchor block change would) so the next change set's syncs run for real.
    */
   const learnDependencies = async ({ count, calls }: { count: number; calls: Call[] }) => {
     const sync = (id: string, { address, selector }: ContractFunction, triggeredBy: ContractFunction | undefined) =>
@@ -1028,17 +1030,17 @@ describe('ContractSyncService', () => {
         functionToInvokeAfterSync: selector,
         utilityExecutor,
         anchorBlockHeader,
-        jobId: id,
+        changeSetId: id,
         scopes: [scopeA],
         triggeredBy,
       });
     for (let i = 0; i < count; i++) {
-      const id = `learn-job-${i}`;
+      const id = `learn-change-set-${i}`;
       await sync(id, calls[0].caller, undefined);
       for (const { caller, callee } of calls) {
         await sync(id, callee, caller);
       }
-      await service.commit(id);
+      service.onOperationEnd(id, 'committed');
     }
     service.wipe();
     utilityExecutor.mockClear();
@@ -1064,9 +1066,6 @@ describe('ContractSyncService', () => {
   };
 
   const expectNoSync = () => expect(utilityExecutor).not.toHaveBeenCalled();
-
-  /** Yields to the macrotask queue, draining all pending microtasks (semaphore acquires/releases) in between. */
-  const tick = () => new Promise<void>(resolve => setImmediate(resolve));
 });
 
 describe('SYNC_STATE_SELECTOR', () => {
@@ -1080,5 +1079,5 @@ describe('SYNC_STATE_SELECTOR', () => {
   });
 });
 
-/** A direct call observed by a job. */
+/** A direct call observed by a change set. */
 type Call = { caller: ContractFunction; callee: ContractFunction };

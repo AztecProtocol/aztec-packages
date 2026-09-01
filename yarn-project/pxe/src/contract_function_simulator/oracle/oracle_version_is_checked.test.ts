@@ -168,7 +168,7 @@ describe('Oracle Version Check test suite', () => {
         msgSender,
         anchorBlockHeader,
         senderForTags,
-        jobId: 'test',
+        changeSetId: 'test',
         scopes: [],
       });
 
@@ -226,7 +226,7 @@ describe('Oracle Version Check test suite', () => {
         privateEventStore,
         txResolver,
         contractSyncService,
-        jobId: 'test',
+        changeSetId: 'test',
         scopes: [],
         l2TipsStore,
         simulator,

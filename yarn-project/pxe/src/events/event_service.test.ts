@@ -6,7 +6,6 @@ import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import { computePrivateEventCommitment, siloNullifier } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { TxEffect } from '@aztec/stdlib/tx';
 
@@ -29,7 +28,6 @@ describe('validateAndStoreEvents', () => {
   let recipient: AztecAddress;
 
   let privateEventStore: PrivateEventStore;
-  let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let logger: ReturnType<typeof mock<Logger>>;
 
   let eventService: EventService;
@@ -39,8 +37,6 @@ describe('validateAndStoreEvents', () => {
   beforeEach(async () => {
     const store = await openTmpStore('test');
     privateEventStore = new PrivateEventStore(store);
-
-    aztecNode = mock<AztecNode>();
 
     contractAddress = await AztecAddress.random();
     recipient = await AztecAddress.random();
@@ -73,7 +69,7 @@ describe('validateAndStoreEvents', () => {
     const anchorBlockHeader = makeBlockHeader(0, { blockNumber });
 
     logger = mock<Logger>();
-    eventService = new EventService(anchorBlockHeader, aztecNode, privateEventStore, 'test', logger);
+    eventService = new EventService(anchorBlockHeader, privateEventStore, 'test', logger);
   });
 
   async function runStoreEvent(
@@ -95,7 +91,7 @@ describe('validateAndStoreEvents', () => {
     const map = overrides.validationTxDataMap ?? defaultValidationTxDataMap();
     await eventService.validateAndStoreEvents([request], recipient, map);
 
-    await privateEventStore.commit('test');
+    await privateEventStore.commitStaged('test');
   }
 
   it('should throw when tx does not exist or has no effects', async () => {

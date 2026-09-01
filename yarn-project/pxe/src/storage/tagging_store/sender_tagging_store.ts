@@ -3,8 +3,8 @@ import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, unfinalizedTaggingIndexesWindowEnd } from '../../tagging/constants.js';
+import type { ChangeSetId, StagedStore } from '../staged_write_coordinator.js';
 
 /** A tx still awaiting finalization, and the highest tagging index it used for one secret. */
 export type PendingTx = { txHash: string; highestIndex: number };
@@ -33,8 +33,8 @@ export class SenderTaggingStore implements StagedStore {
   // directional app tagging secret => { lowestIndex, highestIndex, txHash }[]
   #pendingIndexes: AztecAsyncMap<string, PendingIndexesEntry[]>;
 
-  // jobId => directional app tagging secret => { lowestIndex, highestIndex, txHash }[]
-  #pendingIndexesForJob: Map<string, Map<string, PendingIndexesEntry[]>>;
+  // changeSetId => directional app tagging secret => { lowestIndex, highestIndex, txHash }[]
+  #pendingIndexesForChangeSet: Map<ChangeSetId, Map<string, PendingIndexesEntry[]>>;
 
   // Stores the last (highest) finalized index for each directional app tagging secret. We care only about the last
   // index because unlike the pending indexes, it will never happen that a finalized index would be removed and hence
@@ -43,8 +43,8 @@ export class SenderTaggingStore implements StagedStore {
   // directional app tagging secret => highest finalized index
   #lastFinalizedIndexes: AztecAsyncMap<string, number>;
 
-  // jobId => directional app tagging secret => highest finalized index
-  #lastFinalizedIndexesForJob: Map<string, Map<string, number>>;
+  // changeSetId => directional app tagging secret => highest finalized index
+  #lastFinalizedIndexesForChangeSet: Map<ChangeSetId, Map<string, number>>;
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
@@ -52,61 +52,62 @@ export class SenderTaggingStore implements StagedStore {
     this.#pendingIndexes = this.#store.openMap('pending_indexes');
     this.#lastFinalizedIndexes = this.#store.openMap('last_finalized_indexes');
 
-    this.#pendingIndexesForJob = new Map();
-    this.#lastFinalizedIndexesForJob = new Map();
+    this.#pendingIndexesForChangeSet = new Map();
+    this.#lastFinalizedIndexesForChangeSet = new Map();
   }
 
-  #getPendingIndexesForJob(jobId: string): Map<string, PendingIndexesEntry[]> {
-    let pendingIndexesForJob = this.#pendingIndexesForJob.get(jobId);
-    if (!pendingIndexesForJob) {
-      pendingIndexesForJob = new Map();
-      this.#pendingIndexesForJob.set(jobId, pendingIndexesForJob);
+  #getPendingIndexesForChangeSet(changeSetId: ChangeSetId): Map<string, PendingIndexesEntry[]> {
+    let pendingIndexesForChangeSet = this.#pendingIndexesForChangeSet.get(changeSetId);
+    if (!pendingIndexesForChangeSet) {
+      pendingIndexesForChangeSet = new Map();
+      this.#pendingIndexesForChangeSet.set(changeSetId, pendingIndexesForChangeSet);
     }
-    return pendingIndexesForJob;
+    return pendingIndexesForChangeSet;
   }
 
-  #getLastFinalizedIndexesForJob(jobId: string): Map<string, number> {
-    let jobStagedLastFinalizedIndexes = this.#lastFinalizedIndexesForJob.get(jobId);
-    if (!jobStagedLastFinalizedIndexes) {
-      jobStagedLastFinalizedIndexes = new Map();
-      this.#lastFinalizedIndexesForJob.set(jobId, jobStagedLastFinalizedIndexes);
+  #getLastFinalizedIndexesForChangeSet(changeSetId: ChangeSetId): Map<string, number> {
+    let stagedLastFinalizedIndexes = this.#lastFinalizedIndexesForChangeSet.get(changeSetId);
+    if (!stagedLastFinalizedIndexes) {
+      stagedLastFinalizedIndexes = new Map();
+      this.#lastFinalizedIndexesForChangeSet.set(changeSetId, stagedLastFinalizedIndexes);
     }
-    return jobStagedLastFinalizedIndexes;
+    return stagedLastFinalizedIndexes;
   }
 
-  async #readPendingIndexes(jobId: string, secret: string): Promise<PendingIndexesEntry[]> {
+  async #readPendingIndexes(changeSetId: ChangeSetId, secret: string): Promise<PendingIndexesEntry[]> {
     // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
     // are no pending read requests). The staged value still takes precedence if it exists.
     const dbValue = await this.#pendingIndexes.getAsync(secret);
-    const staged = this.#getPendingIndexesForJob(jobId).get(secret);
+    const staged = this.#getPendingIndexesForChangeSet(changeSetId).get(secret);
     return staged !== undefined ? staged : (dbValue ?? []);
   }
 
-  #writePendingIndexes(jobId: string, secret: string, pendingIndexes: PendingIndexesEntry[]) {
-    this.#getPendingIndexesForJob(jobId).set(secret, pendingIndexes);
+  #writePendingIndexes(changeSetId: ChangeSetId, secret: string, pendingIndexes: PendingIndexesEntry[]) {
+    this.#getPendingIndexesForChangeSet(changeSetId).set(secret, pendingIndexes);
   }
 
-  async #readLastFinalizedIndex(jobId: string, secret: string): Promise<number | undefined> {
+  async #readLastFinalizedIndex(changeSetId: ChangeSetId, secret: string): Promise<number | undefined> {
     // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
     // are no pending read requests). The staged value still takes precedence if it exists.
     const dbValue = await this.#lastFinalizedIndexes.getAsync(secret);
-    const staged = this.#getLastFinalizedIndexesForJob(jobId).get(secret);
+    const staged = this.#getLastFinalizedIndexesForChangeSet(changeSetId).get(secret);
     return staged ?? dbValue;
   }
 
-  #writeLastFinalizedIndex(jobId: string, secret: string, lastFinalizedIndex: number) {
-    this.#getLastFinalizedIndexesForJob(jobId).set(secret, lastFinalizedIndex);
+  #writeLastFinalizedIndex(changeSetId: ChangeSetId, secret: string, lastFinalizedIndex: number) {
+    this.#getLastFinalizedIndexesForChangeSet(changeSetId).set(secret, lastFinalizedIndex);
   }
 
   /**
-   * Writes all job-specific in-memory data to persistent storage.
+   * Writes all change set-specific in-memory data to persistent storage.
    *
-   * @remark This method must run in a DB transaction context. It's designed to be called from JobCoordinator#commitJob.
+   * @remark This method must run in a DB transaction context. It's designed to be called from
+   * {@link StagedWriteCoordinator.commit}.
    */
-  async commit(jobId: string): Promise<void> {
-    const pendingIndexesForJob = this.#pendingIndexesForJob.get(jobId);
-    if (pendingIndexesForJob) {
-      for (const [secret, pendingIndexes] of pendingIndexesForJob.entries()) {
+  async commitStaged(changeSetId: ChangeSetId): Promise<void> {
+    const pendingIndexesForChangeSet = this.#pendingIndexesForChangeSet.get(changeSetId);
+    if (pendingIndexesForChangeSet) {
+      for (const [secret, pendingIndexes] of pendingIndexesForChangeSet.entries()) {
         if (pendingIndexes.length === 0) {
           await this.#pendingIndexes.delete(secret);
         } else {
@@ -115,19 +116,19 @@ export class SenderTaggingStore implements StagedStore {
       }
     }
 
-    const lastFinalizedIndexesForJob = this.#lastFinalizedIndexesForJob.get(jobId);
-    if (lastFinalizedIndexesForJob) {
-      for (const [secret, lastFinalizedIndex] of lastFinalizedIndexesForJob.entries()) {
+    const lastFinalizedIndexesForChangeSet = this.#lastFinalizedIndexesForChangeSet.get(changeSetId);
+    if (lastFinalizedIndexesForChangeSet) {
+      for (const [secret, lastFinalizedIndex] of lastFinalizedIndexesForChangeSet.entries()) {
         await this.#lastFinalizedIndexes.set(secret, lastFinalizedIndex);
       }
     }
 
-    return this.discardStaged(jobId);
+    return this.discardStaged(changeSetId);
   }
 
-  discardStaged(jobId: string): Promise<void> {
-    this.#pendingIndexesForJob.delete(jobId);
-    this.#lastFinalizedIndexesForJob.delete(jobId);
+  discardStaged(changeSetId: ChangeSetId): Promise<void> {
+    this.#pendingIndexesForChangeSet.delete(changeSetId);
+    this.#lastFinalizedIndexesForChangeSet.delete(changeSetId);
     return Promise.resolve();
   }
 
@@ -140,13 +141,14 @@ export class SenderTaggingStore implements StagedStore {
    * @param ranges - The tagging index ranges containing the directional app tagging secrets and the index ranges that are
    * to be stored in the db.
    * @param txHash - The tx in which the tagging indexes were used in private logs.
-   * @param jobId - job context for staged writes to this store. See `JobCoordinator` for more details.
+   * @param changeSetId - change set to stage this store's writes under. See {@link StagedWriteCoordinator} for more
+   * details.
    * @throws If the highestIndex is further than window length from the highest finalized index for the same secret.
    * @throws If the lowestIndex is lower than or equal to the last finalized index for the same secret.
    * @throws If a different range already exists for the same (secret, txHash) pair.
    */
-  storePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, jobId: string): Promise<void> {
-    return this.#storePendingIndexes(ranges, txHash, jobId, false);
+  storePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, changeSetId: ChangeSetId): Promise<void> {
+    return this.#storePendingIndexes(ranges, txHash, changeSetId, false);
   }
 
   /**
@@ -159,18 +161,19 @@ export class SenderTaggingStore implements StagedStore {
    * @param ranges - The tagging index ranges containing the directional app tagging secrets and the index ranges that are
    * to be stored in the db.
    * @param txHash - The tx in which the tagging indexes were used in private logs.
-   * @param jobId - job context for staged writes to this store. See `JobCoordinator` for more details.
+   * @param changeSetId - change set to stage this store's writes under. See {@link StagedWriteCoordinator} for more
+   * details.
    * @throws If the highestIndex is further than window length from the highest finalized index for the same secret.
    * @throws If the lowestIndex is lower than or equal to the last finalized index for the same secret.
    */
-  mergePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, jobId: string): Promise<void> {
-    return this.#storePendingIndexes(ranges, txHash, jobId, true);
+  mergePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, changeSetId: ChangeSetId): Promise<void> {
+    return this.#storePendingIndexes(ranges, txHash, changeSetId, true);
   }
 
   #storePendingIndexes(
     ranges: TaggingIndexRange[],
     txHash: TxHash,
-    jobId: string,
+    changeSetId: ChangeSetId,
     mergeExisting: boolean,
   ): Promise<void> {
     if (ranges.length === 0) {
@@ -184,8 +187,8 @@ export class SenderTaggingStore implements StagedStore {
       const rangeReadPromises = ranges.map(range => ({
         range,
         secretStr: range.extendedSecret.toString(),
-        pending: this.#readPendingIndexes(jobId, range.extendedSecret.toString()),
-        finalized: this.#readLastFinalizedIndex(jobId, range.extendedSecret.toString()),
+        pending: this.#readPendingIndexes(changeSetId, range.extendedSecret.toString()),
+        finalized: this.#readLastFinalizedIndex(changeSetId, range.extendedSecret.toString()),
       }));
 
       // Await all reads together
@@ -248,7 +251,7 @@ export class SenderTaggingStore implements StagedStore {
         // mergeExisting): duplicate evidence, nothing to write.
 
         if (updatedPending) {
-          this.#writePendingIndexes(jobId, secretStr, updatedPending);
+          this.#writePendingIndexes(changeSetId, secretStr, updatedPending);
         }
       }
     });
@@ -263,9 +266,14 @@ export class SenderTaggingStore implements StagedStore {
    * @param startIndex - The lower bound of the index range (inclusive).
    * @param endIndex - The upper bound of the index range (exclusive).
    */
-  getPendingTxs(secret: AppTaggingSecret, startIndex: number, endIndex: number, jobId: string): Promise<PendingTx[]> {
+  getPendingTxs(
+    secret: AppTaggingSecret,
+    startIndex: number,
+    endIndex: number,
+    changeSetId: ChangeSetId,
+  ): Promise<PendingTx[]> {
     return this.#store.transactionAsync(async () => {
-      const existing = await this.#readPendingIndexes(jobId, secret.toString());
+      const existing = await this.#readPendingIndexes(changeSetId, secret.toString());
       return existing
         .filter(entry => entry.highestIndex >= startIndex && entry.highestIndex < endIndex)
         .map(entry => ({ txHash: entry.txHash, highestIndex: entry.highestIndex }));
@@ -277,8 +285,8 @@ export class SenderTaggingStore implements StagedStore {
    * @param secret - The secret to get the last finalized index for.
    * @returns The last (highest) finalized index for the given secret.
    */
-  getLastFinalizedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
-    return this.#store.transactionAsync(() => this.#readLastFinalizedIndex(jobId, secret.toString()));
+  getLastFinalizedIndex(secret: AppTaggingSecret, changeSetId: ChangeSetId): Promise<number | undefined> {
+    return this.#store.transactionAsync(() => this.#readLastFinalizedIndex(changeSetId, secret.toString()));
   }
 
   /**
@@ -287,12 +295,12 @@ export class SenderTaggingStore implements StagedStore {
    * @param secret - The directional app tagging secret to query the last used index for.
    * @returns The last used index.
    */
-  getLastUsedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
+  getLastUsedIndex(secret: AppTaggingSecret, changeSetId: ChangeSetId): Promise<number | undefined> {
     const secretStr = secret.toString();
 
     return this.#store.transactionAsync(async () => {
-      const pendingPromise = this.#readPendingIndexes(jobId, secretStr);
-      const finalizedPromise = this.#readLastFinalizedIndex(jobId, secretStr);
+      const pendingPromise = this.#readPendingIndexes(changeSetId, secretStr);
+      const finalizedPromise = this.#readLastFinalizedIndex(changeSetId, secretStr);
 
       const [pendingEntries, lastFinalized] = await allToCompletion([pendingPromise, finalizedPromise]);
 
@@ -309,7 +317,7 @@ export class SenderTaggingStore implements StagedStore {
   /**
    * Drops all pending indexes corresponding to the given transaction hashes.
    */
-  dropPendingIndexes(txHashes: TxHash[], jobId: string): Promise<void> {
+  dropPendingIndexes(txHashes: TxHash[], changeSetId: ChangeSetId): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();
     }
@@ -321,13 +329,16 @@ export class SenderTaggingStore implements StagedStore {
       const secretReadPromises: Map<string, Promise<PendingIndexesEntry[]>> = new Map();
 
       for await (const secret of this.#pendingIndexes.keysAsync()) {
-        secretReadPromises.set(secret, this.#readPendingIndexes(jobId, secret));
+        secretReadPromises.set(secret, this.#readPendingIndexes(changeSetId, secret));
       }
 
       // Add staged-only secrets (sync, no DB)
-      for (const secret of this.#getPendingIndexesForJob(jobId).keys()) {
+      for (const secret of this.#getPendingIndexesForChangeSet(changeSetId).keys()) {
         if (!secretReadPromises.has(secret)) {
-          secretReadPromises.set(secret, Promise.resolve(this.#getPendingIndexesForJob(jobId).get(secret) ?? []));
+          secretReadPromises.set(
+            secret,
+            Promise.resolve(this.#getPendingIndexesForChangeSet(changeSetId).get(secret) ?? []),
+          );
         }
       }
 
@@ -343,10 +354,10 @@ export class SenderTaggingStore implements StagedStore {
         if (pendingData && pendingData.length > 0) {
           const filtered = pendingData.filter(item => !txHashStrings.has(item.txHash));
           if (filtered.length === 0) {
-            this.#writePendingIndexes(jobId, secret, []);
+            this.#writePendingIndexes(changeSetId, secret, []);
           } else if (filtered.length !== pendingData.length) {
             // Some items were filtered out, so update the pending data
-            this.#writePendingIndexes(jobId, secret, filtered);
+            this.#writePendingIndexes(changeSetId, secret, filtered);
           }
           // else: No items were filtered out (txHashes not found for this secret) --> no-op
         }
@@ -356,7 +367,7 @@ export class SenderTaggingStore implements StagedStore {
 
   /** Prefetches all pending and finalized index data for every secret (from both DB and staged writes). */
   #getSecretsWithPendingData(
-    jobId: string,
+    changeSetId: ChangeSetId,
   ): Promise<{ secret: string; pendingData: PendingIndexesEntry[]; lastFinalized: number | undefined }[]> {
     return this.#store.transactionAsync(async () => {
       // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
@@ -367,17 +378,17 @@ export class SenderTaggingStore implements StagedStore {
 
       for await (const secret of this.#pendingIndexes.keysAsync()) {
         secretDataPromises.set(secret, {
-          pending: this.#readPendingIndexes(jobId, secret),
-          finalized: this.#readLastFinalizedIndex(jobId, secret),
+          pending: this.#readPendingIndexes(changeSetId, secret),
+          finalized: this.#readLastFinalizedIndex(changeSetId, secret),
         });
       }
 
       // Add staged-only secrets (sync, no DB)
-      for (const secret of this.#getPendingIndexesForJob(jobId).keys()) {
+      for (const secret of this.#getPendingIndexesForChangeSet(changeSetId).keys()) {
         if (!secretDataPromises.has(secret)) {
           secretDataPromises.set(secret, {
-            pending: Promise.resolve(this.#getPendingIndexesForJob(jobId).get(secret) ?? []),
-            finalized: Promise.resolve(this.#getLastFinalizedIndexesForJob(jobId).get(secret)),
+            pending: Promise.resolve(this.#getPendingIndexesForChangeSet(changeSetId).get(secret) ?? []),
+            finalized: Promise.resolve(this.#getLastFinalizedIndexesForChangeSet(changeSetId).get(secret)),
           });
         }
       }
@@ -401,8 +412,8 @@ export class SenderTaggingStore implements StagedStore {
    * indexes. Applies to every secret the txs used, so the caller must hold tx-level evidence that the whole tx
    * finalized. Callers holding evidence about a single secret must use {@link finalizePendingIndexesOfSecret} instead.
    */
-  finalizePendingIndexes(txHashes: TxHash[], jobId: string): Promise<void> {
-    return this.#finalizePendingIndexes(txHashes, jobId);
+  finalizePendingIndexes(txHashes: TxHash[], changeSetId: ChangeSetId): Promise<void> {
+    return this.#finalizePendingIndexes(txHashes, changeSetId);
   }
 
   /**
@@ -412,17 +423,21 @@ export class SenderTaggingStore implements StagedStore {
    * have all of one secret's tags onchain and none of another's, and the second secret's indexes must not be recorded
    * as finalized when they never reached the chain.
    */
-  finalizePendingIndexesOfSecret(secret: AppTaggingSecret, txHashes: TxHash[], jobId: string): Promise<void> {
-    return this.#finalizePendingIndexes(txHashes, jobId, secret.toString());
+  finalizePendingIndexesOfSecret(
+    secret: AppTaggingSecret,
+    txHashes: TxHash[],
+    changeSetId: ChangeSetId,
+  ): Promise<void> {
+    return this.#finalizePendingIndexes(txHashes, changeSetId, secret.toString());
   }
 
-  async #finalizePendingIndexes(txHashes: TxHash[], jobId: string, onlySecret?: string): Promise<void> {
+  async #finalizePendingIndexes(txHashes: TxHash[], changeSetId: ChangeSetId, onlySecret?: string): Promise<void> {
     if (txHashes.length === 0) {
       return;
     }
 
     const txHashStrings = new Set(txHashes.map(tx => tx.toString()));
-    const secretsWithData = (await this.#getSecretsWithPendingData(jobId)).filter(
+    const secretsWithData = (await this.#getSecretsWithPendingData(changeSetId)).filter(
       ({ secret }) => onlySecret === undefined || secret === onlySecret,
     );
 
@@ -466,10 +481,10 @@ export class SenderTaggingStore implements StagedStore {
 
       // Write final state if changed
       if (currentFinalized !== lastFinalized) {
-        this.#writeLastFinalizedIndex(jobId, secret, currentFinalized!);
+        this.#writeLastFinalizedIndex(changeSetId, secret, currentFinalized!);
       }
       if (currentPending !== pendingData) {
-        this.#writePendingIndexes(jobId, secret, currentPending);
+        this.#writePendingIndexes(changeSetId, secret, currentPending);
       }
     }
   }
@@ -480,15 +495,16 @@ export class SenderTaggingStore implements StagedStore {
    * TxEffect's private logs (i.e., which ones made it onchain). Those that survived are finalized; those that
    * didn't are dropped.
    * @param txEffect - The tx effect of the partially reverted transaction.
-   * @param jobId - job context for staged writes to this store. See `JobCoordinator` for more details.
+   * @param changeSetId - change set to stage this store's writes under. See {@link StagedWriteCoordinator} for more
+   * details.
    */
-  async finalizePendingIndexesOfAPartiallyRevertedTx(txEffect: TxEffect, jobId: string): Promise<void> {
+  async finalizePendingIndexesOfAPartiallyRevertedTx(txEffect: TxEffect, changeSetId: ChangeSetId): Promise<void> {
     const txHashStr = txEffect.txHash.toString();
 
     // Build a set of all siloed tag values that made it onchain (first field of each private log).
     const onChainTags = new Set<string>(txEffect.privateLogs.map(log => log.fields[0].toString()));
 
-    const secretsWithData = await this.#getSecretsWithPendingData(jobId);
+    const secretsWithData = await this.#getSecretsWithPendingData(changeSetId);
 
     for (const { secret, pendingData, lastFinalized } of secretsWithData) {
       const matchingEntries = pendingData.filter(item => item.txHash === txHashStr);
@@ -522,13 +538,13 @@ export class SenderTaggingStore implements StagedStore {
 
       if (highestSurvivingIndex !== undefined) {
         const newFinalized = Math.max(lastFinalized ?? 0, highestSurvivingIndex);
-        this.#writeLastFinalizedIndex(jobId, secret, newFinalized);
+        this.#writeLastFinalizedIndex(changeSetId, secret, newFinalized);
 
         // Prune pending indexes that are now <= the finalized index.
         currentPending = currentPending.filter(item => item.highestIndex > newFinalized);
       }
 
-      this.#writePendingIndexes(jobId, secret, currentPending);
+      this.#writePendingIndexes(changeSetId, secret, currentPending);
     }
   }
 }

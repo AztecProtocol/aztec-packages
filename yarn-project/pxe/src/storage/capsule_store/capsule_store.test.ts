@@ -4,6 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import type { ChangeSetId } from '../staged_write_coordinator.js';
 import { CapsuleStore } from './capsule_store.js';
 
 describe('capsule data provider', () => {
@@ -388,7 +389,7 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commit('test');
+          await capsuleStore.commitStaged('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -406,7 +407,7 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commit('test');
+          await capsuleStore.commitStaged('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -424,7 +425,7 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commit('test');
+          await capsuleStore.commitStaged('test');
         });
 
         // Append a single element
@@ -437,7 +438,7 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commit('test');
+          await capsuleStore.commitStaged('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -455,14 +456,14 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commit('test');
+          await capsuleStore.commitStaged('test');
         });
 
         // We just move the entire thing one slot.
         await capsuleStore.copyCapsule(contract, new Fr(0), new Fr(1), NUMBER_OF_ITEMS, 'test', scope);
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commit('test');
+          await capsuleStore.commitStaged('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -480,13 +481,13 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commit('test');
+          await capsuleStore.commitStaged('test');
         });
 
         await capsuleStore.readCapsuleArray(contract, new Fr(0), 'test', scope);
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commit('test');
+          await capsuleStore.commitStaged('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -504,13 +505,13 @@ describe('capsule data provider', () => {
         );
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commit('test');
+          await capsuleStore.commitStaged('test');
         });
 
         await capsuleStore.setCapsuleArray(contract, new Fr(0), [], 'test', scope);
 
         await store.transactionAsync(async () => {
-          await capsuleStore.commit('test');
+          await capsuleStore.commitStaged('test');
         });
       },
       TEST_TIMEOUT_MS,
@@ -519,109 +520,105 @@ describe('capsule data provider', () => {
 
   describe('staged writes', () => {
     it('commit does not hold zombie data', async () => {
-      // This test tries to reproduce a scenario where
-      // we fail to clear a job's data after commit.
-      // The effect of such an incorrect behavior would be perceived
-      // if we re-used a jobId we had previously committed,
-      // which should not happen given we generate random job id's,
-      // but it's good to keep things clean and consistent.
+      // This test tries to reproduce a scenario where we fail to clear a change set's data after commit. The effect of
+      // such an incorrect behavior would be perceived if we re-used a changeSetId we had previously committed, which
+      // should not happen given we generate random change set ids, but it's good to keep things clean and consistent.
       const slot = Fr.random();
       const committedValues1 = [Fr.random()];
       const committedValues2 = [Fr.random()];
 
-      capsuleStore.setCapsule(contract, slot, committedValues1, 'job-1', scope);
+      capsuleStore.setCapsule(contract, slot, committedValues1, 'change-set-1', scope);
 
-      // After this commit, 'job-1' should logically be reset
+      // After this commit, 'change-set-1' should logically be reset
       // Any read of contract-slot after this should see committedValues1
-      await capsuleStore.commit('job-1');
+      await capsuleStore.commitStaged('change-set-1');
 
-      // Any read of contract-slot should see job2committedValues
-      capsuleStore.setCapsule(contract, slot, committedValues2, 'job-2', scope);
-      await capsuleStore.commit('job-2');
+      // Any read of contract-slot should see committedValues2
+      capsuleStore.setCapsule(contract, slot, committedValues2, 'change-set-2', scope);
+      await capsuleStore.commitStaged('change-set-2');
 
-      // If we failed to properly dispose 'job-1's staged writes on commit,
-      // Instead of reading committedValues2 (as we should), we would end
-      // up reading committedValues1 (which would be wrong)
-      expect(await capsuleStore.getCapsule(contract, slot, 'job-1', scope)).toEqual(committedValues2);
+      // If we failed to properly dispose 'change-set-1's staged writes on commit, Instead of reading committedValues2
+      // (as we should), we would end up reading committedValues1 (which would be wrong)
+      expect(await capsuleStore.getCapsule(contract, slot, 'change-set-1', scope)).toEqual(committedValues2);
     });
 
-    it('writes to job view are isolated from another job view', async () => {
+    it('writes to one change set view are isolated from another change set view', async () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
       const stagedValues = [Fr.random()];
-      const commitJobId: string = 'commit-job';
-      const stagedJob1: string = 'staged-job-1';
-      const stagedJob2: string = 'staged-job-2';
+      const commitChangeSetId: ChangeSetId = 'commit-change-set';
+      const stagedWrites1: string = 'staged-writes-1';
+      const stagedWrites2: string = 'staged-writes-2';
 
-      // First set a committed capsule (using a different job that we commit)
-      capsuleStore.setCapsule(contract, slot, committedValues, commitJobId, scope);
-      await capsuleStore.commit(commitJobId);
+      // First set a committed capsule (using a different change set that we commit)
+      capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
+      await capsuleStore.commitStaged(commitChangeSetId);
 
       // Then set a staged capsule (not committed)
-      capsuleStore.setCapsule(contract, slot, stagedValues, stagedJob1, scope);
+      capsuleStore.setCapsule(contract, slot, stagedValues, stagedWrites1, scope);
 
-      // With jobId=1, should get staged capsule
-      expect(await capsuleStore.getCapsule(contract, slot, stagedJob1, scope)).toEqual(stagedValues);
+      // With changeSetId=1, should get staged capsule
+      expect(await capsuleStore.getCapsule(contract, slot, stagedWrites1, scope)).toEqual(stagedValues);
 
-      // With jobId=2, should get committed capsule
-      expect(await capsuleStore.getCapsule(contract, slot, stagedJob2, scope)).toEqual(committedValues);
+      // With changeSetId=2, should get committed capsule
+      expect(await capsuleStore.getCapsule(contract, slot, stagedWrites2, scope)).toEqual(committedValues);
     });
 
     it('staged deletions hide committed data', async () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
-      const commitJobId: string = 'commit-job';
-      const stagedJob1: string = 'staged-job-1';
-      const stagedJob2: string = 'staged-job-2';
+      const commitChangeSetId: ChangeSetId = 'commit-change-set';
+      const stagedWrites1: string = 'staged-writes-1';
+      const stagedWrites2: string = 'staged-writes-2';
 
       // First set a committed capsule
-      capsuleStore.setCapsule(contract, slot, committedValues, commitJobId, scope);
-      await capsuleStore.commit(commitJobId);
+      capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
+      await capsuleStore.commitStaged(commitChangeSetId);
 
-      // Delete in staging (not committed)
-      capsuleStore.deleteCapsule(contract, slot, stagedJob1, scope);
+      // Delete in change set (not committed)
+      capsuleStore.deleteCapsule(contract, slot, stagedWrites1, scope);
 
-      // Without jobId=2, should still see committed capsule
-      expect(await capsuleStore.getCapsule(contract, slot, stagedJob2, scope)).toEqual(committedValues);
+      // Without changeSetId=2, should still see committed capsule
+      expect(await capsuleStore.getCapsule(contract, slot, stagedWrites2, scope)).toEqual(committedValues);
 
-      // With jobId=1, should see null (deleted in staging)
-      expect(await capsuleStore.getCapsule(contract, slot, stagedJob1, scope)).toBeNull();
+      // With changeSetId=1, should see null (deleted in change set)
+      expect(await capsuleStore.getCapsule(contract, slot, stagedWrites1, scope)).toBeNull();
     });
 
     it('commit applies staged deletions', async () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
-      const commitJobId: string = 'commit-job';
-      const deleteJobId: string = 'delete-job';
+      const commitChangeSetId: ChangeSetId = 'commit-change-set';
+      const deleteChangeSetId: ChangeSetId = 'delete-change-set';
 
-      capsuleStore.setCapsule(contract, slot, committedValues, commitJobId, scope);
-      await capsuleStore.commit(commitJobId);
-      capsuleStore.deleteCapsule(contract, slot, deleteJobId, scope);
+      capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
+      await capsuleStore.commitStaged(commitChangeSetId);
+      capsuleStore.deleteCapsule(contract, slot, deleteChangeSetId, scope);
 
-      await capsuleStore.commit(deleteJobId);
+      await capsuleStore.commitStaged(deleteChangeSetId);
 
-      // Now any job should see this null (deleted)
-      expect(await capsuleStore.getCapsule(contract, slot, 'any-job-sees-this', scope)).toBeNull();
+      // Now any change set should see this null (deleted)
+      expect(await capsuleStore.getCapsule(contract, slot, 'any-change-set-sees-this', scope)).toBeNull();
     });
 
     it('discardStaged removes staged data without affecting main', async () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
       const stagedValues = [Fr.random()];
-      const commitJobId: string = 'commit-job';
-      const stagingJobId: string = 'staging-job';
+      const commitChangeSetId: ChangeSetId = 'commit-change-set';
+      const stagedChangeSetId: ChangeSetId = 'staged';
 
-      capsuleStore.setCapsule(contract, slot, committedValues, commitJobId, scope);
-      await capsuleStore.commit(commitJobId);
-      capsuleStore.setCapsule(contract, slot, stagedValues, stagingJobId, scope);
+      capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
+      await capsuleStore.commitStaged(commitChangeSetId);
+      capsuleStore.setCapsule(contract, slot, stagedValues, stagedChangeSetId, scope);
 
-      await capsuleStore.discardStaged(stagingJobId);
+      await capsuleStore.discardStaged(stagedChangeSetId);
 
       // Should still get committed capsule
-      expect(await capsuleStore.getCapsule(contract, slot, 'any-job', scope)).toEqual(committedValues);
+      expect(await capsuleStore.getCapsule(contract, slot, 'any-change-set', scope)).toEqual(committedValues);
 
-      // With stagingJobId should fall back to committed since staging was discarded
-      expect(await capsuleStore.getCapsule(contract, slot, stagingJobId, scope)).toEqual(committedValues);
+      // With stagedChangeSetId should fall back to committed since change set was discarded
+      expect(await capsuleStore.getCapsule(contract, slot, stagedChangeSetId, scope)).toEqual(committedValues);
     });
   });
 });

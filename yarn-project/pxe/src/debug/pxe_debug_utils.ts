@@ -7,15 +7,16 @@ import type { BlockHeader, ContractOverrides } from '@aztec/stdlib/tx';
 import type { ContractSyncService } from '../contract/contract_sync_service.js';
 import type { ContractFunctionSimulator } from '../contract_function_simulator/contract_function_simulator.js';
 import type { NotesFilter } from '../notes_filter.js';
-import type { SyncedJobContext } from '../pxe.js';
+import type { SyncedOperationContext } from '../operation_queue.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
+import type { ChangeSetId } from '../storage/staged_write_coordinator.js';
 
 /**
  * Methods provided by this class might help debugging but must not be used in production.
  * No backwards compatibility or API stability should be expected. Use at your own risk.
  */
 export class PXEDebugUtils {
-  #syncedJob!: <T>(job: (ctx: SyncedJobContext) => Promise<T>) => Promise<T>;
+  #runSyncedOperation!: <T>(operation: (ctx: SyncedOperationContext) => Promise<T>) => Promise<T>;
   #getSimulatorForTx!: (overrides?: { contracts?: ContractOverrides }) => ContractFunctionSimulator;
   #executeUtility!: (
     contractFunctionSimulator: ContractFunctionSimulator,
@@ -23,7 +24,7 @@ export class PXEDebugUtils {
     authWitnesses: AuthWitness[] | undefined,
     scopes: AztecAddress[],
     anchorBlockHeader: BlockHeader,
-    jobId: string,
+    changeSetId: ChangeSetId,
   ) => Promise<any>;
 
   constructor(
@@ -33,7 +34,7 @@ export class PXEDebugUtils {
 
   /** Not injected through constructor since they're are co-dependant */
   public setPXEHelpers(
-    syncedJob: <T>(job: (ctx: SyncedJobContext) => Promise<T>) => Promise<T>,
+    runSyncedOperation: <T>(operation: (ctx: SyncedOperationContext) => Promise<T>) => Promise<T>,
     getSimulatorForTx: (overrides?: { contracts?: ContractOverrides }) => ContractFunctionSimulator,
     executeUtility: (
       contractFunctionSimulator: ContractFunctionSimulator,
@@ -41,10 +42,10 @@ export class PXEDebugUtils {
       authWitnesses: AuthWitness[] | undefined,
       scopes: AztecAddress[],
       anchorBlockHeader: BlockHeader,
-      jobId: string,
+      changeSetId: ChangeSetId,
     ) => Promise<any>,
   ) {
-    this.#syncedJob = syncedJob;
+    this.#runSyncedOperation = runSyncedOperation;
     this.#getSimulatorForTx = getSimulatorForTx;
     this.#executeUtility = executeUtility;
   }
@@ -61,7 +62,7 @@ export class PXEDebugUtils {
    * @returns The requested notes.
    */
   public getNotes(filter: NotesFilter): Promise<NoteDao[]> {
-    return this.#syncedJob(async ({ jobId, anchorBlockHeader }) => {
+    return this.#runSyncedOperation(async ({ changeSetId, anchorBlockHeader }) => {
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
       await this.contractSyncService.ensureContractSynced({
@@ -74,15 +75,15 @@ export class PXEDebugUtils {
             [],
             execScopes,
             anchorBlockHeader,
-            jobId,
+            changeSetId,
           ),
         anchorBlockHeader,
-        jobId,
+        changeSetId,
         scopes: filter.scopes,
         triggeredBy: undefined,
       });
 
-      return this.noteStore.getNotes(filter, jobId);
+      return this.noteStore.getNotes(filter, changeSetId);
     });
   }
 }

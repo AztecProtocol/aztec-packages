@@ -139,7 +139,7 @@ describe('Private Execution test suite', () => {
   let recipientIvskM: GrumpkinScalar;
   let senderForTagsIvskM: GrumpkinScalar;
 
-  const TEST_JOB_ID = 'test-job-id';
+  const TEST_CHANGE_SET_ID = 'test-change-set-id';
 
   const treeNameToId: { [name: string]: MerkleTreeId } = {
     noteHash: MerkleTreeId.NOTE_HASH_TREE,
@@ -213,7 +213,7 @@ describe('Private Execution test suite', () => {
       msgSender,
       anchorBlockHeader,
       senderForTags,
-      jobId: TEST_JOB_ID,
+      changeSetId: TEST_CHANGE_SET_ID,
       scopes: [owner, senderForTags],
     });
   };

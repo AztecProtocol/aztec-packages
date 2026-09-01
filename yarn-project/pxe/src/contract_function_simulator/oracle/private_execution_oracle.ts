@@ -386,10 +386,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
         this.senderTaggingStore,
         finalized.block.number,
         anchor,
-        this.jobId,
+        this.changeSetId,
       );
 
-      const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret, this.jobId);
+      const lastUsedIndex = await this.senderTaggingStore.getLastUsedIndex(secret, this.changeSetId);
       // If lastUsedIndex is undefined, we've never used this secret, so start from 0
       // Otherwise, the next index to use is one past the last used index
       return lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
@@ -480,7 +480,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.changeSetId);
     const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
       owner.value,
@@ -666,7 +666,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       functionToInvokeAfterSync: functionSelector,
       utilityExecutor: this.utilityExecutor,
       anchorBlockHeader: this.anchorBlockHeader,
-      jobId: this.jobId,
+      changeSetId: this.changeSetId,
       scopes: this.scopes,
       triggeredBy: { address: this.callContext.contractAddress, selector: this.callContext.functionSelector },
     });
@@ -711,7 +711,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       privateEventStore: this.privateEventStore,
       txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
-      jobId: this.jobId,
+      changeSetId: this.changeSetId,
       totalPublicCalldataCount: this.totalPublicCalldataCount,
       sideEffectCounter,
       log: this.logger,
