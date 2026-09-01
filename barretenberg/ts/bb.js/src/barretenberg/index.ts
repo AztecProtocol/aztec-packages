@@ -171,7 +171,7 @@ export class Barretenberg extends AsyncApi {
    */
   static getSingleton() {
     if (!barretenbergSingleton) {
-      throw new Error('First call Barretenberg.initSingleton() on @aztec/bb.js module.');
+      throw new Error('First call Barretenberg.initSingleton() on @aztec-foundation/bb.js module.');
     }
     return barretenbergSingleton;
   }
@@ -239,7 +239,7 @@ export class BarretenbergSync extends SyncApi {
 
   static getSingleton() {
     if (!barretenbergSyncSingleton) {
-      throw new Error('First call BarretenbergSync.initSingleton() on @aztec/bb.js module.');
+      throw new Error('First call BarretenbergSync.initSingleton() on @aztec-foundation/bb.js module.');
     }
     return barretenbergSyncSingleton;
   }

@@ -12,9 +12,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@aztec/l1-artifacts@workspace:l1-artifacts":
+"@aztec-foundation/l1-artifacts@workspace:l1-artifacts":
   version: 0.0.0-use.local
-  resolution: "@aztec/l1-artifacts@workspace:l1-artifacts"
+  resolution: "@aztec-foundation/l1-artifacts@workspace:l1-artifacts"
   dependencies:
     "@types/node": "npm:^22.15.17"
     "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"

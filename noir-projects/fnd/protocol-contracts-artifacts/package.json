@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/protocol-contracts-artifacts",
+  "name": "@aztec-foundation/protocol-contracts-artifacts",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "description": "Compiled Noir artifacts for the protocol contracts.",
