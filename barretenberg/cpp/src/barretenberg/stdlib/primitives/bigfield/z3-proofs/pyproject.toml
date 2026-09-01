@@ -1,0 +1,54 @@
+[project]
+name = "field_emulation_proofs"
+version = "0.1.0"
+description = "Z3 proofs for correct field emulation"
+authors = [
+    {name = "Sepanski",email = "ben.sepanski@veridise.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "z3-solver (>=4.15.1.0,<5.0.0.0)",
+    "pytest (>=8.4.1,<9.0.0)",
+]
+
+[tool.poetry]
+
+[tool.poetry.group.dev.dependencies]
+black = "^25.1.0"
+isort = "^6.0.1"
+mypy = "^1.17.0"
+autoflake = "^2.3.1"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
+
+[tool.mypy]
+mypy_path = "mypy_stubs"
+exclude = ["mypy_stubs"]
+
+[tool.isort]
+profile = "black"
+skip = [".poetry", ".venv", "build", "dist"]
+
+[tool.black]
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | \.poetry
+  | mypy_stubs
+)/
+'''
