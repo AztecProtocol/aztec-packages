@@ -1,6 +1,7 @@
 import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
@@ -528,6 +529,62 @@ describe('ArchiverDataStoreUpdater', () => {
       expect(tipsAfter).toEqual(tipsBefore);
 
       addProposedBlockSpy.mockRestore();
+    });
+
+    it('serves tips consistent with the store while a promotion is committing', async () => {
+      const initialBlockHash = await BlockHeader.empty().hash();
+      const tipsCache = new L2TipsCache(store.blocks, initialBlockHash);
+      const updaterWithCache = new ArchiverDataStoreUpdater(store, tipsCache);
+
+      const block = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        slotNumber: SlotNumber(100),
+      });
+      await updaterWithCache.addProposedBlock(block);
+      await updaterWithCache.addProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      });
+
+      // Park the promotion transaction after it has committed but before the updater regains control, which is
+      // the window a concurrent reader can land in.
+      const { promise: committed, resolve: markCommitted } = promiseWithResolvers<void>();
+      const { promise: gate, resolve: openGate } = promiseWithResolvers<void>();
+      const realTransactionAsync = store.db.transactionAsync.bind(store.db);
+      const transactionSpy = jest.spyOn(store.db, 'transactionAsync').mockImplementationOnce(async callback => {
+        const result = await realTransactionAsync(callback);
+        markCommitted();
+        await gate;
+        return result;
+      });
+
+      const publishedCheckpoint = makePublishedCheckpoint(makeCheckpoint([block]), 10);
+      const promotion = updaterWithCache.addCheckpoints([], undefined, {
+        l1: publishedCheckpoint.l1,
+        attestations: publishedCheckpoint.attestations,
+        checkpoint: publishedCheckpoint,
+      });
+
+      await committed;
+      const tipsPromise = tipsCache.getL2Tips();
+      const proposed = await store.blocks.getLastProposedCheckpoint();
+      openGate();
+      const tips = await tipsPromise;
+      await promotion;
+
+      // The proposed-checkpoint frontier and the proposed tip must describe the same chain: a reader that sees
+      // the promotion in the store must not be served tips from before it.
+      const frontier = proposed
+        ? BlockNumber.add(proposed.startBlock, proposed.blockCount - 1)
+        : tips.checkpointed.block.number;
+      expect(frontier).toEqual(tips.proposed.number);
+
+      transactionSpy.mockRestore();
     });
   });
 

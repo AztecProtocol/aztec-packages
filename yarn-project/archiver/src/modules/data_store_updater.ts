@@ -50,6 +50,19 @@ export class ArchiverDataStoreUpdater {
   ) {}
 
   /**
+   * Runs the given body in a store transaction and keeps the tips cache consistent with it: the cache is
+   * pointed at the post-commit state before the write commits (see {@link L2TipsCache.refreshAfter}), so a
+   * concurrent reader cannot pair pre-commit cached tips with post-commit store reads. Awaits both promises
+   * together so a failed write cannot leave the refresh dangling as an unhandled rejection.
+   */
+  private async writeAndRefreshTips<T>(body: () => Promise<T>): Promise<T> {
+    const write = this.stores.db.transactionAsync(body);
+    const refreshed = this.l2TipsCache?.refreshAfter(write);
+    const [result] = await Promise.all([write, refreshed]);
+    return result;
+  }
+
+  /**
    * Adds a proposed block to the store with contract class/instance extraction from logs.
    * This is an uncheckpointed block that has been proposed by the sequencer but not yet included in a checkpoint on L1.
    * Extracts ContractClassPublished, ContractInstancePublished, ContractInstanceUpdated events from the block logs.
@@ -62,7 +75,7 @@ export class ArchiverDataStoreUpdater {
     block: L2Block,
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
-    const result = await this.stores.db.transactionAsync(async () => {
+    return await this.writeAndRefreshTips(async () => {
       await this.stores.blocks.addProposedBlock(block);
 
       const opResults = await Promise.all([
@@ -77,8 +90,6 @@ export class ArchiverDataStoreUpdater {
 
       return opResults.every(Boolean);
     });
-    await this.l2TipsCache?.refresh();
-    return result;
   }
 
   /**
@@ -119,7 +130,7 @@ export class ArchiverDataStoreUpdater {
       validateCheckpoint(promoteProposed.checkpoint.checkpoint, validateOpts);
     }
 
-    const result = await this.stores.db.transactionAsync(async () => {
+    return await this.writeAndRefreshTips(async () => {
       // Before adding checkpoints, check for conflicts with local blocks if any
       const { prunedBlocks, lastAlreadyInsertedBlockNumber } = await this.pruneMismatchingLocalBlocks(checkpoints);
 
@@ -156,16 +167,12 @@ export class ArchiverDataStoreUpdater {
 
       return { prunedBlocks, lastAlreadyInsertedBlockNumber };
     });
-    await this.l2TipsCache?.refresh();
-    return result;
   }
 
   public async addProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput) {
-    const result = await this.stores.db.transactionAsync(async () => {
+    return await this.writeAndRefreshTips(async () => {
       await this.stores.blocks.addProposedCheckpoint(proposedCheckpoint);
     });
-    await this.l2TipsCache?.refresh();
-    return result;
   }
 
   /**
@@ -263,7 +270,7 @@ export class ArchiverDataStoreUpdater {
    * @throws Error if any block to be removed is checkpointed.
    */
   public async removeUncheckpointedBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
-    const result = await this.stores.db.transactionAsync(async () => {
+    return await this.writeAndRefreshTips(async () => {
       // Verify we're only removing uncheckpointed blocks
       const lastCheckpointedBlockNumber = await this.stores.blocks.getCheckpointedL2BlockNumber();
       if (blockNumber < lastCheckpointedBlockNumber) {
@@ -277,8 +284,6 @@ export class ArchiverDataStoreUpdater {
 
       return prunedBlocks;
     });
-    await this.l2TipsCache?.refresh();
-    return result;
   }
 
   /**
@@ -292,7 +297,7 @@ export class ArchiverDataStoreUpdater {
    * @throws Error if any block to be removed is checkpointed.
    */
   public async removeBlocksWithoutProposedCheckpointAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
-    const result = await this.stores.db.transactionAsync(async () => {
+    return await this.writeAndRefreshTips(async () => {
       // Verify we're only removing uncheckpointed blocks
       const lastCheckpointedBlockNumber = await this.stores.blocks.getProposedCheckpointL2BlockNumber();
       if (blockNumber < lastCheckpointedBlockNumber) {
@@ -303,8 +308,6 @@ export class ArchiverDataStoreUpdater {
 
       return await this.removeBlocksAfter(blockNumber);
     });
-    await this.l2TipsCache?.refresh();
-    return result;
   }
 
   /**
@@ -347,7 +350,7 @@ export class ArchiverDataStoreUpdater {
    * @returns True if the operation is successful.
    */
   public async removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<boolean> {
-    const result = await this.stores.db.transactionAsync(async () => {
+    return await this.writeAndRefreshTips(async () => {
       const { blocksRemoved = [] } = await this.stores.blocks.removeCheckpointsAfter(checkpointNumber);
 
       const opResults = await Promise.all([
@@ -360,8 +363,6 @@ export class ArchiverDataStoreUpdater {
 
       return opResults.every(Boolean);
     });
-    await this.l2TipsCache?.refresh();
-    return result;
   }
 
   /**
@@ -369,10 +370,9 @@ export class ArchiverDataStoreUpdater {
    * @param checkpointNumber - The checkpoint number to set as proven.
    */
   public async setProvenCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
-    await this.stores.db.transactionAsync(async () => {
+    await this.writeAndRefreshTips(async () => {
       await this.stores.blocks.setProvenCheckpointNumber(checkpointNumber);
     });
-    await this.l2TipsCache?.refresh();
   }
 
   /**
@@ -380,10 +380,9 @@ export class ArchiverDataStoreUpdater {
    * @param checkpointNumber - The checkpoint number to set as finalized.
    */
   public async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
-    await this.stores.db.transactionAsync(async () => {
+    await this.writeAndRefreshTips(async () => {
       await this.stores.blocks.setFinalizedCheckpointNumber(checkpointNumber);
     });
-    await this.l2TipsCache?.refresh();
   }
 
   /** Extracts and stores contract data from a single block. */
