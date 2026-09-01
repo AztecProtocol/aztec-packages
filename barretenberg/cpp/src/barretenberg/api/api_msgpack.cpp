@@ -3,6 +3,7 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/generated/bb_dispatch.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -61,7 +62,12 @@ int process_msgpack_commands(std::istream& input_stream)
         // The generated dispatch responds through a callback; handlers here
         // complete synchronously, so capture the response and write it out.
         std::vector<uint8_t> response;
+        const uint64_t draws_before = bb::numeric::debug_randomness_draws();
         handler(buffer, [&response](std::vector<uint8_t> r) { response = std::move(r); });
+        if (std::getenv("BB_RNG_COUNT") != nullptr) {
+            std::cerr << "[rng] frame drew " << (bb::numeric::debug_randomness_draws() - draws_before)
+                      << " (total " << bb::numeric::debug_randomness_draws() << ")\n";
+        }
 
         auto response_length = static_cast<uint32_t>(response.size() + sizeof(uint64_t));
         stdout_stream.write(reinterpret_cast<const char*>(&response_length), sizeof(response_length));

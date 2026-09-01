@@ -228,6 +228,7 @@ class DebugEngine : public RNG {
 
     uint256_t get_random_uint256() override
     {
+        draws++;
         // Do not inline in constructor call. Evaluation order is important for cross-compiler consistency.
         auto a = dist(engine);
         auto b = dist(engine);
@@ -235,6 +236,12 @@ class DebugEngine : public RNG {
         auto d = dist(engine);
         return { a, b, c, d };
     }
+
+    /// uint256 draws taken so far. The seeded engine is a single process-global that is never
+    /// reset, so an implementation that draws a different NUMBER of values than bb for the same
+    /// command still matches in isolation and diverges on every later command in the session.
+    /// Comparing this count is how that class of bug gets localised.
+    uint64_t draws = 0;
 
   private:
     std::mt19937_64 engine;
@@ -252,6 +259,11 @@ RNG& get_debug_randomness(bool reset, std::uint_fast64_t seed)
         debug_engine = DebugEngine(seed);
     }
     return debug_engine;
+}
+
+uint64_t debug_randomness_draws()
+{
+    return static_cast<DebugEngine&>(get_debug_randomness()).draws;
 }
 
 /**

@@ -53,6 +53,12 @@ class RNG {
 };
 
 RNG& get_debug_randomness(bool reset = false, std::uint_fast64_t seed = 12345);
+
+/// uint256 draws taken from the seeded debug engine so far; 0 when it was never used. The engine is
+/// a process-global that is never reset between commands, so a second implementation that draws a
+/// different NUMBER of values for the same command agrees in isolation and diverges on every later
+/// command of a session. Comparing this count localises that.
+uint64_t debug_randomness_draws();
 RNG& get_randomness();
 
 } // namespace bb::numeric
