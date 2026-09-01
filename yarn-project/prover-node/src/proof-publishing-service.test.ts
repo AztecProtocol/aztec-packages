@@ -15,6 +15,7 @@ import {
   type PublisherFactoryLike,
   type PublisherLike,
 } from './proof-publishing-service.js';
+import type { SubmitEpochProofResult } from './prover-node-publisher.js';
 
 describe('ProofPublishingService', () => {
   let publisherFactory: MockProxy<PublisherFactoryLike>;
@@ -57,10 +58,10 @@ describe('ProofPublishingService', () => {
    * publisher" without sleeping.
    */
   function installGatedPublisher(): {
-    gate: ReturnType<typeof promiseWithResolvers<boolean>>;
+    gate: ReturnType<typeof promiseWithResolvers<SubmitEpochProofResult>>;
     submitCalled: ReturnType<typeof promiseWithResolvers<void>>;
   } {
-    const gate = promiseWithResolvers<boolean>();
+    const gate = promiseWithResolvers<SubmitEpochProofResult>();
     const submitCalled = promiseWithResolvers<void>();
     publisherFactory.create.mockImplementationOnce(() => {
       const p = newPublisher();
@@ -76,7 +77,7 @@ describe('ProofPublishingService', () => {
 
   function newPublisher(): MockProxy<PublisherLike> {
     const p = mock<PublisherLike>();
-    p.submitEpochProof.mockResolvedValue(true);
+    p.submitEpochProof.mockResolvedValue('published');
     p.analyzeEpochProofSubmission.mockResolvedValue(undefined);
     return p;
   }
@@ -227,7 +228,7 @@ describe('ProofPublishingService', () => {
     service.withdraw(candidate.id);
 
     // Release the publish — outcome reports the publisher's natural return value.
-    gate.resolve(true);
+    gate.resolve('published');
     expect(await outcomePromise).toEqual('published');
   });
 
@@ -278,17 +279,30 @@ describe('ProofPublishingService', () => {
     // Drive the deadline path manually. inFlight matches the candidate id, so handleExpiry
     // is a no-op — the publish keeps running.
     service.triggerExpiry(candidate.id);
-    gate.resolve(true);
+    gate.resolve('published');
     expect(await outcomePromise).toEqual('published');
   });
 
   // ---------------- failure surfaces ----------------
 
-  it('resolves as failed when submitEpochProof returns false', async () => {
+  it('resolves as already-submitted when submitEpochProof reports a prior submission', async () => {
     startService();
     publisherFactory.create.mockImplementationOnce(() => {
       const p = newPublisher();
-      p.submitEpochProof.mockResolvedValue(false);
+      p.submitEpochProof.mockResolvedValue('already-submitted');
+      publishers.push(p);
+      return Promise.resolve(p as unknown as Awaited<ReturnType<PublisherFactoryLike['create']>>);
+    });
+
+    const outcome = await service.submit(makeCandidate());
+    expect(outcome).toEqual('already-submitted');
+  });
+
+  it('resolves as failed when submitEpochProof returns failed', async () => {
+    startService();
+    publisherFactory.create.mockImplementationOnce(() => {
+      const p = newPublisher();
+      p.submitEpochProof.mockResolvedValue('failed');
       publishers.push(p);
       return Promise.resolve(p as unknown as Awaited<ReturnType<PublisherFactoryLike['create']>>);
     });
@@ -395,12 +409,12 @@ describe('ProofPublishingService', () => {
     expect(publishers).toHaveLength(1);
 
     // Release first; the second drain pass now runs and starts the second publish.
-    first.gate.resolve(true);
+    first.gate.resolve('published');
     await a;
     await second.submitCalled.promise;
     expect(publishers).toHaveLength(2);
 
-    second.gate.resolve(true);
+    second.gate.resolve('published');
     expect(await b).toEqual('published');
   });
 

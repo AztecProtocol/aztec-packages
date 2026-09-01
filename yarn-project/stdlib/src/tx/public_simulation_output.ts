@@ -35,12 +35,7 @@ export class NestedProcessReturnValues {
   }
 
   static get schema(): ZodFor<NestedProcessReturnValues> {
-    return z
-      .object({
-        values: NullishToUndefined(z.array(schemas.Fr)),
-        nested: z.array(z.lazy(() => NestedProcessReturnValues.schema)),
-      })
-      .transform(({ values, nested }) => new NestedProcessReturnValues(values, nested));
+    return getNestedProcessReturnValuesSchema();
   }
 
   static fromPlainObject(obj: any): NestedProcessReturnValues {
@@ -60,6 +55,22 @@ export class NestedProcessReturnValues {
       depth > 0 ? [NestedProcessReturnValues.random(depth - 1)] : [],
     );
   }
+}
+
+/**
+ * Built once on first use and reused rather than rebuilt on every `schema` access: the recursion is tied
+ * together by object identity, and a `z.lazy` target that hands back a fresh schema each time it is
+ * dereferenced makes zod recurse until the stack overflows (zod >= 4.5, at any nesting depth).
+ */
+let nestedProcessReturnValuesSchema: ZodFor<NestedProcessReturnValues> | undefined;
+
+function getNestedProcessReturnValuesSchema(): ZodFor<NestedProcessReturnValues> {
+  return (nestedProcessReturnValuesSchema ??= z
+    .object({
+      values: NullishToUndefined(z.array(schemas.Fr)),
+      nested: z.array(z.lazy(() => getNestedProcessReturnValuesSchema())),
+    })
+    .transform(({ values, nested }) => new NestedProcessReturnValues(values, nested)));
 }
 
 /**
