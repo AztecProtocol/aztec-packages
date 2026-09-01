@@ -270,8 +270,8 @@ export const TXE_ORACLE_REGISTRY = {
 
   aztec_txe_sendL1ToL2Message: makeEntry({
     params: [
-      { name: 'content', type: FIELD },
-      { name: 'secretHash', type: FIELD },
+      { name: 'publicContentHash', type: FIELD },
+      { name: 'privateContentHash', type: FIELD },
       { name: 'sender', type: ETH_ADDRESS },
       { name: 'recipient', type: AZTEC_ADDRESS },
     ],

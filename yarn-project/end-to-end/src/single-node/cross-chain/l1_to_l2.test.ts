@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -81,8 +81,10 @@ describe('single-node/cross-chain/l1_to_l2', () => {
   // We'll also test that we can send the same message content across the bridge multiple times.
   const canSendMessageFromNonRegisteredPortal = async (scope: L1ToL2MessageScope) => {
     // Generate and send the message to the L1 contract
-    const [secret, secretHash] = await generateClaimSecret();
-    const message = { recipient: testContract.address, content: Fr.random(), secretHash };
+    const secret = Fr.random();
+    const privateContent = [secret];
+    const privateContentHash = await computePrivateContentHash(privateContent);
+    const message = { recipient: testContract.address, publicContentHash: Fr.random(), privateContentHash };
     const { msgHash: message1Hash, globalLeafIndex: actualMessage1Index } = await sendMessageToL2(message);
 
     await waitForMessageReady(message1Hash, scope);
@@ -91,7 +93,7 @@ describe('single-node/cross-chain/l1_to_l2', () => {
     expect(actualMessage1Index.toBigInt()).toBe(message1Index);
 
     const sendConsumeMsgTx = async (index: Fr) => {
-      const call = getConsumeMethod(scope)(message.content, secret, t.ethAccount, index);
+      const call = getConsumeMethod(scope)(message.publicContentHash, secret, t.ethAccount, index);
       if (scope === 'public') {
         await call.simulate({ from: user1Address });
       }

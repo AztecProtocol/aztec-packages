@@ -680,8 +680,8 @@ export class FakeL1State {
     return {
       sender: { actor: `0x${'0'.repeat(40)}` as `0x${string}`, chainId: 1n },
       recipient: { actor: Fr.ZERO, version: 1n },
-      content: Fr.ZERO,
-      secretHash: Fr.ZERO,
+      publicContentHash: Fr.ZERO,
+      privateContentHash: Fr.ZERO,
       index,
     };
   }

@@ -11,7 +11,7 @@ import { decodeEventLog, getContract } from 'viem';
 import { getLogger } from './utils.js';
 
 export async function sendL1ToL2Message(
-  message: { recipient: AztecAddress; content: Fr; secretHash: Fr },
+  message: { recipient: AztecAddress; publicContentHash: Fr; privateContentHash: Fr },
   ctx: {
     l1Client: ExtendedViemWalletClient;
     l1ContractAddresses: Pick<L1ContractAddresses, 'inboxAddress' | 'rollupAddress'>;
@@ -24,13 +24,17 @@ export async function sendL1ToL2Message(
     client: ctx.l1Client,
   });
 
-  const { recipient, content, secretHash } = message;
+  const { recipient, publicContentHash, privateContentHash } = message;
 
   const version = await new RollupContract(ctx.l1Client, ctx.l1ContractAddresses.rollupAddress.toString()).getVersion();
 
   // We inject the message to Inbox
   const txHash = await inbox.write.sendL2Message(
-    [{ actor: recipient.toString(), version: BigInt(version) }, content.toString(), secretHash.toString()],
+    [
+      { actor: recipient.toString(), version: BigInt(version) },
+      publicContentHash.toString(),
+      privateContentHash.toString(),
+    ],
     {
       gas: 1_000_000n,
     },

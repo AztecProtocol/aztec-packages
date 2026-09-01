@@ -8,11 +8,11 @@ export async function getL1ToL2MessageWitness(
   nodeUrl: string,
   contractAddress: AztecAddress,
   messageHash: Fr,
-  secret: Fr,
+  privateContent: Fr[],
   log: LogFn,
 ) {
   const node = createAztecNodeClient(nodeUrl);
-  const messageWitness = await getNonNullifiedL1ToL2MessageWitness(node, contractAddress, messageHash, secret);
+  const messageWitness = await getNonNullifiedL1ToL2MessageWitness(node, contractAddress, messageHash, privateContent);
 
   log(
     messageWitness === undefined

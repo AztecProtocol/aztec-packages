@@ -229,13 +229,15 @@ contract RollupBase is DecoderBase {
     assertEq(rollup.archive(), args.archive, "Invalid archive");
   }
 
-  function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {
+  function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _publicContentHashes) internal {
     inbox = Inbox(address(rollup.getInbox()));
     uint256 version = rollup.getVersion();
 
-    for (uint256 i = 0; i < _contents.length; i++) {
+    for (uint256 i = 0; i < _publicContentHashes.length; i++) {
       vm.prank(_sender);
-      inbox.sendL2Message(DataStructures.L2Actor({actor: _recipient, version: version}), _contents[i], bytes32(0));
+      inbox.sendL2Message(
+        DataStructures.L2Actor({actor: _recipient, version: version}), _publicContentHashes[i], bytes32(0)
+      );
     }
   }
 

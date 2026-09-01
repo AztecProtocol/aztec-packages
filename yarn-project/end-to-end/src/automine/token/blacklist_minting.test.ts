@@ -1,4 +1,4 @@
-import { computeSecretHash } from '@aztec/aztec.js/crypto';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { TxHash } from '@aztec/aztec.js/tx';
 
@@ -80,11 +80,12 @@ describe('automine/token/blacklist_minting', () => {
   describe('Private', () => {
     const secret = Fr.random();
     const amount = 10000n;
-    let secretHash: Fr;
+    let privateContentHash: Fr;
     let txHash: TxHash;
 
     beforeAll(async () => {
-      secretHash = await computeSecretHash(secret);
+      const privateContent = [secret];
+      privateContentHash = await computePrivateContentHash(privateContent);
     });
 
     // Happy path for private minting: mint, register the pending shield note in PXE, and redeem.
@@ -95,10 +96,10 @@ describe('automine/token/blacklist_minting', () => {
           .balance_of_private(adminAddress)
           .simulate({ from: adminAddress });
 
-        const { receipt } = await asset.methods.mint_private(amount, secretHash).send({ from: adminAddress });
+        const { receipt } = await asset.methods.mint_private(amount, privateContentHash).send({ from: adminAddress });
         txHash = receipt.txHash;
 
-        await t.addPendingShieldNoteToPXE(asset, adminAddress, amount, secretHash, txHash);
+        await t.addPendingShieldNoteToPXE(asset, adminAddress, amount, privateContentHash, txHash);
 
         await asset.methods.redeem_shield(adminAddress, amount, secret).send({ from: adminAddress });
 
@@ -118,7 +119,7 @@ describe('automine/token/blacklist_minting', () => {
         // add it, but PXE will realize that the note has been nullified already and not inject it into the circuit
         // during execution of redeem_shield, resulting in a simulation failure.
 
-        await t.addPendingShieldNoteToPXE(asset, otherAddress, amount, secretHash, txHash);
+        await t.addPendingShieldNoteToPXE(asset, otherAddress, amount, privateContentHash, txHash);
 
         await expect(
           asset.methods.redeem_shield(otherAddress, amount, secret).simulate({ from: otherAddress }),
@@ -127,26 +128,26 @@ describe('automine/token/blacklist_minting', () => {
 
       // Attempts mint_private from otherAddress (not a minter) and expects 'caller is not minter'.
       it('mint_private as non-minter', async () => {
-        await expect(asset.methods.mint_private(amount, secretHash).simulate({ from: otherAddress })).rejects.toThrow(
-          'Assertion failed: caller is not minter',
-        );
+        await expect(
+          asset.methods.mint_private(amount, privateContentHash).simulate({ from: otherAddress }),
+        ).rejects.toThrow('Assertion failed: caller is not minter');
       });
 
       // Mints an amount that would overflow the recipient's private u128 balance; expects U128_OVERFLOW_ERROR.
       it('mint <u128 but recipient balance >u128', async () => {
         const amount = 2n ** 128n - tokenSim.balanceOfPrivate(adminAddress);
         expect(amount).toBeLessThan(2n ** 128n);
-        await expect(asset.methods.mint_private(amount, secretHash).simulate({ from: adminAddress })).rejects.toThrow(
-          U128_OVERFLOW_ERROR,
-        );
+        await expect(
+          asset.methods.mint_private(amount, privateContentHash).simulate({ from: adminAddress }),
+        ).rejects.toThrow(U128_OVERFLOW_ERROR);
       });
 
       // Mints an amount that would overflow total supply (private path); expects U128_OVERFLOW_ERROR.
       it('mint <u128 but such that total supply >u128', async () => {
         const amount = 2n ** 128n - tokenSim.totalSupply;
-        await expect(asset.methods.mint_private(amount, secretHash).simulate({ from: adminAddress })).rejects.toThrow(
-          U128_OVERFLOW_ERROR,
-        );
+        await expect(
+          asset.methods.mint_private(amount, privateContentHash).simulate({ from: adminAddress }),
+        ).rejects.toThrow(U128_OVERFLOW_ERROR);
       });
 
       // Attempts redeem_shield targeting blacklistedAddress and expects 'Blacklisted: Recipient'.

@@ -8,7 +8,7 @@ import { deployL1Contract } from "@aztec/ethereum/deploy-l1-contract";
 import { sha256ToField } from "@aztec/foundation/crypto/sha256";
 import {
   computeL2ToL1MessageHash,
-  computeSecretHash,
+  computePrivateContentHash,
 } from "@aztec/stdlib/hash";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { decodeEventLog, pad } from "@aztec/viem";
@@ -131,7 +131,8 @@ console.log(`Minted tokenId: ${tokenId}\n`);
 console.log("Depositing NFT to Aztec...");
 
 const secret = Fr.random();
-const secretHash = await computeSecretHash(secret);
+const privateContent = [secret];
+const privateContentHash = await computePrivateContentHash(privateContent);
 
 // Approve portal to transfer the NFT
 // @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
@@ -151,7 +152,10 @@ const depositHash = await l1Client.writeContract({
   functionName: "depositToAztec",
   args: [
     tokenId,
-    pad(secretHash.toString() as `0x${string}`, { dir: "left", size: 32 }),
+    pad(privateContentHash.toString() as `0x${string}`, {
+      dir: "left",
+      size: 32,
+    }),
   ],
 });
 const depositReceipt = await l1Client.waitForTransactionReceipt({
@@ -189,8 +193,8 @@ const INBOX_ABI = [
               { name: "version", type: "uint256" },
             ],
           },
-          { name: "content", type: "bytes32" },
-          { name: "secretHash", type: "bytes32" },
+          { name: "publicContentHash", type: "bytes32" },
+          { name: "privateContentHash", type: "bytes32" },
           { name: "index", type: "uint256" },
         ],
       },

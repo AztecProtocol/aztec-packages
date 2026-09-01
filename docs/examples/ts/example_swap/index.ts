@@ -11,7 +11,7 @@ import { TokenContract } from "@aztec/noir-contracts.js/Token";
 import { TokenBridgeContract } from "@aztec/noir-contracts.js/TokenBridge";
 import {
   computeL2ToL1MessageHash,
-  computeSecretHash,
+  computePrivateContentHash,
 } from "@aztec/stdlib/hash";
 import { createAztecNodeDebugClient } from "@aztec/stdlib/interfaces/client";
 import { decodeEventLog, encodeFunctionData, pad } from "@aztec/viem";
@@ -222,7 +222,10 @@ console.log(`Pre-funded uniswap portal with ${SWAP_AMOUNT * 2n} DAI\n`);
 console.log("Depositing WETH to Aztec (L1 -> L2)...\n");
 
 const depositSecret = Fr.random();
-const depositSecretHash = await computeSecretHash(depositSecret);
+const depositPrivateContent = [depositSecret];
+const depositPrivateContentHash = await computePrivateContentHash(
+  depositPrivateContent,
+);
 
 // Approve WETH portal to take tokens
 // @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
@@ -243,7 +246,7 @@ const depositHash = await l1Client.writeContract({
   args: [
     account.address.toString(),
     SWAP_AMOUNT,
-    pad(depositSecretHash.toString() as `0x${string}`, {
+    pad(depositPrivateContentHash.toString() as `0x${string}`, {
       dir: "left",
       size: 32,
     }),
@@ -283,8 +286,8 @@ const INBOX_ABI = [
               { name: "version", type: "uint256" },
             ],
           },
-          { name: "content", type: "bytes32" },
-          { name: "secretHash", type: "bytes32" },
+          { name: "publicContentHash", type: "bytes32" },
+          { name: "privateContentHash", type: "bytes32" },
           { name: "index", type: "uint256" },
         ],
       },
@@ -362,7 +365,9 @@ console.log("Initiating public swap on L2 (WETH -> DAI)...\n");
 await mine2Blocks(wallet, account.address);
 
 const swapSecret = Fr.random();
-const swapSecretHash = await computeSecretHash(swapSecret);
+const swapPrivateContent = [swapSecret];
+const swapPrivateContentHash =
+  await computePrivateContentHash(swapPrivateContent);
 
 // Create authwit for the uniswap contract to transfer WETH on our behalf
 const transferAction = l2Weth.methods.transfer_in_public(
@@ -389,7 +394,7 @@ const { receipt: swapReceipt } = await l2Uniswap.methods
     3000n, // fee tier
     0n, // minimum output
     account.address, // recipient
-    swapSecretHash,
+    swapPrivateContentHash,
   )
   .send({ from: account.address });
 
@@ -539,7 +544,7 @@ const swapContentEncoded = encodeFunctionData({
     daiPortalAddress.toString() as `0x${string}`,
     0n,
     account.address.toString() as `0x${string}`,
-    pad(swapSecretHash.toString() as `0x${string}`, {
+    pad(swapPrivateContentHash.toString() as `0x${string}`, {
       dir: "left",
       size: 32,
     }),
@@ -581,7 +586,7 @@ const l1SwapHash = await l1Client.writeContract({
     daiPortalAddress.toString(),
     0n,
     account.address.toString(),
-    pad(swapSecretHash.toString() as `0x${string}`, {
+    pad(swapPrivateContentHash.toString() as `0x${string}`, {
       dir: "left",
       size: 32,
     }),

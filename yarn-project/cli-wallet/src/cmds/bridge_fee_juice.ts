@@ -63,6 +63,7 @@ export async function bridgeL1FeeJuice(
   }
 
   if (wait) {
+    const privateContent = [claimSecret];
     const delayedCheck = (delay: number) => {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
@@ -70,7 +71,7 @@ export async function bridgeL1FeeJuice(
             node,
             ProtocolContractAddress.FeeJuice,
             Fr.fromHexString(messageHash),
-            claimSecret,
+            privateContent,
           )
             .then(witness => resolve(witness))
             .catch(err => reject(err));

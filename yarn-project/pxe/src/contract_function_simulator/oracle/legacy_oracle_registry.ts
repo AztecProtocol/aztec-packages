@@ -55,9 +55,9 @@ const LEGACY_PENDING_TAGGED_LOG: TypeMapping<LegacyPendingTaggedLog> = STRUCT<Le
 export const LEGACY_ORACLE_REGISTRY: Record<string, LegacyOracleEntry> = {
   aztec_utl_getL1ToL2MembershipWitness: legacyOracle({
     modernOracle: 'aztec_utl_getL1ToL2MembershipWitnessV2',
-    // The old wire passed the contract address and secret, the modern oracle takes the unsiloed nullifier (plus the
-    // address to silo it with) instead. We derive it here so already-deployed contracts that still emit the old call
-    // keep working.
+    // The old wire passed the contract address and a single-field secret, the modern one takes the unsiloed nullifier
+    // (plus the address to silo it with) instead. We derive it here so already-deployed contracts that still emit the
+    // old call keep working.
     //
     // This is the fee juice message nullifier derivation: only contracts using that scheme call this retired oracle.
     params: {
@@ -66,10 +66,11 @@ export const LEGACY_ORACLE_REGISTRY: Record<string, LegacyOracleEntry> = {
         { name: 'messageHash', type: FIELD },
         { name: 'secret', type: FIELD },
       ],
-      mapping: async ([contractAddress, messageHash, secret]) => [
-        messageHash,
-        Option.some({ contractAddress, nullifier: await computeFeeJuiceMessageNullifier(messageHash, secret) }),
-      ],
+      mapping: async ([contractAddress, messageHash, secret]) => {
+        const privateContent = [secret];
+        const nullifier = await computeFeeJuiceMessageNullifier(messageHash, privateContent);
+        return [messageHash, Option.some({ contractAddress, nullifier })];
+      },
     },
   }),
   aztec_utl_getLogsByTag: legacyOracle({

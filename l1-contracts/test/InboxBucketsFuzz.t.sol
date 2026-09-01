@@ -115,10 +115,10 @@ contract InboxBucketsFuzzTest is Test {
   function _send(uint256 _seed) internal {
     uint256 index = leaves.length;
     DataStructures.L2Actor memory recipient = DataStructures.L2Actor({actor: _field(_seed, index, 0), version: version});
-    bytes32 content = _field(_seed, index, 1);
-    bytes32 secretHash = _field(_seed, index, 2);
+    bytes32 publicContentHash = _field(_seed, index, 1);
+    bytes32 privateContentHash = _field(_seed, index, 2);
 
-    (bytes32 leaf, uint256 insertedIndex) = inbox.sendL2Message(recipient, content, secretHash);
+    (bytes32 leaf, uint256 insertedIndex) = inbox.sendL2Message(recipient, publicContentHash, privateContentHash);
 
     // The leaf commits to the message and to the compact index the Inbox assigned it, so recomputing it from the
     // sent contents pins both, and the chain recomputed from these leaves is anchored to the message stream.
@@ -126,8 +126,8 @@ contract InboxBucketsFuzzTest is Test {
       DataStructures.L1ToL2Msg({
         sender: DataStructures.L1Actor(address(this), block.chainid),
         recipient: recipient,
-        content: content,
-        secretHash: secretHash,
+        publicContentHash: publicContentHash,
+        privateContentHash: privateContentHash,
         index: index
       })
     );

@@ -215,8 +215,8 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_txe_sendL1ToL2Message',
       inputs,
-      handler: ([content, secretHash, sender, recipient]) =>
-        this.handlerAsTxe().sendL1ToL2Message(content, secretHash, sender, recipient),
+      handler: ([publicContentHash, privateContentHash, sender, recipient]) =>
+        this.handlerAsTxe().sendL1ToL2Message(publicContentHash, privateContentHash, sender, recipient),
     });
   }
 

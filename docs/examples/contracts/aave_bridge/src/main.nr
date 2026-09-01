@@ -44,13 +44,14 @@ pub contract AaveBridge {
     /// Called after the L1 AavePortal withdraws from Aave and sends a message.
     #[external("public")]
     fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {
-        let content_hash = get_mint_to_public_content_hash(to, amount);
+        let public_content_hash = get_mint_to_public_content_hash(to, amount);
         let config = self.storage.config.read();
 
-        // Consume message and emit nullifier
+        // Consume message and emit nullifier.
+        let private_content = [secret];
         self.context.consume_l1_to_l2_message(
-            content_hash,
-            [secret],
+            public_content_hash,
+            private_content,
             config.portal,
             message_leaf_index,
         );
@@ -72,11 +73,12 @@ pub contract AaveBridge {
     ) {
         let config = self.storage.config.read();
 
-        // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_mint_to_private_content_hash(amount);
+        // Consume L1 to L2 message and emit nullifier.
+        let public_content_hash = get_mint_to_private_content_hash(amount);
+        let private_content = [secret_for_L1_to_L2_message_consumption];
         self.context.consume_l1_to_l2_message(
-            content_hash,
-            [secret_for_L1_to_L2_message_consumption],
+            public_content_hash,
+            private_content,
             config.portal,
             message_leaf_index,
         );

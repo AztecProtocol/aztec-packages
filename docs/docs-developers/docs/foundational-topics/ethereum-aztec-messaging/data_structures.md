@@ -22,7 +22,7 @@ An entity on L2, specifying the Aztec address and the protocol version. Used whe
 
 ## `L1ToL2Msg`
 
-A message sent from L1 to L2. The `secretHash` field contains the hash of a secret pre-image that must be known to consume the message on L2. Use [`computeSecretHash`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/stdlib/src/hash/hash.ts) to compute it from a secret.
+A message sent from L1 to L2. The `publicContentHash` field is the hash of the application-specific public content of the message. The `privateContentHash` field is the hash of the private content, whose preimage is typically used to consume the message. Use [`computePrivateContentHash`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/stdlib/src/hash/hash.ts) to compute it from the private content.
 
 #include_code l1_to_l2_msg l1-contracts/src/core/libraries/DataStructures.sol solidity
 

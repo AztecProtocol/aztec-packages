@@ -1,4 +1,4 @@
-import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -21,8 +21,10 @@ export async function seedL1ToL2Message(
   log: Logger,
 ): Promise<PendingL1ToL2Message> {
   log.info('Seeding L1→L2 message');
-  const [secret, secretHash] = await generateClaimSecret(log);
-  const content = Fr.random();
+  const secret = Fr.random();
+  const privateContent = [secret];
+  const privateContentHash = await computePrivateContentHash(privateContent);
+  const publicContentHash = Fr.random();
 
   const inbox = getContract({
     address: inboxAddress.toString(),
@@ -31,7 +33,11 @@ export async function seedL1ToL2Message(
   });
 
   const txHash = await inbox.write.sendL2Message(
-    [{ actor: l2Recipient.toString(), version: rollupVersion }, content.toString(), secretHash.toString()],
+    [
+      { actor: l2Recipient.toString(), version: rollupVersion },
+      publicContentHash.toString(),
+      privateContentHash.toString(),
+    ],
     { gas: 1_000_000n },
   );
   log.info(`L1→L2 message sent in tx ${txHash}`);
@@ -64,9 +70,9 @@ export async function seedL1ToL2Message(
   const globalLeafIndex = event.args.message.index;
 
   const msg: PendingL1ToL2Message = {
-    content: content.toString(),
+    publicContentHash: publicContentHash.toString(),
     secret: secret.toString(),
-    secretHash: secretHash.toString(),
+    privateContentHash: privateContentHash.toString(),
     msgHash,
     sender: l1Client.account!.address,
     globalLeafIndex: globalLeafIndex.toString(),

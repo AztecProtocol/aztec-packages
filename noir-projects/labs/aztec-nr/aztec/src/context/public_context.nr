@@ -1,7 +1,7 @@
 use crate::{
     context::gas::GasOpts,
     hash::{
-        compute_l1_to_l2_message_hash, compute_l1_to_l2_message_nullifier, compute_secret_hash,
+        compute_l1_to_l2_message_hash, compute_l1_to_l2_message_nullifier, compute_private_content_hash,
         compute_siloed_nullifier,
     },
     oracle::avm,
@@ -225,8 +225,9 @@ impl PublicContext {
     /// you will need to wait until the messages are copied before you can consume them.
     ///
     /// # Arguments
-    /// * `content` - The message content that was sent from L1
-    /// * `secret` - Secret fields used for message privacy (if needed)
+    /// * `public_content_hash` - Hash of the public content of the message that was sent from L1
+    /// * `private_content` - Private content of the message,
+    ///   application-defined - e.g. a claim secret, or the L2 recipient plus a blinding value
     /// * `sender` - Ethereum address that sent the message
     /// * `leaf_index` - Index of the message in the L1-to-L2 message tree
     ///
@@ -238,23 +239,23 @@ impl PublicContext {
     ///
     pub fn consume_l1_to_l2_message<let N: u32>(
         self: Self,
-        content: Field,
-        secret: [Field; N],
+        public_content_hash: Field,
+        private_content: [Field; N],
         sender: EthAddress,
         leaf_index: Field,
     ) {
-        let secret_hash = compute_secret_hash(secret);
+        let private_content_hash = compute_private_content_hash(private_content);
         let message_hash = compute_l1_to_l2_message_hash(
             sender,
             self.chain_id(),
             /*recipient=*/
             self.this_address(),
             self.version(),
-            content,
-            secret_hash,
+            public_content_hash,
+            private_content_hash,
             leaf_index,
         );
-        let nullifier = compute_l1_to_l2_message_nullifier(message_hash, secret);
+        let nullifier = compute_l1_to_l2_message_nullifier(message_hash, private_content);
 
         assert(!self.nullifier_exists_unsafe(nullifier, self.this_address()), "L1-to-L2 message is already nullified");
         assert(self.l1_to_l2_msg_exists(message_hash, leaf_index), "Tried to consume nonexistent L1-to-L2 message");

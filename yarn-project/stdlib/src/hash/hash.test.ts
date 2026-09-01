@@ -8,9 +8,9 @@ import {
   computeCalldataHash,
   computeL2ToL1MessageHash,
   computeNoteHashNonce,
+  computePrivateContentHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
-  computeSecretHash,
   computeSiloedPrivateLogFirstField,
   computeUniqueNoteHash,
   computeVarArgsHash,
@@ -137,15 +137,19 @@ describe('hash', () => {
     );
   });
 
-  it('compute secret message hash', async () => {
-    const value = new Fr(8n);
-    const hash = await computeSecretHash(value);
+  it('compute private content hash', async () => {
+    const privateContent = [new Fr(8n)];
+    const hash = await computePrivateContentHash(privateContent);
     expect(hash.toString()).toMatchInlineSnapshot(
-      `"0x1848b066724ab0ffb50ecb0ee3398eb839f162823d262bad959721a9c13d1e96"`,
+      `"0x2c8f08f651c706fc41742a1bddf91e10c710c827266b71fbb50c7ee4f1db70d7"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-    updateInlineTestData('noir-projects/labs/aztec-nr/aztec/src/hash.nr', 'secret_hash_from_ts', hash.toString());
+    updateInlineTestData(
+      'noir-projects/labs/aztec-nr/aztec/src/hash.nr',
+      'private_content_hash_from_ts',
+      hash.toString(),
+    );
   });
 
   it('Var args hash matches noir', async () => {

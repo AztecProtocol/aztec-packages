@@ -31,7 +31,7 @@ use aztec::macros::aztec;
 pub contract TokenBlacklist {
     // Libs
     use aztec::{
-        hash::compute_secret_hash,
+        hash::compute_private_content_hash,
         macros::{functions::{authorize_once, external, initializer, only_self, view}, storage::storage},
         messages::{
             delivery::MessageDelivery, discovery::private_notes::process_private_note_msg, encoding::decode_message,
@@ -194,13 +194,14 @@ pub contract TokenBlacklist {
         let to_roles = self.storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        let secret_hash = compute_secret_hash([secret]);
+        let private_content = [secret];
+        let private_content_hash = compute_private_content_hash(private_content);
 
         // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
         // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let options = NoteGetterOptions::new()
             .select(TransparentNote::properties().amount, Comparator.EQ, amount)
-            .select(TransparentNote::properties().secret_hash, Comparator.EQ, secret_hash)
+            .select(TransparentNote::properties().secret_hash, Comparator.EQ, private_content_hash)
             .set_limit(1);
 
         // We use AztecAddress::zero() as the owner since TransparentNote is not owned by a specific address but instead

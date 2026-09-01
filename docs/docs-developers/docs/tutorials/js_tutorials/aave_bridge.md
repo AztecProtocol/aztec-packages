@@ -95,7 +95,7 @@ sequenceDiagram
     User->>Portal: claimFromAavePublic(aTokenAmount)
     Portal->>Aave: withdraw(aTokenAmount)
     Aave-->>Portal: underlying + yield
-    Portal->>Inbox: sendL2Message(content)
+    Portal->>Inbox: sendL2Message(publicContentHash, privateContentHash)
     Note over Inbox: Wait for an L2 block to include the message (12-30s)
     User->>Bridge: claim_public(amount_with_yield)
     Bridge->>Inbox: consume_l1_to_l2_message
@@ -369,7 +369,7 @@ import { deployL1Contract } from "@aztec/ethereum/deploy-l1-contract";
 import { sha256ToField } from "@aztec/foundation/crypto/sha256";
 import {
   computeL2ToL1MessageHash,
-  computeSecretHash,
+  computePrivateContentHash,
 } from "@aztec/stdlib/hash";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { decodeEventLog, pad, toFunctionSelector } from "@aztec/viem";
@@ -431,7 +431,7 @@ Execute the deposit on L1:
 
 ### Claim from Aave with Yield (L1 → L2)
 
-Before withdrawing from Aave, generate a random secret and compute its hash. The secret hash is included in the L1-to-L2 message — only someone who knows the pre-image (the secret) can consume the message on L2. This prevents front-running: without the secret, no one else can claim your tokens.
+Before withdrawing from Aave, generate a random claim secret. The secret forms the private content of the L1-to-L2 message: the message carries only its hash (the private content hash), and only someone who knows the secret can consume the message on L2. This prevents front-running: without the secret, no one else can claim your tokens.
 
 Withdraw from Aave on L1 and send the message to L2. The mock pool returns 10% yield:
 

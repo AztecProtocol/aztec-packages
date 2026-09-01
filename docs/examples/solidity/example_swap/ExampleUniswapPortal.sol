@@ -47,7 +47,7 @@ contract ExampleUniswapPortal {
         address _outputTokenPortal,
         uint256 _amountOutMinimum,
         bytes32 _aztecRecipient,
-        bytes32 _secretHashForL1ToL2Message,
+        bytes32 _privateContentHashForL1ToL2Message,
         // Outbox message metadata for the two L2->L1 messages
         Epoch[2] calldata _epochs,
         uint256[2] calldata _numCheckpointsInEpochs,
@@ -70,7 +70,7 @@ contract ExampleUniswapPortal {
                 _outputTokenPortal,
                 _amountOutMinimum,
                 _aztecRecipient,
-                _secretHashForL1ToL2Message
+                _privateContentHashForL1ToL2Message
             )
         );
 
@@ -93,7 +93,7 @@ contract ExampleUniswapPortal {
         // Approve output token portal and deposit back to Aztec
         outputAsset.approve(_outputTokenPortal, amountOut);
         return ExampleTokenPortal(_outputTokenPortal)
-            .depositToAztecPublic(_aztecRecipient, amountOut, _secretHashForL1ToL2Message);
+            .depositToAztecPublic(_aztecRecipient, amountOut, _privateContentHashForL1ToL2Message);
     }
 
     // docs:end:swap_public
@@ -106,7 +106,7 @@ contract ExampleUniswapPortal {
         uint24 _uniswapFeeTier,
         address _outputTokenPortal,
         uint256 _amountOutMinimum,
-        bytes32 _secretHashForL1ToL2Message,
+        bytes32 _privateContentHashForL1ToL2Message,
         // Outbox message metadata for the two L2->L1 messages
         Epoch[2] calldata _epochs,
         uint256[2] calldata _numCheckpointsInEpochs,
@@ -128,7 +128,7 @@ contract ExampleUniswapPortal {
                 _uniswapFeeTier,
                 _outputTokenPortal,
                 _amountOutMinimum,
-                _secretHashForL1ToL2Message
+                _privateContentHashForL1ToL2Message
             )
         );
 
@@ -150,7 +150,7 @@ contract ExampleUniswapPortal {
 
         // Approve output token portal and deposit back to Aztec privately
         outputAsset.approve(_outputTokenPortal, amountOut);
-        return ExampleTokenPortal(_outputTokenPortal).depositToAztecPrivate(amountOut, _secretHashForL1ToL2Message);
+        return ExampleTokenPortal(_outputTokenPortal).depositToAztecPrivate(amountOut, _privateContentHashForL1ToL2Message);
     }
     // docs:end:swap_private
 }

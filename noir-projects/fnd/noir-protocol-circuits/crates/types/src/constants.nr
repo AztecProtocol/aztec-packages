@@ -799,8 +799,8 @@ pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 pub global DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER: u32 = 3342006647;
 pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
 
-/// Domain separator for L1 to L2 message secret hashes.
-pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
+/// Domain separator for L1 to L2 message private content hashes.
+pub global DOM_SEP__PRIVATE_CONTENT_HASH: u32 = 1309912954;
 
 /// Domain separator for account contract payloads.
 ///

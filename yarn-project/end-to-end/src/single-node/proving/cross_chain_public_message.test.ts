@@ -1,4 +1,4 @@
-import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
@@ -60,9 +60,13 @@ describe('single-node/proving/cross_chain_public_message', () => {
     logger.warn(`Test contract deployed at ${testContract.address}`);
 
     // Send an l1 to l2 message to be consumed from the contract
-    const [secret, secretHash] = await generateClaimSecret();
-    const message = { recipient: testContract.address, content: Fr.random(), secretHash };
-    logger.warn(`Sending L1 to L2 message ${message.content.toString()} to be consumed by ${testContract.address}`);
+    const secret = Fr.random();
+    const privateContent = [secret];
+    const privateContentHash = await computePrivateContentHash(privateContent);
+    const message = { recipient: testContract.address, publicContentHash: Fr.random(), privateContentHash };
+    logger.warn(
+      `Sending L1 to L2 message ${message.publicContentHash.toString()} to be consumed by ${testContract.address}`,
+    );
     const { msgHash, globalLeafIndex } = await sendL1ToL2Message(message, context.deployL1ContractsValues);
 
     logger.warn(`Waiting for message ${msgHash} with index ${globalLeafIndex} to be synced`);
@@ -72,10 +76,12 @@ describe('single-node/proving/cross_chain_public_message', () => {
 
     // And we consume the message using the test contract. It's important that we don't wait for the membership witness
     // to be available, since we want to test the scenario where the message becomes available on the same block the tx lands.
-    logger.warn(`Consuming message ${message.content.toString()} from the contract at ${testContract.address}`);
+    logger.warn(
+      `Consuming message ${message.publicContentHash.toString()} from the contract at ${testContract.address}`,
+    );
     const { receipt: txReceipt } = await testContract.methods
       .consume_message_from_arbitrary_sender_public(
-        message.content,
+        message.publicContentHash,
         secret,
         EthAddress.fromString(context.deployL1ContractsValues.l1Client.account.address),
         globalLeafIndex.toBigInt(),
@@ -105,7 +111,7 @@ describe('single-node/proving/cross_chain_public_message', () => {
     // Should not be able to consume the message again.
     const { receipt: failedReceipt } = await testContract.methods
       .consume_message_from_arbitrary_sender_public(
-        message.content,
+        message.publicContentHash,
         secret,
         EthAddress.fromString(context.deployL1ContractsValues.l1Client.account.address),
         globalLeafIndex.toBigInt(),

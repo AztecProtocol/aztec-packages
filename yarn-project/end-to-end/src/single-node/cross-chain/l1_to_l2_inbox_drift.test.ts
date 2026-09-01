@@ -1,5 +1,5 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -153,8 +153,10 @@ describe('single-node/cross-chain/l1_to_l2_inbox_drift', () => {
 
     // Generate and send the message to the L1 contract during the drift
     log.warn(`Sending L1 to L2 message`);
-    const [secret, secretHash] = await generateClaimSecret();
-    const message = { recipient: testContract.address, content: Fr.random(), secretHash };
+    const secret = Fr.random();
+    const privateContent = [secret];
+    const privateContentHash = await computePrivateContentHash(privateContent);
+    const message = { recipient: testContract.address, publicContentHash: Fr.random(), privateContentHash };
     const { msgHash, globalLeafIndex } = await sendMessageToL2(message);
 
     // The drift's current L1 pending checkpoint. The node prunes its local view as soon as the proof
@@ -210,7 +212,7 @@ describe('single-node/cross-chain/l1_to_l2_inbox_drift', () => {
     expect(messageIndex).toEqual(globalLeafIndex.toBigInt());
 
     // The message is consumable on L2 from the requested scope.
-    const consume = () => getConsumeMethod(scope)(message.content, secret, t.ethAccount, globalLeafIndex);
+    const consume = () => getConsumeMethod(scope)(message.publicContentHash, secret, t.ethAccount, globalLeafIndex);
     await consume().send({ from: user1Address });
   };
 

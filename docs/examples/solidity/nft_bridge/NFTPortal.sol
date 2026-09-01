@@ -36,16 +36,16 @@ contract NFTPortal {
 
     // docs:start:portal_deposit_and_withdraw
     // Lock NFT and send message to L2
-    function depositToAztec(uint256 tokenId, bytes32 secretHash) external returns (bytes32, uint256) {
+    function depositToAztec(uint256 tokenId, bytes32 privateContentHash) external returns (bytes32, uint256) {
         // Lock the NFT
         nftContract.transferFrom(msg.sender, address(this), tokenId);
 
         // Prepare L2 message - just a naive hash of our tokenId
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, rollupVersion);
-        bytes32 contentHash = Hash.sha256ToField(abi.encode(tokenId));
+        bytes32 publicContentHash = Hash.sha256ToField(abi.encode(tokenId));
 
         // Send message to Aztec
-        (bytes32 key, uint256 index) = inbox.sendL2Message(actor, contentHash, secretHash);
+        (bytes32 key, uint256 index) = inbox.sendL2Message(actor, publicContentHash, privateContentHash);
         return (key, index);
     }
 

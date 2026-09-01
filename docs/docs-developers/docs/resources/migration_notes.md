@@ -9,6 +9,63 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [L1 contracts, Aztec.nr, Aztec.js, CLI] L1-to-L2 message `content` and `secret` renamed to public and private content
+
+The L1-to-L2 message data model is unchanged, but its two application fields have been renamed to describe what they are: `content` is now the **public content hash** and `secretHash` is now the **private content hash**. The preimage that the consumer reveals on L2 is now called the **private content**. The private content is application-defined: it can be just a single claim secret, or something richer such as the L2 recipient plus a blinding salt. In the existing fee juice and token bridge flows the value is still a claim secret; it is simply used as the message's private content.
+
+**This is a breaking protocol change**: the domain separator used to hash the private content was renamed from `secret_hash` to `private_content_hash`, so `compute_private_content_hash` / `computePrivateContentHash` produce different values than `compute_secret_hash` / `computeSecretHash` did. Messages sent with a private content hash computed by the old helper cannot be consumed with the new one; pending (unclaimed) L1-to-L2 messages must be claimed before upgrading or re-sent afterwards.
+
+**L1 (`Inbox`, `FeeJuicePortal`):**
+
+```diff
+- function sendL2Message(DataStructures.L2Actor memory _recipient, bytes32 _content, bytes32 _secretHash)
++ function sendL2Message(DataStructures.L2Actor memory _recipient, bytes32 _publicContentHash, bytes32 _privateContentHash)
+```
+
+- `DataStructures.L1ToL2Msg.content` / `.secretHash` are now `.publicContentHash` / `.privateContentHash`, which also renames these fields in the `MessageSent` event. Code decoding `MessageSent` logs by field name (e.g. `log.args.message.secretHash`) must be updated.
+- `Inbox__ContentTooLarge` / `Inbox__SecretHashTooLarge` are now `Inbox__PublicContentHashTooLarge` / `Inbox__PrivateContentHashTooLarge` (new selectors).
+- `FeeJuicePortal.depositToAztecPublic(_to, _amount, _secretHash)` is now `depositToAztecPublic(_to, _amount, _privateContentHash)` and its `DepositToAztecPublic` event field is `privateContentHash`. The reference `TokenPortal` and `UniswapPortal` follow the same naming.
+
+**Aztec.nr:**
+
+```diff
+- context.consume_l1_to_l2_message(content, [secret], sender, leaf_index);
++ let private_content = [secret];
++ context.consume_l1_to_l2_message(public_content_hash, private_content, sender, leaf_index);
+```
+
+```diff
+- use aztec::hash::compute_secret_hash;
+- let secret_hash = compute_secret_hash([secret]);
++ use aztec::hash::compute_private_content_hash;
++ let private_content = [secret];
++ let private_content_hash = compute_private_content_hash(private_content);
+```
+
+- `compute_l1_to_l2_message_hash(..., content, secret_hash, leaf_index)` is now `compute_l1_to_l2_message_hash(..., public_content_hash, private_content_hash, leaf_index)` and `compute_l1_to_l2_message_nullifier(message_hash, secret)` is now `compute_l1_to_l2_message_nullifier(message_hash, private_content)` (only parameter names changed).
+- `DOM_SEP__SECRET_HASH` is now `DOM_SEP__PRIVATE_CONTENT_HASH` with a new value.
+- TXE: `TestEnvironment::send_l1_to_l2_message(public_content_hash, private_content, sender, recipient)` and `send_l1_to_l2_message_from_secret_hash` is now `send_l1_to_l2_message_from_private_content_hash`.
+- `FeeJuice.claim` and `TokenBridge.claim_public` / `claim_private` are unchanged: they still take their `secret` parameters, which are used as the private content of the message being consumed.
+
+**Aztec.js:**
+
+```diff
+- import { computeSecretHash } from '@aztec/aztec.js/crypto';
+- const secretHash = await computeSecretHash(secret);
++ import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
++ const privateContent = [secret];
++ const privateContentHash = await computePrivateContentHash(privateContent);
+```
+
+- `computePrivateContentHash` takes the whole private content as an array of fields (mirroring Noir's `compute_private_content_hash`), where `computeSecretHash` took a single field.
+- `L1ToL2Message.content` / `.secretHash` (`@aztec/stdlib/messaging`) are now `.publicContentHash` / `.privateContentHash`; `computeFeeJuiceMessageNullifier(messageHash, privateContent)` and `getNonNullifiedL1ToL2MessageWitness(..., privateContent, ...)` renamed their parameter and now take the private content as an array of fields (`privateContent: Fr[]`).
+- `generateClaimSecret` has been removed: generate the claim secret with `Fr.random()` and hash it with `computePrivateContentHash` from `@aztec/aztec.js/crypto`. `L2Claim.claimSecret` / `claimSecretHash` keep their names; the hash is now computed with `computePrivateContentHash`, so the values differ from previous versions (see the domain separator note above).
+
+**CLI:**
+
+- `aztec get-l1-to-l2-message-witness --secret` is now `--private-content`.
+- The `aztec-wallet` `claimSecret=...` payment argument, the `claimSecret` output key of `aztec-wallet bridge-fee-juice` / `aztec bridge-erc20`, and the `aztec generate-secret-and-hash` output are unchanged (the hash values differ because of the domain separator change).
+
 ### [Aztec.js] Contract artifacts preserve the names of `#[abi(tag)]` globals
 
 Globals exported from a Noir contract with `#[abi(tag)]` now keep their names in the artifact: entries in `ContractArtifact.outputs.globals` are `{ name, value }` objects as emitted by the compiler, where the names used to be stripped on load. This lets TypeScript read contract constants by name instead of duplicating their values:

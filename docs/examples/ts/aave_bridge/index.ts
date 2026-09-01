@@ -8,7 +8,7 @@ import { deployL1Contract } from "@aztec/ethereum/deploy-l1-contract";
 import { sha256ToField } from "@aztec/foundation/crypto/sha256";
 import {
   computeL2ToL1MessageHash,
-  computeSecretHash,
+  computePrivateContentHash,
 } from "@aztec/stdlib/hash";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { decodeEventLog, pad, toFunctionSelector } from "@aztec/viem";
@@ -319,8 +319,11 @@ console.log("Tokens deposited into Aave!\n");
 // ============================================================
 console.log("=== Claiming from Aave (with yield) ===\n");
 
+// The claim secret forms the private content of the L1->L2 message: its hash is the message's
+// private content hash, and only someone who knows the secret can consume the message on L2.
 const secret = Fr.random();
-const secretHash = await computeSecretHash(secret);
+const privateContent = [secret];
+const privateContentHash = await computePrivateContentHash(privateContent);
 
 // On L1: withdraw from Aave and send L1->L2 message
 // @ts-expect-error - viem type inference doesn't work with JSON-imported ABIs
@@ -331,7 +334,10 @@ const claimHash = await l1Client.writeContract({
   args: [
     amountToDeposit, // aToken amount to withdraw
     pad(account.address.toString() as `0x${string}`, { dir: "left", size: 32 }), // L2 recipient
-    pad(secretHash.toString() as `0x${string}`, { dir: "left", size: 32 }),
+    pad(privateContentHash.toString() as `0x${string}`, {
+      dir: "left",
+      size: 32,
+    }),
   ],
 });
 const claimReceipt = await l1Client.waitForTransactionReceipt({
@@ -371,8 +377,8 @@ const INBOX_ABI = [
               { name: "version", type: "uint256" },
             ],
           },
-          { name: "content", type: "bytes32" },
-          { name: "secretHash", type: "bytes32" },
+          { name: "publicContentHash", type: "bytes32" },
+          { name: "privateContentHash", type: "bytes32" },
           { name: "index", type: "uint256" },
         ],
       },

@@ -56,8 +56,8 @@ contract UniswapPortal {
    * @param _outputTokenPortal - The ethereum address of the output token portal
    * @param _amountOutMinimum - The minimum amount of output assets to receive from the swap (slippage protection)
    * @param _aztecRecipient - The aztec address to receive the output assets
-   * @param _secretHashForL1ToL2Message - The hash of the secret consumable message. The hash should be 254 bits (so it
-   * can fit in a Field element)
+   * @param _privateContentHashForL1ToL2Message - Hash of the private content of the L1 to L2 message. The hash should
+   * be 254 bits (so it can fit in a Field element)
    * @param _withCaller - When true, using `msg.sender` as the caller, otherwise address(0)
    * @return A hash of the L1 to L2 message inserted in the Inbox
    */
@@ -68,7 +68,7 @@ contract UniswapPortal {
     address _outputTokenPortal,
     uint256 _amountOutMinimum,
     bytes32 _aztecRecipient,
-    bytes32 _secretHashForL1ToL2Message,
+    bytes32 _privateContentHashForL1ToL2Message,
     bool _withCaller,
     // Avoiding stack too deep
     PortalDataStructures.OutboxMessageMetadata[2] calldata _outboxMessageMetadata
@@ -105,7 +105,7 @@ contract UniswapPortal {
           _outputTokenPortal,
           _amountOutMinimum,
           _aztecRecipient,
-          _secretHashForL1ToL2Message,
+          _privateContentHashForL1ToL2Message,
           _withCaller ? msg.sender : address(0)
         )
       );
@@ -149,7 +149,8 @@ contract UniswapPortal {
     vars.outputAsset.approve(address(_outputTokenPortal), amountOut);
 
     // Deposit the output asset to the L2 via its portal
-    return TokenPortal(_outputTokenPortal).depositToAztecPublic(_aztecRecipient, amountOut, _secretHashForL1ToL2Message);
+    return TokenPortal(_outputTokenPortal)
+      .depositToAztecPublic(_aztecRecipient, amountOut, _privateContentHashForL1ToL2Message);
   }
 
   /**
@@ -162,8 +163,8 @@ contract UniswapPortal {
    * @param _uniswapFeeTier - The fee tier for the swap on UniswapV3
    * @param _outputTokenPortal - The ethereum address of the output token portal
    * @param _amountOutMinimum - The minimum amount of output assets to receive from the swap (slippage protection)
-   * @param _secretHashForL1ToL2Message - The hash of the secret consumable message. The hash should be 254 bits (so it
-   * can fit in a Field element)
+   * @param _privateContentHashForL1ToL2Message - Hash of the private content of the L1 to L2 message. The hash should
+   * be 254 bits (so it can fit in a Field element)
    * @param _withCaller - When true, using `msg.sender` as the caller, otherwise address(0)
    * @return A hash of the L1 to L2 message inserted in the Inbox
    */
@@ -173,7 +174,7 @@ contract UniswapPortal {
     uint24 _uniswapFeeTier,
     address _outputTokenPortal,
     uint256 _amountOutMinimum,
-    bytes32 _secretHashForL1ToL2Message,
+    bytes32 _privateContentHashForL1ToL2Message,
     bool _withCaller,
     // Avoiding stack too deep
     PortalDataStructures.OutboxMessageMetadata[2] calldata _outboxMessageMetadata
@@ -208,7 +209,7 @@ contract UniswapPortal {
           _uniswapFeeTier,
           _outputTokenPortal,
           _amountOutMinimum,
-          _secretHashForL1ToL2Message,
+          _privateContentHashForL1ToL2Message,
           _withCaller ? msg.sender : address(0)
         )
       );
@@ -252,6 +253,6 @@ contract UniswapPortal {
     vars.outputAsset.approve(address(_outputTokenPortal), amountOut);
 
     // Deposit the output asset to the L2 via its portal
-    return TokenPortal(_outputTokenPortal).depositToAztecPrivate(amountOut, _secretHashForL1ToL2Message);
+    return TokenPortal(_outputTokenPortal).depositToAztecPrivate(amountOut, _privateContentHashForL1ToL2Message);
   }
 }
