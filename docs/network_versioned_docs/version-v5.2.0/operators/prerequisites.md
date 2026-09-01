@@ -53,6 +53,15 @@ The Aztec toolchain provides CLI utilities for key generation, validator registr
 - Generating validator keystores and creating staking registration data (`aztec validator-keys`)
 - Registering sequencers on L1 (`aztec add-l1-validator`)
 
+The toolchain requires Node.js 20.10 or later. Nodes themselves do not need Node.js on the host, since they run in Docker containers. Install Node.js using [nvm](https://github.com/nvm-sh/nvm):
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.nvm/nvm.sh
+nvm install --lts
+nvm alias default node
+```
+
 Install the Aztec toolchain using the official installer:
 
 ```bash
