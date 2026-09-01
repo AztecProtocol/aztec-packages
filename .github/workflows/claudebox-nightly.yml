@@ -1,0 +1,203 @@
+name: ClaudeBox Nightly PR Analysis
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # 6am UTC daily
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'Analyze PRs merged since this date (ISO 8601, e.g. 2025-06-01T00:00:00Z). Defaults to 24h ago.'
+        required: false
+        type: string
+
+jobs:
+  nightly-analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Compute date range
+        id: dates
+        run: |
+          if [ -n "${{ inputs.since }}" ]; then
+            SINCE="${{ inputs.since }}"
+          else
+            SINCE=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ')
+          fi
+          echo "since=$SINCE" >> "$GITHUB_OUTPUT"
+          echo "Analyzing PRs merged since $SINCE"
+
+      - name: Fetch merged PRs
+        id: fetch_prs
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          SINCE: ${{ steps.dates.outputs.since }}
+        run: |
+          # Paginate through closed PRs updated recently, filter to merged after $SINCE
+          ALL_PRS="[]"
+          PAGE=1
+          while [ $PAGE -le 3 ]; do
+            BATCH=$(gh api "repos/${{ github.repository }}/pulls?state=closed&sort=updated&direction=desc&per_page=100&page=${PAGE}" \
+              --jq "[.[] | select(.merged_at != null and .merged_at >= \"${SINCE}\") | {number, title, user: .user.login, merged_at, head_sha: .head.sha, base_ref: .base.ref}]")
+
+            COUNT=$(echo "$BATCH" | jq 'length')
+            echo "Page $PAGE: $COUNT merged PRs"
+
+            if [ "$COUNT" -eq 0 ]; then
+              break
+            fi
+
+            ALL_PRS=$(echo "$ALL_PRS" "$BATCH" | jq -s '.[0] + .[1]')
+            PAGE=$((PAGE + 1))
+          done
+
+          TOTAL=$(echo "$ALL_PRS" | jq 'length')
+          echo "Total merged PRs since $SINCE: $TOTAL"
+
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No merged PRs found — skipping ClaudeBox session."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Write to file to avoid shell escaping issues
+          echo "$ALL_PRS" | jq -c '.' > /tmp/pr_list.json
+
+          # Also save to output (truncated for logging)
+          echo "First 5 PRs:"
+          echo "$ALL_PRS" | jq '.[0:5] | .[] | "\(.number) — \(.title) by \(.user)"'
+
+      - name: Build prompt
+        if: steps.fetch_prs.outputs.skip != 'true'
+        id: prompt
+        env:
+          SINCE: ${{ steps.dates.outputs.since }}
+        run: |
+          PR_LIST=$(cat /tmp/pr_list.json)
+          TOTAL=$(echo "$PR_LIST" | jq 'length')
+
+          cat > /tmp/prompt.txt << 'PROMPT_EOF'
+          You are running a nightly PR sentiment analysis. Analyze each merged PR from the list below.
+
+          ## Instructions
+
+          For EACH PR in the list:
+
+          1. **Fetch commits**: `github_api(method="GET", path="repos/AztecProtocol/aztec-packages/pulls/{number}/commits?per_page=100")`
+          2. **Fetch CI status**: `ci_failures(pr={number})` — this gives failed jobs, reruns, and pass/fail history
+          3. **For each commit**, analyze and call:
+             ```
+             record_stat(schema="pr_analysis", data={
+               pr: <number>,
+               pr_title: "<title>",
+               pr_author: "<user>",
+               commit_sha: "<sha>",
+               commit_message: "<first line>",
+               commit_ordinal: <1-indexed position>,
+               category: "<feature|bugfix|refactor|chore|flake_fix|merge_conflict_fix|ci_fix|revert|docs|test|deps>",
+               ci_runs: <total runs>,
+               ci_time_minutes: <estimated wall-clock minutes>,
+               ci_outcome: "<pass|fail_code|fail_flake|fail_infra|fail_merge_conflict|fail_cascade|mixed>",
+               change_size: "<trivial|small|medium|large>",
+               waste_category: "<none|guess_rerun|ci_disproportionate|flake_retry|merge_queue_cascade|infra_failure|automatable_chore|review_iteration>",
+               developer_time_estimate_minutes: <minutes wasted>,
+               automatable: <true|false>,
+               assessment: "<1-3 sentences>",
+               tags: ["<area1>", "<area2>"],
+               confidence: <0.0-1.0>
+             })
+             ```
+
+          ## Analysis guidelines
+
+          - **ci_outcome**: Use `fail_flake` if reruns pass without code changes. `fail_infra` for timeouts/OOM. `fail_cascade` for merge-queue-induced failures.
+          - **waste_category**: `guess_rerun` = dev pushed no-op or rebase just to re-trigger CI. `ci_disproportionate` = trivial change but massive CI time. `flake_retry` = multiple reruns due to flakes. `automatable_chore` = version bump, dep update, etc.
+          - **developer_time_estimate_minutes**: Time the dev likely wasted waiting for/debugging CI. 0 for clean single-pass merges.
+          - **change_size**: Based on diff size. Estimate from commit message and file count if diff not available.
+          - **confidence**: Lower for PRs with ambiguous commit messages or complex CI histories.
+
+          ## Rate limiting
+
+          - Process PRs sequentially — don't fire all API calls at once.
+          - If you hit rate limits, pause briefly and retry.
+          - Skip PRs that are clearly automated (e.g. dependabot, merge-queue bot commits).
+
+          ## Output
+
+          After processing all PRs, print a summary table to stdout:
+
+          ```
+          | PR | Title | Commits | CI Outcome | Waste | Dev Time Wasted |
+          |----|-------|---------|------------|-------|-----------------|
+          | #123 | fix: thing | 3 | pass | none | 0m |
+          ```
+
+          Then call `respond_to_user` with a one-line summary like:
+          "Nightly analysis complete: analyzed N PRs, M commits. K had CI waste. <LOG_URL|full report>"
+
+          PROMPT_EOF
+
+          # Strip leading whitespace from heredoc
+          sed -i 's/^          //' /tmp/prompt.txt
+
+          # Append the PR list
+          {
+            echo ""
+            echo "## PRs to analyze (${TOTAL} merged since ${SINCE})"
+            echo ""
+            echo '```json'
+            echo "$PR_LIST" | jq '.'
+            echo '```'
+          } >> /tmp/prompt.txt
+
+          echo "Prompt built ($(wc -c < /tmp/prompt.txt) bytes, $TOTAL PRs)"
+
+      - name: Run ClaudeBox
+        if: steps.fetch_prs.outputs.skip != 'true'
+        timeout-minutes: 120
+        env:
+          CLAUDEBOX_URL: ${{ vars.CLAUDEBOX_URL }}
+          CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          AUTH="Authorization: Bearer ${CLAUDEBOX_API_SECRET}"
+          PROMPT=$(cat /tmp/prompt.txt)
+
+          PAYLOAD=$(jq -n \
+            --arg prompt "$PROMPT" \
+            --arg user "nightly-cron" \
+            --arg run_url "$RUN_URL" \
+            --arg repo "${{ github.repository }}" \
+            '{prompt: $prompt, user: $user, run_url: $run_url, repo: $repo}')
+
+          # Start session
+          RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            -H "$AUTH" -H "Content-Type: application/json" \
+            -d "$PAYLOAD" "${CLAUDEBOX_URL}/run")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
+            echo "ClaudeBox returned HTTP $HTTP_CODE: $BODY"
+            exit 1
+          fi
+
+          LOG_URL=$(echo "$BODY" | jq -r '.log_url // empty')
+          SESSION_ID=$(echo "$LOG_URL" | grep -oP '[a-f0-9]{32}$')
+          echo "Session started: $LOG_URL"
+
+          # Poll until completed
+          while true; do
+            sleep 30
+            STATUS_BODY=$(curl -sS -H "$AUTH" "${CLAUDEBOX_URL}/session/${SESSION_ID}" 2>/dev/null || echo '{}')
+            STATUS=$(echo "$STATUS_BODY" | jq -r '.status // "unknown"')
+            echo "$(date -u +%H:%M:%S) status=$STATUS"
+            if [ "$STATUS" != "running" ]; then
+              EXIT_CODE=$(echo "$STATUS_BODY" | jq -r '.exit_code // 1')
+              echo "Session finished: status=$STATUS exit_code=$EXIT_CODE"
+              echo "Log: $LOG_URL"
+              exit "$EXIT_CODE"
+            fi
+          done
