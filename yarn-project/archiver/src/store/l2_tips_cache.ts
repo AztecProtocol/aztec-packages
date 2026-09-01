@@ -6,6 +6,10 @@ import type { BlockStore } from './block_store.js';
  * In-memory cache for L2 chain tips (proposed, checkpointed, proven, finalized).
  * Populated from the BlockStore on first access, then kept up-to-date by the ArchiverDataStoreUpdater
  * calling {@link refreshAfter} around every store transaction that mutates block data.
+ *
+ * Correctness relies on store writes committing in {@link refreshAfter} registration order ("last
+ * registration wins" must mean "last commit wins"), which holds because the LMDB store serializes write
+ * transactions through a single writer queue.
  */
 export class L2TipsCache {
   #tipsPromise: Promise<L2Tips> | undefined;
@@ -23,7 +27,7 @@ export class L2TipsCache {
 
   /** Returns the cached L2 tips. Loads from the block store on first call. */
   public getL2Tips(): Promise<L2Tips> {
-    return (this.#tipsPromise ??= this.blockStore.getL2TipsData(this.initialBlockHash));
+    return this.#tipsPromise ?? this.#track(this.blockStore.getL2TipsData(this.initialBlockHash));
   }
 
   /**
@@ -37,10 +41,24 @@ export class L2TipsCache {
    */
   public refreshAfter(write: Promise<unknown>): Promise<void> {
     const previousTips = this.#tipsPromise;
-    this.#tipsPromise = write.then(
+    const nextTips = write.then(
       () => this.blockStore.getL2TipsData(this.initialBlockHash),
       () => previousTips ?? this.blockStore.getL2TipsData(this.initialBlockHash),
     );
-    return this.#tipsPromise.then(() => {});
+    return this.#track(nextTips).then(() => {});
+  }
+
+  /**
+   * Installs a tips promise as the cache, dropping it again if it rejects so the next read retries from the
+   * store — a transient load failure must not be served to every reader until the next write comes along.
+   */
+  #track(tips: Promise<L2Tips>): Promise<L2Tips> {
+    this.#tipsPromise = tips;
+    tips.catch(() => {
+      if (this.#tipsPromise === tips) {
+        this.#tipsPromise = undefined;
+      }
+    });
+    return tips;
   }
 }

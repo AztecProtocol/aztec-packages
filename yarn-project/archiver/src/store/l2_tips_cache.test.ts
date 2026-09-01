@@ -55,12 +55,74 @@ describe('L2TipsCache', () => {
     });
 
     // Without this the reload failure has no awaiter and surfaces as an unhandled rejection instead.
-    it('surfaces a failed post-commit reload to the caller', async () => {
+    it('surfaces a failed post-commit reload to the caller and recovers on the next read', async () => {
+      const tips = {} as L2Tips;
       const failure = new Error('store read failed');
-      const getL2TipsData = jest.fn<(genesisBlockHash: BlockHash) => Promise<L2Tips>>().mockRejectedValue(failure);
+      const getL2TipsData = jest
+        .fn<(genesisBlockHash: BlockHash) => Promise<L2Tips>>()
+        .mockRejectedValueOnce(failure)
+        .mockResolvedValue(tips);
       const cache = new L2TipsCache({ getL2TipsData } as unknown as BlockStore, BlockHash.random());
 
       await expect(cache.refreshAfter(Promise.resolve())).rejects.toBe(failure);
+      // A transient reload failure must not be served to every subsequent reader: the cache drops the
+      // rejected promise and the next read retries from the store.
+      await expect(cache.getL2Tips()).resolves.toBe(tips);
+    });
+
+    it('recovers from a failed first load', async () => {
+      const tips = {} as L2Tips;
+      const getL2TipsData = jest
+        .fn<(genesisBlockHash: BlockHash) => Promise<L2Tips>>()
+        .mockRejectedValueOnce(new Error('store read failed'))
+        .mockResolvedValue(tips);
+      const cache = new L2TipsCache({ getL2TipsData } as unknown as BlockStore, BlockHash.random());
+
+      await expect(cache.getL2Tips()).rejects.toThrow('store read failed');
+      await expect(cache.getL2Tips()).resolves.toBe(tips);
+    });
+
+    // Store writes commit in registration order (single LMDB writer queue), so the cache installed by the
+    // later registration must win regardless of how the earlier write settles.
+    it('ends at the newest state across chained refreshes', async () => {
+      const tipsAfterA = { proposed: { number: 1 } } as unknown as L2Tips;
+      const tipsAfterB = { proposed: { number: 2 } } as unknown as L2Tips;
+      const getL2TipsData = jest
+        .fn<(genesisBlockHash: BlockHash) => Promise<L2Tips>>()
+        .mockResolvedValueOnce(tipsAfterA)
+        .mockResolvedValue(tipsAfterB);
+      const cache = new L2TipsCache({ getL2TipsData } as unknown as BlockStore, BlockHash.random());
+
+      const { promise: writeA, resolve: commitA } = promiseWithResolvers<void>();
+      const { promise: writeB, resolve: commitB } = promiseWithResolvers<void>();
+      const refreshedA = cache.refreshAfter(writeA);
+      const refreshedB = cache.refreshAfter(writeB);
+      commitA();
+      commitB();
+      await Promise.all([refreshedA, refreshedB]);
+
+      await expect(cache.getL2Tips()).resolves.toBe(tipsAfterB);
+    });
+
+    it('ends at the survivor state when the first of two chained writes fails', async () => {
+      const initialTips = { proposed: { number: 0 } } as unknown as L2Tips;
+      const tipsAfterB = { proposed: { number: 2 } } as unknown as L2Tips;
+      const getL2TipsData = jest
+        .fn<(genesisBlockHash: BlockHash) => Promise<L2Tips>>()
+        .mockResolvedValueOnce(initialTips)
+        .mockResolvedValue(tipsAfterB);
+      const cache = new L2TipsCache({ getL2TipsData } as unknown as BlockStore, BlockHash.random());
+      await cache.getL2Tips();
+
+      const { promise: writeA, reject: abortA } = promiseWithResolvers<void>();
+      const { promise: writeB, resolve: commitB } = promiseWithResolvers<void>();
+      const refreshedA = cache.refreshAfter(writeA);
+      const refreshedB = cache.refreshAfter(writeB);
+      abortA(new Error('write aborted'));
+      commitB();
+      await Promise.all([refreshedA, refreshedB]);
+
+      await expect(cache.getL2Tips()).resolves.toBe(tipsAfterB);
     });
   });
 });
