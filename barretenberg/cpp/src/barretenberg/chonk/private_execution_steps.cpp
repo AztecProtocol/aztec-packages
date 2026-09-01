@@ -43,6 +43,7 @@ std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
  */
 std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
+    static constexpr size_t MAX_DECOMPRESSED_SIZE = 256ULL * 1024 * 1024; // 256 MB
     std::vector<uint8_t> content;
     // initial size guess
     content.resize(1024ULL * 128ULL);
@@ -54,8 +55,11 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
         libdeflate_result decompress_result =
             libdeflate_gzip_decompress(decompressor.get(), bytes, size, content.data(), content.size(), &actual_size);
         if (decompress_result == LIBDEFLATE_INSUFFICIENT_SPACE) {
-            // need a bigger buffer
-            content.resize(content.size() * 2);
+            size_t new_size = content.size() * 2;
+            if (new_size > MAX_DECOMPRESSED_SIZE) {
+                THROW std::runtime_error("decompressed size exceeds 256 MB limit");
+            }
+            content.resize(new_size);
             continue;
         }
         if (decompress_result == LIBDEFLATE_BAD_DATA) {
