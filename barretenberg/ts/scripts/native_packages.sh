@@ -24,6 +24,31 @@ function suffix { case "$1" in
   amd64-macos) echo darwin-x64 ;; arm64-macos) echo darwin-arm64 ;;
   amd64-windows) echo win32-x64 ;; *) echo "unknown platform $1" >&2; exit 1 ;; esac; }
 function file_name { [ "$1" = amd64-windows ] && echo "$name.exe" || echo "$name"; }
+# The platform package's package.json. Generated on demand rather than committed: barretenberg/ts/
+# .gitignore ignores packages/, so a checkout has no manifests, and the os/cpu/name are all
+# mechanical from the suffix. The version is a placeholder; release_prep_package_json stamps the
+# release version at publish, and the meta package's optionalDependencies are stamped to match.
+function write_manifest {
+  local pkg_dir=$1 sfx=$2 osname=${2%%-*} cpu=${2#*-}
+  [ "$osname" = darwin ] || [ "$osname" = win32 ] || osname=linux
+  cat > "$pkg_dir/package.json" <<JSON
+{
+  "name": "@aztec-foundation/$name-$sfx",
+  "version": "0.1.0",
+  "description": "$name binary for $sfx",
+  "license": "MIT",
+  "os": ["$osname"],
+  "cpu": ["$cpu"],
+  "files": ["bin/"],
+  "preferUnplugged": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AztecProtocol/aztec-packages.git",
+    "directory": "barretenberg/ts/$dir/packages/$name-$sfx"
+  }
+}
+JSON
+}
 function build_dir { [ "$1" = "$(arch)-$(os)" ] && echo "$cpp/build" || echo "$cpp/build-$1"; }
 # Release tarball for a platform (release dir naming uses darwin/windows, build dirs macos/windows).
 function tarball { case "$1" in
@@ -40,6 +65,7 @@ case "$cmd" in
       [ -f "$src" ] || { echo "native_packages: $src not built" >&2; exit 1; }
       dest="$dir/packages/$name-$(suffix "$p")/bin"
       mkdir -p "$dest"
+      write_manifest "$dir/packages/$name-$(suffix "$p")" "$(suffix "$p")"
       cp "$src" "$dest/$(file_name "$p")"
       # The cpp bootstrap cds into its own directory: hand it an absolute path.
       "$cpp/bootstrap.sh" finalize_bb_binary "$(pwd)/$dest/$(file_name "$p")"
