@@ -382,6 +382,15 @@ export class EpochSession implements Traceable {
         this.state = 'completed';
         this.deps.metrics.recordProvingJob(timer.ms(), checkpointCount, epochSizeBlocks, epochSizeTxs);
         return;
+      case 'already-submitted':
+        // L1 already holds our proof for this epoch (e.g. a re-prove after restart), so there is nothing to
+        // retry or report as failed. Not recorded as a proving job since no new proof landed.
+        this.log.info(
+          `Proof for epoch ${this.spec.epochNumber} (checkpoints ${fromCheckpoint}..${toCheckpoint}) was already submitted`,
+          { uuid: this.uuid, ...this.spec },
+        );
+        this.state = 'completed';
+        return;
       case 'superseded':
         this.log.info(`EpochSession ${this.uuid} superseded by a longer candidate`, {
           uuid: this.uuid,
