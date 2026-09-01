@@ -326,6 +326,30 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   }
 
   /**
+   * @notice Updates the protocol fee margin applied on top of operator cost in the mana base fee
+   * @dev Only callable by owner. Increases are rate-limited (30-day cooldown, x3/2 step on the fee
+   *      multiplier); decreases are immediate. Setting the current value is a no-op and emits no
+   *      event.
+   * @param _protocolFeeMarginBps The new margin in basis points
+   */
+  function setProtocolFeeMargin(uint16 _protocolFeeMarginBps) external override(IRollupCore) onlyOwner {
+    (bool changed, uint16 oldBps) = RewardExtLib.updateProtocolFeeMargin(_protocolFeeMarginBps);
+    if (changed) {
+      emit IRollupCore.ProtocolFeeMarginUpdated(oldBps, _protocolFeeMarginBps);
+    }
+  }
+
+  /**
+   * @notice Updates the recipient of the protocol fee tranche of the reward waterfall
+   * @dev Only callable by owner. Rejects the zero address.
+   * @param _recipient The new protocol fee recipient
+   */
+  function setProtocolFeeRecipient(address _recipient) external override(IRollupCore) onlyOwner {
+    address oldRecipient = RewardExtLib.updateProtocolFeeRecipient(_recipient);
+    emit IRollupCore.ProtocolFeeRecipientUpdated(oldRecipient, _recipient);
+  }
+
+  /**
    * @notice Updates the configuration for the staking entry queue
    * @dev Only callable by owner. Controls how validators enter the active set.
    * @param _config New configuration including queue size limits and timing parameters

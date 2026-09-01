@@ -200,7 +200,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(asset), "ASSET");
-    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
+    vm.label(rollup.getProtocolFeeRecipient(), "BURN_ADDRESS");
 
     _;
   }

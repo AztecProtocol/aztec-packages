@@ -206,6 +206,8 @@ library Errors {
   error FeeLib__ProvingCostAboveCeiling(uint256 provided, uint256 maximum);
   error FeeLib__ProvingCostCooldown(uint256 nextAllowed);
   error FeeLib__ProvingCostStepExceeded(uint256 current, uint256 requested);
+  error FeeLib__ProtocolFeeMarginCooldown(uint256 nextAllowed);
+  error FeeLib__ProtocolFeeMarginStepExceeded(uint256 current, uint256 requested);
 
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c
@@ -223,6 +225,7 @@ library Errors {
 
   error RewardLib__InvalidSequencerBps();
   error RewardLib__ZeroShares(address prover);
+  error RewardLib__InvalidProtocolFeeRecipient();
 
   // SlashingProposer
   error SlashingProposer__InvalidSignature();

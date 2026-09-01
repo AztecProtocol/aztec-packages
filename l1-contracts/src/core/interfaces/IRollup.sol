@@ -118,6 +118,8 @@ interface IRollupCore {
   event RewardConfigUpdated(MutableRewardConfig rewardConfig);
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenCheckpointNumber, uint256 pendingCheckpointNumber);
+  event ProtocolFeeMarginUpdated(uint16 oldBps, uint16 newBps);
+  event ProtocolFeeRecipientUpdated(address oldRecipient, address newRecipient);
 
   function claimSequencerRewards(address _recipient) external returns (uint256);
   function claimProverRewards(address _recipient, Epoch[] memory _epochs) external returns (uint256);
@@ -126,6 +128,9 @@ interface IRollupCore {
   function updateL1GasFeeOracle() external;
 
   function setProvingCostPerMana(EthValue _provingCostPerMana) external;
+
+  function setProtocolFeeMargin(uint16 _protocolFeeMarginBps) external;
+  function setProtocolFeeRecipient(address _recipient) external;
 
   function propose(
     ProposeArgs calldata _args,
@@ -231,7 +236,8 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getFeeAsset() external view returns (IERC20);
   function getFeeAssetPortal() external view returns (IFeeJuicePortal);
   function getRewardDistributor() external view returns (IRewardDistributor);
-  function getBurnAddress() external view returns (address);
+  function getProtocolFeeRecipient() external view returns (address);
+  function getProtocolFeeMargin() external view returns (uint16);
 
   function getInbox() external view returns (IInbox);
   function getOutbox() external view returns (IOutbox);
