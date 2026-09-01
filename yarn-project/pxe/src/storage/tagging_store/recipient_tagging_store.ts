@@ -83,7 +83,7 @@ export class RecipientTaggingStore implements StagedStore {
    * @remark This method must run in a DB transaction context. It's designed to be called from
    * {@link StagedWriteCoordinator.commit}.
    */
-  async commitStaged(changeSetId: ChangeSetId): Promise<void> {
+  async commitChangeSet(changeSetId: ChangeSetId): Promise<void> {
     const highestAgedIndexForChangeSet = this.#highestAgedIndexForChangeSet.get(changeSetId);
     if (highestAgedIndexForChangeSet) {
       for (const [secret, index] of highestAgedIndexForChangeSet.entries()) {
@@ -98,13 +98,12 @@ export class RecipientTaggingStore implements StagedStore {
       }
     }
 
-    return this.discardStaged(changeSetId);
+    this.discardChangeSet(changeSetId);
   }
 
-  discardStaged(changeSetId: ChangeSetId): Promise<void> {
+  discardChangeSet(changeSetId: ChangeSetId): void {
     this.#highestAgedIndexForChangeSet.delete(changeSetId);
     this.#highestFinalizedIndexForChangeSet.delete(changeSetId);
-    return Promise.resolve();
   }
 
   getHighestAgedIndex(secret: AppTaggingSecret, changeSetId: ChangeSetId): Promise<number | undefined> {

@@ -30,13 +30,12 @@ describe('OperationQueue', () => {
     discarded = [];
     const recordingStore: StagedStore = {
       storeName: 'recording_store',
-      commitStaged: id => {
+      commitChangeSet: id => {
         committed.push(id);
         return Promise.resolve();
       },
-      discardStaged: id => {
+      discardChangeSet: id => {
         discarded.push(id);
-        return Promise.resolve();
       },
     };
     coordinator = new StagedWriteCoordinator({ kvStore: store, stagedStores: [recordingStore] });

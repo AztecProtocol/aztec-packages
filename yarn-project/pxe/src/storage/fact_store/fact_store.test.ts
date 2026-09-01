@@ -69,7 +69,7 @@ describe('FactStore', () => {
     it('records facts and reads a collection back after commit (implicit collection creation)', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
       await store.recordFact(collectionKey1, factTypeB, [], { blockNumber: 5, blockHash: Fr.random() }, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const { facts } = (await store.getFactCollection(collectionKey1, CHANGE_SET))!;
       expect(hexSet(facts.map(f => f.factTypeId))).toEqual(hexSet([factTypeA, factTypeB]));
@@ -82,7 +82,7 @@ describe('FactStore', () => {
     it('lists collections via getFactCollectionsByType', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
       await store.recordFact(collectionKey2, factTypeA, [Fr.random()], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const collections = await store.getFactCollectionsByType(typeKey, CHANGE_SET);
       expect(hexSet(collectionIdsOf(collections))).toEqual(hexSet([collectionId1, collectionId2]));
@@ -91,7 +91,7 @@ describe('FactStore', () => {
     it('getFactCollectionsByType returns each collection complete with its facts', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
       await store.recordFact(collectionKey1, factTypeB, [Fr.random()], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const collections = await store.getFactCollectionsByType(typeKey, CHANGE_SET);
       expect(collections).toHaveLength(1);
@@ -104,7 +104,7 @@ describe('FactStore', () => {
       const payload = Fr.random();
       await store.recordFact(collectionKey1, factTypeA, [payload], undefined, CHANGE_SET);
       await store.recordFact(collectionKey1, factTypeA, [payload], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       expect((await store.getFactCollection(collectionKey1, CHANGE_SET))!.facts).toHaveLength(1);
     });
@@ -125,7 +125,7 @@ describe('FactStore', () => {
         { blockNumber: 10, blockHash: Fr.random() },
         CHANGE_SET,
       );
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const { facts } = (await store.getFactCollection(collectionKey1, CHANGE_SET))!;
       expect(facts).toHaveLength(2);
@@ -135,11 +135,11 @@ describe('FactStore', () => {
     it('re-recording an identical fact across change sets is a no-op', async () => {
       const payload = Fr.random();
       await store.recordFact(collectionKey1, factTypeA, [payload], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const CHANGE_SET_2 = 'rerecord-change-set';
       await store.recordFact(collectionKey1, factTypeA, [payload], undefined, CHANGE_SET_2);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET_2));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET_2));
 
       expect((await store.getFactCollection(collectionKey1, CHANGE_SET))!.facts).toHaveLength(1);
     });
@@ -148,7 +148,7 @@ describe('FactStore', () => {
   describe('scope isolation', () => {
     it('a collection recorded under one scope is a different collection under another scope', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       expect(await store.getFactCollection(collectionKey1, CHANGE_SET)).toBeDefined();
       expect(await store.getFactCollection(collectionKey1ScopeB, CHANGE_SET)).toBeUndefined();
@@ -160,7 +160,7 @@ describe('FactStore', () => {
       const origin = { blockNumber: 5, blockHash: Fr.random() };
       await store.recordFact(collectionKey1, factTypeA, [payload], origin, CHANGE_SET);
       await store.recordFact(collectionKey1ScopeB, factTypeB, [payload], origin, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       expect((await store.getFactCollection(collectionKey1, CHANGE_SET))!.facts.map(f => f.factTypeId)).toEqual([
         factTypeA,
@@ -173,7 +173,7 @@ describe('FactStore', () => {
     it('getFactCollectionsByType only returns collections for the queried scope', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
       await store.recordFact(collectionKey1ScopeB, factTypeA, [Fr.random()], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       expect(collectionIdsOf(await store.getFactCollectionsByType(typeKey, CHANGE_SET))).toEqual([collectionId1]);
       expect(collectionIdsOf(await store.getFactCollectionsByType(typeKeyScopeB, CHANGE_SET))).toEqual([collectionId1]);
@@ -197,7 +197,7 @@ describe('FactStore', () => {
       const payloads = Array.from({ length: 4 }, () => Fr.random());
       await store.recordFact(collectionKey1, factTypeA, [payloads[0]], undefined, CHANGE_SET);
       await store.recordFact(collectionKey1, factTypeA, [payloads[1]], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const CHANGE_SET_2 = 'staged-change-set';
       await store.recordFact(collectionKey1, factTypeA, [payloads[2]], undefined, CHANGE_SET_2);
@@ -212,11 +212,11 @@ describe('FactStore', () => {
     it('deletes the collection and leaves neighbouring collections untouched', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
       await store.recordFact(collectionKey2, factTypeA, [Fr.random()], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const DEL = 'delete-change-set';
       await store.deleteFactCollection(collectionKey1, DEL);
-      await kv.transactionAsync(() => store.commitStaged(DEL));
+      await kv.transactionAsync(() => store.commitChangeSet(DEL));
 
       expect(await store.getFactCollection(collectionKey1, CHANGE_SET)).toBeUndefined();
       expect(collectionIdsOf(await store.getFactCollectionsByType(typeKey, CHANGE_SET))).toEqual([collectionId2]);
@@ -225,11 +225,11 @@ describe('FactStore', () => {
     it('only deletes the queried scope: the same (contract,type,id) under another scope survives', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
       await store.recordFact(collectionKey1ScopeB, factTypeB, [Fr.random()], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const DEL = 'delete-change-set';
       await store.deleteFactCollection(collectionKey1, DEL);
-      await kv.transactionAsync(() => store.commitStaged(DEL));
+      await kv.transactionAsync(() => store.commitChangeSet(DEL));
 
       expect(await store.getFactCollection(collectionKey1, CHANGE_SET)).toBeUndefined();
       expect((await store.getFactCollection(collectionKey1ScopeB, CHANGE_SET))!.facts.map(f => f.factTypeId)).toEqual([
@@ -239,18 +239,18 @@ describe('FactStore', () => {
 
     it('is a no-op for a collection that does not exist', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const DEL = 'delete-change-set';
       await store.deleteFactCollection(collectionKey2, DEL);
-      await kv.transactionAsync(() => store.commitStaged(DEL));
+      await kv.transactionAsync(() => store.commitChangeSet(DEL));
 
       expect((await store.getFactCollection(collectionKey1, CHANGE_SET))!.facts).toHaveLength(1);
     });
 
     it('hides a collection from its own change set after a staged delete, even over committed facts', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const DEL = 'delete-change-set';
       await store.deleteFactCollection(collectionKey1, DEL);
@@ -262,7 +262,7 @@ describe('FactStore', () => {
 
     it('a staged delete-then-record re-creates the collection within the same change set', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const CHANGE_SET_2 = 'recreate-change-set';
       await store.deleteFactCollection(collectionKey1, CHANGE_SET_2);
@@ -271,7 +271,7 @@ describe('FactStore', () => {
       const { facts } = (await store.getFactCollection(collectionKey1, CHANGE_SET_2))!;
       expect(facts.map(f => f.factTypeId)).toEqual([factTypeB]);
 
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET_2));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET_2));
       expect((await store.getFactCollection(collectionKey1, 'reader'))!.facts.map(f => f.factTypeId)).toEqual([
         factTypeB,
       ]);
@@ -283,7 +283,7 @@ describe('FactStore', () => {
 
       expect(await store.getFactCollection(collectionKey1, CHANGE_SET)).toBeUndefined();
 
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
       expect(await store.getFactCollection(collectionKey1, 'reader')).toBeUndefined();
     });
   });
@@ -300,7 +300,7 @@ describe('FactStore', () => {
         { blockNumber: 6, blockHash: Fr.random() },
         CHANGE_SET,
       );
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       await kv.transactionAsync(() => store.rollbackToBlock(5));
 
@@ -316,7 +316,7 @@ describe('FactStore', () => {
         { blockNumber: 6, blockHash: Fr.random() },
         CHANGE_SET,
       );
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       await kv.transactionAsync(() => store.rollbackToBlock(5));
 
@@ -340,13 +340,13 @@ describe('FactStore', () => {
         { blockNumber: 10, blockHash: Fr.random() },
         CHANGE_SET,
       );
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       await kv.transactionAsync(() => store.rollbackToBlock(7));
       expect(
         (await store.getFactCollection(collectionKey1, CHANGE_SET))!.facts.map(f => f.originBlock?.blockNumber),
       ).toEqual([5]);
-      await store.discardStaged(CHANGE_SET);
+      store.discardChangeSet(CHANGE_SET);
 
       await kv.transactionAsync(() => store.rollbackToBlock(4));
       expect(await store.getFactCollection(collectionKey1, CHANGE_SET)).toBeUndefined();
@@ -357,7 +357,7 @@ describe('FactStore', () => {
       await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).rejects.toThrow(
         'PXE fact store rollback is not allowed while staged writes are pending',
       );
-      await store.discardStaged('uncommitted-change-set');
+      store.discardChangeSet('uncommitted-change-set');
       await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).resolves.not.toThrow();
     });
 
@@ -366,7 +366,7 @@ describe('FactStore', () => {
       await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).rejects.toThrow(
         'PXE fact store rollback is not allowed while staged writes are pending',
       );
-      await store.discardStaged('reader-change-set');
+      store.discardChangeSet('reader-change-set');
       await expect(kv.transactionAsync(() => store.rollbackToBlock(0))).resolves.not.toThrow();
     });
   });
@@ -400,7 +400,7 @@ describe('FactStore', () => {
         undefined,
         CHANGE_SET,
       );
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       expect(await store.getFactCollectionsByType(typeKey, CHANGE_SET)).toHaveLength(1);
       expect(
@@ -424,7 +424,7 @@ describe('FactStore', () => {
       await store.recordFact(collectionKey1, factTypeA, [payloads[0]], undefined, CHANGE_SET);
       const CHANGE_SET_2 = 'second-change-set';
       await store.recordFact(collectionKey1, factTypeA, [payloads[1]], undefined, CHANGE_SET_2);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       expect((await store.getFactCollection(collectionKey1, 'reader'))!.facts.map(f => f.payload[0])).toEqual([
         payloads[0],
@@ -433,23 +433,23 @@ describe('FactStore', () => {
         hexSet((await store.getFactCollection(collectionKey1, CHANGE_SET_2))!.facts.map(f => f.payload[0])),
       ).toEqual(hexSet(payloads));
 
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET_2));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET_2));
       expect(hexSet((await store.getFactCollection(collectionKey1, 'reader'))!.facts.map(f => f.payload[0]))).toEqual(
         hexSet(payloads),
       );
     });
 
-    it('discardStaged drops staged writes without touching committed state', async () => {
+    it('discardChangeSet drops staged writes without touching committed state', async () => {
       await store.recordFact(collectionKey1, factTypeA, [Fr.random()], undefined, CHANGE_SET);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
 
       const CHANGE_SET_2 = 'discarded-change-set';
       await store.recordFact(collectionKey2, factTypeA, [Fr.random()], undefined, CHANGE_SET_2);
       await store.recordFact(collectionKey1, factTypeB, [Fr.random()], undefined, CHANGE_SET_2);
-      await store.discardStaged(CHANGE_SET_2);
+      store.discardChangeSet(CHANGE_SET_2);
 
       expect(collectionIdsOf(await store.getFactCollectionsByType(typeKey, CHANGE_SET_2))).toEqual([collectionId1]);
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET_2));
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET_2));
       expect((await store.getFactCollection(collectionKey1, 'reader'))!.facts).toHaveLength(1);
       expect(await store.getFactCollection(collectionKey2, 'reader')).toBeUndefined();
     });
@@ -460,8 +460,8 @@ describe('FactStore', () => {
       await store.recordFact(collectionKey1, factTypeA, [payload], undefined, CHANGE_SET);
       await store.recordFact(collectionKey1, factTypeA, [payload], undefined, CHANGE_SET_2);
 
-      await kv.transactionAsync(() => store.commitStaged(CHANGE_SET));
-      await expect(kv.transactionAsync(() => store.commitStaged(CHANGE_SET_2))).resolves.not.toThrow();
+      await kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET));
+      await expect(kv.transactionAsync(() => store.commitChangeSet(CHANGE_SET_2))).resolves.not.toThrow();
 
       expect((await store.getFactCollection(collectionKey1, 'reader'))!.facts).toHaveLength(1);
     });
