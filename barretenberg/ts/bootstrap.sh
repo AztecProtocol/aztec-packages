@@ -96,8 +96,12 @@ function build_bb_avm_sim {
 # platform; a release stages every platform and checks each binary against the release tarball.
 function build_bb_bin {
   echo_header "bb / bb-avm npm packages"
-  ./scripts/native_packages.sh stage bb
-  ./scripts/native_packages.sh stage bb-avm
+  # Stage only this machine's platform. Every-platform staging (and the parity verify) is
+  # cross_copy_bb_bin, whose target depends on the cross builds and the release dir. bb-bin
+  # depends only on bb-cpp-native, so during a release (REF_NAME set) an unqualified stage would
+  # select every platform and fail on cross binaries that are not built yet.
+  ./scripts/native_packages.sh stage bb "$(arch)-$(os)"
+  ./scripts/native_packages.sh stage bb-avm "$(arch)-$(os)"
 }
 
 function cross_copy_bb_bin {
@@ -110,12 +114,17 @@ function cross_copy_bb_bin {
 }
 
 function release_bb_bin {
-  local d p
+  local d p staged
   for d in bb-cli bb-avm-cli; do
+    staged=0
     for p in "$d"/packages/*/; do
       [ -d "$p/bin" ] || continue   # a platform not built here is not published
       (cd "$p" && retry "deploy_npm ${REF_NAME#v}")
+      staged=1
     done
+    # The meta package is nothing without its platform packages: its optionalDependencies would
+    # every one 404. Do not publish it if none were staged (e.g. a build that never ran stage).
+    [ "$staged" = 1 ] || { echo "release_bb_bin: no $d platform packages staged; skipping $d" >&2; continue; }
     (cd "$d" && retry "deploy_npm ${REF_NAME#v}")
   done
 }
