@@ -1,76 +1,76 @@
 // bb-ref fixture dumper (test-only). Writes the UltraHonk proving instance of an ACIR program to disk so
 // the Rust reference implementation can prove from the exact same polynomials.
 //
-//   BBREF_PROGRAM=<program.json> BBREF_WITNESS=<witness.gz> BBREF_OUT=<dir> ./bin/dsl_tests --gtest_filter='BbRefDump.*'
+//   BBREF_PROGRAM=<program.json> BBREF_WITNESS=<witness.gz> BBREF_OUT=<dir> ./bin/dsl_tests
+//   --gtest_filter='BbRefDump.*'
 //
-// Layout of <dir>/{nozk,zk,mega_app}/: (mega_app: MegaAppFlavor instance, proof.bin = Oink proof) meta.txt (key=value), <ENTITY>.bin (dyadic_size * 32 big-endian bytes, one file per
-// unshifted entity in AllEntities order, captured BEFORE Oink), public_inputs.bin, memory_*_records.txt,
-// rom_logup_records.txt, proof.bin (the proof bb produces from this instance, 32 bytes per field).
+// Layout of <dir>/{nozk,zk,mega_app}/: (mega_app: MegaAppFlavor instance, proof.bin = Oink proof) meta.txt (key=value),
+// <ENTITY>.bin (dyadic_size * 32 big-endian bytes, one file per unshifted entity in AllEntities order, captured BEFORE
+// Oink), public_inputs.bin, memory_*_records.txt, rom_logup_records.txt, proof.bin (the proof bb produces from this
+// instance, 32 bytes per field).
 #include "acir_format.hpp"
 #include "acir_to_constraint_buf.hpp"
-#include "recursion_constraint_output.hpp"
-#include "barretenberg/common/get_bytecode.hpp"
-#include "barretenberg/flavor/mega_app_flavor.hpp"
-#include "barretenberg/flavor/mega_kernel_flavor.hpp"
-#include "barretenberg/flavor/mega_zk_flavor.hpp"
-#include "barretenberg/commitment_schemes/triple_ipa/triple_ipa.hpp"
-#include "barretenberg/eccvm/eccvm_flavor.hpp"
-#include "barretenberg/polynomials/row_disabling_polynomial.hpp"
-#include "barretenberg/eccvm/eccvm_prover.hpp"
-#include "barretenberg/eccvm/eccvm_trace_checker.hpp"
-#include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_prover.hpp"
+#include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_verifier.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
-#include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_verifier.hpp"
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
-#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
-#include "barretenberg/translator_vm/translator_proving_key.hpp"
-#include "barretenberg/honk/library/grand_product_library.hpp"
-#include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/commitment_schemes/triple_ipa/triple_ipa.hpp"
+#include "barretenberg/common/get_bytecode.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/eccvm/eccvm_prover.hpp"
+#include "barretenberg/eccvm/eccvm_trace_checker.hpp"
+#include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/goblin/batch_merge_prover.hpp"
 #include "barretenberg/goblin/batch_merge_verifier.hpp"
 #include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
+#include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
-#include "barretenberg/ultra_honk/verifier_instance.hpp"
-#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
-#include "barretenberg/stdlib/hash/sha256/sha256.hpp"
-#include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
+#include "barretenberg/polynomials/row_disabling_polynomial.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
-#include "barretenberg/stdlib/primitives/logic/logic.hpp"
-#include "barretenberg/stdlib/primitives/biggroup/biggroup_secp256r1.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/stdlib/hash/sha256/sha256.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_secp256r1.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
-#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/field/field_utils.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
+#include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "barretenberg/stdlib/primitives/memory/ram_table.hpp"
 #include "barretenberg/stdlib/primitives/memory/rom_table.hpp"
-#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
-#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include <fstream>
-#include <sstream>
-#include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/flavor/ultra_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
-#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
-#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
+#include "recursion_constraint_output.hpp"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
+#include <sstream>
 
 namespace {
 using namespace bb;
@@ -92,7 +92,8 @@ void write_frs(const std::filesystem::path& path, const auto& values, size_t n)
     write_file(path, buf);
 }
 
-template <typename Flavor> void dump_from_builder(typename Flavor::CircuitBuilder& builder, const std::filesystem::path& out);
+template <typename Flavor>
+void dump_from_builder(typename Flavor::CircuitBuilder& builder, const std::filesystem::path& out);
 
 template <typename Flavor, typename Builder>
 void dump_instance(const std::string& program_json,
@@ -114,7 +115,8 @@ void dump_instance(const std::string& program_json,
  * Write the proving instance of a finalized-or-not builder, its VK, and a proof (full Ultra proof
  * for Ultra flavors, Oink proof for Mega flavors, which have no standalone prover).
  */
-template <typename Flavor> void dump_from_builder(typename Flavor::CircuitBuilder& builder, const std::filesystem::path& out)
+template <typename Flavor>
+void dump_from_builder(typename Flavor::CircuitBuilder& builder, const std::filesystem::path& out)
 {
     constexpr bool is_mega = std::is_same_v<typename Flavor::CircuitBuilder, MegaCircuitBuilder>;
     auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
@@ -232,7 +234,8 @@ void run_script(MegaCircuitBuilder& b, const std::string& path)
         } else if (op == "pub") {
             b.add_public_variable(f(1));
         } else if (op == "add_gate") {
-            b.create_big_add_gate({ u(1), u(2), u(3), u(4), f(5), f(6), f(7), f(8), f(9) }, t.size() > 10 && t[10] == "1");
+            b.create_big_add_gate({ u(1), u(2), u(3), u(4), f(5), f(6), f(7), f(8), f(9) },
+                                  t.size() > 10 && t[10] == "1");
         } else if (op == "mul_gate") {
             b.create_big_mul_add_gate({ u(1), u(2), u(3), u(4), f(5), f(6), f(7), f(8), f(9), f(10) });
         } else if (op == "bool") {
@@ -241,18 +244,19 @@ void run_script(MegaCircuitBuilder& b, const std::string& path)
             b.create_dyadic_range_constraint(u(1), u(2), "script range");
         } else if (op == "bilinear" || op == "batched_eq") {
             const bool bilinear = op == "bilinear";
-            b.create_bilinear_batched_eq_gate({ .mode = bilinear ? BilinearBatchedEqMode::Bilinear : BilinearBatchedEqMode::BatchedEq,
-                                                .a = u(1),
-                                                .b = u(2),
-                                                .c = u(3),
-                                                .d = u(4),
-                                                .q_l = f(5),
-                                                .q_r = f(6),
-                                                .q_o = f(7),
-                                                .q_4 = f(8),
-                                                .q_c = f(9),
-                                                .q_m = f(10),
-                                                .q_5 = bilinear ? f(11) : Fr(0) });
+            b.create_bilinear_batched_eq_gate(
+                { .mode = bilinear ? BilinearBatchedEqMode::Bilinear : BilinearBatchedEqMode::BatchedEq,
+                  .a = u(1),
+                  .b = u(2),
+                  .c = u(3),
+                  .d = u(4),
+                  .q_l = f(5),
+                  .q_r = f(6),
+                  .q_o = f(7),
+                  .q_4 = f(8),
+                  .q_c = f(9),
+                  .q_m = f(10),
+                  .q_5 = bilinear ? f(11) : Fr(0) });
         } else if (op == "calldata") {
             b.add_public_calldata(static_cast<BusId>(u(1)), u(2));
         } else if (op == "retdata") {
@@ -297,7 +301,8 @@ void run_script(MegaCircuitBuilder& b, const std::string& path)
 }
 } // namespace
 
-// BBREF_SCRIPT=<script> BBREF_FLAVOR=app|kernel|zk BBREF_OUT=<dir> ./bin/dsl_tests --gtest_filter='BbRefDump.MegaScript'
+// BBREF_SCRIPT=<script> BBREF_FLAVOR=app|kernel|zk BBREF_OUT=<dir> ./bin/dsl_tests
+// --gtest_filter='BbRefDump.MegaScript'
 TEST(BbRefDump, MegaScript)
 {
     const char* script = std::getenv("BBREF_SCRIPT");
@@ -351,10 +356,10 @@ void write_proof(const std::filesystem::path& path, const HonkProof& proof)
     write_file(path, buf);
 }
 
-// BBREF_SCRIPTS=<script>:<kernel|app>,... BBREF_PREV=0|1 BBREF_OUT=<dir> ./bin/dsl_tests --gtest_filter='BbRefDump.Folding'
-// Folds the scripted circuits as one HyperNova group (optionally against a previous accumulator built from
-// the first circuit on a separate transcript), then runs the decider. Dumps every proof, VK and accumulator, and
-// cross-checks natively.
+// BBREF_SCRIPTS=<script>:<kernel|app>,... BBREF_PREV=0|1 BBREF_OUT=<dir> ./bin/dsl_tests
+// --gtest_filter='BbRefDump.Folding' Folds the scripted circuits as one HyperNova group (optionally against a previous
+// accumulator built from the first circuit on a separate transcript), then runs the decider. Dumps every proof, VK and
+// accumulator, and cross-checks natively.
 TEST(BbRefDump, Folding)
 {
     const char* scripts_env = std::getenv("BBREF_SCRIPTS");
@@ -392,7 +397,8 @@ TEST(BbRefDump, Folding)
             if (register_verifier) {
                 write_file(out / ("vk_" + std::to_string(idx)), to_buffer(*vk));
                 verifiers.emplace_back([vk](HypernovaFoldingNativeVerifier& v, const HonkProof& proof) {
-                    auto vi = std::make_shared<VerifierInstance_<Flavor>>(std::make_shared<typename Flavor::VKAndHash>(vk));
+                    auto vi =
+                        std::make_shared<VerifierInstance_<Flavor>>(std::make_shared<typename Flavor::VKAndHash>(vk));
                     return v.accumulate_instance<Flavor>(vi, proof);
                 });
             }
@@ -470,9 +476,10 @@ TEST(BbRefDump, UltraInstance)
 }
 
 // --- M6: Goblin merge / batch merge -----------------------------------------------------------------------
-// BBREF_MODE=merge|batch BBREF_NUM_SUBTABLES=<N> [BBREF_MAX=<M>] BBREF_OUT=<dir> ./bin/dsl_tests --gtest_filter='BbRefDump.Merge'
-// Builds a deterministic op queue (recipe mirrored in bb-ref tests/m6_merge.rs), dumps the random ZK prefix columns so
-// the Rust side can inject them, and dumps the (batch) merge proof. Cross-checks natively.
+// BBREF_MODE=merge|batch BBREF_NUM_SUBTABLES=<N> [BBREF_MAX=<M>] BBREF_OUT=<dir> ./bin/dsl_tests
+// --gtest_filter='BbRefDump.Merge' Builds a deterministic op queue (recipe mirrored in bb-ref tests/m6_merge.rs), dumps
+// the random ZK prefix columns so the Rust side can inject them, and dumps the (batch) merge proof. Cross-checks
+// natively.
 namespace {
 // Subtable i: ((1 + i) % 10) + 1 triples of add / mul (with a >128-bit scalar) / eq_and_reset.
 void populate_subtable_deterministic(ECCOpQueue& q, size_t subtable_idx)
@@ -853,7 +860,14 @@ std::shared_ptr<ECCOpQueue> build_translator_queue(const std::filesystem::path& 
     std::vector<fr> random_values;
     for (size_t i = 0; i < 2; ++i) {
         auto op = op_queue->random_op_ultra_only();
-        for (const auto& v : { op.op_code.random_value_1, op.op_code.random_value_2, op.x_lo, op.x_hi, op.y_lo, op.y_hi, op.z_1, op.z_2 }) {
+        for (const auto& v : { op.op_code.random_value_1,
+                               op.op_code.random_value_2,
+                               op.x_lo,
+                               op.x_hi,
+                               op.y_lo,
+                               op.y_hi,
+                               op.z_1,
+                               op.z_2 }) {
             random_values.push_back(v);
         }
     }
@@ -868,7 +882,9 @@ void write_translator_masking(const std::filesystem::path& path, TranslatorProvi
     std::vector<fr> masking;
     auto wire_polys = key.proving_key->polynomials.get_wires();
     for (size_t w = TranslatorFlavor::NUM_OP_QUEUE_WIRES; w < wire_polys.size(); ++w) {
-        for (size_t i = TranslatorFlavor::MINI_CIRCUIT_SIZE - TranslatorFlavor::NUM_MASKED_ROWS_END; i < TranslatorFlavor::MINI_CIRCUIT_SIZE; ++i) {
+        for (size_t i = TranslatorFlavor::MINI_CIRCUIT_SIZE - TranslatorFlavor::NUM_MASKED_ROWS_END;
+             i < TranslatorFlavor::MINI_CIRCUIT_SIZE;
+             ++i) {
             masking.push_back(wire_polys[w][i]);
         }
     }
@@ -934,7 +950,8 @@ TEST(BbRefDump, Translator)
     {
         std::vector<uint8_t> buf;
         auto all = polys.get_all();
-        const std::vector<size_t> entities = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103 };
+        const std::vector<size_t> entities = { 1,  2,  3,  4,  5,  6,  7,  8,   9,   10,  11,
+                                               93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103 };
         for (size_t e : entities) {
             for (size_t r = 0; r < TranslatorFlavor::ProverPolynomials::get_polynomial_size(); ++r) {
                 auto b = to_buffer(all[e].get(r));
@@ -1021,11 +1038,15 @@ TEST(BbRefDump, Batched)
 
     auto& polys = key->proving_key->polynomials;
     const size_t RESULT_ROW = TranslatorFlavor::RESULT_ROW;
-    const Fq acc(uint256_t(polys.accumulators_binary_limbs_0[RESULT_ROW]) + (uint256_t(polys.accumulators_binary_limbs_1[RESULT_ROW]) << 68) +
-                 (uint256_t(polys.accumulators_binary_limbs_2[RESULT_ROW]) << 136) + (uint256_t(polys.accumulators_binary_limbs_3[RESULT_ROW]) << 204));
+    const Fq acc(uint256_t(polys.accumulators_binary_limbs_0[RESULT_ROW]) +
+                 (uint256_t(polys.accumulators_binary_limbs_1[RESULT_ROW]) << 68) +
+                 (uint256_t(polys.accumulators_binary_limbs_2[RESULT_ROW]) << 136) +
+                 (uint256_t(polys.accumulators_binary_limbs_3[RESULT_ROW]) << 204));
     write_file(out / "accumulated_result.bin", to_buffer(acc));
     auto& ck = key->proving_key->commitment_key;
-    const std::array<G1, 4> opq = { ck.commit(polys.op), ck.commit(polys.x_lo_y_hi), ck.commit(polys.x_hi_z_1), ck.commit(polys.y_lo_z_2) };
+    const std::array<G1, 4> opq = {
+        ck.commit(polys.op), ck.commit(polys.x_lo_y_hi), ck.commit(polys.x_hi_z_1), ck.commit(polys.y_lo_z_2)
+    };
     std::vector<uint8_t> opq_bytes;
     for (const auto& c : opq) {
         auto b = to_buffer(c);
@@ -1039,7 +1060,8 @@ TEST(BbRefDump, Batched)
 // Dump:   BBREF_NUM_APPS=<n> BBREF_OUT=<dir> ./bin/dsl_tests --gtest_filter='BbRefDump.Chonk'
 //         (bb's mock IVC with real recursive kernels at log2_num_gates=5; writes proof_fields.bin,
 //         proof.msgpack and the hiding kernel vk)
-// Verify: BBREF_IN=<dir with proof_fields.bin [+ proof.msgpack] and vk> ./bin/dsl_tests --gtest_filter='BbRefDump.Chonk'
+// Verify: BBREF_IN=<dir with proof_fields.bin [+ proof.msgpack] and vk> ./bin/dsl_tests
+// --gtest_filter='BbRefDump.Chonk'
 TEST(BbRefDump, Chonk)
 {
     const char* in_env = std::getenv("BBREF_IN");
@@ -1061,7 +1083,8 @@ TEST(BbRefDump, Chonk)
         auto vk = std::make_shared<MegaZKFlavor::VerificationKey>(from_buffer<MegaZKFlavor::VerificationKey>(vk_bytes));
         auto proof = ChonkProof::from_field_elements(read_proof(in / "proof_fields.bin"));
         if (std::filesystem::exists(in / "proof.msgpack")) {
-            EXPECT_TRUE(ChonkProof::from_file_msgpack((in / "proof.msgpack").string()) == proof) << "msgpack proof differs from the field proof";
+            EXPECT_TRUE(ChonkProof::from_file_msgpack((in / "proof.msgpack").string()) == proof)
+                << "msgpack proof differs from the field proof";
         }
         EXPECT_TRUE(verify(proof, vk));
         return;
@@ -1087,7 +1110,8 @@ TEST(BbRefDump, Chonk)
                 dump_from_builder<MegaZKFlavor>(circuit, dir);
             }
         }
-        ivc.accumulate(circuit, PrivateFunctionExecutionMockCircuitProducer::make_circuit_verification_key(kind, circuit));
+        ivc.accumulate(circuit,
+                       PrivateFunctionExecutionMockCircuitProducer::make_circuit_verification_key(kind, circuit));
     }
     auto proof = ivc.prove();
     auto vk = ivc.get_hiding_kernel_vk_and_hash()->vk;
@@ -1177,7 +1201,9 @@ TEST(BbRefDump, UltraRecursion)
     using RecursiveFlavor = UltraRecursiveFlavor_<UltraCircuitBuilder>;
     UltraCircuitBuilder outer;
     auto stdlib_vk_and_hash = std::make_shared<typename RecursiveFlavor::VKAndHash>(outer, inner_vk);
-    UltraVerifier_<RecursiveFlavor, bb::stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>> verifier{ stdlib_vk_and_hash };
+    UltraVerifier_<RecursiveFlavor, bb::stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>> verifier{
+        stdlib_vk_and_hash
+    };
     bb::stdlib::Proof<UltraCircuitBuilder> stdlib_inner_proof(outer, inner_proof);
     auto output = verifier.verify_proof(stdlib_inner_proof);
     bb::stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder> io;
@@ -1247,8 +1273,14 @@ using G1 = Curve::Group;
 using PairingPointsCt = stdlib::recursion::PairingPoints<Curve>;
 using bb::g1;
 
-field_ct w(Builder& b, uint64_t v) { return field_ct(witness_ct(&b, fr(v))); }
-g1::affine_element pt(uint64_t k) { return g1::affine_element(g1::element(g1::affine_element::one()) * fr(k)); }
+field_ct w(Builder& b, uint64_t v)
+{
+    return field_ct(witness_ct(&b, fr(v)));
+}
+g1::affine_element pt(uint64_t k)
+{
+    return g1::affine_element(g1::element(g1::affine_element::one()) * fr(k));
+}
 
 void field_ops(Builder& b)
 {
@@ -1278,7 +1310,8 @@ void field_ops(Builder& b)
     a.create_range_constraint(8);
     e.create_range_constraint(20);
     (d * field_ct(1000)).create_range_constraint(68);
-    field_ct t = field_ct(witness_ct(&b, fr(uint256_t("0x00000000000000000123456789abcdef0123456789abcdef0123456789abcdef"))));
+    field_ct t =
+        field_ct(witness_ct(&b, fr(uint256_t("0x00000000000000000123456789abcdef0123456789abcdef0123456789abcdef"))));
     auto [lo, hi] = stdlib::split_unique(t, 127);
     field_ct u(9);
     u.convert_constant_to_fixed_witness(&b);
@@ -1379,7 +1412,10 @@ grumpkin::g1::affine_element gp(uint64_t k)
 {
     return grumpkin::g1::affine_element(grumpkin::g1::element(grumpkin::g1::affine_one) * grumpkin::fr(k));
 }
-bool_ct wb(Builder& b, bool v) { return bool_ct(witness_ct(&b, fr(v ? 1 : 0))); }
+bool_ct wb(Builder& b, bool v)
+{
+    return bool_ct(witness_ct(&b, fr(v ? 1 : 0)));
+}
 
 void bool_ops(Builder& b)
 {
@@ -1491,12 +1527,10 @@ void sha256_block(Builder& b)
 void trace_op(const char* label, Builder& b)
 {
     if (std::getenv("BBREF_TRACE_GATES") != nullptr) {
-        std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf "
-                  << b.blocks.nnf.size() << "] " << label << std::endl;
+        std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf " << b.blocks.nnf.size() << "] "
+                  << label << std::endl;
     }
 }
-
-
 
 template <typename B> void wnaf_range_fq_t(B& b)
 {
@@ -1516,8 +1550,8 @@ template <typename B> void row_disabling_fq_t(B& b)
 {
     auto tr = [&](const char* label) {
         if (std::getenv("BBREF_TRACE_GATES") != nullptr) {
-            std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf " << b.blocks.nnf.size()
-                      << "] " << label << std::endl;
+            std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf " << b.blocks.nnf.size() << "] "
+                      << label << std::endl;
         }
     };
     using fq_ct = stdlib::bigfield<B, ::bb::Bn254FqParams>;
@@ -1544,8 +1578,10 @@ void bigfield_ops(Builder& b)
 {
     using Fq = stdlib::secp256r1<Builder>::BaseField;
     using FqNative = ::bb::secp256r1::fq;
-    const FqNative a_n(uint256_t(0x1234567890abcdefULL, 0xfedcba0987654321ULL, 0x0f0e0d0c0b0a0908ULL, 0x0706050403020100ULL));
-    const FqNative c_n(uint256_t(0x00000000000000ffULL, 0x1111111111111111ULL, 0x2222222222222222ULL, 0x3333333333333333ULL));
+    const FqNative a_n(
+        uint256_t(0x1234567890abcdefULL, 0xfedcba0987654321ULL, 0x0f0e0d0c0b0a0908ULL, 0x0706050403020100ULL));
+    const FqNative c_n(
+        uint256_t(0x00000000000000ffULL, 0x1111111111111111ULL, 0x2222222222222222ULL, 0x3333333333333333ULL));
     Fq a = Fq::from_witness(&b, a_n);
     trace_op("a", b);
     Fq c = Fq::from_witness(&b, c_n);
@@ -1616,8 +1652,8 @@ void bigfield_ops(Builder& b)
     trace_op("acc", b);
     acc.assert_zero_if(f);
     trace_op("acc.assert_zero_if(f);", b);
-    field_ct out = acc.get_limb(0).element + acc.get_limb(1).element + acc.get_limb(2).element + acc.get_limb(3).element +
-                   acc.get_prime_basis_limb() + field_ct(e1) + field_ct(e2) + field_ct(lt);
+    field_ct out = acc.get_limb(0).element + acc.get_limb(1).element + acc.get_limb(2).element +
+                   acc.get_limb(3).element + acc.get_prime_basis_limb() + field_ct(e1) + field_ct(e2) + field_ct(lt);
     trace_op("acc.get_prime_basis_limb() + field_ct(e1", b);
     field_ct e(witness_ct(&b, out.get_value()));
     trace_op("e", b);
@@ -1675,8 +1711,8 @@ template <typename B> void biggroup_bn254_ops_t(B& b)
     using bool_u = stdlib::bool_t<B>;
     auto tr = [&](const char* label) {
         if (std::getenv("BBREF_TRACE_GATES") != nullptr) {
-            std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf " << b.blocks.nnf.size()
-                      << "] " << label << std::endl;
+            std::cerr << "[bb gates 0 arith " << b.blocks.arithmetic.size() << " nnf " << b.blocks.nnf.size() << "] "
+                      << label << std::endl;
         }
     };
     const g1::affine_element p_n(g1::element(g1::affine_element::one()) * fr(7));
@@ -1723,12 +1759,18 @@ void secp256r1_mul(Builder& b)
     using Fr = Curve::ScalarField;
     using FrNative = ::bb::secp256r1::fr;
     using G1Native = ::bb::secp256r1::g1;
-    Fr u1 = Fr::from_witness(&b, FrNative(uint256_t(0x1234567890abcdefULL, 0xfedcba0987654321ULL, 0x0f0e0d0c0b0a0908ULL, 0x0706050403020100ULL)));
+    Fr u1 = Fr::from_witness(
+        &b,
+        FrNative(
+            uint256_t(0x1234567890abcdefULL, 0xfedcba0987654321ULL, 0x0f0e0d0c0b0a0908ULL, 0x0706050403020100ULL)));
     G1 t1 = G1::secp256r1_fixed_base_mul(u1);
     trace_op("fixed_base_mul", b);
     const G1Native::affine_element q_n(G1Native::one * FrNative(11));
     G1 q = G1::from_witness(&b, q_n);
-    Fr u2 = Fr::from_witness(&b, FrNative(uint256_t(0xabcdef0123456789ULL, 0x1122334455667788ULL, 0x99aabbccddeeff00ULL, 0x0123456789abcdefULL)));
+    Fr u2 = Fr::from_witness(
+        &b,
+        FrNative(
+            uint256_t(0xabcdef0123456789ULL, 0x1122334455667788ULL, 0x99aabbccddeeff00ULL, 0x0123456789abcdefULL)));
     auto out = G1::secp256r1_ecdsa_mul(q, u1, u2);
     trace_op("ecdsa_mul", b);
     out.u2_is_acceptable.assert_equal(bool_ct(true));
@@ -1891,9 +1933,9 @@ TEST(BbRefDump, Stdlib)
 }
 
 // --- M16: whole Noir circuits -----------------------------------------------------------------------------
-// BBREF_PROGRAM=<program.json> BBREF_KIND=app|kernel|hiding BBREF_OUT=<dir> ./bin/dsl_tests --gtest_filter='BbRefDump.AcirMega'
-// The Mega circuit of a Noir artifact in write-VK mode (kernels against the mocked IVC state), dumped for
-// Rust's gate-level diff.
+// BBREF_PROGRAM=<program.json> BBREF_KIND=app|kernel|hiding BBREF_OUT=<dir> ./bin/dsl_tests
+// --gtest_filter='BbRefDump.AcirMega' The Mega circuit of a Noir artifact in write-VK mode (kernels against the mocked
+// IVC state), dumped for Rust's gate-level diff.
 TEST(BbRefDump, AcirMega)
 {
     const char* program = std::getenv("BBREF_PROGRAM");
