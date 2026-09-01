@@ -1,5 +1,5 @@
 use crate::{
-    hash::{compute_l1_to_l2_message_hash, compute_l1_to_l2_message_nullifier, compute_secret_hash},
+    hash::{compute_l1_to_l2_message_hash, compute_l1_to_l2_message_nullifier, compute_private_content_hash},
     oracle::get_l1_to_l2_membership_witness::{get_l1_to_l2_membership_witness, UnsiloedNullifier},
 };
 
@@ -11,22 +11,22 @@ pub fn process_l1_to_l2_message<let N: u32>(
     portal_contract_address: EthAddress,
     chain_id: Field,
     version: Field,
-    content: Field,
-    secret: [Field; N],
+    public_content_hash: Field,
+    private_content: [Field; N],
     leaf_index: Field,
 ) -> Field {
-    let secret_hash = compute_secret_hash(secret);
+    let private_content_hash = compute_private_content_hash(private_content);
     let message_hash = compute_l1_to_l2_message_hash(
         portal_contract_address,
         chain_id,
         contract_address,
         version,
-        content,
-        secret_hash,
+        public_content_hash,
+        private_content_hash,
         leaf_index,
     );
 
-    let nullifier = compute_l1_to_l2_message_nullifier(message_hash, secret);
+    let nullifier = compute_l1_to_l2_message_nullifier(message_hash, private_content);
 
     // We prove that `message_hash` is in the tree by showing the derivation of the tree root, using a merkle path we
     // get from an oracle.

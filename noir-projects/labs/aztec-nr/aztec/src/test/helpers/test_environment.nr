@@ -11,7 +11,7 @@ use crate::{
         UtilityContext,
     },
     event::{event_interface::EventInterface, EventMessage},
-    hash::{compute_secret_hash, hash_args},
+    hash::{compute_private_content_hash, hash_args},
     messages::{
         delivery::OnchainDeliveryMode,
         discovery::{
@@ -962,34 +962,40 @@ impl TestEnvironment {
     /// [`PrivateContext::consume_l1_to_l2_message`](crate::context::PrivateContext::consume_l1_to_l2_message) or its
     /// public counterpart. An empty block is mined carrying the message leaf.
     ///
-    /// `content`, `secret`, `sender` and `recipient` must match what the consuming contract uses. The secret is hashed
-    /// with the standard [`crate::hash::compute_secret_hash`] - use
-    /// [`send_l1_to_l2_message_from_secret_hash`](TestEnvironment::send_l1_to_l2_message_from_secret_hash) if the
-    /// contract commits to its secret differently).
+    /// `public_content_hash`, `private_content`, `sender` and `recipient` must match what the consuming contract uses.
+    /// The private content is hashed with the standard [`crate::hash::compute_private_content_hash`]. Contracts that
+    /// commit to their private content differently should use
+    /// [`TestEnvironment::send_l1_to_l2_message_from_private_content_hash`] instead.
     ///
     /// Returns the global leaf index to pass as `consume_l1_to_l2_message`'s `leaf_index`.
-    pub unconstrained fn send_l1_to_l2_message(
+    pub unconstrained fn send_l1_to_l2_message<let N: u32>(
         self,
-        content: Field,
-        secret: Field,
+        public_content_hash: Field,
+        private_content: [Field; N],
         sender: EthAddress,
         recipient: AztecAddress,
     ) -> Field {
-        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash([secret]), sender, recipient)
+        let private_content_hash = compute_private_content_hash(private_content);
+        self.send_l1_to_l2_message_from_private_content_hash(
+            public_content_hash,
+            private_content_hash,
+            sender,
+            recipient,
+        )
     }
 
-    /// Variant of [`send_l1_to_l2_message`](TestEnvironment::send_l1_to_l2_message) that takes the secret hash
-    /// directly.
+    /// Variant of [`send_l1_to_l2_message`](TestEnvironment::send_l1_to_l2_message) that takes the private content
+    /// hash directly.
     ///
-    /// This is only required by contracts that commit to their consumption secret with a non-standard hash function.
-    pub unconstrained fn send_l1_to_l2_message_from_secret_hash(
+    /// This is only required by contracts that commit to their private content with a non-standard hash function.
+    pub unconstrained fn send_l1_to_l2_message_from_private_content_hash(
         _self: Self,
-        content: Field,
-        secret_hash: Field,
+        public_content_hash: Field,
+        private_content_hash: Field,
         sender: EthAddress,
         recipient: AztecAddress,
     ) -> Field {
-        txe_oracles::send_l1_to_l2_message(content, secret_hash, sender, recipient)
+        txe_oracles::send_l1_to_l2_message(public_content_hash, private_content_hash, sender, recipient)
     }
 
     /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or

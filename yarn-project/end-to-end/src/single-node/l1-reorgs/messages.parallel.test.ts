@@ -55,7 +55,7 @@ describe('single-node/l1-reorgs/messages', () => {
 
   const sendMessage = async () =>
     sendL1ToL2Message(
-      { recipient: await AztecAddress.random(), content: Fr.random(), secretHash: Fr.random() },
+      { recipient: await AztecAddress.random(), publicContentHash: Fr.random(), privateContentHash: Fr.random() },
       { l1ContractAddresses: context.deployL1ContractsValues.l1ContractAddresses, l1Client },
     );
 

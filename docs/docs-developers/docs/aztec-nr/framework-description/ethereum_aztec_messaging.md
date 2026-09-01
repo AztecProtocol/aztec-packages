@@ -25,8 +25,8 @@ Use the `Inbox` contract's `sendL2Message` function:
 | Parameter     | Type      | Description                                             |
 | ------------- | --------- | ------------------------------------------------------- |
 | `_recipient`  | `L2Actor` | L2 contract address and rollup version                  |
-| `_content`    | `bytes32` | Hash of message content (use `Hash.sha256ToField`)      |
-| `_secretHash` | `bytes32` | Hash of secret for message consumption                  |
+| `_publicContentHash`  | `bytes32` | Hash of the public message content (use `Hash.sha256ToField`) |
+| `_privateContentHash` | `bytes32` | Hash of the private message content. |
 
 #include_code deposit_public l1-contracts/test/portals/TokenPortal.sol solidity
 
@@ -36,7 +36,7 @@ L1 to L2 messages are not available immediately. The proposer batches messages f
 
 ### Consume the message on L2
 
-Call `consume_l1_to_l2_message` on the context. The `content` must match the hash sent from L1, and the `secret` must be the pre-image of the `secretHash`. Consuming a message emits a nullifier to prevent double-spending.
+Call `consume_l1_to_l2_message` on the context. The `public_content_hash` must match the hash sent from L1, and the `private_content` must be the preimage of the `private_content_hash` (in the common claim-secret scheme, the secret the depositor generated on L1). Consuming a message emits a nullifier to prevent double-spending.
 
 The content hash must be computed identically on both L1 and L2. Create a shared library for your content hash functions—see [`token_portal_content_hash_lib`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/labs/noir-contracts/contracts/libs/token_portal_content_hash_lib) for an example.
 

@@ -2,7 +2,6 @@ import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
-import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
@@ -233,7 +232,6 @@ export {
   AztecAddress,
   EthAddress,
   NO_WAIT,
-  generateClaimSecret,
   Fr,
   type Logger,
   isL1ToL2MessageReady,

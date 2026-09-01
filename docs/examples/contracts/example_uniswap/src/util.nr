@@ -1,9 +1,5 @@
 // docs:start:swap_public_content_hash
-use aztec::protocol::{
-    address::{AztecAddress, EthAddress},
-    hash::sha256_to_field,
-    traits::ToField,
-};
+use aztec::protocol::{address::{AztecAddress, EthAddress}, hash::sha256_to_field, traits::ToField};
 
 // Hash byte sizes: number of fields x 32 bytes + 4 byte selector
 // Public: 7 fields (input portal, amount, fee, output portal, min output, recipient, secret hash)

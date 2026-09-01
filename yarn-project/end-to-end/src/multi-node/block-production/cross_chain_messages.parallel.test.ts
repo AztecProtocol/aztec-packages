@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
@@ -117,9 +117,11 @@ describe('multi-node/block-production/cross_chain_messages', () => {
     // Seed all L1→L2 messages at the beginning
     logger.warn(`Seeding ${L1_TO_L2_COUNT} L1→L2 messages`);
     const l1ToL2Messages = await timesAsync(L1_TO_L2_COUNT, async i => {
-      const [secret, secretHash] = await generateClaimSecret();
-      const content = Fr.random();
-      const message = { recipient: crossChainContract.address, content, secretHash };
+      const secret = Fr.random();
+      const privateContent = [secret];
+      const privateContentHash = await computePrivateContentHash(privateContent);
+      const publicContentHash = Fr.random();
+      const message = { recipient: crossChainContract.address, publicContentHash, privateContentHash };
 
       const { msgHash, globalLeafIndex } = await sendL1ToL2Message(message, {
         l1Client: context.deployL1ContractsValues.l1Client,
@@ -127,7 +129,7 @@ describe('multi-node/block-production/cross_chain_messages', () => {
       });
       logger.warn(`L1→L2 message ${i + 1} sent with hash ${msgHash} and index ${globalLeafIndex}`);
 
-      return { content, secret, msgHash, globalLeafIndex };
+      return { publicContentHash, secret, msgHash, globalLeafIndex };
     });
     logger.warn(`Seeded ${l1ToL2Messages.length} L1→L2 messages`);
 
@@ -167,9 +169,9 @@ describe('multi-node/block-production/cross_chain_messages', () => {
       wallet,
       l1ToL2Messages.length,
       i => {
-        const { content, secret, globalLeafIndex } = l1ToL2Messages[i];
+        const { publicContentHash, secret, globalLeafIndex } = l1ToL2Messages[i];
         return crossChainContract.methods.consume_message_from_arbitrary_sender_public(
-          content,
+          publicContentHash,
           secret,
           ethAccount,
           globalLeafIndex,

@@ -12,12 +12,12 @@ export interface BridgeClaimData {
 }
 
 export interface PendingL1ToL2Message {
-  /** Random content field sent in the message. */
-  content: string;
-  /** Secret for consuming the message. */
+  /** Random public content hash sent in the message. */
+  publicContentHash: string;
+  /** Secret for consuming the message; it forms the message's private content. */
   secret: string;
-  /** Hash of the secret. */
-  secretHash: string;
+  /** The message's private content hash (hash of the claim secret). */
+  privateContentHash: string;
   /** Hash of the L1→L2 message. */
   msgHash: string;
   /** L1 sender address (hex). */
@@ -32,7 +32,7 @@ export interface PendingL1ToL2Message {
  * Simple data store for the bot to persist L1 bridge claims.
  */
 export class BotStore {
-  public static readonly SCHEMA_VERSION = 1;
+  public static readonly SCHEMA_VERSION = 2;
   private readonly bridgeClaims: AztecAsyncMap<string, string>;
   private readonly pendingL1ToL2: AztecAsyncMap<string, string>;
 

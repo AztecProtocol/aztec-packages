@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { computeSecretHash } from '@aztec/aztec.js/crypto';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
@@ -62,7 +62,8 @@ function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
       const options = command.optsWithGlobals();
       const { alias } = options;
       const value = Fr.random();
-      const hash = await computeSecretHash(value);
+      const privateContent = [value];
+      const hash = await computePrivateContentHash(privateContent);
 
       await db.storeAlias('secrets', alias, Buffer.from(value.toString()), log);
       await db.storeAlias('secrets', `${alias}:hash`, Buffer.from(hash.toString()), log);

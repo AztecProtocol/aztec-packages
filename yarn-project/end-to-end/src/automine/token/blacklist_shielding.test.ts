@@ -1,4 +1,4 @@
-import { computeSecretHash } from '@aztec/aztec.js/crypto';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 
 import { U128_UNDERFLOW_ERROR } from '../../fixtures/index.js';
@@ -28,10 +28,11 @@ describe('automine/token/blacklist_shielding', () => {
   });
 
   const secret = Fr.random();
-  let secretHash: Fr;
+  let privateContentHash: Fr;
 
   beforeAll(async () => {
-    secretHash = await computeSecretHash(secret);
+    const privateContent = [secret];
+    privateContentHash = await computePrivateContentHash(privateContent);
   });
 
   // Shields half the admin's public balance to private, registers the note in PXE, redeems it, and
@@ -39,10 +40,12 @@ describe('automine/token/blacklist_shielding', () => {
   it('on behalf of self', async () => {
     const amount = await halfBalanceOf(asset, 'public', adminAddress);
 
-    const { receipt } = await asset.methods.shield(adminAddress, amount, secretHash, 0).send({ from: adminAddress });
+    const { receipt } = await asset.methods
+      .shield(adminAddress, amount, privateContentHash, 0)
+      .send({ from: adminAddress });
 
     // Redeem it
-    await t.addPendingShieldNoteToPXE(asset, adminAddress, amount, secretHash, receipt.txHash);
+    await t.addPendingShieldNoteToPXE(asset, adminAddress, amount, privateContentHash, receipt.txHash);
     await asset.methods.redeem_shield(adminAddress, amount, secret).send({ from: adminAddress });
 
     // Check that the result matches token sim
@@ -57,7 +60,7 @@ describe('automine/token/blacklist_shielding', () => {
     const authwitNonce = Fr.random();
 
     // We need to compute the message we want to sign and add it to the wallet as approved
-    const action = asset.methods.shield(adminAddress, amount, secretHash, authwitNonce);
+    const action = asset.methods.shield(adminAddress, amount, privateContentHash, authwitNonce);
     const validateActionInteraction = await wallet.setPublicAuthWit(
       adminAddress,
       { caller: otherAddress, action },
@@ -69,11 +72,11 @@ describe('automine/token/blacklist_shielding', () => {
 
     // Check that replaying the shield should fail!
     await expect(
-      asset.methods.shield(adminAddress, amount, secretHash, authwitNonce).simulate({ from: otherAddress }),
+      asset.methods.shield(adminAddress, amount, privateContentHash, authwitNonce).simulate({ from: otherAddress }),
     ).rejects.toThrow(/unauthorized/);
 
     // Redeem it
-    await t.addPendingShieldNoteToPXE(asset, adminAddress, amount, secretHash, receipt.txHash);
+    await t.addPendingShieldNoteToPXE(asset, adminAddress, amount, privateContentHash, receipt.txHash);
     await asset.methods.redeem_shield(adminAddress, amount, secret).send({ from: adminAddress });
 
     // Check that the result matches token sim
@@ -87,7 +90,7 @@ describe('automine/token/blacklist_shielding', () => {
     it('on behalf of self (more than balance)', async () => {
       const amount = await amountAboveBalance(asset, 'public', adminAddress);
       await expect(
-        asset.methods.shield(adminAddress, amount, secretHash, 0).simulate({ from: adminAddress }),
+        asset.methods.shield(adminAddress, amount, privateContentHash, 0).simulate({ from: adminAddress }),
       ).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
 
@@ -95,7 +98,7 @@ describe('automine/token/blacklist_shielding', () => {
     it('on behalf of self (invalid authwit nonce)', async () => {
       const amount = await amountAboveBalance(asset, 'public', adminAddress);
       await expect(
-        asset.methods.shield(adminAddress, amount, secretHash, 1).simulate({ from: adminAddress }),
+        asset.methods.shield(adminAddress, amount, privateContentHash, 1).simulate({ from: adminAddress }),
       ).rejects.toThrow(INVALID_AUTHWIT_NONCE_ERROR);
     });
 
@@ -104,7 +107,7 @@ describe('automine/token/blacklist_shielding', () => {
       const amount = await amountAboveBalance(asset, 'public', adminAddress);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.methods.shield(adminAddress, amount, secretHash, Fr.random());
+      const action = asset.methods.shield(adminAddress, amount, privateContentHash, Fr.random());
       const validateActionInteraction = await wallet.setPublicAuthWit(
         adminAddress,
         { caller: otherAddress, action },
@@ -120,7 +123,7 @@ describe('automine/token/blacklist_shielding', () => {
       const amount = await amountAboveBalance(asset, 'public', adminAddress);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.methods.shield(adminAddress, amount, secretHash, Fr.random());
+      const action = asset.methods.shield(adminAddress, amount, privateContentHash, Fr.random());
       const validateActionInteraction = await wallet.setPublicAuthWit(
         adminAddress,
         { caller: otherAddress, action },
@@ -135,14 +138,14 @@ describe('automine/token/blacklist_shielding', () => {
     it('on behalf of other (without approval)', async () => {
       const amount = await halfBalanceOf(asset, 'public', adminAddress);
       await expect(
-        asset.methods.shield(adminAddress, amount, secretHash, Fr.random()).simulate({ from: otherAddress }),
+        asset.methods.shield(adminAddress, amount, privateContentHash, Fr.random()).simulate({ from: otherAddress }),
       ).rejects.toThrow(/unauthorized/);
     });
 
     // Attempts shield from the blacklisted account; expects 'Blacklisted: Sender' assertion.
     it('shielding from blacklisted account', async () => {
       await expect(
-        asset.methods.shield(blacklistedAddress, 1n, secretHash, 0).simulate({ from: blacklistedAddress }),
+        asset.methods.shield(blacklistedAddress, 1n, privateContentHash, 0).simulate({ from: blacklistedAddress }),
       ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
   });

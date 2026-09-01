@@ -179,13 +179,13 @@ export function computeCalldataHash(calldata: Fr[]): Promise<Fr> {
 }
 
 /**
- * Computes a hash of a secret.
- * @dev This function is used to generate secrets for the L1 to L2 message flow and for the TransparentNote.
- * @param secret - The secret to hash (could be generated however you want e.g. `Fr.random()`)
+ * Computes the hash of the private content of an L1 to L2 message.
+ * @dev Used for the L1 to L2 message flow and for the TransparentNote.
+ * @param privateContent - The private content of the message (e.g. `[claimSecret]`)
  * @returns The hash
  */
-export function computeSecretHash(secret: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([secret], DomainSeparator.SECRET_HASH);
+export function computePrivateContentHash(privateContent: Fr[]): Promise<Fr> {
+  return poseidon2HashWithSeparator(privateContent, DomainSeparator.PRIVATE_CONTENT_HASH);
 }
 
 /**

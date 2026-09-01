@@ -42,31 +42,31 @@ contract ExampleTokenPortal {
 
     // docs:start:deposit_to_aztec_public
     /// @notice Deposit tokens and send L1->L2 message for public minting on Aztec
-    function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
+    function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _privateContentHash)
         external
         returns (bytes32, uint256)
     {
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, rollupVersion);
 
-        bytes32 contentHash =
+        bytes32 publicContentHash =
             Hash.sha256ToField(abi.encodeWithSignature("mint_to_public(bytes32,uint256)", _to, _amount));
 
         underlying.safeTransferFrom(msg.sender, address(this), _amount);
 
-        return inbox.sendL2Message(actor, contentHash, _secretHash);
+        return inbox.sendL2Message(actor, publicContentHash, _privateContentHash);
     }
 
     // docs:end:deposit_to_aztec_public
 
     /// @notice Deposit tokens and send L1->L2 message for private minting on Aztec
-    function depositToAztecPrivate(uint256 _amount, bytes32 _secretHash) external returns (bytes32, uint256) {
+    function depositToAztecPrivate(uint256 _amount, bytes32 _privateContentHash) external returns (bytes32, uint256) {
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, rollupVersion);
 
-        bytes32 contentHash = Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", _amount));
+        bytes32 publicContentHash = Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", _amount));
 
         underlying.safeTransferFrom(msg.sender, address(this), _amount);
 
-        return inbox.sendL2Message(actor, contentHash, _secretHash);
+        return inbox.sendL2Message(actor, publicContentHash, _privateContentHash);
     }
 
     // docs:start:withdraw

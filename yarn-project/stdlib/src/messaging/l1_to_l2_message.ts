@@ -23,10 +23,10 @@ export class L1ToL2Message {
     public readonly sender: L1Actor,
     /** The recipient of the message on L2. */
     public readonly recipient: L2Actor,
-    /** The message content. */
-    public readonly content: Fr,
-    /** The hash of the spending secret. */
-    public readonly secretHash: Fr,
+    /** Hash of the public content of the message. */
+    public readonly publicContentHash: Fr,
+    /** Hash of the private content of the message. */
+    public readonly privateContentHash: Fr,
     /** Global index of this message on the tree. */
     public readonly index: Fr,
   ) {}
@@ -36,11 +36,17 @@ export class L1ToL2Message {
    * @returns The message as an array of fields (in order).
    */
   toFields(): Fr[] {
-    return [...this.sender.toFields(), ...this.recipient.toFields(), this.content, this.secretHash, this.index];
+    return [
+      ...this.sender.toFields(),
+      ...this.recipient.toFields(),
+      this.publicContentHash,
+      this.privateContentHash,
+      this.index,
+    ];
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(this.sender, this.recipient, this.content, this.secretHash, this.index);
+    return serializeToBuffer(this.sender, this.recipient, this.publicContentHash, this.privateContentHash, this.index);
   }
 
   hash(): Fr {
@@ -51,10 +57,10 @@ export class L1ToL2Message {
     const reader = BufferReader.asReader(buffer);
     const sender = reader.readObject(L1Actor);
     const recipient = reader.readObject(L2Actor);
-    const content = Fr.fromBuffer(reader);
-    const secretHash = Fr.fromBuffer(reader);
+    const publicContentHash = Fr.fromBuffer(reader);
+    const privateContentHash = Fr.fromBuffer(reader);
     const index = Fr.fromBuffer(reader);
-    return new L1ToL2Message(sender, recipient, content, secretHash, index);
+    return new L1ToL2Message(sender, recipient, publicContentHash, privateContentHash, index);
   }
 
   toString(): string {
@@ -87,12 +93,12 @@ export interface UnsiloedMessageNullifier {
  * Computes the unsiloed nullifier that the fee juice contract (and any consumer following the same scheme) derives when
  * consuming an L1 to L2 message.
  *
- * This is not a general-purpose utility: other contracts may derive the secret hash and hence the nullifier
+ * This is not a general-purpose utility: other contracts may derive the private content hash and hence the nullifier
  * differently. The result is unsiloed — callers silo it (with the consuming contract's address) before looking it up
  * in the nullifier tree.
  */
-export function computeFeeJuiceMessageNullifier(messageHash: Fr, secret: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([messageHash, secret], DomainSeparator.MESSAGE_NULLIFIER);
+export function computeFeeJuiceMessageNullifier(messageHash: Fr, privateContent: Fr[]): Promise<Fr> {
+  return poseidon2HashWithSeparator([messageHash, ...privateContent], DomainSeparator.MESSAGE_NULLIFIER);
 }
 
 /**
@@ -126,14 +132,14 @@ export async function getL1ToL2MessageWitness(
   return l1ToL2Response;
 }
 
-// This functionality is not on the node because we do not want to pass the node the secret, and give the node the ability to derive a valid nullifer for an L1 to L2 message.
+// This functionality is not on the node because we do not want to pass the node the private content, and give the node the ability to derive a valid nullifer for an L1 to L2 message.
 export async function getNonNullifiedL1ToL2MessageWitness(
   node: AztecNode,
   contractAddress: AztecAddress,
   messageHash: Fr,
-  secret: Fr,
+  privateContent: Fr[],
   referenceBlock: BlockParameter = 'latest',
 ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
-  const nullifier = await computeFeeJuiceMessageNullifier(messageHash, secret);
+  const nullifier = await computeFeeJuiceMessageNullifier(messageHash, privateContent);
   return getL1ToL2MessageWitness(node, messageHash, { contractAddress, nullifier }, referenceBlock);
 }

@@ -205,9 +205,9 @@ describe('BotStore', () => {
   describe('pending L1→L2 messages', () => {
     it('recovers pending messages from store on restart', async () => {
       await store.savePendingL1ToL2Message({
-        content: Fr.random().toString(),
+        publicContentHash: Fr.random().toString(),
         secret: Fr.random().toString(),
-        secretHash: Fr.random().toString(),
+        privateContentHash: Fr.random().toString(),
         msgHash: Fr.random().toString(),
         sender: '0x' + '00'.repeat(20),
         globalLeafIndex: '0',
@@ -225,9 +225,9 @@ describe('BotStore', () => {
     it('cleans up stale pending messages', async () => {
       // Save a message with a very old timestamp
       await store.savePendingL1ToL2Message({
-        content: Fr.random().toString(),
+        publicContentHash: Fr.random().toString(),
         secret: Fr.random().toString(),
-        secretHash: Fr.random().toString(),
+        privateContentHash: Fr.random().toString(),
         msgHash: Fr.random().toString(),
         sender: '0x' + '00'.repeat(20),
         globalLeafIndex: '0',
@@ -237,9 +237,9 @@ describe('BotStore', () => {
       // Save a fresh message
       const freshHash = Fr.random().toString();
       await store.savePendingL1ToL2Message({
-        content: Fr.random().toString(),
+        publicContentHash: Fr.random().toString(),
         secret: Fr.random().toString(),
-        secretHash: Fr.random().toString(),
+        privateContentHash: Fr.random().toString(),
         msgHash: freshHash,
         sender: '0x' + '00'.repeat(20),
         globalLeafIndex: '1',

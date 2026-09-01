@@ -2,7 +2,7 @@ import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/account
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
-import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
@@ -250,14 +250,16 @@ describe('multi-node/governance/add_rollup', () => {
 
       const { contract: testContract } = await TestContract.deploy(wallet).send({ from: aliceAddress });
 
-      const [secret, secretHash] = await generateClaimSecret();
+      const secret = Fr.random();
+      const privateContent = [secret];
+      const privateContentHash = await computePrivateContentHash(privateContent);
 
       const contentIntoRollup = Fr.random();
       const contentOutFromRollup = Fr.random();
 
       const ethRecipient = EthAddress.fromString(l1Client.account.address);
 
-      const message = { recipient: testContract.address, content: contentIntoRollup, secretHash };
+      const message = { recipient: testContract.address, publicContentHash: contentIntoRollup, privateContentHash };
       const { msgHash: message1Hash, globalLeafIndex: actualMessage1Index } = await sendL1ToL2Message(message, {
         l1Client,
         l1ContractAddresses,
@@ -287,7 +289,7 @@ describe('multi-node/governance/add_rollup', () => {
       expect(actualMessage1Index.toBigInt()).toBe(message1Index);
 
       await testContract.methods
-        .consume_message_from_arbitrary_sender_private(message.content, secret, ethRecipient, message1Index)
+        .consume_message_from_arbitrary_sender_private(message.publicContentHash, secret, ethRecipient, message1Index)
         .send({ from: aliceAddress });
 
       // Then we consume the L2 -> L1 message

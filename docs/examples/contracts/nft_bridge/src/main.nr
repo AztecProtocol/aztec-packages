@@ -33,12 +33,13 @@ pub contract NFTBridge {
     fn claim(to: AztecAddress, token_id: Field, secret: Field, message_leaf_index: Field) {
         // Compute the message hash that was sent from L1
         let token_id_bytes: [u8; 32] = (token_id as Field).to_be_bytes();
-        let content_hash = sha256_to_field(token_id_bytes);
+        let public_content_hash = sha256_to_field(token_id_bytes);
 
-        // Consume the L1 -> L2 message
+        // Consume the L1 -> L2 message.
+        let private_content = [secret];
         self.context.consume_l1_to_l2_message(
-            content_hash,
-            [secret],
+            public_content_hash,
+            private_content,
             self.storage.portal.read(),
             message_leaf_index,
         );

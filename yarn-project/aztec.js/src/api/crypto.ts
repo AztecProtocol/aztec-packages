@@ -1,1 +1,1 @@
-export { computeSecretHash } from '@aztec/stdlib/hash';
+export { computePrivateContentHash } from '@aztec/stdlib/hash';

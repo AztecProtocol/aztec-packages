@@ -90,7 +90,7 @@ contract AavePortal {
 
     // docs:start:portal_claim_public
     /// @notice Withdraw from Aave and send an L1->L2 message to mint tokens publicly on L2
-    function claimFromAavePublic(uint256 _aTokenAmount, bytes32 _to, bytes32 _secretHash)
+    function claimFromAavePublic(uint256 _aTokenAmount, bytes32 _to, bytes32 _privateContentHash)
         external
         returns (bytes32, uint256)
     {
@@ -100,10 +100,10 @@ contract AavePortal {
 
         // Send L1->L2 message with the total withdrawn amount (including yield)
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, rollupVersion);
-        bytes32 contentHash =
+        bytes32 publicContentHash =
             Hash.sha256ToField(abi.encodeWithSignature("mint_to_public(bytes32,uint256)", _to, withdrawn));
 
-        (bytes32 key, uint256 index) = inbox.sendL2Message(actor, contentHash, _secretHash);
+        (bytes32 key, uint256 index) = inbox.sendL2Message(actor, publicContentHash, _privateContentHash);
         return (key, index);
     }
 
@@ -111,16 +111,16 @@ contract AavePortal {
 
     // docs:start:portal_claim_private
     /// @notice Withdraw from Aave and send an L1->L2 message to mint tokens privately on L2
-    function claimFromAavePrivate(uint256 _aTokenAmount, bytes32 _secretHash) external returns (bytes32, uint256) {
+    function claimFromAavePrivate(uint256 _aTokenAmount, bytes32 _privateContentHash) external returns (bytes32, uint256) {
         // Withdraw from Aave (returns underlying + yield)
         aToken.approve(address(aavePool), _aTokenAmount);
         uint256 withdrawn = aavePool.withdraw(address(underlying), _aTokenAmount, address(this));
 
         // Send L1->L2 message for private minting
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, rollupVersion);
-        bytes32 contentHash = Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", withdrawn));
+        bytes32 publicContentHash = Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", withdrawn));
 
-        (bytes32 key, uint256 index) = inbox.sendL2Message(actor, contentHash, _secretHash);
+        (bytes32 key, uint256 index) = inbox.sendL2Message(actor, publicContentHash, _privateContentHash);
         return (key, index);
     }
     // docs:end:portal_claim_private

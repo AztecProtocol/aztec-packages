@@ -468,10 +468,11 @@ describe('L1Publisher integration', () => {
       seed,
     });
 
-  const sendToL2 = (content: Fr, recipient: AztecAddress): Promise<Fr> =>
-    sendL1ToL2Message({ content, secretHash: Fr.ZERO, recipient }, { l1Client, l1ContractAddresses }).then(
-      ({ msgHash }) => msgHash,
-    );
+  const sendToL2 = (publicContentHash: Fr, recipient: AztecAddress): Promise<Fr> =>
+    sendL1ToL2Message(
+      { publicContentHash, privateContentHash: Fr.ZERO, recipient },
+      { l1Client, l1ContractAddresses },
+    ).then(({ msgHash }) => msgHash);
 
   /**
    * Build a checkpoint with a single block using the LightweightCheckpointBuilder.

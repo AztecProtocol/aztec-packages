@@ -133,8 +133,7 @@ pub contract ExampleUniswap {
         // params for depositing output_asset back to Aztec
         secret_hash_for_L1_to_l2_message: Field,
     ) {
-        let input_asset_bridge_config =
-            self.view(TokenBridge::at(input_asset_bridge).get_config());
+        let input_asset_bridge_config = self.view(TokenBridge::at(input_asset_bridge).get_config());
         let output_asset_bridge_config =
             self.view(TokenBridge::at(output_asset_bridge).get_config());
 

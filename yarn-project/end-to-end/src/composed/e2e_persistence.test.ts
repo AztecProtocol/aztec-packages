@@ -1,6 +1,6 @@
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
-import { computeSecretHash } from '@aztec/aztec.js/crypto';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { TxHash } from '@aztec/aztec.js/tx';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
@@ -98,19 +98,14 @@ describe('Aztec persistence', () => {
     await progressBlocksPastDelay(contract);
 
     const secret = Fr.random();
+    const privateContent = [secret];
+    const privateContentHash = await computePrivateContentHash(privateContent);
 
     const { receipt: mintTxReceipt } = await contract.methods
-      .mint_private(1000n, await computeSecretHash(secret))
+      .mint_private(1000n, privateContentHash)
       .send({ from: ownerAddress });
 
-    await addPendingShieldNoteToPXE(
-      contract,
-      ownerAddress,
-      1000n,
-      await computeSecretHash(secret),
-      mintTxReceipt.txHash,
-      aztecNode,
-    );
+    await addPendingShieldNoteToPXE(contract, ownerAddress, 1000n, privateContentHash, mintTxReceipt.txHash, aztecNode);
 
     await contract.methods.redeem_shield(ownerAddress, 1000n, secret).send({ from: ownerAddress });
 
@@ -182,14 +177,16 @@ describe('Aztec persistence', () => {
         .simulate({ from: ownerAddress });
 
       const secret = Fr.random();
+      const privateContent = [secret];
+      const privateContentHash = await computePrivateContentHash(privateContent);
       const { receipt: mintTxReceipt } = await contract.methods
-        .mint_private(1000n, await computeSecretHash(secret))
+        .mint_private(1000n, privateContentHash)
         .send({ from: ownerAddress });
       await addPendingShieldNoteToPXE(
         contract,
         ownerAddress,
         1000n,
-        await computeSecretHash(secret),
+        privateContentHash,
         mintTxReceipt.txHash,
         aztecNode,
       );
@@ -324,8 +321,10 @@ describe('Aztec persistence', () => {
       // mint some tokens with a secret we know and redeem later on a separate PXE
       secret = Fr.random();
       mintAmount = 1000n;
+      const privateContent = [secret];
+      const privateContentHash = await computePrivateContentHash(privateContent);
       const { receipt: mintTxReceipt } = await contract.methods
-        .mint_private(mintAmount, await computeSecretHash(secret))
+        .mint_private(mintAmount, privateContentHash)
         .send({ from: ownerAddress });
       mintTxHash = mintTxReceipt.txHash;
 
@@ -361,14 +360,9 @@ describe('Aztec persistence', () => {
 
     it('allows consuming transparent note created on another PXE', async () => {
       // this was created in the temporary PXE in `beforeAll`
-      await addPendingShieldNoteToPXE(
-        contract,
-        ownerAddress,
-        mintAmount,
-        await computeSecretHash(secret),
-        mintTxHash,
-        aztecNode,
-      );
+      const privateContent = [secret];
+      const privateContentHash = await computePrivateContentHash(privateContent);
+      await addPendingShieldNoteToPXE(contract, ownerAddress, mintAmount, privateContentHash, mintTxHash, aztecNode);
 
       const { result: balanceBeforeRedeem } = await contract.methods
         .balance_of_private(ownerAddress)
@@ -388,7 +382,7 @@ async function addPendingShieldNoteToPXE(
   contract: TokenBlacklistContract,
   recipient: AztecAddress,
   amount: bigint,
-  secretHash: Fr,
+  privateContentHash: Fr,
   txHash: TxHash,
   aztecNode: AztecNode,
 ) {
@@ -397,7 +391,7 @@ async function addPendingShieldNoteToPXE(
     .process_transparent_note(
       contract.address,
       amount,
-      secretHash,
+      privateContentHash,
       txHash.hash,
       txEffects!.data.noteHashes,
       txEffects!.data.nullifiers[0],

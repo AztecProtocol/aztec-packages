@@ -91,7 +91,7 @@ Fee Juice originates on Ethereum as an ERC-20 token. Bridging means depositing t
 Bridging happens in two steps:
 
 1. **Deposit on L1.** The depositor generates a random claim secret, approves the `FeeJuicePortal` to spend their tokens, and calls its deposit function with the recipient's Aztec address, the amount, and the hash of the claim secret. The portal locks the tokens and sends an L1-to-L2 message addressed to the `FeeJuice` protocol contract on Aztec.
-2. **Claim on L2.** After the message becomes available on Aztec (about two L2 blocks after the deposit), the claimant presents the claim secret to the `FeeJuice` contract. It consumes the message, emitting a nullifier so the same deposit cannot be claimed twice, and credits the recipient's public Fee Juice balance.
+2. **Claim on L2.** After the message becomes available on Aztec (about two L2 blocks after the deposit), the claimant presents the claim secret (the message's private content) to the `FeeJuice` contract. It consumes the message, emitting a nullifier so the same deposit cannot be claimed twice, and credits the recipient's public Fee Juice balance.
 
 Only the hash of the claim secret appears on L1, and the recipient address is fixed at deposit time, so revealing the secret on L2 releases the funds only to the intended recipient.
 

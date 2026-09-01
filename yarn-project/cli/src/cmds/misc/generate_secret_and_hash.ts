@@ -1,15 +1,15 @@
-import { computeSecretHash } from '@aztec/aztec.js/crypto';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
 
 export async function generateSecretAndHash(log: LogFn) {
   const secret = Fr.random();
 
-  // We hash this the same way that aztec nr hash does.
-  const secretHash = await computeSecretHash(secret);
+  const privateContent = [secret];
+  const privateContentHash = await computePrivateContentHash(privateContent);
 
   log(`
     Secret: ${secret}
-    Secret hash: ${secretHash}
+    Private content hash: ${privateContentHash}
   `);
 }

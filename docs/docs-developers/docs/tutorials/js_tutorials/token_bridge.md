@@ -265,7 +265,7 @@ Build the `claim` function, which consumes the message and mints the NFT on the 
 
 :::tip Secret
 
-The secret prevents front-running. Certainly you don't want anyone to claim your NFT on the L2 side by just being faster. Adding a secret acts like a "password": you can only claim it if you know it.
+The secret prevents front-running. Certainly you don't want anyone to claim your NFT on the L2 side by just being faster. Adding a secret acts like a "password": you can only claim the NFT if you know it. The secret forms the private content of the L1-to-L2 message, so the message carries only its hash: the private content hash.
 
 :::
 
@@ -437,7 +437,7 @@ To bridge, first approve the portal address to transfer the NFT, then transfer i
 
 #include_code deposit_to_aztec /docs/examples/ts/token_bridge/index.ts typescript
 
-The `Inbox` contract will emit an important log: `MessageSent(hash, inboxRollingHash, bucketSeq, message);`. The `message.index` field is the **leaf index** of the message in the [L1-L2 Message Tree](../../foundational-topics/ethereum-aztec-messaging/index.md)—the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim and decrypt the message.
+The `Inbox` contract will emit an important log: `MessageSent(hash, inboxRollingHash, bucketSeq, message);`. The `message.index` field is the **leaf index** of the message in the [L1-L2 Message Tree](../../foundational-topics/ethereum-aztec-messaging/index.md): the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim the message.
 
 Use viem to extract this information:
 

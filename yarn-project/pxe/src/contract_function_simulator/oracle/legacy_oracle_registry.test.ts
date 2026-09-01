@@ -97,13 +97,14 @@ describe('legacy oracle dispatch', () => {
     const contractAddress = await AztecAddress.random();
     const messageHash = Fr.random();
     const secret = Fr.random();
+    const privateContent = [secret];
 
     const entry = LEGACY_ORACLE_REGISTRY['aztec_utl_getL1ToL2MembershipWitness'];
     const [mappedMessageHash, mappedNullifier] = await entry.params!.mapping([contractAddress, messageHash, secret]);
 
     expect(mappedMessageHash).toEqual(messageHash);
     expect(mappedNullifier).toEqual(
-      Option.some({ contractAddress, nullifier: await computeFeeJuiceMessageNullifier(messageHash, secret) }),
+      Option.some({ contractAddress, nullifier: await computeFeeJuiceMessageNullifier(messageHash, privateContent) }),
     );
   });
 

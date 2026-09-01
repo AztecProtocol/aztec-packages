@@ -72,7 +72,12 @@ export interface ITxeExecutionOracle {
   createAccount(secret: Fr, partialAddress: Fr): Promise<CompleteAddress>;
   addAccount(secret: Fr): Promise<CompleteAddress>;
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
-  sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr>;
+  sendL1ToL2Message(
+    publicContentHash: Fr,
+    privateContentHash: Fr,
+    sender: EthAddress,
+    recipient: AztecAddress,
+  ): Promise<Fr>;
   /**
    * Configures the tagging secret strategy the test's simulated wallet resolves for each delivery mode. A `none`
    * clears that mode, so it falls back to the default strategy (or, when both modes end up unset, to no hook at all).

@@ -64,21 +64,28 @@ contract Inbox is IInbox {
    * @dev Emits `MessageSent` with data for easy access by the sequencer
    *
    * @param _recipient - The recipient of the message
-   * @param _content - The content of the message (application specific)
-   * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed
-   * on L2)
+   * @param _publicContentHash - Hash of the public content of the message (application specific)
+   * @param _privateContentHash - Hash of the private content of the message. The private content is
+   * application-defined (e.g. a claim secret, or the L2 recipient plus a blinding value) and is required to consume
+   * the message on L2
    *
    * @return Hash of the sent message and its compact cumulative index.
    */
-  function sendL2Message(DataStructures.L2Actor memory _recipient, bytes32 _content, bytes32 _secretHash)
-    external
-    override(IInbox)
-    returns (bytes32, uint256)
-  {
+  function sendL2Message(
+    DataStructures.L2Actor memory _recipient,
+    bytes32 _publicContentHash,
+    bytes32 _privateContentHash
+  ) external override(IInbox) returns (bytes32, uint256) {
     require(uint256(_recipient.actor) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ActorTooLarge(_recipient.actor));
     require(_recipient.version == VERSION, Errors.Inbox__VersionMismatch(_recipient.version, VERSION));
-    require(uint256(_content) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ContentTooLarge(_content));
-    require(uint256(_secretHash) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__SecretHashTooLarge(_secretHash));
+    require(
+      uint256(_publicContentHash) <= Constants.MAX_FIELD_VALUE,
+      Errors.Inbox__PublicContentHashTooLarge(_publicContentHash)
+    );
+    require(
+      uint256(_privateContentHash) <= Constants.MAX_FIELD_VALUE,
+      Errors.Inbox__PrivateContentHashTooLarge(_privateContentHash)
+    );
 
     // Compact cumulative message index: the zero-based position of this message in the Inbox's
     // insertion order, equal to the number of messages inserted before it. It matches the streaming L1-to-L2 tree's
@@ -94,8 +101,8 @@ contract Inbox is IInbox {
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(senderAddress, block.chainid),
       recipient: _recipient,
-      content: _content,
-      secretHash: _secretHash,
+      publicContentHash: _publicContentHash,
+      privateContentHash: _privateContentHash,
       index: index
     });
 

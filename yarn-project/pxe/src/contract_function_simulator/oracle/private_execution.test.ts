@@ -37,7 +37,12 @@ import {
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
-import { computeNoteHashNonce, computeSecretHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
+import {
+  computeNoteHashNonce,
+  computePrivateContentHash,
+  computeUniqueNoteHash,
+  siloNoteHash,
+} from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
@@ -75,7 +80,7 @@ jest.setTimeout(60_000);
  * @param selector - The cross chain message selector.
  * @param contentPreimage - The args after the selector.
  * @param targetContract - The contract to consume the message.
- * @param secret - The secret to unlock the message.
+ * @param privateContent - The private content of the message.
  * @param msgIndex - The index of the message in the L1 to L2 message tree.
  * @returns The L1 to L2 message.
  */
@@ -83,20 +88,20 @@ export const buildL1ToL2Message = async (
   selector: string,
   contentPreimage: Fr[],
   targetContract: AztecAddress,
-  secret: Fr,
+  privateContent: Fr[],
   msgIndex: Fr | number,
 ) => {
   // Write the selector into a buffer.
   const selectorBuf = Buffer.from(selector, 'hex');
 
-  const content = sha256ToField([selectorBuf, ...contentPreimage]);
-  const secretHash = await computeSecretHash(secret);
+  const publicContentHash = sha256ToField([selectorBuf, ...contentPreimage]);
+  const privateContentHash = await computePrivateContentHash(privateContent);
 
   return new L1ToL2Message(
     new L1Actor(EthAddress.random(), 1),
     new L2Actor(targetContract, 1),
-    content,
-    secretHash,
+    publicContentHash,
+    privateContentHash,
     new Fr(msgIndex),
   );
 };
@@ -797,7 +802,7 @@ describe('Private Execution test suite', () => {
           toFunctionSelector('mint_to_private(uint256)').substring(2),
           [new Fr(bridgedAmount)],
           crossChainMsgRecipient ?? contractAddress,
-          secretForL1ToL2MessageConsumption,
+          [secretForL1ToL2MessageConsumption],
           l1ToL2MessageIndex,
         );
 

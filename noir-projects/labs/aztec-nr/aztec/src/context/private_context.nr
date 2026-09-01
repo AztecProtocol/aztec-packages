@@ -879,8 +879,11 @@ impl PrivateContext {
     /// to wait until the messages are copied before you can consume them.
     ///
     /// # Arguments
-    /// * `content` - The message content that was sent from L1
-    /// * `secret` - Secret fields used for message privacy (if needed)
+    /// * `public_content_hash` - Hash of the public content of the message that was sent from L1. Only the hash is
+    ///   needed since the public content has an application-defined layout and is only used to rebuild the leaf.
+    /// * `private_content` - Private content of the message (preimage of the private content hash sent from L1),
+    ///   application-defined - e.g. a claim secret, or the L2 recipient plus a blinding value. The preimage is
+    ///   required since it's mixed into the nullifier, which is what ties consumption to knowledge of the secret.
     /// * `sender` - Ethereum address that sent the message
     /// * `leaf_index` - Index of the message in the L1-to-L2 message tree
     ///
@@ -889,8 +892,8 @@ impl PrivateContext {
     /// double-consumption.
     pub fn consume_l1_to_l2_message<let N: u32>(
         &mut self,
-        content: Field,
-        secret: [Field; N],
+        public_content_hash: Field,
+        private_content: [Field; N],
         sender: EthAddress,
         leaf_index: Field,
     ) {
@@ -900,8 +903,8 @@ impl PrivateContext {
             sender,
             self.chain_id(),
             self.version(),
-            content,
-            secret,
+            public_content_hash,
+            private_content,
             leaf_index,
         );
 

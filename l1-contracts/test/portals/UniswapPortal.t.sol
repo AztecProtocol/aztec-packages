@@ -46,7 +46,7 @@ contract UniswapPortalTest is Test {
   UniswapPortal internal uniswapPortal;
 
   uint256 internal amount = 100 ether;
-  bytes32 internal secretHash = bytes32(0);
+  bytes32 internal privateContentHash = bytes32(0);
   uint24 internal uniswapFeePool = 3000; // 0.3% fee
   uint256 internal amountOutMinimum = 0;
   bytes32 internal aztecRecipient = bytes32(uint256(0x3));
@@ -128,7 +128,7 @@ contract UniswapPortalTest is Test {
           address(wethTokenPortal),
           amountOutMinimum,
           _aztecRecipient,
-          secretHash,
+          privateContentHash,
           _caller
         )
       )
@@ -156,7 +156,7 @@ contract UniswapPortalTest is Test {
           uniswapFeePool,
           address(wethTokenPortal),
           amountOutMinimum,
-          secretHash,
+          privateContentHash,
           _caller
         )
       )
@@ -225,7 +225,7 @@ contract UniswapPortalTest is Test {
       address(wethTokenPortal),
       amountOutMinimum,
       aztecRecipient,
-      secretHash,
+      privateContentHash,
       true,
       outboxMessageMetadata
     );
@@ -276,7 +276,7 @@ contract UniswapPortalTest is Test {
       address(wethTokenPortal),
       amountOutMinimum,
       aztecRecipient,
-      secretHash,
+      privateContentHash,
       true,
       outboxMessageMetadata
     );
@@ -329,7 +329,7 @@ contract UniswapPortalTest is Test {
       address(wethTokenPortal),
       amountOutMinimum,
       newAztecRecipient, // change recipient of swapped token to some other address
-      secretHash,
+      privateContentHash,
       true,
       outboxMessageMetadata
     );
@@ -358,7 +358,7 @@ contract UniswapPortalTest is Test {
       address(wethTokenPortal),
       amountOutMinimum,
       aztecRecipient,
-      secretHash,
+      privateContentHash,
       true,
       outboxMessageMetadata
     );
@@ -399,7 +399,7 @@ contract UniswapPortalTest is Test {
       address(wethTokenPortal),
       amountOutMinimum,
       aztecRecipient,
-      secretHash,
+      privateContentHash,
       false,
       outboxMessageMetadata
     );
@@ -463,7 +463,7 @@ contract UniswapPortalTest is Test {
       address(wethTokenPortal),
       amountOutMinimum,
       aztecRecipient,
-      secretHash,
+      privateContentHash,
       true,
       outboxMessageMetadata
     );
@@ -494,7 +494,7 @@ contract UniswapPortalTest is Test {
       address(wethTokenPortal),
       amountOutMinimum,
       aztecRecipient,
-      secretHash,
+      privateContentHash,
       false,
       outboxMessageMetadata
     );
@@ -548,7 +548,7 @@ contract UniswapPortalTest is Test {
       uniswapFeePool,
       address(wethTokenPortal),
       amountOutMinimum,
-      secretHash,
+      privateContentHash,
       true,
       outboxMessageMetadata
     );

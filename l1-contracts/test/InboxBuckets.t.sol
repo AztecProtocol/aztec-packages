@@ -38,17 +38,17 @@ contract InboxBucketsTest is Test {
   }
 
   // Sends a message and returns the gas consumed by the external `sendL2Message` call. The
-  // recipient/content/secretHash are built before the measurement window so only the call is timed. The
-  // figure is warm execution gas including the CALL overhead; it excludes the 21k intrinsic tx cost, calldata
+  // recipient/publicContentHash/privateContentHash are built before the measurement window so only the call is timed.
+  // The figure is warm execution gas including the CALL overhead; it excludes the 21k intrinsic tx cost, calldata
   // gas, and the cold-access surcharge a standalone EOA transaction pays on its first touch of each slot.
   function _measureSend(InboxHarness _inbox, uint256 _salt) internal returns (uint256 gasUsed) {
     DataStructures.L2Actor memory recipient =
       DataStructures.L2Actor({actor: bytes32(uint256(0x1000 + _salt)), version: version});
-    bytes32 content = bytes32(uint256(0x2000 + _salt));
-    bytes32 secretHash = bytes32(uint256(0x3000 + _salt));
+    bytes32 publicContentHash = bytes32(uint256(0x2000 + _salt));
+    bytes32 privateContentHash = bytes32(uint256(0x3000 + _salt));
 
     uint256 gasBefore = gasleft();
-    _inbox.sendL2Message(recipient, content, secretHash);
+    _inbox.sendL2Message(recipient, publicContentHash, privateContentHash);
     gasUsed = gasBefore - gasleft();
   }
 
@@ -149,14 +149,14 @@ contract InboxBucketsTest is Test {
   function testMessageSentEventCarriesBucketData() public {
     DataStructures.L2Actor memory recipient =
       DataStructures.L2Actor({actor: bytes32(uint256(0x1000)), version: version});
-    bytes32 content = bytes32(uint256(0x2000));
-    bytes32 secretHash = bytes32(uint256(0x3000));
+    bytes32 publicContentHash = bytes32(uint256(0x2000));
+    bytes32 privateContentHash = bytes32(uint256(0x3000));
 
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(this), block.chainid),
       recipient: recipient,
-      content: content,
-      secretHash: secretHash,
+      publicContentHash: publicContentHash,
+      privateContentHash: privateContentHash,
       // Compact cumulative index: the first message against a fresh Inbox has index 0.
       index: inbox.getState().totalMessagesInserted
     });
@@ -165,7 +165,7 @@ contract InboxBucketsTest is Test {
 
     vm.expectEmit(true, true, true, true, address(inbox));
     emit IInbox.MessageSent(leaf, inboxRollingHash, 1, message);
-    inbox.sendL2Message(recipient, content, secretHash);
+    inbox.sendL2Message(recipient, publicContentHash, privateContentHash);
   }
 
   function testSnapshotBoundariesAcrossBlocks() public {

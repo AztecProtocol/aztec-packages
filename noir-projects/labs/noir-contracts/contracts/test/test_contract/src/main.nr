@@ -348,40 +348,38 @@ pub contract Test {
     #[external("private")]
     fn consume_mint_to_private_message(
         amount: u128,
-        secret_for_L1_to_L2_message_consumption: Field,
+        secret: Field,
         portal_address: EthAddress,
         message_leaf_index: Field,
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_mint_to_private_content_hash(amount);
-        self.context.consume_l1_to_l2_message(
-            content_hash,
-            [secret_for_L1_to_L2_message_consumption],
-            portal_address,
-            message_leaf_index,
-        );
+        let public_content_hash = get_mint_to_private_content_hash(amount);
+        let private_content = [secret];
+        self.context.consume_l1_to_l2_message(public_content_hash, private_content, portal_address, message_leaf_index);
     }
 
     #[external("public")]
     fn consume_message_from_arbitrary_sender_public(
-        content: Field,
+        public_content_hash: Field,
         secret: Field,
         sender: EthAddress,
         message_leaf_index: Field,
     ) {
         // Consume message and emit nullifier
-        self.context.consume_l1_to_l2_message(content, [secret], sender, message_leaf_index);
+        let private_content = [secret];
+        self.context.consume_l1_to_l2_message(public_content_hash, private_content, sender, message_leaf_index);
     }
 
     #[external("private")]
     fn consume_message_from_arbitrary_sender_private(
-        content: Field,
+        public_content_hash: Field,
         secret: Field,
         sender: EthAddress,
         message_leaf_index: Field,
     ) {
         // Consume message and emit nullifier
-        self.context.consume_l1_to_l2_message(content, [secret], sender, message_leaf_index);
+        let private_content = [secret];
+        self.context.consume_l1_to_l2_message(public_content_hash, private_content, sender, message_leaf_index);
     }
 
     #[external("private")]

@@ -67,14 +67,15 @@ interface IInbox {
    * @notice Inserts a new message into the Inbox
    * @dev Emits `MessageSent` with data for easy access by the sequencer
    * @param _recipient - The recipient of the message
-   * @param _content - The content of the message (application specific)
-   * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed
-   * on L2)
+   * @param _publicContentHash - Hash of the public content of the message (application specific)
+   * @param _privateContentHash - Hash of the private content of the message  (also application specific).
    * @return The key of the message in the set and its compact cumulative index
    */
-  function sendL2Message(DataStructures.L2Actor memory _recipient, bytes32 _content, bytes32 _secretHash)
-    external
-    returns (bytes32, uint256);
+  function sendL2Message(
+    DataStructures.L2Actor memory _recipient,
+    bytes32 _publicContentHash,
+    bytes32 _privateContentHash
+  ) external returns (bytes32, uint256);
   // docs:end:send_l1_to_l2_message
 
   function getFeeAssetPortal() external view returns (address);

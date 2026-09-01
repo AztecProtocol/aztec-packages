@@ -64,12 +64,13 @@ pub contract TokenBridge {
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[external("public")]
     fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {
-        let content_hash = get_mint_to_public_content_hash(to, amount);
+        let public_content_hash = get_mint_to_public_content_hash(to, amount);
 
         let config = self.storage.config.read();
 
-        // Consume message and emit nullifier
-        self.context.consume_l1_to_l2_message(content_hash, [secret], config.portal, message_leaf_index);
+        // Consume message and emit nullifier. The claim secret is used as the message's private content.
+        let private_content = [secret];
+        self.context.consume_l1_to_l2_message(public_content_hash, private_content, config.portal, message_leaf_index);
 
         // Mint tokens
         self.call(Token::at(config.token).mint_to_public(to, amount));
@@ -106,19 +107,15 @@ pub contract TokenBridge {
     fn claim_private(
         recipient: AztecAddress, // recipient of the bridged tokens
         amount: u128,
-        secret_for_L1_to_L2_message_consumption: Field, // secret used to consume the L1 to L2 message
+        secret_for_L1_to_L2_message_consumption: Field, // secret used as the message's private content to consume it
         message_leaf_index: Field,
     ) {
         let config = self.storage.config.read();
 
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_mint_to_private_content_hash(amount);
-        self.context.consume_l1_to_l2_message(
-            content_hash,
-            [secret_for_L1_to_L2_message_consumption],
-            config.portal,
-            message_leaf_index,
-        );
+        let public_content_hash = get_mint_to_private_content_hash(amount);
+        let private_content = [secret_for_L1_to_L2_message_consumption];
+        self.context.consume_l1_to_l2_message(public_content_hash, private_content, config.portal, message_leaf_index);
 
         // At last we mint the tokens
         self.call(Token::at(config.token).mint_to_private(recipient, amount));

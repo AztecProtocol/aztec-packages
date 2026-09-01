@@ -33,11 +33,11 @@ contract FeeJuicePortal is IFeeJuicePortal {
    * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
    * @param _to - The aztec address of the recipient
    * @param _amount - The amount to deposit
-   * @param _secretHash - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a
-   * Field element)
+   * @param _privateContentHash - Hash of the private content of the L1 to L2 message. The hash should be
+   * 254 bits (so it can fit in a Field element)
    * @return - The key of the entry in the Inbox and its leaf index
    */
-  function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
+  function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _privateContentHash)
     external
     override(IFeeJuicePortal)
     returns (bytes32, uint256)
@@ -45,16 +45,16 @@ contract FeeJuicePortal is IFeeJuicePortal {
     // Preamble
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(L2_TOKEN_ADDRESS, VERSION);
 
-    // Hash the message content to be reconstructed in the receiving contract
-    bytes32 contentHash = Hash.sha256ToField(abi.encodeWithSignature("claim(bytes32,uint256)", _to, _amount));
+    // Hash the public message content to be reconstructed in the receiving contract
+    bytes32 publicContentHash = Hash.sha256ToField(abi.encodeWithSignature("claim(bytes32,uint256)", _to, _amount));
 
     // Hold the tokens in the portal
     UNDERLYING.safeTransferFrom(msg.sender, address(this), _amount);
 
     // Send message to rollup
-    (bytes32 key, uint256 index) = INBOX.sendL2Message(actor, contentHash, _secretHash);
+    (bytes32 key, uint256 index) = INBOX.sendL2Message(actor, publicContentHash, _privateContentHash);
 
-    emit DepositToAztecPublic(_to, _amount, _secretHash, key, index);
+    emit DepositToAztecPublic(_to, _amount, _privateContentHash, key, index);
 
     return (key, index);
   }

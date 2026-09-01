@@ -1,5 +1,5 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { computePrivateContentHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -165,8 +165,9 @@ describe('single-node/cross-chain/streaming_inbox', () => {
         );
 
         const blockAtSend = await aztecNode.getBlockNumber();
-        const [, secretHash] = await generateClaimSecret();
-        const message = { recipient: testContract.address, content: Fr.random(), secretHash };
+        const privateContent = [Fr.random()];
+        const privateContentHash = await computePrivateContentHash(privateContent);
+        const message = { recipient: testContract.address, publicContentHash: Fr.random(), privateContentHash };
         const { msgHash } = await sendMessageToL2(message);
         log.warn(`Sent message ${msgHash.toString()} at block ${blockAtSend}`);
 
@@ -214,8 +215,9 @@ describe('single-node/cross-chain/streaming_inbox', () => {
     await withBackgroundFeeder(async () => {
       const blockAtSend = await aztecNode.getBlockNumber();
       const wallClockAtSend = Date.now();
-      const [, secretHash] = await generateClaimSecret();
-      const message = { recipient: testContract.address, content: Fr.random(), secretHash };
+      const privateContent = [Fr.random()];
+      const privateContentHash = await computePrivateContentHash(privateContent);
+      const message = { recipient: testContract.address, publicContentHash: Fr.random(), privateContentHash };
       const { msgHash, txReceipt } = await sendMessageToL2(message);
       const messageL1Ts = await getMessageL1Timestamp(txReceipt.blockNumber!);
       log.warn(`Sent message ${msgHash.toString()} with L1 timestamp ${messageL1Ts}`);
@@ -256,8 +258,9 @@ describe('single-node/cross-chain/streaming_inbox', () => {
     );
 
     const blockAtSend = await aztecNode.getBlockNumber();
-    const [, secretHash] = await generateClaimSecret();
-    const message = { recipient: testContract.address, content: Fr.random(), secretHash };
+    const privateContent = [Fr.random()];
+    const privateContentHash = await computePrivateContentHash(privateContent);
+    const message = { recipient: testContract.address, publicContentHash: Fr.random(), privateContentHash };
     const { msgHash } = await sendMessageToL2(message);
     log.warn(`Sent message ${msgHash.toString()} on an empty pool`);
 
@@ -299,8 +302,10 @@ describe('single-node/cross-chain/streaming_inbox', () => {
   it('consumes a streaming-inserted message by compact index and rejects double-spend', async () => {
     const l1Account = t.ethAccount;
     const blockAtSend = await aztecNode.getBlockNumber();
-    const [secret, secretHash] = await generateClaimSecret();
-    const message = { recipient: testContract.address, content: Fr.random(), secretHash };
+    const secret = Fr.random();
+    const privateContent = [secret];
+    const privateContentHash = await computePrivateContentHash(privateContent);
+    const message = { recipient: testContract.address, publicContentHash: Fr.random(), privateContentHash };
     const { msgHash, globalLeafIndex } = await sendMessageToL2(message);
     log.warn(`Sent message ${msgHash.toString()} with compact index ${globalLeafIndex}`);
 
@@ -308,7 +313,12 @@ describe('single-node/cross-chain/streaming_inbox', () => {
     const inserting = await findInsertingBlock(msgHash, BlockNumber(blockAtSend + 1));
 
     const { receipt: txReceipt } = await testContract.methods
-      .consume_message_from_arbitrary_sender_public(message.content, secret, l1Account, globalLeafIndex.toBigInt())
+      .consume_message_from_arbitrary_sender_public(
+        message.publicContentHash,
+        secret,
+        l1Account,
+        globalLeafIndex.toBigInt(),
+      )
       .send({ from: user1Address });
     expect(txReceipt.blockNumber).toBeGreaterThan(0);
     // The compact leaf index from the Inbox event resolves to the same message the node inserted.
@@ -322,7 +332,12 @@ describe('single-node/cross-chain/streaming_inbox', () => {
 
     // The message was inserted and consumed; a second consume must revert (the leaf is nullified).
     const { receipt: failedReceipt } = await testContract.methods
-      .consume_message_from_arbitrary_sender_public(message.content, secret, l1Account, globalLeafIndex.toBigInt())
+      .consume_message_from_arbitrary_sender_public(
+        message.publicContentHash,
+        secret,
+        l1Account,
+        globalLeafIndex.toBigInt(),
+      )
       .send({ from: user1Address, wait: { dontThrowOnRevert: true } });
     expect(failedReceipt.executionResult).toBe(TxExecutionResult.REVERTED);
   });

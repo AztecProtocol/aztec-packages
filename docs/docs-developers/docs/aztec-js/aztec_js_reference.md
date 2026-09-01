@@ -16,7 +16,7 @@ This is an auto-generated reference. For tutorials and guides, see the [Aztec.js
 
 *Package: @aztec/aztec.js*
 
-*Generated: 2026-08-19T09:19:51.719Z*
+*Generated: 2026-08-24T07:31:17.032Z*
 
 This document provides a comprehensive reference for all public APIs in the Aztec.js library.
 
@@ -94,7 +94,6 @@ Each section is organized by module, with classes, interfaces, types, and functi
   - [L2Claim](#l2claim)
   - [L2AmountClaim](#l2amountclaim)
   - [L2AmountClaimWithRecipient](#l2amountclaimwithrecipient)
-  - [generateClaimSecret](#generateclaimsecret)
   - [L1TokenManager](#l1tokenmanager)
   - [L1FeeJuicePortalManager](#l1feejuiceportalmanager)
   - [L1ToL2TokenPortalManager](#l1tol2tokenportalmanager)
@@ -3331,29 +3330,6 @@ Address that will receive the newly minted notes.
 
 **Type:** `AztecAddress`
 
-
-#### generateClaimSecret
-
-**Type:** Function
-
-Generates a pair secret and secret hash
-
-**Signature:**
-
-```typescript
-export async generateClaimSecret(logger?: Logger): Promise<[
-      Fr,
-      Fr
-  ]>
-```
-
-**Parameters:**
-
-- `logger` (optional): `Logger`
-
-**Returns:**
-
-`Promise<[Fr, Fr]>`
 
 #### L1TokenManager
 

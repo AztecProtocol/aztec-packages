@@ -369,7 +369,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.authorizeAllUtilityCallTargets = authorizeAll;
   }
 
-  async sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr> {
+  async sendL1ToL2Message(
+    publicContentHash: Fr,
+    privateContentHash: Fr,
+    sender: EthAddress,
+    recipient: AztecAddress,
+  ): Promise<Fr> {
     // Messages are appended to the tree, so the next free slot is simply the current tree size.
     const { size } = await this.stateMachine.synchronizer
       .getCommitted()
@@ -379,8 +384,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const message = new L1ToL2Message(
       new L1Actor(sender, this.chainId.toNumber()),
       new L2Actor(recipient, this.version.toNumber()),
-      content,
-      secretHash,
+      publicContentHash,
+      privateContentHash,
       leafIndex,
     );
 

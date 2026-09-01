@@ -1,3 +1,4 @@
+import type { Fr } from '@aztec/aztec.js/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import type { Command } from 'commander';
@@ -38,11 +39,15 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .description('Gets a L1 to L2 message witness.')
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
     .requiredOption('--message-hash <messageHash>', 'The L1 to L2 message hash.', parseField)
-    .requiredOption('--secret <secret>', 'The secret used to claim the L1 to L2 message', parseField)
+    .requiredOption(
+      '--private-content <fields...>',
+      'The private content of the L1 to L2 message (preimage of its private content hash), as one or more fields',
+      (field: string, previous: Fr[] = []) => [...previous, parseField(field)],
+    )
     .addOption(nodeOption)
-    .action(async ({ contractAddress, messageHash, secret, nodeUrl }) => {
+    .action(async ({ contractAddress, messageHash, privateContent, nodeUrl }) => {
       const { getL1ToL2MessageWitness } = await import('./get_l1_to_l2_message_witness.js');
-      await getL1ToL2MessageWitness(nodeUrl, contractAddress, messageHash, secret, log);
+      await getL1ToL2MessageWitness(nodeUrl, contractAddress, messageHash, privateContent, log);
     });
 
   program

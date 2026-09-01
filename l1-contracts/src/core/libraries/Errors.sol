@@ -24,8 +24,8 @@ library Errors {
   // Inbox
   error Inbox__ActorTooLarge(bytes32 actor); // 0xa776a06e
   error Inbox__VersionMismatch(uint256 expected, uint256 actual); // 0x47452014
-  error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
-  error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
+  error Inbox__PublicContentHashTooLarge(bytes32 publicContentHash); // 0x86f81123
+  error Inbox__PrivateContentHashTooLarge(bytes32 privateContentHash); // 0x3d5f989b
   error Inbox__BucketOutOfWindow(uint256 seq, uint256 current); // 0xfee255b7
 
   // Outbox

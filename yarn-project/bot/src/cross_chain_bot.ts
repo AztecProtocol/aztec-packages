@@ -124,7 +124,7 @@ export class CrossChainBot extends BaseBot {
     if (readyMsg) {
       calls.push(
         this.contract.methods.consume_message_from_arbitrary_sender_public(
-          Fr.fromHexString(readyMsg.content),
+          Fr.fromHexString(readyMsg.publicContentHash),
           Fr.fromHexString(readyMsg.secret),
           EthAddress.fromString(readyMsg.sender),
           new Fr(BigInt(readyMsg.globalLeafIndex)),

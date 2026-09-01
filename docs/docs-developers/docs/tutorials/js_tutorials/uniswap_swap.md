@@ -209,7 +209,7 @@ The private swap is similar but uses `transfer_to_public` (private to public tra
 #include_code swap_private /docs/examples/contracts/example_uniswap/src/main.nr rust
 
 :::note Why no recipient parameter?
-In `swap_private`, the recipient is the person that provides the secret used to generate the hash for the L1 to L2 message. This preserves privacy: revealing a recipient address to L1 would compromise the caller's identity. The output tokens are deposited privately to L2, where only the secret holder can claim them.
+In `swap_private`, the recipient is the person that provides the secret that forms the private content of the L1 to L2 message; the message carries only its hash (the private content hash). This preserves privacy: revealing a recipient address to L1 would compromise the caller's identity. The output tokens are deposited privately to L2, where only the secret holder can claim them.
 :::
 
 ### Bridge Helper
@@ -306,7 +306,7 @@ Bridge WETH from L1 to L2:
 #include_code deposit_to_l2 /docs/examples/ts/example_swap/index.ts typescript
 
 :::tip Why use a secret hash?
-When depositing from L1 to L2, we use a secret/secret-hash pattern: generate a random secret on the client, send only the hash to L1 (in the deposit transaction), then later reveal the secret on L2 to claim the tokens. This prevents **front-running attacks**: a malicious sequencer (the node that orders and processes L2 transactions) cannot observe the L1 deposit and claim the tokens themselves because they don't know the secret. Only someone who knows the preimage can claim.
+When depositing from L1 to L2, we use a secret/secret-hash pattern: generate a random secret on the client (it forms the message's private content), send only its hash to L1 (in the deposit transaction) as the message's private content hash, then later reveal the secret on L2 to claim the tokens. This prevents **front-running attacks**: a malicious sequencer (the node that orders and processes L2 transactions) cannot observe the L1 deposit and claim the tokens themselves because they don't know the secret. Only someone who knows the preimage can claim.
 :::
 
 Before claiming, we need to mine a couple of L2 blocks. An L1-to-L2 message is not available the moment it is sent -- the rollup only includes it in an L2 block once it is at least 12 seconds old, and it becomes consumable as soon as that block lands. We use a helper that deploys throwaway contracts to force these blocks:
