@@ -92,9 +92,9 @@ fi
 # --- 5. No leaked processes ---
 echo "--- 4. Process Cleanup ---"
 
-"$CP" "clean" "echo done" &>/dev/null
+"$CP" "clean_$$" "echo done" &>/dev/null
 sleep 0.3
-leaked_awk=$(pgrep -f "awk.*clean.*fflush" 2>/dev/null || true)
+leaked_awk=$(pgrep -f "awk.*clean_$$.*fflush" 2>/dev/null || true)
 leaked_fifo=$(ls /tmp/tmp.* 2>/dev/null | head -5 || true)
 if [[ -z "$leaked_awk" ]]; then
   pass "no leaked awk process"
@@ -119,8 +119,10 @@ fi
 # --- 7. SIGTERM kills cleanly ---
 echo "--- 5. Signal Handling ---"
 
+# A unique sleep duration: pgrep for a bare "sleep 60" matches other jobs on a CI machine.
+sig_sleep="60.0$$"
 # Use setsid to put color_prefix in its own session so SIGTERM doesn't reach us.
-setsid "$CP" "sig" "sleep 60" &>/dev/null &
+setsid "$CP" "sig" "sleep $sig_sleep" &>/dev/null &
 cp_pid=$!
 sleep 0.5
 # Send SIGTERM to color_prefix only (not the whole group).
@@ -136,11 +138,11 @@ fi
 
 # Ensure the sleep child was also killed.
 sleep 0.5
-if ! pgrep -f "sleep 60" &>/dev/null; then
+if ! pgrep -f "sleep $sig_sleep" &>/dev/null; then
   pass "child process killed on SIGTERM"
 else
-  fail "child process killed on SIGTERM" "sleep 60 still running"
-  pkill -f "sleep 60" 2>/dev/null || true
+  fail "child process killed on SIGTERM" "sleep $sig_sleep still running"
+  pkill -f "sleep $sig_sleep" 2>/dev/null || true
 fi
 
 # --- 8. Background children don't block exit ---
@@ -148,7 +150,8 @@ echo "--- 6. Fd Leak Prevention ---"
 
 start=$SECONDS
 code=0
-timeout 10 "$CP" "bg" "echo before; sleep 999 </dev/null >/dev/null 2>&1 & disown; echo after" &>/dev/null || code=$?
+bg_sleep="999.0$$"
+timeout 10 "$CP" "bg" "echo before; sleep $bg_sleep </dev/null >/dev/null 2>&1 & disown; echo after" &>/dev/null || code=$?
 elapsed=$((SECONDS - start))
 
 if [[ "$elapsed" -lt 8 ]]; then
@@ -156,7 +159,7 @@ if [[ "$elapsed" -lt 8 ]]; then
 else
   fail "exits promptly despite background child" "took ${elapsed}s"
 fi
-pkill -f "sleep 999" 2>/dev/null || true
+pkill -f "sleep $bg_sleep" 2>/dev/null || true
 
 # --- 9. Large output is fully flushed ---
 echo "--- 7. Output Flushing ---"

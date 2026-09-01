@@ -55,7 +55,9 @@ export FORCE_COLOR=${FORCE_COLOR:-1}
 
 key=$(uuid)
 url=$DASHBOARD_URL/$key
-outfile=/tmp/$key
+# DENOISE_TMPDIR gives a run a private output directory, so tests can scope their
+# leaked-process checks to their own denoise instead of every one on the machine.
+outfile=${DENOISE_TMPDIR:-/tmp}/$key
 touch $outfile
 
 function format_log_output {
