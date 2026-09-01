@@ -31,6 +31,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack_apply.hpp"
 #include <array>
 #include <cassert>
@@ -40,6 +41,10 @@
 #include <optional>
 #include <type_traits>
 #include <vector>
+
+// Maximum total bytes a single deserialization may allocate (256 MB).
+// Prevents attacker-controlled size fields from triggering multi-GB allocations.
+inline constexpr size_t MAX_SERIALIZE_BYTES = 256ULL * 1024 * 1024;
 
 #ifndef __i386__
 __extension__ using uint128_t = unsigned __int128;
@@ -215,6 +220,9 @@ inline void read(uint8_t const*& it, std::vector<uint8_t>& value)
 {
     uint32_t size = 0;
     read(it, size);
+    if (size > MAX_SERIALIZE_BYTES) {
+        throw_or_abort("deserialize: vector<uint8_t> size exceeds 256 MB limit");
+    }
     value.resize(size);
     std::copy(it, it + size, value.data());
     it += size;
@@ -233,6 +241,9 @@ inline void read(std::istream& is, std::vector<uint8_t>& value)
 {
     uint32_t size = 0;
     read(is, size);
+    if (size > MAX_SERIALIZE_BYTES) {
+        throw_or_abort("deserialize: vector<uint8_t> size exceeds 256 MB limit");
+    }
     value.resize(size);
     is.read(reinterpret_cast<char*>(value.data()), static_cast<std::streamsize>(size));
 }
@@ -282,6 +293,9 @@ template <typename B, typename T, typename A> inline void read(B& it, std::vecto
     using serialize::read;
     uint32_t size = 0;
     read(it, size);
+    if (static_cast<uint64_t>(size) * sizeof(T) > MAX_SERIALIZE_BYTES) {
+        throw_or_abort("deserialize: vector size exceeds 256 MB limit");
+    }
     value.resize(size);
     for (size_t i = 0; i < size; ++i) {
         read(it, value[i]);
@@ -353,6 +367,9 @@ template <typename B, typename T, typename U> inline void read(B& it, std::map<T
     value.clear();
     uint32_t size = 0;
     read(it, size);
+    if (static_cast<uint64_t>(size) * (sizeof(T) + sizeof(U)) > MAX_SERIALIZE_BYTES) {
+        throw_or_abort("deserialize: map size exceeds 256 MB limit");
+    }
     for (size_t i = 0; i < size; ++i) {
         std::pair<T, U> v;
         read(it, v);
