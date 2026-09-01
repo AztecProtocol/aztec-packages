@@ -104,6 +104,7 @@ describe('syncTaggedPrivateLogs', () => {
   beforeEach(async () => {
     aztecNode.getPrivateLogsByTags.mockReset();
     taggingStore = new RecipientTaggingStore(await openTmpStore('test'));
+    taggingStore.beginChangeSet(CHANGE_SET_ID);
   });
 
   it('returns empty array when given no secrets', async () => {

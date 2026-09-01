@@ -164,6 +164,7 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
 
     aztecNode.getPrivateLogsByTags.mockReset();
     const taggingStore = new RecipientTaggingStore(await openTmpStore('bench'));
+    taggingStore.beginChangeSet(CHANGE_SET_ID);
     const secrets = await Promise.all(Array.from({ length: secretCount }, () => randomAppTaggingSecret(kind)));
 
     // Seed the persisted finalized indexes to simulate a recipient that already synced prior finalized messages. The
