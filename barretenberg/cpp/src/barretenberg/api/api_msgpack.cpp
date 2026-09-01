@@ -4,6 +4,7 @@
 #include "barretenberg/bbapi/generated/bb_dispatch.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -67,6 +68,7 @@ int process_msgpack_commands(std::istream& input_stream)
         // convert still throws: catch that here rather than let it take down a
         // process that is mid-stream and owes the caller a response.
         std::vector<uint8_t> response;
+        const uint64_t draws_before = bb::numeric::debug_randomness_draws();
 #ifndef BB_NO_EXCEPTIONS
         try {
 #endif
@@ -76,6 +78,10 @@ int process_msgpack_commands(std::istream& input_stream)
             response = bbapi::detail::make_error(e.what());
         }
 #endif
+        if (std::getenv("BB_RNG_COUNT") != nullptr) {
+            std::cerr << "[rng] frame drew " << (bb::numeric::debug_randomness_draws() - draws_before)
+                      << " (total " << bb::numeric::debug_randomness_draws() << ")\n";
+        }
 
         auto response_length = static_cast<uint32_t>(response.size() + sizeof(uint64_t));
         stdout_stream.write(reinterpret_cast<const char*>(&response_length), sizeof(response_length));
