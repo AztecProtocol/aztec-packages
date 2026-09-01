@@ -57,7 +57,9 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-wakeup-pr-after-merge')
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-wakeup-pr-after-merge --repo ${{ github.repository }} || true
+        # REST, not `gh pr edit --remove-label`: the latter's GraphQL query needs the `read:org`
+        # scope AZTEC_BOT_GITHUB_TOKEN does not carry.
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/ci-wakeup-pr-after-merge" || true
 
       # Do NOT bump actions/checkout to v6 here. v6 ("persist creds to a separate file", #2286)
       # stores the persisted github.token in a temp credentials file pulled in via includeIf, which

@@ -80,7 +80,9 @@ function handle_release_pr {
   git tag "${tag_name}"
   git push origin "${tag_name}"
   echo "Created and pushed tag: ${tag_name}"
-  gh pr edit $PR_NUMBER --remove-label ci-release-pr || true
+  # REST, not `gh pr edit --remove-label`: the latter's GraphQL query needs the `read:org` scope
+  # AZTEC_BOT_GITHUB_TOKEN does not carry.
+  gh api -X DELETE "repos/${github_repository}/issues/${PR_NUMBER}/labels/ci-release-pr" || true
 }
 
 function main {
