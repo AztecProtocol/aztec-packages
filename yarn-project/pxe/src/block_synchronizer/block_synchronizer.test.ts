@@ -3,7 +3,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
-import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
@@ -18,19 +17,17 @@ import {
   makeL2CheckpointId,
 } from '@aztec/stdlib/block';
 import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
-import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
-import { TxHash } from '@aztec/stdlib/tx';
+import { NoteDao } from '@aztec/stdlib/note';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract/contract_sync_service.js';
 import { type CachingAztecNode, withCache } from '../node/caching_aztec_node.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
-import { FactStore } from '../storage/fact_store/fact_store.js';
-import { FactCollectionKey, FactCollectionTypeKey } from '../storage/fact_store/fact_store_keys.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
-import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
+import type { Rollbackable } from '../storage/rollbackable.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
 
 // `AztecNode.getBlock` is generic over its include-options; `Parameters`/`ReturnType` collapse that
@@ -45,8 +42,7 @@ describe('BlockSynchronizer', () => {
   let tipsStore: L2TipsKVStore;
   let anchorBlockStore: AnchorBlockStore;
   let noteStore: NoteStore;
-  let privateEventStore: PrivateEventStore;
-  let factStore: FactStore;
+  let rollbackables: MockProxy<Rollbackable>[];
   let aztecNode: MockProxy<AztecNode>;
   let getBlock: NodeGetBlockMock;
   let blockStream: MockProxy<L2BlockStream>;
@@ -59,14 +55,15 @@ describe('BlockSynchronizer', () => {
     }
   };
 
-  const createSynchronizer = (config: Partial<BlockSynchronizerConfig> = {}) => {
+  const createSynchronizer = (
+    config: Partial<BlockSynchronizerConfig> = {},
+    storesToRollBack: Rollbackable[] = rollbackables,
+  ) => {
     return new TestSynchronizer(
       cachedNode,
       store,
       anchorBlockStore,
-      noteStore,
-      privateEventStore,
-      factStore,
+      storesToRollBack,
       tipsStore,
       contractSyncService,
       config,
@@ -99,24 +96,14 @@ describe('BlockSynchronizer', () => {
   const noteAt = (contract: AztecAddress, block: L2BlockId): Promise<NoteDao> =>
     NoteDao.random({ contractAddress: contract, l2BlockNumber: block.number, l2BlockHash: block.hash });
 
-  // Stores one private event anchored to the given block id under the 'event-change-set' (caller commits).
-  const storeEvent = (contract: AztecAddress, scope: AztecAddress, eventId: Fr, block: L2BlockId) =>
-    privateEventStore.storePrivateEventLog(
-      EventSelector.random(),
-      Fr.random(),
-      [Fr.random()],
-      eventId,
-      {
-        contractAddress: contract,
-        scope,
-        txHash: TxHash.random(),
-        l2BlockNumber: block.number,
-        l2BlockHash: BlockHash.fromString(block.hash),
-        txIndexInBlock: 0,
-        eventIndexInTx: 0,
-      },
-      'event-change-set',
-    );
+  // A chain-pruned event forking back to `block`, with the checkpointed and proven cursors left at genesis.
+  const prunedEvent = (block: L2BlockId): L2BlockStreamEvent => {
+    const genesisTip = {
+      block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
+      checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
+    };
+    return { type: 'chain-pruned', block, checkpointed: genesisTip, proven: genesisTip };
+  };
 
   beforeEach(async () => {
     store = await openTmpStore('test');
@@ -126,8 +113,7 @@ describe('BlockSynchronizer', () => {
     tipsStore = new L2TipsKVStore(store, 'pxe', GENESIS_BLOCK_HEADER_HASH);
     anchorBlockStore = new AnchorBlockStore(store);
     noteStore = new NoteStore(store);
-    privateEventStore = new PrivateEventStore(store);
-    factStore = new FactStore(store);
+    rollbackables = [mock<Rollbackable>(), mock<Rollbackable>()];
     contractSyncService = mock<ContractSyncService>();
     cachedNode = withCache(aztecNode);
     synchronizer = createSynchronizer();
@@ -174,18 +160,7 @@ describe('BlockSynchronizer', () => {
     const anchorBlock = await L2Block.random(BlockNumber(4));
     await anchorBlockStore.setHeader(anchorBlock.header);
 
-    await synchronizer.handleBlockStreamEvent({
-      type: 'chain-pruned',
-      block: await blockId(reorgBlock),
-      checkpointed: {
-        block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-      },
-      proven: {
-        block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-        checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-      },
-    });
+    await synchronizer.handleBlockStreamEvent(prunedEvent(await blockId(reorgBlock)));
 
     // The anchor block should be updated to the reorg block header.
     const obtainedHeader = await anchorBlockStore.getBlockHeader();
@@ -237,304 +212,129 @@ describe('BlockSynchronizer', () => {
     });
   });
 
-  describe('delete-on-prune', () => {
-    it('chain-pruned deletes rows anchored above the fork and keeps rows at or below it', async () => {
-      const contract = await AztecAddress.random();
-      const scope = await AztecAddress.random();
-
-      // Block 3 is the fork point (a real block the node still serves); 4 and 5 are on the abandoned fork.
-      const forkBlock = await L2Block.random(BlockNumber(3));
-      const block4 = makeL2BlockId(BlockNumber(4), Fr.random().toString());
-      const block5 = makeL2BlockId(BlockNumber(5), Fr.random().toString());
-
-      // Seed a note at each block, anchored to that block's id.
-      const noteAt3 = await noteAt(contract, await blockId(forkBlock));
-      const noteAt4 = await noteAt(contract, block4);
-      const noteAt5 = await noteAt(contract, block5);
-      await noteStore.addNotes([noteAt3, noteAt4, noteAt5], scope, 'note-change-set');
-      await noteStore.commitStaged('note-change-set');
-
-      // Seed an event at each block.
-      const eventIdAt3 = Fr.random();
-      const eventIdAt4 = Fr.random();
-      const eventIdAt5 = Fr.random();
-      await storeEvent(contract, scope, eventIdAt3, await blockId(forkBlock));
-      await storeEvent(contract, scope, eventIdAt4, block4);
-      await storeEvent(contract, scope, eventIdAt5, block5);
-      await privateEventStore.commitStaged('event-change-set');
-
-      // Set the anchor to block 5 so the prune guard passes.
-      const anchorBlock5 = await L2Block.random(BlockNumber(5));
-      await anchorBlockStore.setHeader(anchorBlock5.header);
-
-      // The node serves the fork-point block; it becomes the new anchor after the prune.
+  describe('rollback on prune', () => {
+    // The anchor must sit above the fork for the prune guard to let the rollback through, and the node must still
+    // serve the fork point for the prune to find a header for the new anchor.
+    const stagePruneTo = async (forkBlock: L2Block, anchorBlockNumber: BlockNumber) => {
+      const anchorBlock = await L2Block.random(anchorBlockNumber);
+      await anchorBlockStore.setHeader(anchorBlock.header);
       await serveBlock(forkBlock);
+    };
 
-      // Prune back to block 3 (orphaning blocks 4 and 5).
-      await synchronizer.handleBlockStreamEvent({
-        type: 'chain-pruned',
-        block: await blockId(forkBlock),
-        checkpointed: {
-          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-        },
-        proven: {
-          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-        },
+    it('rolls every registered store back to the fork point, within the anchor update transaction', async () => {
+      // A depth counter rather than a boolean: reading the anchor below opens its own nested transaction, which would
+      // clear a boolean flag on the way out and make the enclosing prune transaction invisible.
+      const realTransactionAsync = store.transactionAsync.bind(store);
+      let transactionDepth = 0;
+      jest.spyOn(store, 'transactionAsync').mockImplementation(async callback => {
+        transactionDepth++;
+        try {
+          return await realTransactionAsync(callback);
+        } finally {
+          transactionDepth--;
+        }
       });
 
-      // Rows at blocks 4 and 5 must be gone.
-      expect(await noteStore.nullifiersOfNotesAtBlock(4)).toHaveLength(0);
-      expect(await noteStore.nullifiersOfNotesAtBlock(5)).toHaveLength(0);
-      expect(await privateEventStore.eventIdsAtBlock(4)).toHaveLength(0);
-      expect(await privateEventStore.eventIdsAtBlock(5)).toHaveLength(0);
+      // Each rollback records the block it was handed, whether it ran inside the kv transaction, and the anchor as it
+      // stood at that moment — still the pre-prune one, since the rollbacks must precede the anchor update.
+      const rollbacks: { toBlock: number; inTransaction: boolean; anchorBlockNumber: number }[] = [];
+      for (const rollbackable of rollbackables) {
+        rollbackable.rollbackToBlock.mockImplementation(async toBlock => {
+          const anchor = await anchorBlockStore.getBlockHeader();
+          rollbacks.push({ toBlock, inTransaction: transactionDepth > 0, anchorBlockNumber: anchor.getBlockNumber() });
+        });
+      }
 
-      // Rows at block 3 (the fork point, not an orphan) must survive.
-      expect(await noteStore.nullifiersOfNotesAtBlock(3)).toEqual([noteAt3.siloedNullifier.toString()]);
-      expect(await privateEventStore.eventIdsAtBlock(3)).toEqual([eventIdAt3.toString()]);
+      const forkBlock = await L2Block.random(BlockNumber(3));
+      await stagePruneTo(forkBlock, BlockNumber(5));
+
+      await synchronizer.handleBlockStreamEvent(prunedEvent(await blockId(forkBlock)));
+
+      expect(rollbacks).toEqual([
+        { toBlock: 3, inTransaction: true, anchorBlockNumber: 5 },
+        { toBlock: 3, inTransaction: true, anchorBlockNumber: 5 },
+      ]);
+      // Once the rollbacks were through, the anchor dropped to the fork point and the tips cursor followed it.
+      expect((await anchorBlockStore.getBlockHeader()).getBlockNumber()).toBe(3);
+      expect((await tipsStore.getL2Tips()).proposed.number).toBe(3);
     });
 
-    it('chain-finalized does not delete any rows', async () => {
-      const contract = await AztecAddress.random();
-      const scope = await AztecAddress.random();
-
-      // Canonical rows at two heights: one below the finalized block, one at it.
-      const block8 = makeL2BlockId(BlockNumber(8), Fr.random().toString());
-      const block9 = makeL2BlockId(BlockNumber(9), Fr.random().toString());
-      const note8 = await noteAt(contract, block8);
-      const note9 = await noteAt(contract, block9);
-      await noteStore.addNotes([note8, note9], scope, 'note-change-set');
-      await noteStore.commitStaged('note-change-set');
-
-      const eventId8 = Fr.random();
-      const eventId9 = Fr.random();
-      await storeEvent(contract, scope, eventId8, block8);
-      await storeEvent(contract, scope, eventId9, block9);
-      await privateEventStore.commitStaged('event-change-set');
+    it('does not roll back on chain-finalized', async () => {
+      // Configured to anchor on the finalized tip, so the event reaches the anchor update rather than being skipped
+      // by the syncChainTip check before any handling runs.
+      synchronizer = createSynchronizer({ syncChainTip: 'finalized' });
+      const finalizedBlock = await L2Block.random(BlockNumber(9));
+      getBlock.mockResolvedValue(await blockResponse(finalizedBlock));
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',
-        block: block9,
+        block: makeL2BlockId(BlockNumber(9), (await finalizedBlock.hash()).toString()),
         checkpoint: makeL2CheckpointId(CheckpointNumber(1), Fr.random().toString()),
       });
 
-      // Finalization is a no-op for storage under delete-on-prune, every row at and below the tip survives.
-      expect(await noteStore.nullifiersOfNotesAtBlock(8)).toEqual([note8.siloedNullifier.toString()]);
-      expect(await noteStore.nullifiersOfNotesAtBlock(9)).toEqual([note9.siloedNullifier.toString()]);
-      expect(await privateEventStore.eventIdsAtBlock(8)).toEqual([eventId8.toString()]);
-      expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventId9.toString()]);
+      expect((await anchorBlockStore.getBlockHeader()).getBlockNumber()).toBe(9);
+
+      for (const rollbackable of rollbackables) {
+        expect(rollbackable.rollbackToBlock).not.toHaveBeenCalled();
+      }
     });
 
-    it('chain-pruned retracts facts at pruned block heights or above, dropping collections left empty', async () => {
-      const changeSetId = 'fact-change-set';
+    it('undoes a failed prune, leaving the event to be re-emitted and applied on the next sync', async () => {
+      // The note store rolls back first and succeeds; the store behind it then throws, so the note it deleted is only
+      // restored if the whole prune shares one transaction.
+      const failingStore = mock<Rollbackable>();
+      failingStore.rollbackToBlock.mockRejectedValue(new Error('store rollback failed'));
+      synchronizer = createSynchronizer({}, [noteStore, failingStore]);
 
-      // Block 5 will be the fork point: the prune keeps it and abandons only blocks strictly above it.
-      const lastSurvivingBlock = await L2Block.random(BlockNumber(5));
-
-      const contractAddress = await AztecAddress.random();
+      const contract = await AztecAddress.random();
       const scope = await AztecAddress.random();
-      const factCollectionTypeId = Fr.random();
-      const typeKey = FactCollectionTypeKey.from({ contractAddress, scope, factCollectionTypeId });
+      const forkBlock = await L2Block.random(BlockNumber(3));
+      const orphanedNote = await noteAt(contract, makeL2BlockId(BlockNumber(4), Fr.random().toString()));
+      await noteStore.addNotes([orphanedNote], scope, 'note-change-set');
+      await noteStore.commitStaged('note-change-set');
 
-      // A collection whose only fact is retractable and anchored to the fork point (block 5): the fork point is kept,
-      // so the fact and its collection must survive.
-      const survivingCollectionId = Fr.random();
-      const survivingCollectionKey = FactCollectionKey.from({
-        contractAddress,
-        scope,
-        factCollectionTypeId,
-        factCollectionId: survivingCollectionId,
-      });
-      await factStore.recordFact(
-        survivingCollectionKey,
-        Fr.random(),
-        [Fr.random()],
-        { blockNumber: lastSurvivingBlock.number, blockHash: (await lastSurvivingBlock.hash()).toFr() },
-        changeSetId,
+      await stagePruneTo(forkBlock, BlockNumber(5));
+
+      await expect(synchronizer.handleBlockStreamEvent(prunedEvent(await blockId(forkBlock)))).rejects.toThrow(
+        'store rollback failed',
       );
 
-      // A collection whose only fact is retractable and originates just above the fork (block 6): the prune deletes the
-      // fact, and the now-empty collection disappears entirely.
-      const retractedCollectionId = Fr.random();
-      const retractedCollectionKey = FactCollectionKey.from({
-        contractAddress,
-        scope,
-        factCollectionTypeId,
-        factCollectionId: retractedCollectionId,
-      });
-      await factStore.recordFact(
-        retractedCollectionKey,
-        Fr.random(),
-        [Fr.random()],
-        { blockNumber: lastSurvivingBlock.number + 1, blockHash: Fr.random() },
-        changeSetId,
-      );
+      // Nothing from the failed attempt stuck: the orphaned note is back, the anchor still sits above the fork, and
+      // the tips cursor never advanced onto the prune target.
+      expect(await noteStore.nullifiersOfNotesAtBlock(4)).toEqual([orphanedNote.siloedNullifier.toString()]);
+      expect((await anchorBlockStore.getBlockHeader()).getBlockNumber()).toBe(5);
+      expect((await tipsStore.getL2Tips()).proposed.number).toBe(0);
 
-      await store.transactionAsync(() => factStore.commitStaged(changeSetId));
+      // Because the cursor stayed put, the next sync re-emits the very same prune event. This time the failing store
+      // recovers (say the node was restarted), so the reorg is processed to completion instead of being lost.
+      failingStore.rollbackToBlock.mockResolvedValue(undefined);
 
-      // Both collections must be present before the prune.
-      expect(await factStore.getFactCollectionsByType(typeKey, changeSetId)).toHaveLength(2);
-      // Release the read change set so the prune's rollback is not blocked by an in-flight change set.
-      await factStore.discardStaged(changeSetId);
+      await synchronizer.handleBlockStreamEvent(prunedEvent(await blockId(forkBlock)));
 
-      // Some blocks later...
-      const anchorBlock10 = await L2Block.random(BlockNumber(10));
-      await anchorBlockStore.setHeader(anchorBlock10.header);
-
-      // The node serves the fork-point block (number 5), so it becomes the new anchor after the prune.
-      await serveBlock(lastSurvivingBlock);
-
-      // Prune back to block 5, dropping block 6 where the retracted fact originates.
-      await synchronizer.handleBlockStreamEvent({
-        type: 'chain-pruned',
-        block: await blockId(lastSurvivingBlock),
-        checkpointed: {
-          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-        },
-        proven: {
-          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-        },
-      });
-
-      // Only the fork-point collection survives. The one whose sole fact originated above the fork is gone.
-      const collections = await factStore.getFactCollectionsByType(typeKey, changeSetId);
-      expect(collections).toHaveLength(1);
-      expect(collections[0].key.factCollectionId.equals(survivingCollectionId)).toBe(true);
-      expect(await factStore.getFactCollection(retractedCollectionKey, changeSetId)).toBeUndefined();
-      expect((await factStore.getFactCollection(survivingCollectionKey, changeSetId))!.facts).toHaveLength(1);
+      expect(await noteStore.nullifiersOfNotesAtBlock(4)).toHaveLength(0);
+      expect((await anchorBlockStore.getBlockHeader()).getBlockNumber()).toBe(3);
+      expect((await tipsStore.getL2Tips()).proposed.number).toBe(3);
     });
 
-    it('chain-pruned keeps a collection and its facts up to the fork point, deleting only those above it', async () => {
-      const changeSetId = 'fact-change-set';
+    it('deletes rows above the fork when wired to a real store', async () => {
+      synchronizer = createSynchronizer({}, [noteStore]);
 
-      // Block 5 is the fork point: the prune keeps it and abandons only blocks strictly above it.
-      const lastSurvivingBlock = await L2Block.random(BlockNumber(5));
-
-      const contractAddress = await AztecAddress.random();
-      const scope = await AztecAddress.random();
-
-      const factCollectionTypeId = Fr.random();
-      const factCollectionId = Fr.random();
-      const retractedFactType = Fr.random();
-      const forkPointFactType = Fr.random();
-      const nonRetractableFactType = Fr.random();
-
-      const typeKey = FactCollectionTypeKey.from({ contractAddress, scope, factCollectionTypeId });
-      const collectionKey = FactCollectionKey.from({ contractAddress, scope, factCollectionTypeId, factCollectionId });
-
-      // A collection carrying three facts: a non-retractable one, a retractable one anchored to the fork point (block
-      // 5), and a retractable one originating just above it (block 6). The prune must keep the collection, its
-      // non-retractable fact, and the fork-point fact, deleting only the orphaned fact.
-      await factStore.recordFact(collectionKey, nonRetractableFactType, [Fr.random()], undefined, changeSetId);
-      await factStore.recordFact(
-        collectionKey,
-        forkPointFactType,
-        [],
-        { blockNumber: lastSurvivingBlock.number, blockHash: (await lastSurvivingBlock.hash()).toFr() },
-        changeSetId,
-      );
-      await factStore.recordFact(
-        collectionKey,
-        retractedFactType,
-        [],
-        { blockNumber: lastSurvivingBlock.number + 1, blockHash: Fr.random() },
-        changeSetId,
-      );
-      await store.transactionAsync(() => factStore.commitStaged(changeSetId));
-
-      // The collection and all three facts must be present before the prune.
-      expect(await factStore.getFactCollectionsByType(typeKey, changeSetId)).toHaveLength(1);
-      expect((await factStore.getFactCollection(collectionKey, changeSetId))!.facts).toHaveLength(3);
-      // Release the read change set so the prune's rollback is not blocked by an in-flight change set.
-      await factStore.discardStaged(changeSetId);
-
-      // Some blocks later...
-      const anchorBlock10 = await L2Block.random(BlockNumber(10));
-      await anchorBlockStore.setHeader(anchorBlock10.header);
-
-      // The node serves the fork-point block, so it becomes the new anchor after the prune.
-      await serveBlock(lastSurvivingBlock);
-
-      // Prune back to block 5, orphaning block 6 where the retractable fact originates.
-      await synchronizer.handleBlockStreamEvent({
-        type: 'chain-pruned',
-        block: await blockId(lastSurvivingBlock),
-        checkpointed: {
-          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-        },
-        proven: {
-          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-        },
-      });
-
-      // The collection survives, keeping its non-retractable fact and the fork-point fact. Only the fact originating
-      // above the fork is gone.
-      const collections = await factStore.getFactCollectionsByType(typeKey, changeSetId);
-      expect(collections).toHaveLength(1);
-      expect(collections[0].key.factCollectionId.equals(factCollectionId)).toBe(true);
-
-      const remainingFactTypes = (await factStore.getFactCollection(collectionKey, changeSetId))!.facts.map(
-        fact => fact.factTypeId,
-      );
-      expect(remainingFactTypes).toHaveLength(2);
-      expect(remainingFactTypes.some(factType => factType.equals(nonRetractableFactType))).toBe(true);
-      expect(remainingFactTypes.some(factType => factType.equals(forkPointFactType))).toBe(true);
-      expect(remainingFactTypes.some(factType => factType.equals(retractedFactType))).toBe(false);
-    });
-
-    it('notes below the fork survive and remain queryable after a prune', async () => {
       const contract = await AztecAddress.random();
       const scope = await AztecAddress.random();
 
-      // Block 1 is the fork point (a real block the node still serves); 2 and 3 are on the abandoned fork.
-      const forkBlock = await L2Block.random(BlockNumber(1));
-      const block2 = makeL2BlockId(BlockNumber(2), Fr.random().toString());
-      const block3 = makeL2BlockId(BlockNumber(3), Fr.random().toString());
-
-      const noteAt1 = await noteAt(contract, await blockId(forkBlock));
-      const noteAt2 = await noteAt(contract, block2);
-      const noteAt3 = await noteAt(contract, block3);
-      await noteStore.addNotes([noteAt1, noteAt2, noteAt3], scope, 'note-change-set');
+      // Block 3 is the fork point (a real block the node still serves); block 4 is on the abandoned fork.
+      const forkBlock = await L2Block.random(BlockNumber(3));
+      const noteAtFork = await noteAt(contract, await blockId(forkBlock));
+      const orphanedNote = await noteAt(contract, makeL2BlockId(BlockNumber(4), Fr.random().toString()));
+      await noteStore.addNotes([noteAtFork, orphanedNote], scope, 'note-change-set');
       await noteStore.commitStaged('note-change-set');
 
-      // Anchor at block 3.
-      const anchorBlock3 = await L2Block.random(BlockNumber(3));
-      await anchorBlockStore.setHeader(anchorBlock3.header);
+      await stagePruneTo(forkBlock, BlockNumber(5));
 
-      // The node serves the fork-point block; it becomes the new anchor after the prune.
-      await serveBlock(forkBlock);
+      await synchronizer.handleBlockStreamEvent(prunedEvent(await blockId(forkBlock)));
 
-      // Prune back to block 1 (orphaning blocks 2 and 3).
-      await synchronizer.handleBlockStreamEvent({
-        type: 'chain-pruned',
-        block: await blockId(forkBlock),
-        checkpointed: {
-          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-        },
-        proven: {
-          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-        },
-      });
-
-      // Blocks 2 and 3 deleted.
-      expect(await noteStore.nullifiersOfNotesAtBlock(2)).toHaveLength(0);
-      expect(await noteStore.nullifiersOfNotesAtBlock(3)).toHaveLength(0);
-
-      // Block 1 note still present and visible via getNotes.
-      expect(await noteStore.nullifiersOfNotesAtBlock(1)).toEqual([noteAt1.siloedNullifier.toString()]);
-      const found = await noteStore.getNotes(
-        { contractAddress: contract, scopes: [scope], status: NoteStatus.ACTIVE },
-        'read-change-set',
-      );
-      expect(found).toHaveLength(1);
-      expect(found[0].siloedNullifier.equals(noteAt1.siloedNullifier)).toBe(true);
+      expect(await noteStore.nullifiersOfNotesAtBlock(4)).toHaveLength(0);
+      expect(await noteStore.nullifiersOfNotesAtBlock(3)).toEqual([noteAtFork.siloedNullifier.toString()]);
     });
   });
 
@@ -685,22 +485,14 @@ describe('BlockSynchronizer', () => {
       await anchorBlockStore.setHeader(anchorBlock.header);
 
       // Prune to block 3 (above anchor) - should be ignored
-      await synchronizer.handleBlockStreamEvent({
-        type: 'chain-pruned',
-        block: { number: BlockNumber(3), hash: '0x3' },
-        checkpointed: {
-          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-        },
-        proven: {
-          block: makeL2BlockId(BlockNumber.ZERO, GENESIS_BLOCK_HEADER_HASH.toString()),
-          checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
-        },
-      });
+      await synchronizer.handleBlockStreamEvent(prunedEvent({ number: BlockNumber(3), hash: '0x3' }));
 
-      // Anchor should be unchanged
+      // Anchor should be unchanged, and no store was rolled back
       const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(anchorBlock.header)).toBe(true);
+      for (const rollbackable of rollbackables) {
+        expect(rollbackable.rollbackToBlock).not.toHaveBeenCalled();
+      }
     });
   });
 
@@ -764,9 +556,7 @@ describe('BlockSynchronizer', () => {
         withCache(aztecNode),
         store,
         anchorBlockStore,
-        noteStore,
-        privateEventStore,
-        factStore,
+        rollbackables,
         tipsStore,
         contractSyncService,
         { syncChainTip: 'proposed' },

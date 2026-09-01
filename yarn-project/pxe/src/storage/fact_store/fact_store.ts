@@ -4,6 +4,7 @@ import { allToCompletion } from '@aztec/foundation/promise';
 import { Semaphore } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 
+import type { Rollbackable } from '../rollbackable.js';
 import type { ChangeSetId, StagedStore } from '../staged_write_coordinator.js';
 import { FactCollectionKey, type FactCollectionTypeKey, type OriginBlock } from './fact_store_keys.js';
 import { type Fact, StoredFact, factKeyStrOf } from './stored_fact.js';
@@ -50,7 +51,7 @@ type StagedOp = { kind: 'recordFact'; fact: StoredFact } | { kind: 'deleteFactCo
  *
  * As with most other PXE stores, writes are staged per change set ID and flushed atomically on commit.
  */
-export class FactStore implements StagedStore {
+export class FactStore implements StagedStore, Rollbackable {
   readonly storeName: string = 'fact';
 
   #store: AztecAsyncKVStore;
@@ -197,7 +198,7 @@ export class FactStore implements StagedStore {
    * back mid-change-set could re-introduce records originating from deleted blocks or change state underneath a change
    * set's view.
    */
-  async rollback(toBlock: BlockNum): Promise<void> {
+  async rollbackToBlock(toBlock: BlockNum): Promise<void> {
     if (this.#opsForChangeSet.size > 0) {
       throw new Error('PXE fact store rollback is not allowed while staged writes are pending');
     }

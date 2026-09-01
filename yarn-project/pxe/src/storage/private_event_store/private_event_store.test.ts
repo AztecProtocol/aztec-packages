@@ -595,7 +595,7 @@ describe('PrivateEventStore', () => {
       await storeEventAt(eventAt10, 10, BLOCK_HASH_10);
       await privateEventStore.commitStaged('test');
 
-      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(9));
 
       // Block 9 event survives; block 10 event is gone.
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventAt9.toString()]);
@@ -622,7 +622,7 @@ describe('PrivateEventStore', () => {
       await storeEventAt(eventAt12, 12, BLOCK_HASH_12);
       await privateEventStore.commitStaged('test');
 
-      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(9));
 
       // Block 9 survives; both 10 and the non-contiguous 12 are swept.
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventAt9.toString()]);
@@ -638,9 +638,9 @@ describe('PrivateEventStore', () => {
       await storeEventAt(eventAt10, 10, BLOCK_HASH_10);
       await privateEventStore.commitStaged('test');
 
-      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(9));
       // Re-running over the already-truncated tail must not throw and must not change anything.
-      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(9));
 
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventAt9.toString()]);
       expect(await privateEventStore.eventIdsAtBlock(10)).toHaveLength(0);
@@ -662,7 +662,7 @@ describe('PrivateEventStore', () => {
       await storeEventAt(commitment, 10, BLOCK_HASH_10);
       await privateEventStore.commitStaged('test');
 
-      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(9));
       expect(await readBack()).toHaveLength(0);
 
       // Re-add the same commitment, as happens when the tx is re-included after the reorg.
@@ -677,7 +677,7 @@ describe('PrivateEventStore', () => {
       await privateEventStore.commitStaged('test');
 
       // Rolling back to a block above every stored event removes nothing.
-      await kvStore.transactionAsync(() => privateEventStore.rollback(20));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(20));
 
       expect(await privateEventStore.eventIdsAtBlock(10)).toEqual([eventAt10.toString()]);
     });
@@ -701,13 +701,13 @@ describe('PrivateEventStore', () => {
         'uncommitted-change-set',
       );
 
-      await expect(kvStore.transactionAsync(() => privateEventStore.rollback(0))).rejects.toThrow(
+      await expect(kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(0))).rejects.toThrow(
         'PXE private event store rollback is not allowed while staged writes are pending',
       );
 
       await privateEventStore.discardStaged('uncommitted-change-set');
 
-      await expect(kvStore.transactionAsync(() => privateEventStore.rollback(0))).resolves.not.toThrow();
+      await expect(kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(0))).resolves.not.toThrow();
     });
   });
 

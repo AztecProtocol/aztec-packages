@@ -8,6 +8,7 @@ import type { DataInBlock } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
 import type { NotesFilter } from '../../notes_filter.js';
+import type { Rollbackable } from '../rollbackable.js';
 import type { ChangeSetId, StagedStore } from '../staged_write_coordinator.js';
 import { StoredNote } from './stored_note.js';
 
@@ -27,7 +28,7 @@ type StoredNoteBuffer = Buffer;
  * Reorgs are handled by delete-on-prune: the `chain-pruned` event triggers deletion of every note and nullifier
  * originating on a reorg'd block.
  */
-export class NoteStore implements StagedStore {
+export class NoteStore implements StagedStore, Rollbackable {
   readonly storeName: string = 'note';
 
   logger = createLogger('note_store');
@@ -399,7 +400,7 @@ export class NoteStore implements StagedStore {
    * Throws if any change set has uncommitted staged writes, since rolling back mid-change-set could later re-introduce
    * notes or nullifier emissions anchored to deleted blocks.
    */
-  public async rollback(toBlock: number): Promise<void> {
+  public async rollbackToBlock(toBlock: number): Promise<void> {
     if (this.#notesForChangeSet.size > 0 || this.#nullifierEmissionsForChangeSet.size > 0) {
       throw new Error('PXE note store rollback is not allowed while staged writes are pending');
     }
