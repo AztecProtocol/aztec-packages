@@ -15,7 +15,7 @@ describe('BaseStagingStore', () => {
     store = new TestStore(kv);
   });
 
-  describe('withChangeSet', () => {
+  describe('withChangeSetAndDb', () => {
     it('accepts operations between beginChangeSet and the end of the change set', async () => {
       store.beginChangeSet('cs1');
       await store.write('key', 1, 'cs1');
@@ -120,6 +120,41 @@ describe('BaseStagingStore', () => {
     });
   });
 
+  describe('withChangeSet', () => {
+    it('accepts operations between beginChangeSet and the end of the change set', async () => {
+      store.beginChangeSet('cs1');
+      await store.stage('key', 1, 'cs1');
+      await expect(store.staged('key', 'cs1')).resolves.toBe(1);
+    });
+
+    it('rejects staging for a change set that is not open', async () => {
+      await expect(store.stage('key', 1, 'cs1')).rejects.toThrow('Store "test": change set "cs1" is not open');
+    });
+
+    it('takes the same lock as withChangeSetAndDb, so it cannot interleave with an operation in flight', async () => {
+      store.beginChangeSet('cs1');
+      const gate = promiseWithResolvers<void>();
+      const order: string[] = [];
+
+      const inFlight = store.op(async changeSet => {
+        order.push('op-start');
+        await gate.promise;
+        changeSet.set('key', 1);
+        order.push('op-end');
+      }, 'cs1');
+      await tick();
+
+      const staged = store.stage('key', 2, 'cs1').then(() => order.push('stage-end'));
+      await tick();
+      expect(order).toEqual(['op-start']);
+
+      gate.resolve();
+      await Promise.all([inFlight, staged]);
+      expect(order).toEqual(['op-start', 'op-end', 'stage-end']);
+      await expect(store.readStaged('key', 'cs1')).resolves.toBe(2);
+    });
+  });
+
   describe('beginChangeSet', () => {
     it('rejects opening a change set while another is open', async () => {
       store.beginChangeSet('cs1');
@@ -181,6 +216,21 @@ describe('BaseStagingStore', () => {
   });
 
   describe('discardChangeSet', () => {
+    it('drops the staged writes without touching committed state', async () => {
+      store.beginChangeSet('cs1');
+      await store.write('key', 1, 'cs1');
+      await store.commitChangeSet('cs1');
+
+      store.beginChangeSet('cs2');
+      await store.write('key', 2, 'cs2');
+      store.discardChangeSet('cs2');
+
+      // Commit the next change set: a discarded change set's staged write must not ride along on it.
+      store.beginChangeSet('cs3');
+      await store.commitChangeSet('cs3');
+      await expect(store.committed('key')).resolves.toBe(1);
+    });
+
     it('leaves the open change set alone when discarding a different one', async () => {
       store.beginChangeSet('cs1');
       await store.write('key', 1, 'cs1');
@@ -263,19 +313,29 @@ class TestStore extends BaseStagingStore<Map<string, number>, TestDb> {
   }
 
   write(key: string, value: number, changeSetId: ChangeSetId): Promise<void> {
-    return this.withChangeSet(changeSetId, changeSet => {
+    return this.withChangeSetAndDb(changeSetId, changeSet => {
       changeSet.set(key, value);
       return Promise.resolve();
     });
   }
 
+  stage(key: string, value: number, changeSetId: ChangeSetId): Promise<void> {
+    return this.withChangeSet(changeSetId, changeSet => {
+      changeSet.set(key, value);
+    });
+  }
+
+  staged(key: string, changeSetId: ChangeSetId): Promise<number | undefined> {
+    return this.withChangeSet(changeSetId, changeSet => changeSet.get(key));
+  }
+
   // Runs an arbitrary operation body under the change set's lock.
   op<R>(fn: (changeSet: Map<string, number>) => Promise<R>, changeSetId: ChangeSetId): Promise<R> {
-    return this.withChangeSet(changeSetId, changeSet => fn(changeSet));
+    return this.withChangeSetAndDb(changeSetId, changeSet => fn(changeSet));
   }
 
   readStaged(key: string, changeSetId: ChangeSetId): Promise<number | undefined> {
-    return this.withChangeSet(changeSetId, changeSet => Promise.resolve(changeSet.get(key)));
+    return this.withChangeSetAndDb(changeSetId, changeSet => Promise.resolve(changeSet.get(key)));
   }
 
   committed(key: string): Promise<number | undefined> {

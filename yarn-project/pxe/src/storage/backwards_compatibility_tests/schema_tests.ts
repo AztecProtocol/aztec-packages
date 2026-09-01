@@ -223,6 +223,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     writeToStore: async kvStore => {
       const factStore = new FactStore(kvStore);
       const changeSetId = 'fixture-change-set';
+      factStore.beginChangeSet(changeSetId);
       const contract = AztecAddress.fromBigIntUnsafe(100n);
       const scope = AztecAddress.fromBigIntUnsafe(1n);
       const factCollectionTypeId = new Fr(7n);
@@ -536,6 +537,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const recipientTaggingStore = new RecipientTaggingStore(kvStore);
 
       const changeSetId = 'fixture-change-set';
+      recipientTaggingStore.beginChangeSet(changeSetId);
+
       const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigIntUnsafe(3n));
       const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigIntUnsafe(7n));
       // A constrained secret keys under the `constrained:` prefix, so the snapshot pins both kinds side by side.
