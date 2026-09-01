@@ -35,6 +35,9 @@ serve/
 gas_report.new.*
 gas_report.diff
 
+partial_epoch_proof_gas_report.new.*
+partial_epoch_proof_gas_report.diff
+
 gas_benchmark.new.*
 gas_benchmark.diff
 
