@@ -134,6 +134,7 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     add_subdirectory(barretenberg/cdb)
     add_subdirectory(barretenberg/avm)
     add_subdirectory(barretenberg/nodejs_module)
+    add_subdirectory(barretenberg/ignition_verification)
 endif()
 
 # Pull in ipc-runtime as a C++ dependency. Provides the `ipc_runtime`
