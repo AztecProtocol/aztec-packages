@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Tue, 1 Sep 2026 13:11:56 +0000
+Subject: [PATCH] feat: BB_POOL_SIZE selects a fixed pool of long-lived bb
+ processes
+
+The prover's default backend mode spawns one bb per proving job and destroys
+it after. BB_POOL_SIZE=<n> keeps a fixed pool instead; a pool of 1 serializes
+every job onto one bb connection, which is required when recording or
+replaying a prover's traffic as a single ordered stream, and useful to cap bb
+memory. BBJsFactory already supported poolSize; this exposes it.
+
+diff --git a/yarn-project/bb-prover/src/prover/server/bb_prover.ts b/yarn-project/bb-prover/src/prover/server/bb_prover.ts
+index 2310a5a744adbaefa8326f1644b2489c9a2c68d6..11b7e3172905e72808e2531305ca5946d7e12b7a 100644
+--- a/yarn-project/bb-prover/src/prover/server/bb_prover.ts
++++ b/yarn-project/bb-prover/src/prover/server/bb_prover.ts
+@@ -108,7 +108,14 @@ export class BBNativeRollupProver implements ServerCircuitProver {
+     telemetry: TelemetryClient,
+   ) {
+     this.instrumentation = new ProverInstrumentation(telemetry, 'BBNativeRollupProver');
+-    this.bbJsFactory = new BBJsFactory(config.bbBinaryPath, { logger, debugDir: config.bbDebugOutputDir });
++    // BB_POOL_SIZE keeps a fixed pool of long-lived bb processes instead of spawn-per-borrow.
++    // A pool of 1 serializes every proving job onto one bb connection — required when recording
++    // or replaying a prover's traffic as a single ordered stream, and useful to cap bb memory.
++    this.bbJsFactory = new BBJsFactory(config.bbBinaryPath, {
++      logger,
++      debugDir: config.bbDebugOutputDir,
++      poolSize: process.env.BB_POOL_SIZE ? Number(process.env.BB_POOL_SIZE) : undefined,
++    });
+   }
+ 
+   get tracer() {
