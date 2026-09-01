@@ -429,16 +429,12 @@ export class RollupContract {
 
   @memoize
   async getVkTreeRoot(): Promise<Fr> {
-    const slot = BigInt(RollupContract.stfStorageSlot) + 3n;
-    const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
-    return Fr.fromString(value ?? '0x0');
+    return Fr.fromString(await this.rollup.read.getVkTreeRoot());
   }
 
   @memoize
   async getProtocolContractsHash(): Promise<Fr> {
-    const slot = BigInt(RollupContract.stfStorageSlot) + 4n;
-    const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
-    return Fr.fromString(value ?? '0x0');
+    return Fr.fromString(await this.rollup.read.getProtocolContractsHash());
   }
 
   /**
