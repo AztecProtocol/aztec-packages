@@ -563,6 +563,8 @@ function versions {
 function release_bb_github {
   # Create a GitHub release in AztecProtocol/barretenberg for bb artifacts.
   # Users can manually create releases in aztec-packages via the GitHub UI if needed.
+  # A private release must never reach a GitHub publish: refuse here regardless of call path.
+  "$root/ci3/assert_public_release"
   local bb_repo="AztecProtocol/barretenberg"
   if gh release view "$REF_NAME" --repo "$bb_repo" &>/dev/null; then
     return
