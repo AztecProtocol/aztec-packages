@@ -567,7 +567,7 @@ describe('withCache', () => {
       await cachedNode.getPublicStorageAt(blockHash, contractAddress, storageSlot);
       await cachedNode.getPublicStorageAt(blockHash, contractAddress, storageSlot);
 
-      expect(callCounts(recording.stop())).toEqual({ getPublicStorageAt: 1 });
+      expect(callCounts(recording.stats())).toEqual({ getPublicStorageAt: 1 });
     });
 
     it('records a batched leaf read only when it fetches a missing leaf', async () => {
@@ -581,7 +581,7 @@ describe('withCache', () => {
       await cachedNode.findLeavesIndexes(blockHash, MerkleTreeId.NULLIFIER_TREE, [leafA]);
       await cachedNode.findLeavesIndexes(blockHash, MerkleTreeId.NULLIFIER_TREE, [leafA, leafB]);
 
-      expect(callCounts(recording.stop())).toEqual({ findLeavesIndexes: 2 });
+      expect(callCounts(recording.stats())).toEqual({ findLeavesIndexes: 2 });
     });
 
     it('does not count a batch the cache serves in full as a round trip', async () => {
@@ -592,7 +592,7 @@ describe('withCache', () => {
       await cachedNode.getPublicStorageAt(blockHash, contractAddress, storageSlot);
       await cachedNode.getPublicStorageAt(blockHash, contractAddress, storageSlot);
 
-      const { roundTrips } = recording.stop();
+      const { roundTrips } = recording.stats();
       expect(roundTrips.roundTrips).toBe(1);
       expect(roundTrips.roundTripMethods).toEqual([['getPublicStorageAt']]);
     });
@@ -609,7 +609,7 @@ describe('withCache', () => {
         cachedNode.getBlockNumber(),
       ]);
 
-      const { roundTrips } = recording.stop();
+      const { roundTrips } = recording.stats();
       expect(roundTrips.roundTrips).toBe(2);
       // The second batch waited on `getBlockNumber` alone: its storage read was served without reaching the node.
       expect(roundTrips.roundTripMethods).toEqual([['getPublicStorageAt'], ['getBlockNumber']]);
