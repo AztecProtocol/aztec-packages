@@ -210,7 +210,7 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
 
     // Round-trips and blocking time from the same instrumentation the app benches use. `syncTaggedPrivateLogs` only
     // ever calls `getPrivateLogsByTags`, so every round-trip is that method.
-    const { roundTrips } = recording.stop();
+    const { roundTrips } = recording.stats();
     const rpcRoundTrips = roundTrips.roundTrips;
     const rpcBlockingTimeMs = roundTrips.totalBlockingTime;
 
