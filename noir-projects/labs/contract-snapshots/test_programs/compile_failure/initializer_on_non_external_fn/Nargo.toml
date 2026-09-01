@@ -1,7 +1,0 @@
-[package]
-name = "initializer_on_non_external_fn"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

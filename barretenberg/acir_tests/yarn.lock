@@ -12,42 +12,42 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aztec-foundation/bb.js@portal:../../ts/bb.js::locator=bbjs-test%40workspace%3Abbjs-test":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js@portal:../../ts/bb.js::locator=bbjs-test%40workspace%3Abbjs-test"
+  dependencies:
+    comlink: "npm:^4.4.1"
+    commander: "npm:^12.1.0"
+    idb-keyval: "npm:^6.2.1"
+    msgpackr: "npm:^1.11.2"
+    pako: "npm:^2.1.0"
+    tslib: "npm:^2.4.0"
+  bin:
+    bb: dest/node/bin/index.js
+  languageName: node
+  linkType: soft
+
+"@aztec-foundation/bb.js@portal:../../ts/bb.js::locator=browser-test-app%40workspace%3Abrowser-test-app":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js@portal:../../ts/bb.js::locator=browser-test-app%40workspace%3Abrowser-test-app"
+  dependencies:
+    comlink: "npm:^4.4.1"
+    commander: "npm:^12.1.0"
+    idb-keyval: "npm:^6.2.1"
+    msgpackr: "npm:^1.11.2"
+    pako: "npm:^2.1.0"
+    tslib: "npm:^2.4.0"
+  bin:
+    bb: dest/node/bin/index.js
+  languageName: node
+  linkType: soft
+
 "@aztec/acir-tests@workspace:.":
   version: 0.0.0-use.local
   resolution: "@aztec/acir-tests@workspace:."
   dependencies:
     pino: "npm:^9.5.0"
   languageName: unknown
-  linkType: soft
-
-"@aztec/bb.js@portal:../../ts/bb.js::locator=bbjs-test%40workspace%3Abbjs-test":
-  version: 0.0.0-use.local
-  resolution: "@aztec/bb.js@portal:../../ts/bb.js::locator=bbjs-test%40workspace%3Abbjs-test"
-  dependencies:
-    comlink: "npm:^4.4.1"
-    commander: "npm:^12.1.0"
-    idb-keyval: "npm:^6.2.1"
-    msgpackr: "npm:^1.11.2"
-    pako: "npm:^2.1.0"
-    tslib: "npm:^2.4.0"
-  bin:
-    bb: dest/node/bin/index.js
-  languageName: node
-  linkType: soft
-
-"@aztec/bb.js@portal:../../ts/bb.js::locator=browser-test-app%40workspace%3Abrowser-test-app":
-  version: 0.0.0-use.local
-  resolution: "@aztec/bb.js@portal:../../ts/bb.js::locator=browser-test-app%40workspace%3Abrowser-test-app"
-  dependencies:
-    comlink: "npm:^4.4.1"
-    commander: "npm:^12.1.0"
-    idb-keyval: "npm:^6.2.1"
-    msgpackr: "npm:^1.11.2"
-    pako: "npm:^2.1.0"
-    tslib: "npm:^2.4.0"
-  bin:
-    bb: dest/node/bin/index.js
-  languageName: node
   linkType: soft
 
 "@babel/code-frame@npm:^7.0.0":
@@ -1201,7 +1201,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "bbjs-test@workspace:bbjs-test"
   dependencies:
-    "@aztec/bb.js": "portal:../../ts/bb.js"
+    "@aztec-foundation/bb.js": "portal:../../ts/bb.js"
     "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
     commander: "npm:^12.1.0"
   languageName: unknown
@@ -1308,7 +1308,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "browser-test-app@workspace:browser-test-app"
   dependencies:
-    "@aztec/bb.js": "portal:../../ts/bb.js"
+    "@aztec-foundation/bb.js": "portal:../../ts/bb.js"
     "@types/pako": "npm:^2.0.3"
     html-webpack-plugin: "npm:^5.6.0"
     pako: "npm:^2.1.0"

@@ -22,15 +22,13 @@ function print_usage {
   echo_cmd "fast"                  "Spin up an EC2 instance and run bootstrap ci-fast."
   echo_cmd "full"                  "Spin up an EC2 instance and run bootstrap ci-full."
   echo_cmd "full-no-test-cache"    "Spin up an EC2 instance and run bootstrap ci-full-no-test-cache."
-  echo_cmd "docs"                  "Spin up an EC2 instance and run docs-only CI."
   echo_cmd "barretenberg"          "Spin up an EC2 instance and run barretenberg-only CI."
   echo_cmd "grind"                 "Spin up EC2 instances to run parallel full CI runs."
   echo_cmd "merge-queue"           "Spin up EC2 instances to run the merge-queue jobs."
   echo_cmd "grind-test"            "Spin up an EC2 and grind a given test command."
-  echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
   echo_cmd "chonk-input-update"    "Spin up an EC2 instance to update pinned Chonk IVC inputs and push the diff."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
-  echo_cmd "ci-private-release"     "Locally dry-run the release of every project except release-image, then publish release-image to the internal GCP Artifact Registry."
+  echo_cmd "ci-private-release"    "Locally run the private release flow: publish the foundation npm packages to the internal GCP Artifact Registry."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell-container"       "Shell into a running build container. Optional filter tokens (e.g. 'pr-123 bench') select the instance; defaults to the current branch."
   echo_cmd "shell-host"            "Shell into a running build host. Same instance selection as shell-container."
@@ -41,8 +39,6 @@ function print_usage {
   echo_cmd "ready"                 "Mark the current PR as ready (enable automatic CI runs when pushing)."
   echo_cmd "pr-url"                "Print the URL of the current PR associated with the branch."
   echo_cmd "barretenberg-nightly"  "Spin up an EC2 instance and run the bb tests that are too slow for the merge queue."
-  echo_cmd "avm-inputs-collection" "Run e2e tests, dump AVM circuit inputs, upload to cache."
-  echo_cmd "avm-check-circuit"     "Download cached AVM inputs, run check-circuit on each."
   echo_cmd "help"                  "Display this help message."
 }
 
@@ -165,7 +161,7 @@ case "$cmd" in
   dash)
     watch_ci -s next,prs --user --watch
     ;;
-  fast|docs|barretenberg|barretenberg-full)
+  fast|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
     # Route through multi_job_run (even for a single instance) so the runner-side
     # orchestration — including the spot/instance request — is captured into a
@@ -218,11 +214,6 @@ case "$cmd" in
     export AWS_SHUTDOWN_TIME=120
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
-  avm-inputs-collection|avm-check-circuit)
-    export CI_DASHBOARD="nightly"
-    export JOB_ID="x-$cmd"
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
-    ;;
   grind)
     # Grind a default of 5 times.
     export CI_DASHBOARD="local"
@@ -272,16 +263,6 @@ case "$cmd" in
     export CPUS=${CPUS:-192}
     bootstrap_ec2 "./bootstrap.sh ci-grind-test $(printf %q "$full_cmd") $timeout $jobs_pct $memsuspend_pct $commit" | DUP=1 cache_log "Grind test CI run" $RUN_ID
     ;;
-  deploy-rollup-upgrade)
-    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
-    # Args: <registry_address>
-    export CI_DASHBOARD="network"
-    export JOB_ID="x-deploy-rollup-upgrade"
-    export CPUS=8
-    export INSTANCE_POSTFIX="rollup-upgrade"
-    bootstrap_ec2 "./bootstrap.sh ci-deploy-rollup-upgrade $*"
-    ;;
-
   ############
   # RELEASES #
   ############
@@ -300,8 +281,8 @@ case "$cmd" in
     # Run the private release flow LOCALLY (no EC2): publish the foundation npm packages to the
     # internal GCP Artifact Registry. Override INTERNAL_NPM_REGISTRY / GOOGLE_APPLICATION_CREDENTIALS
     # as needed; SKIP_BUILD=1 reuses a build.
-    # Default to the local SA key if no GCP creds are set (a no-op in CI, where GCP_SA_KEY is used).
-    [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
+    # Default to the local SA key if no GCP creds are set (a no-op in CI, where GCP_PRIVATE_NPM_DEPLOY is used).
+    [ -z "${GCP_PRIVATE_NPM_DEPLOY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
       export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"
     ./bootstrap.sh ci-private-release
     ;;
@@ -452,7 +433,7 @@ case "$cmd" in
   ########################
   # BENCHMARK PROCESSING #
   ########################
-  gh-bench|gh-deploy-bench)
+  gh-bench)
     cache_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
 

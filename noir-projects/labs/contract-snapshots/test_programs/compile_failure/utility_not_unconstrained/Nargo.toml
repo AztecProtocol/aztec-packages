@@ -1,7 +1,0 @@
-[package]
-name = "utility_not_unconstrained"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

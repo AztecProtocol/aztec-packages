@@ -307,12 +307,8 @@ function install_hooks {
 #!/usr/bin/env bash
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
-./yarn-project/precommit.sh
 ./noir/precommit.sh
 ./noir-projects/fnd/precommit.sh
-./noir-projects/labs/precommit.sh
-./yarn-project/constants/precommit.sh
-./docs/examples/ts/precommit.sh
 # Hooks are shared by every branch of this clone; older branches have no labs-patches.
 if [ -x ./labs-patches/bootstrap.sh ]; then ./labs-patches/bootstrap.sh check_staged; fi
 EOF
@@ -503,7 +499,10 @@ function labs_bench_cmds {
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/{fnd/noir-protocol-circuits,labs/noir-contracts} l1-contracts
+    set -- barretenberg/{ts,cpp,sol} noir-projects/fnd/noir-protocol-circuits l1-contracts
+    parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
+    labs_bench_cmds
+    return
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
@@ -607,6 +606,11 @@ function release {
   # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
   release_bb_github
 
+  # The npm packages are only packed here (deploy_npm pack mode) and handed to the GitHub runner
+  # through the build cache; ci3.yml's publish-npm job publishes them with npm trusted publishing.
+  export NPM_PACK_DIR=$root/npm-release
+  rm -rf "$NPM_PACK_DIR"
+
   # Only the foundation packages are published from here; the labs packages (yarn-project, playground,
   # aztec-up, aztec-nr, the docker release-image) are published from the labs repo.
   projects=(
@@ -624,6 +628,12 @@ function release {
   for project in "${projects[@]}"; do
     $project/bootstrap.sh release
   done
+
+  # Keyed by the release tag and force-uploaded so a re-run of the release refreshes the bundle.
+  # A dry run packs but does not upload.
+  if [ "${DRY_RUN:-0}" != 1 ]; then
+    S3_FORCE_UPLOAD=1 cache_upload "npm-release-$REF_NAME.tar.gz" npm-release
+  fi
 }
 
 function release_dryrun {
@@ -656,20 +666,20 @@ function private_release {
   set +x  # Never echo the access token.
   export NPM_TOKEN=$(gcloud auth print-access-token)
   # Route our scope to the internal npm registry; public deps still resolve from the default registry
-  # (npmjs). Everything we publish is @aztec-scoped — the noir packages are renamed
-  # @noir-lang/* -> @aztec/noir-* on release. Exported so deploy_npm picks it up.
+  # (npmjs). Everything we publish is @aztec-foundation-scoped — the noir packages are renamed
+  # @noir-lang/* -> @aztec-foundation/noir-* on release. Exported so deploy_npm picks it up.
   local npmrc reg
   reg="${INTERNAL_NPM_REGISTRY%/}/"
   npmrc=$(mktemp)
   (umask 077; {
-    echo "@aztec:registry=$reg"
+    echo "@aztec-foundation:registry=$reg"
     echo "${reg#https:}:_authToken=\${NPM_TOKEN}"
   } > "$npmrc")
   export NPM_CONFIG_GLOBALCONFIG="$npmrc"
   set -x
 
-  # Publish for real, in dependency order: the ipc-codegen-generated @aztec/wsdb has a runtime
-  # dependency on @aztec/ipc-runtime, so ipc-runtime must precede wsdb.
+  # Publish for real, in dependency order: the ipc-codegen-generated @aztec-foundation/wsdb has a runtime
+  # dependency on @aztec-foundation/ipc-runtime, so ipc-runtime must precede wsdb.
   local publish=(barretenberg/ts noir ipc-runtime wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
   for project in "${publish[@]}"; do
     $project/bootstrap.sh release
@@ -747,7 +757,7 @@ function release_compat_e2e {
   # Pre-populate the legacy contract cache on the host. Test containers run with --net=none, so the
   # jest resolver's on-demand npm install would fail with EAI_AGAIN. Install here where we have network.
   for ver in "${versions[@]}"; do
-    node yarn-project/end-to-end/src/install_legacy_contracts.cjs "$ver"
+    (cd labs && env -u root -u ci3 node yarn-project/end-to-end/src/install_legacy_contracts.cjs "$ver")
   done
 
   # Build and run the compat test commands in an isolated subshell so the bespoke test settings
@@ -963,12 +973,12 @@ case "$cmd" in
     # npm packages to the internal GCP Artifact Registry.
     # Same publishing path the private-release.yml workflow runs, minus EC2 and the compat-e2e gating.
     # Build first so the artifacts the publishes pack exist; set SKIP_BUILD=1 to reuse an existing
-    # build. Requires GCP creds (GCP_SA_KEY or GOOGLE_APPLICATION_CREDENTIALS) in the environment.
+    # build. Requires GCP creds (GCP_PRIVATE_NPM_DEPLOY_KEY or GOOGLE_APPLICATION_CREDENTIALS) in the environment.
     export CI=${CI:-1}
     export PRIVATE_RELEASE=1
     export REF_NAME=${REF_NAME:-v0.0.1-commit.$(git rev-parse --short HEAD)}
     # Local convenience: default GCP creds to ~/sa.json (the CI service-account key) when present.
-    [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
+    [ -z "${GCP_PRIVATE_NPM_DEPLOY_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
       export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"
     [ "${SKIP_BUILD:-0}" = 1 ] || ./bootstrap.sh build release
     ./bootstrap.sh release
@@ -977,12 +987,6 @@ case "$cmd" in
   ##########################
   # MERGE TRAIN CI SUBSETS #
   ##########################
-  "ci-docs")
-    export CI=1
-    export USE_TEST_CACHE=1
-    ./bootstrap.sh build yarn-project
-    docs/bootstrap.sh ci
-    ;;
   "ci-barretenberg-debug")
     export CI=1
     export NATIVE_PRESET=debug
@@ -1019,36 +1023,6 @@ case "$cmd" in
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
-    ;;
-
-  #######################
-  # AVM QA ONE OFF JOBS #
-  #######################
-  "ci-avm-inputs-collection")
-    # Nightly job: Run e2e tests with AVM circuit inputs dumping, upload to cache
-    export CI=1
-    # Use tree hash for tarball name - consistent across all environments
-    export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
-    build
-    yarn-project/end-to-end/bootstrap.sh test_and_collect_avm_inputs
-    ;;
-  "ci-avm-check-circuit")
-    # Nightly job: Download cached AVM inputs and run check-circuit on each
-    export CI=1
-    # Use tree hash for tarball name - consistent across all environments
-    export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
-    build
-    yarn-project/end-to-end/bootstrap.sh avm_check_circuit
-    ;;
-  ##########################################
-  # ROLLUP UPGRADE DEPLOYMENT              #
-  ##########################################
-  "ci-deploy-rollup-upgrade")
-    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
-    # Args: <registry_address> [KEY=VALUE...]
-    export CI=1
-    build
-    exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
     ;;
 
   #################
