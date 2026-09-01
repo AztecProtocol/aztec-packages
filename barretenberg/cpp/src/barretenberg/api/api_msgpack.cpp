@@ -65,8 +65,8 @@ int process_msgpack_commands(std::istream& input_stream)
         const uint64_t draws_before = bb::numeric::debug_randomness_draws();
         handler(buffer, [&response](std::vector<uint8_t> r) { response = std::move(r); });
         if (std::getenv("BB_RNG_COUNT") != nullptr) {
-            std::cerr << "[rng] frame drew " << (bb::numeric::debug_randomness_draws() - draws_before)
-                      << " (total " << bb::numeric::debug_randomness_draws() << ")\n";
+            std::cerr << "[rng] frame drew " << (bb::numeric::debug_randomness_draws() - draws_before) << " (total "
+                      << bb::numeric::debug_randomness_draws() << ")\n";
         }
 
         auto response_length = static_cast<uint32_t>(response.size() + sizeof(uint64_t));
