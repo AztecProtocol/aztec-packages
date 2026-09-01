@@ -74,7 +74,7 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
     }
 
     const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -115,7 +115,7 @@ describe('PrivateEventStore', () => {
       metadata,
       'test',
     );
-    await privateEventStore.commitStaged('test');
+    await privateEventStore.commitChangeSet('test');
 
     const events = await privateEventStore.getPrivateEvents(eventSelector, {
       contractAddress,
@@ -163,7 +163,7 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
     }
 
     const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -232,7 +232,7 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
     }
 
     const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -281,7 +281,7 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
     }
 
     const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -319,7 +319,7 @@ describe('PrivateEventStore', () => {
       'test',
     );
 
-    await privateEventStore.commitStaged('test');
+    await privateEventStore.commitChangeSet('test');
 
     const filter = { contractAddress, fromBlock: l2BlockNumber, toBlock: l2BlockNumber + 1 };
 
@@ -413,7 +413,7 @@ describe('PrivateEventStore', () => {
           },
           'test',
         );
-        await privateEventStore.commitStaged('test');
+        await privateEventStore.commitChangeSet('test');
       }
 
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -481,7 +481,7 @@ describe('PrivateEventStore', () => {
           },
           'test',
         );
-        await privateEventStore.commitStaged('test');
+        await privateEventStore.commitChangeSet('test');
       }
 
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -550,7 +550,7 @@ describe('PrivateEventStore', () => {
           },
           'test',
         );
-        await privateEventStore.commitStaged('test');
+        await privateEventStore.commitChangeSet('test');
       }
 
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -593,9 +593,9 @@ describe('PrivateEventStore', () => {
 
       await storeEventAt(eventAt9, 9, BLOCK_HASH_9);
       await storeEventAt(eventAt10, 10, BLOCK_HASH_10);
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
 
-      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(9));
 
       // Block 9 event survives; block 10 event is gone.
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventAt9.toString()]);
@@ -620,9 +620,9 @@ describe('PrivateEventStore', () => {
       await storeEventAt(eventAt9, 9, BLOCK_HASH_9);
       await storeEventAt(eventAt10, 10, BLOCK_HASH_10);
       await storeEventAt(eventAt12, 12, BLOCK_HASH_12);
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
 
-      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(9));
 
       // Block 9 survives; both 10 and the non-contiguous 12 are swept.
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventAt9.toString()]);
@@ -636,11 +636,11 @@ describe('PrivateEventStore', () => {
 
       await storeEventAt(eventAt9, 9, BLOCK_HASH_9);
       await storeEventAt(eventAt10, 10, BLOCK_HASH_10);
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
 
-      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(9));
       // Re-running over the already-truncated tail must not throw and must not change anything.
-      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(9));
 
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventAt9.toString()]);
       expect(await privateEventStore.eventIdsAtBlock(10)).toHaveLength(0);
@@ -660,24 +660,24 @@ describe('PrivateEventStore', () => {
         });
 
       await storeEventAt(commitment, 10, BLOCK_HASH_10);
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
 
-      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(9));
       expect(await readBack()).toHaveLength(0);
 
       // Re-add the same commitment, as happens when the tx is re-included after the reorg.
       await storeEventAt(commitment, 10, BLOCK_HASH_10);
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
       expect(await readBack()).toHaveLength(1);
     });
 
     it('handles rollback with no events to remove', async () => {
       const eventAt10 = Fr.random();
       await storeEventAt(eventAt10, 10, BLOCK_HASH_10);
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
 
       // Rolling back to a block above every stored event removes nothing.
-      await kvStore.transactionAsync(() => privateEventStore.rollback(20));
+      await kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(20));
 
       expect(await privateEventStore.eventIdsAtBlock(10)).toEqual([eventAt10.toString()]);
     });
@@ -701,13 +701,13 @@ describe('PrivateEventStore', () => {
         'uncommitted-change-set',
       );
 
-      await expect(kvStore.transactionAsync(() => privateEventStore.rollback(0))).rejects.toThrow(
+      await expect(kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(0))).rejects.toThrow(
         'PXE private event store rollback is not allowed while staged writes are pending',
       );
 
-      await privateEventStore.discardStaged('uncommitted-change-set');
+      privateEventStore.discardChangeSet('uncommitted-change-set');
 
-      await expect(kvStore.transactionAsync(() => privateEventStore.rollback(0))).resolves.not.toThrow();
+      await expect(kvStore.transactionAsync(() => privateEventStore.rollbackToBlock(0))).resolves.not.toThrow();
     });
   });
 
@@ -729,7 +729,7 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
 
       const ids = await privateEventStore.eventIdsAtBlock(l2BlockNumber);
       expect(ids).toContain(siloedEventCommitment.toString());
@@ -770,7 +770,7 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commitStaged('test');
+      await privateEventStore.commitChangeSet('test');
 
       const ids = await privateEventStore.eventIdsAtBlock(l2BlockNumber);
       expect(new Set(ids)).toEqual(new Set([siloedEventCommitment.toString(), siloedEventCommitment2.toString()]));
@@ -802,7 +802,7 @@ describe('PrivateEventStore', () => {
         },
         commitChangeSetId,
       );
-      await privateEventStore.commitStaged(commitChangeSetId);
+      await privateEventStore.commitChangeSet(commitChangeSetId);
 
       // Store staged event (not committed)
       const stagedMsgContent = getRandomMsgContent();
@@ -856,7 +856,7 @@ describe('PrivateEventStore', () => {
         stagedChangeSetId,
       );
 
-      await privateEventStore.commitStaged(stagedChangeSetId);
+      await privateEventStore.commitChangeSet(stagedChangeSetId);
 
       // Now should see the event with a fresh changeSetId
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -869,7 +869,7 @@ describe('PrivateEventStore', () => {
       expect(events[0].packedEvent).toEqual(stagedMsgContent);
     });
 
-    it('discardStaged removes staged events without affecting main', async () => {
+    it('discardChangeSet removes staged events without affecting main', async () => {
       const commitChangeSetId: ChangeSetId = 'commit-change-set';
       const stagedChangeSetId: ChangeSetId = 'staged';
       const committedEventRandomness = Fr.random();
@@ -892,7 +892,7 @@ describe('PrivateEventStore', () => {
         },
         commitChangeSetId,
       );
-      await privateEventStore.commitStaged(commitChangeSetId);
+      await privateEventStore.commitChangeSet(commitChangeSetId);
 
       // Store staged event (not committed)
       const stagedMsgContent = getRandomMsgContent();
@@ -914,7 +914,7 @@ describe('PrivateEventStore', () => {
       );
 
       // Discard change set
-      await privateEventStore.discardStaged(stagedChangeSetId);
+      privateEventStore.discardChangeSet(stagedChangeSetId);
 
       // Should only see committed event
       const events = await privateEventStore.getPrivateEvents(eventSelector, {

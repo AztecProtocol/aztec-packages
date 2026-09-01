@@ -9,6 +9,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InTx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PackedPrivateEvent } from '../../pxe.js';
+import type { Rollbackable } from '../rollbackable.js';
 import type { ChangeSetId, StagedStore } from '../staged_write_coordinator.js';
 import { StoredPrivateEvent } from './stored_private_event.js';
 
@@ -41,7 +42,7 @@ type StoredEventBuffer = Buffer;
  * Append-only: events are never deleted during normal operation. Reorgs are handled by delete-on-prune, which removes
  * every event originating on a reorg'd block.
  */
-export class PrivateEventStore implements StagedStore {
+export class PrivateEventStore implements StagedStore, Rollbackable {
   readonly storeName: string = 'private_event';
 
   #store: AztecAsyncKVStore;
@@ -245,7 +246,7 @@ export class PrivateEventStore implements StagedStore {
    * uncommitted staged writes, since rolling back mid-change-set could later re-introduce events anchored to deleted
    * blocks.
    */
-  public async rollback(toBlock: number): Promise<void> {
+  public async rollbackToBlock(toBlock: number): Promise<void> {
     if (this.#eventsForChangeSet.size > 0) {
       throw new Error('PXE private event store rollback is not allowed while staged writes are pending');
     }
@@ -282,7 +283,7 @@ export class PrivateEventStore implements StagedStore {
    *
    * @param changeSetId - The changeSetId identifying which staged data to commit
    */
-  async commitStaged(changeSetId: ChangeSetId): Promise<void> {
+  async commitChangeSet(changeSetId: ChangeSetId): Promise<void> {
     // Note: Don't use #withChangeSetLock here - commit runs within StagedWriteCoordinator's transactionAsync,
     // and awaiting the lock would create a microtask boundary with no pending DB request,
     // causing IndexedDB to auto-commit the transaction.
@@ -303,9 +304,8 @@ export class PrivateEventStore implements StagedStore {
   /**
    * Discards in-memory staged data without persisting it.
    */
-  discardStaged(changeSetId: ChangeSetId): Promise<void> {
+  discardChangeSet(changeSetId: ChangeSetId): void {
     this.#clearChangeSetData(changeSetId);
-    return Promise.resolve();
   }
 
   /**

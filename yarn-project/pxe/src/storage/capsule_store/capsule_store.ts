@@ -97,7 +97,7 @@ export class CapsuleStore implements StagedStore {
    * here (and using one would deadlock on IndexedDB).
    * @param changeSetId - The changeSetId identifying which staged data to commit
    */
-  async commitStaged(changeSetId: ChangeSetId): Promise<void> {
+  async commitChangeSet(changeSetId: ChangeSetId): Promise<void> {
     const stagedCapsules = this.#getStagedCapsules(changeSetId);
 
     for (const [key, value] of stagedCapsules) {
@@ -117,9 +117,8 @@ export class CapsuleStore implements StagedStore {
   /**
    * Discards staged data without committing.
    */
-  discardStaged(changeSetId: ChangeSetId): Promise<void> {
+  discardChangeSet(changeSetId: ChangeSetId): void {
     this.#stagedCapsules.delete(changeSetId);
-    return Promise.resolve();
   }
 
   /**

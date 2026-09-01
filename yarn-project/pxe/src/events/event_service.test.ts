@@ -91,7 +91,7 @@ describe('validateAndStoreEvents', () => {
     const map = overrides.validationTxDataMap ?? defaultValidationTxDataMap();
     await eventService.validateAndStoreEvents([request], recipient, map);
 
-    await privateEventStore.commitStaged('test');
+    await privateEventStore.commitChangeSet('test');
   }
 
   it('should throw when tx does not exist or has no effects', async () => {

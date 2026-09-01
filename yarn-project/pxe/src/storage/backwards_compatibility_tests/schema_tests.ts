@@ -136,7 +136,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       capsuleStore.setCapsule(contractAddress, new Fr(5n), [new Fr(7n), new Fr(11n)], changeSetId, scope);
       capsuleStore.setCapsule(contractAddress, new Fr(13n), [new Fr(17n)], changeSetId, scope);
       capsuleStore.setCapsule(contractAddress, new Fr(19n), [], changeSetId, scope);
-      await kvStore.transactionAsync(() => capsuleStore.commitStaged(changeSetId));
+      await kvStore.transactionAsync(() => capsuleStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       capsules: await snapshotMap(kvStore.openMap<string, Buffer>('capsules')),
@@ -249,7 +249,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       // A collection with a non-retractable and a retractable fact.
       await factStore.recordFact(keyB, new Fr(1n), [new Fr(9n)], undefined, changeSetId);
       await factStore.recordFact(keyB, new Fr(2n), [], { blockNumber: 5, blockHash: new Fr(1n) }, changeSetId);
-      await kvStore.transactionAsync(() => factStore.commitStaged(changeSetId));
+      await kvStore.transactionAsync(() => factStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       facts: await snapshotMap(kvStore.openMap<string, Buffer>('facts')),
@@ -334,6 +334,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const noteStore = new NoteStore(kvStore);
 
       const changeSetId = 'fixture-change-set';
+      noteStore.beginChangeSet(changeSetId);
 
       // Two contracts so `note_nullifiers_by_contract` exhibits both a multi-value row (contractA → {n1, n2}) and a
       // single-value row (contractB → {n3}).
@@ -409,7 +410,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         changeSetId,
       );
 
-      await kvStore.transactionAsync(() => noteStore.commitStaged(changeSetId));
+      await kvStore.transactionAsync(() => noteStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       notes: await snapshotMap(kvStore.openMap<string, Buffer>('notes')),
@@ -518,7 +519,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         changeSetId,
       );
 
-      await kvStore.transactionAsync(() => privateEventStore.commitStaged(changeSetId));
+      await kvStore.transactionAsync(() => privateEventStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       private_event_logs: await snapshotMap(kvStore.openMap<string, Buffer>('private_event_logs')),
@@ -549,7 +550,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       await recipientTaggingStore.updateHighestFinalizedIndex(secretB, 17, changeSetId);
       await recipientTaggingStore.updateHighestFinalizedIndex(secretConstrained, 11, changeSetId);
       await recipientTaggingStore.updateHighestAgedIndex(secretConstrained, 13, changeSetId);
-      await kvStore.transactionAsync(() => recipientTaggingStore.commitStaged(changeSetId));
+      await kvStore.transactionAsync(() => recipientTaggingStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       highest_aged_index: await snapshotMap(kvStore.openMap<string, number>('highest_aged_index')),
@@ -663,7 +664,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       await senderTaggingStore.finalizePendingIndexes([txHashA, txHashE], changeSetId);
 
-      await kvStore.transactionAsync(() => senderTaggingStore.commitStaged(changeSetId));
+      await kvStore.transactionAsync(() => senderTaggingStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
       pending_indexes: await snapshotMap(kvStore.openMap<string, Buffer>('pending_indexes')),
