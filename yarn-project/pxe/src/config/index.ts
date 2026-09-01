@@ -43,7 +43,7 @@ export interface ContractSyncConfig {
   /**
    * Whether PXE speculatively syncs contracts it predicts will follow the one requested, running them concurrently
    * with it instead of waiting for execution to reach them. When enabled, repeated flows sync faster, but a wrong
-   * prediction spends unnecessary node requests syncing contracts the job never uses.
+   * prediction spends unnecessary node requests syncing contracts the operation never uses.
    *
    * Experimental, off by default.
    */

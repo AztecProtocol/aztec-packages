@@ -59,6 +59,7 @@ import { FactCollectionKey, FactCollectionTypeKey, anchoredTipBlockNumbers } fro
 import type { FactService, OriginBlock } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
+import type { ChangeSetId } from '../../storage/staged_write_coordinator.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import type { AnchoredContractData } from '../anchored_contract_data.js';
@@ -103,7 +104,7 @@ export type UtilityExecutionOracleArgs = {
   txResolver: TxResolverService;
   contractSyncService: ContractSyncService;
   l2TipsStore: L2TipsProvider;
-  jobId: string;
+  changeSetId: ChangeSetId;
   log?: ReturnType<typeof createLogger>;
   scopes: AztecAddress[];
   simulator: CircuitSimulator;
@@ -155,7 +156,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly txResolver: TxResolverService;
   protected readonly contractSyncService: ContractSyncService;
   protected readonly l2TipsStore: L2TipsProvider;
-  protected readonly jobId: string;
+  protected readonly changeSetId: ChangeSetId;
   protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AztecAddress[];
   protected readonly simulator: CircuitSimulator;
@@ -180,7 +181,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.txResolver = args.txResolver;
     this.contractSyncService = args.contractSyncService;
     this.l2TipsStore = args.l2TipsStore;
-    this.jobId = args.jobId;
+    this.changeSetId = args.changeSetId;
     this.logger = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
     this.simulator = args.simulator;
@@ -473,7 +474,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     maxNotes: number,
     packedHintedNoteLength: number,
   ): Promise<BoundedVec<NoteData>> {
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.changeSetId);
 
     const dbNotes = await noteService.getNotes(this.contractAddress, owner.value, storageSlot, status, this.scopes);
     const picked = pickNotes<NoteData>(dbNotes, {
@@ -562,12 +563,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   async #getContractLogger(): Promise<Logger> {
     if (!this.contractLogger) {
       // Purpose of instanceId is to distinguish logs from different instances of the same component. It makes sense
-      // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
+      // to re-use changeSetId as instanceId here as executions of different PXE operations are isolated.
       this.contractLogger = await createContractLogger(
         this.contractAddress,
         addr => this.anchoredContractData.getDebugContractName(addr),
         'user',
-        { instanceId: this.jobId },
+        { instanceId: this.changeSetId },
       );
     }
     return this.contractLogger;
@@ -579,12 +580,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   async #getAztecnrLogger(): Promise<Logger> {
     if (!this.aztecnrLogger) {
       // Purpose of instanceId is to distinguish logs from different instances of the same component. It makes sense
-      // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
+      // to re-use changeSetId as instanceId here as executions of different PXE operations are isolated.
       this.aztecnrLogger = await createContractLogger(
         this.contractAddress,
         addr => this.anchoredContractData.getDebugContractName(addr),
         'aztecnr',
-        { instanceId: this.jobId },
+        { instanceId: this.changeSetId },
       );
     }
     return this.aztecnrLogger;
@@ -628,7 +629,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.taggingSecretSourcesStore,
       this.addressStore,
       this.scopes,
-      this.jobId,
+      this.changeSetId,
       this.logger.getBindings(),
     );
   }
@@ -655,8 +656,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       ...eventValidationRequests.map(r => r.txHash),
     ]);
 
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
-    const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.changeSetId);
+    const eventService = new EventService(this.anchorBlockHeader, this.privateEventStore, this.changeSetId);
 
     await allToCompletion([
       noteService.validateAndStoreNotes(noteValidationRequests, scope, validationTxData),
@@ -726,7 +727,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
     this.#assertOwnContract(contractAddress);
-    this.capsuleService.setCapsule(contractAddress, slot, capsule, this.jobId, scope);
+    this.capsuleService.setCapsule(contractAddress, slot, capsule, this.changeSetId, scope);
   }
 
   public async getCapsule(
@@ -736,13 +737,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     scope: AztecAddress,
   ): Promise<Option<Fr[]>> {
     this.#assertOwnContract(contractAddress);
-    const values = await this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
+    const values = await this.capsuleService.getCapsule(contractAddress, slot, this.changeSetId, scope, this.capsules);
     return values ? Option.some(values) : Option.none({ length: tSize });
   }
 
   public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
     this.#assertOwnContract(contractAddress);
-    this.capsuleService.deleteCapsule(contractAddress, slot, this.jobId, scope);
+    this.capsuleService.deleteCapsule(contractAddress, slot, this.changeSetId, scope);
   }
 
   public copyCapsule(
@@ -753,7 +754,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     scope: AztecAddress,
   ): Promise<void> {
     this.#assertOwnContract(contractAddress);
-    return this.capsuleService.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.jobId, scope);
+    return this.capsuleService.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.changeSetId, scope);
   }
 
   /**
@@ -784,7 +785,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       factTypeId,
       payload.readAll(this.ephemeralArrayService),
       originBlock.isSome() ? originBlock.value : undefined,
-      this.jobId,
+      this.changeSetId,
     );
   }
 
@@ -800,7 +801,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.#assertOwnContract(contractAddress);
     return this.factService.deleteFactCollection(
       new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
-      this.jobId,
+      this.changeSetId,
     );
   }
 
@@ -818,7 +819,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const collection = await this.factService.getFactCollection(
       new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
       tips,
-      this.jobId,
+      this.changeSetId,
     );
     return collection
       ? Option.some(
@@ -845,7 +846,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const collections = await this.factService.getFactCollectionsByType(
       new FactCollectionTypeKey(contractAddress, scope, factCollectionTypeId),
       tips,
-      this.jobId,
+      this.changeSetId,
     );
     return EphemeralArray.fromValues(
       this.ephemeralArrayService,
@@ -1061,7 +1062,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         functionToInvokeAfterSync: functionSelector,
         utilityExecutor: this.utilityExecutor,
         anchorBlockHeader: this.anchorBlockHeader,
-        jobId: this.jobId,
+        changeSetId: this.changeSetId,
         scopes: this.scopes,
         triggeredBy: { address: this.contractAddress, selector: this.callContext.functionSelector },
       });
@@ -1094,7 +1095,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
       l2TipsStore: this.l2TipsStore,
-      jobId: this.jobId,
+      changeSetId: this.changeSetId,
       scopes: this.scopes,
       simulator: this.simulator,
       hooks: this.hooks,

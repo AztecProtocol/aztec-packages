@@ -23,8 +23,9 @@ describe('TXESession.processFunction', () => {
       {} as any, // capsuleStore
       {} as any, // factStore
       {} as any, // privateEventStore
-      {} as any, // jobCoordinator
-      {} as any, // initialJobId
+      {} as any, // stagedWriteCoordinator
+      [], // operationContributors
+      {} as any, // initialChangeSetId
       new Fr(1), // chainId
       new Fr(1), // version
       0n, // nextBlockTimestamp

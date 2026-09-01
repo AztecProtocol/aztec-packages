@@ -3,6 +3,7 @@ import type { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel'
 import type { TaggingIndexRange } from '@aztec/stdlib/logs';
 import type { TxHash } from '@aztec/stdlib/tx';
 
+import type { ChangeSetId } from '../storage/staged_write_coordinator.js';
 import type { SenderTaggingStore } from '../storage/tagging_store/sender_tagging_store.js';
 import { reconcileTaggingIndexRangesAgainstSurvivingTags } from './reconcile_tagging_index_ranges.js';
 
@@ -25,7 +26,8 @@ import { reconcileTaggingIndexRangesAgainstSurvivingTags } from './reconcile_tag
  * @param publicInputs - The final kernel public inputs, used to determine which private logs survived squashing.
  * @param getTxHash - Lazy accessor for the tx hash. Called only when there is something to persist, since computing
  * the tx hash is expensive.
- * @param jobId - Job context for staged writes to the store. See `JobCoordinator` for more details.
+ * @param changeSetId - Change set context for staged writes to the store. See {@link StagedWriteCoordinator} for more
+ * details.
  * @param log - Logger.
  */
 export async function persistSenderTaggingIndexRangesForTx(
@@ -33,7 +35,7 @@ export async function persistSenderTaggingIndexRangesForTx(
   recordedRanges: TaggingIndexRange[],
   publicInputs: PrivateKernelTailCircuitPublicInputs,
   getTxHash: () => Promise<TxHash>,
-  jobId: string,
+  changeSetId: ChangeSetId,
   log: Logger,
 ): Promise<void> {
   if (recordedRanges.length === 0) {
@@ -52,6 +54,6 @@ export async function persistSenderTaggingIndexRangesForTx(
   }
 
   const txHash = await getTxHash();
-  await store.storePendingIndexes(reconciledRanges, txHash, jobId);
+  await store.storePendingIndexes(reconciledRanges, txHash, changeSetId);
   log.debug(`Stored used tagging index ranges as sender for the tx`, { recordedRanges, reconciledRanges });
 }

@@ -9,6 +9,7 @@ import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { PackedPrivateEvent } from '../../pxe.js';
+import type { ChangeSetId } from '../staged_write_coordinator.js';
 import { PrivateEventStore } from './private_event_store.js';
 
 const getRandomMsgContent = () => {
@@ -73,7 +74,7 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
     }
 
     const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -114,7 +115,7 @@ describe('PrivateEventStore', () => {
       metadata,
       'test',
     );
-    await privateEventStore.commit('test');
+    await privateEventStore.commitStaged('test');
 
     const events = await privateEventStore.getPrivateEvents(eventSelector, {
       contractAddress,
@@ -162,7 +163,7 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
     }
 
     const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -231,7 +232,7 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
     }
 
     const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -280,7 +281,7 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
     }
 
     const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -318,7 +319,7 @@ describe('PrivateEventStore', () => {
       'test',
     );
 
-    await privateEventStore.commit('test');
+    await privateEventStore.commitStaged('test');
 
     const filter = { contractAddress, fromBlock: l2BlockNumber, toBlock: l2BlockNumber + 1 };
 
@@ -412,7 +413,7 @@ describe('PrivateEventStore', () => {
           },
           'test',
         );
-        await privateEventStore.commit('test');
+        await privateEventStore.commitStaged('test');
       }
 
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -480,7 +481,7 @@ describe('PrivateEventStore', () => {
           },
           'test',
         );
-        await privateEventStore.commit('test');
+        await privateEventStore.commitStaged('test');
       }
 
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -549,7 +550,7 @@ describe('PrivateEventStore', () => {
           },
           'test',
         );
-        await privateEventStore.commit('test');
+        await privateEventStore.commitStaged('test');
       }
 
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
@@ -592,7 +593,7 @@ describe('PrivateEventStore', () => {
 
       await storeEventAt(eventAt9, 9, BLOCK_HASH_9);
       await storeEventAt(eventAt10, 10, BLOCK_HASH_10);
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
 
       await kvStore.transactionAsync(() => privateEventStore.rollback(9));
 
@@ -619,7 +620,7 @@ describe('PrivateEventStore', () => {
       await storeEventAt(eventAt9, 9, BLOCK_HASH_9);
       await storeEventAt(eventAt10, 10, BLOCK_HASH_10);
       await storeEventAt(eventAt12, 12, BLOCK_HASH_12);
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
 
       await kvStore.transactionAsync(() => privateEventStore.rollback(9));
 
@@ -635,7 +636,7 @@ describe('PrivateEventStore', () => {
 
       await storeEventAt(eventAt9, 9, BLOCK_HASH_9);
       await storeEventAt(eventAt10, 10, BLOCK_HASH_10);
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
 
       await kvStore.transactionAsync(() => privateEventStore.rollback(9));
       // Re-running over the already-truncated tail must not throw and must not change anything.
@@ -659,21 +660,21 @@ describe('PrivateEventStore', () => {
         });
 
       await storeEventAt(commitment, 10, BLOCK_HASH_10);
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
 
       await kvStore.transactionAsync(() => privateEventStore.rollback(9));
       expect(await readBack()).toHaveLength(0);
 
       // Re-add the same commitment, as happens when the tx is re-included after the reorg.
       await storeEventAt(commitment, 10, BLOCK_HASH_10);
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
       expect(await readBack()).toHaveLength(1);
     });
 
     it('handles rollback with no events to remove', async () => {
       const eventAt10 = Fr.random();
       await storeEventAt(eventAt10, 10, BLOCK_HASH_10);
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
 
       // Rolling back to a block above every stored event removes nothing.
       await kvStore.transactionAsync(() => privateEventStore.rollback(20));
@@ -681,8 +682,8 @@ describe('PrivateEventStore', () => {
       expect(await privateEventStore.eventIdsAtBlock(10)).toEqual([eventAt10.toString()]);
     });
 
-    it('throws when rollback is called while jobs are running', async () => {
-      // Stage an event under a job but never commit it, so the store still holds in-flight job data.
+    it('throws when rollback is called while staged writes are pending', async () => {
+      // Stage an event under a change set but never commit it, so the store still holds in-flight staged data.
       await privateEventStore.storePrivateEventLog(
         eventSelector,
         randomness,
@@ -697,14 +698,14 @@ describe('PrivateEventStore', () => {
           txIndexInBlock: 0,
           eventIndexInTx: 0,
         },
-        'uncommitted-job',
+        'uncommitted-change-set',
       );
 
       await expect(kvStore.transactionAsync(() => privateEventStore.rollback(0))).rejects.toThrow(
-        'PXE private event store rollback is not allowed while jobs are running',
+        'PXE private event store rollback is not allowed while staged writes are pending',
       );
 
-      await privateEventStore.discardStaged('uncommitted-job');
+      await privateEventStore.discardStaged('uncommitted-change-set');
 
       await expect(kvStore.transactionAsync(() => privateEventStore.rollback(0))).resolves.not.toThrow();
     });
@@ -728,7 +729,7 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
 
       const ids = await privateEventStore.eventIdsAtBlock(l2BlockNumber);
       expect(ids).toContain(siloedEventCommitment.toString());
@@ -769,17 +770,17 @@ describe('PrivateEventStore', () => {
         },
         'test',
       );
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
 
       const ids = await privateEventStore.eventIdsAtBlock(l2BlockNumber);
       expect(new Set(ids)).toEqual(new Set([siloedEventCommitment.toString(), siloedEventCommitment2.toString()]));
     });
   });
 
-  describe('staging', () => {
+  describe('change-set', () => {
     it('stages events without affecting committed storage', async () => {
-      const commitJobId: string = 'commit-job';
-      const stagingJobId: string = 'staging-job';
+      const commitChangeSetId: ChangeSetId = 'commit-change-set';
+      const stagedChangeSetId: ChangeSetId = 'staged';
 
       const committedEventRandomness = Fr.random();
       const stagedEventRandomness = Fr.random();
@@ -799,9 +800,9 @@ describe('PrivateEventStore', () => {
           txIndexInBlock: randomInt(100),
           eventIndexInTx: randomInt(100),
         },
-        commitJobId,
+        commitChangeSetId,
       );
-      await privateEventStore.commit(commitJobId);
+      await privateEventStore.commitStaged(commitChangeSetId);
 
       // Store staged event (not committed)
       const stagedMsgContent = getRandomMsgContent();
@@ -819,10 +820,10 @@ describe('PrivateEventStore', () => {
           txIndexInBlock: randomInt(100),
           eventIndexInTx: randomInt(100),
         },
-        stagingJobId,
+        stagedChangeSetId,
       );
 
-      // With a fresh jobId, should only see committed event
+      // With a fresh changeSetId, should only see committed event
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
         fromBlock: l2BlockNumber,
@@ -834,7 +835,7 @@ describe('PrivateEventStore', () => {
     });
 
     it('commit promotes staged events to main storage', async () => {
-      const stagingJobId: string = 'staging-job';
+      const stagedChangeSetId: ChangeSetId = 'staged';
       const stagedEventRandomness = Fr.random();
       const stagedMsgContent = getRandomMsgContent();
 
@@ -852,12 +853,12 @@ describe('PrivateEventStore', () => {
           txIndexInBlock: randomInt(100),
           eventIndexInTx: randomInt(100),
         },
-        stagingJobId,
+        stagedChangeSetId,
       );
 
-      await privateEventStore.commit(stagingJobId);
+      await privateEventStore.commitStaged(stagedChangeSetId);
 
-      // Now should see the event with a fresh jobId
+      // Now should see the event with a fresh changeSetId
       const events = await privateEventStore.getPrivateEvents(eventSelector, {
         contractAddress,
         fromBlock: l2BlockNumber,
@@ -869,8 +870,8 @@ describe('PrivateEventStore', () => {
     });
 
     it('discardStaged removes staged events without affecting main', async () => {
-      const commitJobId: string = 'commit-job';
-      const stagingJobId: string = 'staging-job';
+      const commitChangeSetId: ChangeSetId = 'commit-change-set';
+      const stagedChangeSetId: ChangeSetId = 'staged';
       const committedEventRandomness = Fr.random();
       const stagedEventRandomness = Fr.random();
 
@@ -889,9 +890,9 @@ describe('PrivateEventStore', () => {
           txIndexInBlock: randomInt(100),
           eventIndexInTx: randomInt(100),
         },
-        commitJobId,
+        commitChangeSetId,
       );
-      await privateEventStore.commit(commitJobId);
+      await privateEventStore.commitStaged(commitChangeSetId);
 
       // Store staged event (not committed)
       const stagedMsgContent = getRandomMsgContent();
@@ -909,11 +910,11 @@ describe('PrivateEventStore', () => {
           txIndexInBlock: randomInt(100),
           eventIndexInTx: randomInt(100),
         },
-        stagingJobId,
+        stagedChangeSetId,
       );
 
-      // Discard staging
-      await privateEventStore.discardStaged(stagingJobId);
+      // Discard change set
+      await privateEventStore.discardStaged(stagedChangeSetId);
 
       // Should only see committed event
       const events = await privateEventStore.getPrivateEvents(eventSelector, {

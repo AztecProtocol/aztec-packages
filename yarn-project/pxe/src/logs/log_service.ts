@@ -25,6 +25,7 @@ import {
 import type { TxOnchainContext } from '../messages/tx_resolver_service.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import { assertAllowedScope } from '../storage/allowed_scopes.js';
+import type { ChangeSetId } from '../storage/staged_write_coordinator.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
 import {
@@ -51,7 +52,7 @@ export class LogService {
     private readonly taggingSecretSourcesStore: TaggingSecretSourcesStore,
     private readonly addressStore: AddressStore,
     private readonly scopes: AztecAddress[],
-    private readonly jobId: string,
+    private readonly changeSetId: ChangeSetId,
     bindings?: LoggerBindings,
   ) {
     this.log = createLogger('pxe:log_service', bindings);
@@ -216,7 +217,7 @@ export class LogService {
       this.recipientTaggingStore,
       this.anchorBlockHeader,
       l2Tips.finalized.block.number,
-      this.jobId,
+      this.changeSetId,
     );
 
     return logs.map(log => LogService.#toRetrievedTaggedLog(log));

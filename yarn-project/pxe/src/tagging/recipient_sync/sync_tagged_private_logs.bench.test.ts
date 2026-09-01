@@ -57,7 +57,7 @@ const ANCHOR_BLOCK_NUMBER = BlockNumber(100);
 const CURRENT_TIMESTAMP = BigInt(Math.floor(Date.now() / 1000));
 const ANCHOR_BLOCK_HEADER = BlockHeader.random({ blockNumber: ANCHOR_BLOCK_NUMBER, timestamp: CURRENT_TIMESTAMP });
 const AGED_TIMESTAMP = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
-const JOB_ID = 'bench-job';
+const CHANGE_SET_ID = 'bench-change-set';
 
 // Every scenario starts warm: index 0 is already persisted, so the scan resumes at index 1 rather than cold-starting.
 const PRIOR_FINALIZED_INDEX = 0;
@@ -170,9 +170,9 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
     // per-secret writes are independent, so run them concurrently.
     await Promise.all(
       secrets.map(async secret => {
-        await taggingStore.updateHighestFinalizedIndex(secret, PRIOR_FINALIZED_INDEX, JOB_ID);
+        await taggingStore.updateHighestFinalizedIndex(secret, PRIOR_FINALIZED_INDEX, CHANGE_SET_ID);
         if (kind === AppTaggingSecretKind.UNCONSTRAINED) {
-          await taggingStore.updateHighestAgedIndex(secret, PRIOR_FINALIZED_INDEX, JOB_ID);
+          await taggingStore.updateHighestAgedIndex(secret, PRIOR_FINALIZED_INDEX, CHANGE_SET_ID);
         }
       }),
     );
@@ -202,7 +202,7 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
       taggingStore,
       ANCHOR_BLOCK_HEADER,
       FINALIZED_BLOCK_NUMBER,
-      JOB_ID,
+      CHANGE_SET_ID,
     );
 
     const calls = aztecNode.getPrivateLogsByTags.mock.calls;

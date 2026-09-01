@@ -1,7 +1,7 @@
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AppTaggingSecret } from '@aztec/stdlib/logs';
 
-import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
+import type { ChangeSetId, StagedStore } from '../staged_write_coordinator.js';
 
 /**
  * Data provider of tagging data used when syncing the logs as a recipient. The sender counterpart of this class
@@ -19,11 +19,11 @@ export class RecipientTaggingStore implements StagedStore {
   #highestAgedIndex: AztecAsyncMap<string, number>;
   #highestFinalizedIndex: AztecAsyncMap<string, number>;
 
-  // jobId => secret => number
-  #highestAgedIndexForJob: Map<string, Map<string, number>>;
+  // changeSetId => secret => number
+  #highestAgedIndexForChangeSet: Map<ChangeSetId, Map<string, number>>;
 
-  // jobId => secret => number
-  #highestFinalizedIndexForJob: Map<string, Map<string, number>>;
+  // changeSetId => secret => number
+  #highestFinalizedIndexForChangeSet: Map<ChangeSetId, Map<string, number>>;
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
@@ -31,109 +31,110 @@ export class RecipientTaggingStore implements StagedStore {
     this.#highestAgedIndex = this.#store.openMap('highest_aged_index');
     this.#highestFinalizedIndex = this.#store.openMap('highest_finalized_index');
 
-    this.#highestAgedIndexForJob = new Map();
-    this.#highestFinalizedIndexForJob = new Map();
+    this.#highestAgedIndexForChangeSet = new Map();
+    this.#highestFinalizedIndexForChangeSet = new Map();
   }
 
-  #getHighestAgedIndexForJob(jobId: string): Map<string, number> {
-    let highestAgedIndexForJob = this.#highestAgedIndexForJob.get(jobId);
-    if (!highestAgedIndexForJob) {
-      highestAgedIndexForJob = new Map();
-      this.#highestAgedIndexForJob.set(jobId, highestAgedIndexForJob);
+  #getHighestAgedIndexForChangeSet(changeSetId: ChangeSetId): Map<string, number> {
+    let highestAgedIndexForChangeSet = this.#highestAgedIndexForChangeSet.get(changeSetId);
+    if (!highestAgedIndexForChangeSet) {
+      highestAgedIndexForChangeSet = new Map();
+      this.#highestAgedIndexForChangeSet.set(changeSetId, highestAgedIndexForChangeSet);
     }
-    return highestAgedIndexForJob;
+    return highestAgedIndexForChangeSet;
   }
 
-  async #readHighestAgedIndex(jobId: string, secret: string): Promise<number | undefined> {
+  async #readHighestAgedIndex(changeSetId: ChangeSetId, secret: string): Promise<number | undefined> {
     // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
     // are no pending read requests). The staged value still takes precedence if it exists.
     const dbValue = await this.#highestAgedIndex.getAsync(secret);
-    const staged = this.#getHighestAgedIndexForJob(jobId).get(secret);
+    const staged = this.#getHighestAgedIndexForChangeSet(changeSetId).get(secret);
     return staged ?? dbValue;
   }
 
-  #writeHighestAgedIndex(jobId: string, secret: string, index: number) {
-    this.#getHighestAgedIndexForJob(jobId).set(secret, index);
+  #writeHighestAgedIndex(changeSetId: ChangeSetId, secret: string, index: number) {
+    this.#getHighestAgedIndexForChangeSet(changeSetId).set(secret, index);
   }
 
-  #getHighestFinalizedIndexForJob(jobId: string): Map<string, number> {
-    let jobStagedHighestFinalizedIndex = this.#highestFinalizedIndexForJob.get(jobId);
-    if (!jobStagedHighestFinalizedIndex) {
-      jobStagedHighestFinalizedIndex = new Map();
-      this.#highestFinalizedIndexForJob.set(jobId, jobStagedHighestFinalizedIndex);
+  #getHighestFinalizedIndexForChangeSet(changeSetId: ChangeSetId): Map<string, number> {
+    let stagedHighestFinalizedIndex = this.#highestFinalizedIndexForChangeSet.get(changeSetId);
+    if (!stagedHighestFinalizedIndex) {
+      stagedHighestFinalizedIndex = new Map();
+      this.#highestFinalizedIndexForChangeSet.set(changeSetId, stagedHighestFinalizedIndex);
     }
-    return jobStagedHighestFinalizedIndex;
+    return stagedHighestFinalizedIndex;
   }
 
-  async #readHighestFinalizedIndex(jobId: string, secret: string): Promise<number | undefined> {
+  async #readHighestFinalizedIndex(changeSetId: ChangeSetId, secret: string): Promise<number | undefined> {
     // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
     // are no pending read requests). The staged value still takes precedence if it exists.
     const dbValue = await this.#highestFinalizedIndex.getAsync(secret);
-    const staged = this.#getHighestFinalizedIndexForJob(jobId).get(secret);
+    const staged = this.#getHighestFinalizedIndexForChangeSet(changeSetId).get(secret);
     return staged ?? dbValue;
   }
 
-  #writeHighestFinalizedIndex(jobId: string, secret: string, index: number) {
-    this.#getHighestFinalizedIndexForJob(jobId).set(secret, index);
+  #writeHighestFinalizedIndex(changeSetId: ChangeSetId, secret: string, index: number) {
+    this.#getHighestFinalizedIndexForChangeSet(changeSetId).set(secret, index);
   }
 
   /**
-   * Writes all job-specific in-memory data to persistent storage.
+   * Writes all change set-specific in-memory data to persistent storage.
    *
-   * @remark This method must run in a DB transaction context. It's designed to be called from JobCoordinator#commitJob.
+   * @remark This method must run in a DB transaction context. It's designed to be called from
+   * {@link StagedWriteCoordinator.commit}.
    */
-  async commit(jobId: string): Promise<void> {
-    const highestAgedIndexForJob = this.#highestAgedIndexForJob.get(jobId);
-    if (highestAgedIndexForJob) {
-      for (const [secret, index] of highestAgedIndexForJob.entries()) {
+  async commitStaged(changeSetId: ChangeSetId): Promise<void> {
+    const highestAgedIndexForChangeSet = this.#highestAgedIndexForChangeSet.get(changeSetId);
+    if (highestAgedIndexForChangeSet) {
+      for (const [secret, index] of highestAgedIndexForChangeSet.entries()) {
         await this.#highestAgedIndex.set(secret, index);
       }
     }
 
-    const highestFinalizedIndexForJob = this.#highestFinalizedIndexForJob.get(jobId);
-    if (highestFinalizedIndexForJob) {
-      for (const [secret, index] of highestFinalizedIndexForJob.entries()) {
+    const highestFinalizedIndexForChangeSet = this.#highestFinalizedIndexForChangeSet.get(changeSetId);
+    if (highestFinalizedIndexForChangeSet) {
+      for (const [secret, index] of highestFinalizedIndexForChangeSet.entries()) {
         await this.#highestFinalizedIndex.set(secret, index);
       }
     }
 
-    return this.discardStaged(jobId);
+    return this.discardStaged(changeSetId);
   }
 
-  discardStaged(jobId: string): Promise<void> {
-    this.#highestAgedIndexForJob.delete(jobId);
-    this.#highestFinalizedIndexForJob.delete(jobId);
+  discardStaged(changeSetId: ChangeSetId): Promise<void> {
+    this.#highestAgedIndexForChangeSet.delete(changeSetId);
+    this.#highestFinalizedIndexForChangeSet.delete(changeSetId);
     return Promise.resolve();
   }
 
-  getHighestAgedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
-    return this.#store.transactionAsync(() => this.#readHighestAgedIndex(jobId, secret.toString()));
+  getHighestAgedIndex(secret: AppTaggingSecret, changeSetId: ChangeSetId): Promise<number | undefined> {
+    return this.#store.transactionAsync(() => this.#readHighestAgedIndex(changeSetId, secret.toString()));
   }
 
-  updateHighestAgedIndex(secret: AppTaggingSecret, index: number, jobId: string): Promise<void> {
+  updateHighestAgedIndex(secret: AppTaggingSecret, index: number, changeSetId: ChangeSetId): Promise<void> {
     return this.#store.transactionAsync(async () => {
-      const currentIndex = await this.#readHighestAgedIndex(jobId, secret.toString());
+      const currentIndex = await this.#readHighestAgedIndex(changeSetId, secret.toString());
       if (currentIndex !== undefined && index <= currentIndex) {
         // Log sync should never set a lower highest aged index.
         throw new Error(`New highest aged index (${index}) must be higher than the current one (${currentIndex})`);
       }
-      this.#writeHighestAgedIndex(jobId, secret.toString(), index);
+      this.#writeHighestAgedIndex(changeSetId, secret.toString(), index);
     });
   }
 
-  getHighestFinalizedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
-    return this.#store.transactionAsync(() => this.#readHighestFinalizedIndex(jobId, secret.toString()));
+  getHighestFinalizedIndex(secret: AppTaggingSecret, changeSetId: ChangeSetId): Promise<number | undefined> {
+    return this.#store.transactionAsync(() => this.#readHighestFinalizedIndex(changeSetId, secret.toString()));
   }
 
-  updateHighestFinalizedIndex(secret: AppTaggingSecret, index: number, jobId: string): Promise<void> {
+  updateHighestFinalizedIndex(secret: AppTaggingSecret, index: number, changeSetId: ChangeSetId): Promise<void> {
     return this.#store.transactionAsync(async () => {
-      const currentIndex = await this.#readHighestFinalizedIndex(jobId, secret.toString());
+      const currentIndex = await this.#readHighestFinalizedIndex(changeSetId, secret.toString());
       if (currentIndex !== undefined && index < currentIndex) {
         // Log sync should never set a lower highest finalized index but it can happen that it would try to set the same
         // one because we are loading logs from highest aged index + 1 and not from the highest finalized index.
         throw new Error(`New highest finalized index (${index}) must be higher than the current one (${currentIndex})`);
       }
-      this.#writeHighestFinalizedIndex(jobId, secret.toString(), index);
+      this.#writeHighestFinalizedIndex(changeSetId, secret.toString(), index);
     });
   }
 }

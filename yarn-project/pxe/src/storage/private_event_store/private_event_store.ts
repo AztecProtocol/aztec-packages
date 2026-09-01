@@ -8,8 +8,8 @@ import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InTx, TxHash } from '@aztec/stdlib/tx';
 
-import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { PackedPrivateEvent } from '../../pxe.js';
+import type { ChangeSetId, StagedStore } from '../staged_write_coordinator.js';
 import { StoredPrivateEvent } from './stored_private_event.js';
 
 export type PrivateEventStoreFilter = {
@@ -31,7 +31,6 @@ type PrivateEventMetadata = InTx & {
 
 /// Alias types for kv map readability
 type EventId = string; // the siloedEventCommitment, stringified
-type JobId = string;
 type ContractAndSelectorKey = string;
 type BlockNum = number;
 type StoredEventBuffer = Buffer;
@@ -53,11 +52,11 @@ export class PrivateEventStore implements StagedStore {
   /** Multi-map from block number to siloedEventCommitment, for delete-on-prune. */
   #eventsByBlockNumber: AztecAsyncMultiMap<BlockNum, EventId>;
 
-  /** jobId => eventId (event siloed nullifier) => StoredPrivateEvent */
-  #eventsForJob: Map<JobId, Map<EventId, StoredPrivateEvent>>;
+  /** changeSetId => eventId (event siloed nullifier) => StoredPrivateEvent */
+  #eventsForChangeSet: Map<ChangeSetId, Map<EventId, StoredPrivateEvent>>;
 
-  /** Per-job locks to prevent concurrent writes from affecting each other. */
-  #jobLocks: Map<JobId, Semaphore>;
+  /** Per-change-set locks to prevent concurrent writes from affecting each other. */
+  #changeSetLocks: Map<ChangeSetId, Semaphore>;
 
   logger = createLogger('private_event_store');
 
@@ -67,8 +66,8 @@ export class PrivateEventStore implements StagedStore {
     this.#eventsByContractAndEventSelector = this.#store.openMultiMap('events_by_contract_selector');
     this.#eventsByBlockNumber = this.#store.openMultiMap('events_by_block_number');
 
-    this.#eventsForJob = new Map();
-    this.#jobLocks = new Map();
+    this.#eventsForChangeSet = new Map();
+    this.#changeSetLocks = new Map();
   }
 
   /**
@@ -89,14 +88,14 @@ export class PrivateEventStore implements StagedStore {
     msgContent: Fr[],
     siloedEventCommitment: Fr,
     metadata: PrivateEventMetadata,
-    jobId: string,
+    changeSetId: ChangeSetId,
   ) {
-    return this.#withJobLock(jobId, () =>
+    return this.#withChangeSetLock(changeSetId, () =>
       this.#store.transactionAsync(async () => {
         const { contractAddress, scope, txHash, l2BlockNumber, l2BlockHash, txIndexInBlock, eventIndexInTx } = metadata;
         const eventId = siloedEventCommitment.toString();
 
-        this.logger.verbose('storing private event log (job stage)', {
+        this.logger.verbose('storing private event log (staged)', {
           eventId,
           contractAddress,
           scope,
@@ -104,12 +103,12 @@ export class PrivateEventStore implements StagedStore {
           l2BlockNumber,
         });
 
-        const existing = await this.#readEvent(eventId, jobId);
+        const existing = await this.#readEvent(eventId, changeSetId);
 
         if (existing) {
           // If we already stored this event, we still want to make sure to track it for the given scope
           existing.addScope(scope.toString());
-          this.#writeEvent(eventId, existing, jobId);
+          this.#writeEvent(eventId, existing, changeSetId);
         } else {
           this.#writeEvent(
             eventId,
@@ -125,7 +124,7 @@ export class PrivateEventStore implements StagedStore {
               eventSelector,
               new Set([scope.toString()]),
             ),
-            jobId,
+            changeSetId,
           );
         }
       }),
@@ -241,13 +240,14 @@ export class PrivateEventStore implements StagedStore {
    * that block height ever happened. Used by the reorg (`chain-pruned`) path to truncate the orphaned tail. Scanning
    * from `toBlock + 1` upward covers everything above the rollback target without needing to know the chain tip.
    *
-   * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own, the reorg
-   * path wraps it together with the anchor update, and IndexedDB has no nested transactions). Throws if any job has
-   * uncommitted staged writes, since rolling back mid-job could later re-introduce events anchored to deleted blocks.
+   * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own, the reorg path
+   * wraps it together with the anchor update, and IndexedDB has no nested transactions). Throws if any change set has
+   * uncommitted staged writes, since rolling back mid-change-set could later re-introduce events anchored to deleted
+   * blocks.
    */
   public async rollback(toBlock: number): Promise<void> {
-    if (this.#eventsForJob.size > 0) {
-      throw new Error('PXE private event store rollback is not allowed while jobs are running');
+    if (this.#eventsForChangeSet.size > 0) {
+      throw new Error('PXE private event store rollback is not allowed while staged writes are pending');
     }
     // Snapshot before mutating so we never delete from the multimap we are iterating.
     const orphaned: { block: number; eventId: string }[] = [];
@@ -273,20 +273,20 @@ export class PrivateEventStore implements StagedStore {
   }
 
   /**
-   * Commits in memory job data to persistent storage.
+   * Commits in-memory staged data to persistent storage.
    *
-   * Called by JobCoordinator when a job completes successfully.
+   * Called by StagedWriteCoordinator when an operation completes successfully.
    *
-   * Note: JobCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync here
-   * (and using one would throw on IndexedDB as it does not support nested txs).
+   * Note: StagedWriteCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync
+   * here (and using one would throw on IndexedDB as it does not support nested txs).
    *
-   * @param jobId - The jobId identifying which staged data to commit
+   * @param changeSetId - The changeSetId identifying which staged data to commit
    */
-  async commit(jobId: string): Promise<void> {
-    // Note: Don't use #withJobLock here - commit runs within JobCoordinator's transactionAsync,
+  async commitStaged(changeSetId: ChangeSetId): Promise<void> {
+    // Note: Don't use #withChangeSetLock here - commit runs within StagedWriteCoordinator's transactionAsync,
     // and awaiting the lock would create a microtask boundary with no pending DB request,
     // causing IndexedDB to auto-commit the transaction.
-    for (const [eventId, entry] of this.#getEventsForJob(jobId).entries()) {
+    for (const [eventId, entry] of this.#getEventsForChangeSet(changeSetId).entries()) {
       const lookupKey = this.#keyFor(entry.contractAddress, entry.eventSelector);
       this.logger.verbose('storing private event log', { eventId, lookupKey });
 
@@ -297,72 +297,72 @@ export class PrivateEventStore implements StagedStore {
       ]);
     }
 
-    this.#clearJobData(jobId);
+    this.#clearChangeSetData(changeSetId);
   }
 
   /**
-   * Discards in memory job data without persisting it.
+   * Discards in-memory staged data without persisting it.
    */
-  discardStaged(jobId: string): Promise<void> {
-    this.#clearJobData(jobId);
+  discardStaged(changeSetId: ChangeSetId): Promise<void> {
+    this.#clearChangeSetData(changeSetId);
     return Promise.resolve();
   }
 
   /**
-   * Reads an event from in-memory job data first, falling back to persistent storage if not found.
+   * Reads an event from in-memory staged data first, falling back to persistent storage if not found.
    *
    * Returns undefined if the event does not exist in the store overall.
    */
-  async #readEvent(eventId: string, jobId: string): Promise<StoredPrivateEvent | undefined> {
+  async #readEvent(eventId: string, changeSetId: ChangeSetId): Promise<StoredPrivateEvent | undefined> {
     // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
     // are no pending read requests). The staged value still takes precedence if it exists.
     const buffer = await this.#events.getAsync(eventId);
-    const eventForJob = this.#getEventsForJob(jobId).get(eventId);
-    return eventForJob ?? (buffer ? StoredPrivateEvent.fromBuffer(buffer) : undefined);
+    const eventForChangeSet = this.#getEventsForChangeSet(changeSetId).get(eventId);
+    return eventForChangeSet ?? (buffer ? StoredPrivateEvent.fromBuffer(buffer) : undefined);
   }
 
   /**
-   * Writes an event to in-memory job data.
+   * Writes an event to in-memory staged data.
    *
-   * Writes are only allowed in a job context. Events modified during a job will only be persisted when `commit` is
-   * called.
+   * Writes are only allowed in a change set context. Events modified while staged will only be persisted when `commit`
+   * is called.
    */
-  #writeEvent(eventId: string, entry: StoredPrivateEvent, jobId: string) {
-    this.#getEventsForJob(jobId).set(eventId, entry);
+  #writeEvent(eventId: string, entry: StoredPrivateEvent, changeSetId: ChangeSetId) {
+    this.#getEventsForChangeSet(changeSetId).set(eventId, entry);
   }
 
   /**
-   * Get in-memory data only visible to @param jobId
+   * Get in-memory data only visible to @param changeSetId
    */
-  #getEventsForJob(jobId: string): Map<string, StoredPrivateEvent> {
-    let eventsForJob = this.#eventsForJob.get(jobId);
-    if (eventsForJob === undefined) {
-      eventsForJob = new Map();
-      this.#eventsForJob.set(jobId, eventsForJob);
+  #getEventsForChangeSet(changeSetId: ChangeSetId): Map<string, StoredPrivateEvent> {
+    let eventsForChangeSet = this.#eventsForChangeSet.get(changeSetId);
+    if (eventsForChangeSet === undefined) {
+      eventsForChangeSet = new Map();
+      this.#eventsForChangeSet.set(changeSetId, eventsForChangeSet);
     }
-    return eventsForJob;
+    return eventsForChangeSet;
   }
 
   /**
-   * Clear data structures supporting a specific job.
+   * Clear data structures supporting a specific change set.
    */
-  #clearJobData(jobId: string) {
-    this.#eventsForJob.delete(jobId);
-    this.#jobLocks.delete(jobId);
+  #clearChangeSetData(changeSetId: ChangeSetId) {
+    this.#eventsForChangeSet.delete(changeSetId);
+    this.#changeSetLocks.delete(changeSetId);
   }
 
   /**
-   * Ensures a function can only run once it acquires a unique per-job lock, and handles proper lock release after it
-   * runs.
+   * Ensures a function can only run once it acquires a unique per-change-set lock, and handles proper lock release
+   * after it runs.
    *
    * This primitive allows concurrent writes on this store without risking data corruption due to unsound write
    * interleaving.
    */
-  async #withJobLock<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
-    let lock = this.#jobLocks.get(jobId);
+  async #withChangeSetLock<T>(changeSetId: ChangeSetId, fn: () => Promise<T>): Promise<T> {
+    let lock = this.#changeSetLocks.get(changeSetId);
     if (!lock) {
       lock = new Semaphore(1);
-      this.#jobLocks.set(jobId, lock);
+      this.#changeSetLocks.set(changeSetId, lock);
     }
     await lock.acquire();
     try {

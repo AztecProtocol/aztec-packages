@@ -467,7 +467,7 @@ describe('PXE', () => {
       // Store a couple of events to exercise `getPrivateEvents`
       const event1 = await storeEvent();
       const event2 = await storeEvent();
-      await privateEventStore.commit('test');
+      await privateEventStore.commitStaged('test');
 
       const events = await pxe.getPrivateEvents(eventSelector, {
         contractAddress,
@@ -506,7 +506,7 @@ describe('PXE', () => {
         // Events in not-yet-synced blocks; stored only to verify they are filtered out.
         await Promise.all([storeEvent(lastKnownBlockNumber + 1), storeEvent(lastKnownBlockNumber + 1)]);
 
-        await privateEventStore.commit('test');
+        await privateEventStore.commitStaged('test');
       });
 
       it('filters by txHash', async () => {
