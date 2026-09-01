@@ -1,4 +1,4 @@
-# @aztec/protocol-contracts-artifacts
+# @aztec-foundation/protocol-contracts-artifacts
 
 Compiled artifacts for the protocol contracts, published so consumers can generate TypeScript bindings
 without a Noir toolchain.

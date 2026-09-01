@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/constants-codegen",
+  "name": "@aztec-foundation/constants-codegen",
   "version": "0.0.0",
   "description": "Generate Aztec protocol constants from Noir definitions",
   "license": "Apache-2.0",

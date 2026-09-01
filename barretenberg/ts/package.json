@@ -13,6 +13,6 @@
     "cdb"
   ],
   "resolutions": {
-    "@aztec/ipc-runtime": "portal:../../ipc-runtime/ts"
+    "@aztec-foundation/ipc-runtime": "portal:../../ipc-runtime/ts"
   }
 }
