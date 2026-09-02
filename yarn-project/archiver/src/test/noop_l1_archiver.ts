@@ -19,7 +19,7 @@ import { Archiver } from '../archiver.js';
 import { ArchiverInstrumentation } from '../modules/instrumentation.js';
 import type { ArchiverL1Synchronizer } from '../modules/l1_synchronizer.js';
 import type { ArchiverDataStores } from '../store/data_stores.js';
-import { L2TipsCache } from '../store/l2_tips_cache.js';
+import { L2FrontierCache } from '../store/l2_frontier_cache.js';
 
 type NoopL1ArchiverConfigOverrides = Partial<{
   skipOrphanProposedBlockPruning: boolean;
@@ -60,7 +60,7 @@ export class NoopL1Archiver extends Archiver {
     instrumentation: ArchiverInstrumentation,
     initialHeader: BlockHeader,
     initialBlockHash: BlockHash,
-    l2TipsCache: L2TipsCache,
+    l2FrontierCache: L2FrontierCache,
     dateProvider: DateProvider = new DateProvider(),
     configOverrides: NoopL1ArchiverConfigOverrides = {},
   ) {
@@ -111,7 +111,7 @@ export class NoopL1Archiver extends Archiver {
       events,
       initialHeader,
       initialBlockHash,
-      l2TipsCache,
+      l2FrontierCache,
       dateProvider,
     );
   }
@@ -140,18 +140,18 @@ export async function createNoopL1Archiver(
 ): Promise<NoopL1Archiver> {
   const instrumentation = await ArchiverInstrumentation.new(telemetry, () => dataStores.db.estimateSize());
   // Mirror the production factory: precompute the dynamic genesis block hash from the injected
-  // initial header so `L2TipsCache` reports the correct tip hash at block 0. Without this, the
+  // initial header so `L2FrontierCache` reports the correct tip hash at block 0. Without this, the
   // cache falls back to the static `GENESIS_BLOCK_HEADER_HASH`, which only matches deployments
   // with default empty genesis.
   const initialBlockHash = await initialHeader.hash();
-  const l2TipsCache = new L2TipsCache(dataStores.blocks, initialBlockHash);
+  const l2FrontierCache = new L2FrontierCache(dataStores.blocks, initialBlockHash);
   return new NoopL1Archiver(
     dataStores,
     l1Constants,
     instrumentation,
     initialHeader,
     initialBlockHash,
-    l2TipsCache,
+    l2FrontierCache,
     dateProvider,
     configOverrides,
   );

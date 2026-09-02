@@ -416,10 +416,7 @@ export class AutomineSequencer {
       await this.deps.ethCheatCodes.setNextBlockTimestamp(slotBoundaryTs);
     }
 
-    const [tips, proposedCheckpoint] = await Promise.all([
-      this.deps.l2BlockSource.getL2Tips(),
-      this.deps.l2BlockSource.getProposedCheckpointData(),
-    ]);
+    const { tips, proposedCheckpoint } = await this.deps.l2BlockSource.getL2Frontier();
     const syncedToBlockNumber = tips.proposed.number;
 
     // Ensure world state has processed the archiver's tip before forking. Without this,

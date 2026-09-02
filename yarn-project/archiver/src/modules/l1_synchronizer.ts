@@ -45,7 +45,7 @@ import {
 } from '../l1/data_retrieval.js';
 import type { RejectedCheckpoint } from '../store/block_store.js';
 import { type ArchiverDataStores, getArchiverSynchPoint } from '../store/data_stores.js';
-import type { L2TipsCache } from '../store/l2_tips_cache.js';
+import type { L2FrontierCache } from '../store/l2_frontier_cache.js';
 import { MessageStoreError } from '../store/message_store.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
@@ -100,10 +100,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     },
     private readonly events: ArchiverEmitter,
     tracer: Tracer,
-    l2TipsCache?: L2TipsCache,
+    private readonly l2FrontierCache?: L2FrontierCache,
     private readonly log: Logger = createLogger('archiver:l1-sync'),
   ) {
-    this.updater = new ArchiverDataStoreUpdater(this.stores, l2TipsCache, {
+    this.updater = new ArchiverDataStoreUpdater(this.stores, l2FrontierCache, {
       rollupManaLimit: l1Constants.rollupManaLimit,
     });
     this.tracer = tracer;
@@ -169,6 +169,12 @@ export class ArchiverL1Synchronizer implements Traceable {
       this.log.trace(`No new L1 blocks since last sync at L1 block ${this.l1BlockNumber}`);
       return blocksAdded;
     }
+
+    // Everything this pass writes reflects L1 state up to this block, so the frontier's anchor moves before the
+    // data and never after it. A reader that saw data from L1 block N under an anchor of N-1 would price a fee
+    // at N-1 while the data already includes a checkpoint that landed at N; data behind the anchor is harmless,
+    // since the overrides plan derived from the snapshot fully describes the parent.
+    this.l2FrontierCache?.setL1SyncPoint({ blockNumber: currentL1BlockNumber, blockHash: currentL1BlockHash });
 
     // Log at error if the latest L1 block timestamp is too old
     const maxAllowedDelay = this.config.maxAllowedEthClientDriftSeconds;
