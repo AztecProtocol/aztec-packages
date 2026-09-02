@@ -125,6 +125,14 @@ export interface AztecAsyncKVStore {
    */
   transactionAsync<T extends Exclude<any, Promise<any>>>(callback: () => Promise<T>): Promise<T>;
 
+  /**
+   * Runs the callback against a consistent read-only snapshot of the store. All reads performed inside the callback
+   * see the same committed state; concurrent writers are not blocked. Keep the callback short: an open snapshot pins
+   * old pages in LMDB-backed stores. Nested calls reuse the enclosing transaction.
+   * @param callback - The callback to execute against the snapshot
+   */
+  readOnlyTransaction<T extends Exclude<any, Promise<any>>>(callback: () => Promise<T>): Promise<T>;
+
   /** Clears all entries in the store */
   clear(): Promise<void>;
 

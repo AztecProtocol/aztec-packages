@@ -59,6 +59,7 @@ export function createStoreSpy(inner: AztecAsyncKVStore): StoreSpy {
       return inner.openCounter<K>(name);
     },
     transactionAsync: callback => inner.transactionAsync(callback),
+    readOnlyTransaction: callback => inner.readOnlyTransaction(callback),
     clear: () => inner.clear(),
     delete: () => inner.delete(),
     estimateSize: () => inner.estimateSize(),

@@ -3,9 +3,8 @@ import { Encoder } from 'msgpackr/pack';
 import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { Value } from '../interfaces/common.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
-import type { ReadTransaction } from './read_transaction.js';
 import type { AztecLMDBStoreV2 } from './store.js';
-import { execInReadTx, execInWriteTx } from './tx-helpers.js';
+import { acquireReadTx, execInReadTx, execInWriteTx } from './tx-helpers.js';
 import { deserializeKey, serializeKey } from './utils.js';
 
 export class LMDBArray<T extends Value> implements AztecAsyncArray<T> {
@@ -88,9 +87,7 @@ export class LMDBArray<T extends Value> implements AztecAsyncArray<T> {
       return;
     }
 
-    let tx: ReadTransaction | undefined = this.store.getCurrentWriteTx();
-    const shouldClose = !tx;
-    tx ??= this.store.getReadTx();
+    const { tx, shouldClose } = acquireReadTx(this.store);
 
     try {
       for await (const [key, val] of tx.iterate(serializeKey(this.prefix, 0), undefined, false, length)) {
