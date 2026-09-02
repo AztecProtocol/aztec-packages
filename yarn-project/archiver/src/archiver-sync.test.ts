@@ -702,6 +702,8 @@ describe('Archiver Sync', () => {
       expect(write).toHaveBeenCalled();
       expect(anchor.mock.invocationCallOrder[0]).toBeLessThan(write.mock.invocationCallOrder[0]);
       expect((await subject.getL2Frontier()).l1SyncPoint?.blockNumber).toEqual(105n);
+      // The standalone accessor is what the fee provider follows, so it must report the same anchor.
+      expect(await subject.getL1SyncPoint()).toEqual((await subject.getL2Frontier()).l1SyncPoint);
 
       await subject.stop();
     });

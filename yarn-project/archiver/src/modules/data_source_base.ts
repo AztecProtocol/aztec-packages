@@ -19,6 +19,7 @@ import {
   Body,
   type CheckpointQuery,
   type CheckpointsQuery,
+  type L1SyncPoint,
   L2Block,
   type L2Frontier,
   type L2Tips,
@@ -143,6 +144,8 @@ export abstract class ArchiverDataSourceBase
   abstract getL2Tips(): Promise<L2Tips>;
 
   abstract getL2Frontier(): Promise<L2Frontier>;
+
+  abstract getL1SyncPoint(): Promise<L1SyncPoint | undefined>;
 
   abstract getSyncedL2SlotNumber(): Promise<SlotNumber | undefined>;
 

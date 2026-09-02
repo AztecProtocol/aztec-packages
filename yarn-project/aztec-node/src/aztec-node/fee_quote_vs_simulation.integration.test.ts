@@ -7,6 +7,7 @@ import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contract
 import { type Anvil, EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { maxBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -14,7 +15,14 @@ import { createLogger } from '@aztec/foundation/log';
 import { ManualDateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import { FeeProviderImpl, GlobalVariableBuilder, type GlobalVariableBuilderConfig } from '@aztec/sequencer-client';
-import { type BlockData, BlockHash, L2Block, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  BlockHash,
+  type L1SyncPoint,
+  L2Block,
+  type L2BlockSource,
+  type L2Tips,
+} from '@aztec/stdlib/block';
 import { L1PublishedData, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
@@ -70,6 +78,8 @@ describe('fee quote vs public simulation', () => {
 
   let feeProvider: FeeProviderImpl;
   let node: AztecNodeService;
+  /** L1 block the mocked archiver claims to be synced to; the fee provider prices at exactly this block. */
+  let l1SyncPoint: L1SyncPoint;
 
   /** First slot at which the stepped-down oracle value applies. */
   let changeSlot: SlotNumber;
@@ -87,8 +97,12 @@ describe('fee quote vs public simulation', () => {
   /** Stable per-block hash, so tips and the block-data mock agree on identity for hash lookups. */
   const blockHashOf = (blockNumber: BlockNumber): BlockHash => new BlockHash(new Fr(1000 + blockNumber));
 
-  const makeTips = (args: { proposed: BlockNumber; checkpointedBlock: BlockNumber }): L2Tips => {
-    const checkpointId = { number: PENDING_CHECKPOINT, hash: '0xc1' };
+  const makeTips = (args: {
+    proposed: BlockNumber;
+    checkpointedBlock: BlockNumber;
+    checkpointNumber?: CheckpointNumber;
+  }): L2Tips => {
+    const checkpointId = { number: args.checkpointNumber ?? PENDING_CHECKPOINT, hash: '0xc1' };
     const checkpointedBlockId = {
       number: args.checkpointedBlock,
       hash: blockHashOf(args.checkpointedBlock).toString(),
@@ -101,11 +115,22 @@ describe('fee quote vs public simulation', () => {
     };
   };
 
+  /**
+   * Points the mocked archiver at anvil's head, as a sync pass does. The fee provider follows this value and
+   * never polls L1 for a head of its own, so nothing moves its view until this is called again.
+   */
+  const syncArchiverToL1Head = async (): Promise<void> => {
+    const block = await publicClient.getBlock({ blockTag: 'latest' });
+    l1SyncPoint = { blockNumber: block.number, blockHash: Buffer32.fromString(block.hash) };
+    blockSource.getL1SyncPoint.mockResolvedValue(l1SyncPoint);
+  };
+
   /** Points the block source at one atomic L2 frontier snapshot, the single read the simulator makes. */
   const mockL2Frontier = (args: {
     proposed: BlockNumber;
     checkpointedBlock: BlockNumber;
     checkpointedTipSlot: SlotNumber;
+    checkpointNumber?: CheckpointNumber;
     proposedCheckpoint?: ProposedCheckpointData;
     /** Globals of the proposed tip's header, as the archiver reads them in the same snapshot. */
     latestBlockGlobals?: { slotNumber: SlotNumber; gasFees: GasFees };
@@ -113,7 +138,7 @@ describe('fee quote vs public simulation', () => {
     blockSource.getL2Frontier.mockResolvedValue({
       tips: makeTips(args),
       proposedCheckpoint: args.proposedCheckpoint,
-      l1SyncPoint: undefined,
+      l1SyncPoint,
       latestBlockHeader: args.latestBlockGlobals
         ? makeBlockData(args.proposed, args.latestBlockGlobals.slotNumber, args.latestBlockGlobals.gasFees).header
         : undefined,
@@ -148,8 +173,8 @@ describe('fee quote vs public simulation', () => {
   const startNodeAt = async (nodeClockSlotStart: bigint) => {
     dateProvider.setTime(Number(nodeClockSlotStart) * 1000);
 
-    feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
-    // Long polling interval: the quote must stay pinned to the clock this scenario set.
+    feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig, blockSource);
+    // Long polling interval: every refresh in these scenarios is driven explicitly, as an archiver pass would.
     await feeProvider.start(60_000);
 
     const config: AztecNodeConfig = {
@@ -287,7 +312,7 @@ describe('fee quote vs public simulation', () => {
     await anvil?.stop().catch(err => createLogger('cleanup').error(`Error stopping anvil`, err));
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     blockSource = mock<L2BlockSource>();
     worldStateSynchronizer = mock<WorldStateSynchronizer>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
@@ -300,6 +325,7 @@ describe('fee quote vs public simulation', () => {
     // The mocked archiver reports block numbers the fresh world state does not have, so every fork is taken
     // at its (empty) latest block.
     worldStateSynchronizer.fork.mockImplementation(() => worldState.fork());
+    await syncArchiverToL1Head();
   });
 
   afterEach(async () => {
@@ -378,5 +404,57 @@ describe('fee quote vs public simulation', () => {
 
     expect(output.globalVariables.slotNumber).toEqual(SlotNumber(changeSlot + 1));
     expect(output.globalVariables.gasFees.feePerL2Gas).toEqual(lowFee);
+  }, 120_000);
+
+  it('keeps quote and simulation on the archiver L1 view as a checkpoint lands', async () => {
+    await startNodeAt(tsOf(changeSlot));
+    mockL2Frontier({
+      proposed: BlockNumber(1),
+      checkpointedBlock: BlockNumber(1),
+      checkpointedTipSlot: SlotNumber(changeSlot - 1),
+      latestBlockGlobals: { slotNumber: SlotNumber(changeSlot - 1), gasFees: GasFees.empty() },
+    });
+
+    const before = await node.getPredictedMinFees(ManaUsageEstimate.Limit);
+    expect(before[0].feePerL2Gas).toEqual(lowFee);
+
+    // A checkpoint lands on L1 at slot `changeSlot + 1`, quartering `ethPerFeeAsset` so the fee it freezes in
+    // is far above the one the previous L1 view priced, and anvil mines on past it.
+    const previousFeeHeader = (await rollup.getCheckpoint(PENDING_CHECKPOINT)).feeHeader;
+    const landedCheckpoint = CheckpointNumber(PENDING_CHECKPOINT + 1);
+    await rollupCheatCodes.setPendingCheckpoint(landedCheckpoint, SlotNumber(changeSlot + 1), {
+      ...previousFeeHeader,
+      ethPerFeeAsset: previousFeeHeader.ethPerFeeAsset / 4n,
+    });
+    await rollupCheatCodes.markAsProven(landedCheckpoint);
+    await cheatCodes.mine();
+
+    const landedFee = await feeAt(SlotNumber(changeSlot + 2));
+    expect(landedFee).toBeGreaterThan((lowFee * 3n) / 2n);
+
+    // L1's head has moved, but the archiver has not run a pass. The provider prices at the L1 block the
+    // simulator still plans from, so a refresh here changes nothing.
+    await feeProvider.refresh();
+    const beforeArchiverPass = await node.getPredictedMinFees(ManaUsageEstimate.Limit);
+    expect(beforeArchiverPass[0].feePerL2Gas).toEqual(lowFee);
+
+    // The archiver's sync pass moves the anchor and the frontier together; the provider follows it.
+    await syncArchiverToL1Head();
+    mockL2Frontier({
+      proposed: BlockNumber(2),
+      checkpointedBlock: BlockNumber(2),
+      checkpointedTipSlot: SlotNumber(changeSlot + 1),
+      checkpointNumber: landedCheckpoint,
+      latestBlockGlobals: { slotNumber: SlotNumber(changeSlot + 1), gasFees: GasFees.empty() },
+    });
+    await feeProvider.refresh();
+
+    const after = await node.getPredictedMinFees(ManaUsageEstimate.Limit);
+    expect(after[0].feePerL2Gas).toEqual(landedFee);
+
+    const output = await node.simulatePublicCalls(await makeTx(0x40000, walletCap(after)));
+
+    expect(output.globalVariables.slotNumber).toEqual(SlotNumber(changeSlot + 2));
+    expect(output.globalVariables.gasFees.feePerL2Gas).toEqual(after[0].feePerL2Gas);
   }, 120_000);
 });

@@ -19,6 +19,7 @@ import {
   type CheckpointQuery,
   type CheckpointsQuery,
   CheckpointsQuerySchema,
+  type L1SyncPoint,
   type L2Frontier,
   type L2Tips,
   type ProposedCheckpointQuery,
@@ -265,6 +266,11 @@ describe('ArchiverApiSchema', () => {
       totalManaUsed: 1n,
       feeAssetPriceModifier: 1n,
     });
+  });
+
+  it('getL1SyncPoint', async () => {
+    const result = await context.client.getL1SyncPoint();
+    expect(result).toEqual({ blockNumber: 42n, blockHash: Buffer32.fromField(new Fr(7)) });
   });
 
   it('getL2Frontier', async () => {
@@ -538,6 +544,9 @@ class MockArchiver implements ArchiverApi {
       proven: tipId,
       finalized: tipId,
     });
+  }
+  getL1SyncPoint(): Promise<L1SyncPoint | undefined> {
+    return Promise.resolve({ blockNumber: 42n, blockHash: Buffer32.fromField(new Fr(7)) });
   }
   async getL2Frontier(): Promise<L2Frontier> {
     return {
