@@ -84,8 +84,13 @@ git -C "$fnd/labs" diff --quiet -- package.json || fail "commit-use-local: manif
 ok "commit-use-local scoping and marker handling"
 git -C "$fnd/labs" checkout -q -- src
 
-# 4. pre-commit guard: staging the patched head is refused, an upstream commit is fine
-git -C "$fnd" add labs
+# 4. pre-commit guard: staging the patched head is refused, an upstream commit is fine.
+#    apply marks the gitlink skip-worktree: the patched checkout is invisible to status and to
+#    `git add -u`, and a bare `git add labs` is a no-op; a gitlink staged on purpose is still seen.
+[ -z "$(git -C "$fnd" status --short -- labs)" ] || fail "status: patched labs/ shows as modified"
+git -C "$fnd" add -u; git -C "$fnd" add labs 2>/dev/null || true
+[ -z "$(git -C "$fnd" diff --cached --name-only --ignore-submodules=none -- labs)" ] || fail "add -u / add labs staged the gitlink"
+git -C "$fnd" update-index --cacheinfo "160000,$(git -C "$fnd/labs" rev-parse HEAD),labs"
 expect_fail "$lp" check_staged || fail "check_staged: patched head accepted"
 git -C "$fnd" restore --staged labs
 git -C "$fnd" update-index --cacheinfo "160000,$v2,labs"
@@ -93,13 +98,25 @@ git -C "$fnd" update-index --cacheinfo "160000,$v2,labs"
 git -C "$fnd" restore --staged labs
 ok "check_staged guard"
 
+# 4b. a commit inside labs/ re-exports the series by itself (post-commit hook from apply)
+n_before=$(ls "$fnd/labs-patches"/*.patch | wc -l | tr -d ' ')
+echo "auto" > "$fnd/labs/auto"; g -C "$fnd/labs" add auto; g -C "$fnd/labs" commit -qm "patch auto: hook"
+ls "$fnd/labs-patches"/*-patch-auto-hook.patch >/dev/null 2>&1 || fail "auto-export: patch not written by the hook"
+git -C "$fnd/labs" reset -q --hard HEAD~1; "$lp" export >/dev/null
+[ "$(ls "$fnd/labs-patches"/*.patch | wc -l | tr -d ' ')" = "$n_before" ] || fail "auto-export: cleanup"
+ok "commits in labs/ auto-export"
+
 # 5. same-pin bump is a no-op re-apply; forward bump moves the gitlink, re-applies, and keeps
 #    the foundry.lock entries forge records for the submodule in step with the pin
 printf '{\n  "../labs": {\n    "rev": "%s"\n  }\n}' "$v1" > "$fnd/foundry.lock"; g -C "$fnd" add foundry.lock; g -C "$fnd" commit -q -m "foundry.lock"
 "$lp" bump "$v1" >/dev/null || fail "bump: same pin"
 [ "$(git -C "$fnd" rev-parse :labs)" = "$v1" ] || fail "bump same pin: gitlink"
-"$lp" bump "$v2" >/dev/null || fail "bump: forward"
+"$lp" bump "$v2" --commit >/dev/null || fail "bump: forward (--commit)"
 [ "$(git -C "$fnd" rev-parse :labs)" = "$v2" ] || fail "bump forward: gitlink moved"
+# --commit recorded gitlink, locks and series in one commit
+git -C "$fnd" log -1 --format=%s | grep -q "^chore(labs): bump the submodule" || fail "bump --commit: subject"
+[ "$(git -C "$fnd" rev-parse HEAD:labs)" = "$v2" ] || fail "bump --commit: gitlink"
+git -C "$fnd" show --stat --format= HEAD | grep -q foundry.lock || fail "bump --commit: lock not in the commit"
 git -C "$fnd/labs" merge-base --is-ancestor "$v2" HEAD || fail "bump forward: series on new base"
 [ "$(git -C "$fnd/labs" rev-list --count "$v2..HEAD")" = 3 ] || { git -C "$fnd/labs" log --oneline "$v2..HEAD" >&2; git -C "$fnd/labs" log --oneline -6 >&2; fail "bump forward: three patches applied"; }
 grep -q "a=2" "$fnd/labs/config" && grep -q "y" "$fnd/labs/src" && [ -f "$fnd/labs/extra" ] || fail "bump forward: content"
@@ -107,7 +124,6 @@ grep -q "a=2" "$fnd/labs/config" && grep -q "y" "$fnd/labs/src" && [ -f "$fnd/la
 grep -q "\"rev\": \"$v2\"" "$fnd/foundry.lock" || fail "bump: foundry.lock rev not moved to the new pin"
 [ "$(tail -c1 "$fnd/foundry.lock" | xxd -p)" = 7d ] || fail "bump: foundry.lock trailing newline"
 ok "same-pin and forward bump"
-g -C "$fnd" commit -q -m "bump to v2"
 
 # 6. bump refuses on unexported work; apply refuses when the series changes under it
 g -C "$fnd/labs" commit -q --allow-empty -m "wip: local"

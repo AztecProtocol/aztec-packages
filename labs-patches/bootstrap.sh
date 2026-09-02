@@ -166,11 +166,13 @@ function apply {
     echo "Checking out labs submodule at $base..."
     checkout_base
   elif is_applied; then
+    settle_checkout
     echo "labs patches already applied ($(patches | wc -l | tr -d ' ') on $base)."
     return
   elif git_labs merge-base --is-ancestor "$base" HEAD 2>/dev/null && series_present "$base"; then
     # Same base, same series by content (e.g. the state file is gone): nothing to redo.
     write_state
+    settle_checkout
     echo "labs patches already applied ($(patches | wc -l | tr -d ' ') on $base)."
     return
   else
@@ -194,7 +196,36 @@ function apply {
   fi
   am_series "$labs"
   write_state
+  settle_checkout
   echo "Applied $(patches | wc -l | tr -d ' ') labs patches on $base."
+}
+
+# The patched labs/ HEAD always differs from the gitlink. skip-worktree on the index entry keeps
+# that out of git status, `git add -u` and `git commit -a`, and makes a bare `git add labs` a
+# no-op; bump moves the entry with update-index (which clears the bit) and re-applies.
+function hide_gitlink {
+  git -C "$fnd_root" update-index --skip-worktree labs 2>/dev/null || true
+}
+
+# Whatever path apply took, the checkout gets its hook and its gitlink is hidden from git.
+function settle_checkout { install_labs_hooks; hide_gitlink; }
+
+# A commit inside labs/ re-exports the series, so the .patch files never lag the checkout.
+# git am (apply) and commits in the upstream/port worktrees do not go through this hook; the
+# marker commit and the tooling's own commits opt out with LABS_PATCHES_NO_AUTO_EXPORT=1.
+function install_labs_hooks {
+  local hooks; hooks=$(git_labs rev-parse --absolute-git-dir)/hooks
+  mkdir -p "$hooks"
+  {
+    echo '#!/usr/bin/env bash'
+    echo '# Installed by labs-patches apply: keep labs-patches/*.patch in step with commits made here.'
+    echo '[ "${LABS_PATCHES_NO_AUTO_EXPORT:-0}" = 1 ] && exit 0'
+    echo '# git hands hooks its own GIT_DIR; the tooling runs git in both repositories.'
+    echo 'unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_OBJECT_DIRECTORY'
+    echo "[ -e '$labs/.git' ] || exit 0"
+    echo "LABS_PATCHES_QUIET=1 '$patch_dir/bootstrap.sh' export || echo 'labs-patches: auto-export failed; run scripts/labs export' >&2"
+  } > "$hooks/post-commit"
+  chmod +x "$hooks/post-commit"
 }
 
 # Only commits are exported; marker commits are skipped. A built tree may carry the
@@ -219,6 +250,7 @@ function export_series {
   done
   # The exported commits are the series now; record them as applied.
   write_state
+  [ "${LABS_PATCHES_QUIET:-0}" = 1 ] && return 0
   echo "Exported $(patches | wc -l | tr -d ' ') patches on $base:"
   patches | xargs -rn1 basename
 }
@@ -247,8 +279,9 @@ function sync_foundry_locks {
 }
 
 function bump {
-  local ref=${1:-}
-  [ -n "$ref" ] || die "usage: bump <upstream ref>"
+  local ref="" mode="" a
+  for a in "$@"; do case "$a" in --commit) mode=commit ;; --pr) mode=pr ;; *) ref=$a ;; esac; done
+  [ -n "$ref" ] || die "usage: bump <upstream ref> [--commit|--pr]"
   initialized || checkout_base
   local lost; lost=$(unexported_commits "$(base_sha)")
   if [ -n "$lost" ]; then
@@ -262,7 +295,27 @@ function bump {
   git -C "$fnd_root" update-index --cacheinfo "160000,$new,labs"
   sync_foundry_locks "$new"
   echo "labs gitlink: $old -> $new"
+  local before; before=$(patches | xargs -rn1 basename)
   apply
+  local dropped; dropped=$(comm -23 <(echo "$before") <(patches | xargs -rn1 basename))
+  [ -z "$dropped" ] || { echo "patches absorbed upstream (dropped from the series):"; echo "$dropped" | sed 's/^/  /'; }
+  [ -n "$mode" ] || return 0
+  # --commit: record the bump (gitlink, foundry locks, regenerated series); --pr: also push it
+  # as labs-bump/<short> and open the PR (base LABS_BUMP_BASE, default next).
+  git -C "$fnd_root" add -- labs-patches
+  local subject="chore(labs): bump the submodule to aztec-node $ref ($(git_labs rev-parse --short "$new"))"
+  local body="labs gitlink: $old -> $new"
+  [ -z "$dropped" ] || body+=$'\n\nPatches absorbed upstream: '"$(echo "$dropped" | tr '\n' ' ')"
+  if [ "$mode" = pr ]; then
+    local branch="labs-bump/$(git_labs rev-parse --short "$new")"
+    git -C "$fnd_root" checkout -q -b "$branch"
+  fi
+  git -C "$fnd_root" -c commit.gpgsign=false commit -q -m "$subject" -m "$body"
+  echo "Committed: $subject"
+  if [ "$mode" = pr ]; then
+    git -C "$fnd_root" push -q -u origin "$branch"
+    gh pr create --base "${LABS_BUMP_BASE:-next}" --head "$branch" --title "$subject" --body "$body"
+  fi
 }
 
 # Commits the worktree's use-local rewrite as the marker commit, amending the previous one
@@ -301,7 +354,7 @@ function commit_use_local {
     echo "labs-patches: note: lockfile entries changed outside the portal rewrite (yarn re-resolved them):" >&2
     echo "$drift" >&2
   fi
-  git_labs -c user.name=labs-patches -c user.email=labs-patches@localhost \
+  LABS_PATCHES_NO_AUTO_EXPORT=1 git_labs -c user.name=labs-patches -c user.email=labs-patches@localhost \
     commit -q ${amend[@]+"${amend[@]}"} -m "$MARKER_SUBJECT" -m "Manifests rewritten by labs-aztec-toolchain use-local to consume the foundation checkout this submodule sits in. Not part of the patch series."
   echo "Committed the use-local rewrite as $(git_labs rev-parse --short HEAD)."
 }
@@ -310,7 +363,7 @@ function commit_use_local {
 # upstream commit never does. Any such commit between the old and the staged gitlink means
 # a patched head is being recorded, which no other clone could fetch.
 function check_staged {
-  git -C "$fnd_root" diff --cached --quiet -- labs && return 0
+  git -C "$fnd_root" diff --cached --quiet --ignore-submodules=none -- labs && return 0
   initialized || return 0
   local old staged
   old=$(git -C "$fnd_root" rev-parse -q --verify HEAD:labs 2>/dev/null || true)
@@ -331,15 +384,16 @@ function check_staged {
 # so are printed. Once the PR lands and the pin is bumped past it, the patches drop out of the
 # next export on their own.
 function upstream {
-  local sels=() branch="" a
+  local sels=() branch="" push=0 a
   for a in "$@"; do
     case "$a" in
+      --push) push=1; continue ;;
       --branch) ;;  # handled below
       *) if [ -n "${expect_branch:-}" ]; then branch=$a; expect_branch=""; else sels+=("$a"); fi ;;
     esac
     [ "$a" = "--branch" ] && expect_branch=1
   done
-  [ "${#sels[@]}" -gt 0 ] || die "usage: upstream <patch number or file>... [--branch <name>]"
+  [ "${#sels[@]}" -gt 0 ] || die "usage: upstream <patch number or file>... [--branch <name>] [--push]"
   initialized || die "labs/ is not checked out; run apply first"
   local files=() sel p
   for sel in "${sels[@]}"; do
@@ -369,7 +423,7 @@ function upstream {
     ident=("GIT_COMMITTER_NAME=$caller_committer_name" "GIT_COMMITTER_EMAIL=$caller_committer_email")
   fi
   for p in $ordered; do
-    if ! env -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL ${ident[@]+"${ident[@]}"} \
+    if ! env -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL LABS_PATCHES_NO_AUTO_EXPORT=1 ${ident[@]+"${ident[@]}"} \
         git -C "$tmp" -c commit.gpgsign=false am -q --3way "$p"; then
       git -C "$tmp" am --abort || true
       git_labs branch -q -D "$branch"
@@ -378,8 +432,13 @@ function upstream {
   done
   echo "Prepared $branch in labs/ ($(git -C "$tmp" rev-parse --short HEAD) on $base):"
   echo "$ordered" | xargs -n1 basename | sed 's/^/  /'
-  echo "  git -C labs push origin $branch"
-  echo "  gh pr create --repo aztec-labs-eng/aztec-node --head $branch --base main --fill"
+  if [ "$push" = 1 ]; then
+    git_labs push -q -u origin "$branch"
+    gh pr create --repo aztec-labs-eng/aztec-node --head "$branch" --base main --fill
+  else
+    echo "  git -C labs push origin $branch"
+    echo "  gh pr create --repo aztec-labs-eng/aztec-node --head $branch --base main --fill"
+  fi
 }
 
 function status {
@@ -417,11 +476,13 @@ case "${1:-apply}" in
   apply) apply ;;
   export) export_series ;;
   check) check ;;
-  bump) bump "${2:-}" ;;
+  bump) shift; bump "$@" ;;
   commit-use-local) commit_use_local ;;
   check_staged) check_staged ;;
   status) status ;;
   upstream) shift; upstream "$@" ;;
+  port) shift; exec "$fnd_root/scripts/labs_port_pr.sh" "$@" ;;
+  run) shift; exec "$fnd_root/scripts/labs_env.sh" "$@" ;;
   test_cmds) test_cmds ;;
   test) "$patch_dir/tests/lifecycle_test" && check ;;
   *) die "unknown command: $1" ;;
