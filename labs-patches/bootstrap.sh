@@ -234,6 +234,18 @@ function check {
   echo "labs patches apply cleanly to $base."
 }
 
+# forge records every submodule of the repository in each foundry.lock, including labs/, and
+# rewrites a rev that does not match the gitlink (dirtying a rebuild pattern under CI=1). Keep
+# the locks in step with the pin. Forge serialises the file without a trailing newline.
+function sync_foundry_locks {
+  local new=$1 f
+  for f in $(git -C "$fnd_root" ls-files -- '*foundry.lock'); do
+    grep -q '"\.\./\(\.\./\)\?labs"' "$fnd_root/$f" || continue
+    perl -0pi -e 's#("\.\./(?:\.\./)?labs": \{\s*"rev": ")[0-9a-f]{40}(")#${1}'"$new"'$2#' "$fnd_root/$f"
+    git -C "$fnd_root" add -- "$f"
+  done
+}
+
 function bump {
   local ref=${1:-}
   [ -n "$ref" ] || die "usage: bump <upstream ref>"
@@ -248,6 +260,7 @@ function bump {
   local new; new=$(git_labs rev-parse FETCH_HEAD)
   local old; old=$(base_sha)
   git -C "$fnd_root" update-index --cacheinfo "160000,$new,labs"
+  sync_foundry_locks "$new"
   echo "labs gitlink: $old -> $new"
   apply
 }
