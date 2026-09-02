@@ -1,7 +1,7 @@
 import { Encoder } from 'msgpackr';
 
 import type { Key, Range, Value } from '../interfaces/common.js';
-import type { AztecAsyncMap } from '../interfaces/map.js';
+import type { AztecAsyncMap, GetManyOptions } from '../interfaces/map.js';
 import type { AztecLMDBStoreV2 } from './store.js';
 import { acquireReadTx, execInReadTx, execInWriteTx } from './tx-helpers.js';
 import { deserializeKey, maxKey, minKey, serializeKey } from './utils.js';
@@ -66,6 +66,16 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
     return execInReadTx(this.store, async tx => {
       const val = await tx.get(serializeKey(this.prefix, key));
       return val ? this.encoder.unpack(val) : undefined;
+    });
+  }
+
+  getManyAsync(keys: K[], opts?: GetManyOptions): Promise<(V | undefined)[]> {
+    return execInReadTx(this.store, async tx => {
+      const vals = await tx.getMany(
+        keys.map(key => serializeKey(this.prefix, key)),
+        opts,
+      );
+      return vals.map(val => (val ? this.encoder.unpack(val) : undefined));
     });
   }
 

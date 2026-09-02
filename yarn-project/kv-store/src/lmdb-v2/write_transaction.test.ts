@@ -100,6 +100,70 @@ describe('WriteTransaction', () => {
     expect(await tx.get(Buffer.from('foo'))).toEqual(undefined);
   });
 
+  it('correctly overlays pending data on batched reads', async () => {
+    channel.sendMessage.mockImplementation((type: LMDBMessageType, body: any) => {
+      if (type === LMDBMessageType.GET) {
+        const committed: Record<string, Buffer> = { committed: Buffer.from('c'), overwritten: Buffer.from('old') };
+        return Promise.resolve({
+          values: body.keys.map((key: Buffer) => {
+            const value = committed[key.toString()];
+            return value ? [value] : null;
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true });
+    });
+
+    await tx.set(Buffer.from('overwritten'), Buffer.from('new'));
+    await tx.set(Buffer.from('added'), Buffer.from('a'));
+    await tx.remove(Buffer.from('committed'));
+
+    const keys = ['overwritten', 'added', 'committed', 'missing'].map(k => Buffer.from(k));
+    expect(await tx.getMany(keys)).toEqual([Buffer.from('new'), Buffer.from('a'), undefined, undefined]);
+
+    // Only the keys the pending batch says nothing about make it to the store.
+    expect(channel.sendMessage).toHaveBeenCalledWith(LMDBMessageType.GET, {
+      keys: [Buffer.from('missing')],
+      db: Database.DATA,
+      txId: null,
+    });
+  });
+
+  it('matches sequential gets when reading many with pending writes', async () => {
+    channel.sendMessage.mockImplementation((type: LMDBMessageType, body: any) => {
+      if (type === LMDBMessageType.GET) {
+        const committed: Record<string, Buffer> = { aaa: Buffer.from('1'), bbb: Buffer.from('2') };
+        return Promise.resolve({
+          values: body.keys.map((key: Buffer) => {
+            const value = committed[key.toString()];
+            return value ? [value] : null;
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true });
+    });
+
+    await tx.set(Buffer.from('ccc'), Buffer.from('3'));
+    await tx.remove(Buffer.from('aaa'));
+
+    const keys = ['aaa', 'bbb', 'ccc', 'ddd'].map(k => Buffer.from(k));
+    const sequential = [];
+    for (const key of keys) {
+      sequential.push(await tx.get(key));
+    }
+    expect(await tx.getMany(keys)).toEqual(sequential);
+  });
+
+  it('skips the round trip when reading many with no keys', async () => {
+    expect(await tx.getMany([])).toEqual([]);
+    expect(channel.sendMessage).not.toHaveBeenCalledWith(LMDBMessageType.GET, expect.anything());
+  });
+
+  it('refuses batched reads if closed', async () => {
+    tx.close();
+    await expect(tx.getMany([Buffer.from('foo')])).rejects.toThrow('Transaction is closed');
+  });
+
   it('correctly meanages pending index reads', async () => {
     channel.sendMessage.mockResolvedValue({ values: [[Buffer.from('1')]] });
     expect(await tx.getIndex(Buffer.from('foo'))).toEqual([Buffer.from('1')]);
