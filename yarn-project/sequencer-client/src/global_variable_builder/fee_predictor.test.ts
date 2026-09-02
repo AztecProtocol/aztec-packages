@@ -5,7 +5,7 @@ import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS, RollupContract, TempCheckpointLogFiel
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { type Anvil, EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ViemClient } from '@aztec/ethereum/types';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -87,27 +87,8 @@ describe('FeePredictor', () => {
   }
 
   /** Writes a fee header and slot number for the given checkpoint, then bumps the pending tip. */
-  async function advanceCheckpoint(checkpointNumber: CheckpointNumber, feeHeader: FeeHeader, slotNumber: bigint) {
-    const rollupAddress = EthAddress.fromString(rollup.address);
-    const feeHeaderSlot = await rollup.getTempCheckpointLogStorageSlot(
-      checkpointNumber,
-      TempCheckpointLogField.FeeHeader,
-    );
-    await cheatCodes.store(rollupAddress, feeHeaderSlot, RollupContract.compressFeeHeader(feeHeader));
-
-    const slotNumberSlot = await rollup.getTempCheckpointLogStorageSlot(
-      checkpointNumber,
-      TempCheckpointLogField.SlotNumber,
-    );
-    await cheatCodes.store(rollupAddress, slotNumberSlot, slotNumber & ((1n << 32n) - 1n));
-
-    const currentTips = await cheatCodes.load(rollupAddress, RollupContract.chainTipsStorageSlot);
-    const provenCheckpointNumber = currentTips & ((1n << 128n) - 1n);
-    await cheatCodes.store(
-      rollupAddress,
-      RollupContract.chainTipsStorageSlot,
-      RollupContract.packChainTips(BigInt(checkpointNumber), provenCheckpointNumber),
-    );
+  function advanceCheckpoint(checkpointNumber: CheckpointNumber, feeHeader: FeeHeader, slotNumber: bigint) {
+    return rollupCheatCodes.setPendingCheckpoint(checkpointNumber, SlotNumber.fromBigInt(slotNumber), feeHeader);
   }
 
   async function getPredictionStartSlot(): Promise<bigint> {
