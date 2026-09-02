@@ -43,6 +43,16 @@ gh pr create --repo aztec-labs-eng/aztec-node --head fnd/<slug>-and-2-more --bas
 
 Everything else in this directory (`bootstrap.sh`, the tests, `test_cmd_skip`) is the foundation's own tooling and never goes upstream.
 
+## Porting a PR
+
+```
+scripts/labs_port_pr.sh 24800           # an aztec-packages PR number or URL
+git -C labs push origin port/pr-24800
+gh pr create --repo aztec-labs-eng/aztec-node --head port/pr-24800 --base main --fill
+```
+
+The PR must touch only the labs half of the tree: the in-tree layout (`yarn-project/`, `noir-projects/labs/`, `docs/`, `playground/`, `spartan/`, `aztec-up/`, `release-image/`, `labs-aztec-toolchain/` — v5 lines, or `next` before the split) or, after the split, only `labs-patches/*.patch`. Anything else is refused with the files listed; split such a PR rather than guessing. The diff is replayed onto aztec-node `main` with a 3-way merge (the pre-image blobs are copied from this repository), so context that moved upstream is adapted and an already-landed hunk merges as a no-op; files that still conflict are committed with markers and listed, as are lines that reference foundation-only paths, which aztec-node cannot resolve. Nothing is pushed.
+
 ## Disabled patches
 
 `apply` globs `*.patch`, so a patch renamed to `*.patch.disabled` is kept in the queue but not applied.

@@ -399,7 +399,7 @@ function status {
 # input: the Makefile invokes this from labs-patches/, hence the cd. The gitlink is part of
 # the hash so check is never served from the test cache across a pin bump.
 function test_cmds {
-  local inputs="labs-patches scripts/labs_test_cmds.sh scripts/labs_env.sh"
+  local inputs="labs-patches scripts/labs_test_cmds.sh scripts/labs_env.sh scripts/labs_port_pr.sh scripts/tests/labs_port_pr_test"
   local h
   # Uncommitted edits must not be served a cached result, as with cache_content_hash.
   if [ -n "$(cd "$fnd_root" && git status --porcelain -- $inputs)" ]; then
@@ -410,6 +410,7 @@ function test_cmds {
   [ -n "$h" ] || die "could not hash labs-patches"
   echo "$h labs-patches/tests/lifecycle_test"
   echo "$h labs-patches/bootstrap.sh check"
+  echo "$h scripts/tests/labs_port_pr_test"
 }
 
 case "${1:-apply}" in
