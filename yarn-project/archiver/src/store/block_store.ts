@@ -15,8 +15,8 @@ import {
   CommitteeAttestation,
   GENESIS_CHECKPOINT_HEADER_HASH,
   L2Block,
+  type L2Frontier,
   type L2TipId,
-  type L2Tips,
   type ValidateCheckpointResult,
   deserializeValidateCheckpointResult,
   serializeValidateCheckpointResult,
@@ -1239,22 +1239,25 @@ export class BlockStore {
   }
 
   /**
-   * Resolves all four L2 chain tips (proposed, checkpointed, proven, finalized) in a single
-   * read-only transaction so the snapshot is internally consistent. Each underlying record is
-   * read at most once: latest block and latest confirmed checkpoint are loaded directly (no
-   * separate "find the number, then look up data" hop), the proven/finalized checkpoint
-   * singletons are read once and their storage entries are reused if they coincide with the
-   * latest checkpoint, and per-tip block hashes are deduped when two tips land on the same block
-   * (e.g. finalized == proven).
+   * Resolves all four L2 chain tips (proposed, checkpointed, proven, finalized), the leading proposed
+   * checkpoint, the latest block header, the latest confirmed checkpoint with its L1 publication data, and
+   * the pending-chain validation status in a single read-only transaction, so every field of the result
+   * describes the same committed state. Each underlying record is read at most once: latest block and
+   * latest confirmed checkpoint are loaded directly (no separate "find the number, then look up data"
+   * hop), the proven/finalized checkpoint singletons are read once and their storage entries are reused if
+   * they coincide with the latest checkpoint, and per-tip block hashes are deduped when two tips land on
+   * the same block (e.g. finalized == proven).
    *
-   * The result is guaranteed to satisfy `finalized <= proven <= checkpointed <= proposed` (by
-   * block number). Genesis is represented by `(INITIAL_L2_BLOCK_NUM - 1)` and the supplied
-   * `genesisBlockHash`, paired with the synthetic genesis checkpoint id.
+   * The tips are guaranteed to satisfy `finalized <= proven <= checkpointed <= proposed` (by block
+   * number). Genesis is represented by `(INITIAL_L2_BLOCK_NUM - 1)` and the supplied `genesisBlockHash`,
+   * paired with the synthetic genesis checkpoint id.
+   *
+   * The L1 sync point is not part of the store's state; it is attached by {@link L2FrontierCache}.
    *
    * @param genesisBlockHash - Block hash to report for the synthetic pre-initial block (used when
    *   a tip is still at genesis).
    */
-  async getL2TipsData(genesisBlockHash: BlockHash): Promise<L2Tips> {
+  async getL2Frontier(genesisBlockHash: BlockHash): Promise<Omit<L2Frontier, 'l1SyncPoint'>> {
     return await this.db.transactionAsync(async () => {
       // Define genesis tips
       const genesisBlockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
@@ -1333,25 +1336,39 @@ export class BlockStore {
               hash: BlockHash.fromBuffer(latestBlockEntry[1].blockHash).toString(),
             };
 
-      // Build other tips from checkpoint data, reading corresponding block data from the cache
+      // Build other tips from checkpoint data, reading corresponding block data from the cache. The parsed
+      // checkpoint header is returned alongside the tip so callers do not have to decode the buffer twice.
       const buildTipFromCheckpoint = async (
         stored: ProposedCheckpointStorage | CheckpointStorage | undefined,
-      ): Promise<L2TipId> => {
+      ): Promise<{ tip: L2TipId; header: CheckpointHeader | undefined }> => {
         if (!stored) {
-          return genesisTip;
+          return { tip: genesisTip, header: undefined };
         }
         const blockNumber = BlockNumber(stored.startBlock + stored.blockCount - 1);
         const blockHash = await loadBlockHash(blockNumber);
         const header = CheckpointHeader.fromBuffer(stored.header);
         return {
-          block: { number: blockNumber, hash: blockHash },
-          checkpoint: { number: CheckpointNumber(stored.checkpointNumber), hash: header.hash().toString() },
+          tip: {
+            block: { number: blockNumber, hash: blockHash },
+            checkpoint: { number: CheckpointNumber(stored.checkpointNumber), hash: header.hash().toString() },
+          },
+          header,
         };
       };
 
-      const checkpointedTip = await buildTipFromCheckpoint(latestCheckpointEntry?.[1]);
-      const provenTip = await buildTipFromCheckpoint(provenCheckpoint);
-      const finalizedTip = await buildTipFromCheckpoint(finalizedCheckpoint);
+      const { tip: checkpointedTip, header: checkpointedHeader } = await buildTipFromCheckpoint(
+        latestCheckpointEntry?.[1],
+      );
+      const { tip: provenTip } = await buildTipFromCheckpoint(provenCheckpoint);
+      const { tip: finalizedTip } = await buildTipFromCheckpoint(finalizedCheckpoint);
+      const proposedCheckpoint = await this.getLastProposedCheckpoint();
+      const pendingChainValidationStatus = (await this.getPendingChainValidationStatus()) ?? { valid: true };
+
+      const latestBlockHeader = latestBlockEntry ? BlockHeader.fromBuffer(latestBlockEntry[1].header) : undefined;
+      const checkpointedCheckpoint =
+        latestCheckpointEntry && checkpointedHeader
+          ? { header: checkpointedHeader, l1: L1PublishedData.fromBuffer(latestCheckpointEntry[1].l1) }
+          : undefined;
 
       // A checkpointed block past the latest stored block would mean a checkpoint
       // references blocks that aren't in blocks.
@@ -1383,10 +1400,16 @@ export class BlockStore {
       }
 
       return {
-        proposed: proposedBlockId,
-        checkpointed: checkpointedTip,
-        proven: provenTip,
-        finalized: finalizedTip,
+        tips: {
+          proposed: proposedBlockId,
+          checkpointed: checkpointedTip,
+          proven: provenTip,
+          finalized: finalizedTip,
+        },
+        proposedCheckpoint,
+        latestBlockHeader,
+        checkpointedCheckpoint,
+        pendingChainValidationStatus,
       };
     });
   }

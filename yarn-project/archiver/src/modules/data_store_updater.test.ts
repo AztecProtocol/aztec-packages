@@ -1,6 +1,7 @@
 import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
@@ -22,7 +23,7 @@ import { fileURLToPath } from 'url';
 
 import { registerProtocolContracts, registerStandardContracts } from '../factory.js';
 import { type ArchiverDataStores, createArchiverDataStores } from '../store/data_stores.js';
-import { L2TipsCache } from '../store/l2_tips_cache.js';
+import { L2FrontierCache } from '../store/l2_frontier_cache.js';
 import { makeCheckpoint, makePublishedCheckpoint } from '../test/mock_structs.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 
@@ -506,13 +507,13 @@ describe('ArchiverDataStoreUpdater', () => {
     });
   });
 
-  describe('l2 tips cache refresh', () => {
+  describe('L2 frontier cache refresh', () => {
     it('does not refresh the cache when the writer transaction aborts', async () => {
       const initialBlockHash = await BlockHeader.empty().hash();
-      const tipsCache = new L2TipsCache(store.blocks, initialBlockHash);
-      const updaterWithCache = new ArchiverDataStoreUpdater(store, tipsCache);
+      const l2FrontierCache = new L2FrontierCache(store.blocks, initialBlockHash);
+      const updaterWithCache = new ArchiverDataStoreUpdater(store, l2FrontierCache);
 
-      const tipsBefore = await tipsCache.getL2Tips();
+      const tipsBefore = await l2FrontierCache.getL2Tips();
 
       const block = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
@@ -524,10 +525,69 @@ describe('ArchiverDataStoreUpdater', () => {
 
       await expect(updaterWithCache.addProposedBlock(block)).rejects.toBe(failure);
 
-      const tipsAfter = await tipsCache.getL2Tips();
+      const tipsAfter = await l2FrontierCache.getL2Tips();
       expect(tipsAfter).toEqual(tipsBefore);
 
       addProposedBlockSpy.mockRestore();
+    });
+
+    it('serves tips and the proposed checkpoint from the same instant while a promotion commits', async () => {
+      const initialBlockHash = await BlockHeader.empty().hash();
+      const l2FrontierCache = new L2FrontierCache(store.blocks, initialBlockHash);
+      const updaterWithCache = new ArchiverDataStoreUpdater(store, l2FrontierCache);
+
+      const block = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        slotNumber: SlotNumber(100),
+      });
+      await updaterWithCache.addProposedBlock(block);
+      await store.blocks.addProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      });
+      await l2FrontierCache.refresh();
+
+      // Park the promotion transaction after it has committed but before the updater refreshes the cache,
+      // which is the window a concurrent reader can land in.
+      const { promise: committed, resolve: markCommitted } = promiseWithResolvers<void>();
+      const { promise: gate, resolve: openGate } = promiseWithResolvers<void>();
+      const realTransactionAsync = store.db.transactionAsync.bind(store.db);
+      const transactionSpy = jest.spyOn(store.db, 'transactionAsync').mockImplementationOnce(async callback => {
+        const result = await realTransactionAsync(callback);
+        markCommitted();
+        await gate;
+        return result;
+      });
+
+      const publishedCheckpoint = makePublishedCheckpoint(makeCheckpoint([block]), 10);
+      const promotion = updaterWithCache.addCheckpoints([], undefined, {
+        l1: publishedCheckpoint.l1,
+        attestations: publishedCheckpoint.attestations,
+        checkpoint: publishedCheckpoint,
+      });
+
+      await committed;
+      const frontier = await l2FrontierCache.getL2Frontier();
+      openGate();
+      await promotion;
+
+      // The proposed-checkpoint frontier and the proposed tip describe the same chain: a reader can see
+      // the pre-promotion snapshot or the post-promotion one, never a mix of the two.
+      const frontierBlock = frontier.proposedCheckpoint
+        ? BlockNumber.add(frontier.proposedCheckpoint.startBlock, frontier.proposedCheckpoint.blockCount - 1)
+        : frontier.tips.checkpointed.block.number;
+      expect(frontierBlock).toEqual(frontier.tips.proposed.number);
+
+      // The header comes from the same transaction as the tips, so it always describes the proposed tip.
+      expect(frontier.latestBlockHeader?.globalVariables.blockNumber).toEqual(frontier.tips.proposed.number);
+      expect(frontier.pendingChainValidationStatus).toEqual({ valid: true });
+
+      transactionSpy.mockRestore();
     });
   });
 

@@ -41,7 +41,7 @@ import { BlockOrCheckpointSlotExpiredError, L1ToL2MessagesNotReadyError } from '
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { type ArchiverDataStores, createArchiverDataStores } from './store/data_stores.js';
-import { L2TipsCache } from './store/l2_tips_cache.js';
+import { L2FrontierCache } from './store/l2_frontier_cache.js';
 import { FakeL1State } from './test/fake_l1_state.js';
 
 describe('Archiver Sync', () => {
@@ -73,7 +73,12 @@ describe('Archiver Sync', () => {
   const buildArchiver = async (
     storeName: string,
     configOverrides: { skipOrphanProposedBlockPruning?: boolean } = {},
-  ): Promise<{ archiver: Archiver; synchronizer: ArchiverL1Synchronizer; archiverStore: ArchiverDataStores }> => {
+  ): Promise<{
+    archiver: Archiver;
+    synchronizer: ArchiverL1Synchronizer;
+    archiverStore: ArchiverDataStores;
+    l2FrontierCache: L2FrontierCache;
+  }> => {
     const store = createArchiverDataStores(await openTmpStore(storeName), GENESIS_BLOCK_HEADER_HASH);
 
     const contractAddresses = {
@@ -100,7 +105,7 @@ describe('Archiver Sync', () => {
     const events = new EventEmitter() as ArchiverEmitter;
     const initialHeader = BlockHeader.empty();
     const initialBlockHash = await initialHeader.hash();
-    const l2TipsCache = new L2TipsCache(store.blocks, initialBlockHash);
+    const l2FrontierCache = new L2FrontierCache(store.blocks, initialBlockHash);
 
     const sync = new ArchiverL1Synchronizer(
       publicClient,
@@ -116,7 +121,7 @@ describe('Archiver Sync', () => {
       l1Constants,
       events,
       instrumentation.tracer,
-      l2TipsCache,
+      l2FrontierCache,
       syncLogger,
     );
 
@@ -135,11 +140,11 @@ describe('Archiver Sync', () => {
       events,
       initialHeader,
       initialBlockHash,
-      l2TipsCache,
+      l2FrontierCache,
       dateProvider,
     );
 
-    return { archiver: newArchiver, synchronizer: sync, archiverStore: store };
+    return { archiver: newArchiver, synchronizer: sync, archiverStore: store, l2FrontierCache };
   };
 
   beforeEach(async () => {
@@ -681,6 +686,24 @@ describe('Archiver Sync', () => {
       // In the second sync we should be good
       await archiver.syncImmediate();
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+    });
+
+    it('anchors the frontier to the L1 block a pass reads before that pass writes its data', async () => {
+      const { archiver: subject, archiverStore: store, l2FrontierCache } = await buildArchiver('archiver_anchor_test');
+      const anchor = jest.spyOn(l2FrontierCache, 'setL1SyncPoint');
+      const write = jest.spyOn(store.blocks, 'addCheckpoints');
+
+      await fake.addCheckpoint(CheckpointNumber(1), { l1BlockNumber: 101n, numL1ToL2Messages: 0 });
+      fake.setL1BlockNumber(105n);
+      await subject.syncImmediate();
+
+      // Anchoring after the writes (or not at all) would let a reader pair checkpoint 1's data with an L1
+      // block that predates its publication, and price a fee at a block where the checkpoint did not exist.
+      expect(write).toHaveBeenCalled();
+      expect(anchor.mock.invocationCallOrder[0]).toBeLessThan(write.mock.invocationCallOrder[0]);
+      expect((await subject.getL2Frontier()).l1SyncPoint?.blockNumber).toEqual(105n);
+
+      await subject.stop();
     });
   });
 

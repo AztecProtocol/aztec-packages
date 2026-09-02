@@ -8,6 +8,7 @@ import {
   type CheckpointId,
   GENESIS_BLOCK_HEADER_HASH,
   type L2BlockId,
+  type L2Frontier,
   type L2TipId,
   type L2Tips,
   type ValidateCheckpointResult,
@@ -61,8 +62,13 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   }
 
   public async getL2Tips(): Promise<L2Tips> {
+    return (await this.getL2Frontier()).tips;
+  }
+
+  public async getL2Frontier(): Promise<L2Frontier> {
     // In TXE there is no possibility of reorgs and no blocks are ever getting proven so we just set 'latest', 'proven'
-    // and 'finalized' to the latest block.
+    // and 'finalized' to the latest block. The TXE never holds proposed checkpoints: every checkpoint is added
+    // directly as confirmed.
     const latestBlockNumber = await this.stores.blocks.getLatestL2BlockNumber();
     if (latestBlockNumber === 0) {
       throw new Error('L2Tips requested from TXE Archiver but no block found');
@@ -88,10 +94,17 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     };
     const tipId: L2TipId = { block: blockId, checkpoint: checkpointId };
     return {
-      proposed: blockId,
-      proven: tipId,
-      finalized: tipId,
-      checkpointed: tipId,
+      tips: {
+        proposed: blockId,
+        proven: tipId,
+        finalized: tipId,
+        checkpointed: tipId,
+      },
+      proposedCheckpoint: undefined,
+      l1SyncPoint: undefined,
+      latestBlockHeader: latestBlockData.header,
+      checkpointedCheckpoint: { header: checkpoint[0].header, l1: checkpoint[0].l1 },
+      pendingChainValidationStatus: { valid: true },
     };
   }
 

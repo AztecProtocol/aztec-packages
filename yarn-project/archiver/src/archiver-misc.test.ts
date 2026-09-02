@@ -24,7 +24,7 @@ import { Archiver, type ArchiverEmitter } from './archiver.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { createArchiverDataStores } from './store/data_stores.js';
-import { L2TipsCache } from './store/l2_tips_cache.js';
+import { L2FrontierCache } from './store/l2_frontier_cache.js';
 
 describe('Archiver misc', () => {
   let archiver: Archiver;
@@ -62,7 +62,7 @@ describe('Archiver misc', () => {
     const events = new EventEmitter() as ArchiverEmitter;
     const initialHeader = BlockHeader.empty();
     const initialBlockHash = await initialHeader.hash();
-    const l2TipsCache = new L2TipsCache(archiverStore.blocks, initialBlockHash);
+    const l2FrontierCache = new L2FrontierCache(archiverStore.blocks, initialBlockHash);
 
     archiver = new Archiver(
       publicClient,
@@ -93,7 +93,7 @@ describe('Archiver misc', () => {
       events,
       initialHeader,
       initialBlockHash,
-      l2TipsCache,
+      l2FrontierCache,
       new DateProvider(),
     );
   });

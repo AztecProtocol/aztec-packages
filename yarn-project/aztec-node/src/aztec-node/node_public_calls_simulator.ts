@@ -1,5 +1,4 @@
 import { L1ToL2MessagesNotReadyError } from '@aztec/archiver';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import {
@@ -18,7 +17,7 @@ import { isErrorClass } from '@aztec/foundation/types';
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
+import { type L2BlockSource, type L2Frontier, getCheckpointedTipSlot } from '@aztec/stdlib/block';
 import { type ProposedCheckpointData, buildCheckpointSimulationOverridesPlan } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -133,16 +132,17 @@ export class NodePublicCallsSimulator {
     }
 
     const txHash = tx.getTxHash();
-    const [l2Tips, proposedCheckpointData] = await Promise.all([
-      this.blockSource.getL2Tips(),
-      this.blockSource.getProposedCheckpointData(),
-    ]);
+    // One atomic read: the tips, the leading proposed checkpoint, the latest block header, the checkpointed
+    // checkpoint and the pending-chain validation status all describe the same instant, so no two decisions
+    // below can derive from different chain states.
+    const frontier = await this.blockSource.getL2Frontier();
+    const { tips: l2Tips, proposedCheckpoint: proposedCheckpointData } = frontier;
     const latestBlockNumber = l2Tips.proposed.number;
     const blockNumber = BlockNumber.add(latestBlockNumber, 1);
 
-    // Terminating block of the proposed-checkpoint frontier. `getProposedCheckpointData()` returns the
-    // leading proposed (not-yet-L1-confirmed) checkpoint, whose last block is `startBlock + blockCount
-    // - 1`; with no proposed checkpoint the frontier coincides with the checkpointed tip.
+    // Terminating block of the proposed-checkpoint frontier: the leading proposed (not-yet-L1-confirmed)
+    // checkpoint's last block is `startBlock + blockCount - 1`; with no proposed checkpoint the frontier
+    // coincides with the checkpointed tip.
     const proposedCheckpointLastBlock = proposedCheckpointData
       ? BlockNumber.add(proposedCheckpointData.startBlock, proposedCheckpointData.blockCount - 1)
       : l2Tips.checkpointed.block.number;
@@ -154,8 +154,8 @@ export class NodePublicCallsSimulator {
     // `targetCheckpoint` is the checkpoint whose L1-to-L2 messages must be inserted into the fork
     // before simulation. Only set when opening a new checkpoint, where the next block is its first block.
     const { globalVariables: newGlobalVariables, targetCheckpoint } = atCheckpointBoundary
-      ? await this.buildGlobalVariablesForNewCheckpoint(l2Tips, proposedCheckpointData, blockNumber)
-      : { globalVariables: await this.copyGlobalVariablesFromLatestProposedBlock(latestBlockNumber, blockNumber) };
+      ? await this.buildGlobalVariablesForNewCheckpoint(frontier, blockNumber)
+      : { globalVariables: this.copyGlobalVariablesFromLatestProposedBlock(frontier, blockNumber) };
 
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
@@ -263,23 +263,20 @@ export class NodePublicCallsSimulator {
    * including the proposer's real coinbase/feeRecipient. No L1 reads and no L1-to-L2 message insertion
    * happen here.
    *
-   * A missing header means the archiver reported a proposed tip via `getL2Tips` but no longer has its
-   * data (a torn snapshot). We throw a transient/retryable error rather than treating the next block as
-   * opening a new checkpoint: the fork at `latestBlockNumber` already contains the ongoing checkpoint's
-   * L1-to-L2 messages, so inserting the next checkpoint's messages would append them a second time.
+   * The header comes from the same snapshot as the tips, so it cannot describe a different block than the
+   * proposed tip. A missing header at a non-genesis proposed tip is an invariant violation and throws rather
+   * than falling through to the new-checkpoint path: the fork at `latestBlockNumber` already contains the
+   * ongoing checkpoint's L1-to-L2 messages, so inserting the next checkpoint's messages would append them a
+   * second time.
    */
-  private async copyGlobalVariablesFromLatestProposedBlock(
-    latestBlockNumber: BlockNumber,
-    blockNumber: BlockNumber,
-  ): Promise<GlobalVariables> {
-    const latestBlockData = await this.blockSource.getBlockData({ number: latestBlockNumber });
-    if (!latestBlockData) {
+  private copyGlobalVariablesFromLatestProposedBlock(frontier: L2Frontier, blockNumber: BlockNumber): GlobalVariables {
+    const latestBlockNumber = frontier.tips.proposed.number;
+    if (!frontier.latestBlockHeader) {
       throw new Error(
-        `Cannot simulate public calls: latest proposed block ${latestBlockNumber} has no header on this node ` +
-          `(torn archiver snapshot); retry`,
+        `Cannot simulate public calls: frontier reports proposed tip ${latestBlockNumber} but carries no header`,
       );
     }
-    return GlobalVariables.from({ ...latestBlockData.header.globalVariables, blockNumber });
+    return GlobalVariables.from({ ...frontier.latestBlockHeader.globalVariables, blockNumber });
   }
 
   /**
@@ -292,18 +289,20 @@ export class NodePublicCallsSimulator {
    * messages into the fork.
    */
   private async buildGlobalVariablesForNewCheckpoint(
-    l2Tips: L2Tips,
-    proposedCheckpointData: ProposedCheckpointData | undefined,
+    frontier: L2Frontier,
     blockNumber: BlockNumber,
   ): Promise<{ globalVariables: GlobalVariables; targetCheckpoint: CheckpointNumber }> {
-    const checkpointedCheckpointNumber = l2Tips.checkpointed.checkpoint.number;
+    const proposedCheckpointData = frontier.proposedCheckpoint;
+    const checkpointedCheckpointNumber = frontier.tips.checkpointed.checkpoint.number;
     // The new checkpoint sits on top of the proposed one when pipelining, otherwise on the
-    // checkpointed tip. The target slot and the overrides plan both derive from the single
-    // `proposedCheckpointData` read, so they cannot disagree about the proposed parent.
+    // checkpointed tip. The target slot and the overrides plan both derive from the same frontier
+    // snapshot, so they cannot disagree about the proposed parent.
     const proposedCheckpointNumber = proposedCheckpointData?.checkpointNumber ?? checkpointedCheckpointNumber;
 
-    const targetSlot = this.computeTargetSlot(proposedCheckpointData, await this.getCheckpointedTipSlot(l2Tips));
-    const plan = await this.buildSimulationOverridesPlan(proposedCheckpointData, checkpointedCheckpointNumber);
+    // Undefined before the first checkpoint lands: no slot is taken yet, so there is no floor.
+    const checkpointedTipSlot = frontier.checkpointedCheckpoint ? getCheckpointedTipSlot(frontier) : undefined;
+    const targetSlot = this.computeTargetSlot(proposedCheckpointData, checkpointedTipSlot);
+    const plan = await this.buildSimulationOverridesPlan(frontier, checkpointedCheckpointNumber);
 
     const checkpointGlobalVariables = await this.globalVariableBuilder.buildCheckpointGlobalVariables(
       EthAddress.ZERO,
@@ -329,9 +328,11 @@ export class NodePublicCallsSimulator {
    *   comes from the proposed checkpoint header so the slot and the overrides plan cannot derive from
    *   different snapshots.
    * - `checkpointedTipSlot + 1`, a floor: the next block can never land in a slot already taken by a
-   *   checkpointed checkpoint. This only binds when this node's clock is behind the chain, in which case the
-   *   first term would otherwise price the next block in a slot L1 has already moved past — and the L1 gas
-   *   oracle can step between the two, so wallet quotes and simulations would disagree on the fee.
+   *   checkpointed checkpoint. The slot comes from the frontier's checkpointed checkpoint header, so it
+   *   describes the same instant as the tips and the proposed checkpoint. This only binds when this node's
+   *   clock is behind the chain, in which case the first term would otherwise price the next block in a slot
+   *   L1 has already moved past — and the L1 gas oracle can step between the two, so wallet quotes and
+   *   simulations would disagree on the fee.
    */
   private computeTargetSlot(
     proposedCheckpointData: ProposedCheckpointData | undefined,
@@ -349,29 +350,6 @@ export class NodePublicCallsSimulator {
   }
 
   /**
-   * Slot of the latest checkpointed block, used as the floor for the next block's slot. Undefined before the
-   * first checkpoint lands, where the checkpointed tip is the genesis block and no slot is taken yet.
-   *
-   * Looked up by the tip's block hash rather than its number, so a checkpoint unwind that replaces the block
-   * at that number cannot silently answer with a different block. A miss means the archiver no longer holds
-   * the block its own tips name, which is a torn snapshot rather than a reason to drop the floor.
-   */
-  private async getCheckpointedTipSlot(l2Tips: L2Tips): Promise<SlotNumber | undefined> {
-    const { number, hash } = l2Tips.checkpointed.block;
-    if (number < INITIAL_L2_BLOCK_NUM) {
-      return undefined;
-    }
-    const blockData = await this.blockSource.getBlockData({ hash: BlockHash.fromString(hash) });
-    if (!blockData) {
-      throw new Error(
-        `Cannot simulate public calls: checkpointed tip block ${number} (${hash}) has no header on this node ` +
-          `(torn archiver snapshot); retry`,
-      );
-    }
-    return blockData.header.globalVariables.slotNumber;
-  }
-
-  /**
    * Builds the chain-state overrides plan the simulator passes to `buildCheckpointGlobalVariables`,
    * mirroring the sequencer (which always pins tips to neutralize prunes). When pipelining, the plan
    * carries the proposed parent's archive, temp-checkpoint-log cell, and locally-derived fee header.
@@ -381,10 +359,11 @@ export class NodePublicCallsSimulator {
    * is always valid) fall back to pinning both pending and proven tips to the checkpointed tip, which
    * neutralizes prunes in fee computation at the cost of non-pipelined fees.
    */
-  private async buildSimulationOverridesPlan(
-    proposedCheckpointData: ProposedCheckpointData | undefined,
+  private buildSimulationOverridesPlan(
+    frontier: L2Frontier,
     checkpointedCheckpointNumber: CheckpointNumber,
   ): Promise<SimulationOverridesPlan | undefined> {
+    const proposedCheckpointData = frontier.proposedCheckpoint;
     const rollup = this.rollupContract;
     if (rollup) {
       if (proposedCheckpointData) {
@@ -398,7 +377,7 @@ export class NodePublicCallsSimulator {
         });
       }
 
-      const validationStatus = await this.blockSource.getPendingChainValidationStatus();
+      const validationStatus = frontier.pendingChainValidationStatus;
       if (!validationStatus.valid) {
         return buildCheckpointSimulationOverridesPlan({
           checkpointNumber: CheckpointNumber(checkpointedCheckpointNumber + 1),
@@ -411,8 +390,10 @@ export class NodePublicCallsSimulator {
       }
     }
 
-    return new SimulationOverridesBuilder()
-      .withChainTips({ pending: checkpointedCheckpointNumber, proven: checkpointedCheckpointNumber })
-      .build();
+    return Promise.resolve(
+      new SimulationOverridesBuilder()
+        .withChainTips({ pending: checkpointedCheckpointNumber, proven: checkpointedCheckpointNumber })
+        .build(),
+    );
   }
 }

@@ -1571,8 +1571,8 @@ describe('L2BlockStream', () => {
     });
 
     // A fully-synced pass must read getL2Tips exactly once and touch no block data: the source's getL2Tips
-    // (backed by L2TipsCache for the archiver) is the only call on a no-op poll. Regressions here re-introduce
-    // per-poll block-body reads that the L2TipsCache fast path is meant to avoid.
+    // (backed by L2FrontierCache for the archiver) is the only call on a no-op poll. Regressions here
+    // re-introduce per-poll block-body reads that the cache fast path is meant to avoid.
     it('reads getL2Tips once and never fetches blocks or block data when fully synced', async () => {
       // Local tips equal the source tips at every tier (matching numbers ⇒ matching mock hashes).
       setRemoteTips(5, 5, 5, 5);
