@@ -109,6 +109,9 @@ struct RollupStore {
   // The following represents a circular buffer. Key is `checkpointNumber % size`.
   mapping(uint256 circularIndex => CompressedTempCheckpointLog temp) tempCheckpointLogs;
   RollupConfig config;
+  // Only written at the checkpoint a proof ended at, so entries are sparse: a proof of checkpoints 1-10 followed by
+  // one of 11-20 records entries at 10 and 20 only. Use getFirstProvenBy to resolve an arbitrary checkpoint number.
+  mapping(uint256 checkpointNumber => address proverId) firstProvenBy;
 }
 
 interface IRollupCore {
@@ -214,6 +217,7 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getEthPerFeeAsset() external view returns (EthPerFeeAssetE12);
 
   function getEpochForCheckpoint(uint256 _checkpointNumber) external view returns (Epoch);
+  function getFirstProvenBy(uint256 _checkpointNumber) external view returns (address);
   function canPruneAtTime(Timestamp _ts) external view returns (bool);
 
   function archive() external view returns (bytes32);

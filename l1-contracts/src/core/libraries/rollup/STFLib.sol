@@ -190,6 +190,17 @@ library STFLib {
   }
 
   /**
+   * @notice Records the prover that proved up to the given checkpoint
+   * @dev Only ever called with a checkpoint number above the proven tip, and the proven tip never moves backwards,
+   *      so an entry for `_checkpointNumber` cannot already exist and the write is unconditional.
+   * @param _checkpointNumber The last checkpoint number covered by the proof
+   * @param _proverId The prover that submitted the proof
+   */
+  function recordFirstProvenBy(uint256 _checkpointNumber, address _proverId) internal {
+    getStorage().firstProvenBy[_checkpointNumber] = _proverId;
+  }
+
+  /**
    * @notice Calculates the size of the circular storage buffer for temporary checkpoint logs
    * @dev The roundabout size determines how many checkpoints can be stored in the circular buffer
    *      before older entries are overwritten. The size is calculated as:
@@ -360,6 +371,37 @@ library STFLib {
       Errors.Rollup__InvalidCheckpointNumber(rollupStore.tips.getPending(), _checkpointNumber)
     );
     return getSlotNumber(_checkpointNumber).epochFromSlot();
+  }
+
+  /**
+   * @notice Returns the prover that first proved the given checkpoint
+   *
+   * @dev Entries are only written at the checkpoint a proof ended at, so this walks forward from
+   *      `_checkpointNumber` until it hits one. The first entry found at or after `_checkpointNumber` belongs to the
+   *      earliest proof that covered the checkpoint, since the proven tip only ever advances. Proofs cover at most
+   *      one epoch, so the walk terminates within `epochDuration` steps.
+   *
+   * @dev Errors Thrown:
+   *      - Rollup__CheckpointNotProven: The checkpoint is beyond the proven tip, so no prover exists for it
+   *
+   * @param _checkpointNumber The checkpoint number to look up
+   * @return The prover that first proved the checkpoint
+   */
+  function getFirstProvenBy(uint256 _checkpointNumber) internal view returns (address) {
+    RollupStore storage rollupStore = STFLib.getStorage();
+    uint256 proven = rollupStore.tips.getProven();
+    require(_checkpointNumber <= proven && proven > 0, Errors.Rollup__CheckpointNotProven(proven, _checkpointNumber));
+
+    for (uint256 i = _checkpointNumber; i <= proven; i++) {
+      address proverId = rollupStore.firstProvenBy[i];
+      if (proverId != address(0)) {
+        return proverId;
+      }
+    }
+
+    // Unreachable: the proof that advanced the proven tip past `_checkpointNumber` ended at some checkpoint in
+    // [_checkpointNumber, proven] and wrote its entry there.
+    revert Errors.Rollup__CheckpointNotProven(proven, _checkpointNumber);
   }
 
   /**

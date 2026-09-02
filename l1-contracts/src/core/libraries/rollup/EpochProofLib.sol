@@ -137,6 +137,10 @@ library EpochProofLib {
     if (_args.end > tips.getProven()) {
       rollupStore.tips = tips.updateProven(_args.end);
 
+      // Record who proved this range. Only the end checkpoint gets an entry, so lookups for the checkpoints in
+      // between walk forward to it; a later proof of an already proven range cannot reach here and overwrite it.
+      STFLib.recordFirstProvenBy(_args.end, _args.args.proverId);
+
       // Handle L2->L1 message processing.
       // The circuit outputs an empty out hash tree root if the epoch contains no messages.
       // Since the out hash tree is append-only, with the first checkpoint at index 0, the second at index 1, and so on,

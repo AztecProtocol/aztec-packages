@@ -335,6 +335,19 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return STFLib.getStorage().tips.getPending();
   }
 
+  /**
+   * @notice  Get the prover that first proved a given checkpoint
+   *
+   * @dev     Reverts if the checkpoint is not proven yet
+   *
+   * @param _checkpointNumber - The checkpoint number to look up
+   *
+   * @return address - The prover that first proved the checkpoint
+   */
+  function getFirstProvenBy(uint256 _checkpointNumber) external view override(IRollup) returns (address) {
+    return RewardExtLib.getFirstProvenBy(_checkpointNumber);
+  }
+
   function getCheckpoint(uint256 _checkpointNumber) external view override(IRollup) returns (CheckpointLog memory) {
     TempCheckpointLog memory tempCheckpointLog = STFLib.getTempCheckpointLog(_checkpointNumber);
     return CheckpointLog({
