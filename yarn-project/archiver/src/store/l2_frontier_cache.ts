@@ -31,6 +31,14 @@ export class L2FrontierCache {
     return (this.#frontierPromise ??= this.#load());
   }
 
+  /**
+   * Returns the L1 block the frontier is anchored to, without loading the snapshot. Cheap enough to poll:
+   * it is a plain field read, never an L1 or store call.
+   */
+  public getL1SyncPoint(): L1SyncPoint | undefined {
+    return this.#l1SyncPoint;
+  }
+
   /** Returns the cached L2 tips. */
   public async getL2Tips(): Promise<L2Tips> {
     return (await this.getL2Frontier()).tips;

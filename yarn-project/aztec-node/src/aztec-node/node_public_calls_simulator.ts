@@ -304,11 +304,14 @@ export class NodePublicCallsSimulator {
     const targetSlot = this.computeTargetSlot(proposedCheckpointData, checkpointedTipSlot);
     const plan = await this.buildSimulationOverridesPlan(frontier, checkpointedCheckpointNumber);
 
+    // Pinned to the L1 block the frontier was read at, so the fee describes the same L1 state the plan above
+    // derives from. Undefined before the archiver's first sync pass, where the read falls back to L1's head.
     const checkpointGlobalVariables = await this.globalVariableBuilder.buildCheckpointGlobalVariables(
       EthAddress.ZERO,
       AztecAddress.ZERO,
       targetSlot,
       plan,
+      { blockNumber: frontier.l1SyncPoint?.blockNumber },
     );
 
     return {

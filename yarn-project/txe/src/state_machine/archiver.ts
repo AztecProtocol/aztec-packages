@@ -65,6 +65,11 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     return (await this.getL2Frontier()).tips;
   }
 
+  public getL1SyncPoint(): Promise<undefined> {
+    // The TXE has no L1 to sync from.
+    return Promise.resolve(undefined);
+  }
+
   public async getL2Frontier(): Promise<L2Frontier> {
     // In TXE there is no possibility of reorgs and no blocks are ever getting proven so we just set 'latest', 'proven'
     // and 'finalized' to the latest block. The TXE never holds proposed checkpoints: every checkpoint is added
