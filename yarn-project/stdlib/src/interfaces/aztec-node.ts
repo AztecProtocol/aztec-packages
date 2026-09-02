@@ -347,11 +347,12 @@ export interface AztecNode {
   getCurrentMinFees(): Promise<GasFees>;
 
   /**
-   * Returns predicted min fees for the current slot and next N slots.
-   * Each entry accounts for the L1 gas oracle transition and congestion growth based on the
-   * given mana usage estimate. Defaults to target usage (steady state).
+   * Returns min fees a transaction submitted now may have to pay. When the node can compute it, the list
+   * leads with the fee its public simulation would charge right now; the rest are the predicted min fees for
+   * the current slot and next N slots, each accounting for the L1 gas oracle transition and congestion growth
+   * based on the given mana usage estimate. Defaults to target usage (steady state).
    * @param manaUsage - Expected mana usage per checkpoint (none, target, or limit).
-   * @returns An array of GasFees with current min fees first, followed by one entry per predicted slot.
+   * @returns An array of GasFees whose worst entry is the fee a client should pad and quote.
    */
   getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]>;
 
