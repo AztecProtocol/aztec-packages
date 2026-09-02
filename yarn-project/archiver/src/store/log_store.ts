@@ -83,7 +83,7 @@ export class LogStore {
   addLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transactionAsync(async () => {
       for (const block of blocks) {
-        const blockHash = await block.hash();
+        const blockHash = (await block.hash()).toBuffer();
         const blockNumber = block.number;
         const blockTimestamp = block.timestamp;
 
@@ -94,7 +94,7 @@ export class LogStore {
 
         for (let txIndexWithinBlock = 0; txIndexWithinBlock < block.body.txEffects.length; txIndexWithinBlock++) {
           const txEffect = block.body.txEffects[txIndexWithinBlock];
-          const txHash = txEffect.txHash;
+          const txHash = txEffect.txHash.toBuffer();
 
           // Private and public log indices are counted independently per tx, each starting at 0.
           let privateLogIndexWithinTx = 0;
