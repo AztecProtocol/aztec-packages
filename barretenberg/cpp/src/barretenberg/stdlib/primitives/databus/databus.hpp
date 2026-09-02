@@ -131,8 +131,8 @@ template <class Builder> class DataBusDepot {
      * @brief Record an app return-data commitment in the next available slot.
      * @details Slot assignment is implicit: the depot fills slot 0 first, then slot 1, etc., as apps are processed in
      * the kernel's verification queue. Slots are released by `get_app_return_data_commitment`; each kernel-completion
-     * pass drains every slot via the get-loop in `Chonk::complete_kernel_circuit_logic`, so the next kernel begins
-     * filling from slot 0 again.
+     * pass drains every slot via the get-loop in `KernelCompletion::complete_kernel_circuit_logic`, so the next
+     * kernel begins filling from slot 0 again.
      */
     void set_app_return_data_commitment(const Commitment& commitment)
     {
