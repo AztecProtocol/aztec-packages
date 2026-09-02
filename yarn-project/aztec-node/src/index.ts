@@ -1,4 +1,5 @@
 export * from './aztec-node/config.js';
+export { NextBlockPredictor } from './aztec-node/next_block/index.js';
 export * from './aztec-node/register_node_rpc_handlers.js';
 export * from './aztec-node/server.js';
 export * from './factory.js';
