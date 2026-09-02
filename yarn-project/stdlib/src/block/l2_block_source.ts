@@ -5,30 +5,41 @@ import {
   CheckpointNumberSchema,
   type EpochNumber,
   EpochNumberSchema,
-  type SlotNumber,
+  SlotNumber,
   SlotNumberSchema,
 } from '@aztec/foundation/branded-types';
+import type { Buffer32 } from '@aztec/foundation/buffer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { schemas } from '@aztec/foundation/schemas';
+import { optional, schemas } from '@aztec/foundation/schemas';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import type { CheckpointData, ProposedCheckpointData, ProposedCheckpointInput } from '../checkpoint/checkpoint_data.js';
+import {
+  type CheckpointData,
+  type ProposedCheckpointData,
+  ProposedCheckpointDataSchema,
+  type ProposedCheckpointInput,
+} from '../checkpoint/checkpoint_data.js';
 import type { CheckpointInfo } from '../checkpoint/checkpoint_info.js';
-import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
+import { L1PublishedData, type PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { MAX_RPC_CHECKPOINTS_DATA_LEN } from '../interfaces/api_limit.js';
 import type { L2ToL1MembershipWitness } from '../messaging/l2_to_l1_membership.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
+import { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { BlockData } from './block_data.js';
 import { BlockHash } from './block_hash.js';
 import { BlockTagWithoutLatestSchema, type NormalizedBlockParameter } from './block_parameter.js';
 import type { L2Block } from './l2_block.js';
-import type { ValidateCheckpointNegativeResult, ValidateCheckpointResult } from './validate_block_result.js';
+import {
+  type ValidateCheckpointNegativeResult,
+  type ValidateCheckpointResult,
+  ValidateCheckpointResultSchema,
+} from './validate_block_result.js';
 
 /** Lookup a single block by block number, hash, archive root, or chain-tip tag. */
 export type BlockQuery = NormalizedBlockParameter;
@@ -227,6 +238,15 @@ export interface L2BlockSource {
   getL2Tips(): Promise<L2Tips>;
 
   /**
+   * Returns the leading edge of the L2 chain — tips, leading proposed checkpoint, latest block header,
+   * latest checkpointed checkpoint, pending-chain validation status, and the L1 block the data reflects — all
+   * read at the same instant. Use this instead of pairing {@link getL2Tips} with {@link getProposedCheckpointData}
+   * whenever the fields must describe the same chain state, such as deciding whether the next block opens a new
+   * checkpoint and at which fee.
+   */
+  getL2Frontier(): Promise<L2Frontier>;
+
+  /**
    * Returns the rollup constants for the current chain.
    */
   getL1Constants(): Promise<L1RollupConstants>;
@@ -383,6 +403,39 @@ export type L2Tips = {
  */
 export type LocalL2Tips = L2Tips;
 
+/**
+ * The leading edge of the L2 chain: the tips of every tier plus the in-progress (proposed, not yet L1-confirmed)
+ * checkpoint. The L2 fields are read in one store transaction so they all describe the same instant: planning
+ * the next block needs the tips and the proposed checkpoint to agree, since reading them separately can classify
+ * a just-promoted checkpoint as still in progress and mis-price the block. `l1SyncPoint` is overlaid by the
+ * archiver from the sync pass that most recently started, so the L2 data is never ahead of it but may trail it
+ * while a pass is in flight.
+ */
+export type L2Frontier = {
+  tips: L2Tips;
+  /** Leading proposed (not-yet-L1-confirmed) checkpoint, or undefined when the frontier is the checkpointed tip. */
+  proposedCheckpoint: ProposedCheckpointData | undefined;
+  /** L1 block the archiver is syncing from; the L2 data reflects its state at most. Undefined until the first pass. */
+  l1SyncPoint: L1SyncPoint | undefined;
+  /** Header of the proposed tip block; undefined at genesis. */
+  latestBlockHeader: BlockHeader | undefined;
+  /** Latest L1-confirmed checkpoint with its L1 publication data; undefined before the first checkpoint. */
+  checkpointedCheckpoint: { header: CheckpointHeader; l1: L1PublishedData } | undefined;
+  /** Pending chain validation status read in the same snapshot. */
+  pendingChainValidationStatus: ValidateCheckpointResult;
+};
+
+/** An L1 block identified by both number and hash, so a same-height reorg is detectable. */
+export type L1SyncPoint = { blockNumber: bigint; blockHash: Buffer32 };
+
+/**
+ * Slot of the checkpointed tip: every block in a checkpoint carries its checkpoint header's slot. Zero before
+ * the first checkpoint lands, where no slot is taken yet.
+ */
+export function getCheckpointedTipSlot(frontier: L2Frontier): SlotNumber {
+  return frontier.checkpointedCheckpoint?.header.slotNumber ?? SlotNumber.ZERO;
+}
+
 export const GENESIS_CHECKPOINT_HEADER_HASH = CheckpointHeader.empty().hash();
 
 /** Identifies a block by number and hash. */
@@ -447,6 +500,25 @@ export const L2TipsSchema = z.object({
   checkpointed: L2TipIdSchema,
   proven: L2TipIdSchema,
   finalized: L2TipIdSchema,
+});
+
+export const L1SyncPointSchema: z.ZodType<L1SyncPoint, unknown> = z.object({
+  blockNumber: schemas.BigInt,
+  blockHash: schemas.Buffer32,
+});
+
+export const L2FrontierSchema: z.ZodType<L2Frontier, unknown> = z.object({
+  tips: L2TipsSchema,
+  proposedCheckpoint: optional(ProposedCheckpointDataSchema),
+  l1SyncPoint: optional(L1SyncPointSchema),
+  latestBlockHeader: optional(BlockHeader.schema),
+  checkpointedCheckpoint: optional(
+    z.object({
+      header: CheckpointHeader.schema,
+      l1: L1PublishedData.schema,
+    }),
+  ),
+  pendingChainValidationStatus: ValidateCheckpointResultSchema,
 });
 
 export enum L2BlockSourceEvents {

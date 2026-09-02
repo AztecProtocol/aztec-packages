@@ -2751,6 +2751,101 @@ describe('BlockStore', () => {
     });
   });
 
+  describe('getL2Frontier', () => {
+    const genesisBlockHash = BlockHash.random();
+
+    /** Adds confirmed checkpoint 1 (block 1) and a proposed checkpoint 2 (block 2) on top of it. */
+    const addCheckpointAndProposedOnTop = async () => {
+      const checkpoint1 = publishedCheckpoints[0];
+      await blockStore.addCheckpoints([checkpoint1]);
+
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        lastArchive: checkpoint1.checkpoint.blocks[0].archive,
+      });
+      await blockStore.addProposedBlock(block2, { force: true });
+      await blockStore.addProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty({ slotNumber: SlotNumber(77) }),
+        startBlock: BlockNumber(2),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+      return checkpoint1;
+    };
+
+    it('reports genesis tips and no headers on an empty store', async () => {
+      const status = await blockStore.getL2Frontier(genesisBlockHash);
+
+      expect(status.tips.proposed).toEqual({ number: BlockNumber(0), hash: genesisBlockHash.toString() });
+      expect(status.proposedCheckpoint).toBeUndefined();
+      expect(status.latestBlockHeader).toBeUndefined();
+      expect(status.checkpointedCheckpoint).toBeUndefined();
+      expect(status.pendingChainValidationStatus).toEqual({ valid: true });
+    });
+
+    it('returns the tips, the proposed checkpoint, and the latest block and checkpoint headers together', async () => {
+      const checkpoint1 = await addCheckpointAndProposedOnTop();
+
+      const status = await blockStore.getL2Frontier(genesisBlockHash);
+
+      expect(status.tips.proposed.number).toEqual(BlockNumber(2));
+      expect(status.tips.checkpointed.block.number).toEqual(BlockNumber(1));
+      expect(status.tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
+      // Every block of a checkpoint carries its header's slot, so the tip slot comes from the checkpoint header.
+      expect(status.checkpointedCheckpoint?.header).toEqual(checkpoint1.checkpoint.header);
+      expect(status.checkpointedCheckpoint?.l1).toEqual(checkpoint1.l1);
+      expect(status.latestBlockHeader?.globalVariables.blockNumber).toEqual(BlockNumber(2));
+      expect(status.proposedCheckpoint?.checkpointNumber).toEqual(CheckpointNumber(2));
+      expect(status.proposedCheckpoint?.startBlock).toEqual(BlockNumber(2));
+    });
+
+    it('reads the pending chain validation status in the same snapshot as the tips', async () => {
+      await addCheckpointAndProposedOnTop();
+      const invalid: ValidateCheckpointResult = {
+        valid: false,
+        checkpoint: randomCheckpointInfo(2),
+        committee: [EthAddress.random()],
+        epoch: EpochNumber(1),
+        seed: 0n,
+        attestors: [],
+        attestations: [],
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
+        reason: 'insufficient-attestations',
+      };
+      await blockStore.setPendingChainValidationStatus(invalid);
+
+      const status = await blockStore.getL2Frontier(genesisBlockHash);
+
+      expect(status.pendingChainValidationStatus).toEqual(invalid);
+    });
+
+    // A promotion moves the checkpointed tip and drops the proposed entry in one transaction. Reading the
+    // pair separately can catch the half-applied view (proposed gone, tips still behind); reading it here
+    // must always land on one side of the commit.
+    it('advances the checkpointed tip and drops the proposed entry in the same snapshot on promotion', async () => {
+      await addCheckpointAndProposedOnTop();
+      const before = await blockStore.getL2Frontier(genesisBlockHash);
+      expect(before.tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
+      expect(before.proposedCheckpoint?.checkpointNumber).toEqual(CheckpointNumber(2));
+
+      const proposed = await blockStore.getLastProposedCheckpoint();
+      await blockStore.promoteProposedToCheckpointed(
+        proposed!.checkpointNumber,
+        makeL1PublishedData(20),
+        [],
+        proposed!.archive.root,
+      );
+
+      const after = await blockStore.getL2Frontier(genesisBlockHash);
+      expect(after.tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
+      expect(after.proposedCheckpoint).toBeUndefined();
+      expect(after.checkpointedCheckpoint?.header.slotNumber).toEqual(SlotNumber(77));
+    });
+  });
+
   describe('getProposedCheckpointBySlot', () => {
     async function addBlocksForProposed(
       startBlock: number,

@@ -29,7 +29,7 @@ import { BlockNumberNotSequentialError } from './errors.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { type ArchiverDataStores, createArchiverDataStores, getArchiverSynchPoint } from './store/data_stores.js';
-import { L2TipsCache } from './store/l2_tips_cache.js';
+import { L2FrontierCache } from './store/l2_frontier_cache.js';
 import { makeChainedCheckpoints } from './test/mock_structs.js';
 
 describe('Archiver Store', () => {
@@ -108,7 +108,7 @@ describe('Archiver Store', () => {
     synchronizer.syncFromL1.mockResolvedValue([]);
 
     const initialBlockHash = await initialHeader.hash();
-    const l2TipsCache = new L2TipsCache(archiverStore.blocks, initialBlockHash);
+    const l2FrontierCache = new L2FrontierCache(archiverStore.blocks, initialBlockHash);
     archiver = new Archiver(
       publicClient,
       debugClient,
@@ -124,7 +124,7 @@ describe('Archiver Store', () => {
       events,
       initialHeader,
       initialBlockHash,
-      l2TipsCache,
+      l2FrontierCache,
       new DateProvider(),
     );
   });

@@ -33,7 +33,7 @@ import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { ARCHIVER_DB_VERSION, type ArchiverDataStores, createArchiverDataStores } from './store/data_stores.js';
-import { L2TipsCache } from './store/l2_tips_cache.js';
+import { L2FrontierCache } from './store/l2_frontier_cache.js';
 
 export const ARCHIVER_STORE_NAME = 'archiver';
 
@@ -160,7 +160,7 @@ export async function createArchiver(
   // Create L2 tips cache shared by archiver and synchronizer. The genesis block hash is dynamic —
   // it depends on the injected initial header (genesisTimestamp + prefilled state). Hoisted to the
   // caller so we can pass the same value to the archiver and expose it via `getGenesisBlockHash()`.
-  const l2TipsCache = new L2TipsCache(archiverStore.blocks, initialBlockHash);
+  const l2FrontierCache = new L2FrontierCache(archiverStore.blocks, initialBlockHash);
 
   // Create the L1 synchronizer
   const synchronizer = new ArchiverL1Synchronizer(
@@ -177,7 +177,7 @@ export async function createArchiver(
     l1Constants,
     events,
     instrumentation.tracer,
-    l2TipsCache,
+    l2FrontierCache,
     undefined, // log (use default)
   );
 
@@ -196,7 +196,7 @@ export async function createArchiver(
     events,
     initialHeader,
     initialBlockHash,
-    l2TipsCache,
+    l2FrontierCache,
     deps.dateProvider ?? new DateProvider(),
   );
 

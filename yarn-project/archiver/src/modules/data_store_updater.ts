@@ -23,7 +23,7 @@ import type { ContractClassLog, PrivateLog, PublicLog } from '@aztec/stdlib/logs
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ArchiverDataStores } from '../store/data_stores.js';
-import type { L2TipsCache } from '../store/l2_tips_cache.js';
+import type { L2FrontierCache } from '../store/l2_frontier_cache.js';
 
 /** Operation type for contract data updates. */
 enum Operation {
@@ -45,7 +45,7 @@ export class ArchiverDataStoreUpdater {
 
   constructor(
     private stores: ArchiverDataStores,
-    private l2TipsCache?: L2TipsCache,
+    private l2FrontierCache?: L2FrontierCache,
     private opts: { rollupManaLimit?: number } = {},
   ) {}
 
@@ -77,7 +77,7 @@ export class ArchiverDataStoreUpdater {
 
       return opResults.every(Boolean);
     });
-    await this.l2TipsCache?.refresh();
+    await this.l2FrontierCache?.refresh();
     return result;
   }
 
@@ -156,7 +156,7 @@ export class ArchiverDataStoreUpdater {
 
       return { prunedBlocks, lastAlreadyInsertedBlockNumber };
     });
-    await this.l2TipsCache?.refresh();
+    await this.l2FrontierCache?.refresh();
     return result;
   }
 
@@ -164,7 +164,7 @@ export class ArchiverDataStoreUpdater {
     const result = await this.stores.db.transactionAsync(async () => {
       await this.stores.blocks.addProposedCheckpoint(proposedCheckpoint);
     });
-    await this.l2TipsCache?.refresh();
+    await this.l2FrontierCache?.refresh();
     return result;
   }
 
@@ -277,7 +277,7 @@ export class ArchiverDataStoreUpdater {
 
       return prunedBlocks;
     });
-    await this.l2TipsCache?.refresh();
+    await this.l2FrontierCache?.refresh();
     return result;
   }
 
@@ -303,7 +303,7 @@ export class ArchiverDataStoreUpdater {
 
       return await this.removeBlocksAfter(blockNumber);
     });
-    await this.l2TipsCache?.refresh();
+    await this.l2FrontierCache?.refresh();
     return result;
   }
 
@@ -360,7 +360,7 @@ export class ArchiverDataStoreUpdater {
 
       return opResults.every(Boolean);
     });
-    await this.l2TipsCache?.refresh();
+    await this.l2FrontierCache?.refresh();
     return result;
   }
 
@@ -372,7 +372,7 @@ export class ArchiverDataStoreUpdater {
     await this.stores.db.transactionAsync(async () => {
       await this.stores.blocks.setProvenCheckpointNumber(checkpointNumber);
     });
-    await this.l2TipsCache?.refresh();
+    await this.l2FrontierCache?.refresh();
   }
 
   /**
@@ -383,7 +383,7 @@ export class ArchiverDataStoreUpdater {
     await this.stores.db.transactionAsync(async () => {
       await this.stores.blocks.setFinalizedCheckpointNumber(checkpointNumber);
     });
-    await this.l2TipsCache?.refresh();
+    await this.l2FrontierCache?.refresh();
   }
 
   /** Extracts and stores contract data from a single block. */
