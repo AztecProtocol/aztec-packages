@@ -114,6 +114,7 @@ import { NodeWorldStateQueries } from '../modules/node_world_state_queries.js';
 import { UnseenBlockHoldOff } from '../modules/unseen_block_hold_off.js';
 import { Sentinel } from '../sentinel/sentinel.js';
 import type { AztecNodeConfig } from './config.js';
+import type { NextBlockPredictor } from './next_block/index.js';
 import { NodeMetrics } from './node_metrics.js';
 import { NodePublicCallsSimulator } from './node_public_calls_simulator.js';
 
@@ -140,6 +141,7 @@ export interface AztecNodeServiceDeps {
   globalVariableBuilder: GlobalVariableBuilderInterface;
   rollupContract: RollupContract | undefined;
   feeProvider: FeeProvider;
+  nextBlockPredictor: NextBlockPredictor;
   epochCache: EpochCacheInterface;
   packageVersion: string;
   peerProofVerifier: ClientProtocolCircuitVerifier;
@@ -187,6 +189,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   protected readonly globalVariableBuilder: GlobalVariableBuilderInterface;
   protected readonly rollupContract: RollupContract | undefined;
   protected readonly feeProvider: FeeProvider;
+  protected readonly nextBlockPredictor: NextBlockPredictor;
   protected readonly epochCache: EpochCacheInterface;
   protected readonly packageVersion: string;
   private peerProofVerifier: ClientProtocolCircuitVerifier;
@@ -217,6 +220,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.globalVariableBuilder = deps.globalVariableBuilder;
     this.rollupContract = deps.rollupContract;
     this.feeProvider = deps.feeProvider;
+    this.nextBlockPredictor = deps.nextBlockPredictor;
     this.epochCache = deps.epochCache;
     this.packageVersion = deps.packageVersion;
     this.peerProofVerifier = deps.peerProofVerifier;
@@ -232,17 +236,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.metrics = new NodeMetrics(this.telemetry, 'AztecNodeService');
     this.tracer = this.telemetry.getTracer('AztecNodeService');
 
-    // The node never represents a proposer's payout addresses, so the simulator zeroes coinbase and
-    // fee recipient. The signature context only needs chain id + rollup address (see signature_utils).
     this.nodePublicCallsSimulator = new NodePublicCallsSimulator({
-      blockSource: this.blockSource,
       worldStateSynchronizer: this.worldStateSynchronizer,
       l1ToL2MessageSource: this.l1ToL2MessageSource,
       contractDataSource: this.contractDataSource,
-      globalVariableBuilder: this.globalVariableBuilder,
-      rollupContract: this.rollupContract,
-      epochCache: this.epochCache,
-      signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
+      predictor: this.nextBlockPredictor,
       config: this.config,
       telemetry: this.telemetry,
       log: this.log.createChild('public-calls-simulator'),
@@ -598,6 +596,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await tryStop(this.automineSequencer);
     await tryStop(this.proverNode);
     await tryStop(this.p2pClient);
+    await tryStop(this.nextBlockPredictor);
     await tryStop(this.feeProvider);
     await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
