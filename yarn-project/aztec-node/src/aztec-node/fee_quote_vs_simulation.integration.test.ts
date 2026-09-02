@@ -34,10 +34,12 @@ import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { NativeWorldStateService } from '@aztec/world-state';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { foundry } from 'viem/chains';
 
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
+import { NextBlockPredictor } from './next_block/index.js';
 import { AztecNodeService } from './server.js';
 
 /**
@@ -182,6 +184,17 @@ describe('fee quote vs public simulation', () => {
       rollupAddress: EthAddress.fromString(rollup.address),
     };
 
+    // Not started: every boundary fee is priced inline on the request that misses, so the scenarios below
+    // control exactly when L1 is asked.
+    const nextBlockPredictor = NextBlockPredictor.create({
+      blockSource,
+      globalVariableBuilder,
+      rollupContract: rollup,
+      epochCache,
+      signatureContext: { chainId: foundry.id, rollupAddress: config.rollupAddress },
+      dateProvider,
+    });
+
     node = new AztecNodeService({
       config,
       p2pClient: mock<P2P>(),
@@ -200,6 +213,7 @@ describe('fee quote vs public simulation', () => {
       globalVariableBuilder,
       rollupContract: rollup,
       feeProvider,
+      nextBlockPredictor,
       epochCache,
       packageVersion: getPackageVersion(),
       peerProofVerifier: new TestCircuitVerifier(),
@@ -404,6 +418,30 @@ describe('fee quote vs public simulation', () => {
 
     expect(output.globalVariables.slotNumber).toEqual(SlotNumber(changeSlot + 1));
     expect(output.globalVariables.gasFees.feePerL2Gas).toEqual(lowFee);
+  }, 120_000);
+
+  it('reuses the cached boundary fee across simulations instead of asking L1 again', async () => {
+    await startNodeAt(tsOf(changeSlot));
+    mockL2Frontier({
+      proposed: BlockNumber(1),
+      checkpointedBlock: BlockNumber(1),
+      checkpointedTipSlot: SlotNumber(changeSlot - 1),
+      latestBlockGlobals: { slotNumber: SlotNumber(changeSlot - 1), gasFees: GasFees.empty() },
+    });
+    const fees = await feeProvider.getPredictedMinFees(ManaUsageEstimate.Limit);
+    const buildGlobals = jest.spyOn(globalVariableBuilder, 'buildCheckpointGlobalVariables');
+
+    const first = await node.simulatePublicCalls(await makeTx(0x50000, walletCap(fees)));
+    expect(buildGlobals).toHaveBeenCalledTimes(1);
+
+    // Nothing moved between the two requests, so the second one is priced from memory: an RPC caller
+    // hammering the node cannot turn L2 simulation traffic into L1 traffic.
+    const second = await node.simulatePublicCalls(await makeTx(0x60000, walletCap(fees)));
+    expect(buildGlobals).toHaveBeenCalledTimes(1);
+    expect(second.globalVariables.gasFees).toEqual(first.globalVariables.gasFees);
+    expect(second.globalVariables.slotNumber).toEqual(first.globalVariables.slotNumber);
+
+    buildGlobals.mockRestore();
   }, 120_000);
 
   it('keeps quote and simulation on the archiver L1 view as a checkpoint lands', async () => {

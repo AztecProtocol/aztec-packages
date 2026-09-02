@@ -56,6 +56,7 @@ import { createWorldState, createWorldStateSynchronizer } from '@aztec/world-sta
 import { createPublicClient } from 'viem';
 
 import { type AztecNodeConfig, createKeyStoreForValidator } from './aztec-node/config.js';
+import { NextBlockPredictor } from './aztec-node/next_block/index.js';
 import { AztecNodeService } from './aztec-node/server.js';
 import { createSentinel } from './sentinel/factory.js';
 
@@ -253,6 +254,18 @@ export async function createAztecNodeService(
     const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig, archiver);
     await feeProvider.start();
     started.push(feeProvider);
+
+    const nextBlockPredictor = NextBlockPredictor.create({
+      blockSource: archiver,
+      globalVariableBuilder,
+      rollupContract,
+      epochCache,
+      signatureContext: { chainId: ethereumChain.chainInfo.id, rollupAddress: config.rollupAddress },
+      dateProvider,
+      log: log.createChild('next-block-predictor'),
+    });
+    await nextBlockPredictor.start();
+    started.push(nextBlockPredictor);
 
     const collectOffenses = !config.disableValidator || config.enableOffenseCollection;
 
@@ -640,6 +653,7 @@ export async function createAztecNodeService(
       globalVariableBuilder,
       rollupContract,
       feeProvider,
+      nextBlockPredictor,
       epochCache,
       packageVersion,
       peerProofVerifier,
