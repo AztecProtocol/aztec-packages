@@ -202,6 +202,13 @@ export class WriteTransaction extends ReadTransaction {
     reverse?: boolean,
     limit?: number,
   ): AsyncIterable<[Uint8Array, Uint8Array]> {
+    if (isEmptyBatch(this.dataBatch)) {
+      // Nothing pending can shadow or suppress a committed entry, so the committed data can be served verbatim and
+      // `limit` can be pushed down to the cursor. With a non-empty batch that is unsafe: pending removals within the
+      // first `limit` committed entries would require reading past it.
+      yield* super.iterate(startKey, endKey, reverse, limit);
+      return;
+    }
     yield* this.#iterate(
       super.iterate(startKey, endKey, reverse),
       this.dataBatch,
@@ -220,6 +227,11 @@ export class WriteTransaction extends ReadTransaction {
     reverse?: boolean,
     limit?: number,
   ): AsyncIterable<[Uint8Array, Uint8Array[]]> {
+    if (isEmptyBatch(this.indexBatch)) {
+      // See the note in `iterate`.
+      yield* super.iterateIndex(startKey, endKey, reverse, limit);
+      return;
+    }
     yield* this.#iterate(
       super.iterateIndex(startKey, endKey, reverse),
       this.indexBatch,
@@ -347,4 +359,8 @@ export class WriteTransaction extends ReadTransaction {
       ]),
     });
   }
+}
+
+function isEmptyBatch(batch: Batch): boolean {
+  return batch.addEntries.length === 0 && batch.removeEntries.length === 0;
 }
