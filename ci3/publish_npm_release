@@ -33,7 +33,9 @@ function dist_tag_for {
   if [ -n "$(semver prerelease "$1")" ]; then echo prerelease; else echo latest; fi
 }
 
-for tgz in "${tarballs[@]}"; do
+function publish_one {
+  local tgz=$1
+  local pkg_json name version tag current
   pkg_json=$(tar -xOzf "$tgz" package/package.json)
   name=$(jq -r .name <<<"$pkg_json")
   version=$(jq -r .version <<<"$pkg_json")
@@ -63,4 +65,24 @@ for tgz in "${tarballs[@]}"; do
   else
     retry "npm publish \"$tgz\" --ignore-scripts --tag \"$tag\" --access public --provenance"
   fi
+}
+
+# Two passes so a meta package (e.g. @aztec-foundation/bb) never lands before the platform
+# packages its optionalDependencies name: publish everything that depends on no sibling
+# @aztec-foundation/* package first, then the rest. A dependent published before its dependency
+# leaves a window where `npm install` resolves the meta with no binary (npm silently drops an
+# unresolvable optional dep). The bundle's dependency graph is a single level (meta over platform),
+# so two passes suffice; a deeper chain would need a real topological order.
+leaves=() dependents=()
+for tgz in "${tarballs[@]}"; do
+  if tar -xOzf "$tgz" package/package.json \
+     | jq -e '([.dependencies//{}, .optionalDependencies//{}, .peerDependencies//{}] | add | keys[]) | select(startswith("@aztec-foundation/"))' >/dev/null 2>&1; then
+    dependents+=("$tgz")
+  else
+    leaves+=("$tgz")
+  fi
+done
+
+for tgz in ${leaves[@]+"${leaves[@]}"} ${dependents[@]+"${dependents[@]}"}; do
+  publish_one "$tgz"
 done

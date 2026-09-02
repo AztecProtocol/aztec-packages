@@ -97,7 +97,7 @@ bench-labs: labs-bench
 bench: bench-foundation bench-labs
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-release-foundation: fast-foundation bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy ipc-runtime-cross
+release-foundation: fast-foundation bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy bb-bin-cross-copy ipc-runtime-cross
 
 release-labs: fast-labs
 
@@ -136,7 +136,7 @@ avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm6
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-avm-sim bb-cdb bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-avm-sim bb-cdb bb-bin bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -281,6 +281,14 @@ bb-avm-sim-cross-copy: bb-avm-sim bb-cdb bb-cpp-cross
 # into the same node_modules.
 bb-cdb: ipc-codegen ipc-runtime bb-avm-sim
 	$(call build,$@,barretenberg/ts,build_cdb)
+
+# bb and bb-avm as npm packages (meta + one package per platform).
+bb-bin: bb-cpp-native
+	$(call build,$@,barretenberg/ts,build_bb_bin)
+
+# Stages every platform and checks each binary against the release tarballs.
+bb-bin-cross-copy: bb-bin bb-cpp-cross bb-cpp-release-dir
+	$(call build,$@,barretenberg/ts,cross_copy_bb_bin)
 
 # BB Rust - barretenberg-rs FFI crate
 bb-rs: bb-ts bb-cpp-native

@@ -47,6 +47,18 @@ function inject_version {
   fi
 }
 
+# The one path every distributed bb/bb-avm binary goes through, so the npm packages, the GitHub
+# release tarballs and bb.js's bundled copies are byte-identical and report the release version:
+# strip (llvm-strip-20 where available; bb.exe is left as built), then inject_version (which also
+# re-signs Mach-O). Idempotent.
+function finalize_bb_binary {
+  local binary=$1
+  if command -v llvm-strip-20 >/dev/null 2>&1 && [[ "$binary" != *.exe ]]; then
+    llvm-strip-20 "$binary"
+  fi
+  inject_version "$binary"
+}
+
 # Inject version into all bb binaries in a directory (no-op if none exist).
 function inject_bb_versions {
    local bin_dir=$1
@@ -212,27 +224,38 @@ function build_smt_verification {
   cache_upload barretenberg-smt-$hash.zst build-smt
 }
 
+# Tars one finalized binary: a stripped, version-stamped copy, identical to what the npm
+# platform packages ship (barretenberg/ts/scripts/native_packages.sh verifies that).
+function release_tar {
+  local out=$1 src_dir=$2 name=$3
+  local tmp; tmp=$(mktemp -d)
+  cp "$src_dir/$name" "$tmp/$name"
+  finalize_bb_binary "$tmp/$name"
+  tar -czf "$out" -C "$tmp" "$name"
+  rm -rf "$tmp"
+}
+
 function build_release_dir {
   local arch=$(arch)
   rm -rf build-release
   mkdir build-release
 
   # Native (should be amd64-linux) builds.
-  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C $native_build_dir/bin bb
-  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C $native_build_dir/bin bb-avm
+  release_tar build-release/barretenberg-$arch-linux.tar.gz $native_build_dir/bin bb
+  release_tar build-release/barretenberg-avm-$arch-linux.tar.gz $native_build_dir/bin bb-avm
 
   # Wasm.
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
 
   # bb cross-compiles.
-  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-arm64-linux/bin bb
-  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-arm64-macos/bin bb
-  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-amd64-macos/bin bb
-  tar -czf build-release/barretenberg-amd64-windows.tar.gz -C build-amd64-windows/bin bb.exe
+  release_tar build-release/barretenberg-arm64-linux.tar.gz build-arm64-linux/bin bb
+  release_tar build-release/barretenberg-arm64-darwin.tar.gz build-arm64-macos/bin bb
+  release_tar build-release/barretenberg-amd64-darwin.tar.gz build-amd64-macos/bin bb
+  release_tar build-release/barretenberg-amd64-windows.tar.gz build-amd64-windows/bin bb.exe
 
   # bb-avm cross-compiles.
-  tar -czf build-release/barretenberg-avm-arm64-linux.tar.gz -C build-arm64-linux/bin bb-avm
+  release_tar build-release/barretenberg-avm-arm64-linux.tar.gz build-arm64-linux/bin bb-avm
 
   # Package static libraries for FFI bindings (stripped at build time via CMake POST_BUILD).
   tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C $native_build_dir/lib libbb-external.a
@@ -246,7 +269,7 @@ function build_release_dir {
   tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-x86_64-android/lib libbb-external.a
 }
 
-export -f cmake_build preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native download_chonk_inputs build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_windows_syntax_check_only build_smt_verification inject_version inject_bb_versions
+export -f cmake_build preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native download_chonk_inputs build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_windows_syntax_check_only build_smt_verification inject_version inject_bb_versions finalize_bb_binary release_tar
 
 function build {
   echo_header "bb cpp build"
@@ -440,6 +463,13 @@ function bench {
 # Upload assets to release in AztecProtocol/barretenberg.
 function release {
   echo_header "bb cpp release"
+  # A private release publishes only to the internal Artifact Registry; refuse a GitHub publish
+  # here regardless of call path (this function is not on the private dispatch path, but the guard
+  # makes a leak impossible rather than merely unreached).
+  "$root/ci3/assert_public_release"
+  # The GitHub release assets are the legacy channel: the same binaries ship as npm packages
+  # (@aztec-foundation/bb, @aztec-foundation/bb-avm and their platform packages) and bbup
+  # installs from npm first. Kept while older bbup versions and the static libraries need it.
   do_or_dryrun gh release upload $REF_NAME build-release/* --repo AztecProtocol/barretenberg --clobber
 }
 
