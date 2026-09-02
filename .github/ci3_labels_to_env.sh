@@ -128,8 +128,9 @@ function main {
     ci_mode="skip"
   elif has_label "ci-release-pr"; then
     # Release-PR mode creates and pushes a release tag for this PR's head (ci3.sh::handle_release_pr).
-    # In the private repo that tag triggers a private release via the safety gate below — this is the
-    # manual way to cut a private release from a PR, alongside the nightly tag cron.
+    # In the private repo that tag triggers a private release via the safety gate below. It is the only
+    # way a private release is cut: there are no private nightlies (nightly-release-tag.yml runs in the
+    # public repo alone, by design).
     ci_mode="release-pr"
   elif has_label "ci-full"; then
     ci_mode="full"
@@ -142,9 +143,10 @@ function main {
   elif has_label "ci-barretenberg" || [ "$target_branch" == "merge-train/barretenberg" ]; then
     ci_mode="barretenberg"
   elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
-    # A pushed semver tag is a release; REF_NAME is the tag (see ci3/source_refname). In the private
-    # repo this is the nightly path (nightly-release-tag*.yml push v<ver>-nightly.<date> tags on next and
-    # v5-next); the private-repo safety gate below routes it to the internal Artifact Registry.
+    # A pushed semver tag is a release; REF_NAME is the tag (see ci3/source_refname). In the public repo
+    # nightly-release-tag.yml pushes v<ver>-nightly.<date> tags on next and v5-next; in the private repo
+    # the only tags are the ones ci-release-pr creates, and the safety gate below routes them to the
+    # internal Artifact Registry.
     ci_mode="release"
   else
     ci_mode="fast"
