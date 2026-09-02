@@ -9,6 +9,7 @@
 #include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_prover.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/chonk/circuit_input.hpp"
+#include "barretenberg/chonk/kernel_completion.hpp"
 #include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
@@ -91,12 +92,6 @@ class Chonk {
     // Ecc running hash passed to the hiding kernel
     using EccOpRunningHash = StdlibFF;
 
-    // Result types for decomposed verification steps
-    struct PublicInputsResult {
-        PairingPoints pairing_points;
-        std::optional<StdlibFF> ecc_op_hash; // set only for kernels
-    };
-
     using CircuitKind = bb::CircuitKind;
     using CircuitVerificationKey = bb::CircuitVerificationKey;
 
@@ -120,34 +115,6 @@ class Chonk {
         [[nodiscard]] FF vk_hash() const { return is_kernel() ? kernel_honk_vk->hash() : app_honk_vk->hash(); }
     };
     using VerificationQueue = std::deque<VerifierInputs>;
-
-    struct StdlibVerifierInputs {
-        StdlibProof proof; // oink or HN
-        std::shared_ptr<AppRecursiveVKAndHash> app_honk_vk_and_hash;
-        std::shared_ptr<KernelRecursiveVKAndHash> kernel_honk_vk_and_hash;
-        CircuitKind kind = CircuitKind::None;
-
-        StdlibVerifierInputs(StdlibProof proof_, std::shared_ptr<AppRecursiveVKAndHash> app_vk_and_hash_)
-            : proof(std::move(proof_))
-            , app_honk_vk_and_hash(std::move(app_vk_and_hash_))
-            , kind(CircuitKind::App)
-        {}
-
-        StdlibVerifierInputs(StdlibProof proof_, std::shared_ptr<KernelRecursiveVKAndHash> kernel_vk_and_hash_)
-            : proof(std::move(proof_))
-            , kernel_honk_vk_and_hash(std::move(kernel_vk_and_hash_))
-            , kind(CircuitKind::Kernel)
-        {}
-
-        [[nodiscard]] bool is_kernel() const { return kind == CircuitKind::Kernel; }
-
-        [[nodiscard]] size_t vk_num_public_inputs() const
-        {
-            return static_cast<size_t>(uint64_t(is_kernel() ? kernel_honk_vk_and_hash->vk->num_public_inputs.get_value()
-                                                            : app_honk_vk_and_hash->vk->num_public_inputs.get_value()));
-        }
-    };
-    using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 
   private:
     // Transcript for Chonk prover (shared between Hiding kernel, Merge, ECCVM, and Translator)
@@ -187,12 +154,13 @@ class Chonk {
 
     VerifierAccumulator recursive_verifier_native_accum; // native value of the previous accumulator
 
-    // PARALLEL QUEUES: These two queues must stay synchronized.
-    // - verification_queue: Native proofs created by accumulate() (prover side)
-    // - stdlib_verification_queue: Circuit witnesses for complete_kernel_circuit_logic() (verifier side)
-    // The stdlib queue is populated from the native queue via instantiate_stdlib_verification_queue().
+    // Native proofs created by accumulate() (prover side). Mirrored on the verifier side by
+    // KernelCompletion::stdlib_verification_queue, which instantiate_stdlib_verification_queue() populates
+    // from it; the two must stay synchronized.
     VerificationQueue verification_queue;
-    StdlibVerificationQueue stdlib_verification_queue;
+
+    // The recursive-verification logic a kernel carries, and the state that exists only for it.
+    KernelCompletion kernel_completion{ *this };
 
     Goblin goblin;
 
@@ -216,16 +184,16 @@ class Chonk {
     Chonk(std::vector<CircuitKind> circuit_kinds);
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
-                                               const std::vector<StdlibCircuitVKAndHash>& input_keys = {});
-
-    [[nodiscard("Pairing points should be collected")]] std::pair<PairingPoints, EccOpRunningHash>
-    recursive_verification_and_consistency_checks(const StdlibVerifierInputs& verifier_inputs,
-                                                  HypernovaFoldingRecursiveVerifier& folding_verifier,
-                                                  const std::optional<StdlibFF>& prev_stdlib_acc_hash,
-                                                  const std::optional<EccOpRunningHash>& running_ecc_op_hash);
+                                               const std::vector<StdlibCircuitVKAndHash>& input_keys = {})
+    {
+        kernel_completion.instantiate_stdlib_verification_queue(circuit, input_keys);
+    }
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
-    void complete_kernel_circuit_logic(ClientCircuit& circuit);
+    void complete_kernel_circuit_logic(ClientCircuit& circuit)
+    {
+        kernel_completion.complete_kernel_circuit_logic(circuit);
+    }
 
     /**
      * @brief Accumulate a circuit into the running IVC.
@@ -266,7 +234,7 @@ class Chonk {
      * app's proof, whereas every later kernel's group begins with the previous kernel's proof. Must be
      * called once the stdlib verification queue holds the current kernel's group.
      */
-    [[nodiscard]] bool is_init_kernel() const;
+    [[nodiscard]] bool is_init_kernel() const { return kernel_completion.is_init_kernel(); }
 
     /**
      * @brief Whether the circuit currently being accumulated/completed is the hiding kernel.
@@ -291,8 +259,6 @@ class Chonk {
     }
 
     ChonkProof prove();
-
-    static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
 
     /**
      * @brief Get the hiding kernel verification key and hash for Chonk verification
@@ -339,12 +305,6 @@ class Chonk {
                                 const std::shared_ptr<typename InstanceFlavor::VerificationKey>& precomputed_vk);
 
 #endif
-
-    PublicInputsResult process_kernel_public_inputs(std::vector<StdlibFF>& public_inputs,
-                                                    KernelWitnessCommitments& witness_commitments,
-                                                    const std::optional<StdlibFF>& prev_accum_hash);
-    PublicInputsResult process_app_public_inputs(std::vector<StdlibFF>& public_inputs,
-                                                 AppWitnessCommitments& witness_commitments);
 
     /**
      * @brief Turn the incoming instance into an accumulator. If a kernel follows, also produce a multilinear batching

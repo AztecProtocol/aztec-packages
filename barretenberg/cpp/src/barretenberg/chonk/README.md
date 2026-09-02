@@ -404,7 +404,7 @@ A Chonk proof must reveal nothing about the private execution. ZK is achieved th
 The op queue contains EC operations from all circuits and must be hidden:
 
 1. **Batch merge ZK prefix**: `BatchMergeProver` constructs the initial ZK rows used to hide the op queue up to the tail.
-2. **`hide_op_queue_content_in_hiding`**: Adds the final random non-ops in the hiding kernel.
+2. **`hide_op_queue_content`**: Adds the final random non-ops in the hiding kernel.
 
 ### Constant Merged Table Size for ZK
 

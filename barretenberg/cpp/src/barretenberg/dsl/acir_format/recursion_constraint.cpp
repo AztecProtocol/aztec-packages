@@ -206,13 +206,14 @@ void process_hn_recursion_constraints(
         ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
 
         // Verify stdlib queue size matches after instantiation (invariant check)
-        BB_ASSERT_EQ(ivc->stdlib_verification_queue.size(),
+        BB_ASSERT_EQ(ivc->kernel_completion.stdlib_verification_queue.size(),
                      hn_recursion_data.first.size(),
                      "process_hn_recursion_constraints: stdlib_verification_queue size mismatch after instantiation");
 
         // Validate constraints against stdlib verification queue entries
         size_t group_index = 0;
-        for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->stdlib_verification_queue)) {
+        for (auto [constraint, queue_entry] :
+             zip_view(hn_recursion_data.first, ivc->kernel_completion.stdlib_verification_queue)) {
             // Cross-check the ACIR proof_type and the queued proof's kind against the type/kind implied by the
             // IVC's circuit kinds and the entry's position in the kernel's group. The IVC's circuit kinds (not
             // the proof_type) drive the verification logic; this is defense-in-depth that the two agree.
