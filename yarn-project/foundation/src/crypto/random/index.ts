@@ -1,47 +1,53 @@
 import { randomBytes as bbRandomBytes } from '@aztec/bb.js';
 
-import { RandomnessSingleton } from './randomness_singleton.js';
+import { toBigIntBE } from '../../bigint-buffer/index.js';
 
-export const randomBytes = (len: number) => {
-  const singleton = RandomnessSingleton.getInstance();
-
-  if (singleton.isDeterministic()) {
-    return singleton.getBytes(len);
-  }
+/**
+ * Generate a buffer of cryptographically secure random bytes.
+ * @param len - The number of bytes to generate.
+ */
+export function randomBytes(len: number): Buffer<ArrayBuffer> {
   return Buffer.from(bbRandomBytes(len)) as Buffer<ArrayBuffer>;
-};
+}
 
 /**
- * Generate a random integer less than max.
- * @param max - The maximum value.
- * @returns A random integer.
- *
- * TODO(#3949): This is insecure as it's modulo biased. Nuke or safeguard before mainnet.
+ * Generate a uniformly distributed random bigint in the range [0, max).
+ * @param max - The exclusive upper bound, which must be positive.
  */
-export const randomInt = (max: number) => {
-  const randomBuffer = randomBytes(6); // Generate a buffer of 6 random bytes.
-  const randomInt = parseInt(randomBuffer.toString('hex'), 16); // Convert buffer to a large integer.
-  return randomInt % max; // Use modulo to ensure the result is less than max.
-};
+export function randomBigInt(max: bigint): bigint {
+  if (max <= 0n) {
+    throw new RangeError(`randomBigInt requires a positive max, got ${max}`);
+  }
+  if (max === 1n) {
+    return 0n;
+  }
+  const bits = BigInt((max - 1n).toString(2).length);
+  const mask = (1n << bits) - 1n;
+  const bytes = Number((bits + 7n) / 8n);
+  // Rejection sampling. Masking the draw down to ceil(log2(max)) bits keeps the acceptance
+  // probability above 1/2, so this loops fewer than 2 times on average. Sampling a fixed width and
+  // reducing modulo max would instead bias the low end of the range, and would silently cap the
+  // result at the sample width for maxima wider than it.
+  for (;;) {
+    const candidate = toBigIntBE(randomBytes(bytes)) & mask;
+    if (candidate < max) {
+      return candidate;
+    }
+  }
+}
 
 /**
- * Generate a random bigint less than max.
- * @param max - The maximum value.
- * @returns A random bigint.
- *
- * TODO(#3949): This is insecure as it's modulo biased. Nuke or safeguard before mainnet.
+ * Generate a uniformly distributed random integer in the range [0, max).
+ * @param max - The exclusive upper bound, which must be a positive safe integer.
  */
-export const randomBigInt = (max: bigint) => {
-  const randomBuffer = randomBytes(8); // Generate a buffer of 8 random bytes.
-  const randomBigInt = BigInt(`0x${randomBuffer.toString('hex')}`); // Convert buffer to a large integer.
-  return randomBigInt % max; // Use modulo to ensure the result is less than max.
-};
+export function randomInt(max: number): number {
+  if (!Number.isSafeInteger(max) || max <= 0) {
+    throw new RangeError(`randomInt requires a positive safe integer max, got ${max}`);
+  }
+  return Number(randomBigInt(BigInt(max)));
+}
 
-/**
- * Generate a random boolean value.
- * @returns A random boolean value.
- */
-export const randomBoolean = () => {
-  const randomByte = randomBytes(1)[0]; // Generate a single random byte.
-  return randomByte % 2 === 0; // Use modulo to determine if the byte is even or odd.
-};
+/** Generate a random boolean value. */
+export function randomBoolean(): boolean {
+  return randomBytes(1)[0] % 2 === 0;
+}
