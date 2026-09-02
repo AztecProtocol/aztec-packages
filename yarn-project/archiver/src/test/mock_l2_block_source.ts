@@ -24,6 +24,7 @@ import {
   type CheckpointsQuery,
   GENESIS_BLOCK_HEADER_HASH,
   GENESIS_CHECKPOINT_HEADER_HASH,
+  type L1SyncPoint,
   L2Block,
   type L2BlockSource,
   type L2Frontier,
@@ -61,6 +62,9 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   private initialHeaderHash: BlockHash = GENESIS_BLOCK_HEADER_HASH;
   private genesisArchiveRoot?: Fr;
   private genesisBlock?: L2Block;
+
+  /** L1 block the mock claims to be synced to; tests that exercise L1-pinned reads set it. */
+  public l1SyncPoint: L1SyncPoint | undefined = undefined;
 
   private log = createLogger('archiver:mock_l2_block_source');
 
@@ -426,6 +430,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     };
   }
 
+  getL1SyncPoint(): Promise<L1SyncPoint | undefined> {
+    return Promise.resolve(this.l1SyncPoint);
+  }
+
   // The mock never holds proposed checkpoints and its pending chain is always valid, so the frontier is just
   // the tips plus the headers of the latest block and the checkpoint holding the checkpointed tip.
   async getL2Frontier(): Promise<L2Frontier> {
@@ -434,7 +442,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return {
       tips,
       proposedCheckpoint: undefined,
-      l1SyncPoint: undefined,
+      l1SyncPoint: this.l1SyncPoint,
       latestBlockHeader: this.l2Blocks[tips.proposed.number - 1]?.header,
       checkpointedCheckpoint: checkpointed
         ? { header: checkpointed.header, l1: this.mockL1DataForCheckpoint(checkpointed) }

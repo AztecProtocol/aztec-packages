@@ -701,14 +701,17 @@ export class RollupContract {
     };
   }
 
-  /** Returns the pending checkpoint from the rollup contract */
-  getPendingCheckpoint() {
+  /**
+   * Returns the pending checkpoint from the rollup contract.
+   * @param options - Optional L1 block number to pin the queries to.
+   */
+  getPendingCheckpoint(options?: { blockNumber?: bigint }) {
     // We retry because of race conditions during prunes: we may get a pending checkpoint number which is immediately
     // reorged out due to a prune happening, causing the subsequent getCheckpoint call to fail. So we try again in that case.
     return retry(
       async () => {
-        const pendingCheckpointNumber = await this.getCheckpointNumber();
-        const pendingCheckpoint = await this.getCheckpoint(pendingCheckpointNumber);
+        const pendingCheckpointNumber = await this.getCheckpointNumber(options);
+        const pendingCheckpoint = await this.getCheckpoint(pendingCheckpointNumber, options);
         return pendingCheckpoint;
       },
       'getting pending checkpoint',
@@ -748,8 +751,13 @@ export class RollupContract {
     };
   }
 
-  getTimestampForSlot(slot: SlotNumber): Promise<bigint> {
-    return this.rollup.read.getTimestampForSlot([BigInt(slot)]);
+  /**
+   * Returns the timestamp at which the given slot starts.
+   * @param options - Optional L1 block number to pin the query to.
+   */
+  async getTimestampForSlot(slot: SlotNumber, options?: { blockNumber?: bigint }): Promise<bigint> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return await this.rollup.read.getTimestampForSlot([BigInt(slot)], options);
   }
 
   async getEntryQueueLength(): Promise<number> {
@@ -1134,8 +1142,18 @@ export class RollupContract {
     return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfCheckpointsInEpoch), prover]);
   }
 
-  getManaMinFeeAt(timestamp: bigint, inFeeAsset: boolean, stateOverride?: StateOverride): Promise<bigint> {
-    return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset], { stateOverride });
+  /**
+   * Returns the minimum mana fee at the given timestamp.
+   * @param options - Optional state override to simulate against, and optional L1 block number to pin the call
+   * to, so the fee describes a known L1 state rather than whatever the node considers latest.
+   */
+  async getManaMinFeeAt(
+    timestamp: bigint,
+    inFeeAsset: boolean,
+    options?: { stateOverride?: StateOverride; blockNumber?: bigint },
+  ): Promise<bigint> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return await this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset], options);
   }
 
   async getManaMinFeeComponentsAt(timestamp: bigint, inFeeAsset: boolean): Promise<ManaMinFeeComponents> {

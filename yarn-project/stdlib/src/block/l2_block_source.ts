@@ -247,6 +247,14 @@ export interface L2BlockSource {
   getL2Frontier(): Promise<L2Frontier>;
 
   /**
+   * Returns the L1 block whose state the block source's data reflects. Same value as
+   * {@link getL2Frontier}'s `l1SyncPoint` field; exposed on its own so a consumer that only needs the L1 anchor
+   * (such as pinning an L1 read to the same block the archiver read) does not load the whole snapshot.
+   * Undefined until the first sync pass.
+   */
+  getL1SyncPoint(): Promise<L1SyncPoint | undefined>;
+
+  /**
    * Returns the rollup constants for the current chain.
    */
   getL1Constants(): Promise<L1RollupConstants>;
