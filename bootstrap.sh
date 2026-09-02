@@ -988,10 +988,13 @@ case "$cmd" in
   # MERGE TRAIN CI SUBSETS #
   ##########################
   "ci-barretenberg-debug")
+    # Nightly job: no fail-fast, so one red test does not hide the rest of the debug-build signal.
     export CI=1
     export NATIVE_PRESET=debug
     export AVM=0
     export AVM_TRANSPILER=0
+    export NO_FAIL_FAST=1
+    barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh ci
     ;;
   "ci-barretenberg-nightly")
