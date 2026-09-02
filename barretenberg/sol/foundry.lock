@@ -11,6 +11,9 @@
   "../../l1-contracts/lib/openzeppelin-contracts": {
     "rev": "448efeea6640bbbc09373f03fbc9c88e280147ba"
   },
+  "../../labs": {
+    "rev": "4a7a2e233528f717e6c22e894526831367d80be3"
+  },
   "../../noir/noir-repo": {
     "rev": "1fce7cac1b6b116b6af98875580b5122eb9fe051"
   },
