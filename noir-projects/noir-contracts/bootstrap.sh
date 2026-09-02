@@ -100,10 +100,16 @@ export -f get_contract_path
 # ci3/release_prep_package_json for npm packages, release-image/Dockerfile for the docker image.
 function stamp_dev_aztec_version {
   local json_path=$1
+  if [ "$(jq -r '.aztec_version // empty' "$json_path")" == "dev" ]; then
+    return 0
+  fi
   local tmp=$(mktemp)
   jq '.aztec_version = "dev"' "$json_path" > "$tmp"
-  cat "$tmp" > "$json_path"
-  rm "$tmp"
+  chmod 644 "$tmp"
+  # Replace by rename rather than writing through the path: when the artifact is a symlink into a
+  # frozen cached store (CACHE_LINK_DIR worktrees), this swaps the symlink for a real stamped copy
+  # instead of failing to write the read-only store file.
+  mv -f "$tmp" "$json_path"
 }
 export -f stamp_dev_aztec_version
 
@@ -153,10 +159,14 @@ function compile {
       return 1
     fi
     $BB aztec_process -i $json_path
+    # Stamp before upload so every cached tarball already carries aztec_version "dev". This lets the
+    # post-block stamp below fast-path to a no-op on a cache hit, preserving CACHE_LINK_DIR symlinks.
+    stamp_dev_aztec_version "$json_path"
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
-  # Stamp the version after the cache block so the field is always present, whether the artifact came from a fresh
-  # compile or a cache hit.
+  # Stamp the version after the cache block so the field is always present. For tarballs predating the
+  # pre-upload stamp the field is absent and this writes it; for newer tarballs (already "dev") it
+  # fast-paths to a no-op, which leaves a grafted store symlink untouched in CACHE_LINK_DIR worktrees.
   stamp_dev_aztec_version "$json_path"
 }
 export -f compile

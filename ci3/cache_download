@@ -20,6 +20,22 @@ fi
 tar_file="$1"
 out_dir="${2:-.}"
 
+# Link mode (opt-in via CACHE_LINK_DIR, local-dev worktrees only, never on CI): instead of
+# extracting into out_dir, extract once into a shared read-only store and graft symlinks. All of
+# that lives in cache_download_linked; this script stays the plain extract-in-place path.
+# Excluded tarballs must be real files in the checkout and always extract in place here:
+# - yarn-project: contents interleave with tracked src/ files and the generated outputs must stay
+#   writable for incremental rebuilds.
+# - bb.js / noir-packages: their contents are loaded as Node.js modules. Node resolves imports from
+#   a module's REAL path, so store-resident JS cannot see the checkout's node_modules and runtime
+#   dependencies (msgpackr, pako, ...) fail to resolve.
+if [[ -n "${CACHE_LINK_DIR:-}" && "${CI:-0}" -ne 1 ]]; then
+  case "$tar_file" in
+    yarn-project*|bb.js-*|noir-packages-*) ;;
+    *) exec "$ci3/cache_download_linked" "$tar_file" "$out_dir" ;;
+  esac
+fi
+
 function extract_tar {
   if [[ "$tar_file" == *.zst ]]; then
     tar --use-compress-program="zstd -d" -x -C "$out_dir" &>/dev/null

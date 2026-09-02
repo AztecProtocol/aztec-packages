@@ -39,3 +39,7 @@ __pycache__
 
 # Local opt-in: install nargo from the matching official noir release instead of building from source.
 noir-from-release.flag
+
+# Manifests written by scripts/worktrees.sh (link-mode deps store; local-dev only).
+.deps-manifest.json
+.deps-manifest.linked

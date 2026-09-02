@@ -1,0 +1,266 @@
+#!/usr/bin/env bash
+# DO NOT output to stdout. This script is used in contexts where stdout is processed.
+#
+# Link-mode variant of cache_download. Do not call directly: cache_download delegates here when
+# CACHE_LINK_DIR is set, CI is 0, and the tarball is not one that must extract in place (see the
+# delegation site in cache_download). Same CLI: <tarball-name> [out-dir].
+#
+# Instead of extracting the tarball into out_dir, it is extracted ONCE into the shared store at
+# $CACHE_LINK_DIR/<name>/, frozen read-only (chmod -R a-w), and symlinks into the store entry are
+# grafted into out_dir from the tarball's own listing. Content addressing makes store entries
+# immutable by construction; the freeze turns any accidental write through a symlink into a loud
+# EACCES instead of silent cross-checkout corruption. Design doc: scripts/worktrees.md.
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+
+if [ "$#" -lt 1 ]; then
+  echo_stderr "Usage: $0 <tar.gz_file_to_download_and_link>"
+  exit 1
+fi
+
+tar_file="$1"
+out_dir="${2:-.}"
+
+# Strip the compression suffix to derive the store entry name.
+entry_name="$tar_file"
+entry_name="${entry_name%.tar.gz}"
+entry_name="${entry_name%.zst}"
+entry_name="${entry_name%.tar}"
+
+function extract_tar {
+  if [[ "$tar_file" == *.zst ]]; then
+    tar --use-compress-program="zstd -d" -x -C "$1" &>/dev/null
+  else
+    tar -xzf - -C "$1" &>/dev/null
+  fi
+}
+
+# List the paths inside the tarball (one per line, dirs have a trailing slash, no leading ./).
+function list_tar {
+  if [[ "$tar_file" == *.zst ]]; then
+    tar --use-compress-program="zstd -d" -tf "$1" 2>/dev/null
+  else
+    tar -tzf "$1" 2>/dev/null
+  fi
+}
+
+# Ensure the store entry exists and is frozen (read-only). Concurrency-safe via an mkdir lock so
+# parallel per-contract downloads of the same entry extract it exactly once.
+function ensure_store_entry {
+  local tarfile="$1"
+  local entry_dir="$CACHE_LINK_DIR/$entry_name"
+  [[ -d "$entry_dir" ]] && return 0
+
+  mkdir -p "$CACHE_LINK_DIR"
+  local lock="$CACHE_LINK_DIR/.lock.$entry_name"
+  local waited=0
+  while ! mkdir "$lock" 2>/dev/null; do
+    # Another process is extracting this entry. Wait for it to finish.
+    [[ -d "$entry_dir" ]] && return 0
+    sleep 0.2
+    waited=$((waited + 1))
+    if [[ $waited -gt 600 ]]; then
+      echo_stderr "Timed out waiting for store extraction lock on $entry_name."
+      return 1
+    fi
+  done
+  # shellcheck disable=SC2064
+  trap "rmdir '$lock' 2>/dev/null || true" RETURN
+
+  # Recheck under the lock in case another process won the race before we acquired it.
+  if [[ -d "$entry_dir" ]]; then
+    return 0
+  fi
+
+  local tmp_dir="$CACHE_LINK_DIR/.tmp.$entry_name.$$"
+  rm -rf "$tmp_dir"
+  mkdir -p "$tmp_dir"
+  if ! extract_tar "$tmp_dir" < "$tarfile"; then
+    rm -rf "$tmp_dir"
+    echo_stderr "Failed to extract $tar_file into the store."
+    return 1
+  fi
+  if ! mv "$tmp_dir" "$entry_dir" 2>/dev/null; then
+    # Lost the race: another process created the entry between our recheck and the mv.
+    rm -rf "$tmp_dir"
+    [[ -d "$entry_dir" ]] && return 0
+    echo_stderr "Failed to move store entry into place for $entry_name."
+    return 1
+  fi
+  chmod -R a-w "$entry_dir" 2>/dev/null || true
+}
+
+# Graft symlinks from out_dir into the store entry. For every tarball path we descend through
+# directory components that already exist as REAL descendable directories in out_dir (tracked dirs,
+# uninitialised submodule dirs, thawed local copies) and create an absolute symlink at the first
+# component that is not such a directory (the "link root"). Existing symlinks are repointed; an
+# existing real file/dir at the link root is left alone with a warning (a deliberate local override).
+#
+# A directory in out_dir is "descendable" iff it exists, is a real (non-symlink) dir, AND every one
+# of its ancestors is descendable. The ancestor condition stops us from descending past an existing
+# store symlink: if noir-repo/target is a symlink, paths beneath it resolve through it to real store
+# dirs, but noir-repo/target is not descendable so noir-repo/target stays the single link root.
+#
+# A link root must also be IGNORED by git once created: gitignore patterns with a trailing slash
+# (e.g. barretenberg/cpp's "build*/") match directories only, so a symlink at that path would show
+# up as untracked, dirtying git status and disabling content-hash caching for the whole checkout.
+# When the would-be symlink is not ignored and the store side is a directory, we degrade: create a
+# real directory there and push the link root one level deeper, repeating until the path is ignored
+# (a real dir DOES match dir-only patterns, and everything beneath an ignored dir is ignored).
+#
+# Performance: yarn-project-sized tarballs list tens of thousands of files, but most share a handful
+# of link roots. We walk each path top-down, memoising the descendable decision per directory prefix
+# and recording each link root once, so the work is roughly proportional to the number of distinct
+# directories, not files. The walk derives link roots from the paths themselves and so is correct
+# even when the tarball omits explicit entries for intermediate directories (e.g. a listing that
+# starts at build/bin/ with no bare build/ entry).
+function graft_from_store {
+  local entry_dir="$CACHE_LINK_DIR/$entry_name"
+  local listing
+  listing=$(list_tar "$1")
+  [[ -z "$listing" ]] && return 0
+
+  # descendable[prefix]: 1 = real descendable dir, 0 = not (memoised, including negative results).
+  local -A descendable=()
+  # seen_root[prefix]: a link root we have already created a symlink for.
+  local -A seen_root=()
+  local p
+  while IFS= read -r p; do
+    p="${p%/}"
+    [[ -z "$p" ]] && continue
+
+    # Re-walk the same path after each ignore-degradation; bounded by the path's depth.
+    while :; do
+      # Walk components top-down until we hit the first non-descendable prefix (the link root).
+      local acc="" comp link_root="" decided=0
+      IFS='/' read -ra parts <<<"$p"
+      for comp in "${parts[@]}"; do
+        acc="${acc:+$acc/}$comp"
+        local d="${descendable[$acc]:-}"
+        if [[ -z "$d" ]]; then
+          if [[ -d "$out_dir/$acc" && ! -L "$out_dir/$acc" ]]; then
+            d=1
+          else
+            d=0
+          fi
+          descendable["$acc"]=$d
+        fi
+        if [[ "$d" -eq 0 ]]; then
+          link_root="$acc"
+          decided=1
+          break
+        fi
+      done
+      # Whole path is descendable (all components are real dirs already) -> nothing to link.
+      [[ "$decided" -eq 0 ]] && break
+      [[ -n "${seen_root[$link_root]:-}" ]] && break
+
+      local dest="$out_dir/$link_root"
+      local target="$entry_dir/$link_root"
+      if [[ -e "$dest" && ! -L "$dest" ]]; then
+        echo_stderr "Not grafting $link_root: a real file/dir already exists in $out_dir (local override)."
+        seen_root["$link_root"]=1
+        break
+      fi
+
+      # check-ignore exits 0 = ignored, 1 = not ignored, 128 = error (e.g. not in a git repo).
+      # Run from the link root's parent so paths inside an initialised submodule (noir-repo) are
+      # checked against the submodule's own ignore rules, not the parent repo's. A nonexistent path
+      # is evaluated as a file, so dir-only patterns report "not ignored" and we degrade below.
+      local ignore_rc=0
+      git -C "$out_dir/$(dirname "$link_root")" check-ignore -q "$(basename "$link_root")" 2>/dev/null || ignore_rc=$?
+      if [[ "$ignore_rc" -eq 1 && -d "$target" ]]; then
+        # Degrade: real dir at the link root (matches dir-only ignore patterns), link one level deeper.
+        [[ -L "$dest" ]] && rm -f "$dest"
+        mkdir -p "$dest"
+        descendable["$link_root"]=1
+        continue
+      fi
+      if [[ "$ignore_rc" -eq 1 ]]; then
+        echo_stderr "WARNING: grafted $link_root is not gitignored; it will show as untracked."
+      fi
+      mkdir -p "$(dirname "$dest")"
+      ln -sfn "$target" "$dest"
+      seen_root["$link_root"]=1
+      break
+    done
+  done <<<"$listing"
+
+  # Record the linked entry for gc, crash-safe append (one entry name per line).
+  echo "$entry_name" >> "$root/.deps-manifest.linked"
+}
+
+# Extract the tarball file into the store (once) and graft symlinks into out_dir.
+function place_tar {
+  local tarfile="$1"
+  ensure_store_entry "$tarfile" || return 1
+  graft_from_store "$tarfile" || return 1
+}
+
+mkdir -p "$out_dir"
+
+# CI never reaches this script (cache_download only delegates at CI=0), so the endpoint is always
+# the local-dev one. download_from_remote mirrors cache_download; keep the two in sync.
+endpoint="https://build-cache.aztec-labs.com"
+
+# Downloads the artifact from remote to stdout.
+function download_from_remote {
+  if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
+    # Use AWS CLI with custom params (e.g., custom endpoint)
+    # NOTE: This is NOT currently used, but allows for using minio or other S3-compatible storage for tests.
+    s3_uri="s3://aztec-ci-artifacts/build-cache/$tar_file"
+    aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "$s3_uri" "-" 2>/dev/null
+  elif [[ -n "${CACHE_SSH_HOST:-}" ]]; then
+    # Run remote download on remote host via SSH jump and pipe back
+    ssh "$CACHE_SSH_HOST" "curl -s -f \"$endpoint/$tar_file\""
+  else
+    # Default to download from remote via curl
+    curl -s -f "$endpoint/$tar_file"
+  fi
+}
+
+# Local cache handling mirrors cache_download, except the tarball is placed via the store instead
+# of extracted in place.
+if [[ -n "${CACHE_LOCAL_DIR:-}" ]] && ! mkdir -p "$CACHE_LOCAL_DIR" 2>/dev/null; then
+  echo_stderr "Warning: Cannot create local cache dir $CACHE_LOCAL_DIR, skipping local cache."
+  CACHE_LOCAL_DIR=""
+fi
+
+if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
+  local_cache_file="$CACHE_LOCAL_DIR/$tar_file"
+
+  if [[ -f "$local_cache_file" ]]; then
+    echo_stderr "Local cache hit for $tar_file."
+    place_tar "$local_cache_file"
+    echo_stderr "Cache extraction of $tar_file from local cache complete in ${SECONDS}s."
+    exit 0
+  fi
+
+  echo_stderr "Local cache miss for $tar_file, downloading from remote."
+  # Download to a temp name and rename into place: a concurrent download of the same artifact
+  # treats an existing file at the final path as a complete tarball.
+  tmp_download="$local_cache_file.tmp.$$"
+  if ! download_from_remote > "$tmp_download"; then
+    rm -f "$tmp_download"
+    echo_stderr "Cache download of $tar_file failed."
+    exit 1
+  fi
+  mv "$tmp_download" "$local_cache_file"
+
+  place_tar "$local_cache_file"
+  echo_stderr "Cache download and extraction of $tar_file complete in ${SECONDS}s."
+  exit 0
+fi
+
+# No local tarball cache. Link mode needs the tarball as a file (to extract into the store and to
+# list its paths), so stream the download into a temp file first.
+tmp_tar=$(mktemp)
+trap 'rm -f "$tmp_tar"' EXIT
+if ! download_from_remote > "$tmp_tar"; then
+  echo_stderr "Cache download of $tar_file failed."
+  exit 1
+fi
+if ! place_tar "$tmp_tar"; then
+  echo_stderr "Cache download of $tar_file failed."
+  exit 1
+fi
+echo_stderr "Cache download and extraction of $tar_file complete in ${SECONDS}s."
