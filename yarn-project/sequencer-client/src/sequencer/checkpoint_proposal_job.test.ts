@@ -1220,6 +1220,7 @@ describe('CheckpointProposalJob', () => {
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets
         .mockResolvedValueOnce([new Fr(1), new Fr(2)])
         .mockResolvedValue([new Fr(3), new Fr(4)]);
+      mockInboxBuckets(l1ToL2MessageSource, [makeBucket(2n, 2n, 1n), makeBucket(3n, 4n, 3n)]);
 
       const { lastBlock } = await setupMultipleBlocks(2, [2, 0]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
@@ -1527,8 +1528,8 @@ describe('CheckpointProposalJob', () => {
       // Both block proposals carry the selected bucket reference (the second reuses the first's).
       const bucketRefArgs = validatorClient.createBlockProposal.mock.calls.map(call => call[7]);
       expect(bucketRefArgs).toHaveLength(2);
-      expect(bucketRefArgs[0]?.bucketSeq).toBe(2n);
-      expect(bucketRefArgs[1]?.bucketSeq).toBe(2n);
+      expect(bucketRefArgs[0]?.inboxRollingHash).toEqual(bucket.inboxRollingHash);
+      expect(bucketRefArgs[1]?.inboxRollingHash).toEqual(bucket.inboxRollingHash);
     });
 
     it('produces a message-only block when a non-empty bundle is selected and no txs are pending', async () => {
@@ -1681,9 +1682,9 @@ describe('CheckpointProposalJob', () => {
       expect(checkpoint).toBeDefined();
       // The L1 propose hint (4th positional arg) is the re-resolved sequence number, not the one built against.
       expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(1n);
-      // And the signed block proposal peers check the bucket against carries the same sequence number, so a
-      // validator that has already seen the merge resolves the bucket the proposal names.
-      expect(validatorClient.createBlockProposal.mock.calls[0][7]?.bucketSeq).toBe(1n);
+      // The signed block proposal carries only the rolling hash, which the merge leaves alone, so validators on
+      // either side of it resolve the same bucket.
+      expect(validatorClient.createBlockProposal.mock.calls[0][7]?.inboxRollingHash).toEqual(bucket.inboxRollingHash);
       expect(infoLog).toHaveBeenCalledWith(
         'Inbox bucket reference re-resolved after L1 reorg',
         expect.objectContaining({ builtSeq: 2n, resolvedSeq: 1n }),
@@ -1706,8 +1707,6 @@ describe('CheckpointProposalJob', () => {
       expect(checkpoint).toBeDefined();
       expect(p2p.broadcastCheckpointProposal).toHaveBeenCalledTimes(1);
       expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(1n);
-      // The proposal was signed against the pre-merge sequence number; only the L1 hint can still be corrected.
-      expect(validatorClient.createBlockProposal.mock.calls[0][7]?.bucketSeq).toBe(2n);
       expect(infoLog).toHaveBeenCalledWith(
         'Inbox bucket hint re-resolved after L1 reorg',
         expect.objectContaining({ builtSeq: 2n, publishedSeq: 1n }),
@@ -1751,15 +1750,40 @@ describe('CheckpointProposalJob', () => {
       expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_consumption_insufficient');
     });
 
-    it('abandons the slot when no bucket carries the rolling hash the checkpoint committed to', async () => {
-      // An L1 reorg reordered the messages, so the consumed prefix no longer ends on a bucket boundary and no
-      // bucket sequence number resolves to the header's rolling hash.
+    it('aborts the checkpoint before signing when the consumed bucket vanishes at the per-block refresh', async () => {
+      // The block builds against bucket 2, then an L1 reorg reorders the messages before the proposal is signed: no
+      // bucket carries the rolling hash the block consumed through any more. The block is known to be built on
+      // messages the local store no longer holds, so it must never be signed, pushed to the archiver or gossiped.
       await setupSingleBucketCheckpoint(pendingBucket());
       mockInboxBuckets(l1ToL2MessageSource);
 
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeUndefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      expect(validatorClient.createBlockProposal).not.toHaveBeenCalled();
+      expect(blockSink.addBlock).not.toHaveBeenCalled();
+      expect(p2p.broadcastProposal).not.toHaveBeenCalled();
+      expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_bucket_reorged');
+    });
+
+    it('abandons the slot when the rolling hash vanishes after the last block is signed', async () => {
+      // The reorg lands between the block proposal being signed and the checkpoint header being sealed, so the
+      // per-block refresh could not catch it: the block reached the archiver, but no bucket resolves to the header's
+      // rolling hash and nothing is gossiped or published.
+      await setupSingleBucketCheckpoint(pendingBucket());
+      const signBlockProposal = validatorClient.createBlockProposal.getMockImplementation()!;
+      validatorClient.createBlockProposal.mockImplementation((...args) => {
+        mockInboxBuckets(l1ToL2MessageSource);
+        return signBlockProposal(...args);
+      });
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeUndefined();
+      expect(blockSink.addBlock).toHaveBeenCalledTimes(1);
       expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
       expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_bucket_reorged');
@@ -1790,6 +1814,7 @@ describe('CheckpointProposalJob', () => {
       }));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(buckets[3]);
       l1ToL2MessageSource.getInboxBucket.mockImplementation(seq => Promise.resolve(buckets[Number(seq) - 1]));
+      mockInboxBuckets(l1ToL2MessageSource, buckets);
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockImplementation((from, to) =>
         Promise.resolve(
           Array.from({ length: Number(totals[Number(to) - 1] - (from === 0n ? 0n : totals[Number(from) - 1])) }, () =>

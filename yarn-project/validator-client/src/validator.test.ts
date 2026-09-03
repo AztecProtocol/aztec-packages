@@ -549,6 +549,7 @@ describe('ValidatorClient', () => {
 
       // Resolve every Inbox bucket query to the genesis bucket, so streaming checks accept with an empty bundle.
       l1ToL2MessageSource.getInboxBucket.mockResolvedValue(genesisInboxBucket);
+      l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(genesisInboxBucket);
       l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(genesisInboxBucket);
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue([]);
 
