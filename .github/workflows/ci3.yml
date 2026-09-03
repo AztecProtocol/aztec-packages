@@ -57,7 +57,8 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-wakeup-pr-after-merge')
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-wakeup-pr-after-merge --repo ${{ github.repository }} || true
+        # REST: `gh pr edit` needs a read:org-scoped token for its viewer query and fails silently.
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/ci-wakeup-pr-after-merge" >/dev/null || true
 
       # Do NOT bump actions/checkout to v6 here. v6 ("persist creds to a separate file", #2286)
       # stores the persisted github.token in a temp credentials file pulled in via includeIf, which
@@ -101,12 +102,13 @@ jobs:
           CI_USE_SSH: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && '1' || '0' }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          # Only set in the private repo: the service account private releases deploy npm packages with.
+          # The _KEY suffix keeps ci3/redact treating the value as sensitive.
+          GCP_PRIVATE_NPM_DEPLOY_KEY: ${{ secrets.GCP_PRIVATE_NPM_DEPLOY }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           # Used by docs CI scripts to post to #docs-alerts (the SLACK_BOT_TOKEN bot lacks access there).
@@ -164,139 +166,56 @@ jobs:
       # the multi-GB data repo per upload; the script does a shallow sparse clone instead.
       - name: Upload benchmarks
         if: env.BENCH_UPLOAD == '1'
-        env: &ci_benchmark_env
+        env:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: &ci_benchmark_run ./ci3/upload_benchmarks "Aztec Benchmarks" "bench/${BENCH_BRANCH:-}" ./bench-out/bench.json "$COMMIT_SHA"
+        run: ./ci3/upload_benchmarks "Aztec Benchmarks" "bench/${BENCH_BRANCH:-}" ./bench-out/bench.json "$COMMIT_SHA"
 
-  # Spartan network benchmarks triggered on-demand from a PR label.
-  # Runs TPS and proving benchmarks in parallel, uploads results to a PR-specific
-  # path on the benchmark dashboard so nightly (bench/next) is never affected.
-  # One-time use: label is removed after the job runs.
-  ci-network-bench:
-    name: ${{ matrix.bench_type }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - bench_type: benchmark
-            ci3_cmd: network-bench
-            scenario: tps-scenario
-            namespace_suffix: bench
-            download_cmd: gh-spartan-bench
-            timeout: 300
-          - bench_type: proving-benchmark
-            ci3_cmd: network-proving-bench
-            scenario: prove-n-tps-fake
-            namespace_suffix: proving-bench
-            download_cmd: gh-spartan-proving-bench
-            timeout: 240
+  # Publishes the npm packages a release build packed (bootstrap.sh release → deploy_npm pack mode →
+  # build cache) with npm trusted publishing: this runner's OIDC token is the only credential, so the
+  # EC2 build machine never holds npm publish rights. Public repo only — the private repo publishes
+  # to the internal GCP Artifact Registry straight from EC2 (bootstrap.sh private_release).
+  publish-npm:
     needs: ci
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'ci-network-bench') && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
-    steps:
-      - name: Remove label (one-time use)
-        env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-bench --repo ${{ github.repository }} || true
-
-      - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Run Network Benchmarks
-        timeout-minutes: ${{ matrix.timeout }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          # For pushing docker images built from the PR
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: ${{ matrix.timeout }}
-          NO_SPOT: 1
-        run: |
-          namespace=pr-${{ github.event.pull_request.number }}-${{ matrix.namespace_suffix }}
-          echo "NAMESPACE=$namespace" >> $GITHUB_ENV
-          set -x
-          ./.github/ci3.sh ${{ matrix.ci3_cmd }} ${{ matrix.scenario }} "$namespace"
-
-      - name: Cleanup network resources
-        if: always()
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown ${{ matrix.scenario }} "${NAMESPACE}" || true
-
-      - name: Download benchmarks
-        if: always()
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          if ./ci.sh ${{ matrix.download_cmd }}; then
-            echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
-          fi
-
-      - name: Upload benchmarks
-        if: always() && env.ENABLE_DEPLOY_BENCH == '1'
-        env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: ./ci3/upload_benchmarks "Spartan" "bench/pr-$PR_NUMBER" ./bench-out/bench.json "$COMMIT_SHA"
-
-  # KIND-based e2e tests that run on a local Kubernetes cluster.
-  # One-time use: label is removed after the job runs.
-  ci-network-kind:
+    if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'AztecProtocol/aztec-packages'
     runs-on: ubuntu-latest
+    # Same environment as the release build above: the AWS OIDC role trusts tokens minted for it, and
+    # it is the environment to name when configuring each package's npm trusted publisher.
+    environment: master
     permissions:
-      id-token: write
+      id-token: write   # AWS OIDC for the cache download, npm OIDC for trusted publishing
       contents: read
-    needs: ci
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'ci-network-kind')
-    timeout-minutes: 180 # 3 hours for KIND tests
     steps:
-      - name: Remove label
-        env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-kind --repo ${{ github.repository }}
-
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
-          role-session-name: ci3-network-kind-${{ github.run_id }}
-          role-duration-seconds: 12600 # 3.5h – covers AWS_SHUTDOWN_TIME (180 min) + 30 min buffer
+          role-session-name: publish-npm-${{ github.run_id }}
 
-      - name: Run KIND Test
-        env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
-          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
-          RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 180
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Trusted publishing needs npm >= 11.5.1; Node 22 ships an older npm.
+      - name: Update npm
+        run: npm install -g npm@^11.5.1 && npm --version
+
+      # Authenticated S3 download using the runner's AWS OIDC role, not the plain-HTTP cache
+      # endpoint, and extracted outside the checkout. publish_npm_release then refuses any
+      # tarball that is not one of our packages at exactly this tag's version.
+      - name: Download the packed release
         run: |
-          ./.github/ci3.sh network-tests-kind
+          dir=$(mktemp -d)
+          echo "NPM_RELEASE_DIR=$dir" >> "$GITHUB_ENV"
+          S3_BUILD_CACHE_AWS_PARAMS="--region us-east-2" ./ci3/cache_download "npm-release-${GITHUB_REF_NAME}.tar.gz" "$dir"
+
+      - name: Publish
+        run: ./ci3/publish_npm_release "$NPM_RELEASE_DIR/npm-release"

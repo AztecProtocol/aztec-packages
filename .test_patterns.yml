@@ -147,28 +147,6 @@ tests:
     owners:
       - *palla
 
-  # yarn-project tests
-  # Attempt to catch all kv-store browser test failures (consider them quarantined for now)
-  - regex: "yarn-project/kv-store"
-    error_regex: "vitest"
-    owners:
-      - *martin
-  - regex: "yarn-project/kv-store"
-    error_regex: "Could not import your test module"
-    owners:
-      - *grego
-  - regex: "yarn-project/kv-store"
-    error_regex: "timeout: sending signal TERM to command"
-    owners:
-      - *martin
-  - regex: "yarn-project/kv-store"
-    error_regex: "Failed to fetch dynamically imported module"
-    owners:
-      - *grego
-  - regex: "yarn-project/kv-store"
-    error_regex: "Error: Timeout of 2000ms exceeded"
-    owners:
-      - *martin
   - regex: "kv-store/.*store\\.test"
     error_regex: "guards against too many cursors"
     owners:
@@ -197,34 +175,6 @@ tests:
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
     owners:
       - *palla
-
-  # Nightly GKE tests
-  - regex: "spartan/bootstrap.sh"
-    owners:
-      - *alex
-
-  # aztec-up
-  - regex: "aztec-up/scripts/run_test.sh"
-    error_regex: "Is the docker daemon running"
-    owners:
-      - *charlie
-  - regex: "aztec-up/scripts/run_test.sh amm_flow"
-    error_regex: "code: 124"
-    owners:
-      - *esau
-  - regex: "aztec-up/scripts/run_test.sh amm_flow"
-    error_regex: "Sumcheck failed"
-    owners:
-      - *luke
-  - regex: "aztec-up/scripts/run_test.sh bridge_and_claim"
-    error_regex: "Cannot satisfy constraint"
-    owners:
-      - *adam
-
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/single-node/bot/bot.test.ts"
-    error_regex: "Nonce provided for the transaction is lower than the current nonce of the account"
-    owners:
-      - *adam
 
   - regex: "tests/browser.spec.ts"
     error_regex: "Error: locator\\.click: Test timeout of"
@@ -324,43 +274,10 @@ tests:
     owners:
       - *palla
 
-  # http://ci.aztec-labs.com/e8228a36afda93b8
-  # Test passed but there was an error on stopping
-  - regex: "playground/scripts/run_test.sh"
-    error_regex: "playground-1\\s+\\|\\s+1 passed \\("
-    owners:
-      - *adam
-
-  # http://ci.aztec-labs.com/21afdb4a42f3474d
-  # Test passed but there was an error on stopping
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose"
-    error_regex: "tried to kill container, but did not receive an exit event"
-    owners:
-      - *adam
-
-  # http://ci.aztec-labs.com/93754bdf832ef9bd
-  # P2P receipt race in the compose CLI-wallet flow: the account deployment tx
-  # can be reported as dropped after the 5s grace window before inclusion is
-  # visible to the queried node.
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose ../cli-wallet/test/flows/public_authwit_transfer.sh"
-    error_regex: "Transaction .* was dropped\\. Reason: Tx dropped by P2P node"
-    owners:
-      - *palla
-
   - regex: "cd l1-contracts && forge test"
     error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
     owners:
       - *lasse
-
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/single-node/fees/gas_estimation.parallel.test.ts"
-    error_regex: "timeout: sending signal TERM to command 'bash'"
-    owners:
-      - *alex
-
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose src/composed/docs_examples.test.ts"
-    error_regex: "maxFeesPerGas.feePerL2Gas must be greater than or equal to gasFees.feePerL2Gas,"
-    owners:
-      - *esau
 
   # http://ci.aztec-labs.com/6db6103599cb22e6
   # Under pipelining, the lazy validator's attestation can arrive after the
@@ -371,14 +288,6 @@ tests:
     error_regex: "Timeout awaiting honest validator slash offenses for invalid proposal attestation"
     owners:
       - *palla
-
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.parallel.test.ts"
-    owners:
-      - *spyros
-
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_distribute_work.test.ts"
-    owners:
-      - *spyros
 
   # http://ci.aztec-labs.com/98d59d04f85223f8
   # Build-cache flake: module not found during Jest startup
@@ -400,11 +309,6 @@ tests:
     error_regex: "✕ reprocesses an offchain-delivered payment after an L1 reorg"
     owners:
       - *martin
-
-  - regex: "yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_"
-    error_regex: "timeout: sending signal"
-    owners:
-      - *charlie
 
   - regex: "run_test.sh simple tx_stats_bench"
     error_regex: "✕ verifies transactions at 10 TPS"

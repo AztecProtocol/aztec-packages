@@ -1,6 +1,0 @@
-global:
-  namespace: "smoke"
-
-bootNodeFailure:
-  enabled: true
-  duration: 60m

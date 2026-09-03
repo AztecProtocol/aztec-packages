@@ -9,6 +9,10 @@ concurrency:
   group: nightly-debug-build-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   debug-build:
     if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
@@ -19,11 +23,17 @@ jobs:
         with:
           ref: next
 
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: nightly-debug-${{ github.run_id }}
+          role-duration-seconds: 7200
+
       - name: Run debug build
         timeout-minutes: 120
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           RUN_ID: ${{ github.run_id }}

@@ -49,6 +49,9 @@ function test {
 function release {
   echo_header "barretenberg-rs release"
 
+  # crates.io is a public channel: a private release must never reach it, regardless of call path.
+  "$root/ci3/assert_public_release"
+
   local version=${REF_NAME#v}
 
   # Set the workspace version to match the release tag

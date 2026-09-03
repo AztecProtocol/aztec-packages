@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Publishes the npm tarballs a release build packed (ci3/deploy_npm with NPM_PACK_DIR) from a GitHub
+# runner using npm trusted publishing: the runner's OIDC token is the credential, so no NPM_TOKEN is
+# involved and `--provenance` links every package to this workflow run. Requires npm >= 11.5.1.
+#   usage: publish_npm_release <dir-of-tgz>
+# DRY_RUN=1 runs `npm publish --dry-run` instead.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+# Absolute: npm parses a relative "dir/name.tgz" as the GitHub shorthand owner/repo.
+dir=$(realpath "${1:?usage: $(basename "$0") <dir-of-tgz>}")
+dry_run=${DRY_RUN:-0}
+
+# The bundle comes from the build cache, which is keyed by tag and not content-addressed: refuse
+# any tarball that is not one of our packages at exactly the released version.
+expected_version=${EXPECTED_VERSION:-}
+if [ -z "$expected_version" ]; then
+  expected_version=${GITHUB_REF_NAME:-}
+  expected_version=${expected_version#v}
+fi
+if [ -z "$expected_version" ]; then
+  echo_stderr "EXPECTED_VERSION or GITHUB_REF_NAME required."
+  exit 1
+fi
+
+tarballs=("$dir"/*.tgz)
+if [ ! -e "${tarballs[0]}" ]; then
+  echo_stderr "No npm tarballs found in $dir."
+  exit 1
+fi
+
+# Same dist-tag policy as deploy_npm: 'latest' for stable releases, 'prerelease' for everything else.
+function dist_tag_for {
+  if [ -n "$(semver prerelease "$1")" ]; then echo prerelease; else echo latest; fi
+}
+
+function publish_one {
+  local tgz=$1
+  local pkg_json name version tag current
+  pkg_json=$(tar -xOzf "$tgz" package/package.json)
+  name=$(jq -r .name <<<"$pkg_json")
+  version=$(jq -r .version <<<"$pkg_json")
+  if [[ ! "$name" =~ ^@(aztec|aztec-foundation|noir-lang)/ ]]; then
+    echo_stderr "Refusing to publish unexpected package name '$name' from $(basename "$tgz")."
+    exit 1
+  fi
+  if [ "$version" != "$expected_version" ]; then
+    echo_stderr "Refusing $name@$version: this release publishes only version $expected_version."
+    exit 1
+  fi
+  tag=$(dist_tag_for "$version")
+  echo_header "publishing $name@$version ($tag)"
+  if [ "$dry_run" -eq 1 ]; then
+    npm publish "$tgz" --ignore-scripts --dry-run --tag "$tag" --access public
+  elif npm view "$name@$version" version >/dev/null 2>&1; then
+    # Re-run of a release: the version is already out. OIDC trusted publishing only authorizes
+    # `npm publish` (dist-tag add needs classic auth), so report rather than fail — a wrong tag
+    # after a partial release is a manual repair, not something a retry can fix.
+    current=$(npm view "$name" "dist-tags.$tag" 2>/dev/null || true)
+    if [ "$current" = "$version" ]; then
+      echo "$name@$version already published; dist-tag $tag already points at it."
+    else
+      echo "$name@$version already published; dist-tag $tag points at '${current:-none}'."
+      echo "To move it (needs npm auth): npm dist-tag add $name@$version $tag"
+    fi
+  else
+    retry "npm publish \"$tgz\" --ignore-scripts --tag \"$tag\" --access public --provenance"
+  fi
+}
+
+# Two passes so a meta package (e.g. @aztec-foundation/bb) never lands before the platform
+# packages its optionalDependencies name: publish everything that depends on no sibling
+# @aztec-foundation/* package first, then the rest. A dependent published before its dependency
+# leaves a window where `npm install` resolves the meta with no binary (npm silently drops an
+# unresolvable optional dep). The bundle's dependency graph is a single level (meta over platform),
+# so two passes suffice; a deeper chain would need a real topological order.
+leaves=() dependents=()
+for tgz in "${tarballs[@]}"; do
+  if tar -xOzf "$tgz" package/package.json \
+     | jq -e '([.dependencies//{}, .optionalDependencies//{}, .peerDependencies//{}] | add | keys[]) | select(startswith("@aztec-foundation/"))' >/dev/null 2>&1; then
+    dependents+=("$tgz")
+  else
+    leaves+=("$tgz")
+  fi
+done
+
+for tgz in ${leaves[@]+"${leaves[@]}"} ${dependents[@]+"${dependents[@]}"}; do
+  publish_one "$tgz"
+done

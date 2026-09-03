@@ -1,7 +1,0 @@
-[package]
-name = "nft_bridge"
-type = "contract"
-
-[dependencies]
-aztec = { path = "../../../../noir-projects/labs/aztec-nr/aztec" }
-NFTPunk = { path = "../nft" }

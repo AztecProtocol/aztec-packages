@@ -17,13 +17,13 @@ If running within the browser served with COOP/COEP headers, we use the multi-th
 ### Installing
 
 ```
-npm install @aztec/bb.js
+npm install @aztec-foundation/bb.js
 ```
 
 or with yarn
 
 ```
-yarn add @aztec/bb.js
+yarn add @aztec-foundation/bb.js
 ```
 
 ### Usage
@@ -50,7 +50,7 @@ It's recommended to use a dynamic import. This allows the developer to pick the 
 in size) is loaded and keeps page load times responsive.
 
 ```typescript
-const { Barretenberg, RawBuffer, Crs } = await import('@aztec/bb.js');
+const { Barretenberg, RawBuffer, Crs } = await import('@aztec-foundation/bb.js');
 ```
 
 ### Multithreading in browser

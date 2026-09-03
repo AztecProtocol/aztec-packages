@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/l1-artifacts",
+  "name": "@aztec-foundation/l1-artifacts",
   "version": "0.1.0",
   "type": "module",
   "exports": {

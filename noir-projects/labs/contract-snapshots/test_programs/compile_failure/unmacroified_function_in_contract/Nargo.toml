@@ -1,7 +1,0 @@
-[package]
-name = "unmacroified_function_in_contract"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }

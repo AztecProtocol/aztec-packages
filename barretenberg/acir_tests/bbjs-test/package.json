@@ -6,7 +6,7 @@
     "build": "yarn tsgo"
   },
   "dependencies": {
-    "@aztec/bb.js": "portal:../../ts/bb.js",
+    "@aztec-foundation/bb.js": "portal:../../ts/bb.js",
     "commander": "^12.1.0"
   },
   "devDependencies": {

@@ -307,21 +307,39 @@ function install_hooks {
 #!/usr/bin/env bash
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
-./yarn-project/precommit.sh
 ./noir/precommit.sh
 ./noir-projects/fnd/precommit.sh
-./noir-projects/labs/precommit.sh
-./yarn-project/constants/precommit.sh
-./docs/examples/ts/precommit.sh
+# Hooks are shared by every branch of this clone; older branches have no labs-patches.
+if [ -x ./labs-patches/bootstrap.sh ]; then ./labs-patches/bootstrap.sh check_staged; fi
 EOF
   chmod +x $hooks_dir/pre-commit
 
+  # A failed patch apply must not fail the git operation that triggered it: report and let
+  # the developer re-run apply.
   cat <<EOF >$hooks_dir/post-merge
 #!/usr/bin/env bash
 set -euo pipefail
 git submodule update --init --recursive
+if [ -x ./labs-patches/bootstrap.sh ]; then
+  ./labs-patches/bootstrap.sh apply || echo "labs-patches: apply failed; run ./labs-patches/bootstrap.sh apply" >&2
+fi
 EOF
   chmod +x $hooks_dir/post-merge
+
+  # Third argument is 1 for a branch checkout, 0 for a file checkout. Only a checkout that
+  # moved the labs gitlink or the series needs a re-apply; rebases and bisects step through
+  # many commits and would otherwise reset labs/ at each one.
+  cat <<EOF >$hooks_dir/post-checkout
+#!/usr/bin/env bash
+set -euo pipefail
+[ "\$3" = 1 ] || exit 0
+[ -x ./labs-patches/bootstrap.sh ] || exit 0
+if git rev-parse -q --verify "\$1^{commit}" >/dev/null && git diff --quiet "\$1" "\$2" -- labs labs-patches; then
+  exit 0
+fi
+./labs-patches/bootstrap.sh apply || echo "labs-patches: apply failed; run ./labs-patches/bootstrap.sh apply" >&2
+EOF
+  chmod +x $hooks_dir/post-checkout
 }
 
 function pull_submodules {
@@ -332,8 +350,11 @@ function pull_submodules {
     rm -rf noir/noir-repo
   fi
   denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags &>/dev/null"
+  # labs is update=none: only labs-patches checks it out, so the patch series always sits on top.
+  denoise "./labs-patches/bootstrap.sh apply"
 }
 
+# The TXE is built by the labs submodule (yarn-project/txe); only labs tests use it.
 function start_txes {
   # Until Kev's kzg lib stops using Tokio.
   export TOKIO_WORKER_THREADS=1
@@ -355,14 +376,14 @@ function start_txes {
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((txe_base_port + i))
     kill_port $port
-    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
+    dump_fail "cd labs && LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
   # Start the oracle test resolver for __oracle_test__-prefixed tests.
   local resolver_port=14830
   kill_port $resolver_port
-  dump_fail "LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js" &
+  dump_fail "cd labs && LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js" &
   txe_pids+="$! "
 
   wait_for_port() {
@@ -471,9 +492,17 @@ function build_and_test {
   return 0
 }
 
+# The labs benches come from the submodule's own bench_cmds, run from labs/ with its ci3.
+function labs_bench_cmds {
+  scripts/labs_test_cmds.sh ./bootstrap.sh bench_cmds
+}
+
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/{fnd/noir-protocol-circuits,labs/noir-contracts} l1-contracts
+    set -- barretenberg/{ts,cpp,sol} noir-projects/fnd/noir-protocol-circuits l1-contracts
+    parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
+    labs_bench_cmds
+    return
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
@@ -534,6 +563,8 @@ function versions {
 function release_bb_github {
   # Create a GitHub release in AztecProtocol/barretenberg for bb artifacts.
   # Users can manually create releases in aztec-packages via the GitHub UI if needed.
+  # A private release must never reach a GitHub publish: refuse here regardless of call path.
+  "$root/ci3/assert_public_release"
   local bb_repo="AztecProtocol/barretenberg"
   if gh release view "$REF_NAME" --repo "$bb_repo" &>/dev/null; then
     return
@@ -577,6 +608,11 @@ function release {
   # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
   release_bb_github
 
+  # The npm packages are only packed here (deploy_npm pack mode) and handed to the GitHub runner
+  # through the build cache; ci3.yml's publish-npm job publishes them with npm trusted publishing.
+  export NPM_PACK_DIR=$root/npm-release
+  rm -rf "$NPM_PACK_DIR"
+
   # Only the foundation packages are published from here; the labs packages (yarn-project, playground,
   # aztec-up, aztec-nr, the docker release-image) are published from the labs repo.
   projects=(
@@ -594,6 +630,12 @@ function release {
   for project in "${projects[@]}"; do
     $project/bootstrap.sh release
   done
+
+  # Keyed by the release tag and force-uploaded so a re-run of the release refreshes the bundle.
+  # A dry run packs but does not upload.
+  if [ "${DRY_RUN:-0}" != 1 ]; then
+    S3_FORCE_UPLOAD=1 cache_upload "npm-release-$REF_NAME.tar.gz" npm-release
+  fi
 }
 
 function release_dryrun {
@@ -601,9 +643,10 @@ function release_dryrun {
 }
 
 function private_release {
-  # Release flow for the private repo, run for any v* tag pushed there — routinely the nightly
-  # v<ver>-nightly.<date> tags (see ci3_labels_to_env.sh, which forces PRIVATE_RELEASE=1 for every
-  # release in that repo). We publish only our foundation npm packages (barretenberg/ts, noir,
+  # Release flow for the private repo, run for any v* tag pushed there: the v0.0.1-commit.<sha> tag a
+  # ci-release-pr label creates, on demand. There are no private nightlies by design
+  # (nightly-release-tag.yml runs in the public repo alone). ci3_labels_to_env.sh forces
+  # PRIVATE_RELEASE=1 for every release in that repo. We publish only our foundation npm packages (barretenberg/ts, noir,
   # ipc-runtime, wsdb, protocol/constants-codegen, l1-contracts' l1-artifacts, the noir-projects/fnd
   # artifacts packages) to the INTERNAL_NPM_REGISTRY npm repo in our internal GCP Artifact Registry.
   # We run the release step for real on exactly those components and do not invoke the others — the
@@ -626,20 +669,20 @@ function private_release {
   set +x  # Never echo the access token.
   export NPM_TOKEN=$(gcloud auth print-access-token)
   # Route our scope to the internal npm registry; public deps still resolve from the default registry
-  # (npmjs). Everything we publish is @aztec-scoped — the noir packages are renamed
-  # @noir-lang/* -> @aztec/noir-* on release. Exported so deploy_npm picks it up.
+  # (npmjs). Everything we publish is @aztec-foundation-scoped — the noir packages are renamed
+  # @noir-lang/* -> @aztec-foundation/noir-* on release. Exported so deploy_npm picks it up.
   local npmrc reg
   reg="${INTERNAL_NPM_REGISTRY%/}/"
   npmrc=$(mktemp)
   (umask 077; {
-    echo "@aztec:registry=$reg"
+    echo "@aztec-foundation:registry=$reg"
     echo "${reg#https:}:_authToken=\${NPM_TOKEN}"
   } > "$npmrc")
   export NPM_CONFIG_GLOBALCONFIG="$npmrc"
   set -x
 
-  # Publish for real, in dependency order: the ipc-codegen-generated @aztec/wsdb has a runtime
-  # dependency on @aztec/ipc-runtime, so ipc-runtime must precede wsdb.
+  # Publish for real, in dependency order: the ipc-codegen-generated @aztec-foundation/wsdb has a runtime
+  # dependency on @aztec-foundation/ipc-runtime, so ipc-runtime must precede wsdb.
   local publish=(barretenberg/ts noir ipc-runtime wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
   for project in "${publish[@]}"; do
     $project/bootstrap.sh release
@@ -717,7 +760,7 @@ function release_compat_e2e {
   # Pre-populate the legacy contract cache on the host. Test containers run with --net=none, so the
   # jest resolver's on-demand npm install would fail with EAI_AGAIN. Install here where we have network.
   for ver in "${versions[@]}"; do
-    node yarn-project/end-to-end/src/install_legacy_contracts.cjs "$ver"
+    (cd labs && env -u root -u ci3 node yarn-project/end-to-end/src/install_legacy_contracts.cjs "$ver")
   done
 
   # Build and run the compat test commands in an isolated subshell so the bespoke test settings
@@ -731,7 +774,7 @@ function release_compat_e2e {
     export NO_FAIL_FAST=1
     build
     for ver in "${versions[@]}"; do
-      yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
+      scripts/labs_test_cmds.sh yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
     done | filter_test_cmds | parallelize
   )
 }
@@ -873,204 +916,6 @@ case "$cmd" in
     grind_test "$full_cmd" "$timeout" "$jobs_pct" "$memsuspend_pct" "$commit"
     ;;
 
-  ##########################################
-  # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
-  ##########################################
-  "ci-network-deploy")
-    # Args: <env_file> <namespace> [docker_image] [test_set]
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    test_set="${4:-}"
-    build
-    # If no docker image provided, build and push to aztecdev
-    if [ -z "$docker_image" ]; then
-      release-image/bootstrap.sh push_pr
-      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-    fi
-    # Set up environment and deploy using spartan
-    export NAMESPACE="$namespace"
-    export AZTEC_DOCKER_IMAGE="$docker_image"
-    deploy_exit_code=0
-    spartan/bootstrap.sh network_deploy "${env_file}" "$test_set" || deploy_exit_code=$?
-    # Merge and upload deploy benchmarks (deploy_network.sh writes to spartan/bench-out/)
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload deploy-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    exit $deploy_exit_code
-    ;;
-  "ci-network-tests")
-    # Args: <env_file> <namespace>
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    build
-    # Set up environment for tests
-    export NAMESPACE="$namespace"
-    spartan/bootstrap.sh network_tests "${env_file}"
-    ;;
-  "ci-network-kind-tests")
-    export CI=1
-    [ "${SKIP_BUILD:-0}" -eq 0 ] && build
-    # Set the docker image to the locally built image and load it into KIND
-    export AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:$(git rev-parse HEAD)"
-    spartan/bootstrap.sh kind
-    kind load docker-image "$AZTEC_DOCKER_IMAGE"
-    # Just one test for now
-    spartan/bootstrap.sh test-kind-upgrade-rollup
-    ;;
-  "ci-network-bench")
-    # Args: <env_file> <namespace> [docker_image]
-    # Deploys network and runs benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    export NAMESPACE="$namespace"
-    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
-      # If no docker image provided, build and push to aztecdev
-      if [ -z "$docker_image" ]; then
-        release-image/bootstrap.sh push_pr
-        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-      fi
-      export AZTEC_DOCKER_IMAGE="$docker_image"
-      spartan/bootstrap.sh network_deploy "${env_file}"
-    else
-      echo "SKIP_NETWORK_DEPLOY=1, running benchmarks against existing network '$namespace'."
-    fi
-    # Run benchmarks
-    spartan/bootstrap.sh network_bench "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    ;;
-  "ci-network-proving-bench")
-    # Args: <env_file> <namespace> [docker_image]
-    # Deploys network and runs proving benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    export NAMESPACE="$namespace"
-    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
-      # If no docker image provided, build and push to aztecdev
-      if [ -z "$docker_image" ]; then
-        release-image/bootstrap.sh push_pr
-        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-      fi
-      export AZTEC_DOCKER_IMAGE="$docker_image"
-      spartan/bootstrap.sh network_deploy "${env_file}"
-    else
-      echo "SKIP_NETWORK_DEPLOY=1, running proving benchmarks against existing network '$namespace'."
-    fi
-    spartan/bootstrap.sh proving_bench "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-proving-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    ;;
-  "ci-network-block-capacity-bench")
-    # Args: <env_file> <namespace> [docker_image]
-    # Deploys network and runs block capacity benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    export NAMESPACE="$namespace"
-    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
-      # If no docker image provided, build and push to aztecdev
-      if [ -z "$docker_image" ]; then
-        release-image/bootstrap.sh push_pr
-        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-      fi
-      export AZTEC_DOCKER_IMAGE="$docker_image"
-      spartan/bootstrap.sh network_deploy "${env_file}"
-    else
-      echo "SKIP_NETWORK_DEPLOY=1, running block capacity benchmarks against existing network '$namespace'."
-    fi
-    # Run block capacity benchmarks
-    spartan/bootstrap.sh block_capacity_bench "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-block-capacity-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    ;;
-  "ci-network-bench-10tps")
-    # Args: <env_file> <namespace> [docker_image]
-    # Deploys bench-10tps and runs the 10-min sustained 10 TPS benchmark.
-    # Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
-    # Cleanup is done separately via ci-network-teardown.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    export NAMESPACE="$namespace"
-    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
-      # If no docker image provided, build and push to aztecdev
-      if [ -z "$docker_image" ]; then
-        release-image/bootstrap.sh push_pr
-        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-      fi
-      export AZTEC_DOCKER_IMAGE="$docker_image"
-      spartan/bootstrap.sh network_deploy "${env_file}"
-    else
-      echo "SKIP_NETWORK_DEPLOY=1, running the 10 TPS benchmark against existing network '$namespace'."
-    fi
-    # Run the 10 TPS benchmark
-    spartan/bootstrap.sh bench_10tps "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-bench-10tps-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    ;;
-  "ci-network-inclusion-sweep")
-    # Args: <env_file> <namespace> [docker_image]
-    # Runs one inclusion-sweep point (TARGET_TPS) on the given network.
-    # The v4 run JSON (tagged BENCH_SWEEP_ID) is uploaded to GCS inside
-    # bench_inclusion_point; deploy/teardown of each point's namespace is done by
-    # the workflow, so this is normally called with SKIP_NETWORK_DEPLOY=1.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    export NAMESPACE="$namespace"
-    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
-      # If no docker image provided, build and push to aztecdev
-      if [ -z "$docker_image" ]; then
-        release-image/bootstrap.sh push_pr
-        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-      fi
-      export AZTEC_DOCKER_IMAGE="$docker_image"
-      spartan/bootstrap.sh network_deploy "${env_file}"
-    else
-      echo "SKIP_NETWORK_DEPLOY=1, running inclusion-sweep point (${TARGET_TPS:-10} TPS) against existing network '$namespace'."
-    fi
-    # Run one inclusion-sweep point (TARGET_TPS / BENCH_SWEEP_ID from env).
-    spartan/bootstrap.sh bench_inclusion_point "${env_file}"
-    rm -rf bench-out
-    mkdir -p bench-out
-    bench_merge
-    cache_upload spartan-bench-inclusion-${TARGET_TPS:-10}tps-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
-    ;;
-  "ci-network-teardown")
-    # Args: <env_file> <namespace>
-    # Tears down a deployed network.
-    export CI=1
-    env_file="${1:?env_file is required}"
-    namespace="${2:?namespace is required}"
-    # Set up environment for teardown
-    export NAMESPACE="$namespace"
-    denoise "spartan/bootstrap.sh network_teardown ${env_file}"
-    ;;
-
   ############
   # RELEASES #
   ############
@@ -1129,14 +974,14 @@ case "$cmd" in
   "ci-private-release")
     # Local/dev entrypoint for the PRIVATE_RELEASE flow (see private_release): publish the foundation
     # npm packages to the internal GCP Artifact Registry.
-    # Same publishing path the private-release.yml workflow runs, minus EC2 and the compat-e2e gating.
+    # Same publishing path a release run in the private repo takes (ci3.yml on a tag), minus EC2.
     # Build first so the artifacts the publishes pack exist; set SKIP_BUILD=1 to reuse an existing
-    # build. Requires GCP creds (GCP_SA_KEY or GOOGLE_APPLICATION_CREDENTIALS) in the environment.
+    # build. Requires GCP creds (GCP_PRIVATE_NPM_DEPLOY_KEY or GOOGLE_APPLICATION_CREDENTIALS) in the environment.
     export CI=${CI:-1}
     export PRIVATE_RELEASE=1
     export REF_NAME=${REF_NAME:-v0.0.1-commit.$(git rev-parse --short HEAD)}
     # Local convenience: default GCP creds to ~/sa.json (the CI service-account key) when present.
-    [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
+    [ -z "${GCP_PRIVATE_NPM_DEPLOY_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
       export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"
     [ "${SKIP_BUILD:-0}" = 1 ] || ./bootstrap.sh build release
     ./bootstrap.sh release
@@ -1145,17 +990,14 @@ case "$cmd" in
   ##########################
   # MERGE TRAIN CI SUBSETS #
   ##########################
-  "ci-docs")
-    export CI=1
-    export USE_TEST_CACHE=1
-    ./bootstrap.sh build yarn-project
-    docs/bootstrap.sh ci
-    ;;
   "ci-barretenberg-debug")
+    # Nightly job: no fail-fast, so one red test does not hide the rest of the debug-build signal.
     export CI=1
     export NATIVE_PRESET=debug
     export AVM=0
     export AVM_TRANSPILER=0
+    export NO_FAIL_FAST=1
+    barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh ci
     ;;
   "ci-barretenberg-nightly")
@@ -1187,36 +1029,6 @@ case "$cmd" in
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
-    ;;
-
-  #######################
-  # AVM QA ONE OFF JOBS #
-  #######################
-  "ci-avm-inputs-collection")
-    # Nightly job: Run e2e tests with AVM circuit inputs dumping, upload to cache
-    export CI=1
-    # Use tree hash for tarball name - consistent across all environments
-    export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
-    build
-    yarn-project/end-to-end/bootstrap.sh test_and_collect_avm_inputs
-    ;;
-  "ci-avm-check-circuit")
-    # Nightly job: Download cached AVM inputs and run check-circuit on each
-    export CI=1
-    # Use tree hash for tarball name - consistent across all environments
-    export AVM_INPUTS_HASH=$(git rev-parse HEAD^{tree})
-    build
-    yarn-project/end-to-end/bootstrap.sh avm_check_circuit
-    ;;
-  ##########################################
-  # ROLLUP UPGRADE DEPLOYMENT              #
-  ##########################################
-  "ci-deploy-rollup-upgrade")
-    # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
-    # Args: <registry_address> [KEY=VALUE...]
-    export CI=1
-    build
-    exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
     ;;
 
   #################

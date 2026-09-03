@@ -112,7 +112,7 @@ function build_verifier {
   fi
 }
 
-# Generates the TypeScript L1 artifacts package (@aztec/l1-artifacts): ABIs, bytecode and storage
+# Generates the TypeScript L1 artifacts package (@aztec-foundation/l1-artifacts): ABIs, bytecode and storage
 # layouts compiled to dest/, plus the self-contained foundry bundle under l1-artifacts/l1-contracts
 # used by the runtime forge deploy path. Consumed by yarn-project via a portal link.
 # Must run after build_verifier: generate reads out/ including the compiled HonkVerifier.
@@ -214,6 +214,34 @@ function gas_report {
     exit 1
   fi
   mv gas_report.new.json gas_report.json
+}
+
+function partial_epoch_proof_gas_report {
+  check=${1:-"no"}
+  echo_header "l1-contracts partial epoch proof gas report"
+  forge --version
+
+  FORGE_GAS_REPORT=true forge test \
+    --match-contract "PartialEpochProof.*GasReportTest" \
+    --fuzz-seed 42 \
+    --json \
+    > partial_epoch_proof_gas_report.new.tmp
+  jq 'map(.functions |= with_entries(select(.key | startswith("gasReportSubmit"))) | select(.functions | length > 0))' \
+    partial_epoch_proof_gas_report.new.tmp > partial_epoch_proof_gas_report.new.json
+  rm partial_epoch_proof_gas_report.new.tmp
+  python3 scripts/render_partial_epoch_proof_gas_report.py \
+    partial_epoch_proof_gas_report.new.json \
+    partial_epoch_proof_gas_report.new.md
+  diff partial_epoch_proof_gas_report.new.json partial_epoch_proof_gas_report.json > partial_epoch_proof_gas_report.diff || true
+  diff partial_epoch_proof_gas_report.new.md partial_epoch_proof_gas_report.md >> partial_epoch_proof_gas_report.diff || true
+
+  if [ -s partial_epoch_proof_gas_report.diff -a "$check" = "check" ]; then
+    cat partial_epoch_proof_gas_report.diff
+    echo "Partial epoch proof gas report has changed. Please check the diffs above, then run './bootstrap.sh partial_epoch_proof_gas_report' to update it."
+    exit 1
+  fi
+  mv partial_epoch_proof_gas_report.new.json partial_epoch_proof_gas_report.json
+  mv partial_epoch_proof_gas_report.new.md partial_epoch_proof_gas_report.md
 }
 
 function bench_cmds {
@@ -434,10 +462,10 @@ function coverage_serve {
   python3 -m http.server --directory "coverage" 8000
 }
 
-# Publishes the @aztec/l1-artifacts npm package (TS ABIs/bytecode + the bundled foundry subtree used
+# Publishes the @aztec-foundation/l1-artifacts npm package (TS ABIs/bytecode + the bundled foundry subtree used
 # by the runtime forge deploy path). yarn-project consumes this via portal in-repo and via the
 # published version downstream, so it must publish before yarn-project's release (whose smoke test
-# installs packages that depend on @aztec/l1-artifacts@<version>).
+# installs packages that depend on @aztec-foundation/l1-artifacts@<version>).
 function release {
   echo_header "l1-contracts release"
   local version=${REF_NAME#v}

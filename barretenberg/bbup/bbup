@@ -120,16 +120,43 @@ install_bb() {
     if ! version_gte "$version" "0.77.0"; then
         release_tag="aztec-packages-v${version}"
     fi
-    local artifact="barretenberg-${architecture}-${platform}.tar.gz"
-    local primary_url="https://github.com/AztecProtocol/barretenberg/releases/download/${release_tag}/${artifact}"
-    local fallback_url="https://github.com/AztecProtocol/aztec-packages/releases/download/${release_tag}/${artifact}"
-
-    if ! curl -sL --fail "$primary_url" -o "$temp_tar"; then
-        printf "${BLUE}Trying fallback URL...${NC}\n"
-        curl -L --fail "$fallback_url" -o "$temp_tar"
-    fi
     mkdir -p "$BB_PATH"
-    tar xzf "$temp_tar" -C "$BB_PATH"
+    local installed=0
+
+    # npm is the primary channel: @aztec-foundation/bb-<platform> ships the same bytes as the
+    # GitHub release tarball of the same version. BBUP_SOURCE=github skips it.
+    local npm_suffix=""
+    case "$(uname -m)-$(uname)" in
+        x86_64-Linux) npm_suffix="linux-x64" ;;
+        aarch64-Linux|arm64-Linux) npm_suffix="linux-arm64" ;;
+        x86_64-Darwin) npm_suffix="darwin-x64" ;;
+        arm64-Darwin) npm_suffix="darwin-arm64" ;;
+    esac
+    if [ "${BBUP_SOURCE:-npm}" != "github" ] && [ -n "$npm_suffix" ]; then
+        local npm_url="https://registry.npmjs.org/@aztec-foundation/bb-${npm_suffix}/-/bb-${npm_suffix}-${version}.tgz"
+        if curl -sL --fail "$npm_url" -o "$temp_tar"; then
+            tar xzf "$temp_tar" -C "$temp_dir" package/bin/bb
+            rm -f "$BB_PATH/bb"
+            mv "$temp_dir/package/bin/bb" "$BB_PATH/bb"
+            chmod +x "$BB_PATH/bb"
+            installed=1
+            printf "${BLUE}Installed from npm (@aztec-foundation/bb-${npm_suffix}@${version})${NC}\n"
+        fi
+    fi
+
+    # GitHub release assets: the legacy channel, still published; used for versions that
+    # predate the npm packages and when BBUP_SOURCE=github.
+    if [ "$installed" -ne 1 ]; then
+        local artifact="barretenberg-${architecture}-${platform}.tar.gz"
+        local primary_url="https://github.com/AztecProtocol/barretenberg/releases/download/${release_tag}/${artifact}"
+        local fallback_url="https://github.com/AztecProtocol/aztec-packages/releases/download/${release_tag}/${artifact}"
+
+        if ! curl -sL --fail "$primary_url" -o "$temp_tar"; then
+            printf "${BLUE}Trying fallback URL...${NC}\n"
+            curl -L --fail "$fallback_url" -o "$temp_tar"
+        fi
+        tar xzf "$temp_tar" -C "$BB_PATH"
+    fi
     rm -rf "$temp_dir"
 
     # Update shell configuration

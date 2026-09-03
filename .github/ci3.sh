@@ -14,11 +14,11 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source_base
 function setup_environment {
   echo_header "Setup"
   # Store GCP key
-  if [ -n "${GCP_SA_KEY:-}" ]; then
+  if [ -n "${GCP_PRIVATE_NPM_DEPLOY_KEY:-}" ]; then
     export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
     set +x
     umask 077
-    printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+    printf '%s' "$GCP_PRIVATE_NPM_DEPLOY_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
     jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
     echo "GCP key stored"
   fi
@@ -28,16 +28,19 @@ function setup_environment {
     echo "INSTANCE_POSTFIX=$INSTANCE_POSTFIX" >> $GITHUB_ENV
     echo "Instance postfix set to: $INSTANCE_POSTFIX"
   fi
-  # Setup SSH key — needed for the Redis tunnel (denoise logs) even in SSM mode,
-  # and for direct SSH bootstrap when CI_USE_SSH=1.
-  if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+  # The SSH key is written only for the direct-SSH bootstrap path (CI_USE_SSH=1, set from
+  # the CI_USE_SSH repo variable as an escape hatch if SSM breaks). SSM mode authenticates
+  # to the build instance with an instance profile and needs no SSH credential at all, so
+  # the key is left unwritten: with no ~/.ssh/build_instance_key on the runner, source_redis
+  # cannot reach for the bastion tunnel, and a run cannot come to depend on that secret.
+  if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
+    : "${BUILD_INSTANCE_SSH_KEY:?CI_USE_SSH=1 needs BUILD_INSTANCE_SSH_KEY}"
     mkdir -p ~/.ssh
     echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
     chmod 600 ~/.ssh/build_instance_key
-    echo "SSH key configured"
-  fi
-  # Log SSM mode settings (defaults are baked into aws_request_instance_type).
-  if [ "${CI_USE_SSH:-0}" -eq 0 ]; then
+    echo "SSH mode: key configured"
+  else
+    # Defaults are baked into aws_request_instance_type.
     echo "SSM mode: instance profile ${CI3_INSTANCE_PROFILE_NAME:-ci3-build-instance-profile}, SG ${CI3_SECURITY_GROUP_ID:-sg-01fe61a1c1aaeb393}"
   fi
 }
@@ -54,7 +57,6 @@ function check_cache {
     "fast"
     "full"
     "full-no-test-cache"
-    "docs"
     "barretenberg"
     "ci-release-pr"
   )
@@ -81,7 +83,9 @@ function handle_release_pr {
   git tag "${tag_name}"
   git push origin "${tag_name}"
   echo "Created and pushed tag: ${tag_name}"
-  gh pr edit $PR_NUMBER --remove-label ci-release-pr || true
+  # REST, not `gh pr edit`: that starts with a GraphQL viewer query the bot token cannot make
+  # (needs read:org), so the label silently stayed and every later push re-ran the release.
+  gh api -X DELETE "repos/${github_repository}/issues/${PR_NUMBER}/labels/ci-release-pr" >/dev/null || true
 }
 
 function main {

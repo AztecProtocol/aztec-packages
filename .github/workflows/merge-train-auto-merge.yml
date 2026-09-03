@@ -31,12 +31,3 @@ jobs:
           MERGE_STRATEGY=merge \
           INACTIVITY_HOURS=8 \
           ./scripts/merge-train/auto-merge.sh
-
-      - name: Run auto-merge script (port-to-next)
-        run: |
-          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-          MERGE_TRAIN_GITHUB_TOKEN=${{ secrets.MERGE_TRAIN_GITHUB_TOKEN }} \
-          BRANCH_PATTERN=port-to-next \
-          MERGE_STRATEGY=merge \
-          INACTIVITY_HOURS=8 \
-          ./scripts/merge-train/auto-merge.sh

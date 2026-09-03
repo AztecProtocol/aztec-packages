@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   nightly-release-tag:
+    # Public repo only: forks and the private mirror carry this file too. The private repo deliberately
+    # cuts no nightlies; a private release is cut on demand with the ci-release-pr label
+    # (bootstrap.sh::private_release).
     if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     strategy:

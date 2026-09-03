@@ -1,0 +1,28 @@
+name: Mark v5 PRs as aztec-node port candidates
+
+on:
+  pull_request_target:
+    types: [opened]
+    branches:
+      - v5
+      - v5-next
+
+permissions: {}
+
+jobs:
+  label:
+    name: Add port candidate label
+    if: github.event.action == 'opened' || github.event.changes.base != null
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      LABEL: port-to-aztec-node
+    steps:
+      - name: Label pull request
+        if: github.event_name == 'pull_request_target'
+        run: |
+          gh api --method POST \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
+            -f "labels[]=$LABEL"

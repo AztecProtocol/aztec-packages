@@ -3,25 +3,25 @@
 All paths below are relative to the git root. When working inside a component, also read that component's `CLAUDE.md` — each is self-contained and covers its own build, style, and test conventions.
 
 <components>
-`yarn-project/` is the TypeScript monorepo containing the node, client SDK (`aztec.js`), PXE/wallet, sequencer, prover, p2p stack, and tooling — the main entrypoint for most day-to-day work; see `yarn-project/CLAUDE.md`.
+`labs/` is the aztec-node repository (aztec-labs-eng/aztec-node) as a git submodule: the TypeScript monorepo (`labs/yarn-project`: node, client SDK, PXE/wallet, sequencer, prover, p2p stack, tooling), `labs/noir-projects` (aztec-nr and example contracts), docs, playground, spartan. It is built here against this tree's packages (see `<labs_submodule_patches>` and `labs-patches/README.md`); its own conventions live in `labs/CLAUDE.md`.
 
 `barretenberg/` is the C++ ZK proving system (Honk, Chonk, ECCVM); see `barretenberg/CLAUDE.md` and `barretenberg/cpp/CLAUDE.md`. `barretenberg/cpp/src/barretenberg/vm2/` is the AVM (Aztec Virtual Machine) for public execution; see its `CLAUDE.md`. `barretenberg/sol/` is the Solidity on-chain verifier; see `barretenberg/sol/CLAUDE.md`. `barretenberg/ts/` contains the TypeScript bindings for barretenberg (bb.js).
 
-`avm-transpiler/` transpiles Noir bytecode to AVM bytecode (Rust). `noir/` is the Noir compiler, a git submodule pointing to noir-lang/noir. `noir-projects/` holds the protocol circuits and contract libraries written in Noir; see `noir-projects/labs/aztec-nr/CLAUDE.md`.
+`avm-transpiler/` transpiles Noir bytecode to AVM bytecode (Rust). `noir/` is the Noir compiler, a git submodule pointing to noir-lang/noir. `noir-projects/fnd/` holds the protocol circuits and protocol contracts written in Noir.
 
-`l1-contracts/` holds the Solidity L1 rollup contracts (a Foundry project). `docs/` is the developer documentation site (Docusaurus); see `docs/CLAUDE.md`. `spartan/` holds Kubernetes deployment infrastructure (Helm charts + Terraform); see `spartan/CLAUDE.md`. `bb-pilcom/` is the PIL compiler for AVM relation codegen. `ci3/` contains CI infrastructure scripts.
+`l1-contracts/` holds the Solidity L1 rollup contracts (a Foundry project). `bb-pilcom/` is the PIL compiler for AVM relation codegen. `ci3/` contains CI infrastructure scripts.
 </components>
 
 <build_system>
-Dependencies flow barretenberg → noir → l1-contracts → yarn-project. From the git root, use `make <target>`: `make fast` builds everything needed for development, `make yarn-project` runs the full TS build chain (which builds bb, noir, and l1-contracts first), `make bb-cpp-native` builds barretenberg C++ native only, `make noir` builds the Noir compiler, and `make l1-contracts` builds the Solidity contracts via Foundry. For individual components, run `./bootstrap.sh` inside each directory.
+Dependencies flow barretenberg → noir → l1-contracts → labs. From the git root, use `make <target>`: `make fast` builds everything needed for development (`fast-foundation` then `fast-labs`), `make fast-labs` builds the labs submodule against this tree, `make bb-cpp-native` builds barretenberg C++ native only, `make noir` builds the Noir compiler, and `make l1-contracts` builds the Solidity contracts via Foundry. For individual components, run `./bootstrap.sh` inside each directory.
 
-When a change spans multiple components, rebuild in dependency order: first `barretenberg/cpp/` with `cmake --preset default && cd build && ninja`, then `barretenberg/ts/` with `./bootstrap.sh` (which generates TS bindings from C++), then `noir/` with `./bootstrap.sh` if noir changes are needed, then `noir-projects/` to compile contracts, then `l1-contracts/` with `forge build`, and finally `yarn-project/` with `yarn build` from inside `yarn-project/` (not the git root).
+When a change spans multiple components, rebuild in dependency order: first `barretenberg/cpp/` with `cmake --preset default && cd build && ninja`, then `barretenberg/ts/` with `./bootstrap.sh` (which generates TS bindings from C++), then `noir/` with `./bootstrap.sh` if noir changes are needed, then `noir-projects/fnd` to compile the protocol circuits and contracts, then `l1-contracts/` with `forge build`, and finally `make fast-labs` for the labs submodule.
 
 The noir-projects build scripts default `$NARGO` to `noir/noir-repo/target/release/nargo`. Do not override this with a globally installed nargo — version mismatches produce opaque bytecode failures in downstream components.
 </build_system>
 
 <bumping_noir>
-To bump the Noir compiler version (e.g. a request like "bump the noir compiler version to X"), run `noir/scripts/bump_noir_compiler.sh <ref>` — the single source of truth, also surfaced via the `noir-sync-update` skill. It bumps the `noir/noir-repo` submodule to `<ref>` (a noir-lang/noir ref: release tag `v1.0.0-beta.23`, nightly `nightly-2026-06-02`, branch, or commit), refreshes `avm-transpiler/Cargo.lock` and `yarn-project/yarn.lock`, reformats `noir-projects`, and stages everything. Do not bump the submodule by hand; skipping any of these leaves the tree inconsistent and fails CI. The script does not commit — verify with `git status` from the repo root, then commit as `chore: update Noir to <ref>`.
+To bump the Noir compiler version (e.g. a request like "bump the noir compiler version to X"), run `noir/scripts/bump_noir_compiler.sh <ref>` — the single source of truth, also surfaced via the `noir-sync-update` skill. It bumps the `noir/noir-repo` submodule to `<ref>` (a noir-lang/noir ref: release tag `v1.0.0-beta.23`, nightly `nightly-2026-06-02`, branch, or commit), refreshes `avm-transpiler/Cargo.lock`, reformats `noir-projects/fnd`, and stages everything (the labs lockfile is refreshed by `labs-use-local` at build time). Do not bump the submodule by hand; skipping any of these leaves the tree inconsistent and fails CI. The script does not commit — verify with `git status` from the repo root, then commit as `chore: update Noir to <ref>`.
 </bumping_noir>
 
 <git_workflow>
@@ -40,13 +40,10 @@ Otherwise infer from the component being worked in:
 | Component | Base branch |
 |---|---|
 | `barretenberg/**` | `merge-train/barretenberg` |
-| `yarn-project/**` | `merge-train/spartan` |
 | `barretenberg/cpp/src/barretenberg/vm2/**` | `merge-train/avm` |
 | everything else | `next` |
 
-The bases above target the `next` line. For work scoped to the v5 release line, use `merge-train/spartan-v5` (which targets `v5-next`) in place of `merge-train/spartan`.
-
-`spartan` in these branch names refers to the deployment infrastructure in `spartan/`; it is not a release channel, network, or SDK version. Never present it, `merge-train/*`, `next`, or `v5-next` to a user as something to install or migrate to — releases are version tags (e.g. v5) and networks are named (e.g. testnet).
+The bases above target the `next` line; the v5 release line is `v5-next`. Never present `merge-train/*`, `next`, or `v5-next` to a user as something to install or migrate to — releases are version tags (e.g. v5) and networks are named (e.g. testnet).
 
 Use the discovered base in `git diff origin/<base>...HEAD` and `git log origin/<base>..HEAD`. Always `git fetch` before creating branches so the base is not stale.
 </critical_never_assume_master>
@@ -56,21 +53,43 @@ Follow Conventional Commits: `fix:`, `feat:`, `chore:`, `refactor:`, `docs:`, `t
 </commits_and_prs>
 
 <git_staging>
-When staging files, prefer `git add -u` or name specific files rather than `git add -A` or `git add .`. The aggregate flags will pick up unrelated untracked working directories (e.g. personal scratch projects at the repo root) and quietly stage them. Subagents must always name specific files in `git add` — never `-u`, `-A`, or `.` — because they lack the main conversation's context for judging which changes belong to the current task.
-</git_staging>
+When staging files, prefer `git add -u` or name specific files rather than `git add -A` or `git add .`. The aggregate flags will pick up unrelated untracked working directories (e.g. personal scratch projects at the repo root) and quietly stage them. `git add -u` and `git commit -a` also stage the `labs` gitlink whenever the patch series is applied (`git status` shows ` M labs`); unstage it with `git restore --staged labs` (see `<labs_submodule_patches>
+`labs/` (the aztec-node submodule) carries the foundation's patch series from `labs-patches/*.patch`, applied with `git am` by `labs-patches/bootstrap.sh apply` (run by the root bootstrap, the git hooks and `make labs-patched`), so `labs/` HEAD normally sits ahead of the recorded gitlink. Never `git add labs` by hand — that records a patch commit that does not exist upstream; move the pin with `labs-patches/bootstrap.sh bump <ref>`. To change a patch, commit inside `labs/` on top of the applied series and run `labs-patches/bootstrap.sh export`, then commit the regenerated `.patch` files. To send a patch to aztec-node, `labs-patches/bootstrap.sh upstream <n>` prepares the branch and prints the push/PR commands. See `labs-patches/README.md`.
 
-<lockfile_discipline>
-Never bulk-update lockfiles (`Cargo.lock`, `yarn.lock`). Use targeted updates only: `cargo update --precise <version> --package <name>` for Rust, and `yarn up <package>@<version>` in the relevant workspace for TypeScript. Bulk updates drag in unrelated transitive changes that make review impossible and frequently break reproducibility.
-</lockfile_discipline>
+The tooling, all in `labs-patches/bootstrap.sh` (foundation-owned; only the `.patch` contents ever go upstream):
+
+| Command | What it does |
+|---|---|
+| `apply` | Checks out the gitlink (`update = none` submodule) and `git am`s the series with a fixed committer identity, so the applied SHAs are identical everywhere. Idempotent; refuses to drop `labs/` commits that are not in the series (`LABS_PATCHES_FORCE=1` overrides); stashes uncommitted edits. |
+| `export` | Regenerates `*.patch` from the commits above the gitlink, skipping marker commits. Run it after committing inside `labs/`. |
+| `check` | Applies the committed series to the gitlink in a temporary worktree; CI runs it. |
+| `bump <ref>` | Fetches an aztec-node ref, stages the new gitlink and re-applies; refuses on unexported work. |
+| `upstream <n> [branch]` | Creates `fnd/<patch-slug>` in `labs/`'s repository with only patch `n` applied under your own identity, and prints the push and `gh pr create` commands. |
+| `status` | Base, checkout, series, whether it is applied, and unexported commits. |
+| `commit-use-local` | Commits the build's manifest rewrite as the marker commit (`labs-patches: use-local rewrite (never exported)`), staging only `package.json`/`yarn.lock`/`Nargo.toml`/`fnd-hashes`. Called by the build, not by hand. |
+| `check_staged` | The `pre-commit` hook: rejects a staged gitlink that is a series or marker commit. |
+| `test`, `test_cmds` | Run / list the tooling's tests: `tests/lifecycle_test` (a sandbox fixture exercising every command) and `check`; `make labs-patches-tests` runs them in CI. |
+
+State lives in `.git/modules/labs/labs-patches.state` (stamp of base + series, applied commits); the series is recognised by `git patch-id`, so a lost state file is re-derived from content. `post-merge`/`post-checkout` hooks re-run `apply` only when the gitlink or the series changed.
+</labs_submodule_patches>
+
+<labs_build_tooling>
+How the labs submodule is built and tested against this tree (all foundation-owned):
+
+- `make labs-deps` builds what labs consumes from here (`bb-ts`, `bb-avm-sim`, `bb-cdb`, `wsdb`, `ipc-runtime`, `l1-contracts`, `constants-codegen`, `noir-projects-fnd`, `fnd-artifacts-stage`). `make labs-use-local` then runs `labs/labs-aztec-toolchain/bootstrap.sh use-local` (manifests → `portal:` to this tree), `scripts/labs_fnd_hashes.sh`, a lockfile refresh in `yarn-project` and `docs`, and `labs-patches/bootstrap.sh commit-use-local` (the marker commit). Never run that sequence by hand or commit its output; it is redone by every build.
+- `make labs-fast` (= `fast-labs`): labs compiled against the portals with its unit/e2e tests, plus `aztec-nr`, `noir-contracts` and the contract snapshots against this tree's `nargo`/`bb` — what a foundation change can break. `make labs-full` adds `docs`, `spartan`, `playground`, the claude tooling tests and the benches; `make labs-yarn-project` builds only yarn-project; `make bench-labs` runs the labs benches on demand (they are not in the default `bench_cmds`).
+- Every labs `make` from here goes through `LABS_MAKE` = `scripts/labs_env.sh $(MAKE)`; run `scripts/labs_env.sh <cmd>` for any ad-hoc command inside `labs/`. It clears the inherited ci3 `root`/`ci3` (labs' ci3 must derive its own) and exports `TEST_CMD_PREFIX` (`cd labs && export root= ci3= && `, inserted by labs patch 0002's `ci3/prefix_test_cmds` so the foundation test engine, which runs from this root, can execute labs test lines) and `TEST_CMD_SKIP` from `labs-patches/test_cmd_skip` — the regex of labs tests that cannot run here because they mount or package only the labs checkout, where the portals do not resolve (the compose/web3signer/ha e2e flavours, the playground browser tests, the docs examples run). `scripts/labs_test_cmds.sh` collects labs test/bench commands for the engine with that environment.
+- Cache identity: `scripts/labs_fnd_hashes.sh` writes `labs/labs-aztec-toolchain/fnd-hashes` (`<component>=<content hash>` per provider, plus `optional=` naming the optional binaries this tree built). Labs patch 0003 makes the toolchain hash in foundation mode the content hash of that directory, so every labs build and test cache key follows the foundation tree, and a dirty provider disables labs caching. Patch 0001 portals the protocol artifacts packages; all three are queued for aztec-node.
+</labs_build_tooling>
 
 <standard_contract_repin>
-Never run `noir-projects/labs/noir-contracts/bootstrap.sh pin-standard-build` on your own initiative. The pin exists so ordinary source or bytecode changes do NOT move the standard contracts' canonical addresses, and CI does not fail when the bytecode drifts. A re-pin is a deliberate redeploy decision for a human to make: if a change seems to need one, leave the pin, rebuild against it, and ask. See the comment on `pin-standard-build` for why re-pinning is breaking.
+Never run `labs/noir-projects/noir-contracts/bootstrap.sh pin-standard-build` on your own initiative. The pin exists so ordinary source or bytecode changes do NOT move the standard contracts' canonical addresses, and CI does not fail when the bytecode drifts. A re-pin is a deliberate redeploy decision for a human to make: if a change seems to need one, leave the pin, rebuild against it, and ask. See the comment on `pin-standard-build` for why re-pinning is breaking.
 </standard_contract_repin>
 
 </git_workflow>
 
 <code_formatting>
-Each language's formatter is documented in the relevant subdir `CLAUDE.md` — C++ conventions live in `barretenberg/cpp/CLAUDE.md`, TypeScript in `yarn-project/CLAUDE.md`, and Noir in `noir-projects/labs/aztec-nr/CLAUDE.md`. A post-edit hook runs the appropriate formatter automatically, so there is normally no need to invoke one by hand.
+Each language's formatter is documented in the relevant subdir `CLAUDE.md` — C++ conventions live in `barretenberg/cpp/CLAUDE.md`, TypeScript in `labs/yarn-project/CLAUDE.md`, and Noir in `labs/noir-projects/aztec-nr/CLAUDE.md`. A post-edit hook runs the appropriate formatter automatically, so there is normally no need to invoke one by hand.
 </code_formatting>
 
 <red_green_testing>
@@ -108,7 +127,7 @@ Never append `; echo "EXIT: $?"` or similar exit-code suffixes to any command. T
 </bash_hygiene>
 
 <do_not_edit>
-Never edit vendored submodules (all paths listed in `.gitmodules`) or files that contain a `DO NOT EDIT` / `generated` header. Edit the upstream source or the generator input and regenerate. CI enforces this — hand edits to generated files will be overwritten or rejected.
+Never edit vendored submodules (all paths listed in `.gitmodules`, except `labs/`, whose edits go through the patch series described in `<labs_submodule_patches>`) or files that contain a `DO NOT EDIT` / `generated` header. Edit the upstream source or the generator input and regenerate. CI enforces this — hand edits to generated files will be overwritten or rejected.
 </do_not_edit>
 
 <editorial_test>

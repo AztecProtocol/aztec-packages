@@ -17,7 +17,7 @@ function generate_ts_package {
     --client \
     --out "$ROOT/wsdb/ts/src/generated" \
     --package "$ROOT/wsdb/ts" \
-    --package-name @aztec/wsdb \
+    --package-name @aztec-foundation/wsdb \
     --binary-name "$WSDB_BINARY" \
     --package-transports uds,shm \
     --package-ipc-path-args 'msgpack,run,--input,{path}'

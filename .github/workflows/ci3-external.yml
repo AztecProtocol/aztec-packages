@@ -24,6 +24,7 @@ jobs:
     if: github.event.pull_request.head.repo.fork
     permissions:
       contents: read
+      id-token: write
       pull-requests: write
     steps:
       - name: Checkout
@@ -48,18 +49,20 @@ jobs:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           set -o pipefail
+          # Labels are stripped through REST: `gh pr edit --remove-label` runs a GraphQL query
+          # needing the `read:org` scope AZTEC_BOT_GITHUB_TOKEN does not carry.
           # Note: pipe to jq with -s add to flatten paginated arrays; gh's own --jq runs per-page.
           labeller=$(gh api --paginate "/repos/$REPO/issues/$PR_NUMBER/events" \
             | jq -r -s 'add | [.[] | select(.event == "labeled" and .label.name == "ci-external")] | last | .actor.login // empty')
           if [ -z "$labeller" ] || [ "$labeller" = "null" ]; then
             echo "Error: could not determine who applied the 'ci-external' label. Stripping it."
-            gh pr edit "$PR_NUMBER" --remove-label "ci-external" || true
+            gh api -X DELETE "/repos/$REPO/issues/$PR_NUMBER/labels/ci-external" || true
             exit 1
           fi
           state=$(gh api "/orgs/AztecProtocol/teams/watchers/memberships/$labeller" --jq '.state' 2>/dev/null || true)
           if [ "$state" != "active" ]; then
             echo "Error: labeller is not an active member of AztecProtocol/watchers. Stripping 'ci-external' label."
-            gh pr edit "$PR_NUMBER" --remove-label "ci-external"
+            gh api -X DELETE "/repos/$REPO/issues/$PR_NUMBER/labels/ci-external" || true
             exit 1
           fi
           echo "Labeller is authorized."
@@ -103,16 +106,19 @@ jobs:
           mapfile -t LABELS < <(echo "$PR_LABELS_JSON" | jq -r '.[]')
           ./.github/ci3_labels_to_env.sh "${LABELS[@]}"
 
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: ci3-external-${{ github.run_id }}
+          role-duration-seconds: 7200
+
       - name: Run
         env:
           REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
           # We only test on amd64.
           ARCH: amd64
-          # We need to pass these creds to start the AWS ec2 instance.
-          # They are not injected into that instance. Instead, it has minimal
-          # creds for being able to upload to cache.
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           # DO NOT allow build instance key access to external jobs.
@@ -129,9 +135,6 @@ jobs:
         env:
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
           BENCH_UPLOAD: "0"
-          # For updating success cache.
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
