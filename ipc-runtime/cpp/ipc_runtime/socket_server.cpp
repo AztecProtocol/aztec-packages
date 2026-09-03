@@ -4,6 +4,7 @@
 #include <cerrno>
 #include <climits>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <fcntl.h>
 #include <span>
@@ -48,13 +49,14 @@ void SocketServer::close()
 void SocketServer::close_internal()
 {
     // Close all client connections
-    for (int fd : client_fds_) {
+    for (const auto& [client_id, fd] : client_fds_) {
         if (fd >= 0) {
             ::close(fd);
         }
     }
     client_fds_.clear();
     fd_to_client_id_.clear();
+    recv_buffers_.clear();
     num_clients_ = 0;
 
     if (wake_read_fd_ >= 0) {
@@ -78,19 +80,6 @@ void SocketServer::close_internal()
 
     // Clean up socket file
     ::unlink(socket_path_.c_str());
-}
-
-int SocketServer::find_free_slot()
-{
-    // Look for existing free slot
-    for (size_t i = 0; i < client_fds_.size(); i++) {
-        if (client_fds_[i] == -1) {
-            return static_cast<int>(i);
-        }
-    }
-
-    // No free slot found, allocate new one at end
-    return static_cast<int>(client_fds_.size());
 }
 
 bool SocketServer::setup_wake_pipe()
@@ -151,10 +140,10 @@ void SocketServer::notify()
     [[maybe_unused]] ssize_t n = ::write(wake_write_fd_, &one, 1);
 }
 
-bool SocketServer::send(int client_id, const void* data, size_t len)
+bool SocketServer::send(int client_id, uint64_t request_id, const void* data, size_t len)
 {
-    if (client_id < 0 || static_cast<size_t>(client_id) >= client_fds_.size() ||
-        client_fds_[static_cast<size_t>(client_id)] < 0) {
+    auto fd_it = client_fds_.find(client_id);
+    if (fd_it == client_fds_.end()) {
         errno = EINVAL;
         return false;
     }
@@ -164,18 +153,29 @@ bool SocketServer::send(int client_id, const void* data, size_t len)
         return false;
     }
 
-    int fd = client_fds_[static_cast<size_t>(client_id)];
+    int fd = fd_it->second;
 
-    // Send length prefix (4 bytes) then message data, looping on partial
-    // writes — a short write after the prefix would permanently desync the
-    // stream for this connection.
-    auto msg_len = static_cast<uint32_t>(len);
-    const uint8_t* parts[2] = { reinterpret_cast<const uint8_t*>(&msg_len), static_cast<const uint8_t*>(data) };
-    size_t part_lens[2] = { sizeof(msg_len), len };
-    for (int part = 0; part < 2; part++) {
+    // Send length prefix (4 bytes), echoed request id (8 bytes), then message
+    // data, looping on partial writes — a short write after the prefix would
+    // permanently desync the stream for this connection.
+    //
+    // MSG_NOSIGNAL: a peer that closed with responses still in flight must
+    // yield EPIPE here, not a process-killing SIGPIPE. macOS has no
+    // MSG_NOSIGNAL; accept() sets SO_NOSIGPIPE on the fd instead.
+#ifdef MSG_NOSIGNAL
+    constexpr int send_flags = MSG_NOSIGNAL;
+#else
+    constexpr int send_flags = 0;
+#endif
+    auto msg_len = static_cast<uint32_t>(FRAME_ID_SIZE + len);
+    const uint8_t* parts[3] = { reinterpret_cast<const uint8_t*>(&msg_len),
+                                reinterpret_cast<const uint8_t*>(&request_id),
+                                static_cast<const uint8_t*>(data) };
+    size_t part_lens[3] = { sizeof(msg_len), FRAME_ID_SIZE, len };
+    for (int part = 0; part < 3; part++) {
         size_t total_sent = 0;
         while (total_sent < part_lens[part]) {
-            ssize_t n = ::send(fd, parts[part] + total_sent, part_lens[part] - total_sent, 0);
+            ssize_t n = ::send(fd, parts[part] + total_sent, part_lens[part] - total_sent, send_flags);
             if (n < 0) {
                 if (errno == EINTR) {
                     continue; // Interrupted, retry
@@ -199,20 +199,18 @@ void SocketServer::release(int client_id, size_t message_size)
     (void)message_size;
 }
 
-std::span<const uint8_t> SocketServer::receive(int client_id)
+std::span<const uint8_t> SocketServer::receive(int client_id, uint64_t& request_id)
 {
-    if (client_id < 0 || static_cast<size_t>(client_id) >= client_fds_.size() ||
-        client_fds_[static_cast<size_t>(client_id)] < 0) {
+    auto fd_it = client_fds_.find(client_id);
+    if (fd_it == client_fds_.end()) {
         return {};
     }
 
-    int fd = client_fds_[static_cast<size_t>(client_id)];
-    const auto client_idx = static_cast<size_t>(client_id);
-
-    // Ensure buffers are sized for this client
-    if (client_idx >= recv_buffers_.size()) {
-        recv_buffers_.resize(client_idx + 1);
-    }
+    int fd = fd_it->second;
+    // Default-constructs this client's buffer on first use. disconnect_client() erases the
+    // map entry and invalidates this reference — every disconnect path below returns
+    // immediately without touching the buffer again.
+    std::vector<uint8_t>& recv_buffer = recv_buffers_[client_id];
 
     // Read length prefix (4 bytes) - must loop until all bytes received (MSG_WAITALL unreliable on macOS)
     uint32_t msg_len = 0;
@@ -233,26 +231,44 @@ std::span<const uint8_t> SocketServer::receive(int client_id)
         total_read += static_cast<size_t>(n);
     }
 
-    // A corrupt/malicious prefix must not drive the allocation below.
-    if (msg_len > MAX_FRAME_SIZE) {
+    // A corrupt/malicious prefix must not drive the allocation below. A frame
+    // shorter than the request-id field means the peer speaks the id-less
+    // protocol — disconnect rather than misparse.
+    if (msg_len > MAX_FRAME_SIZE || msg_len < FRAME_ID_SIZE) {
+        fprintf(stderr, "ipc: client %d sent an invalid frame (len=%u) — protocol mismatch?\n", client_id, msg_len);
         disconnect_client(client_id);
         return {};
     }
 
+    // Read the request id (8 bytes, little-endian).
+    request_id = 0;
+    total_read = 0;
+    while (total_read < FRAME_ID_SIZE) {
+        ssize_t n = ::recv(fd, reinterpret_cast<uint8_t*>(&request_id) + total_read, FRAME_ID_SIZE - total_read, 0);
+        if (n <= 0) {
+            if (n < 0 && errno == EINTR) {
+                continue; // Interrupted, retry
+            }
+            disconnect_client(client_id);
+            return {};
+        }
+        total_read += static_cast<size_t>(n);
+    }
+    msg_len -= FRAME_ID_SIZE;
+
     // Resize buffer if needed to fit length prefix + message
     size_t total_size = sizeof(uint32_t) + msg_len;
-    if (recv_buffers_[client_idx].size() < total_size) {
-        recv_buffers_[client_idx].resize(total_size);
+    if (recv_buffer.size() < total_size) {
+        recv_buffer.resize(total_size);
     }
 
     // Store length prefix in buffer
-    std::memcpy(recv_buffers_[client_idx].data(), &msg_len, sizeof(uint32_t));
+    std::memcpy(recv_buffer.data(), &msg_len, sizeof(uint32_t));
 
     // Read message data - must loop until all bytes received (MSG_WAITALL unreliable on macOS)
     total_read = 0;
     while (total_read < msg_len) {
-        ssize_t n =
-            ::recv(fd, recv_buffers_[client_idx].data() + sizeof(uint32_t) + total_read, msg_len - total_read, 0);
+        ssize_t n = ::recv(fd, recv_buffer.data() + sizeof(uint32_t) + total_read, msg_len - total_read, 0);
         if (n < 0) {
             if (errno == EINTR) {
                 continue; // Interrupted, retry
@@ -268,7 +284,7 @@ std::span<const uint8_t> SocketServer::receive(int client_id)
         total_read += static_cast<size_t>(n);
     }
 
-    return std::span<const uint8_t>(recv_buffers_[client_idx].data() + sizeof(uint32_t), msg_len);
+    return std::span<const uint8_t>(recv_buffer.data() + sizeof(uint32_t), msg_len);
 }
 
 #ifdef __APPLE__
@@ -388,15 +404,16 @@ int SocketServer::accept()
             fcntl(client_fd, F_SETFL, flags & ~O_NONBLOCK);
         }
 
-        // Find free slot (or allocate new one)
-        int client_id = find_free_slot();
+#ifdef SO_NOSIGPIPE
+        // No MSG_NOSIGNAL on macOS: suppress SIGPIPE per-fd so a send() to a
+        // disconnected peer yields EPIPE instead of killing the process.
+        int nosigpipe = 1;
+        setsockopt(client_fd, SOL_SOCKET, SO_NOSIGPIPE, &nosigpipe, sizeof(nosigpipe));
+#endif
 
-        // Store client fd
-        const auto client_id_unsigned = static_cast<size_t>(client_id);
-        if (client_id_unsigned >= client_fds_.size()) {
-            client_fds_.resize(client_id_unsigned + 1, -1);
-        }
-        client_fds_[static_cast<size_t>(client_id)] = client_fd;
+        // Fresh, never-reused connection id.
+        int client_id = next_client_id_++;
+        client_fds_[client_id] = client_fd;
         fd_to_client_id_[client_fd] = client_id;
         num_clients_++;
 
@@ -468,23 +485,23 @@ int SocketServer::wait_for_data(uint64_t timeout_ns)
 
 void SocketServer::disconnect_client(int client_id)
 {
-    if (client_id < 0 || static_cast<size_t>(client_id) >= client_fds_.size()) {
+    auto fd_it = client_fds_.find(client_id);
+    if (fd_it == client_fds_.end()) {
         return;
     }
 
-    int fd = client_fds_[static_cast<size_t>(client_id)];
-    if (fd >= 0) {
-        // For kqueue, we don't need explicit deletion - closing the fd removes it automatically
-        // But we can explicitly remove it for clarity
-        struct kevent ev;
-        EV_SET(&ev, fd, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
-        kevent(fd_, &ev, 1, nullptr, 0, nullptr);
+    int fd = fd_it->second;
+    // For kqueue, we don't need explicit deletion - closing the fd removes it automatically
+    // But we can explicitly remove it for clarity
+    struct kevent ev;
+    EV_SET(&ev, fd, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
+    kevent(fd_, &ev, 1, nullptr, 0, nullptr);
 
-        ::close(fd);
-        fd_to_client_id_.erase(fd);
-        client_fds_[static_cast<size_t>(client_id)] = -1;
-        num_clients_--;
-    }
+    ::close(fd);
+    fd_to_client_id_.erase(fd);
+    client_fds_.erase(fd_it);
+    recv_buffers_.erase(client_id);
+    num_clients_--;
 }
 
 #else
@@ -606,15 +623,9 @@ int SocketServer::accept()
             fcntl(client_fd, F_SETFL, flags & ~O_NONBLOCK);
         }
 
-        // Find free slot (or allocate new one)
-        int client_id = find_free_slot();
-
-        // Store client fd
-        const auto client_id_unsigned = static_cast<size_t>(client_id);
-        if (client_id_unsigned >= client_fds_.size()) {
-            client_fds_.resize(client_id_unsigned + 1, -1);
-        }
-        client_fds_[static_cast<size_t>(client_id)] = client_fd;
+        // Fresh, never-reused connection id.
+        int client_id = next_client_id_++;
+        client_fds_[client_id] = client_fd;
         fd_to_client_id_[client_fd] = client_id;
         num_clients_++;
 
@@ -680,18 +691,18 @@ int SocketServer::wait_for_data(uint64_t timeout_ns)
 
 void SocketServer::disconnect_client(int client_id)
 {
-    if (client_id < 0 || static_cast<size_t>(client_id) >= client_fds_.size()) {
+    auto fd_it = client_fds_.find(client_id);
+    if (fd_it == client_fds_.end()) {
         return;
     }
 
-    int fd = client_fds_[static_cast<size_t>(client_id)];
-    if (fd >= 0) {
-        epoll_ctl(fd_, EPOLL_CTL_DEL, fd, nullptr);
-        ::close(fd);
-        fd_to_client_id_.erase(fd);
-        client_fds_[static_cast<size_t>(client_id)] = -1;
-        num_clients_--;
-    }
+    int fd = fd_it->second;
+    epoll_ctl(fd_, EPOLL_CTL_DEL, fd, nullptr);
+    ::close(fd);
+    fd_to_client_id_.erase(fd);
+    client_fds_.erase(fd_it);
+    recv_buffers_.erase(client_id);
+    num_clients_--;
 }
 
 #endif

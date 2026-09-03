@@ -24,3 +24,9 @@
 	path = noir/noir-repo
 	url = https://github.com/noir-lang/noir.git
 	shallow = true
+[submodule "labs"]
+	path = labs
+	url = https://github.com/aztec-labs-eng/aztec-node.git
+	branch = main
+	shallow = true
+	update = none

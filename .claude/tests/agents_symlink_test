@@ -9,6 +9,9 @@
 # etc.), and letting a subdir shadow root skills/ is the designed behavior.
 # Agents, by contrast, are universal and need to be visible from every cwd.
 #
+# The labs/ submodule is a separate repository with its own root .claude/ layout and is
+# skipped, like noir/noir-repo.
+#
 # Runs from any cwd.
 
 set -uo pipefail
@@ -44,6 +47,7 @@ while IFS= read -r dir; do
   case "$dir" in
     "$ROOT"/node_modules/*|*"/node_modules/"*) continue;;
     "$ROOT"/noir/noir-repo/*) continue;;
+    "$ROOT"/labs/*) continue;;
   esac
   agents="$dir/agents"
   if [[ ! -e "$agents" ]]; then
@@ -66,7 +70,7 @@ while IFS= read -r dir; do
     continue
   fi
   pass "${dir#$ROOT/}/agents"
-done < <(find "$ROOT" -type d -name .claude -not -path "$ROOT/noir/*" -not -path "$ROOT/**/node_modules/*")
+done < <(find "$ROOT" -type d -name .claude -not -path "$ROOT/noir/*" -not -path "$ROOT/labs/*" -not -path "$ROOT/**/node_modules/*")
 
 echo
 if (( FAIL == 0 )); then
@@ -80,6 +84,7 @@ while IFS= read -r dir; do
   case "$dir" in
     "$ROOT"/node_modules/*|*"/node_modules/"*) continue;;
     "$ROOT"/noir/noir-repo/*) continue;;
+    "$ROOT"/labs/*) continue;;
   esac
   codex="$(dirname "$dir")/.codex"
   rel=${codex#$ROOT/}
@@ -119,7 +124,7 @@ while IFS= read -r dir; do
     fi
   done < <(find "$codex" -mindepth 1 -maxdepth 1)
   (( codex_ok )) && pass "$rel"
-done < <(find "$ROOT" -type d -name .claude -not -path "$ROOT/noir/*" -not -path "$ROOT/**/node_modules/*")
+done < <(find "$ROOT" -type d -name .claude -not -path "$ROOT/noir/*" -not -path "$ROOT/labs/*" -not -path "$ROOT/**/node_modules/*")
 
 echo
 if (( FAIL == 0 )); then

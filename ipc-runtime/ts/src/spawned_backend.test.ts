@@ -24,11 +24,13 @@ const server = net.createServer(conn => {
     while (buf.length >= 4) {
       const len = buf.readUInt32LE(0);
       if (buf.length < 4 + len) return;
+      const requestId = buf.readBigUInt64LE(4); // frame = [len][8B id][payload]
       buf = buf.subarray(4 + len);
       const payload = Buffer.from(String(process.pid));
-      const out = Buffer.alloc(4 + payload.length);
-      out.writeUInt32LE(payload.length, 0);
-      payload.copy(out, 4);
+      const out = Buffer.alloc(12 + payload.length);
+      out.writeUInt32LE(payload.length + 8, 0);
+      out.writeBigUInt64LE(requestId, 4);
+      payload.copy(out, 12);
       conn.write(out);
     }
   });

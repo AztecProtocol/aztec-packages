@@ -3,7 +3,7 @@
 # This script runs bb prove with different HARDWARE_CONCURRENCY values and captures hierarchical timing breakdowns.
 #
 # Usage: ci_benchmark_ultrahonk_circuits.sh <circuit_name> <inputs_folder> <cpus>
-# Example: ci_benchmark_ultrahonk_circuits.sh parity_base ../../yarn-project/end-to-end/ultrahonk-bench-inputs 8
+# Example: ci_benchmark_ultrahonk_circuits.sh parity_base ../../labs/yarn-project/end-to-end/ultrahonk-bench-inputs 8
 #
 # The inputs_folder should contain:
 #   - <circuit_name>.json (the circuit artifact with bytecode)
@@ -53,7 +53,7 @@ function generate_ultrahonk_inputs {
   rm -rf "$state_dir"
   mkdir -p "$state_dir"
   if ! (
-    cd "$root/yarn-project"
+    cd "$root/labs/yarn-project"
     BASE_PARITY_BENCH_DIR="$state_dir" yarn workspace @aztec/ivc-integration test src/base_parity_inputs.test.ts
   ); then
     rm -rf "$state_dir"
@@ -94,7 +94,7 @@ function ensure_ultrahonk_inputs {
   local abs_inputs cache_hash cache_name lock_dir lock_file
   abs_inputs="$(realpath -m "$requested")"
 
-  cache_hash="$(cd "$root/yarn-project" && ./bootstrap.sh hash)"
+  cache_hash="$(cd "$root/labs/yarn-project" && env -u root -u ci3 ./bootstrap.sh hash)"
   cache_name="bb-ultrahonk-bench-inputs-${cache_hash}.tar.gz"
 
   if ultrahonk_inputs_present "$abs_inputs" "$cache_hash"; then
@@ -117,8 +117,8 @@ function ensure_ultrahonk_inputs {
     if ! ultrahonk_inputs_present "$abs_inputs"; then
       echo "Generating UltraHonk benchmark inputs at $abs_inputs"
       generate_ultrahonk_inputs "$abs_inputs"
-      if [[ "$abs_inputs" == "$root/yarn-project/end-to-end/ultrahonk-bench-inputs" ]]; then
-        (cd "$root/yarn-project/end-to-end" && cache_upload "$cache_name" ultrahonk-bench-inputs)
+      if [[ "$abs_inputs" == "$root/labs/yarn-project/end-to-end/ultrahonk-bench-inputs" ]]; then
+        (cd "$root/labs/yarn-project/end-to-end" && env -u root -u ci3 cache_upload "$cache_name" ultrahonk-bench-inputs)
       fi
     fi
 

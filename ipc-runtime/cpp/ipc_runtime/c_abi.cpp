@@ -129,12 +129,14 @@ int ipc_server_wait_for_data(ipc_server_t* server, uint64_t timeout_ns)
     return server && server->impl ? server->impl->wait_for_data(timeout_ns) : -1;
 }
 
-ipc_status_t ipc_server_receive(ipc_server_t* server, int client_id, const uint8_t** out, size_t* out_len)
+ipc_status_t ipc_server_receive(
+    ipc_server_t* server, int client_id, uint64_t* request_id_out, const uint8_t** out, size_t* out_len)
 {
-    if (!server || !server->impl || !out || !out_len) {
+    if (!server || !server->impl || !request_id_out || !out || !out_len) {
         return IPC_ERR_RECV;
     }
-    auto view = server->impl->receive(client_id);
+    uint64_t request_id = 0;
+    auto view = server->impl->receive(client_id, request_id);
     // data() == nullptr is error/timeout; a non-null empty view is a valid
     // zero-length message.
     if (view.data() == nullptr) {
@@ -142,6 +144,7 @@ ipc_status_t ipc_server_receive(ipc_server_t* server, int client_id, const uint8
         *out_len = 0;
         return IPC_ERR_RECV;
     }
+    *request_id_out = request_id;
     *out = view.data();
     *out_len = view.size();
     return IPC_OK;
@@ -154,9 +157,9 @@ void ipc_server_release(ipc_server_t* server, int client_id, size_t msg_size)
     }
 }
 
-bool ipc_server_send(ipc_server_t* server, int client_id, const uint8_t* data, size_t len)
+bool ipc_server_send(ipc_server_t* server, int client_id, uint64_t request_id, const uint8_t* data, size_t len)
 {
-    return server && server->impl ? server->impl->send(client_id, data, len) : false;
+    return server && server->impl ? server->impl->send(client_id, request_id, data, len) : false;
 }
 
 void ipc_server_run(ipc_server_t* server, ipc_server_handler_fn handler, void* ctx)
