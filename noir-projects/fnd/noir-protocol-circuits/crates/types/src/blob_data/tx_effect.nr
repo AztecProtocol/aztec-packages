@@ -489,8 +489,7 @@ mod tests {
         assert(compute_tx_effects_tree_leaf(changed_tx_hash, array_lengths) != original_leaf);
     }
 
-    #[test]
-    fn maximum_size_effect_can_be_committed() {
+    fn maximum_size_fixture() -> (TxEffect, TxEffectArrayLengths) {
         let mut tx_effect = TxEffect::empty();
         tx_effect.tx_hash = TX_HASH;
         tx_effect.transaction_fee = TRANSACTION_FEE;
@@ -514,10 +513,11 @@ mod tests {
                 PRIVATE_LOG_SIZE_IN_FIELDS,
             );
         }
-        tx_effect.public_logs = PublicLogs::new(
-            [601; FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH],
-            FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
-        );
+        let mut public_log_payload = [601; FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH];
+        public_log_payload[0] = (FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 2) as Field;
+        public_log_payload[1] = 601;
+        tx_effect.public_logs =
+            PublicLogs::new(public_log_payload, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH);
         tx_effect.contract_class_logs[0] = ContractClassLog {
             log: Log::new(
                 [701; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS],
@@ -537,10 +537,48 @@ mod tests {
             contract_class_logs: MAX_CONTRACT_CLASS_LOGS_PER_TX,
         };
 
+        (tx_effect, array_lengths)
+    }
+
+    #[test]
+    fn maximum_size_effect_can_be_committed() {
+        let (tx_effect, array_lengths) = maximum_size_fixture();
         assert(compute_tx_effects_tree_leaf(tx_effect, array_lengths) != 0);
         let mut sponge = SpongeBlob::init();
         sponge.absorb_tx_blob_data(tx_effect, array_lengths);
         assert(sponge != SpongeBlob::init());
+    }
+
+    #[test]
+    fn cross_language_fixture_commitments() {
+        let empty_lengths = TxEffectArrayLengths {
+            note_hashes: 0,
+            nullifiers: 0,
+            l2_to_l1_msgs: 0,
+            public_data_writes: 0,
+            private_logs: 0,
+            contract_class_logs: 0,
+        };
+        let empty_leaf = compute_tx_effects_tree_leaf(TxEffect::empty(), empty_lengths);
+        let (small_effect, small_lengths) = small_fixture();
+        let small_leaf = compute_tx_effects_tree_leaf(small_effect, small_lengths);
+        let (maximum_effect, maximum_lengths) = maximum_size_fixture();
+        let maximum_leaf = compute_tx_effects_tree_leaf(maximum_effect, maximum_lengths);
+        let three_tx_root = accumulate_tx_effects_tree_root(
+            accumulate_tx_effects_tree_root(empty_leaf, small_leaf),
+            maximum_leaf,
+        );
+
+        let test_data_empty_tx_effect_leaf =
+            0x036639112ad40a8f951bfcc348b9906cee3f554dd05d0903c6e32a42d3f15d5a;
+        let test_data_maximum_tx_effect_leaf =
+            0x228fa718cc3dd39f719454454739a177add7a7ee2a127c3923f47a6b23d68118;
+        let test_data_three_tx_effects_tree_root =
+            0x10aefe4df8cb37d89dc3278432c6c732c7b3740fb53d5ef128f86f9a9b4bbafb;
+
+        assert_eq(empty_leaf, test_data_empty_tx_effect_leaf);
+        assert_eq(maximum_leaf, test_data_maximum_tx_effect_leaf);
+        assert_eq(three_tx_root, test_data_three_tx_effects_tree_root);
     }
 
     #[test]
