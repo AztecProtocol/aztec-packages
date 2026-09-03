@@ -110,6 +110,62 @@ test("client rejects oversized frame from server", async () => {
   }
 });
 
+test("client fails all pending calls on a response with an unknown request id", async () => {
+  const socketPath = tmpSocketPath("unknown_id");
+  // Raw server that answers with a well-formed frame whose request id matches
+  // nothing the client sent — the correlation-desync case.
+  const rawServer = net.createServer((conn) => {
+    conn.once("data", () => {
+      const frame = Buffer.allocUnsafe(12 + 1);
+      frame.writeUInt32LE(1 + 8, 0);
+      frame.writeBigUInt64LE(0xdeadbeefn, 4);
+      frame.writeUInt8(42, 12);
+      conn.write(frame);
+    });
+  });
+  await new Promise<void>((resolve) =>
+    rawServer.listen(socketPath, () => resolve()),
+  );
+
+  const client = await UdsIpcClient.connect(socketPath);
+  try {
+    await assert.rejects(
+      client.call(new Uint8Array([1])),
+      /unknown request id/,
+    );
+  } finally {
+    await client.destroy();
+    rawServer.close();
+    fs.rmSync(socketPath, { force: true });
+  }
+});
+
+test("client fails loudly on an id-less (old-protocol) frame", async () => {
+  const socketPath = tmpSocketPath("idless");
+  // Raw server speaking the pre-envelope-id protocol: [4B len][payload] with
+  // len < 8.
+  const rawServer = net.createServer((conn) => {
+    conn.once("data", () => {
+      const frame = Buffer.allocUnsafe(4 + 1);
+      frame.writeUInt32LE(1, 0);
+      frame.writeUInt8(42, 4);
+      conn.write(frame);
+    });
+  });
+  await new Promise<void>((resolve) =>
+    rawServer.listen(socketPath, () => resolve()),
+  );
+
+  const client = await UdsIpcClient.connect(socketPath);
+  try {
+    await assert.rejects(client.call(new Uint8Array([1])), /protocol mismatch/);
+  } finally {
+    await client.destroy();
+    rawServer.close();
+    fs.rmSync(socketPath, { force: true });
+  }
+});
+
 test("server drops connection on oversized frame", async () => {
   const socketPath = tmpSocketPath("oversize_srv");
   const server = await UdsIpcServer.listen(socketPath, (_id, req) => req);

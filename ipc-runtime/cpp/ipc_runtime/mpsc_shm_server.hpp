@@ -107,7 +107,7 @@ class MpscShmServer : public IpcServer {
         return request_consumer_.has_value() && request_consumer_->has_data();
     }
 
-    std::span<const uint8_t> receive(int client_id) override
+    std::span<const uint8_t> receive(int client_id, uint64_t& request_id) override
     {
         if (!request_consumer_.has_value() || client_id < 0 || static_cast<size_t>(client_id) >= max_clients_) {
             return {};
@@ -121,17 +121,22 @@ class MpscShmServer : public IpcServer {
         std::memcpy(&msg_len, len_ptr, sizeof(uint32_t));
 
         // A prefix larger than the send side could legally publish means the
-        // ring is corrupt — error out instead of waiting for it.
-        if (msg_len > MAX_FRAME_SIZE || msg_len > request_ring_size_ / 2 - sizeof(uint32_t)) {
-            throw std::runtime_error("MpscShmServer::receive: corrupt length prefix (" + std::to_string(msg_len) +
-                                     " bytes exceeds ring/frame limits)");
+        // ring is corrupt — error out instead of waiting for it. A frame
+        // shorter than the request-id field means the peer speaks the id-less
+        // protocol.
+        if (msg_len > MAX_FRAME_SIZE || msg_len > request_ring_size_ / 2 - sizeof(uint32_t) ||
+            msg_len < FRAME_ID_SIZE) {
+            throw std::runtime_error("MpscShmServer::receive: invalid length prefix (" + std::to_string(msg_len) +
+                                     " bytes) — corrupt ring or protocol mismatch");
         }
 
         void* msg_ptr = request_consumer_->peek(static_cast<size_t>(client_id), sizeof(uint32_t) + msg_len, 100000000);
         if (msg_ptr == nullptr) {
             return {};
         }
-        return std::span<const uint8_t>(static_cast<const uint8_t*>(msg_ptr) + sizeof(uint32_t), msg_len);
+        std::memcpy(&request_id, static_cast<const uint8_t*>(msg_ptr) + sizeof(uint32_t), FRAME_ID_SIZE);
+        return std::span<const uint8_t>(static_cast<const uint8_t*>(msg_ptr) + sizeof(uint32_t) + FRAME_ID_SIZE,
+                                        msg_len - FRAME_ID_SIZE);
     }
 
     void release(int client_id, size_t message_size) override
@@ -139,15 +144,15 @@ class MpscShmServer : public IpcServer {
         if (!request_consumer_.has_value() || client_id < 0 || static_cast<size_t>(client_id) >= max_clients_) {
             return;
         }
-        request_consumer_->release(static_cast<size_t>(client_id), sizeof(uint32_t) + message_size);
+        request_consumer_->release(static_cast<size_t>(client_id), sizeof(uint32_t) + FRAME_ID_SIZE + message_size);
     }
 
-    bool send(int client_id, const void* data, size_t len) override
+    bool send(int client_id, uint64_t request_id, const void* data, size_t len) override
     {
         if (client_id < 0 || static_cast<size_t>(client_id) >= response_rings_.size()) {
             return false;
         }
-        return ring_send_msg(response_rings_[static_cast<size_t>(client_id)], data, len, 100000000);
+        return ring_send_msg(response_rings_[static_cast<size_t>(client_id)], request_id, data, len, 100000000);
     }
 
     void close() override

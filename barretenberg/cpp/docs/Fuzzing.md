@@ -57,55 +57,7 @@ For AVM-specific fuzzers:
 cmake --preset fuzzing-avm && cmake --build ./build-fuzzing-avm
 ```
 
-## Running fuzzers with Docker (recommended)
-
-The easiest way to run fuzzers is using the provided Docker container. This approach handles all dependencies and provides a consistent environment.
-
-### Quick Start
-
-1. Navigate to the fuzzing container directory at the root of the aztec-packages repo:
-   ```bash
-   cd container-builds/fuzzing-container
-   ```
-
-2. Run a fuzzer (replace `<fuzzer_name>` with an actual fuzzer):
-   ```bash
-   ./run.sh --fuzzer <fuzzer_name>
-   ```
-
-3. To see available fuzzers:
-   ```bash
-   ./run.sh --show-fuzzers
-   ```
-
-### Script Options
-
-The `run.sh` script supports several configuration options:
-
-#### Basic options
-- `-f, --fuzzer <name>`: Specify which fuzzer to run **(required)**
-- `-t, --timeout <seconds>`: Set maximum fuzzing time (default: 2592000 = 1 month)
-- `-v, --verbose`: Enable verbose output from the fuzzer
-- `-m, --mode <mode>`: Set operation mode - either `fuzzing` or `coverage` (default: fuzzing)
-- `-a, --asm  <mode>`: Enable/disable asm - either `on` or `off` (default: `on`)
-- `-A, --avm`: Enable AVM fuzzing mode (uses build-fuzzing-avm)
-- `--show-fuzzers`: List all available fuzzers
-- `-h, --help`: Show help information
-
-#### Advanced options
-- `-c, --cpus <count>`: Set number of CPUs for the container (default: 8)
-- `--mem <size>`: Set memory limit for the container (default: 16G)
-- `-j, --jobs <count>`: Set the amount of processes to run (default: 8)
-- `-w, --workers <count>`: Set the amount of subprocesses to run (default: 0)
-
-At startup, the script:
-- creates required directories
-- runs regression tests on prior crashes
-- fuzzes for `timeout` seconds
-
-You can later collect coverage via `--mode coverage`, but you have to run fuzzers for some time to do that.
-
-## Running the fuzzer manually
+## Running the fuzzer
 
 This section covers direct invocation of fuzzers without Docker.
 

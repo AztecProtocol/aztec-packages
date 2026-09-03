@@ -80,13 +80,13 @@ class ShmServer : public IpcServer {
         return -1; // Timeout
     }
 
-    std::span<const uint8_t> receive([[maybe_unused]] int client_id) override
+    std::span<const uint8_t> receive([[maybe_unused]] int client_id, uint64_t& request_id) override
     {
         if (!request_ring_.has_value()) {
             return {};
         }
         // TODO: Plumb timeout.
-        return ring_receive_msg(request_ring_.value(), 100000000); // 100ms timeout
+        return ring_receive_msg(request_ring_.value(), 100000000, request_id); // 100ms timeout
     }
 
     void release([[maybe_unused]] int client_id, size_t message_size) override
@@ -94,15 +94,15 @@ class ShmServer : public IpcServer {
         if (!request_ring_.has_value()) {
             return;
         }
-        request_ring_->release(sizeof(uint32_t) + message_size);
+        request_ring_->release(sizeof(uint32_t) + FRAME_ID_SIZE + message_size);
     }
 
-    bool send([[maybe_unused]] int client_id, const void* data, size_t len) override
+    bool send([[maybe_unused]] int client_id, uint64_t request_id, const void* data, size_t len) override
     {
         if (!response_ring_.has_value()) {
             return false;
         }
-        return ring_send_msg(response_ring_.value(), data, len, 100000000);
+        return ring_send_msg(response_ring_.value(), request_id, data, len, 100000000);
     }
 
     void close() override

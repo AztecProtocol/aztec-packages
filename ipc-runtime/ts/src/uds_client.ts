@@ -25,15 +25,19 @@ export interface UdsIpcClientConnectOptions {
 /**
  * Async IPC client over a Unix Domain Socket. Wire format matches the C++
  * ipc::IpcServer/IpcClient socket transport: 4-byte little-endian length
- * prefix followed by `length` bytes of msgpack payload, per direction.
+ * prefix, 8-byte little-endian request id, then the msgpack payload (the
+ * length counts the id plus the payload), per direction.
  *
- * Supports pipelining: multiple concurrent `call()` invocations are queued
- * FIFO and matched with responses in order. Pipelining keeps the server-side
- * socket window full and matches the native client behaviour.
+ * Supports pipelining: each call carries a unique request id which the
+ * server echoes on the response, so responses are paired to callers by id
+ * and the server may complete requests in any order. Ids start at a random
+ * point per connection.
  */
 export class UdsIpcClient implements IpcClientAsync {
   private buffer: Buffer = Buffer.alloc(0);
-  private pending: PendingCall[] = [];
+  private pending = new Map<bigint, PendingCall>();
+  private nextRequestId =
+    (BigInt(Math.floor(Math.random() * 0xffffffff)) << 16n) + 1n;
   private destroyed = false;
   /** Set once the socket has errored/closed; new calls fail fast. */
   private closed = false;
@@ -67,7 +71,7 @@ export class UdsIpcClient implements IpcClientAsync {
 
   /** Number of in-flight calls awaiting a response. */
   get inflight(): number {
-    return this.pending.length;
+    return this.pending.size;
   }
 
   /** Underlying socket — exposed for ref/unref control (event-loop tuning). */
@@ -85,10 +89,12 @@ export class UdsIpcClient implements IpcClientAsync {
       );
     }
     return new Promise<Uint8Array>((resolve, reject) => {
-      this.pending.push({ resolve, reject });
-      const lenBuf = Buffer.allocUnsafe(4);
-      lenBuf.writeUInt32LE(input.length, 0);
-      this.conn.write(lenBuf);
+      const requestId = this.nextRequestId++;
+      this.pending.set(requestId, { resolve, reject });
+      const header = Buffer.allocUnsafe(12);
+      header.writeUInt32LE(input.length + 8, 0); // length counts id + payload
+      header.writeBigUInt64LE(requestId, 4);
+      this.conn.write(header);
       this.conn.write(input);
     });
   }
@@ -118,25 +124,45 @@ export class UdsIpcClient implements IpcClientAsync {
         );
         return;
       }
+      if (len < 8) {
+        // Shorter than the request-id field: the server speaks the id-less
+        // protocol. Fail loudly instead of misparsing.
+        this.conn.destroy();
+        this.failAll(
+          new IpcTransportError(
+            `UdsIpcClient: ${len}-byte frame is shorter than the request-id field — ` +
+              "IPC protocol mismatch (envelope ids); update the peer binary/package",
+          ),
+        );
+        return;
+      }
       if (this.buffer.length < 4 + len) return;
-      const payload = this.buffer.subarray(4, 4 + len);
+      const requestId = this.buffer.readBigUInt64LE(4);
+      const payload = this.buffer.subarray(12, 4 + len);
       this.buffer = this.buffer.subarray(4 + len);
-      const next = this.pending.shift();
+      const next = this.pending.get(requestId);
       if (next) {
+        this.pending.delete(requestId);
         next.resolve(new Uint8Array(payload));
       } else {
-        // Protocol desync — every response should match a pending call.
-        console.warn(
-          `UdsIpcClient: dropping ${len}-byte response with no pending caller`,
+        // A response that pairs with no pending call means the stream's
+        // correlation is broken — fail everything loudly rather than
+        // continuing on a connection we can no longer trust.
+        this.conn.destroy();
+        this.failAll(
+          new IpcTransportError(
+            `UdsIpcClient: response for unknown request id ${requestId} — protocol desync`,
+          ),
         );
+        return;
       }
     }
   }
 
   private failAll(err: Error): void {
     this.closed = true;
-    const pending = this.pending;
-    this.pending = [];
+    const pending = [...this.pending.values()];
+    this.pending.clear();
     for (const p of pending) p.reject(err);
   }
 }
@@ -144,11 +170,12 @@ export class UdsIpcClient implements IpcClientAsync {
 /**
  * Connect to `socketPath`, retrying "server not ready" errors until
  * `timeoutMs` elapses: ENOENT (socket file not created yet), ECONNREFUSED
- * (the window between the server's bind() and listen()), and EAGAIN (Linux
+ * (the window between the server's bind() and listen()), EAGAIN (Linux
  * reports this for a UDS connect when the accept backlog is momentarily
- * full). Other errors fail immediately. Each attempt is also capped at the
- * remaining budget, so a bound-but-never-accepting server cannot hang the
- * connect past the deadline.
+ * full), and ECONNRESET (a connect racing the server's accept loop under
+ * connection churn). Other errors fail immediately. Each attempt is also
+ * capped at the remaining budget, so a bound-but-never-accepting server
+ * cannot hang the connect past the deadline.
  */
 async function connectWithRetry(
   socketPath: string,
@@ -166,6 +193,7 @@ async function connectWithRetry(
       const code = (err as NodeJS.ErrnoException).code;
       if (
         code !== "ECONNREFUSED" &&
+        code !== "ECONNRESET" &&
         code !== "ENOENT" &&
         code !== "ETIMEDOUT" &&
         code !== "EAGAIN"

@@ -22,6 +22,16 @@ namespace ipc {
 inline constexpr uint32_t MAX_FRAME_SIZE = 256U * 1024 * 1024; // 256 MiB
 
 /**
+ * Every frame carries a client-assigned request id (little-endian u64) between
+ * the length prefix and the payload; the server echoes it on the response.
+ * Clients correlate responses by id, so the server may complete requests in
+ * any order — there is no FIFO contract on the wire. Ids are per-connection
+ * (random-start counter); 0 is reserved for server-initiated frames such as
+ * protocol errors.
+ */
+inline constexpr size_t FRAME_ID_SIZE = 8;
+
+/**
  * Total budget for connect() retry loops, covering the window where the
  * server process is still starting up. Shared by UDS and SHM clients.
  */
