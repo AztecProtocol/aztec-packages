@@ -192,7 +192,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     case 0: {
         // Set contract address
         std::uniform_int_distribution<uint64_t> addr_dist(0, std::numeric_limits<uint64_t>::max());
-        input.contract_address = FF(addr_dist(rng), addr_dist(rng), addr_dist(rng), addr_dist(rng));
+        input.contract_address = FF(uint256_t(addr_dist(rng), addr_dist(rng), addr_dist(rng), addr_dist(rng)));
         break;
     }
     case 1: {
@@ -222,7 +222,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
         std::uniform_int_distribution<size_t> index_dist(0, input.init_log_values.size() - 1);
         size_t value_idx = index_dist(rng);
         std::uniform_int_distribution<uint64_t> dist(0, std::numeric_limits<uint64_t>::max());
-        FF value = FF(dist(rng), dist(rng), dist(rng), dist(rng));
+        FF value = FF(uint256_t(dist(rng), dist(rng), dist(rng), dist(rng)));
         input.init_log_values[value_idx] = value;
         break;
     }
