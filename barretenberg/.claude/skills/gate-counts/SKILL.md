@@ -257,8 +257,8 @@ git root, which does bb → noir → l1-contracts → yarn-project):
 - **bb / bb-avm native** at `barretenberg/cpp/build/bin/{bb,bb-avm}`. The
   prover-client test looks for `bb-avm` and the e2e test for `bb`; both fall
   back to WASM if absent, but you want a current native build.
-- **acvm** at `noir/noir-repo/target/release/acvm` (witness generation; WASM
-  fallback if absent).
+- **noir-execute** at `noir/noir-repo/target/release/noir-execute` (witness
+  generation; WASM fallback if absent).
 - **Protocol circuits compiled** under `noir-projects/fnd/noir-protocol-circuits`
   (artifacts are bundled into `@aztec/noir-protocol-circuits-types`).
 - **TS build current**, especially `@aztec/constants` (regenerated from

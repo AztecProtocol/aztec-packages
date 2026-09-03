@@ -76,11 +76,11 @@ function install_native_from_release {
   fi
 
   # Place whatever noirup installed where the rest of the build expects it. The release ships nargo
-  # (and noir-profiler), but neither acvm nor noir-execute; consumers of those fall back to the
-  # WASM simulator when absent.
+  # (and noir-profiler), but not noir-execute; its consumers fall back to the WASM simulator when
+  # absent.
   mkdir -p "$release_dir"
   local bin
-  for bin in nargo acvm noir-execute noir-profiler; do
+  for bin in nargo noir-execute noir-profiler; do
     if [[ -f "$nargo_home/bin/$bin" ]]; then
       cp -f "$nargo_home/bin/$bin" "$release_dir/$bin"
     fi
@@ -94,7 +94,7 @@ function install_native_from_release {
   echo "Installed nargo $("$release_dir/nargo" --version | head -1) from release $tag."
 }
 
-# Builds the nargo, acvm, noir-execute and profiler binaries.
+# Builds the nargo, noir-execute and profiler binaries.
 function build_native {
   set -euo pipefail
 
@@ -111,8 +111,9 @@ function build_native {
     ) 200>/tmp/rustup.lock
     # noir-execute comes out of the same workspace build (tooling/artifact_cli is a
     # default-member) and labs-aztec-toolchain symlinks it for native protocol-circuit
-    # execution, so it has to survive a cache round trip like the rest.
-    cache_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,acvm,noir-execute,noir-profiler}
+    # execution, so it has to survive a cache round trip like the rest. The build also produces
+    # acvm, which nothing consumes since the labs node moved to noir-execute; it is left behind.
+    cache_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,noir-execute,noir-profiler}
   fi
 }
 

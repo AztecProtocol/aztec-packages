@@ -9,11 +9,12 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 out=$root/labs/labs-aztec-toolchain/fnd-hashes
 components="barretenberg/cpp noir barretenberg/ts wsdb ipc-runtime l1-contracts protocol/constants-codegen noir-projects/fnd"
-# The optional toolchain binaries this tree built (bb-avm is skipped by AVM=0 builds, acvm by
-# the noir-from-release flow); their presence is part of the toolchain's identity.
+# The optional toolchain binaries this tree built (bb-avm is skipped by AVM=0 builds,
+# noir-execute by the noir-from-release flow); their presence is part of the toolchain's identity,
+# since labs falls back to the WASM simulator when noir-execute is absent.
 optional=""
 [ -f "$root/barretenberg/cpp/build/bin/bb-avm" ] && optional+=" bb-avm"
-[ -f "$root/noir/noir-repo/target/release/acvm" ] && optional+=" acvm"
+[ -f "$root/noir/noir-repo/target/release/noir-execute" ] && optional+=" noir-execute"
 {
   for c in $components; do
     # Each bootstrap derives its ci3 root from its own repo; clear the inherited one.

@@ -104,12 +104,17 @@ else
 fi
 
 # --- 6. No leaked fifo ---
-# Run several times and check /tmp doesn't accumulate fifos.
-before=$(find /tmp -maxdepth 1 -type p 2>/dev/null | wc -l)
+# Run several times and check the fifos do not accumulate. color_prefix names its fifo with
+# mktemp, so point that at a directory only this check uses: counting /tmp instead sees the
+# dozens of fifos other jobs on a CI machine hold, and one of them appearing inside the window
+# below fails the check for reasons that have nothing to do with color_prefix.
+fifo_dir=$(mktemp -d)
+before=$(find "$fifo_dir" -maxdepth 1 -type p 2>/dev/null | wc -l)
 for i in $(seq 1 5); do
-  "$CP" "fifo$i" "echo hi" &>/dev/null
+  TMPDIR="$fifo_dir" "$CP" "fifo$i" "echo hi" &>/dev/null
 done
-after=$(find /tmp -maxdepth 1 -type p 2>/dev/null | wc -l)
+after=$(find "$fifo_dir" -maxdepth 1 -type p 2>/dev/null | wc -l)
+rm -rf "$fifo_dir"
 if [[ "$after" -le "$before" ]]; then
   pass "no leaked fifos after 5 runs"
 else
