@@ -107,7 +107,7 @@ library EpochProofLib {
       STFLib.prune();
     }
 
-    Epoch endEpoch = assertAcceptable(_args.start, _args.end);
+    (Epoch endEpoch, Epoch currentEpoch) = assertAcceptable(_args.start, _args.end);
 
     // Rehash the supplied headers against storage once, here: the public-input assembly below reads the fee
     // recipient/value out of them and relies on this call having run.
@@ -121,10 +121,13 @@ library EpochProofLib {
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
+    CompressedChainTips tips = rollupStore.tips;
+
+    bool fullEpochProof = isFullEpochProof(_args.end, endEpoch, currentEpoch, tips.getPending());
 
     // Advance the proven block number and insert the out hash if the chain is extended.
-    if (_args.end > rollupStore.tips.getProven()) {
-      rollupStore.tips = rollupStore.tips.updateProven(_args.end);
+    if (_args.end > tips.getProven()) {
+      rollupStore.tips = tips.updateProven(_args.end);
 
       // Handle L2->L1 message processing.
       // The circuit outputs an empty out hash tree root if the epoch contains no messages.
@@ -139,8 +142,6 @@ library EpochProofLib {
         rollupStore.config.outbox.insert(endEpoch, numCheckpointsInEpoch, _args.args.outHash);
       }
     }
-
-    bool fullEpochProof = isFullEpochProof(_args.end, endEpoch);
 
     // Activity score depends on whether the proof is a full epoch proof
     RewardLib.handleRewardsAndFees(_args, endEpoch, fullEpochProof);
@@ -432,18 +433,19 @@ library EpochProofLib {
    *
    * @param _start The first checkpoint number in the epoch (inclusive)
    * @param _end The last checkpoint number in the epoch (inclusive)
-   * @return The epoch number that the proof covers
+   * @return endEpoch The epoch number that the proof covers
+   * @return currentEpoch The epoch at the time the proof is submitted
    */
-  function assertAcceptable(uint256 _start, uint256 _end) private view returns (Epoch) {
+  function assertAcceptable(uint256 _start, uint256 _end) private view returns (Epoch endEpoch, Epoch currentEpoch) {
     RollupStore storage rollupStore = STFLib.getStorage();
 
     Epoch startEpoch = STFLib.getEpochForCheckpoint(_start);
     // This also checks for existence of the checkpoint.
-    Epoch endEpoch = STFLib.getEpochForCheckpoint(_end);
+    endEpoch = STFLib.getEpochForCheckpoint(_end);
 
     require(startEpoch == endEpoch, Errors.Rollup__StartAndEndNotSameEpoch(startEpoch, endEpoch));
 
-    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
 
     require(
       startEpoch.isAcceptingProofsAtEpoch(currentEpoch),
@@ -467,36 +469,36 @@ library EpochProofLib {
       claimedNumCheckpointsInEpoch,
       Errors.Rollup__TooManyCheckpointsInEpoch(Constants.MAX_CHECKPOINTS_PER_EPOCH, _end - _start)
     );
-
-    return endEpoch;
   }
 
-  /*
-  * @notice Checks if the submitted proof is a full epoch proof
-  *
-  * @param _end End checkpoint of the proof
-  * @param _endEpoch Proof epoch
-  * @return true if the proof covers the whole epoch
-  */
-  function isFullEpochProof(uint256 _end, Epoch _endEpoch) private view returns (bool) {
-    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-
+  /**
+   * @notice Checks if the submitted proof is a full epoch proof
+   *
+   * @param _end End checkpoint of the proof
+   * @param _endEpoch Proof epoch
+   * @param _currentEpoch Epoch at the time the proof is submitted
+   * @param _pendingCheckpointNumber Current pending checkpoint number
+   * @return true if the proof covers the whole epoch
+   */
+  function isFullEpochProof(uint256 _end, Epoch _endEpoch, Epoch _currentEpoch, uint256 _pendingCheckpointNumber)
+    private
+    view
+    returns (bool)
+  {
     // Another checkpoint could be proposed if the epoch being proven is the current one, so we can't be sure that the
     // proof is a full epoch proof
-    if (_endEpoch >= currentEpoch) {
+    if (_endEpoch >= _currentEpoch) {
       return false;
     }
 
-    uint256 pendingCheckpointNumber = STFLib.getStorage().tips.getPending();
-
     // If the last proof checkpoint is a pending checkpoint while the epoch is closed, then it's the last checkpoint of
     // proof epoch
-    if (_end == pendingCheckpointNumber) {
+    if (_end == _pendingCheckpointNumber) {
       return true;
     }
 
     // If the next checkpoint is in a different epoch, then this one is the final one in the proof epoch
-    return STFLib.getEpochForCheckpoint(_end + 1) > _endEpoch;
+    return STFLib.getSlotNumber(_end + 1).epochFromSlot() > _endEpoch;
   }
 
   /**
