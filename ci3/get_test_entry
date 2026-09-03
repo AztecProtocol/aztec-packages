@@ -4,7 +4,11 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 export test_cmd=${1:-}
 log_file=${2:-}
-entries=$(yq e -o=json -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern))' .test_patterns.yml | jq -c .)
+# The labs submodule's tests run under this engine too, so its quarantine list applies to
+# them as well as this repo's own.
+pattern_files=.test_patterns.yml
+[ -f labs/.test_patterns.yml ] && pattern_files+=" labs/.test_patterns.yml"
+entries=$(for f in $pattern_files; do yq e -o=json -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern))' "$f"; done | jq -c .)
 
 # Iterate over each matching entry and output those that match error_regex (if present)
 while IFS= read -r entry; do

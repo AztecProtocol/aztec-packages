@@ -412,7 +412,7 @@ function chonk_browser_bench_cmds {
 }
 
 function ultrahonk_rollup_bench_cmds {
-  local inputs_dir="../../yarn-project/end-to-end/ultrahonk-bench-inputs"
+  local inputs_dir="../../labs/yarn-project/end-to-end/ultrahonk-bench-inputs"
   local cpus
   for cpus in 8 16 32; do
     echo "$hash:CPUS=$cpus:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_ultrahonk_circuits.sh parity_base $inputs_dir $cpus"
@@ -460,7 +460,7 @@ function bench_ivc {
   parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
   # Make sure disabling the aztec VM does not interfere with cache results from CI.
-  BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
+  (cd ../.. && make labs-yarn-project)
 
   rm -rf bench-out
 
