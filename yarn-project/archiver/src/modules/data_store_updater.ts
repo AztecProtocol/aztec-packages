@@ -310,9 +310,10 @@ export class ArchiverDataStoreUpdater {
    * local chain no longer has, and one equal to it means the block stopped below it.
    *
    * The index is where the rollback rewound to, not the first leaf whose value actually changed, so a reorg that
-   * re-mines the same messages in a different L1 block also prunes blocks whose trees are unchanged. That is
-   * deliberate: the bucket those blocks reference was re-timed and re-numbered, so L1 would reject a checkpoint
-   * carrying it anyway.
+   * re-mines the same messages in a different L1 block also prunes blocks whose trees are unchanged and which L1
+   * would still accept. That over-pruning is accepted for now: the rollback rewinds before it knows what the
+   * canonical chain re-delivers, so it cannot tell a re-mine from a content change, and a prune from the first
+   * differing leaf has to wait until the rollback becomes content-aware.
    *
    * Checkpointed blocks are never touched: a message store that disagrees with a checkpoint L1 accepted means one
    * of the two views of L1 is mid-reorg and this one is not necessarily the right one, so only the archive

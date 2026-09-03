@@ -1,4 +1,5 @@
 import type { Archiver } from '@aztec/archiver';
+import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
@@ -10,6 +11,7 @@ import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { L2BlockSourceEvents, type L2PruneUncheckpointedEvent } from '@aztec/stdlib/block';
+import { WorldStateSynchronizerError } from '@aztec/world-state';
 
 import 'jest-extended';
 
@@ -93,6 +95,16 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
     const consumedAtBlockNumber = await archiver.getBlockNumber();
     logger.warn(`Message consumed by proposed block ${consumedAtBlockNumber}`);
 
+    // Readiness is an archiver-side check, so pin down that world state also applied the consuming block: without
+    // this high-water mark, the rollback assertion after the reorg would also be satisfied by a world state that
+    // simply never got that far.
+    await retryUntil(
+      async () => (await node.getWorldStateSyncStatus()).latestBlockNumber >= consumedAtBlockNumber,
+      'world state synced to the consuming block',
+      L2_SLOT_DURATION_IN_S / 2,
+      0.2,
+    );
+
     // Wait for the withheld propose before reorging, and check it was the one covering the consuming block: the
     // cancellation is armed before the message is even sent, so under pipelining it could otherwise have taken
     // the previous slot's propose and left the consuming block published.
@@ -141,6 +153,43 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
     // have published the consuming ones never reached L1.
     const tipsAfterPrune = await archiver.getL2Tips();
     expect(tipsAfterPrune.checkpointed.block.number).toBeGreaterThanOrEqual(tipsBeforeReorg.checkpointed.block.number);
+
+    // World state does not consume the archiver's prune event; it rolls back when its own block stream reports the
+    // chain pruned, and until it does the L1-to-L2 tree that the next block is built on still holds the orphaned
+    // message. Same bound as the prune assertion above.
+    await retryUntil(
+      async () => (await node.getWorldStateSyncStatus()).latestBlockNumber < consumedAtBlockNumber,
+      'world state unwound past the consuming block',
+      L2_SLOT_DURATION_IN_S / 2,
+      0.2,
+    );
+
+    // Both sides keep advancing as the chain is rebuilt, so the trees are only comparable at a fixed height: world
+    // state's view at its own synced tip against the archiver's block there. Taking the view by block hash means a
+    // height rebuilt between the two reads is retried rather than compared across two different blocks.
+    const worldState = (context.aztecNodeService as TestAztecNodeService).worldStateSynchronizer;
+    const [worldStateTrees, blockAtWorldStateTip] = await retryUntil(
+      async () => {
+        const worldStateTip = (await node.getWorldStateSyncStatus()).latestBlockNumber;
+        const block = await archiver.getBlockData({ number: worldStateTip });
+        if (block === undefined) {
+          return undefined;
+        }
+        try {
+          const snapshot = await worldState.getVerifiedSnapshot(worldStateTip, block.blockHash);
+          return [await snapshot.getStateReference(), block] as const;
+        } catch (err) {
+          if (err instanceof WorldStateSynchronizerError) {
+            return undefined;
+          }
+          throw err;
+        }
+      },
+      'world state and archiver settled on the same block',
+      L2_SLOT_DURATION_IN_S / 2,
+      0.2,
+    );
+    expect(worldStateTrees.l1ToL2MessageTree).toEqual(blockAtWorldStateTip.header.state.l1ToL2MessageTree);
 
     // The orphaned message is gone for good, and no block can consume it again.
     expect(await isL1ToL2MessageReady(node, msg.msgHash)).toBe(false);
