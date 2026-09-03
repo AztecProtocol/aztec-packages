@@ -441,6 +441,51 @@ mod tests {
     }
 
     #[test]
+    fn equal_count_cross_category_swap_changes_leaf() {
+        let mut note_then_nullifier = TxEffect::empty();
+        note_then_nullifier.tx_hash = TX_HASH;
+        note_then_nullifier.note_hashes[0] = 11;
+        note_then_nullifier.nullifiers[0] = 22;
+
+        let mut nullifier_then_note = TxEffect::empty();
+        nullifier_then_note.tx_hash = TX_HASH;
+        nullifier_then_note.note_hashes[0] = 22;
+        nullifier_then_note.nullifiers[0] = 11;
+
+        let array_lengths = TxEffectArrayLengths {
+            note_hashes: 1,
+            nullifiers: 1,
+            l2_to_l1_msgs: 0,
+            public_data_writes: 0,
+            private_logs: 0,
+            contract_class_logs: 0,
+        };
+
+        assert(
+            compute_tx_effects_tree_leaf(note_then_nullifier, array_lengths)
+                != compute_tx_effects_tree_leaf(nullifier_then_note, array_lengths),
+        );
+    }
+
+    #[test]
+    fn scalar_mutations_change_leaf() {
+        let (tx_effect, array_lengths) = small_fixture();
+        let original_leaf = compute_tx_effects_tree_leaf(tx_effect, array_lengths);
+
+        let (mut changed_revert_code, _) = small_fixture();
+        changed_revert_code.revert_code += 1;
+        assert(compute_tx_effects_tree_leaf(changed_revert_code, array_lengths) != original_leaf);
+
+        let (mut changed_fee, _) = small_fixture();
+        changed_fee.transaction_fee += 1;
+        assert(compute_tx_effects_tree_leaf(changed_fee, array_lengths) != original_leaf);
+
+        let (mut changed_tx_hash, _) = small_fixture();
+        changed_tx_hash.tx_hash += 1;
+        assert(compute_tx_effects_tree_leaf(changed_tx_hash, array_lengths) != original_leaf);
+    }
+
+    #[test]
     fn leaf_effect_hash_and_category_hashes_are_all_distinct() {
         let (tx_effect, array_lengths) = small_fixture();
 
