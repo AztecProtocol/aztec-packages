@@ -176,6 +176,15 @@ inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330;
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
 inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 237768;
+inline constexpr char ECCVM_RECURSIVE_VERIFIER_VK_HASH[] =
+    "0x13d9b26a185ee427821b557b076afb8905af048d7e43f80629216f8ca496b378";
+
+// ========================================
+// Translator Recursive Verifier Constants
+// ========================================
+
+inline constexpr char TRANSLATOR_RECURSIVE_VERIFIER_VK_HASH[] =
+    "0x01938637486a18ea609d4c3b972f81575b000916febb97ce78f2bb6d752b8d0a";
 
 // ========================================
 // Goblin AVM Recursive Verifier Constants
