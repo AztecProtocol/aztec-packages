@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Guards a public-only publish site (a GitHub release here; npmjs and crates.io are the other public
+# channels). A private release — the aztec-packages-private repo, or any PRIVATE_RELEASE=1 run —
+# publishes ONLY to the internal Artifact Registry and must never emit a public artifact. Call this
+# at every public-publish site so a private release aborts here rather than leaking one, whatever
+# the call path — not only when the dispatch in bootstrap.sh::release happens to skip it.
+set -euo pipefail
+if [ "${PRIVATE_RELEASE:-0}" = 1 ] ||
+   [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
+  echo "assert_public_release: refusing a public publish during a private release (repo=${GITHUB_REPOSITORY:-unset}, PRIVATE_RELEASE=${PRIVATE_RELEASE:-0})." >&2
+  exit 1
+fi

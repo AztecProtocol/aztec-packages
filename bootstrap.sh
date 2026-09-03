@@ -563,6 +563,8 @@ function versions {
 function release_bb_github {
   # Create a GitHub release in AztecProtocol/barretenberg for bb artifacts.
   # Users can manually create releases in aztec-packages via the GitHub UI if needed.
+  # A private release must never reach a GitHub publish: refuse here regardless of call path.
+  "$root/ci3/assert_public_release"
   local bb_repo="AztecProtocol/barretenberg"
   if gh release view "$REF_NAME" --repo "$bb_repo" &>/dev/null; then
     return
@@ -641,9 +643,10 @@ function release_dryrun {
 }
 
 function private_release {
-  # Release flow for the private repo, run for any v* tag pushed there — routinely the nightly
-  # v<ver>-nightly.<date> tags (see ci3_labels_to_env.sh, which forces PRIVATE_RELEASE=1 for every
-  # release in that repo). We publish only our foundation npm packages (barretenberg/ts, noir,
+  # Release flow for the private repo, run for any v* tag pushed there: the v0.0.1-commit.<sha> tag a
+  # ci-release-pr label creates, on demand. There are no private nightlies by design
+  # (nightly-release-tag.yml runs in the public repo alone). ci3_labels_to_env.sh forces
+  # PRIVATE_RELEASE=1 for every release in that repo. We publish only our foundation npm packages (barretenberg/ts, noir,
   # ipc-runtime, wsdb, protocol/constants-codegen, l1-contracts' l1-artifacts, the noir-projects/fnd
   # artifacts packages) to the INTERNAL_NPM_REGISTRY npm repo in our internal GCP Artifact Registry.
   # We run the release step for real on exactly those components and do not invoke the others — the
@@ -971,7 +974,7 @@ case "$cmd" in
   "ci-private-release")
     # Local/dev entrypoint for the PRIVATE_RELEASE flow (see private_release): publish the foundation
     # npm packages to the internal GCP Artifact Registry.
-    # Same publishing path the private-release.yml workflow runs, minus EC2 and the compat-e2e gating.
+    # Same publishing path a release run in the private repo takes (ci3.yml on a tag), minus EC2.
     # Build first so the artifacts the publishes pack exist; set SKIP_BUILD=1 to reuse an existing
     # build. Requires GCP creds (GCP_PRIVATE_NPM_DEPLOY_KEY or GOOGLE_APPLICATION_CREDENTIALS) in the environment.
     export CI=${CI:-1}
@@ -988,10 +991,13 @@ case "$cmd" in
   # MERGE TRAIN CI SUBSETS #
   ##########################
   "ci-barretenberg-debug")
+    # Nightly job: no fail-fast, so one red test does not hide the rest of the debug-build signal.
     export CI=1
     export NATIVE_PRESET=debug
     export AVM=0
     export AVM_TRANSPILER=0
+    export NO_FAIL_FAST=1
+    barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh ci
     ;;
   "ci-barretenberg-nightly")
