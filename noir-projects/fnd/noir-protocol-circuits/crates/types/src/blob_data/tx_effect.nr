@@ -9,7 +9,7 @@ use crate::{
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     },
-    hash::{poseidon2_hash_subarray_with_separator, poseidon2_hash_with_separator},
+    hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Serialize},
 };
 use super::tx_blob_data::{
@@ -65,7 +65,8 @@ fn compute_tx_effect_field_hash<let N: u32>(blob_fields: [Field; N], length: u32
     if length == 0 {
         0
     } else {
-        poseidon2_hash_subarray_with_separator(blob_fields, length, DOM_SEP__TX_EFFECT_FIELD_HASH)
+        let inputs_with_separator = [(DOM_SEP__TX_EFFECT_FIELD_HASH as Field)].concat(blob_fields);
+        poseidon::poseidon2::Poseidon2::hash(inputs_with_separator, length + 1)
     }
 }
 
