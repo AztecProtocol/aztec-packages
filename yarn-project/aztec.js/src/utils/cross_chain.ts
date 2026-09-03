@@ -23,7 +23,7 @@ export function waitForL1ToL2MessageReady(
   },
 ): Promise<boolean> {
   return retryUntil(
-    () => isL1ToL2MessageReady(node, l1ToL2MessageHash, opts.chainTip),
+    () => isL1ToL2MessageReady(node, l1ToL2MessageHash, opts.chainTip).catch(() => false),
     `L1 to L2 message ${l1ToL2MessageHash.toString()} ready`,
     opts.timeoutSeconds,
     1,

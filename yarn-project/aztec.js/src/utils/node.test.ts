@@ -76,6 +76,16 @@ describe('waitForTx', () => {
       expect(receipt.status).toBe(TxStatus.CHECKPOINTED);
       expect(node.getTxReceipt).toHaveBeenCalledTimes(2);
     });
+
+    it('keeps waiting after a transient RPC error', async () => {
+      node.getTxReceipt
+        .mockRejectedValueOnce(new Error('connection reset'))
+        .mockResolvedValueOnce(minedReceipt(TxStatus.CHECKPOINTED));
+
+      const receipt = await waitForTx(node, txHash, { timeout: 1, interval: 0.01 });
+
+      expect(receipt.status).toBe(TxStatus.CHECKPOINTED);
+    });
   });
 
   describe('initialDelay option', () => {

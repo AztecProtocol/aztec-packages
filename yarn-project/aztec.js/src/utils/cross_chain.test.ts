@@ -4,7 +4,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { isL1ToL2MessageReady } from './cross_chain.js';
+import { isL1ToL2MessageReady, waitForL1ToL2MessageReady } from './cross_chain.js';
 
 describe('isL1ToL2MessageReady', () => {
   let node: MockProxy<Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageIndex'>>;
@@ -80,5 +80,18 @@ describe('isL1ToL2MessageReady', () => {
 
       expect(await isL1ToL2MessageReady(node, messageHash, 'proven')).toBe(true);
     });
+  });
+});
+
+describe('waitForL1ToL2MessageReady', () => {
+  it('keeps waiting after a transient RPC error', async () => {
+    const node = mock<Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageIndex'>>();
+    const messageHash = Fr.random();
+    node.getL1ToL2MessageIndex.mockRejectedValueOnce(new Error('connection reset')).mockResolvedValueOnce(0n);
+    node.getBlockData.mockResolvedValue({
+      header: { state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 1 } } },
+    } as BlockData);
+
+    await expect(waitForL1ToL2MessageReady(node, messageHash, { timeoutSeconds: 2 })).resolves.toBe(true);
   });
 });
