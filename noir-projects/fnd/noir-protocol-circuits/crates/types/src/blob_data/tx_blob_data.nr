@@ -29,6 +29,17 @@ pub struct TxEffectArrayLengths {
     pub contract_class_logs: u32,
 }
 
+pub struct TxBlobDataSections {
+    pub tx_start_marker: Field,
+    pub public_data_write_fields: [Field; PUBLIC_DATA_WRITES_BLOB_FIELDS_LENGTH],
+    pub num_public_data_write_fields: u32,
+    pub private_log_fields: [Field; PRIVATE_LOGS_BLOB_FIELDS_LENGTH],
+    pub num_private_log_fields: u32,
+    pub contract_class_log_fields: [Field; CONTRACT_CLASS_LOGS_BLOB_FIELDS_LENGTH],
+    pub num_contract_class_log_fields: u32,
+    pub num_blob_fields: u32,
+}
+
 // It's worth acknowledging that these values are all significant over-allocations.
 // E.g. a single tx won't have anywhere near 2^16 nullifiers or 2^32 public log fields, and there are constants in
 // kernel/rollup circuits which prescribe much smaller maximums.
@@ -283,6 +294,51 @@ pub fn create_contract_class_logs_blob_fields(
     }
 
     (blob_fields, offset)
+}
+
+pub fn create_tx_blob_data_sections(
+    tx_effect: TxEffect,
+    array_lengths: TxEffectArrayLengths,
+) -> TxBlobDataSections {
+    let (public_data_write_fields, num_public_data_write_fields) = create_public_data_writes_blob_fields(
+        tx_effect.public_data_writes,
+        array_lengths.public_data_writes,
+    );
+    let (private_log_fields, num_private_log_fields) =
+        create_private_logs_blob_fields(tx_effect.private_logs, array_lengths.private_logs);
+    let (contract_class_log_fields, num_contract_class_log_fields) = create_contract_class_logs_blob_fields(
+        tx_effect.contract_class_logs,
+        array_lengths.contract_class_logs,
+    );
+
+    let num_blob_fields = 3
+        + array_lengths.note_hashes
+        + array_lengths.nullifiers
+        + array_lengths.l2_to_l1_msgs
+        + num_public_data_write_fields
+        + num_private_log_fields
+        + tx_effect.public_logs.length
+        + num_contract_class_log_fields;
+    let private_logs_length = num_private_log_fields - array_lengths.private_logs;
+    let tx_start_marker = create_tx_start_marker(
+        num_blob_fields,
+        array_lengths,
+        private_logs_length,
+        tx_effect.public_logs.length,
+        tx_effect.contract_class_logs[0].log.length,
+        tx_effect.revert_code,
+    );
+
+    TxBlobDataSections {
+        tx_start_marker,
+        public_data_write_fields,
+        num_public_data_write_fields,
+        private_log_fields,
+        num_private_log_fields,
+        contract_class_log_fields,
+        num_contract_class_log_fields,
+        num_blob_fields,
+    }
 }
 
 pub fn create_tx_blob_data(

@@ -12,10 +12,7 @@ use crate::{
     hash::{compute_contract_class_log_hash, poseidon2_hash_with_separator},
     traits::{Deserialize, Empty, Serialize, ToField},
 };
-use super::tx_blob_data::{
-    create_private_logs_blob_fields, create_public_data_writes_blob_fields, create_tx_start_marker,
-    TxEffectArrayLengths,
-};
+use super::tx_blob_data::{create_tx_blob_data_sections, TxBlobDataSections, TxEffectArrayLengths};
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct TxEffect {
@@ -77,48 +74,26 @@ fn compute_tx_effect_field_hash<let N: u32>(blob_fields: [Field; N], length: u32
 fn compute_tx_effect_hash_inputs(
     tx_effect: TxEffect,
     array_lengths: TxEffectArrayLengths,
+    blob_data_sections: TxBlobDataSections,
 ) -> (Field, [Field; NUM_TX_EFFECT_FIELD_HASHES]) {
-    let (public_data_write_fields, num_public_data_write_fields) = create_public_data_writes_blob_fields(
-        tx_effect.public_data_writes,
-        array_lengths.public_data_writes,
-    );
-    let (private_log_fields, num_private_log_fields) =
-        create_private_logs_blob_fields(tx_effect.private_logs, array_lengths.private_logs);
     let contract_class_log_hash_fields = [
         tx_effect.contract_class_logs[0].contract_address.to_field(),
         tx_effect.contract_class_log_hashes[0],
     ];
     let num_contract_class_log_hash_fields = array_lengths.contract_class_logs * 2;
 
-    // The blob encoding opens with the tx start marker, the tx hash and the transaction fee.
-    let num_blob_fields = 3
-        + array_lengths.note_hashes
-        + array_lengths.nullifiers
-        + array_lengths.l2_to_l1_msgs
-        + num_public_data_write_fields
-        + num_private_log_fields
-        + tx_effect.public_logs.length
-        + array_lengths.contract_class_logs
-        + tx_effect.contract_class_logs[0].log.length;
-
-    // Each private log contributes a length field on top of its fields.
-    let private_logs_length = num_private_log_fields - array_lengths.private_logs;
-
-    let tx_start_marker = create_tx_start_marker(
-        num_blob_fields,
-        array_lengths,
-        private_logs_length,
-        tx_effect.public_logs.length,
-        tx_effect.contract_class_logs[0].log.length,
-        tx_effect.revert_code,
-    );
-
     let field_hashes = [
         compute_tx_effect_field_hash(tx_effect.note_hashes, array_lengths.note_hashes),
         compute_tx_effect_field_hash(tx_effect.nullifiers, array_lengths.nullifiers),
         compute_tx_effect_field_hash(tx_effect.l2_to_l1_msgs, array_lengths.l2_to_l1_msgs),
-        compute_tx_effect_field_hash(public_data_write_fields, num_public_data_write_fields),
-        compute_tx_effect_field_hash(private_log_fields, num_private_log_fields),
+        compute_tx_effect_field_hash(
+            blob_data_sections.public_data_write_fields,
+            blob_data_sections.num_public_data_write_fields,
+        ),
+        compute_tx_effect_field_hash(
+            blob_data_sections.private_log_fields,
+            blob_data_sections.num_private_log_fields,
+        ),
         compute_tx_effect_field_hash(tx_effect.public_logs.payload, tx_effect.public_logs.length),
         compute_tx_effect_field_hash(
             contract_class_log_hash_fields,
@@ -126,7 +101,7 @@ fn compute_tx_effect_hash_inputs(
         ),
     ];
 
-    (tx_start_marker, field_hashes)
+    (blob_data_sections.tx_start_marker, field_hashes)
 }
 
 /// Hash committing to the full contents of a tx's effects.
@@ -141,7 +116,9 @@ fn compute_tx_effect_hash_inputs(
 /// blob field count; the transaction fee is small enough to inline. The tx hash is bound at the leaf level instead
 /// (see `compute_tx_effect_leaf`).
 pub fn compute_tx_effect_hash(tx_effect: TxEffect, array_lengths: TxEffectArrayLengths) -> Field {
-    let (tx_start_marker, field_hashes) = compute_tx_effect_hash_inputs(tx_effect, array_lengths);
+    let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
+    let (tx_start_marker, field_hashes) =
+        compute_tx_effect_hash_inputs(tx_effect, array_lengths, blob_data_sections);
 
     let hash_inputs: [Field; NUM_TX_EFFECT_HASH_FIELDS] =
         [tx_start_marker, tx_effect.transaction_fee].concat(field_hashes);
@@ -183,10 +160,12 @@ mod tests {
         hash::{compute_contract_class_log_hash, poseidon2_hash_with_separator},
         traits::{Empty, FromField},
     };
-    use crate::blob_data::tx_blob_data::create_tx_blob_data;
+    use crate::blob_data::tx_blob_data::{
+        create_tx_blob_data, create_tx_blob_data_sections, create_tx_start_marker,
+    };
     use super::{
         accumulate_tx_effects_tree_root, compute_tx_effect_hash, compute_tx_effect_hash_inputs,
-        compute_tx_effect_leaf, create_tx_start_marker, TxEffect, TxEffectArrayLengths,
+        compute_tx_effect_leaf, TxEffect, TxEffectArrayLengths,
     };
 
     /// Copies `items` into a zero-padded array of size `M`.
@@ -350,8 +329,9 @@ mod tests {
             contract_class_logs: 0,
         };
 
+        let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
         let (tx_start_marker, field_hashes) =
-            compute_tx_effect_hash_inputs(tx_effect, array_lengths);
+            compute_tx_effect_hash_inputs(tx_effect, array_lengths, blob_data_sections);
         assert_eq(field_hashes, [0; 7]);
 
         // The marker still binds the (zero) counts and the 3 leading blob fields, so the tx effect hash of an
@@ -376,7 +356,9 @@ mod tests {
             contract_class_logs: 0,
         };
 
-        let (_, field_hashes) = compute_tx_effect_hash_inputs(tx_effect, array_lengths);
+        let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
+        let (_, field_hashes) =
+            compute_tx_effect_hash_inputs(tx_effect, array_lengths, blob_data_sections);
 
         assert_eq(field_hashes[0], field_hash([11]));
         assert(field_hashes[0] != 0);
@@ -415,8 +397,9 @@ mod tests {
 
         let leaf = compute_tx_effect_leaf(tx_effect, array_lengths);
         let tx_effect_hash = compute_tx_effect_hash(tx_effect, array_lengths);
+        let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
         let (tx_start_marker, field_hashes) =
-            compute_tx_effect_hash_inputs(tx_effect, array_lengths);
+            compute_tx_effect_hash_inputs(tx_effect, array_lengths, blob_data_sections);
 
         assert(leaf != tx_effect_hash);
         assert(leaf != TX_HASH);
