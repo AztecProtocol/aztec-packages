@@ -194,9 +194,13 @@ mod tests {
         },
         address::AztecAddress,
         constants::{
-            DOM_SEP__TX_EFFECT_CATEGORIES_HASH, DOM_SEP__TX_EFFECT_CATEGORY_HASH,
-            DOM_SEP__TX_EFFECTS_TREE, DOM_SEP__TX_EFFECTS_TREE_LEAF,
-            MAX_TX_BLOB_DATA_SIZE_IN_FIELDS,
+            CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__TX_EFFECT_CATEGORIES_HASH,
+            DOM_SEP__TX_EFFECT_CATEGORY_HASH, DOM_SEP__TX_EFFECTS_TREE,
+            DOM_SEP__TX_EFFECTS_TREE_LEAF, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
+            MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+            MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
+            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS,
+            PRIVATE_LOG_SIZE_IN_FIELDS,
         },
         hash::{compute_contract_class_log_hash, poseidon2_hash_with_separator},
         traits::{Empty, FromField},
@@ -483,6 +487,60 @@ mod tests {
         let (mut changed_tx_hash, _) = small_fixture();
         changed_tx_hash.tx_hash += 1;
         assert(compute_tx_effects_tree_leaf(changed_tx_hash, array_lengths) != original_leaf);
+    }
+
+    #[test]
+    fn maximum_size_effect_can_be_committed() {
+        let mut tx_effect = TxEffect::empty();
+        tx_effect.tx_hash = TX_HASH;
+        tx_effect.transaction_fee = TRANSACTION_FEE;
+
+        for i in 0..MAX_NOTE_HASHES_PER_TX {
+            tx_effect.note_hashes[i] = (i + 1) as Field;
+        }
+        for i in 0..MAX_NULLIFIERS_PER_TX {
+            tx_effect.nullifiers[i] = (i + 101) as Field;
+        }
+        for i in 0..MAX_L2_TO_L1_MSGS_PER_TX {
+            tx_effect.l2_to_l1_msgs[i] = (i + 201) as Field;
+        }
+        for i in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+            tx_effect.public_data_writes[i] =
+                PublicDataWrite { leaf_slot: (i + 301) as Field, value: (i + 401) as Field };
+        }
+        for i in 0..MAX_PRIVATE_LOGS_PER_TX {
+            tx_effect.private_logs[i] = PrivateLog::new(
+                [(i + 501) as Field; PRIVATE_LOG_SIZE_IN_FIELDS],
+                PRIVATE_LOG_SIZE_IN_FIELDS,
+            );
+        }
+        tx_effect.public_logs = PublicLogs::new(
+            [601; FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH],
+            FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
+        );
+        tx_effect.contract_class_logs[0] = ContractClassLog {
+            log: Log::new(
+                [701; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS],
+                CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+            ),
+            contract_address: AztecAddress::from_field(801),
+        };
+        tx_effect.contract_class_log_hashes[0] =
+            compute_contract_class_log_hash(tx_effect.contract_class_logs[0].log.fields);
+
+        let array_lengths = TxEffectArrayLengths {
+            note_hashes: MAX_NOTE_HASHES_PER_TX,
+            nullifiers: MAX_NULLIFIERS_PER_TX,
+            l2_to_l1_msgs: MAX_L2_TO_L1_MSGS_PER_TX,
+            public_data_writes: MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            private_logs: MAX_PRIVATE_LOGS_PER_TX,
+            contract_class_logs: MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        };
+
+        assert(compute_tx_effects_tree_leaf(tx_effect, array_lengths) != 0);
+        let mut sponge = SpongeBlob::init();
+        sponge.absorb_tx_blob_data(tx_effect, array_lengths);
+        assert(sponge != SpongeBlob::init());
     }
 
     #[test]
