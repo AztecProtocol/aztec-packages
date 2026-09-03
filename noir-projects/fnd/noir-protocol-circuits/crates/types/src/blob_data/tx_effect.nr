@@ -184,8 +184,9 @@ mod tests {
         hash::{compute_contract_class_log_hash, poseidon2_hash_with_separator},
         traits::{Empty, FromField},
     };
-    use crate::blob_data::tx_blob_data::{
-        create_tx_blob_data, create_tx_blob_data_sections, create_tx_start_marker,
+    use crate::blob_data::{
+        SpongeBlob,
+        tx_blob_data::{create_tx_blob_data_sections, create_tx_start_marker},
     };
     use super::{
         accumulate_tx_effects_tree_root, compute_tx_effect_hash, compute_tx_effect_hash_inputs,
@@ -305,14 +306,12 @@ mod tests {
         assert_eq(compute_tx_effect_leaf(tx_effect, array_lengths), test_data_tx_effect_leaf);
     }
 
-    /// The sub-hash preimages must be exactly the field's slice of the blob encoding. `create_tx_blob_data` checks
-    /// the concatenated encoding against the tx effect independently of the per-field slice builders, so running it
-    /// on the fixture pins the slices to the canonical layout.
+    /// The sponge must absorb the same field stream as the flat blob encoding.
     #[test]
-    fn per_field_slices_concatenate_to_the_blob_encoding() {
+    fn tx_blob_sections_match_flat_blob_encoding() {
         let (tx_effect, array_lengths) = small_fixture();
-
-        let (blob_fields, num_blob_fields) = create_tx_blob_data(tx_effect, array_lengths);
+        let mut sectioned_sponge = SpongeBlob::init();
+        sectioned_sponge.absorb_tx_blob_data(tx_effect, array_lengths);
 
         let expected_blob_fields: [Field; MAX_TX_BLOB_DATA_SIZE_IN_FIELDS] = pad_end([
             small_fixture_tx_start_marker(),
@@ -337,8 +336,10 @@ mod tests {
             302,
         ]);
 
-        assert_eq(num_blob_fields, 20);
-        assert_eq(blob_fields, expected_blob_fields);
+        let mut flat_sponge = SpongeBlob::init();
+        flat_sponge.absorb(expected_blob_fields, 20);
+
+        assert_eq(sectioned_sponge, flat_sponge);
     }
 
     #[test]
