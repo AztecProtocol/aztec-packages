@@ -50,14 +50,17 @@ const DEFAULT_L1_READ_TIMEOUT_MS = 2_000;
 
 /**
  * Decides when an Inbox bucket's opening L1 block is safe from the common one-block reorg, using only EL block reads.
+ * A bucket becomes eligible once a child block is observed on top of the block carrying it, or the following L1 slot
+ * was missed and that block is still canonical after it.
  *
- * A bucket opened in L1 block `N` (number `h`, hash `H`, timestamp `T`) is eligible once either
+ * Concretely, a bucket opened in L1 block `N` (number `h`, hash `H`, timestamp `T`) is eligible once either
  *
  * - block `h + 1` is visible and its `parentHash` is `H` — `N` then survives even if that child is itself reorged,
  *   since the replacement builds on the same parent; or
  * - slot `S + 1` has fully elapsed (`now >= T + 2E`) and block `h` still hashes to `H`, which covers a missed slot
- *   `S + 1`. Past that point the honest fork-choice reorg mechanism can no longer displace `N`, as it only ever
- *   reorgs the head's immediate successor slot.
+ *   `S + 1`. Once `S + 1` has passed with no child, the attestations slot `S`'s committee already cast for `N` keep
+ *   it canonical under honest fork choice, and proposer boost only ever weights the current slot's proposal, so it
+ *   cannot lift a competitor from a past slot above it.
  *
  * A child with a different parent, or a block `h` with a different hash, means `N` is already orphaned: the bucket is
  * permanently ineligible under this tracker, and the archiver will roll it back shortly.
@@ -65,7 +68,7 @@ const DEFAULT_L1_READ_TIMEOUT_MS = 2_000;
  * Age in seconds is deliberately not the rule. A replacement block lands at roughly `T + 13..15`, which is *after*
  * the `T + 12` tick an age-of-one-Ethereum-slot rule would have released the bucket at, so that rule buys no safety
  * at all; and with a missed slot a bucket can be a full Ethereum slot old while still sitting in the latest L1 block.
- * Waiting for evidence of a descendant is both cheaper (usually ~`T + 14`) and actually sound.
+ * Waiting for evidence of a descendant is cheaper too (usually ~`T + 14`).
  *
  * One tracker is meant to live for one proposal job (one slot). It is frugal with RPCs: it performs no call before a
  * child could exist, caches confirmations for its lifetime, caches rejections for the second they were computed in,
