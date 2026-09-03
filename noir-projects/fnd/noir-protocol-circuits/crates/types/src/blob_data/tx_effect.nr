@@ -211,8 +211,8 @@ mod tests {
     };
     use super::{
         accumulate_tx_effects_tree_root, compute_tx_effect_categories_hash,
-        compute_tx_effect_categories_hash_inputs, compute_tx_effects_tree_leaf, TxEffect,
-        TxEffectArrayLengths,
+        compute_tx_effect_categories_hash_inputs, compute_tx_effect_category_hash,
+        compute_tx_effects_tree_leaf, TxEffect, TxEffectArrayLengths,
     };
 
     /// Copies `items` into a zero-padded array of size `M`.
@@ -267,6 +267,28 @@ mod tests {
 
     fn category_hash<let N: u32>(blob_fields: [Field; N]) -> Field {
         poseidon2_hash_with_separator(blob_fields, DOM_SEP__TX_EFFECT_CATEGORY_HASH)
+    }
+
+    fn assert_category_hash_matches_fixed<let N: u32, let M: u32>(
+        fields: [Field; N],
+        padded_fields: [Field; M],
+    ) {
+        assert_eq(compute_tx_effect_category_hash(padded_fields, N), category_hash(fields));
+    }
+
+    #[test]
+    fn category_hash_matches_fixed_length_for_each_small_prefix() {
+        let padded_fields = [11, 12, 13, 14, 15, 16, 17, 18];
+
+        assert_eq(compute_tx_effect_category_hash(padded_fields, 0), 0);
+        assert_category_hash_matches_fixed([11], padded_fields);
+        assert_category_hash_matches_fixed([11, 12], padded_fields);
+        assert_category_hash_matches_fixed([11, 12, 13], padded_fields);
+        assert_category_hash_matches_fixed([11, 12, 13, 14], padded_fields);
+        assert_category_hash_matches_fixed([11, 12, 13, 14, 15], padded_fields);
+        assert_category_hash_matches_fixed([11, 12, 13, 14, 15, 16], padded_fields);
+        assert_category_hash_matches_fixed([11, 12, 13, 14, 15, 16, 17], padded_fields);
+        assert_category_hash_matches_fixed(padded_fields, padded_fields);
     }
 
     /// The tx start marker of the fixture, computed independently of the code under test.
