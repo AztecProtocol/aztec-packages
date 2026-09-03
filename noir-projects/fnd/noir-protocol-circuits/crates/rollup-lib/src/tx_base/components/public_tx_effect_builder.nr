@@ -119,6 +119,7 @@ pub fn build_tx_effect(
         private_logs,
         public_logs: avm.accumulated_data.public_logs,
         contract_class_logs,
+        contract_class_log_hashes: contract_class_log_hashes.map(|log_hash| log_hash.inner.value),
     };
 
     let private_logs_array_length = get_private_log_array_length(private_logs);

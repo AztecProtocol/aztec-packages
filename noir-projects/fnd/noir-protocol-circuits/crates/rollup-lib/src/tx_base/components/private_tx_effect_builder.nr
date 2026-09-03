@@ -81,6 +81,9 @@ pub fn build_tx_effect(
         private_logs: accumulated_data.private_logs,
         public_logs: PublicLogs::empty(),
         contract_class_logs,
+        contract_class_log_hashes: accumulated_data.contract_class_logs_hashes.map(|log_hash| {
+            log_hash.inner.value
+        }),
     };
 
     // The Tail kernel circuit guarantees that all accumulated data arrays are "dense-trimmed": all actual data emitted

@@ -77,9 +77,7 @@ fn tx_with_all_private_side_effects() {
     let fee_payer_balance_leaf_preimage =
         builder.pre_existing_public_data_preimages[builder.fee_payer_preimage_index];
     let private_log = builder.private_tail.end.private_logs[0];
-    let contract_class_log_address =
-        builder.private_tail.end.contract_class_logs_hashes[0].contract_address;
-    let contract_class_log_fields = builder.contract_class_log_fields[0];
+    let contract_class_log_hash = builder.private_tail.end.contract_class_logs_hashes[0];
 
     // The 3 leading fields, 2 note hashes, 1 nullifier, 1 l2-to-l1 message, the fee payer's balance write (2 fields),
     // 1 private log (1 length field + 2 fields) and 1 contract class log (1 address field + 3 fields).
@@ -116,10 +114,8 @@ fn tx_with_all_private_side_effects() {
             tx_effect_field_hash([2, private_log.fields[0], private_log.fields[1]]),
             0, // A private tx emits no public logs.
             tx_effect_field_hash([
-                contract_class_log_address.to_field(),
-                contract_class_log_fields[0],
-                contract_class_log_fields[1],
-                contract_class_log_fields[2],
+                contract_class_log_hash.contract_address.to_field(),
+                contract_class_log_hash.inner.value,
             ]),
         ],
     );

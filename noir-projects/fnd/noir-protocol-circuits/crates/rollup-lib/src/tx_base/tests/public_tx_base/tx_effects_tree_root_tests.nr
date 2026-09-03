@@ -36,12 +36,8 @@ unconstrained fn tx_with_all_side_effects() {
     let public_data_write = builder.avm.accumulated_data.public_data_writes[0];
     let public_logs_payload = builder.avm.accumulated_data.public_logs.payload;
     let private_log = builder.private_tail.revertible_accumulated_data.private_logs[0];
-    let contract_class_log_address = builder
-        .private_tail
-        .revertible_accumulated_data
-        .contract_class_logs_hashes[0]
-        .contract_address;
-    let contract_class_log_fields = builder.contract_class_log_fields[0];
+    let contract_class_log_hash =
+        builder.private_tail.revertible_accumulated_data.contract_class_logs_hashes[0];
 
     // The 3 leading fields, 2 note hashes, 2 nullifiers, 2 l2-to-l1 messages, 1 public data write (2 fields), 1
     // private log (1 length field + 2 fields), 2 public log fields and 1 contract class log (1 address field + 3
@@ -76,10 +72,8 @@ unconstrained fn tx_with_all_side_effects() {
             tx_effect_field_hash([2, private_log.fields[0], private_log.fields[1]]),
             tx_effect_field_hash([public_logs_payload[0], public_logs_payload[1]]),
             tx_effect_field_hash([
-                contract_class_log_address.to_field(),
-                contract_class_log_fields[0],
-                contract_class_log_fields[1],
-                contract_class_log_fields[2],
+                contract_class_log_hash.contract_address.to_field(),
+                contract_class_log_hash.inner.value,
             ]),
         ],
     );

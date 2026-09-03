@@ -9,12 +9,12 @@ use crate::{
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     },
-    hash::poseidon2_hash_with_separator,
-    traits::{Deserialize, Empty, Serialize},
+    hash::{compute_contract_class_log_hash, poseidon2_hash_with_separator},
+    traits::{Deserialize, Empty, Serialize, ToField},
 };
 use super::tx_blob_data::{
-    create_contract_class_logs_blob_fields, create_private_logs_blob_fields,
-    create_public_data_writes_blob_fields, create_tx_start_marker, TxEffectArrayLengths,
+    create_private_logs_blob_fields, create_public_data_writes_blob_fields, create_tx_start_marker,
+    TxEffectArrayLengths,
 };
 
 #[derive(Deserialize, Eq, Serialize)]
@@ -29,6 +29,7 @@ pub struct TxEffect {
     pub private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
     pub public_logs: PublicLogs,
     pub contract_class_logs: [ContractClassLog; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    pub contract_class_log_hashes: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 }
 
 impl Empty for TxEffect {
@@ -46,6 +47,7 @@ impl Empty for TxEffect {
             private_logs: [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX],
             public_logs: PublicLogs::empty(),
             contract_class_logs: [ContractClassLog::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
+            contract_class_log_hashes: [0; MAX_CONTRACT_CLASS_LOGS_PER_TX],
         }
     }
 }
@@ -82,10 +84,11 @@ fn compute_tx_effect_hash_inputs(
     );
     let (private_log_fields, num_private_log_fields) =
         create_private_logs_blob_fields(tx_effect.private_logs, array_lengths.private_logs);
-    let (contract_class_log_fields, num_contract_class_log_fields) = create_contract_class_logs_blob_fields(
-        tx_effect.contract_class_logs,
-        array_lengths.contract_class_logs,
-    );
+    let contract_class_log_hash_fields = [
+        tx_effect.contract_class_logs[0].contract_address.to_field(),
+        tx_effect.contract_class_log_hashes[0],
+    ];
+    let num_contract_class_log_hash_fields = array_lengths.contract_class_logs * 2;
 
     // The blob encoding opens with the tx start marker, the tx hash and the transaction fee.
     let num_blob_fields = 3
@@ -95,7 +98,8 @@ fn compute_tx_effect_hash_inputs(
         + num_public_data_write_fields
         + num_private_log_fields
         + tx_effect.public_logs.length
-        + num_contract_class_log_fields;
+        + array_lengths.contract_class_logs
+        + tx_effect.contract_class_logs[0].log.length;
 
     // Each private log contributes a length field on top of its fields.
     let private_logs_length = num_private_log_fields - array_lengths.private_logs;
@@ -116,7 +120,10 @@ fn compute_tx_effect_hash_inputs(
         compute_tx_effect_field_hash(public_data_write_fields, num_public_data_write_fields),
         compute_tx_effect_field_hash(private_log_fields, num_private_log_fields),
         compute_tx_effect_field_hash(tx_effect.public_logs.payload, tx_effect.public_logs.length),
-        compute_tx_effect_field_hash(contract_class_log_fields, num_contract_class_log_fields),
+        compute_tx_effect_field_hash(
+            contract_class_log_hash_fields,
+            num_contract_class_log_hash_fields,
+        ),
     ];
 
     (tx_start_marker, field_hashes)
@@ -128,10 +135,11 @@ fn compute_tx_effect_hash_inputs(
 /// taken over those sub-hashes plus the small scalar fields inline. Proving a single field (e.g. one note hash)
 /// therefore only requires the preimage of that field's sub-hash, with the other sub-hashes as opaque witnesses.
 ///
-/// Each sub-hash preimage is that field's slice of the blob encoding (see `create_tx_blob_data`), over the actual
-/// runtime length, so no new serialization format is introduced. The tx start marker binds the revert code, every
-/// array count and the total blob field count; the transaction fee is small enough to inline. The tx hash is bound
-/// at the leaf level instead (see `compute_tx_effect_leaf`).
+/// Each sub-hash preimage is that field's slice of the blob encoding over the actual runtime length, except for the
+/// contract class log. Its preimage is the contract address and the full padded-log hash that the tx base already
+/// validates against the kernel output. The tx start marker binds the revert code, every array count and the total
+/// blob field count; the transaction fee is small enough to inline. The tx hash is bound at the leaf level instead
+/// (see `compute_tx_effect_leaf`).
 pub fn compute_tx_effect_hash(tx_effect: TxEffect, array_lengths: TxEffectArrayLengths) -> Field {
     let (tx_start_marker, field_hashes) = compute_tx_effect_hash_inputs(tx_effect, array_lengths);
 
@@ -172,7 +180,7 @@ mod tests {
             DOM_SEP__TX_EFFECT_FIELD_HASH, DOM_SEP__TX_EFFECT_HASH, DOM_SEP__TX_EFFECT_LEAF,
             DOM_SEP__TX_EFFECTS_TREE, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS,
         },
-        hash::poseidon2_hash_with_separator,
+        hash::{compute_contract_class_log_hash, poseidon2_hash_with_separator},
         traits::{Empty, FromField},
     };
     use crate::blob_data::tx_blob_data::create_tx_blob_data;
@@ -216,6 +224,8 @@ mod tests {
             log: Log::new(pad_end([301, 302]), 2),
             contract_address: AztecAddress::from_field(CONTRACT_CLASS_LOG_ADDRESS),
         };
+        tx_effect.contract_class_log_hashes[0] =
+            compute_contract_class_log_hash(tx_effect.contract_class_logs[0].log.fields);
 
         let array_lengths = TxEffectArrayLengths {
             note_hashes: 2,
@@ -263,7 +273,9 @@ mod tests {
                 field_hash([41, 42]),
                 field_hash([3, 101, 102, 103]),
                 field_hash([2, PUBLIC_LOG_ADDRESS, 201, 202]),
-                field_hash([CONTRACT_CLASS_LOG_ADDRESS, 301, 302]),
+                field_hash(
+                    [CONTRACT_CLASS_LOG_ADDRESS, tx_effect.contract_class_log_hashes[0]],
+                ),
             ],
             DOM_SEP__TX_EFFECT_HASH,
         );
@@ -285,7 +297,7 @@ mod tests {
 
         // Generated from yarn-project/stdlib/src/tx/tx_effect.test.ts
         let test_data_tx_effect_leaf =
-            0x23123931ffdee54cf34fbf657b7817ad5fcae54bce508a739a01977591b991cc;
+            0x09927fb173cb1b27828db4e24d227a621f61bb668aca36f2b1e458a31585455a;
 
         assert_eq(compute_tx_effect_leaf(tx_effect, array_lengths), test_data_tx_effect_leaf);
     }
