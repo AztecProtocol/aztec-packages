@@ -54,7 +54,12 @@ import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { AttestorPublisherPair, SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { MockCheckpointBuilder, MockCheckpointsBuilder, mockInboxBuckets } from '../test/utils.js';
+import {
+  MockCheckpointBuilder,
+  MockCheckpointsBuilder,
+  mockInboxBuckets,
+  serveAddedBlocksFromSource,
+} from '../test/utils.js';
 import * as TestUtils from '../test/utils.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
@@ -317,13 +322,6 @@ describe('sequencer', () => {
     checkpointBuilder.setBlockProvider(() => block);
 
     l2BlockSource = mock<L2BlockSource & L2BlockSink & ProposedCheckpointSink>({
-      getBlockData: mockFn().mockResolvedValue({
-        header: BlockHeader.empty(),
-        archive: AppendOnlyTreeSnapshot.empty(),
-        blockHash: BlockHash.ZERO,
-        checkpointNumber: CheckpointNumber(0),
-        indexWithinCheckpoint: IndexWithinCheckpoint(0),
-      } satisfies BlockData),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
@@ -346,6 +344,15 @@ describe('sequencer', () => {
       getCheckpointsData: mockFn().mockResolvedValue([]),
       getSyncedL2SlotNumber: mockFn().mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER)),
       getProposedCheckpointData: mockFn().mockResolvedValue(undefined),
+    });
+    // The proposer pushes each block it builds to the archiver and reads the last one back before publishing;
+    // anything it never built (the sync check's own tip lookups) falls back to the empty block data.
+    serveAddedBlocksFromSource(l2BlockSource, l2BlockSource, {
+      header: BlockHeader.empty(),
+      archive: AppendOnlyTreeSnapshot.empty(),
+      blockHash: BlockHash.ZERO,
+      checkpointNumber: CheckpointNumber(0),
+      indexWithinCheckpoint: IndexWithinCheckpoint(0),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({

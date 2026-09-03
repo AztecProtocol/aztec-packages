@@ -379,7 +379,7 @@ export class CheckpointProposalJob implements Traceable {
       if (signedAttestations && (await this.waitForValidParentCheckpointOnL1())) {
         // Attestation collection took seconds; re-resolve the hint once more in case L1 reorged in that window.
         const bucketHint = await this.resolveBucketHint(broadcast.streamingState, checkpoint.header, 'publish-failed');
-        if (bucketHint !== undefined) {
+        if (bucketHint !== undefined && (await this.checkpointBlocksAreStillLocal(checkpoint))) {
           await this.enqueueCheckpointForSubmission({ checkpoint, ...signedAttestations, bucketHint });
         }
       }
@@ -448,6 +448,44 @@ export class CheckpointProposalJob implements Traceable {
       this.eventEmitter.emit('checkpoint-publish-failed', { slot: this.targetSlot });
       this.metrics.recordPipelineDiscard();
     }
+  }
+
+  /**
+   * Whether the local archiver still holds the last block of the checkpoint about to be published, under the hash it
+   * was built with. Attestation collection takes seconds, and the archiver can drop the proposed blocks in that
+   * window: the end-of-slot prune takes every block of a slot that closed without a checkpoint, and a checkpoint seen
+   * on L1 that conflicts with the local chain prunes the blocks it disagrees with. Publishing blocks this node no
+   * longer holds would put a checkpoint on L1 that its own archiver cannot serve.
+   *
+   * The hash is compared rather than the height alone, since a chain rebuilt after a prune reuses the block numbers.
+   */
+  private async checkpointBlocksAreStillLocal(checkpoint: Checkpoint): Promise<boolean> {
+    const lastBlock = checkpoint.blocks.at(-1);
+    if (lastBlock === undefined) {
+      return true;
+    }
+    const blockHash = await lastBlock.hash();
+    const local = await this.l2BlockSource.getBlockData({ number: lastBlock.number });
+    if (local !== undefined && local.blockHash.equals(blockHash)) {
+      return true;
+    }
+
+    const context = {
+      slot: this.targetSlot,
+      checkpointNumber: this.checkpointNumber,
+      blockNumber: lastBlock.number,
+      blockHash: blockHash.toString(),
+      localBlockHash: local?.blockHash.toString(),
+      reason: 'checkpoint_blocks_pruned',
+    };
+    this.logCheckpointEvent('publish-failed', `Checkpoint publish failed for slot ${this.targetSlot}`, context);
+    this.log.warn(
+      `The local archiver no longer holds the blocks of this checkpoint; abandoning slot ${this.targetSlot} rather ` +
+        `than publishing a checkpoint this node cannot serve`,
+      context,
+    );
+    this.metrics.recordCheckpointProposalFailed('checkpoint_blocks_pruned');
+    return false;
   }
 
   /** Enqueues the checkpoint for L1 submission. Called after pipeline sleep in execute(). */

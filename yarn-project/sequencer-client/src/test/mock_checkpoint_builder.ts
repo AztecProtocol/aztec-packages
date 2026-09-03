@@ -101,11 +101,14 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
       usedTxs = [];
       this.builtBlocks.push(block);
     } else {
-      // Seeded mode: get block from pre-seeded list
+      // Seeded mode: get block from pre-seeded list. A caller that asks for more blocks than were seeded gets
+      // undefined, which the job reports as a failed build; it never becomes part of the checkpoint.
       block = this.blocks[this.blockIndex];
       usedTxs = this.usedTxsPerBlock[this.blockIndex] ?? [];
       this.blockIndex++;
-      this.builtBlocks.push(block);
+      if (block !== undefined) {
+        this.builtBlocks.push(block);
+      }
     }
 
     // Check that no pending tx has already been consumed
@@ -132,8 +135,9 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
 
   completeCheckpoint(): Promise<Checkpoint> {
     this.completeCheckpointCalled = true;
-    const allBlocks = this.blockProvider ? this.builtBlocks : this.blocks;
-    return this.buildCheckpoint(allBlocks);
+    // Only the blocks that were actually built, so a checkpoint never carries a seeded block the caller stopped
+    // short of and never pushed to the archiver.
+    return this.buildCheckpoint(this.builtBlocks);
   }
 
   getCheckpoint(): Promise<Checkpoint> {
