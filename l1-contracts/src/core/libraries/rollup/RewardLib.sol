@@ -151,7 +151,9 @@ library RewardLib {
     return accumulatedRewards;
   }
 
-  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) internal {
+  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch, bool _fullEpochProof)
+    internal
+  {
     RollupStore storage rollupStore = STFLib.getStorage();
     RewardStorage storage rewardStorage = getStorage();
 
@@ -163,10 +165,10 @@ library RewardLib {
       address prover = _args.args.proverId;
 
       require($sr.shares[prover] == 0, Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch));
-      // Beware that it is possible to get marked active in an epoch even if you did not provide the longest
-      // proof. This is acceptable, as they were actually active. And boosting this way is not the most
-      // efficient way to do it, so this is fine.
-      uint256 shares = rewardStorage.config.booster.updateAndGetShares(prover);
+      // The prover is only marked active if they have provided a full epoch proof
+      uint256 shares = _fullEpochProof
+        ? rewardStorage.config.booster.updateAndGetShares(prover)
+        : rewardStorage.config.booster.getSharesFor(prover);
 
       // The duplicate-submission guard above uses `shares == 0` as the sentinel for "not yet
       // submitted". A booster that ever returns zero would let the same prover submit again

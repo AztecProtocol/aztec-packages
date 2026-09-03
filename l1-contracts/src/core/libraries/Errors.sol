@@ -65,6 +65,7 @@ library Errors {
   error Rollup__InvalidOutHash(bytes32 expected, bytes32 actual); // 0x8eb39062
   error Rollup__InvalidPreviousArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidProof(); // 0xa5b2ba17
+  error Rollup__InvalidProofSubmissionEpochs(uint256 minimum, uint256 provided);
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
   error Rollup__InvalidAttestations();
