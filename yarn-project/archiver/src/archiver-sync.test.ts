@@ -1847,10 +1847,11 @@ describe('Archiver Sync', () => {
 
       expect(countReorgWarnings(warnSpy)).toEqual(1);
       expect(countWarnings(warnSpy, 'rolling back to bucket 37')).toEqual(1);
-      // The walk reads one block per orphaned bucket and stops at the first canonical one, which the re-fetch that
-      // follows checks once more; the buckets below it are never read, and neither are the per-message logs of the
-      // rolling-hash fallback.
-      expect(fake.countL1BlockReads(136n)).toEqual(2);
+      // The walk reads one block per orphaned bucket and stops at the first canonical one; the re-fetch that follows
+      // checks the block of the last message it read instead. The buckets below the canonical one are never read,
+      // and neither are the per-message logs of the rolling-hash fallback.
+      expect(fake.countL1BlockReads(136n)).toEqual(1);
+      expect(fake.countL1BlockReads(140n)).toEqual(1);
       expect(fake.countL1BlockReads(134n)).toEqual(0);
       expect(fake.countL1BlockReads(100n)).toEqual(0);
       expect(eventByHashSpy).not.toHaveBeenCalled();
@@ -1925,6 +1926,44 @@ describe('Archiver Sync', () => {
         l1BlockHash: fake.getL1BlockHash(140n),
         timestamp: fake.getTimestampAtL1Block(140n),
       });
+    });
+
+    it('does not move the finalized block past the syncpoint of a rollback that stops short of the head', async () => {
+      const early = [Fr.random(), Fr.random()];
+      const late = [Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 100n, early);
+      fake.addMessages(CheckpointNumber(2), 102n, late);
+      fake.setFinalizedL1BlockNumber(90n);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      expect(await archiverStore.messages.getMessagesFinalizedL1Block()).toMatchObject({ l1BlockNumber: 90n });
+
+      // Records the finalized block as each syncpoint write leaves it, so the swap's own commit can be told apart
+      // from the regular fetch that catches up after it within the same pass.
+      const setMessageSyncState = archiverStore.messages.setMessageSyncState.bind(archiverStore.messages);
+      const syncStates: { syncPoint: bigint; finalized: bigint | undefined }[] = [];
+      jest.spyOn(archiverStore.messages, 'setMessageSyncState').mockImplementation(async (l1Block, finalized) => {
+        await setMessageSyncState(l1Block, finalized);
+        const stored = await archiverStore.messages.getMessagesFinalizedL1Block();
+        syncStates.push({ syncPoint: l1Block.l1BlockNumber, finalized: stored?.l1BlockNumber });
+      });
+
+      // The node comes back a day later: the block its newest bucket sat on was orphaned, and L1 has moved thousands
+      // of blocks with more messages and a much higher finalized block. The swap only needs the canonical messages
+      // up to the last index it holds, so it stops at the batch that covers them, well below the head.
+      fake.retimeMessages(102n, 103n);
+      fake.addMessages(CheckpointNumber(3), 4000n, [Fr.random()]);
+      fake.setFinalizedL1BlockNumber(3000n);
+      fake.setL1BlockNumber(5000n);
+      await archiver.syncImmediate();
+
+      // The rolling-hash fallback trusts everything at or below the finalized block without asking L1, so a marker
+      // above the syncpoint would let it skip a range this node never synced.
+      expect(syncStates[0]).toEqual({ syncPoint: 2100n, finalized: 90n });
+      // The regular fetch resumes from there and advances the marker once it has caught up with the head.
+      expect(await archiverStore.messages.getSynchedL1Block()).toMatchObject({ l1BlockNumber: 5000n });
+      expect(await archiverStore.messages.getMessagesFinalizedL1Block()).toMatchObject({ l1BlockNumber: 3000n });
+      expect(await getStoredLeaves()).toHaveLength(4);
     });
 
     it('skips the fetch and fails the pass when the L1 block of the newest bucket cannot be read', async () => {
@@ -2140,6 +2179,86 @@ describe('Archiver Sync', () => {
         expect(await getStoredLeaves()).toHaveLength(2);
         expect(fake.countL1BlockReads(100n)).toEqual(0);
       });
+
+      describe('a reorg landing while the rollback reads the canonical messages', () => {
+        /** Makes the given reorg land on every log query after the first one of a fetch, so every pass sees it. */
+        const reorgAfterFirstLogQuery = (reorg: () => void) => {
+          const readLogs = inboxContract.getMessageSentEvents.getMockImplementation()!;
+          inboxContract.getMessageSentEvents.mockImplementation((fromBlock, toBlock) => {
+            if (fromBlock > firstQueryEnd) {
+              reorg();
+            }
+            return readLogs(fromBlock, toBlock);
+          });
+        };
+
+        // Rolls the newest bucket back so the pass swaps the messages above the bucket on L1 block 100, over a range
+        // wide enough to take more than one log query. Returns the state the swap must leave untouched.
+        const syncAndReorgNewestBucket = async (lateL1Block: bigint) => {
+          fake.addMessages(CheckpointNumber(1), 100n, [Fr.random()]);
+          fake.addMessages(CheckpointNumber(2), lateL1Block, [Fr.random()]);
+          fake.setFinalizedL1BlockNumber(90n);
+          fake.setL1BlockNumber(firstQueryEnd + 1000n);
+          await archiver.syncImmediate();
+
+          const before = {
+            leaves: await getStoredLeaves(),
+            buckets: [await archiverStore.messages.getInboxBucket(1n), await archiverStore.messages.getInboxBucket(2n)],
+            syncPoint: await archiverStore.messages.getSynchedL1Block(),
+          };
+          return before;
+        };
+
+        const expectStoreUntouched = async (before: Awaited<ReturnType<typeof syncAndReorgNewestBucket>>) => {
+          expect(await getStoredLeaves()).toEqual(before.leaves);
+          expect(await archiverStore.messages.getInboxBucket(1n)).toEqual(before.buckets[0]);
+          expect(await archiverStore.messages.getInboxBucket(2n)).toEqual(before.buckets[1]);
+          expect(await archiverStore.messages.getSynchedL1Block()).toEqual(before.syncPoint);
+        };
+
+        it('writes nothing when an earlier batch is orphaned mid-read', async () => {
+          const before = await syncAndReorgNewestBucket(firstQueryEnd + 500n);
+
+          // Bucket 2 is re-timed, so the rollback re-reads everything from bucket 1's block on. Block 100 is then
+          // replaced while the second log query of that read is in flight, which leaves the first batch on a fork.
+          fake.retimeMessages(firstQueryEnd + 500n, firstQueryEnd + 501n);
+          const warnSpy = jest.spyOn(syncLogger, 'warn');
+          reorgAfterFirstLogQuery(() => fake.reorgL1BlocksFrom(100n));
+          await expect(archiver.syncImmediate()).rejects.toThrow('Retries exhausted');
+
+          expect(countWarnings(warnSpy, 'was replaced while they were being read')).toBeGreaterThanOrEqual(1);
+          await expectStoreUntouched(before);
+        });
+
+        it('writes nothing when the last batch is orphaned mid-read', async () => {
+          const before = await syncAndReorgNewestBucket(firstQueryEnd + 500n);
+
+          // The final batch is the one that decides what is pruned, so it is checked against the live chain too,
+          // even though the regular fetch leaves it to the next pass.
+          fake.retimeMessages(firstQueryEnd + 500n, firstQueryEnd + 501n);
+          const warnSpy = jest.spyOn(syncLogger, 'warn');
+          reorgAfterFirstLogQuery(() => fake.reorgL1BlocksFrom(firstQueryEnd + 501n));
+          await expect(archiver.syncImmediate()).rejects.toThrow('Retries exhausted');
+
+          expect(countWarnings(warnSpy, `L1 block ${firstQueryEnd + 501n} was replaced`)).toBeGreaterThanOrEqual(1);
+          await expectStoreUntouched(before);
+        });
+
+        it('writes nothing when the last batch is empty and the batch before it is orphaned mid-read', async () => {
+          const before = await syncAndReorgNewestBucket(firstQueryEnd + 500n);
+
+          // The canonical chain dropped the message of bucket 2, so the batch covering its L1 block comes back
+          // empty and the tail of the batch before it is the only one there is to check.
+          fake.removeMessagesAfter(1);
+          fake.reorgL1BlocksFrom(firstQueryEnd + 500n);
+          const warnSpy = jest.spyOn(syncLogger, 'warn');
+          reorgAfterFirstLogQuery(() => fake.reorgL1BlocksFrom(100n));
+          await expect(archiver.syncImmediate()).rejects.toThrow('Retries exhausted');
+
+          expect(countWarnings(warnSpy, 'L1 block 100 was replaced')).toBeGreaterThanOrEqual(1);
+          await expectStoreUntouched(before);
+        });
+      });
     });
 
     it('catches up over many buckets after an outage without per-message log lookups', async () => {
@@ -2267,6 +2386,204 @@ describe('Archiver Sync', () => {
       expect(pruneSpy).toHaveBeenCalledWith(
         expect.objectContaining({ type: L2BlockSourceEvents.L2PruneUncheckpointed, blocks: [blocks[1]] }),
       );
+    });
+
+    it('keeps the proposed chain when the reorg re-mines the same messages', async () => {
+      const { early, late } = addMessages();
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+
+      const blocks = await makeBlocksConsumingThrough([2, 4, 4]);
+      for (const block of blocks) {
+        await archiver.addBlock(block);
+      }
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(3));
+      const bucketBefore = await archiverStore.messages.getInboxBucket(2n);
+
+      // L1 block 102 is orphaned and its two messages are re-mined in block 103, in the same order. Every leaf the
+      // proposed blocks consumed is still there under the same index, so L1 would accept the checkpoint carrying
+      // them and the local chain must survive.
+      fake.retimeMessages(102n, 103n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([...early, ...late]));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(3));
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await archiverStore.messages.getInboxBucket(2n)).toEqual({
+        ...bucketBefore,
+        l1BlockNumber: 103n,
+        l1BlockHash: fake.getL1BlockHash(103n),
+        timestamp: fake.getTimestampAtL1Block(103n),
+      });
+    });
+
+    it('keeps the proposed chain when the reorg merges the bucket it consumed into an earlier one', async () => {
+      const { early, late } = addMessages();
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+
+      const blocks = await makeBlocksConsumingThrough([2, 4]);
+      for (const block of blocks) {
+        await archiver.addBlock(block);
+      }
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+      // The rolling hash the checkpoint carrying these blocks committed to.
+      const consumedRollingHash = (await archiverStore.messages.getInboxBucket(2n))!.inboxRollingHash;
+
+      // The messages of block 100 are re-mined into block 102, so all four end up in a single bucket. The leaves
+      // and their order are untouched, so the blocks that consumed them stay valid.
+      fake.retimeMessages(100n, 102n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([...early, ...late]));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await archiverStore.messages.getInboxBucket(1n)).toMatchObject({ msgCount: 4, l1BlockNumber: 102n });
+      expect(await archiverStore.messages.getInboxBucket(2n)).toBeUndefined();
+      // The proposer re-resolves its publish hint to the merged bucket, so the sealed header stays publishable.
+      expect(await archiverStore.messages.getInboxBucketByRollingHash(consumedRollingHash)).toMatchObject({ seq: 1n });
+    });
+
+    it('prunes from the first leaf the reorg changed, not from the start of its bucket', async () => {
+      const { early, late } = addMessages();
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+
+      // Block 2 consumed only the first of the two messages of L1 block 102, block 3 consumed both.
+      const blocks = await makeBlocksConsumingThrough([2, 3, 4]);
+      for (const block of blocks) {
+        await archiver.addBlock(block);
+      }
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(3));
+
+      // L1 block 102 is re-mined carrying only its first message, so index 2 survives and index 3 is gone.
+      fake.removeMessagesAfter(3);
+      fake.reorgL1BlocksFrom(102n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([...early, late[0]]));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: L2BlockSourceEvents.L2PruneUncheckpointed, blocks: [blocks[2]] }),
+      );
+    });
+
+    it('prunes from the dropped leaf when a reorg cuts the tail of a bucket spanning two L1 blocks', async () => {
+      // Blocks 100 and 101 are mined with the same timestamp, so their messages share a bucket spanning both.
+      fake.shareTimestampWithL1Block(101n, 100n);
+      const msgs = [Fr.random(), Fr.random(), Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 98n, [msgs[0]]);
+      fake.addMessages(CheckpointNumber(1), 100n, [msgs[1]]);
+      fake.addMessages(CheckpointNumber(1), 101n, [msgs[2]]);
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+      expect(await archiverStore.messages.getInboxBucketL1Span(2n)).toMatchObject({
+        openedAt: { l1BlockNumber: 100n },
+        closedAt: { l1BlockNumber: 101n },
+      });
+
+      const blocks = await makeBlocksConsumingThrough([2, 3]);
+      for (const block of blocks) {
+        await archiver.addBlock(block);
+      }
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+
+      // Only block 101 is replaced, and it comes back without its message. The bucket keeps its opening block and
+      // its first message, so the block that stopped at index 1 is untouched.
+      fake.removeMessagesAfter(2);
+      fake.reorgL1BlocksFrom(101n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(msgs.slice(0, 2)));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(1));
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: L2BlockSourceEvents.L2PruneUncheckpointed, blocks: [blocks[1]] }),
+      );
+      expect(await archiverStore.messages.getInboxBucket(2n)).toMatchObject({ msgCount: 1, l1BlockNumber: 100n });
+      expect(await archiverStore.messages.getInboxBucketL1Span(2n)).toMatchObject({
+        openedAt: { l1BlockNumber: 100n },
+        closedAt: { l1BlockNumber: 100n },
+      });
+    });
+
+    it('keeps the proposed chain when the reorg re-times a bucket with rollover siblings', async () => {
+      // A single L1 block with more messages than a bucket holds spills into a rollover bucket sharing its opening
+      // block, so rolling back to the sibling re-downloads both. Neither may be disturbed.
+      const rollover = times(260, () => Fr.random());
+      const later = [Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 100n, rollover);
+      fake.addMessages(CheckpointNumber(1), 102n, later);
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+
+      const firstBucket = await archiverStore.messages.getInboxBucket(1n);
+      const secondBucket = await archiverStore.messages.getInboxBucket(2n);
+      expect(firstBucket).toMatchObject({ msgCount: 256, l1BlockNumber: 100n });
+      expect(secondBucket).toMatchObject({ msgCount: 4, l1BlockNumber: 100n });
+
+      const blocks = await makeBlocksConsumingThrough([260, 261]);
+      for (const block of blocks) {
+        await archiver.addBlock(block);
+      }
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+
+      fake.retimeMessages(102n, 103n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([...rollover, ...later]));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await archiverStore.messages.getInboxBucket(1n)).toEqual(firstBucket);
+      expect(await archiverStore.messages.getInboxBucket(2n)).toEqual(secondBucket);
+      expect(await archiverStore.messages.getInboxBucket(3n)).toMatchObject({ msgCount: 1, l1BlockNumber: 103n });
+    });
+
+    // The swap has to commit as a whole: a crash between the messages and the syncpoint would leave the store
+    // holding buckets from the canonical chain behind a syncpoint that says they were never fetched.
+    it('leaves the store untouched when the swap fails after writing the messages', async () => {
+      const { early, late } = addMessages();
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+
+      const blocks = await makeBlocksConsumingThrough([2, 4, 4]);
+      for (const block of blocks) {
+        await archiver.addBlock(block);
+      }
+      const bucketsBefore = [
+        await archiverStore.messages.getInboxBucket(1n),
+        await archiverStore.messages.getInboxBucket(2n),
+      ];
+      const syncPointBefore = await archiverStore.messages.getSynchedL1Block();
+
+      const syncPointFailure = new Error('cannot move the syncpoint');
+      jest.spyOn(archiverStore.messages, 'setSynchedL1Block').mockImplementationOnce(() => {
+        throw syncPointFailure;
+      });
+
+      fake.retimeMessages(102n, 103n);
+      await expect(archiver.syncImmediate()).rejects.toThrow(syncPointFailure);
+
+      expect(await getStoredLeaves()).toEqual(asHex([...early, ...late]));
+      expect(await archiverStore.messages.getTotalL1ToL2MessageCount()).toEqual(4n);
+      expect(await archiverStore.messages.getInboxBucket(1n)).toEqual(bucketsBefore[0]);
+      expect(await archiverStore.messages.getInboxBucket(2n)).toEqual(bucketsBefore[1]);
+      expect((await archiverStore.messages.getLatestInboxBucketAtOrBefore(bucketsBefore[1]!.timestamp))!.seq).toEqual(
+        2n,
+      );
+      expect(
+        (await archiverStore.messages.getInboxBucketByRollingHash(bucketsBefore[1]!.inboxRollingHash))!.seq,
+      ).toEqual(2n);
+      expect(await archiverStore.messages.getSynchedL1Block()).toEqual(syncPointBefore);
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(3));
+      expect((await archiver.getL2Tips()).proposed.number).toEqual(BlockNumber(3));
+
+      // With the store rolled back, the next pass sees the same mismatch and completes the swap.
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([...early, ...late]));
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(3));
+      expect(await archiverStore.messages.getInboxBucket(2n)).toMatchObject({ l1BlockNumber: 103n });
+      expect(pruneSpy).not.toHaveBeenCalled();
     });
 
     // The rollback and the prune have to commit together: if the messages were dropped on their own, the next
