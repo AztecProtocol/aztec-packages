@@ -161,12 +161,10 @@ export class EmbeddedWallet extends BaseWallet {
     // PXE has autoSync disabled by the embedded wallet entrypoints, so we sync once here to cover
     // both the inner simulateTx (via simulateViaEntrypoint) and the proveTx that super.sendTx
     await this.pxe.sync();
-    const feeOptions = await this.completeFeeOptions({
-      from: opts.from,
-      feePayer: executionPayload.feePayer,
-      gasSettings: opts.fee?.gasSettings,
-      forEstimation: true,
-    });
+    const feeOptions = {
+      accountFeePaymentMethodOptions: this.decideAccountFeePaymentMethodOptions(opts.from, executionPayload.feePayer),
+      gasSettings: await this.calculateGasSettings(opts.fee?.gasSettings, true),
+    };
 
     // Simulate the transaction first to estimate gas and capture required
     // private authwitnesses based on offchain effects.

@@ -117,26 +117,17 @@ export class CLIWallet extends BaseWallet {
     increasedFee: InteractionFeeOptions,
   ) {
     const executionPayload = ExecutionPayload.empty();
-    const feeOptions = await this.completeFeeOptions({
-      from,
-      feePayer: executionPayload.feePayer,
-      gasSettings: increasedFee.gasSettings,
-    });
-    const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
+    const gasSettings = await this.calculateGasSettings(increasedFee.gasSettings, false);
+    const accountFeePaymentMethodOptions = this.decideAccountFeePaymentMethodOptions(from, executionPayload.feePayer);
     const fromAccount = await this.getAccountFromAddress(from);
     const chainInfo = await this.getChainInfo();
     const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce,
       cancellable: this.cancellableTransactions,
-      // If from is an address, feeOptions include the way the account contract should handle the fee payment
-      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
+      // The account contract needs to know how this transaction handles fee payment.
+      feePaymentMethodOptions: accountFeePaymentMethodOptions!,
     };
-    return await fromAccount.createTxExecutionRequest(
-      feeExecutionPayload ?? executionPayload,
-      feeOptions.gasSettings,
-      chainInfo,
-      executionOptions,
-    );
+    return await fromAccount.createTxExecutionRequest(executionPayload, gasSettings, chainInfo, executionOptions);
   }
 
   async proveCancellationTx(
