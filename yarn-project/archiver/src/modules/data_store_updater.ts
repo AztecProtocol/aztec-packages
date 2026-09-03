@@ -24,6 +24,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ArchiverDataStores } from '../store/data_stores.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
+import type { InboxMessage } from '../structs/inbox_message.js';
 
 /** Operation type for contract data updates. */
 enum Operation {
@@ -304,16 +305,41 @@ export class ArchiverDataStoreUpdater {
   }
 
   /**
+   * Replaces the messages above the last canonical Inbox bucket with the ones the canonical chain delivers, and
+   * prunes the proposed blocks that consumed a leaf the swap changed, in a single transaction.
+   *
+   * Splitting the two would make the prune unrecoverable, for the same reason
+   * {@link rewindMessagesAndPruneProposedBlocks} keeps them together: the next sync pass would find the local
+   * messages consistent with L1 and never come back to the blocks built on the leaves that are gone.
+   *
+   * @returns The pruned blocks.
+   */
+  public async replaceMessagesAndPruneProposedBlocks(args: {
+    lastCanonicalBucketSeq: bigint | undefined;
+    firstDifferingIndex: bigint | undefined;
+    messages: InboxMessage[];
+    syncPoint: L1BlockId;
+    finalizedL1Block: L1BlockId | undefined;
+  }): Promise<L2Block[]> {
+    const prunedBlocks = await this.stores.db.transactionAsync(async () => {
+      await this.stores.messages.replaceMessagesAboveBucket(args);
+      return args.firstDifferingIndex === undefined
+        ? []
+        : await this.removeProposedBlocksConsumingMessagesFrom(args.firstDifferingIndex);
+    });
+    await this.l2TipsCache?.refresh();
+    return prunedBlocks;
+  }
+
+  /**
    * Removes the proposed (not yet L1-checkpointed) blocks that consumed an L1-to-L2 message at or after
    * `firstRemovedIndex`, along with every block after them. A block's L1-to-L2 tree leaf count is the cumulative
    * count of messages consumed through it, so a leaf count above the index means the block consumed a message the
    * local chain no longer has, and one equal to it means the block stopped below it.
    *
-   * The index is where the rollback rewound to, not the first leaf whose value actually changed, so a reorg that
-   * re-mines the same messages in a different L1 block also prunes blocks whose trees are unchanged and which L1
-   * would still accept. That over-pruning is accepted for now: the rollback rewinds before it knows what the
-   * canonical chain re-delivers, so it cannot tell a re-mine from a content change, and a prune from the first
-   * differing leaf has to wait until the rollback becomes content-aware.
+   * The index is the first leaf whose value actually changed, so a reorg that re-mines the same messages in a
+   * different L1 block prunes nothing, and one that replaces the tail of a bucket keeps the blocks that stopped
+   * below the replaced leaf.
    *
    * Checkpointed blocks are never touched: a message store that disagrees with a checkpoint L1 accepted means one
    * of the two views of L1 is mid-reorg and this one is not necessarily the right one, so only the archive
