@@ -79,3 +79,18 @@ unconstrained fn tx_with_all_side_effects() {
     );
     assert_eq(pi.accumulated_tx_effects_tree_root, expected);
 }
+
+#[test]
+unconstrained fn reverted_tx_changes_root() {
+    let builder = TestBuilder::new();
+    let unreverted = builder.execute();
+
+    let mut reverted_builder = builder;
+    reverted_builder.avm.reverted = true;
+    let reverted = reverted_builder.execute();
+    reverted_builder.assert_expected_public_inputs(reverted);
+
+    assert(
+        reverted.accumulated_tx_effects_tree_root != unreverted.accumulated_tx_effects_tree_root,
+    );
+}
