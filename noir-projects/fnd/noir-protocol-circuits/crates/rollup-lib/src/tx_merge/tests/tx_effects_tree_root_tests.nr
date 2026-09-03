@@ -20,7 +20,7 @@ global FIRST_TX_INDEX: u16 = 6;
 fn tx_base_rollup(tx_index: u32) -> TxRollupPublicInputs {
     let mut rollup =
         RollupFixtureBuilder::new().get_tx_rollup_public_inputs(FIRST_TX_INDEX + tx_index as u16);
-    rollup.tx_effects_tree_root = LEAVES[tx_index];
+    rollup.accumulated_tx_effects_tree_root = LEAVES[tx_index];
     rollup
 }
 
@@ -51,7 +51,10 @@ fn two_txs() {
     let merged = merge_bases(tx_base_rollup(0), tx_base_rollup(1));
 
     assert_eq(merged.num_txs, 2);
-    assert_eq(merged.tx_effects_tree_root, accumulate_tx_effects_tree_root(LEAVES[0], LEAVES[1]));
+    assert_eq(
+        merged.accumulated_tx_effects_tree_root,
+        accumulate_tx_effects_tree_root(LEAVES[0], LEAVES[1]),
+    );
 }
 
 #[test]
@@ -67,7 +70,7 @@ fn three_txs() {
 
     assert_eq(merged.num_txs, 3);
     assert_eq(
-        merged.tx_effects_tree_root,
+        merged.accumulated_tx_effects_tree_root,
         accumulate_tx_effects_tree_root(
             accumulate_tx_effects_tree_root(LEAVES[0], LEAVES[1]),
             LEAVES[2],
@@ -95,7 +98,7 @@ fn five_txs() {
 
     assert_eq(merged.num_txs, 5);
     assert_eq(
-        merged.tx_effects_tree_root,
+        merged.accumulated_tx_effects_tree_root,
         accumulate_tx_effects_tree_root(
             accumulate_tx_effects_tree_root(
                 accumulate_tx_effects_tree_root(LEAVES[0], LEAVES[1]),

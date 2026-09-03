@@ -1,0 +1,349 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Thu, 3 Sep 2026 21:24:31 +0000
+Subject: [PATCH] refactor: clarify tx effects tree naming
+
+
+diff --git a/yarn-project/archiver/src/modules/tx_effects_tree_resolver.test.ts b/yarn-project/archiver/src/modules/tx_effects_tree_resolver.test.ts
+index 6a1eb913223ba6febdc64dad5e3eb8b40c3d362b..e7bbffaae19f9a90d533a72f82f7056abfe6780e 100644
+--- a/yarn-project/archiver/src/modules/tx_effects_tree_resolver.test.ts
++++ b/yarn-project/archiver/src/modules/tx_effects_tree_resolver.test.ts
+@@ -43,7 +43,7 @@ describe('TxEffectsTreeResolver', () => {
+       expect(witness).toBeDefined();
+       expect(witness!.blockNumber).toBe(BLOCK_NUMBER);
+       expect(witness!.root).toEqual(root);
+-      expect(await verifyTxEffectMembershipWitness(await txEffect.computeTxEffectLeaf(), witness!, root)).toBe(true);
++      expect(await verifyTxEffectMembershipWitness(await txEffect.computeTxEffectsTreeLeaf(), witness!, root)).toBe(true);
+     }
+   });
+ 
+@@ -68,14 +68,14 @@ describe('TxEffectsTreeResolver', () => {
+     expect(witness!.siblingPath.pathSize).toBe(0);
+     expect(witness!.leafIndex).toBe(0n);
+     expect(witness!.root).toEqual(root);
+-    expect(root).toEqual(await body.txEffects[0].computeTxEffectLeaf());
++    expect(root).toEqual(await body.txEffects[0].computeTxEffectsTreeLeaf());
+   });
+ 
+   // Serves a second leaf that does not match the second tx's effects, so a resolver that recomputed the leaves from the
+   // block body instead of reading the stored ones would build a different tree and fail the header root check.
+   it('builds the witness from the stored leaves rather than recomputing them from the block', async () => {
+     const body = await makeBody(2);
+-    const storedLeaves = [await body.txEffects[0].computeTxEffectLeaf(), Fr.random()];
++    const storedLeaves = [await body.txEffects[0].computeTxEffectsTreeLeaf(), Fr.random()];
+     const root = await wireStore(blocks, body, await hashPair(storedLeaves[0], storedLeaves[1]));
+     blocks.getTxEffectLeaves.mockResolvedValue(storedLeaves);
+ 
+@@ -107,7 +107,7 @@ describe('TxEffectsTreeResolver', () => {
+   it('throws when the stored leaf does not match the effects served for the tx', async () => {
+     const body = await makeBody(2);
+     await wireStore(blocks, body);
+-    blocks.getTxEffectLeaves.mockResolvedValue([Fr.random(), await body.txEffects[1].computeTxEffectLeaf()]);
++    blocks.getTxEffectLeaves.mockResolvedValue([Fr.random(), await body.txEffects[1].computeTxEffectsTreeLeaf()]);
+ 
+     await expect(resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash)).rejects.toThrow('is indexed at');
+   });
+diff --git a/yarn-project/archiver/src/modules/tx_effects_tree_resolver.ts b/yarn-project/archiver/src/modules/tx_effects_tree_resolver.ts
+index 450aca63eeb68b6df469c35c760cb3b3ef37e94d..6caec7794cdaf81110a92fbe91ff772c9bc6d496 100644
+--- a/yarn-project/archiver/src/modules/tx_effects_tree_resolver.ts
++++ b/yarn-project/archiver/src/modules/tx_effects_tree_resolver.ts
+@@ -64,7 +64,7 @@ export class TxEffectsTreeResolver {
+       }
+ 
+       const txIndexInBlock = indexed.txIndexInBlock;
+-      const leaf = await indexed.data.computeTxEffectLeaf();
++      const leaf = await indexed.data.computeTxEffectsTreeLeaf();
+       if (!leaves[txIndexInBlock]?.equals(leaf)) {
+         throw new Error(
+           `Tx ${txHash} is indexed at position ${txIndexInBlock} of block ${blockNumber} but the leaf stored for ` +
+diff --git a/yarn-project/noir-protocol-circuits-types/src/conversion/server.ts b/yarn-project/noir-protocol-circuits-types/src/conversion/server.ts
+index d39a38652a0ce16fc6722fd0955180545e166a2e..c20d90963486d666ab12299291a4a5eb39337d44 100644
+--- a/yarn-project/noir-protocol-circuits-types/src/conversion/server.ts
++++ b/yarn-project/noir-protocol-circuits-types/src/conversion/server.ts
+@@ -423,7 +423,7 @@ export function mapTxRollupPublicInputsFromNoir(publicInputs: TxRollupPublicInpu
+     mapSpongeBlobFromNoir(publicInputs.start_sponge_blob),
+     mapSpongeBlobFromNoir(publicInputs.end_sponge_blob),
+     mapFieldFromNoir(publicInputs.out_hash),
+-    mapFieldFromNoir(publicInputs.tx_effects_tree_root),
++    mapFieldFromNoir(publicInputs.accumulated_tx_effects_tree_root),
+     mapFieldFromNoir(publicInputs.accumulated_fees),
+     mapFieldFromNoir(publicInputs.accumulated_mana_used),
+   );
+@@ -438,7 +438,7 @@ export function mapTxRollupPublicInputsToNoir(publicInputs: TxRollupPublicInputs
+     start_sponge_blob: mapSpongeBlobToNoir(publicInputs.startSpongeBlob),
+     end_sponge_blob: mapSpongeBlobToNoir(publicInputs.endSpongeBlob),
+     out_hash: mapFieldToNoir(publicInputs.outHash),
+-    tx_effects_tree_root: mapFieldToNoir(publicInputs.txEffectsTreeRoot),
++    accumulated_tx_effects_tree_root: mapFieldToNoir(publicInputs.accumulatedTxEffectsTreeRoot),
+     accumulated_fees: mapFieldToNoir(publicInputs.accumulatedFees),
+     accumulated_mana_used: mapFieldToNoir(publicInputs.accumulatedManaUsed),
+   };
+diff --git a/yarn-project/stdlib/src/block/body.test.ts b/yarn-project/stdlib/src/block/body.test.ts
+index d5753c467814518645b604ca41e8efcb7ceeb5e9..5800e1a2b3bfddc888f2fb337f38d7a5ada4abba 100644
+--- a/yarn-project/stdlib/src/block/body.test.ts
++++ b/yarn-project/stdlib/src/block/body.test.ts
+@@ -35,7 +35,7 @@ describe('Body', () => {
+ 
+     const makeBody = (txsPerBlock: number) => Body.random({ txsPerBlock, maxEffects: 1, numPublicCallsPerTx: 1 });
+ 
+-    const leaves = (body: Body) => Promise.all(body.txEffects.map(txEffect => txEffect.computeTxEffectLeaf()));
++    const leaves = (body: Body) => Promise.all(body.txEffects.map(txEffect => txEffect.computeTxEffectsTreeLeaf()));
+ 
+     it('is zero for a block with no txs', async () => {
+       expect(await Body.empty().computeTxEffectsTreeRoot()).toEqual(Fr.ZERO);
+diff --git a/yarn-project/stdlib/src/rollup/tx_rollup_public_inputs.ts b/yarn-project/stdlib/src/rollup/tx_rollup_public_inputs.ts
+index 224d0c8d64bd125b87055ea44663664243a6a255..534aa2fce1458e70f7636ad117a86b5ace83a60d 100644
+--- a/yarn-project/stdlib/src/rollup/tx_rollup_public_inputs.ts
++++ b/yarn-project/stdlib/src/rollup/tx_rollup_public_inputs.ts
+@@ -42,13 +42,15 @@ export class TxRollupPublicInputs {
+      */
+     public outHash: Fr,
+     /**
+-     * Root of the tx effects tree over the constituent transactions, with one leaf per tx.
++     * Accumulating root of the tx-effects tree over the constituent transactions, with one leaf per tx. The block
++     * root circuit places the completed value in `BlockHeader.txEffectsTreeRoot`.
+      *
+      * Accumulated pairwise up the rollup tree with `DomainSeparator.TX_EFFECTS_TREE`, without skipping zero roots. The
+      * greedy-fill assertions on the rollup tree admit exactly one shape per tx count, so the root is a function of the
+-     * txs and their count alone.
++     * txs and their count alone. Consumers that do not know the tx count must recompute a leaf from its full tx effect,
++     * rather than accept a bare untrusted leaf with a variable-depth membership path.
+      */
+-    public txEffectsTreeRoot: Fr,
++    public accumulatedTxEffectsTreeRoot: Fr,
+     /**
+      * The summed `transaction_fee` of the constituent transactions.
+      */
+@@ -113,7 +115,7 @@ export class TxRollupPublicInputs {
+       this.endSpongeBlob,
+ 
+       this.outHash,
+-      this.txEffectsTreeRoot,
++      this.accumulatedTxEffectsTreeRoot,
+ 
+       this.accumulatedFees,
+       this.accumulatedManaUsed,
+diff --git a/yarn-project/stdlib/src/tx/tx_effect.test.ts b/yarn-project/stdlib/src/tx/tx_effect.test.ts
+index a076903d5af1fbd52c574c2c4d7924a2ff888aeb..df6ef370a78a433c6a87c92cf21efbdf524350df 100644
+--- a/yarn-project/stdlib/src/tx/tx_effect.test.ts
++++ b/yarn-project/stdlib/src/tx/tx_effect.test.ts
+@@ -37,7 +37,7 @@ function smallFixture(): TxEffect {
+   );
+ }
+ 
+-const fieldHash = (blobFields: Fr[]) => poseidon2HashWithSeparator(blobFields, DomainSeparator.TX_EFFECT_FIELD_HASH);
++const fieldHash = (blobFields: Fr[]) => poseidon2HashWithSeparator(blobFields, DomainSeparator.TX_EFFECT_CATEGORY_HASH);
+ 
+ describe('TxEffect', () => {
+   it('converts to and from buffer', async () => {
+@@ -131,10 +131,10 @@ describe('TxEffect', () => {
+             await txEffect.contractClassLogs[0].hash(),
+           ]),
+         ],
+-        DomainSeparator.TX_EFFECT_HASH,
++        DomainSeparator.TX_EFFECT_CATEGORIES_HASH,
+       );
+ 
+-      expect(await txEffect.computeTxEffectHash()).toEqual(expectedTxEffectHash);
++      expect(await txEffect.computeTxEffectCategoriesHash()).toEqual(expectedTxEffectHash);
+     });
+ 
+     it('hashes empty fields to zero', async () => {
+@@ -142,27 +142,27 @@ describe('TxEffect', () => {
+ 
+       const expectedTxEffectHash = await poseidon2HashWithSeparator(
+         [encodeTxStartMarker(txEffect.getTxStartMarker()), Fr.ZERO, ...Array(7).fill(Fr.ZERO)],
+-        DomainSeparator.TX_EFFECT_HASH,
++        DomainSeparator.TX_EFFECT_CATEGORIES_HASH,
+       );
+ 
+-      expect(await txEffect.computeTxEffectHash()).toEqual(expectedTxEffectHash);
++      expect(await txEffect.computeTxEffectCategoriesHash()).toEqual(expectedTxEffectHash);
+     });
+ 
+     it('binds the tx hash into the leaf', async () => {
+       const txEffect = smallFixture();
+ 
+       const expectedLeaf = await poseidon2HashWithSeparator(
+-        [txEffect.txHash.hash, await txEffect.computeTxEffectHash()],
+-        DomainSeparator.TX_EFFECT_LEAF,
++        [txEffect.txHash.hash, await txEffect.computeTxEffectCategoriesHash()],
++        DomainSeparator.TX_EFFECTS_TREE_LEAF,
+       );
+ 
+-      expect(await txEffect.computeTxEffectLeaf()).toEqual(expectedLeaf);
++      expect(await txEffect.computeTxEffectsTreeLeaf()).toEqual(expectedLeaf);
+     });
+ 
+     it('computes the leaf of the fixture', async () => {
+-      const leaf = await smallFixture().computeTxEffectLeaf();
++      const leaf = await smallFixture().computeTxEffectsTreeLeaf();
+       expect(leaf.toString()).toMatchInlineSnapshot(
+-        `"0x09927fb173cb1b27828db4e24d227a621f61bb668aca36f2b1e458a31585455a"`,
++        `"0x2d0cc62a893d49f71987d6bddb8d5d3f1efe4c7f015cbc8f4b7b2b04331a8978"`,
+       );
+ 
+       // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+diff --git a/yarn-project/stdlib/src/tx/tx_effect.ts b/yarn-project/stdlib/src/tx/tx_effect.ts
+index f0e44b5eb9d04587633640e84738808a03f06b79..c1a141e84f42219c8c5c102a0c899d05b20121f7 100644
+--- a/yarn-project/stdlib/src/tx/tx_effect.ts
++++ b/yarn-project/stdlib/src/tx/tx_effect.ts
+@@ -290,25 +290,25 @@ export class TxEffect {
+   /**
+    * Hash committing to the full contents of this tx's effects.
+    *
+-   * The hash is structured rather than flat: each variable-length field is hashed on its own first, and this hash is
+-   * taken over those sub-hashes plus the small scalar fields inline. Proving a single field (e.g. one note hash)
+-   * therefore only requires the preimage of that field's sub-hash, with the other sub-hashes as opaque witnesses.
++   * The hash is structured rather than flat: each variable-length effect category is hashed on its own first, and
++   * this hash is taken over those category hashes plus the small scalar fields inline. Proving a single field (e.g.
++   * one note hash) therefore only requires its category preimage, with the other category hashes as opaque witnesses.
+    *
+-   * Must match `compute_tx_effect_hash` in noir-protocol-circuits/crates/types/src/blob_data/tx_effect.nr.
++   * Must match `compute_tx_effect_categories_hash` in noir-protocol-circuits/crates/types/src/blob_data/tx_effect.nr.
+    */
+-  async computeTxEffectHash(): Promise<Fr> {
++  async computeTxEffectCategoriesHash(): Promise<Fr> {
+     const txBlobData = this.toTxBlobData();
+     const contractClassLogHashFields = (
+       await Promise.all(
+         this.contractClassLogs.map(async log => [log.contractAddress.toField(), await log.hash()]),
+       )
+     ).flat();
+-    const fieldHashes = await Promise.all(
+-      getTxEffectHashPreimages(txBlobData, contractClassLogHashFields).map(computeTxEffectFieldHash),
++    const categoryHashes = await Promise.all(
++      getTxEffectCategoryHashPreimages(txBlobData, contractClassLogHashFields).map(computeTxEffectCategoryHash),
+     );
+     return poseidon2HashWithSeparator(
+-      [encodeTxStartMarker(txBlobData.txStartMarker), this.transactionFee, ...fieldHashes],
+-      DomainSeparator.TX_EFFECT_HASH,
++      [encodeTxStartMarker(txBlobData.txStartMarker), this.transactionFee, ...categoryHashes],
++      DomainSeparator.TX_EFFECT_CATEGORIES_HASH,
+     );
+   }
+ 
+@@ -316,11 +316,12 @@ export class TxEffect {
+    * This tx's leaf of the block's tx effects tree: a hash binding the tx hash to the hash of the tx's effects.
+    *
+    * A holder of the block header can verify "tx X was included in this block and produced exactly effects E" with a
+-   * membership proof against `BlockHeader.txEffectsTreeRoot`.
++   * membership proof against `BlockHeader.txEffectsTreeRoot`. The verifier must recompute this leaf from the tx effect
++   * rather than accept an untrusted leaf value, because paths have variable depth and internal nodes are valid roots.
+    */
+-  async computeTxEffectLeaf(): Promise<Fr> {
+-    const txEffectHash = await this.computeTxEffectHash();
+-    return poseidon2HashWithSeparator([this.txHash.hash, txEffectHash], DomainSeparator.TX_EFFECT_LEAF);
++  async computeTxEffectsTreeLeaf(): Promise<Fr> {
++    const categoriesHash = await this.computeTxEffectCategoriesHash();
++    return poseidon2HashWithSeparator([this.txHash.hash, categoriesHash], DomainSeparator.TX_EFFECTS_TREE_LEAF);
+   }
+ 
+   /**
+@@ -421,11 +422,11 @@ export class TxEffect {
+ }
+ 
+ /**
+- * The preimages of a tx effect's variable-length field hashes, in their fixed order within the tx effect hash.
+- * Every preimage is its field's blob-encoding slice except the contract class log, whose preimage uses the full
++ * The preimages of a tx effect's variable-length category hashes, in their fixed order within the categories hash.
++ * Every preimage is its category's blob-encoding slice except the contract class log, whose preimage uses the full
+  * kernel-committed log hash to avoid hashing the same padded log fields twice in the rollup circuit.
+  */
+-function getTxEffectHashPreimages(txBlobData: TxBlobData, contractClassLogHashFields: Fr[]): Fr[][] {
++function getTxEffectCategoryHashPreimages(txBlobData: TxBlobData, contractClassLogHashFields: Fr[]): Fr[][] {
+   return [
+     txBlobData.noteHashes,
+     txBlobData.nullifiers,
+@@ -438,13 +439,13 @@ function getTxEffectHashPreimages(txBlobData: TxBlobData, contractClassLogHashFi
+ }
+ 
+ /**
+- * Hashes one variable-length field of a tx effect over that field's slice of the blob encoding.
++ * Hashes all fields of one tx-effect category over that category's commitment preimage.
+  *
+- * An empty field hashes to 0 rather than to a hash of nothing. This is unambiguous because every array count is bound
+- * by the tx start marker, which is hashed alongside the sub-hashes.
++ * An empty category hashes to 0 rather than to a hash of nothing. This is unambiguous because every category count is
++ * bound by the tx start marker, which is hashed alongside the category hashes.
+  */
+-function computeTxEffectFieldHash(blobFields: Fr[]): Promise<Fr> {
++function computeTxEffectCategoryHash(blobFields: Fr[]): Promise<Fr> {
+   return blobFields.length === 0
+     ? Promise.resolve(Fr.ZERO)
+-    : poseidon2HashWithSeparator(blobFields, DomainSeparator.TX_EFFECT_FIELD_HASH);
++    : poseidon2HashWithSeparator(blobFields, DomainSeparator.TX_EFFECT_CATEGORY_HASH);
+ }
+diff --git a/yarn-project/stdlib/src/tx/tx_effect_membership.test.ts b/yarn-project/stdlib/src/tx/tx_effect_membership.test.ts
+index a57f46940a914ede2c2cee6259f19fb779f9c178..67941f46d3e55251e592c1ff47662bde706bcab6 100644
+--- a/yarn-project/stdlib/src/tx/tx_effect_membership.test.ts
++++ b/yarn-project/stdlib/src/tx/tx_effect_membership.test.ts
+@@ -40,7 +40,7 @@ describe('TxEffectMembershipWitness', () => {
+ 
+     expect(witness.siblingPath.pathSize).toBe(0);
+     expect(witness.leafIndex).toBe(0n);
+-    expect(witness.root).toEqual(await body.txEffects[0].computeTxEffectLeaf());
++    expect(witness.root).toEqual(await body.txEffects[0].computeTxEffectsTreeLeaf());
+   });
+ 
+   it('verifies witnesses for every tx of a block and rejects tampered ones', async () => {
+@@ -48,7 +48,7 @@ describe('TxEffectMembershipWitness', () => {
+     const root = await body.computeTxEffectsTreeRoot();
+ 
+     for (let txIndex = 0; txIndex < body.txEffects.length; txIndex++) {
+-      const leaf = await body.txEffects[txIndex].computeTxEffectLeaf();
++      const leaf = await body.txEffects[txIndex].computeTxEffectsTreeLeaf();
+       const witness = await computeTxEffectMembershipWitness(body.txEffects, txIndex);
+ 
+       expect(await computeRootFromTxEffectMembershipWitness(leaf, witness)).toEqual(root);
+@@ -68,7 +68,7 @@ describe('TxEffectMembershipWitness', () => {
+ 
+   it('verifies the single-tx witness where the leaf is the root', async () => {
+     const body = await makeBody(1);
+-    const leaf = await body.txEffects[0].computeTxEffectLeaf();
++    const leaf = await body.txEffects[0].computeTxEffectsTreeLeaf();
+     const witness = await computeTxEffectMembershipWitness(body.txEffects, 0);
+ 
+     expect(await computeRootFromTxEffectMembershipWitness(leaf, witness)).toEqual(leaf);
+diff --git a/yarn-project/stdlib/src/tx/tx_effect_membership.ts b/yarn-project/stdlib/src/tx/tx_effect_membership.ts
+index 0073e73824ee235b8f3d536cef2b7269d6a9bb1d..f47deb4a6b21327adc8db7df2238a850d0a70715 100644
+--- a/yarn-project/stdlib/src/tx/tx_effect_membership.ts
++++ b/yarn-project/stdlib/src/tx/tx_effect_membership.ts
+@@ -22,7 +22,7 @@ export const txEffectsTreeNodeHash = makePoseidonMerkleHash(DomainSeparator.TX_E
+  * Proof that a tx was included in a block and produced exactly the effects the block reports for it.
+  *
+  * The witness is verified against `BlockHeader.txEffectsTreeRoot` of block {@link blockNumber} by hashing the tx's leaf
+- * (`TxEffect.computeTxEffectLeaf`, which binds the tx hash to the hash of its effects) up the sibling path.
++ * (`TxEffect.computeTxEffectsTreeLeaf`, which binds the tx hash to the hash of its effects) up the sibling path.
+  */
+ export type TxEffectMembershipWitness = {
+   /** Block the tx was included in, whose header carries the root this witness is built against. */
+@@ -56,7 +56,7 @@ export const TxEffectMembershipWitnessSchema = z.object({
+  * @param txEffects - All tx effects of the block, in block order.
+  */
+ export function computeTxEffectLeaves(txEffects: TxEffect[]): Promise<Fr[]> {
+-  return Promise.all(txEffects.map(txEffect => txEffect.computeTxEffectLeaf()));
++  return Promise.all(txEffects.map(txEffect => txEffect.computeTxEffectsTreeLeaf()));
+ }
+ 
+ /**
+@@ -107,7 +107,8 @@ export async function computeTxEffectMembershipWitnessFromLeaves(
+  * Hashes `leaf` up the witness' sibling path, taking the side of each step from the witness' leaf index (an even index
+  * puts the leaf on the left). For a single-tx block the sibling path is empty and the leaf itself is the root.
+  *
+- * @param leaf - The tx's leaf, as computed by `TxEffect.computeTxEffectLeaf`.
++ * @param leaf - A leaf recomputed from the full tx effect by `TxEffect.computeTxEffectsTreeLeaf`; callers must not
++ * accept a bare untrusted leaf because a variable-depth path could otherwise present an internal node as a leaf.
+  */
+ export async function computeRootFromTxEffectMembershipWitness(
+   leaf: Fr,
+@@ -126,7 +127,8 @@ export async function computeRootFromTxEffectMembershipWitness(
+  * Verifies that a membership witness proves inclusion of `leaf` under `expectedRoot`, which callers must take from a
+  * trusted source: the `txEffectsTreeRoot` of the header of block {@link TxEffectMembershipWitness.blockNumber}.
+  *
+- * @param leaf - The tx's leaf, as computed by `TxEffect.computeTxEffectLeaf`.
++ * @param leaf - A leaf recomputed from the full tx effect by `TxEffect.computeTxEffectsTreeLeaf`; callers must not
++ * accept a bare untrusted leaf because a variable-depth path could otherwise present an internal node as a leaf.
+  * @returns True iff hashing `leaf` up the sibling path yields `expectedRoot`.
+  */
+ export async function verifyTxEffectMembershipWitness(

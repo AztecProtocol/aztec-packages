@@ -102,9 +102,9 @@ impl BlockRollupPublicInputsComposer {
             end_sponge_blob: rollup.end_sponge_blob,
             timestamp: global_variables.timestamp,
             out_hash: rollup.out_hash,
-            // For a single tx, this is the tx's leaf, left unhashed: the 1-leaf tree convention of
-            // `UnbalancedMerkleTree`. For more txs, it is the root accumulated through the tx merges.
-            tx_effects_tree_root: rollup.tx_effects_tree_root,
+            // For a single tx, the greedy fold leaves the tx's leaf unhashed. For more txs, this is the root
+            // accumulated through the tx merges.
+            tx_effects_tree_root: rollup.accumulated_tx_effects_tree_root,
             accumulated_fees: rollup.accumulated_fees,
             accumulated_mana_used: rollup.accumulated_mana_used,
             num_txs: rollup.num_txs,

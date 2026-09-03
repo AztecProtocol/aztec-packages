@@ -122,8 +122,11 @@ impl TestBuilder {
 
         // Unlike the out hash, zero roots are never skipped.
         assert_eq(
-            pi.tx_effects_tree_root,
-            accumulate_tx_effects_tree_root(left.tx_effects_tree_root, right.tx_effects_tree_root),
+            pi.accumulated_tx_effects_tree_root,
+            accumulate_tx_effects_tree_root(
+                left.accumulated_tx_effects_tree_root,
+                right.accumulated_tx_effects_tree_root,
+            ),
         );
         // The tree shapes are tested in `tx_effects_tree_root_tests.nr`.
 

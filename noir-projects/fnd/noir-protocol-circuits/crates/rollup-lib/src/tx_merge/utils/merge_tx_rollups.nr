@@ -34,8 +34,10 @@ pub fn merge_tx_rollups(
     let out_hash = accumulate_out_hash(left.out_hash, right.out_hash);
 
     // Unlike the out hash, zero roots are not skipped: every leaf is a real tx.
-    let tx_effects_tree_root =
-        accumulate_tx_effects_tree_root(left.tx_effects_tree_root, right.tx_effects_tree_root);
+    let accumulated_tx_effects_tree_root = accumulate_tx_effects_tree_root(
+        left.accumulated_tx_effects_tree_root,
+        right.accumulated_tx_effects_tree_root,
+    );
 
     // Convincing the reader the below Field additions won't overflow:
     //
@@ -61,7 +63,7 @@ pub fn merge_tx_rollups(
         start_sponge_blob: left.start_sponge_blob,
         end_sponge_blob: right.end_sponge_blob,
         out_hash,
-        tx_effects_tree_root,
+        accumulated_tx_effects_tree_root,
         accumulated_fees,
         accumulated_mana_used,
     }

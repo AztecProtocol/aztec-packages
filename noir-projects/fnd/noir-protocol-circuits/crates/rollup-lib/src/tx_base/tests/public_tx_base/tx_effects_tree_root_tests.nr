@@ -1,4 +1,4 @@
-use crate::tests::{expected_tx_effect_leaf, tx_effect_field_hash};
+use crate::tests::{expected_tx_effects_tree_leaf, tx_effect_category_hash};
 use super::TestBuilder;
 use protocol_test_utils::FixtureBuilder;
 use types::{blob_data::{create_tx_start_marker, TxEffectArrayLengths}, traits::{Hash, ToField}};
@@ -60,22 +60,22 @@ unconstrained fn tx_with_all_side_effects() {
         0, // revert_code
     );
 
-    let expected = expected_tx_effect_leaf(
+    let expected = expected_tx_effects_tree_leaf(
         builder.private_tail.hash(),
         tx_start_marker,
         builder.avm.transaction_fee,
         [
-            tx_effect_field_hash([note_hashes[0], note_hashes[1]]),
-            tx_effect_field_hash([nullifiers[0], nullifiers[1]]),
-            tx_effect_field_hash([l2_to_l1_msgs[0], l2_to_l1_msgs[1]]),
-            tx_effect_field_hash([public_data_write.leaf_slot, public_data_write.value]),
-            tx_effect_field_hash([2, private_log.fields[0], private_log.fields[1]]),
-            tx_effect_field_hash([public_logs_payload[0], public_logs_payload[1]]),
-            tx_effect_field_hash([
+            tx_effect_category_hash([note_hashes[0], note_hashes[1]]),
+            tx_effect_category_hash([nullifiers[0], nullifiers[1]]),
+            tx_effect_category_hash([l2_to_l1_msgs[0], l2_to_l1_msgs[1]]),
+            tx_effect_category_hash([public_data_write.leaf_slot, public_data_write.value]),
+            tx_effect_category_hash([2, private_log.fields[0], private_log.fields[1]]),
+            tx_effect_category_hash([public_logs_payload[0], public_logs_payload[1]]),
+            tx_effect_category_hash([
                 contract_class_log_hash.contract_address.to_field(),
                 contract_class_log_hash.inner.value,
             ]),
         ],
     );
-    assert_eq(pi.tx_effects_tree_root, expected);
+    assert_eq(pi.accumulated_tx_effects_tree_root, expected);
 }

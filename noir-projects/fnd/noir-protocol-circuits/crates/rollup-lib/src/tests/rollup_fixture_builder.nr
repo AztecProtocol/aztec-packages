@@ -364,7 +364,7 @@ impl RollupFixtureBuilder {
             start_sponge_blob: self.get_sponge_blob(start_tx_index as u32 - 1),
             end_sponge_blob: self.get_sponge_blob(end_tx_index as u32),
             out_hash: self.get_out_hash(end_tx_index as u32),
-            tx_effects_tree_root: self.get_tx_effects_tree_root(end_tx_index as u32),
+            accumulated_tx_effects_tree_root: self.get_tx_effects_tree_root(end_tx_index as u32),
             accumulated_fees: self.get_fee(end_tx_index as u32),
             accumulated_mana_used: self.get_mana_used(end_tx_index as u32),
         }

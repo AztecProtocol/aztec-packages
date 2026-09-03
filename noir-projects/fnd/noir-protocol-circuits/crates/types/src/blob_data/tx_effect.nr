@@ -4,10 +4,11 @@ use crate::{
         public_data_write::PublicDataWrite, public_logs::PublicLogs,
     },
     constants::{
-        DOM_SEP__TX_EFFECT_FIELD_HASH, DOM_SEP__TX_EFFECT_HASH, DOM_SEP__TX_EFFECT_LEAF,
-        DOM_SEP__TX_EFFECTS_TREE, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        DOM_SEP__TX_EFFECT_CATEGORIES_HASH, DOM_SEP__TX_EFFECT_CATEGORY_HASH,
+        DOM_SEP__TX_EFFECTS_TREE, DOM_SEP__TX_EFFECTS_TREE_LEAF, MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+        MAX_PRIVATE_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        NUM_TX_EFFECT_CATEGORIES, TX_EFFECT_CATEGORIES_HASH_PREIMAGE_LENGTH,
     },
     hash::{compute_contract_class_log_hash, poseidon2_hash_with_separator},
     traits::{Deserialize, Empty, Serialize, ToField},
@@ -49,101 +50,116 @@ impl Empty for TxEffect {
     }
 }
 
-/// The number of per-field sub-hashes that make up a tx effect hash: one per variable-length field of a `TxEffect`.
-pub global NUM_TX_EFFECT_FIELD_HASHES: u32 = 7;
-
-/// The number of fields hashed into a tx effect hash: the tx start marker, the transaction fee, and the per-field
-/// sub-hashes.
-pub global NUM_TX_EFFECT_HASH_FIELDS: u32 = 2 + NUM_TX_EFFECT_FIELD_HASHES;
-
-/// Hashes one variable-length field of a tx effect over that field's slice of the blob encoding.
+/// Hashes all fields of one tx-effect category over that category's commitment preimage.
 ///
-/// An empty field hashes to 0 rather than to a hash of nothing. This is unambiguous because every array count is
-/// bound by the tx start marker, which is hashed alongside the sub-hashes.
-fn compute_tx_effect_field_hash<let N: u32>(blob_fields: [Field; N], length: u32) -> Field {
+/// This is called once for each of note hashes, nullifiers, L2-to-L1 messages, public-data writes, private logs,
+/// public logs and contract-class logs. The resulting seven category hashes are then hashed with the tx start marker
+/// and transaction fee to form the categories hash. An empty category hashes to 0 rather than to a hash of nothing;
+/// every category count is bound by the tx start marker.
+fn compute_tx_effect_category_hash<let N: u32>(blob_fields: [Field; N], length: u32) -> Field {
     if length == 0 {
         0
     } else {
-        let inputs_with_separator = [(DOM_SEP__TX_EFFECT_FIELD_HASH as Field)].concat(blob_fields);
+        let inputs_with_separator =
+            [(DOM_SEP__TX_EFFECT_CATEGORY_HASH as Field)].concat(blob_fields);
         poseidon::poseidon2::Poseidon2::hash(inputs_with_separator, length + 1)
     }
 }
 
-/// The tx start marker and the per-field sub-hashes of a tx effect. Both are derived from the same per-field blob
-/// encoding slices, so they are computed together.
-fn compute_tx_effect_hash_inputs(
+/// The tx start marker and category hashes of a tx effect. They are derived from the same category data, so they are
+/// computed together.
+fn compute_tx_effect_categories_hash_inputs(
     tx_effect: TxEffect,
     array_lengths: TxEffectArrayLengths,
     blob_data_sections: TxBlobDataSections,
-) -> (Field, [Field; NUM_TX_EFFECT_FIELD_HASHES]) {
+) -> (Field, [Field; NUM_TX_EFFECT_CATEGORIES]) {
     let contract_class_log_hash_fields = [
         tx_effect.contract_class_logs[0].contract_address.to_field(),
         tx_effect.contract_class_log_hashes[0],
     ];
     let num_contract_class_log_hash_fields = array_lengths.contract_class_logs * 2;
 
-    let field_hashes = [
-        compute_tx_effect_field_hash(tx_effect.note_hashes, array_lengths.note_hashes),
-        compute_tx_effect_field_hash(tx_effect.nullifiers, array_lengths.nullifiers),
-        compute_tx_effect_field_hash(tx_effect.l2_to_l1_msgs, array_lengths.l2_to_l1_msgs),
-        compute_tx_effect_field_hash(
+    let category_hashes = [
+        compute_tx_effect_category_hash(tx_effect.note_hashes, array_lengths.note_hashes),
+        compute_tx_effect_category_hash(tx_effect.nullifiers, array_lengths.nullifiers),
+        compute_tx_effect_category_hash(tx_effect.l2_to_l1_msgs, array_lengths.l2_to_l1_msgs),
+        compute_tx_effect_category_hash(
             blob_data_sections.public_data_write_fields,
             blob_data_sections.num_public_data_write_fields,
         ),
-        compute_tx_effect_field_hash(
+        compute_tx_effect_category_hash(
             blob_data_sections.private_log_fields,
             blob_data_sections.num_private_log_fields,
         ),
-        compute_tx_effect_field_hash(tx_effect.public_logs.payload, tx_effect.public_logs.length),
-        compute_tx_effect_field_hash(
+        compute_tx_effect_category_hash(
+            tx_effect.public_logs.payload,
+            tx_effect.public_logs.length,
+        ),
+        compute_tx_effect_category_hash(
             contract_class_log_hash_fields,
             num_contract_class_log_hash_fields,
         ),
     ];
 
-    (blob_data_sections.tx_start_marker, field_hashes)
+    (blob_data_sections.tx_start_marker, category_hashes)
 }
 
 /// Hash committing to the full contents of a tx's effects.
 ///
-/// The hash is structured rather than flat: each variable-length field is hashed on its own first, and this hash is
-/// taken over those sub-hashes plus the small scalar fields inline. Proving a single field (e.g. one note hash)
-/// therefore only requires the preimage of that field's sub-hash, with the other sub-hashes as opaque witnesses.
+/// The hash is structured rather than flat: each variable-length effect category is hashed on its own first, and
+/// this hash is taken over those category hashes plus the small scalar fields inline. Proving a single field (e.g.
+/// one note hash) therefore only requires the preimage of that category hash, with the other category hashes as
+/// opaque witnesses.
 ///
-/// Each sub-hash preimage is that field's slice of the blob encoding over the actual runtime length, except for the
-/// contract class log. Its preimage is the contract address and the full padded-log hash that the tx base already
+/// Each category-hash preimage is that category's slice of the blob encoding over the actual runtime length, except
+/// for the contract-class log. Its preimage is the contract address and full padded-log hash that the tx base already
 /// validates against the kernel output. The tx start marker binds the revert code, every array count and the total
-/// blob field count; the transaction fee is small enough to inline. The tx hash is bound at the leaf level instead
-/// (see `compute_tx_effect_leaf`).
-pub fn compute_tx_effect_hash(tx_effect: TxEffect, array_lengths: TxEffectArrayLengths) -> Field {
+/// blob field count; the transaction fee is small enough to inline. The tx hash is bound at the leaf level instead.
+pub fn compute_tx_effect_categories_hash(
+    tx_effect: TxEffect,
+    array_lengths: TxEffectArrayLengths,
+) -> Field {
     let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
-    compute_tx_effect_hash_from_blob_data_sections(tx_effect, array_lengths, blob_data_sections)
+    compute_tx_effect_categories_hash_from_blob_data_sections(
+        tx_effect,
+        array_lengths,
+        blob_data_sections,
+    )
 }
 
-pub fn compute_tx_effect_hash_from_blob_data_sections(
+pub fn compute_tx_effect_categories_hash_from_blob_data_sections(
     tx_effect: TxEffect,
     array_lengths: TxEffectArrayLengths,
     blob_data_sections: TxBlobDataSections,
 ) -> Field {
-    let (tx_start_marker, field_hashes) =
-        compute_tx_effect_hash_inputs(tx_effect, array_lengths, blob_data_sections);
+    let (tx_start_marker, category_hashes) =
+        compute_tx_effect_categories_hash_inputs(tx_effect, array_lengths, blob_data_sections);
 
-    let hash_inputs: [Field; NUM_TX_EFFECT_HASH_FIELDS] =
-        [tx_start_marker, tx_effect.transaction_fee].concat(field_hashes);
+    let hash_inputs: [Field; TX_EFFECT_CATEGORIES_HASH_PREIMAGE_LENGTH] =
+        [tx_start_marker, tx_effect.transaction_fee].concat(category_hashes);
 
-    poseidon2_hash_with_separator(hash_inputs, DOM_SEP__TX_EFFECT_HASH)
+    poseidon2_hash_with_separator(hash_inputs, DOM_SEP__TX_EFFECT_CATEGORIES_HASH)
 }
 
 /// This tx's leaf of the block's tx effects tree: a hash binding the tx hash to the hash of the tx's effects.
 ///
 /// A holder of the block header can verify "tx X was included in this block and produced exactly effects E" with a
-/// membership proof against `BlockHeader.tx_effects_tree_root`.
-pub fn compute_tx_effect_leaf(tx_effect: TxEffect, array_lengths: TxEffectArrayLengths) -> Field {
+/// membership proof against `BlockHeader.tx_effects_tree_root`. The verifier must recompute this leaf from the tx
+/// effect (or otherwise validate the leaf preimage under `DOM_SEP__TX_EFFECTS_TREE_LEAF`): because the tree has
+/// variable-depth paths, accepting a bare untrusted leaf could let an internal node be presented as a leaf.
+pub fn compute_tx_effects_tree_leaf(
+    tx_effect: TxEffect,
+    array_lengths: TxEffectArrayLengths,
+) -> Field {
     let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
-    compute_tx_effect_leaf_from_blob_data_sections(tx_effect, array_lengths, blob_data_sections)
+    compute_tx_effects_tree_leaf_from_blob_data_sections(
+        tx_effect,
+        array_lengths,
+        blob_data_sections,
+    )
 }
 
-pub fn compute_tx_effect_leaf_from_blob_data_sections(
+pub fn compute_tx_effects_tree_leaf_from_blob_data_sections(
     tx_effect: TxEffect,
     array_lengths: TxEffectArrayLengths,
     blob_data_sections: TxBlobDataSections,
@@ -151,13 +167,13 @@ pub fn compute_tx_effect_leaf_from_blob_data_sections(
     poseidon2_hash_with_separator(
         [
             tx_effect.tx_hash,
-            compute_tx_effect_hash_from_blob_data_sections(
+            compute_tx_effect_categories_hash_from_blob_data_sections(
                 tx_effect,
                 array_lengths,
                 blob_data_sections,
             ),
         ],
-        DOM_SEP__TX_EFFECT_LEAF,
+        DOM_SEP__TX_EFFECTS_TREE_LEAF,
     )
 }
 
@@ -165,7 +181,7 @@ pub fn compute_tx_effect_leaf_from_blob_data_sections(
 ///
 /// Unlike `accumulate_out_hash`, zero roots are NOT skipped: there are no padding txs, so every leaf is a real tx
 /// and the tree shape is a function of the number of txs alone. The separator differs from
-/// [`DOM_SEP__TX_EFFECT_LEAF`], so an internal node can never be confused with a leaf.
+/// [`DOM_SEP__TX_EFFECTS_TREE_LEAF`], so an internal node can never be confused with a leaf.
 pub fn accumulate_tx_effects_tree_root(left_root: Field, right_root: Field) -> Field {
     poseidon2_hash_with_separator([left_root, right_root], DOM_SEP__TX_EFFECTS_TREE)
 }
@@ -178,8 +194,9 @@ mod tests {
         },
         address::AztecAddress,
         constants::{
-            DOM_SEP__TX_EFFECT_FIELD_HASH, DOM_SEP__TX_EFFECT_HASH, DOM_SEP__TX_EFFECT_LEAF,
-            DOM_SEP__TX_EFFECTS_TREE, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS,
+            DOM_SEP__TX_EFFECT_CATEGORIES_HASH, DOM_SEP__TX_EFFECT_CATEGORY_HASH,
+            DOM_SEP__TX_EFFECTS_TREE, DOM_SEP__TX_EFFECTS_TREE_LEAF,
+            MAX_TX_BLOB_DATA_SIZE_IN_FIELDS,
         },
         hash::{compute_contract_class_log_hash, poseidon2_hash_with_separator},
         traits::{Empty, FromField},
@@ -189,8 +206,9 @@ mod tests {
         tx_blob_data::{create_tx_blob_data_sections, create_tx_start_marker},
     };
     use super::{
-        accumulate_tx_effects_tree_root, compute_tx_effect_hash, compute_tx_effect_hash_inputs,
-        compute_tx_effect_leaf, TxEffect, TxEffectArrayLengths,
+        accumulate_tx_effects_tree_root, compute_tx_effect_categories_hash,
+        compute_tx_effect_categories_hash_inputs, compute_tx_effects_tree_leaf, TxEffect,
+        TxEffectArrayLengths,
     };
 
     /// Copies `items` into a zero-padded array of size `M`.
@@ -243,8 +261,8 @@ mod tests {
         (tx_effect, array_lengths)
     }
 
-    fn field_hash<let N: u32>(blob_fields: [Field; N]) -> Field {
-        poseidon2_hash_with_separator(blob_fields, DOM_SEP__TX_EFFECT_FIELD_HASH)
+    fn category_hash<let N: u32>(blob_fields: [Field; N]) -> Field {
+        poseidon2_hash_with_separator(blob_fields, DOM_SEP__TX_EFFECT_CATEGORY_HASH)
     }
 
     /// The tx start marker of the fixture, computed independently of the code under test.
@@ -267,29 +285,32 @@ mod tests {
     fn leaf_of_small_fixture_matches_hand_computed_value() {
         let (tx_effect, array_lengths) = small_fixture();
 
-        let expected_tx_effect_hash = poseidon2_hash_with_separator(
+        let expected_categories_hash = poseidon2_hash_with_separator(
             [
                 small_fixture_tx_start_marker(),
                 TRANSACTION_FEE,
-                field_hash([11, 12]),
-                field_hash([21]),
-                field_hash([31]),
-                field_hash([41, 42]),
-                field_hash([3, 101, 102, 103]),
-                field_hash([2, PUBLIC_LOG_ADDRESS, 201, 202]),
-                field_hash(
+                category_hash([11, 12]),
+                category_hash([21]),
+                category_hash([31]),
+                category_hash([41, 42]),
+                category_hash([3, 101, 102, 103]),
+                category_hash([2, PUBLIC_LOG_ADDRESS, 201, 202]),
+                category_hash(
                     [CONTRACT_CLASS_LOG_ADDRESS, tx_effect.contract_class_log_hashes[0]],
                 ),
             ],
-            DOM_SEP__TX_EFFECT_HASH,
+            DOM_SEP__TX_EFFECT_CATEGORIES_HASH,
         );
-        assert_eq(compute_tx_effect_hash(tx_effect, array_lengths), expected_tx_effect_hash);
+        assert_eq(
+            compute_tx_effect_categories_hash(tx_effect, array_lengths),
+            expected_categories_hash,
+        );
 
         let expected_leaf = poseidon2_hash_with_separator(
-            [TX_HASH, expected_tx_effect_hash],
-            DOM_SEP__TX_EFFECT_LEAF,
+            [TX_HASH, expected_categories_hash],
+            DOM_SEP__TX_EFFECTS_TREE_LEAF,
         );
-        assert_eq(compute_tx_effect_leaf(tx_effect, array_lengths), expected_leaf);
+        assert_eq(compute_tx_effects_tree_leaf(tx_effect, array_lengths), expected_leaf);
     }
 
     /// Pins the leaf of the fixture against the TypeScript implementation, which mirrors the fixture field for field.
@@ -301,9 +322,9 @@ mod tests {
 
         // Generated from yarn-project/stdlib/src/tx/tx_effect.test.ts
         let test_data_tx_effect_leaf =
-            0x09927fb173cb1b27828db4e24d227a621f61bb668aca36f2b1e458a31585455a;
+            0x2d0cc62a893d49f71987d6bddb8d5d3f1efe4c7f015cbc8f4b7b2b04331a8978;
 
-        assert_eq(compute_tx_effect_leaf(tx_effect, array_lengths), test_data_tx_effect_leaf);
+        assert_eq(compute_tx_effects_tree_leaf(tx_effect, array_lengths), test_data_tx_effect_leaf);
     }
 
     /// The sponge must absorb the same field stream as the flat blob encoding.
@@ -343,7 +364,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_effect_has_zero_field_hashes() {
+    fn empty_effect_has_zero_category_hashes() {
         let tx_effect = TxEffect::empty();
         let array_lengths = TxEffectArrayLengths {
             note_hashes: 0,
@@ -355,21 +376,24 @@ mod tests {
         };
 
         let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
-        let (tx_start_marker, field_hashes) =
-            compute_tx_effect_hash_inputs(tx_effect, array_lengths, blob_data_sections);
-        assert_eq(field_hashes, [0; 7]);
+        let (tx_start_marker, category_hashes) =
+            compute_tx_effect_categories_hash_inputs(tx_effect, array_lengths, blob_data_sections);
+        assert_eq(category_hashes, [0; 7]);
 
         // The marker still binds the (zero) counts and the 3 leading blob fields, so the tx effect hash of an
         // effect-less tx is not a hash of nothing.
-        let expected_tx_effect_hash = poseidon2_hash_with_separator(
+        let expected_categories_hash = poseidon2_hash_with_separator(
             [tx_start_marker, 0, 0, 0, 0, 0, 0, 0, 0],
-            DOM_SEP__TX_EFFECT_HASH,
+            DOM_SEP__TX_EFFECT_CATEGORIES_HASH,
         );
-        assert_eq(compute_tx_effect_hash(tx_effect, array_lengths), expected_tx_effect_hash);
+        assert_eq(
+            compute_tx_effect_categories_hash(tx_effect, array_lengths),
+            expected_categories_hash,
+        );
     }
 
     #[test]
-    fn empty_field_hashes_to_zero_while_others_do_not() {
+    fn empty_category_hashes_to_zero_while_others_do_not() {
         let mut tx_effect = TxEffect::empty();
         tx_effect.note_hashes[0] = 11;
         let array_lengths = TxEffectArrayLengths {
@@ -382,14 +406,14 @@ mod tests {
         };
 
         let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
-        let (_, field_hashes) =
-            compute_tx_effect_hash_inputs(tx_effect, array_lengths, blob_data_sections);
+        let (_, category_hashes) =
+            compute_tx_effect_categories_hash_inputs(tx_effect, array_lengths, blob_data_sections);
 
-        assert_eq(field_hashes[0], field_hash([11]));
-        assert(field_hashes[0] != 0);
+        assert_eq(category_hashes[0], category_hash([11]));
+        assert(category_hashes[0] != 0);
         // Every other field is empty.
-        for i in 1..field_hashes.len() {
-            assert_eq(field_hashes[i], 0);
+        for i in 1..category_hashes.len() {
+            assert_eq(category_hashes[i], 0);
         }
     }
 
@@ -408,37 +432,37 @@ mod tests {
             private_logs: 0,
             contract_class_logs: 0,
         };
-        let one_note_hash = compute_tx_effect_hash(tx_effect, array_lengths);
+        let one_note_hash = compute_tx_effect_categories_hash(tx_effect, array_lengths);
 
         array_lengths.note_hashes = 2;
-        let two_note_hashes = compute_tx_effect_hash(tx_effect, array_lengths);
+        let two_note_hashes = compute_tx_effect_categories_hash(tx_effect, array_lengths);
 
         assert(one_note_hash != two_note_hashes);
     }
 
     #[test]
-    fn leaf_effect_hash_and_field_hashes_are_all_distinct() {
+    fn leaf_effect_hash_and_category_hashes_are_all_distinct() {
         let (tx_effect, array_lengths) = small_fixture();
 
-        let leaf = compute_tx_effect_leaf(tx_effect, array_lengths);
-        let tx_effect_hash = compute_tx_effect_hash(tx_effect, array_lengths);
+        let leaf = compute_tx_effects_tree_leaf(tx_effect, array_lengths);
+        let categories_hash = compute_tx_effect_categories_hash(tx_effect, array_lengths);
         let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
-        let (tx_start_marker, field_hashes) =
-            compute_tx_effect_hash_inputs(tx_effect, array_lengths, blob_data_sections);
+        let (tx_start_marker, category_hashes) =
+            compute_tx_effect_categories_hash_inputs(tx_effect, array_lengths, blob_data_sections);
 
-        assert(leaf != tx_effect_hash);
+        assert(leaf != categories_hash);
         assert(leaf != TX_HASH);
-        assert(tx_effect_hash != TX_HASH);
+        assert(categories_hash != TX_HASH);
         assert(leaf != tx_start_marker);
-        assert(tx_effect_hash != tx_start_marker);
+        assert(categories_hash != tx_start_marker);
 
-        for i in 0..field_hashes.len() {
-            assert(field_hashes[i] != 0);
-            assert(field_hashes[i] != leaf);
-            assert(field_hashes[i] != tx_effect_hash);
-            assert(field_hashes[i] != TX_HASH);
+        for i in 0..category_hashes.len() {
+            assert(category_hashes[i] != 0);
+            assert(category_hashes[i] != leaf);
+            assert(category_hashes[i] != categories_hash);
+            assert(category_hashes[i] != TX_HASH);
             for j in 0..i {
-                assert(field_hashes[i] != field_hashes[j]);
+                assert(category_hashes[i] != category_hashes[j]);
             }
         }
     }
@@ -458,7 +482,7 @@ mod tests {
         // A node can never be mistaken for a leaf.
         assert(
             accumulate_tx_effects_tree_root(left, right)
-                != poseidon2_hash_with_separator([left, right], DOM_SEP__TX_EFFECT_LEAF),
+                != poseidon2_hash_with_separator([left, right], DOM_SEP__TX_EFFECTS_TREE_LEAF),
         );
     }
 }

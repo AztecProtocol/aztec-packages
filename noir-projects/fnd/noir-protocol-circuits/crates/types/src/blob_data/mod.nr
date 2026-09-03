@@ -13,6 +13,6 @@ pub use tx_blob_data::{
     create_tx_blob_data_sections, create_tx_start_marker, TxBlobDataSections, TxEffectArrayLengths,
 };
 pub use tx_effect::{
-    accumulate_tx_effects_tree_root, compute_tx_effect_hash, compute_tx_effect_leaf,
-    compute_tx_effect_leaf_from_blob_data_sections, TxEffect,
+    accumulate_tx_effects_tree_root, compute_tx_effect_categories_hash,
+    compute_tx_effects_tree_leaf, compute_tx_effects_tree_leaf_from_blob_data_sections, TxEffect,
 };

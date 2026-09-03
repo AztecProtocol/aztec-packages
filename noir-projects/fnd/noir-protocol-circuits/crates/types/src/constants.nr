@@ -768,18 +768,19 @@ pub global DOM_SEP__TX_REQUEST: u32 = 3763737512;
 pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 1630108851;
 pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 1971680439;
 
-/// Domain separator for the per-field sub-hashes of a tx effect. Each variable-length field of a tx effect
-/// (note hashes, nullifiers, ...) is hashed on its own with this separator, over that field's slice of the
-/// blob encoding. A single separator is shared across all fields because each sub-hash sits at a fixed
-/// position in the tx effect hash preimage.
-pub global DOM_SEP__TX_EFFECT_FIELD_HASH: u32 = 2264957172;
-/// Domain separator for the hash over a tx's effects: the tx start marker, the transaction fee, and the
-/// per-field sub-hashes.
-pub global DOM_SEP__TX_EFFECT_HASH: u32 = 3479234285;
-/// Domain separator for a leaf of the tx effects tree, which binds a tx hash to that tx's effect hash.
-pub global DOM_SEP__TX_EFFECT_LEAF: u32 = 2445468887;
+/// The number of variable-length effect categories committed by a tx effects tree leaf.
+pub global NUM_TX_EFFECT_CATEGORIES: u32 = 7;
+/// The tx start marker, transaction fee, and one hash per effect category.
+pub global TX_EFFECT_CATEGORIES_HASH_PREIMAGE_LENGTH: u32 = 2 + NUM_TX_EFFECT_CATEGORIES;
+
+/// Domain separator shared by the effect category hashes, which occupy fixed positions in the categories hash.
+pub global DOM_SEP__TX_EFFECT_CATEGORY_HASH: u32 = 1030022731;
+/// Domain separator for the hash over the tx start marker, transaction fee, and effect category hashes.
+pub global DOM_SEP__TX_EFFECT_CATEGORIES_HASH: u32 = 1426387399;
+/// Domain separator for a tx effects tree leaf, which binds a tx hash to its categories hash.
+pub global DOM_SEP__TX_EFFECTS_TREE_LEAF: u32 = 1186802524;
 /// Domain separator for the internal nodes of the tx effects tree. Distinct from
-/// [`DOM_SEP__TX_EFFECT_LEAF`] so that a leaf can never be confused with an internal node.
+/// [`DOM_SEP__TX_EFFECTS_TREE_LEAF`] so that a leaf can never be confused with an internal node.
 pub global DOM_SEP__TX_EFFECTS_TREE: u32 = 2908237871;
 
 // Hashing the calldata of public functions:

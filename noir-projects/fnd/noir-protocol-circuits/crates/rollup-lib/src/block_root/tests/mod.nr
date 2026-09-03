@@ -313,9 +313,12 @@ impl TestBuilder {
             0
         } else if is_single_tx_block {
             // The single tx's leaf, left unhashed.
-            left.tx_effects_tree_root
+            left.accumulated_tx_effects_tree_root
         } else {
-            accumulate_tx_effects_tree_root(left.tx_effects_tree_root, right.tx_effects_tree_root)
+            accumulate_tx_effects_tree_root(
+                left.accumulated_tx_effects_tree_root,
+                right.accumulated_tx_effects_tree_root,
+            )
         };
 
         // --- Archive ---

@@ -14,8 +14,8 @@ use types::{
         partial_state_reference::PartialStateReference,
     },
     blob_data::{
-        compute_tx_effect_leaf_from_blob_data_sections, create_tx_blob_data_sections, SpongeBlob,
-        TxEffect, TxEffectArrayLengths,
+        compute_tx_effects_tree_leaf_from_blob_data_sections, create_tx_blob_data_sections,
+        SpongeBlob, TxEffect, TxEffectArrayLengths,
     },
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -131,7 +131,7 @@ impl TxBasePublicInputsComposer {
 
         let out_hash = self.compute_kernel_out_hash();
 
-        let tx_effects_tree_root = compute_tx_effect_leaf_from_blob_data_sections(
+        let accumulated_tx_effects_tree_root = compute_tx_effects_tree_leaf_from_blob_data_sections(
             self.tx_effect,
             self.tx_effect_array_lengths,
             tx_blob_data_sections,
@@ -145,7 +145,7 @@ impl TxBasePublicInputsComposer {
             start_sponge_blob: self.start_sponge_blob,
             end_sponge_blob,
             out_hash,
-            tx_effects_tree_root,
+            accumulated_tx_effects_tree_root,
             accumulated_fees: self.tx_effect.transaction_fee,
             accumulated_mana_used: self.gas_used.l2_gas as Field,
         }
