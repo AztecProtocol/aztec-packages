@@ -197,6 +197,17 @@ pub fn create_private_logs_blob_fields(
     let (blob_fields, num_blob_fields) =
         unsafe { get_private_logs_blob_fields_unsafe(private_logs, num_private_logs) };
 
+    verify_private_logs_blob_fields(private_logs, num_private_logs, blob_fields, num_blob_fields);
+
+    (blob_fields, num_blob_fields)
+}
+
+fn verify_private_logs_blob_fields(
+    private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
+    num_private_logs: u32,
+    blob_fields: [Field; PRIVATE_LOGS_BLOB_FIELDS_LENGTH],
+    num_blob_fields: u32,
+) {
     let mut offset = 0;
     let mut include_log = true;
     for i in 0..private_logs.len() {
@@ -226,8 +237,6 @@ pub fn create_private_logs_blob_fields(
     }
 
     assert_eq(offset, num_blob_fields, "Incorrect number of private log fields in blob data");
-
-    (blob_fields, num_blob_fields)
 }
 
 unconstrained fn get_private_logs_blob_fields_unsafe(
@@ -338,6 +347,7 @@ pub fn create_tx_blob_data_sections(
 }
 
 mod tests {
+    use crate::{abis::private_log::PrivateLog, traits::Empty};
     use crate::constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -347,9 +357,80 @@ mod tests {
     use super::{
         CONTRACT_CLASS_LOG_LENGTH_BIT_SIZE, create_tx_start_marker, NUM_BLOB_FIELDS_BIT_SIZE,
         NUM_L2_TO_L1_MSG_BIT_SIZE, NUM_NOTE_HASH_BIT_SIZE, NUM_NULLIFIER_BIT_SIZE,
-        NUM_PRIVATE_LOG_BIT_SIZE, NUM_PUBLIC_DATA_WRITE_BIT_SIZE, PRIVATE_LOGS_LENGTH_BIT_SIZE,
-        PUBLIC_LOGS_LENGTH_BIT_SIZE, TX_START_PREFIX_BIT_SIZE, TxEffectArrayLengths,
+        NUM_PRIVATE_LOG_BIT_SIZE, NUM_PUBLIC_DATA_WRITE_BIT_SIZE, PRIVATE_LOGS_BLOB_FIELDS_LENGTH,
+        PRIVATE_LOGS_LENGTH_BIT_SIZE, PUBLIC_LOGS_LENGTH_BIT_SIZE, TX_START_PREFIX_BIT_SIZE,
+        TxEffectArrayLengths, verify_private_logs_blob_fields,
     };
+
+    fn private_logs_fixture() -> ([PrivateLog; MAX_PRIVATE_LOGS_PER_TX], [Field; PRIVATE_LOGS_BLOB_FIELDS_LENGTH]) {
+        let mut private_logs = [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX];
+        let mut first_fields = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
+        first_fields[0] = 11;
+        first_fields[1] = 12;
+        private_logs[0] = PrivateLog::new(first_fields, 2);
+
+        let mut second_fields = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
+        second_fields[0] = 21;
+        private_logs[1] = PrivateLog::new(second_fields, 1);
+
+        let mut blob_fields = [0; PRIVATE_LOGS_BLOB_FIELDS_LENGTH];
+        blob_fields[0] = 2;
+        blob_fields[1] = 11;
+        blob_fields[2] = 12;
+        blob_fields[3] = 1;
+        blob_fields[4] = 21;
+
+        (private_logs, blob_fields)
+    }
+
+    #[test]
+    fn valid_private_log_blob_hint_is_accepted() {
+        let (private_logs, blob_fields) = private_logs_fixture();
+        verify_private_logs_blob_fields(private_logs, 2, blob_fields, 5);
+    }
+
+    #[test(should_fail_with = "Incorrect private log length in blob data")]
+    fn private_log_blob_hint_rejects_wrong_length_field() {
+        let (private_logs, mut blob_fields) = private_logs_fixture();
+        blob_fields[0] = 3;
+        verify_private_logs_blob_fields(private_logs, 2, blob_fields, 5);
+    }
+
+    #[test(should_fail_with = "Incorrect private log field in blob data")]
+    fn private_log_blob_hint_rejects_wrong_log_field() {
+        let (private_logs, mut blob_fields) = private_logs_fixture();
+        blob_fields[1] = 99;
+        verify_private_logs_blob_fields(private_logs, 2, blob_fields, 5);
+    }
+
+    #[test(should_fail_with = "Incorrect private log length in blob data")]
+    fn private_log_blob_hint_rejects_dropped_log() {
+        let (private_logs, mut blob_fields) = private_logs_fixture();
+        blob_fields[3] = 0;
+        blob_fields[4] = 0;
+        verify_private_logs_blob_fields(private_logs, 2, blob_fields, 3);
+    }
+
+    #[test(should_fail_with = "Incorrect private log length in blob data")]
+    fn private_log_blob_hint_rejects_duplicated_log() {
+        let (private_logs, mut blob_fields) = private_logs_fixture();
+        blob_fields[3] = 2;
+        blob_fields[4] = 11;
+        blob_fields[5] = 12;
+        verify_private_logs_blob_fields(private_logs, 2, blob_fields, 6);
+    }
+
+    #[test(should_fail_with = "Incorrect number of private log fields in blob data")]
+    fn private_log_blob_hint_rejects_understated_count() {
+        let (private_logs, blob_fields) = private_logs_fixture();
+        verify_private_logs_blob_fields(private_logs, 1, blob_fields, 5);
+    }
+
+    #[test(should_fail_with = "Incorrect number of private log fields in blob data")]
+    fn private_log_blob_hint_rejects_overstated_count() {
+        let (private_logs, blob_fields) = private_logs_fixture();
+        verify_private_logs_blob_fields(private_logs, 3, blob_fields, 5);
+    }
 
     fn accumulate_bytes<let N: u32>(bytes: [u8; N], offset: u32, num_bytes: u32) -> Field {
         let mut accum = 0;
