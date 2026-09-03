@@ -10,12 +10,12 @@ use crate::{
         MAX_PRIVATE_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         NUM_TX_EFFECT_CATEGORIES, TX_EFFECT_CATEGORIES_HASH_PREIMAGE_LENGTH,
     },
-    hash::{compute_contract_class_log_hash, poseidon2_hash_with_separator},
-    traits::{Deserialize, Empty, Serialize, ToField},
+    hash::poseidon2_hash_with_separator,
+    traits::{Empty, Serialize, ToField},
 };
 use super::tx_blob_data::{create_tx_blob_data_sections, TxBlobDataSections, TxEffectArrayLengths};
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Eq, Serialize)]
 pub struct TxEffect {
     pub revert_code: u8,
     pub tx_hash: Field,
