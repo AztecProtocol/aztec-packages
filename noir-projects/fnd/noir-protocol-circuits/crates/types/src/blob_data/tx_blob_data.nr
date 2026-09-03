@@ -196,12 +196,12 @@ pub fn create_private_logs_blob_fields(
     let (blob_fields, num_blob_fields) =
         unsafe { get_private_logs_blob_fields_unsafe(private_logs, num_private_logs) };
 
-    verify_private_logs_blob_fields(private_logs, num_private_logs, blob_fields, num_blob_fields);
+    validate_private_logs_blob_fields(private_logs, num_private_logs, blob_fields, num_blob_fields);
 
     (blob_fields, num_blob_fields)
 }
 
-fn verify_private_logs_blob_fields(
+fn validate_private_logs_blob_fields(
     private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
     num_private_logs: u32,
     blob_fields: [Field; PRIVATE_LOGS_BLOB_FIELDS_LENGTH],
@@ -366,7 +366,7 @@ mod tests {
         NUM_NOTE_HASH_BIT_SIZE, NUM_NULLIFIER_BIT_SIZE, NUM_PRIVATE_LOG_BIT_SIZE,
         NUM_PUBLIC_DATA_WRITE_BIT_SIZE, PRIVATE_LOGS_BLOB_FIELDS_LENGTH,
         PRIVATE_LOGS_LENGTH_BIT_SIZE, PUBLIC_LOGS_LENGTH_BIT_SIZE, TX_START_PREFIX_BIT_SIZE,
-        TxEffectArrayLengths, verify_private_logs_blob_fields,
+        TxEffectArrayLengths, validate_private_logs_blob_fields,
     };
 
     fn private_logs_fixture() -> ([PrivateLog; MAX_PRIVATE_LOGS_PER_TX], [Field; PRIVATE_LOGS_BLOB_FIELDS_LENGTH]) {
@@ -393,21 +393,21 @@ mod tests {
     #[test]
     fn valid_private_log_blob_hint_is_accepted() {
         let (private_logs, blob_fields) = private_logs_fixture();
-        verify_private_logs_blob_fields(private_logs, 2, blob_fields, 5);
+        validate_private_logs_blob_fields(private_logs, 2, blob_fields, 5);
     }
 
     #[test(should_fail_with = "Incorrect private log length in blob data")]
     fn private_log_blob_hint_rejects_wrong_length_field() {
         let (private_logs, mut blob_fields) = private_logs_fixture();
         blob_fields[0] = 3;
-        verify_private_logs_blob_fields(private_logs, 2, blob_fields, 5);
+        validate_private_logs_blob_fields(private_logs, 2, blob_fields, 5);
     }
 
     #[test(should_fail_with = "Incorrect private log field in blob data")]
     fn private_log_blob_hint_rejects_wrong_log_field() {
         let (private_logs, mut blob_fields) = private_logs_fixture();
         blob_fields[1] = 99;
-        verify_private_logs_blob_fields(private_logs, 2, blob_fields, 5);
+        validate_private_logs_blob_fields(private_logs, 2, blob_fields, 5);
     }
 
     #[test(should_fail_with = "Incorrect private log length in blob data")]
@@ -415,7 +415,7 @@ mod tests {
         let (private_logs, mut blob_fields) = private_logs_fixture();
         blob_fields[3] = 0;
         blob_fields[4] = 0;
-        verify_private_logs_blob_fields(private_logs, 2, blob_fields, 3);
+        validate_private_logs_blob_fields(private_logs, 2, blob_fields, 3);
     }
 
     #[test(should_fail_with = "Incorrect private log length in blob data")]
@@ -424,19 +424,19 @@ mod tests {
         blob_fields[3] = 2;
         blob_fields[4] = 11;
         blob_fields[5] = 12;
-        verify_private_logs_blob_fields(private_logs, 2, blob_fields, 6);
+        validate_private_logs_blob_fields(private_logs, 2, blob_fields, 6);
     }
 
     #[test(should_fail_with = "Incorrect number of private log fields in blob data")]
     fn private_log_blob_hint_rejects_understated_count() {
         let (private_logs, blob_fields) = private_logs_fixture();
-        verify_private_logs_blob_fields(private_logs, 1, blob_fields, 5);
+        validate_private_logs_blob_fields(private_logs, 1, blob_fields, 5);
     }
 
     #[test(should_fail_with = "Incorrect number of private log fields in blob data")]
     fn private_log_blob_hint_rejects_overstated_count() {
         let (private_logs, blob_fields) = private_logs_fixture();
-        verify_private_logs_blob_fields(private_logs, 3, blob_fields, 5);
+        validate_private_logs_blob_fields(private_logs, 3, blob_fields, 5);
     }
 
     #[test(should_fail_with = "Private log length exceeds maximum")]
@@ -453,7 +453,7 @@ mod tests {
         for i in 0..fields.len() {
             blob_fields[i + 1] = fields[i];
         }
-        verify_private_logs_blob_fields(
+        validate_private_logs_blob_fields(
             private_logs,
             1,
             blob_fields,
