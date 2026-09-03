@@ -163,8 +163,10 @@ curl -L https://foundry.paradigm.xyz | bash
 $HOME/.foundry/bin/foundryup -i v1.4.1
 
 mkdir -p /opt/foundry/bin
+# foundryup's bin/ entries are symlinks to binaries elsewhere in its install
+# tree; moving one out would leave a dangling link once $HOME/.foundry is removed.
 for t in forge cast anvil chisel; do
-    mv $HOME/.foundry/bin/$t /opt/foundry/bin/$t
+    cp -Lp $HOME/.foundry/bin/$t /opt/foundry/bin/$t
     strip /opt/foundry/bin/$t
 done
 rm -rf $HOME/.foundry

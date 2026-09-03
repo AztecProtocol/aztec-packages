@@ -207,12 +207,15 @@ function install_foundry {
   # Install foundry to temp location and move to version directory
   FOUNDRY_DIR="$temp_foundry_dir" timeout 30 "$foundry_home/bin/foundryup" -i "$foundry_version"
 
-  # Move the foundry binaries into internal-bin (off PATH); aztec-forge etc.
+  # Copy the foundry binaries into internal-bin (off PATH); aztec-forge etc.
   # symlinks in version_bin_path expose them under aztec-prefixed names.
+  # foundryup's bin/ entries are symlinks to binaries elsewhere in its install
+  # tree; moving one out would leave a dangling link once the temp directory is
+  # removed.
   for binary in forge cast anvil chisel; do
-    if [ -f "$temp_foundry_dir/bin/$binary" ]; then
-      mv "$temp_foundry_dir/bin/$binary" "$version_internal_bin_path/$binary"
-    fi
+    # Unlink first: cp refuses a destination that is executing or a dangling symlink.
+    rm -f "$version_internal_bin_path/$binary"
+    cp -Lp "$temp_foundry_dir/bin/$binary" "$version_internal_bin_path/$binary"
   done
 
   # Cleanup temp directory

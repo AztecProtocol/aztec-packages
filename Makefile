@@ -68,25 +68,20 @@ fast-foundation: barretenberg bb-tests \
 		fnd-release-tests \
 		ipc-runtime ipc-codegen-tests \
 		constants-codegen constants-codegen-tests \
+		labs-patches-tests \
 		claude-tests
 
-fast-labs: yarn-project yarn-project-tests \
-		aztec-nr \
-		noir-contracts \
-		aztec-up aztec-up-tests \
-		contract-snapshots-tests \
-		spartan \
-		playground playground-tests \
-		docs docs-tests \
-		release-image release-image-tests \
-		claude-tests
+# The labs components are built from the aztec-node checkout in the labs/ submodule, against
+# this tree's packages and binaries (see the Labs section). The in-tree copies under
+# yarn-project/, noir-projects/labs/ etc. are no longer part of the build.
+fast-labs: labs-fast
 
 fast: fast-foundation fast-labs
 
 # Full bootstrap.
 full-foundation: fast-foundation bb-full-tests bb-cpp-full
 
-full-labs: fast-labs yarn-project-benches
+full-labs: labs-full
 
 full: full-foundation full-labs
 
@@ -97,9 +92,7 @@ full: full-foundation full-labs
 bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-sol bb-acir \
 		noir-protocol-circuits l1-contracts
 
-# yarn-project-benches covers the e2e bench inputs and yarn-project's own benches;
-# noir-contracts was previously built transitively via yarn-project.
-bench-labs: yarn-project-benches noir-contracts
+bench-labs: labs-bench
 
 bench: bench-foundation bench-labs
 
@@ -273,7 +266,10 @@ bb-ts-cross-copy: bb-ts bb-cpp-cross
 bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native
 	$(call build,$@,barretenberg/ts,build_bb_avm_sim)
 
-bb-avm-sim-cross-copy: bb-avm-sim bb-cpp-cross
+# Ordered after bb-cdb for the same reason bb-cdb is ordered after bb-avm-sim:
+# all three regenerate the same barretenberg/ts workspaces and install into the
+# same node_modules.
+bb-avm-sim-cross-copy: bb-avm-sim bb-cdb bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy_bb_avm_sim)
 
 # Generated @aztec/cdb server bindings. Ordered after bb-avm-sim rather than run
@@ -397,6 +393,83 @@ claude-tests:
 	$(call test,$@,.claude)
 
 #==============================================================================
+# Labs (aztec-node, checked out as the labs/ submodule)
+#==============================================================================
+
+# aztec-node pins released foundation packages and binaries. use-local rewrites its
+# manifests to portal into this checkout and records the root in .fnd-root, so its
+# components build against what this tree just built (see labs/labs-aztec-toolchain/pins.mjs).
+# The rewrite is committed in the submodule as a marker commit that the patch series
+# tooling ignores, so the labs tree is clean for ci3's cache hashing and yarn's immutable
+# installs in CI.
+LABS_DIR := $(ROOT)/labs
+
+# What the labs manifests portal into (barretenberg/ts/*, wsdb/ts, ipc-runtime/ts,
+# l1-contracts/l1-artifacts, protocol/constants-codegen, noir/packages/*) plus the
+# binaries labs-aztec-toolchain symlinks (bb, bb-avm, nargo).
+# The artifacts packages' installable content is a dist/ assembled from the built circuits.
+# The release flow stages it before publishing; the labs use-local portals point at the same
+# dists, so they must be staged before the submodule's yarn install resolves them.
+fnd-artifacts-stage: noir-projects-fnd
+	$(call build,$@,noir-projects/fnd,stage_packages)
+
+labs-deps: bb-ts l1-contracts wsdb bb-avm-sim bb-cdb constants-codegen noir-projects-fnd fnd-artifacts-stage
+
+# Checks the submodule out at its gitlink with the labs-patches series applied (no-op when
+# already there). use-local rewrites are re-done after it, so it must run first.
+labs-patched:
+	$(call run_command,$@,$(ROOT),./labs-patches/bootstrap.sh apply)
+
+# The tooling's sandbox lifecycle test, plus check of the committed series against the gitlink.
+# After labs-patched: check must not race apply on the same submodule.
+labs-patches-tests: labs-patched
+	$(call test,$@,labs-patches)
+
+# The portal resolutions change the lockfiles; they are refreshed here so the submodule's
+# own installs see them consistent (yarn refuses to touch a lockfile under CI).
+# scripts/labs_fnd_hashes.sh records the providers' content hashes in the submodule, which is
+# what makes the labs cache keys (builds and tests) follow this tree.
+labs-use-local: labs-patched labs-deps
+	$(call run_command,$@,$(LABS_DIR),./labs-aztec-toolchain/bootstrap.sh use-local $(ROOT) \
+	  && $(ROOT)/scripts/labs_fnd_hashes.sh \
+	  && (cd yarn-project && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile) \
+	  && (cd docs && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile) \
+	  && $(ROOT)/labs-patches/bootstrap.sh commit-use-local)
+
+# ci3 takes the repo root from an inherited $$root, so the submodule's make must not see
+# this tree's. The test commands it collects are relative to the submodule, and the test
+# engine runs them from this root: TEST_CMD_PREFIX (a labs patch) cds into the submodule
+# and clears the inherited root so its ci3 re-derives it there.
+# aztec-up, release-image, and the docker-compose based tests (the compose, web3signer and
+# ha e2e flavours, the playground browser tests, the docs examples run) package or mount
+# the labs tree on its own (verdaccio publish, docker build context, a compose volume of
+# the checkout) where the use-local portals do not resolve, so they are left to the labs
+# repo's own CI: the targets are not run and the test commands are skipped.
+# scripts/labs_env.sh is the single definition of that environment, shared with the
+# bootstrap-side collectors (scripts/labs_test_cmds.sh).
+LABS_MAKE := $(ROOT)/scripts/labs_env.sh $(MAKE)
+
+# fast covers what a foundation change can break: labs compiled against the portals and its
+# unit/e2e tests, and the contracts against this tree's nargo/bb. docs, spartan, playground and
+# the claude tooling only consume yarn-project and go in full (the pin-bump PR runs full).
+labs-fast: labs-use-local
+	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) \
+	  yarn-project yarn-project-tests aztec-nr noir-contracts contract-snapshots-tests)
+
+labs-full: labs-fast
+	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) \
+	  spartan playground playground-tests docs docs-tests claude-tests yarn-project-benches)
+
+# Just the labs yarn-project, for callers that need its build output and nothing else.
+labs-yarn-project: labs-use-local
+	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) yarn-project)
+
+labs-bench: labs-use-local
+	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) bench)
+
+.PHONY: labs-deps labs-patched labs-patches-tests labs-use-local labs-fast labs-full labs-bench labs-yarn-project fnd-artifacts-stage
+
+#==============================================================================
 # Labs Aztec Toolchain
 #==============================================================================
 
@@ -464,9 +537,9 @@ aztec-nr: noir bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchai
 
 # These tests are not included in the dep tree.
 # Rather this target must be explicitly called by bootstrap.sh after it's started the txe's.
+# Only labs code needs the TXE, so the target collects the submodule's own txe tests.
 noir-projects-txe-tests:
-	$(call test,$@,noir-projects/labs/aztec-nr)
-	$(call test,$@,noir-projects/labs/noir-contracts)
+	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) noir-projects-txe-tests)
 
 contract-snapshots-tests: noir noir-projects-labs-format-check labs-aztec-toolchain
 	$(call test,$@,noir-projects/labs/contract-snapshots)

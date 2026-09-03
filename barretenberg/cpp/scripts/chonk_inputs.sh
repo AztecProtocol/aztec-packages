@@ -59,17 +59,17 @@ function capture_inputs {
     return
   fi
 
-  echo "Running live Chonk input capture via yarn-project/end-to-end build_bench_capture..."
+  echo "Running live Chonk input capture via labs/yarn-project/end-to-end build_bench_capture..."
   cd "$root"
   ./bootstrap.sh pull_submodules
-  make yarn-project
+  make labs-yarn-project
   # The capture's getBBConfig defaults to bin/bb-avm but silently falls back to non-AVM
   # proving when it is absent, baking stale public-path VKs (e.g. the public hiding kernel
   # used by deploy flows) into the fixtures. Build just that binary so the capture uses AVM
   # (cmake_build forwards --target; build_preset would ignore it and rebuild the whole preset).
   barretenberg/cpp/bootstrap.sh cmake_build "$bb_preset" --target bb-avm
-  cd "$root/yarn-project/end-to-end"
-  ./bootstrap.sh build_bench_capture
+  cd "$root/labs/yarn-project/end-to-end"
+  env -u root -u ci3 ./bootstrap.sh build_bench_capture
 }
 
 function check_circuit_vks {

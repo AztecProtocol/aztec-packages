@@ -8,10 +8,10 @@ use crate::{
         MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     },
-    traits::{Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize},
 };
 
-#[derive(Eq, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct TxEffect {
     pub revert_code: u8,
     pub tx_hash: Field,
