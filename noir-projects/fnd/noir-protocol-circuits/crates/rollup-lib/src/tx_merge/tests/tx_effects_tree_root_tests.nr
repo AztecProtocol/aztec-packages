@@ -11,7 +11,7 @@ use types::{
 };
 
 // Stand-ins for the leaves computed by the tx base circuits, so that the expected roots can be written out by hand.
-global LEAVES: [Field; 5] = [1111, 2222, 3333, 4444, 5555];
+global LEAVES: [Field; 7] = [1111, 2222, 3333, 4444, 5555, 6666, 7777];
 
 // The tx index of the first tx of the block used by these tests. Any non-zero index works.
 global FIRST_TX_INDEX: u16 = 6;
@@ -43,6 +43,20 @@ fn merge_bases(left: TxRollupPublicInputs, right: TxRollupPublicInputs) -> TxRol
         PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
         right,
         PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
+    )
+}
+
+fn merge_four_bases(first_leaf: u32) -> TxRollupPublicInputs {
+    let left = merge_bases(tx_base_rollup(first_leaf), tx_base_rollup(first_leaf + 1));
+    let right = merge_bases(
+        tx_base_rollup(first_leaf + 2),
+        tx_base_rollup(first_leaf + 3),
+    );
+    merge(
+        left,
+        TX_MERGE_ROLLUP_VK_INDEX,
+        right,
+        TX_MERGE_ROLLUP_VK_INDEX,
     )
 }
 
@@ -79,6 +93,20 @@ fn three_txs() {
 }
 
 #[test]
+fn four_txs() {
+    let merged = merge_four_bases(0);
+
+    assert_eq(merged.num_txs, 4);
+    assert_eq(
+        merged.accumulated_tx_effects_tree_root,
+        accumulate_tx_effects_tree_root(
+            accumulate_tx_effects_tree_root(LEAVES[0], LEAVES[1]),
+            accumulate_tx_effects_tree_root(LEAVES[2], LEAVES[3]),
+        ),
+    );
+}
+
+#[test]
 fn five_txs() {
     // The greedy fill forces the shape H(H(H(leaf_0, leaf_1), H(leaf_2, leaf_3)), leaf_4).
     let left_left = merge_bases(tx_base_rollup(0), tx_base_rollup(1));
@@ -105,6 +133,65 @@ fn five_txs() {
                 accumulate_tx_effects_tree_root(LEAVES[2], LEAVES[3]),
             ),
             LEAVES[4],
+        ),
+    );
+}
+
+#[test]
+fn six_txs() {
+    // The greedy fill forces a four-leaf left subtree and a two-leaf right subtree.
+    let left = merge_four_bases(0);
+    let right = merge_bases(tx_base_rollup(4), tx_base_rollup(5));
+    let merged = merge(
+        left,
+        TX_MERGE_ROLLUP_VK_INDEX,
+        right,
+        TX_MERGE_ROLLUP_VK_INDEX,
+    );
+
+    assert_eq(merged.num_txs, 6);
+    assert_eq(
+        merged.accumulated_tx_effects_tree_root,
+        accumulate_tx_effects_tree_root(
+            accumulate_tx_effects_tree_root(
+                accumulate_tx_effects_tree_root(LEAVES[0], LEAVES[1]),
+                accumulate_tx_effects_tree_root(LEAVES[2], LEAVES[3]),
+            ),
+            accumulate_tx_effects_tree_root(LEAVES[4], LEAVES[5]),
+        ),
+    );
+}
+
+#[test]
+fn seven_txs() {
+    // The greedy fill forces a four-leaf left subtree and a three-leaf right subtree.
+    let left = merge_four_bases(0);
+    let right_pair = merge_bases(tx_base_rollup(4), tx_base_rollup(5));
+    let right = merge(
+        right_pair,
+        TX_MERGE_ROLLUP_VK_INDEX,
+        tx_base_rollup(6),
+        PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
+    );
+    let merged = merge(
+        left,
+        TX_MERGE_ROLLUP_VK_INDEX,
+        right,
+        TX_MERGE_ROLLUP_VK_INDEX,
+    );
+
+    assert_eq(merged.num_txs, 7);
+    assert_eq(
+        merged.accumulated_tx_effects_tree_root,
+        accumulate_tx_effects_tree_root(
+            accumulate_tx_effects_tree_root(
+                accumulate_tx_effects_tree_root(LEAVES[0], LEAVES[1]),
+                accumulate_tx_effects_tree_root(LEAVES[2], LEAVES[3]),
+            ),
+            accumulate_tx_effects_tree_root(
+                accumulate_tx_effects_tree_root(LEAVES[4], LEAVES[5]),
+                LEAVES[6],
+            ),
         ),
     );
 }
