@@ -718,5 +718,136 @@ describe('MessageStore', () => {
       expect(await messageStore.getInboxBucket(1n)).toBeUndefined();
       expect(await messageStore.getLatestInboxBucketAtOrBefore(300n)).toBeUndefined();
     });
+
+    describe('replacing the messages above a bucket', () => {
+      const syncPoint = { l1BlockNumber: 900n, l1BlockHash: makeL1BlockHash(900n) };
+
+      // Re-times a message onto another L1 block and bucket, the way an L1 reorg re-mines one, leaving its leaf,
+      // index and rolling hash alone.
+      const reabsorb = (msg: InboxMessage, bucket: { seq: bigint; timestamp: bigint }): InboxMessage => ({
+        ...msg,
+        bucketSeq: bucket.seq,
+        bucketTimestamp: bucket.timestamp,
+        l1BlockNumber: makeL1BlockNumberForBucket(bucket.timestamp),
+        l1BlockHash: makeL1BlockHash(makeL1BlockNumberForBucket(bucket.timestamp)),
+      });
+
+      it('re-times a bucket the reorg re-mined without touching its message', async () => {
+        const msgs = makeBucketedMessages(threeBucketSpec);
+        await messageStore.addL1ToL2MessageBuckets(msgs);
+        const retimed = reabsorb(msgs[5], { seq: 3n, timestamp: 350n });
+
+        await messageStore.replaceMessagesAboveBucket({
+          lastCanonicalBucketSeq: 2n,
+          firstDifferingIndex: undefined,
+          messages: [retimed],
+          syncPoint,
+          finalizedL1Block: undefined,
+        });
+
+        expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual([...msgs.slice(0, 5), retimed]);
+        expect(await messageStore.getInboxBucket(3n)).toMatchObject({
+          timestamp: 350n,
+          msgCount: 1,
+          totalMsgCount: 6n,
+          l1BlockNumber: retimed.l1BlockNumber,
+        });
+        expect(await messageStore.getLatestInboxBucketAtOrBefore(300n)).toMatchObject({ seq: 2n });
+        expect((await messageStore.getLatestInboxBucketAtOrBefore(350n))?.seq).toEqual(3n);
+        expect((await messageStore.getInboxBucketByRollingHash(msgs[5].inboxRollingHash))?.seq).toEqual(3n);
+        expect(await messageStore.getSynchedL1Block()).toEqual(syncPoint);
+      });
+
+      it('merges the buckets above the last canonical one', async () => {
+        const msgs = makeBucketedMessages(threeBucketSpec);
+        await messageStore.addL1ToL2MessageBuckets(msgs);
+        // The L1 blocks that opened buckets 2 and 3 are re-mined as one, so the six messages fill two buckets.
+        const merged = msgs.slice(3).map(msg => reabsorb(msg, { seq: 2n, timestamp: 250n }));
+
+        await messageStore.replaceMessagesAboveBucket({
+          lastCanonicalBucketSeq: 1n,
+          firstDifferingIndex: undefined,
+          messages: merged,
+          syncPoint,
+          finalizedL1Block: undefined,
+        });
+
+        expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual([...msgs.slice(0, 3), ...merged]);
+        expect(await messageStore.getInboxBucket(2n)).toMatchObject({
+          timestamp: 250n,
+          msgCount: 3,
+          totalMsgCount: 6n,
+          lastMessageIndex: msgs[5].index,
+        });
+        expect(await messageStore.getInboxBucket(3n)).toBeUndefined();
+        expect(await messageStore.getLatestInboxBucketAtOrBefore(200n)).toMatchObject({ seq: 1n });
+        expect((await messageStore.getLatestInboxBucketAtOrBefore(300n))?.seq).toEqual(2n);
+        // The bucket the merge dissolved carries no rolling hash any more, and the one that absorbed it ends on
+        // the hash a checkpoint consuming through the old bucket 3 committed to.
+        expect(await messageStore.getInboxBucketByRollingHash(msgs[4].inboxRollingHash)).toBeUndefined();
+        expect((await messageStore.getInboxBucketByRollingHash(msgs[5].inboxRollingHash))?.seq).toEqual(2n);
+      });
+
+      it('splits a bucket the reorg cut in two', async () => {
+        const msgs = makeBucketedMessages(threeBucketSpec);
+        await messageStore.addL1ToL2MessageBuckets(msgs);
+        // Bucket 2's two messages were absorbed from co-timestamped L1 blocks; re-mining the second with a
+        // timestamp of its own splits them, and every bucket after it is renumbered.
+        const split = [
+          reabsorb(msgs[3], { seq: 2n, timestamp: 200n }),
+          reabsorb(msgs[4], { seq: 3n, timestamp: 250n }),
+          reabsorb(msgs[5], { seq: 4n, timestamp: 300n }),
+        ];
+
+        await messageStore.replaceMessagesAboveBucket({
+          lastCanonicalBucketSeq: 1n,
+          firstDifferingIndex: undefined,
+          messages: split,
+          syncPoint,
+          finalizedL1Block: undefined,
+        });
+
+        expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual([...msgs.slice(0, 3), ...split]);
+        expect(await messageStore.getInboxBucket(2n)).toMatchObject({ msgCount: 1, totalMsgCount: 4n });
+        expect(await messageStore.getInboxBucket(3n)).toMatchObject({ msgCount: 1, totalMsgCount: 5n });
+        expect(await messageStore.getInboxBucket(4n)).toMatchObject({ msgCount: 1, totalMsgCount: 6n });
+        expect((await messageStore.getLatestInboxBucketAtOrBefore(250n))?.seq).toEqual(3n);
+        expect((await messageStore.getInboxBucketByRollingHash(msgs[4].inboxRollingHash))?.seq).toEqual(3n);
+        expect((await messageStore.getInboxBucketByRollingHash(msgs[5].inboxRollingHash))?.seq).toEqual(4n);
+      });
+
+      it('drops the messages from the first differing leaf and stores the canonical ones', async () => {
+        const msgs = makeBucketedMessages(threeBucketSpec);
+        await messageStore.addL1ToL2MessageBuckets(msgs);
+        // The canonical chain keeps bucket 2's first message, replaces its second and carries nothing after it.
+        const replacement = makeNextMessage(msgs[3], { seq: 2n, timestamp: 200n });
+
+        await messageStore.replaceMessagesAboveBucket({
+          lastCanonicalBucketSeq: 1n,
+          firstDifferingIndex: msgs[4].index,
+          messages: [msgs[3], replacement],
+          syncPoint,
+          finalizedL1Block: { l1BlockNumber: 800n, l1BlockHash: makeL1BlockHash(800n) },
+        });
+
+        expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual([...msgs.slice(0, 4), replacement]);
+        expect(await messageStore.getTotalL1ToL2MessageCount()).toEqual(5n);
+        expect(await messageStore.getInboxBucket(2n)).toMatchObject({
+          msgCount: 2,
+          totalMsgCount: 5n,
+          inboxRollingHash: replacement.inboxRollingHash,
+        });
+        expect(await messageStore.getInboxBucket(3n)).toBeUndefined();
+        expect(await messageStore.getLatestInboxBucketAtOrBefore(300n)).toMatchObject({ seq: 2n });
+        expect(await messageStore.getInboxBucketByRollingHash(msgs[4].inboxRollingHash)).toBeUndefined();
+        expect(await messageStore.getInboxBucketByRollingHash(msgs[5].inboxRollingHash)).toBeUndefined();
+        expect((await messageStore.getInboxBucketByRollingHash(replacement.inboxRollingHash))?.seq).toEqual(2n);
+        // The leaves that are gone no longer resolve to an index, and the replacement does.
+        expect(await messageStore.getL1ToL2MessageIndex(msgs[4].leaf)).toBeUndefined();
+        expect(await messageStore.getL1ToL2MessageIndex(replacement.leaf)).toEqual(replacement.index);
+        expect(await messageStore.getSynchedL1Block()).toEqual(syncPoint);
+        expect(await messageStore.getMessagesFinalizedL1Block()).toMatchObject({ l1BlockNumber: 800n });
+      });
+    });
   });
 });

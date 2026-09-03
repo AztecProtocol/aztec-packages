@@ -453,13 +453,7 @@ export class MessageStore {
     const lastRemaining = await this.getLastMessage();
     const boundarySeq = lastRemaining?.bucketSeq;
 
-    const deleteFromKey = boundarySeq === undefined ? 0 : this.bucketSeqToKey(boundarySeq) + 1;
-    for await (const [seqKey, snapBuffer] of this.#inboxBuckets.entriesAsync({ start: deleteFromKey })) {
-      const snapshot = deserializeBucketSnapshot(snapBuffer);
-      await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(snapshot.timestamp), seqKey);
-      await this.#bucketRollingHashToSeq.delete(this.rollingHashToKey(snapshot.inboxRollingHash));
-      await this.#inboxBuckets.delete(seqKey);
-    }
+    await this.deleteBucketSnapshotsAbove(boundarySeq);
 
     if (lastRemaining === undefined || boundarySeq === undefined) {
       return;
@@ -480,6 +474,60 @@ export class MessageStore {
       lastL1BlockHash: lastRemaining.l1BlockHash,
       msgCount,
       lastMessageIndex: lastRemaining.index,
+    });
+  }
+
+  /**
+   * Deletes the snapshot of every bucket above `seq`, together with its timestamp and rolling-hash index entries.
+   * The timestamp entry is deleted by value, so the rollover siblings a bucket shares a timestamp with stay indexed.
+   * Passing undefined deletes every snapshot. Must run inside the transaction that rewrites the buckets.
+   */
+  private async deleteBucketSnapshotsAbove(seq: bigint | undefined): Promise<void> {
+    const deleteFromKey = seq === undefined ? 0 : this.bucketSeqToKey(seq) + 1;
+    for await (const [seqKey, snapBuffer] of this.#inboxBuckets.entriesAsync({ start: deleteFromKey })) {
+      const snapshot = deserializeBucketSnapshot(snapBuffer);
+      await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(snapshot.timestamp), seqKey);
+      await this.#bucketRollingHashToSeq.delete(this.rollingHashToKey(snapshot.inboxRollingHash));
+      await this.#inboxBuckets.delete(seqKey);
+    }
+  }
+
+  /**
+   * Replaces everything the store holds above the given bucket with the messages the canonical chain delivers for the
+   * same range, and moves the sync point to the L1 block that range was fetched up to, all in a single transaction.
+   *
+   * The caller has already compared the two views: `firstDifferingIndex` is the lowest index whose leaf changed, and
+   * is undefined when the canonical chain re-delivers the very same leaves, in which case not a single message is
+   * dropped and only the bucket metadata derived from the L1 blocks moves. The steps depend on each other in order:
+   * the removal rewrites the snapshot of the bucket left holding the last surviving message, so it has to run while
+   * that snapshot is still there; the snapshots above the last canonical bucket then go, because a re-delivery that
+   * renumbers or merges buckets would otherwise be rejected as incomplete or leave a stale snapshot behind; and only
+   * then can the canonical messages be delivered, which rewrites the snapshots from the messages themselves.
+   *
+   * `messages` must start at the first message of the last canonical bucket (or of the Inbox when there is none), so
+   * that every bucket it covers arrives whole.
+   *
+   * @param lastCanonicalBucketSeq - Sequence of the newest bucket known to sit on canonical L1 blocks, if any.
+   * @param firstDifferingIndex - Lowest message index whose leaf the canonical chain changed, if any.
+   * @param messages - The canonical messages from the last canonical bucket's opening L1 block onwards.
+   * @param syncPoint - L1 block the messages were fetched up to.
+   * @param finalizedL1Block - L1 finalized block to record, if it is at or below the sync point.
+   */
+  public replaceMessagesAboveBucket(args: {
+    lastCanonicalBucketSeq: bigint | undefined;
+    firstDifferingIndex: bigint | undefined;
+    messages: InboxMessage[];
+    syncPoint: L1BlockId;
+    finalizedL1Block: L1BlockId | undefined;
+  }): Promise<void> {
+    const { lastCanonicalBucketSeq, firstDifferingIndex, messages, syncPoint, finalizedL1Block } = args;
+    return this.db.transactionAsync(async () => {
+      if (firstDifferingIndex !== undefined) {
+        await this.removeL1ToL2Messages(firstDifferingIndex);
+      }
+      await this.deleteBucketSnapshotsAbove(lastCanonicalBucketSeq);
+      await this.addL1ToL2MessageBuckets(messages);
+      await this.setMessageSyncState(syncPoint, finalizedL1Block);
     });
   }
 
