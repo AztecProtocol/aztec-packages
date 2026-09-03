@@ -49,8 +49,8 @@ when to consume it. That choice is a node setting, `SEQ_INBOX_L1_CONFIRMATIONS`,
   the messages themselves changed: its archiver rewinds those messages and drops the blocks built on them, and the
   checkpoint is abandoned. The proposer also re-resolves the bucket it consumed by its contents before publishing,
   which only prevents a false rejection when a reorg elsewhere renumbers buckets without touching their messages. At
-  ten one-block L1 reorgs per day and messages in 30% of L1 blocks, that bounds the loss at about 0.07% of slots (one
-  or two per day) and affects nothing else — the chain carries on, and the next proposer consumes the message.
+  ten one-block L1 reorgs per day and messages in 30% of L1 blocks, that bounds the loss at about 0.13% of slots
+  (about three per day) and affects nothing else — the chain carries on, and the next proposer consumes the message.
 - **`1`: wait for one L1 confirmation.** The proposer consumes a message only once a child block is observed on top
   of the one carrying it, or the following L1 slot was missed and that block is still canonical after it. That makes
   it immune to the one-block reorgs above at the cost of roughly one Ethereum slot (~12s) of extra latency per
