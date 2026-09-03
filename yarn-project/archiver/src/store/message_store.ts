@@ -102,20 +102,6 @@ function toBucketL1Span(seq: bigint, snapshot: BucketSnapshot): InboxBucketL1Spa
   };
 }
 
-/**
- * Whether two snapshots of the same bucket place it at the same point on L1: same timestamp, same opening and closing
- * blocks.
- */
-function sameL1Identity(a: BucketSnapshot, b: BucketSnapshot): boolean {
-  return (
-    a.timestamp === b.timestamp &&
-    a.l1BlockNumber === b.l1BlockNumber &&
-    a.l1BlockHash.equals(b.l1BlockHash) &&
-    a.lastL1BlockNumber === b.lastL1BlockNumber &&
-    a.lastL1BlockHash.equals(b.lastL1BlockHash)
-  );
-}
-
 /** The messages of a single Inbox bucket within an incoming batch, in insertion order. */
 type IncomingBucket = {
   seq: bigint;
@@ -184,8 +170,6 @@ export class MessageStore {
    * leaves its rollover siblings indexed.
    */
   #bucketTimestampToSeq: AztecAsyncMultiMap<number, number>;
-  /** Stores the sequence number through which bucket canonicality has been verified against a finalized L1 chain. */
-  #canonicalVerifiedThroughSeq: AztecAsyncSingleton<bigint>;
 
   #log = createLogger('archiver:message_store');
 
@@ -197,7 +181,6 @@ export class MessageStore {
     this.#messagesFinalizedL1Block = db.openSingleton('archiver_messages_finalized_l1_block');
     this.#inboxBuckets = db.openMap('archiver_inbox_buckets');
     this.#bucketTimestampToSeq = db.openMultiMap('archiver_inbox_bucket_timestamps');
-    this.#canonicalVerifiedThroughSeq = db.openSingleton('archiver_inbox_canonical_verified_through_seq');
   }
 
   public async getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -456,9 +439,8 @@ export class MessageStore {
    *
    * The bucket holding the last surviving message is rewritten from the messages it has left, because a removal can
    * cut inside a bucket: the synchronizer rolls back to the last message it still shares with L1 after a reorg, and
-   * that message need not be the last of its bucket. The canonicality watermark is lowered to the surviving tip, so
-   * that buckets re-delivered above it are verified against L1 again. Must run inside the removal transaction, after
-   * the total message count has been updated.
+   * that message need not be the last of its bucket. Must run inside the removal transaction, after the total message
+   * count has been updated.
    */
   private async rewindBucketsAfterRemoval(): Promise<void> {
     const lastRemaining = await this.getLastMessage();
@@ -469,14 +451,6 @@ export class MessageStore {
       const snapshot = deserializeBucketSnapshot(snapBuffer);
       await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(snapshot.timestamp), seqKey);
       await this.#inboxBuckets.delete(seqKey);
-    }
-
-    // The surviving tip bucket is rewritten below from the messages it has left, so it is no longer the bucket that
-    // was verified either; the watermark stops one short of it.
-    const verifiedThroughSeq = await this.getCanonicalVerifiedThroughSeq();
-    const survivingVerifiedSeq = boundarySeq === undefined ? 0n : boundarySeq - 1n;
-    if (verifiedThroughSeq > survivingVerifiedSeq) {
-      await this.setCanonicalVerifiedThroughSeq(survivingVerifiedSeq);
     }
 
     if (lastRemaining === undefined || boundarySeq === undefined) {
@@ -600,6 +574,12 @@ export class MessageStore {
     return seq === undefined ? undefined : this.getInboxBucket(seq);
   }
 
+  /** Returns the L1 span of the Inbox bucket with the highest sequence number, or undefined if none has been synced. */
+  public async getNewestInboxBucketL1Span(): Promise<InboxBucketL1Span | undefined> {
+    const seq = await this.getNewestBucketSeq();
+    return seq === undefined ? undefined : this.getInboxBucketL1Span(seq);
+  }
+
   /**
    * Returns the L1 blocks the bucket with the given sequence number was opened and closed in, or undefined if it has
    * not been synced. Sequence 0 is the genesis sentinel, which is never stored and has no L1 block of its own.
@@ -618,21 +598,6 @@ export class MessageStore {
     for await (const [seqKey, snapBuffer] of this.#inboxBuckets.entriesAsync(entriesRange)) {
       yield toBucketL1Span(BigInt(seqKey), deserializeBucketSnapshot(snapBuffer));
     }
-  }
-
-  /**
-   * Returns the sequence number through which this archiver has verified that the buckets it holds were opened in L1
-   * blocks that are canonical and finalized, or 0 (the genesis sentinel) if it has verified none. Buckets at or below
-   * it need no further checking; buckets above it may still sit on an orphaned L1 block, even one that is now below
-   * the finalized block, if the node was not watching when it was reorged out.
-   */
-  public async getCanonicalVerifiedThroughSeq(): Promise<bigint> {
-    return (await this.#canonicalVerifiedThroughSeq.getAsync()) ?? 0n;
-  }
-
-  /** Records the sequence number through which bucket canonicality has been verified. */
-  public async setCanonicalVerifiedThroughSeq(seq: bigint): Promise<void> {
-    await this.#canonicalVerifiedThroughSeq.set(seq);
   }
 
   /**
@@ -683,15 +648,9 @@ export class MessageStore {
 
   private async writeBucketSnapshot(seq: bigint, snapshot: BucketSnapshot): Promise<void> {
     const stored = await this.getBucketSnapshotBySeq(seq);
-    if (stored !== undefined && !sameL1Identity(stored, snapshot)) {
-      // A reorg can re-deliver a bucket from an L1 block mined at a different timestamp, so drop the stale index
-      // entry, and stop trusting whatever canonicality check was run against the bucket's previous L1 blocks.
-      if (stored.timestamp !== snapshot.timestamp) {
-        await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(stored.timestamp), this.bucketSeqToKey(seq));
-      }
-      if ((await this.getCanonicalVerifiedThroughSeq()) >= seq) {
-        await this.setCanonicalVerifiedThroughSeq(seq - 1n);
-      }
+    if (stored !== undefined && stored.timestamp !== snapshot.timestamp) {
+      // A reorg can re-deliver a bucket from an L1 block mined at a different timestamp, so drop the stale index entry.
+      await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(stored.timestamp), this.bucketSeqToKey(seq));
     }
     await this.#inboxBuckets.set(this.bucketSeqToKey(seq), serializeBucketSnapshot(snapshot));
     await this.#bucketTimestampToSeq.set(this.timestampToKey(snapshot.timestamp), this.bucketSeqToKey(seq));

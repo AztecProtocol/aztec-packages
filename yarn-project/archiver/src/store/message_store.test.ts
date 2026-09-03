@@ -490,6 +490,15 @@ describe('MessageStore', () => {
       expect(await messageStore.getNewestInboxBucket()).toEqual(await messageStore.getInboxBucket(3n));
     });
 
+    it('returns the L1 span of the newest bucket', async () => {
+      expect(await messageStore.getNewestInboxBucketL1Span()).toBeUndefined();
+
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      expect(await messageStore.getNewestInboxBucketL1Span()).toEqual(await messageStore.getInboxBucketL1Span(3n));
+    });
+
     it('iterates over bucket spans in sequence order', async () => {
       await messageStore.addL1ToL2MessageBuckets(makeBucketedMessages(threeBucketSpec));
 
@@ -499,62 +508,9 @@ describe('MessageStore', () => {
       expect(await seqs({})).toEqual([1n, 2n, 3n]);
       expect(await seqs({ start: 2n })).toEqual([2n, 3n]);
       expect(await seqs({ reverse: true })).toEqual([3n, 2n, 1n]);
+      expect(await seqs({ end: 2n, reverse: true })).toEqual([2n, 1n]);
+      expect(await seqs({ end: 0n, reverse: true })).toEqual([]);
       expect(await seqs({ start: 4n })).toEqual([]);
-    });
-
-    it('tracks the sequence through which buckets have been verified as canonical', async () => {
-      await messageStore.addL1ToL2MessageBuckets(makeBucketedMessages(threeBucketSpec));
-      expect(await messageStore.getCanonicalVerifiedThroughSeq()).toEqual(0n);
-
-      await messageStore.setCanonicalVerifiedThroughSeq(2n);
-      expect(await messageStore.getCanonicalVerifiedThroughSeq()).toEqual(2n);
-    });
-
-    it('lowers the canonicality watermark below the bucket a removal cuts into', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-      await messageStore.setCanonicalVerifiedThroughSeq(3n);
-
-      // The removal leaves bucket 2 as the tip with a single message, so it is rewritten and must be verified again.
-      await messageStore.removeL1ToL2Messages(msgs[4].index);
-      expect(await messageStore.getCanonicalVerifiedThroughSeq()).toEqual(1n);
-
-      // Removing everything leaves nothing verified.
-      await messageStore.setCanonicalVerifiedThroughSeq(1n);
-      await messageStore.removeL1ToL2Messages(0n);
-      expect(await messageStore.getCanonicalVerifiedThroughSeq()).toEqual(0n);
-    });
-
-    it('lowers the canonicality watermark when a verified bucket is re-delivered from another L1 block', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-      await messageStore.setCanonicalVerifiedThroughSeq(3n);
-
-      // The same messages arrive again, this time from an L1 block the archiver has not checked.
-      const replayed = msgs.slice(3).map(msg => ({ ...msg, l1BlockHash: makeL1BlockHash(99n) }));
-      await messageStore.addL1ToL2MessageBuckets(replayed);
-
-      expect(await messageStore.getCanonicalVerifiedThroughSeq()).toEqual(1n);
-    });
-
-    it('keeps the canonicality watermark when a verified bucket is re-delivered unchanged', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-      await messageStore.setCanonicalVerifiedThroughSeq(3n);
-
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(3));
-
-      expect(await messageStore.getCanonicalVerifiedThroughSeq()).toEqual(3n);
-    });
-
-    it('leaves the canonicality watermark alone when the removal is above it', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-      await messageStore.setCanonicalVerifiedThroughSeq(1n);
-
-      await messageStore.removeL1ToL2Messages(msgs[5].index);
-
-      expect(await messageStore.getCanonicalVerifiedThroughSeq()).toEqual(1n);
     });
 
     it('returns messages between buckets in insertion order', async () => {
