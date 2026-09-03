@@ -5,15 +5,19 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { isL1ToL2MessageReady, waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { createBlobClient } from '@aztec/blob-client/client';
+import { Blob } from '@aztec/blob-lib';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import type { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
+import { hexToBuffer } from '@aztec/foundation/string';
 import { L2BlockSourceEvents, type L2PruneUncheckpointedEvent } from '@aztec/stdlib/block';
 import { WorldStateSynchronizerError } from '@aztec/world-state';
 
 import 'jest-extended';
+import { parseTransaction } from 'viem';
 
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../../fixtures/utils.js';
@@ -205,5 +209,110 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
     const rebuiltCheckpoints = await archiver.getCheckpoints({ from: checkpointAfterReorg, limit: 10 });
     expect(rebuiltCheckpoints.some(published => published.checkpoint.blocks.length >= 2)).toBe(true);
     await test.assertMultipleBlocksPerSlot(2);
+  });
+
+  it('keeps the proposed chain when a reorg re-mines the same message', async () => {
+    // Get the chain building multi-block checkpoints before touching the Inbox.
+    await t.sendTransactions(TX_COUNT, 300);
+    await test.waitUntilCheckpointNumber(CheckpointNumber(2), L2_SLOT_DURATION_IN_S * 6);
+
+    const prunes: L2PruneUncheckpointedEvent[] = [];
+    archiver.events.on(L2BlockSourceEvents.L2PruneUncheckpointed, event => {
+      prunes.push(event);
+    });
+
+    // Withhold the next checkpoint's propose tx, so the blocks that consume the message below are still only
+    // proposed when the reorg lands. Both it and the message go back into the replacement chain further down.
+    sequencerDelayer.cancelNextTx();
+
+    const msg = await sendMessage(l1Client);
+    logger.warn(`Sent message on L1 block ${msg.txReceipt.blockNumber}`);
+
+    await waitForL1ToL2MessageReady(node, msg.msgHash, { timeoutSeconds: L2_SLOT_DURATION_IN_S * 2 });
+    const consumedAtBlockNumber = await archiver.getBlockNumber();
+    const consumedBlock = await archiver.getBlockData({ number: consumedAtBlockNumber });
+    const bucketBeforeReorg = (await archiver.dataStores.messages.getNewestInboxBucket())!;
+    logger.warn(`Message consumed by proposed block ${consumedAtBlockNumber}`, {
+      bucketSeq: bucketBeforeReorg.seq,
+      bucketL1BlockNumber: bucketBeforeReorg.l1BlockNumber,
+    });
+
+    // Same check as the pruning test: the cancellation is armed before the message is sent, so make sure it took
+    // the propose that covers the consuming block rather than the previous slot's.
+    await retryUntil(
+      () => sequencerDelayer.getCancelledTxs().length,
+      'sequencer propose tx withheld',
+      L2_SLOT_DURATION_IN_S * 2,
+      0.2,
+    );
+    const [proposeTx] = sequencerDelayer.getCancelledTxs();
+    const tipsBeforeReorg = await archiver.getL2Tips();
+    expect(consumedAtBlockNumber).toBeGreaterThan(tipsBeforeReorg.checkpointed.block.number);
+
+    // The signed bytes of the mined message tx, read while it is still on the chain. The reorg rewinds the
+    // sender's nonce, so the very same tx is valid again in the replacement block and keeps its hash: the leaf it
+    // inserts hashes the sender, recipient, content, secret hash and Inbox index, none of which depends on the L1
+    // block it lands in.
+    const rawMessageTx = await context.cheatCodes.eth.getRawTransaction(msg.txReceipt.transactionHash);
+
+    // Replace every L1 block from the one carrying the message onwards, re-mining the message in the first
+    // replacement block. Both txs are replayed by hand rather than handed to `reorgWithReplacement`, which
+    // silently drops the blob-carrying propose.
+    const l1BlockNumber = await monitor.run(true).then(m => m.l1BlockNumber);
+    const reorgDepth = l1BlockNumber - Number(msg.txReceipt.blockNumber) + 1;
+    expect(reorgDepth).toBeGreaterThanOrEqual(2);
+    logger.warn(`Triggering reorg of depth ${reorgDepth} re-mining the same message`);
+    await context.cheatCodes.eth.reorg(reorgDepth);
+    await l1Client.sendRawTransaction({ serializedTransaction: rawMessageTx });
+    await context.cheatCodes.eth.mine(reorgDepth);
+
+    // The rollback rewound L1 by a slot's worth of blocks, and the propose is only valid inside the slot it was
+    // built for, so it goes back into the mempool and the next L1 block mined at its own pace carries it.
+    const proposeTxHash = await l1Client.sendRawTransaction({ serializedTransaction: proposeTx });
+    const proposeReceipt = await l1Client.waitForTransactionReceipt({
+      hash: proposeTxHash,
+      timeout: L1_BLOCK_TIME_IN_S * 4 * 1000,
+    });
+
+    // The node reads the checkpoint's blocks off the blob sink, which never saw the replayed propose.
+    const blobs = await Promise.all(
+      (parseTransaction(proposeTx).sidecars || []).map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob))),
+    );
+    await createBlobClient(context.config).sendBlobsToFilestore(blobs);
+
+    // The bucket the consuming block built on moves to the replacement L1 block, keeping the sequence number and
+    // the rolling hash the sealed checkpoint header commits to. That is what makes the checkpoint publishable.
+    await retryUntil(
+      async () => {
+        const bucket = await archiver.dataStores.messages.getInboxBucket(bucketBeforeReorg.seq);
+        return bucket !== undefined && !bucket.l1BlockHash.equals(bucketBeforeReorg.l1BlockHash);
+      },
+      'inbox bucket re-timed onto the replacement L1 block',
+      L2_SLOT_DURATION_IN_S,
+      0.2,
+    );
+    const bucketAfterReorg = (await archiver.dataStores.messages.getInboxBucket(bucketBeforeReorg.seq))!;
+    expect(bucketAfterReorg.inboxRollingHash).toEqual(bucketBeforeReorg.inboxRollingHash);
+    expect(await archiver.dataStores.messages.getInboxBucketByRollingHash(bucketBeforeReorg.inboxRollingHash)).toEqual(
+      bucketAfterReorg,
+    );
+
+    // Nothing the reorg did dropped a block that consumed the message, and the message is still consumable.
+    expect(prunes.flatMap(prune => prune.blocks).map(block => block.number)).not.toContain(consumedAtBlockNumber);
+    expect(await archiver.getBlockNumber()).toBeGreaterThanOrEqual(consumedAtBlockNumber);
+    expect(await isL1ToL2MessageReady(node, msg.msgHash)).toBe(true);
+
+    // The replayed propose reached L1, and the archiver promoted the very blocks it had proposed rather than
+    // rebuilding them.
+    expect(proposeReceipt.status).toEqual('success');
+    await retryUntil(
+      async () => (await archiver.getL2Tips()).checkpointed.block.number >= consumedAtBlockNumber,
+      'consuming block promoted to checkpointed',
+      L2_SLOT_DURATION_IN_S * 2,
+      0.2,
+    );
+    expect((await archiver.getBlockData({ number: consumedAtBlockNumber }))!.blockHash).toEqual(
+      consumedBlock!.blockHash,
+    );
   });
 });
