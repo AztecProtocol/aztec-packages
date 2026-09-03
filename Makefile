@@ -423,7 +423,7 @@ LABS_DIR := $(ROOT)/labs
 
 # What the labs manifests portal into (barretenberg/ts/*, wsdb/ts, ipc-runtime/ts,
 # l1-contracts/l1-artifacts, protocol/constants-codegen, noir/packages/*) plus the
-# binaries labs-aztec-toolchain symlinks (bb, bb-avm, nargo).
+# binaries labs-aztec-toolchain symlinks (bb, bb-avm, nargo, noir-execute, noir-profiler).
 # The artifacts packages' installable content is a dist/ assembled from the built circuits.
 # The release flow stages it before publishing; the labs use-local portals point at the same
 # dists, so they must be staged before the submodule's yarn install resolves them.
