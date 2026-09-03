@@ -71,4 +71,21 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
  */
 template <typename Builder> void mark_witness_as_used(const field_t<Builder>& field);
 
+/**
+ * @brief Return the raw witness_index of a field_t without triggering normalization.
+ *
+ * @details field_t::get_witness_index() calls normalize(), which creates a new witness + gate
+ * when multiplicative_constant != 1 or additive_constant != 0. For diagnostic/analysis tooling
+ * (e.g. static analyzer gate lookups) we need the underlying witness_index the field_t currently
+ * points to, WITHOUT mutating the circuit. This helper provides that raw access via friend
+ * declaration on field_t.
+ *
+ * @warning Returned index may correspond to a witness whose stored value is NOT the logical
+ * value of this field_t (it's scaled by multiplicative_constant + additive_constant).
+ * Caller must account for the scaling when interpreting results.
+ *
+ * @return witness_index (IS_CONSTANT if the field_t is a constant)
+ */
+template <typename Builder> uint32_t raw_witness_index(const field_t<Builder>& field);
+
 } // namespace bb::stdlib

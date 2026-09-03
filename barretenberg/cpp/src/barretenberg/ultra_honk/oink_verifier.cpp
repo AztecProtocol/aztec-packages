@@ -34,12 +34,27 @@ template <typename Flavor> void OinkVerifier<Flavor>::verify(bool emit_alpha)
             transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
     }
     receive_wire_commitments();
+    if (stage_callback) {
+        stage_callback("wire_commitments");
+    }
     receive_lookup_counts_and_w4_commitments();
+    if (stage_callback) {
+        stage_callback("lookup_counts_and_w4");
+    }
     receive_logderiv_commitments();
+    if (stage_callback) {
+        stage_callback("logderiv_commitments");
+    }
     complete_grand_product_round();
+    if (stage_callback) {
+        stage_callback("grand_product");
+    }
 
     if (emit_alpha) {
         verifier_instance->alpha = transcript->template get_challenge<FF>("alpha");
+        if (stage_callback) {
+            stage_callback("alpha");
+        }
     }
 }
 
@@ -72,6 +87,9 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_vk_hash_and_public
                      static_cast<size_t>(vk->num_public_inputs),
                      "OinkVerifier: num_public_inputs mismatch with VK");
     };
+    if (stage_callback) {
+        stage_callback("vk_hash");
+    }
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < num_public_inputs; ++i) {
@@ -79,6 +97,9 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_vk_hash_and_public
         public_inputs.emplace_back(public_input_i);
     }
     verifier_instance->public_inputs = std::move(public_inputs);
+    if (stage_callback) {
+        stage_callback("public_inputs");
+    }
 }
 
 /**
@@ -181,6 +202,9 @@ template <typename Flavor> void OinkVerifier<Flavor>::complete_grand_product_rou
                                            verifier_instance->relation_parameters.beta,
                                            verifier_instance->relation_parameters.gamma,
                                            vk->pub_inputs_offset);
+    if (stage_callback) {
+        stage_callback("public_input_delta");
+    }
 
     verifier_instance->witness_commitments.z_perm() =
         transcript->template receive_from_prover<Commitment>(comm_labels.z_perm());

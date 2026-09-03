@@ -137,4 +137,12 @@ template void validate_split_in_field_unsafe(const field_t<bb::MegaCircuitBuilde
 template void mark_witness_as_used(const field_t<bb::UltraCircuitBuilder>& field);
 template void mark_witness_as_used(const field_t<bb::MegaCircuitBuilder>& field);
 
+template <typename Builder> uint32_t raw_witness_index(const field_t<Builder>& field)
+{
+    return field.witness_index;
+}
+
+template uint32_t raw_witness_index(const field_t<bb::UltraCircuitBuilder>& field);
+template uint32_t raw_witness_index(const field_t<bb::MegaCircuitBuilder>& field);
+
 } // namespace bb::stdlib

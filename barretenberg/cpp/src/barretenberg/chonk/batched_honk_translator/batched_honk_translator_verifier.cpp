@@ -49,6 +49,11 @@ typename BatchedHonkTranslatorVerifier_<Curve>::OinkResult BatchedHonkTranslator
     const size_t num_public_inputs = mega_zk_proof.size() - ProofLength::Oink<MegaZKFlavorT>::LENGTH_WITHOUT_PUB_INPUTS;
 
     OinkVerifier<MegaZKFlavorT> oink_verifier{ mega_zk_verifier_instance, transcript, num_public_inputs };
+    oink_verifier.set_stage_callback([this](const std::string_view stage) {
+        if (stage_callback) {
+            stage_callback(stage);
+        }
+    });
     oink_verifier.verify(/*emit_alpha=*/false);
 
     mega_zk_relation_parameters = mega_zk_verifier_instance->relation_parameters;
@@ -301,8 +306,18 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
         mega_zk_verifier_instance->get_vk(), mega_zk_verifier_instance->witness_commitments);
     auto trans_commitments = verify_translator_oink(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
+    if (stage_callback) {
+        stage_callback("joint_translator_oink");
+    }
     bool sumcheck_verified = verify_joint_sumcheck();
-    return verify_joint_pcs(sumcheck_verified, mega_zk_commitments, trans_commitments);
+    if (stage_callback) {
+        stage_callback("joint_committed_sumcheck");
+    }
+    auto result = verify_joint_pcs(sumcheck_verified, mega_zk_commitments, trans_commitments);
+    if (stage_callback) {
+        stage_callback("joint_shplemini_pcs");
+    }
+    return result;
 }
 
 // Explicit instantiations.

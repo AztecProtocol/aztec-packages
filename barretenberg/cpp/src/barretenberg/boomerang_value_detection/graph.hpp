@@ -6,6 +6,7 @@
 
 #pragma once
 #include "./gate_patterns.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <list>
@@ -105,7 +106,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
         return circuit_builder.real_variable_index[variable_index];
     }
     void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, auto& blk);
-    std::unordered_map<uint32_t, size_t> get_variables_gate_counts() const { return this->variables_gate_counts; };
+    std::unordered_map<uint32_t, size_t> get_variables_gate_counts() const { return this->variable_gate_count; };
 
     /**
      * @brief Extract gate variables using a declarative pattern
@@ -141,6 +142,15 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     size_t process_current_decompose_chain(size_t index);
     void process_current_plookup_gate(size_t gate_index);
     void remove_unnecessary_decompose_variables(const std::unordered_set<uint32_t>& decompose_variables);
+
+    /**
+     * @brief Validate that a decompose chain was correctly created for a range constraint
+     * @param witness The witness index that was decomposed
+     * @param num_bits The number of bits the witness should be constrained to
+     * @param collected_sublimbs Output: the sublimb indices found in the decompose chain
+     * @return true if the decompose chain is valid, false otherwise
+     */
+    bool validate_decompose_chain(uint32_t witness, uint64_t num_bits);
     void remove_unnecessary_plookup_variables();
     void remove_unnecessary_range_constrains_variables();
     void remove_unnecessary_aes_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
@@ -151,8 +161,28 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::unordered_set<uint32_t> get_variables_in_one_gate();
     std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> analyze_circuit(bool filter_cc = true);
 
+    std::vector<std::pair<size_t, size_t>> get_variable_gates(uint32_t var_idx) const;
+
+    /**
+     * @brief Overload that takes a stdlib field_t and uses its raw witness_index
+     * (via bb::stdlib::raw_witness_index) to avoid normalization.
+     *
+     * Useful for diagnostic tooling where calling .get_witness_index() would
+     * mutate the circuit by creating a normalization gate when the field_t has
+     * non-trivial multiplicative_constant or additive_constant.
+     *
+     * Returns empty vector if the field_t is a constant.
+     */
+    std::vector<std::pair<size_t, size_t>> get_variable_gates(
+        const bb::stdlib::field_t<CircuitBuilder>& f) const
+    {
+        if (f.is_constant()) {
+            return {};
+        }
+        return get_variable_gates(bb::stdlib::raw_witness_index(f));
+    }
+
     void print_connected_components_info();
-    void print_variables_gate_counts();
     void print_arithmetic_gate_info(size_t gate_idx, auto& block);
     void print_elliptic_gate_info(size_t gate_idx, auto& block);
     void print_plookup_gate_info(size_t gate_idx, auto& block);
@@ -161,18 +191,21 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void print_memory_gate_info(size_t gate_idx, auto& block);
     void print_delta_range_gate_info(size_t gate_idx, auto& block);
     void print_variable_info(const uint32_t real_idx);
+
+    bool check_variable_unconstrained();
     ~StaticAnalyzer_() = default;
 
   private:
     // Store reference to the circuit builder
     CircuitBuilder& circuit_builder;
     bool connect_variables;
+    size_t pub_inputs_block_idx;
 
     std::unordered_map<uint32_t, std::vector<uint32_t>>
         variable_adjacency_lists; // we use this data structure to contain information about variables and their
                                   // connections between each other
     std::unordered_map<uint32_t, size_t>
-        variables_gate_counts; // we use this data structure to count, how many gates use every variable
+        variable_gate_count; // we use this data structure to count, how many gates use every variable
     std::unordered_map<uint32_t, size_t>
         variables_degree; // we use this data structure to count, how many every variable have edges
     std::unordered_map<KeyPair, std::vector<size_t>, KeyHasher, KeyEquals>

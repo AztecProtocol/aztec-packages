@@ -53,6 +53,7 @@ template <typename Builder_> class field_t {
     template <typename B> friend class bool_t;
     template <typename B, typename T> friend class bigfield;
     template <typename B> friend void mark_witness_as_used(const field_t<B>& field);
+    template <typename B> friend uint32_t raw_witness_index(const field_t<B>& field);
 
     mutable Builder* context = nullptr;
 

@@ -47,12 +47,14 @@ template <typename Flavor> class OinkVerifier {
     // Used by BatchedHonkTranslatorVerifier, which draws a single joint alpha ("Sumcheck:alpha")
     // after both circuits' pre-sumcheck phases instead.
     void verify(bool emit_alpha = true);
+    void set_stage_callback(std::function<void(std::string_view)> callback) { stage_callback = std::move(callback); }
 
   private:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Instance> verifier_instance;
     typename Flavor::CommitmentLabels comm_labels;
     size_t num_public_inputs;
+    std::function<void(std::string_view)> stage_callback;
     void receive_vk_hash_and_public_inputs();
     void receive_wire_commitments();
     void receive_lookup_counts_and_w4_commitments();
