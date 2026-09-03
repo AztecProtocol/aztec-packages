@@ -181,10 +181,9 @@ pub fn create_public_data_writes_blob_fields(
 /// Only the first `num_blob_fields` returned fields are constrained; the padding beyond them is unconstrained, so
 /// callers must not read past the returned length.
 ///
-/// Assumes every `log.length <= PRIVATE_LOG_SIZE_IN_FIELDS`, which is asserted on tail (see
-/// `previous_kernel_for_tail_validator.nr`). An oversized length would break soundness here: the verification
-/// loop below only checks up to `fields.len()` elements but advances `offset` by the full `length`, leaving the
-/// blob fields in between unconstrained.
+/// Every log length is constrained locally before it is used as a runtime offset. Otherwise the verification loop
+/// would check only `fields.len()` elements but advance `offset` by the oversized length, leaving skipped blob fields
+/// unconstrained.
 ///
 /// @returns the encoded fields, zero-padded, and the number of encoded fields (the sum of all log lengths plus one
 /// length field per log).
@@ -214,6 +213,7 @@ fn verify_private_logs_blob_fields(
         include_log &= i != num_private_logs;
         if include_log {
             let log = private_logs[i];
+            assert(log.length <= PRIVATE_LOG_SIZE_IN_FIELDS, "Private log length exceeds maximum");
             assert_eq(
                 blob_fields[offset],
                 log.length as Field,
@@ -268,9 +268,7 @@ unconstrained fn get_private_logs_blob_fields_unsafe(
 /// access-count range constraint caps at `2^16 - 1`; follow `create_private_logs_blob_fields` and verify an
 /// unconstrained hint with reads instead.
 ///
-/// Assumes `log.length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS`, which is asserted on tail (see
-/// `previous_kernel_for_tail_validator.nr`). An oversized length would advance `offset` past the written
-/// fields, overstating the encoded length carried by the tx start marker.
+/// Each log length is constrained locally before it advances the encoded offset.
 ///
 /// @returns the encoded fields, zero-padded, and the number of encoded fields.
 pub fn create_contract_class_logs_blob_fields(
@@ -285,6 +283,10 @@ pub fn create_contract_class_logs_blob_fields(
         include_log &= i != num_contract_class_logs;
         if include_log {
             let log = contract_class_logs[i];
+            assert(
+                log.log.length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+                "Contract class log length exceeds maximum",
+            );
             blob_fields[offset] = log.contract_address.to_field();
             offset += 1;
 
@@ -347,7 +349,11 @@ pub fn create_tx_blob_data_sections(
 }
 
 mod tests {
-    use crate::{abis::private_log::PrivateLog, traits::Empty};
+    use crate::{
+        abis::{contract_class_log::ContractClassLog, log::Log, private_log::PrivateLog},
+        address::AztecAddress,
+        traits::{Empty, FromField},
+    };
     use crate::constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -355,9 +361,10 @@ mod tests {
         MAX_TX_BLOB_DATA_SIZE_IN_FIELDS, PRIVATE_LOG_SIZE_IN_FIELDS, TX_START_PREFIX,
     };
     use super::{
-        CONTRACT_CLASS_LOG_LENGTH_BIT_SIZE, create_tx_start_marker, NUM_BLOB_FIELDS_BIT_SIZE,
-        NUM_L2_TO_L1_MSG_BIT_SIZE, NUM_NOTE_HASH_BIT_SIZE, NUM_NULLIFIER_BIT_SIZE,
-        NUM_PRIVATE_LOG_BIT_SIZE, NUM_PUBLIC_DATA_WRITE_BIT_SIZE, PRIVATE_LOGS_BLOB_FIELDS_LENGTH,
+        CONTRACT_CLASS_LOG_LENGTH_BIT_SIZE, create_contract_class_logs_blob_fields,
+        create_tx_start_marker, NUM_BLOB_FIELDS_BIT_SIZE, NUM_L2_TO_L1_MSG_BIT_SIZE,
+        NUM_NOTE_HASH_BIT_SIZE, NUM_NULLIFIER_BIT_SIZE, NUM_PRIVATE_LOG_BIT_SIZE,
+        NUM_PUBLIC_DATA_WRITE_BIT_SIZE, PRIVATE_LOGS_BLOB_FIELDS_LENGTH,
         PRIVATE_LOGS_LENGTH_BIT_SIZE, PUBLIC_LOGS_LENGTH_BIT_SIZE, TX_START_PREFIX_BIT_SIZE,
         TxEffectArrayLengths, verify_private_logs_blob_fields,
     };
@@ -430,6 +437,42 @@ mod tests {
     fn private_log_blob_hint_rejects_overstated_count() {
         let (private_logs, blob_fields) = private_logs_fixture();
         verify_private_logs_blob_fields(private_logs, 3, blob_fields, 5);
+    }
+
+    #[test(should_fail_with = "Private log length exceeds maximum")]
+    fn private_log_blob_hint_rejects_oversized_log() {
+        let mut private_logs = [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX];
+        let mut fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS] = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
+        for i in 0..fields.len() {
+            fields[i] = (i + 1) as Field;
+        }
+        private_logs[0] = PrivateLog::new(fields, PRIVATE_LOG_SIZE_IN_FIELDS + 1);
+
+        let mut blob_fields = [0; PRIVATE_LOGS_BLOB_FIELDS_LENGTH];
+        blob_fields[0] = (PRIVATE_LOG_SIZE_IN_FIELDS + 1) as Field;
+        for i in 0..fields.len() {
+            blob_fields[i + 1] = fields[i];
+        }
+        verify_private_logs_blob_fields(
+            private_logs,
+            1,
+            blob_fields,
+            PRIVATE_LOG_SIZE_IN_FIELDS + 2,
+        );
+    }
+
+    #[test(should_fail_with = "Contract class log length exceeds maximum")]
+    fn contract_class_log_blob_encoding_rejects_oversized_log() {
+        let mut logs = [ContractClassLog::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX];
+        logs[0] = ContractClassLog {
+            log: Log::new(
+                [1; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS],
+                CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1,
+            ),
+            contract_address: AztecAddress::from_field(1),
+        };
+
+        let _ = create_contract_class_logs_blob_fields(logs, 1);
     }
 
     fn accumulate_bytes<let N: u32>(bytes: [u8; N], offset: u32, num_bytes: u32) -> Field {
