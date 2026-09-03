@@ -53,7 +53,7 @@ ipc-runtime/
       shm_server.hpp              # single-client (SPSC) SHM server
       mpsc_shm_client.hpp         # multi-client SHM client (one slot per client)
       mpsc_shm_server.hpp         # multi-client SHM server
-      shm_common.hpp              # length-prefix framing over the rings
+      shm_common.hpp              # length + request-id framing over the rings
       shm/                        # lock-free SPSC/MPSC ring buffer primitives
       serve_helper.{hpp,cpp}      # ipc::make_server / make_client (path-suffix dispatch)
       signal_handlers.{hpp,cpp}   # ipc::install_default_signal_handlers
@@ -122,13 +122,18 @@ public:
   static std::unique_ptr<IpcClient> create_socket(const std::string& socket_path);
   static std::unique_ptr<IpcClient> create_shm(const std::string& base_name);
   static std::unique_ptr<IpcClient> create_mpsc_shm(const std::string& base_name,
-                                                    std::size_t client_id);
+                                                    std::size_t client_id = kAutoClientId);
 
-  virtual bool                       connect()                                            = 0;
-  virtual bool                       send(const void* data, size_t len, uint64_t timeout_ns) = 0;
-  virtual std::span<const uint8_t>   receive(uint64_t timeout_ns)                         = 0;
-  virtual void                       release(size_t message_size)                         = 0;
-  virtual void                       close()                                              = 0;
+  virtual bool                       connect()                                                = 0;
+  // Explicit-id primitives — for pipelining callers that own their own pairing.
+  virtual bool                       send(uint64_t request_id, const void* data, size_t len,
+                                          uint64_t timeout_ns)                               = 0;
+  virtual std::span<const uint8_t>   receive(uint64_t timeout_ns, uint64_t& request_id)      = 0;
+  // Serial convenience — auto-assigns ids and verifies the echo (one in flight).
+  bool                               send(const void* data, size_t len, uint64_t timeout_ns);
+  std::span<const uint8_t>           receive(uint64_t timeout_ns);
+  virtual void                       release(size_t message_size)                            = 0;
+  virtual void                       close()                                                 = 0;
 };
 
 class IpcServer {
@@ -144,19 +149,22 @@ public:
                                                     std::size_t request_ring_size  = DEFAULT_RING_SIZE,
                                                     std::size_t response_ring_size = DEFAULT_RING_SIZE);
 
-  virtual bool listen()                                            = 0;
-  virtual int  wait_for_data(uint64_t timeout_ns)                  = 0;
-  virtual std::span<const uint8_t> receive(int client_id)          = 0;
-  virtual void release(int client_id, size_t message_size)         = 0;
-  virtual bool send(int client_id, const void* data, size_t len)   = 0;
-  virtual void close()                                             = 0;
+  virtual bool listen()                                                          = 0;
+  virtual int  wait_for_data(uint64_t timeout_ns)                                = 0;
+  virtual std::span<const uint8_t> receive(int client_id, uint64_t& request_id)  = 0;
+  virtual void release(int client_id, size_t message_size)                       = 0;
+  virtual bool send(int client_id, uint64_t request_id, const void* data, size_t len) = 0;
+  virtual void close()                                                           = 0;
   virtual void request_shutdown();                  // NOT signal-safe (wakes waiters)
   void request_shutdown_from_signal() noexcept;     // signal-safe variant
-  virtual void run(const Handler& handler);         // event loop
+  virtual void run(const Handler& handler);         // serial event loop (echoes ids)
+  void run_reactor(const AsyncHandler& handler);    // async loop: handlers respond from any
+                                                    // thread; responses sent in completion order
 };
 
 std::unique_ptr<IpcServer> make_server(const std::string& path, const ServerOptions& = {});
-std::unique_ptr<IpcClient> make_client(const std::string& path, std::size_t shm_client_id = 0);
+std::unique_ptr<IpcClient> make_client(const std::string& path,
+                                       std::size_t shm_client_id = kAutoClientId);
 
 void install_default_signal_handlers(IpcServer& server);
 
@@ -200,9 +208,9 @@ Two transport-specific clients:
 
 | Class                | Transport                  | Sync / Async                                                 |
 |----------------------|----------------------------|--------------------------------------------------------------|
-| `UdsIpcClient`       | Node `net.Socket`          | async only                                                   |
-| `NapiShmSyncClient`  | MPSC-SHM via NAPI bridge   | sync                                                         |
-| `NapiShmAsyncClient` | MPSC-SHM via NAPI bridge   | async (C++ poll thread + ThreadSafeFunction bridge)          |
+| `UdsIpcClient`       | Node `net.Socket`          | async; pipelines, pairs responses to callers by request id   |
+| `NapiShmSyncClient`  | MPSC-SHM via NAPI bridge   | sync (one in flight)                                         |
+| `NapiShmAsyncClient` | MPSC-SHM via NAPI bridge   | async (C++ poll thread + ThreadSafeFunction bridge); pipelines, pairs by request id |
 
 `UdsIpcServer` is provided for in-process tests; production servers are in
 C++.
@@ -228,18 +236,28 @@ definition of the transport limits and defaults:
 
 ## Wire framing
 
-Both transports use a 4-byte little-endian length prefix in front of every
-message:
+Both transports frame every message as a length prefix, a request id, and
+the payload; the length counts the id plus the payload:
 
 ```
-┌───────────────────────┬────────────────────────┐
-│ Length (uint32 le)    │ Payload (Length bytes) │
-└───────────────────────┴────────────────────────┘
+┌────────────────────┬─────────────────────────┬──────────────────────────────┐
+│ Length (uint32 le) │ Request id (uint64 le)  │ Payload (Length − 8 bytes)   │
+└────────────────────┴─────────────────────────┴──────────────────────────────┘
 ```
 
-Framing is handled inside `IpcServer::receive` / `IpcClient::recv`; callers
-deal in whole messages. The codegen's `Command` / `Response` NamedUnion
-sits inside that payload — see `ipc-codegen/SCHEMA_SPEC.md`.
+The id is client-assigned (per-connection random-start counter; 0 is
+reserved for server-initiated frames) and echoed verbatim on the response.
+Clients correlate responses by id, so the server sends responses in
+**completion order** — there is no FIFO contract on the wire, and a slow
+request never delays a fast one's response. A frame whose id matches
+nothing outstanding is a stale leftover on SHM (rings persist across slot
+occupants — it is released and skipped) and a fatal desync on UDS (the
+kernel guarantees a fresh stream, so the connection is failed loudly).
+
+Framing is handled inside `IpcServer::receive` / `IpcClient::receive`;
+callers deal in whole payloads and never see ids unless they use the
+explicit-id primitives. The codegen's `Command` / `Response` NamedUnion
+sits inside the payload — see `ipc-codegen/SCHEMA_SPEC.md`.
 
 ## Performance characteristics
 

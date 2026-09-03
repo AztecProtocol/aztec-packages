@@ -185,8 +185,8 @@ public:
 ## Usage Examples
 
 These use the message framing helpers from `../shm_common.hpp`
-(`ring_send_msg` / `ring_receive_msg`), which add a 4-byte length prefix and
-take care of the matched claim/peek sizing.
+(`ring_send_msg` / `ring_receive_msg`), which add the 4-byte length prefix
+plus the 8-byte request id and take care of the matched claim/peek sizing.
 
 **Producer process:**
 ```cpp
@@ -200,7 +200,7 @@ int main() {
     std::string msg = "hello from producer";
     while (true) {
         // Blocks up to 1s for ring space; false on timeout.
-        ipc::ring_send_msg(tx, msg.data(), msg.size(), 1'000'000'000);
+        ipc::ring_send_msg(tx, /*request_id=*/1, msg.data(), msg.size(), 1'000'000'000);
     }
 }
 ```
@@ -215,12 +215,13 @@ int main() {
 
     while (true) {
         // Blocks up to 1s for a whole message; empty data() on timeout.
-        auto msg = ipc::ring_receive_msg(rx, 1'000'000'000);
+        uint64_t request_id = 0;
+        auto msg = ipc::ring_receive_msg(rx, 1'000'000'000, request_id);
         if (msg.data() == nullptr) {
             continue; // timeout
         }
         std::cout << "Received: " << std::string(msg.begin(), msg.end()) << "\n";
-        rx.release(4 + msg.size()); // length prefix + payload
+        rx.release(4 + 8 + msg.size()); // length prefix + request id + payload
     }
 }
 ```
