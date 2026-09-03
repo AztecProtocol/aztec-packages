@@ -10,7 +10,7 @@ use crate::{
 use super::{
     block_blob_data::create_block_end_blob_data,
     checkpoint_blob_data::create_checkpoint_end_marker,
-    tx_blob_data::{create_tx_blob_data_sections, TxEffectArrayLengths},
+    tx_blob_data::{create_tx_blob_data_sections, TxBlobDataSections, TxEffectArrayLengths},
     tx_effect::TxEffect,
 };
 
@@ -95,7 +95,15 @@ impl SpongeBlob {
         array_lengths: TxEffectArrayLengths,
     ) {
         let sections = create_tx_blob_data_sections(tx_effect, array_lengths);
+        self.absorb_tx_blob_data_sections(tx_effect, array_lengths, sections);
+    }
 
+    pub fn absorb_tx_blob_data_sections(
+        &mut self,
+        tx_effect: TxEffect,
+        array_lengths: TxEffectArrayLengths,
+        sections: TxBlobDataSections,
+    ) {
         self.absorb([sections.tx_start_marker, tx_effect.tx_hash, tx_effect.transaction_fee], 3);
         self.absorb(tx_effect.note_hashes, array_lengths.note_hashes);
         self.absorb(tx_effect.nullifiers, array_lengths.nullifiers);

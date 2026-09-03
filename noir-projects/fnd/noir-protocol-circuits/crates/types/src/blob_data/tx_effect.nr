@@ -117,6 +117,14 @@ fn compute_tx_effect_hash_inputs(
 /// (see `compute_tx_effect_leaf`).
 pub fn compute_tx_effect_hash(tx_effect: TxEffect, array_lengths: TxEffectArrayLengths) -> Field {
     let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
+    compute_tx_effect_hash_from_blob_data_sections(tx_effect, array_lengths, blob_data_sections)
+}
+
+pub fn compute_tx_effect_hash_from_blob_data_sections(
+    tx_effect: TxEffect,
+    array_lengths: TxEffectArrayLengths,
+    blob_data_sections: TxBlobDataSections,
+) -> Field {
     let (tx_start_marker, field_hashes) =
         compute_tx_effect_hash_inputs(tx_effect, array_lengths, blob_data_sections);
 
@@ -131,8 +139,24 @@ pub fn compute_tx_effect_hash(tx_effect: TxEffect, array_lengths: TxEffectArrayL
 /// A holder of the block header can verify "tx X was included in this block and produced exactly effects E" with a
 /// membership proof against `BlockHeader.tx_effects_tree_root`.
 pub fn compute_tx_effect_leaf(tx_effect: TxEffect, array_lengths: TxEffectArrayLengths) -> Field {
+    let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
+    compute_tx_effect_leaf_from_blob_data_sections(tx_effect, array_lengths, blob_data_sections)
+}
+
+pub fn compute_tx_effect_leaf_from_blob_data_sections(
+    tx_effect: TxEffect,
+    array_lengths: TxEffectArrayLengths,
+    blob_data_sections: TxBlobDataSections,
+) -> Field {
     poseidon2_hash_with_separator(
-        [tx_effect.tx_hash, compute_tx_effect_hash(tx_effect, array_lengths)],
+        [
+            tx_effect.tx_hash,
+            compute_tx_effect_hash_from_blob_data_sections(
+                tx_effect,
+                array_lengths,
+                blob_data_sections,
+            ),
+        ],
         DOM_SEP__TX_EFFECT_LEAF,
     )
 }
