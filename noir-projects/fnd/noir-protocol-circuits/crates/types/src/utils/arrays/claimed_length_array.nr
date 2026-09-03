@@ -1,5 +1,4 @@
 use crate::traits::{Deserialize, Empty, Serialize};
-use crate::utils::for_loop::for_i_in_0_;
 
 /// ClaimedLengthArray - An array interpreted by Kernel circuits.
 /// Its `length` is merely a claim that must eventually be validated.
@@ -21,17 +20,17 @@ where
     // For constrained append functions, see the dedicated file: assert_array_appended.nr
 
     pub fn assert_dense_trimmed(self) {
-        for_i_in_0_(
-            self.length,
-            N,
-            |i| {
+        let mut should_be_empty = false;
+        for i in 0..N {
+            should_be_empty |= i == self.length;
+            if should_be_empty {
+                self.array[i].assert_empty("RHS of input array is not empty");
+            } else {
                 assert(!self.array[i].is_empty(), "LHS of input array is not dense")
                 // Requires Noir #9002:
                 // self.array[i].assert_not_empty("LHS of input array is not dense"); // LHS of input array is not dense.
-            },
-            |i| self.array[i].assert_empty("RHS of input array is not empty"),
-            false,
-        );
+            }
+        }
     }
 
     pub fn assert_empty<let S: u32>(self, msg: str<S>) {
@@ -71,7 +70,6 @@ where
                 f(self.array[i]);
             }
         }
-        // for_i_only_in_0_(self.length, N, |i| { f(self.array[i]) }, false);
     }
 
     // E.g.
@@ -84,7 +82,6 @@ where
                 f(self.array[i], i);
             }
         }
-        // for_i_only_in_0_(self.length, N, |i| { f(self.array[i], i) }, false);
     }
 
     pub fn from_bounded_vec(vec: BoundedVec<T, N>) -> Self {
