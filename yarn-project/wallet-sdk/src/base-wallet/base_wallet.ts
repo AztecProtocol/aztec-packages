@@ -29,7 +29,7 @@ import {
 } from '@aztec/aztec.js/wallet';
 import { AccountFeePaymentMethodOptions, type DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
-import type { ChainInfo } from '@aztec/entrypoints/interfaces';
+import type { ChainInfo, EntrypointInterface } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -153,6 +153,11 @@ export abstract class BaseWallet implements Wallet {
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
 
+  /** Returns the entrypoint used for transactions without a signing account. */
+  protected createDefaultEntrypoint(): EntrypointInterface {
+    return new DefaultEntrypoint();
+  }
+
   abstract getAccounts(): Promise<Aliased<AztecAddress>[]>;
 
   /**
@@ -211,7 +216,7 @@ export abstract class BaseWallet implements Wallet {
     const chainInfo = await this.getChainInfo();
 
     if (from === NO_FROM) {
-      const entrypoint = new DefaultEntrypoint();
+      const entrypoint = this.createDefaultEntrypoint();
       return entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
     } else {
       const fromAccount = await this.getAccountFromAddress(from);
