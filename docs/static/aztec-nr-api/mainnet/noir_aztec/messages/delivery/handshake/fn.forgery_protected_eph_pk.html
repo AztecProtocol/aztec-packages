@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Function forgery_protected_eph_pk documentation</title>
 </head>
 <body>
@@ -37,7 +40,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">delivery</a>::<a href="index.html">handshake</a></div>
-<h1>Function <span class="fn">forgery_protected_eph_pk</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">forgery_protected_eph_pk</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn forgery_protected_eph_pk(
     eph_pk: <a href="../../../../protocol_types/point/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
     recipient_point: <a href="../../../../protocol_types/point/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
@@ -51,6 +60,7 @@ commutes through ECDH: protecting the ephemeral key before the shared-secret der
 protected secret <code>S'</code> the sender stored:</p>
 <p>protected_eph_pk = forgery_protected_eph_pk(eph_pk, recipient_point) = k * eph_pk
 recipient_priv * protected_eph_pk = recipient_priv * (k * eph_pk) = k * (recipient_priv * eph_pk) = k * S = S'</p></div>
+</div>
 </main>
 </span>
 </body>

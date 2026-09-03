@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct NoteExistenceRequest documentation</title>
 </head>
 <body>
@@ -40,7 +43,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">context</a></div>
-<h1>Struct <span id="struct" class="struct">NoteExistenceRequest</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">NoteExistenceRequest</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct NoteExistenceRequest
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -50,7 +59,7 @@
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../noir_aztec/context/struct.NoteExistenceRequest.html" class="struct">NoteExistenceRequest</a></code></h3>
 
-<div class="padded-methods"><code id="for_pending" class="code-header">pub fn <a href="#for_pending"><span class="fn">for_pending</span></a>(unsiloed_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+<div class="padded-methods"><code id="for_pending" class="code-header">pub fn <a href="#for_pending" class="fn">for_pending</a>(unsiloed_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Creates an existence request for a pending note.</p>
@@ -58,14 +67,15 @@
 requests are created using the unsiloed note hash (i.e. from
 <a href="../../noir_aztec/note/note_interface/trait.NoteHash.html#compute_note_hash"><code>crate::note::note_interface::NoteHash::compute_note_hash</code></a>) and address of the contract that created the
 note.</p></div>
-</div><code id="for_settled" class="code-header">pub fn <a href="#for_settled"><span class="fn">for_settled</span></a>(unique_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+</div><code id="for_settled" class="code-header">pub fn <a href="#for_settled" class="fn">for_settled</a>(unique_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Creates an existence request for a settled note.</p>
 <p>Unlike pending notes, settled notes have a nonce, and their existence request is created using the unique note
 hash.</p>
 </div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function hash_public_key documentation</title>
 </head>
 <body>
@@ -32,12 +35,19 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">protocol</a>::<a href="index.html">public_keys</a></div>
-<h1>Function <span class="fn">hash_public_key</span></h1>
-<pre><code>pub fn hash_public_key(p: <a href="../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></pre>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">hash_public_key</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
+<pre><code>pub fn hash_public_key(p: <a href="../../../protocol_types/point/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></pre>
 
 <div class="comments">
 <p>Hashes a public key point under the canonical single-public-key domain separator.</p>
 <p>Defined as <code>Poseidon2(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, x, y)</code>.</p>
+</div>
 </div>
 </main>
 </span>

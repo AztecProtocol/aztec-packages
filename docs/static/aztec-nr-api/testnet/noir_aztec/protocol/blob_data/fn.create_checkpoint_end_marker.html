@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function create_checkpoint_end_marker documentation</title>
 </head>
 <body>
@@ -36,7 +39,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">protocol</a>::<a href="index.html">blob_data</a></div>
-<h1>Function <span class="fn">create_checkpoint_end_marker</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">create_checkpoint_end_marker</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn create_checkpoint_end_marker(num_blob_fields: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></pre>
 
 <div class="comments">
@@ -44,6 +53,7 @@
 <code>CHECKPOINT_END_PREFIX</code> | <code>num_blob_fields</code></p>
 <p><code>CHECKPOINT_END_PREFIX</code> occupies the bytes up to the point where <code>num_blob_fields</code> begins.
 <code>num_blob_fields</code> occupies 4 bytes.</p>
+</div>
 </div>
 </main>
 </span>

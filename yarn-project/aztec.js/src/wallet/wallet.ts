@@ -243,7 +243,7 @@ export type ContractMetadata = {
   instance?: ContractInstancePreimageWithAddress;
   /** Whether the contract has been initialized. */
   initializationStatus: ContractInitializationStatus;
-  /** Whether the contract instance is publicly deployed on-chain */
+  /** Whether the contract instance is publicly deployed onchain */
   isContractPublished: boolean;
   /** Whether the contract has been updated to a different class */
   isContractUpdated: boolean;
@@ -257,7 +257,7 @@ export type ContractMetadata = {
 export type ContractClassMetadata = {
   /** Whether the artifact is registered in the wallet */
   isArtifactRegistered: boolean;
-  /** Whether the contract class is publicly registered on-chain */
+  /** Whether the contract class is publicly registered onchain */
   isContractClassPubliclyRegistered: boolean;
 };
 
@@ -292,7 +292,7 @@ export type Wallet = {
   ): Promise<void>;
   /**
    * Registers a contract class artifact in the local PXE without binding it to any instance.
-   * Useful for simulation flows that need the artifact available locally before any on-chain
+   * Useful for simulation flows that need the artifact available locally before any onchain
    * upgrade has taken effect. No chain check.
    */
   registerContractClass(artifact: ContractArtifact): Promise<void>;

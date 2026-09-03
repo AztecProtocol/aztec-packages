@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Trait MessageDeliveryBuilder documentation</title>
 </head>
 <body>
@@ -50,17 +53,23 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">delivery</a></div>
-<h1>Trait <span id="trait" class="trait">MessageDeliveryBuilder</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Trait <span id="trait" class="trait">MessageDeliveryBuilder</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub trait MessageDeliveryBuilder {
     <span class="comment">// Required methods</span>
-    pub fn <a href="#build_message_delivery"><span class="fn">build_message_delivery</span></a>(self) -> <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html" class="struct">MessageDelivery</a>;
+    pub fn <a href="#build_message_delivery" class="fn">build_message_delivery</a>(self) -> <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html" class="struct">MessageDelivery</a>;
 }</code></pre>
 
 <div class="comments">
 <p>Builds the <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html"><code>MessageDelivery</code></a> configuration consumed by the message delivery APIs (e.g. <code>NoteMessage::deliver</code> and
 <code>EventMessage::deliver</code>). Implemented by the builder types returned from the <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html"><code>MessageDelivery</code></a> constructors.</p></div>
 <h2>Required methods</h2>
-<div class="padded-methods"><code id="build_message_delivery" class="code-header">pub fn <a href="#build_message_delivery"><span class="fn">build_message_delivery</span></a>(self) -> <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html" class="struct">MessageDelivery</a></code>
+<div class="padded-methods"><code id="build_message_delivery" class="code-header">pub fn <a href="#build_message_delivery" class="fn">build_message_delivery</a>(self) -> <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html" class="struct">MessageDelivery</a></code>
 
 </div><h2>Implementors</h2>
 <h3 id="impl-MessageDeliveryBuilder-for-OffchainDelivery"><code class="code-header">impl <a href="../../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a> for <a href="../../../noir_aztec/messages/delivery/struct.OffchainDelivery.html" class="struct">OffchainDelivery</a></code></h3>
@@ -69,6 +78,7 @@
 
 <h3 id="impl-MessageDeliveryBuilder-for-OnchainUnconstrainedDelivery"><code class="code-header">impl <a href="../../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a> for <a href="../../../noir_aztec/messages/delivery/struct.OnchainUnconstrainedDelivery.html" class="struct">OnchainUnconstrainedDelivery</a></code></h3>
 
+</div>
 </main>
 </span>
 </body>

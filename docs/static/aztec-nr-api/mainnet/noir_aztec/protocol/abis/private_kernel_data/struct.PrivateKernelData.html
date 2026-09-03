@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Struct PrivateKernelData documentation</title>
 </head>
 <body>
@@ -36,7 +39,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">protocol</a>::<a href="../index.html">abis</a>::<a href="index.html">private_kernel_data</a></div>
-<h1>Struct <span id="struct" class="struct">PrivateKernelData</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">PrivateKernelData</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct PrivateKernelData {
     pub public_inputs: <a href="../../../../protocol_types/abis/kernel_circuit_public_inputs/private_kernel_circuit_public_inputs/struct.PrivateKernelCircuitPublicInputs.html" class="struct">PrivateKernelCircuitPublicInputs</a>,
     pub vk_data: <a href="../../../../protocol_types/proof/vk_data/struct.VkData.html" class="struct">VkData</a>&lt;163&gt;,
@@ -48,7 +57,7 @@
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../../protocol_types/abis/private_kernel_data/struct.PrivateKernelData.html" class="struct">PrivateKernelData</a></code></h3>
 
-<div class="padded-methods"><code id="validate_vk_in_vk_tree" class="code-header">pub fn <a href="#validate_vk_in_vk_tree"><span class="fn">validate_vk_in_vk_tree</span></a>&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, allowed_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; N])</code>
+<div class="padded-methods"><code id="validate_vk_in_vk_tree" class="code-header">pub fn <a href="#validate_vk_in_vk_tree" class="fn">validate_vk_in_vk_tree</a>&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, allowed_indices: [<a href="../../../../std/primitive.u32.html" class="primitive">u32</a>; N])</code>
 
 <div class="padded-description"><div class="comments">
 <p>Validates the vk hash is in the vk tree at an allowed index. Differs from the helper in
@@ -56,9 +65,10 @@
 of that family.</p>
 <p>Reset families occupy contiguous blocks within <code>[PRIVATE_KERNEL_RESET_VK_INDEX, PRIVATE_KERNEL_RESET_BLOCK_END)</code>; a variant's leaf index is normalised to its family base.</p>
 </div>
-</div><code id="verify" class="code-header">pub fn <a href="#verify"><span class="fn">verify</span></a>(self, is_last_kernel: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>)</code>
+</div><code id="verify" class="code-header">pub fn <a href="#verify" class="fn">verify</a>(self, is_last_kernel: <a href="../../../../std/primitive.bool.html" class="primitive">bool</a>)</code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

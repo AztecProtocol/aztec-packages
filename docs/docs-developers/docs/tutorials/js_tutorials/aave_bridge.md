@@ -113,7 +113,7 @@ This template is a community-maintained starter. If the repository is unavailabl
 You may need to replace the `@aztec/l1-contracts` dependency in `package.json` with the `@aztec/l1-artifacts` npm package at the version matching your Aztec version, e.g.:
 
 ```json
-"@aztec/l1-artifacts": "5.0.1"
+"@aztec/l1-artifacts": "#include_version_without_prefix"
 ```
 
 The package ships the L1 contract sources under `@aztec/l1-artifacts/l1-contracts/src`; update any `@aztec/*` Solidity remappings or aliases in the project to point at `node_modules/@aztec/l1-artifacts/l1-contracts/src`.

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct NoteMessage documentation</title>
 </head>
 <body>
@@ -46,7 +49,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">note</a></div>
-<h1>Struct <span id="struct" class="struct">NoteMessage</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">NoteMessage</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct NoteMessage&lt;Note&gt;
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -56,17 +65,18 @@ delivered to a recipient in order to not lose the private note information.</p>
 <p>Use <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver"><code>NoteMessage::deliver</code></a> to select a delivery mechanism. The same message can be delivered to multiple
 recipients.</p></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;</code></h3>
-
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(new_note: <a href="../../noir_aztec/note/lifecycle/struct.NewNote.html" class="struct">NewNote</a>&lt;Note&gt;, context: &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> Self
+<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;
 <div class="where-clause">where
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
+    Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = _&gt;</div></code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>(new_note: <a href="../../noir_aztec/note/lifecycle/struct.NewNote.html" class="struct">NewNote</a>&lt;Note&gt;, context: &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> Self
+<div class="where-clause">where
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
-<code id="deliver" class="code-header">pub fn <a href="#deliver"><span class="fn">deliver</span></a>&lt;D&gt;(self, delivery_mode: D)
+<code id="deliver" class="code-header">pub fn <a href="#deliver" class="fn">deliver</a>&lt;D&gt;(self, delivery_mode: D)
 <div class="where-clause">where
     D: <a href="../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
@@ -82,10 +92,9 @@ instead.</p>
 as normal. This prevents both 'king of the hill' attacks (where a sender would otherwise fail to deliver a note
 to an invalid recipient) and forced privacy leaks (where an invalid recipient results in a unique transaction
 fingerprint, e.g. one lacking the private logs that would correspond to message delivery).</p></div>
-</div><code id="deliver_to" class="code-header">pub fn <a href="#deliver_to"><span class="fn">deliver_to</span></a>&lt;D&gt;(self, recipient: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: D)
+</div><code id="deliver_to" class="code-header">pub fn <a href="#deliver_to" class="fn">deliver_to</a>&lt;D&gt;(self, recipient: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: D)
 <div class="where-clause">where
     D: <a href="../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a>,
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
@@ -100,24 +109,23 @@ know when or if the note is used (i.e. nullified), assuming the standard note nu
 institutional contract may require to have some actor receive all notes created for compliance purposes. Or a
 low value application like a game might deliver all notes offchain to a centralized server that then serves
 them via the app, bypassing the need for contract sync and improving UX.</p></div>
-</div><code id="get_note" class="code-header">pub fn <a href="#get_note"><span class="fn">get_note</span></a>(self) -> Note
+</div><code id="get_note" class="code-header">pub fn <a href="#get_note" class="fn">get_note</a>(self) -> Note
 <div class="where-clause">where
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the note contained in the message.</p>
 </div>
-</div><code id="get_new_note" class="code-header">pub fn <a href="#get_new_note"><span class="fn">get_new_note</span></a>(self) -> <a href="../../noir_aztec/note/lifecycle/struct.NewNote.html" class="struct">NewNote</a>&lt;Note&gt;
+</div><code id="get_new_note" class="code-header">pub fn <a href="#get_new_note" class="fn">get_new_note</a>(self) -> <a href="../../noir_aztec/note/lifecycle/struct.NewNote.html" class="struct">NewNote</a>&lt;Note&gt;
 <div class="where-clause">where
-    Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the <a href="../../noir_aztec/note/lifecycle/struct.NewNote.html"><code>NewNote</code></a> container in the message.</p>
 <p>This is an advanced function, typically needed only when creating new kinds of state variables that need to
 create <a href="../../noir_aztec/note/struct.MaybeNoteMessage.html"><code>MaybeNoteMessage</code></a> values.</p></div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

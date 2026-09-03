@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct OnchainConstrainedDelivery documentation</title>
 </head>
 <body>
@@ -50,7 +53,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">delivery</a></div>
-<h1>Struct <span id="struct" class="struct">OnchainConstrainedDelivery</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">OnchainConstrainedDelivery</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct OnchainConstrainedDelivery
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -62,21 +71,21 @@ delivery only supports handshake-backed derivations.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../noir_aztec/messages/delivery/struct.OnchainConstrainedDelivery.html" class="struct">OnchainConstrainedDelivery</a></code></h3>
 
-<div class="padded-methods"><code id="with_sender" class="code-header">pub fn <a href="#with_sender"><span class="fn">with_sender</span></a>(&mut self, sender: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+<div class="padded-methods"><code id="with_sender" class="code-header">pub fn <a href="#with_sender" class="fn">with_sender</a>(&mut self, sender: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Overrides the sender address used for discovery tag derivation.</p>
 <p>See <a href="../../../noir_aztec/messages/delivery/struct.OnchainUnconstrainedDelivery.html#with_sender"><code>OnchainUnconstrainedDelivery::with_sender</code></a> for details.</p>
 <h4>Examples</h4>
 <pre><code>MessageDelivery::onchain_constrained().with_sender(self.address)</code></pre></div>
-</div><code id="via_non_interactive_handshake" class="code-header">pub fn <a href="#via_non_interactive_handshake"><span class="fn">via_non_interactive_handshake</span></a>(&mut self) -> Self</code>
+</div><code id="via_non_interactive_handshake" class="code-header">pub fn <a href="#via_non_interactive_handshake" class="fn">via_non_interactive_handshake</a>(&mut self) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Derives the discovery tag from a non-interactive handshake for the pair, reusing an existing one and creating a
 fresh one only when none exists. Overrides the wallet's default resolution.</p>
 <p>Constrained delivery only supports constrained secrets (e.g., handshake-registry backed derivations)</p>
 </div>
-</div><code id="via_interactive_handshake" class="code-header">pub fn <a href="#via_interactive_handshake"><span class="fn">via_interactive_handshake</span></a>(&mut self) -> Self</code>
+</div><code id="via_interactive_handshake" class="code-header">pub fn <a href="#via_interactive_handshake" class="fn">via_interactive_handshake</a>(&mut self) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Derives the discovery tag from an interactive handshake.</p>
@@ -91,7 +100,8 @@ if they cannot be reached.</p>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">build_message_delivery</span>(self) -> <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html" class="struct">MessageDelivery</a></code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct Map documentation</title>
 </head>
 <body>
@@ -52,7 +55,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
-<h1>Struct <span id="struct" class="struct">Map</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">Map</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct Map&lt;K, V, Context&gt; {
     pub context: Context,
     <span class="comment">/* private fields */</span>
@@ -123,9 +132,9 @@ used to obtain a given derived state variable slot.</p></div>
 <h2>Fields</h2>
 <div id="structfield.context" class="struct-field"><code class="code-header">context: Context</code></div>
 <div class="padded-description"></div><h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Context, K, V&gt; <a href="../../noir_aztec/state_vars/struct.Map.html" class="struct">Map</a>&lt;K, V, Context&gt;</code></h3>
+<h3><code class="code-header">impl&lt;K, V, Context&gt; <a href="../../noir_aztec/state_vars/struct.Map.html" class="struct">Map</a>&lt;K, V, Context&gt;</code></h3>
 
-<div class="padded-methods"><code id="at" class="code-header">pub fn <a href="#at"><span class="fn">at</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, key: K) -> V
+<div class="padded-methods"><code id="at" class="code-header">pub fn <a href="#at" class="fn">at</a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, key: K) -> V
 <div class="where-clause">where
     K: <a href="../../protocol_types/traits/trait.ToField.html" class="trait">ToField</a>,
     V: <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;N, Context&gt;</div></code>
@@ -147,7 +156,8 @@ equivalent to accessing a <code>mapping</code> via the <code>[]</code> operator 
 
 <code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

@@ -26,7 +26,15 @@ A **two-phase pipeline** with complete control over output:
 
 # Generate to specific version
 ./scripts/aztecjs_reference_generation/update_docs.sh v2.0.2
+
+# Fail if the committed current-version page is out of date
+./scripts/aztecjs_reference_generation/update_docs.sh --check
 ```
+
+`--check` regenerates into a temp file and diffs it against the committed page,
+ignoring the embedded generation timestamp. `docs/bootstrap.sh` runs it so a change
+to `yarn-project/aztec.js/src` that alters the reference cannot land without the
+regenerated page.
 
 ### Convenience Script (Testing - Custom Approach)
 
@@ -60,13 +68,20 @@ The generated documentation follows this hierarchy:
 ```markdown
 ## Account                        # H2: Folder/Module
 ---
-### File: `account/account.ts`   # H3: File
+### `account/account.ts`          # H3: File
 #### AccountContract              # H4: Export (Class/Interface/Type)
 **Type:** Class
-##### constructor                 # H5: Member (Method/Property)
-##### Methods                     # H5: Subsection
-###### deploy                     # H6: Specific method
+#### Methods                      # H4: Member group
+##### createAuthWit               # H5: Member (Method/Property/Getter)
 ```
+
+Docusaurus derives a heading's anchor from every heading before it, so the table of contents can
+only be written once the body is known. `transform_to_markdown.py` renders every heading through
+`MarkdownGenerator.heading()`, which claims the anchor as the heading is emitted; one written as a
+plain string instead would misdirect table of contents links rather than break them: the link still
+resolves, just to the wrong section, so nothing downstream reports it. `generate()` re-reads the page
+it just rendered and raises unless its headings are exactly the ones `heading()` emitted, so a
+heading added any other way fails the build instead.
 
 ## Configuration
 

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct TransientValue documentation</title>
 </head>
 <body>
@@ -36,7 +39,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">transient</a></div>
-<h1>Struct <span id="struct" class="struct">TransientValue</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">TransientValue</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct TransientValue&lt;T&gt;
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -50,31 +59,32 @@ use distinct slots.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/transient/struct.TransientValue.html" class="struct">TransientValue</a>&lt;T&gt;</code></h3>
 
-<div class="padded-methods"><code id="at" class="code-header">pub unconstrained fn <a href="#at"><span class="fn">at</span></a>(slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+<div class="padded-methods"><code id="at" class="code-header">pub unconstrained fn <a href="#at" class="fn">at</a>(slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns a handle to the value at the given slot, which may already hold data stored by an earlier frame.</p>
 </div>
-</div><code id="store" class="code-header">pub unconstrained fn <a href="#store"><span class="fn">store</span></a>(self, value: T)
+</div><code id="store" class="code-header">pub unconstrained fn <a href="#store" class="fn">store</a>(self, value: T)
 <div class="where-clause">where
     T: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Stores a value at the given slot.</p>
 </div>
-</div><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;T&gt;
+</div><code id="read" class="code-header">pub unconstrained fn <a href="#read" class="fn">read</a>(self) -> <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;T&gt;
 <div class="where-clause">where
     T: <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the value previously stored at the slot with <a href="../../noir_aztec/transient/struct.TransientValue.html#store"><code>TransientValue::store</code></a>, or <code>Option::none()</code> if the
 slot holds no value.</p></div>
-</div><code id="delete" class="code-header">pub unconstrained fn <a href="#delete"><span class="fn">delete</span></a>(self)</code>
+</div><code id="delete" class="code-header">pub unconstrained fn <a href="#delete" class="fn">delete</a>(self)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Deletes the stored value. Does nothing if the slot holds no value.</p>
 </div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

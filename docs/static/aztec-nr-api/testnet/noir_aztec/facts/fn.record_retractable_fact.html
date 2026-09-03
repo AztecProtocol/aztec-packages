@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Function record_retractable_fact documentation</title>
 </head>
 <body>
@@ -35,7 +38,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">facts</a></div>
-<h1>Function <span class="fn">record_retractable_fact</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">record_retractable_fact</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub unconstrained fn record_retractable_fact(
     contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     scope: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
@@ -49,6 +58,7 @@
 <div class="comments">
 <p>Records a retractable fact into a collection: PXE prunes it if <code>origin_block</code> is reorg'd away. Re-recording an
 identical fact is a no-op.</p>
+</div>
 </div>
 </main>
 </span>

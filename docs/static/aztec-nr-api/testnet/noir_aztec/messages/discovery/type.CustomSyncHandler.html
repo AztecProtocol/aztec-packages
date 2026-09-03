@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Type alias CustomSyncHandler documentation</title>
 </head>
 <body>
@@ -34,12 +37,19 @@
 </ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.do_sync_state.html">do_sync_state</a></div></li>
+<li><a href="fn.do_sync_state_no_op.html">do_sync_state_no_op</a></div></li>
 <li><a href="fn.do_sync_state_without_handshake_discovery.html">do_sync_state_without_handshake_discovery</a></div></li>
 </ul>
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">discovery</a></div>
-<h1>Type alias <span class="type">CustomSyncHandler</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Type alias <span class="type">CustomSyncHandler</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub type CustomSyncHandler = unconstrained fn(<a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteHash.html" class="type">ComputeNoteHash</a>, <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteNullifier.html" class="type">ComputeNoteNullifier</a>, <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/discovery/type.CustomMessageHandler.html" class="type">CustomMessageHandler</a>&gt;, <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/processing/offchain/type.OffchainInboxSync.html" class="type">OffchainInboxSync</a>&gt;, <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>);</code></pre>
 
 <div class="comments">
@@ -47,6 +57,7 @@
 <p>When set via <a href="../../../noir_aztec/macros/struct.AztecConfig.html#custom_sync_state"><code>crate::macros::AztecConfig::custom_sync_state</code></a>, the generated <code>sync_state</code> function will call
 this handler instead of <a href="../../../noir_aztec/messages/discovery/fn.do_sync_state.html"><code>do_sync_state</code></a>. It receives all of the same parameters, so it can run custom logic
 (e.g. fetching and decrypting custom logs) before, after, or instead of calling <a href="../../../noir_aztec/messages/discovery/fn.do_sync_state.html"><code>do_sync_state</code></a>.</p></div>
+</div>
 </main>
 </span>
 </body>

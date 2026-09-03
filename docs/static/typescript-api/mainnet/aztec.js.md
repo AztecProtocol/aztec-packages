@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: 5.0.1
+Version: 5.2.0
 
 ## Quick Import Reference
 
@@ -602,6 +602,7 @@ new HashedValues(values: Fr[], hash: Fr)
 - `static getFields(fields: FieldsOf<HashedValues>) => readonly []`
 - `getSize() => number`
 - `static random() => HashedValues`
+- `static schemaFor(maxValues?: number) => ZodFor<HashedValues>` - Returns a schema that additionally rejects more than `maxValues` values. The bound belongs to the caller rather than to this class: the same container carries public calldata, private call arguments and authwit arguments, and those have different limits.
 - `toBuffer() => Buffer`
 
 ### L1FeeJuicePortalManager
@@ -1364,7 +1365,7 @@ The compilation result of an Aztec.nr contract.
 - `file_map: DebugFileMap` - The map of file ID to the source code and path of the file.
 - `functions: NoirFunctionEntry[]` - The functions of the contract.
 - `name: string` - The name of the contract.
-- `outputs: { globals: Record<string, AbiValue[]>; structs: Record<string, AbiType[]> }` - The events of the contract
+- `outputs: { globals: Record<string, AbiNamedValue | AbiValue[]>; structs: Record<string, AbiType[]> }` - The events of the contract
 - `transpiled?: boolean` - Is the contract's public bytecode transpiled?
 
 ### SimulationCapability
@@ -2107,7 +2108,7 @@ This package references types from other Aztec packages:
 - `ExtendedViemWalletClient`, `L1ContractAddresses`, `L1TxUtils`
 
 **@aztec/foundation**
-- `BaseBuffer32`, `BaseField`, `BaseFr`, `BlockNumber`, `Branded`, `BufferReader`, `CheckpointNumber`, `DefineIfFlag`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`
+- `BaseBuffer32`, `BaseField`, `BaseFr`, `BlockNumber`, `Branded`, `BufferReader`, `CheckpointNumber`, `DefineIfFlag`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`, `ZodFor`
 
 **@aztec/stdlib**
-- `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `CHECKPOINTED`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `ContractOverrides`, `DROPPED`, `DebugFileMap`, `DebugLog`, `DroppedTxReceipt`, `EventSelector`, `ExecutionPayload`, `FINALIZED`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `GasFees`, `GasSettings`, `GasUsed`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `MinedTxReceipt`, `NestedProcessReturnValues`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `Opts`, `PENDING`, `PROPOSED`, `PROVEN`, `PendingTxReceipt`, `PrivateExecutionResult`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `PrivateSimulationResult`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `PublicSimulationOutput`, `PublicStorageOverride`, `RevertCode`, `Selector`, `SimulationOverrides`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxEffect`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxReceiptBase`, `TxReceiptInterface`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`, `TxsLimits`, `UnminedTxReceipt`
+- `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiNamedValue`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `CHECKPOINTED`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `ContractOverrides`, `DROPPED`, `DebugFileMap`, `DebugLog`, `DroppedTxReceipt`, `EventSelector`, `ExecutionPayload`, `FINALIZED`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `GasFees`, `GasSettings`, `GasUsed`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `MinedTxReceipt`, `NestedProcessReturnValues`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `Opts`, `PENDING`, `PROPOSED`, `PROVEN`, `PendingTxReceipt`, `PrivateExecutionResult`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `PrivateSimulationResult`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `PublicSimulationOutput`, `PublicStorageOverride`, `RevertCode`, `Selector`, `SimulationOverrides`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxEffect`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxReceiptBase`, `TxReceiptInterface`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`, `TxsLimits`, `UnminedTxReceipt`

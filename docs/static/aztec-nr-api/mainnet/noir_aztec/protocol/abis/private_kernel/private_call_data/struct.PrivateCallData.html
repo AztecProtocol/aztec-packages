@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../../styles.css">
+<script>window.docRoot = "../../../../../";</script>
+<script defer src="../../../../../search-index.js"></script>
 <script defer src="../../../../../nargo_doc.js"></script>
+<script defer src="../../../../../search.js"></script>
 <title>Struct PrivateCallData documentation</title>
 </head>
 <body>
@@ -37,7 +40,13 @@
 </nav>
 <main>
 <div><a href="../../../../../index.html">aztec-nr</a> - <a href="../../../../index.html">noir_aztec</a>::<a href="../../../index.html">protocol</a>::<a href="../../index.html">abis</a>::<a href="../index.html">private_kernel</a>::<a href="index.html">private_call_data</a></div>
-<h1>Struct <span id="struct" class="struct">PrivateCallData</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">PrivateCallData</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct PrivateCallData {
     pub public_inputs: <a href="../../../../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a>,
     pub vk: <a href="../../../../../protocol_types/proof/verification_key/type.MegaVerificationKey.html" class="type">MegaVerificationKey</a>,
@@ -51,13 +60,14 @@
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../../../protocol_types/abis/private_kernel/private_call_data/struct.PrivateCallData.html" class="struct">PrivateCallData</a></code></h3>
 
-<div class="padded-methods"><code id="verify" class="code-header">pub fn <a href="#verify"><span class="fn">verify</span></a>(self, is_first_function_call: <a href="../../../../../std/primitive.bool.html" class="primitive">bool</a>)</code>
+<div class="padded-methods"><code id="verify" class="code-header">pub fn <a href="#verify" class="fn">verify</a>(self, is_first_function_call: <a href="../../../../../std/primitive.bool.html" class="primitive">bool</a>)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Verifies the proof against the verification key and public inputs.
 The vk hash is also checked in the backend to match the key.</p>
 </div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

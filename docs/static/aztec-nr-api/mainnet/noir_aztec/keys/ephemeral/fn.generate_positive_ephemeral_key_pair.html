@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function generate_positive_ephemeral_key_pair documentation</title>
 </head>
 <body>
@@ -25,7 +28,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">keys</a>::<a href="index.html">ephemeral</a></div>
-<h1>Function <span class="fn">generate_positive_ephemeral_key_pair</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">generate_positive_ephemeral_key_pair</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn generate_positive_ephemeral_key_pair(
 ) -> (<a href="../../../protocol_types/scalar/struct.Scalar.html" class="struct">EmbeddedCurveScalar</a>, <a href="../../../protocol_types/point/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>)</code></pre>
 
@@ -35,6 +44,7 @@
 (i.e. <a href="../../../noir_aztec/utils/point/fn.get_sign_of_point.html"><code>crate::utils::point::get_sign_of_point</code></a> will return <code>true</code>).</p>
 <p>This is useful as it means it is possible to just broadcast the x-coordinate as a single <code>Field</code> and then
 reconstruct the original public key using <a href="../../../noir_aztec/utils/point/fn.point_from_x_coord_and_sign.html"><code>crate::utils::point::point_from_x_coord_and_sign</code></a> with <code>sign: true</code>.</p></div>
+</div>
 </main>
 </span>
 </body>

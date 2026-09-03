@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Struct PrivateLogData documentation</title>
 </head>
 <body>
@@ -44,7 +47,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">abis</a>::<a href="index.html">private_log</a></div>
-<h1>Struct <span id="struct" class="struct">PrivateLogData</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">PrivateLogData</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct PrivateLogData {
     pub log: <a href="../../../protocol_types/abis/log/struct.Log.html" class="struct">Log</a>&lt;16&gt;,
     pub note_hash_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
@@ -56,7 +65,7 @@
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a></code></h3>
 
-<div class="padded-methods"><code id="count" class="code-header">pub fn <a href="#count"><span class="fn">count</span></a>(self, counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;Self&gt;</code>
+<div class="padded-methods"><code id="count" class="code-header">pub fn <a href="#count" class="fn">count</a>(self, counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;Self&gt;</code>
 
 </div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-PrivateLogData"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a></code></h3>
@@ -87,7 +96,8 @@
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

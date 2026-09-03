@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Struct CallPrivateOptions documentation</title>
 </head>
 <body>
@@ -33,6 +36,7 @@
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.CallPrivateOptions.html">CallPrivateOptions</a></div></li>
 <li><a href="struct.CallPublicOptions.html">CallPublicOptions</a></div></li>
+<li><a href="struct.CreateAccountOptions.html">CreateAccountOptions</a></div></li>
 <li><a href="struct.DeployOptions.html">DeployOptions</a></div></li>
 <li><a href="struct.ExecuteUtilityOptions.html">ExecuteUtilityOptions</a></div></li>
 <li><a href="struct.PrivateContextOptions.html">PrivateContextOptions</a></div></li>
@@ -43,7 +47,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">test</a>::<a href="../index.html">helpers</a>::<a href="index.html">test_environment</a></div>
-<h1>Struct <span id="struct" class="struct">CallPrivateOptions</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">CallPrivateOptions</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct CallPrivateOptions&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -52,9 +62,17 @@
 <p>Constructed by calling <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html#new"><code>CallPrivateOptions::new</code></a> and then chaining methods setting each value:</p>
 <pre><code>env.call_private_opts(from, CallPrivateOptions::new().with_additional_scopes([other]), call);</code></pre></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html" class="struct">CallPrivateOptions</a>&lt;N, T&gt;</code></h3>
+<h3><code class="code-header">impl <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html" class="struct">CallPrivateOptions</a>&lt;0, 0&gt;</code></h3>
 
-<div class="padded-methods"><code id="with_additional_scopes" class="code-header">pub fn <a href="#with_additional_scopes"><span class="fn">with_additional_scopes</span></a>&lt;let N_2: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new" class="fn">new</a>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates default <code>CallPrivateOptions</code>.</p>
+<p>The default values are the same as if using <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#call_private"><code>TestEnvironment::call_private</code></a> instead of
+<a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#call_private_opts"><code>TestEnvironment::call_private_opts</code></a>.</p></div>
+</div></div><h3><code class="code-header">impl&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html" class="struct">CallPrivateOptions</a>&lt;N, T&gt;</code></h3>
+
+<div class="padded-methods"><code id="with_additional_scopes" class="code-header">pub fn <a href="#with_additional_scopes" class="fn">with_additional_scopes</a>&lt;let N_2: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     self,
     additional_scopes: [<a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>; N_2],
 ) -> <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html" class="struct">CallPrivateOptions</a>&lt;N_2, T&gt;</code>
@@ -66,7 +84,7 @@ retrieve private information from other accounts during execution.</p>
 <p>Example usage includes accounts withdrawing from an escrow, which may require accessing the escrow's own notes
 and secrets.</p>
 </div>
-</div><code id="with_authorized_utility_call_targets" class="code-header">pub fn <a href="#with_authorized_utility_call_targets"><span class="fn">with_authorized_utility_call_targets</span></a>&lt;let T_2: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+</div><code id="with_authorized_utility_call_targets" class="code-header">pub fn <a href="#with_authorized_utility_call_targets" class="fn">with_authorized_utility_call_targets</a>&lt;let T_2: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     self,
     targets: [<a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>; T_2],
 ) -> <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html" class="struct">CallPrivateOptions</a>&lt;N, T_2&gt;</code>
@@ -76,31 +94,31 @@ and secrets.</p>
 <p>By default, cross-contract utility calls are denied. This method lets the test author specify which target
 contracts are allowed to be called via utility functions during execution.</p>
 </div>
-</div><code id="with_gas_limits" class="code-header">pub fn <a href="#with_gas_limits"><span class="fn">with_gas_limits</span></a>(self, gas_limits: <a href="../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>) -> Self</code>
+</div><code id="with_gas_limits" class="code-header">pub fn <a href="#with_gas_limits" class="fn">with_gas_limits</a>(self, gas_limits: <a href="../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets the gas limits for the transaction.</p>
 <p>If not set, defaults to the maximum the protocol allows.</p>
 </div>
-</div><code id="with_teardown_gas_limits" class="code-header">pub fn <a href="#with_teardown_gas_limits"><span class="fn">with_teardown_gas_limits</span></a>(self, teardown_gas_limits: <a href="../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>) -> Self</code>
+</div><code id="with_teardown_gas_limits" class="code-header">pub fn <a href="#with_teardown_gas_limits" class="fn">with_teardown_gas_limits</a>(self, teardown_gas_limits: <a href="../../../../protocol_types/abis/gas/struct.Gas.html" class="struct">Gas</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets the teardown gas limits for the transaction.</p>
 <p>If not set, defaults to 1/8 of the protocol maximum.</p>
 </div>
-</div><code id="with_max_fees_per_gas" class="code-header">pub fn <a href="#with_max_fees_per_gas"><span class="fn">with_max_fees_per_gas</span></a>(self, max_fees_per_gas: <a href="../../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>) -> Self</code>
+</div><code id="with_max_fees_per_gas" class="code-header">pub fn <a href="#with_max_fees_per_gas" class="fn">with_max_fees_per_gas</a>(self, max_fees_per_gas: <a href="../../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets the maximum fees per gas unit the sender is willing to pay.</p>
 <p>If not set, defaults to zero.</p>
 </div>
-</div><code id="with_max_priority_fees_per_gas" class="code-header">pub fn <a href="#with_max_priority_fees_per_gas"><span class="fn">with_max_priority_fees_per_gas</span></a>(self, max_priority_fees_per_gas: <a href="../../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>) -> Self</code>
+</div><code id="with_max_priority_fees_per_gas" class="code-header">pub fn <a href="#with_max_priority_fees_per_gas" class="fn">with_max_priority_fees_per_gas</a>(self, max_priority_fees_per_gas: <a href="../../../../protocol_types/abis/gas_fees/struct.GasFees.html" class="struct">GasFees</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Sets the maximum priority fees per gas unit.</p>
 <p>If not set, defaults to zero.</p>
 </div>
-</div><code id="with_gas_settings" class="code-header">pub fn <a href="#with_gas_settings"><span class="fn">with_gas_settings</span></a>(self, gas_settings: <a href="../../../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a>) -> Self</code>
+</div><code id="with_gas_settings" class="code-header">pub fn <a href="#with_gas_settings" class="fn">with_gas_settings</a>(self, gas_settings: <a href="../../../../protocol_types/abis/gas_settings/struct.GasSettings.html" class="struct">GasSettings</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Convenience method to set all four gas settings fields at once.</p>
@@ -108,15 +126,8 @@ contracts are allowed to be called via utility functions during execution.</p>
 <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html#with_teardown_gas_limits"><code>with_teardown_gas_limits</code></a>,
 <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html#with_max_fees_per_gas"><code>with_max_fees_per_gas</code></a>, and
 <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html#with_max_priority_fees_per_gas"><code>with_max_priority_fees_per_gas</code></a> individually.</p></div>
-</div></div><h3><code class="code-header">impl <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html" class="struct">CallPrivateOptions</a>&lt;0, 0&gt;</code></h3>
-
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self</code>
-
-<div class="padded-description"><div class="comments">
-<p>Creates default <code>CallPrivateOptions</code>.</p>
-<p>The default values are the same as if using <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#call_private"><code>TestEnvironment::call_private</code></a> instead of
-<a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#call_private_opts"><code>TestEnvironment::call_private_opts</code></a>.</p></div>
-</div></div></main>
+</div></div></div>
+</main>
 </span>
 </body>
 </html>

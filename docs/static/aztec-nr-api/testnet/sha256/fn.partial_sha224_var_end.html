@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../styles.css">
+<script>window.docRoot = "../";</script>
+<script defer src="../search-index.js"></script>
 <script defer src="../nargo_doc.js"></script>
+<script defer src="../search.js"></script>
 <title>Function partial_sha224_var_end documentation</title>
 </head>
 <body>
@@ -29,7 +32,13 @@
 </nav>
 <main>
 <div><a href="../index.html">aztec-nr</a> - <a href="index.html">sha256</a></div>
-<h1>Function <span class="fn">partial_sha224_var_end</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">partial_sha224_var_end</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn partial_sha224_var_end&lt;let N: <a href="../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     h: [<a href="../std/primitive.u32.html" class="primitive">u32</a>; 8],
     msg: [<a href="../std/primitive.u8.html" class="primitive">u8</a>; N],
@@ -46,6 +55,7 @@
 @param message_size - the size of the current chunk
 @param real_message_size - the total size of the original preimage
 @return finalized sha24 hash</p>
+</div>
 </div>
 </main>
 </span>

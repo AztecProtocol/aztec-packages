@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct PublicMutable documentation</title>
 </head>
 <body>
@@ -50,7 +53,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
-<h1>Struct <span id="struct" class="struct">PublicMutable</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">PublicMutable</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct PublicMutable&lt;T, Context&gt;
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -111,7 +120,7 @@ be read privately by restricting mutation.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read" class="fn">read</a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
@@ -143,7 +152,7 @@ requires:</p>
 }</code></pre>
 <h4>Cost</h4>
 <p>The <code>SLOAD</code> AVM opcode is invoked a number of times equal to <code>T</code>'s packed length.</p></div>
-</div><code id="write" class="code-header">pub fn <a href="#write"><span class="fn">write</span></a>(self, value: T)
+</div><code id="write" class="code-header">pub fn <a href="#write" class="fn">write</a>(self, value: T)
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
@@ -180,7 +189,7 @@ function:</p>
 <p>The <code>SSTORE</code> AVM opcode is invoked a number of times equal to <code>T</code>'s packed length.</p></div>
 </div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read" class="fn">read</a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
@@ -204,7 +213,8 @@ the zero sentinel value. For a more robust solution, store an <code>Option&lt;T&
 
 <code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

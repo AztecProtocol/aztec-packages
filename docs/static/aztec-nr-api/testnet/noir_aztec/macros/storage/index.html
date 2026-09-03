@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Module storage documentation</title>
 </head>
 <body>
@@ -43,7 +46,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::storage</div>
-<h1>Module <span id="mod" class="module">storage</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">storage</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.storage.html" class="fn">storage</a></div><div class="item-description">Declares the contract's storage.</div></li>
 <li><div class="item-name"><a href="fn.storage_no_init.html" class="fn">storage_no_init</a></div><div class="item-description">Same as <code>storage</code>, except the user is in charge of providing an implementation of the <code>init</code> constructor function
@@ -54,6 +63,7 @@ allocation. Similarly, no <code>StorageLayout</code> struct will be created.</di
 <li><div class="item-name"><a href="global.STORAGE_LAYOUT_NAME.html" class="global">STORAGE_LAYOUT_NAME</a></div><div class="item-description">Stores a map from a module to the name of the struct that describes its storage layout. This is then used when
 generating a <code>storage_layout()</code> getter on the contract struct.</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

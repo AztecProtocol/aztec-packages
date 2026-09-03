@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Function subbvec documentation</title>
 </head>
 <body>
@@ -24,7 +27,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">utils</a>::<a href="../index.html">array</a>::<a href="index.html">subbvec</a></div>
-<h1>Function <span class="fn">subbvec</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">subbvec</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn subbvec&lt;T, let SrcMaxLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let DstMaxLen: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     bvec: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, SrcMaxLen&gt;,
     offset: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>,
@@ -42,6 +51,7 @@ of the vector by passing a value for <code>DstLen</code> that is smaller than <c
 
 <span class="kw">let</span> bar: BoundedVec&lt;_, <span class="number">1</span>&gt; = subbvec(foo, <span class="number">2</span>); <span class="comment">// fails - we can't return just 1 element since 3 remain</span>
 <span class="kw">let</span> baz: BoundedVec&lt;_, <span class="number">10</span>&gt; = subbvec(foo, <span class="number">3</span>); <span class="comment">// fails - we can't return 10 elements since only 7 remain</span></code></pre></div>
+</div>
 </main>
 </span>
 </body>

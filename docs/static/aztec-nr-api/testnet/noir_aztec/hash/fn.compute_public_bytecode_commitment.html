@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Function compute_public_bytecode_commitment documentation</title>
 </head>
 <body>
@@ -30,7 +33,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">hash</a></div>
-<h1>Function <span class="fn">compute_public_bytecode_commitment</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">compute_public_bytecode_commitment</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn compute_public_bytecode_commitment(packed_public_bytecode: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 3000]) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></pre>
 
 <div class="comments">
@@ -38,6 +47,7 @@
 <p>@param packed_bytecode - The packed bytecode of the contract class. 0th word is the length in bytes.
 packed_bytecode is mutable so that we can avoid copying the array to construct one starting with first_field
 instead of length. @returns The public bytecode commitment.</p>
+</div>
 </div>
 </main>
 </span>

@@ -84,7 +84,7 @@ export interface GrantedAccountsCapability extends AccountsCapability {
  *
  * Matching is done by contract address, not class ID. This allows updating
  * existing contracts with new artifacts (e.g., when contract is upgraded
- * to a new contractClassId on-chain).
+ * to a new contractClassId onchain).
  *
  * Note: For querying contract class metadata, use ContractClassesCapability instead.
  *
@@ -138,7 +138,7 @@ export interface ContractsCapability {
 export interface GrantedContractsCapability extends ContractsCapability {}
 
 /**
- * Contract class capability - for querying contract class meatadata and registering contract classes.
+ * Contract class capability - for querying contract class metadata and registering contract classes.
  *
  * Maps to wallet methods:
  * - getContractClassMetadata (when canGetMetadata: true)

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Global ARCHIVE_HEIGHT documentation</title>
 </head>
 <body>
@@ -603,7 +606,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">constants</a></div>
-<h1>Global <span class="global">ARCHIVE_HEIGHT</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Global <span class="global">ARCHIVE_HEIGHT</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub global ARCHIVE_HEIGHT: <a href="../../std/primitive.u32.html" class="primitive">u32</a>;</code></pre>
 
 <div class="comments">
@@ -624,6 +633,7 @@ MAX_XXX_PER_TX &gt;= MAX_XXX_PER_CALL</p>
 <p>For instance:
 MAX_NOTE_HASHES_PER_TX &gt;= MAX_NOTE_HASHES_PER_CALL
 MAX_NULLIFIERS_PER_TX &gt;= MAX_NULLIFIERS_PER_CALL</p>
+</div>
 </div>
 </main>
 </span>

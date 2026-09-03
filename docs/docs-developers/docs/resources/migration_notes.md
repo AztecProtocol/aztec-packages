@@ -9,48 +9,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-### [Aztec.js] Protocol contracts removed from `@aztec/noir-contracts.js`
-
-`@aztec/noir-contracts.js` no longer includes the protocol contracts: the `FeeJuice`, `ContractClassRegistry`, and `ContractInstanceRegistry` artifacts and typed wrappers have been removed from the package, so imports such as `@aztec/noir-contracts.js/FeeJuice` no longer resolve. These names are also no longer available to the `aztec` CLI's contract-name lookup (e.g. in `aztec example-contracts`).
-
-Protocol contracts are distributed via `@aztec/protocol-contracts` (artifacts and canonical deployment data), and typed wrappers for them are exported from `@aztec/aztec.js/protocol`. The `aztec.js` wrappers are bound to the contract's canonical address, so attaching takes only the wallet: there is no address parameter.
-
-**Migration:**
-
-```diff
-- import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
-+ import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
-
-- const feeJuice = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
-+ const feeJuice = FeeJuiceContract.withWallet(wallet);
-```
-
-### [Aztec.js] Protocol contract wrappers: `at(wallet)` deprecated in favor of `withWallet(wallet)`
-
-The protocol contract wrappers exported from `@aztec/aztec.js/protocol` (`FeeJuiceContract`, `ContractClassRegistryContract`, `ContractInstanceRegistryContract`) rename their static `at(wallet)` to `withWallet(wallet)`. These wrappers are bound to the contract's canonical address, so their only parameter is the wallet to act through; `withWallet` states that directly and matches the existing `withWallet` instance method, whereas the one-argument `at` read as if it took an address. `at(wallet)` still works but is deprecated and will be removed in a future release.
-
-**Migration:**
-
-```diff
-- const feeJuice = FeeJuiceContract.at(wallet);
-+ const feeJuice = FeeJuiceContract.withWallet(wallet);
-```
-
-### [Aztec.nr] Standard contracts re-pinned at new addresses
-
-The canonical `HandshakeRegistry` now protects handshake shared secrets from recipient forgery and includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. All standard contracts have been re-pinned and move to new addresses. Handshakes established with a previous registry instance are not visible to the new one and must be re-established.
-
-### [Aztec.nr] Note property selectors are typed and use packed-layout indices
-
-The selectors in the generated `properties()` used the field's position in the note struct declaration, which pointed at the wrong packed field for any note with an earlier field packing to more than one `Field` (a `Point`, an array, a nested struct). Selector indices are now the field's offset in the note's packed representation, so `select`/`sort` criteria constrain the field they name.
-
-Breaking changes:
-
-- `PropertySelector<T>` carries the selected property's type. Hand-constructed literals need a type annotation, e.g. `let selector: PropertySelector<Field> = PropertySelector { index: 0, offset: 0, length: 32 };`.
-- `select`/`sort` reject properties that pack to more than one `Field` at compile time.
-- `select` takes its value typed as the property's type. Cast the value if a mixed-type comparison was intentional.
-- `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
-- Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
+## 5.2.0
 
 ### [Aztec.nr] Note types declared inside a contract must be `pub`
 
@@ -74,6 +33,56 @@ Note types declared in their own module are unaffected, since they are already `
       owner: AztecAddress,
   }
 ```
+
+### [Sequencer] A sequencer with p2p enabled no longer proposes while it has no connected peers
+
+The sequencer skips building and proposing a checkpoint when p2p is enabled and it is connected to fewer than `SEQ_MIN_PEERS_TO_PROPOSE` peers (default `1`). Proposing into an empty peer set burns the slot and can publish a checkpoint whose transaction data nobody received. L1-only duties (governance and slashing votes, prune, invalidation) are unaffected, and setups that disable p2p entirely (sandbox, local network, single node) still propose as before.
+
+A peerless node also warns periodically, stops filing data-withholding slashing offenses, and rejects incoming transactions until it reconnects.
+
+**Impact**: set `SEQ_MIN_PEERS_TO_PROPOSE=0` to restore the previous behaviour. Fixing the underlying peer connectivity is the real remedy.
+
+### [Node API] JSON-RPC internal errors now return code `-32603`
+
+The JSON-RPC server returned `-32600` ("Invalid Request") for internal server failures. It now returns `-32603` ("Internal error"), which is what the JSON-RPC 2.0 specification defines for that case. Genuine malformed-request errors still return `-32600`.
+
+**Impact**: clients that branch on `-32600` to detect an internal server failure must also handle `-32603`.
+
+### [Node API] `GET /status` now returns a JSON body with per-component health
+
+The status endpoint previously set only an HTTP status code and returned no body. It now responds with `application/json` describing per-component health, for example:
+
+```json
+{ "ok": true, "components": { "p2p": { "healthy": true, "enabled": true, "connectedPeers": 12 } } }
+```
+
+`StatusCheckFn` widens from `() => boolean | Promise<boolean>` to also allow a structured result, and the new `ComponentStatus` / `ServerStatus` / `ServerStatusFn` types plus `SafeJsonRpcServer.getStatus()` are exported. The p2p component fails the check when the connected peer count is below `P2P_HEALTH_MIN_PEERS` (default `0`, which never fails).
+
+**Impact**: consumers that only read the HTTP status code are unaffected. Custom status callbacks that returned a bare boolean keep working.
+
+### [Aztec.js] `deserializeArrayFromVector` removed from `@aztec/foundation/serialize`
+
+`deserializeArrayFromVector` has been deleted from `@aztec/foundation`'s serialization helpers and is no longer exported.
+
+**Impact**: decode length-prefixed vectors with `BufferReader` (`reader.readVector(...)`) instead.
+
+## 5.1.0
+
+### [Aztec.nr] Canonical HandshakeRegistry re-pinned at a new address
+
+The canonical `HandshakeRegistry` has been re-pinned so that it includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. The registry moves to a new address. Handshakes established with the previous registry instance are not visible to the new one and must be re-established. The other standard contracts keep their addresses.
+
+### [Aztec.nr] Note property selectors are typed and use packed-layout indices
+
+The selectors in the generated `properties()` used the field's position in the note struct declaration, which pointed at the wrong packed field for any note with an earlier field packing to more than one `Field` (a `Point`, an array, a nested struct). Selector indices are now the field's offset in the note's packed representation, so `select`/`sort` criteria constrain the field they name.
+
+Breaking changes:
+
+- `PropertySelector<T>` carries the selected property's type. Hand-constructed literals need a type annotation, e.g. `let selector: PropertySelector<Field> = PropertySelector { index: 0, offset: 0, length: 32 };`.
+- `select`/`sort` reject properties that pack to more than one `Field` at compile time.
+- `select` takes its value typed as the property's type. Cast the value if a mixed-type comparison was intentional.
+- `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
+- Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
 
 ## 5.0.1
 

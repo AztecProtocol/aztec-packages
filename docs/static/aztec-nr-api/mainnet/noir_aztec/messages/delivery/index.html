@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Module delivery documentation</title>
 </head>
 <body>
@@ -39,7 +42,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::delivery</div>
-<h1>Module <span id="mod" class="module">delivery</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">delivery</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="modules">Modules</h2><ul class="item-list">
 <li><div class="item-name"><a href="constrained_delivery/index.html" class="module">constrained_delivery</a></div><div class="item-description">Sender-side helpers for constrained message delivery.</div></li>
 <li><div class="item-name"><a href="handshake/index.html" class="module">handshake</a></div><div class="item-description"></div></li>
@@ -60,6 +69,7 @@ app-siloed, so the contract uses it directly to derive the message tag and never
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.do_private_message_delivery.html" class="fn">do_private_message_delivery</a></div><div class="item-description">Performs private delivery of a message to <code>recipient</code> according to <code>delivery_mode</code>.</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

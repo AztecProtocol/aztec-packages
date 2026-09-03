@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Module nullifiers documentation</title>
 </head>
 <body>
@@ -57,7 +60,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::nullifiers</div>
-<h1>Module <span id="mod" class="module">nullifiers</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">nullifiers</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <div class="comments">
 <p>Nullifier creation, existence checks, etc.</p>
 </div>
@@ -73,6 +82,7 @@ called for this inner nullifier from the contract with the specified address.</d
 determined when reading nullifiers in subsequent private function calls. The first non-revertible nullifier emitted
 is also used to compute note nonces.</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

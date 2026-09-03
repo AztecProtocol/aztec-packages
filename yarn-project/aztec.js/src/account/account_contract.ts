@@ -32,7 +32,7 @@ export interface AccountContract {
 
   /**
    * The hash of this account's immutable instantiation params, committed into its address. Returns
-   * undefined for accounts that have no immutables (these are instead deployed via an on-chain
+   * undefined for accounts that have no immutables (these are instead deployed via an onchain
    * initializer, which contributes to the address through its initialization hash).
    */
   getImmutablesHash(): Promise<Fr | undefined>;

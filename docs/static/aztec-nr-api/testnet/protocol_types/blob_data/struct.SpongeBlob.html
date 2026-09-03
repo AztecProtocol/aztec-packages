@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct SpongeBlob documentation</title>
 </head>
 <body>
@@ -58,7 +61,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">blob_data</a></div>
-<h1>Struct <span id="struct" class="struct">SpongeBlob</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">SpongeBlob</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct SpongeBlob {
     pub sponge: <a href="../../protocol_types/poseidon2/struct.Poseidon2Sponge.html" class="struct">Poseidon2Sponge</a>,
     pub num_absorbed_fields: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
@@ -86,14 +95,14 @@ absorbed. It also checks that the start SpongeBlob of the first tx in the block 
 <div class="padded-description"></div><h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
 
-<div class="padded-methods"><code id="init" class="code-header">pub fn <a href="#init"><span class="fn">init</span></a>() -> Self</code>
+<div class="padded-methods"><code id="init" class="code-header">pub fn <a href="#init" class="fn">init</a>() -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Initialize the sponge with the maximum number of fields allowed in a checkpoint.
 This allows proposers to start creating blocks and signing block headers (which contain the hash squeezed from
 the this sponge) before receiving all txs in a checkpoint slot.</p>
 </div>
-</div><code id="absorb_tx_blob_data" class="code-header">pub fn <a href="#absorb_tx_blob_data"><span class="fn">absorb_tx_blob_data</span></a>(
+</div><code id="absorb_tx_blob_data" class="code-header">pub fn <a href="#absorb_tx_blob_data" class="fn">absorb_tx_blob_data</a>(
     &mut self,
     tx_effect: <a href="../../protocol_types/blob_data/struct.TxEffect.html" class="struct">TxEffect</a>,
     array_lengths: <a href="../../protocol_types/blob_data/struct.TxEffectArrayLengths.html" class="struct">TxEffectArrayLengths</a>,
@@ -243,7 +252,7 @@ the this sponge) before receiving all txs in a checkpoint slot.</p>
 </tbody>
 </table>
 </div>
-</div><code id="absorb_block_end_data" class="code-header">pub fn <a href="#absorb_block_end_data"><span class="fn">absorb_block_end_data</span></a>(
+</div><code id="absorb_block_end_data" class="code-header">pub fn <a href="#absorb_block_end_data" class="fn">absorb_block_end_data</a>(
     &mut self,
     global_variables: <a href="../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a>,
     last_archive: <a href="../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>,
@@ -350,7 +359,7 @@ the this sponge) before receiving all txs in a checkpoint slot.</p>
 </tbody>
 </table>
 </div>
-</div><code id="absorb_checkpoint_end_marker" class="code-header">pub fn <a href="#absorb_checkpoint_end_marker"><span class="fn">absorb_checkpoint_end_marker</span></a>(&mut self)</code>
+</div><code id="absorb_checkpoint_end_marker" class="code-header">pub fn <a href="#absorb_checkpoint_end_marker" class="fn">absorb_checkpoint_end_marker</a>(&mut self)</code>
 
 <div class="padded-description"><div class="comments">
 <p>|----------|---------------------------------------------|---------|
@@ -365,12 +374,12 @@ the this sponge) before receiving all txs in a checkpoint slot.</p>
 </thead>
 </table>
 </div>
-</div><code id="absorb" class="code-header">pub fn <a href="#absorb"><span class="fn">absorb</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, input: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N], in_len: <a href="../../std/primitive.u32.html" class="primitive">u32</a>)</code>
+</div><code id="absorb" class="code-header">pub fn <a href="#absorb" class="fn">absorb</a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, input: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N], in_len: <a href="../../std/primitive.u32.html" class="primitive">u32</a>)</code>
 
 <div class="padded-description"><div class="comments">
 <p>Absorb the first <code>in_len</code> fields of the <code>input</code> to the sponge. Fields beyond <code>in_len</code> are ignored.</p>
 </div>
-</div><code id="squeeze" class="code-header">pub fn <a href="#squeeze"><span class="fn">squeeze</span></a>(&mut self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+</div><code id="squeeze" class="code-header">pub fn <a href="#squeeze" class="fn">squeeze</a>(&mut self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Finalize the sponge and output the non-standard poseidon2 hash of all fields absorbed.</p>
@@ -404,7 +413,8 @@ the this sponge) before receiving all txs in a checkpoint slot.</p>
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

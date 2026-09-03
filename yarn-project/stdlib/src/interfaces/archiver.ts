@@ -72,7 +72,7 @@ export type ArchiverSpecificConfig = {
   /**
    * Preload the standard contracts (AuthRegistry, PublicChecks, HandshakeRegistry) into the contract store at block 0.
    * For test environments only: it must only be set when genesis also seeds the matching registration/deployment
-   * nullifiers, otherwise a later on-chain publish of a preloaded class would collide with the block-0 preload.
+   * nullifiers, otherwise a later onchain publish of a preloaded class would collide with the block-0 preload.
    */
   testPreloadStandardContracts?: boolean;
 };

@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../styles.css">
+<script>window.docRoot = "../../";</script>
+<script defer src="../../search-index.js"></script>
 <script defer src="../../nargo_doc.js"></script>
+<script defer src="../../search.js"></script>
 <title>Struct PublicImmutable documentation</title>
 </head>
 <body>
@@ -55,7 +58,13 @@
 </nav>
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
-<h1>Struct <span id="struct" class="struct">PublicImmutable</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Struct <span id="struct" class="struct">PublicImmutable</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub struct PublicImmutable&lt;T, Context&gt;
 { <span class="comment">/* private fields */</span> }
 </code></pre>
@@ -114,16 +123,16 @@ do not have access to the current network state, only the <em>past</em> state at
 historical non-inclusion proofs of the initialization nullifier at past times, but they have no way to guarantee
 that it has not been emitted since then.</p></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Context, T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;</code></h3>
+<h3><code class="code-header">impl&lt;T, Context&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;</code></h3>
 
-<div class="padded-methods"><code id="compute_initialization_inner_nullifier" class="code-header">pub fn <a href="#compute_initialization_inner_nullifier"><span class="fn">compute_initialization_inner_nullifier</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+<div class="padded-methods"><code id="compute_initialization_inner_nullifier" class="code-header">pub fn <a href="#compute_initialization_inner_nullifier" class="fn">compute_initialization_inner_nullifier</a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the inner nullifier emitted during initialization.</p>
 </div>
 </div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, value: T)
+<div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize" class="fn">initialize</a>(self, value: T)
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
@@ -148,7 +157,7 @@ nullifier.</p>
 <h4>Cost</h4>
 <p>The <code>SSTORE</code> AVM opcode is invoked a number of times equal to <code>T</code>'s packed length plus one, and the
 <code>EMITNULLIFIER</code> AVM opcode is invoked once.</p></div>
-</div><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+</div><code id="read" class="code-header">pub fn <a href="#read" class="fn">read</a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
@@ -165,7 +174,7 @@ nullifier.</p>
 <h4>Cost</h4>
 <p>The <code>SLOAD</code> AVM opcode is invoked a number of times equal to <code>T</code>'s packed length, and the <code>NULLIFIEREXISTS</code> AVM
 opcode is invoked once.</p></div>
-</div><code id="read_unsafe" class="code-header">pub fn <a href="#read_unsafe"><span class="fn">read_unsafe</span></a>(self) -> T
+</div><code id="read_unsafe" class="code-header">pub fn <a href="#read_unsafe" class="fn">read_unsafe</a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
@@ -185,7 +194,7 @@ zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
 }</code></pre>
 <h4>Cost</h4>
 <p>The <code>SLOAD</code> AVM opcode is invoked a number of times equal to <code>T</code>'s packed length.</p></div>
-</div><code id="is_initialized" class="code-header">pub fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+</div><code id="is_initialized" class="code-header">pub fn <a href="#is_initialized" class="fn">is_initialized</a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
 <p>Returns <code>true</code> if the <code>PublicImmutable</code> has been initialized.</p>
@@ -199,9 +208,29 @@ zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
 }</code></pre>
 <h4>Cost</h4>
 <p>The <code>NULLIFIEREXISTS</code> AVM opcode is invoked once.</p></div>
+</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read" class="fn">read</a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Reads the permanent value.</p>
+<p>This function throws if the <code>PublicImmutable</code> is not initialized.</p>
+<h4>Examples</h4>
+<pre><code>#[external(<span class="string">"utility"</span>)]
+<span class="kw">fn</span> get_decimals() -&gt; u8 {
+    self.storage.decimals.read()
+}</code></pre></div>
+</div><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized" class="fn">is_initialized</a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns <code>true</code> if the <code>PublicImmutable</code> has been initialized.</p>
+</div>
 </div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
-<div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read" class="fn">read</a>(self) -> T
 <div class="where-clause">where
     T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
     T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
@@ -240,26 +269,6 @@ read privately in a single type <code>T</code>:</p>
 <span class="kw">struct</span> Storage&lt;Context&gt; {
     config: PublicImmutable&lt;Config, Context&gt;,
 }</code></pre></div>
-</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
-<div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Reads the permanent value.</p>
-<p>This function throws if the <code>PublicImmutable</code> is not initialized.</p>
-<h4>Examples</h4>
-<pre><code>#[external(<span class="string">"utility"</span>)]
-<span class="kw">fn</span> get_decimals() -&gt; u8 {
-    self.storage.decimals.read()
-}</code></pre></div>
-</div><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
-
-<div class="padded-description"><div class="comments">
-<p>Returns <code>true</code> if the <code>PublicImmutable</code> has been initialized.</p>
-</div>
 </div></div><h2>Trait implementations</h2>
 <h3 id="impl-StateVariable&lt;M+1, Context&gt;-for-PublicImmutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M + 1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;
 <div class="where-clause">where
@@ -269,7 +278,8 @@ read privately in a single type <code>T</code>:</p>
 
 <code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-</div></main>
+</div></div>
+</main>
 </span>
 </body>
 </html>

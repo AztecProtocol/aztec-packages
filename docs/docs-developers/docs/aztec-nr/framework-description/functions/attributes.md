@@ -206,7 +206,7 @@ When a struct is annotated with `#[note]`, the Aztec macro applies a series of t
 
 ```rust
 #[note]
-struct CustomNote {
+pub struct CustomNote {
     value: Field,
 }
 ```

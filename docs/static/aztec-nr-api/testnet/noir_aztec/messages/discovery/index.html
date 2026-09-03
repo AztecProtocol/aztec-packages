@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Module discovery documentation</title>
 </head>
 <body>
@@ -39,7 +42,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::discovery</div>
-<h1>Module <span id="mod" class="module">discovery</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Module <span id="mod" class="module">discovery</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <h2 id="modules">Modules</h2><ul class="item-list">
 <li><div class="item-name"><a href="private_notes/index.html" class="module">private_notes</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="process_message/index.html" class="module">process_message</a></div><div class="item-description"></div></li>
@@ -56,9 +65,11 @@
 </ul>
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.do_sync_state.html" class="fn">do_sync_state</a></div><div class="item-description">Synchronizes the contract's private state with the network.</div></li>
+<li><div class="item-name"><a href="fn.do_sync_state_no_op.html" class="fn">do_sync_state_no_op</a></div><div class="item-description">A <a href="../../../noir_aztec/messages/discovery/type.CustomSyncHandler.html"><code>CustomSyncHandler</code></a> that skips state synchronization entirely.</div></li>
 <li><div class="item-name"><a href="fn.do_sync_state_without_handshake_discovery.html" class="fn">do_sync_state_without_handshake_discovery</a></div><div class="item-description">Variant of <a href="../../../noir_aztec/messages/discovery/fn.do_sync_state.html"><code>do_sync_state</code></a> that skips handshake secret discovery. Used by the HandshakeRegistry to avoid
 infinite recursion (the registry discovers handshakes for other contracts, not for itself).</div></li>
 </ul>
+</div>
 </main>
 </span>
 </body>

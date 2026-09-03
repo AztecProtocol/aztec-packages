@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../../styles.css">
+<script>window.docRoot = "../../../../";</script>
+<script defer src="../../../../search-index.js"></script>
 <script defer src="../../../../nargo_doc.js"></script>
+<script defer src="../../../../search.js"></script>
 <title>Function encode_partial_note_private_message documentation</title>
 </head>
 <body>
@@ -27,7 +30,13 @@
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">logs</a>::<a href="index.html">partial_note</a></div>
-<h1>Function <span class="fn">encode_partial_note_private_message</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">encode_partial_note_private_message</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub fn encode_partial_note_private_message&lt;PartialNotePrivateContent&gt;(
     partial_note_private_content: PartialNotePrivateContent,
     owner: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
@@ -41,6 +50,7 @@
 <div class="comments">
 <p>Creates the plaintext for a partial note private message (i.e. one of type <a href="../../../../noir_aztec/messages/msg_type/global.PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID.html"><code>PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID</code></a>).</p>
 <p>This plaintext is meant to be decoded via [<code>decode_partial_note_private_message</code>].</p></div>
+</div>
 </main>
 </span>
 </body>

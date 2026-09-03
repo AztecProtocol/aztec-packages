@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="../../../styles.css">
+<script>window.docRoot = "../../../";</script>
+<script defer src="../../../search-index.js"></script>
 <script defer src="../../../nargo_doc.js"></script>
+<script defer src="../../../search.js"></script>
 <title>Function set_authorized documentation</title>
 </head>
 <body>
@@ -36,7 +39,13 @@
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">authwit</a>::<a href="index.html">auth</a></div>
-<h1>Function <span class="fn">set_authorized</span></h1>
+<div class="heading-row">
+<h1 class="heading-content">Function <span class="fn">set_authorized</span></h1>
+<button id="search-toggle" type="button">Search</button>
+</div>
+<input id="search-input" type="search" placeholder="Type 's' or '/' to search" autocomplete="off" spellcheck="false" aria-label="Search" hidden>
+<div id="search-results" hidden></div>
+<div id="page-content">
 <pre><code>pub unconstrained fn set_authorized(
     context: <a href="../../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>,
     message_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
@@ -48,6 +57,7 @@
 <p>Wraps a public call to the authentication registry to set the authorization status of a <code>message_hash</code></p>
 <p>@param message_hash The hash of the message to authorize @param authorize True if the message should be authorized,
 false if it should be revoked</p>
+</div>
 </div>
 </main>
 </span>
