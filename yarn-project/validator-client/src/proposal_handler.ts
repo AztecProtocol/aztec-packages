@@ -1132,9 +1132,14 @@ export class ProposalHandler {
   }
 
   /**
-   * Derives the ordered list of L1-to-L2 messages a checkpoint consumed across its blocks, from the Inbox buckets
-   * between the parent checkpoint's consumed position and the checkpoint's last block. Empty when
-   * the checkpoint consumed nothing or its consumption cannot be resolved against the local Inbox view.
+   * Derives the ordered list of L1-to-L2 messages a checkpoint consumed across its blocks: the compact message-count
+   * range between the parent checkpoint's consumed position and the checkpoint's last block. Empty when the
+   * checkpoint consumed nothing or its final consumption position does not resolve to a current Inbox bucket.
+   *
+   * Only the final position is resolved as a bucket, which is the live rule this proposal must satisfy. The start
+   * position is a count committed by an already checkpointed block, which the archiver never prunes, so an L1 reorg
+   * that merges buckets can leave it permanently interior to the current partition; reading the range by count keeps
+   * that historical bound resolvable instead of silently deriving an empty bundle for a valid proposal.
    */
   private async deriveCheckpointConsumedMessages(blocks: L2Block[]): Promise<Fr[]> {
     const checkpointStartTotal = await this.getPreBlockConsumedTotal(blocks[0].number);
@@ -1142,12 +1147,11 @@ export class ProposalHandler {
     if (checkpointStartTotal === undefined || lastBlockTotal <= checkpointStartTotal) {
       return [];
     }
-    const startBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(checkpointStartTotal);
     const endBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(lastBlockTotal);
-    if (startBucket === undefined || endBucket === undefined) {
+    if (endBucket === undefined) {
       return [];
     }
-    return this.l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
+    return this.l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts(checkpointStartTotal, endBucket.totalMsgCount);
   }
 
   async reexecuteTransactions(

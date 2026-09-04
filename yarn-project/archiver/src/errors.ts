@@ -114,13 +114,20 @@ export class InboxBucketNotSyncedError extends Error {
 }
 
 /**
- * Thrown when a cumulative Inbox message count does not resolve to a bucket boundary this archiver has synced, either
- * because the count sits inside a bucket or because the bucket is not synced yet.
+ * Thrown when a cumulative Inbox message-count range is not fully backed by the messages this archiver has synced,
+ * either because it reaches past the synced tip or because the store is missing an index inside it.
  */
-export class InboxBucketBoundaryNotSyncedError extends Error {
-  constructor(public readonly totalMsgCount: bigint) {
-    super(`No synced Inbox bucket ends at cumulative message count ${totalMsgCount}`);
-    this.name = 'InboxBucketBoundaryNotSyncedError';
+export class InboxMessageRangeNotSyncedError extends Error {
+  constructor(
+    public readonly startLeafCount: bigint,
+    public readonly endLeafCount: bigint,
+    public readonly actualCount: bigint,
+  ) {
+    super(
+      `Inbox message range [${startLeafCount}, ${endLeafCount}) is not fully synced ` +
+        `(got ${actualCount} of ${endLeafCount - startLeafCount} messages)`,
+    );
+    this.name = 'InboxMessageRangeNotSyncedError';
   }
 }
 
