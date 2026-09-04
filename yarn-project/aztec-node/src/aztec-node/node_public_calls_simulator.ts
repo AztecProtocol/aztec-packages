@@ -12,7 +12,14 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { type InboxBucketSource, selectInboxBucketForBlock } from '@aztec/sequencer-client';
+import {
+  InboxBucketConfirmationTracker,
+  type InboxBucketEligibility,
+  type InboxBucketSource,
+  type L1BlockReader,
+  immediateEligibility,
+  selectInboxBucketForBlock,
+} from '@aztec/sequencer-client';
 import { type AvmSimulator, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -43,6 +50,11 @@ export interface NodePublicCallsSimulatorConfig {
   rpcSimulatePublicMaxGasLimit: number;
   /** Maximum number of debug-log memory reads collected during simulation. */
   rpcSimulatePublicMaxDebugLogMemoryReads: number;
+  /**
+   * Whether this node runs the automine sequencer. Automine consumes Inbox buckets the moment it sees them, so the
+   * next-block prediction must not wait for an L1 confirmation the local chain will never produce on its own.
+   */
+  useAutomineSequencer?: boolean;
 }
 
 /** Dependencies required to build a {@link NodePublicCallsSimulator}. */
@@ -62,6 +74,11 @@ export interface NodePublicCallsSimulatorDeps {
   rollupContract?: RollupContract;
   epochCache: EpochCacheInterface;
   signatureContext: CoordinationSignatureContext;
+  /**
+   * L1 client used to tell which Inbox buckets a proposer would consider confirmed. Optional: without one the
+   * prediction assumes every synced bucket is consumable, which is what automine and TXE nodes do anyway.
+   */
+  l1Client?: L1BlockReader;
   config: NodePublicCallsSimulatorConfig;
   /**
    * AVM execution backend the public processor drives to run public calls. Optional because unit/TXE nodes
@@ -101,7 +118,13 @@ export class NodePublicCallsSimulator {
   private readonly rollupContract: RollupContract | undefined;
   private readonly epochCache: EpochCacheInterface;
   private readonly signatureContext: CoordinationSignatureContext;
+  private readonly l1Client: L1BlockReader | undefined;
   private readonly config: NodePublicCallsSimulatorConfig;
+  /**
+   * Shared by every simulation on this node. Its confirmations are permanent facts about L1, so a node-lifetime
+   * cache is correct and keeps the RPC cost of the prediction near zero; its rejections expire every second.
+   */
+  private inboxBucketConfirmations: InboxBucketConfirmationTracker | undefined;
   private readonly avmSimulator?: AvmSimulator;
   private readonly telemetry: TelemetryClient;
   private readonly log: Logger;
@@ -116,6 +139,7 @@ export class NodePublicCallsSimulator {
     this.rollupContract = deps.rollupContract;
     this.epochCache = deps.epochCache;
     this.signatureContext = deps.signatureContext;
+    this.l1Client = deps.l1Client;
     this.config = deps.config;
     this.avmSimulator = deps.avmSimulator;
     this.telemetry = deps.telemetry ?? getTelemetryClient();
@@ -241,9 +265,9 @@ export class NodePublicCallsSimulator {
   /**
    * Appends the L1-to-L2 message bundle the next block would consume to the simulation fork, so a transaction
    * consuming a message that has reached the Inbox but no block yet simulates against the state it will run in.
-   * Runs the same bucket selection the sequencer runs (lag eligibility plus the per-block and per-checkpoint caps),
-   * treating the next block as non-final: the censorship cutoff only widens consumption on a checkpoint's last
-   * block, and the node cannot know whether the next block is it.
+   * Runs the same bucket selection the sequencer runs (the per-block and per-checkpoint caps), treating the next
+   * block as non-final: the censorship cutoff only widens consumption on a checkpoint's last block, and the node
+   * cannot know whether the next block is it.
    *
    * Best-effort. Any failure — Inbox buckets not synced yet, a torn archiver snapshot — leaves the fork at the tip
    * state, which is what the transaction sees if the next block consumes nothing.
@@ -282,7 +306,8 @@ export class NodePublicCallsSimulator {
       const selection = await selectInboxBucketForBlock({
         messageSource: this.l1ToL2MessageSource,
         now: BigInt(Math.floor(this.dateProvider.now() / 1000)),
-        minBucketAgeSeconds: BigInt(l1Constants.ethereumSlotDuration),
+        isEligible: this.getInboxBucketEligibility(l1Constants.ethereumSlotDuration),
+        ethereumSlotDuration: l1Constants.ethereumSlotDuration,
         parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
         checkpointStartTotalMsgCount,
         perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
@@ -302,6 +327,24 @@ export class NodePublicCallsSimulator {
     } catch (err) {
       this.log.verbose(`Could not predict the next block's L1-to-L2 messages, simulating against the tip: ${err}`);
     }
+  }
+
+  /**
+   * The eligibility rule the next proposer is expected to apply. It has to match the sequencer's: a transaction
+   * simulated against a bundle no proposer will consume yet enters the pool and then fails when the block that
+   * includes it consumes less. Automine, and any node without an L1 client, never waits, so those predict against
+   * every synced bucket instead.
+   */
+  private getInboxBucketEligibility(ethereumSlotDuration: number): InboxBucketEligibility {
+    if (this.config.useAutomineSequencer || this.l1Client === undefined) {
+      return immediateEligibility;
+    }
+    this.inboxBucketConfirmations ??= new InboxBucketConfirmationTracker({
+      l1Client: this.l1Client,
+      ethereumSlotDuration,
+      log: this.log.createChild('inbox-bucket-confirmation'),
+    });
+    return this.inboxBucketConfirmations.isEligible;
   }
 
   /** Cumulative Inbox message total consumed as of `blockNumber`, i.e. its L1-to-L2 message tree leaf count. */

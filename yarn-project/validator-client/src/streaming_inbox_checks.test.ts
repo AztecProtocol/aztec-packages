@@ -11,7 +11,6 @@ import {
   checkStreamingBlockProposal,
 } from './streaming_inbox_checks.js';
 
-const MIN_BUCKET_AGE_SECONDS = 12;
 const PER_BLOCK_CAP = 1024;
 const PER_CHECKPOINT_CAP = 1024;
 const NOW = 10_000n;
@@ -98,8 +97,6 @@ function baseInput(overrides: Partial<StreamingBlockCheckInput>): StreamingBlock
     bucketRef: undefined,
     parentTotalMsgCount: 0n,
     checkpointStartTotalMsgCount: 0n,
-    nowSeconds: NOW,
-    minBucketAgeSeconds: MIN_BUCKET_AGE_SECONDS,
     perBlockCap: PER_BLOCK_CAP,
     perCheckpointCap: PER_CHECKPOINT_CAP,
     ...overrides,
@@ -154,23 +151,17 @@ describe('checkStreamingBlockProposal', () => {
     });
   });
 
-  describe('check 3: bucket is at least one Ethereum slot old', () => {
-    it('accepts a bucket exactly at the minimum age (inclusive boundary)', async () => {
+  describe('bucket age is not a check', () => {
+    it('accepts a bucket opened one second ago', async () => {
+      // How long a proposer waits before consuming a bucket is its own policy; L1 has no age rule, so neither do we.
       const view = new FakeInboxView();
-      const bucket = view.addBucket(1, 2, Number(NOW) - MIN_BUCKET_AGE_SECONDS); // timestamp == now - minBucketAgeSeconds
+      const bucket = view.addBucket(1, 2, Number(NOW) - 1);
       const result = await checkStreamingBlockProposal(baseInput({ messageSource: view, bucketRef: refFor(bucket) }));
-      expect(result.accepted).toBe(true);
-    });
-
-    it('rejects a bucket one second too new', async () => {
-      const view = new FakeInboxView();
-      const bucket = view.addBucket(1, 2, Number(NOW) - MIN_BUCKET_AGE_SECONDS + 1);
-      const result = await checkStreamingBlockProposal(baseInput({ messageSource: view, bucketRef: refFor(bucket) }));
-      expect(result).toEqual({ accepted: false, reason: 'bucket_too_new' });
+      expect(result).toEqual({ accepted: true, bundle: [new Fr(1000), new Fr(1001)] });
     });
   });
 
-  describe('check 4: caps', () => {
+  describe('check 3: caps', () => {
     it('accepts a block consuming exactly the per-block cap', async () => {
       const view = new FakeInboxView();
       const bucket = view.addBucket(1, PER_BLOCK_CAP, 100);

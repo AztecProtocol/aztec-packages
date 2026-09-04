@@ -38,6 +38,7 @@ import type { GlobalVariableBuilder } from '../../global_variable_builder/global
 import type { SequencerPublisherFactory } from '../../publisher/sequencer-publisher-factory.js';
 import type { SequencerPublisher } from '../../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from '../config.js';
+import { immediateEligibility } from '../inbox_bucket_eligibility.js';
 import { selectInboxBucketForBlock } from '../inbox_bucket_selector.js';
 
 /**
@@ -471,8 +472,10 @@ export class AutomineSequencer {
     await using fork = await this.deps.worldState.fork(syncedToBlockNumber, { closeDelayMs: 0 });
 
     // Streaming Inbox: automine builds a single-block checkpoint, so its one block is the
-    // checkpoint's final block; select its bundle from the newest lag-eligible bucket with the last-block censorship
-    // floor. The parent total is the fork's L1-to-L2 leaf count (compact indexing), which resolves the parent bucket.
+    // checkpoint's final block; select its bundle from the newest synced bucket with the last-block censorship floor.
+    // Automine never waits for L1 confirmations: anvil mines on demand, so a bucket's opening block gains a
+    // descendant only when the next transaction is sent, which may be long after the block that consumes it.
+    // The parent total is the fork's L1-to-L2 leaf count (compact indexing), which resolves the parent bucket.
     const parentInfo = await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
     const parentTotalMsgCount = parentInfo.size;
     const parentBucket = await this.deps.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(parentTotalMsgCount);
@@ -483,7 +486,8 @@ export class AutomineSequencer {
     const selection = await selectInboxBucketForBlock({
       messageSource: this.deps.l1ToL2MessageSource,
       now: BigInt(Math.floor(this.deps.dateProvider.now() / 1000)),
-      minBucketAgeSeconds: BigInt(this.deps.l1Constants.ethereumSlotDuration),
+      isEligible: immediateEligibility,
+      ethereumSlotDuration: this.deps.l1Constants.ethereumSlotDuration,
       parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
       checkpointStartTotalMsgCount: parentTotalMsgCount,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,

@@ -7,6 +7,12 @@ export { Sequencer, SequencerState, type SequencerEvents } from './sequencer/ind
 // ISSUE(#9832)
 export * from './global_variable_builder/index.js';
 export {
+  InboxBucketConfirmationTracker,
+  type InboxBucketEligibility,
+  type L1BlockReader,
+  immediateEligibility,
+} from './sequencer/inbox_bucket_eligibility.js';
+export {
   type ConsumedBucketCursor,
   type InboxBucketSelection,
   type InboxBucketSource,

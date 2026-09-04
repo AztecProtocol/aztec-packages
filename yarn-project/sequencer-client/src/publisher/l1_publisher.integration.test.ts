@@ -99,6 +99,7 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { type SequencerClientConfig, getConfigEnvVars } from '../config.js';
+import { immediateEligibility } from '../sequencer/inbox_bucket_eligibility.js';
 import { selectInboxBucketForBlock } from '../sequencer/inbox_bucket_selector.js';
 import { sendL1ToL2Message } from './l1_to_l2_messaging.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -671,8 +672,12 @@ describe('L1Publisher integration', () => {
         const cutoffTimestamp = previousSlotStart - BigInt(config.ethereumSlotDuration);
         const selection = await selectInboxBucketForBlock({
           messageSource,
-          now: previousSlotStart,
-          minBucketAgeSeconds: BigInt(config.ethereumSlotDuration),
+          // Anvil mines on demand, so a bucket's opening L1 block gains a descendant only when the next transaction
+          // is sent; the harness consumes every bucket it has, anchored at the cutoff so each block's expected
+          // message set stays pinned to the slot it belongs to.
+          now: cutoffTimestamp,
+          isEligible: immediateEligibility,
+          ethereumSlotDuration: config.ethereumSlotDuration,
           parent,
           checkpointStartTotalMsgCount: parent.totalMsgCount,
           perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,

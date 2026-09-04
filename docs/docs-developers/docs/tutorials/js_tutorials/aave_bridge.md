@@ -441,7 +441,7 @@ Extract the message leaf index:
 
 #include_code get_claim_leaf_index /docs/examples/ts/aave_bridge/index.ts typescript
 
-On the local network, L2 blocks are only produced when transactions are submitted. An L1-to-L2 message can only be consumed once an L2 block includes it, and the network waits until the message is at least 12 seconds old before including it. This utility deploys two dummy contracts (with random salts for unique addresses) to force block production. On devnet or testnet, blocks are produced continuously and this step is unnecessary:
+On the local network, L2 blocks are only produced when transactions are submitted. An L1-to-L2 message can only be consumed once an L2 block includes it, and the local sandbox includes it as soon as it sees it. This utility deploys two dummy contracts (with random salts for unique addresses) to force block production. On devnet or testnet, blocks are produced continuously and this step is unnecessary, but there the sequencer first waits for the L1 block carrying the message to gain a child, which takes one more L1 block (around 12 to 14 seconds):
 
 #include_code mine_blocks /docs/examples/ts/aave_bridge/index.ts typescript
 

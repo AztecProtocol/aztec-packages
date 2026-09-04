@@ -76,8 +76,21 @@ import {
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
+import type { L1BlockReader } from './inbox_bucket_eligibility.js';
 import type { SequencerMetrics } from './metrics.js';
 import { RequestsTracker } from './requests_tracker.js';
+
+/**
+ * L1 view in which every bucket's opening block already has a canonical child, so the job's confirmation tracker
+ * admits every bucket the archiver mock returns.
+ */
+const confirmingL1Client: L1BlockReader = {
+  getBlock: ({ blockNumber }) =>
+    Promise.resolve({
+      hash: Buffer32.fromBigInt(blockNumber).toString(),
+      parentHash: Buffer32.fromBigInt(blockNumber - 1n).toString(),
+    }),
+};
 
 describe('CheckpointProposalJob', () => {
   let publisher: MockProxy<SequencerPublisher>;
@@ -818,6 +831,7 @@ describe('CheckpointProposalJob', () => {
       p2p,
       worldState,
       l1ToL2MessageSource,
+      confirmingL1Client,
       l2BlockSource,
       checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
       blockSink,
