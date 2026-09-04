@@ -37,6 +37,7 @@ import { InitialCheckpointNumberNotSequentialError } from '../errors.js';
 import {
   type RetrievedCheckpointFromCalldata,
   getCheckpointBlobDataFromBlobs,
+  getL1Block,
   retrieveCheckpointCalldataFromRollup,
   retrieveL1ToL2Message,
   retrieveL1ToL2Messages,
@@ -744,33 +745,27 @@ export class ArchiverL1Synchronizer implements Traceable {
     finalizedL1Block: L1BlockId | undefined,
     lastStoredIndex: bigint | undefined,
   ): Promise<{ messages: InboxMessage[]; syncPoint: L1BlockId } | undefined> {
-    const toL1Block = currentL1Block.l1BlockNumber;
     const messages: InboxMessage[] = [];
     const batchTails: InboxMessage[] = [];
-    let searchEndBlock = fromL1Block - 1n;
-    let isLastBatch = false;
+    let lastFetchedL1Block = fromL1Block - 1n;
+    let reachedHead = false;
 
-    while (!isLastBatch) {
-      const [searchStartBlock, batchEndBlock] = this.nextRange(searchEndBlock, toL1Block);
-      this.log.trace(`Retrieving canonical L1 to L2 messages in L1 blocks ${searchStartBlock}-${batchEndBlock}`);
-      const batch = await retrieveL1ToL2Messages(this.inbox, searchStartBlock, batchEndBlock);
-      messages.push(...batch);
-      searchEndBlock = batchEndBlock;
-      isLastBatch = batchEndBlock >= toL1Block;
+    for await (const batch of this.iterateL1ToL2MessageBatches(fromL1Block, currentL1Block.l1BlockNumber)) {
+      messages.push(...batch.messages);
+      lastFetchedL1Block = batch.searchEndBlock;
+      reachedHead = batch.isLastBatch;
 
-      const batchTail = batch.at(-1);
-      if (batchTail !== undefined) {
-        batchTails.push(batchTail);
-      }
-      if (isLastBatch || batchTail === undefined) {
+      const batchTail = batch.messages.at(-1);
+      if (batchTail === undefined) {
         continue;
       }
-      if (lastStoredIndex !== undefined && batchTail.index < lastStoredIndex) {
+      batchTails.push(batchTail);
+      if (reachedHead || (lastStoredIndex !== undefined && batchTail.index < lastStoredIndex)) {
         continue;
       }
       // A bucket that spans co-timestamped L1 blocks can still be open at the end of the batch that covered our last
       // stored index, and committing there would write a snapshot that undercounts it, so wait for it to close.
-      const bucketClosed = await this.isBucketClosedAfterL1Block(batchEndBlock, batchTail);
+      const bucketClosed = await this.isBucketClosedAfterL1Block(batch.searchEndBlock, batchTail);
       if (bucketClosed === undefined) {
         return undefined;
       }
@@ -803,18 +798,37 @@ export class ArchiverL1Synchronizer implements Traceable {
       }
     }
 
-    if (isLastBatch) {
+    if (reachedHead) {
       return { messages, syncPoint: currentL1Block };
     }
     try {
       return {
         messages,
-        syncPoint: { l1BlockNumber: searchEndBlock, l1BlockHash: await this.getL1BlockHash(searchEndBlock) },
+        syncPoint: { l1BlockNumber: lastFetchedL1Block, l1BlockHash: await this.getL1BlockHash(lastFetchedL1Block) },
       };
     } catch (error) {
-      this.warnBucketNotVerifiable(messages.at(-1)!.bucketSeq, searchEndBlock, error);
+      this.warnBucketNotVerifiable(messages.at(-1)!.bucketSeq, lastFetchedL1Block, error);
       return undefined;
     }
+  }
+
+  /**
+   * Retrieves L1 to L2 messages from the given L1 block on, in batches that span whole L1 blocks so that every
+   * message of an Inbox bucket is yielded in a single batch, as the message store requires. Yields each batch with
+   * the L1 block range it covers and whether it reached the end of the requested range.
+   */
+  private async *iterateL1ToL2MessageBatches(
+    fromL1Block: bigint,
+    toL1Block: bigint,
+  ): AsyncIterableIterator<{ messages: InboxMessage[]; searchEndBlock: bigint; isLastBatch: boolean }> {
+    let searchEndBlock = fromL1Block - 1n;
+    do {
+      let searchStartBlock: bigint;
+      [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, toL1Block);
+      this.log.trace(`Retrieving L1 to L2 messages in L1 blocks ${searchStartBlock}-${searchEndBlock}`);
+      const messages = await retrieveL1ToL2Messages(this.inbox, searchStartBlock, searchEndBlock);
+      yield { messages, searchEndBlock, isLastBatch: searchEndBlock >= toL1Block };
+    } while (searchEndBlock < toL1Block);
   }
 
   /**
@@ -825,16 +839,10 @@ export class ArchiverL1Synchronizer implements Traceable {
   private async isBucketClosedAfterL1Block(l1BlockNumber: bigint, message: InboxMessage): Promise<boolean | undefined> {
     const nextL1BlockNumber = l1BlockNumber + 1n;
     try {
-      const block = await this.publicClient.getBlock({ blockNumber: nextL1BlockNumber, includeTransactions: false });
-      if (!block) {
-        throw new Error(`Missing L1 block ${nextL1BlockNumber}`);
-      }
-      return block.timestamp !== message.bucketTimestamp;
+      const { timestamp } = await getL1Block(this.publicClient, nextL1BlockNumber);
+      return timestamp !== message.bucketTimestamp;
     } catch (error) {
-      this.log.warn(
-        `Failed to read L1 block ${nextL1BlockNumber} to check whether Inbox bucket ${message.bucketSeq} is closed`,
-        { bucketSeq: message.bucketSeq, l1BlockNumber: nextL1BlockNumber, error },
-      );
+      this.warnBucketNotVerifiable(message.bucketSeq, nextL1BlockNumber, error);
       return undefined;
     }
   }
@@ -851,9 +859,11 @@ export class ArchiverL1Synchronizer implements Traceable {
     fromIndex: bigint,
     canonicalMessages: InboxMessage[],
   ): Promise<bigint | undefined> {
-    const canonicalByIndex = new Map(canonicalMessages.map(message => [message.index, message]));
+    // The canonical messages are contiguous and ascending by index, so the one at any index is found by offset.
+    const firstCanonicalIndex = canonicalMessages.at(0)?.index;
     for await (const stored of this.stores.messages.iterateL1ToL2Messages({ start: fromIndex })) {
-      const canonical = canonicalByIndex.get(stored.index);
+      const canonical =
+        firstCanonicalIndex === undefined ? undefined : canonicalMessages[Number(stored.index - firstCanonicalIndex)];
       if (canonical === undefined || !canonical.inboxRollingHash.equals(stored.inboxRollingHash)) {
         return stored.index;
       }
@@ -951,20 +961,18 @@ export class ArchiverL1Synchronizer implements Traceable {
     currentL1Block: L1BlockId,
     finalizedL1Block: L1BlockId | undefined,
   ): Promise<MessageFetchOutcome> {
-    const toL1Block = currentL1Block.l1BlockNumber;
     const newestBucketBeforeFetch = await this.stores.messages.getNewestInboxBucketL1Span();
-    let searchStartBlock: bigint = 0n;
-    let searchEndBlock: bigint = syncFrom.l1BlockNumber;
 
     let firstMessage: InboxMessage | undefined;
     let lastMessage: InboxMessage | undefined;
     let messageCount = 0;
     const unfinalizedBatchTails: InboxMessage[] = [];
 
-    do {
-      [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, toL1Block);
-      this.log.trace(`Retrieving L1 to L2 messages in L1 blocks ${searchStartBlock}-${searchEndBlock}`);
-      const messages = await retrieveL1ToL2Messages(this.inbox, searchStartBlock, searchEndBlock);
+    for await (const batch of this.iterateL1ToL2MessageBatches(
+      syncFrom.l1BlockNumber + 1n,
+      currentL1Block.l1BlockNumber,
+    )) {
+      const { messages } = batch;
       const timer = new Timer();
       await this.stores.messages.addL1ToL2MessageBuckets(messages);
       const perMsg = timer.ms() / messages.length;
@@ -976,11 +984,10 @@ export class ArchiverL1Synchronizer implements Traceable {
         messageCount++;
       }
       const batchTail = messages.at(-1);
-      const isLastBatch = searchEndBlock >= toL1Block;
-      if (batchTail !== undefined && !isLastBatch && !isFinalized(batchTail, finalizedL1Block)) {
+      if (batchTail !== undefined && !batch.isLastBatch && !isFinalized(batchTail, finalizedL1Block)) {
         unfinalizedBatchTails.push(batchTail);
       }
-    } while (searchEndBlock < toL1Block);
+    }
 
     if (firstMessage === undefined || lastMessage === undefined) {
       return 'stored';

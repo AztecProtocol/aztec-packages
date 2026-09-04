@@ -6,23 +6,20 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { isL1ToL2MessageReady, waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { createBlobClient } from '@aztec/blob-client/client';
-import { Blob } from '@aztec/blob-lib';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import type { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
-import { hexToBuffer } from '@aztec/foundation/string';
 import { L2BlockSourceEvents, type L2PruneUncheckpointedEvent } from '@aztec/stdlib/block';
 import { WorldStateSynchronizerError } from '@aztec/world-state';
 
 import 'jest-extended';
-import { parseTransaction } from 'viem';
 
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { waitForL1ToL2MessageSeen } from '../../shared/wait_for_l1_to_l2_message.js';
-import { L1ReorgsTest, TX_COUNT } from '../l1-reorgs/setup.js';
+import { L1ReorgsTest, TX_COUNT, getBlobsFromRawTx } from '../l1-reorgs/setup.js';
 import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 // Single-node + prover-node suite covering what happens when an L1 reorg orphans the Inbox messages that a
@@ -275,10 +272,7 @@ describe('single-node/cross-chain/streaming_inbox_reorg', () => {
     });
 
     // The node reads the checkpoint's blocks off the blob sink, which never saw the replayed propose.
-    const blobs = await Promise.all(
-      (parseTransaction(proposeTx).sidecars || []).map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob))),
-    );
-    await createBlobClient(context.config).sendBlobsToFilestore(blobs);
+    await createBlobClient(context.config).sendBlobsToFilestore(await getBlobsFromRawTx(proposeTx));
 
     // The bucket the consuming block built on moves to the replacement L1 block, keeping the sequence number and
     // the rolling hash the sealed checkpoint header commits to. That is what makes the checkpoint publishable.

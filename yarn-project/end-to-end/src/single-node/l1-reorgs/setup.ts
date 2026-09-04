@@ -4,12 +4,15 @@ import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { Blob } from '@aztec/blob-lib';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import type { ChainMonitor } from '@aztec/ethereum/test';
+import { hexToBuffer } from '@aztec/foundation/string';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
+import { parseTransaction } from 'viem';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
@@ -20,6 +23,18 @@ jest.setTimeout(1000 * 60 * 20);
 
 /** Number of txs to send at the start of each reorg test to trigger multi-block checkpoints. */
 export const TX_COUNT = 8;
+
+/**
+ * Reads the blobs out of a serialized blob-carrying L1 tx, so a tx replayed by hand after a reorg can have its blobs
+ * pushed back to the blob sink. A node reads a checkpoint's blocks off the sink, which never sees a replayed tx.
+ */
+export async function getBlobsFromRawTx(serializedTx: `0x${string}`): Promise<Blob[]> {
+  const parsedTx = parseTransaction(serializedTx);
+  if (!parsedTx.sidecars) {
+    throw new Error('No sidecars found in tx');
+  }
+  return await Promise.all(parsedTx.sidecars.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob))));
+}
 
 /**
  * The single-node + prover-node fixture shared by the L1-reorg suites (`blocks`, `messages`). Stands

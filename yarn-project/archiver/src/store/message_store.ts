@@ -102,6 +102,20 @@ function toBucketL1Span(seq: bigint, snapshot: BucketSnapshot): InboxBucketL1Spa
   };
 }
 
+/** Everything the canonical chain gives back for the L1 range above a bucket that survived a reorg. */
+export type InboxMessageReplacement = {
+  /** Sequence of the newest bucket known to sit on canonical L1 blocks, if any. */
+  lastCanonicalBucketSeq: bigint | undefined;
+  /** Lowest message index whose leaf the canonical chain changed, if any. */
+  firstDifferingIndex: bigint | undefined;
+  /** The canonical messages from the last canonical bucket's opening L1 block onwards. */
+  messages: InboxMessage[];
+  /** L1 block the messages were fetched up to. */
+  syncPoint: L1BlockId;
+  /** L1 finalized block to record, if it is at or below the sync point. */
+  finalizedL1Block: L1BlockId | undefined;
+};
+
 /** The messages of a single Inbox bucket within an incoming batch, in insertion order. */
 type IncomingBucket = {
   seq: bigint;
@@ -506,20 +520,8 @@ export class MessageStore {
    *
    * `messages` must start at the first message of the last canonical bucket (or of the Inbox when there is none), so
    * that every bucket it covers arrives whole.
-   *
-   * @param lastCanonicalBucketSeq - Sequence of the newest bucket known to sit on canonical L1 blocks, if any.
-   * @param firstDifferingIndex - Lowest message index whose leaf the canonical chain changed, if any.
-   * @param messages - The canonical messages from the last canonical bucket's opening L1 block onwards.
-   * @param syncPoint - L1 block the messages were fetched up to.
-   * @param finalizedL1Block - L1 finalized block to record, if it is at or below the sync point.
    */
-  public replaceMessagesAboveBucket(args: {
-    lastCanonicalBucketSeq: bigint | undefined;
-    firstDifferingIndex: bigint | undefined;
-    messages: InboxMessage[];
-    syncPoint: L1BlockId;
-    finalizedL1Block: L1BlockId | undefined;
-  }): Promise<void> {
+  public replaceMessagesAboveBucket(args: InboxMessageReplacement): Promise<void> {
     const { lastCanonicalBucketSeq, firstDifferingIndex, messages, syncPoint, finalizedL1Block } = args;
     return this.db.transactionAsync(async () => {
       if (firstDifferingIndex !== undefined) {

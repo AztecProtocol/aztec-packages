@@ -24,7 +24,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ArchiverDataStores } from '../store/data_stores.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
-import type { InboxMessage } from '../structs/inbox_message.js';
+import type { InboxMessageReplacement } from '../store/message_store.js';
 
 /** Operation type for contract data updates. */
 enum Operation {
@@ -292,16 +292,14 @@ export class ArchiverDataStoreUpdater {
    *
    * @returns The pruned blocks.
    */
-  public async rewindMessagesAndPruneProposedBlocks(
+  public rewindMessagesAndPruneProposedBlocks(
     messagesSyncPoint: L1BlockId,
     firstRemovedIndex: bigint,
   ): Promise<L2Block[]> {
-    const prunedBlocks = await this.stores.db.transactionAsync(async () => {
-      await this.stores.messages.rewindMessagesTo(messagesSyncPoint, firstRemovedIndex);
-      return await this.removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex);
-    });
-    await this.l2TipsCache?.refresh();
-    return prunedBlocks;
+    return this.writeMessagesAndPruneProposedBlocks(
+      () => this.stores.messages.rewindMessagesTo(messagesSyncPoint, firstRemovedIndex),
+      firstRemovedIndex,
+    );
   }
 
   /**
@@ -314,18 +312,26 @@ export class ArchiverDataStoreUpdater {
    *
    * @returns The pruned blocks.
    */
-  public async replaceMessagesAndPruneProposedBlocks(args: {
-    lastCanonicalBucketSeq: bigint | undefined;
-    firstDifferingIndex: bigint | undefined;
-    messages: InboxMessage[];
-    syncPoint: L1BlockId;
-    finalizedL1Block: L1BlockId | undefined;
-  }): Promise<L2Block[]> {
+  public replaceMessagesAndPruneProposedBlocks(args: InboxMessageReplacement): Promise<L2Block[]> {
+    return this.writeMessagesAndPruneProposedBlocks(
+      () => this.stores.messages.replaceMessagesAboveBucket(args),
+      args.firstDifferingIndex,
+    );
+  }
+
+  /**
+   * Commits a write to the message store and the prune of the proposed blocks that consumed a message from
+   * `firstRemovedIndex` on, refreshing the tips cache only once both have landed.
+   */
+  private async writeMessagesAndPruneProposedBlocks(
+    writeMessages: () => Promise<void>,
+    firstRemovedIndex: bigint | undefined,
+  ): Promise<L2Block[]> {
     const prunedBlocks = await this.stores.db.transactionAsync(async () => {
-      await this.stores.messages.replaceMessagesAboveBucket(args);
-      return args.firstDifferingIndex === undefined
+      await writeMessages();
+      return firstRemovedIndex === undefined
         ? []
-        : await this.removeProposedBlocksConsumingMessagesFrom(args.firstDifferingIndex);
+        : await this.removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex);
     });
     await this.l2TipsCache?.refresh();
     return prunedBlocks;
