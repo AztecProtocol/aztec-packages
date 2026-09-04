@@ -78,12 +78,12 @@ import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/Compre
  *      and feeHeader (packed fee components). Other fields remain as 32-byte hashes.
  */
 library STFLib {
-  uint256 private constant PROVER_ID_PRESENT_BIT = 1 << 160;
-
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using TimeLib for Timestamp;
   using CompressedTimeMath for CompressedSlot;
+
+  uint256 private constant PROVER_ID_PRESENT_BIT = 1 << 160;
   using ChainTipsLib for CompressedChainTips;
   using CompressedTempCheckpointLogLib for CompressedTempCheckpointLog;
   using CompressedTempCheckpointLogLib for TempCheckpointLog;
