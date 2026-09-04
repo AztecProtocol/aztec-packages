@@ -125,6 +125,10 @@ library RewardExtLib {
     return STFLib.getEpochForCheckpoint(_checkpointNumber);
   }
 
+  function getFirstProvenBy(uint256 _checkpointNumber) external view returns (address) {
+    return STFLib.getFirstProvenBy(_checkpointNumber);
+  }
+
   function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory) {
     return FeeLib.getL1FeesAt(_timestamp);
   }

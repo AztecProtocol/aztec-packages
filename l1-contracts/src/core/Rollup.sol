@@ -28,7 +28,6 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {CompressedSlot, CompressedTimestamp, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ChainTipsLib, CompressedChainTips} from "./libraries/compressed-data/Tips.sol";
-import {ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {RewardExtLib, RewardConfig} from "./libraries/rollup/RewardExtLib.sol";
 import {DepositArgs} from "./libraries/StakingQueue.sol";
 import {
@@ -90,24 +89,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function validateHeaderWithAttestations(
     ProposedHeader calldata _header,
-    CommitteeAttestations memory _attestations,
+    CommitteeAttestations calldata _attestations,
     address[] calldata _signers,
-    Signature memory _attestationsAndSignersSignature,
+    Signature calldata _attestationsAndSignersSignature,
     bytes32 _digest,
     bytes32 _blobsHash,
-    CheckpointHeaderValidationFlags memory _flags
+    CheckpointHeaderValidationFlags calldata _flags
   ) external override(IRollup) {
     RollupOperationsExtLib.validateHeaderWithAttestations(
-      ValidateHeaderArgs({
-        header: _header,
-        digest: _digest,
-        manaMinFee: getManaMinFeeAt(Timestamp.wrap(block.timestamp), true),
-        blobsHashesCommitment: _blobsHash,
-        flags: _flags
-      }),
-      _attestations,
-      _signers,
-      _attestationsAndSignersSignature
+      _header, _attestations, _signers, _attestationsAndSignersSignature, _digest, _blobsHash, _flags
     );
   }
 
@@ -333,6 +323,19 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getPendingCheckpointNumber() external view override(IRollup) returns (uint256) {
     return STFLib.getStorage().tips.getPending();
+  }
+
+  /**
+   * @notice  Get the prover that first proved a given checkpoint
+   *
+   * @dev     Reverts if the checkpoint is not proven yet
+   *
+   * @param _checkpointNumber - The checkpoint number to look up
+   *
+   * @return address - The prover that first proved the checkpoint
+   */
+  function getFirstProvenBy(uint256 _checkpointNumber) external view override(IRollup) returns (address) {
+    return RewardExtLib.getFirstProvenBy(_checkpointNumber);
   }
 
   function getCheckpoint(uint256 _checkpointNumber) external view override(IRollup) returns (CheckpointLog memory) {

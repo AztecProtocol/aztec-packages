@@ -104,6 +104,7 @@ library Errors {
   error Rollup__CannotInvalidateEscapeHatch();
   error Rollup__InvalidEscapeHatchProposer(address expected, address actual);
   error Rollup__FieldElementOutOfRange(bytes32 value);
+  error Rollup__CheckpointNotProven(uint256 proven, uint256 requested);
 
   // EscapeHatch
   error EscapeHatch__AlreadyInCandidateSet(address candidate);

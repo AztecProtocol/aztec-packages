@@ -245,6 +245,61 @@ contract MultiProofTest is RollupBase {
     );
   }
 
+  function testFirstProvenByRecordsFirstProver() public setUpFor("mixed_checkpoint_1") {
+    address alice = address(bytes20("alice"));
+    address bob = address(bytes20("bob"));
+
+    deal(address(testERC20), address(feeJuicePortal), 30e6 * 1e18);
+
+    _proposeCheckpoint("mixed_checkpoint_1", 1, 15e6);
+    _proposeCheckpoint("mixed_checkpoint_2", 2, 15e6);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__CheckpointNotProven.selector, 0, 1));
+    rollup.getFirstProvenBy(1);
+
+    string memory name = "mixed_checkpoint_";
+    _proveCheckpoints(name, 1, 1, alice);
+    // Bob proving the same range again must not take credit for checkpoint 1.
+    _proveCheckpoints(name, 1, 1, bob);
+    _proveCheckpoints(name, 1, 2, bob);
+
+    assertEq(rollup.getFirstProvenBy(1), alice, "Checkpoint 1 not credited to alice");
+    assertEq(rollup.getFirstProvenBy(2), bob, "Checkpoint 2 not credited to bob");
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__CheckpointNotProven.selector, 2, 3));
+    rollup.getFirstProvenBy(3);
+  }
+
+  function testFirstProvenByWalksForwardToNextEntry() public setUpFor("mixed_checkpoint_1") {
+    address alice = address(bytes20("alice"));
+
+    deal(address(testERC20), address(feeJuicePortal), 30e6 * 1e18);
+
+    _proposeCheckpoint("mixed_checkpoint_1", 1, 15e6);
+    _proposeCheckpoint("mixed_checkpoint_2", 2, 15e6);
+
+    // A single proof of 1-2 only records an entry at checkpoint 2, so a lookup of 1 walks forward to it.
+    string memory name = "mixed_checkpoint_";
+    _proveCheckpoints(name, 1, 2, alice);
+
+    assertEq(rollup.getFirstProvenBy(1), alice, "Checkpoint 1 not credited to alice");
+    assertEq(rollup.getFirstProvenBy(2), alice, "Checkpoint 2 not credited to alice");
+  }
+
+  function testFirstProvenByRecordsZeroAddress() public setUpFor("mixed_checkpoint_1") {
+    deal(address(testERC20), address(feeJuicePortal), 30e6 * 1e18);
+
+    _proposeCheckpoint("mixed_checkpoint_1", 1, 15e6);
+
+    string memory name = "mixed_checkpoint_";
+    _proveCheckpoints(name, 1, 1, address(0));
+
+    assertEq(rollup.getFirstProvenBy(1), address(0), "Checkpoint 1 not credited to zero address");
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__CheckpointNotProven.selector, 1, 0));
+    rollup.getFirstProvenBy(0);
+  }
+
   function testProofsAreInOneEpoch() public setUpFor("mixed_checkpoint_1") {
     _proposeCheckpoint("mixed_checkpoint_1", 1, 15e6);
     _proposeCheckpoint("mixed_checkpoint_2", TestConstants.AZTEC_EPOCH_DURATION + 1, 15e6);
