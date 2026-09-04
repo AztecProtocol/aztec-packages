@@ -233,14 +233,23 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     });
   }
 
-  async getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
+  async getPrivateEvents(
+    selector: EventSelector,
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    changeSetId: ChangeSetId,
+  ) {
     const events = (
-      await this.privateEventStore.getPrivateEvents(selector, {
-        contractAddress,
-        scopes: [scope],
-        fromBlock: 0,
-        toBlock: (await this.getLastBlockNumber()) + 1,
-      })
+      await this.privateEventStore.getPrivateEvents(
+        selector,
+        {
+          contractAddress,
+          scopes: [scope],
+          fromBlock: 0,
+          toBlock: (await this.getLastBlockNumber()) + 1,
+        },
+        changeSetId,
+      )
     ).map(e => e.packedEvent);
 
     if (events.length > MAX_PRIVATE_EVENTS_PER_TXE_QUERY) {
