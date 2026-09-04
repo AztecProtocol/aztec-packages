@@ -320,6 +320,10 @@ library RewardLib {
     return getStorage().epochRewards[_epoch].rewards;
   }
 
+  function getLongestProvenLength(Epoch _epoch) internal view returns (uint256) {
+    return getStorage().epochRewards[_epoch].longestProvenLength;
+  }
+
   function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover) internal view returns (bool) {
     return getStorage().epochRewards[_epoch].subEpoch[_length].shares[_prover] > 0;
   }
