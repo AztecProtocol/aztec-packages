@@ -74,7 +74,7 @@
     "@aztec/wsdb": "0.1.0",
     "msgpackr": "^1.11.2",
     "tslib": "^2.4.0",
-    "zod": "^4"
+    "zod": "~4.4.3"
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",

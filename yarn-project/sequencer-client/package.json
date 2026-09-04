@@ -52,7 +52,7 @@
     "lodash.chunk": "^4.2.0",
     "tslib": "^2.4.0",
     "viem": "npm:@aztec/viem@2.38.2",
-    "zod": "^4"
+    "zod": "~4.4.3"
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",

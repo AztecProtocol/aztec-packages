@@ -4,6 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
@@ -11,10 +12,14 @@ import {AttestationLib} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {
   ProposeLib,
   ProposeArgs,
+  ProposeConfig,
   CommitteeAttestations,
   ValidateHeaderArgs,
   ValidatorSelectionLib
 } from "./ProposeLib.sol";
+import {CheckpointHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
+import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {ProposedHeader} from "./ProposedHeaderLib.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 /**
@@ -36,22 +41,39 @@ library RollupOperationsExtLib {
   using TimeLib for Slot;
   using AttestationLib for CommitteeAttestations;
 
+  /**
+   * @dev Assembles `ValidateHeaderArgs` here rather than in the Rollup: building that struct
+   *      (which embeds a full `ProposedHeader`) in the Rollup's own code costs several hundred
+   *      bytes of runtime bytecode it cannot spare.
+   */
   function validateHeaderWithAttestations(
-    ValidateHeaderArgs calldata _args,
+    ProposedHeader calldata _header,
     CommitteeAttestations calldata _attestations,
     address[] calldata _signers,
-    Signature calldata _attestationsAndSignersSignature
+    Signature calldata _attestationsAndSignersSignature,
+    bytes32 _digest,
+    bytes32 _blobsHash,
+    CheckpointHeaderValidationFlags calldata _flags
   ) external {
-    ProposeLib.validateHeader(_args);
+    ProposeLib.validateHeader(
+      ValidateHeaderArgs({
+        header: _header,
+        digest: _digest,
+        manaMinFee: FeeLib.summedMinFee(ProposeLib.getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true)),
+        blobsHashesCommitment: _blobsHash,
+        flags: _flags
+      })
+    );
+
     if (_attestations.isEmpty()) {
       return; // No attestations to validate
     }
 
-    Slot slot = _args.header.slotNumber;
+    Slot slot = _header.slotNumber;
     Epoch epoch = slot.epochFromSlot();
-    ValidatorSelectionLib.verifyAttestations(epoch, _attestations, _args.digest);
+    ValidatorSelectionLib.verifyAttestations(epoch, _attestations, _digest);
     ValidatorSelectionLib.verifyProposer(
-      slot, epoch, _attestations, _signers, _args.digest, _attestationsAndSignersSignature, false
+      slot, epoch, _attestations, _signers, _digest, _attestationsAndSignersSignature, false
     );
   }
 
@@ -61,9 +83,17 @@ library RollupOperationsExtLib {
     address[] calldata _signers,
     Signature calldata _attestationsAndSignersSignature,
     bytes calldata _blobInput,
-    bool _checkBlob
+    bool _checkBlob,
+    IInbox _inbox
   ) external {
-    ProposeLib.propose(_args, _attestations, _signers, _attestationsAndSignersSignature, _blobInput, _checkBlob);
+    ProposeLib.propose(
+      _args,
+      _attestations,
+      _signers,
+      _attestationsAndSignersSignature,
+      _blobInput,
+      ProposeConfig({inbox: _inbox, checkBlob: _checkBlob})
+    );
   }
 
   function prune() external {

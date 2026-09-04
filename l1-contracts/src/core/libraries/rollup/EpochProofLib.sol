@@ -4,7 +4,13 @@ pragma solidity >=0.8.27;
 
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
-import {SubmitEpochRootProofArgs, PublicInputArgs, IRollupCore, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  SubmitEpochRootProofArgs,
+  PublicInputArgs,
+  IRollupCore,
+  RollupStore,
+  RollupConfig
+} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedTempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
@@ -101,8 +107,9 @@ library EpochProofLib {
    *              - attestations: Committee attestations for the last checkpoint in the epoch
    *              - blobInputs: Batched blob data for EIP-4844 point evaluation precompile
    *              - proof: The validity proof bytes for the root rollup circuit
+   * @param _config The rollup's deployment-time configuration
    */
-  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) internal {
+  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args, RollupConfig memory _config) internal {
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
       STFLib.prune();
     }
@@ -118,7 +125,7 @@ library EpochProofLib {
     // ensuring committee agreement on the epoch's validity alongside the cryptographic proof verification below.
     verifyLastCheckpointAttestationsAndOutHash(_args.end, _args.attestations, _args.args.outHash);
 
-    require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
+    require(verifyEpochRootProof(_args, _config), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -136,11 +143,11 @@ library EpochProofLib {
         // the number of checkpoints proven in this epoch so off-chain consumers can map a tx's
         // position-within-epoch directly to the smallest proof that covers it.
         uint256 numCheckpointsInEpoch = _args.end - _args.start + 1;
-        rollupStore.config.outbox.insert(endEpoch, numCheckpointsInEpoch, _args.args.outHash);
+        _config.outbox.insert(endEpoch, numCheckpointsInEpoch, _args.args.outHash);
       }
     }
 
-    RewardLib.handleRewardsAndFees(_args, endEpoch);
+    RewardLib.handleRewardsAndFees(_args, endEpoch, _config);
 
     emit IRollupCore.L2ProofVerified(_args.end, _args.args.proverId);
   }
@@ -162,16 +169,18 @@ library EpochProofLib {
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
    * @param  _headers - The proposed checkpoint headers supplying the fee recipient and value for each checkpoint
    * @param _blobPublicInputs- The blob public inputs for the proof
+   * @param _config - The rollup's deployment-time configuration
    */
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
     ProposedHeader[] calldata _headers,
-    bytes calldata _blobPublicInputs
+    bytes calldata _blobPublicInputs,
+    RollupConfig memory _config
   ) internal view returns (bytes32[] memory) {
     verifyHeaders(_start, _end, _headers);
-    return computeEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
+    return computeEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs, _config);
   }
 
   /**
@@ -240,13 +249,15 @@ library EpochProofLib {
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
    * @param  _headers - The proposed checkpoint headers supplying the fee recipient and value for each checkpoint
    * @param _blobPublicInputs- The blob public inputs for the proof
+   * @param _config - The rollup's deployment-time configuration
    */
   function computeEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
     ProposedHeader[] calldata _headers,
-    bytes calldata _blobPublicInputs
+    bytes calldata _blobPublicInputs,
+    RollupConfig memory _config
   ) private view returns (bytes32[] memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -339,15 +350,15 @@ library EpochProofLib {
     publicInputs[offset] = bytes32(block.chainid);
     offset += 1;
 
-    publicInputs[offset] = bytes32(uint256(rollupStore.config.version));
+    publicInputs[offset] = bytes32(uint256(_config.version));
     offset += 1;
 
     // vk_tree_root
-    publicInputs[offset] = rollupStore.config.vkTreeRoot;
+    publicInputs[offset] = _config.vkTreeRoot;
     offset += 1;
 
     // protocol_contracts_hash
-    publicInputs[offset] = rollupStore.config.protocolContractsHash;
+    publicInputs[offset] = _config.protocolContractsHash;
     offset += 1;
 
     // prover_id: id of current epoch's prover
@@ -486,17 +497,20 @@ library EpochProofLib {
    *      - Rollup__InvalidArchive: End archive root mismatch in public inputs
    *
    * @param _args The epoch proof submission arguments containing proof data and public inputs
+   * @param _config The rollup's deployment-time configuration
    * @return True if both blob proof and validity proof verification succeed
    */
-  function verifyEpochRootProof(SubmitEpochRootProofArgs calldata _args) private view returns (bool) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-
+  function verifyEpochRootProof(SubmitEpochRootProofArgs calldata _args, RollupConfig memory _config)
+    private
+    view
+    returns (bool)
+  {
     BlobLib.validateBatchedBlob(_args.blobInputs);
 
     bytes32[] memory publicInputs =
-      computeEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.headers, _args.blobInputs);
+      computeEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.headers, _args.blobInputs, _config);
 
-    require(rollupStore.config.epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
+    require(_config.epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
 
     return true;
   }
