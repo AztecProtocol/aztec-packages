@@ -259,6 +259,8 @@ main() {
         exit 1
     fi
 
+    # Release tags are prefixed with v, but accept versions with or without it.
+    version="${version#v}"
     install_bb "$version"
 }
 
