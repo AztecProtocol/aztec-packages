@@ -319,6 +319,7 @@ pub fn create_tx_blob_data_sections(
         array_lengths.contract_class_logs,
     );
 
+    // The three fixed fields are the tx start marker, tx hash, and transaction fee.
     let num_blob_fields = 3
         + array_lengths.note_hashes
         + array_lengths.nullifiers

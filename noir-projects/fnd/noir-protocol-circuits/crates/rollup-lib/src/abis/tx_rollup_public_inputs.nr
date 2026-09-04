@@ -30,8 +30,9 @@ pub struct TxRollupPublicInputs {
     // The tx out hashes form a wonky tree and not an unbalanced tree because zero values are skipped.
     pub out_hash: Field,
 
-    // The accumulating root of the tx-effects tree for this rollup's tx range. A tx base outputs its tx's leaf
-    // (`compute_tx_effects_tree_leaf`), and a tx merge combines its children with
+    // The accumulating root (accumulated through each recursive tx_merge circuit) of the tx-effects tree for this
+    // block. A tx base outputs its tx's leaf (`compute_tx_effects_tree_leaf`), and a tx merge combines its
+    // children with
     // `accumulate_tx_effects_tree_root(left, right)`.
     // The block root places the completed value in `BlockHeader.tx_effects_tree_root`. Unlike `out_hash`, zero roots
     // are not skipped: there are no padding txs, hence no zero leaves. The tree shape is pinned by

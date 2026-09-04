@@ -104,7 +104,8 @@ impl SpongeBlob {
         array_lengths: TxEffectArrayLengths,
         sections: TxBlobDataSections,
     ) {
-        self.absorb([sections.tx_start_marker, tx_effect.tx_hash, tx_effect.transaction_fee], 3);
+        let fixed_fields = [sections.tx_start_marker, tx_effect.tx_hash, tx_effect.transaction_fee];
+        self.absorb(fixed_fields, fixed_fields.len());
         self.absorb(tx_effect.note_hashes, array_lengths.note_hashes);
         self.absorb(tx_effect.nullifiers, array_lengths.nullifiers);
         self.absorb(tx_effect.l2_to_l1_msgs, array_lengths.l2_to_l1_msgs);

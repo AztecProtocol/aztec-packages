@@ -89,7 +89,7 @@ fn compute_tx_effect_categories_hash_inputs(
     ];
     let num_contract_class_log_hash_fields = array_lengths.contract_class_logs * 2;
 
-    let category_hashes = [
+    let tx_effect_category_hashes = [
         compute_tx_effect_category_hash(tx_effect.note_hashes, array_lengths.note_hashes),
         compute_tx_effect_category_hash(tx_effect.nullifiers, array_lengths.nullifiers),
         compute_tx_effect_category_hash(tx_effect.l2_to_l1_msgs, array_lengths.l2_to_l1_msgs),
@@ -111,7 +111,7 @@ fn compute_tx_effect_categories_hash_inputs(
         ),
     ];
 
-    (blob_data_sections.tx_start_marker, category_hashes)
+    (blob_data_sections.tx_start_marker, tx_effect_category_hashes)
 }
 
 /// Hash committing to the full contents of a tx's effects.
@@ -145,7 +145,7 @@ pub fn compute_tx_effect_categories_hash_from_blob_data_sections(
     blob_data_sections: TxBlobDataSections,
     contract_class_log_hashes: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 ) -> Field {
-    let (tx_start_marker, category_hashes) = compute_tx_effect_categories_hash_inputs(
+    let (tx_start_marker, tx_effect_category_hashes) = compute_tx_effect_categories_hash_inputs(
         tx_effect,
         array_lengths,
         blob_data_sections,
@@ -153,7 +153,7 @@ pub fn compute_tx_effect_categories_hash_from_blob_data_sections(
     );
 
     let hash_inputs: [Field; TX_EFFECT_CATEGORIES_HASH_PREIMAGE_LENGTH] =
-        [tx_start_marker, tx_effect.transaction_fee].concat(category_hashes);
+        [tx_start_marker, tx_effect.transaction_fee].concat(tx_effect_category_hashes);
 
     poseidon2_hash_with_separator(hash_inputs, DOM_SEP__TX_EFFECT_CATEGORIES_HASH)
 }
@@ -330,7 +330,7 @@ mod tests {
     fn leaf_of_small_fixture_matches_hand_computed_value() {
         let (tx_effect, array_lengths) = small_fixture();
 
-        let expected_categories_hash = poseidon2_hash_with_separator(
+        let expected_tx_effect_categories_hash = poseidon2_hash_with_separator(
             [
                 small_fixture_tx_start_marker(),
                 TRANSACTION_FEE,
@@ -349,11 +349,11 @@ mod tests {
         );
         assert_eq(
             compute_tx_effect_categories_hash(tx_effect, array_lengths),
-            expected_categories_hash,
+            expected_tx_effect_categories_hash,
         );
 
         let expected_leaf = poseidon2_hash_with_separator(
-            [TX_HASH, expected_categories_hash],
+            [TX_HASH, expected_tx_effect_categories_hash],
             DOM_SEP__TX_EFFECTS_TREE_LEAF,
         );
         assert_eq(compute_tx_effects_tree_leaf(tx_effect, array_lengths), expected_leaf);
@@ -410,7 +410,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_effect_has_zero_category_hashes() {
+    fn empty_effect_has_zero_tx_effect_category_hashes() {
         let tx_effect = TxEffect::empty();
         let array_lengths = TxEffectArrayLengths {
             note_hashes: 0,
@@ -423,28 +423,28 @@ mod tests {
 
         let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
         let contract_class_log_hashes = compute_contract_class_log_hashes(tx_effect);
-        let (tx_start_marker, category_hashes) = compute_tx_effect_categories_hash_inputs(
+        let (tx_start_marker, tx_effect_category_hashes) = compute_tx_effect_categories_hash_inputs(
             tx_effect,
             array_lengths,
             blob_data_sections,
             contract_class_log_hashes,
         );
-        assert_eq(category_hashes, [0; 7]);
+        assert_eq(tx_effect_category_hashes, [0; 7]);
 
         // The marker still binds the (zero) counts and the 3 leading blob fields, so the tx effect hash of an
         // effect-less tx is not a hash of nothing.
-        let expected_categories_hash = poseidon2_hash_with_separator(
+        let expected_tx_effect_categories_hash = poseidon2_hash_with_separator(
             [tx_start_marker, 0, 0, 0, 0, 0, 0, 0, 0],
             DOM_SEP__TX_EFFECT_CATEGORIES_HASH,
         );
         assert_eq(
             compute_tx_effect_categories_hash(tx_effect, array_lengths),
-            expected_categories_hash,
+            expected_tx_effect_categories_hash,
         );
     }
 
     #[test]
-    fn empty_category_hashes_to_zero_while_others_do_not() {
+    fn empty_tx_effect_category_hashes_to_zero_while_others_do_not() {
         let mut tx_effect = TxEffect::empty();
         tx_effect.note_hashes[0] = 11;
         let array_lengths = TxEffectArrayLengths {
@@ -458,18 +458,18 @@ mod tests {
 
         let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
         let contract_class_log_hashes = compute_contract_class_log_hashes(tx_effect);
-        let (_, category_hashes) = compute_tx_effect_categories_hash_inputs(
+        let (_, tx_effect_category_hashes) = compute_tx_effect_categories_hash_inputs(
             tx_effect,
             array_lengths,
             blob_data_sections,
             contract_class_log_hashes,
         );
 
-        assert_eq(category_hashes[0], category_hash([11]));
-        assert(category_hashes[0] != 0);
+        assert_eq(tx_effect_category_hashes[0], category_hash([11]));
+        assert(tx_effect_category_hashes[0] != 0);
         // Every other field is empty.
-        for i in 1..category_hashes.len() {
-            assert_eq(category_hashes[i], 0);
+        for i in 1..tx_effect_category_hashes.len() {
+            assert_eq(tx_effect_category_hashes[i], 0);
         }
     }
 
@@ -753,33 +753,33 @@ mod tests {
     }
 
     #[test]
-    fn leaf_categories_hash_and_category_hashes_are_all_distinct() {
+    fn leaf_tx_effect_categories_hash_and_tx_effect_category_hashes_are_all_distinct() {
         let (tx_effect, array_lengths) = small_fixture();
 
         let leaf = compute_tx_effects_tree_leaf(tx_effect, array_lengths);
-        let categories_hash = compute_tx_effect_categories_hash(tx_effect, array_lengths);
+        let tx_effect_categories_hash = compute_tx_effect_categories_hash(tx_effect, array_lengths);
         let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
         let contract_class_log_hashes = compute_contract_class_log_hashes(tx_effect);
-        let (tx_start_marker, category_hashes) = compute_tx_effect_categories_hash_inputs(
+        let (tx_start_marker, tx_effect_category_hashes) = compute_tx_effect_categories_hash_inputs(
             tx_effect,
             array_lengths,
             blob_data_sections,
             contract_class_log_hashes,
         );
 
-        assert(leaf != categories_hash);
+        assert(leaf != tx_effect_categories_hash);
         assert(leaf != TX_HASH);
-        assert(categories_hash != TX_HASH);
+        assert(tx_effect_categories_hash != TX_HASH);
         assert(leaf != tx_start_marker);
-        assert(categories_hash != tx_start_marker);
+        assert(tx_effect_categories_hash != tx_start_marker);
 
-        for i in 0..category_hashes.len() {
-            assert(category_hashes[i] != 0);
-            assert(category_hashes[i] != leaf);
-            assert(category_hashes[i] != categories_hash);
-            assert(category_hashes[i] != TX_HASH);
+        for i in 0..tx_effect_category_hashes.len() {
+            assert(tx_effect_category_hashes[i] != 0);
+            assert(tx_effect_category_hashes[i] != leaf);
+            assert(tx_effect_category_hashes[i] != tx_effect_categories_hash);
+            assert(tx_effect_category_hashes[i] != TX_HASH);
             for j in 0..i {
-                assert(category_hashes[i] != category_hashes[j]);
+                assert(tx_effect_category_hashes[i] != tx_effect_category_hashes[j]);
             }
         }
     }
