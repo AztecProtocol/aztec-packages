@@ -5,6 +5,7 @@ pragma solidity >=0.8.27;
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {CheckpointHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
@@ -13,6 +14,7 @@ import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
   ProposeLib,
   ProposeArgs,
+  ProposeConfig,
   CommitteeAttestations,
   ValidateHeaderArgs,
   ValidatorSelectionLib
@@ -39,6 +41,11 @@ library RollupOperationsExtLib {
   using TimeLib for Slot;
   using AttestationLib for CommitteeAttestations;
 
+  /**
+   * @dev Assembles `ValidateHeaderArgs` here rather than in the Rollup: building that struct
+   *      (which embeds a full `ProposedHeader`) in the Rollup's own code costs several hundred
+   *      bytes of runtime bytecode it cannot spare.
+   */
   function validateHeaderWithAttestations(
     ProposedHeader calldata _header,
     CommitteeAttestations calldata _attestations,
@@ -75,9 +82,17 @@ library RollupOperationsExtLib {
     address[] calldata _signers,
     Signature calldata _attestationsAndSignersSignature,
     bytes calldata _blobInput,
-    bool _checkBlob
+    bool _checkBlob,
+    IInbox _inbox
   ) external {
-    ProposeLib.propose(_args, _attestations, _signers, _attestationsAndSignersSignature, _blobInput, _checkBlob);
+    ProposeLib.propose(
+      _args,
+      _attestations,
+      _signers,
+      _attestationsAndSignersSignature,
+      _blobInput,
+      ProposeConfig({inbox: _inbox, checkBlob: _checkBlob})
+    );
   }
 
   function prune() external {

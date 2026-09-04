@@ -7,7 +7,8 @@ import {IERC20} from "@aztec/core/interfaces/IRollup.sol";
 import {IRollupCore} from "@aztec/core/interfaces/IRollup.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
-import {STFLib, RollupStore, RollupCore} from "@aztec/core/RollupCore.sol";
+import {STFLib, RollupCore} from "@aztec/core/RollupCore.sol";
+import {RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {
   CompressedTempCheckpointLogLib,
