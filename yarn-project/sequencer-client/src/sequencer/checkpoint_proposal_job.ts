@@ -458,8 +458,14 @@ export class CheckpointProposalJob implements Traceable {
    * longer holds would put a checkpoint on L1 that its own archiver cannot serve.
    *
    * The hash is compared rather than the height alone, since a chain rebuilt after a prune reuses the block numbers.
+   *
+   * Skipped whenever proposed blocks aren't pushed (`skipPushProposedBlocksToArchiver`, fisherman mode): the archiver
+   * never held them in the first place, so their absence says nothing about a prune.
    */
   private async checkpointBlocksAreStillLocal(checkpoint: Checkpoint): Promise<boolean> {
+    if (this.config.skipPushProposedBlocksToArchiver || this.config.fishermanMode) {
+      return true;
+    }
     const lastBlock = checkpoint.blocks.at(-1);
     if (lastBlock === undefined) {
       return true;

@@ -1872,6 +1872,21 @@ describe('CheckpointProposalJob', () => {
       expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('checkpoint_blocks_pruned');
     });
 
+    it('submits when the node was configured never to push its blocks to the archiver', async () => {
+      config = { ...config, skipPushProposedBlocksToArchiver: true };
+      job = createCheckpointProposalJob();
+      job.setTimetable(makeSingleBlockTimetable());
+      const block = await setupOneBlockCheckpoint();
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      const checkpoint = await job.executeAndAwait();
+
+      // The blocks were never pushed, so the archiver not holding them says nothing about a prune.
+      expect(checkpoint).toBeDefined();
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+      expect(metrics.recordCheckpointProposalFailed).not.toHaveBeenCalledWith('checkpoint_blocks_pruned');
+    });
+
     it('does not submit when the archiver rebuilt the block number with a different block', async () => {
       const block = await setupOneBlockCheckpoint();
       const replacement = L2Block.fromBuffer(block.toBuffer());
