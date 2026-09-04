@@ -983,6 +983,32 @@ contract RollupTest is RollupBase {
     rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
   }
 
+  function testGetEpochProofPublicInputsReturnsCanonicalHeaderHashes() public setUpFor("mixed_checkpoint_1") {
+    _proposeCheckpoint("mixed_checkpoint_1", 1);
+    _proposeCheckpoint("mixed_checkpoint_2", 2);
+
+    DecoderBase.Data memory data = load("mixed_checkpoint_2").checkpoint;
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
+
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: checkpoint.archive,
+      endArchive: data.archive,
+      outHash: data.header.outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: proposedHeaders[2].inboxRollingHash,
+      proverId: address(0)
+    });
+
+    ProposedHeader[] memory headers = new ProposedHeader[](2);
+    headers[0] = proposedHeaders[1];
+    headers[1] = proposedHeaders[2];
+
+    bytes32[] memory publicInputs = rollup.getEpochProofPublicInputs(1, 2, args, headers, data.batchedBlobInputs);
+
+    assertEq(publicInputs[5], ProposedHeaderLib.hash(headers[0]), "Unexpected first header hash");
+    assertEq(publicInputs[6], ProposedHeaderLib.hash(headers[1]), "Unexpected second header hash");
+  }
+
   // The epoch-proof anchoring pins the rolling-hash chain start to the record written at propose for checkpoint
   // start - 1, mirroring previousArchive. A wrong previousInboxRollingHash must be rejected.
   function testGetEpochProofPublicInputsRejectsWrongPreviousInboxRollingHash() public setUpFor("empty_checkpoint_1") {
