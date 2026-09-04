@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"

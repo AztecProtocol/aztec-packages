@@ -151,12 +151,12 @@ void check_response(const std::string &dir, const std::string &file,
   }
 }
 
-echo::Fr test_hash(uint8_t base) {
+echo::wire::Fr test_hash(uint8_t base) {
   std::array<uint8_t, 32> bytes{};
   for (size_t i = 0; i < bytes.size(); i++) {
     bytes[i] = static_cast<uint8_t>(base + i);
   }
-  return echo::Fr(bytes);
+  return echo::wire::Fr(bytes);
 }
 
 } // namespace
