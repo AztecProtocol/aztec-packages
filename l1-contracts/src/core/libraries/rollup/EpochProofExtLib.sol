@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
+import {RegistryRewardOverride, MAX_REGISTRY_REWARD_OVERRIDES} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 
 /**
@@ -20,8 +21,11 @@ import {EpochProofLib} from "./EpochProofLib.sol";
  *      - Epoch proof public input computation
  */
 library EpochProofExtLib {
-  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofLib.submitEpochRootProof(_args);
+  function submitEpochRootProof(
+    SubmitEpochRootProofArgs calldata _args,
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _registryRewardOverrides
+  ) external {
+    EpochProofLib.submitEpochRootProof(_args, _registryRewardOverrides);
   }
 
   function getEpochProofPublicInputs(
