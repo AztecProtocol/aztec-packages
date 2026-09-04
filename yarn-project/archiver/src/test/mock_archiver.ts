@@ -22,6 +22,10 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
     this.messageSource.replaceInboxBuckets(buckets);
   }
 
+  public setInboxRollingHashAt(totalMsgCount: bigint, inboxRollingHash: Fr) {
+    this.messageSource.setInboxRollingHashAt(totalMsgCount, inboxRollingHash);
+  }
+
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.messageSource.getL1ToL2MessageIndex(_l1ToL2Message);
   }
@@ -40,6 +44,10 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
 
   getInboxBucketByRollingHash(inboxRollingHash: Fr): Promise<InboxBucket | undefined> {
     return this.messageSource.getInboxBucketByRollingHash(inboxRollingHash);
+  }
+
+  getInboxRollingHashAt(totalMsgCount: bigint): Promise<Fr | undefined> {
+    return this.messageSource.getInboxRollingHashAt(totalMsgCount);
   }
 
   getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {

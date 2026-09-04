@@ -14,19 +14,32 @@ const MAX_ELIGIBILITY_WALK_L1_BLOCKS = 8;
 
 const log: Logger = createLogger('sequencer:inbox-bucket-selector');
 
-/** The subset of the archiver's Inbox-bucket queries the selector needs. */
+/** The subset of the archiver's Inbox queries the selector needs. */
 export type InboxBucketSource = Pick<
   L1ToL2MessageSource,
-  'getInboxBucket' | 'getLatestInboxBucketAtOrBefore' | 'getL1ToL2MessagesBetweenBuckets'
+  | 'getInboxBucket'
+  | 'getInboxBucketByTotalMsgCount'
+  | 'getLatestInboxBucketAtOrBefore'
+  | 'getL1ToL2MessagesBetweenLeafCounts'
 >;
 
 /**
- * The last-consumed Inbox bucket a block streams from. Only the sequence number and cumulative message count are
- * needed: the sequence number bounds the derived bundle, and the count is the per-block/per-checkpoint cap origin.
- * At a checkpoint's first block this is the parent checkpoint's last-consumed bucket; the genesis base case is
- * `{ seq: 0, totalMsgCount: 0 }` (bundles derive from the start of the Inbox).
+ * The Inbox message prefix a block streams from: the cumulative count consumed so far and the rolling hash of that
+ * prefix. At a checkpoint's first block this is the parent checkpoint's consumed position; the genesis base case is
+ * `{ totalMsgCount: 0, inboxRollingHash: Fr.ZERO }` (bundles derive from the start of the Inbox).
+ *
+ * The cursor is deliberately a count and a hash rather than a bucket. An L1 reorg that re-mines the same messages
+ * under different bucket boundaries can leave the cursor's count interior to a current bucket, and every comparison
+ * the selector makes is against the count, so the cursor keeps working: the containing bucket has a strictly greater
+ * cumulative total, so it stays a valid target whose suffix the next block consumes. A cursor carrying a sequence
+ * number would instead compare equal to that bucket and could never advance past it.
  */
-export type ConsumedBucketCursor = Pick<InboxBucket, 'seq' | 'totalMsgCount'>;
+export type ConsumedMessagePrefixCursor = {
+  /** Cumulative Inbox message count consumed so far; the lower bound of the next bundle. */
+  totalMsgCount: bigint;
+  /** Consensus rolling hash of that prefix; what a block consuming nothing re-signs as its own reference. */
+  inboxRollingHash: Fr;
+};
 
 /** Inputs to a single block's streaming Inbox-bucket selection. */
 export type SelectInboxBucketInput = {
@@ -47,8 +60,8 @@ export type SelectInboxBucketInput = {
    * for a descendant to appear.
    */
   ethereumSlotDuration: number;
-  /** The last bucket consumed by this checkpoint so far (parent checkpoint's at the first block). */
-  parent: ConsumedBucketCursor;
+  /** The message prefix consumed by this checkpoint so far (the parent checkpoint's at the first block). */
+  cursor: ConsumedMessagePrefixCursor;
   /** Cumulative Inbox message count consumed as of the parent checkpoint; the per-checkpoint cap origin. */
   checkpointStartTotalMsgCount: bigint;
   /** Maximum number of messages this block may consume. */
@@ -75,7 +88,7 @@ type InboxBucketConsumption =
       bundle: Fr[];
     }
   | {
-      /** The block consumes nothing; it reuses the parent bucket reference. */
+      /** The block consumes nothing; it reuses the cursor's prefix reference. */
       consume: false;
     };
 
@@ -101,16 +114,22 @@ export type InboxBucketSelection = InboxBucketConsumption & {
  *    the checkpoint's last block, also consider the cutoff bucket (newest opened at or before `cutoffTimestamp`) and
  *    take whichever is newer, so the checkpoint reaches the censorship floor even when eligibility preferred less: a
  *    mandatory bucket is consumed whether or not it is confirmed.
- * 2. If nothing is newer than the parent bucket, consume nothing.
+ * 2. If nothing reaches past the cursor's count, consume nothing.
  * 3. Otherwise walk back from the candidate to the newest bucket whose consumption fits both the per-block cap
- *    (`bucket.totalMsgCount - parent.totalMsgCount`) and the per-checkpoint cap
- *    (`bucket.totalMsgCount - checkpointStartTotalMsgCount`). If even the first bucket past the parent overshoots the
+ *    (`bucket.totalMsgCount - cursor.totalMsgCount`) and the per-checkpoint cap
+ *    (`bucket.totalMsgCount - checkpointStartTotalMsgCount`). If even the first bucket past the cursor overshoots the
  *    per-checkpoint cap, consume nothing — the L1 cap-escape (`ProposeLib` allows leaving a bucket unconsumed when
  *    consuming through it would exceed the per-checkpoint cap).
  * 4. On the last block only, check the resulting position against the censorship floor with the shared
  *    `isInboxConsumptionSufficient` predicate. Because buckets are indivisible, the walk-back in step 3 can be forced
  *    onto a prefix that still leaves a mandatory bucket behind; that is reported as
  *    `insufficientFinalBlockCapacity` rather than passed off as a usable selection.
+ *
+ * Every comparison against the cursor is on cumulative message counts, never on bucket sequence numbers. An L1 reorg
+ * that re-partitions the same messages can leave the cursor interior to a current bucket, and that bucket's total is
+ * then strictly greater than the cursor's, so it is selected and the block consumes its suffix — which also puts the
+ * checkpoint back on a boundary. A sequence-number comparison would treat the containing bucket as already consumed
+ * and strand the cursor forever.
  *
  * The `<=` comparison on the cutoff makes a bucket exactly at the cutoff mandatory, matching the strict `>` "past
  * cutoff" test on L1 (`next.timestamp > cutoff` leaves it optional).
@@ -124,9 +143,27 @@ export async function selectInboxBucketForBlock(input: SelectInboxBucketInput): 
     return consumption;
   }
 
-  const { messageSource, parent, checkpointStartTotalMsgCount, perCheckpointCap, cutoffTimestamp } = input;
-  const finalSeq = consumption.consume ? consumption.bucket.seq : parent.seq;
-  const nextBucket = await messageSource.getInboxBucket(finalSeq + 1n);
+  const { messageSource, cursor, checkpointStartTotalMsgCount, perCheckpointCap, cutoffTimestamp } = input;
+
+  // The first bucket left unconsumed is the one after the bucket the checkpoint ends on, so the final position has to
+  // name a current bucket to identify it. When the block consumes nothing the position is the cursor's, which an L1
+  // repartition may have left interior: no current bucket ends there, the checkpoint could not be published against
+  // this partition anyway (L1 reads the header's rolling hash out of the `bucketHint` bucket), and passing
+  // `undefined` on would assert the opposite of the truth, since to `isInboxConsumptionSufficient` a missing next
+  // bucket means everything has been consumed. Fail closed instead.
+  const finalBucket = consumption.consume
+    ? consumption.bucket
+    : await messageSource.getInboxBucketByTotalMsgCount(cursor.totalMsgCount);
+  if (finalBucket === undefined) {
+    log.warn(
+      `Consumed Inbox prefix at count ${cursor.totalMsgCount} is interior to a current bucket; no checkpoint can ` +
+        `end on this block`,
+      { cursorTotalMsgCount: cursor.totalMsgCount, inboxRollingHash: cursor.inboxRollingHash.toString() },
+    );
+    return { ...consumption, insufficientFinalBlockCapacity: true };
+  }
+
+  const nextBucket = await messageSource.getInboxBucket(finalBucket.seq + 1n);
   const sufficient = isInboxConsumptionSufficient({
     nextBucket,
     cutoffTimestamp,
@@ -140,7 +177,7 @@ export async function selectInboxBucketForBlock(input: SelectInboxBucketInput): 
 async function selectConsumption(input: SelectInboxBucketInput): Promise<InboxBucketConsumption> {
   const {
     messageSource,
-    parent,
+    cursor,
     checkpointStartTotalMsgCount,
     perBlockCap,
     perCheckpointCap,
@@ -157,7 +194,7 @@ async function selectConsumption(input: SelectInboxBucketInput): Promise<InboxBu
     }
   }
 
-  if (candidate === undefined || candidate.seq <= parent.seq) {
+  if (candidate === undefined || candidate.totalMsgCount <= cursor.totalMsgCount) {
     return { consume: false };
   }
 
@@ -165,14 +202,17 @@ async function selectConsumption(input: SelectInboxBucketInput): Promise<InboxBu
   const perCheckpointCapBig = BigInt(perCheckpointCap);
 
   let selected: InboxBucket | undefined = candidate;
-  while (selected !== undefined && selected.seq > parent.seq) {
-    const blockCount = selected.totalMsgCount - parent.totalMsgCount;
+  while (selected !== undefined && selected.totalMsgCount > cursor.totalMsgCount) {
+    const blockCount = selected.totalMsgCount - cursor.totalMsgCount;
     const checkpointCount = selected.totalMsgCount - checkpointStartTotalMsgCount;
     if (blockCount <= perBlockCapBig && checkpointCount <= perCheckpointCapBig) {
-      const bundle = await messageSource.getL1ToL2MessagesBetweenBuckets(parent.seq, selected.seq);
+      const bundle = await messageSource.getL1ToL2MessagesBetweenLeafCounts(
+        cursor.totalMsgCount,
+        selected.totalMsgCount,
+      );
       return { consume: true, bucket: selected, bundle };
     }
-    if (selected.seq - 1n <= parent.seq) {
+    if (selected.seq === 0n) {
       break;
     }
     selected = await messageSource.getInboxBucket(selected.seq - 1n);
@@ -192,23 +232,31 @@ const openingL1Block = (bucket: InboxBucket) => `${bucket.l1BlockNumber}:${bucke
  * ({@link selectSettledBucket}) rather than consuming nothing.
  */
 async function selectEligibleBucket(input: SelectInboxBucketInput): Promise<InboxBucket | undefined> {
-  const { messageSource, now, isEligible, parent } = input;
+  const { messageSource, now, isEligible, cursor } = input;
 
   const walkedL1Blocks = new Set<string>();
   let candidate = await messageSource.getLatestInboxBucketAtOrBefore(now);
-  while (candidate !== undefined && candidate.seq > parent.seq) {
+  while (candidate !== undefined && candidate.totalMsgCount > cursor.totalMsgCount) {
     walkedL1Blocks.add(openingL1Block(candidate));
     if (walkedL1Blocks.size > MAX_ELIGIBILITY_WALK_L1_BLOCKS) {
       const settled = await selectSettledBucket(input);
       log.warn(
         `No eligible Inbox bucket within ${MAX_ELIGIBILITY_WALK_L1_BLOCKS} L1 blocks of the head bucket; ` +
           (settled === undefined ? 'consuming nothing' : `falling back to bucket ${settled.seq}`),
-        { headBucketSeq: candidate.seq, parentBucketSeq: parent.seq, fallbackBucketSeq: settled?.seq, now },
+        {
+          headBucketSeq: candidate.seq,
+          cursorTotalMsgCount: cursor.totalMsgCount,
+          fallbackBucketSeq: settled?.seq,
+          now,
+        },
       );
       return settled;
     }
     if (await isEligible(candidate, now)) {
       return candidate;
+    }
+    if (candidate.seq === 0n) {
+      break;
     }
     candidate = await messageSource.getInboxBucket(candidate.seq - 1n);
   }
@@ -222,11 +270,11 @@ async function selectEligibleBucket(input: SelectInboxBucketInput): Promise<Inbo
  * lets a checkpoint consume the messages behind it.
  */
 async function selectSettledBucket(input: SelectInboxBucketInput): Promise<InboxBucket | undefined> {
-  const { messageSource, now, isEligible, parent, ethereumSlotDuration } = input;
+  const { messageSource, now, isEligible, cursor, ethereumSlotDuration } = input;
 
   const settledBy = now - 2n * BigInt(ethereumSlotDuration);
   const settled = await messageSource.getLatestInboxBucketAtOrBefore(settledBy);
-  if (settled === undefined || settled.seq <= parent.seq) {
+  if (settled === undefined || settled.totalMsgCount <= cursor.totalMsgCount) {
     return undefined;
   }
   return (await isEligible(settled, now)) ? settled : undefined;

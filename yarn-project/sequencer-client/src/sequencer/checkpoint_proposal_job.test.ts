@@ -1220,7 +1220,7 @@ describe('CheckpointProposalJob', () => {
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore
         .mockResolvedValueOnce(makeBucket(2n, 2n, 1n))
         .mockResolvedValue(makeBucket(3n, 4n, 3n));
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts
         .mockResolvedValueOnce([new Fr(1), new Fr(2)])
         .mockResolvedValue([new Fr(3), new Fr(4)]);
       mockInboxBuckets(l1ToL2MessageSource, [makeBucket(2n, 2n, 1n), makeBucket(3n, 4n, 3n)]);
@@ -1509,7 +1509,7 @@ describe('CheckpointProposalJob', () => {
       };
       const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue(bundle);
       mockInboxBuckets(l1ToL2MessageSource, [bucket]);
       checkpointBuilder.inboxRollingHash = bucket.inboxRollingHash;
 
@@ -1553,7 +1553,7 @@ describe('CheckpointProposalJob', () => {
       };
       const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue(bundle);
       mockInboxBuckets(l1ToL2MessageSource, [bucket]);
       checkpointBuilder.inboxRollingHash = bucket.inboxRollingHash;
 
@@ -1595,7 +1595,7 @@ describe('CheckpointProposalJob', () => {
       };
       const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue(bundle);
       mockInboxBuckets(l1ToL2MessageSource, [bucket]);
       checkpointBuilder.inboxRollingHash = bucket.inboxRollingHash;
 
@@ -1626,7 +1626,7 @@ describe('CheckpointProposalJob', () => {
 
       const bundle = Array.from({ length: Number(bucket.totalMsgCount) }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue(bundle);
       mockInboxBuckets(l1ToL2MessageSource, [bucket]);
       checkpointBuilder.inboxRollingHash = bucket.inboxRollingHash;
 
@@ -1678,20 +1678,15 @@ describe('CheckpointProposalJob', () => {
       await setupSingleBucketCheckpoint(bucket);
       mockInboxBuckets(l1ToL2MessageSource, [{ ...bucket, seq: 1n }]);
 
-      const infoLog = jest.spyOn(job.log, 'info');
-
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       // The L1 propose hint (4th positional arg) is the re-resolved sequence number, not the one built against.
       expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(1n);
-      // The signed block proposal carries only the rolling hash, which the merge leaves alone, so validators on
-      // either side of it resolve the same bucket.
+      // The signed block proposal carries only the prefix rolling hash, which the merge leaves alone. The
+      // consumption cursor is a count and a hash rather than a bucket, so the merge does not disturb it at all and
+      // the slot is not abandoned.
       expect(validatorClient.createBlockProposal.mock.calls[0][7]?.inboxRollingHash).toEqual(bucket.inboxRollingHash);
-      expect(infoLog).toHaveBeenCalledWith(
-        'Inbox bucket reference re-resolved after L1 reorg',
-        expect.objectContaining({ builtSeq: 2n, resolvedSeq: 1n }),
-      );
     });
 
     it('re-resolves the hint again for a reorg that lands while attestations are collected', async () => {
@@ -1712,7 +1707,7 @@ describe('CheckpointProposalJob', () => {
       expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(1n);
       expect(infoLog).toHaveBeenCalledWith(
         'Inbox bucket hint re-resolved after L1 reorg',
-        expect.objectContaining({ builtSeq: 2n, publishedSeq: 1n }),
+        expect.objectContaining({ previousSeq: 2n, publishedSeq: 1n }),
       );
     });
 
@@ -1751,6 +1746,24 @@ describe('CheckpointProposalJob', () => {
       expect(p2p.broadcastCheckpointProposal).toHaveBeenCalledTimes(1);
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
       expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_consumption_insufficient');
+    });
+
+    it('abandons the slot when the final position is a boundary over different messages', async () => {
+      // The pre-proposal gate has to prove the count *and* the hash. A bucket ending exactly where the checkpoint
+      // does but over different messages is a hint `propose` would revert on, so nothing may be published — even
+      // though the per-block prefix check (which is count-addressed, and left consistent here) passed.
+      const bucket = pendingBucket();
+      await setupSingleBucketCheckpoint(bucket);
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
+        ...bucket,
+        inboxRollingHash: new Fr(0xdead),
+      });
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeUndefined();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_bucket_reorged');
     });
 
     it('aborts the checkpoint before signing when the consumed bucket vanishes at the per-block refresh', async () => {
@@ -1818,12 +1831,8 @@ describe('CheckpointProposalJob', () => {
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(buckets[3]);
       l1ToL2MessageSource.getInboxBucket.mockImplementation(seq => Promise.resolve(buckets[Number(seq) - 1]));
       mockInboxBuckets(l1ToL2MessageSource, buckets);
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockImplementation((from, to) =>
-        Promise.resolve(
-          Array.from({ length: Number(totals[Number(to) - 1] - (from === 0n ? 0n : totals[Number(from) - 1])) }, () =>
-            Fr.random(),
-          ),
-        ),
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockImplementation((from, to) =>
+        Promise.resolve(Array.from({ length: Number(to - from) }, () => Fr.random())),
       );
 
       const { lastBlock } = await setupMultipleBlocks(2, [2, 1]);
@@ -2127,7 +2136,8 @@ describe('CheckpointProposalJob', () => {
 
       // The checkpoint should be aborted since the archiver sync failure now propagates
       expect(checkpoint).toBeUndefined();
-      expect(blockSink.addBlock).toHaveBeenCalledWith(block);
+      // The push carries the block's signed Inbox prefix reference, which the archiver re-validates on insert.
+      expect(blockSink.addBlock).toHaveBeenCalledWith(block, expect.objectContaining({ inboxRollingHash: Fr.ZERO }));
       // Should not attempt to collect attestations since the error aborts the loop
       expect(validatorClient.collectAttestations).not.toHaveBeenCalled();
     });

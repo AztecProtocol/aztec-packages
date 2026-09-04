@@ -44,7 +44,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import { applyPublicDataOverrides } from './public_data_overrides.js';
 
 /** Inbox queries the simulator needs to predict the message bundle the next block would consume. */
-type SimulatorInboxSource = InboxBucketSource & Pick<L1ToL2MessageSource, 'getInboxBucketByTotalMsgCount'>;
+type SimulatorInboxSource = InboxBucketSource & Pick<L1ToL2MessageSource, 'getInboxRollingHashAt'>;
 
 /** Config fields the simulator needs — a narrow subset of `AztecNodeConfig`. */
 export interface NodePublicCallsSimulatorConfig {
@@ -300,9 +300,9 @@ export class NodePublicCallsSimulator {
   ): Promise<void> {
     try {
       const parentTotalMsgCount = (await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size;
-      const parentBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(parentTotalMsgCount);
-      if (parentBucket === undefined) {
-        this.log.debug(`Inbox bucket at message total ${parentTotalMsgCount} not synced; simulating against the tip`, {
+      const parentInboxRollingHash = await this.l1ToL2MessageSource.getInboxRollingHashAt(parentTotalMsgCount);
+      if (parentInboxRollingHash === undefined) {
+        this.log.debug(`Inbox prefix at message total ${parentTotalMsgCount} not synced; simulating against the tip`, {
           parentTotalMsgCount,
         });
         return;
@@ -325,7 +325,7 @@ export class NodePublicCallsSimulator {
         now: BigInt(Math.floor(this.dateProvider.now() / 1000)),
         isEligible: this.getInboxBucketEligibility(l1Constants.ethereumSlotDuration),
         ethereumSlotDuration: l1Constants.ethereumSlotDuration,
-        parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
+        cursor: { totalMsgCount: parentTotalMsgCount, inboxRollingHash: parentInboxRollingHash },
         checkpointStartTotalMsgCount,
         perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
         perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,

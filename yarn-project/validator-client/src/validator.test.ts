@@ -372,19 +372,35 @@ describe('ValidatorClient', () => {
       const targetSlotStart = Number(l1GenesisTime) + Number(targetSlot) * slotDuration;
       return new Date((targetSlotStart + slotDuration - 2 * ethereumSlotDuration) * 1000);
     };
+    /**
+     * A block header consuming nothing: leaf count 0. Paired with a checkpoint header committing to the zero
+     * rolling hash, that makes the streaming per-block and final-endpoint checks self-consistent against the
+     * genesis Inbox this suite mocks, leaving each test's own subject as what decides the outcome.
+     */
+    const makeConsumeNothingBlockHeader = (overrides: Parameters<typeof makeBlockHeader>[1]) => {
+      const header = makeBlockHeader(1, overrides);
+      header.state.l1ToL2MessageTree = new AppendOnlyTreeSnapshot(Fr.random(), 0);
+      return header;
+    };
+    const makeConsumeNothingCheckpointHeader = (overrides: Parameters<typeof makeCheckpointHeader>[1] = {}) =>
+      makeCheckpointHeader(0, { inboxRollingHash: Fr.ZERO, ...overrides });
+
     const makeCheckpointProposalForSlot = () =>
       makeCheckpointProposal({
         archiveRoot: proposal.archive,
-        checkpointHeader: makeCheckpointHeader(0, { slotNumber: proposal.slotNumber }),
+        checkpointHeader: makeConsumeNothingCheckpointHeader({ slotNumber: proposal.slotNumber }),
         lastBlock: {
-          blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(123), slotNumber: proposal.slotNumber }),
+          blockHeader: makeConsumeNothingBlockHeader({
+            blockNumber: BlockNumber(123),
+            slotNumber: proposal.slotNumber,
+          }),
           indexWithinCheckpoint: IndexWithinCheckpoint(0),
           txHashes: proposal.txHashes,
         },
       });
     const makeCheckpointProposalWithHeaderMismatch = async () => {
-      const proposalHeader = makeCheckpointHeader(0, { slotNumber: proposal.slotNumber });
-      const computedHeader = makeCheckpointHeader(0, {
+      const proposalHeader = makeConsumeNothingCheckpointHeader({ slotNumber: proposal.slotNumber });
+      const computedHeader = makeConsumeNothingCheckpointHeader({
         slotNumber: proposal.slotNumber,
         totalManaUsed: new Fr(999),
       });
@@ -392,7 +408,7 @@ describe('ValidatorClient', () => {
         archiveRoot: proposal.archive,
         checkpointHeader: proposalHeader,
         lastBlock: {
-          blockHeader: makeBlockHeader(1, { blockNumber, slotNumber: proposal.slotNumber }),
+          blockHeader: makeConsumeNothingBlockHeader({ blockNumber, slotNumber: proposal.slotNumber }),
           indexWithinCheckpoint: IndexWithinCheckpoint(0),
           txHashes: proposal.txHashes,
         },
@@ -400,7 +416,7 @@ describe('ValidatorClient', () => {
       const checkpointBlock = {
         ...blockBuildResult.block,
         number: blockNumber,
-        header: makeBlockHeader(1, { blockNumber, slotNumber: proposal.slotNumber }),
+        header: makeConsumeNothingBlockHeader({ blockNumber, slotNumber: proposal.slotNumber }),
         archive: new AppendOnlyTreeSnapshot(proposal.archive, blockNumber),
         checkpointNumber: CheckpointNumber(1),
       } as unknown as L2Block;
@@ -472,6 +488,8 @@ describe('ValidatorClient', () => {
 
     beforeEach(async () => {
       const blockHeader = makeBlockHeader(1, { blockNumber: BlockNumber(100), slotNumber: SlotNumber(100) });
+      // The block consumes nothing, so its signed end count is 0 and its prefix reference is the genesis zero hash.
+      blockHeader.state.l1ToL2MessageTree = new AppendOnlyTreeSnapshot(Fr.random(), 0);
       blockNumber = BlockNumber(blockHeader.globalVariables.blockNumber);
       proposal = ValidatedBlockProposal(await makeBlockProposal({ blockHeader, bucketRef: genesisBucketRef }));
       // The proposal targets slot 100, which under pipelining is built during the previous slot. Set the
@@ -540,18 +558,28 @@ describe('ValidatorClient', () => {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } as unknown as BlockData;
+      // Archive lookups resolve the parent; number lookups do not, so the block-number collision guard sees a free
+      // slot at this block's number. The one exception is the parent's own number, which the checkpoint path reads
+      // to find where the checkpoint's consumption started — without it that check cannot resolve at all.
       blockSource.getBlockData.mockImplementation(query =>
-        Promise.resolve('number' in query ? undefined : parentBlockData),
+        Promise.resolve(!('number' in query) || query.number === blockNumber - 1 ? parentBlockData : undefined),
       );
 
       blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
       blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
 
-      // Resolve every Inbox bucket query to the genesis bucket, so streaming checks accept with an empty bundle.
-      l1ToL2MessageSource.getInboxBucket.mockResolvedValue(genesisInboxBucket);
+      // An Inbox that has absorbed nothing: the prefix at count 0 is the zero hash and count 0 resolves to the
+      // genesis sentinel bucket, so the streaming checks accept with an empty bundle.
+      // Only the genesis sentinel exists, so nothing is left unconsumed and the censorship floor is satisfied.
+      l1ToL2MessageSource.getInboxBucket.mockImplementation(seq =>
+        Promise.resolve(seq === 0n ? genesisInboxBucket : undefined),
+      );
       l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(genesisInboxBucket);
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(genesisInboxBucket);
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue([]);
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockImplementation(total =>
+        Promise.resolve(total === 0n ? genesisInboxBucket : undefined),
+      );
+      l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(Fr.ZERO);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue([]);
 
       const clonedBlockHeader = blockHeader.clone();
       blockBuildResult = {
@@ -705,10 +733,7 @@ describe('ValidatorClient', () => {
       const futureSlot = SlotNumber(proposal.slotNumber + 20);
       const futureProposal = ValidatedBlockProposal(
         await makeBlockProposal({
-          blockHeader: makeBlockHeader(1, {
-            blockNumber,
-            slotNumber: futureSlot,
-          }),
+          blockHeader: makeConsumeNothingBlockHeader({ blockNumber, slotNumber: futureSlot }),
           bucketRef: genesisBucketRef,
         }),
       );

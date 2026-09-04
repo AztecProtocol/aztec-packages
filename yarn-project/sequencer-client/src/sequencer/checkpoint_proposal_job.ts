@@ -93,7 +93,7 @@ import {
   immediateEligibility,
 } from './inbox_bucket_eligibility.js';
 import {
-  type ConsumedBucketCursor,
+  type ConsumedMessagePrefixCursor,
   type InboxBucketSelection,
   selectInboxBucketForBlock,
 } from './inbox_bucket_selector.js';
@@ -150,15 +150,23 @@ type BlockBuildingResult =
 
 /**
  * Running state of streaming Inbox message selection across the blocks of one checkpoint.
- * Consumption starts from the parent checkpoint's last-consumed bucket and advances one block at a time.
+ * Consumption starts from the parent checkpoint's consumed message prefix and advances one block at a time.
  */
 type StreamingCheckpointState = {
   /** Cumulative Inbox message count consumed as of the parent checkpoint; the per-checkpoint cap origin (fixed). */
   checkpointStartTotalMsgCount: bigint;
-  /** The last bucket consumed so far (parent checkpoint's at the first block); advances as blocks consume. */
-  parent: ConsumedBucketCursor;
-  /** Reference to the last consumed bucket; reused by blocks that consume nothing. */
-  lastBucketRef: InboxBucketRef;
+  /**
+   * The message prefix consumed so far (the parent checkpoint's at the first block); advances as blocks consume.
+   * A count and a hash rather than a bucket, so an L1 repartition that leaves the position interior to a current
+   * bucket does not strand the checkpoint mid-build.
+   */
+  cursor: ConsumedMessagePrefixCursor;
+  /**
+   * Sequence number of the bucket the consumed position last resolved to, for the L1 propose hint. Pure metadata:
+   * a reorg that renumbers buckets moves it while leaving the consumed prefix — and so the signed headers and
+   * proposals — untouched, which is why it is tracked apart from the cursor and re-read before every publish.
+   */
+  lastResolvedBucketSeq?: bigint;
 };
 
 /**
@@ -870,11 +878,25 @@ export class CheckpointProposalJob implements Traceable {
         return undefined;
       }
 
-      // Streaming Inbox censorship floor: re-derive the mandatory-consumption verdict from the final consumed
-      // position, independently of the per-block selection that produced it. Runs before the checkpoint is assembled,
-      // so the held last block and the checkpoint proposal are both still ungossiped and the propose tx is never
-      // sent for a checkpoint L1 would revert and validators would refuse to attest.
-      const consumption = await this.checkCheckpointConsumption(streamingState);
+      // Streaming Inbox: the completed checkpoint's final consumed position must resolve to a current bucket, since
+      // that is the one L1 reads the header's rolling hash out of via the `bucketHint`. Individual blocks are not
+      // held to this — a repartition that keeps their messages leaves them valid — but a checkpoint ending on a
+      // position no bucket carries cannot be published at all, so the slot is abandoned instead.
+      const finalBucket = await this.resolveFinalConsumedBucket(streamingState);
+      if (finalBucket === undefined) {
+        this.reportConsumedPrefixVanished(streamingState, 'build-failed', {
+          blocksBuilt: blocksInCheckpoint.length,
+          note: 'the blocks themselves are content-valid; only the checkpoint endpoint is unpublishable',
+        });
+        return undefined;
+      }
+      streamingState.lastResolvedBucketSeq = finalBucket.seq;
+
+      // Censorship floor: re-derive the mandatory-consumption verdict from the final consumed position,
+      // independently of the per-block selection that produced it. Runs before the checkpoint is assembled, so the
+      // held last block and the checkpoint proposal are both still ungossiped and the propose tx is never sent for a
+      // checkpoint L1 would revert and validators would refuse to attest.
+      const consumption = await this.checkCheckpointConsumption(streamingState, finalBucket);
       if (!consumption.sufficient) {
         const { cutoffTimestamp, nextBucket } = consumption;
         const context = {
@@ -883,8 +905,8 @@ export class CheckpointProposalJob implements Traceable {
           blocksBuilt: blocksInCheckpoint.length,
           blocksRemaining: this.config.maxBlocksPerCheckpoint - blocksInCheckpoint.length,
           checkpointStartTotalMsgCount: streamingState.checkpointStartTotalMsgCount,
-          consumedBucketSeq: streamingState.parent.seq,
-          consumedTotalMsgCount: streamingState.parent.totalMsgCount,
+          consumedBucketSeq: finalBucket.seq,
+          consumedTotalMsgCount: finalBucket.totalMsgCount,
           unconsumedBucketSeq: nextBucket?.seq,
           unconsumedBucketTotalMsgCount: nextBucket?.totalMsgCount,
           cutoffTimestamp,
@@ -1164,23 +1186,29 @@ export class CheckpointProposalJob implements Traceable {
       blocksInCheckpoint.push(block);
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
-      // Streaming Inbox: the block built successfully, so advance the consumption cursor and carry this block's
-      // rolling-hash bucket reference. A block that consumed nothing reuses the parent bucket reference. The bucket
-      // is re-resolved before the proposal is signed: if an L1 reorg dropped it since selection, the block is built
-      // on messages the local store no longer holds and must not be signed, stored or gossiped, so the whole
-      // checkpoint is abandoned here.
+      // Streaming Inbox: the block built successfully, so advance the consumption cursor to the prefix it consumed
+      // through and carry that prefix as this block's signed reference. A block that consumed nothing re-signs the
+      // cursor's existing prefix. The prefix is re-checked by count before the proposal is signed: if an L1 reorg
+      // changed the messages since selection, the block is built on a prefix the local store no longer holds and
+      // must not be signed, stored or gossiped, so the whole checkpoint is abandoned here. A repartition that kept
+      // the same messages passes, since the count is not required to still be a bucket boundary.
       let blockBucketRef: InboxBucketRef | undefined = undefined;
       if (streamingState && selection) {
         if (selection.consume) {
-          streamingState.parent = { seq: selection.bucket.seq, totalMsgCount: selection.bucket.totalMsgCount };
-          streamingState.lastBucketRef = InboxBucketRef.fromBucket(selection.bucket);
+          streamingState.cursor = {
+            totalMsgCount: selection.bucket.totalMsgCount,
+            inboxRollingHash: selection.bucket.inboxRollingHash,
+          };
         }
-        const consumedBucket = await this.refreshConsumedBucket(streamingState);
-        if (consumedBucket === undefined) {
-          this.reportConsumedBucketVanished(streamingState, 'build-failed', { blockNumber, blocksBuilt });
+        if (!(await this.isConsumedPrefixStillCanonical(streamingState))) {
+          this.reportConsumedPrefixVanished(streamingState, 'build-failed', { blockNumber, blocksBuilt });
           return { aborted: true };
         }
-        blockBucketRef = streamingState.lastBucketRef;
+        // The reference is the cursor's prefix hash, which the block's own header count has to name for the pair to
+        // authenticate anything. Both come from the same fork the builder inserted the selected bundle into, and
+        // {@link syncProposedBlockToArchiver} re-checks the pair against the archiver's messages before the proposal
+        // is broadcast, so a builder/selector disagreement aborts the checkpoint there rather than being gossiped.
+        blockBucketRef = new InboxBucketRef(streamingState.cursor.inboxRollingHash);
       }
 
       // Sign the block proposal. This will throw if HA signing fails.
@@ -1200,7 +1228,7 @@ export class CheckpointProposalJob implements Traceable {
       // so we avoid polluting our archive with a block that would fail.
       // We wait for the sync to succeed, as this helps catch consistency errors, even if it means we lose some time for block-building.
       // If this throws, we abort the entire checkpoint.
-      await this.syncProposedBlockToArchiver(block);
+      await this.syncProposedBlockToArchiver(block, blockBucketRef);
 
       // If this is the last block, do not broadcast it, since it will be included in the checkpoint proposal.
       if (timingInfo.isLastBlock) {
@@ -1255,66 +1283,58 @@ export class CheckpointProposalJob implements Traceable {
   }
 
   /**
-   * Resolves where a streaming-Inbox checkpoint's consumption starts: the parent checkpoint's last-consumed bucket.
-   * The parent's cumulative consumed total is the L1-to-L2 message tree leaf count of the fork
-   * this checkpoint builds on (compact indexing makes leaf count equal cumulative message count), which resolves the
-   * parent bucket by total. Genesis is the `total = 0` case, resolving the genesis bucket 0.
+   * Resolves where a streaming-Inbox checkpoint's consumption starts: the parent checkpoint's consumed message
+   * prefix. The parent's cumulative consumed total is the L1-to-L2 message tree leaf count of the fork this
+   * checkpoint builds on (compact indexing makes leaf count equal cumulative message count), and the prefix hash at
+   * that count is what a first block consuming nothing would re-sign. Genesis is the `total = 0` case, whose prefix
+   * hash is zero.
+   *
+   * The count is not required to sit on a current bucket boundary. The parent checkpoint committed to it when it was
+   * one, and an L1 reorg that re-mines the same messages under different boundaries can have made it interior since;
+   * the messages are unchanged, so the checkpoint can still be built on top of it.
    */
   private async resolveStreamingCheckpointStart(fork: MerkleTreeWriteOperations): Promise<StreamingCheckpointState> {
     const parentInfo = await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
     const parentTotalMsgCount = parentInfo.size;
-    const parentBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(parentTotalMsgCount);
-    if (parentBucket === undefined) {
+    const inboxRollingHash = await this.l1ToL2MessageSource.getInboxRollingHashAt(parentTotalMsgCount);
+    if (inboxRollingHash === undefined) {
       throw new Error(
-        `Streaming inbox: cannot resolve parent Inbox bucket for cumulative total ${parentTotalMsgCount} ` +
+        `Streaming inbox: cannot resolve the Inbox prefix hash at cumulative total ${parentTotalMsgCount} ` +
           `(checkpoint ${this.checkpointNumber}); local Inbox view has not synced it`,
       );
     }
     return {
       checkpointStartTotalMsgCount: parentTotalMsgCount,
-      parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
-      lastBucketRef: InboxBucketRef.fromBucket(parentBucket),
+      cursor: { totalMsgCount: parentTotalMsgCount, inboxRollingHash },
     };
   }
 
   /**
-   * Re-resolves the last consumed bucket by its rolling hash, before the block that consumed it is signed. Returns
-   * the bucket as the local Inbox view holds it now, or undefined when no bucket carries the hash any more.
+   * Re-checks that the consumed prefix the cursor points at is still canonical, before the block that consumed it is
+   * signed. Returns true when the local Inbox view still hashes that count to the same value.
    *
-   * Under the message-only rolling hash an L1 reorg that merges buckets leaves the hash of the consumed prefix
-   * intact but shifts every sequence number after the merge point. Nothing outside this job consumes the sequence
-   * number — validators resolve the reference by rolling hash, and the L1 `propose` hint is resolved from the header
-   * by {@link resolveBucketHint} at publish time — but the next block's bundle selection inside this checkpoint
-   * does, so the cursor is re-pointed at the bucket's current sequence number here.
+   * The prefix is checked *by count*, not by resolving a bucket. An L1 reorg that re-mines the same messages under
+   * different bucket boundaries leaves every leaf and every prefix hash intact while moving the boundaries, so the
+   * block is exactly as valid as it was: requiring the count to still be a boundary here would abandon a slot whose
+   * blocks are perfectly content-valid. A hash that changed at the same count is the real failure — a reorder or a
+   * dropped message — and means the block was built on messages the local store no longer holds, so it must not be
+   * signed, stored or gossiped. The caller aborts the checkpoint in that case.
    *
-   * No bucket carrying the hash means a reorder or a dropped message: the consumed prefix no longer ends on a bucket
-   * boundary, and the block built on it can never be accepted. The caller aborts the checkpoint in that case.
+   * The final position's boundary requirement is enforced once, at the end of block building, and re-checked by
+   * {@link resolveBucketHint} at publish time, because only the completed checkpoint's endpoint has to resolve to a
+   * bucket for L1.
    */
-  private async refreshConsumedBucket(state: StreamingCheckpointState): Promise<InboxBucket | undefined> {
-    const builtSeq = state.parent.seq;
-    const { inboxRollingHash } = state.lastBucketRef;
-    const bucket = await this.l1ToL2MessageSource.getInboxBucketByRollingHash(inboxRollingHash);
-    if (bucket === undefined) {
-      return undefined;
-    }
-    if (bucket.seq !== builtSeq) {
-      this.log.info(`Inbox bucket reference re-resolved after L1 reorg`, {
-        slot: this.targetSlot,
-        checkpointNumber: this.checkpointNumber,
-        builtSeq,
-        resolvedSeq: bucket.seq,
-        inboxRollingHash: inboxRollingHash.toString(),
-      });
-      state.parent = { seq: bucket.seq, totalMsgCount: bucket.totalMsgCount };
-    }
-    return bucket;
+  private async isConsumedPrefixStillCanonical(state: StreamingCheckpointState): Promise<boolean> {
+    const { totalMsgCount, inboxRollingHash } = state.cursor;
+    const canonicalHash = await this.l1ToL2MessageSource.getInboxRollingHashAt(totalMsgCount);
+    return canonicalHash !== undefined && canonicalHash.equals(inboxRollingHash);
   }
 
   /**
-   * Reports that no local Inbox bucket carries the rolling hash this checkpoint consumed through, so the slot is
-   * abandoned: the checkpoint event under `failureEvent`, an operator warning and the failure metric.
+   * Reports that the local Inbox view no longer backs the message prefix this checkpoint consumed through, so the
+   * slot is abandoned: the checkpoint event under `failureEvent`, an operator warning and the failure metric.
    */
-  private reportConsumedBucketVanished(
+  private reportConsumedPrefixVanished(
     state: StreamingCheckpointState,
     failureEvent: 'build-failed' | 'publish-failed',
     extraContext: Record<string, unknown> = {},
@@ -1323,14 +1343,14 @@ export class CheckpointProposalJob implements Traceable {
     const context = {
       slot: this.targetSlot,
       checkpointNumber: this.checkpointNumber,
-      builtSeq: state.parent.seq,
-      inboxRollingHash: state.lastBucketRef.inboxRollingHash.toString(),
+      builtTotalMsgCount: state.cursor.totalMsgCount,
+      inboxRollingHash: state.cursor.inboxRollingHash.toString(),
       reason: 'inbox_bucket_reorged',
       ...extraContext,
     };
     this.logCheckpointEvent(failureEvent, `Checkpoint ${phase} failed for slot ${this.targetSlot}`, context);
     this.log.warn(
-      `No Inbox bucket carries the rolling hash this checkpoint consumed through; abandoning slot ` +
+      `The local Inbox view no longer backs the message prefix this checkpoint consumed through; abandoning slot ` +
         `${this.targetSlot} after an L1 reorg reordered or dropped bridged messages`,
       context,
     );
@@ -1361,25 +1381,25 @@ export class CheckpointProposalJob implements Traceable {
     failureEvent: 'build-failed' | 'publish-failed',
   ): Promise<bigint | undefined> {
     const phase = failureEvent === 'build-failed' ? 'build' : 'publish';
-    const builtSeq = state.parent.seq;
     const inboxRollingHash = header.inboxRollingHash;
     const bucket = await this.l1ToL2MessageSource.getInboxBucketByRollingHash(inboxRollingHash);
     if (bucket === undefined) {
-      this.reportConsumedBucketVanished(state, failureEvent, { headerInboxRollingHash: inboxRollingHash.toString() });
+      this.reportConsumedPrefixVanished(state, failureEvent, { headerInboxRollingHash: inboxRollingHash.toString() });
       return undefined;
     }
-    if (bucket.seq !== builtSeq) {
+    if (state.lastResolvedBucketSeq !== undefined && state.lastResolvedBucketSeq !== bucket.seq) {
       this.log.info(`Inbox bucket hint re-resolved after L1 reorg`, {
         slot: this.targetSlot,
         checkpointNumber: this.checkpointNumber,
-        builtSeq,
+        previousSeq: state.lastResolvedBucketSeq,
         publishedSeq: bucket.seq,
+        consumedTotalMsgCount: bucket.totalMsgCount,
         inboxRollingHash: inboxRollingHash.toString(),
       });
     }
+    state.lastResolvedBucketSeq = bucket.seq;
 
-    const resolved = { ...state, parent: { seq: bucket.seq, totalMsgCount: bucket.totalMsgCount } };
-    const { sufficient, nextBucket, cutoffTimestamp } = await this.checkCheckpointConsumption(resolved);
+    const { sufficient, nextBucket, cutoffTimestamp } = await this.checkCheckpointConsumption(state, bucket);
     if (!sufficient) {
       const context = {
         slot: this.targetSlot,
@@ -1411,13 +1431,16 @@ export class CheckpointProposalJob implements Traceable {
    * absent, past the cutoff, or a cap-escape. The bucket and cutoff the verdict was taken against are returned for
    * diagnostics.
    *
-   * Derived from the consumption cursor rather than from the per-block selections that advanced it, so a selector that
-   * stops short of a mandatory bucket is caught here regardless of how it reported the shortfall.
+   * `finalBucket` is the bucket {@link resolveFinalConsumedBucket} matched the consumed position against;
+   * identifying "the first bucket left unconsumed" needs it, since that is the sequence after `finalBucket`'s. The
+   * per-checkpoint cap origin still comes from the cursor's fixed start count, so a selector that stopped short of a
+   * mandatory bucket is caught here regardless of how it reported the shortfall.
    */
   private async checkCheckpointConsumption(
     state: StreamingCheckpointState,
+    finalBucket: InboxBucket,
   ): Promise<{ sufficient: boolean; nextBucket: InboxBucket | undefined; cutoffTimestamp: bigint }> {
-    const nextBucket = await this.l1ToL2MessageSource.getInboxBucket(state.parent.seq + 1n);
+    const nextBucket = await this.l1ToL2MessageSource.getInboxBucket(finalBucket.seq + 1n);
     const cutoffTimestamp = getInboxCutoffTimestamp(this.targetSlot, this.l1Constants);
     const sufficient = isInboxConsumptionSufficient({
       nextBucket,
@@ -1426,6 +1449,28 @@ export class CheckpointProposalJob implements Traceable {
       perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
     });
     return { sufficient, nextBucket, cutoffTimestamp };
+  }
+
+  /**
+   * Resolves the current Inbox bucket the checkpoint's consumed position ends on, or undefined when that position is
+   * not a current boundary carrying the consumed prefix hash.
+   *
+   * This is the one place the boundary rule still applies. L1 reads the checkpoint header's rolling hash out of the
+   * bucket the `bucketHint` names, so a final position no current bucket ends on — or one whose bucket carries a
+   * different hash — is one `propose` would revert on, however content-valid the individual blocks are. Checked
+   * before anything is gossiped so the slot is abandoned rather than spent on a checkpoint nobody can publish.
+   *
+   * Both halves of the cursor are proven, not just the count: the bucket ending at that count is unique, so
+   * comparing its rolling hash to the cursor's is what rules out a bucket that ends there over *different* messages
+   * (a reorg that replaced the tail while keeping the count). Matching both is exactly the condition
+   * `ProposeLib.validateInboxConsumption` checks against the hint.
+   */
+  private async resolveFinalConsumedBucket(state: StreamingCheckpointState): Promise<InboxBucket | undefined> {
+    const bucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(state.cursor.totalMsgCount);
+    if (bucket === undefined || !bucket.inboxRollingHash.equals(state.cursor.inboxRollingHash)) {
+      return undefined;
+    }
+    return bucket;
   }
 
   /**
@@ -1444,7 +1489,7 @@ export class CheckpointProposalJob implements Traceable {
       now: BigInt(Math.floor(nowSeconds)),
       isEligible: this.isInboxBucketEligible,
       ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
-      parent: state.parent,
+      cursor: state.cursor,
       checkpointStartTotalMsgCount: state.checkpointStartTotalMsgCount,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
       perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
@@ -2017,7 +2062,7 @@ export class CheckpointProposalJob implements Traceable {
    * and fee analysis only, and pushing them to the archiver causes spurious reorg cascades
    * whenever the real proposer's block arrives from L1.
    */
-  private async syncProposedBlockToArchiver(block: L2Block): Promise<void> {
+  private async syncProposedBlockToArchiver(block: L2Block, inboxPrefixRef: InboxBucketRef | undefined): Promise<void> {
     if (this.config.skipPushProposedBlocksToArchiver || this.config.fishermanMode) {
       this.log.warn(`Skipping push of proposed block ${block.number} to archiver`, {
         blockNumber: block.number,
@@ -2025,11 +2070,17 @@ export class CheckpointProposalJob implements Traceable {
       });
       return;
     }
+    // The archiver re-validates this reference against its own messages inside the insert transaction, which is what
+    // stops a block built before an L1 reorg from landing after the reorg pruned the chain it belongs to. Streaming
+    // block building always produces one, so a missing reference here is a wiring bug, not a compatibility case.
+    if (inboxPrefixRef === undefined) {
+      throw new Error(`Streaming inbox: proposed block ${block.number} has no signed Inbox prefix reference`);
+    }
     this.log.debug(`Syncing proposed block ${block.number} to archiver`, {
       blockNumber: block.number,
       slot: block.header.globalVariables.slotNumber,
     });
-    await this.blockSink.addBlock(block);
+    await this.blockSink.addBlock(block, inboxPrefixRef);
   }
 
   /**

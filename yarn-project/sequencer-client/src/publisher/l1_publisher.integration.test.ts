@@ -381,10 +381,17 @@ describe('L1Publisher integration', () => {
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
       },
-      // Streaming L1->L2 message reconstruction: the world-state synchronizer resolves each
-      // block's consumed message bundle from the Inbox buckets registered per published block in buildAndPublishBlock.
+      // Streaming L1->L2 message reconstruction: the world-state synchronizer resolves each block's consumed
+      // message bundle from the compact count range its header commits to, over the Inbox buckets registered per
+      // published block in buildAndPublishBlock.
       getInboxBucketByTotalMsgCount(totalMsgCount: bigint) {
         return messageSource.getInboxBucketByTotalMsgCount(totalMsgCount);
+      },
+      getInboxRollingHashAt(totalMsgCount: bigint) {
+        return messageSource.getInboxRollingHashAt(totalMsgCount);
+      },
+      getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint) {
+        return messageSource.getL1ToL2MessagesBetweenLeafCounts(startLeafCount, endLeafCount);
       },
       getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint) {
         return messageSource.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
@@ -586,8 +593,10 @@ describe('L1Publisher integration', () => {
       const allSentMessages: Fr[] = [];
       let mirroredThroughSeq = 0n;
       let mirroredThroughTotal = 0n;
-      // The last Inbox bucket this checkpoint chain has consumed through; genesis sentinel to start.
-      let parent = { seq: 0n, totalMsgCount: 0n };
+      // The Inbox message prefix this checkpoint chain has consumed through; the genesis base case to start.
+      let cursor = { totalMsgCount: 0n, inboxRollingHash: Fr.ZERO };
+      // Sequence of the bucket the chain last consumed through, for the L1 propose hint.
+      let consumedBucketSeq = 0n;
       let previousInboxRollingHash = Fr.ZERO;
       const blobFieldsPerCheckpoint: Fr[][] = [];
       // The below batched blob is used for testing different epochs with 1..numberOfConsecutiveBlocks blocks on L1.
@@ -678,15 +687,15 @@ describe('L1Publisher integration', () => {
           now: cutoffTimestamp,
           isEligible: immediateEligibility,
           ethereumSlotDuration: config.ethereumSlotDuration,
-          parent,
-          checkpointStartTotalMsgCount: parent.totalMsgCount,
+          cursor,
+          checkpointStartTotalMsgCount: cursor.totalMsgCount,
           perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
           perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
           isLastBlock: true,
           cutoffTimestamp,
         });
         const currentL1ToL2Messages = selection.consume ? selection.bundle : [];
-        const bucketHint = selection.consume ? selection.bucket.seq : parent.seq;
+        const bucketHint = selection.consume ? selection.bucket.seq : consumedBucketSeq;
 
         const checkpoint = await buildCheckpoint(
           globalVariables,
@@ -698,7 +707,11 @@ describe('L1Publisher integration', () => {
         previousInboxRollingHash = checkpoint.header.inboxRollingHash;
         const block = checkpoint.blocks[0];
         if (selection.consume) {
-          parent = { seq: selection.bucket.seq, totalMsgCount: selection.bucket.totalMsgCount };
+          cursor = {
+            totalMsgCount: selection.bucket.totalMsgCount,
+            inboxRollingHash: selection.bucket.inboxRollingHash,
+          };
+          consumedBucketSeq = selection.bucket.seq;
         }
 
         const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);

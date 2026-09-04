@@ -20,6 +20,7 @@ import type { CheckpointInfo } from '../checkpoint/checkpoint_info.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { MAX_RPC_CHECKPOINTS_DATA_LEN } from '../interfaces/api_limit.js';
+import type { InboxBucketRef } from '../messaging/inbox_bucket.js';
 import type { L2ToL1MembershipWitness } from '../messaging/l2_to_l1_membership.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
@@ -313,11 +314,22 @@ export interface L2BlockSource {
  */
 export interface L2BlockSink {
   /**
-   * Adds a block to the store.
+   * Adds a proposed block to the store.
+   *
+   * Every path that inserts a block originating from a signed proposal — the checkpoint proposer, automine, and a
+   * validator's re-execution — must pass `inboxPrefixRef`, the proposal's signed Inbox prefix reference. The sink
+   * validates it against its own canonical messages in the same transaction as the writes, which is what stops a
+   * block built before an L1 reorg from landing after the reorg already pruned the chain it belongs to.
+   *
+   * Omitting it is a trusted compatibility path, not validation: the block is inserted with the reference check
+   * skipped. Only callers that synthesize blocks without matching Inbox state (fixtures, tools) may do so.
+   *
    * @param block - The L2 block to add.
-   * @throws If block number is not incremental (i.e., not exactly one more than the last stored block).
+   * @param inboxPrefixRef - The signed Inbox prefix reference from the block's proposal, if it came from one.
+   * @throws If block number is not incremental (i.e., not exactly one more than the last stored block), or if a
+   *   supplied prefix reference does not match the sink's canonical messages at the block's L1-to-L2 leaf count.
    */
-  addBlock(block: L2Block): Promise<void>;
+  addBlock(block: L2Block, inboxPrefixRef?: InboxBucketRef): Promise<void>;
 }
 
 /**

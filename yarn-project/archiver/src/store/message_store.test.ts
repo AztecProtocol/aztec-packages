@@ -722,6 +722,68 @@ describe('MessageStore', () => {
       expect(await messageStore.getInboxBucketByRollingHash(Fr.ZERO)).toMatchObject({ seq: 0n, totalMsgCount: 0n });
     });
 
+    describe('getInboxRollingHashAt', () => {
+      it('returns the prefix hash at every synced count, on a boundary or interior to a bucket', async () => {
+        const msgs = makeBucketedMessages(threeBucketSpec);
+        await messageStore.addL1ToL2MessageBuckets(msgs);
+
+        // Every count resolves, whether or not a bucket ends there: msgs[2] closes bucket 1 and msgs[3] is interior
+        // to bucket 2, and both are addressable by the prefix length they complete.
+        for (const [index, msg] of msgs.entries()) {
+          expect(await messageStore.getInboxRollingHashAt(BigInt(index) + 1n)).toEqual(msg.inboxRollingHash);
+        }
+        // The interior count carries a hash no bucket does, which is exactly the case a merge leaves behind.
+        expect(await messageStore.getInboxBucketByRollingHash(msgs[3].inboxRollingHash)).toBeUndefined();
+      });
+
+      it('returns the zero hash at count zero, even on an empty store', async () => {
+        expect(await messageStore.getInboxRollingHashAt(0n)).toEqual(Fr.ZERO);
+
+        await messageStore.addL1ToL2MessageBuckets(makeBucketedMessages(threeBucketSpec));
+        expect(await messageStore.getInboxRollingHashAt(0n)).toEqual(Fr.ZERO);
+      });
+
+      it('returns undefined past the synced tip', async () => {
+        const msgs = makeBucketedMessages(threeBucketSpec);
+        await messageStore.addL1ToL2MessageBuckets(msgs);
+
+        expect(await messageStore.getInboxRollingHashAt(BigInt(msgs.length) + 1n)).toBeUndefined();
+        expect(await messageStore.getInboxRollingHashAt(1000n)).toBeUndefined();
+      });
+
+      it('stops resolving counts a removal dropped', async () => {
+        const msgs = makeBucketedMessages(threeBucketSpec);
+        await messageStore.addL1ToL2MessageBuckets(msgs);
+        await messageStore.removeL1ToL2Messages(msgs[4].index);
+
+        expect(await messageStore.getInboxRollingHashAt(4n)).toEqual(msgs[3].inboxRollingHash);
+        expect(await messageStore.getInboxRollingHashAt(5n)).toBeUndefined();
+        expect(await messageStore.getInboxRollingHashAt(6n)).toBeUndefined();
+      });
+
+      it('rejects a negative count', async () => {
+        await expect(messageStore.getInboxRollingHashAt(-1n)).rejects.toThrow('Invalid Inbox message count');
+      });
+
+      it('keeps every prefix hash across a pure repartition of the same messages', async () => {
+        const msgs = makeBucketedMessages(threeBucketSpec);
+        await messageStore.addL1ToL2MessageBuckets(msgs);
+        const before = await Promise.all(msgs.map((_, i) => messageStore.getInboxRollingHashAt(BigInt(i) + 1n)));
+
+        // A reorg re-mines buckets 2 and 3 as a single bucket: same leaves, moved boundary.
+        await messageStore.removeL1ToL2Messages(msgs[3].index);
+        const merged = [msgs[3], msgs[4], msgs[5]].map(msg => ({ ...msg, bucketSeq: 2n, bucketTimestamp: 250n }));
+        await messageStore.addL1ToL2MessageBuckets(merged);
+
+        expect(await Promise.all(msgs.map((_, i) => messageStore.getInboxRollingHashAt(BigInt(i) + 1n)))).toEqual(
+          before,
+        );
+        // The boundary at count 4 is gone as a bucket, but the prefix at that count still authenticates.
+        expect(await messageStore.getInboxBucketByRollingHash(msgs[3].inboxRollingHash)).toBeUndefined();
+        expect(await messageStore.getInboxRollingHashAt(4n)).toEqual(msgs[3].inboxRollingHash);
+      });
+    });
+
     it('drops rolling-hash entries of buckets a removal deletes or rewrites', async () => {
       const msgs = makeBucketedMessages(threeBucketSpec);
       await messageStore.addL1ToL2MessageBuckets(msgs);

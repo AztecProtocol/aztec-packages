@@ -238,17 +238,31 @@ export const GENESIS_INBOX_BUCKET: InboxBucket = {
 
 /**
  * Wires the Inbox lookups a checkpoint proposal job makes outside bundle selection: the consumption cursor's start
- * (resolved from the fork's L1-to-L2 leaf count, which defaults to an empty tree) and the L1 propose bucket hint
+ * (the prefix hash at the fork's L1-to-L2 leaf count, which defaults to an empty tree) and the L1 propose bucket hint
  * (re-resolved from the rolling hash the checkpoint header commits to). Buckets are served on top of the genesis
  * sentinel, so a test that seeds none gets a checkpoint that consumes nothing.
+ *
+ * `interiorPrefixes` registers prefix hashes at counts no seeded bucket ends on, standing in for a boundary an L1
+ * reorg merged away: the count stays authenticatable even though no bucket carries the hash any more.
  */
-export function mockInboxBuckets(source: MockProxy<L1ToL2MessageSource>, buckets: InboxBucket[] = []): void {
+export function mockInboxBuckets(
+  source: MockProxy<L1ToL2MessageSource>,
+  buckets: InboxBucket[] = [],
+  interiorPrefixes: { totalMsgCount: bigint; inboxRollingHash: Fr }[] = [],
+): void {
   const all = [GENESIS_INBOX_BUCKET, ...buckets];
+  const prefixes = new Map<bigint, Fr>([
+    ...buckets.map(bucket => [bucket.totalMsgCount, bucket.inboxRollingHash] as const),
+    ...interiorPrefixes.map(prefix => [prefix.totalMsgCount, prefix.inboxRollingHash] as const),
+  ]);
   source.getInboxBucketByTotalMsgCount.mockImplementation(totalMsgCount =>
     Promise.resolve(all.find(bucket => bucket.totalMsgCount === totalMsgCount)),
   );
   source.getInboxBucketByRollingHash.mockImplementation(inboxRollingHash =>
     Promise.resolve(all.find(bucket => bucket.inboxRollingHash.equals(inboxRollingHash))),
+  );
+  source.getInboxRollingHashAt.mockImplementation(totalMsgCount =>
+    Promise.resolve(totalMsgCount === 0n ? Fr.ZERO : prefixes.get(totalMsgCount)),
   );
 }
 

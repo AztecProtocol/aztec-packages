@@ -238,6 +238,11 @@ describe('ArchiverApiSchema', () => {
     expect(result).toMatchObject({ seq: 4n, inboxRollingHash });
   });
 
+  it('getInboxRollingHashAt', async () => {
+    expect(await context.client.getInboxRollingHashAt(0n)).toEqual(Fr.ZERO);
+    expect(await context.client.getInboxRollingHashAt(3n)).toEqual(new Fr(3n));
+  });
+
   it('getL1ToL2MessagesBetweenBuckets', async () => {
     const result = await context.client.getL1ToL2MessagesBetweenBuckets(0n, 3n);
     expect(result).toEqual([expect.any(Fr)]);
@@ -658,6 +663,10 @@ class MockArchiver implements ArchiverApi {
       l1BlockNumber: 20n,
       l1BlockHash: Buffer32.fromBigInt(20n),
     });
+  }
+  getInboxRollingHashAt(totalMsgCount: bigint): Promise<Fr | undefined> {
+    expect(typeof totalMsgCount).toEqual('bigint');
+    return Promise.resolve(totalMsgCount === 0n ? Fr.ZERO : new Fr(totalMsgCount));
   }
   getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
     expect(typeof fromExclusive).toEqual('bigint');

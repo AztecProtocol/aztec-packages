@@ -24,6 +24,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { GENESIS_BLOCK_HEADER_HASH, L2BlockSourceEvents, type L2BlockSourceUpdatedEvent } from '@aztec/stdlib/block';
 import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { InboxBucketRef } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
@@ -38,7 +39,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
 import { Archiver, type ArchiverEmitter } from './archiver.js';
-import { BlockOrCheckpointSlotExpiredError } from './errors.js';
+import { BlockOrCheckpointSlotExpiredError, InboxPrefixMismatchError } from './errors.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { type ArchiverDataStores, createArchiverDataStores } from './store/data_stores.js';
@@ -2324,6 +2325,37 @@ describe('Archiver Sync', () => {
       return blocks;
     };
 
+    it('rejects the caller and emits no update event when a proposed block fails the prefix guard', async () => {
+      // The facade's promise is tied to the atomic updater call, so a prefix rejection has to surface to the
+      // producer and leave the pass looking like a no-op: no block stored, no tip moved, no aggregate event.
+      addMessages();
+      fake.setL1BlockNumber(l1BlockNumber);
+      await archiver.syncImmediate();
+
+      const updateSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.L2BlockSourceUpdated, updateSpy);
+      try {
+        const [block] = await makeBlocksConsumingThrough([2]);
+
+        // The reference names a prefix this archiver's messages do not hash to at the block's end count.
+        await expect(archiver.addBlock(block, new InboxBucketRef(Fr.random()))).rejects.toThrow(
+          InboxPrefixMismatchError,
+        );
+
+        expect(await archiver.getBlockNumber()).toEqual(BlockNumber(0));
+        expect(await archiver.getBlock({ number: BlockNumber(1) })).toBeUndefined();
+        expect(updateSpy).not.toHaveBeenCalled();
+        expect(pruneSpy).not.toHaveBeenCalled();
+
+        // The same block with the right reference is accepted, so the rejection was the guard and not the fixture.
+        const inboxRollingHash = (await archiverStore.messages.getInboxRollingHashAt(2n))!;
+        await archiver.addBlock(block, new InboxBucketRef(inboxRollingHash));
+        expect(await archiver.getBlockNumber()).toEqual(BlockNumber(1));
+      } finally {
+        archiver.events.off(L2BlockSourceEvents.L2BlockSourceUpdated, updateSpy);
+      }
+    });
+
     it('prunes from the first proposed block that consumed a removed message', async () => {
       const { early } = addMessages();
       fake.setL1BlockNumber(l1BlockNumber);
@@ -2417,7 +2449,7 @@ describe('Archiver Sync', () => {
       });
     });
 
-    it('prunes when the reorg merges away the bucket boundary a block ended on', async () => {
+    it('keeps the proposed chain when the reorg merges away the bucket boundary a block ended on', async () => {
       const { early, late } = addMessages();
       fake.setL1BlockNumber(l1BlockNumber);
       await archiver.syncImmediate();
@@ -2427,25 +2459,27 @@ describe('Archiver Sync', () => {
         await archiver.addBlock(block);
       }
       expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
-      // The rolling hash the checkpoint carrying these blocks committed to.
-      const consumedRollingHash = (await archiverStore.messages.getInboxBucket(2n))!.inboxRollingHash;
+      // The prefix hash block 1 signed, which is also the boundary hash of the bucket it ended on.
+      const block1PrefixHash = (await archiverStore.messages.getInboxRollingHashAt(2n))!;
 
       // The messages of block 100 are re-mined into block 102, so all four end up in a single bucket. Every leaf
-      // survives under its own index, but the boundary at leaf count 2 does not, and block 1 ended on it: nothing
-      // can derive the messages that block inserted any more, so the chain built on it goes.
+      // survives under its own index and so does every prefix hash; only the boundary at leaf count 2 is gone. A
+      // block is authenticated by the prefix it consumed, not by the boundary it stopped on, so nothing is pruned.
       fake.retimeMessages(100n, 102n);
       await archiver.syncImmediate();
 
       expect(await getStoredLeaves()).toEqual(asHex([...early, ...late]));
-      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(0));
-      expect(pruneSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ type: L2BlockSourceEvents.L2PruneUncheckpointed, blocks }),
-      );
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+      expect(pruneSpy).not.toHaveBeenCalled();
+      // The bucket metadata is rewritten even though not a single message moved.
       expect(await archiverStore.messages.getInboxBucket(1n)).toMatchObject({ msgCount: 4, l1BlockNumber: 102n });
       expect(await archiverStore.messages.getInboxBucket(2n)).toBeUndefined();
-      // The merged bucket still carries the hash the sealed header committed to, so a checkpoint whose blocks the
-      // merge left alone stays publishable; here they did not survive it.
-      expect(await archiverStore.messages.getInboxBucketByRollingHash(consumedRollingHash)).toMatchObject({ seq: 1n });
+      // Block 1's signed prefix still resolves by count, so its bundle is still derivable — even though no bucket
+      // ends there any more.
+      expect(await archiverStore.messages.getInboxRollingHashAt(2n)).toEqual(block1PrefixHash);
+      expect(await archiverStore.messages.getInboxBucketByRollingHash(block1PrefixHash)).toBeUndefined();
+      expect(await archiverStore.messages.getL1ToL2MessagesBetweenLeafCounts(0n, 2n)).toEqual(early);
+      expect(await archiverStore.messages.getL1ToL2MessagesBetweenLeafCounts(2n, 4n)).toEqual(late);
     });
 
     it('keeps the proposed chain when the reorg splits the bucket a block consumed', async () => {
@@ -2476,7 +2510,7 @@ describe('Archiver Sync', () => {
       expect(pruneSpy).not.toHaveBeenCalled();
     });
 
-    it('prunes when the reorg extends the last canonical bucket past the boundary a block ended on', async () => {
+    it('keeps the proposed chain when the reorg extends the last canonical bucket past a block boundary', async () => {
       const { early, late } = addMessages();
       // L1 block 101 carries block 100's timestamp, so a message mined there joins the bucket block 100 opened.
       fake.shareTimestampWithL1Block(101n, 100n);
@@ -2490,18 +2524,18 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
 
       // The two messages of L1 block 102 are re-mined into 101, which leaves block 100 untouched: the bucket the
-      // rollback walks back to is canonical on both of its own L1 blocks, and still absorbs the re-mined messages,
-      // so the boundary block 1 ended on is gone even though nothing below it moved.
+      // rollback walks back to is canonical on both of its own L1 blocks and now absorbs the re-mined messages too,
+      // so the boundary block 1 ended on is gone even though nothing below it moved. Content-wise the chain is
+      // unchanged, so both blocks stay.
       fake.retimeMessages(102n, 101n);
       await archiver.syncImmediate();
 
       expect(await getStoredLeaves()).toEqual(asHex([...early, ...late]));
       expect(await archiverStore.messages.getInboxBucket(1n)).toMatchObject({ msgCount: 4, totalMsgCount: 4n });
       expect(await archiverStore.messages.getInboxBucket(2n)).toBeUndefined();
-      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(0));
-      expect(pruneSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ type: L2BlockSourceEvents.L2PruneUncheckpointed, blocks }),
-      );
+      expect(await archiver.getBlockNumber()).toEqual(BlockNumber(2));
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await archiverStore.messages.getL1ToL2MessagesBetweenLeafCounts(0n, 2n)).toEqual(early);
     });
 
     it('prunes from the first leaf the reorg changed, not from the start of its bucket', async () => {

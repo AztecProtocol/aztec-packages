@@ -55,17 +55,33 @@ export const InboxBucketSchema = z.object({
 }) satisfies z.ZodType<InboxBucket>;
 
 /**
- * Content-addressed reference to a settled Inbox rolling-hash bucket, carried alongside a block proposal so a
- * validator can look the bucket up in its own Inbox view and derive the consumed-message bundle itself, rather than
- * trusting a proposer-supplied message list. The rolling hash commits to every message the Inbox absorbed up to and
- * including the bucket, so it identifies the bucket by content and survives an L1 reorg that only re-times or
- * renumbers buckets; the sequence number and timestamp are read from the locally resolved bucket, never from the
- * wire. A wrong reference can only cause a lookup miss, or select a bundle that re-execution of the block then
- * rejects; the checkpoint header's `inboxRollingHash` remains the signed consensus commitment.
+ * Content-addressed reference to the ordered Inbox message prefix a block consumed through, carried alongside a
+ * block proposal so a validator can confirm the prefix against its own Inbox view and read the consumed-message
+ * bundle itself, rather than trusting a proposer-supplied message list.
+ *
+ * The reference is only half of the pair that authenticates a block: it must be interpreted together with the
+ * *count* the block's signed header commits to in `state.l1ToL2MessageTree.nextAvailableLeafIndex`. Because every
+ * message's rolling hash chains the one before it, a hash matching at that count proves the proposer consumed
+ * exactly the leaves the validator holds, which is what makes the range between the parent's count and this one
+ * canonical by content.
+ *
+ * The referenced position need **not** be a boundary of the bucket partition a node currently holds. An L1 reorg
+ * that re-mines the same messages under different bucket boundaries leaves every leaf and every prefix hash intact
+ * while moving the boundaries, so a block that ended on a boundary the reorg merged away stays exactly as valid as
+ * when it was signed. Only a completed checkpoint's final position must still resolve to a current bucket, since
+ * that is what the L1 `bucketHint` and the censorship/cap asserts are read against.
+ *
+ * The name is retained from when the reference did name a bucket; it is kept so the wire format and every call site
+ * stay untouched, and the terminology migration is deferred. A wrong reference can only cause a confirmation miss,
+ * or select a bundle that re-execution of the block then rejects; the checkpoint header's `inboxRollingHash` remains
+ * the signed consensus commitment.
  */
 export class InboxBucketRef {
   constructor(
-    /** Consensus rolling hash (truncated sha256 chain) after the last message absorbed into the referenced bucket. */
+    /**
+     * Consensus rolling hash (truncated sha256 chain) of the canonical message prefix the block consumed through,
+     * i.e. after the message at `header.state.l1ToL2MessageTree.nextAvailableLeafIndex - 1`. Zero at genesis.
+     */
     public readonly inboxRollingHash: Fr,
   ) {}
 
@@ -80,7 +96,11 @@ export class InboxBucketRef {
     return new InboxBucketRef(fields.inboxRollingHash);
   }
 
-  /** Derives a wire reference from a bucket snapshot as tracked by the archiver. */
+  /**
+   * Derives a wire reference from a bucket snapshot as tracked by the archiver. A bucket's rolling hash *is* the
+   * prefix hash at its cumulative total, so this is the convenience form for a position that happens to sit on a
+   * current boundary; a position interior to a bucket is referenced by constructing the prefix hash directly.
+   */
   static fromBucket(bucket: InboxBucket): InboxBucketRef {
     return new InboxBucketRef(bucket.inboxRollingHash);
   }
