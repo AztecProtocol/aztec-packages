@@ -30,6 +30,9 @@ describe('SenderTaggingStore', () => {
     taggingStore = new SenderTaggingStore(await openTmpStore('test'));
     secret1 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
     secret2 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
+
+    // Leave a change set open for the tests to operate under: every store operation requires one.
+    taggingStore.beginChangeSet('test');
   });
 
   describe('storePendingIndexes', () => {
@@ -768,77 +771,50 @@ describe('SenderTaggingStore', () => {
   describe('staged writes', () => {
     it('writes of uncommitted change sets are not visible outside the change set that makes them', async () => {
       const committedTxHash = TxHash.random();
-      {
-        const commitChangeSetId: ChangeSetId = 'commit-change-set';
-        await taggingStore.storePendingIndexes([range(secret1, 3)], committedTxHash, commitChangeSetId);
-        await taggingStore.commitChangeSet(commitChangeSetId);
-      }
+      await taggingStore.storePendingIndexes([range(secret1, 3)], committedTxHash, 'test');
+      await taggingStore.commitChangeSet('test');
 
       const stagedTxHash = TxHash.random();
       const stagedChangeSetId: ChangeSetId = 'staged';
+      taggingStore.beginChangeSet(stagedChangeSetId);
       await taggingStore.storePendingIndexes([range(secret1, 5)], stagedTxHash, stagedChangeSetId);
-
-      // For a change set without any staged data we should only get committed data
-      const txHashesWithoutChangeSetId = await pendingTxHashes(secret1, 0, 10, 'no-data-change-set');
-      expect(txHashesWithoutChangeSetId).toHaveLength(1);
-      expect(txHashesWithoutChangeSetId[0]).toEqual(committedTxHash);
 
       // With stagedChangeSetId, should get both committed and staged data
       const txHashesWithChangeSetId = await pendingTxHashes(secret1, 0, 10, stagedChangeSetId);
       expect(txHashesWithChangeSetId).toHaveLength(2);
       expect(txHashesWithChangeSetId).toContainEqual(committedTxHash);
       expect(txHashesWithChangeSetId).toContainEqual(stagedTxHash);
+
+      // Once the staged data is dropped, a new change set should only get committed data
+      taggingStore.discardChangeSet(stagedChangeSetId);
+      taggingStore.beginChangeSet('no-data-change-set');
+      const txHashesWithoutChangeSetId = await pendingTxHashes(secret1, 0, 10, 'no-data-change-set');
+      expect(txHashesWithoutChangeSetId).toHaveLength(1);
+      expect(txHashesWithoutChangeSetId[0]).toEqual(committedTxHash);
     });
 
     it('staged data is correctly isolated when storing and finalizing pending indexes', async () => {
       const txHash1 = TxHash.random();
-      {
-        const commitChangeSetId: ChangeSetId = 'commit-change-set';
-        await taggingStore.storePendingIndexes([range(secret1, 3)], txHash1, commitChangeSetId);
-        await taggingStore.finalizePendingIndexes([txHash1], commitChangeSetId);
-        await taggingStore.commitChangeSet(commitChangeSetId);
-      }
+      await taggingStore.storePendingIndexes([range(secret1, 3)], txHash1, 'test');
+      await taggingStore.finalizePendingIndexes([txHash1], 'test');
+      await taggingStore.commitChangeSet('test');
 
       const txHash2 = TxHash.random();
       const stagedChangeSetId: ChangeSetId = 'staged';
+      taggingStore.beginChangeSet(stagedChangeSetId);
 
       // Stage a higher finalized index (not committed)
       await taggingStore.storePendingIndexes([range(secret1, 7)], txHash2, stagedChangeSetId);
       await taggingStore.finalizePendingIndexes([txHash2], stagedChangeSetId);
 
-      // With a different changeSetId, should get the committed finalized index
-      expect(await taggingStore.getLastFinalizedIndex(secret1, 'no-data-change-set')).toBe(3);
-
       // With stagedChangeSetId, should get the staged finalized index
       expect(await taggingStore.getLastFinalizedIndex(secret1, stagedChangeSetId)).toBe(7);
-    });
 
-    it('discardChangeSet removes staged data without affecting persistent storage', async () => {
-      {
-        const txHash1 = TxHash.random();
-        const txHash2 = TxHash.random();
-        const commitChangeSetId: ChangeSetId = 'commit-change-set';
-        await taggingStore.storePendingIndexes([range(secret1, 2)], txHash1, commitChangeSetId);
-        await taggingStore.storePendingIndexes([range(secret1, 3)], txHash2, commitChangeSetId);
-        await taggingStore.finalizePendingIndexes([txHash1], commitChangeSetId);
-        await taggingStore.commitChangeSet(commitChangeSetId);
-      }
-
-      const stagedChangeSetId: ChangeSetId = 'staged';
-      {
-        const txHash3 = TxHash.random();
-        await taggingStore.storePendingIndexes([range(secret1, 7)], txHash3, stagedChangeSetId);
-        await taggingStore.finalizePendingIndexes([txHash3], stagedChangeSetId);
-        taggingStore.discardChangeSet(stagedChangeSetId);
-      }
-
-      // Should still get the committed finalized index
+      // Once the staged data is dropped, a new change set should get the committed finalized index
+      taggingStore.discardChangeSet(stagedChangeSetId);
+      taggingStore.beginChangeSet('no-data-change-set');
+      expect(await taggingStore.getLastFinalizedIndex(secret1, 'no-data-change-set')).toBe(3);
       expect(await taggingStore.getLastUsedIndex(secret1, 'no-data-change-set')).toBe(3);
-      expect(await taggingStore.getLastFinalizedIndex(secret1, 'no-data-change-set')).toBe(2);
-
-      // With stagedChangeSetId should fall back to committed since change set was discarded
-      expect(await taggingStore.getLastUsedIndex(secret1, stagedChangeSetId)).toBe(3);
-      expect(await taggingStore.getLastFinalizedIndex(secret1, stagedChangeSetId)).toBe(2);
     });
   });
 
