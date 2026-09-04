@@ -92,7 +92,12 @@ export interface ITxeExecutionOracle {
     nullifiers: Fr[];
     privateLogs: PrivateLog[];
   }>;
-  getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
+  getPrivateEvents(
+    selector: EventSelector,
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    changeSetId: ChangeSetId,
+  ): Promise<Fr[][]>;
   privateCallNewFlow(
     from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,

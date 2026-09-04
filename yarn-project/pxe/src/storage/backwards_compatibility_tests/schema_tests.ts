@@ -436,6 +436,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const privateEventStore = new PrivateEventStore(kvStore);
 
       const changeSetId = 'fixture-change-set';
+      privateEventStore.beginChangeSet(changeSetId);
 
       // Two (contract, selector) pairs and two block numbers so each multimap exhibits both a multi-value row
       // (contractA/selectorA → {e1, e2} and blockN1 → {e1, e2}) and a contrasting single-value row.

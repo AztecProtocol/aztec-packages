@@ -30,6 +30,7 @@ describe('OperationQueue', () => {
     discarded = [];
     const recordingStore: StagedStore = {
       storeName: 'recording_store',
+      beginChangeSet: () => {},
       commitChangeSet: id => {
         committed.push(id);
         return Promise.resolve();

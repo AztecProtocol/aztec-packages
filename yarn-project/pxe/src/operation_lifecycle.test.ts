@@ -24,6 +24,7 @@ describe('runOperation', () => {
     discarded = [];
     const recordingStore: StagedStore = {
       storeName: 'recording_store',
+      beginChangeSet: () => {},
       commitChangeSet: id => {
         committed.push(id);
         return Promise.resolve();
@@ -142,6 +143,7 @@ describe('runOperation', () => {
       stagedStores: [
         {
           storeName: 'undiscardable_store',
+          beginChangeSet: () => {},
           commitChangeSet: () => Promise.resolve(),
           discardChangeSet: () => {
             throw new Error('cannot discard');

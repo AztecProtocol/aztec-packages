@@ -427,6 +427,8 @@ describe('PXE', () => {
       scope = await AztecAddress.random();
 
       privateEventStore = new PrivateEventStore(kvStore);
+      // Leave a change set open for the tests to operate under: every store operation requires one.
+      privateEventStore.beginChangeSet('test');
     });
 
     let eventCounter = 0;
