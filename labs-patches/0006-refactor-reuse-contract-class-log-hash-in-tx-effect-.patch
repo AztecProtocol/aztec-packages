@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Thu, 3 Sep 2026 21:05:59 +0000
+Subject: [PATCH] refactor: reuse contract class log hash in tx effect leaf
+
+
+diff --git a/yarn-project/stdlib/src/tx/tx_effect.test.ts b/yarn-project/stdlib/src/tx/tx_effect.test.ts
+index 56fdb873903b75a58947ef7ee3d3de88a7159084..a076903d5af1fbd52c574c2c4d7924a2ff888aeb 100644
+--- a/yarn-project/stdlib/src/tx/tx_effect.test.ts
++++ b/yarn-project/stdlib/src/tx/tx_effect.test.ts
+@@ -126,7 +126,10 @@ describe('TxEffect', () => {
+           await fieldHash([new Fr(41), new Fr(42)]),
+           await fieldHash([new Fr(3), new Fr(101), new Fr(102), new Fr(103)]),
+           await fieldHash([new Fr(2), new Fr(PUBLIC_LOG_ADDRESS), new Fr(201), new Fr(202)]),
+-          await fieldHash([new Fr(CONTRACT_CLASS_LOG_ADDRESS), new Fr(301), new Fr(302)]),
++          await fieldHash([
++            new Fr(CONTRACT_CLASS_LOG_ADDRESS),
++            await txEffect.contractClassLogs[0].hash(),
++          ]),
+         ],
+         DomainSeparator.TX_EFFECT_HASH,
+       );
+@@ -159,7 +162,7 @@ describe('TxEffect', () => {
+     it('computes the leaf of the fixture', async () => {
+       const leaf = await smallFixture().computeTxEffectLeaf();
+       expect(leaf.toString()).toMatchInlineSnapshot(
+-        `"0x23123931ffdee54cf34fbf657b7817ad5fcae54bce508a739a01977591b991cc"`,
++        `"0x09927fb173cb1b27828db4e24d227a621f61bb668aca36f2b1e458a31585455a"`,
+       );
+ 
+       // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+diff --git a/yarn-project/stdlib/src/tx/tx_effect.ts b/yarn-project/stdlib/src/tx/tx_effect.ts
+index 0a7cc93e07a224f1506ba376e949670ea241c70b..f0e44b5eb9d04587633640e84738808a03f06b79 100644
+--- a/yarn-project/stdlib/src/tx/tx_effect.ts
++++ b/yarn-project/stdlib/src/tx/tx_effect.ts
+@@ -298,7 +298,14 @@ export class TxEffect {
+    */
+   async computeTxEffectHash(): Promise<Fr> {
+     const txBlobData = this.toTxBlobData();
+-    const fieldHashes = await Promise.all(getTxEffectFieldBlobSlices(txBlobData).map(computeTxEffectFieldHash));
++    const contractClassLogHashFields = (
++      await Promise.all(
++        this.contractClassLogs.map(async log => [log.contractAddress.toField(), await log.hash()]),
++      )
++    ).flat();
++    const fieldHashes = await Promise.all(
++      getTxEffectHashPreimages(txBlobData, contractClassLogHashFields).map(computeTxEffectFieldHash),
++    );
+     return poseidon2HashWithSeparator(
+       [encodeTxStartMarker(txBlobData.txStartMarker), this.transactionFee, ...fieldHashes],
+       DomainSeparator.TX_EFFECT_HASH,
+@@ -414,11 +421,11 @@ export class TxEffect {
+ }
+ 
+ /**
+- * The blob-encoding slices of a tx effect's variable-length fields, in the order they are hashed into the tx effect
+- * hash. Each slice is exactly what `encodeTxBlobData` writes for that field, so no new serialization format is
+- * introduced.
++ * The preimages of a tx effect's variable-length field hashes, in their fixed order within the tx effect hash.
++ * Every preimage is its field's blob-encoding slice except the contract class log, whose preimage uses the full
++ * kernel-committed log hash to avoid hashing the same padded log fields twice in the rollup circuit.
+  */
+-function getTxEffectFieldBlobSlices(txBlobData: TxBlobData): Fr[][] {
++function getTxEffectHashPreimages(txBlobData: TxBlobData, contractClassLogHashFields: Fr[]): Fr[][] {
+   return [
+     txBlobData.noteHashes,
+     txBlobData.nullifiers,
+@@ -426,7 +433,7 @@ function getTxEffectFieldBlobSlices(txBlobData: TxBlobData): Fr[][] {
+     encodePublicDataWritesBlobFields(txBlobData.publicDataWrites),
+     encodePrivateLogsBlobFields(txBlobData.privateLogs),
+     txBlobData.publicLogs,
+-    txBlobData.contractClassLog,
++    contractClassLogHashFields,
+   ];
+ }
+ 

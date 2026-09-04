@@ -1,0 +1,915 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: IlyasRidhuan <ilyasridhuan@gmail.com>
+Date: Wed, 2 Sep 2026 09:18:44 +0000
+Subject: [PATCH] test: tx effects tree coverage and regenerated PXE compat
+ snapshots
+
+TS coverage for the tx effects tree: leaf/root computation, membership
+witness resolution and tampering, node interface schemas, and archiver
+block store round-trips. PXE backwards-compatibility snapshots, the
+compat network pins, and the p2p golden wire fixtures are regenerated
+for the new header field.
+
+The wire fixtures pin the exact bytes a peer produces and consumes for
+block and checkpoint proposals; each embeds a BlockHeader, so
+tx_effects_tree_root grows all three by one field.
+
+diff --git a/yarn-project/archiver/src/l1/data_retrieval.test.ts b/yarn-project/archiver/src/l1/data_retrieval.test.ts
+index e5dcdb336096ee814daf056c5a17fc550caa0484..fd552f9b385459558a93368ee485640e05da16d5 100644
+--- a/yarn-project/archiver/src/l1/data_retrieval.test.ts
++++ b/yarn-project/archiver/src/l1/data_retrieval.test.ts
+@@ -72,6 +72,13 @@ describe('data_retrieval', () => {
+         body3.txEffects.map(tx => tx.txHash.toString()),
+       );
+ 
++      // Each reconstructed header must carry the tx effects tree root of its own body
++      for (const [i, block] of publishedCheckpoint.checkpoint.blocks.entries()) {
++        const expectedRoot = await [body1, body2, body3][i].computeTxEffectsTreeRoot();
++        expect(block.header.txEffectsTreeRoot).toEqual(expectedRoot);
++        expect(block.header.txEffectsTreeRoot).not.toEqual(Fr.ZERO);
++      }
++
+       // Also verify blocks are distinct from each other
+       expect(reconstructedBlock1.body.txEffects.map(tx => tx.txHash.toString())).not.toEqual(
+         reconstructedBlock2.body.txEffects.map(tx => tx.txHash.toString()),
+diff --git a/yarn-project/archiver/src/modules/tx_effects_tree_resolver.test.ts b/yarn-project/archiver/src/modules/tx_effects_tree_resolver.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..6a1eb913223ba6febdc64dad5e3eb8b40c3d362b
+--- /dev/null
++++ b/yarn-project/archiver/src/modules/tx_effects_tree_resolver.test.ts
+@@ -0,0 +1,164 @@
++import { DomainSeparator } from '@aztec-labs/constants';
++import { BlockNumber } from '@aztec-labs/foundation/branded-types';
++import { poseidon2HashWithSeparator } from '@aztec-labs/foundation/crypto/poseidon';
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import type { AztecAsyncKVStore } from '@aztec-labs/kv-store';
++import { Body } from '@aztec-labs/stdlib/block';
++import { TxHash, computeTxEffectLeaves, verifyTxEffectMembershipWitness } from '@aztec-labs/stdlib/tx';
++import { type MockProxy, mock } from 'jest-mock-extended';
++
++import { TxEffectsTreeResolver, type TxEffectsTreeStoreView } from './tx_effects_tree_resolver.js';
++
++/** Block number every fixture block is served at. */
++const BLOCK_NUMBER = BlockNumber(7);
++
++describe('TxEffectsTreeResolver', () => {
++  let blocks: MockProxy<TxEffectsTreeStoreView>;
++  let resolver: TxEffectsTreeResolver;
++
++  beforeEach(() => {
++    blocks = mock<TxEffectsTreeStoreView>();
++    resolver = new TxEffectsTreeResolver(blocks, makeFakeStore());
++  });
++
++  it('returns undefined for a tx the archiver does not know', async () => {
++    blocks.getTxEffect.mockResolvedValue(undefined);
++    expect(await resolver.getTxEffectMembershipWitness(TxHash.random())).toBeUndefined();
++  });
++
++  it('returns undefined when the tx is indexed but its block is gone', async () => {
++    const body = await makeBody(2);
++    await wireStore(blocks, body);
++    blocks.getBlockData.mockResolvedValue(undefined);
++
++    expect(await resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash)).toBeUndefined();
++  });
++
++  it('builds a verifiable witness for every tx of a multi-tx block', async () => {
++    const body = await makeBody(3);
++    const root = await wireStore(blocks, body);
++
++    for (const txEffect of body.txEffects) {
++      const witness = await resolver.getTxEffectMembershipWitness(txEffect.txHash);
++      expect(witness).toBeDefined();
++      expect(witness!.blockNumber).toBe(BLOCK_NUMBER);
++      expect(witness!.root).toEqual(root);
++      expect(await verifyTxEffectMembershipWitness(await txEffect.computeTxEffectLeaf(), witness!, root)).toBe(true);
++    }
++  });
++
++  // The tree is greedily filled, so a 3-leaf tree pairs the first two leaves and shifts the last one up a level.
++  it('yields per-leaf path depths matching the unbalanced tree shape', async () => {
++    const body = await makeBody(3);
++    await wireStore(blocks, body);
++
++    const witnesses = await Promise.all(
++      body.txEffects.map(txEffect => resolver.getTxEffectMembershipWitness(txEffect.txHash)),
++    );
++
++    expect(witnesses.map(w => w!.siblingPath.pathSize)).toEqual([2, 2, 1]);
++    expect(witnesses.map(w => w!.leafIndex)).toEqual([0n, 1n, 1n]);
++  });
++
++  it('builds an empty witness for a single-tx block', async () => {
++    const body = await makeBody(1);
++    const root = await wireStore(blocks, body);
++
++    const witness = await resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash);
++    expect(witness!.siblingPath.pathSize).toBe(0);
++    expect(witness!.leafIndex).toBe(0n);
++    expect(witness!.root).toEqual(root);
++    expect(root).toEqual(await body.txEffects[0].computeTxEffectLeaf());
++  });
++
++  // Serves a second leaf that does not match the second tx's effects, so a resolver that recomputed the leaves from the
++  // block body instead of reading the stored ones would build a different tree and fail the header root check.
++  it('builds the witness from the stored leaves rather than recomputing them from the block', async () => {
++    const body = await makeBody(2);
++    const storedLeaves = [await body.txEffects[0].computeTxEffectLeaf(), Fr.random()];
++    const root = await wireStore(blocks, body, await hashPair(storedLeaves[0], storedLeaves[1]));
++    blocks.getTxEffectLeaves.mockResolvedValue(storedLeaves);
++
++    const witness = await resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash);
++
++    expect(witness!.root).toEqual(root);
++    expect(witness!.siblingPath.toFields()).toEqual([storedLeaves[1]]);
++  });
++
++  it('throws when the block has no stored leaves', async () => {
++    const body = await makeBody(2);
++    await wireStore(blocks, body);
++    blocks.getTxEffectLeaves.mockResolvedValue(undefined);
++
++    await expect(resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash)).rejects.toThrow(
++      'No tx effects tree leaves stored for block 7',
++    );
++  });
++
++  it('throws when the stored leaves do not hash up to the root in the block header', async () => {
++    const body = await makeBody(2);
++    await wireStore(blocks, body, Fr.random());
++
++    await expect(resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash)).rejects.toThrow(
++      'does not match its header',
++    );
++  });
++
++  it('throws when the stored leaf does not match the effects served for the tx', async () => {
++    const body = await makeBody(2);
++    await wireStore(blocks, body);
++    blocks.getTxEffectLeaves.mockResolvedValue([Fr.random(), await body.txEffects[1].computeTxEffectLeaf()]);
++
++    await expect(resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash)).rejects.toThrow('is indexed at');
++  });
++
++  it('throws when the tx index does not point at the tx it was looked up by', async () => {
++    const body = await makeBody(2);
++    await wireStore(blocks, body);
++    blocks.getTxEffect.mockResolvedValue({
++      l2BlockNumber: BLOCK_NUMBER,
++      txIndexInBlock: 1,
++      data: body.txEffects[0],
++    } as never);
++
++    await expect(resolver.getTxEffectMembershipWitness(body.txEffects[0].txHash)).rejects.toThrow('is indexed at');
++  });
++});
++
++/**
++ * Store double whose `transactionAsync` just runs the callback. The store view is mocked here, so there is no real
++ * snapshot to isolate; the resolver only needs the callback invoked.
++ */
++function makeFakeStore(): AztecAsyncKVStore {
++  const store = mock<AztecAsyncKVStore>();
++  store.transactionAsync.mockImplementation(callback => callback());
++  return store;
++}
++
++function makeBody(txsPerBlock: number): Promise<Body> {
++  return Body.random({ txsPerBlock, maxEffects: 1, numPublicCallsPerTx: 1 });
++}
++
++/**
++ * Wires the store view to serve a single block holding `body`: the block's header, its stored tx effects tree leaves,
++ * and each of its txs indexed by position. Returns the root the block header commits to, which is the body's own root
++ * unless `headerRoot` overrides it.
++ */
++async function wireStore(blocks: MockProxy<TxEffectsTreeStoreView>, body: Body, headerRoot?: Fr): Promise<Fr> {
++  const txEffectsTreeRoot = headerRoot ?? (await body.computeTxEffectsTreeRoot());
++  blocks.getBlockData.mockResolvedValue({ header: { txEffectsTreeRoot } } as never);
++  blocks.getTxEffectLeaves.mockResolvedValue(await computeTxEffectLeaves(body.txEffects));
++  blocks.getTxEffect.mockImplementation(((txHash: TxHash) => {
++    const txIndexInBlock = body.txEffects.findIndex(txEffect => txEffect.txHash.equals(txHash));
++    if (txIndexInBlock === -1) {
++      return Promise.resolve(undefined);
++    }
++    return Promise.resolve({ l2BlockNumber: BLOCK_NUMBER, txIndexInBlock, data: body.txEffects[txIndexInBlock] });
++  }) as never);
++  return txEffectsTreeRoot;
++}
++
++/** Hashes a pair of nodes the way the tx effects tree does. */
++function hashPair(left: Fr, right: Fr): Promise<Fr> {
++  return poseidon2HashWithSeparator([left, right], DomainSeparator.TX_EFFECTS_TREE);
++}
+diff --git a/yarn-project/archiver/src/store/block_store.test.ts b/yarn-project/archiver/src/store/block_store.test.ts
+index de6a2d08a7d24d2af388037083a76a68d34db093..9924339e99d14985a177d8d3a8276ac3fce86872 100644
+--- a/yarn-project/archiver/src/store/block_store.test.ts
++++ b/yarn-project/archiver/src/store/block_store.test.ts
+@@ -20,7 +20,7 @@ import { Checkpoint, PublishedCheckpoint, randomCheckpointInfo } from '@aztec-la
+ import { CheckpointHeader } from '@aztec-labs/stdlib/rollup';
+ import '@aztec-labs/stdlib/testing/jest';
+ import { AppendOnlyTreeSnapshot } from '@aztec-labs/stdlib/trees';
+-import { type IndexedTxEffect, TxHash } from '@aztec-labs/stdlib/tx';
++import { type IndexedTxEffect, TxHash, computeTxEffectLeaves } from '@aztec-labs/stdlib/tx';
+ 
+ import {
+   BlockAlreadyCheckpointedError,
+@@ -1990,6 +1990,58 @@ describe('BlockStore', () => {
+     });
+   });
+ 
++  describe('getTxEffectLeaves', () => {
++    const getBlock = (i: number) => publishedCheckpoints[i].checkpoint.blocks[0];
++
++    it('stores the tx effects tree leaves of every block added as part of a checkpoint', async () => {
++      await blockStore.addCheckpoints(publishedCheckpoints);
++
++      for (const checkpoint of publishedCheckpoints) {
++        for (const block of checkpoint.checkpoint.blocks) {
++          await expect(blockStore.getTxEffectLeaves(block.number)).resolves.toEqual(
++            await computeTxEffectLeaves(block.body.txEffects),
++          );
++        }
++      }
++    });
++
++    it('stores the tx effects tree leaves of a proposed block', async () => {
++      const block = getBlock(0);
++      await blockStore.addProposedBlock(block);
++
++      await expect(blockStore.getTxEffectLeaves(block.number)).resolves.toEqual(
++        await computeTxEffectLeaves(block.body.txEffects),
++      );
++    });
++
++    it('returns undefined for a block that is not stored', async () => {
++      await blockStore.addCheckpoints(publishedCheckpoints.slice(0, 2));
++
++      await expect(blockStore.getTxEffectLeaves(BlockNumber(5))).resolves.toBeUndefined();
++    });
++
++    it('deletes the leaves of unwound blocks', async () => {
++      await blockStore.addCheckpoints(publishedCheckpoints);
++      await blockStore.removeBlocksAfter(BlockNumber(4));
++
++      await expect(blockStore.getTxEffectLeaves(BlockNumber(4))).resolves.toEqual(
++        await computeTxEffectLeaves(getBlock(3).body.txEffects),
++      );
++      for (let blockNumber = 5; blockNumber <= 10; blockNumber++) {
++        await expect(blockStore.getTxEffectLeaves(BlockNumber(blockNumber))).resolves.toBeUndefined();
++      }
++    });
++
++    it('deletes the leaves of blocks in removed checkpoints', async () => {
++      await blockStore.addCheckpoints(publishedCheckpoints);
++      await blockStore.removeCheckpointsAfter(CheckpointNumber(0));
++
++      for (let blockNumber = 1; blockNumber <= 10; blockNumber++) {
++        await expect(blockStore.getTxEffectLeaves(BlockNumber(blockNumber))).resolves.toBeUndefined();
++      }
++    });
++  });
++
+   describe('getNoteHashesAndNullifiers', () => {
+     beforeEach(async () => {
+       await blockStore.addCheckpoints(publishedCheckpoints);
+diff --git a/yarn-project/archiver/src/test/mock_l2_block_source.ts b/yarn-project/archiver/src/test/mock_l2_block_source.ts
+index 561878709307017c98093e82dbbc3d7db09c8b31..746149e700d8b1ef9cb8e10274ea22675857a13a 100644
+--- a/yarn-project/archiver/src/test/mock_l2_block_source.ts
++++ b/yarn-project/archiver/src/test/mock_l2_block_source.ts
+@@ -365,6 +365,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
+     return Promise.resolve(undefined);
+   }
+ 
++  public getTxEffectMembershipWitness(): Promise<undefined> {
++    // Mock does not back the tx effect membership witness flow.
++    return Promise.resolve(undefined);
++  }
++
+   async getL2Tips(): Promise<L2Tips> {
+     const [latest, proven, finalized, checkpointed] = [
+       await this.getBlockNumber(),
+diff --git a/yarn-project/aztec/src/mainnet_compatibility.test.ts b/yarn-project/aztec/src/mainnet_compatibility.test.ts
+index 9231514e95b1d534ea49ab4111acc6b7ae16a50f..7f1ee58760e8c8f7823a16d91d73afc04e05fd1d 100644
+--- a/yarn-project/aztec/src/mainnet_compatibility.test.ts
++++ b/yarn-project/aztec/src/mainnet_compatibility.test.ts
+@@ -9,12 +9,12 @@ import { getGenesisValues } from '@aztec-labs/world-state/testing';
+  */
+ describe('Mainnet compatibility', () => {
+   it('has expected VK tree root', () => {
+-    const expectedRoots = [Fr.fromHexString('0x18e358ea5367f6069a4c1c08a2e0628fbb1b25c00b0b98160072d4ad397bae7c')];
++    const expectedRoots = [Fr.fromHexString('0x258bc0b99bbadc087d8d8f7c78e4b41ba24c8d6979dbe698e00411bd7ec11891')];
+     expect(expectedRoots).toContainEqual(getVKTreeRoot());
+   });
+   it('has expected Protocol Contracts tree root', () => {
+     expect(protocolContractsHash).toEqual(
+-      Fr.fromHexString('0x2d0277dcfbd0213fa60233bb3edb87acabedcaff904a4e65830be9f30b881f70'),
++      Fr.fromHexString('0x04b0ccfafec7ff9a4a31c67c21377f73a8c01dcadc8710ee2a8e7751565db7f4'),
+     );
+   });
+   it('has expected Genesis tree roots', async () => {
+@@ -25,7 +25,7 @@ describe('Mainnet compatibility', () => {
+       /* initial public data leaves */ [],
+     );
+     expect(genesisArchiveRoot).toEqual(
+-      Fr.fromHexString('0x177a4955b31ecaafad999753938a44e526b54c5ba5d536688227f85f15cfbdf5'),
++      Fr.fromHexString('0x0a0877e7fa8646252b46122976de111ece73d0cc054da8d780e3f12ec1709305'),
+     );
+   });
+ });
+diff --git a/yarn-project/aztec/src/testnet_compatibility.test.ts b/yarn-project/aztec/src/testnet_compatibility.test.ts
+index 0c9c3ed556677628740102292367411056780249..f8ed746df39e3822533d1173352383f7a50c0eb7 100644
+--- a/yarn-project/aztec/src/testnet_compatibility.test.ts
++++ b/yarn-project/aztec/src/testnet_compatibility.test.ts
+@@ -11,12 +11,12 @@ import { getGenesisValues } from '@aztec-labs/world-state/testing';
+  */
+ describe('Testnet compatibility', () => {
+   it('has expected VK tree root', () => {
+-    const expectedRoots = [Fr.fromHexString('0x18e358ea5367f6069a4c1c08a2e0628fbb1b25c00b0b98160072d4ad397bae7c')];
++    const expectedRoots = [Fr.fromHexString('0x258bc0b99bbadc087d8d8f7c78e4b41ba24c8d6979dbe698e00411bd7ec11891')];
+     expect(expectedRoots).toContainEqual(getVKTreeRoot());
+   });
+   it('has expected Protocol Contracts hash', () => {
+     expect(protocolContractsHash).toEqual(
+-      Fr.fromHexString('0x2d0277dcfbd0213fa60233bb3edb87acabedcaff904a4e65830be9f30b881f70'),
++      Fr.fromHexString('0x04b0ccfafec7ff9a4a31c67c21377f73a8c01dcadc8710ee2a8e7751565db7f4'),
+     );
+   });
+   it('has expected Genesis tree roots', async () => {
+@@ -26,7 +26,7 @@ describe('Testnet compatibility', () => {
+     const { genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
+ 
+     expect(genesisArchiveRoot).toEqual(
+-      Fr.fromHexString('0x1166dcb89990c7e99ee40ae5cd2bb2ea2542a28e5e72aa6c11daa4a7b1fa1e12'),
++      Fr.fromHexString('0x271f7321aa0cb733bdee9ddd1b0497bb1b4b97eea2182cee0f516c19005ab2bf'),
+     );
+   });
+ });
+diff --git a/yarn-project/prover-client/src/light/lightweight_checkpoint_builder.test.ts b/yarn-project/prover-client/src/light/lightweight_checkpoint_builder.test.ts
+index aa849aeb4cf0493e42512914f7b90378ff89ec2f..6fa99499c08051bc8897ac3838c6c3bb9d5dcf59 100644
+--- a/yarn-project/prover-client/src/light/lightweight_checkpoint_builder.test.ts
++++ b/yarn-project/prover-client/src/light/lightweight_checkpoint_builder.test.ts
+@@ -114,6 +114,8 @@ describe('LightweightCheckpointBuilder', () => {
+       const { block } = await checkpointBuilder.addBlock(globalVariables, [], [], { insertTxsEffects: true });
+ 
+       expect(block.header.globalVariables.blockNumber).toEqual(blockNumber);
++      // A block with no txs has an empty tx effects tree.
++      expect(block.header.txEffectsTreeRoot).toEqual(Fr.ZERO);
+ 
+       // Complete checkpoint
+       const checkpoint = await checkpointBuilder.completeCheckpoint();
+@@ -208,6 +210,8 @@ describe('LightweightCheckpointBuilder', () => {
+ 
+       expect(block.header.globalVariables.blockNumber).toEqual(blockNumber);
+       expect(block.body.txEffects.length).toBe(3);
++      expect(block.header.txEffectsTreeRoot).toEqual(await block.body.computeTxEffectsTreeRoot());
++      expect(block.header.txEffectsTreeRoot).not.toEqual(Fr.ZERO);
+ 
+       // Complete checkpoint
+       const checkpoint = await checkpointBuilder.completeCheckpoint();
+diff --git a/yarn-project/pxe/src/contract_function_simulator/oracle/private_execution.test.ts b/yarn-project/pxe/src/contract_function_simulator/oracle/private_execution.test.ts
+index c3da83d5e9137f24dd91363fc4020a9573793185..aa3c28045c5c6d4830bff30de8e809dc158ff825 100644
+--- a/yarn-project/pxe/src/contract_function_simulator/oracle/private_execution.test.ts
++++ b/yarn-project/pxe/src/contract_function_simulator/oracle/private_execution.test.ts
+@@ -231,6 +231,7 @@ describe('Private Execution test suite', () => {
+       anchorBlockHeader.lastArchive,
+       state,
+       anchorBlockHeader.spongeBlobHash,
++      anchorBlockHeader.txEffectsTreeRoot,
+       anchorBlockHeader.globalVariables,
+       anchorBlockHeader.totalFees,
+       anchorBlockHeader.totalManaUsed,
+diff --git a/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/AnchorBlockStore.json b/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/AnchorBlockStore.json
+index 2d2256e6e58b7b081c2a327dd76fec8056d72849..4eff15a51fcea2330597ffaff28d84f18e3a6db7 100644
+--- a/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/AnchorBlockStore.json
++++ b/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/AnchorBlockStore.json
+@@ -1,3 +1,3 @@
+ {
+-  "header": "000000000000000000000000000000000000000000000000000000000000000200000003000000000000000000000000000000000000000000000000000000000000000500000007000000000000000000000000000000000000000000000000000000000000000b0000000d00000000000000000000000000000000000000000000000000000000000000110000001300000000000000000000000000000000000000000000000000000000000000170000001d000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000002500000000000000000000000000000000000000000000000000000000000000290000002b0000002f0000000000000035000000000000000000000000000000000000003b000000000000000000000000000000000000000000000000000000000000003d00000000000000000000000000000043000000000000000000000000000000470000000000000000000000000000000000000000000000000000000000000049000000000000000000000000000000000000000000000000000000000000004f"
++  "header": "000000000000000000000000000000000000000000000000000000000000000200000003000000000000000000000000000000000000000000000000000000000000000500000007000000000000000000000000000000000000000000000000000000000000000b0000000d00000000000000000000000000000000000000000000000000000000000000110000001300000000000000000000000000000000000000000000000000000000000000170000001d000000000000000000000000000000000000000000000000000000000000001f0000000000000000000000000000000000000000000000000000000000000053000000000000000000000000000000000000000000000000000000000000002500000000000000000000000000000000000000000000000000000000000000290000002b0000002f0000000000000035000000000000000000000000000000000000003b000000000000000000000000000000000000000000000000000000000000003d00000000000000000000000000000043000000000000000000000000000000470000000000000000000000000000000000000000000000000000000000000049000000000000000000000000000000000000000000000000000000000000004f"
+ }
+diff --git a/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/L2TipsKVStore.json b/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/L2TipsKVStore.json
+index c919b85f457b5aa5b6c01186771ee7e0a6747579..d250e251a8ce0be7074b97964a86ece74b8fa374 100644
+--- a/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/L2TipsKVStore.json
++++ b/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/L2TipsKVStore.json
+@@ -26,7 +26,7 @@
+   "pxe_l2_block_hashes": [
+     {
+       "key": "num:179",
+-      "value": "utf8:0x10547c3c23be9d4208cc6d60355ca61c35bd612ace129984ed97a6cc4ec007f8"
++      "value": "utf8:0x0a30c4915f2e60221029d15eb2db1814c1c08a518ef49560d42ff821a78bdbbc"
+     },
+     {
+       "key": "num:71",
+diff --git a/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/opened_stores.json b/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/opened_stores.json
+index e4567b51804ccb7d8326e8a5d6bd8e406138c2f5..3fcb69a82dd57e324a827369bf06a9c2ba2a75a1 100644
+--- a/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/opened_stores.json
++++ b/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/opened_stores.json
+@@ -1,5 +1,5 @@
+ {
+-  "schemaVersion": 14,
++  "schemaVersion": 15,
+   "stores": [
+     {
+       "name": "capsules",
+diff --git a/yarn-project/pxe/src/storage/backwards_compatibility_tests/schema_tests.ts b/yarn-project/pxe/src/storage/backwards_compatibility_tests/schema_tests.ts
+index 9fc8fc24653c404b78931f2b14d5e264c696467e..f294c6484d57211c2705a15036b98a163e6aebd8 100644
+--- a/yarn-project/pxe/src/storage/backwards_compatibility_tests/schema_tests.ts
++++ b/yarn-project/pxe/src/storage/backwards_compatibility_tests/schema_tests.ts
+@@ -103,6 +103,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
+             ),
+           ),
+           new Fr(31n),
++          new Fr(83n),
+           new GlobalVariables(
+             new Fr(37n),
+             new Fr(41n),
+@@ -709,6 +710,7 @@ function buildL2Block(): L2Block {
+       ),
+     ),
+     new Fr(163n),
++    new Fr(347n),
+     new GlobalVariables(
+       new Fr(167n),
+       new Fr(173n),
+diff --git a/yarn-project/stdlib/src/block/body.test.ts b/yarn-project/stdlib/src/block/body.test.ts
+index 0b705983405a349602c390012afe819173e5949d..d5753c467814518645b604ca41e8efcb7ceeb5e9 100644
+--- a/yarn-project/stdlib/src/block/body.test.ts
++++ b/yarn-project/stdlib/src/block/body.test.ts
+@@ -1,3 +1,6 @@
++import { DomainSeparator } from '@aztec-labs/constants';
++import { poseidon2HashWithSeparator } from '@aztec-labs/foundation/crypto/poseidon';
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { jsonStringify } from '@aztec-labs/foundation/json-rpc';
+ 
+ import { Body } from './body.js';
+@@ -26,4 +29,41 @@ describe('Body', () => {
+     const parsed = Body.schema.parse(JSON.parse(jsonStringify(body)));
+     expect(parsed).toEqual(body);
+   });
++
++  describe('tx effects tree root', () => {
++    const node = (left: Fr, right: Fr) => poseidon2HashWithSeparator([left, right], DomainSeparator.TX_EFFECTS_TREE);
++
++    const makeBody = (txsPerBlock: number) => Body.random({ txsPerBlock, maxEffects: 1, numPublicCallsPerTx: 1 });
++
++    const leaves = (body: Body) => Promise.all(body.txEffects.map(txEffect => txEffect.computeTxEffectLeaf()));
++
++    it('is zero for a block with no txs', async () => {
++      expect(await Body.empty().computeTxEffectsTreeRoot()).toEqual(Fr.ZERO);
++    });
++
++    it('is the leaf itself for one tx', async () => {
++      const body = await makeBody(1);
++      const [leaf] = await leaves(body);
++      expect(await body.computeTxEffectsTreeRoot()).toEqual(leaf);
++    });
++
++    it('pairs the leaves for two txs', async () => {
++      const body = await makeBody(2);
++      const [l0, l1] = await leaves(body);
++      expect(await body.computeTxEffectsTreeRoot()).toEqual(await node(l0, l1));
++    });
++
++    it('shifts the odd leaf up for three txs', async () => {
++      const body = await makeBody(3);
++      const [l0, l1, l2] = await leaves(body);
++      expect(await body.computeTxEffectsTreeRoot()).toEqual(await node(await node(l0, l1), l2));
++    });
++
++    it('fills the left subtree greedily for five txs', async () => {
++      const body = await makeBody(5);
++      const [l0, l1, l2, l3, l4] = await leaves(body);
++      const left = await node(await node(l0, l1), await node(l2, l3));
++      expect(await body.computeTxEffectsTreeRoot()).toEqual(await node(left, l4));
++    });
++  });
+ });
+diff --git a/yarn-project/stdlib/src/interfaces/archiver.test.ts b/yarn-project/stdlib/src/interfaces/archiver.test.ts
+index 9513cb6e921a0f3660c28294e59e4510072dec32..e07a03adddec04e478a394ac86534a0da98765be 100644
+--- a/yarn-project/stdlib/src/interfaces/archiver.test.ts
++++ b/yarn-project/stdlib/src/interfaces/archiver.test.ts
+@@ -3,6 +3,7 @@ import { randomInt } from '@aztec-labs/foundation/crypto/random';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { EthAddress } from '@aztec-labs/foundation/eth-address';
+ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec-labs/foundation/json-rpc/test';
++import { SiblingPath } from '@aztec-labs/foundation/trees';
+ import omit from 'lodash.omit';
+ 
+ import type { ContractArtifact } from '../abi/abi.js';
+@@ -42,6 +43,7 @@ import { getTokenContractArtifact } from '../tests/fixtures.js';
+ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+ import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
+ import { TxEffect } from '../tx/tx_effect.js';
++import type { TxEffectMembershipWitness } from '../tx/tx_effect_membership.js';
+ import { TxHash } from '../tx/tx_hash.js';
+ import { MAX_RPC_CHECKPOINTS_DATA_LEN } from './api_limit.js';
+ import { type ArchiverApi, ArchiverApiSchema } from './archiver.js';
+@@ -130,6 +132,11 @@ describe('ArchiverApiSchema', () => {
+     expect(result).toBeUndefined();
+   });
+ 
++  it('getTxEffectMembershipWitness', async () => {
++    const result = await context.client.getTxEffectMembershipWitness(TxHash.random());
++    expect(result).toEqual(mockTxEffectMembershipWitness());
++  });
++
+   it('getSyncedL2SlotNumber', async () => {
+     const result = await context.client.getSyncedL2SlotNumber();
+     expect(result).toBe(SlotNumber(1));
+@@ -403,6 +410,17 @@ describe('CheckpointsQuerySchema', () => {
+   });
+ });
+ 
++/** Fixed witness with a two-level sibling path, so the schema round-trip covers a non-empty path. */
++function mockTxEffectMembershipWitness(): TxEffectMembershipWitness {
++  const path = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
++  return {
++    blockNumber: BlockNumber(1),
++    root: new Fr(0x42),
++    leafIndex: 1n,
++    siblingPath: new SiblingPath(path.length, path),
++  };
++}
++
+ class MockArchiver implements ArchiverApi {
+   constructor(private artifact: ContractArtifact) {}
+ 
+@@ -486,6 +504,10 @@ class MockArchiver implements ArchiverApi {
+   getL2ToL1MembershipWitness(): Promise<undefined> {
+     return Promise.resolve(undefined);
+   }
++  getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined> {
++    expect(txHash).toBeInstanceOf(TxHash);
++    return Promise.resolve(mockTxEffectMembershipWitness());
++  }
+   getSyncedL2SlotNumber(): Promise<SlotNumber> {
+     return Promise.resolve(SlotNumber(1));
+   }
+diff --git a/yarn-project/stdlib/src/interfaces/aztec-node.test.ts b/yarn-project/stdlib/src/interfaces/aztec-node.test.ts
+index 85a529df60b1de83d8030b5326ef9cdbccd83ec9..01a10d1a06ded5cd45e9fd3044dafec5ae7ebe4d 100644
+--- a/yarn-project/stdlib/src/interfaces/aztec-node.test.ts
++++ b/yarn-project/stdlib/src/interfaces/aztec-node.test.ts
+@@ -48,6 +48,7 @@ import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
+ import { SimulationOverrides } from '../tx/simulated_tx.js';
+ import { Tx } from '../tx/tx.js';
+ import { TxEffect } from '../tx/tx_effect.js';
++import type { TxEffectMembershipWitness } from '../tx/tx_effect_membership.js';
+ import { TxHash } from '../tx/tx_hash.js';
+ import {
+   DroppedTxReceipt,
+@@ -173,6 +174,11 @@ describe('AztecNodeApiSchema', () => {
+     expect(response).toBeUndefined();
+   });
+ 
++  it('getTxEffectMembershipWitness', async () => {
++    const response = await context.client.getTxEffectMembershipWitness(TxHash.random());
++    expect(response).toEqual(mockTxEffectMembershipWitness());
++  });
++
+   it('getBlockHashMembershipWitness', async () => {
+     const response = await context.client.getBlockHashMembershipWitness(BlockNumber(1), BlockHash.random());
+     expect(response).toBeInstanceOf(MembershipWitness);
+@@ -604,6 +610,17 @@ describe('AztecNodeApiSchema', () => {
+   });
+ });
+ 
++/** Fixed witness with a two-level sibling path, so the schema round-trip covers a non-empty path. */
++function mockTxEffectMembershipWitness(): TxEffectMembershipWitness {
++  const path = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
++  return {
++    blockNumber: BlockNumber(1),
++    root: new Fr(0x42),
++    leafIndex: 1n,
++    siblingPath: new SiblingPath(path.length, path),
++  };
++}
++
+ class MockAztecNode implements AztecNode {
+   public validatorStats: ValidatorsStats | undefined;
+   public singleValidatorStats: SingleValidatorStats | undefined;
+@@ -754,6 +771,10 @@ class MockAztecNode implements AztecNode {
+     expect(message).toBeInstanceOf(Fr);
+     return Promise.resolve(undefined);
+   }
++  getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined> {
++    expect(txHash).toBeInstanceOf(TxHash);
++    return Promise.resolve(mockTxEffectMembershipWitness());
++  }
+   getNullifierMembershipWitness(
+     referenceBlock: BlockParameter,
+     nullifier: Fr,
+diff --git a/yarn-project/stdlib/src/p2p/wire_compat_fixtures.ts b/yarn-project/stdlib/src/p2p/wire_compat_fixtures.ts
+index 59813e0aee65aa6097f8a9fd1d26602f98817508..9f69c240e22b55f76fb158e9f447d36f586205d9 100644
+--- a/yarn-project/stdlib/src/p2p/wire_compat_fixtures.ts
++++ b/yarn-project/stdlib/src/p2p/wire_compat_fixtures.ts
+@@ -1,7 +1,8 @@
+ // Golden wire fixtures that pin the exact bytes a peer produces and consumes, so the optional bucket-reference tail
+ // added to proposals stays wire compatible: an unset proposal must serialize to these bytes, and decoding these bytes
+ // must yield no bucket reference. The block-proposal fixtures were refreshed for the removal of the legacy `inHash`
+-// field; the checkpoint-proposal fixture was refreshed for the checkpoint-header format change.
++// field; the checkpoint-proposal fixture was refreshed for the checkpoint-header format change. All three were
++// refreshed again for the `tx_effects_tree_root` block-header field, which adds 32 bytes to every embedded header.
+ //
+ // Both fixtures come from a deterministic proposal built with:
+ //   BlockHeader.empty(), IndexWithinCheckpoint(3), archiveRoot=Fr(99),
+@@ -12,12 +13,12 @@
+ 
+ /** Legacy `BlockProposal.toBuffer()` bytes (no signedTxs, no bucket reference). */
+ export const LEGACY_BLOCK_PROPOSAL_HEX =
+-  '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000630000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000007000000000000000000000000000000000000000000000000000000000000000800000000';
++  '0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000630000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000007000000000000000000000000000000000000000000000000000000000000000800000000';
+ 
+ /** Legacy `CheckpointProposal.toBuffer()` bytes (lastBlock without signedTxs or bucket reference). */
+ export const LEGACY_CHECKPOINT_PROPOSAL_HEX =
+-  '0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000700000000';
++  '0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000700000000';
+ 
+ /** Legacy `BlockProposal.getPayloadToSign()` bytes (no bucket reference). */
+ export const LEGACY_BLOCK_PROPOSAL_PAYLOAD_HEX =
+-  '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000630000000200000000000000000000000000000000000000000000000000000000000000070000000000000000000000000000000000000000000000000000000000000008';
++  '0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000630000000200000000000000000000000000000000000000000000000000000000000000070000000000000000000000000000000000000000000000000000000000000008';
+diff --git a/yarn-project/stdlib/src/tests/factories.ts b/yarn-project/stdlib/src/tests/factories.ts
+index 4a8be2ca7beba5e7f1e50f672166f75e04deb18a..44fe96345f0aea47d99dc216dbae313286efb773 100644
+--- a/yarn-project/stdlib/src/tests/factories.ts
++++ b/yarn-project/stdlib/src/tests/factories.ts
+@@ -767,6 +767,7 @@ export function makeTxRollupPublicInputs(
+     fr(seed + 0x901),
+     fr(seed + 0x902),
+     fr(seed + 0x903),
++    fr(seed + 0x904),
+   );
+ }
+ 
+@@ -860,6 +861,7 @@ export function makeBlockHeader(
+     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x100),
+     state: makeStateReference(seed + 0x200),
+     spongeBlobHash: fr(seed + 0x300),
++    txEffectsTreeRoot: fr(seed + 0x350),
+     globalVariables: makeGlobalVariables((seed += 0x700), overrides),
+     totalFees: fr(seed + 0x800),
+     totalManaUsed: fr(seed + 0x900),
+diff --git a/yarn-project/stdlib/src/tx/block_header.test.ts b/yarn-project/stdlib/src/tx/block_header.test.ts
+index f9b75e7d1b8dfdd41f7f32a3f80cd609d44709c8..7c85f2899b4f8c9d1fb9d9842296c4cbf77a539c 100644
+--- a/yarn-project/stdlib/src/tx/block_header.test.ts
++++ b/yarn-project/stdlib/src/tx/block_header.test.ts
+@@ -31,7 +31,7 @@ describe('BlockHeader', () => {
+     const header = makeBlockHeader(seed);
+     const hash = await header.hash();
+     expect(hash.toString()).toMatchInlineSnapshot(
+-      `"0x27d0765b4598120655fbb5cb342ba762d26206245213de0f8bf97ae8f69f82ca"`,
++      `"0x2bc57f4ce71a821fbe04fe627cd6b17ef566160f8f25b4f6a10cc961bcaba18b"`,
+     );
+   });
+ 
+@@ -44,7 +44,7 @@ describe('BlockHeader', () => {
+     const header = BlockHeader.empty();
+     const hash = await header.hash();
+     expect(hash.toString()).toMatchInlineSnapshot(
+-      `"0x0bdc537052dea0f80db9698585dff9f32063b86b6d4934ac17c30c81e8e416d3"`,
++      `"0x270629a7878b72709d3600bf6f84458849d70beb86506bbdfa05ba9fe0e130c9"`,
+     );
+ 
+     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+diff --git a/yarn-project/stdlib/src/tx/tx_effect.test.ts b/yarn-project/stdlib/src/tx/tx_effect.test.ts
+index 60256a565c82278e501db7b0db43ee8873a9cf58..56fdb873903b75a58947ef7ee3d3de88a7159084 100644
+--- a/yarn-project/stdlib/src/tx/tx_effect.test.ts
++++ b/yarn-project/stdlib/src/tx/tx_effect.test.ts
+@@ -1,8 +1,43 @@
+ import { BlobDeserializationError } from '@aztec-labs/blob-lib';
++import { encodeTxStartMarker } from '@aztec-labs/blob-lib/encoding';
++import { DomainSeparator } from '@aztec-labs/constants';
++import { poseidon2HashWithSeparator } from '@aztec-labs/foundation/crypto/poseidon';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { jsonStringify } from '@aztec-labs/foundation/json-rpc';
++import { updateInlineTestData } from '@aztec-labs/foundation/testing/files';
+ 
++import { PublicDataWrite } from '../avm/public_data_write.js';
++import { RevertCode } from '../avm/revert_code.js';
++import { AztecAddress } from '../aztec-address/index.js';
++import { ContractClassLog } from '../logs/contract_class_log.js';
++import { PrivateLog } from '../logs/private_log.js';
++import { PublicLog } from '../logs/public_log.js';
+ import { TxEffect } from './tx_effect.js';
++import { TxHash } from './tx_hash.js';
++
++const CONTRACT_CLASS_LOG_ADDRESS = 77n;
++const PUBLIC_LOG_ADDRESS = 200n;
++
++/**
++ * A tx effect with a couple of items in every field, mirrored field for field by `small_fixture` in
++ * `noir-projects/fnd/noir-protocol-circuits/crates/types/src/blob_data/tx_effect.nr`.
++ */
++function smallFixture(): TxEffect {
++  return new TxEffect(
++    RevertCode.REVERTED,
++    TxHash.fromBigInt(0x1234n),
++    new Fr(42),
++    [new Fr(11), new Fr(12)],
++    [new Fr(21)],
++    [new Fr(31)],
++    [new PublicDataWrite(new Fr(41), new Fr(42))],
++    [PrivateLog.fromBlobFields(3, [new Fr(101), new Fr(102), new Fr(103)])],
++    [new PublicLog(AztecAddress.fromBigIntUnsafe(PUBLIC_LOG_ADDRESS), [new Fr(201), new Fr(202)])],
++    [ContractClassLog.fromBlobFields(2, [new Fr(CONTRACT_CLASS_LOG_ADDRESS), new Fr(301), new Fr(302)])],
++  );
++}
++
++const fieldHash = (blobFields: Fr[]) => poseidon2HashWithSeparator(blobFields, DomainSeparator.TX_EFFECT_FIELD_HASH);
+ 
+ describe('TxEffect', () => {
+   it('converts to and from buffer', async () => {
+@@ -56,4 +91,83 @@ describe('TxEffect', () => {
+     fields.push(new Fr(7));
+     expect(TxEffect.fromBlobFields(fields)).toEqual(txEffect);
+   });
++
++  it('rejects more contract class logs than the protocol maximum', () => {
++    const txEffect = smallFixture();
++    const extraLog = ContractClassLog.fromBlobFields(2, [new Fr(CONTRACT_CLASS_LOG_ADDRESS), new Fr(303), new Fr(304)]);
++    expect(
++      () =>
++        new TxEffect(
++          txEffect.revertCode,
++          txEffect.txHash,
++          txEffect.transactionFee,
++          txEffect.noteHashes,
++          txEffect.nullifiers,
++          txEffect.l2ToL1Msgs,
++          txEffect.publicDataWrites,
++          txEffect.privateLogs,
++          txEffect.publicLogs,
++          [...txEffect.contractClassLogs, extraLog],
++        ),
++    ).toThrow(/Too many contract class logs/);
++  });
++
++  describe('effect hash', () => {
++    it('hashes each field over its slice of the blob encoding', async () => {
++      const txEffect = smallFixture();
++
++      const expectedTxEffectHash = await poseidon2HashWithSeparator(
++        [
++          encodeTxStartMarker(txEffect.getTxStartMarker()),
++          new Fr(42), // transactionFee
++          await fieldHash([new Fr(11), new Fr(12)]),
++          await fieldHash([new Fr(21)]),
++          await fieldHash([new Fr(31)]),
++          await fieldHash([new Fr(41), new Fr(42)]),
++          await fieldHash([new Fr(3), new Fr(101), new Fr(102), new Fr(103)]),
++          await fieldHash([new Fr(2), new Fr(PUBLIC_LOG_ADDRESS), new Fr(201), new Fr(202)]),
++          await fieldHash([new Fr(CONTRACT_CLASS_LOG_ADDRESS), new Fr(301), new Fr(302)]),
++        ],
++        DomainSeparator.TX_EFFECT_HASH,
++      );
++
++      expect(await txEffect.computeTxEffectHash()).toEqual(expectedTxEffectHash);
++    });
++
++    it('hashes empty fields to zero', async () => {
++      const txEffect = TxEffect.empty();
++
++      const expectedTxEffectHash = await poseidon2HashWithSeparator(
++        [encodeTxStartMarker(txEffect.getTxStartMarker()), Fr.ZERO, ...Array(7).fill(Fr.ZERO)],
++        DomainSeparator.TX_EFFECT_HASH,
++      );
++
++      expect(await txEffect.computeTxEffectHash()).toEqual(expectedTxEffectHash);
++    });
++
++    it('binds the tx hash into the leaf', async () => {
++      const txEffect = smallFixture();
++
++      const expectedLeaf = await poseidon2HashWithSeparator(
++        [txEffect.txHash.hash, await txEffect.computeTxEffectHash()],
++        DomainSeparator.TX_EFFECT_LEAF,
++      );
++
++      expect(await txEffect.computeTxEffectLeaf()).toEqual(expectedLeaf);
++    });
++
++    it('computes the leaf of the fixture', async () => {
++      const leaf = await smallFixture().computeTxEffectLeaf();
++      expect(leaf.toString()).toMatchInlineSnapshot(
++        `"0x23123931ffdee54cf34fbf657b7817ad5fcae54bce508a739a01977591b991cc"`,
++      );
++
++      // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
++      updateInlineTestData(
++        'noir-projects/fnd/noir-protocol-circuits/crates/types/src/blob_data/tx_effect.nr',
++        'test_data_tx_effect_leaf',
++        leaf.toString(),
++      );
++    });
++  });
+ });
+diff --git a/yarn-project/stdlib/src/tx/tx_effect_membership.test.ts b/yarn-project/stdlib/src/tx/tx_effect_membership.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..a57f46940a914ede2c2cee6259f19fb779f9c178
+--- /dev/null
++++ b/yarn-project/stdlib/src/tx/tx_effect_membership.test.ts
+@@ -0,0 +1,83 @@
++import { BlockNumber } from '@aztec-labs/foundation/branded-types';
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { jsonParseWithSchema, jsonStringify } from '@aztec-labs/foundation/json-rpc';
++import { SiblingPath } from '@aztec-labs/foundation/trees';
++
++import { Body } from '../block/body.js';
++import {
++  TxEffectMembershipWitnessSchema,
++  computeRootFromTxEffectMembershipWitness,
++  computeTxEffectMembershipWitness,
++  verifyTxEffectMembershipWitness,
++} from './tx_effect_membership.js';
++
++describe('TxEffectMembershipWitness', () => {
++  const makeBody = (txsPerBlock: number) => Body.random({ txsPerBlock, maxEffects: 1, numPublicCallsPerTx: 1 });
++
++  it('round trips through the schema', () => {
++    const witness = {
++      blockNumber: BlockNumber(7),
++      root: Fr.random(),
++      leafIndex: 3n,
++      siblingPath: new SiblingPath(2, [Fr.random().toBuffer(), Fr.random().toBuffer()]),
++    };
++    expect(jsonParseWithSchema(jsonStringify(witness), TxEffectMembershipWitnessSchema)).toEqual(witness);
++  });
++
++  it('builds witnesses against the same root the block body commits to', async () => {
++    const body = await makeBody(5);
++    const root = await body.computeTxEffectsTreeRoot();
++
++    for (let txIndex = 0; txIndex < body.txEffects.length; txIndex++) {
++      const witness = await computeTxEffectMembershipWitness(body.txEffects, txIndex);
++      expect(witness.root).toEqual(root);
++    }
++  });
++
++  it('builds an empty witness for a single-tx block', async () => {
++    const body = await makeBody(1);
++    const witness = await computeTxEffectMembershipWitness(body.txEffects, 0);
++
++    expect(witness.siblingPath.pathSize).toBe(0);
++    expect(witness.leafIndex).toBe(0n);
++    expect(witness.root).toEqual(await body.txEffects[0].computeTxEffectLeaf());
++  });
++
++  it('verifies witnesses for every tx of a block and rejects tampered ones', async () => {
++    const body = await makeBody(3);
++    const root = await body.computeTxEffectsTreeRoot();
++
++    for (let txIndex = 0; txIndex < body.txEffects.length; txIndex++) {
++      const leaf = await body.txEffects[txIndex].computeTxEffectLeaf();
++      const witness = await computeTxEffectMembershipWitness(body.txEffects, txIndex);
++
++      expect(await computeRootFromTxEffectMembershipWitness(leaf, witness)).toEqual(root);
++      expect(await verifyTxEffectMembershipWitness(leaf, witness, root)).toBe(true);
++
++      expect(await verifyTxEffectMembershipWitness(leaf, witness, Fr.random())).toBe(false);
++      expect(await verifyTxEffectMembershipWitness(leaf, { ...witness, leafIndex: witness.leafIndex ^ 1n }, root)).toBe(
++        false,
++      );
++      const tamperedPath = new SiblingPath(witness.siblingPath.pathSize, [
++        Fr.random().toBuffer(),
++        ...witness.siblingPath.toBufferArray().slice(1),
++      ]);
++      expect(await verifyTxEffectMembershipWitness(leaf, { ...witness, siblingPath: tamperedPath }, root)).toBe(false);
++    }
++  });
++
++  it('verifies the single-tx witness where the leaf is the root', async () => {
++    const body = await makeBody(1);
++    const leaf = await body.txEffects[0].computeTxEffectLeaf();
++    const witness = await computeTxEffectMembershipWitness(body.txEffects, 0);
++
++    expect(await computeRootFromTxEffectMembershipWitness(leaf, witness)).toEqual(leaf);
++    expect(await verifyTxEffectMembershipWitness(leaf, witness, await body.computeTxEffectsTreeRoot())).toBe(true);
++    expect(await verifyTxEffectMembershipWitness(Fr.random(), witness, witness.root)).toBe(false);
++  });
++
++  it('throws for a tx index outside the block', async () => {
++    const body = await makeBody(2);
++    await expect(computeTxEffectMembershipWitness(body.txEffects, 2)).rejects.toThrow('out of bounds');
++  });
++});
+diff --git a/yarn-project/world-state/src/native/native_world_state.test.ts b/yarn-project/world-state/src/native/native_world_state.test.ts
+index 68668eccf85fd244e395fce209e71e225cca27b9..a60a3fd7af2acef898ec527762b8cc6997b5c351 100644
+--- a/yarn-project/world-state/src/native/native_world_state.test.ts
++++ b/yarn-project/world-state/src/native/native_world_state.test.ts
+@@ -507,6 +507,7 @@ describe('NativeWorldState', () => {
+         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
+         stateReference,
+         Fr.random(), // spongeBlobHash
++        Fr.random(), // txEffectsTreeRoot
+         makeGlobalVariables(),
+         Fr.ZERO,
+         Fr.ZERO,
+@@ -537,6 +538,7 @@ describe('NativeWorldState', () => {
+         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
+         stateReference,
+         Fr.random(), // spongeBlobHash
++        Fr.random(), // txEffectsTreeRoot
+         makeGlobalVariables(),
+         Fr.ZERO,
+         Fr.ZERO,

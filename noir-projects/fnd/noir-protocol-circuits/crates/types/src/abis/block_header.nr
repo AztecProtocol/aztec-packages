@@ -22,6 +22,14 @@ pub struct BlockHeader {
     // The previous block header can be validated using a membership proof of the last leaf in `last_archive`.
     pub sponge_blob_hash: Field,
 
+    // The root of a merkle tree with one leaf per tx in this block, where each leaf binds a tx hash to the full
+    // contents of that tx's effects (see `compute_tx_effects_tree_leaf`). Unlike `sponge_blob_hash`, this commits
+    // to the effects of this block only, and it allows proving "tx X was included in this block and produced effects
+    // E" with a single membership proof rather than a replay of the whole checkpoint's effects.
+    // The tree shape is unbalanced, but deterministic: it is a function of the number of txs in the block alone.
+    // An empty block has a root of 0.
+    pub tx_effects_tree_root: Field,
+
     pub global_variables: GlobalVariables,
     pub total_fees: Field,
     pub total_mana_used: Field,
@@ -52,6 +60,7 @@ impl Empty for BlockHeader {
             last_archive: AppendOnlyTreeSnapshot::empty(),
             state: StateReference::empty(),
             sponge_blob_hash: 0,
+            tx_effects_tree_root: 0,
             global_variables: GlobalVariables::empty(),
             total_fees: 0,
             total_mana_used: 0,
@@ -100,6 +109,6 @@ fn hash_of_empty_block_header_match_typescript() {
     let hash = header.hash();
 
     // Value from block_header.test.ts "computes empty hash" test
-    let test_data_empty_hash = 0x0bdc537052dea0f80db9698585dff9f32063b86b6d4934ac17c30c81e8e416d3;
+    let test_data_empty_hash = 0x270629a7878b72709d3600bf6f84458849d70beb86506bbdfa05ba9fe0e130c9;
     assert_eq(hash, test_data_empty_hash);
 }

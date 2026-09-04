@@ -1,6 +1,7 @@
 mod child_proof_vk_tests;
 mod end_blob_sponge_tests;
 mod out_hash_tests;
+mod tx_effects_tree_root_tests;
 mod validate_private_tail_to_public_tests;
 mod validate_public_chonk_verifier_against_avm_tests;
 

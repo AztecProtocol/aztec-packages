@@ -30,6 +30,17 @@ pub struct TxRollupPublicInputs {
     // The tx out hashes form a wonky tree and not an unbalanced tree because zero values are skipped.
     pub out_hash: Field,
 
+    // The accumulating root (accumulated through each recursive tx_merge circuit) of the tx-effects tree for this
+    // block. A tx base outputs its tx's leaf (`compute_tx_effects_tree_leaf`), and a tx merge combines its
+    // children with
+    // `accumulate_tx_effects_tree_root(left, right)`.
+    // The block root places the completed value in `BlockHeader.tx_effects_tree_root`. Unlike `out_hash`, zero roots
+    // are not skipped: there are no padding txs, hence no zero leaves. The tree shape is pinned by
+    // `assert_rollups_filled_greedily`, which admits exactly one shape per tx count. A verifier that knows `num_txs`
+    // therefore knows the shape. A verifier holding only a header must instead recompute and validate the leaf
+    // preimage; accepting a bare untrusted leaf with a variable-depth path could treat an internal node as a leaf.
+    pub accumulated_tx_effects_tree_root: Field,
+
     // Accumulated fees for all txs in this rollup.
     pub accumulated_fees: Field,
 
@@ -47,6 +58,7 @@ impl Empty for TxRollupPublicInputs {
             start_sponge_blob: SpongeBlob::empty(),
             end_sponge_blob: SpongeBlob::empty(),
             out_hash: 0,
+            accumulated_tx_effects_tree_root: 0,
             accumulated_fees: 0,
             accumulated_mana_used: 0,
         }
