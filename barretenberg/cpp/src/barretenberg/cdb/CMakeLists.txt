@@ -15,7 +15,7 @@ file(GLOB_RECURSE IPC_CODEGEN_SRC
 )
 add_custom_command(
     OUTPUT ${CDB_GEN_OUTPUTS}
-    COMMAND node --experimental-strip-types --experimental-transform-types --no-warnings
+    COMMAND node --experimental-strip-types --no-warnings
             ${IPC_CODEGEN_DIR}/src/generate.ts
             --schema ${CDB_SCHEMA}
             --lang cpp

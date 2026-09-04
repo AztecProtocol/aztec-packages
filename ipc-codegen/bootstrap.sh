@@ -49,6 +49,9 @@ function test_cmds {
   # Generator unit tests (schema validation).
   echo "$prefix node --experimental-strip-types --no-warnings ipc-codegen/test/schema_visitor.test.ts"
 
+  # The generator itself must load under type stripping alone (no transform step).
+  echo "$prefix ipc-codegen/scripts/strip_only_test.sh"
+
   # Golden tests (each language verifies it can deserialize the goldens
   # baked by build(), and re-encode them byte-identically).
   echo "$prefix $script golden rust"

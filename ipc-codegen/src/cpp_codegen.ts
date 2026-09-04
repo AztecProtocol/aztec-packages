@@ -41,7 +41,11 @@ export interface CppCodegenOptions {
 }
 
 export class CppCodegen {
-  constructor(private opts: CppCodegenOptions) {}
+  private opts: CppCodegenOptions;
+
+  constructor(opts: CppCodegenOptions) {
+    this.opts = opts;
+  }
 
   private primitiveType(type: import("./schema_visitor.ts").Type): string {
     switch (type.primitive) {
