@@ -277,6 +277,31 @@ library STFLib {
   }
 
   /**
+   * @notice Retrieves the stored header hashes for a contiguous checkpoint range.
+   * @dev Checking the newest checkpoint is not in the future and the oldest has not been overwritten proves every
+   * checkpoint between them is available.
+   * @param _start The first checkpoint number in the range (inclusive)
+   * @param _end The last checkpoint number in the range (inclusive)
+   * @return headerHashes The stored header hashes in checkpoint order
+   */
+  function getHeaderHashes(uint256 _start, uint256 _end) internal view returns (bytes32[] memory headerHashes) {
+    uint256 numCheckpoints = _end - _start + 1;
+    RollupStore storage rollupStore = getStorage();
+    uint256 pending = rollupStore.tips.getPending();
+    uint256 size = roundaboutSize();
+
+    uint256 upperLimit = _start + size;
+    require(
+      _end <= pending && pending < upperLimit, Errors.Rollup__UnavailableTempCheckpointLog(_start, pending, upperLimit)
+    );
+
+    headerHashes = new bytes32[](numCheckpoints);
+    for (uint256 i = 0; i < numCheckpoints; i++) {
+      headerHashes[i] = rollupStore.tempCheckpointLogs[(_start + i) % size].headerHash;
+    }
+  }
+
+  /**
    * @notice Retrieves the compressed fee header for a specific checkpoint number
    * @dev Returns the fee information including base fee components and mana costs.
    *      The data remains in compressed format for gas efficiency. Reverts if the checkpoint is stale.

@@ -68,4 +68,24 @@ library ProposedHeaderLib {
       )
     );
   }
+
+  function hashCalldata(ProposedHeader calldata _header) internal pure returns (bytes32) {
+    return Hash.sha256ToField(
+      abi.encodePacked(
+        _header.lastArchiveRoot,
+        _header.blockHeadersHash,
+        _header.blobsHash,
+        _header.inboxRollingHash,
+        _header.outHash,
+        _header.slotNumber,
+        Timestamp.unwrap(_header.timestamp).toUint64(),
+        _header.coinbase,
+        _header.feeRecipient,
+        _header.gasFees.feePerDaGas,
+        _header.gasFees.feePerL2Gas,
+        _header.totalManaUsed,
+        _header.accumulatedFees
+      )
+    );
+  }
 }
