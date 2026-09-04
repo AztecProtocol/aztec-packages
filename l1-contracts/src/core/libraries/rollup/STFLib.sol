@@ -197,7 +197,7 @@ library STFLib {
    * @param _proverId The prover that submitted the proof
    */
   function recordFirstProvenBy(uint256 _checkpointNumber, address _proverId) internal {
-    getStorage().firstProvenBy[_checkpointNumber] = _proverId;
+    getStorage().firstProvenBy[_checkpointNumber] = uint256(uint160(_proverId)) + 1;
   }
 
   /**
@@ -390,12 +390,15 @@ library STFLib {
   function getFirstProvenBy(uint256 _checkpointNumber) internal view returns (address) {
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 proven = rollupStore.tips.getProven();
-    require(_checkpointNumber <= proven && proven > 0, Errors.Rollup__CheckpointNotProven(proven, _checkpointNumber));
+    require(
+      0 < _checkpointNumber && _checkpointNumber <= proven,
+      Errors.Rollup__CheckpointNotProven(proven, _checkpointNumber)
+    );
 
     for (uint256 i = _checkpointNumber; i <= proven; i++) {
-      address proverId = rollupStore.firstProvenBy[i];
-      if (proverId != address(0)) {
-        return proverId;
+      uint256 encodedProverId = rollupStore.firstProvenBy[i];
+      if (encodedProverId != 0) {
+        return address(uint160(encodedProverId - 1));
       }
     }
 
