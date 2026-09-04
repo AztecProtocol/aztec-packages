@@ -44,7 +44,7 @@ def render(input_path: Path, output_path: Path) -> None:
     lines.extend(
         [
             "",
-            "_Uses the mock epoch proof verifier; real ZK verification and top-level transaction calldata gas are not included._",
+            "_Uses the mock epoch proof verifier._",
             "",
         ]
     )

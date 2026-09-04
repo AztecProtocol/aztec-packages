@@ -67,6 +67,7 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
+import {IRegistryProvider, RegistryRewardOverride} from "@aztec/core/libraries/rollup/RewardLib.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -101,6 +102,20 @@ contract FakeCanonical is IRewardDistributor {
 
   function availableTo(address) external pure returns (uint256) {
     return type(uint256).max;
+  }
+}
+
+contract GasReportRegistryProvider is IRegistryProvider {
+  address internal immutable REGISTRY;
+
+  constructor(address _registry) {
+    REGISTRY = _registry;
+  }
+
+  /// @notice Returns the registry represented by this benchmark withdrawer.
+  /// @return The configured registry address.
+  function getRegistry() external view returns (address) {
+    return REGISTRY;
   }
 }
 
@@ -174,7 +189,7 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
 
       initialValidators[i - 1] = CheatDepositArgs({
         attester: attester,
-        withdrawer: address(this),
+        withdrawer: _validatorWithdrawer(i - 1),
         publicKeyInG1: BN254Lib.g1Zero(),
         publicKeyInG2: BN254Lib.g2Zero(),
         proofOfPossession: BN254Lib.g1Zero()
@@ -188,6 +203,8 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
       .setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
       .setValidators(initialValidators).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE)
       .setStakingQueueConfig(stakingQueueConfig);
+
+    _configureRollupBuilder(builder);
 
     if (_slashing == TestSlash.TALLY) {
       // For tally slashing, we need a round size that's a multiple of epoch duration
@@ -211,6 +228,12 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
     vm.label(address(asset), "ASSET");
     vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
   }
+
+  function _validatorWithdrawer(uint256) internal view virtual returns (address) {
+    return address(this);
+  }
+
+  function _configureRollupBuilder(RollupBuilder) internal virtual {}
 
   function _installPartialEpochProofGasReporter(RollupBuilder _builder) internal {
     Config memory config = _builder.getConfig();
@@ -683,6 +706,51 @@ contract PartialEpochProofGasReportTest is PartialEpochProofGasReportBase {
 
   function testGasReportSubmit32Checkpoints() public {
     _gasReporter().gasReportSubmit32Checkpoints(_getGasReportSubmission(32));
+    assertEq(rollup.getProvenCheckpointNumber(), 32);
+  }
+}
+
+contract PartialEpochProofWithTwoOverridesGasReportTest is PartialEpochProofGasReportBase {
+  GasReportRegistryProvider internal firstProvider;
+  GasReportRegistryProvider internal secondProvider;
+
+  function setUp() public override {
+    firstProvider = new GasReportRegistryProvider(makeAddr("firstRegistry"));
+    secondProvider = new GasReportRegistryProvider(makeAddr("secondRegistry"));
+    super.setUp();
+  }
+
+  function _configureRollupBuilder(RollupBuilder _builder) internal override {
+    Config memory config = _builder.getConfig();
+    RollupConfigInput memory rollupConfig = config.rollupConfigInput;
+    rollupConfig.registryRewardOverrides[0] =
+      RegistryRewardOverride({registry: firstProvider.getRegistry(), sequencerReward: 10e18});
+    rollupConfig.registryRewardOverrides[1] =
+      RegistryRewardOverride({registry: secondProvider.getRegistry(), sequencerReward: 20e18});
+    _builder.setRollupConfigInput(rollupConfig);
+  }
+
+  function _validatorWithdrawer(uint256 _validatorIndex) internal view override returns (address) {
+    return _validatorIndex % 2 == 0 ? address(firstProvider) : address(secondProvider);
+  }
+
+  function testGasReportSubmit1CheckpointWithTwoOverrides() public {
+    _gasReporter().gasReportSubmit1CheckpointWithTwoOverrides(_getGasReportSubmission(1));
+    assertEq(rollup.getProvenCheckpointNumber(), 1);
+  }
+
+  function testGasReportSubmit8CheckpointsWithTwoOverrides() public {
+    _gasReporter().gasReportSubmit8CheckpointsWithTwoOverrides(_getGasReportSubmission(8));
+    assertEq(rollup.getProvenCheckpointNumber(), 8);
+  }
+
+  function testGasReportSubmit16CheckpointsWithTwoOverrides() public {
+    _gasReporter().gasReportSubmit16CheckpointsWithTwoOverrides(_getGasReportSubmission(16));
+    assertEq(rollup.getProvenCheckpointNumber(), 16);
+  }
+
+  function testGasReportSubmit32CheckpointsWithTwoOverrides() public {
+    _gasReporter().gasReportSubmit32CheckpointsWithTwoOverrides(_getGasReportSubmission(32));
     assertEq(rollup.getProvenCheckpointNumber(), 32);
   }
 }
