@@ -18,8 +18,8 @@ export type CustomRange<K> = {
 /** Maps a custom range into a range of valid key types to iterate over. */
 export function mapRange<CK, K extends Key = Key>(range: CustomRange<CK>, mapFn: (key: CK) => K): Range<K> {
   return {
-    start: range.start ? mapFn(range.start) : undefined,
-    end: range.end ? mapFn(range.end) : undefined,
+    start: range.start !== undefined ? mapFn(range.start) : undefined,
+    end: range.end !== undefined ? mapFn(range.end) : undefined,
     reverse: range.reverse,
     limit: range.limit,
   };

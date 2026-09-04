@@ -151,6 +151,19 @@ export class FakeL1State {
   // Computed from checkpoints based on L1 block visibility
   private pendingCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
 
+  // L1 block hashes that changed because the block was reorged out and replaced. Blocks not listed here hash to
+  // their block number.
+  private l1BlockHashOverrides = new Map<bigint, Buffer32>();
+  private l1ReorgCount = 0;
+
+  // Blocks mined with the timestamp of an earlier block, as consecutive blocks may share one on a chain that does
+  // not require strictly increasing timestamps. Blocks not listed here get the timestamp of their own slot.
+  private l1BlockTimestampSource = new Map<bigint, bigint>();
+
+  // Every L1 block read by number since the last reset, and the blocks whose reads are made to fail.
+  private l1BlockReads: bigint[] = [];
+  private failingL1BlockReads = new Set<bigint>();
+
   // The L1 block number reported as "finalized" (defaults to the start block).
   // `undefined` simulates the startup window on a fresh devnet where
   // `getBlock({ blockTag: 'finalized' })` fails with "finalized block not found".
@@ -313,7 +326,100 @@ export class FakeL1State {
   /** Returns the timestamp at the given L1 block (assuming all L1 blocks are mined) */
   public getTimestampAtL1Block(l1BlockNumber: bigint): bigint {
     const { l1GenesisTime, l1StartBlock, ethereumSlotDuration } = this.config;
-    return l1GenesisTime + (l1BlockNumber - l1StartBlock) * BigInt(ethereumSlotDuration);
+    return l1GenesisTime + (this.getTimestampSource(l1BlockNumber) - l1StartBlock) * BigInt(ethereumSlotDuration);
+  }
+
+  /** The block whose slot gives a block its timestamp: itself, unless it was mined sharing an earlier one's. */
+  private getTimestampSource(l1BlockNumber: bigint): bigint {
+    return this.l1BlockTimestampSource.get(l1BlockNumber) ?? l1BlockNumber;
+  }
+
+  /**
+   * Mines `l1BlockNumber` carrying the timestamp of `sourceL1Block` rather than of its own slot, as consecutive
+   * blocks may on a chain that does not require strictly increasing timestamps (anvil with manual mining, for
+   * instance). Messages in both blocks are then absorbed into the same Inbox bucket, which spans the two.
+   */
+  shareTimestampWithL1Block(l1BlockNumber: bigint, sourceL1Block: bigint): void {
+    this.l1BlockTimestampSource.set(l1BlockNumber, sourceL1Block);
+    this.recomputeDerivedMessageState();
+  }
+
+  /**
+   * Simulates an L1 reorg that re-mines a block which had shared an earlier block's timestamp with a timestamp of its
+   * own. The messages keep their contents and their order, so the Inbox's total and rolling hash are unchanged, but
+   * the bucket that spanned the two blocks splits in two.
+   */
+  splitCoTimestampedL1Block(l1BlockNumber: bigint): void {
+    this.l1BlockTimestampSource.delete(l1BlockNumber);
+    this.recomputeDerivedMessageState();
+    this.reorgL1BlocksFrom(l1BlockNumber);
+  }
+
+  /** The hash of an L1 block: derived from its number, unless the block was replaced by a reorg. */
+  getL1BlockHash(l1BlockNumber: bigint): Buffer32 {
+    return this.l1BlockHashOverrides.get(l1BlockNumber) ?? Buffer32.fromBigInt(l1BlockNumber);
+  }
+
+  /** How many times the given L1 block has been read by number since the reads were last cleared. */
+  countL1BlockReads(l1BlockNumber: bigint): number {
+    return this.l1BlockReads.filter(read => read === l1BlockNumber).length;
+  }
+
+  /** Forgets the L1 block reads recorded so far. */
+  clearL1BlockReads(): void {
+    this.l1BlockReads = [];
+  }
+
+  /** Makes reads of the given L1 block by number throw, simulating an L1 node that cannot serve it. */
+  failL1BlockReads(l1BlockNumber: bigint): void {
+    this.failingL1BlockReads.add(l1BlockNumber);
+  }
+
+  /** Serves reads of the given L1 block again. */
+  restoreL1BlockReads(l1BlockNumber: bigint): void {
+    this.failingL1BlockReads.delete(l1BlockNumber);
+  }
+
+  /**
+   * Simulates an L1 reorg from the given block up to the chain head: every block in that range keeps its number but
+   * is replaced by one with a fresh hash. What the replacement blocks contain is up to the caller, so combine this
+   * with the message helpers (or leave the messages alone for a reorg that only replaces empty blocks).
+   */
+  reorgL1BlocksFrom(fromL1Block: bigint): void {
+    this.l1ReorgCount += 1;
+    for (let blockNumber = fromL1Block; blockNumber <= this.l1BlockNumber; blockNumber++) {
+      // The reorg counter goes in the high bits, so the hash still reads as "block N, replaced R times".
+      this.l1BlockHashOverrides.set(
+        blockNumber,
+        Buffer32.fromBigInt((BigInt(this.l1ReorgCount) << 128n) + blockNumber),
+      );
+    }
+  }
+
+  /**
+   * Simulates an L1 reorg that re-mines the messages of `fromL1Block` into `toL1Block`. The messages keep their
+   * contents and their order, so the Inbox's total and rolling hash are unchanged, but the buckets they are absorbed
+   * into are opened at a different L1 block and timestamp. Messages already at `toL1Block` are merged into the same
+   * buckets, in index order.
+   */
+  retimeMessages(fromL1Block: bigint, toL1Block: bigint): void {
+    this.moveMessagesToL1Block(fromL1Block, toL1Block);
+    this.recomputeDerivedMessageState();
+    this.reorgL1BlocksFrom(fromL1Block < toL1Block ? fromL1Block : toL1Block);
+  }
+
+  /**
+   * Simulates an L1 reorg that re-mines the given L1 block with its messages in the opposite order, which changes the
+   * Inbox's rolling hash as well as the block's hash.
+   */
+  reorderMessagesAtL1Block(l1BlockNumber: bigint): void {
+    const positions = this.messages
+      .map((msg, i) => (msg.l1BlockNumber === l1BlockNumber ? i : undefined))
+      .filter(i => i !== undefined);
+    const reordered = positions.map(i => this.messages[i]).reverse();
+    positions.forEach((position, i) => (this.messages[position] = reordered[i]));
+    this.recomputeDerivedMessageState();
+    this.reorgL1BlocksFrom(l1BlockNumber);
   }
 
   /**
@@ -544,13 +650,20 @@ export class FakeL1State {
           });
         }
         blockNum = this.finalizedL1BlockNumber;
+      } else if (args.blockNumber !== undefined) {
+        blockNum = args.blockNumber;
+        this.l1BlockReads.push(blockNum);
+        if (this.failingL1BlockReads.has(blockNum)) {
+          throw new Error(`Simulated failure reading L1 block ${blockNum}`);
+        }
       } else {
-        blockNum = args.blockNumber ?? (await publicClient.getBlockNumber());
+        blockNum = await publicClient.getBlockNumber();
       }
       return {
         number: blockNum,
-        timestamp: BigInt(blockNum) * BigInt(this.config.ethereumSlotDuration) + this.config.l1GenesisTime,
-        hash: Buffer32.fromBigInt(blockNum).toString(),
+        timestamp:
+          this.getTimestampSource(blockNum) * BigInt(this.config.ethereumSlotDuration) + this.config.l1GenesisTime,
+        hash: this.getL1BlockHash(blockNum).toString(),
       } as FormattedBlock;
     }) as any);
 
@@ -571,7 +684,7 @@ export class FakeL1State {
     // The blockId is the L1 block hash, which we derive from the L1 block number
     blobClient.getBlobSidecar.mockImplementation((blockId: `0x${string}`) =>
       Promise.resolve(
-        this.checkpoints.find(cpData => Buffer32.fromBigInt(cpData.l1BlockNumber).toString() === blockId)?.blobs ?? [],
+        this.checkpoints.find(cpData => this.getL1BlockHash(cpData.l1BlockNumber).toString() === blockId)?.blobs ?? [],
       ),
     );
 
@@ -614,7 +727,7 @@ export class FakeL1State {
       .filter(cpData => cpData.l1BlockNumber >= fromBlock && cpData.l1BlockNumber <= toBlock)
       .map(cpData => ({
         l1BlockNumber: cpData.l1BlockNumber,
-        l1BlockHash: Buffer32.fromBigInt(cpData.l1BlockNumber),
+        l1BlockHash: this.getL1BlockHash(cpData.l1BlockNumber),
         l1TransactionHash: cpData.tx.hash as `0x${string}`,
         args: {
           checkpointNumber: cpData.checkpointNumber,
@@ -636,7 +749,7 @@ export class FakeL1State {
       )
       .map(msg => ({
         l1BlockNumber: msg.l1BlockNumber,
-        l1BlockHash: Buffer32.fromBigInt(msg.l1BlockNumber),
+        l1BlockHash: this.getL1BlockHash(msg.l1BlockNumber),
         l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
         l1BlockTimestamp: this.getTimestampAtL1Block(msg.l1BlockNumber),
         args: {
@@ -661,7 +774,7 @@ export class FakeL1State {
     }
     return {
       l1BlockNumber: msg.l1BlockNumber,
-      l1BlockHash: Buffer32.fromBigInt(msg.l1BlockNumber),
+      l1BlockHash: this.getL1BlockHash(msg.l1BlockNumber),
       l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
       l1BlockTimestamp: this.getTimestampAtL1Block(msg.l1BlockNumber),
       args: {

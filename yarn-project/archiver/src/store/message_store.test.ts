@@ -390,9 +390,9 @@ describe('MessageStore', () => {
       expect(await messageStore.getTotalL1ToL2MessageCount()).toEqual(3n);
     });
 
-    it('records the opening L1 block of a bucket spanning co-timestamped L1 blocks', async () => {
+    it('records the opening and closing L1 blocks of a bucket spanning co-timestamped L1 blocks', async () => {
       // Chains that allow consecutive blocks to share a timestamp (anvil with manual mining) can spread one
-      // bucket over several L1 blocks; the snapshot keeps the block the bucket was opened in.
+      // bucket over several L1 blocks; the snapshot keeps both ends, since either can be reorged on its own.
       const msgs = makeBucketedMessages(threeBucketSpec);
       msgs[2].l1BlockNumber = msgs[0].l1BlockNumber + 1n;
       msgs[2].l1BlockHash = makeL1BlockHash(msgs[2].l1BlockNumber);
@@ -402,6 +402,42 @@ describe('MessageStore', () => {
         msgCount: 3,
         l1BlockNumber: msgs[0].l1BlockNumber,
         l1BlockHash: msgs[0].l1BlockHash,
+      });
+      expect(await messageStore.getInboxBucketL1Span(1n)).toEqual({
+        seq: 1n,
+        lastMessageIndex: msgs[2].index,
+        openedAt: { l1BlockNumber: msgs[0].l1BlockNumber, l1BlockHash: msgs[0].l1BlockHash },
+        closedAt: { l1BlockNumber: msgs[2].l1BlockNumber, l1BlockHash: msgs[2].l1BlockHash },
+      });
+    });
+
+    it('closes single-block buckets at the block they were opened in', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      const spans = await toArray(messageStore.iterateInboxBucketL1Spans());
+      expect(spans.map(span => span.seq)).toEqual([1n, 2n, 3n]);
+      expect(spans.map(span => span.openedAt)).toEqual(spans.map(span => span.closedAt));
+      expect(spans[1]).toEqual({
+        seq: 2n,
+        lastMessageIndex: msgs[4].index,
+        openedAt: { l1BlockNumber: msgs[3].l1BlockNumber, l1BlockHash: msgs[3].l1BlockHash },
+        closedAt: { l1BlockNumber: msgs[3].l1BlockNumber, l1BlockHash: msgs[3].l1BlockHash },
+      });
+      expect(await messageStore.getInboxBucketL1Span(4n)).toBeUndefined();
+    });
+
+    it('shortens a bucket span to the L1 block of its last surviving message', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      msgs[2].l1BlockNumber = msgs[0].l1BlockNumber + 1n;
+      msgs[2].l1BlockHash = makeL1BlockHash(msgs[2].l1BlockNumber);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      await messageStore.removeL1ToL2Messages(msgs[2].index);
+
+      expect(await messageStore.getInboxBucketL1Span(1n)).toMatchObject({
+        lastMessageIndex: msgs[1].index,
+        closedAt: { l1BlockNumber: msgs[1].l1BlockNumber, l1BlockHash: msgs[1].l1BlockHash },
       });
     });
 
@@ -443,6 +479,38 @@ describe('MessageStore', () => {
       await messageStore.addL1ToL2MessageBuckets(msgs);
 
       expect((await messageStore.getLatestInboxBucketAtOrBefore(200n))!.seq).toEqual(3n);
+    });
+
+    it('returns the newest bucket', async () => {
+      expect(await messageStore.getNewestInboxBucket()).toBeUndefined();
+
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      expect(await messageStore.getNewestInboxBucket()).toEqual(await messageStore.getInboxBucket(3n));
+    });
+
+    it('returns the L1 span of the newest bucket', async () => {
+      expect(await messageStore.getNewestInboxBucketL1Span()).toBeUndefined();
+
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      expect(await messageStore.getNewestInboxBucketL1Span()).toEqual(await messageStore.getInboxBucketL1Span(3n));
+    });
+
+    it('iterates over bucket spans in sequence order', async () => {
+      await messageStore.addL1ToL2MessageBuckets(makeBucketedMessages(threeBucketSpec));
+
+      const seqs = async (range: Parameters<typeof messageStore.iterateInboxBucketL1Spans>[0]) =>
+        (await toArray(messageStore.iterateInboxBucketL1Spans(range))).map(span => span.seq);
+
+      expect(await seqs({})).toEqual([1n, 2n, 3n]);
+      expect(await seqs({ start: 2n })).toEqual([2n, 3n]);
+      expect(await seqs({ reverse: true })).toEqual([3n, 2n, 1n]);
+      expect(await seqs({ end: 2n, reverse: true })).toEqual([2n, 1n]);
+      expect(await seqs({ end: 0n, reverse: true })).toEqual([]);
+      expect(await seqs({ start: 4n })).toEqual([]);
     });
 
     it('returns messages between buckets in insertion order', async () => {

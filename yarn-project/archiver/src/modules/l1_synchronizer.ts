@@ -45,11 +45,37 @@ import {
 import type { RejectedCheckpoint } from '../store/block_store.js';
 import { type ArchiverDataStores, getArchiverSynchPoint } from '../store/data_stores.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
-import { MessageStoreError } from '../store/message_store.js';
+import { type InboxBucketL1Span, MessageStoreError } from '../store/message_store.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
 import { validateCheckpointAttestationsFromCalldata } from './validation.js';
+
+/** After the first one, how often a bucket check that keeps failing to read its L1 block is logged at warn. */
+const BUCKET_CHECK_FAILURE_WARN_EVERY = 20;
+
+/** A stored L1 block that the live chain has replaced, and what it was replaced with. */
+type BucketReorg = { stored: L1BlockId; liveL1BlockHash: Buffer32 };
+
+/** The outcome of comparing the L1 blocks an Inbox bucket sits on against the live chain. */
+type BucketCanonicality =
+  | { status: 'canonical' }
+  | ({ status: 'reorged' } & BucketReorg)
+  | { status: 'unverifiable'; l1BlockNumber: bigint; error: unknown };
+
+/** Whether the stored Inbox buckets were found canonical, rolled back to the last canonical one, or could not be checked. */
+type BucketsCanonicality =
+  | { status: 'canonical' }
+  | { status: 'rolled-back'; syncPoint: L1BlockId }
+  | { status: 'unverifiable' };
+
+/** Whether a message fetch was stored and found canonical, rolled back, or unwound because it could not be checked. */
+type MessageFetchOutcome = 'stored' | 'rolled-back' | 'unverifiable';
+
+/** Whether an L1 block is at or below the finalized one, so it can no longer be reorged. */
+function isFinalized(l1Block: L1BlockId, finalizedL1Block: L1BlockId | undefined): boolean {
+  return finalizedL1Block !== undefined && l1Block.l1BlockNumber <= finalizedL1Block.l1BlockNumber;
+}
 
 type RollupStatus = {
   provenCheckpointNumber: CheckpointNumber;
@@ -73,6 +99,8 @@ export class ArchiverL1Synchronizer implements Traceable {
   private l1BlockNumber: bigint | undefined;
   private l1BlockHash: Buffer32 | undefined;
   private l1Timestamp: bigint | undefined;
+  /** The bucket whose canonicality check last failed to read its L1 block, and for how many passes in a row. */
+  private failedBucketCheck: { bucketSeq: bigint; passes: number } | undefined;
 
   private readonly updater: ArchiverDataStoreUpdater;
   public readonly tracer: Tracer;
@@ -424,9 +452,22 @@ export class ArchiverL1Synchronizer implements Traceable {
       },
     } = await getArchiverSynchPoint(this.stores);
 
-    // Nothing to do if L1 block number has not moved forward
+    // An L1 reorg that re-mines the same messages in a different block leaves the message count and rolling hash
+    // compared below untouched while rewriting the bucket metadata built from that block, so check the buckets we
+    // hold against the live chain first. This runs before the check that L1 has moved forward below, because a reorg
+    // can replace the head with a block of the same number, which advances nothing. A rollback here rewinds the
+    // syncpoint, and we resume from the new one. If the check could not be completed the pass is retried instead:
+    // storing newer buckets on top of one we could not check would make them the ones checked from here on, and the
+    // unchecked one would never be looked at again.
+    const canonicality = await this.ensureBucketsAreCanonical(messagesSynchedTo, finalizedL1Block);
+    if (canonicality.status === 'unverifiable') {
+      return false;
+    }
+    const syncFrom = canonicality.status === 'rolled-back' ? canonicality.syncPoint : messagesSynchedTo;
+
+    // Nothing to do if L1 has not moved past our syncpoint
     const currentL1BlockNumber = currentL1Block.l1BlockNumber;
-    if (currentL1BlockNumber <= messagesSynchedTo.l1BlockNumber) {
+    if (currentL1BlockNumber <= syncFrom.l1BlockNumber) {
       return true;
     }
 
@@ -446,7 +487,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     // If that's the case, we'd get an exception out of the message store since the rolling hash of the first message
     // we try to insert would not match the one in the db, in which case we rollback to the last common message with L1.
     try {
-      await this.retrieveAndStoreMessages(messagesSynchedTo.l1BlockNumber, currentL1BlockNumber);
+      const outcome = await this.retrieveAndStoreMessages(syncFrom, currentL1BlockNumber, finalizedL1Block);
+      if (outcome !== 'stored') {
+        return false;
+      }
     } catch (error) {
       if (isErrorClass(error, MessageStoreError)) {
         this.log.warn(
@@ -477,6 +521,185 @@ export class ArchiverL1Synchronizer implements Traceable {
     return true;
   }
 
+  /**
+   * Verifies that the newest Inbox bucket this archiver holds sits on L1 blocks that are still canonical, and rolls
+   * back to the last canonical bucket when it does not.
+   *
+   * The message count and consensus rolling hash the sync compares against the Inbox do not change when an L1 reorg
+   * re-mines the same messages in a different block, but the bucket timestamps, sequence numbers and boundaries
+   * derived from that block do, and consumers depend on them. Checking the newest bucket alone catches every such
+   * reorg: a reorg replaces a suffix of the L1 chain, and stored buckets are ordered by the height of their L1 blocks,
+   * so a reorg that touches any stored bucket's block also touches the newest one's. Inductively, when the newest
+   * bucket still matches the live chain, so does everything below it that matched on the previous pass, and the
+   * buckets stored by this pass are what the next pass checks. Whether the blocks are finalized makes no difference:
+   * a node that was not watching when a block was reorged out holds an orphaned block that may since have been buried
+   * below finality, and its newest bucket is exactly as stale as the rest. The check costs one L1 block read per pass,
+   * or two for a bucket that spans co-timestamped blocks.
+   *
+   * The induction relies on every stored bucket having been checked once. The message syncpoint advances only after
+   * a fetch has been stored and checked, so buckets closed above it were stored by a fetch that was interrupted before
+   * its check, and are checked here as well; only the ones above the finalized block, since finalized blocks cannot be
+   * reorged. There are normally none: after a rollback the last canonical bucket is above the syncpoint, but it is the
+   * newest one and checked regardless.
+   *
+   * On a mismatch the stored buckets are walked newest-first until one still matches the live chain: that is the last
+   * canonical bucket and the rollback target, so the walk is as long as the reorg is deep. If an L1 block cannot be
+   * read nothing is rolled back and the check is reported as not completed, so the caller can abandon the pass.
+   */
+  private async ensureBucketsAreCanonical(
+    messagesSynchedTo: L1BlockId,
+    finalizedL1Block: L1BlockId | undefined,
+  ): Promise<BucketsCanonicality> {
+    let isNewest = true;
+    for await (const bucket of this.stores.messages.iterateInboxBucketL1Spans({ reverse: true })) {
+      const storedByInterruptedFetch =
+        bucket.closedAt.l1BlockNumber > messagesSynchedTo.l1BlockNumber &&
+        !isFinalized(bucket.closedAt, finalizedL1Block);
+      if (!isNewest && !storedByInterruptedFetch) {
+        break;
+      }
+      isNewest = false;
+
+      const result = await this.checkBucketCanonicality(bucket);
+      if (result.status === 'unverifiable') {
+        this.warnBucketNotVerifiable(bucket.seq, result.l1BlockNumber, result.error);
+        return { status: 'unverifiable' };
+      }
+      if (result.status === 'reorged') {
+        const syncPoint = await this.rollbackReorgedBucket(bucket.seq, result);
+        return syncPoint === undefined ? { status: 'unverifiable' } : { status: 'rolled-back', syncPoint };
+      }
+    }
+    this.failedBucketCheck = undefined;
+    return { status: 'canonical' };
+  }
+
+  /**
+   * Compares the L1 blocks a bucket was opened and closed in against the live chain. The closing block is read first:
+   * it is the highest block the bucket sits on, so it is the one a reorg reaches first. The opening block is read as
+   * well when it differs, since a bucket that absorbed messages from a later co-timestamped L1 block is split when that
+   * block alone is reorged, without its opening block or the Inbox's message count and rolling hash changing.
+   */
+  private checkBucketCanonicality(bucket: InboxBucketL1Span): Promise<BucketCanonicality> {
+    const storedBlocks =
+      bucket.closedAt.l1BlockNumber === bucket.openedAt.l1BlockNumber
+        ? [bucket.closedAt]
+        : [bucket.closedAt, bucket.openedAt];
+    return this.compareL1BlocksWithChain(storedBlocks);
+  }
+
+  /** Compares stored L1 blocks against the live chain, stopping at the first one that was replaced or cannot be read. */
+  private async compareL1BlocksWithChain(storedBlocks: L1BlockId[]): Promise<BucketCanonicality> {
+    for (const stored of storedBlocks) {
+      let liveL1BlockHash: Buffer32;
+      try {
+        liveL1BlockHash = await this.getL1BlockHash(stored.l1BlockNumber);
+      } catch (error) {
+        return { status: 'unverifiable', l1BlockNumber: stored.l1BlockNumber, error };
+      }
+      if (!liveL1BlockHash.equals(stored.l1BlockHash)) {
+        return { status: 'reorged', stored, liveL1BlockHash };
+      }
+    }
+    return { status: 'canonical' };
+  }
+
+  /**
+   * Rolls back to the newest stored bucket below the reorged one that still sits on canonical L1 blocks, walking the
+   * stored buckets one at a time, newest first. Running out of buckets means every stored message is orphaned, and
+   * the store is rolled back to the genesis sentinel. Returns the new message syncpoint, or undefined without rolling
+   * anything back if an L1 block could not be read.
+   */
+  private async rollbackReorgedBucket(reorgedBucketSeq: bigint, reorg: BucketReorg): Promise<L1BlockId | undefined> {
+    const bucketsBelow = this.stores.messages.iterateInboxBucketL1Spans({ end: reorgedBucketSeq - 1n, reverse: true });
+    for await (const bucket of bucketsBelow) {
+      const result = await this.checkBucketCanonicality(bucket);
+      if (result.status === 'unverifiable') {
+        this.warnBucketNotVerifiable(bucket.seq, result.l1BlockNumber, result.error);
+        return undefined;
+      }
+      if (result.status === 'canonical') {
+        return await this.rollbackToCanonicalBucket(reorgedBucketSeq, bucket, reorg);
+      }
+    }
+    return await this.rollbackToCanonicalBucket(reorgedBucketSeq, undefined, reorg);
+  }
+
+  /**
+   * Reports a bucket that could not be checked because the L1 block it sits on could not be read. The sync carries on
+   * without knowing whether the stored buckets are canonical for as long as the read keeps failing, so it is logged at
+   * warn; repeated failures on the same bucket are thinned out to keep the log readable.
+   */
+  private warnBucketNotVerifiable(bucketSeq: bigint, l1BlockNumber: bigint, error: unknown): void {
+    const previous = this.failedBucketCheck;
+    const passes = previous?.bucketSeq === bucketSeq ? previous.passes + 1 : 1;
+    this.failedBucketCheck = { bucketSeq, passes };
+
+    const message = `Failed to read L1 block ${l1BlockNumber} to check whether Inbox bucket ${bucketSeq} is canonical`;
+    const context = { bucketSeq, l1BlockNumber, passes, error };
+    if (passes === 1 || passes % BUCKET_CHECK_FAILURE_WARN_EVERY === 0) {
+      this.log.warn(message, context);
+    } else {
+      this.log.debug(message, context);
+    }
+  }
+
+  /**
+   * Drops every message absorbed after the last canonical bucket and rewinds the syncpoint so the reorged L1 blocks
+   * are downloaded again, with the bucket timestamps and sequence numbers the canonical chain gives them.
+   */
+  private async rollbackToCanonicalBucket(
+    reorgedBucketSeq: bigint,
+    lastCanonicalBucket: InboxBucketL1Span | undefined,
+    reorg: BucketReorg,
+  ): Promise<L1BlockId> {
+    this.log.warn(
+      `Inbox bucket ${reorgedBucketSeq} sits on an L1 block that is no longer canonical; rolling back to bucket ${lastCanonicalBucket?.seq ?? 0n}`,
+      {
+        bucketSeq: reorgedBucketSeq,
+        l1BlockNumber: reorg.stored.l1BlockNumber,
+        storedL1BlockHash: reorg.stored.l1BlockHash.toString(),
+        liveL1BlockHash: reorg.liveL1BlockHash.toString(),
+        lastCanonicalBucketSeq: lastCanonicalBucket?.seq ?? 0n,
+      },
+    );
+
+    // Resume from the block before the last canonical bucket's opening one, so that bucket is re-delivered from its
+    // first message and any bucket that rolled over after it within the same L1 block is downloaded again. The
+    // syncpoint is resolved before anything is written, so the removal and the rewind can commit together.
+    const syncPoint = await this.resolveMessagesSyncPoint(
+      lastCanonicalBucket && lastCanonicalBucket.openedAt.l1BlockNumber - 1n,
+    );
+    return this.rewindMessagesTo(syncPoint, lastCanonicalBucket ? lastCanonicalBucket.lastMessageIndex + 1n : 0n);
+  }
+
+  /**
+   * Resolves the L1 block the message syncpoint should be rewound to, so the next retrieval starts at the one after
+   * it. Never goes below the L1 start block, nor below `notBelow` when one is given.
+   */
+  private async resolveMessagesSyncPoint(l1BlockNumber: bigint | undefined, notBelow?: L1BlockId): Promise<L1BlockId> {
+    const syncPointL1BlockNumber = maxBigint(
+      ...compactArray([l1BlockNumber, notBelow?.l1BlockNumber, this.l1Constants.l1StartBlock]),
+    );
+    const syncPointL1BlockHash =
+      syncPointL1BlockNumber === notBelow?.l1BlockNumber
+        ? notBelow.l1BlockHash
+        : await this.getL1BlockHash(syncPointL1BlockNumber);
+    return { l1BlockNumber: syncPointL1BlockNumber, l1BlockHash: syncPointL1BlockHash };
+  }
+
+  /**
+   * Rewinds the message syncpoint to the given L1 block, dropping the messages from `removeFromIndex` on in the same
+   * transaction, so an interruption cannot leave truncated messages behind a syncpoint that would never fetch them.
+   */
+  private async rewindMessagesTo(messagesSyncPoint: L1BlockId, removeFromIndex?: bigint): Promise<L1BlockId> {
+    await this.stores.messages.rewindMessagesTo(messagesSyncPoint, removeFromIndex);
+    this.log.verbose(`Updated messages syncpoint to L1 block ${messagesSyncPoint.l1BlockNumber}`, {
+      ...messagesSyncPoint,
+    });
+    return messagesSyncPoint;
+  }
+
   /** Checks if the local consensus rolling hash and message count match the remote Inbox live state. */
   private async localStateMatches(localLastMessage: InboxMessage | undefined, remoteState: InboxContractState) {
     const localMessageCount = await this.stores.messages.getTotalL1ToL2MessageCount();
@@ -491,13 +714,33 @@ export class ArchiverL1Synchronizer implements Traceable {
   /**
    * Retrieves L1 to L2 messages from L1 in batches and stores them. Batches must span whole L1 blocks so that every
    * message of an Inbox bucket is stored in a single call, which the message store requires.
+   *
+   * Once stored, the new buckets are the ones the canonicality check looks at from the next pass on, so a reorg that
+   * lands while the fetch is under way must be caught here or never. It can orphan the bucket that was checked before
+   * the fetch, re-mining its messages below the syncpoint so they are not fetched again while a newer message is, and
+   * it can orphan the earlier batches of a fetch while the last one comes from the canonical chain. Each batch is a
+   * suffix of its own, though: a reorg that touched it touched the block of its last message. So once everything is
+   * stored, the bucket that was newest before the fetch and the block of the last message of every batch but the final
+   * one are compared against the live chain, skipping what is at or below the finalized block, and a mismatch rolls
+   * back right away. In the steady state a fetch is a single batch on top of a newest bucket that is checked again, so
+   * this costs one L1 block read per fetch that stored something.
+   *
+   * If a block cannot be read, the fetch is unwound to the syncpoint it started from and reported as not verified, so
+   * that nothing is stored on top of buckets that were never checked; the caller retries the pass.
    */
-  private async retrieveAndStoreMessages(fromL1Block: bigint, toL1Block: bigint): Promise<void> {
+  private async retrieveAndStoreMessages(
+    syncFrom: L1BlockId,
+    toL1Block: bigint,
+    finalizedL1Block: L1BlockId | undefined,
+  ): Promise<MessageFetchOutcome> {
+    const newestBucketBeforeFetch = await this.stores.messages.getNewestInboxBucketL1Span();
     let searchStartBlock: bigint = 0n;
-    let searchEndBlock: bigint = fromL1Block;
+    let searchEndBlock: bigint = syncFrom.l1BlockNumber;
 
+    let firstMessage: InboxMessage | undefined;
     let lastMessage: InboxMessage | undefined;
     let messageCount = 0;
+    const unfinalizedBatchTails: InboxMessage[] = [];
 
     do {
       [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, toL1Block);
@@ -509,17 +752,62 @@ export class ArchiverL1Synchronizer implements Traceable {
       this.instrumentation.processNewMessages(messages.length, perMsg);
       for (const msg of messages) {
         this.log.debug(`Downloaded L1 to L2 message`, { ...msg, leaf: msg.leaf.toString() });
+        firstMessage ??= msg;
         lastMessage = msg;
         messageCount++;
       }
+      const batchTail = messages.at(-1);
+      const isLastBatch = searchEndBlock >= toL1Block;
+      if (batchTail !== undefined && !isLastBatch && !isFinalized(batchTail, finalizedL1Block)) {
+        unfinalizedBatchTails.push(batchTail);
+      }
     } while (searchEndBlock < toL1Block);
 
-    if (messageCount > 0) {
-      this.log.info(`Retrieved ${messageCount} new L1 to L2 messages up to message with index ${lastMessage?.index}`, {
-        lastMessage,
-        messageCount,
-      });
+    if (firstMessage === undefined || lastMessage === undefined) {
+      return 'stored';
     }
+    this.log.info(`Retrieved ${messageCount} new L1 to L2 messages up to message with index ${lastMessage.index}`, {
+      lastMessage,
+      messageCount,
+    });
+
+    // The fetch may have re-delivered the bucket that was newest before it, so it is compared as it is stored now.
+    const newestBucketToRecheck =
+      newestBucketBeforeFetch && !isFinalized(newestBucketBeforeFetch.closedAt, finalizedL1Block)
+        ? await this.stores.messages.getInboxBucketL1Span(newestBucketBeforeFetch.seq)
+        : undefined;
+    const checks: { bucketSeq: bigint; check: () => Promise<BucketCanonicality> }[] = compactArray([
+      newestBucketToRecheck && {
+        bucketSeq: newestBucketToRecheck.seq,
+        check: () => this.checkBucketCanonicality(newestBucketToRecheck),
+      },
+      ...unfinalizedBatchTails.map(tail => ({
+        bucketSeq: tail.bucketSeq,
+        check: () =>
+          this.compareL1BlocksWithChain([{ l1BlockNumber: tail.l1BlockNumber, l1BlockHash: tail.l1BlockHash }]),
+      })),
+    ]);
+    for (const { bucketSeq, check } of checks) {
+      const canonicality = await check();
+      if (canonicality.status === 'canonical') {
+        continue;
+      }
+      if (canonicality.status === 'reorged') {
+        const syncPoint = await this.rollbackReorgedBucket(bucketSeq, canonicality);
+        if (syncPoint !== undefined) {
+          return 'rolled-back';
+        }
+      } else {
+        this.warnBucketNotVerifiable(bucketSeq, canonicality.l1BlockNumber, canonicality.error);
+      }
+      this.log.warn(
+        `Unwinding ${messageCount} L1 to L2 messages fetched from L1 block ${syncFrom.l1BlockNumber} that could not be checked against the live chain`,
+        { syncFrom, firstRemovedIndex: firstMessage.index, messageCount },
+      );
+      await this.rewindMessagesTo(syncFrom, firstMessage.index);
+      return 'unverifiable';
+    }
+    return 'stored';
   }
 
   /**
@@ -583,37 +871,25 @@ export class ArchiverL1Synchronizer implements Traceable {
       }
     }
 
-    // Delete everything after the common message we found, if anything needs to be deleted.
-    // Do not exit early if there are no messages to delete, we still want to update the syncpoint.
-    if (messagesToDelete > 0) {
-      const lastGoodIndex = commonMsg?.index;
-      this.log.warn(`Rolling back all local L1 to L2 messages after index ${lastGoodIndex ?? 'initial'}`);
-      await this.stores.messages.removeL1ToL2Messages(lastGoodIndex !== undefined ? lastGoodIndex + 1n : 0n);
-    }
-
-    // Update the syncpoint so the loop below reprocesses the changed messages. We go to the block before
+    // Resolve the syncpoint the messages will be rewound to before writing anything. We go to the block before
     // the last common one, so we force reprocessing it, in case new messages were added on that same L1 block
     // after the last common message. Cap at the finalized L1 block: messages at or below finalized cannot
     // have been reorged, so there is no need to walk back any further than that.
-    const syncPointL1BlockNumber = maxBigint(
-      ...compactArray([
-        commonMsg ? commonMsg.l1BlockNumber - 1n : undefined,
-        finalizedL1BlockNumber,
-        this.l1Constants.l1StartBlock,
-      ]),
+    const messagesSyncPoint = await this.resolveMessagesSyncPoint(
+      commonMsg && commonMsg.l1BlockNumber - 1n,
+      messagesFinalizedL1Block,
     );
 
-    const syncPointL1BlockHash =
-      syncPointL1BlockNumber === finalizedL1BlockNumber
-        ? messagesFinalizedL1Block!.l1BlockHash
-        : await this.getL1BlockHash(syncPointL1BlockNumber);
-
-    const messagesSyncPoint = { l1BlockNumber: syncPointL1BlockNumber, l1BlockHash: syncPointL1BlockHash };
-    await this.stores.messages.setMessageSyncState(messagesSyncPoint);
-    this.log.verbose(`Updated messages syncpoint to L1 block ${messagesSyncPoint.l1BlockNumber}`, {
-      ...messagesSyncPoint,
-    });
-    return messagesSyncPoint;
+    // Delete everything after the common message we found, if anything needs to be deleted, in the same transaction
+    // that moves the syncpoint. Do not exit early if there are no messages to delete, we still want to update it.
+    const lastGoodIndex = commonMsg?.index;
+    if (messagesToDelete > 0) {
+      this.log.warn(`Rolling back all local L1 to L2 messages after index ${lastGoodIndex ?? 'initial'}`);
+    }
+    return this.rewindMessagesTo(
+      messagesSyncPoint,
+      messagesToDelete > 0 ? (lastGoodIndex !== undefined ? lastGoodIndex + 1n : 0n) : undefined,
+    );
   }
 
   private async getL1BlockHash(l1BlockNumber: bigint): Promise<Buffer32> {
