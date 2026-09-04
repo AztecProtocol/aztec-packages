@@ -64,6 +64,27 @@ struct Poseidon2Permutation {
 };
 
 /**
+ * @struct Poseidon2AbsorbChain
+ * @brief Compute chain of Poseidon2 permutation rounds over chunks of 3-field blocks.
+ */
+struct Poseidon2AbsorbChain {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2AbsorbChain";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2AbsorbChainResponse";
+        std::array<fr, 4> state;
+        SERIALIZATION_FIELDS(state);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::array<fr, 4> state;
+    std::vector<uint8_t> inputs;
+    Response execute(BBApiRequest& request) &&;
+    SERIALIZATION_FIELDS(state, inputs);
+    bool operator==(const Poseidon2AbsorbChain&) const = default;
+};
+
+/**
  * @struct PedersenCommit
  * @brief Compute Pedersen commitment to field elements
  */

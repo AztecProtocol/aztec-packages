@@ -135,6 +135,35 @@ TEST(BBApiInputValidation, ChonkBatchVerifyWrongVkSizeReturnsInvalid)
     EXPECT_FALSE(response.valid);
 }
 
+TEST(Poseidon2AbsorbChain, MatchesSequentialPermutations)
+{
+    using Permutation = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
+    constexpr size_t rate = 3;
+    constexpr size_t field_bytes = 32;
+
+    const std::array<fr, 4> initial_state = { fr(11), fr(12), fr(13), fr(14) };
+    const std::array<std::array<fr, rate>, 2> blocks = { { { fr(1), fr(2), fr(3) }, { fr(4), fr(5), fr(6) } } };
+    std::vector<uint8_t> inputs(blocks.size() * rate * field_bytes);
+    for (size_t block = 0; block < blocks.size(); ++block) {
+        for (size_t field = 0; field < rate; ++field) {
+            fr::serialize_to_buffer(blocks[block][field], &inputs[((block * rate) + field) * field_bytes]);
+        }
+    }
+
+    auto expected_state = initial_state;
+    for (const auto& block : blocks) {
+        for (size_t field = 0; field < rate; ++field) {
+            expected_state[field] += block[field];
+        }
+        expected_state = Permutation::permutation(expected_state);
+    }
+
+    bbapi::BBApiRequest request{};
+    auto response = bbapi::Poseidon2AbsorbChain{ .state = initial_state, .inputs = std::move(inputs) }.execute(request);
+
+    EXPECT_EQ(response.state, expected_state);
+}
+
 // Helper: pack a vector of PrivateExecutionStepRaw into a byte buffer via msgpack.
 namespace {
 std::vector<uint8_t> pack_steps(const std::vector<PrivateExecutionStepRaw>& steps)
