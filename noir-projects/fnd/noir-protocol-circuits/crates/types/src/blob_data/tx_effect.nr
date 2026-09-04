@@ -431,7 +431,7 @@ mod tests {
         );
         assert_eq(tx_effect_category_hashes, [0; 7]);
 
-        // The marker still binds the (zero) counts and the 3 leading blob fields, so the tx effect hash of an
+        // The marker still binds the (zero) counts and the 3 leading blob fields, so the tx effect categories hash of
         // effect-less tx is not a hash of nothing.
         let expected_tx_effect_categories_hash = poseidon2_hash_with_separator(
             [tx_start_marker, 0, 0, 0, 0, 0, 0, 0, 0],

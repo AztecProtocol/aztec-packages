@@ -23,9 +23,9 @@ pub struct BlockHeader {
     pub sponge_blob_hash: Field,
 
     // The root of a merkle tree with one leaf per tx in this block, where each leaf binds a tx hash to the full
-    // contents of that tx's effects (see `compute_tx_effects_tree_leaf`). Unlike `sponge_blob_hash`, this commits to the
-    // effects of this block only, and it allows proving "tx X was included in this block and produced effects E"
-    // with a single membership proof rather than a replay of the whole checkpoint's effects.
+    // contents of that tx's effects (see `compute_tx_effects_tree_leaf`). Unlike `sponge_blob_hash`, this commits
+    // to the effects of this block only, and it allows proving "tx X was included in this block and produced effects
+    // E" with a single membership proof rather than a replay of the whole checkpoint's effects.
     // The tree shape is unbalanced, but deterministic: it is a function of the number of txs in the block alone.
     // An empty block has a root of 0.
     pub tx_effects_tree_root: Field,
