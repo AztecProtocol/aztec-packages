@@ -2,12 +2,13 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import '@aztec/stdlib/testing/jest';
 
-import { InboxBucketBoundaryNotSyncedError, InboxBucketNotSyncedError } from '../errors.js';
+import { InboxBucketNotSyncedError, InboxMessageRangeNotSyncedError } from '../errors.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import {
   makeInboxMessage,
@@ -23,6 +24,7 @@ import { type ArchiverL1SynchPoint, getArchiverSynchPoint } from './data_stores.
 import { MessageStore, MessageStoreError } from './message_store.js';
 
 describe('MessageStore', () => {
+  let db: AztecAsyncKVStore;
   let blockStore: BlockStore;
   let messageStore: MessageStore;
   let publishedCheckpoints: PublishedCheckpoint[];
@@ -40,7 +42,7 @@ describe('MessageStore', () => {
     });
 
   beforeEach(async () => {
-    const db = await openTmpStore('message_store_test');
+    db = await openTmpStore('message_store_test');
     blockStore = new BlockStore(db);
     messageStore = new MessageStore(db);
     // Create checkpoints sequentially to ensure archive roots are chained properly.
@@ -552,23 +554,61 @@ describe('MessageStore', () => {
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 0n)).toEqual([]);
     });
 
-    it('throws when a leaf count does not land on a synced bucket boundary', async () => {
+    it('returns messages between leaf counts interior to the bucket partition', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+      const leaves = msgs.map(m => m.leaf);
+
+      // Counts 1, 2 and 4 sit inside a bucket. A published block commits to a leaf count, and a reorg can merge away
+      // the bucket that ended there, so the range is addressed by message index alone.
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(1n, 6n)).toEqual(leaves.slice(1));
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 4n)).toEqual(leaves.slice(0, 4));
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(1n, 4n)).toEqual(leaves.slice(1, 4));
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(4n, 6n)).toEqual(leaves.slice(4));
+      // An empty range at an interior count consumes nothing rather than failing.
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(4n, 4n)).toEqual([]);
+    });
+
+    it('throws on an invalid or unsynced leaf count range', async () => {
       const msgs = makeBucketedMessages(threeBucketSpec);
       await messageStore.addL1ToL2MessageBuckets(msgs);
 
-      // Counts inside a bucket and past the last synced bucket both fail rather than returning a partial range.
-      await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 4n)).rejects.toThrow(
-        InboxBucketBoundaryNotSyncedError,
-      );
-      await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(4n, 6n)).rejects.toThrow(
-        InboxBucketBoundaryNotSyncedError,
-      );
+      // Ranges reaching past the synced tip fail rather than returning a partial range, empty ones included.
       await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(3n, 9n)).rejects.toThrow(
-        InboxBucketBoundaryNotSyncedError,
+        InboxMessageRangeNotSyncedError,
       );
+      await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(7n, 7n)).rejects.toThrow(
+        InboxMessageRangeNotSyncedError,
+      );
+      // Reversed and negative bounds are caller errors, reported like every other failure of this API: as a
+      // rejection, so remote callers behind the archiver RPC see them the same way.
       await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 3n)).rejects.toThrow(
         /Invalid Inbox leaf count range/,
       );
+      await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(-1n, 3n)).rejects.toThrow(
+        /Invalid Inbox leaf count range/,
+      );
+      await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, -1n)).rejects.toThrow(
+        /Invalid Inbox leaf count range/,
+      );
+    });
+
+    it('throws when the leaf count range has a hole', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      // Defense in depth: insertion is contiguity-checked and removal only ever drops a suffix, so no caller can put
+      // a hole in the middle of the log. Punch one straight into the map to prove a short read is never returned.
+      await db.openMap<number, Buffer>('archiver_l1_to_l2_messages').delete(2);
+
+      await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 6n)).rejects.toThrow(
+        InboxMessageRangeNotSyncedError,
+      );
+      await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(2n, 3n)).rejects.toThrow(
+        InboxMessageRangeNotSyncedError,
+      );
+      // Ranges that do not cover the hole are unaffected.
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(3n, 6n)).toEqual(msgs.slice(3).map(m => m.leaf));
     });
 
     it('rewinds buckets when messages are removed', async () => {
