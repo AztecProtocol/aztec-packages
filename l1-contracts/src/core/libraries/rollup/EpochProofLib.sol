@@ -133,6 +133,15 @@ library EpochProofLib {
     if (_args.end > rollupStore.tips.getProven()) {
       rollupStore.tips = rollupStore.tips.updateProven(_args.end);
 
+      // Unlock Inbox ring eviction up to the bucket the newly proven tip consumed; its temp-log record was
+      // validated against the Inbox at propose time. Equal start and end rolling hashes mean the epoch consumed
+      // no messages, so the bucket is the one already recorded and the cross-contract write is skipped: both
+      // values are trusted here (the start was checked against storage, the end is bound by the proof), and a
+      // rolling hash identifies exactly one bucket since every bucket absorbs at least one message.
+      if (_args.args.previousInboxRollingHash != _args.args.endInboxRollingHash) {
+        _config.inbox.markProvenConsumed(STFLib.getInboxConsumedBucket(_args.end));
+      }
+
       // Handle L2->L1 message processing.
       // The circuit outputs an empty out hash tree root if the epoch contains no messages.
       // Since the out hash tree is append-only, with the first checkpoint at index 0, the second at index 1, and so on,

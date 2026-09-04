@@ -130,7 +130,8 @@ contract MinimalFeeModel {
         slotNumber: Slot.wrap(0),
         feeHeader: FeeLib.computeFeeHeader(checkpointNumber, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0),
         inboxRollingHash: bytes32(0),
-        inboxMsgTotal: 0
+        inboxMsgTotal: 0,
+        inboxConsumedBucket: 0
       })
     );
     //    FeeLib.writeFeeHeader(++populatedThrough, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0);

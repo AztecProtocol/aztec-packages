@@ -9,7 +9,7 @@ import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Inbox, INBOX_BUCKET_RING_SIZE} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {ProposedHeader, ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
@@ -967,6 +967,93 @@ contract RollupTest is RollupBase {
     // Public-input layout: [previousArchive, endArchive, outHash, previousInboxRollingHash, endInboxRollingHash, ...]
     assertEq(publicInputs[4], wrongEnd, "supplied end rolling hash must pass through to the public inputs");
     assertNotEq(publicInputs[4], storedEnd, "wrong end must not be replaced by the stored value");
+  }
+
+  // Ring eviction is gated on proven consumption, not pending consumption: proposing records the consumed bucket
+  // in the checkpoint's temp log only, and the Inbox's record moves once the epoch proof makes that checkpoint the
+  // proven tip.
+  function testProvenConsumedBucketAdvancesOnEpochProof() public setUpFor("mixed_checkpoint_1") {
+    _proposeCheckpoint("mixed_checkpoint_1", 1);
+
+    uint64 consumedBucket = inbox.getCurrentBucketSeq();
+    assertGt(consumedBucket, 0, "checkpoint consumed L1 to L2 messages");
+    assertEq(inbox.getProvenConsumedBucketSeq(), 0, "pending consumption does not unlock eviction");
+
+    _proveCheckpoints("mixed_checkpoint_", 1, 1, address(this));
+
+    assertEq(inbox.getProvenConsumedBucketSeq(), consumedBucket, "proven consumption caught up with the proposal");
+    assertEq(inbox.getRingHeadroom(), INBOX_BUCKET_RING_SIZE, "the whole ring is available again");
+  }
+
+  // An epoch that consumed no messages proves with equal start and end rolling hashes, and the proven-tip advance
+  // skips the Inbox write since the record could not move.
+  function testEmptyInboxEpochProofSkipsInboxWrite() public setUpFor("mixed_checkpoint_1") {
+    _proposeCheckpoint("mixed_checkpoint_1", 1);
+    _proveCheckpoints("mixed_checkpoint_", 1, 1, address(this));
+    uint64 provenConsumedBucket = inbox.getProvenConsumedBucketSeq();
+    assertGt(provenConsumedBucket, 0, "the first epoch consumed L1 to L2 messages");
+
+    // The next epoch's checkpoint references the same bucket, adding no messages.
+    _proposeCheckpointWithoutInboxMessages("mixed_checkpoint_2", EPOCH_DURATION);
+    assertEq(inbox.getCurrentBucketSeq(), provenConsumedBucket, "no new bucket was opened");
+
+    vm.expectCall(address(inbox), abi.encodeWithSelector(inbox.markProvenConsumed.selector), 0);
+    _proveCheckpoints("mixed_checkpoint_", 2, 2, address(this));
+
+    assertEq(rollup.getProvenCheckpointNumber(), 2, "second epoch proven");
+    assertEq(inbox.getProvenConsumedBucketSeq(), provenConsumedBucket, "record unchanged");
+  }
+
+  // A prune rewinds the pending chain along with the temp-log records of what it consumed, but the buckets that
+  // chain referenced are exactly the ones the replacement chain has to re-consume, so eviction stays locked.
+  function testPruneDoesNotAdvanceProvenConsumed() public setUpFor("mixed_checkpoint_1") {
+    _proposeCheckpoint("mixed_checkpoint_1", 1);
+    assertGt(inbox.getCurrentBucketSeq(), 0, "checkpoint consumed L1 to L2 messages");
+
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(1);
+    Slot prunableAt = checkpoint.slotNumber + Epoch.wrap(2).toSlots();
+    vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(prunableAt)));
+
+    rollup.prune();
+
+    assertEq(rollup.getPendingCheckpointNumber(), 0, "pending chain pruned");
+    assertEq(inbox.getProvenConsumedBucketSeq(), 0, "a pruned chain's consumption never unlocks eviction");
+  }
+
+  // Re-proposing a checkpoint number after a prune overwrites its temp log wholesale, so proving the replacement
+  // records the replacement's consumption — the pruned proposal's stale record cannot leak into the Inbox.
+  function testProvenConsumedTracksReplacementChainAfterPrune() public setUpFor("mixed_checkpoint_1") {
+    _proposeCheckpoint("mixed_checkpoint_1", 1);
+    uint64 staleConsumedBucket = inbox.getCurrentBucketSeq();
+    assertGt(staleConsumedBucket, 0, "the pruned proposal consumed L1 to L2 messages");
+
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(1);
+    Slot prunableAt = checkpoint.slotNumber + Epoch.wrap(2).toSlots();
+    uint256 replacementTimestamp = Timestamp.unwrap(rollup.getTimestampForSlot(prunableAt));
+
+    // An extra message in an L1 block before the replacement's slot opens one more bucket, so the replacement
+    // proposal consumes one bucket further than the pruned one did and the two temp-log records differ.
+    vm.warp(replacementTimestamp - 12);
+    vm.roll(block.number + 1);
+    bytes32[] memory contents = new bytes32[](1);
+    contents[0] = bytes32(uint256(0x1234));
+    _populateInbox(address(this), bytes32(uint256(0x5678)), contents);
+    uint64 replacementConsumedBucket = inbox.getCurrentBucketSeq();
+    assertEq(replacementConsumedBucket, staleConsumedBucket + 1, "the extra message opened one more bucket");
+
+    // The propose call prunes the stale chain and installs checkpoint 1 from the empty fixture, referencing the
+    // newest bucket.
+    _proposeCheckpoint("empty_checkpoint_1", Slot.unwrap(prunableAt));
+    assertEq(rollup.getPendingCheckpointNumber(), 1, "replacement chain proposed");
+
+    _proveCheckpoints("empty_checkpoint_", 1, 1, address(this));
+
+    assertEq(rollup.getProvenCheckpointNumber(), 1, "replacement checkpoint proven");
+    assertEq(
+      inbox.getProvenConsumedBucketSeq(),
+      replacementConsumedBucket,
+      "the replacement's consumption is recorded, not the pruned proposal's"
+    );
   }
 
   function _submitEpochProof(
