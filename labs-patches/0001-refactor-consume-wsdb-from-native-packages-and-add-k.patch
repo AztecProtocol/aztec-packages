@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Thu, 3 Sep 2026 13:27:00 +0000
+Subject: [PATCH] refactor: consume wsdb from native-packages and add kvdb
+ (aztec-packages #24392)
+
+The foundation extracted wsdb/lmdblib/kvdb into native-packages/, decoupled
+from barretenberg. The wsdb use-local portals move to native-packages/wsdb/ts,
+and the kv-store NAPI addon (nodejs_module.node) now ships as
+@aztec-foundation/kvdb rather than inside @aztec-foundation/bb.js --
+@aztec/native locates it there.
+
+diff --git a/labs-aztec-toolchain/pins.mjs b/labs-aztec-toolchain/pins.mjs
+index eedfbfa621b4f00a1fca57e9cefeb7c74ebacf4c..a949edd98067d2db3d90ec56b1384dc14712884b 100755
+--- a/labs-aztec-toolchain/pins.mjs
++++ b/labs-aztec-toolchain/pins.mjs
+@@ -66,6 +66,15 @@ const LOCAL_PACKAGES = {
+   "@aztec-foundation/cdb": "portal:barretenberg/ts/cdb",
+   "@aztec-foundation/constants-codegen": "portal:protocol/constants-codegen",
+   "@aztec-foundation/ipc-runtime": "portal:ipc-runtime/ts",
++  "@aztec-foundation/kvdb": "portal:native-packages/kvdb/ts",
++  "@aztec-foundation/kvdb-darwin-arm64":
++    "portal:native-packages/kvdb/ts/packages/kvdb-darwin-arm64",
++  "@aztec-foundation/kvdb-darwin-x64":
++    "portal:native-packages/kvdb/ts/packages/kvdb-darwin-x64",
++  "@aztec-foundation/kvdb-linux-arm64":
++    "portal:native-packages/kvdb/ts/packages/kvdb-linux-arm64",
++  "@aztec-foundation/kvdb-linux-x64":
++    "portal:native-packages/kvdb/ts/packages/kvdb-linux-x64",
+   "@aztec-foundation/l1-artifacts": "portal:l1-contracts/l1-artifacts",
+   "@aztec-foundation/mock-protocol-circuits-artifacts":
+     "portal:noir-projects/fnd/mock-protocol-circuits-artifacts/dist",
+@@ -73,11 +82,15 @@ const LOCAL_PACKAGES = {
+     "portal:noir-projects/fnd/protocol-circuits-artifacts/dist",
+   "@aztec-foundation/protocol-contracts-artifacts":
+     "portal:noir-projects/fnd/protocol-contracts-artifacts/dist",
+-  "@aztec-foundation/wsdb": "portal:wsdb/ts",
+-  "@aztec-foundation/wsdb-darwin-arm64": "portal:wsdb/ts/packages/wsdb-darwin-arm64",
+-  "@aztec-foundation/wsdb-darwin-x64": "portal:wsdb/ts/packages/wsdb-darwin-x64",
+-  "@aztec-foundation/wsdb-linux-arm64": "portal:wsdb/ts/packages/wsdb-linux-arm64",
+-  "@aztec-foundation/wsdb-linux-x64": "portal:wsdb/ts/packages/wsdb-linux-x64",
++  "@aztec-foundation/wsdb": "portal:native-packages/wsdb/ts",
++  "@aztec-foundation/wsdb-darwin-arm64":
++    "portal:native-packages/wsdb/ts/packages/wsdb-darwin-arm64",
++  "@aztec-foundation/wsdb-darwin-x64":
++    "portal:native-packages/wsdb/ts/packages/wsdb-darwin-x64",
++  "@aztec-foundation/wsdb-linux-arm64":
++    "portal:native-packages/wsdb/ts/packages/wsdb-linux-arm64",
++  "@aztec-foundation/wsdb-linux-x64":
++    "portal:native-packages/wsdb/ts/packages/wsdb-linux-x64",
+   "@aztec-foundation/noir-acvm_js": "portal:noir/packages/acvm_js",
+   "@aztec-foundation/noir-types": "portal:noir/packages/types",
+   "@aztec-foundation/noir-noirc_abi": "portal:noir/packages/noirc_abi",
+diff --git a/yarn-project/native/package.json b/yarn-project/native/package.json
+index acc6a7198d018c2f48064dc1ca3949ebdb79daa0..30fa306fe3b7c6f8a2ccaf747dbbb1ca3f28500b 100644
+--- a/yarn-project/native/package.json
++++ b/yarn-project/native/package.json
+@@ -16,6 +16,7 @@
+   ],
+   "dependencies": {
+     "@aztec-foundation/bb.js": "0.1.0-dummy",
++    "@aztec-foundation/kvdb": "0.1.0-dummy",
+     "@aztec-labs/foundation": "workspace:^",
+     "msgpackr": "^1.11.2"
+   },
+diff --git a/yarn-project/native/src/native_module.ts b/yarn-project/native/src/native_module.ts
+index 9776eceb2ae6028a7fea448c9724d107fc1d6a91..1be17e9ad1841a737b2260a6713bfc2e19b32432 100644
+--- a/yarn-project/native/src/native_module.ts
++++ b/yarn-project/native/src/native_module.ts
+@@ -1,4 +1,4 @@
+-import { findNapiBinary } from '@aztec-foundation/bb.js';
++import { findNapiBinary } from '@aztec-foundation/kvdb';
+ 
+ import { createRequire } from 'module';
+ 
+diff --git a/yarn-project/package.json b/yarn-project/package.json
+index 1feec4b98db883eef2b5bd3160f70b7ac6d4faeb..1fe99d3ccd410c544b66ed91828a135ff6ddd5a2 100644
+--- a/yarn-project/package.json
++++ b/yarn-project/package.json
+@@ -93,6 +93,11 @@
+     "@aztec-foundation/cdb": "6.0.0-nightly.20260902",
+     "@aztec-foundation/constants-codegen": "6.0.0-nightly.20260902",
+     "@aztec-foundation/ipc-runtime": "6.0.0-nightly.20260902",
++    "@aztec-foundation/kvdb": "6.0.0-nightly.20260902",
++    "@aztec-foundation/kvdb-darwin-arm64": "6.0.0-nightly.20260902",
++    "@aztec-foundation/kvdb-darwin-x64": "6.0.0-nightly.20260902",
++    "@aztec-foundation/kvdb-linux-arm64": "6.0.0-nightly.20260902",
++    "@aztec-foundation/kvdb-linux-x64": "6.0.0-nightly.20260902",
+     "@aztec-foundation/l1-artifacts": "6.0.0-nightly.20260902",
+     "@aztec-foundation/mock-protocol-circuits-artifacts": "6.0.0-nightly.20260902",
+     "@aztec-foundation/protocol-circuits-artifacts": "6.0.0-nightly.20260902",

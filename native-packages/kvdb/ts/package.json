@@ -1,0 +1,33 @@
+{
+  "name": "@aztec-foundation/kvdb",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dest/index.d.ts",
+      "default": "./dest/index.js"
+    }
+  },
+  "files": [
+    "dest/",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "rm -rf dest .tsbuildinfo",
+    "build": "tsc -p tsconfig.json",
+    "prepare_arch_packages": "./scripts/prepare_arch_packages.sh"
+  },
+  "dependencies": {
+    "tslib": "^2.4.0"
+  },
+  "optionalDependencies": {
+    "@aztec-foundation/kvdb-darwin-arm64": "0.1.0",
+    "@aztec-foundation/kvdb-darwin-x64": "0.1.0",
+    "@aztec-foundation/kvdb-linux-arm64": "0.1.0",
+    "@aztec-foundation/kvdb-linux-x64": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "typescript": "^5.3.3"
+  }
+}

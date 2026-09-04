@@ -1,0 +1,16 @@
+{
+  "name": "@aztec-foundation/wsdb-packages",
+  "packageManager": "yarn@4.13.0",
+  "private": true,
+  "scripts": {
+    "build": "yarn workspace @aztec-foundation/wsdb build",
+    "clean": "yarn workspaces foreach -A -p -v run clean"
+  },
+  "workspaces": [
+    "ts",
+    "ts/packages/*"
+  ],
+  "resolutions": {
+    "@aztec-foundation/ipc-runtime": "portal:../../ipc-runtime/ts"
+  }
+}

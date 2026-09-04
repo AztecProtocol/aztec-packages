@@ -17,8 +17,8 @@
   } while (0)
 
 namespace {
-echo::Fr test_hash(uint8_t base) {
-  echo::Fr hash{};
+echo::wire::Fr test_hash(uint8_t base) {
+  echo::wire::Fr hash{};
   for (size_t i = 0; i < hash.size(); ++i) {
     hash[i] = static_cast<uint8_t>(base + i);
   }
@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
     CHECK(resp.treeId == 7, "EchoAliases treeId");
     CHECK(resp.hash == hash, "EchoAliases hash");
     CHECK(resp.maybeHash == second, "EchoAliases maybeHash");
-    CHECK((resp.hashes == std::vector<echo::Fr>{hash, second}),
+    CHECK((resp.hashes == std::vector<echo::wire::Fr>{hash, second}),
           "EchoAliases hashes");
     std::cerr << "echo_client(cpp): EchoAliases OK\n";
   }

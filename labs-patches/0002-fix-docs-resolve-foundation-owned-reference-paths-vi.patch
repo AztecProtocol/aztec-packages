@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Fri, 28 Aug 2026 11:59:02 +0000
+Subject: [PATCH] fix(docs): resolve foundation-owned reference paths via the
+ superproject root
+
+check_doc_references.sh resolves against this repo's root; when checked out as
+the foundation monorepo's labs/ submodule, docs legitimately reference
+foundation-owned paths (l1-contracts/..., barretenberg/...) that live in the
+superproject. Fall back to it; standalone checkouts are unaffected.
+
+diff --git a/docs/scripts/check_doc_references.sh b/docs/scripts/check_doc_references.sh
+index 537ea93c322723c4b1c6a025aed4d96af386ac85..f9d5405d86465d3f696780af22acb15d831e9d1c 100755
+--- a/docs/scripts/check_doc_references.sh
++++ b/docs/scripts/check_doc_references.sh
+@@ -21,6 +21,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ REPO_ROOT=$(git rev-parse --show-toplevel)
+ cd "$REPO_ROOT"
+ 
++# When this repo is checked out as a submodule of the foundation monorepo, docs may
++# reference foundation-owned paths (l1-contracts/..., barretenberg/...) that live in the
++# superproject rather than this tree. Fall back to the superproject root for those.
++SUPERPROJECT_ROOT=$(git rev-parse --show-superproject-working-tree 2>/dev/null || true)
++
+ # Source shared library for reference extraction
+ source "$SCRIPT_DIR/lib/extract_doc_references.sh"
+ 
+@@ -48,7 +53,8 @@ MISSING_PATHS=""
+ while IFS='|' read -r ref_path doc_file; do
+   # Strip /* suffix for directory references before checking existence
+   check_path="${ref_path%/\*}"
+-  if [[ ! -e "$check_path" ]]; then
++  if [[ ! -e "$check_path" ]] &&
++    { [[ -z "$SUPERPROJECT_ROOT" ]] || [[ ! -e "$SUPERPROJECT_ROOT/$check_path" ]]; }; then
+     MISSING_PATHS="${MISSING_PATHS}  - ${ref_path} (referenced in ${doc_file})\n"
+   fi
+ done < "$MAPPING_FILE"

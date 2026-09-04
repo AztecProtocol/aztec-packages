@@ -8,8 +8,8 @@
  */
 
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
-#include "barretenberg/world_state/types.hpp"
-#include "barretenberg/wsdb/wsdb_ipc_client.hpp"
+#include "barretenberg/vm2_wsdb/wsdb_ipc_client.hpp"
+#include "barretenberg/world_state_reference/merkle_tree_id.hpp"
 
 #include <optional>
 #include <stack>
