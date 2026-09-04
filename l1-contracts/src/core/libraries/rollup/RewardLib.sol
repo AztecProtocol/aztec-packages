@@ -102,6 +102,7 @@ library RewardLib {
   bytes32 private constant REWARD_STORAGE_POSITION = keccak256("aztec.reward.storage");
 
   uint256 private constant REGISTRY_PROBE_GAS_LIMIT = 50_000;
+
   /// @notice One-shot writer used during rollup construction. Writes every field of
   ///         {RewardConfig}, including the immutable `rewardDistributor` and `booster`.
   /// @dev Must only be reachable from the constructor path. Post-deployment updates go through
