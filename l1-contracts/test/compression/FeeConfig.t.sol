@@ -17,12 +17,14 @@ contract FeeConfigTest is Test {
   function test_compressAndDecompress(
     uint32 _manaTarget,
     uint128 _congestionUpdateFraction,
-    uint64 _provingCostPerMana
+    uint64 _provingCostPerMana,
+    uint16 _protocolFeeMarginBps
   ) public pure {
     FeeConfig memory a = FeeConfig({
       manaTarget: _manaTarget,
       congestionUpdateFraction: _congestionUpdateFraction,
-      provingCostPerMana: EthValue.wrap(_provingCostPerMana)
+      provingCostPerMana: EthValue.wrap(_provingCostPerMana),
+      protocolFeeMarginBps: _protocolFeeMarginBps
     });
     CompressedFeeConfig b = a.compress();
     FeeConfig memory c = b.decompress();
@@ -30,9 +32,11 @@ contract FeeConfigTest is Test {
     assertEq(c.manaTarget, a.manaTarget, "Mana target");
     assertEq(c.congestionUpdateFraction, a.congestionUpdateFraction, "Congestion update fraction");
     assertEq(EthValue.unwrap(c.provingCostPerMana), EthValue.unwrap(a.provingCostPerMana), "Proving cost per mana");
+    assertEq(c.protocolFeeMarginBps, a.protocolFeeMarginBps, "Protocol fee margin bps");
 
     assertEq(b.getManaTarget(), a.manaTarget, "Mana target");
     assertEq(b.getCongestionUpdateFraction(), a.congestionUpdateFraction, "Congestion update fraction");
     assertEq(EthValue.unwrap(b.getProvingCostPerMana()), EthValue.unwrap(a.provingCostPerMana), "Proving cost per mana");
+    assertEq(b.getProtocolFeeMarginBps(), a.protocolFeeMarginBps, "Protocol fee margin bps");
   }
 }

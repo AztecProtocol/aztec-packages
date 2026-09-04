@@ -10,7 +10,13 @@ import {
   EthValue
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {RewardLib, RewardConfig, MutableRewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {
+  RewardLib,
+  RewardConfig,
+  MutableRewardConfig,
+  RegistryRewardOverride,
+  MAX_REGISTRY_REWARD_OVERRIDES
+} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {
@@ -22,12 +28,24 @@ import {
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 
 library RewardExtLib {
-  function initializeConfig(RewardConfig memory _config) external {
+  function initializeConfig(
+    RewardConfig memory _config,
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _registryRewardOverrides
+  ) external {
+    RewardLib.validateRegistryRewardOverrides(_registryRewardOverrides, _config);
     RewardLib.initializeConfig(_config);
   }
 
   function updateConfig(MutableRewardConfig memory _config) external {
     RewardLib.updateConfig(_config);
+  }
+
+  function updateProtocolFeeMargin(uint16 _bps) external returns (bool changed, uint16 oldBps) {
+    return FeeLib.updateProtocolFeeMargin(_bps);
+  }
+
+  function updateProtocolFeeRecipient(address _recipient) external returns (address oldRecipient) {
+    return RewardLib.updateProtocolFeeRecipient(_recipient);
   }
 
   function claimSequencerRewards(address _sequencer) external returns (uint256) {
@@ -79,6 +97,14 @@ library RewardExtLib {
 
   function getRewardDistributor() external view returns (IRewardDistributor) {
     return RewardLib.getStorage().config.rewardDistributor;
+  }
+
+  function getProtocolFeeRecipient() external view returns (address) {
+    return RewardLib.getProtocolFeeRecipient();
+  }
+
+  function getProtocolFeeMargin() external view returns (uint16) {
+    return FeeLib.getProtocolFeeMarginBps();
   }
 
   // FeeLib/STFLib/ProposeLib view wrappers - overflow from RollupOperationsExtLib

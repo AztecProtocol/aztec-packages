@@ -1,0 +1,720 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: aminsammara <aminsammara1@gmail.com>
+Date: Fri, 28 Aug 2026 00:00:00 +0000
+Subject: [PATCH] feat: introduce a protocol fee margin (AZIP-23)
+
+---
+diff --git a/yarn-project/aztec-node/src/aztec-node/node_public_calls_simulator.test.ts b/yarn-project/aztec-node/src/aztec-node/node_public_calls_simulator.test.ts
+index 3fc1008c01..86dfd888d7 100644
+--- a/yarn-project/aztec-node/src/aztec-node/node_public_calls_simulator.test.ts
++++ b/yarn-project/aztec-node/src/aztec-node/node_public_calls_simulator.test.ts
+@@ -445,7 +445,7 @@ describe('NodePublicCallsSimulator', () => {
+ });
+ 
+ function makeFeeHeader(): FeeHeader {
+-  return { excessMana: 0n, manaUsed: 0n, ethPerFeeAsset: 0n, congestionCost: 0n, proverCost: 0n };
++  return { excessMana: 0n, manaUsed: 0n, ethPerFeeAsset: 0n, protocolFee: 0n, proverCost: 0n };
+ }
+ 
+ function makeProposedCheckpointData(args: {
+diff --git a/yarn-project/end-to-end/src/single-node/fees/fees_test.ts b/yarn-project/end-to-end/src/single-node/fees/fees_test.ts
+index 8a0d733c7d..0e661ba2ba 100644
+--- a/yarn-project/end-to-end/src/single-node/fees/fees_test.ts
++++ b/yarn-project/end-to-end/src/single-node/fees/fees_test.ts
+@@ -381,13 +381,14 @@ export class FeesTest extends SingleNodeTestContext {
+       return feeHeader.manaUsed * feeHeader.proverCost;
+     };
+ 
+-    // RewardLib computes sequencerFee = checkpointFee - burn - proverFee where burn = manaUsed * congestionCost.
+-    // The fixture's typical case keeps congestionCost at zero, but reading it explicitly avoids latent bugs
+-    // when test load changes excess mana.
++    // RewardLib computes sequencerFee = checkpointFee - protocolFee - proverFee where
++    // protocolFee = manaUsed * feeHeader.protocolFee. The fixture's typical case keeps the
++    // protocol fee at zero, but reading it explicitly avoids latent bugs when test load changes
++    // excess mana.
+     this.getCommittedBurn = async (blockNumber: BlockNumber) => {
+       const block = await this.aztecNode.getBlock(blockNumber);
+       const feeHeader = await this.rollupContract.getFeeHeader(BigInt(block!.checkpointNumber));
+-      return feeHeader.manaUsed * feeHeader.congestionCost;
++      return feeHeader.manaUsed * feeHeader.protocolFee;
+     };
+   }
+ 
+diff --git a/yarn-project/ethereum/src/contracts/fee_asset_price_oracle.test.ts b/yarn-project/ethereum/src/contracts/fee_asset_price_oracle.test.ts
+index 4e56319a2a..a9066db971 100644
+--- a/yarn-project/ethereum/src/contracts/fee_asset_price_oracle.test.ts
++++ b/yarn-project/ethereum/src/contracts/fee_asset_price_oracle.test.ts
+@@ -112,7 +112,7 @@ describe('Uniswap Price Oracle', () => {
+       expect(modifier).toBe(49n);
+ 
+       const child = RollupContract.computeChildFeeHeader(
+-        { excessMana: 0n, manaUsed: 0n, ethPerFeeAsset: predictedParentE12, congestionCost: 0n, proverCost: 0n },
++        { excessMana: 0n, manaUsed: 0n, ethPerFeeAsset: predictedParentE12, protocolFee: 0n, proverCost: 0n },
+         0n,
+         modifier,
+         100n,
+diff --git a/yarn-project/ethereum/src/contracts/rollup.test.ts b/yarn-project/ethereum/src/contracts/rollup.test.ts
+index 52069c7496..95fd12af0e 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.test.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.test.ts
+@@ -22,7 +22,7 @@ import { type FeeHeader, RollupContract, TempCheckpointLogField } from './rollup
+ describe('compressFeeHeader', () => {
+   /** Creates a zero fee header with the given overrides. */
+   function makeFeeHeader(overrides: Partial<FeeHeader> = {}): FeeHeader {
+-    return { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 0n, congestionCost: 0n, proverCost: 0n, ...overrides };
++    return { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 0n, protocolFee: 0n, proverCost: 0n, ...overrides };
+   }
+ 
+   it('sets the preheat flag (bit 255)', () => {
+@@ -62,15 +62,15 @@ describe('compressFeeHeader', () => {
+     expect((result >> 80n) & ((1n << 48n) - 1n)).toBe(999n);
+   });
+ 
+-  it('packs congestionCost into bits [128:191]', () => {
+-    const header = makeFeeHeader({ congestionCost: 42n });
++  it('packs protocolFee into bits [128:191]', () => {
++    const header = makeFeeHeader({ protocolFee: 42n });
+     const result = RollupContract.compressFeeHeader(header);
+     expect((result >> 128n) & ((1n << 64n) - 1n)).toBe(42n);
+   });
+ 
+-  it('clamps congestionCost to 64 bits', () => {
++  it('clamps protocolFee to 64 bits', () => {
+     const maxValue = (1n << 64n) - 1n;
+-    const header = makeFeeHeader({ congestionCost: maxValue + 1n });
++    const header = makeFeeHeader({ protocolFee: maxValue + 1n });
+     const result = RollupContract.compressFeeHeader(header);
+     expect((result >> 128n) & maxValue).toBe(maxValue);
+   });
+@@ -93,7 +93,7 @@ describe('compressFeeHeader', () => {
+       manaUsed: 1000n,
+       excessMana: 2000n,
+       ethPerFeeAsset: 3000n,
+-      congestionCost: 4000n,
++      protocolFee: 4000n,
+       proverCost: 5000n,
+     });
+     const result = RollupContract.compressFeeHeader(header);
+@@ -122,7 +122,7 @@ describe('computeChildFeeHeader', () => {
+     manaUsed: 5000n,
+     excessMana: 3000n,
+     ethPerFeeAsset: 1000n,
+-    congestionCost: 100n,
++    protocolFee: 100n,
+     proverCost: 200n,
+   };
+ 
+@@ -144,9 +144,9 @@ describe('computeChildFeeHeader', () => {
+     expect(result.manaUsed).toBe(7777n);
+   });
+ 
+-  it('always sets congestionCost and proverCost to zero', () => {
++  it('always sets protocolFee and proverCost to zero', () => {
+     const result = RollupContract.computeChildFeeHeader(baseFeeHeader, 0n, 0n, manaTarget);
+-    expect(result.congestionCost).toBe(0n);
++    expect(result.protocolFee).toBe(0n);
+     expect(result.proverCost).toBe(0n);
+   });
+ 
+@@ -217,14 +217,14 @@ describe('computeChildFeeHeader', () => {
+       manaUsed: 8000n,
+       excessMana: 15000n,
+       ethPerFeeAsset: 5000n,
+-      congestionCost: 999n,
++      protocolFee: 999n,
+       proverCost: 888n,
+     };
+     const result = RollupContract.computeChildFeeHeader(parent, 42n, 250n, manaTarget);
+     expect(result.excessMana).toBe(13000n);
+     expect(result.manaUsed).toBe(42n);
+     expect(result.ethPerFeeAsset).toBe(5125n);
+-    expect(result.congestionCost).toBe(0n);
++    expect(result.protocolFee).toBe(0n);
+     expect(result.proverCost).toBe(0n);
+   });
+ });
+@@ -425,7 +425,7 @@ describe('Rollup', () => {
+         manaUsed: 12345n,
+         excessMana: 67890n,
+         ethPerFeeAsset: 1_000_000_000_000n,
+-        congestionCost: 99999n,
++        protocolFee: 99999n,
+         proverCost: 55555n,
+       } as FeeHeader,
+     };
+@@ -561,7 +561,7 @@ describe('Rollup', () => {
+         manaUsed: 12345n,
+         excessMana: 67890n,
+         ethPerFeeAsset: 1_000_000_000_000n,
+-        congestionCost: 99999n,
++        protocolFee: 99999n,
+         proverCost: 55555n,
+       };
+ 
+@@ -580,7 +580,7 @@ describe('Rollup', () => {
+       expect(result.manaUsed).toBe(feeHeader.manaUsed);
+       expect(result.excessMana).toBe(feeHeader.excessMana);
+       expect(result.ethPerFeeAsset).toBe(feeHeader.ethPerFeeAsset);
+-      expect(result.congestionCost).toBe(feeHeader.congestionCost);
++      expect(result.protocolFee).toBe(feeHeader.protocolFee);
+       expect(result.proverCost).toBe(feeHeader.proverCost);
+     });
+   });
+diff --git a/yarn-project/ethereum/src/contracts/rollup.ts b/yarn-project/ethereum/src/contracts/rollup.ts
+index af17f8d37c..e17fa5e771 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.ts
+@@ -114,7 +114,7 @@ export type FeeHeader = {
+   excessMana: bigint;
+   manaUsed: bigint;
+   ethPerFeeAsset: bigint;
+-  congestionCost: bigint;
++  protocolFee: bigint;
+   proverCost: bigint;
+ };
+ 
+@@ -177,7 +177,7 @@ export type TempCheckpointLogOverrideFields = {
+ export type ManaMinFeeComponents = {
+   sequencerCost: bigint;
+   proverCost: bigint;
+-  congestionCost: bigint;
++  protocolFee: bigint;
+   congestionMultiplier: bigint;
+ };
+ 
+@@ -432,6 +432,16 @@ export class RollupContract {
+     return this.rollup.read.getProvingCostPerManaInFeeAsset();
+   }
+ 
++  /** Returns the current protocol fee margin in basis points. Not memoized: governance can change it. */
++  getProtocolFeeMargin(): Promise<number> {
++    return this.rollup.read.getProtocolFeeMargin();
++  }
++
++  /** Returns the current recipient of the protocol fee tranche. Not memoized: governance can change it. */
++  async getProtocolFeeRecipient(): Promise<EthAddress> {
++    return EthAddress.fromString(await this.rollup.read.getProtocolFeeRecipient());
++  }
++
+   @memoize
+   getManaLimit(): Promise<bigint> {
+     return this.rollup.read.getManaLimit();
+@@ -636,7 +646,7 @@ export class RollupContract {
+       excessMana: result.excessMana,
+       manaUsed: result.manaUsed,
+       ethPerFeeAsset: result.ethPerFeeAsset,
+-      congestionCost: result.congestionCost,
++      protocolFee: result.protocolFee,
+       proverCost: result.proverCost,
+     };
+   }
+@@ -729,7 +739,7 @@ export class RollupContract {
+         excessMana: result.feeHeader.excessMana,
+         manaUsed: result.feeHeader.manaUsed,
+         ethPerFeeAsset: result.feeHeader.ethPerFeeAsset,
+-        congestionCost: result.feeHeader.congestionCost,
++        protocolFee: result.feeHeader.protocolFee,
+         proverCost: result.feeHeader.proverCost,
+       },
+     };
+@@ -1079,7 +1089,7 @@ export class RollupContract {
+     let value = BigInt(feeHeader.manaUsed) & ((1n << 32n) - 1n); // bits [0:31]
+     value |= (feeHeader.excessMana < MASK_48_BITS ? feeHeader.excessMana : MASK_48_BITS) << 32n; // bits [32:79]
+     value |= (BigInt(feeHeader.ethPerFeeAsset) & MASK_48_BITS) << 80n; // bits [80:127]
+-    value |= (feeHeader.congestionCost < MASK_64_BITS ? feeHeader.congestionCost : MASK_64_BITS) << 128n; // bits [128:191]
++    value |= (feeHeader.protocolFee < MASK_64_BITS ? feeHeader.protocolFee : MASK_64_BITS) << 128n; // bits [128:191]
+     value |= (feeHeader.proverCost < MASK_63_BITS ? feeHeader.proverCost : MASK_63_BITS) << 192n; // bits [192:254]
+     value |= 1n << 255n; // preheat flag
+     return value;
+@@ -1121,7 +1131,7 @@ export class RollupContract {
+       excessMana,
+       manaUsed: childManaUsed,
+       ethPerFeeAsset: newPrice,
+-      congestionCost: 0n,
++      protocolFee: 0n,
+       proverCost: 0n,
+     };
+   }
+@@ -1183,7 +1193,7 @@ export class RollupContract {
+     return {
+       sequencerCost: result.sequencerCost,
+       proverCost: result.proverCost,
+-      congestionCost: result.congestionCost,
++      protocolFee: result.protocolFee,
+       congestionMultiplier: result.congestionMultiplier,
+     };
+   }
+diff --git a/yarn-project/ethereum/src/test/chain_monitor.ts b/yarn-project/ethereum/src/test/chain_monitor.ts
+index c73e49f852..302cf4ab36 100644
+--- a/yarn-project/ethereum/src/test/chain_monitor.ts
++++ b/yarn-project/ethereum/src/test/chain_monitor.ts
+@@ -12,7 +12,7 @@ import type { ViemClient } from '../types.js';
+ 
+ /** L2 fee data reported by the chain monitor. */
+ export type L2FeeData = ManaMinFeeComponents & {
+-  /** Total minimum fee per mana in Fee Juice (sum of sequencerCost + proverCost + congestionCost). */
++  /** Total minimum fee per mana in Fee Juice (sum of sequencerCost + proverCost + protocolFee). */
+   minFeePerMana: bigint;
+   /** L1 base fee observed by the oracle. */
+   l1BaseFee: bigint;
+@@ -381,7 +381,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
+     return (
+       this.l2FeeData.sequencerCost !== newData.sequencerCost ||
+       this.l2FeeData.proverCost !== newData.proverCost ||
+-      this.l2FeeData.congestionCost !== newData.congestionCost ||
++      this.l2FeeData.protocolFee !== newData.protocolFee ||
+       this.l2FeeData.l1BaseFee !== newData.l1BaseFee ||
+       this.l2FeeData.l1BlobFee !== newData.l1BlobFee ||
+       this.l2FeeData.ethPerFeeAsset !== newData.ethPerFeeAsset
+diff --git a/yarn-project/ethereum/src/test/rollup_cheat_codes.ts b/yarn-project/ethereum/src/test/rollup_cheat_codes.ts
+index e2823cd86c..a9fb3f839f 100644
+--- a/yarn-project/ethereum/src/test/rollup_cheat_codes.ts
++++ b/yarn-project/ethereum/src/test/rollup_cheat_codes.ts
+@@ -374,6 +374,30 @@ export class RollupCheatCodes {
+     });
+   }
+ 
++  /**
++   * Sets the protocol fee margin (in basis points). Throws if the on-chain tx reverts
++   * (e.g. rate-limit cooldown or step cap) instead of silently succeeding.
++   * @param bps - The new protocol fee margin in basis points
++   */
++  public async setProtocolFeeMargin(bps: number) {
++    await this.asOwner(async (account, rollup) => {
++      const hash = await rollup.write.setProtocolFeeMargin([bps], {
++        account,
++        chain: this.client.chain,
++        gasLimit: 1000000n,
++      });
++      const receipt = await this.client.waitForTransactionReceipt({ hash });
++      if (receipt.status !== 'success') {
++        throw new Error(
++          `setProtocolFeeMargin(${bps}) reverted on L1 (tx ${hash}). ` +
++            `Likely FeeLib rate-limit (30-day cooldown or x3/2 step cap on the fee multiplier); ` +
++            `use clearProvingCostCooldown() between successive updates (it clears both cooldowns).`,
++        );
++      }
++      this.logger.warn(`Updated protocol fee margin to ${bps} bps`);
++    });
++  }
++
+   /**
+    * Resets the 30-day proving-cost update cooldown enforced by FeeLib.updateProvingCostPerMana
+    * by zeroing `FeeStore.provingCostLastUpdate` directly in contract storage. Use between
+@@ -384,7 +408,8 @@ export class RollupCheatCodes {
+    * l1-contracts/src/core/libraries/rollup/FeeLib.sol:
+    *   slot + 0: CompressedFeeConfig config          (uint256)
+    *   slot + 1: L1GasOracleValues l1GasOracleValues (14+14+4 bytes, packed)
+-   *   slot + 2: uint64 provingCostLastUpdate        (only member — zeroing the slot is safe)
++   *   slot + 2: uint64 provingCostLastUpdate + uint64 protocolMarginLastUpdate (packed --
++   *             zeroing the slot clears BOTH the proving-cost and protocol-fee-margin cooldowns)
+    * If the struct layout changes, update the offset below.
+    */
+   public async clearProvingCostCooldown() {
+diff --git a/yarn-project/prover-node/src/prover-node-publisher.test.ts b/yarn-project/prover-node/src/prover-node-publisher.test.ts
+index f7a1e248dc..6fb4f20eb0 100644
+--- a/yarn-project/prover-node/src/prover-node-publisher.test.ts
++++ b/yarn-project/prover-node/src/prover-node-publisher.test.ts
+@@ -73,7 +73,7 @@ describe('prover-node-publisher', () => {
+           excessMana: 0n, // unused
+           manaUsed: 0n, // unused
+           ethPerFeeAsset: 0n, // unused
+-          congestionCost: 0n, // unused
++          protocolFee: 0n, // unused
+           proverCost: 0n, // unused
+         },
+       }),
+@@ -244,7 +244,7 @@ describe('prover-node-publisher', () => {
+         blobCommitmentsHash: Buffer32.ZERO,
+         outHash: '0x',
+         slotNumber: SlotNumber(0),
+-        feeHeader: { excessMana: 0n, manaUsed: 0n, ethPerFeeAsset: 0n, congestionCost: 0n, proverCost: 0n },
++        feeHeader: { excessMana: 0n, manaUsed: 0n, ethPerFeeAsset: 0n, protocolFee: 0n, proverCost: 0n },
+       }),
+     );
+ 
+@@ -311,7 +311,7 @@ describe('prover-node-publisher', () => {
+           excessMana: 0n, // unused
+           manaUsed: 0n, // unused
+           ethPerFeeAsset: 0n, // unused
+-          congestionCost: 0n, // unused
++          protocolFee: 0n, // unused
+           proverCost: 0n, // unused
+         },
+       }),
+diff --git a/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts b/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts
+index c2707c9072..5f9ccc0bfb 100644
+--- a/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts
++++ b/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.test.ts
+@@ -264,7 +264,7 @@ describe('FeePredictor', () => {
+           excessMana: newExcessMana,
+           manaUsed: assumedManaUsed,
+           ethPerFeeAsset: decayEthPerFeeAsset(currentFeeHeader.ethPerFeeAsset, i + 1),
+-          congestionCost: 0n,
++          protocolFee: 0n,
+           proverCost: 0n,
+         };
+ 
+@@ -341,7 +341,7 @@ describe('FeePredictor', () => {
+         excessMana: newExcessMana,
+         manaUsed: 0n,
+         ethPerFeeAsset: decayedEthPerFeeAsset,
+-        congestionCost: 0n,
++        protocolFee: 0n,
+         proverCost: 0n,
+       };
+ 
+@@ -359,6 +359,33 @@ describe('FeePredictor', () => {
+       nextCheckpointOffset++;
+     }
+   }, 60_000);
++
++  it('slot 0 matches L1 getManaMinFeeAt with a nonzero protocol fee margin', async () => {
++    // Pin the comparison timestamp so before/after fees differ only by the margin.
++    const startSlot = await getPredictionStartSlot();
++    const timestamp = getTimestamp(startSlot + 1n);
++    const feeBefore = await rollup.getManaMinFeeAt(timestamp, true);
++
++    // The first-ever margin update bypasses the 30-day cooldown; from 0 the x3/2 step cap on the
++    // fee multiplier permits up to 5000 bps.
++    await rollupCheatCodes.setProtocolFeeMargin(5000);
++    expect(await rollup.getProtocolFeeMargin()).toBe(5000);
++
++    // The margin must move the pinned fee. If L1 scaled both the fakeExponential factor and the
++    // mulDiv divisor, mu would cancel silently and this catches it.
++    const l1Fee = await rollup.getManaMinFeeAt(timestamp, true);
++    expect(l1Fee).toBeGreaterThan(feeBefore);
++
++    // The predictor must agree with L1 exactly at mu != 0. This is the only check that catches
++    // the same factor+divisor double-scaling on the TS side of the mirror.
++    for (const manaUsage of Object.values(ManaUsageEstimate)) {
++      const predictor = new FeePredictor(rollup, dateProvider, feePredictorConfig);
++      const predicted = await predictor.getPredictedMinFees(manaUsage);
++      const predictionStartSlot = await getPredictionStartSlot();
++      const l1FeeAtStart = await rollup.getManaMinFeeAt(getTimestamp(predictionStartSlot), true);
++      expect(predicted[0].feePerL2Gas).toBe(l1FeeAtStart);
++    }
++  }, 60_000);
+ });
+ 
+ describe('FeePredictor state caching', () => {
+diff --git a/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.ts b/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.ts
+index 86132e3b35..dc1b6389c6 100644
+--- a/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.ts
++++ b/yarn-project/sequencer-client/src/global_variable_builder/fee_predictor.ts
+@@ -21,6 +21,7 @@ type FeeOracleState = {
+   manaLimit: bigint;
+   provingCostPerManaEth: bigint;
+   epochDuration: bigint;
++  protocolFeeMarginBps: bigint;
+   /** Pre-resolved L1 fees for each slot in the prediction window. */
+   l1FeesBySlot: L1FeeData[];
+ };
+@@ -75,11 +76,12 @@ export class FeePredictor {
+     const opts = { blockNumber };
+ 
+     // Cached constants don't need pinning
+-    const [manaTarget, manaLimit, provingCostPerManaEth, epochDuration] = await Promise.all([
++    const [manaTarget, manaLimit, provingCostPerManaEth, epochDuration, protocolFeeMarginBps] = await Promise.all([
+       this.rollupContract.getManaTarget(),
+       this.rollupContract.getManaLimit(),
+       this.rollupContract.getProvingCostPerMana(),
+       this.rollupContract.getEpochDuration(),
++      this.rollupContract.getProtocolFeeMargin(),
+     ]);
+ 
+     // First, compute the earliest possible nextSlot independently of the checkpoint, so we can
+@@ -115,6 +117,7 @@ export class FeePredictor {
+       manaLimit,
+       provingCostPerManaEth,
+       epochDuration: BigInt(epochDuration),
++      protocolFeeMarginBps: BigInt(protocolFeeMarginBps),
+       l1FeesBySlot,
+     };
+   }
+@@ -170,6 +173,7 @@ export class FeePredictor {
+         provingCostPerManaEth: state.provingCostPerManaEth,
+         excessMana,
+         ethPerFeeAsset,
++        protocolFeeMarginBps: state.protocolFeeMarginBps,
+       }),
+     );
+   }
+diff --git a/yarn-project/sequencer-client/src/sequencer/checkpoint_proposal_job.test.ts b/yarn-project/sequencer-client/src/sequencer/checkpoint_proposal_job.test.ts
+index 1f6bf35348..7c73d4369e 100644
+--- a/yarn-project/sequencer-client/src/sequencer/checkpoint_proposal_job.test.ts
++++ b/yarn-project/sequencer-client/src/sequencer/checkpoint_proposal_job.test.ts
+@@ -193,7 +193,7 @@ describe('CheckpointProposalJob', () => {
+     // Default rollup contract reads used by pipelined fee-header derivation. Tests that exercise
+     // the failure modes override these via jest.spyOn.
+     jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockResolvedValue({
+-      feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, congestionCost: 0n, proverCost: 0n },
++      feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, protocolFee: 0n, proverCost: 0n },
+     } as any);
+     jest.spyOn(publisher.rollupContract, 'getManaTarget').mockResolvedValue(10_000n);
+     publisher.sendRequestsAt.mockResolvedValue({
+diff --git a/yarn-project/sequencer-client/src/sequencer/sequencer.test.ts b/yarn-project/sequencer-client/src/sequencer/sequencer.test.ts
+index 4eff6b3476..d2078d8a9e 100644
+--- a/yarn-project/sequencer-client/src/sequencer/sequencer.test.ts
++++ b/yarn-project/sequencer-client/src/sequencer/sequencer.test.ts
+@@ -261,7 +261,7 @@ describe('sequencer', () => {
+     rollupContract.isEscapeHatchOpen.mockResolvedValue(false);
+     // Default rollup reads used by pipelined fee-header derivation.
+     rollupContract.getCheckpoint.mockResolvedValue({
+-      feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, congestionCost: 0n, proverCost: 0n },
++      feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, protocolFee: 0n, proverCost: 0n },
+     } as any);
+     rollupContract.getManaTarget.mockResolvedValue(10_000n);
+ 
+diff --git a/yarn-project/stdlib/src/checkpoint/simulation_overrides.test.ts b/yarn-project/stdlib/src/checkpoint/simulation_overrides.test.ts
+index 3c7e5bea83..d007259eea 100644
+--- a/yarn-project/stdlib/src/checkpoint/simulation_overrides.test.ts
++++ b/yarn-project/stdlib/src/checkpoint/simulation_overrides.test.ts
+@@ -38,7 +38,7 @@ describe('computePipelinedParentFeeHeader', () => {
+     manaUsed: 3000n,
+     excessMana: 1000n,
+     ethPerFeeAsset: 500n,
+-    congestionCost: 50n,
++    protocolFee: 50n,
+     proverCost: 10n,
+   };
+ 
+@@ -139,7 +139,7 @@ describe('buildCheckpointSimulationOverridesPlan', () => {
+     manaUsed: 3000n,
+     excessMana: 1000n,
+     ethPerFeeAsset: 500n,
+-    congestionCost: 50n,
++    protocolFee: 50n,
+     proverCost: 10n,
+   };
+ 
+diff --git a/yarn-project/stdlib/src/gas/README.md b/yarn-project/stdlib/src/gas/README.md
+index b98eef59ac..5d1779f772 100644
+--- a/yarn-project/stdlib/src/gas/README.md
++++ b/yarn-project/stdlib/src/gas/README.md
+@@ -56,28 +56,35 @@ Updates to `provingCostPerMana` are rate-limited on L1 (`FeeLib.updateProvingCos
+ at most one update every 30 days, each moving the value by at most ×1.5 (or ÷1.5), with a
+ floor of 2 wei per mana.
+ 
+-### Congestion Cost
++### Protocol Fee
+ 
+-An exponential surcharge when the network is congested (inspired by EIP-1559; the
+-implementation uses the `fakeExponential` Taylor series approximation from EIP-4844):
++The markup above operator cost: the governance-set protocol fee margin (basis points, applied
++through the congestion multiplier's factor) plus an exponential congestion surcharge when the
++network is congested (inspired by EIP-1559; the implementation uses the `fakeExponential`
++Taylor series approximation from EIP-4844):
+ 
+ ```
+-baseCost       = sequencerCost + proverCost
+-congestionCost = floor(baseCost * congestionMultiplier / MINIMUM_CONGESTION_MULTIPLIER) - baseCost
++baseCost    = sequencerCost + proverCost
++protocolFee = floor(baseCost * congestionMultiplier / MINIMUM_CONGESTION_MULTIPLIER) - baseCost
+ ```
+ 
+-When there is no congestion the multiplier equals `MINIMUM_CONGESTION_MULTIPLIER` (1e9)
+-and congestion cost is zero.
++At a zero margin and no congestion the multiplier equals `MINIMUM_CONGESTION_MULTIPLIER` (1e9)
++and the protocol fee is zero.
+ 
+ ### Congestion Multiplier
+ 
+ ```
+ excessMana           = max(0, prevExcessMana + prevManaUsed - manaTarget)
+ denominator          = manaTarget * 854,700,854 / 1e8    ≈ 8.547 * manaTarget
+-congestionMultiplier = fakeExponential(MINIMUM_CONGESTION_MULTIPLIER,
++congestionMultiplier = fakeExponential((10,000 + protocolFeeMarginBps) * 1e5,
+                                        min(excessMana, 100 * denominator), denominator)
+ ```
+ 
++The factor `(10,000 + protocolFeeMarginBps) * 1e5` equals `(1 + mu) * 1e9`, so the
++uncongested baseline is `(1 + mu) * MINIMUM_CONGESTION_MULTIPLIER` — exactly 1e9 at a zero
++margin. Only the factor scales with the margin; the divisor in the protocol fee formula stays
++`MINIMUM_CONGESTION_MULTIPLIER` (scaling both would cancel the margin).
++
+ Each additional `manaTarget` of excess mana multiplies the fee by `e^(1/8.547) ≈ 1.124`,
+ i.e. ~12.5%. The exponent is capped at 100 (multiplier ≤ ~2.7e43 × the minimum) to keep
+ the Taylor series from overflowing.
+@@ -85,7 +92,7 @@ the Taylor series from overflowing.
+ ### Total
+ 
+ ```
+-minFeePerMana = sequencerCost + proverCost + congestionCost
++minFeePerMana = sequencerCost + proverCost + protocolFee
+ ```
+ 
+ Each component is converted from ETH to the fee asset individually (rounding up) before
+diff --git a/yarn-project/stdlib/src/gas/fee_math.test.ts b/yarn-project/stdlib/src/gas/fee_math.test.ts
+index e77dfb8a2d..a501fe652e 100644
+--- a/yarn-project/stdlib/src/gas/fee_math.test.ts
++++ b/yarn-project/stdlib/src/gas/fee_math.test.ts
+@@ -65,12 +65,12 @@ describe('computeExcessMana', () => {
+ 
+ describe('computeCongestionMultiplier', () => {
+   it('returns MINIMUM_CONGESTION_MULTIPLIER when excess is zero', () => {
+-    expect(computeCongestionMultiplier(0n, 100_000_000n)).toBe(MINIMUM_CONGESTION_MULTIPLIER);
++    expect(computeCongestionMultiplier(0n, 100_000_000n, 0n)).toBe(MINIMUM_CONGESTION_MULTIPLIER);
+   });
+ 
+   it('increases with excess mana', () => {
+-    const low = computeCongestionMultiplier(100_000n, 100_000_000n);
+-    const high = computeCongestionMultiplier(200_000n, 100_000_000n);
++    const low = computeCongestionMultiplier(100_000n, 100_000_000n, 0n);
++    const high = computeCongestionMultiplier(200_000n, 100_000_000n, 0n);
+     expect(high).toBeGreaterThan(low);
+     expect(low).toBeGreaterThan(MINIMUM_CONGESTION_MULTIPLIER);
+   });
+@@ -78,11 +78,16 @@ describe('computeCongestionMultiplier', () => {
+   it('increases by ~12.5% per manaTarget of excess', () => {
+     // When excessMana = manaTarget, multiplier ≈ 1.125 * MINIMUM_CONGESTION_MULTIPLIER
+     const manaTarget = 100_000_000n;
+-    const multiplier = computeCongestionMultiplier(manaTarget, manaTarget);
++    const multiplier = computeCongestionMultiplier(manaTarget, manaTarget, 0n);
+     const ratio = Number(multiplier) / Number(MINIMUM_CONGESTION_MULTIPLIER);
+     expect(ratio).toBeGreaterThan(1.12);
+     expect(ratio).toBeLessThan(1.13);
+   });
++
++  it('scales the zero-excess baseline by exactly (10000 + bps) * 1e5', () => {
++    expect(computeCongestionMultiplier(0n, 100_000_000n, 5000n)).toBe(15_000n * 100_000n);
++    expect(computeCongestionMultiplier(0n, 100_000_000n, 65_535n)).toBe(75_535n * 100_000n);
++  });
+ });
+ 
+ describe('computeManaMinFee', () => {
+@@ -94,6 +99,7 @@ describe('computeManaMinFee', () => {
+     provingCostPerManaEth: 0n,
+     excessMana: 0n,
+     ethPerFeeAsset: 1_000_000_000_000n, // 1:1 ETH:FeeAsset
++    protocolFeeMarginBps: 0n,
+   };
+ 
+   it('returns zero when manaTarget is zero', () => {
+@@ -123,12 +129,36 @@ describe('computeManaMinFee', () => {
+     expect(high).toBeGreaterThan(low);
+   });
+ 
+-  it('has zero congestion cost when excess mana is zero', () => {
+-    // With zero excess, congestionMultiplier = MINIMUM_CONGESTION_MULTIPLIER,
+-    // so congestionCost = total * 1 - total = 0
++  it('has zero protocol fee when excess mana and margin are zero', () => {
++    // With zero excess and zero margin, congestionMultiplier = MINIMUM_CONGESTION_MULTIPLIER,
++    // so protocolFee = total * 1 - total = 0
+     const fee = computeManaMinFee(baseParams);
+     // The fee should equal just sequencer + prover costs
+     const feeWithExcess = computeManaMinFee({ ...baseParams, excessMana: baseParams.manaTarget });
+     expect(feeWithExcess).toBeGreaterThan(fee);
+   });
++
++  it('scales the fee by ~(1 + mu) at zero excess', () => {
++    const base = computeManaMinFee(baseParams);
++    const withMargin = computeManaMinFee({ ...baseParams, protocolFeeMarginBps: 5000n });
++    // fee = cost + (floor(cost * 3 / 2) - cost) converted per component; allow 1 wei of Ceil slack.
++    const expected = (base * 15_000n) / 10_000n;
++    expect(withMargin).toBeGreaterThanOrEqual(expected - 1n);
++    expect(withMargin).toBeLessThanOrEqual(expected + 1n);
++    expect(withMargin).toBeGreaterThan(base);
++  });
++
++  it('applies the margin on top of congestion multiplicatively', () => {
++    const congested = computeManaMinFee({ ...baseParams, excessMana: baseParams.manaTarget * 3n });
++    const congestedWithMargin = computeManaMinFee({
++      ...baseParams,
++      excessMana: baseParams.manaTarget * 3n,
++      protocolFeeMarginBps: 5000n,
++    });
++    expect(congestedWithMargin).toBeGreaterThan(congested);
++    // The margin scales the multiplier's factor, so the marked-up congested fee is ~1.5x.
++    const ratio = Number(congestedWithMargin) / Number(congested);
++    expect(ratio).toBeGreaterThan(1.49);
++    expect(ratio).toBeLessThan(1.51);
++  });
+ });
+diff --git a/yarn-project/stdlib/src/gas/fee_math.ts b/yarn-project/stdlib/src/gas/fee_math.ts
+index 35ff2842c9..6d1ffa8fa7 100644
+--- a/yarn-project/stdlib/src/gas/fee_math.ts
++++ b/yarn-project/stdlib/src/gas/fee_math.ts
+@@ -36,6 +36,7 @@ export type ManaMinFeeParams = {
+   provingCostPerManaEth: bigint;
+   excessMana: bigint;
+   ethPerFeeAsset: bigint;
++  protocolFeeMarginBps: bigint;
+ };
+ 
+ /**
+@@ -60,11 +61,21 @@ export function computeExcessMana(prevExcessMana: bigint, prevManaUsed: bigint,
+   return sum > manaTarget ? sum - manaTarget : 0n;
+ }
+ 
+-/** Computes the congestion multiplier from excess mana (1e9 = no congestion). */
+-export function computeCongestionMultiplier(excessMana: bigint, manaTarget: bigint): bigint {
++/**
++ * Computes the congestion multiplier from excess mana.
++ * The protocol fee margin scales only the fakeExponential factor: (10_000 + bps) * 1e5, which is
++ * (1 + mu) * 1e9 and exactly 1e9 at mu = 0. The uncongested baseline is therefore (1 + mu) * 1e9.
++ * The MINIMUM_CONGESTION_MULTIPLIER divisor in computeManaMinFee MUST NOT be scaled -- scaling
++ * both sites cancels the margin.
++ */
++export function computeCongestionMultiplier(
++  excessMana: bigint,
++  manaTarget: bigint,
++  protocolFeeMarginBps: bigint,
++): bigint {
+   const denominator = (manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER) / MAGIC_CONGESTION_VALUE_DIVISOR;
+   const cappedNumerator = excessMana < denominator * 100n ? excessMana : denominator * 100n;
+-  return fakeExponential(MINIMUM_CONGESTION_MULTIPLIER, cappedNumerator, denominator);
++  return fakeExponential((10_000n + protocolFeeMarginBps) * 100_000n, cappedNumerator, denominator);
+ }
+ 
+ /** Ceiling division for positive bigints. */
+@@ -81,11 +92,20 @@ function toFeeAsset(ethValue: bigint, ethPerFeeAsset: bigint): bigint {
+ }
+ 
+ /**
+- * Computes the full mana min fee (sequencer + prover + congestion) in fee asset terms.
++ * Computes the full mana min fee (sequencer + prover + protocol fee) in fee asset terms.
+  * Mirrors FeeLib.getManaMinFeeComponentsAt + summedMinFee.
+  */
+ export function computeManaMinFee(params: ManaMinFeeParams): bigint {
+-  const { l1BaseFee, l1BlobFee, manaTarget, epochDuration, provingCostPerManaEth, excessMana, ethPerFeeAsset } = params;
++  const {
++    l1BaseFee,
++    l1BlobFee,
++    manaTarget,
++    epochDuration,
++    provingCostPerManaEth,
++    excessMana,
++    ethPerFeeAsset,
++    protocolFeeMarginBps,
++  } = params;
+ 
+   if (manaTarget === 0n) {
+     return 0n;
+@@ -102,17 +122,18 @@ export function computeManaMinFee(params: ManaMinFeeParams): bigint {
+   // Total base cost in ETH (congestion is computed on this)
+   const totalEth = sequencerCostEth + proverCostEth;
+ 
+-  // Congestion multiplier and cost (in ETH)
+-  const congestionMul = computeCongestionMultiplier(excessMana, manaTarget);
+-  const congestionCostEth = (totalEth * congestionMul) / MINIMUM_CONGESTION_MULTIPLIER - totalEth;
++  // Congestion multiplier (scaled by the protocol fee margin) and protocol fee (in ETH).
++  // The divisor here stays MINIMUM_CONGESTION_MULTIPLIER; only the multiplier's factor scales.
++  const congestionMul = computeCongestionMultiplier(excessMana, manaTarget, protocolFeeMarginBps);
++  const protocolFeeEth = (totalEth * congestionMul) / MINIMUM_CONGESTION_MULTIPLIER - totalEth;
+ 
+   // Convert all components to fee asset
+   const clampedEthPerFeeAsset = ethPerFeeAsset < MIN_ETH_PER_FEE_ASSET ? MIN_ETH_PER_FEE_ASSET : ethPerFeeAsset;
+   const sequencerCost = toFeeAsset(sequencerCostEth, clampedEthPerFeeAsset);
+   const proverCost = toFeeAsset(proverCostEth, clampedEthPerFeeAsset);
+-  const congestionCost = toFeeAsset(congestionCostEth, clampedEthPerFeeAsset);
++  const protocolFee = toFeeAsset(protocolFeeEth, clampedEthPerFeeAsset);
+ 
+-  const total = sequencerCost + proverCost + congestionCost;
++  const total = sequencerCost + proverCost + protocolFee;
+ 
+   // Cap at uint128 max (matching FeeLib.summedMinFee)
+   const UINT128_MAX = (1n << 128n) - 1n;
+-- 
+2.50.1
+
