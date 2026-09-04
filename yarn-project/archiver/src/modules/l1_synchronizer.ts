@@ -698,15 +698,16 @@ export class ArchiverL1Synchronizer implements Traceable {
     }
 
     // The last canonical bucket's own messages need no comparison: both of the L1 blocks it sits on were just
-    // checked against the live chain, so nothing below its last message can have changed.
-    const firstDifferingIndex = await this.findFirstDifferingMessageIndex(
-      lastCanonicalBucket ? lastCanonicalBucket.lastMessageIndex + 1n : 0n,
+    // checked against the live chain, so nothing below its last message can have changed. Its last message is
+    // still walked, because the boundary that closes it is only worth as much as the bucket that follows it.
+    const firstInvalidatedIndex = await this.findFirstInvalidatedMessageIndex(
+      lastCanonicalBucket ? lastCanonicalBucket.lastMessageIndex : 0n,
       fetched.messages,
     );
 
     const prunedBlocks = await this.updater.replaceMessagesAndPruneProposedBlocks({
       lastCanonicalBucketSeq: lastCanonicalBucket?.seq,
-      firstDifferingIndex,
+      firstInvalidatedIndex,
       messages: fetched.messages,
       syncPoint: fetched.syncPoint,
       // The rolling-hash fallback trusts every message at or below the finalized marker without querying L1, so the
@@ -718,10 +719,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     });
     this.log.verbose(`Updated messages syncpoint to L1 block ${fetched.syncPoint.l1BlockNumber}`, {
       ...fetched.syncPoint,
-      firstDifferingIndex,
+      firstInvalidatedIndex,
       messageCount: fetched.messages.length,
     });
-    this.reportPrunedProposedBlocks(prunedBlocks, firstDifferingIndex);
+    this.reportPrunedProposedBlocks(prunedBlocks, firstInvalidatedIndex);
     return fetched.syncPoint;
   }
 
@@ -848,24 +849,56 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   /**
-   * Returns the lowest index at or above `fromIndex` where the messages we hold and the canonical ones disagree, or
-   * undefined when every stored message from there on is re-delivered unchanged. A message that the canonical chain
-   * does not carry at all counts as a difference.
+   * Returns the lowest index at or above `fromIndex` that the canonical chain no longer backs, or undefined when
+   * every stored message from there on survives the swap whole. An index is invalidated when its leaf changed, and
+   * also when the bucket boundary that closed on it is gone: a block ends on a bucket boundary and consumers derive
+   * the messages it inserted from the buckets that boundary belongs to, so a boundary that stops existing takes the
+   * blocks that ended on it with it.
    *
-   * Comparing consensus rolling hashes is enough to compare whole prefixes: each one chains the hash before it, so
-   * equal hashes at an index mean equal leaves at every index through it.
+   * Comparing consensus rolling hashes is enough to compare whole prefixes of leaves: each one chains the hash
+   * before it, so equal hashes at an index mean equal leaves at every index through it. A message that the canonical
+   * chain does not carry at all counts as invalidated.
+   *
+   * The boundary comparison is deliberately one-sided. A reorg that merges two buckets into one destroys the
+   * boundary between them, so the blocks that ended there are pruned; one that splits a bucket only adds a boundary
+   * no block ever ended on, and every boundary that existed still does, so it prunes nothing.
+   *
+   * The one boundary this cannot settle is the newest one: when the canonical fetch reaches the L1 head it cannot
+   * tell a bucket that closed from one that is still open, and a bucket that carries on absorbing messages later
+   * takes its boundary away. That exposure is the same one ordinary ingestion has, since it stores an open head
+   * bucket as readily as a closed one, and is neither created nor widened here.
    */
-  private async findFirstDifferingMessageIndex(
+  private async findFirstInvalidatedMessageIndex(
     fromIndex: bigint,
     canonicalMessages: InboxMessage[],
   ): Promise<bigint | undefined> {
     // The canonical messages are contiguous and ascending by index, so the one at any index is found by offset.
     const firstCanonicalIndex = canonicalMessages.at(0)?.index;
+    const canonicalAt = (index: bigint) =>
+      firstCanonicalIndex === undefined ? undefined : canonicalMessages[Number(index - firstCanonicalIndex)];
+
+    let previous: { stored: InboxMessage; canonical: InboxMessage } | undefined;
     for await (const stored of this.stores.messages.iterateL1ToL2Messages({ start: fromIndex })) {
-      const canonical =
-        firstCanonicalIndex === undefined ? undefined : canonicalMessages[Number(stored.index - firstCanonicalIndex)];
+      const canonical = canonicalAt(stored.index);
       if (canonical === undefined || !canonical.inboxRollingHash.equals(stored.inboxRollingHash)) {
         return stored.index;
+      }
+      if (previous !== undefined) {
+        const storedBucketClosed = previous.stored.bucketSeq !== stored.bucketSeq;
+        const canonicalBucketClosed = previous.canonical.bucketSeq !== canonical.bucketSeq;
+        if (storedBucketClosed && !canonicalBucketClosed) {
+          return previous.stored.index;
+        }
+      }
+      previous = { stored, canonical };
+    }
+
+    // The last message we hold closes the last bucket we hold, so a canonical bucket that carries on past it takes
+    // that boundary away as much as a merge does.
+    if (previous !== undefined) {
+      const next = canonicalAt(previous.stored.index + 1n);
+      if (next !== undefined && next.bucketSeq === previous.canonical.bucketSeq) {
+        return previous.stored.index;
       }
     }
     return undefined;
@@ -910,7 +943,7 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   /** Logs, counts and announces the proposed blocks a message rollback dropped. */
-  private reportPrunedProposedBlocks(prunedBlocks: L2Block[], firstRemovedIndex: bigint | undefined): void {
+  private reportPrunedProposedBlocks(prunedBlocks: L2Block[], firstInvalidatedIndex: bigint | undefined): void {
     if (prunedBlocks.length === 0) {
       return;
     }
@@ -918,7 +951,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     const firstPrunedBlock = prunedBlocks[0];
     this.log.warn(
       `Pruning ${prunedBlocks.length} proposed blocks from ${firstPrunedBlock.number} built on rolled back messages`,
-      { firstRemovedIndex, firstPrunedBlockNumber: firstPrunedBlock.number, prunedCount: prunedBlocks.length },
+      { firstInvalidatedIndex, firstPrunedBlockNumber: firstPrunedBlock.number, prunedCount: prunedBlocks.length },
     );
     this.instrumentation.recordPrune('inbox_rollback');
     this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {

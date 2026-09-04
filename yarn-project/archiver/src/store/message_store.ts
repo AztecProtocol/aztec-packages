@@ -106,8 +106,8 @@ function toBucketL1Span(seq: bigint, snapshot: BucketSnapshot): InboxBucketL1Spa
 export type InboxMessageReplacement = {
   /** Sequence of the newest bucket known to sit on canonical L1 blocks, if any. */
   lastCanonicalBucketSeq: bigint | undefined;
-  /** Lowest message index whose leaf the canonical chain changed, if any. */
-  firstDifferingIndex: bigint | undefined;
+  /** Lowest message index whose leaf or bucket boundary the canonical chain no longer backs, if any. */
+  firstInvalidatedIndex: bigint | undefined;
   /** The canonical messages from the last canonical bucket's opening L1 block onwards. */
   messages: InboxMessage[];
   /** L1 block the messages were fetched up to. */
@@ -510,9 +510,10 @@ export class MessageStore {
    * Replaces everything the store holds above the given bucket with the messages the canonical chain delivers for the
    * same range, and moves the sync point to the L1 block that range was fetched up to, all in a single transaction.
    *
-   * The caller has already compared the two views: `firstDifferingIndex` is the lowest index whose leaf changed, and
-   * is undefined when the canonical chain re-delivers the very same leaves, in which case not a single message is
-   * dropped and only the bucket metadata derived from the L1 blocks moves. The steps depend on each other in order:
+   * The caller has already compared the two views: `firstInvalidatedIndex` is the lowest index whose leaf changed or
+   * whose bucket boundary the canonical chain took away, and is undefined when the canonical chain re-delivers the
+   * very same leaves under the same bucket boundaries, in which case not a single message is dropped and only the
+   * bucket metadata derived from the L1 blocks moves. The steps depend on each other in order:
    * the removal rewrites the snapshot of the bucket left holding the last surviving message, so it has to run while
    * that snapshot is still there; the snapshots above the last canonical bucket then go, because a re-delivery that
    * renumbers or merges buckets would otherwise be rejected as incomplete or leave a stale snapshot behind; and only
@@ -522,10 +523,10 @@ export class MessageStore {
    * that every bucket it covers arrives whole.
    */
   public replaceMessagesAboveBucket(args: InboxMessageReplacement): Promise<void> {
-    const { lastCanonicalBucketSeq, firstDifferingIndex, messages, syncPoint, finalizedL1Block } = args;
+    const { lastCanonicalBucketSeq, firstInvalidatedIndex, messages, syncPoint, finalizedL1Block } = args;
     return this.db.transactionAsync(async () => {
-      if (firstDifferingIndex !== undefined) {
-        await this.removeL1ToL2Messages(firstDifferingIndex);
+      if (firstInvalidatedIndex !== undefined) {
+        await this.removeL1ToL2Messages(firstInvalidatedIndex);
       }
       await this.deleteBucketSnapshotsAbove(lastCanonicalBucketSeq);
       await this.addL1ToL2MessageBuckets(messages);

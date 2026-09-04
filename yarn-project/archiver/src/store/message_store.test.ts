@@ -739,7 +739,7 @@ describe('MessageStore', () => {
 
         await messageStore.replaceMessagesAboveBucket({
           lastCanonicalBucketSeq: 2n,
-          firstDifferingIndex: undefined,
+          firstInvalidatedIndex: undefined,
           messages: [retimed],
           syncPoint,
           finalizedL1Block: undefined,
@@ -766,7 +766,7 @@ describe('MessageStore', () => {
 
         await messageStore.replaceMessagesAboveBucket({
           lastCanonicalBucketSeq: 1n,
-          firstDifferingIndex: undefined,
+          firstInvalidatedIndex: undefined,
           messages: merged,
           syncPoint,
           finalizedL1Block: undefined,
@@ -801,7 +801,7 @@ describe('MessageStore', () => {
 
         await messageStore.replaceMessagesAboveBucket({
           lastCanonicalBucketSeq: 1n,
-          firstDifferingIndex: undefined,
+          firstInvalidatedIndex: undefined,
           messages: split,
           syncPoint,
           finalizedL1Block: undefined,
@@ -824,7 +824,7 @@ describe('MessageStore', () => {
 
         await messageStore.replaceMessagesAboveBucket({
           lastCanonicalBucketSeq: 1n,
-          firstDifferingIndex: msgs[4].index,
+          firstInvalidatedIndex: msgs[4].index,
           messages: [msgs[3], replacement],
           syncPoint,
           finalizedL1Block: { l1BlockNumber: 800n, l1BlockHash: makeL1BlockHash(800n) },

@@ -459,6 +459,10 @@ export class CheckpointProposalJob implements Traceable {
    *
    * The hash is compared rather than the height alone, since a chain rebuilt after a prune reuses the block numbers.
    *
+   * This is a preflight, not a guarantee: the proposal is enqueued here and only broadcast once the publisher's wait
+   * for the target slot returns, and the archiver can prune in that window as it can after the transaction is sent.
+   * What the check buys is the common case, where the prune is already visible by the time the slot arrives.
+   *
    * Skipped whenever proposed blocks aren't pushed (`skipPushProposedBlocksToArchiver`, fisherman mode): the archiver
    * never held them in the first place, so their absence says nothing about a prune.
    */
