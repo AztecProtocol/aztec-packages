@@ -157,7 +157,7 @@ describe('LightweightCheckpointBuilder benchmarks', () => {
       const globalVariables = makeGlobalVariables(blockNumber, slotNumber);
       const txs = await timesAsync(numTxs, i => makeTx(globalVariables, 5000 + i));
 
-      const { timings } = await builder.addBlock(globalVariables, txs, [], { insertTxsEffects: true });
+      const { timings } = await builder.applyEffectsAndSealBlock(globalVariables, txs, []);
 
       const prefix = `addBlock/${label}/${numTxs} txs`;
       for (const [step, ms] of Object.entries(timings)) {

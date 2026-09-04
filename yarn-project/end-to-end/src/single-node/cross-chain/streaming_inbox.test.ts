@@ -326,4 +326,66 @@ describe('single-node/cross-chain/streaming_inbox', () => {
       .send({ from: user1Address, wait: { dontThrowOnRevert: true } });
     expect(failedReceipt.executionResult).toBe(TxExecutionResult.REVERTED);
   });
+
+  // Test 5 (forced same-block consumption): a public tx consuming a message that the *same* block inserts must
+  // succeed. The block builder appends the block's messages to its fork before executing txs, matching the prover
+  // and the block-root circuit (which pins each tx's L1-to-L2 tree snapshot to the post-append root); if it did
+  // not, this tx would revert at proposal time and succeed at proving time, making the epoch unprovable. The node
+  // simulates public calls against the messages predicted for the next block, so a consume tx sent as soon as the
+  // message's bucket becomes lag-eligible passes simulation and lands in the pool before the inserting block is
+  // built. The send is timed to that instant and retried with fresh messages when a block slips in between.
+  it('consumes a message in the same block that inserts it', async () => {
+    const l1Account = t.ethAccount;
+    const minBucketAge = BigInt(t.constants.ethereumSlotDuration);
+    const maxAttempts = 5;
+    let sameBlockReceipt: { blockNumber: BlockNumber; msgHash: Fr; globalLeafIndex: bigint } | undefined;
+
+    for (let attempt = 0; attempt < maxAttempts && sameBlockReceipt === undefined; attempt++) {
+      const [secret, secretHash] = await generateClaimSecret();
+      const message = { recipient: testContract.address, content: Fr.random(), secretHash };
+      const { msgHash, globalLeafIndex, txReceipt: l1Receipt } = await sendMessageToL2(message);
+      const messageL1Ts = await getMessageL1Timestamp(l1Receipt.blockNumber!);
+      const eligibleAt = messageL1Ts + minBucketAge;
+      log.warn(`Attempt ${attempt}: sent message ${msgHash.toString()}, eligible at L1 timestamp ${eligibleAt}`);
+
+      // Do not drive L2 blocks while waiting: an extra block here only shifts the timing of the inserting block.
+      await retryUntil(
+        async () => BigInt(await t.cheatCodes.eth.lastBlockTimestamp()) >= eligibleAt,
+        `message bucket becomes eligible at ${eligibleAt}`,
+        Number(t.constants.slotDuration) * 3,
+        0.2,
+      );
+      const blockAtSend = await aztecNode.getBlockNumber();
+
+      const { receipt } = await testContract.methods
+        .consume_message_from_arbitrary_sender_public(message.content, secret, l1Account, globalLeafIndex.toBigInt())
+        .send({ from: user1Address, wait: { dontThrowOnRevert: true } });
+      const inserting = await findInsertingBlock(msgHash, BlockNumber(blockAtSend + 1));
+      const consumeBlock = BlockNumber(Number(receipt.blockNumber));
+      log.warn(`Consume tx for ${msgHash.toString()} landed in block ${consumeBlock}`, {
+        insertingBlock: inserting.blockNumber,
+        consumeBlock,
+        executionResult: receipt.executionResult,
+      });
+
+      if (consumeBlock !== inserting.blockNumber) {
+        // A block was built between eligibility and the tx's arrival; that is timing, not a bug.
+        log.warn(`Consume did not land in the inserting block; retrying with a fresh message`);
+        continue;
+      }
+
+      // Same block reached: the consume must have succeeded against the block's own messages.
+      expect(receipt.executionResult).toBe(TxExecutionResult.SUCCESS);
+      sameBlockReceipt = { blockNumber: consumeBlock, msgHash, globalLeafIndex: globalLeafIndex.toBigInt() };
+    }
+
+    if (sameBlockReceipt === undefined) {
+      throw new Error(`Could not produce a same-block consume in ${maxAttempts} attempts`);
+    }
+    const [resolvedIndex] = (await aztecNode.getL1ToL2MessageMembershipWitness(
+      sameBlockReceipt.blockNumber,
+      sameBlockReceipt.msgHash,
+    ))!;
+    expect(resolvedIndex).toBe(sameBlockReceipt.globalLeafIndex);
+  });
 });
