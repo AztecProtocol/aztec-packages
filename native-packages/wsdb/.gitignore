@@ -1,0 +1,16 @@
+ts/
+cpp/build/
+# ipc-codegen emits the server dispatch into a generated/ subdir at build time.
+**/generated/
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+node_modules
+*.log
+cpp/src/common/aztec_constants.hpp
+# remake-constants.sh writes the generated header via a temp dir next to it; keep the
+# transient dir out of cache_content_hash's untracked-file check.
+.constants-gen.*/

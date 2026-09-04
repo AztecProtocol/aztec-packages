@@ -20,14 +20,14 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 ### Node Store (Cache + Metadata)
 8. `crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp`
 9. `crypto/merkle_tree/node_store/content_addressed_cache.hpp`
-10. `crypto/merkle_tree/node_store/tree_meta.hpp`
+10. `crypto/merkle_tree/tree_meta.hpp`
 
 ### Append-Only Tree
 11. `crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp`
 
 ### Indexed Tree
 12. `crypto/merkle_tree/indexed_tree/content_addressed_indexed_tree.hpp`
-13. `crypto/merkle_tree/indexed_tree/indexed_leaf.hpp`
+13. `crypto/merkle_tree/indexed_leaf.hpp`
 
 ## Summary of Module
 
