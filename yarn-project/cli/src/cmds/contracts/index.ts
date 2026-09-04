@@ -4,6 +4,16 @@ import type { Command } from 'commander';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
+    .command('check-artifacts')
+    .description('Checks compiled contract artifacts for incompatible private-function verification keys')
+    .argument('<artifactDirectories...>', 'One or more artifact directories or JSON files')
+    .option('--consistency-only', 'Only report mixed verification-key sizes without checking the installed toolchain')
+    .action(async (artifactDirectories: string[], options: { consistencyOnly?: boolean }) => {
+      const { checkArtifacts } = await import('./check_artifacts.js');
+      await checkArtifacts(artifactDirectories, options.consistencyOnly ? undefined : 'installed', log);
+    });
+
+  program
     .command('inspect-contract')
     .description('Shows list of external callable functions for a contract')
     .argument(
