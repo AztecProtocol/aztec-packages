@@ -1292,10 +1292,17 @@ export class ProposalHandler {
     const slot = proposal.slotNumber;
     const payloadHash = proposal.getPayloadHash();
 
-    // Check cache: same signed-payload hash means we already validated this exact proposal.
+    // Check cache: same signed-payload hash means we already validated this exact proposal. A valid verdict rests
+    // on blocks this node holds locally, and p2p makes two calls for one proposal (the all-nodes validation, then
+    // the attestation), so an archiver rollback in between can prune those blocks. Re-check that the checkpoint's
+    // last block is still local before reusing a valid verdict, or the attestation outlives what it was based on.
     if (this.lastCheckpointValidationResult && this.lastCheckpointValidationResult.payloadHash === payloadHash) {
-      this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
-      return this.lastCheckpointValidationResult.result;
+      const cached = this.lastCheckpointValidationResult.result;
+      if (!cached.isValid || (await this.blockSource.getBlockData({ archive: proposal.archive })) !== undefined) {
+        this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
+        return cached;
+      }
+      this.log.warn(`Re-validating checkpoint proposal at slot ${slot}: its blocks are no longer local`, proposalInfo);
     }
 
     const proposer = proposal.getSender();

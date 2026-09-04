@@ -1,3 +1,4 @@
+import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { filterAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
@@ -57,6 +58,10 @@ export class ArchiverDataStoreUpdater {
    * @param pendingChainValidationStatus - Optional validation status to set.
    * @returns True if the operation is successful.
    */
+  // TODO: a block built before an L1 reorg rolled back the messages it consumed can be pushed here after
+  // `removeProposedBlocksConsumingMessagesFrom` already pruned the chain it belongs to, and lands on the parent that
+  // survived the prune with nothing left to remove it. Closing it needs the builder to carry the message-store state
+  // it built against so this insert can reject a stale one.
   public async addProposedBlock(
     block: L2Block,
     pendingChainValidationStatus?: ValidateCheckpointResult,
@@ -255,22 +260,105 @@ export class ArchiverDataStoreUpdater {
    * @throws Error if any block to be removed is checkpointed.
    */
   public async removeUncheckpointedBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
-    const result = await this.stores.db.transactionAsync(async () => {
-      // Verify we're only removing uncheckpointed blocks
-      const lastCheckpointedBlockNumber = await this.stores.blocks.getCheckpointedL2BlockNumber();
-      if (blockNumber < lastCheckpointedBlockNumber) {
-        throw new Error(
-          `Cannot remove blocks after ${blockNumber} because checkpointed blocks exist up to ${lastCheckpointedBlockNumber}`,
-        );
-      }
-
-      const prunedBlocks = await this.removeBlocksAfter(blockNumber);
-      await this.evictProposedCheckpointsForPrunedBlocks(prunedBlocks);
-
-      return prunedBlocks;
-    });
+    const result = await this.stores.db.transactionAsync(() => this.removeUncheckpointedBlocksAfterInTx(blockNumber));
     await this.l2TipsCache?.refresh();
     return result;
+  }
+
+  /** Body of {@link removeUncheckpointedBlocksAfter}, for callers that supply the transaction and the tips refresh. */
+  private async removeUncheckpointedBlocksAfterInTx(blockNumber: BlockNumber): Promise<L2Block[]> {
+    // Verify we're only removing uncheckpointed blocks
+    const lastCheckpointedBlockNumber = await this.stores.blocks.getCheckpointedL2BlockNumber();
+    if (blockNumber < lastCheckpointedBlockNumber) {
+      throw new Error(
+        `Cannot remove blocks after ${blockNumber} because checkpointed blocks exist up to ${lastCheckpointedBlockNumber}`,
+      );
+    }
+
+    const prunedBlocks = await this.removeBlocksAfter(blockNumber);
+    await this.evictProposedCheckpointsForPrunedBlocks(prunedBlocks);
+
+    return prunedBlocks;
+  }
+
+  /**
+   * Rewinds the message sync point, dropping every L1-to-L2 message from `firstRemovedIndex` on, and prunes the
+   * proposed blocks that consumed one of them, in a single transaction.
+   *
+   * Splitting the two would make the prune unrecoverable: a crash after the messages were dropped leaves the
+   * proposed chain built on messages the store no longer holds, and the next sync pass re-downloads the canonical
+   * messages, finds the local state consistent with L1, and never comes back to those blocks.
+   *
+   * @returns The pruned blocks.
+   */
+  public async rewindMessagesAndPruneProposedBlocks(
+    messagesSyncPoint: L1BlockId,
+    firstRemovedIndex: bigint,
+  ): Promise<L2Block[]> {
+    const prunedBlocks = await this.stores.db.transactionAsync(async () => {
+      await this.stores.messages.rewindMessagesTo(messagesSyncPoint, firstRemovedIndex);
+      return await this.removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex);
+    });
+    await this.l2TipsCache?.refresh();
+    return prunedBlocks;
+  }
+
+  /**
+   * Removes the proposed (not yet L1-checkpointed) blocks that consumed an L1-to-L2 message at or after
+   * `firstRemovedIndex`, along with every block after them. A block's L1-to-L2 tree leaf count is the cumulative
+   * count of messages consumed through it, so a leaf count above the index means the block consumed a message the
+   * local chain no longer has, and one equal to it means the block stopped below it.
+   *
+   * The index is where the rollback rewound to, not the first leaf whose value actually changed, so a reorg that
+   * re-mines the same messages in a different L1 block also prunes blocks whose trees are unchanged and which L1
+   * would still accept. That over-pruning is accepted for now: the rollback rewinds before it knows what the
+   * canonical chain re-delivers, so it cannot tell a re-mine from a content change, and a prune from the first
+   * differing leaf has to wait until the rollback becomes content-aware.
+   *
+   * Checkpointed blocks are never touched: a message store that disagrees with a checkpoint L1 accepted means one
+   * of the two views of L1 is mid-reorg and this one is not necessarily the right one, so only the archive
+   * comparison in the checkpoint step may unwind published state. For the same reason nothing is pruned when the
+   * rollback reaches below the checkpointed tip's leaf count, where every proposed descendant would qualify.
+   *
+   * @param firstRemovedIndex - Index of the first L1-to-L2 message that was removed from the store.
+   * @returns The removed blocks.
+   */
+  private async removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex: bigint): Promise<L2Block[]> {
+    const [checkpointedBlockNumber, latestBlockNumber] = await Promise.all([
+      this.stores.blocks.getCheckpointedL2BlockNumber(),
+      this.stores.blocks.getLatestL2BlockNumber(),
+    ]);
+    if (latestBlockNumber <= checkpointedBlockNumber) {
+      return [];
+    }
+
+    const checkpointedTip =
+      checkpointedBlockNumber > 0
+        ? await this.stores.blocks.getBlockData({ number: BlockNumber(checkpointedBlockNumber) })
+        : undefined;
+    const checkpointedTipLeafCount = BigInt(
+      checkpointedTip?.header.state.l1ToL2MessageTree.nextAvailableLeafIndex ?? 0,
+    );
+    if (firstRemovedIndex < checkpointedTipLeafCount) {
+      this.log.warn(
+        `Not pruning proposed blocks: rollback index ${firstRemovedIndex} is below the checkpointed tip's leaf count`,
+        { firstRemovedIndex, checkpointedTipLeafCount, checkpointedBlockNumber },
+      );
+      return [];
+    }
+
+    const proposedBlocks = await this.stores.blocks.getBlocksData({
+      from: BlockNumber(checkpointedBlockNumber + 1),
+      limit: latestBlockNumber - checkpointedBlockNumber,
+    });
+    const firstAffected = proposedBlocks.find(
+      block => BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex) > firstRemovedIndex,
+    );
+    if (firstAffected === undefined) {
+      return [];
+    }
+
+    return await this.removeUncheckpointedBlocksAfterInTx(BlockNumber(firstAffected.header.getBlockNumber() - 1));
   }
 
   /**

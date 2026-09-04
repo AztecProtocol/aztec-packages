@@ -1,4 +1,5 @@
-import type { Archiver } from '@aztec/archiver';
+import { type Archiver, createArchiverStore } from '@aztec/archiver';
+import { makeInboxMessages } from '@aztec/archiver/test';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { INITIAL_L2_BLOCK_NUM, MAX_BLOCKS_PER_CHECKPOINT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
@@ -10,7 +11,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
-import { BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -230,6 +231,36 @@ describe('ProposalHandler checkpoint validation', () => {
       const result2 = await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(result2).toEqual(result1);
       expect(blockSource.syncImmediate).not.toHaveBeenCalled();
+    });
+
+    // The cached verdict is what the attestation path reads, and it rests on blocks this node holds. An archiver
+    // rollback between the two calls p2p makes for one proposal prunes those blocks, so the verdict has to be
+    // re-derived rather than replayed.
+    it('re-validates a cached valid result once the checkpoint blocks are gone', async () => {
+      const proposal = await makeProposal();
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
+      const validateSpy = jest
+        .spyOn(handler, 'validateCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(1) });
+
+      expect(await handler.handleCheckpointProposal(proposal, proposalInfo)).toEqual({
+        isValid: true,
+        checkpointNumber: CheckpointNumber(1),
+      });
+
+      // While the blocks are still local the verdict is replayed, so a validation that would now fail is not run.
+      validateSpy.mockResolvedValue({ isValid: false, reason: 'archive_mismatch' });
+      expect(await handler.handleCheckpointProposal(proposal, proposalInfo)).toEqual({
+        isValid: true,
+        checkpointNumber: CheckpointNumber(1),
+      });
+
+      // A rollback pruned the blocks the verdict was based on.
+      blockSource.getBlockData.mockResolvedValue(undefined);
+      expect(await handler.handleCheckpointProposal(proposal, proposalInfo)).toEqual({
+        isValid: false,
+        reason: 'archive_mismatch',
+      });
     });
 
     it('does not use cache for a different proposal', async () => {
@@ -1071,6 +1102,56 @@ describe('ProposalHandler checkpoint validation', () => {
         expect.anything(),
         expect.anything(),
       );
+    });
+
+    // An L1 reorg that orphans the messages a proposal consumed reaches this node as an archiver rollback, which
+    // re-downloads the bucket at that position from the canonical chain with a different rolling hash. Resolving
+    // the reference by hash is what makes a proposal this node accepted before the rollback fail after it, so no
+    // attestation is signed for a block that L1 will not accept. Driven off a real message store so the rollback,
+    // the bucket resolution and the re-read the handler does after forcing a sync are the production ones.
+    it('rejects a proposal it accepted before its archiver rewound the bucket', async () => {
+      const stores = await createArchiverStore(
+        { archiverStoreMapSizeKb: 1024 * 1024, dataDirectory: undefined, dataStoreMapSizeKb: 1024 * 1024 },
+        GENESIS_BLOCK_HEADER_HASH,
+      );
+      const messages = makeInboxMessages(2);
+      await stores.messages.addL1ToL2MessageBuckets(messages);
+      l1ToL2MessageSource.getInboxBucketByRollingHash.mockImplementation(inboxRollingHash =>
+        stores.messages.getInboxBucketByRollingHash(inboxRollingHash),
+      );
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockImplementation(total =>
+        stores.messages.getInboxBucketByTotalMsgCount(total),
+      );
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockImplementation((from, to) =>
+        stores.messages.getL1ToL2MessagesBetweenBuckets(from, to),
+      );
+
+      const consumedBucket = await stores.messages.getInboxBucket(2n);
+      const { proposal, blockHandler } = await setupStreamingProposal(InboxBucketRef.fromBucket(consumedBucket!), {
+        nowMs: 10_000,
+      });
+
+      expect(await blockHandler.handleBlockProposal(proposal, {} as any, false)).toEqual({
+        isValid: true,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+      });
+
+      // The reorg drops the second message and mines a different one in its place: bucket 2 keeps its sequence
+      // number and message count, but no bucket commits to the rolling hash the proposal signed any more. The
+      // handler cannot tell that from lag, so it waits out the remaining budget (held short here) and rejects.
+      await stores.messages.rewindMessagesTo({ l1BlockNumber: 0n, l1BlockHash: Buffer32.ZERO }, 1n);
+      await stores.messages.addL1ToL2MessageBuckets(
+        makeInboxMessages(1, { initialIndex: 1n, initialInboxHash: messages[0].inboxRollingHash }),
+      );
+      dateProvider.setTime(38_000);
+
+      expect(await blockHandler.handleBlockProposal(proposal, {} as any, false)).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'bucket_unknown',
+      });
+
+      await stores.db.close();
     });
 
     // A bucket the proposer already consumed is on L1 by construction, so a bucket this node cannot resolve is

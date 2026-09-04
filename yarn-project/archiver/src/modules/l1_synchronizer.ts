@@ -689,15 +689,45 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   /**
-   * Rewinds the message syncpoint to the given L1 block, dropping the messages from `removeFromIndex` on in the same
-   * transaction, so an interruption cannot leave truncated messages behind a syncpoint that would never fetch them.
+   * Rewinds the message syncpoint to the given L1 block, dropping the messages from `removeFromIndex` on and the
+   * locally proposed blocks that consumed one of them, all in the same transaction: an interruption must not leave
+   * truncated messages behind a syncpoint that would never fetch them, nor a proposed chain built on messages the
+   * store no longer holds.
+   *
+   * Runs in the message step of the sync pass, before the checkpoint step, so every consumer that reads the archiver
+   * after a poll sees a local view where messages and blocks agree.
    */
   private async rewindMessagesTo(messagesSyncPoint: L1BlockId, removeFromIndex?: bigint): Promise<L1BlockId> {
-    await this.stores.messages.rewindMessagesTo(messagesSyncPoint, removeFromIndex);
+    let prunedBlocks: L2Block[] = [];
+    if (removeFromIndex === undefined) {
+      await this.stores.messages.rewindMessagesTo(messagesSyncPoint);
+    } else {
+      prunedBlocks = await this.updater.rewindMessagesAndPruneProposedBlocks(messagesSyncPoint, removeFromIndex);
+    }
     this.log.verbose(`Updated messages syncpoint to L1 block ${messagesSyncPoint.l1BlockNumber}`, {
       ...messagesSyncPoint,
     });
+    this.reportPrunedProposedBlocks(prunedBlocks, removeFromIndex);
     return messagesSyncPoint;
+  }
+
+  /** Logs, counts and announces the proposed blocks a message rollback dropped. */
+  private reportPrunedProposedBlocks(prunedBlocks: L2Block[], firstRemovedIndex: bigint | undefined): void {
+    if (prunedBlocks.length === 0) {
+      return;
+    }
+
+    const firstPrunedBlock = prunedBlocks[0];
+    this.log.warn(
+      `Pruning ${prunedBlocks.length} proposed blocks from ${firstPrunedBlock.number} built on rolled back messages`,
+      { firstRemovedIndex, firstPrunedBlockNumber: firstPrunedBlock.number, prunedCount: prunedBlocks.length },
+    );
+    this.instrumentation.recordPrune('inbox_rollback');
+    this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
+      type: L2BlockSourceEvents.L2PruneUncheckpointed,
+      slotNumber: firstPrunedBlock.header.getSlot(),
+      blocks: prunedBlocks,
+    });
   }
 
   /** Checks if the local consensus rolling hash and message count match the remote Inbox live state. */
