@@ -10,12 +10,15 @@ use crate::{
         MAX_PRIVATE_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         NUM_TX_EFFECT_CATEGORIES, TX_EFFECT_CATEGORIES_HASH_PREIMAGE_LENGTH,
     },
-    hash::poseidon2_hash_with_separator,
-    traits::{Empty, Serialize, ToField},
+    hash::{
+        compute_contract_class_log_hash, poseidon2_hash_subarray_with_separator,
+        poseidon2_hash_with_separator,
+    },
+    traits::{Deserialize, Empty, Serialize, ToField},
 };
 use super::tx_blob_data::{create_tx_blob_data_sections, TxBlobDataSections, TxEffectArrayLengths};
 
-#[derive(Eq, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct TxEffect {
     pub revert_code: u8,
     pub tx_hash: Field,
@@ -27,7 +30,6 @@ pub struct TxEffect {
     pub private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
     pub public_logs: PublicLogs,
     pub contract_class_logs: [ContractClassLog; MAX_CONTRACT_CLASS_LOGS_PER_TX],
-    pub contract_class_log_hashes: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 }
 
 impl Empty for TxEffect {
@@ -45,7 +47,6 @@ impl Empty for TxEffect {
             private_logs: [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX],
             public_logs: PublicLogs::empty(),
             contract_class_logs: [ContractClassLog::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
-            contract_class_log_hashes: [0; MAX_CONTRACT_CLASS_LOGS_PER_TX],
         }
     }
 }
@@ -60,10 +61,18 @@ fn compute_tx_effect_category_hash<let N: u32>(blob_fields: [Field; N], length: 
     if length == 0 {
         0
     } else {
-        let inputs_with_separator =
-            [(DOM_SEP__TX_EFFECT_CATEGORY_HASH as Field)].concat(blob_fields);
-        poseidon::poseidon2::Poseidon2::hash(inputs_with_separator, length + 1)
+        poseidon2_hash_subarray_with_separator(
+            blob_fields,
+            length,
+            DOM_SEP__TX_EFFECT_CATEGORY_HASH,
+        )
     }
+}
+
+fn compute_contract_class_log_hashes(
+    tx_effect: TxEffect,
+) -> [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX] {
+    tx_effect.contract_class_logs.map(|log| compute_contract_class_log_hash(log.log.fields))
 }
 
 /// The tx start marker and category hashes of a tx effect. They are derived from the same category data, so they are
@@ -72,10 +81,11 @@ fn compute_tx_effect_categories_hash_inputs(
     tx_effect: TxEffect,
     array_lengths: TxEffectArrayLengths,
     blob_data_sections: TxBlobDataSections,
+    contract_class_log_hashes: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 ) -> (Field, [Field; NUM_TX_EFFECT_CATEGORIES]) {
     let contract_class_log_hash_fields = [
         tx_effect.contract_class_logs[0].contract_address.to_field(),
-        tx_effect.contract_class_log_hashes[0],
+        contract_class_log_hashes[0],
     ];
     let num_contract_class_log_hash_fields = array_lengths.contract_class_logs * 2;
 
@@ -120,10 +130,12 @@ pub fn compute_tx_effect_categories_hash(
     array_lengths: TxEffectArrayLengths,
 ) -> Field {
     let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
+    let contract_class_log_hashes = compute_contract_class_log_hashes(tx_effect);
     compute_tx_effect_categories_hash_from_blob_data_sections(
         tx_effect,
         array_lengths,
         blob_data_sections,
+        contract_class_log_hashes,
     )
 }
 
@@ -131,9 +143,14 @@ pub fn compute_tx_effect_categories_hash_from_blob_data_sections(
     tx_effect: TxEffect,
     array_lengths: TxEffectArrayLengths,
     blob_data_sections: TxBlobDataSections,
+    contract_class_log_hashes: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 ) -> Field {
-    let (tx_start_marker, category_hashes) =
-        compute_tx_effect_categories_hash_inputs(tx_effect, array_lengths, blob_data_sections);
+    let (tx_start_marker, category_hashes) = compute_tx_effect_categories_hash_inputs(
+        tx_effect,
+        array_lengths,
+        blob_data_sections,
+        contract_class_log_hashes,
+    );
 
     let hash_inputs: [Field; TX_EFFECT_CATEGORIES_HASH_PREIMAGE_LENGTH] =
         [tx_start_marker, tx_effect.transaction_fee].concat(category_hashes);
@@ -152,10 +169,12 @@ pub fn compute_tx_effects_tree_leaf(
     array_lengths: TxEffectArrayLengths,
 ) -> Field {
     let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
+    let contract_class_log_hashes = compute_contract_class_log_hashes(tx_effect);
     compute_tx_effects_tree_leaf_from_blob_data_sections(
         tx_effect,
         array_lengths,
         blob_data_sections,
+        contract_class_log_hashes,
     )
 }
 
@@ -163,6 +182,7 @@ pub fn compute_tx_effects_tree_leaf_from_blob_data_sections(
     tx_effect: TxEffect,
     array_lengths: TxEffectArrayLengths,
     blob_data_sections: TxBlobDataSections,
+    contract_class_log_hashes: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 ) -> Field {
     poseidon2_hash_with_separator(
         [
@@ -171,6 +191,7 @@ pub fn compute_tx_effects_tree_leaf_from_blob_data_sections(
                 tx_effect,
                 array_lengths,
                 blob_data_sections,
+                contract_class_log_hashes,
             ),
         ],
         DOM_SEP__TX_EFFECTS_TREE_LEAF,
@@ -203,16 +224,17 @@ mod tests {
             PRIVATE_LOG_SIZE_IN_FIELDS,
         },
         hash::{compute_contract_class_log_hash, poseidon2_hash_with_separator},
-        traits::{Empty, FromField},
+        traits::{Deserialize, Empty, FromField, Serialize},
     };
     use crate::blob_data::{
         SpongeBlob,
         tx_blob_data::{create_tx_blob_data_sections, create_tx_start_marker},
     };
     use super::{
-        accumulate_tx_effects_tree_root, compute_tx_effect_categories_hash,
-        compute_tx_effect_categories_hash_inputs, compute_tx_effect_category_hash,
-        compute_tx_effects_tree_leaf, TxEffect, TxEffectArrayLengths,
+        accumulate_tx_effects_tree_root, compute_contract_class_log_hashes,
+        compute_tx_effect_categories_hash, compute_tx_effect_categories_hash_inputs,
+        compute_tx_effect_category_hash, compute_tx_effects_tree_leaf,
+        compute_tx_effects_tree_leaf_from_blob_data_sections, TxEffect, TxEffectArrayLengths,
     };
 
     /// Copies `items` into a zero-padded array of size `M`.
@@ -250,9 +272,6 @@ mod tests {
             log: Log::new(pad_end([301, 302]), 2),
             contract_address: AztecAddress::from_field(CONTRACT_CLASS_LOG_ADDRESS),
         };
-        tx_effect.contract_class_log_hashes[0] =
-            compute_contract_class_log_hash(tx_effect.contract_class_logs[0].log.fields);
-
         let array_lengths = TxEffectArrayLengths {
             note_hashes: 2,
             nullifiers: 1,
@@ -321,9 +340,10 @@ mod tests {
                 category_hash([41, 42]),
                 category_hash([3, 101, 102, 103]),
                 category_hash([2, PUBLIC_LOG_ADDRESS, 201, 202]),
-                category_hash(
-                    [CONTRACT_CLASS_LOG_ADDRESS, tx_effect.contract_class_log_hashes[0]],
-                ),
+                category_hash([
+                    CONTRACT_CLASS_LOG_ADDRESS,
+                    compute_contract_class_log_hash(tx_effect.contract_class_logs[0].log.fields),
+                ]),
             ],
             DOM_SEP__TX_EFFECT_CATEGORIES_HASH,
         );
@@ -402,8 +422,13 @@ mod tests {
         };
 
         let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
-        let (tx_start_marker, category_hashes) =
-            compute_tx_effect_categories_hash_inputs(tx_effect, array_lengths, blob_data_sections);
+        let contract_class_log_hashes = compute_contract_class_log_hashes(tx_effect);
+        let (tx_start_marker, category_hashes) = compute_tx_effect_categories_hash_inputs(
+            tx_effect,
+            array_lengths,
+            blob_data_sections,
+            contract_class_log_hashes,
+        );
         assert_eq(category_hashes, [0; 7]);
 
         // The marker still binds the (zero) counts and the 3 leading blob fields, so the tx effect hash of an
@@ -432,8 +457,13 @@ mod tests {
         };
 
         let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
-        let (_, category_hashes) =
-            compute_tx_effect_categories_hash_inputs(tx_effect, array_lengths, blob_data_sections);
+        let contract_class_log_hashes = compute_contract_class_log_hashes(tx_effect);
+        let (_, category_hashes) = compute_tx_effect_categories_hash_inputs(
+            tx_effect,
+            array_lengths,
+            blob_data_sections,
+            contract_class_log_hashes,
+        );
 
         assert_eq(category_hashes[0], category_hash([11]));
         assert(category_hashes[0] != 0);
@@ -511,6 +541,128 @@ mod tests {
         assert(compute_tx_effects_tree_leaf(changed_tx_hash, array_lengths) != original_leaf);
     }
 
+    fn compute_tx_effects_tree_leaf_with_reused_hashes(
+        tx_effect: TxEffect,
+        array_lengths: TxEffectArrayLengths,
+        contract_class_log_hashes: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    ) -> Field {
+        let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
+        compute_tx_effects_tree_leaf_from_blob_data_sections(
+            tx_effect,
+            array_lengths,
+            blob_data_sections,
+            contract_class_log_hashes,
+        )
+    }
+
+    #[test]
+    fn category_mutations_change_leaf() {
+        let (tx_effect, array_lengths) = small_fixture();
+        let contract_class_log_hashes = compute_contract_class_log_hashes(tx_effect);
+        let original_leaf = compute_tx_effects_tree_leaf_with_reused_hashes(
+            tx_effect,
+            array_lengths,
+            contract_class_log_hashes,
+        );
+
+        let (mut changed_note_hash, _) = small_fixture();
+        changed_note_hash.note_hashes[0] += 1;
+        assert(
+            compute_tx_effects_tree_leaf_with_reused_hashes(
+                changed_note_hash,
+                array_lengths,
+                contract_class_log_hashes,
+            )
+                != original_leaf,
+        );
+
+        let (mut changed_nullifier, _) = small_fixture();
+        changed_nullifier.nullifiers[0] += 1;
+        assert(
+            compute_tx_effects_tree_leaf_with_reused_hashes(
+                changed_nullifier,
+                array_lengths,
+                contract_class_log_hashes,
+            )
+                != original_leaf,
+        );
+
+        let (mut changed_l2_to_l1_msg, _) = small_fixture();
+        changed_l2_to_l1_msg.l2_to_l1_msgs[0] += 1;
+        assert(
+            compute_tx_effects_tree_leaf_with_reused_hashes(
+                changed_l2_to_l1_msg,
+                array_lengths,
+                contract_class_log_hashes,
+            )
+                != original_leaf,
+        );
+
+        let (mut changed_public_data_write, _) = small_fixture();
+        changed_public_data_write.public_data_writes[0].value += 1;
+        assert(
+            compute_tx_effects_tree_leaf_with_reused_hashes(
+                changed_public_data_write,
+                array_lengths,
+                contract_class_log_hashes,
+            )
+                != original_leaf,
+        );
+
+        let (mut changed_private_log, _) = small_fixture();
+        changed_private_log.private_logs[0].fields[0] += 1;
+        assert(
+            compute_tx_effects_tree_leaf_with_reused_hashes(
+                changed_private_log,
+                array_lengths,
+                contract_class_log_hashes,
+            )
+                != original_leaf,
+        );
+
+        let (mut changed_public_log, _) = small_fixture();
+        changed_public_log.public_logs.payload[2] += 1;
+        assert(
+            compute_tx_effects_tree_leaf_with_reused_hashes(
+                changed_public_log,
+                array_lengths,
+                contract_class_log_hashes,
+            )
+                != original_leaf,
+        );
+
+        let (mut changed_contract_class_log_address, _) = small_fixture();
+        changed_contract_class_log_address.contract_class_logs[0].contract_address =
+            AztecAddress::from_field(CONTRACT_CLASS_LOG_ADDRESS + 1);
+        assert(
+            compute_tx_effects_tree_leaf_with_reused_hashes(
+                changed_contract_class_log_address,
+                array_lengths,
+                contract_class_log_hashes,
+            )
+                != original_leaf,
+        );
+
+        let mut changed_contract_class_log_hashes = contract_class_log_hashes;
+        changed_contract_class_log_hashes[0] += 1;
+        assert(
+            compute_tx_effects_tree_leaf_with_reused_hashes(
+                tx_effect,
+                array_lengths,
+                changed_contract_class_log_hashes,
+            )
+                != original_leaf,
+        );
+    }
+
+    #[test]
+    fn tx_effect_serialization_roundtrip() {
+        let (tx_effect, _) = small_fixture();
+        let serialized = tx_effect.serialize();
+        let deserialized = TxEffect::deserialize(serialized);
+        assert_eq(deserialized, tx_effect);
+    }
+
     fn maximum_size_fixture() -> (TxEffect, TxEffectArrayLengths) {
         let mut tx_effect = TxEffect::empty();
         tx_effect.tx_hash = TX_HASH;
@@ -547,9 +699,6 @@ mod tests {
             ),
             contract_address: AztecAddress::from_field(801),
         };
-        tx_effect.contract_class_log_hashes[0] =
-            compute_contract_class_log_hash(tx_effect.contract_class_logs[0].log.fields);
-
         let array_lengths = TxEffectArrayLengths {
             note_hashes: MAX_NOTE_HASHES_PER_TX,
             nullifiers: MAX_NULLIFIERS_PER_TX,
@@ -604,14 +753,19 @@ mod tests {
     }
 
     #[test]
-    fn leaf_effect_hash_and_category_hashes_are_all_distinct() {
+    fn leaf_categories_hash_and_category_hashes_are_all_distinct() {
         let (tx_effect, array_lengths) = small_fixture();
 
         let leaf = compute_tx_effects_tree_leaf(tx_effect, array_lengths);
         let categories_hash = compute_tx_effect_categories_hash(tx_effect, array_lengths);
         let blob_data_sections = create_tx_blob_data_sections(tx_effect, array_lengths);
-        let (tx_start_marker, category_hashes) =
-            compute_tx_effect_categories_hash_inputs(tx_effect, array_lengths, blob_data_sections);
+        let contract_class_log_hashes = compute_contract_class_log_hashes(tx_effect);
+        let (tx_start_marker, category_hashes) = compute_tx_effect_categories_hash_inputs(
+            tx_effect,
+            array_lengths,
+            blob_data_sections,
+            contract_class_log_hashes,
+        );
 
         assert(leaf != categories_hash);
         assert(leaf != TX_HASH);
