@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Fri, 4 Sep 2026 11:38:51 +0000
+Subject: [PATCH] fix: format tx effects tree changes
+
+
+diff --git a/yarn-project/archiver/src/modules/tx_effects_tree_resolver.test.ts b/yarn-project/archiver/src/modules/tx_effects_tree_resolver.test.ts
+index e7bbffaae19f9a90d533a72f82f7056abfe6780e..a07bc8c269ad10d953fa4dc1eee4a6ec2e2213c9 100644
+--- a/yarn-project/archiver/src/modules/tx_effects_tree_resolver.test.ts
++++ b/yarn-project/archiver/src/modules/tx_effects_tree_resolver.test.ts
+@@ -43,7 +43,9 @@ describe('TxEffectsTreeResolver', () => {
+       expect(witness).toBeDefined();
+       expect(witness!.blockNumber).toBe(BLOCK_NUMBER);
+       expect(witness!.root).toEqual(root);
+-      expect(await verifyTxEffectMembershipWitness(await txEffect.computeTxEffectsTreeLeaf(), witness!, root)).toBe(true);
++      expect(await verifyTxEffectMembershipWitness(await txEffect.computeTxEffectsTreeLeaf(), witness!, root)).toBe(
++        true,
++      );
+     }
+   });
+ 
+diff --git a/yarn-project/stdlib/src/tx/tx_effect.test.ts b/yarn-project/stdlib/src/tx/tx_effect.test.ts
+index 4c29a08d5d64b83c096b7cdc40e5c34bdd8f4085..f4b8373c2d5f303f03244015478f59f558c2b0cd 100644
+--- a/yarn-project/stdlib/src/tx/tx_effect.test.ts
++++ b/yarn-project/stdlib/src/tx/tx_effect.test.ts
+@@ -63,12 +63,7 @@ function maximumFixture(): TxEffect {
+     Array.from({ length: MAX_PRIVATE_LOGS_PER_TX }, (_, i) =>
+       PrivateLog.fromBlobFields(PRIVATE_LOG_SIZE_IN_FIELDS, Array(PRIVATE_LOG_SIZE_IN_FIELDS).fill(new Fr(i + 501))),
+     ),
+-    [
+-      new PublicLog(
+-        AztecAddress.fromBigIntUnsafe(601n),
+-        Array(MAX_PUBLIC_LOG_SIZE_IN_FIELDS).fill(new Fr(601)),
+-      ),
+-    ],
++    [new PublicLog(AztecAddress.fromBigIntUnsafe(601n), Array(MAX_PUBLIC_LOG_SIZE_IN_FIELDS).fill(new Fr(601)))],
+     [
+       ContractClassLog.fromBlobFields(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, [
+         new Fr(801),
+@@ -168,10 +163,7 @@ describe('TxEffect', () => {
+           await categoryHash([new Fr(41), new Fr(42)]),
+           await categoryHash([new Fr(3), new Fr(101), new Fr(102), new Fr(103)]),
+           await categoryHash([new Fr(2), new Fr(PUBLIC_LOG_ADDRESS), new Fr(201), new Fr(202)]),
+-          await categoryHash([
+-            new Fr(CONTRACT_CLASS_LOG_ADDRESS),
+-            await txEffect.contractClassLogs[0].hash(),
+-          ]),
++          await categoryHash([new Fr(CONTRACT_CLASS_LOG_ADDRESS), await txEffect.contractClassLogs[0].hash()]),
+         ],
+         DomainSeparator.TX_EFFECT_CATEGORIES_HASH,
+       );
+diff --git a/yarn-project/stdlib/src/tx/tx_effect.ts b/yarn-project/stdlib/src/tx/tx_effect.ts
+index c1a141e84f42219c8c5c102a0c899d05b20121f7..5228ebc63ffb711466539b356561d7acff505e78 100644
+--- a/yarn-project/stdlib/src/tx/tx_effect.ts
++++ b/yarn-project/stdlib/src/tx/tx_effect.ts
+@@ -299,9 +299,7 @@ export class TxEffect {
+   async computeTxEffectCategoriesHash(): Promise<Fr> {
+     const txBlobData = this.toTxBlobData();
+     const contractClassLogHashFields = (
+-      await Promise.all(
+-        this.contractClassLogs.map(async log => [log.contractAddress.toField(), await log.hash()]),
+-      )
++      await Promise.all(this.contractClassLogs.map(async log => [log.contractAddress.toField(), await log.hash()]))
+     ).flat();
+     const categoryHashes = await Promise.all(
+       getTxEffectCategoryHashPreimages(txBlobData, contractClassLogHashFields).map(computeTxEffectCategoryHash),
