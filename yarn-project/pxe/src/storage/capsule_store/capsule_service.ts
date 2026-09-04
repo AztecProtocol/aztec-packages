@@ -21,9 +21,15 @@ export class CapsuleService {
     this.allowedScopes = [...allowedScopes, AztecAddress.ZERO];
   }
 
-  setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], changeSetId: ChangeSetId, scope: AztecAddress) {
+  setCapsule(
+    contractAddress: AztecAddress,
+    slot: Fr,
+    capsule: Fr[],
+    changeSetId: ChangeSetId,
+    scope: AztecAddress,
+  ): Promise<void> {
     assertAllowedScope(scope, this.allowedScopes);
-    this.capsuleStore.setCapsule(contractAddress, slot, capsule, changeSetId, scope);
+    return this.capsuleStore.setCapsule(contractAddress, slot, capsule, changeSetId, scope);
   }
 
   async getCapsule(
@@ -46,9 +52,9 @@ export class CapsuleService {
     return maybeTransientCapsule ?? (await this.capsuleStore.getCapsule(contractAddress, slot, changeSetId, scope));
   }
 
-  deleteCapsule(contractAddress: AztecAddress, slot: Fr, changeSetId: ChangeSetId, scope: AztecAddress) {
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr, changeSetId: ChangeSetId, scope: AztecAddress): Promise<void> {
     assertAllowedScope(scope, this.allowedScopes);
-    this.capsuleStore.deleteCapsule(contractAddress, slot, changeSetId, scope);
+    return this.capsuleStore.deleteCapsule(contractAddress, slot, changeSetId, scope);
   }
 
   copyCapsule(
