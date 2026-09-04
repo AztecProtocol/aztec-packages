@@ -801,25 +801,25 @@
       "name": "amd64-linux",
       "configurePreset": "amd64-linux",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "nodejs_module", "bb-external", "aztec-wsdb", "bb-avm-sim"]
+      "targets": ["bb", "nodejs_module", "bb-external", "bb-avm-sim"]
     },
     {
       "name": "arm64-linux",
       "configurePreset": "arm64-linux",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "bb-avm", "nodejs_module", "bb-external", "aztec-wsdb", "bb-avm-sim"]
+      "targets": ["bb", "bb-avm", "nodejs_module", "bb-external", "bb-avm-sim"]
     },
     {
       "name": "amd64-macos",
       "configurePreset": "amd64-macos",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "nodejs_module", "bb-external", "aztec-wsdb", "bb-avm-sim"]
+      "targets": ["bb", "nodejs_module", "bb-external", "bb-avm-sim"]
     },
     {
       "name": "arm64-macos",
       "configurePreset": "arm64-macos",
       "inheritConfigureEnvironment": true,
-      "targets": ["bb", "nodejs_module", "bb-external", "aztec-wsdb", "bb-avm-sim"]
+      "targets": ["bb", "nodejs_module", "bb-external", "bb-avm-sim"]
     },
     {
       "name": "amd64-windows",

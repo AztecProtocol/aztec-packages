@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Tue, 1 Sep 2026 12:06:03 +0000
+Subject: [PATCH] docs: allow kvdb and wsdb in cspell (aztec-packages #24392)
+
+The native-packages consumption patch introduces both names into pins.mjs and
+the @aztec/native sources. The indexed/nullifier tree reference update that
+accompanied this originally is dropped: upstream removed that references
+frontmatter entirely.
+
+diff --git a/cspell.json b/cspell.json
+index a07b21daf4de3f7db27dc5d85d8c9d482467d9bf..894f9fe9fa99db527698ee8edb4cd71b3f4e1440 100644
+--- a/cspell.json
++++ b/cspell.json
+@@ -194,6 +194,7 @@
+     "libp",
+     "linkability",
+     "llms",
++    "kvdb",
+     "lmdb",
+     "macroified",
+     "maddiaa",
+@@ -400,6 +401,7 @@
+     "webassembly",
+     "WITGEN",
+     "workdir",
++    "wsdb",
+     "yamls",
+     "yamux",
+     "yarnrc",

@@ -307,6 +307,7 @@ function install_hooks {
 #!/usr/bin/env bash
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
+(cd native-packages && ./format.sh staged)
 ./noir/precommit.sh
 ./noir-projects/fnd/precommit.sh
 # Hooks are shared by every branch of this clone; older branches have no labs-patches.
@@ -618,7 +619,9 @@ function release {
   projects=(
     barretenberg/cpp
     ipc-runtime
-    wsdb
+    native-packages/lmdblib
+    native-packages/kvdb
+    native-packages/wsdb
     barretenberg/ts
     barretenberg/rust
     noir
@@ -1005,14 +1008,8 @@ case "$cmd" in
     # No test cache, so the nightly signal does not depend on what an earlier run happened to cover.
     # AVM stays enabled: the AVM recursive verifier tests in the nightly set live in binaries that are only
     # built with it, and the resulting build hash matches the per-merge one, so the build is a cache pull.
-    # With AVM_TRANSPILER on, the build needs noir/noir-repo: avm-transpiler has path dependencies into it,
-    # and its hash is derived from the pinned noir commit. Without the submodule, `git -C noir/noir-repo
-    # rev-parse HEAD` resolves against the outer repo instead of failing, so that hash silently tracks
-    # aztec-packages HEAD, misses the cache on every run, and the source build then dies on the absent
-    # Cargo.toml. This entry point does not go through `prep`, so it pulls submodules itself.
     export CI=1
     export USE_TEST_CACHE=0
-    pull_submodules
     barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh build
     barretenberg/cpp/bootstrap.sh test nightly

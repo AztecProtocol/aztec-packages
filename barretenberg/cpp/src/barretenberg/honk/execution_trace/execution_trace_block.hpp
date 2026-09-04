@@ -7,7 +7,6 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
-#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/common/ref_vector.hpp"
@@ -31,17 +30,7 @@ struct BbStackTrace : backward::StackTrace {
 struct StackTraces {
     std::vector<BbStackTrace> stack_traces;
     void populate() { stack_traces.emplace_back(); }
-    // A block can hold more rows than recorded traces (e.g. rows appended before this trace list was
-    // attached), and this runs from the circuit checker's failure path: report the gap rather than
-    // throwing, so a legitimately failing circuit check is not reported as a C++ exception.
-    void print(size_t gate_idx) const
-    {
-        if (gate_idx >= stack_traces.size()) {
-            info("No stack trace recorded for gate index ", gate_idx, " (", stack_traces.size(), " recorded).");
-            return;
-        }
-        backward::Printer{}.print(stack_traces.at(gate_idx));
-    }
+    void print(size_t gate_idx) const { backward::Printer{}.print(stack_traces.at(gate_idx)); }
     // Don't interfere with equality semantics of structs that include this in debug builds
     bool operator==(const StackTraces& other) const
     {
@@ -408,7 +397,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         , tiles(other.tiles)
         , num_rows_(other.num_rows_)
     {
-        copy_stack_traces_from(other);
         copy_gate_columns_from(other);
     }
     ExecutionTraceBlock& operator=(const ExecutionTraceBlock& other)
@@ -421,7 +409,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         trace_offset_ = other.trace_offset_;
         tiles = other.tiles;
         num_rows_ = other.num_rows_;
-        copy_stack_traces_from(other);
         copy_gate_columns_from(other);
         return *this;
     }
@@ -432,7 +419,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         , tiles(std::move(other.tiles))
         , num_rows_(other.num_rows_)
     {
-        move_stack_traces_from(other);
         copy_gate_columns_from(other);
     }
     ExecutionTraceBlock& operator=(ExecutionTraceBlock&& other) noexcept
@@ -442,7 +428,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         trace_offset_ = other.trace_offset_;
         tiles = std::move(other.tiles);
         num_rows_ = other.num_rows_;
-        move_stack_traces_from(other);
         copy_gate_columns_from(other);
         return *this;
     }
@@ -617,20 +602,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
                  WireType{ &tiles, &num_rows_, 3 } };
 
   private:
-    // The stack traces are indexed by row, so they have to travel with the rows they describe.
-    void copy_stack_traces_from([[maybe_unused]] const ExecutionTraceBlock& other)
-    {
-#ifdef CHECK_CIRCUIT_STACKTRACES
-        stack_traces = other.stack_traces;
-#endif
-    }
-    void move_stack_traces_from([[maybe_unused]] ExecutionTraceBlock& other)
-    {
-#ifdef CHECK_CIRCUIT_STACKTRACES
-        stack_traces = std::move(other.stack_traces);
-#endif
-    }
-
     void copy_gate_columns_from(const ExecutionTraceBlock& other)
     {
         for (size_t i = 0; i < NUM_WIRES; ++i) {
