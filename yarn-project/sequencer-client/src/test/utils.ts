@@ -8,7 +8,13 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import type { P2P } from '@aztec/p2p';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
-import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  CommitteeAttestation,
+  L2Block,
+  type L2BlockSink,
+  type L2BlockSource,
+} from '@aztec/stdlib/block';
 import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -244,4 +250,35 @@ export function mockInboxBuckets(source: MockProxy<L1ToL2MessageSource>, buckets
   source.getInboxBucketByRollingHash.mockImplementation(inboxRollingHash =>
     Promise.resolve(all.find(bucket => bucket.inboxRollingHash.equals(inboxRollingHash))),
   );
+}
+
+/**
+ * Serves the blocks pushed to the sink back through the block source, the way an archiver that has not pruned
+ * anything does: the proposer pushes each block it builds and reads the last one back before publishing. Returns the
+ * map behind it, so a test can drop or replace an entry to stand in for a prune.
+ */
+export function serveAddedBlocksFromSource(
+  blockSource: MockProxy<L2BlockSource>,
+  blockSink: MockProxy<L2BlockSink>,
+  fallback?: BlockData,
+): Map<number, L2Block> {
+  const blocks = new Map<number, L2Block>();
+  blockSink.addBlock.mockImplementation(block => {
+    blocks.set(block.number, block);
+    return Promise.resolve();
+  });
+  blockSource.getBlockData.mockImplementation(async query => {
+    const block = 'number' in query ? blocks.get(query.number) : undefined;
+    if (block === undefined) {
+      return fallback;
+    }
+    return {
+      header: block.header,
+      archive: block.archive,
+      blockHash: await block.hash(),
+      checkpointNumber: block.checkpointNumber,
+      indexWithinCheckpoint: block.indexWithinCheckpoint,
+    };
+  });
+  return blocks;
 }

@@ -37,6 +37,7 @@ import { InitialCheckpointNumberNotSequentialError } from '../errors.js';
 import {
   type RetrievedCheckpointFromCalldata,
   getCheckpointBlobDataFromBlobs,
+  getL1Block,
   retrieveCheckpointCalldataFromRollup,
   retrieveL1ToL2Message,
   retrieveL1ToL2Messages,
@@ -459,7 +460,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     // syncpoint, and we resume from the new one. If the check could not be completed the pass is retried instead:
     // storing newer buckets on top of one we could not check would make them the ones checked from here on, and the
     // unchecked one would never be looked at again.
-    const canonicality = await this.ensureBucketsAreCanonical(messagesSynchedTo, finalizedL1Block);
+    const canonicality = await this.ensureBucketsAreCanonical(messagesSynchedTo, currentL1Block, finalizedL1Block);
     if (canonicality.status === 'unverifiable') {
       return false;
     }
@@ -487,7 +488,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     // If that's the case, we'd get an exception out of the message store since the rolling hash of the first message
     // we try to insert would not match the one in the db, in which case we rollback to the last common message with L1.
     try {
-      const outcome = await this.retrieveAndStoreMessages(syncFrom, currentL1BlockNumber, finalizedL1Block);
+      const outcome = await this.retrieveAndStoreMessages(syncFrom, currentL1Block, finalizedL1Block);
       if (outcome !== 'stored') {
         return false;
       }
@@ -548,6 +549,7 @@ export class ArchiverL1Synchronizer implements Traceable {
    */
   private async ensureBucketsAreCanonical(
     messagesSynchedTo: L1BlockId,
+    currentL1Block: L1BlockId,
     finalizedL1Block: L1BlockId | undefined,
   ): Promise<BucketsCanonicality> {
     let isNewest = true;
@@ -566,7 +568,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         return { status: 'unverifiable' };
       }
       if (result.status === 'reorged') {
-        const syncPoint = await this.rollbackReorgedBucket(bucket.seq, result);
+        const syncPoint = await this.rollbackReorgedBucket(bucket.seq, result, currentL1Block, finalizedL1Block);
         return syncPoint === undefined ? { status: 'unverifiable' } : { status: 'rolled-back', syncPoint };
       }
     }
@@ -610,7 +612,12 @@ export class ArchiverL1Synchronizer implements Traceable {
    * the store is rolled back to the genesis sentinel. Returns the new message syncpoint, or undefined without rolling
    * anything back if an L1 block could not be read.
    */
-  private async rollbackReorgedBucket(reorgedBucketSeq: bigint, reorg: BucketReorg): Promise<L1BlockId | undefined> {
+  private async rollbackReorgedBucket(
+    reorgedBucketSeq: bigint,
+    reorg: BucketReorg,
+    currentL1Block: L1BlockId,
+    finalizedL1Block: L1BlockId | undefined,
+  ): Promise<L1BlockId | undefined> {
     const bucketsBelow = this.stores.messages.iterateInboxBucketL1Spans({ end: reorgedBucketSeq - 1n, reverse: true });
     for await (const bucket of bucketsBelow) {
       const result = await this.checkBucketCanonicality(bucket);
@@ -619,10 +626,10 @@ export class ArchiverL1Synchronizer implements Traceable {
         return undefined;
       }
       if (result.status === 'canonical') {
-        return await this.rollbackToCanonicalBucket(reorgedBucketSeq, bucket, reorg);
+        return await this.rollbackToCanonicalBucket(reorgedBucketSeq, bucket, reorg, currentL1Block, finalizedL1Block);
       }
     }
-    return await this.rollbackToCanonicalBucket(reorgedBucketSeq, undefined, reorg);
+    return await this.rollbackToCanonicalBucket(reorgedBucketSeq, undefined, reorg, currentL1Block, finalizedL1Block);
   }
 
   /**
@@ -645,14 +652,24 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   /**
-   * Drops every message absorbed after the last canonical bucket and rewinds the syncpoint so the reorged L1 blocks
-   * are downloaded again, with the bucket timestamps and sequence numbers the canonical chain gives them.
+   * Replaces every message above the last canonical bucket with the ones the canonical chain holds for the same L1
+   * range, dropping leaves and the proposed blocks built on them only from the first leaf whose value changed.
+   *
+   * The canonical messages are fetched before anything is written, so the swap knows what the replacement blocks
+   * carry rather than assuming they carry nothing. A reorg that re-mines the same messages in a different L1 block
+   * then costs only the bucket metadata derived from that block, and one that replaces the tail of a bucket keeps
+   * the blocks that consumed the part of it that survived. Nothing is written until the fetch has been checked
+   * against the live chain, so a failed check leaves the store exactly as it was and the next pass starts over.
+   *
+   * Returns the new message syncpoint, or undefined without writing anything if the fetch could not be verified.
    */
   private async rollbackToCanonicalBucket(
     reorgedBucketSeq: bigint,
     lastCanonicalBucket: InboxBucketL1Span | undefined,
     reorg: BucketReorg,
-  ): Promise<L1BlockId> {
+    currentL1Block: L1BlockId,
+    finalizedL1Block: L1BlockId | undefined,
+  ): Promise<L1BlockId | undefined> {
     this.log.warn(
       `Inbox bucket ${reorgedBucketSeq} sits on an L1 block that is no longer canonical; rolling back to bucket ${lastCanonicalBucket?.seq ?? 0n}`,
       {
@@ -664,13 +681,227 @@ export class ArchiverL1Synchronizer implements Traceable {
       },
     );
 
-    // Resume from the block before the last canonical bucket's opening one, so that bucket is re-delivered from its
-    // first message and any bucket that rolled over after it within the same L1 block is downloaded again. The
-    // syncpoint is resolved before anything is written, so the removal and the rewind can commit together.
-    const syncPoint = await this.resolveMessagesSyncPoint(
-      lastCanonicalBucket && lastCanonicalBucket.openedAt.l1BlockNumber - 1n,
+    // Resume from the last canonical bucket's opening block, so that bucket is re-delivered from its first message
+    // and any bucket that rolled over after it within the same L1 block is downloaded again.
+    const fetchFromL1Block = maxBigint(
+      ...compactArray([lastCanonicalBucket?.openedAt.l1BlockNumber, this.l1Constants.l1StartBlock + 1n]),
     );
-    return this.rewindMessagesTo(syncPoint, lastCanonicalBucket ? lastCanonicalBucket.lastMessageIndex + 1n : 0n);
+    const lastStoredIndex = (await this.stores.messages.getLastMessage())?.index;
+    const fetched = await this.fetchCanonicalMessages(
+      fetchFromL1Block,
+      currentL1Block,
+      finalizedL1Block,
+      lastStoredIndex,
+    );
+    if (fetched === undefined) {
+      return undefined;
+    }
+
+    // The last canonical bucket's own messages need no comparison: both of the L1 blocks it sits on were just
+    // checked against the live chain, so nothing below its last message can have changed. Its last message is
+    // still walked, because the boundary that closes it is only worth as much as the bucket that follows it.
+    const firstInvalidatedIndex = await this.findFirstInvalidatedMessageIndex(
+      lastCanonicalBucket ? lastCanonicalBucket.lastMessageIndex : 0n,
+      fetched.messages,
+    );
+
+    const prunedBlocks = await this.updater.replaceMessagesAndPruneProposedBlocks({
+      lastCanonicalBucketSeq: lastCanonicalBucket?.seq,
+      firstInvalidatedIndex,
+      messages: fetched.messages,
+      syncPoint: fetched.syncPoint,
+      // The rolling-hash fallback trusts every message at or below the finalized marker without querying L1, so the
+      // marker must never be advanced past the syncpoint the swap commits.
+      finalizedL1Block:
+        finalizedL1Block && finalizedL1Block.l1BlockNumber <= fetched.syncPoint.l1BlockNumber
+          ? finalizedL1Block
+          : undefined,
+    });
+    this.log.verbose(`Updated messages syncpoint to L1 block ${fetched.syncPoint.l1BlockNumber}`, {
+      ...fetched.syncPoint,
+      firstInvalidatedIndex,
+      messageCount: fetched.messages.length,
+    });
+    this.reportPrunedProposedBlocks(prunedBlocks, firstInvalidatedIndex);
+    return fetched.syncPoint;
+  }
+
+  /**
+   * Retrieves the canonical L1 to L2 messages from the given L1 block on, in the same whole-L1-block batches the
+   * regular retrieval uses, without writing any of them. Returns them with the L1 block they were fetched up to, or
+   * undefined when the fetch could not be checked against the live chain.
+   *
+   * The fetch stops at the first batch that reaches the last index we hold, since that is all the comparison needs:
+   * a node that fell far behind an orphaned bucket would otherwise pull every message the canonical chain added
+   * since into memory and commit them in one transaction. Whatever is left is picked up by the regular fetch on the
+   * next pass, which resumes from the syncpoint this one commits.
+   *
+   * Every batch that returned messages has the L1 block of its last message compared against the live chain,
+   * skipping what is at or below the finalized block. The regular retrieval leaves the final batch out because it
+   * becomes the anchor the next pass checks; here the final batch decides what is pruned, so it is checked now.
+   */
+  private async fetchCanonicalMessages(
+    fromL1Block: bigint,
+    currentL1Block: L1BlockId,
+    finalizedL1Block: L1BlockId | undefined,
+    lastStoredIndex: bigint | undefined,
+  ): Promise<{ messages: InboxMessage[]; syncPoint: L1BlockId } | undefined> {
+    const messages: InboxMessage[] = [];
+    const batchTails: InboxMessage[] = [];
+    let lastFetchedL1Block = fromL1Block - 1n;
+    let reachedHead = false;
+
+    for await (const batch of this.iterateL1ToL2MessageBatches(fromL1Block, currentL1Block.l1BlockNumber)) {
+      messages.push(...batch.messages);
+      lastFetchedL1Block = batch.searchEndBlock;
+      reachedHead = batch.isLastBatch;
+
+      const batchTail = batch.messages.at(-1);
+      if (batchTail === undefined) {
+        continue;
+      }
+      batchTails.push(batchTail);
+      if (reachedHead || (lastStoredIndex !== undefined && batchTail.index < lastStoredIndex)) {
+        continue;
+      }
+      // A bucket that spans co-timestamped L1 blocks can still be open at the end of the batch that covered our last
+      // stored index, and committing there would write a snapshot that undercounts it, so wait for it to close.
+      const bucketClosed = await this.isBucketClosedAfterL1Block(batch.searchEndBlock, batchTail);
+      if (bucketClosed === undefined) {
+        return undefined;
+      }
+      if (bucketClosed) {
+        break;
+      }
+    }
+
+    for (const tail of batchTails) {
+      if (isFinalized(tail, finalizedL1Block)) {
+        continue;
+      }
+      const canonicality = await this.compareL1BlocksWithChain([
+        { l1BlockNumber: tail.l1BlockNumber, l1BlockHash: tail.l1BlockHash },
+      ]);
+      if (canonicality.status === 'unverifiable') {
+        this.warnBucketNotVerifiable(tail.bucketSeq, canonicality.l1BlockNumber, canonicality.error);
+        return undefined;
+      }
+      if (canonicality.status === 'reorged') {
+        this.log.warn(
+          `Discarding the canonical L1 to L2 messages fetched to roll back to: L1 block ${tail.l1BlockNumber} was replaced while they were being read`,
+          {
+            l1BlockNumber: tail.l1BlockNumber,
+            storedL1BlockHash: tail.l1BlockHash.toString(),
+            liveL1BlockHash: canonicality.liveL1BlockHash.toString(),
+          },
+        );
+        return undefined;
+      }
+    }
+
+    if (reachedHead) {
+      return { messages, syncPoint: currentL1Block };
+    }
+    try {
+      return {
+        messages,
+        syncPoint: { l1BlockNumber: lastFetchedL1Block, l1BlockHash: await this.getL1BlockHash(lastFetchedL1Block) },
+      };
+    } catch (error) {
+      this.warnBucketNotVerifiable(messages.at(-1)!.bucketSeq, lastFetchedL1Block, error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Retrieves L1 to L2 messages from the given L1 block on, in batches that span whole L1 blocks so that every
+   * message of an Inbox bucket is yielded in a single batch, as the message store requires. Yields each batch with
+   * the L1 block range it covers and whether it reached the end of the requested range.
+   */
+  private async *iterateL1ToL2MessageBatches(
+    fromL1Block: bigint,
+    toL1Block: bigint,
+  ): AsyncIterableIterator<{ messages: InboxMessage[]; searchEndBlock: bigint; isLastBatch: boolean }> {
+    let searchEndBlock = fromL1Block - 1n;
+    do {
+      let searchStartBlock: bigint;
+      [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, toL1Block);
+      this.log.trace(`Retrieving L1 to L2 messages in L1 blocks ${searchStartBlock}-${searchEndBlock}`);
+      const messages = await retrieveL1ToL2Messages(this.inbox, searchStartBlock, searchEndBlock);
+      yield { messages, searchEndBlock, isLastBatch: searchEndBlock >= toL1Block };
+    } while (searchEndBlock < toL1Block);
+  }
+
+  /**
+   * Whether the Inbox bucket the given message was absorbed into is closed at the given L1 block, that is, whether
+   * the block after it carries a different timestamp and so can absorb nothing more into that bucket. Undefined when
+   * the block cannot be read: a block we know nothing about never counts as closing a bucket.
+   */
+  private async isBucketClosedAfterL1Block(l1BlockNumber: bigint, message: InboxMessage): Promise<boolean | undefined> {
+    const nextL1BlockNumber = l1BlockNumber + 1n;
+    try {
+      const { timestamp } = await getL1Block(this.publicClient, nextL1BlockNumber);
+      return timestamp !== message.bucketTimestamp;
+    } catch (error) {
+      this.warnBucketNotVerifiable(message.bucketSeq, nextL1BlockNumber, error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Returns the lowest index at or above `fromIndex` that the canonical chain no longer backs, or undefined when
+   * every stored message from there on survives the swap whole. An index is invalidated when its leaf changed, and
+   * also when the bucket boundary that closed on it is gone: a block ends on a bucket boundary and consumers derive
+   * the messages it inserted from the buckets that boundary belongs to, so a boundary that stops existing takes the
+   * blocks that ended on it with it.
+   *
+   * Comparing consensus rolling hashes is enough to compare whole prefixes of leaves: each one chains the hash
+   * before it, so equal hashes at an index mean equal leaves at every index through it. A message that the canonical
+   * chain does not carry at all counts as invalidated.
+   *
+   * The boundary comparison is deliberately one-sided. A reorg that merges two buckets into one destroys the
+   * boundary between them, so the blocks that ended there are pruned; one that splits a bucket only adds a boundary
+   * no block ever ended on, and every boundary that existed still does, so it prunes nothing.
+   *
+   * The one boundary this cannot settle is the newest one: when the canonical fetch reaches the L1 head it cannot
+   * tell a bucket that closed from one that is still open, and a bucket that carries on absorbing messages later
+   * takes its boundary away. That exposure is the same one ordinary ingestion has, since it stores an open head
+   * bucket as readily as a closed one, and is neither created nor widened here.
+   */
+  private async findFirstInvalidatedMessageIndex(
+    fromIndex: bigint,
+    canonicalMessages: InboxMessage[],
+  ): Promise<bigint | undefined> {
+    // The canonical messages are contiguous and ascending by index, so the one at any index is found by offset.
+    const firstCanonicalIndex = canonicalMessages.at(0)?.index;
+    const canonicalAt = (index: bigint) =>
+      firstCanonicalIndex === undefined ? undefined : canonicalMessages[Number(index - firstCanonicalIndex)];
+
+    let previous: { stored: InboxMessage; canonical: InboxMessage } | undefined;
+    for await (const stored of this.stores.messages.iterateL1ToL2Messages({ start: fromIndex })) {
+      const canonical = canonicalAt(stored.index);
+      if (canonical === undefined || !canonical.inboxRollingHash.equals(stored.inboxRollingHash)) {
+        return stored.index;
+      }
+      if (previous !== undefined) {
+        const storedBucketClosed = previous.stored.bucketSeq !== stored.bucketSeq;
+        const canonicalBucketClosed = previous.canonical.bucketSeq !== canonical.bucketSeq;
+        if (storedBucketClosed && !canonicalBucketClosed) {
+          return previous.stored.index;
+        }
+      }
+      previous = { stored, canonical };
+    }
+
+    // The last message we hold closes the last bucket we hold, so a canonical bucket that carries on past it takes
+    // that boundary away as much as a merge does.
+    if (previous !== undefined) {
+      const next = canonicalAt(previous.stored.index + 1n);
+      if (next !== undefined && next.bucketSeq === previous.canonical.bucketSeq) {
+        return previous.stored.index;
+      }
+    }
+    return undefined;
   }
 
   /**
@@ -712,7 +943,7 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   /** Logs, counts and announces the proposed blocks a message rollback dropped. */
-  private reportPrunedProposedBlocks(prunedBlocks: L2Block[], firstRemovedIndex: bigint | undefined): void {
+  private reportPrunedProposedBlocks(prunedBlocks: L2Block[], firstInvalidatedIndex: bigint | undefined): void {
     if (prunedBlocks.length === 0) {
       return;
     }
@@ -720,7 +951,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     const firstPrunedBlock = prunedBlocks[0];
     this.log.warn(
       `Pruning ${prunedBlocks.length} proposed blocks from ${firstPrunedBlock.number} built on rolled back messages`,
-      { firstRemovedIndex, firstPrunedBlockNumber: firstPrunedBlock.number, prunedCount: prunedBlocks.length },
+      { firstInvalidatedIndex, firstPrunedBlockNumber: firstPrunedBlock.number, prunedCount: prunedBlocks.length },
     );
     this.instrumentation.recordPrune('inbox_rollback');
     this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
@@ -760,22 +991,21 @@ export class ArchiverL1Synchronizer implements Traceable {
    */
   private async retrieveAndStoreMessages(
     syncFrom: L1BlockId,
-    toL1Block: bigint,
+    currentL1Block: L1BlockId,
     finalizedL1Block: L1BlockId | undefined,
   ): Promise<MessageFetchOutcome> {
     const newestBucketBeforeFetch = await this.stores.messages.getNewestInboxBucketL1Span();
-    let searchStartBlock: bigint = 0n;
-    let searchEndBlock: bigint = syncFrom.l1BlockNumber;
 
     let firstMessage: InboxMessage | undefined;
     let lastMessage: InboxMessage | undefined;
     let messageCount = 0;
     const unfinalizedBatchTails: InboxMessage[] = [];
 
-    do {
-      [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, toL1Block);
-      this.log.trace(`Retrieving L1 to L2 messages in L1 blocks ${searchStartBlock}-${searchEndBlock}`);
-      const messages = await retrieveL1ToL2Messages(this.inbox, searchStartBlock, searchEndBlock);
+    for await (const batch of this.iterateL1ToL2MessageBatches(
+      syncFrom.l1BlockNumber + 1n,
+      currentL1Block.l1BlockNumber,
+    )) {
+      const { messages } = batch;
       const timer = new Timer();
       await this.stores.messages.addL1ToL2MessageBuckets(messages);
       const perMsg = timer.ms() / messages.length;
@@ -787,11 +1017,10 @@ export class ArchiverL1Synchronizer implements Traceable {
         messageCount++;
       }
       const batchTail = messages.at(-1);
-      const isLastBatch = searchEndBlock >= toL1Block;
-      if (batchTail !== undefined && !isLastBatch && !isFinalized(batchTail, finalizedL1Block)) {
+      if (batchTail !== undefined && !batch.isLastBatch && !isFinalized(batchTail, finalizedL1Block)) {
         unfinalizedBatchTails.push(batchTail);
       }
-    } while (searchEndBlock < toL1Block);
+    }
 
     if (firstMessage === undefined || lastMessage === undefined) {
       return 'stored';
@@ -823,7 +1052,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         continue;
       }
       if (canonicality.status === 'reorged') {
-        const syncPoint = await this.rollbackReorgedBucket(bucketSeq, canonicality);
+        const syncPoint = await this.rollbackReorgedBucket(bucketSeq, canonicality, currentL1Block, finalizedL1Block);
         if (syncPoint !== undefined) {
           return 'rolled-back';
         }

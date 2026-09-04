@@ -2,22 +2,20 @@ import type { Archiver } from '@aztec/archiver';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { createBlobClient } from '@aztec/blob-client/client';
-import { Blob } from '@aztec/blob-lib';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import type { ChainMonitor, ChainMonitorEventMap } from '@aztec/ethereum/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { AbortError } from '@aztec/foundation/error';
 import { retryUntil } from '@aztec/foundation/retry';
-import { hexToBuffer } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 
 import 'jest-extended';
-import { keccak256, parseTransaction } from 'viem';
+import { keccak256 } from 'viem';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { waitForNodeCheckpoint, waitForNodeProvenCheckpoint } from '../../fixtures/wait_helpers.js';
 import type { SingleNodeTestContext } from '../single_node_test_context.js';
-import { L1ReorgsTest, TX_COUNT } from './setup.js';
+import { L1ReorgsTest, TX_COUNT, getBlobsFromRawTx } from './setup.js';
 
 // Single-node + prover-node suite exercising L1 reorg behavior for L2 block state: proof removal, proof
 // re-addition via reorg, checkpoint removal from the pending chain, and checkpoint insertion via reorg.
@@ -52,14 +50,6 @@ describe('single-node/l1-reorgs/blocks', () => {
   afterEach(async () => {
     await t.teardown();
   });
-
-  const getBlobs = async (serializedTx: `0x${string}`) => {
-    const parsedTx = parseTransaction(serializedTx);
-    if (parsedTx.sidecars === false) {
-      throw new Error('No sidecars found in tx');
-    }
-    return await Promise.all(parsedTx.sidecars!.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob))));
-  };
 
   // Waits for an initial proof to land, stops the prover, reorgs L1 to remove the proof block,
   // waits for the proof submission window to expire, spins up a new sync-only node, and verifies
@@ -412,7 +402,7 @@ describe('single-node/l1-reorgs/blocks', () => {
 
     // We also need to send the blob to the sink, so the node can get it
     logger.warn(`Sending blobs to blob client`);
-    const blobs = await getBlobs(l2BlockTx);
+    const blobs = await getBlobsFromRawTx(l2BlockTx);
     const blobClient = createBlobClient(context.config);
     await blobClient.sendBlobsToFilestore(blobs);
 

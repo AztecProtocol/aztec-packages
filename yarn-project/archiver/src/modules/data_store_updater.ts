@@ -24,6 +24,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ArchiverDataStores } from '../store/data_stores.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
+import type { InboxMessageReplacement } from '../store/message_store.js';
 
 /** Operation type for contract data updates. */
 enum Operation {
@@ -291,13 +292,47 @@ export class ArchiverDataStoreUpdater {
    *
    * @returns The pruned blocks.
    */
-  public async rewindMessagesAndPruneProposedBlocks(
+  public rewindMessagesAndPruneProposedBlocks(
     messagesSyncPoint: L1BlockId,
     firstRemovedIndex: bigint,
   ): Promise<L2Block[]> {
+    return this.writeMessagesAndPruneProposedBlocks(
+      () => this.stores.messages.rewindMessagesTo(messagesSyncPoint, firstRemovedIndex),
+      firstRemovedIndex,
+    );
+  }
+
+  /**
+   * Replaces the messages above the last canonical Inbox bucket with the ones the canonical chain delivers, and
+   * prunes the proposed blocks that consumed a leaf the swap changed or ended on a bucket boundary it took away, in
+   * a single transaction.
+   *
+   * Splitting the two would make the prune unrecoverable, for the same reason
+   * {@link rewindMessagesAndPruneProposedBlocks} keeps them together: the next sync pass would find the local
+   * messages consistent with L1 and never come back to the blocks built on the leaves that are gone.
+   *
+   * @returns The pruned blocks.
+   */
+  public replaceMessagesAndPruneProposedBlocks(args: InboxMessageReplacement): Promise<L2Block[]> {
+    return this.writeMessagesAndPruneProposedBlocks(
+      () => this.stores.messages.replaceMessagesAboveBucket(args),
+      args.firstInvalidatedIndex,
+    );
+  }
+
+  /**
+   * Commits a write to the message store and the prune of the proposed blocks that consumed a message from
+   * `firstInvalidatedIndex` on, refreshing the tips cache only once both have landed.
+   */
+  private async writeMessagesAndPruneProposedBlocks(
+    writeMessages: () => Promise<void>,
+    firstInvalidatedIndex: bigint | undefined,
+  ): Promise<L2Block[]> {
     const prunedBlocks = await this.stores.db.transactionAsync(async () => {
-      await this.stores.messages.rewindMessagesTo(messagesSyncPoint, firstRemovedIndex);
-      return await this.removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex);
+      await writeMessages();
+      return firstInvalidatedIndex === undefined
+        ? []
+        : await this.removeProposedBlocksConsumingMessagesFrom(firstInvalidatedIndex);
     });
     await this.l2TipsCache?.refresh();
     return prunedBlocks;
@@ -305,25 +340,23 @@ export class ArchiverDataStoreUpdater {
 
   /**
    * Removes the proposed (not yet L1-checkpointed) blocks that consumed an L1-to-L2 message at or after
-   * `firstRemovedIndex`, along with every block after them. A block's L1-to-L2 tree leaf count is the cumulative
+   * `firstInvalidatedIndex`, along with every block after them. A block's L1-to-L2 tree leaf count is the cumulative
    * count of messages consumed through it, so a leaf count above the index means the block consumed a message the
-   * local chain no longer has, and one equal to it means the block stopped below it.
+   * local chain no longer backs, and one equal to it means the block stopped below it.
    *
-   * The index is where the rollback rewound to, not the first leaf whose value actually changed, so a reorg that
-   * re-mines the same messages in a different L1 block also prunes blocks whose trees are unchanged and which L1
-   * would still accept. That over-pruning is accepted for now: the rollback rewinds before it knows what the
-   * canonical chain re-delivers, so it cannot tell a re-mine from a content change, and a prune from the first
-   * differing leaf has to wait until the rollback becomes content-aware.
+   * The index is the first leaf whose value actually changed, or whose bucket boundary the reorg took away, so a
+   * reorg that re-mines the same messages in a different L1 block prunes nothing, and one that replaces the tail of
+   * a bucket keeps the blocks that stopped below the replaced leaf.
    *
    * Checkpointed blocks are never touched: a message store that disagrees with a checkpoint L1 accepted means one
    * of the two views of L1 is mid-reorg and this one is not necessarily the right one, so only the archive
    * comparison in the checkpoint step may unwind published state. For the same reason nothing is pruned when the
    * rollback reaches below the checkpointed tip's leaf count, where every proposed descendant would qualify.
    *
-   * @param firstRemovedIndex - Index of the first L1-to-L2 message that was removed from the store.
+   * @param firstInvalidatedIndex - Index of the first L1-to-L2 message the local chain no longer backs.
    * @returns The removed blocks.
    */
-  private async removeProposedBlocksConsumingMessagesFrom(firstRemovedIndex: bigint): Promise<L2Block[]> {
+  private async removeProposedBlocksConsumingMessagesFrom(firstInvalidatedIndex: bigint): Promise<L2Block[]> {
     const [checkpointedBlockNumber, latestBlockNumber] = await Promise.all([
       this.stores.blocks.getCheckpointedL2BlockNumber(),
       this.stores.blocks.getLatestL2BlockNumber(),
@@ -339,10 +372,10 @@ export class ArchiverDataStoreUpdater {
     const checkpointedTipLeafCount = BigInt(
       checkpointedTip?.header.state.l1ToL2MessageTree.nextAvailableLeafIndex ?? 0,
     );
-    if (firstRemovedIndex < checkpointedTipLeafCount) {
+    if (firstInvalidatedIndex < checkpointedTipLeafCount) {
       this.log.warn(
-        `Not pruning proposed blocks: rollback index ${firstRemovedIndex} is below the checkpointed tip's leaf count`,
-        { firstRemovedIndex, checkpointedTipLeafCount, checkpointedBlockNumber },
+        `Not pruning proposed blocks: rollback index ${firstInvalidatedIndex} is below the checkpointed tip's leaf count`,
+        { firstInvalidatedIndex, checkpointedTipLeafCount, checkpointedBlockNumber },
       );
       return [];
     }
@@ -352,7 +385,7 @@ export class ArchiverDataStoreUpdater {
       limit: latestBlockNumber - checkpointedBlockNumber,
     });
     const firstAffected = proposedBlocks.find(
-      block => BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex) > firstRemovedIndex,
+      block => BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex) > firstInvalidatedIndex,
     );
     if (firstAffected === undefined) {
       return [];

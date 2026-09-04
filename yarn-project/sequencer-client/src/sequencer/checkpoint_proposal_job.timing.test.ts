@@ -47,6 +47,7 @@ import {
   makeTx,
   mockInboxBuckets,
   mockTxIterator,
+  serveAddedBlocksFromSource,
 } from '../test/utils.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
@@ -498,7 +499,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     });
 
     blockSink = mock<L2BlockSink & ProposedCheckpointSink>();
-    blockSink.addBlock.mockResolvedValue(undefined);
+    serveAddedBlocksFromSource(l2BlockSource, blockSink);
 
     validatorClient = mock<ValidatorClient>();
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve([]));

@@ -16,7 +16,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { ManualDateProvider } from '@aztec/foundation/timer';
-import type { TypedEventEmitter } from '@aztec/foundation/types';
+import { type TypedEventEmitter, unfreeze } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -73,6 +73,7 @@ import {
   mockInboxBuckets,
   mockPendingTxs,
   mockTxIterator,
+  serveAddedBlocksFromSource,
   setupTxsAndBlock,
 } from '../test/utils.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
@@ -107,6 +108,8 @@ describe('CheckpointProposalJob', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let blockSink: MockProxy<L2BlockSink & ProposedCheckpointSink>;
+  /** Blocks the job pushed to the archiver, which serves them back until a test prunes them. */
+  let localBlocks: Map<number, L2Block>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let dateProvider: ManualDateProvider;
   let metrics: MockProxy<SequencerMetrics>;
@@ -300,7 +303,7 @@ describe('CheckpointProposalJob', () => {
     });
 
     blockSink = mock<L2BlockSink & ProposedCheckpointSink>();
-    blockSink.addBlock.mockResolvedValue(undefined);
+    localBlocks = serveAddedBlocksFromSource(l2BlockSource, blockSink);
     blockSink.addProposedCheckpoint.mockResolvedValue(undefined);
 
     validatorClient = mock<ValidatorClient>();
@@ -1835,6 +1838,72 @@ describe('CheckpointProposalJob', () => {
       expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
       expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_consumption_insufficient');
+    });
+  });
+
+  describe('publishing a checkpoint whose blocks the archiver dropped', () => {
+    // Attestation collection takes seconds, and the archiver can prune the proposed chain in that window: a slot
+    // that closed without a checkpoint, or a checkpoint seen on L1 that conflicts with the local blocks. Publishing
+    // then puts a checkpoint on L1 that this node's own archiver cannot serve.
+    beforeEach(() => {
+      job.setTimetable(makeSingleBlockTimetable());
+      dateProvider.setTime(buildFrameStartSeconds() * 1000);
+    });
+
+    const setupOneBlockCheckpoint = async () => {
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 2, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      return block;
+    };
+
+    it('does not submit when the archiver no longer holds the checkpoint blocks', async () => {
+      const block = await setupOneBlockCheckpoint();
+      validatorClient.collectAttestations.mockImplementation(() => {
+        localBlocks.clear();
+        return Promise.resolve(getAttestations(block));
+      });
+
+      const checkpoint = await job.executeAndAwait();
+
+      // The proposal was already gossiped when the prune landed, but nothing reaches L1.
+      expect(checkpoint).toBeDefined();
+      expect(p2p.broadcastCheckpointProposal).toHaveBeenCalledTimes(1);
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('checkpoint_blocks_pruned');
+    });
+
+    it('submits when the node was configured never to push its blocks to the archiver', async () => {
+      config = { ...config, skipPushProposedBlocksToArchiver: true };
+      job = createCheckpointProposalJob();
+      job.setTimetable(makeSingleBlockTimetable());
+      const block = await setupOneBlockCheckpoint();
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      const checkpoint = await job.executeAndAwait();
+
+      // The blocks were never pushed, so the archiver not holding them says nothing about a prune.
+      expect(checkpoint).toBeDefined();
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+      expect(metrics.recordCheckpointProposalFailed).not.toHaveBeenCalledWith('checkpoint_blocks_pruned');
+    });
+
+    it('does not submit when the archiver rebuilt the block number with a different block', async () => {
+      const block = await setupOneBlockCheckpoint();
+      const replacement = L2Block.fromBuffer(block.toBuffer());
+      unfreeze(replacement.header).spongeBlobHash = Fr.random();
+      await replacement.header.recomputeHash();
+      validatorClient.collectAttestations.mockImplementation(() => {
+        // The prune took the block and the chain was rebuilt to the same height with a different one, so the block
+        // number alone would say the checkpoint is still local.
+        localBlocks.set(block.number, replacement);
+        return Promise.resolve(getAttestations(block));
+      });
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('checkpoint_blocks_pruned');
     });
   });
 
