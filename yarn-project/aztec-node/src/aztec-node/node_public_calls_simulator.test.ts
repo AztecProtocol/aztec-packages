@@ -7,6 +7,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { unfreeze } from '@aztec/foundation/types';
@@ -126,6 +127,8 @@ describe('NodePublicCallsSimulator', () => {
       timestamp: 0n,
       msgCount: Number(totalMsgCount),
       lastMessageIndex: totalMsgCount === 0n ? 0n : totalMsgCount - 1n,
+      l1BlockNumber: seq,
+      l1BlockHash: Buffer32.fromBigInt(seq),
     });
     const bundle = [new Fr(0x1234), new Fr(0x5678)];
     l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(makeBucket(0n, 0n));

@@ -19,14 +19,18 @@ import { type InboxMessage, deserializeInboxMessage, serializeInboxMessage } fro
 
 /**
  * Persisted snapshot of an Inbox rolling-hash bucket. Mirrors the fields the on-chain Inbox tracks per bucket, plus
- * the L1 block the bucket was opened in and the index span of its messages, so rollbacks and range queries can work
- * off bucket records alone without scanning messages.
+ * the number and hash of the L1 block the bucket was opened in and the index span of its messages, so rollbacks,
+ * range queries and canonicality checks can work off bucket records alone without scanning messages.
+ *
+ * The Inbox keys buckets by `block.timestamp`, so on a chain that allows consecutive blocks to share a timestamp
+ * (anvil with manual mining, for instance) a bucket may span several L1 blocks. Only the opening one is recorded.
  */
 type BucketSnapshot = {
   inboxRollingHash: Fr;
   totalMsgCount: bigint;
   timestamp: bigint;
   l1BlockNumber: bigint;
+  l1BlockHash: Buffer32;
   msgCount: number;
   firstMessageIndex: bigint;
   lastMessageIndex: bigint;
@@ -38,6 +42,7 @@ function serializeBucketSnapshot(snapshot: BucketSnapshot): Buffer {
     bigintToUInt64BE(snapshot.totalMsgCount),
     bigintToUInt64BE(snapshot.timestamp),
     bigintToUInt64BE(snapshot.l1BlockNumber),
+    snapshot.l1BlockHash,
     numToUInt32BE(snapshot.msgCount),
     bigintToUInt64BE(snapshot.firstMessageIndex),
     bigintToUInt64BE(snapshot.lastMessageIndex),
@@ -50,10 +55,20 @@ function deserializeBucketSnapshot(buffer: Buffer): BucketSnapshot {
   const totalMsgCount = reader.readUInt64();
   const timestamp = reader.readUInt64();
   const l1BlockNumber = reader.readUInt64();
+  const l1BlockHash = Buffer32.fromBuffer(reader.readBytes(Buffer32.SIZE));
   const msgCount = reader.readNumber();
   const firstMessageIndex = reader.readUInt64();
   const lastMessageIndex = reader.readUInt64();
-  return { inboxRollingHash, totalMsgCount, timestamp, l1BlockNumber, msgCount, firstMessageIndex, lastMessageIndex };
+  return {
+    inboxRollingHash,
+    totalMsgCount,
+    timestamp,
+    l1BlockNumber,
+    l1BlockHash,
+    msgCount,
+    firstMessageIndex,
+    lastMessageIndex,
+  };
 }
 
 /** The messages of a single Inbox bucket within an incoming batch, in insertion order. */
@@ -82,7 +97,8 @@ function groupMessagesByBucket(messages: InboxMessage[]): IncomingBucket[] {
 // The genesis sentinel bucket: sequence 0 with a zero rolling hash and no messages, mirroring the
 // on-chain Inbox's base case. The archiver never ingests a snapshot for it (no message is absorbed into sequence 0), so
 // it is synthesized on read. Consumers use its sequence number and zero total; its deploy-time timestamp is not tracked
-// here and is unused.
+// here and is unused. Its timestamp, L1 block number and L1 block hash are sentinels, not values read from L1:
+// consumers must short-circuit on sequence 0 rather than looking any of them up on chain.
 const GENESIS_INBOX_BUCKET: InboxBucket = {
   seq: 0n,
   inboxRollingHash: Fr.ZERO,
@@ -90,6 +106,8 @@ const GENESIS_INBOX_BUCKET: InboxBucket = {
   timestamp: 0n,
   msgCount: 0,
   lastMessageIndex: 0n,
+  l1BlockNumber: 0n,
+  l1BlockHash: Buffer32.ZERO,
 };
 
 export class MessageStoreError extends Error {
@@ -297,20 +315,32 @@ export class MessageStore {
   /**
    * Writes one snapshot per bucket in the batch, each derived from the bucket's complete message set. Cumulative
    * totals thread forward from the bucket preceding the batch, so a bucket re-delivered with extra messages shifts
-   * the totals of the buckets after it within the same batch.
+   * the totals of the buckets after it within the same batch. A bucket always arrives complete from its first message
+   * (checked when the batch is validated), so the opening L1 block is read off that first message; a bucket whose
+   * later messages come from a co-timestamped L1 block still records the block it was opened in.
    */
   private async writeIncomingBucketSnapshots(incomingBuckets: IncomingBucket[]): Promise<void> {
     let cumulativeTotal = await this.getTotalMsgCountBeforeBucket(incomingBuckets[0].seq);
     for (const { seq, messages } of incomingBuckets) {
+      const openingMessage = messages[0];
       const lastInBucket = messages.at(-1)!;
+      if (lastInBucket.l1BlockNumber !== openingMessage.l1BlockNumber) {
+        this.#log.warn(`Inbox bucket ${seq} spans more than one L1 block`, {
+          bucketSeq: seq,
+          bucketTimestamp: lastInBucket.bucketTimestamp,
+          firstL1BlockNumber: openingMessage.l1BlockNumber,
+          lastL1BlockNumber: lastInBucket.l1BlockNumber,
+        });
+      }
       cumulativeTotal += BigInt(messages.length);
       await this.writeBucketSnapshot(seq, {
         inboxRollingHash: lastInBucket.inboxRollingHash,
         totalMsgCount: cumulativeTotal,
         timestamp: lastInBucket.bucketTimestamp,
-        l1BlockNumber: lastInBucket.l1BlockNumber,
+        l1BlockNumber: openingMessage.l1BlockNumber,
+        l1BlockHash: openingMessage.l1BlockHash,
         msgCount: messages.length,
-        firstMessageIndex: messages[0].index,
+        firstMessageIndex: openingMessage.index,
         lastMessageIndex: lastInBucket.index,
       });
     }
@@ -568,6 +598,8 @@ export class MessageStore {
       timestamp: snapshot.timestamp,
       msgCount: snapshot.msgCount,
       lastMessageIndex: snapshot.lastMessageIndex,
+      l1BlockNumber: snapshot.l1BlockNumber,
+      l1BlockHash: snapshot.l1BlockHash,
     };
   }
 
@@ -583,8 +615,10 @@ export class MessageStore {
    * Removes every L1 to L2 message inserted after the given L1 block, so the message store matches the L1 Inbox state
    * as of that block. Used when rolling the archiver back to an earlier checkpoint, whose L1 block is passed here.
    *
-   * A bucket lives entirely within one L1 block, so the cut always falls on a bucket boundary and can be found from
-   * the bucket snapshots alone, without reading the messages being removed.
+   * The cut is found from the bucket snapshots alone, without reading the messages being removed: a bucket is kept
+   * whole when the block it was opened in survives. On a chain with strictly increasing block timestamps a bucket
+   * lives entirely within one L1 block, so that is exact; where consecutive blocks may share a timestamp, a bucket
+   * opened at or before the cut keeps the messages it absorbed in the co-timestamped blocks after it.
    */
   public async rollbackL1ToL2MessagesAfterL1Block(l1BlockNumber: bigint): Promise<void> {
     this.#log.debug(`Deleting L1 to L2 messages inserted after L1 block ${l1BlockNumber}`);

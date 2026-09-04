@@ -1,3 +1,4 @@
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type InboxBucket, MIN_BLOCKS_FOR_INBOX_CATCHUP, isInboxConsumptionSufficient } from '@aztec/stdlib/messaging';
 
@@ -30,6 +31,8 @@ function makeSource(specs: TestBucketSpec[]): {
       timestamp: spec.timestamp,
       msgCount: spec.msgCount,
       lastMessageIndex: total - 1n,
+      l1BlockNumber: spec.seq,
+      l1BlockHash: Buffer32.fromBigInt(spec.seq),
     });
   }
 

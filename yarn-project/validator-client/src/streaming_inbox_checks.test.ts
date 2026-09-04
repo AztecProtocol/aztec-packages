@@ -1,3 +1,4 @@
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { InboxBucket } from '@aztec/stdlib/messaging';
 import { InboxBucketRef } from '@aztec/stdlib/messaging';
@@ -33,6 +34,8 @@ class FakeInboxView implements StreamingInboxBucketSource {
       timestamp: 0n,
       msgCount: 0,
       lastMessageIndex: 0n,
+      l1BlockNumber: 0n,
+      l1BlockHash: Buffer32.ZERO,
     });
   }
 
@@ -50,6 +53,8 @@ class FakeInboxView implements StreamingInboxBucketSource {
       timestamp: BigInt(timestamp),
       msgCount,
       lastMessageIndex: totalMsgCount - 1n,
+      l1BlockNumber: BigInt(seq),
+      l1BlockHash: Buffer32.fromBigInt(BigInt(seq)),
     };
     this.buckets.set(BigInt(seq), bucket);
     return bucket;

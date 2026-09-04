@@ -1,4 +1,5 @@
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -218,7 +219,12 @@ describe('ArchiverApiSchema', () => {
 
   it('getInboxBucket', async () => {
     const result = await context.client.getInboxBucket(2n);
-    expect(result).toMatchObject({ seq: 2n, msgCount: 3 });
+    expect(result).toMatchObject({
+      seq: 2n,
+      msgCount: 3,
+      l1BlockNumber: 20n,
+      l1BlockHash: Buffer32.fromBigInt(20n),
+    });
   });
 
   it('getInboxBucketByTotalMsgCount', async () => {
@@ -604,6 +610,8 @@ class MockArchiver implements ArchiverApi {
       timestamp: 100n,
       msgCount: 3,
       lastMessageIndex: 2n,
+      l1BlockNumber: 20n,
+      l1BlockHash: Buffer32.fromBigInt(20n),
     });
   }
   getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
@@ -615,6 +623,8 @@ class MockArchiver implements ArchiverApi {
       timestamp: 100n,
       msgCount: 3,
       lastMessageIndex: 2n,
+      l1BlockNumber: 20n,
+      l1BlockHash: Buffer32.fromBigInt(20n),
     });
   }
   getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined> {
@@ -626,6 +636,8 @@ class MockArchiver implements ArchiverApi {
       timestamp: 100n,
       msgCount: 3,
       lastMessageIndex: 2n,
+      l1BlockNumber: 20n,
+      l1BlockHash: Buffer32.fromBigInt(20n),
     });
   }
   getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {

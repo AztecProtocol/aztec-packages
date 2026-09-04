@@ -1,3 +1,4 @@
+import type { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -27,6 +28,19 @@ export type InboxBucket = {
   msgCount: number;
   /** Global leaf index of the last message absorbed into this bucket. */
   lastMessageIndex: bigint;
+  /**
+   * L1 block in which this bucket was opened. Buckets are keyed by L1 block timestamp, so on a chain that allows
+   * consecutive blocks to share a timestamp (anvil with manual mining, for instance) a bucket may span several L1
+   * blocks and only the opening one is recorded. Production Ethereum timestamps are strictly increasing, so there a
+   * bucket never spans more than one block.
+   */
+  l1BlockNumber: bigint;
+  /**
+   * Hash of that L1 block as seen when the bucket was synced; lets callers test whether the bucket is still on the
+   * canonical chain. Since only the opening block is recorded, a reorg that touches only a later co-timestamped block
+   * of the same bucket is not detectable from this hash.
+   */
+  l1BlockHash: Buffer32;
 };
 
 export const InboxBucketSchema = z.object({
@@ -36,6 +50,8 @@ export const InboxBucketSchema = z.object({
   timestamp: schemas.BigInt,
   msgCount: schemas.Integer,
   lastMessageIndex: schemas.BigInt,
+  l1BlockNumber: schemas.BigInt,
+  l1BlockHash: schemas.Buffer32,
 }) satisfies z.ZodType<InboxBucket>;
 
 /**

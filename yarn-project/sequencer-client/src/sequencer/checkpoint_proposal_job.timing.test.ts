@@ -1,5 +1,6 @@
 import { EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -462,6 +463,8 @@ describe('CheckpointProposalJob Timing Tests', () => {
       timestamp: 0n,
       msgCount: 0,
       lastMessageIndex: 0n,
+      l1BlockNumber: 0n,
+      l1BlockHash: Buffer32.ZERO,
     });
 
     l2BlockSource = mock<L2BlockSource>();

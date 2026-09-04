@@ -1,3 +1,4 @@
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -5,6 +6,7 @@ import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
 import { MockL1ToL2MessageSource } from './mock_l1_to_l2_message_source.js';
 import { MockL2BlockSource } from './mock_l2_block_source.js';
+import { makeL1BlockHash, makeL1BlockNumberForBucket } from './mock_structs.js';
 
 /**
  * A mocked implementation of the archiver that implements L2BlockSource and L1ToL2MessageSource.
@@ -79,6 +81,8 @@ export class MockPrefilledArchiver extends MockArchiver {
         timestamp: 0n,
         msgCount: 0,
         lastMessageIndex: 0n,
+        l1BlockNumber: 0n,
+        l1BlockHash: Buffer32.ZERO,
       },
       [],
     );
@@ -91,6 +95,7 @@ export class MockPrefilledArchiver extends MockArchiver {
       }
       bucketSeq += 1n;
       totalMsgCount += BigInt(messages.length);
+      const l1BlockNumber = makeL1BlockNumberForBucket(bucketSeq);
       this.setInboxBucket(
         {
           seq: bucketSeq,
@@ -99,6 +104,8 @@ export class MockPrefilledArchiver extends MockArchiver {
           timestamp: bucketSeq,
           msgCount: messages.length,
           lastMessageIndex: totalMsgCount - 1n,
+          l1BlockNumber,
+          l1BlockHash: makeL1BlockHash(l1BlockNumber),
         },
         messages,
       );

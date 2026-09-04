@@ -3,7 +3,6 @@ import { makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
-import { randomBigInt } from '@aztec/foundation/crypto/random';
 import type { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -20,12 +19,30 @@ import { PartialStateReference, StateReference, TxEffect } from '@aztec/stdlib/t
 
 import type { InboxMessage } from '../structs/inbox_message.js';
 
+/**
+ * Deterministic, distinct L1 block hash for a block number, so tests can predict the hash a bucket records. The
+ * leading marker keeps it clearly distinguishable from a bare number-derived hash.
+ */
+export function makeL1BlockHash(l1BlockNumber: bigint): Buffer32 {
+  const buffer = Buffer.alloc(Buffer32.SIZE);
+  buffer.writeUInt16BE(0xb10c, 0);
+  buffer.writeBigUInt64BE(l1BlockNumber, Buffer32.SIZE - 8);
+  return Buffer32.fromBuffer(buffer);
+}
+
+/**
+ * Deterministic L1 block number for a bucket opened at the given L1 block timestamp. Buckets sharing a timestamp (a
+ * full bucket rolling over within one L1 block) land in the same L1 block, and the mapping is deliberately unrelated
+ * to the bucket sequence so that code confusing the two fails its tests.
+ */
+export function makeL1BlockNumberForBucket(bucketTimestamp: bigint): bigint {
+  return 1000n + 2n * bucketTimestamp;
+}
+
 export function makeInboxMessage(
   previousInboxRollingHash = Fr.ZERO,
   overrides: Partial<InboxMessage> = {},
 ): InboxMessage {
-  const { l1BlockNumber = randomBigInt(100n) + 1n } = overrides;
-  const { l1BlockHash = Buffer32.random() } = overrides;
   const { leaf = Fr.random() } = overrides;
   // Compact global insertion index: defaults to the first slot.
   const { index = 0n } = overrides;
@@ -33,6 +50,9 @@ export function makeInboxMessage(
   // Default each message to its own bucket, keyed monotonically off its global index.
   const { bucketSeq = index + 1n } = overrides;
   const { bucketTimestamp = index + 1n } = overrides;
+  // A bucket is opened by the first message of its L1 block timestamp, so derive the block from that timestamp.
+  const { l1BlockNumber = makeL1BlockNumberForBucket(bucketTimestamp) } = overrides;
+  const { l1BlockHash = makeL1BlockHash(l1BlockNumber) } = overrides;
 
   return {
     index,
@@ -85,7 +105,14 @@ export function makeInboxMessagesWithFullBlocks(blockCount: number): InboxMessag
   return makeInboxMessages(MAX_L1_TO_L2_MSGS_PER_BLOCK * blockCount, {
     overrideFn: (msg, i) => {
       const bucketSeq = BigInt(Math.floor(i / MAX_L1_TO_L2_MSGS_PER_BLOCK)) + 1n;
-      return { ...msg, bucketSeq, bucketTimestamp: bucketSeq };
+      const l1BlockNumber = makeL1BlockNumberForBucket(bucketSeq);
+      return {
+        ...msg,
+        bucketSeq,
+        bucketTimestamp: bucketSeq,
+        l1BlockNumber,
+        l1BlockHash: makeL1BlockHash(l1BlockNumber),
+      };
     },
   });
 }

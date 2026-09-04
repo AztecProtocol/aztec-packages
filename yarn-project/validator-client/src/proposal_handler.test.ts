@@ -4,6 +4,7 @@ import { INITIAL_L2_BLOCK_NUM, MAX_BLOCKS_PER_CHECKPOINT } from '@aztec/constant
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -740,6 +741,8 @@ describe('ProposalHandler checkpoint validation', () => {
     timestamp: 0n,
     msgCount: 0,
     lastMessageIndex: 0n,
+    l1BlockNumber: 0n,
+    l1BlockHash: Buffer32.ZERO,
   };
 
   /**
@@ -966,6 +969,8 @@ describe('ProposalHandler checkpoint validation', () => {
       timestamp: 100n,
       msgCount: 2,
       lastMessageIndex: 1n,
+      l1BlockNumber: 10n,
+      l1BlockHash: Buffer32.fromBigInt(10n),
       ...overrides,
     });
 

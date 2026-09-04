@@ -465,6 +465,8 @@ describe('ValidatorClient', () => {
       timestamp: 0n,
       msgCount: 0,
       lastMessageIndex: 0n,
+      l1BlockNumber: 0n,
+      l1BlockHash: Buffer32.ZERO,
     };
     const genesisBucketRef = InboxBucketRef.fromBucket(genesisInboxBucket);
 
