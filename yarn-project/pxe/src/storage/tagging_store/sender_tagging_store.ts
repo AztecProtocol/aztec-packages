@@ -4,7 +4,8 @@ import { AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdl
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, unfinalizedTaggingIndexesWindowEnd } from '../../tagging/constants.js';
-import type { ChangeSetId, StagedStore } from '../staged_write_coordinator.js';
+import { BaseStagingStore, type ReadonlyDb } from '../base_staging_store.js';
+import type { ChangeSetId } from '../staged_write_coordinator.js';
 
 /** A tx still awaiting finalization, and the highest tagging index it used for one secret. */
 export type PendingTx = { txHash: string; highestIndex: number };
@@ -17,118 +18,63 @@ type PendingIndexesEntry = PendingTx & { lowestIndex: number };
  * is called RecipientTaggingStore. We have the data stores separate for sender and recipient because
  * the algorithms are completely disjoint and there is not data reuse between the two.
  */
-export class SenderTaggingStore implements StagedStore {
-  readonly storeName = 'sender_tagging';
-
-  #store: AztecAsyncKVStore;
-
-  // Stores the pending index ranges for each directional app tagging secret. Pending here means that the tx that
-  // contained the private logs with tags corresponding to these indexes has not been finalized yet.
-  //
-  // We store the full range (lowestIndex, highestIndex) for each secret-tx pair because transactions can partially
-  // revert, in which case only some logs (from the non-revertible phase) survive onchain. By storing the range,
-  // we can expand it and check each individual siloed tag against the TxEffect to determine which indexes made it
-  // onchain.
-  //
-  // directional app tagging secret => { lowestIndex, highestIndex, txHash }[]
-  #pendingIndexes: AztecAsyncMap<string, PendingIndexesEntry[]>;
-
-  // changeSetId => directional app tagging secret => { lowestIndex, highestIndex, txHash }[]
-  #pendingIndexesForChangeSet: Map<ChangeSetId, Map<string, PendingIndexesEntry[]>>;
-
-  // Stores the last (highest) finalized index for each directional app tagging secret. We care only about the last
-  // index because unlike the pending indexes, it will never happen that a finalized index would be removed and hence
-  // we don't need to store the history.
-  //
-  // directional app tagging secret => highest finalized index
-  #lastFinalizedIndexes: AztecAsyncMap<string, number>;
-
-  // changeSetId => directional app tagging secret => highest finalized index
-  #lastFinalizedIndexesForChangeSet: Map<ChangeSetId, Map<string, number>>;
-
+export class SenderTaggingStore extends BaseStagingStore<SenderTaggingChangeSet, SenderTaggingDb> {
   constructor(store: AztecAsyncKVStore) {
-    this.#store = store;
-
-    this.#pendingIndexes = this.#store.openMap('pending_indexes');
-    this.#lastFinalizedIndexes = this.#store.openMap('last_finalized_indexes');
-
-    this.#pendingIndexesForChangeSet = new Map();
-    this.#lastFinalizedIndexesForChangeSet = new Map();
+    super({
+      storeName: 'sender_tagging',
+      store,
+      buildChangeSet: () => ({ pendingIndexes: new Map(), lastFinalizedIndexes: new Map() }),
+      buildDb: db => ({
+        pendingIndexes: db.openMap('pending_indexes'),
+        lastFinalizedIndexes: db.openMap('last_finalized_indexes'),
+      }),
+    });
   }
 
-  #getPendingIndexesForChangeSet(changeSetId: ChangeSetId): Map<string, PendingIndexesEntry[]> {
-    let pendingIndexesForChangeSet = this.#pendingIndexesForChangeSet.get(changeSetId);
-    if (!pendingIndexesForChangeSet) {
-      pendingIndexesForChangeSet = new Map();
-      this.#pendingIndexesForChangeSet.set(changeSetId, pendingIndexesForChangeSet);
-    }
-    return pendingIndexesForChangeSet;
-  }
-
-  #getLastFinalizedIndexesForChangeSet(changeSetId: ChangeSetId): Map<string, number> {
-    let stagedLastFinalizedIndexes = this.#lastFinalizedIndexesForChangeSet.get(changeSetId);
-    if (!stagedLastFinalizedIndexes) {
-      stagedLastFinalizedIndexes = new Map();
-      this.#lastFinalizedIndexesForChangeSet.set(changeSetId, stagedLastFinalizedIndexes);
-    }
-    return stagedLastFinalizedIndexes;
-  }
-
-  async #readPendingIndexes(changeSetId: ChangeSetId, secret: string): Promise<PendingIndexesEntry[]> {
+  async #readPendingIndexes(
+    changeSet: SenderTaggingChangeSet,
+    db: ReadonlyDb<SenderTaggingDb>,
+    secret: string,
+  ): Promise<PendingIndexesEntry[]> {
     // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
     // are no pending read requests). The staged value still takes precedence if it exists.
-    const dbValue = await this.#pendingIndexes.getAsync(secret);
-    const staged = this.#getPendingIndexesForChangeSet(changeSetId).get(secret);
+    const dbValue = await db.pendingIndexes.getAsync(secret);
+    const staged = changeSet.pendingIndexes.get(secret);
     return staged !== undefined ? staged : (dbValue ?? []);
   }
 
-  #writePendingIndexes(changeSetId: ChangeSetId, secret: string, pendingIndexes: PendingIndexesEntry[]) {
-    this.#getPendingIndexesForChangeSet(changeSetId).set(secret, pendingIndexes);
-  }
-
-  async #readLastFinalizedIndex(changeSetId: ChangeSetId, secret: string): Promise<number | undefined> {
+  async #readLastFinalizedIndex(
+    changeSet: SenderTaggingChangeSet,
+    db: ReadonlyDb<SenderTaggingDb>,
+    secret: string,
+  ): Promise<number | undefined> {
     // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
     // are no pending read requests). The staged value still takes precedence if it exists.
-    const dbValue = await this.#lastFinalizedIndexes.getAsync(secret);
-    const staged = this.#getLastFinalizedIndexesForChangeSet(changeSetId).get(secret);
+    const dbValue = await db.lastFinalizedIndexes.getAsync(secret);
+    const staged = changeSet.lastFinalizedIndexes.get(secret);
     return staged ?? dbValue;
   }
 
-  #writeLastFinalizedIndex(changeSetId: ChangeSetId, secret: string, lastFinalizedIndex: number) {
-    this.#getLastFinalizedIndexesForChangeSet(changeSetId).set(secret, lastFinalizedIndex);
+  protected async flushChangeSet(changeSet: SenderTaggingChangeSet, db: SenderTaggingDb): Promise<void> {
+    for (const [secret, pendingIndexes] of changeSet.pendingIndexes) {
+      if (pendingIndexes.length === 0) {
+        await db.pendingIndexes.delete(secret);
+      } else {
+        await db.pendingIndexes.set(secret, pendingIndexes);
+      }
+    }
+
+    for (const [secret, lastFinalizedIndex] of changeSet.lastFinalizedIndexes) {
+      await db.lastFinalizedIndexes.set(secret, lastFinalizedIndex);
+    }
   }
 
   /**
-   * Writes all change set-specific in-memory data to persistent storage.
-   *
-   * @remark This method must run in a DB transaction context. It's designed to be called from
-   * {@link StagedWriteCoordinator.commit}.
+   * No-op: the last finalized index only ever advances from finalized blocks, and pending entries are keyed by tx
+   * hash rather than anchored to a block, so a prune removes neither.
    */
-  async commitChangeSet(changeSetId: ChangeSetId): Promise<void> {
-    const pendingIndexesForChangeSet = this.#pendingIndexesForChangeSet.get(changeSetId);
-    if (pendingIndexesForChangeSet) {
-      for (const [secret, pendingIndexes] of pendingIndexesForChangeSet.entries()) {
-        if (pendingIndexes.length === 0) {
-          await this.#pendingIndexes.delete(secret);
-        } else {
-          await this.#pendingIndexes.set(secret, pendingIndexes);
-        }
-      }
-    }
-
-    const lastFinalizedIndexesForChangeSet = this.#lastFinalizedIndexesForChangeSet.get(changeSetId);
-    if (lastFinalizedIndexesForChangeSet) {
-      for (const [secret, lastFinalizedIndex] of lastFinalizedIndexesForChangeSet.entries()) {
-        await this.#lastFinalizedIndexes.set(secret, lastFinalizedIndex);
-      }
-    }
-
-    this.discardChangeSet(changeSetId);
-  }
-
-  discardChangeSet(changeSetId: ChangeSetId): void {
-    this.#pendingIndexesForChangeSet.delete(changeSetId);
-    this.#lastFinalizedIndexesForChangeSet.delete(changeSetId);
+  protected applyRollback(): Promise<void> {
+    return Promise.resolve();
   }
 
   /**
@@ -181,13 +127,13 @@ export class SenderTaggingStore implements StagedStore {
 
     const txHashStr = txHash.toString();
 
-    return this.#store.transactionAsync(async () => {
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
       // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
       const rangeReadPromises = ranges.map(range => ({
         range,
         secretStr: range.extendedSecret.toString(),
-        pending: this.#readPendingIndexes(changeSetId, range.extendedSecret.toString()),
-        finalized: this.#readLastFinalizedIndex(changeSetId, range.extendedSecret.toString()),
+        pending: this.#readPendingIndexes(changeSet, db, range.extendedSecret.toString()),
+        finalized: this.#readLastFinalizedIndex(changeSet, db, range.extendedSecret.toString()),
       }));
 
       // Await all reads together
@@ -250,7 +196,7 @@ export class SenderTaggingStore implements StagedStore {
         // mergeExisting): duplicate evidence, nothing to write.
 
         if (updatedPending) {
-          this.#writePendingIndexes(changeSetId, secretStr, updatedPending);
+          changeSet.pendingIndexes.set(secretStr, updatedPending);
         }
       }
     });
@@ -271,8 +217,8 @@ export class SenderTaggingStore implements StagedStore {
     endIndex: number,
     changeSetId: ChangeSetId,
   ): Promise<PendingTx[]> {
-    return this.#store.transactionAsync(async () => {
-      const existing = await this.#readPendingIndexes(changeSetId, secret.toString());
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
+      const existing = await this.#readPendingIndexes(changeSet, db, secret.toString());
       return existing
         .filter(entry => entry.highestIndex >= startIndex && entry.highestIndex < endIndex)
         .map(entry => ({ txHash: entry.txHash, highestIndex: entry.highestIndex }));
@@ -285,7 +231,9 @@ export class SenderTaggingStore implements StagedStore {
    * @returns The last (highest) finalized index for the given secret.
    */
   getLastFinalizedIndex(secret: AppTaggingSecret, changeSetId: ChangeSetId): Promise<number | undefined> {
-    return this.#store.transactionAsync(() => this.#readLastFinalizedIndex(changeSetId, secret.toString()));
+    return this.withChangeSetAndDb(changeSetId, (changeSet, db) =>
+      this.#readLastFinalizedIndex(changeSet, db, secret.toString()),
+    );
   }
 
   /**
@@ -297,9 +245,9 @@ export class SenderTaggingStore implements StagedStore {
   getLastUsedIndex(secret: AppTaggingSecret, changeSetId: ChangeSetId): Promise<number | undefined> {
     const secretStr = secret.toString();
 
-    return this.#store.transactionAsync(async () => {
-      const pendingPromise = this.#readPendingIndexes(changeSetId, secretStr);
-      const finalizedPromise = this.#readLastFinalizedIndex(changeSetId, secretStr);
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
+      const pendingPromise = this.#readPendingIndexes(changeSet, db, secretStr);
+      const finalizedPromise = this.#readLastFinalizedIndex(changeSet, db, secretStr);
 
       const [pendingEntries, lastFinalized] = await allToCompletion([pendingPromise, finalizedPromise]);
 
@@ -323,21 +271,18 @@ export class SenderTaggingStore implements StagedStore {
 
     const txHashStrings = new Set<string>(txHashes.map(txHash => txHash.toString()));
 
-    return this.#store.transactionAsync(async () => {
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
       // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
       const secretReadPromises: Map<string, Promise<PendingIndexesEntry[]>> = new Map();
 
-      for await (const secret of this.#pendingIndexes.keysAsync()) {
-        secretReadPromises.set(secret, this.#readPendingIndexes(changeSetId, secret));
+      for await (const secret of db.pendingIndexes.keysAsync()) {
+        secretReadPromises.set(secret, this.#readPendingIndexes(changeSet, db, secret));
       }
 
       // Add staged-only secrets (sync, no DB)
-      for (const secret of this.#getPendingIndexesForChangeSet(changeSetId).keys()) {
+      for (const secret of changeSet.pendingIndexes.keys()) {
         if (!secretReadPromises.has(secret)) {
-          secretReadPromises.set(
-            secret,
-            Promise.resolve(this.#getPendingIndexesForChangeSet(changeSetId).get(secret) ?? []),
-          );
+          secretReadPromises.set(secret, Promise.resolve(changeSet.pendingIndexes.get(secret) ?? []));
         }
       }
 
@@ -353,10 +298,10 @@ export class SenderTaggingStore implements StagedStore {
         if (pendingData && pendingData.length > 0) {
           const filtered = pendingData.filter(item => !txHashStrings.has(item.txHash));
           if (filtered.length === 0) {
-            this.#writePendingIndexes(changeSetId, secret, []);
+            changeSet.pendingIndexes.set(secret, []);
           } else if (filtered.length !== pendingData.length) {
             // Some items were filtered out, so update the pending data
-            this.#writePendingIndexes(changeSetId, secret, filtered);
+            changeSet.pendingIndexes.set(secret, filtered);
           }
           // else: No items were filtered out (txHashes not found for this secret) --> no-op
         }
@@ -365,45 +310,44 @@ export class SenderTaggingStore implements StagedStore {
   }
 
   /** Prefetches all pending and finalized index data for every secret (from both DB and staged writes). */
-  #getSecretsWithPendingData(
-    changeSetId: ChangeSetId,
+  async #getSecretsWithPendingData(
+    changeSet: SenderTaggingChangeSet,
+    db: ReadonlyDb<SenderTaggingDb>,
   ): Promise<{ secret: string; pendingData: PendingIndexesEntry[]; lastFinalized: number | undefined }[]> {
-    return this.#store.transactionAsync(async () => {
-      // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
-      const secretDataPromises: Map<
-        string,
-        { pending: Promise<PendingIndexesEntry[]>; finalized: Promise<number | undefined> }
-      > = new Map();
+    // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
+    const secretDataPromises: Map<
+      string,
+      { pending: Promise<PendingIndexesEntry[]>; finalized: Promise<number | undefined> }
+    > = new Map();
 
-      for await (const secret of this.#pendingIndexes.keysAsync()) {
+    for await (const secret of db.pendingIndexes.keysAsync()) {
+      secretDataPromises.set(secret, {
+        pending: this.#readPendingIndexes(changeSet, db, secret),
+        finalized: this.#readLastFinalizedIndex(changeSet, db, secret),
+      });
+    }
+
+    // Add staged-only secrets (sync, no DB)
+    for (const secret of changeSet.pendingIndexes.keys()) {
+      if (!secretDataPromises.has(secret)) {
         secretDataPromises.set(secret, {
-          pending: this.#readPendingIndexes(changeSetId, secret),
-          finalized: this.#readLastFinalizedIndex(changeSetId, secret),
+          pending: Promise.resolve(changeSet.pendingIndexes.get(secret) ?? []),
+          finalized: Promise.resolve(changeSet.lastFinalizedIndexes.get(secret)),
         });
       }
+    }
 
-      // Add staged-only secrets (sync, no DB)
-      for (const secret of this.#getPendingIndexesForChangeSet(changeSetId).keys()) {
-        if (!secretDataPromises.has(secret)) {
-          secretDataPromises.set(secret, {
-            pending: Promise.resolve(this.#getPendingIndexesForChangeSet(changeSetId).get(secret) ?? []),
-            finalized: Promise.resolve(this.#getLastFinalizedIndexesForChangeSet(changeSetId).get(secret)),
-          });
-        }
-      }
+    // Await all reads together
+    const secrets = [...secretDataPromises.keys()];
+    const dataResults = await allToCompletion(
+      secrets.map(async secret => ({
+        secret,
+        pendingData: await secretDataPromises.get(secret)!.pending,
+        lastFinalized: await secretDataPromises.get(secret)!.finalized,
+      })),
+    );
 
-      // Await all reads together
-      const secrets = [...secretDataPromises.keys()];
-      const dataResults = await allToCompletion(
-        secrets.map(async secret => ({
-          secret,
-          pendingData: await secretDataPromises.get(secret)!.pending,
-          lastFinalized: await secretDataPromises.get(secret)!.finalized,
-        })),
-      );
-
-      return dataResults.filter(r => r.pendingData.length > 0);
-    });
+    return dataResults.filter(r => r.pendingData.length > 0);
   }
 
   /**
@@ -430,23 +374,87 @@ export class SenderTaggingStore implements StagedStore {
     return this.#finalizePendingIndexes(txHashes, changeSetId, secret.toString());
   }
 
-  async #finalizePendingIndexes(txHashes: TxHash[], changeSetId: ChangeSetId, onlySecret?: string): Promise<void> {
+  #finalizePendingIndexes(txHashes: TxHash[], changeSetId: ChangeSetId, onlySecret?: string): Promise<void> {
     if (txHashes.length === 0) {
-      return;
+      return Promise.resolve();
     }
 
     const txHashStrings = new Set(txHashes.map(tx => tx.toString()));
-    const secretsWithData = (await this.#getSecretsWithPendingData(changeSetId)).filter(
-      ({ secret }) => onlySecret === undefined || secret === onlySecret,
-    );
 
-    for (const { secret, pendingData, lastFinalized } of secretsWithData) {
-      let currentPending = pendingData;
-      let currentFinalized = lastFinalized;
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
+      const secretsWithData = (await this.#getSecretsWithPendingData(changeSet, db)).filter(
+        ({ secret }) => onlySecret === undefined || secret === onlySecret,
+      );
 
-      // Process all txHashes for this secret
-      for (const txHashStr of txHashStrings) {
-        const matchingEntries = currentPending.filter(item => item.txHash === txHashStr);
+      for (const { secret, pendingData, lastFinalized } of secretsWithData) {
+        let currentPending = pendingData;
+        let currentFinalized = lastFinalized;
+
+        // Process all txHashes for this secret
+        for (const txHashStr of txHashStrings) {
+          const matchingEntries = currentPending.filter(item => item.txHash === txHashStr);
+          if (matchingEntries.length === 0) {
+            // This is expected as a higher index might have already been finalized which would lead to pruning of
+            // pending entries.
+            continue;
+          }
+
+          if (matchingEntries.length > 1) {
+            // We should always just store the highest pending index for a given tx hash and secret because the lower
+            // values are irrelevant.
+            throw new Error(`Multiple pending entries found for tx hash ${txHashStr} and secret ${secret}`);
+          }
+
+          const newFinalized = matchingEntries[0].highestIndex;
+
+          if (newFinalized < (currentFinalized ?? 0)) {
+            // This should never happen because when last finalized index was finalized we should have pruned the lower
+            // pending indexes.
+            throw new Error(
+              `New finalized index ${newFinalized} is smaller than the current last finalized index ${currentFinalized}`,
+            );
+          }
+
+          currentFinalized = newFinalized;
+
+          // When we add pending indexes, we ensure they are higher than the last finalized index. However, because we
+          // cannot control the order in which transactions are finalized, there may be pending indexes that are now
+          // obsolete because they are lower than the most recently finalized index. For this reason, we prune these
+          // outdated pending indexes.
+          currentPending = currentPending.filter(item => item.highestIndex > currentFinalized!);
+        }
+
+        // Write final state if changed
+        if (currentFinalized !== lastFinalized) {
+          changeSet.lastFinalizedIndexes.set(secret, currentFinalized!);
+        }
+        if (currentPending !== pendingData) {
+          changeSet.pendingIndexes.set(secret, currentPending);
+        }
+      }
+    });
+  }
+
+  /**
+   * Handles finalization of pending indexes for a transaction whose execution was partially reverted.
+   * Recomputes the siloed tags for each pending index of the given tx and checks which ones appear in the
+   * TxEffect's private logs (i.e., which ones made it onchain). Those that survived are finalized; those that
+   * didn't are dropped.
+   * @param txEffect - The tx effect of the partially reverted transaction.
+   * @param changeSetId - change set to stage this store's writes under. See {@link StagedWriteCoordinator} for more
+   * details.
+   */
+  finalizePendingIndexesOfAPartiallyRevertedTx(txEffect: TxEffect, changeSetId: ChangeSetId): Promise<void> {
+    const txHashStr = txEffect.txHash.toString();
+
+    // Build a set of all siloed tag values that made it onchain (first field of each private log).
+    const onChainTags = new Set<string>(txEffect.privateLogs.map(log => log.fields[0].toString()));
+
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
+      const secretsWithData = await this.#getSecretsWithPendingData(changeSet, db);
+
+      for (const { secret, pendingData, lastFinalized } of secretsWithData) {
+        const matchingEntries = pendingData.filter(item => item.txHash === txHashStr);
         if (matchingEntries.length === 0) {
           // This is expected as a higher index might have already been finalized which would lead to pruning of
           // pending entries.
@@ -459,92 +467,34 @@ export class SenderTaggingStore implements StagedStore {
           throw new Error(`Multiple pending entries found for tx hash ${txHashStr} and secret ${secret}`);
         }
 
-        const newFinalized = matchingEntries[0].highestIndex;
+        const pendingEntry = matchingEntries[0];
 
-        if (newFinalized < (currentFinalized ?? 0)) {
-          // This should never happen because when last finalized index was finalized we should have pruned the lower
-          // pending indexes.
-          throw new Error(
-            `New finalized index ${newFinalized} is smaller than the current last finalized index ${currentFinalized}`,
-          );
+        // Expand each matching entry's range and recompute siloed tags for each index.
+        const appTaggingSecret = AppTaggingSecret.fromString(secret);
+        let highestSurvivingIndex: number | undefined;
+
+        for (let index = pendingEntry.lowestIndex; index <= pendingEntry.highestIndex; index++) {
+          const siloedTag = await SiloedTag.compute({ extendedSecret: appTaggingSecret, index });
+          if (onChainTags.has(siloedTag.value.toString())) {
+            highestSurvivingIndex =
+              highestSurvivingIndex !== undefined ? Math.max(highestSurvivingIndex, index) : index;
+          }
         }
 
-        currentFinalized = newFinalized;
+        // Remove all entries for this txHash from pending (both surviving and non-surviving).
+        let currentPending = pendingData.filter(item => item.txHash !== txHashStr);
 
-        // When we add pending indexes, we ensure they are higher than the last finalized index. However, because we
-        // cannot control the order in which transactions are finalized, there may be pending indexes that are now
-        // obsolete because they are lower than the most recently finalized index. For this reason, we prune these
-        // outdated pending indexes.
-        currentPending = currentPending.filter(item => item.highestIndex > currentFinalized!);
-      }
+        if (highestSurvivingIndex !== undefined) {
+          const newFinalized = Math.max(lastFinalized ?? 0, highestSurvivingIndex);
+          changeSet.lastFinalizedIndexes.set(secret, newFinalized);
 
-      // Write final state if changed
-      if (currentFinalized !== lastFinalized) {
-        this.#writeLastFinalizedIndex(changeSetId, secret, currentFinalized!);
-      }
-      if (currentPending !== pendingData) {
-        this.#writePendingIndexes(changeSetId, secret, currentPending);
-      }
-    }
-  }
-
-  /**
-   * Handles finalization of pending indexes for a transaction whose execution was partially reverted.
-   * Recomputes the siloed tags for each pending index of the given tx and checks which ones appear in the
-   * TxEffect's private logs (i.e., which ones made it onchain). Those that survived are finalized; those that
-   * didn't are dropped.
-   * @param txEffect - The tx effect of the partially reverted transaction.
-   * @param changeSetId - change set to stage this store's writes under. See {@link StagedWriteCoordinator} for more
-   * details.
-   */
-  async finalizePendingIndexesOfAPartiallyRevertedTx(txEffect: TxEffect, changeSetId: ChangeSetId): Promise<void> {
-    const txHashStr = txEffect.txHash.toString();
-
-    // Build a set of all siloed tag values that made it onchain (first field of each private log).
-    const onChainTags = new Set<string>(txEffect.privateLogs.map(log => log.fields[0].toString()));
-
-    const secretsWithData = await this.#getSecretsWithPendingData(changeSetId);
-
-    for (const { secret, pendingData, lastFinalized } of secretsWithData) {
-      const matchingEntries = pendingData.filter(item => item.txHash === txHashStr);
-      if (matchingEntries.length === 0) {
-        // This is expected as a higher index might have already been finalized which would lead to pruning of
-        // pending entries.
-        continue;
-      }
-
-      if (matchingEntries.length > 1) {
-        // We should always just store the highest pending index for a given tx hash and secret because the lower
-        // values are irrelevant.
-        throw new Error(`Multiple pending entries found for tx hash ${txHashStr} and secret ${secret}`);
-      }
-
-      const pendingEntry = matchingEntries[0];
-
-      // Expand each matching entry's range and recompute siloed tags for each index.
-      const appTaggingSecret = AppTaggingSecret.fromString(secret);
-      let highestSurvivingIndex: number | undefined;
-
-      for (let index = pendingEntry.lowestIndex; index <= pendingEntry.highestIndex; index++) {
-        const siloedTag = await SiloedTag.compute({ extendedSecret: appTaggingSecret, index });
-        if (onChainTags.has(siloedTag.value.toString())) {
-          highestSurvivingIndex = highestSurvivingIndex !== undefined ? Math.max(highestSurvivingIndex, index) : index;
+          // Prune pending indexes that are now <= the finalized index.
+          currentPending = currentPending.filter(item => item.highestIndex > newFinalized);
         }
+
+        changeSet.pendingIndexes.set(secret, currentPending);
       }
-
-      // Remove all entries for this txHash from pending (both surviving and non-surviving).
-      let currentPending = pendingData.filter(item => item.txHash !== txHashStr);
-
-      if (highestSurvivingIndex !== undefined) {
-        const newFinalized = Math.max(lastFinalized ?? 0, highestSurvivingIndex);
-        this.#writeLastFinalizedIndex(changeSetId, secret, newFinalized);
-
-        // Prune pending indexes that are now <= the finalized index.
-        currentPending = currentPending.filter(item => item.highestIndex > newFinalized);
-      }
-
-      this.#writePendingIndexes(changeSetId, secret, currentPending);
-    }
+    });
   }
 }
 
@@ -562,3 +512,32 @@ export function windowExceededError(
       `Contact the Aztec team to increase it!`,
   );
 }
+
+/**
+ * A change set's staged data, created and discarded as a unit: the pending index ranges and the last finalized index,
+ * both keyed by directional app tagging secret.
+ */
+type SenderTaggingChangeSet = {
+  pendingIndexes: Map<string, PendingIndexesEntry[]>;
+  lastFinalizedIndexes: Map<string, number>;
+};
+
+type SenderTaggingDb = {
+  // Stores the pending index ranges for each directional app tagging secret. Pending here means that the tx that
+  // contained the private logs with tags corresponding to these indexes has not been finalized yet.
+  //
+  // We store the full range (lowestIndex, highestIndex) for each secret-tx pair because transactions can partially
+  // revert, in which case only some logs (from the non-revertible phase) survive onchain. By storing the range,
+  // we can expand it and check each individual siloed tag against the TxEffect to determine which indexes made it
+  // onchain.
+  //
+  // directional app tagging secret => { lowestIndex, highestIndex, txHash }[]
+  pendingIndexes: AztecAsyncMap<string, PendingIndexesEntry[]>;
+
+  // Stores the last (highest) finalized index for each directional app tagging secret. We care only about the last
+  // index because unlike the pending indexes, it will never happen that a finalized index would be removed and hence
+  // we don't need to store the history.
+  //
+  // directional app tagging secret => highest finalized index
+  lastFinalizedIndexes: AztecAsyncMap<string, number>;
+};
