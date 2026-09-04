@@ -1,0 +1,107 @@
+use crate::{
+    abis::TxRollupPublicInputs,
+    tests::RollupFixtureBuilder,
+    tx_merge::tx_merge_rollup::{self, TxMergeRollupPrivateInputs},
+};
+use types::{
+    blob_data::accumulate_tx_effects_tree_root,
+    constants::{
+        PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
+    },
+};
+
+// Stand-ins for the leaves computed by the tx base circuits, so that the expected roots can be written out by hand.
+global LEAVES: [Field; 5] = [1111, 2222, 3333, 4444, 5555];
+
+// The tx index of the first tx of the block used by these tests. Any non-zero index works.
+global FIRST_TX_INDEX: u16 = 6;
+
+/// Public inputs of the tx base rollup of the `i`-th tx of the block, with `LEAVES[i]` as its tx effects tree root.
+fn tx_base_rollup(tx_index: u32) -> TxRollupPublicInputs {
+    let mut rollup =
+        RollupFixtureBuilder::new().get_tx_rollup_public_inputs(FIRST_TX_INDEX + tx_index as u16);
+    rollup.tx_effects_tree_root = LEAVES[tx_index];
+    rollup
+}
+
+fn merge(
+    left: TxRollupPublicInputs,
+    left_vk_index: u32,
+    right: TxRollupPublicInputs,
+    right_vk_index: u32,
+) -> TxRollupPublicInputs {
+    let previous_rollups = [
+        RollupFixtureBuilder::make_proof_data(left, left_vk_index),
+        RollupFixtureBuilder::make_proof_data(right, right_vk_index),
+    ];
+    tx_merge_rollup::execute(TxMergeRollupPrivateInputs { previous_rollups })
+}
+
+fn merge_bases(left: TxRollupPublicInputs, right: TxRollupPublicInputs) -> TxRollupPublicInputs {
+    merge(
+        left,
+        PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
+        right,
+        PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
+    )
+}
+
+#[test]
+fn two_txs() {
+    let merged = merge_bases(tx_base_rollup(0), tx_base_rollup(1));
+
+    assert_eq(merged.num_txs, 2);
+    assert_eq(merged.tx_effects_tree_root, accumulate_tx_effects_tree_root(LEAVES[0], LEAVES[1]));
+}
+
+#[test]
+fn three_txs() {
+    // The greedy fill forces the shape H(H(leaf_0, leaf_1), leaf_2).
+    let left = merge_bases(tx_base_rollup(0), tx_base_rollup(1));
+    let merged = merge(
+        left,
+        TX_MERGE_ROLLUP_VK_INDEX,
+        tx_base_rollup(2),
+        PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
+    );
+
+    assert_eq(merged.num_txs, 3);
+    assert_eq(
+        merged.tx_effects_tree_root,
+        accumulate_tx_effects_tree_root(
+            accumulate_tx_effects_tree_root(LEAVES[0], LEAVES[1]),
+            LEAVES[2],
+        ),
+    );
+}
+
+#[test]
+fn five_txs() {
+    // The greedy fill forces the shape H(H(H(leaf_0, leaf_1), H(leaf_2, leaf_3)), leaf_4).
+    let left_left = merge_bases(tx_base_rollup(0), tx_base_rollup(1));
+    let left_right = merge_bases(tx_base_rollup(2), tx_base_rollup(3));
+    let left = merge(
+        left_left,
+        TX_MERGE_ROLLUP_VK_INDEX,
+        left_right,
+        TX_MERGE_ROLLUP_VK_INDEX,
+    );
+    let merged = merge(
+        left,
+        TX_MERGE_ROLLUP_VK_INDEX,
+        tx_base_rollup(4),
+        PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
+    );
+
+    assert_eq(merged.num_txs, 5);
+    assert_eq(
+        merged.tx_effects_tree_root,
+        accumulate_tx_effects_tree_root(
+            accumulate_tx_effects_tree_root(
+                accumulate_tx_effects_tree_root(LEAVES[0], LEAVES[1]),
+                accumulate_tx_effects_tree_root(LEAVES[2], LEAVES[3]),
+            ),
+            LEAVES[4],
+        ),
+    );
+}

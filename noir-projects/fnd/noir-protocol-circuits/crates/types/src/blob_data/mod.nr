@@ -10,4 +10,6 @@ pub use block_blob_data::{
 pub use checkpoint_blob_data::create_checkpoint_end_marker;
 pub use sponge_blob::SpongeBlob;
 pub use tx_blob_data::{create_tx_start_marker, TxEffectArrayLengths};
-pub use tx_effect::TxEffect;
+pub use tx_effect::{
+    accumulate_tx_effects_tree_root, compute_tx_effect_hash, compute_tx_effect_leaf, TxEffect,
+};

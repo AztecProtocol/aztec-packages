@@ -24,8 +24,9 @@ use crate::{
         DOM_SEP__RETRIEVED_BYTECODES_MERKLE, DOM_SEP__SALTED_INITIALIZATION_HASH,
         DOM_SEP__SECRET_HASH, DOM_SEP__SIGNATURE_PAYLOAD, DOM_SEP__SILOED_NOTE_HASH,
         DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_PUBLIC_KEY_HASH, DOM_SEP__TSK_M,
-        DOM_SEP__TX_REQUEST, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNIQUE_NOTE_HASH,
-        DOM_SEP__WRITTEN_SLOTS_MERKLE, NULL_MSG_SENDER_CONTRACT_ADDRESS,
+        DOM_SEP__TX_EFFECT_FIELD_HASH, DOM_SEP__TX_EFFECT_HASH, DOM_SEP__TX_EFFECT_LEAF,
+        DOM_SEP__TX_EFFECTS_TREE, DOM_SEP__TX_REQUEST, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
+        DOM_SEP__UNIQUE_NOTE_HASH, DOM_SEP__WRITTEN_SLOTS_MERKLE, NULL_MSG_SENDER_CONTRACT_ADDRESS,
         SIDE_EFFECT_MASKING_ADDRESS, TX_START_PREFIX,
     },
     hash::poseidon2_hash_bytes,
@@ -140,7 +141,7 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
-    let mut tester = HashedValueTester::<68, 63>::new();
+    let mut tester = HashedValueTester::<72, 67>::new();
 
     // -----------------
     // Domain separators
@@ -208,6 +209,10 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(DOM_SEP__TX_REQUEST, "tx_request");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PUBLIC_TX_HASH, "public_tx_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PRIVATE_TX_HASH, "private_tx_hash");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__TX_EFFECT_FIELD_HASH, "tx_effect_field_hash");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__TX_EFFECT_HASH, "tx_effect_hash");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__TX_EFFECT_LEAF, "tx_effect_leaf");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__TX_EFFECTS_TREE, "tx_effects_tree");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PUBLIC_CALLDATA, "public_calldata");
     tester.assert_dom_sep_matches_derived(DOM_SEP__FUNCTION_ARGS, "function_args");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PROTOCOL_CONTRACTS, "protocol_contracts");
