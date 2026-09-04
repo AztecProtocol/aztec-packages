@@ -970,7 +970,7 @@ describe('ProposalHandler checkpoint validation', () => {
     });
 
     /** Genesis-parent streaming block proposal at slot 1, with the handler wired to reach the streaming checks. */
-    async function setupStreamingProposal(bucketRef: InboxBucketRef | undefined) {
+    async function setupStreamingProposal(bucketRef: InboxBucketRef | undefined, options: { nowMs?: number } = {}) {
       const proposal = ValidatedBlockProposal(
         await makeBlockProposal({
           blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
@@ -987,8 +987,8 @@ describe('ProposalHandler checkpoint validation', () => {
       const txProvider = mock<ITxProvider>();
       txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
 
-      // Well past the minimum bucket age (one 12s Ethereum slot) for a bucket opened at t=100.
-      dateProvider.setTime(1_000_000);
+      // Well past the minimum bucket age (one 12s Ethereum slot) for a bucket opened at t=100, unless overridden.
+      dateProvider.setTime(options.nowMs ?? 1_000_000);
 
       const blockHandler = new ProposalHandler(
         checkpointsBuilder,
@@ -1085,6 +1085,138 @@ describe('ProposalHandler checkpoint validation', () => {
         expect.anything(),
         expect.anything(),
       );
+    });
+
+    // A bucket the proposer already consumed is on L1 by construction, so a bucket this node cannot resolve is
+    // (usually) local archiver lag, not a divergence: the handler forces a sync and re-checks until the
+    // attestation deadline instead of dropping the attestation on the spot.
+    describe('bucket sync wait', () => {
+      // attestation_deadline(slot=1) = 1*24 + 24 - 8 = 40s. Waits run on a real timer against the remaining
+      // budget read off the fake clock, so holding it 2s short of the deadline keeps the tests short.
+      const DEADLINE_MS = 40_000;
+      const WAIT_BUDGET_MS = 2_000;
+      const BEFORE_DEADLINE_MS = DEADLINE_MS - WAIT_BUDGET_MS;
+      const PAST_DEADLINE_MS = DEADLINE_MS + 1_000;
+      const WAIT_INTERVAL_MS = 500;
+
+      /** A bucket old enough to be lag-eligible at {@link BEFORE_DEADLINE_MS}. */
+      const eligibleBucket = (overrides: Partial<InboxBucket> = {}) => bucket({ timestamp: 10n, ...overrides });
+
+      /** Wires the parent-bucket lookup and the bundle read for a proposal that consumes `eligibleBucket()`. */
+      function mockAcceptedSurroundings() {
+        l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
+          eligibleBucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),
+        );
+        l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue([new Fr(1000), new Fr(1001)]);
+      }
+
+      it('attests once the referenced bucket shows up on a later archiver sync', async () => {
+        const ref = new InboxBucketRef(1n, 10n, new Fr(0xabc));
+        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
+        mockAcceptedSurroundings();
+        // Unknown on arrival, synced by the time the wait re-checks.
+        l1ToL2MessageSource.getInboxBucket.mockResolvedValueOnce(undefined).mockResolvedValue(eligibleBucket());
+        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: undefined } as any);
+
+        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+        expect(result.isValid).toBe(true);
+        expect(result.blockNumber).toEqual(BlockNumber(INITIAL_L2_BLOCK_NUM));
+      });
+
+      it('rejects with bucket_unknown when the bucket never syncs, no earlier than the deadline', async () => {
+        const ref = new InboxBucketRef(1n, 10n, new Fr(0xabc));
+        const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref, {
+          nowMs: BEFORE_DEADLINE_MS,
+        });
+        mockAcceptedSurroundings();
+        l1ToL2MessageSource.getInboxBucket.mockResolvedValue(undefined);
+
+        const startMs = Date.now();
+        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+        const elapsedMs = Date.now() - startMs;
+
+        expect(result).toEqual({
+          isValid: false,
+          blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+          reason: 'bucket_unknown',
+        });
+        // The wait runs out the remaining budget and gives up within one retry interval of the deadline.
+        expect(elapsedMs).toBeGreaterThanOrEqual(WAIT_BUDGET_MS - 100);
+        expect(elapsedMs).toBeLessThan(WAIT_BUDGET_MS + 2 * WAIT_INTERVAL_MS);
+        // Waiting never buys the proposer any network work: the rejection still happens before tx collection.
+        expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
+      });
+
+      it('rejects immediately without syncing when the attestation deadline has already passed', async () => {
+        const ref = new InboxBucketRef(1n, 10n, new Fr(0xabc));
+        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: PAST_DEADLINE_MS });
+        mockAcceptedSurroundings();
+        l1ToL2MessageSource.getInboxBucket.mockResolvedValue(undefined);
+
+        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+        expect(result).toEqual({
+          isValid: false,
+          blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+          reason: 'bucket_unknown',
+        });
+        // With no budget left there is nothing to wait for, so the archiver is not poked at all.
+        expect(blockSource.syncImmediate).not.toHaveBeenCalled();
+      });
+
+      it('rejects immediately without syncing when the proposal carries no bucket reference', async () => {
+        const { proposal, blockHandler } = await setupStreamingProposal(undefined, {
+          nowMs: BEFORE_DEADLINE_MS,
+        });
+
+        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+        expect(result).toEqual({
+          isValid: false,
+          blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+          reason: 'bucket_unknown',
+        });
+        expect(blockSource.syncImmediate).not.toHaveBeenCalled();
+      });
+
+      it('rejects a hash mismatch that survives one forced sync, without looping', async () => {
+        const ref = new InboxBucketRef(1n, 10n, new Fr(0xdead));
+        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
+        mockAcceptedSurroundings();
+        l1ToL2MessageSource.getInboxBucket.mockResolvedValue(eligibleBucket({ inboxRollingHash: new Fr(0xabc) }));
+
+        const startMs = Date.now();
+        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+        const elapsedMs = Date.now() - startMs;
+
+        expect(result).toEqual({
+          isValid: false,
+          blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+          reason: 'bucket_hash_mismatch',
+        });
+        // A persistent mismatch is a divergence from L1, not local lag: one sync, one re-check, no retry loop.
+        expect(blockSource.syncImmediate).toHaveBeenCalledTimes(1);
+        expect(elapsedMs).toBeLessThan(WAIT_INTERVAL_MS);
+      });
+
+      it('attests when the forced sync replaces our stale bucket with the proposed one', async () => {
+        // This validator held the orphaned side of an L1 reorg; the forced sync rolls it back and re-syncs.
+        const ref = new InboxBucketRef(1n, 10n, new Fr(0xabc));
+        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
+        mockAcceptedSurroundings();
+        l1ToL2MessageSource.getInboxBucket.mockResolvedValue(eligibleBucket({ inboxRollingHash: new Fr(0xbad) }));
+        blockSource.syncImmediate.mockImplementation(() => {
+          l1ToL2MessageSource.getInboxBucket.mockResolvedValue(eligibleBucket());
+          return Promise.resolve();
+        });
+        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: undefined } as any);
+
+        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+        expect(result.isValid).toBe(true);
+        expect(result.blockNumber).toEqual(BlockNumber(INITIAL_L2_BLOCK_NUM));
+      });
     });
   });
 

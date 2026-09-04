@@ -92,9 +92,11 @@ export type StreamingBlockCheckResult =
  * Mirrors the L1 acceptance conditions:
  *
  * 1. **Exists**: the referenced bucket resolves in this node's own Inbox view, and its consensus rolling hash matches
- *    the reference. An unknown bucket is an immediate reject here (there is no bounded wait yet); a hash
- *    mismatch means the wire reference disagrees with the local bucket. The reference is trusted only as a `bucketSeq`
- *    lookup hint — timestamp and message counts are read from the locally resolved bucket, never from the wire.
+ *    the reference. An unknown bucket is an immediate reject here; the caller decides whether it is worth waiting for
+ *    a local sync and re-running the checks (the validator's proposal handler does, bounded by the attestation
+ *    deadline). A hash mismatch means the wire reference disagrees with the local bucket. The reference is trusted
+ *    only as a `bucketSeq` lookup hint — timestamp and message counts are read from the locally resolved bucket,
+ *    never from the wire.
  * 2. **Moves forward**: the bucket's cumulative total is at least the parent block's, so consumption never rewinds.
  *    Equal totals mean the block consumes nothing (empty bundle).
  * 3. **Not too new**: the bucket is at least `minBucketAgeSeconds` old at validation time
@@ -107,7 +109,8 @@ export type StreamingBlockCheckResult =
  * Because this phase is cheap and needs nothing off the network, a caller can run it before committing to any
  * expensive work on a proposal — notably before collecting the proposal's transactions over P2P.
  *
- * The reject branch is a single function so a future bounded wait can wrap `bucket_unknown`.
+ * The reject branch is a single function so a caller can re-run the whole check after forcing a local sync, which
+ * is how the validator's proposal handler turns a `bucket_unknown` into a bounded wait.
  */
 export async function checkStreamingBlockProposalMetadata(
   input: StreamingBlockMetadataCheckInput,
