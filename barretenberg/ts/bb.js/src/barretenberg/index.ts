@@ -1,9 +1,10 @@
 import { BackendOptions, BackendType } from '../bb_backends/index.js';
 import { IMsgpackBackendAsync, IMsgpackBackendSync } from '../bb_backends/interface.js';
 import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
-import { AsyncApi } from '../cbind/generated/async.js';
-import { SyncApi } from '../cbind/generated/sync.js';
+import { BBApiException } from '../bbapi_exception.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
+import { AsyncApi } from '../generated/async.js';
+import { SyncApi } from '../generated/sync.js';
 
 const DEFAULT_BB_CRS_SIZE = 2 ** 19;
 // Keep the iOS default separate so it can diverge when mobile memory limits require it.
@@ -35,7 +36,7 @@ export class Barretenberg extends AsyncApi {
   private options: BackendOptions;
 
   constructor(backend: IMsgpackBackendAsync, options: BackendOptions) {
-    super(backend);
+    super(backend, message => new BBApiException(message));
     this.options = options;
   }
 
@@ -185,7 +186,7 @@ let barretenbergSyncSingleton: BarretenbergSync | undefined;
 
 export class BarretenbergSync extends SyncApi {
   constructor(backend: IMsgpackBackendSync) {
-    super(backend);
+    super(backend, message => new BBApiException(message));
   }
 
   /**
@@ -222,7 +223,9 @@ export class BarretenbergSync extends SyncApi {
    */
   static async initSingleton(options: BackendOptions = {}) {
     if (!barretenbergSyncSingletonPromise) {
-      barretenbergSyncSingletonPromise = BarretenbergSync.new(options);
+      // unref for the same reason the async singleton does: nothing destroys a
+      // singleton, so its backend must not hold the event loop open at exit.
+      barretenbergSyncSingletonPromise = BarretenbergSync.new({ ...options, unref: true });
     }
 
     barretenbergSyncSingleton = await barretenbergSyncSingletonPromise;

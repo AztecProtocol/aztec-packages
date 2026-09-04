@@ -14,6 +14,7 @@ export {
 } from "./errors.js";
 export {
   SpawnedProcessBackend,
+  SpawnedProcessBackendSync,
   type SpawnedProcessBackendOptions,
   type SpawnedTransport,
 } from "./spawned_backend.js";

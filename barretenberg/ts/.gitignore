@@ -18,4 +18,4 @@ package
 packages/
 
 # Generated files
-bb.js/src/cbind/generated/
+bb.js/src/generated/

@@ -1,0 +1,646 @@
+{
+  "service": "Bb",
+  "error": {
+    "message": "string"
+  },
+  "aliases": {
+    "fq": "bin32",
+    "fr": "bin32",
+    "secp256k1_fq": "bin32",
+    "secp256k1_fr": "bin32",
+    "secp256r1_fq": "bin32",
+    "secp256r1_fr": "bin32",
+    "uint256_t": "bin32"
+  },
+  "types": {
+    "AvmStat": {
+      "name": "string",
+      "value_ms": "u64"
+    },
+    "Bn254G1Point": {
+      "x": "fq",
+      "y": "fq"
+    },
+    "Bn254G2Point": {
+      "x": "fq[2]",
+      "y": "fq[2]"
+    },
+    "ChonkProof": {
+      "hiding_oink_proof": "fr[]",
+      "merge_proof": "fr[]",
+      "eccvm_proof": "fr[]",
+      "ipa_proof": "fr[]",
+      "joint_proof": "fr[]"
+    },
+    "CircuitInput": {
+      "name": "string",
+      "bytecode": "bytes",
+      "verification_key": "bytes"
+    },
+    "CircuitInputNoVK": {
+      "name": "string",
+      "bytecode": "bytes"
+    },
+    "GrumpkinPoint": {
+      "x": "fr",
+      "y": "fr"
+    },
+    "ProofSystemSettings": {
+      "ipa_accumulation": "bool",
+      "oracle_hash_type": "string",
+      "disable_zk": "bool",
+      "optimized_solidity_verifier": "bool"
+    },
+    "Secp256k1Point": {
+      "x": "secp256k1_fq",
+      "y": "secp256k1_fq"
+    },
+    "Secp256r1Point": {
+      "x": "secp256r1_fq",
+      "y": "secp256r1_fq"
+    },
+    "VkData": {
+      "bytes": "bytes",
+      "fields": "uint256_t[]",
+      "hash": "bytes"
+    }
+  },
+  "commands": {
+    "AvmProve": {
+      "request": {
+        "inputs": "bytes"
+      },
+      "response": {
+        "proof": "fr[]",
+        "stats": "AvmStat[]"
+      }
+    },
+    "AvmVerify": {
+      "request": {
+        "proof": "fr[]",
+        "public_inputs": "bytes"
+      },
+      "response": {
+        "verified": "bool"
+      }
+    },
+    "AvmCheckCircuit": {
+      "request": {
+        "inputs": "bytes"
+      },
+      "response": {
+        "passed": "bool",
+        "stats": "AvmStat[]"
+      }
+    },
+    "CircuitProve": {
+      "request": {
+        "circuit": "CircuitInput",
+        "witness": "bytes",
+        "settings": "ProofSystemSettings"
+      },
+      "response": {
+        "public_inputs": "uint256_t[]",
+        "proof": "uint256_t[]",
+        "vk": "VkData"
+      }
+    },
+    "CircuitComputeVk": {
+      "request": {
+        "circuit": "CircuitInputNoVK",
+        "settings": "ProofSystemSettings"
+      },
+      "response": {
+        "bytes": "bytes",
+        "fields": "uint256_t[]",
+        "hash": "bytes"
+      }
+    },
+    "CircuitStats": {
+      "request": {
+        "circuit": "CircuitInput",
+        "include_gates_per_opcode": "bool",
+        "settings": "ProofSystemSettings"
+      },
+      "response": {
+        "num_gates": "u32",
+        "num_gates_dyadic": "u32",
+        "num_acir_opcodes": "u32",
+        "gates_per_opcode": "u32[]"
+      }
+    },
+    "CircuitVerify": {
+      "request": {
+        "verification_key": "bytes",
+        "public_inputs": "uint256_t[]",
+        "proof": "uint256_t[]",
+        "settings": "ProofSystemSettings"
+      },
+      "response": {
+        "verified": "bool"
+      }
+    },
+    "ChonkComputeVk": {
+      "request": {
+        "circuit": "CircuitInputNoVK",
+        "kind": "u8"
+      },
+      "response": {
+        "bytes": "bytes",
+        "fields": "fr[]"
+      }
+    },
+    "ChonkStart": {
+      "request": {
+        "kinds": "u8[]"
+      },
+      "response": {}
+    },
+    "ChonkLoad": {
+      "request": {
+        "circuit": "CircuitInput",
+        "kind": "u8"
+      },
+      "response": {}
+    },
+    "ChonkAccumulate": {
+      "request": {
+        "witness": "bytes"
+      },
+      "response": {}
+    },
+    "ChonkProve": {
+      "request": {},
+      "response": {
+        "proof": "ChonkProof"
+      }
+    },
+    "ChonkVerify": {
+      "request": {
+        "proof": "ChonkProof",
+        "vk": "bytes"
+      },
+      "response": {
+        "valid": "bool"
+      }
+    },
+    "ChonkVerifyFromFields": {
+      "request": {
+        "proof": "fr[]",
+        "vk": "bytes"
+      },
+      "response": {
+        "valid": "bool"
+      }
+    },
+    "ChonkBatchVerify": {
+      "request": {
+        "proofs": "ChonkProof[]",
+        "vks": "bytes[]"
+      },
+      "response": {
+        "valid": "bool"
+      }
+    },
+    "VkAsFields": {
+      "request": {
+        "verification_key": "bytes"
+      },
+      "response": {
+        "fields": "fr[]"
+      }
+    },
+    "MegaVkAsFields": {
+      "request": {
+        "verification_key": "bytes"
+      },
+      "response": {
+        "fields": "fr[]"
+      }
+    },
+    "MegaAppVkAsFields": {
+      "request": {
+        "verification_key": "bytes"
+      },
+      "response": {
+        "fields": "fr[]"
+      }
+    },
+    "MegaKernelVkAsFields": {
+      "request": {
+        "verification_key": "bytes"
+      },
+      "response": {
+        "fields": "fr[]"
+      }
+    },
+    "MegaZKVkAsFields": {
+      "request": {
+        "verification_key": "bytes"
+      },
+      "response": {
+        "fields": "fr[]"
+      }
+    },
+    "CircuitWriteSolidityVerifier": {
+      "request": {
+        "verification_key": "bytes",
+        "settings": "ProofSystemSettings"
+      },
+      "response": {
+        "solidity_code": "string"
+      }
+    },
+    "ChonkCheckPrecomputedVk": {
+      "request": {
+        "circuit": "CircuitInput",
+        "kind": "u8"
+      },
+      "response": {
+        "valid": "bool",
+        "actual_vk": "bytes"
+      }
+    },
+    "ChonkStats": {
+      "request": {
+        "circuit": "CircuitInputNoVK",
+        "include_gates_per_opcode": "bool"
+      },
+      "response": {
+        "acir_opcodes": "u32",
+        "circuit_size": "u32",
+        "gates_per_opcode": "u32[]"
+      }
+    },
+    "ChonkCompressProof": {
+      "request": {
+        "proof": "ChonkProof"
+      },
+      "response": {
+        "compressed_proof": "bytes"
+      }
+    },
+    "ChonkDecompressProof": {
+      "request": {
+        "compressed_proof": "bytes"
+      },
+      "response": {
+        "proof": "ChonkProof"
+      }
+    },
+    "Poseidon2Hash": {
+      "request": {
+        "inputs": "fr[]"
+      },
+      "response": {
+        "hash": "fr"
+      }
+    },
+    "Poseidon2Permutation": {
+      "request": {
+        "inputs": "fr[4]"
+      },
+      "response": {
+        "outputs": "fr[4]"
+      }
+    },
+    "PedersenCommit": {
+      "request": {
+        "inputs": "fr[]",
+        "hash_index": "u32"
+      },
+      "response": {
+        "point": "GrumpkinPoint"
+      }
+    },
+    "PedersenHash": {
+      "request": {
+        "inputs": "fr[]",
+        "hash_index": "u32"
+      },
+      "response": {
+        "hash": "fr"
+      }
+    },
+    "PedersenHashBuffer": {
+      "request": {
+        "input": "bytes",
+        "hash_index": "u32"
+      },
+      "response": {
+        "hash": "fr"
+      }
+    },
+    "Blake2s": {
+      "request": {
+        "data": "bytes"
+      },
+      "response": {
+        "hash": "u8[32]"
+      }
+    },
+    "Blake2sToField": {
+      "request": {
+        "data": "bytes"
+      },
+      "response": {
+        "field": "fr"
+      }
+    },
+    "AesEncrypt": {
+      "request": {
+        "plaintext": "bytes",
+        "iv": "u8[16]",
+        "key": "u8[16]",
+        "length": "u32"
+      },
+      "response": {
+        "ciphertext": "bytes"
+      }
+    },
+    "AesDecrypt": {
+      "request": {
+        "ciphertext": "bytes",
+        "iv": "u8[16]",
+        "key": "u8[16]",
+        "length": "u32"
+      },
+      "response": {
+        "plaintext": "bytes"
+      }
+    },
+    "GrumpkinMul": {
+      "request": {
+        "point": "GrumpkinPoint",
+        "scalar": "fq"
+      },
+      "response": {
+        "point": "GrumpkinPoint"
+      }
+    },
+    "GrumpkinAdd": {
+      "request": {
+        "point_a": "GrumpkinPoint",
+        "point_b": "GrumpkinPoint"
+      },
+      "response": {
+        "point": "GrumpkinPoint"
+      }
+    },
+    "GrumpkinBatchMul": {
+      "request": {
+        "points": "GrumpkinPoint[]",
+        "scalar": "fq"
+      },
+      "response": {
+        "points": "GrumpkinPoint[]"
+      }
+    },
+    "GrumpkinGetRandomFr": {
+      "request": {
+        "dummy": "u8"
+      },
+      "response": {
+        "value": "fr"
+      }
+    },
+    "GrumpkinReduce512": {
+      "request": {
+        "input": "u8[64]"
+      },
+      "response": {
+        "value": "fr"
+      }
+    },
+    "Secp256k1Mul": {
+      "request": {
+        "point": "Secp256k1Point",
+        "scalar": "secp256k1_fr"
+      },
+      "response": {
+        "point": "Secp256k1Point"
+      }
+    },
+    "Secp256k1GetRandomFr": {
+      "request": {
+        "dummy": "u8"
+      },
+      "response": {
+        "value": "secp256k1_fr"
+      }
+    },
+    "Secp256k1Reduce512": {
+      "request": {
+        "input": "u8[64]"
+      },
+      "response": {
+        "value": "secp256k1_fr"
+      }
+    },
+    "Bn254FrSqrt": {
+      "request": {
+        "input": "fr"
+      },
+      "response": {
+        "is_square_root": "bool",
+        "value": "fr"
+      }
+    },
+    "Bn254FqSqrt": {
+      "request": {
+        "input": "fq"
+      },
+      "response": {
+        "is_square_root": "bool",
+        "value": "fq"
+      }
+    },
+    "Bn254G1Mul": {
+      "request": {
+        "point": "Bn254G1Point",
+        "scalar": "fr"
+      },
+      "response": {
+        "point": "Bn254G1Point"
+      }
+    },
+    "Bn254G2Mul": {
+      "request": {
+        "point": "Bn254G2Point",
+        "scalar": "fr"
+      },
+      "response": {
+        "point": "Bn254G2Point"
+      }
+    },
+    "Bn254G1IsOnCurve": {
+      "request": {
+        "point": "Bn254G1Point"
+      },
+      "response": {
+        "is_on_curve": "bool"
+      }
+    },
+    "Bn254G1FromCompressed": {
+      "request": {
+        "compressed": "u8[32]"
+      },
+      "response": {
+        "point": "Bn254G1Point"
+      }
+    },
+    "SchnorrComputePublicKey": {
+      "request": {
+        "private_key": "fq"
+      },
+      "response": {
+        "public_key": "GrumpkinPoint"
+      }
+    },
+    "SchnorrConstructSignature": {
+      "request": {
+        "message_field": "fr",
+        "private_key": "fq"
+      },
+      "response": {
+        "s": "fq",
+        "e": "fq"
+      }
+    },
+    "SchnorrVerifySignature": {
+      "request": {
+        "message_field": "fr",
+        "public_key": "GrumpkinPoint",
+        "s": "fq",
+        "e": "fq"
+      },
+      "response": {
+        "verified": "bool"
+      }
+    },
+    "EcdsaSecp256k1ComputePublicKey": {
+      "request": {
+        "private_key": "secp256k1_fr"
+      },
+      "response": {
+        "public_key": "Secp256k1Point"
+      }
+    },
+    "EcdsaSecp256r1ComputePublicKey": {
+      "request": {
+        "private_key": "secp256r1_fr"
+      },
+      "response": {
+        "public_key": "Secp256r1Point"
+      }
+    },
+    "EcdsaSecp256k1ConstructSignature": {
+      "request": {
+        "message": "bytes",
+        "private_key": "secp256k1_fr"
+      },
+      "response": {
+        "r": "u8[32]",
+        "s": "u8[32]",
+        "v": "u8"
+      }
+    },
+    "EcdsaSecp256r1ConstructSignature": {
+      "request": {
+        "message": "bytes",
+        "private_key": "secp256r1_fr"
+      },
+      "response": {
+        "r": "u8[32]",
+        "s": "u8[32]",
+        "v": "u8"
+      }
+    },
+    "EcdsaSecp256k1RecoverPublicKey": {
+      "request": {
+        "message": "bytes",
+        "r": "u8[32]",
+        "s": "u8[32]",
+        "v": "u8"
+      },
+      "response": {
+        "public_key": "Secp256k1Point"
+      }
+    },
+    "EcdsaSecp256r1RecoverPublicKey": {
+      "request": {
+        "message": "bytes",
+        "r": "u8[32]",
+        "s": "u8[32]",
+        "v": "u8"
+      },
+      "response": {
+        "public_key": "Secp256r1Point"
+      }
+    },
+    "EcdsaSecp256k1VerifySignature": {
+      "request": {
+        "message": "bytes",
+        "public_key": "Secp256k1Point",
+        "r": "u8[32]",
+        "s": "u8[32]",
+        "v": "u8"
+      },
+      "response": {
+        "verified": "bool"
+      }
+    },
+    "EcdsaSecp256r1VerifySignature": {
+      "request": {
+        "message": "bytes",
+        "public_key": "Secp256r1Point",
+        "r": "u8[32]",
+        "s": "u8[32]",
+        "v": "u8"
+      },
+      "response": {
+        "verified": "bool"
+      }
+    },
+    "SrsInitSrs": {
+      "request": {
+        "points_buf": "bytes",
+        "num_points": "u32",
+        "g2_point": "bytes"
+      },
+      "response": {
+        "points_buf": "bytes"
+      }
+    },
+    "ChonkBatchVerifierStart": {
+      "request": {
+        "vks": "bytes[]",
+        "num_cores": "u32",
+        "batch_size": "u32",
+        "fifo_path": "string"
+      },
+      "response": {}
+    },
+    "ChonkBatchVerifierQueue": {
+      "request": {
+        "request_id": "u64",
+        "vk_index": "u32",
+        "proof_fields": "fr[]"
+      },
+      "response": {}
+    },
+    "ChonkBatchVerifierStop": {
+      "request": {},
+      "response": {}
+    },
+    "SrsInitGrumpkinSrs": {
+      "request": {
+        "points_buf": "bytes",
+        "num_points": "u32"
+      },
+      "response": {
+        "dummy": "u8"
+      }
+    }
+  }
+}
