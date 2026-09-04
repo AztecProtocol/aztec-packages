@@ -255,11 +255,8 @@ pub fn poseidon2_hash_subarray_with_separator<let N: u32, T>(
 where
     T: ToField,
 {
-    let iv: Field = ((in_len + 1) as Field) * TWO_POW_64;
-    let mut sponge = Poseidon2Sponge::new(iv);
-    sponge.absorb(separator.to_field());
-    let mut sponge = poseidon2_absorb_in_chunks_existing_sponge(sponge, input, in_len);
-    sponge.squeeze()
+    let inputs_with_separator = [separator.to_field()].concat(input);
+    poseidon::poseidon2::Poseidon2::hash(inputs_with_separator, in_len + 1)
 }
 
 // This function is  unconstrained because it is intended to be used in unconstrained context only as
