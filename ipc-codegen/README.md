@@ -84,7 +84,7 @@ Invoked once per (schema, language) pair. Run directly with
 `node --experimental-strip-types`, or via `bootstrap.sh`.
 
 ```
-node --experimental-strip-types --experimental-transform-types --no-warnings \
+node --experimental-strip-types --no-warnings \
   src/generate.ts --schema <file> --lang <ts|cpp|rust|zig> --out <dir> [flags]
 ```
 
