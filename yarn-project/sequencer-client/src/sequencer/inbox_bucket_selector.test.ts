@@ -51,31 +51,42 @@ function makeSource(specs: TestBucketSpec[]): {
   const ordered = [...buckets.values()].sort((a, b) => Number(a.seq - b.seq));
   const source: InboxBucketSource = {
     getInboxBucket: (seq: bigint) => Promise.resolve(buckets.get(seq)),
+    getInboxBucketByTotalMsgCount: (totalMsgCount: bigint) =>
+      Promise.resolve(
+        totalMsgCount === 0n ? GENESIS_BUCKET : (ordered.find(b => b.totalMsgCount === totalMsgCount) ?? undefined),
+      ),
     getLatestInboxBucketAtOrBefore: (timestamp: bigint) => {
       const eligible = ordered.filter(b => b.timestamp <= timestamp);
       return Promise.resolve(eligible.length === 0 ? undefined : eligible[eligible.length - 1]);
     },
-    getL1ToL2MessagesBetweenBuckets: (fromExclusive: bigint, toInclusive: bigint) => {
-      const toBucket = buckets.get(toInclusive);
-      if (toBucket === undefined) {
-        return Promise.resolve([]);
-      }
-      let startIndex = 0n;
-      if (fromExclusive > 0n) {
-        const fromBucket = buckets.get(fromExclusive);
-        if (fromBucket === undefined) {
-          return Promise.resolve([]);
-        }
-        startIndex = fromBucket.lastMessageIndex + 1n;
-      }
-      return Promise.resolve(leaves.slice(Number(startIndex), Number(toBucket.lastMessageIndex + 1n)));
-    },
+    // The count range addresses the leaf log directly, exactly as the archiver's does, so a cursor interior to a
+    // current bucket still slices the right suffix.
+    getL1ToL2MessagesBetweenLeafCounts: (startLeafCount: bigint, endLeafCount: bigint) =>
+      Promise.resolve(leaves.slice(Number(startLeafCount), Number(endLeafCount))),
   };
 
   return { source, buckets, leaves };
 }
 
-const GENESIS_PARENT = { seq: 0n, totalMsgCount: 0n };
+/** The genesis sentinel bucket, which every partition ends the "consumed nothing" position on. */
+const GENESIS_BUCKET: InboxBucket = {
+  seq: 0n,
+  inboxRollingHash: Fr.ZERO,
+  totalMsgCount: 0n,
+  timestamp: 0n,
+  msgCount: 0,
+  lastMessageIndex: 0n,
+  l1BlockNumber: 0n,
+  l1BlockHash: Buffer32.ZERO,
+};
+
+const GENESIS_CURSOR = { totalMsgCount: 0n, inboxRollingHash: Fr.ZERO };
+
+/** The cursor a block inherits after consuming through a bucket: that bucket's count and rolling hash. */
+const cursorAfter = (bucket: InboxBucket) => ({
+  totalMsgCount: bucket.totalMsgCount,
+  inboxRollingHash: bucket.inboxRollingHash,
+});
 
 // Pinned cross-layer values shared with the L1 Foundry harness: genesisTime=100000, slotDuration=36,
 // ethereumSlotDuration=12.
@@ -118,7 +129,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: source,
       now: 1_000_000n,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
     });
     expect(result.consume).toBe(false);
   });
@@ -134,7 +145,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: source,
       now: 250n + ETHEREUM_SLOT_DURATION,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
     });
     expect(result).toMatchObject({ consume: true });
     if (result.consume) {
@@ -155,7 +166,7 @@ describe('selectInboxBucketForBlock', () => {
       isEligible,
       messageSource: source,
       now: 1_000n,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
     });
     expect(result).toMatchObject({ consume: true });
     if (result.consume) {
@@ -176,7 +187,7 @@ describe('selectInboxBucketForBlock', () => {
       isEligible: () => Promise.resolve(false),
       messageSource: source,
       now: 1_000n,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
     });
     expect(result.consume).toBe(false);
   });
@@ -194,7 +205,7 @@ describe('selectInboxBucketForBlock', () => {
       isEligible,
       messageSource: source,
       now: 1_000n,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
     });
     expect(result).toMatchObject({ consume: true });
     if (result.consume) {
@@ -215,7 +226,7 @@ describe('selectInboxBucketForBlock', () => {
       isEligible,
       messageSource: source,
       now: 1_000n,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
     });
     expect(result.consume).toBe(false);
     expect(isEligible.asked).toEqual([12n, 11n, 10n, 9n, 8n, 7n, 6n, 5n, 4n]);
@@ -253,7 +264,7 @@ describe('selectInboxBucketForBlock', () => {
       isEligible: tracker.isEligible,
       messageSource: source,
       now: 214n, // block 100 could have a child by now, but none is visible; block 99's child is block 100
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
     });
 
     expect(result).toMatchObject({ consume: true });
@@ -274,7 +285,7 @@ describe('selectInboxBucketForBlock', () => {
       isEligible: immediateEligibility,
       messageSource: source,
       now: 1_000n,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
     });
     expect(result).toMatchObject({ consume: true });
     if (result.consume) {
@@ -293,7 +304,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: source,
       now: 300n + ETHEREUM_SLOT_DURATION,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
       perBlockCap: 400,
     });
     expect(result).toMatchObject({ consume: true });
@@ -314,7 +325,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: source,
       now: 200n + ETHEREUM_SLOT_DURATION,
-      parent: { seq: 1n, totalMsgCount: buckets.get(1n)!.totalMsgCount },
+      cursor: cursorAfter(buckets.get(1n)!),
       checkpointStartTotalMsgCount: 0n,
       perCheckpointCap: 1000,
     });
@@ -331,7 +342,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: source,
       now: 150n + ETHEREUM_SLOT_DURATION,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
     });
     expect(first).toMatchObject({ consume: true });
     if (!first.consume) {
@@ -339,20 +350,95 @@ describe('selectInboxBucketForBlock', () => {
     }
     expect(first.bucket.seq).toBe(1n);
 
-    // Block 2, later sub-slot (now=312): bucket 2 is now confirmed too; parent is block 1's bucket.
+    // Block 2, later sub-slot (now=312): bucket 2 is now confirmed too; the cursor is at block 1's position.
     const second = await selectInboxBucketForBlock({
       ...baseInput,
       messageSource: source,
       now: 300n + ETHEREUM_SLOT_DURATION,
-      parent: { seq: first.bucket.seq, totalMsgCount: first.bucket.totalMsgCount },
+      cursor: cursorAfter(first.bucket),
       checkpointStartTotalMsgCount: 0n,
     });
     expect(second).toMatchObject({ consume: true });
     if (second.consume) {
       expect(second.bucket.seq).toBe(2n);
       expect(second.bundle).toHaveLength(3); // only bucket 2's messages, not bucket 1's
-      expect(second.bundle).toEqual(await source.getL1ToL2MessagesBetweenBuckets(1n, 2n));
+      expect(second.bundle).toEqual(await source.getL1ToL2MessagesBetweenLeafCounts(2n, 5n));
     }
+  });
+
+  describe('a cursor left interior by a pure repartition', () => {
+    // `B1=[m1,m2], B2=[m3]` becoming `B1'=[m1], B2'=[m2,m3]`: the same three messages under moved boundaries. A
+    // cursor at count 2 was B1's boundary and is now inside B2'.
+    const repartitioned = () =>
+      makeSource([
+        { seq: 1n, timestamp: 100n, msgCount: 1 },
+        { seq: 2n, timestamp: 200n, msgCount: 2 },
+      ]);
+    const interiorCursor = { totalMsgCount: 2n, inboxRollingHash: new Fr(0xb1) };
+
+    it('consumes the suffix of the bucket containing it, exactly through the next boundary', async () => {
+      const { source, leaves } = repartitioned();
+      const result = await selectInboxBucketForBlock({
+        ...baseInput,
+        messageSource: source,
+        now: 200n + ETHEREUM_SLOT_DURATION,
+        cursor: interiorCursor,
+        checkpointStartTotalMsgCount: 2n,
+      });
+      expect(result).toMatchObject({ consume: true });
+      if (result.consume) {
+        // B2' has a strictly greater total than the cursor even though it is the bucket the cursor sits inside, so it
+        // is selected and only its unconsumed suffix is bundled.
+        expect(result.bucket.seq).toBe(2n);
+        expect(result.bucket.totalMsgCount).toBe(3n);
+        expect(result.bundle).toEqual([leaves[2]]);
+      }
+    });
+
+    it('measures the per-block cap from the cursor count, not from the containing bucket start', async () => {
+      const { source } = repartitioned();
+      const result = await selectInboxBucketForBlock({
+        ...baseInput,
+        messageSource: source,
+        now: 200n + ETHEREUM_SLOT_DURATION,
+        cursor: interiorCursor,
+        checkpointStartTotalMsgCount: 2n,
+        perBlockCap: 1, // the suffix is one message, so it still fits
+      });
+      expect(result).toMatchObject({ consume: true });
+    });
+
+    it('fails closed on the last block when nothing past it can be consumed', async () => {
+      // Nothing is eligible past the cursor, so the block consumes nothing and the checkpoint would end on a count no
+      // current bucket carries. That is unpublishable on L1, and must not be reported as "consumed everything".
+      const { source } = repartitioned();
+      const result = await selectInboxBucketForBlock({
+        ...baseInput,
+        messageSource: source,
+        now: 100n, // bucket 2 (opened at 200) is not yet visible, let alone eligible
+        cursor: interiorCursor,
+        checkpointStartTotalMsgCount: 2n,
+        isLastBlock: true,
+        cutoffTimestamp: 0n,
+      });
+      expect(result.consume).toBe(false);
+      expect(result.insufficientFinalBlockCapacity).toBe(true);
+    });
+
+    it('does not fail closed when the last block restores a boundary', async () => {
+      const { source } = repartitioned();
+      const result = await selectInboxBucketForBlock({
+        ...baseInput,
+        messageSource: source,
+        now: 200n + ETHEREUM_SLOT_DURATION,
+        cursor: interiorCursor,
+        checkpointStartTotalMsgCount: 2n,
+        isLastBlock: true,
+        cutoffTimestamp: 0n,
+      });
+      expect(result).toMatchObject({ consume: true });
+      expect(result.insufficientFinalBlockCapacity).toBeUndefined();
+    });
   });
 
   it('applies the cutoff as a consumption floor on the last block', async () => {
@@ -364,7 +450,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: source,
       now: cutoff + ETHEREUM_SLOT_DURATION - 1n, // bucket's opening block has no descendant yet
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
       isLastBlock: false,
       cutoffTimestamp: cutoff,
     });
@@ -374,7 +460,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: source,
       now: cutoff + ETHEREUM_SLOT_DURATION - 1n,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
       isLastBlock: true,
       cutoffTimestamp: cutoff,
     });
@@ -394,7 +480,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: atCutoff.source,
       now: cutoff, // before eligibility would admit it, forcing reliance on the cutoff floor
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
       isLastBlock: true,
       cutoffTimestamp: cutoff,
     });
@@ -404,7 +490,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: pastCutoff.source,
       now: cutoff,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
       isLastBlock: true,
       cutoffTimestamp: cutoff,
     });
@@ -425,7 +511,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: source,
       now: cutoff + ETHEREUM_SLOT_DURATION,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
       perBlockCap: 256,
       perCheckpointCap: 1024,
       isLastBlock: true,
@@ -451,7 +537,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: source,
       now: cutoff + ETHEREUM_SLOT_DURATION,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
       perBlockCap: 256,
       perCheckpointCap: 1024,
       isLastBlock: false,
@@ -471,15 +557,16 @@ describe('selectInboxBucketForBlock', () => {
       counts.map((msgCount, i) => ({ seq: BigInt(i + 1), timestamp: cutoff - BigInt(counts.length - i), msgCount })),
     );
     const caps = { perBlockCap: 256, perCheckpointCap: 1024 };
-    const sufficiencyAt = async (parent: { seq: bigint; totalMsgCount: bigint }) =>
+    const sufficiencyAfterBucket = async (seq: bigint) =>
       isInboxConsumptionSufficient({
-        nextBucket: await source.getInboxBucket(parent.seq + 1n),
+        nextBucket: await source.getInboxBucket(seq + 1n),
         cutoffTimestamp: cutoff,
         checkpointStartTotalMsgCount: 0n,
         perCheckpointCap: caps.perCheckpointCap,
       });
 
-    let parent = GENESIS_PARENT;
+    let cursor = GENESIS_CURSOR;
+    let lastConsumedSeq = 0n;
     for (let block = 1; block <= MIN_BLOCKS_FOR_INBOX_CATCHUP; block++) {
       const isLastBlock = block === MIN_BLOCKS_FOR_INBOX_CATCHUP;
       const result = await selectInboxBucketForBlock({
@@ -487,7 +574,7 @@ describe('selectInboxBucketForBlock', () => {
         ...caps,
         messageSource: source,
         now: cutoff + ETHEREUM_SLOT_DURATION,
-        parent,
+        cursor,
         isLastBlock,
         cutoffTimestamp: cutoff,
       });
@@ -498,13 +585,14 @@ describe('selectInboxBucketForBlock', () => {
       // Each block advances by exactly one bucket, which is what makes the bound tight.
       expect(result.bucket.seq).toBe(BigInt(block));
       expect(result.insufficientFinalBlockCapacity).toBeUndefined();
-      parent = { seq: result.bucket.seq, totalMsgCount: result.bucket.totalMsgCount };
+      cursor = cursorAfter(result.bucket);
+      lastConsumedSeq = result.bucket.seq;
     }
 
-    expect(parent.totalMsgCount).toBe(772n);
-    expect(await sufficiencyAt(parent)).toBe(true);
+    expect(cursor.totalMsgCount).toBe(772n);
+    expect(await sufficiencyAfterBucket(lastConsumedSeq)).toBe(true);
     // One block short of the bound the backlog is still mandatory, so the floor really needs all of them.
-    expect(await sufficiencyAt({ seq: 6n, totalMsgCount: 771n })).toBe(false);
+    expect(await sufficiencyAfterBucket(lastConsumedSeq - 1n)).toBe(false);
   });
 
   it('makes a bucket opened at the cutoff confirmable within the build frame', async () => {
@@ -537,7 +625,7 @@ describe('selectInboxBucketForBlock', () => {
       isEligible: tracker.isEligible,
       messageSource: source,
       now,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
       isLastBlock: false,
       cutoffTimestamp: cutoff,
     });
@@ -553,7 +641,7 @@ describe('selectInboxBucketForBlock', () => {
       ...baseInput,
       messageSource: source,
       now: 100n + ETHEREUM_SLOT_DURATION,
-      parent: GENESIS_PARENT,
+      cursor: GENESIS_CURSOR,
       perBlockCap: 4096,
       perCheckpointCap: 1024,
     });

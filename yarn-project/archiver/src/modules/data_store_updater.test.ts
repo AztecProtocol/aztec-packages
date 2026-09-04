@@ -9,10 +9,12 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { getPublishableStandardContracts } from '@aztec/standard-contracts';
 import { bufferAsFields } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, L2Block, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import { ContractClassLog, ContractClassLogFields, PrivateLog } from '@aztec/stdlib/logs';
+import { InboxBucketRef, updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import '@aztec/stdlib/testing/jest';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -20,10 +22,17 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
+import { InboxConsumptionRewindsError, InboxPrefixMismatchError, InboxPrefixNotSyncedError } from '../errors.js';
 import { registerProtocolContracts, registerStandardContracts } from '../factory.js';
 import { type ArchiverDataStores, createArchiverDataStores } from '../store/data_stores.js';
 import { L2TipsCache } from '../store/l2_tips_cache.js';
-import { makeCheckpoint, makePublishedCheckpoint } from '../test/mock_structs.js';
+import {
+  makeCheckpoint,
+  makeInboxMessages,
+  makeL1BlockHash,
+  makeL1BlockNumberForBucket,
+  makePublishedCheckpoint,
+} from '../test/mock_structs.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 
 /**
@@ -617,6 +626,275 @@ describe('ArchiverDataStoreUpdater', () => {
       await expect(updater.removeUncheckpointedBlocksAfter(BlockNumber(0))).rejects.toThrow(
         /checkpointed blocks exist up to 1/,
       );
+    });
+  });
+
+  describe('proposed-block Inbox prefix guard', () => {
+    /** Three messages in two buckets: bucket 1 = [m0, m1] (boundary at count 2), bucket 2 = [m2] (count 3). */
+    const twoBucketSpec = [
+      { seq: 1n, timestamp: 100n },
+      { seq: 1n, timestamp: 100n },
+      { seq: 2n, timestamp: 200n },
+    ];
+
+    /** Builds the messages `twoBucketSpec` describes, chained and bucketed as the archiver would store them. */
+    const makeMessages = (spec: { seq: bigint; timestamp: bigint }[] = twoBucketSpec) =>
+      makeInboxMessages(spec.length, {
+        overrideFn: (msg, i) => ({
+          ...msg,
+          bucketSeq: spec[i].seq,
+          bucketTimestamp: spec[i].timestamp,
+          l1BlockNumber: makeL1BlockNumberForBucket(spec[i].timestamp),
+          l1BlockHash: makeL1BlockHash(makeL1BlockNumberForBucket(spec[i].timestamp)),
+        }),
+      });
+
+    /** A proposed block at `number` whose header claims to have consumed through `leafCount` messages. */
+    const makeBlockConsumingThrough = async (number: number, leafCount: number) => {
+      const block = await L2Block.random(BlockNumber(number), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(number - 1),
+        slotNumber: SlotNumber(100),
+        ...(previousArchive ? { lastArchive: previousArchive } : {}),
+      });
+      block.header.state.l1ToL2MessageTree = new AppendOnlyTreeSnapshot(Fr.random(), leafCount);
+      previousArchive = block.archive;
+      return block;
+    };
+    let previousArchive: AppendOnlyTreeSnapshot | undefined;
+
+    /**
+     * Everything a rejected insertion must leave untouched: the block chain and its tips, the logs, the contract
+     * class/instance data extracted from a block's logs, and the pending-chain validation status. Read fresh each
+     * time (the tips cache is constructed per call) so a stale cache cannot mask a write.
+     */
+    const snapshotStoreState = async (blockNumber = 1) => ({
+      latestBlockNumber: await store.blocks.getLatestL2BlockNumber(),
+      checkpointedBlockNumber: await store.blocks.getCheckpointedL2BlockNumber(),
+      block: await store.blocks.getBlock({ number: BlockNumber(blockNumber) }),
+      privateLogs: await store.logs.getPrivateLogsForBlock(blockNumber),
+      publicLogs: await store.logs.getPublicLogsForBlock(blockNumber),
+      contractClass: await store.contractClasses.getContractClass(contractClassId),
+      contractInstance: await store.contractInstances.getContractInstance(instanceAddress, 1n),
+      validationStatus: await store.blocks.getPendingChainValidationStatus(),
+      tips: await new L2TipsCache(store.blocks, GENESIS_BLOCK_HEADER_HASH).getL2Tips(),
+    });
+
+    beforeEach(() => {
+      previousArchive = undefined;
+    });
+
+    it('accepts a block whose reference matches the canonical prefix at its header count', async () => {
+      const msgs = makeMessages();
+      await store.messages.addL1ToL2MessageBuckets(msgs);
+      const block = await makeBlockConsumingThrough(1, 2);
+
+      await updater.addProposedBlock(block, new InboxBucketRef(msgs[1].inboxRollingHash));
+      expect(await store.blocks.getLatestL2BlockNumber()).toBe(1);
+    });
+
+    it('accepts a block whose header count became interior to a current bucket', async () => {
+      // The messages are re-mined as a single bucket, so nothing ends at count 2 any more. The prefix hash there is
+      // unchanged, which is what the block signed, so it is still exactly as valid.
+      const msgs = makeMessages();
+      await store.messages.addL1ToL2MessageBuckets(msgs);
+      await store.messages.removeL1ToL2Messages(0n);
+      await store.messages.addL1ToL2MessageBuckets(msgs.map(msg => ({ ...msg, bucketSeq: 1n, bucketTimestamp: 100n })));
+      expect(await store.messages.getInboxBucketByTotalMsgCount(2n)).toBeUndefined();
+
+      const block = await makeBlockConsumingThrough(1, 2);
+      await updater.addProposedBlock(block, new InboxBucketRef(msgs[1].inboxRollingHash));
+      expect(await store.blocks.getLatestL2BlockNumber()).toBe(1);
+    });
+
+    it('accepts an empty block that re-signs its parent prefix, and a genesis one at the zero hash', async () => {
+      const msgs = makeMessages();
+      await store.messages.addL1ToL2MessageBuckets(msgs);
+
+      const genesisEmpty = await makeBlockConsumingThrough(1, 0);
+      await updater.addProposedBlock(genesisEmpty, new InboxBucketRef(Fr.ZERO));
+
+      const consuming = await makeBlockConsumingThrough(2, 2);
+      await updater.addProposedBlock(consuming, new InboxBucketRef(msgs[1].inboxRollingHash));
+
+      const empty = await makeBlockConsumingThrough(3, 2);
+      await updater.addProposedBlock(empty, new InboxBucketRef(msgs[1].inboxRollingHash));
+      expect(await store.blocks.getLatestL2BlockNumber()).toBe(3);
+    });
+
+    it('rejects an empty block that re-signs the wrong prefix', async () => {
+      // An empty range is not permission to skip the hash: the unchanged count must still name the signed prefix.
+      const msgs = makeMessages();
+      await store.messages.addL1ToL2MessageBuckets(msgs);
+      const block = await makeBlockConsumingThrough(1, 0);
+
+      await expect(updater.addProposedBlock(block, new InboxBucketRef(msgs[0].inboxRollingHash))).rejects.toThrow(
+        InboxPrefixMismatchError,
+      );
+    });
+
+    it('rejects a reference that does not match the canonical prefix, writing nothing', async () => {
+      // The block carries every kind of write the insert would make — logs, a contract class, a contract instance —
+      // and the call also supplies a pending validation status, so a partial commit anywhere would show up.
+      const msgs = makeMessages();
+      await store.messages.addL1ToL2MessageBuckets(msgs);
+      const block = await makeBlockConsumingThrough(1, 2);
+      block.body.txEffects[0].contractClassLogs = [contractClassLog];
+      block.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
+      const before = await snapshotStoreState();
+
+      await expect(
+        updater.addProposedBlock(block, new InboxBucketRef(Fr.random()), {
+          valid: true,
+        } satisfies ValidateCheckpointResult),
+      ).rejects.toThrow(InboxPrefixMismatchError);
+
+      // Nothing moved: blocks, tips, logs, contract data and the validation status are all as they were.
+      expect(await snapshotStoreState()).toEqual(before);
+      expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeUndefined();
+      expect(await store.logs.getPrivateLogsForBlock(1)).toEqual([]);
+      expect(await store.logs.getPublicLogsForBlock(1)).toEqual([]);
+      expect(await store.contractClasses.getContractClass(contractClassId)).toBeUndefined();
+      expect(await store.contractInstances.getContractInstance(instanceAddress, 1n)).toBeUndefined();
+    });
+
+    it('rejects a header count past the synced tip as unavailable, not as a mismatch', async () => {
+      const msgs = makeMessages();
+      await store.messages.addL1ToL2MessageBuckets(msgs);
+      const block = await makeBlockConsumingThrough(1, 9);
+
+      await expect(updater.addProposedBlock(block, new InboxBucketRef(msgs[2].inboxRollingHash))).rejects.toThrow(
+        InboxPrefixNotSyncedError,
+      );
+      expect(await store.blocks.getLatestL2BlockNumber()).toBe(0);
+    });
+
+    it('rejects a block whose consumption rewinds below its parent', async () => {
+      const msgs = makeMessages();
+      await store.messages.addL1ToL2MessageBuckets(msgs);
+      const parent = await makeBlockConsumingThrough(1, 3);
+      await updater.addProposedBlock(parent, new InboxBucketRef(msgs[2].inboxRollingHash));
+
+      const child = await makeBlockConsumingThrough(2, 2);
+      await expect(updater.addProposedBlock(child, new InboxBucketRef(msgs[1].inboxRollingHash))).rejects.toThrow(
+        InboxConsumptionRewindsError,
+      );
+    });
+
+    it('skips the guard when no reference is supplied', async () => {
+      // The compatibility path: fixtures build arbitrary leaf counts with no matching Inbox state. Nothing is
+      // validated, and the block is inserted as before.
+      const block = await makeBlockConsumingThrough(1, 500);
+      await expect(updater.addProposedBlock(block)).resolves.not.toThrow();
+      expect(await store.blocks.getLatestL2BlockNumber()).toBe(1);
+    });
+
+    describe('transaction ordering against a message replacement', () => {
+      // Both orderings are real serializations, not simulated ones: every updater entry point runs as one whole
+      // transaction on the shared KV store, whose writer queue admits one at a time, and the archiver's sync pass
+      // drains the inbound proposal queue before it touches L1 messages. So two sequential calls are exactly the two
+      // ways these can interleave, with no barriers or test hooks needed.
+
+      /** A canonical re-delivery of the same three messages as one bucket: the boundary at count 2 disappears. */
+      const repartition = (msgs: ReturnType<typeof makeMessages>) =>
+        msgs.map(msg => ({ ...msg, bucketSeq: 1n, bucketTimestamp: 100n }));
+
+      /** A canonical re-delivery that replaces the last message, so the prefix at count 3 changes. */
+      const replaceTail = (msgs: ReturnType<typeof makeMessages>) => {
+        const leaf = Fr.random();
+        return [
+          ...msgs.slice(0, 2),
+          {
+            ...msgs[2],
+            leaf,
+            inboxRollingHash: updateInboxRollingHash(msgs[1].inboxRollingHash, leaf),
+            bucketSeq: 2n,
+            bucketTimestamp: 250n,
+          },
+        ];
+      };
+
+      it('replacement first, pure repartition: the late block is still accepted', async () => {
+        const msgs = makeMessages();
+        await store.messages.addL1ToL2MessageBuckets(msgs);
+
+        await updater.replaceMessagesAndPruneProposedBlocks({
+          lastCanonicalBucketSeq: undefined,
+          firstInvalidatedIndex: undefined,
+          messages: repartition(msgs),
+          syncPoint: { l1BlockNumber: 200n, l1BlockHash: makeL1BlockHash(200n) },
+          finalizedL1Block: undefined,
+        });
+
+        const block = await makeBlockConsumingThrough(1, 2);
+        await updater.addProposedBlock(block, new InboxBucketRef(msgs[1].inboxRollingHash));
+        expect(await store.blocks.getLatestL2BlockNumber()).toBe(1);
+      });
+
+      it('replacement first, changed content: the late block is rejected before any write', async () => {
+        const msgs = makeMessages();
+        await store.messages.addL1ToL2MessageBuckets(msgs);
+        const replaced = replaceTail(msgs);
+
+        await updater.replaceMessagesAndPruneProposedBlocks({
+          lastCanonicalBucketSeq: 1n,
+          firstInvalidatedIndex: 2n,
+          messages: replaced.slice(2),
+          syncPoint: { l1BlockNumber: 200n, l1BlockHash: makeL1BlockHash(200n) },
+          finalizedL1Block: undefined,
+        });
+        const before = await snapshotStoreState();
+
+        // The block was built against the pre-reorg prefix at count 3, which no longer exists.
+        const block = await makeBlockConsumingThrough(1, 3);
+        await expect(updater.addProposedBlock(block, new InboxBucketRef(msgs[2].inboxRollingHash))).rejects.toThrow(
+          InboxPrefixMismatchError,
+        );
+
+        expect(await snapshotStoreState()).toEqual(before);
+        expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeUndefined();
+      });
+
+      it('insertion first, pure repartition: the inserted block is preserved', async () => {
+        const msgs = makeMessages();
+        await store.messages.addL1ToL2MessageBuckets(msgs);
+        const block = await makeBlockConsumingThrough(1, 2);
+        await updater.addProposedBlock(block, new InboxBucketRef(msgs[1].inboxRollingHash));
+
+        const pruned = await updater.replaceMessagesAndPruneProposedBlocks({
+          lastCanonicalBucketSeq: undefined,
+          firstInvalidatedIndex: undefined,
+          messages: repartition(msgs),
+          syncPoint: { l1BlockNumber: 200n, l1BlockHash: makeL1BlockHash(200n) },
+          finalizedL1Block: undefined,
+        });
+
+        expect(pruned).toEqual([]);
+        expect(await store.blocks.getLatestL2BlockNumber()).toBe(1);
+        // And the block's bundle is still derivable by count, though no bucket ends at its boundary any more.
+        expect(await store.messages.getL1ToL2MessagesBetweenLeafCounts(0n, 2n)).toEqual([msgs[0].leaf, msgs[1].leaf]);
+      });
+
+      it('insertion first, changed content: the inserted block and its descendants are pruned', async () => {
+        const msgs = makeMessages();
+        await store.messages.addL1ToL2MessageBuckets(msgs);
+        const consuming = await makeBlockConsumingThrough(1, 3);
+        await updater.addProposedBlock(consuming, new InboxBucketRef(msgs[2].inboxRollingHash));
+        const descendant = await makeBlockConsumingThrough(2, 3);
+        await updater.addProposedBlock(descendant, new InboxBucketRef(msgs[2].inboxRollingHash));
+        expect(await store.blocks.getLatestL2BlockNumber()).toBe(2);
+
+        const pruned = await updater.replaceMessagesAndPruneProposedBlocks({
+          lastCanonicalBucketSeq: 1n,
+          firstInvalidatedIndex: 2n,
+          messages: replaceTail(msgs).slice(2),
+          syncPoint: { l1BlockNumber: 200n, l1BlockHash: makeL1BlockHash(200n) },
+          finalizedL1Block: undefined,
+        });
+
+        expect(pruned.map(b => b.number)).toEqual([1, 2]);
+        expect(await store.blocks.getLatestL2BlockNumber()).toBe(0);
+      });
     });
   });
 });

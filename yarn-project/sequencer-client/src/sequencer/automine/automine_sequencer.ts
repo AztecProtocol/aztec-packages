@@ -24,7 +24,7 @@ import {
   getTimestampForSlot,
 } from '@aztec/stdlib/epoch-helpers';
 import { InsufficientValidTxsError, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { type L1ToL2MessageSource, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
+import { InboxBucketRef, type L1ToL2MessageSource, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { FailedTx, Tx } from '@aztec/stdlib/tx';
@@ -475,28 +475,62 @@ export class AutomineSequencer {
     // checkpoint's final block; select its bundle from the newest synced bucket with the last-block censorship floor.
     // Automine never waits for L1 confirmations: anvil mines on demand, so a bucket's opening block gains a
     // descendant only when the next transaction is sent, which may be long after the block that consumes it.
-    // The parent total is the fork's L1-to-L2 leaf count (compact indexing), which resolves the parent bucket.
+    // The parent total is the fork's L1-to-L2 leaf count (compact indexing), and the cursor is that count plus the
+    // prefix hash there — not a bucket, so an L1 reorg that repartitioned the same messages and left the parent's
+    // count interior does not stall automine forever.
     const parentInfo = await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
     const parentTotalMsgCount = parentInfo.size;
-    const parentBucket = await this.deps.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(parentTotalMsgCount);
-    if (parentBucket === undefined) {
-      this.log.warn(`Automine streaming inbox: parent bucket for total ${parentTotalMsgCount} not synced; skipping`);
+    const parentInboxRollingHash = await this.deps.l1ToL2MessageSource.getInboxRollingHashAt(parentTotalMsgCount);
+    if (parentInboxRollingHash === undefined) {
+      this.log.warn(`Automine streaming inbox: Inbox prefix at total ${parentTotalMsgCount} not synced; skipping`);
       return undefined;
     }
+    const cursor = { totalMsgCount: parentTotalMsgCount, inboxRollingHash: parentInboxRollingHash };
     const selection = await selectInboxBucketForBlock({
       messageSource: this.deps.l1ToL2MessageSource,
       now: BigInt(Math.floor(this.deps.dateProvider.now() / 1000)),
       isEligible: immediateEligibility,
       ethereumSlotDuration: this.deps.l1Constants.ethereumSlotDuration,
-      parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
+      cursor,
       checkpointStartTotalMsgCount: parentTotalMsgCount,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
       perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
       isLastBlock: true,
       cutoffTimestamp: getInboxCutoffTimestamp(SlotNumber(targetSlot), this.deps.l1Constants),
     });
+    // The selector reports when no checkpoint ending on this block can satisfy the censorship floor. Automine's
+    // single block is always the checkpoint's last, so building it would only produce a checkpoint L1 reverts.
+    if (selection.insufficientFinalBlockCapacity) {
+      this.log.warn(
+        `Automine streaming inbox: the mandatory Inbox backlog does not fit a single-block checkpoint; skipping`,
+      );
+      return undefined;
+    }
+
     const streamingBundle = selection.consume ? selection.bundle : [];
-    const bucketHint = selection.consume ? selection.bucket.seq : parentBucket.seq;
+    // The block's own consumed prefix, which is also the checkpoint's since automine builds a single block.
+    const consumedPrefix = selection.consume
+      ? { totalMsgCount: selection.bucket.totalMsgCount, inboxRollingHash: selection.bucket.inboxRollingHash }
+      : cursor;
+
+    // Only the checkpoint endpoint has to be a current boundary, since L1 reads the header's rolling hash out of the
+    // bucket the hint names. Automine's single block is that endpoint, so resolve it rather than assuming the
+    // cursor's count still is one, and match the hash too: a bucket ending at the same count over different messages
+    // is a hint `propose` would revert on.
+    const finalBucket = await this.deps.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(consumedPrefix.totalMsgCount);
+    if (finalBucket === undefined || !finalBucket.inboxRollingHash.equals(consumedPrefix.inboxRollingHash)) {
+      this.log.warn(
+        `Automine streaming inbox: consumed prefix at total ${consumedPrefix.totalMsgCount} does not resolve to a ` +
+          `current bucket carrying its rolling hash, so no checkpoint can be published against it; skipping`,
+        {
+          consumedTotalMsgCount: consumedPrefix.totalMsgCount,
+          consumedInboxRollingHash: consumedPrefix.inboxRollingHash.toString(),
+          resolvedInboxRollingHash: finalBucket?.inboxRollingHash.toString(),
+        },
+      );
+      return undefined;
+    }
+    const bucketHint = finalBucket.seq;
 
     const checkpointBuilder = await this.deps.checkpointsBuilder.startCheckpoint(
       checkpointNumber,
@@ -536,7 +570,7 @@ export class AutomineSequencer {
     // first means the archiver already has the proposed entry when L1 polling fires; the L1
     // sync path then promotes the existing proposed checkpoint via promoteProposedToCheckpointed
     // rather than re-adding it.
-    await this.deps.archiver.addBlock(buildResult.block);
+    await this.deps.archiver.addBlock(buildResult.block, new InboxBucketRef(consumedPrefix.inboxRollingHash));
     await this.deps.archiver.addProposedCheckpoint({
       header: checkpoint.header,
       checkpointNumber,

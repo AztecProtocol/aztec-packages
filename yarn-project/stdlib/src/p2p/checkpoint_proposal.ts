@@ -71,8 +71,10 @@ export type CheckpointLastBlock = Omit<CheckpointLastBlockData, 'txs'> & {
   /** The signed transactions in the last block (optional, for DA guarantees) */
   signedTxs?: SignedTxs;
   /**
-   * Reference to the Inbox bucket the last block proposes to consume. When set, its rolling hash must equal the
-   * checkpoint header's `inboxRollingHash` (enforced at construction).
+   * The signed cumulative Inbox message-prefix hash the last block proposes to have consumed through. When set it
+   * must equal the checkpoint header's `inboxRollingHash` (enforced at construction), which is what makes the last
+   * block's position the checkpoint's own: unlike an intermediate block's, that position must resolve to a current
+   * bucket, because L1 reads the header's hash out of the bucket the `propose` hint names.
    */
   bucketRef?: InboxBucketRef;
 };
@@ -110,8 +112,9 @@ export class CheckpointProposal extends Gossipable implements Signable {
   ) {
     super();
 
-    // Check that last block properties match those of the checkpoint. The last block's bucket reference
-    // commits to the same rolling hash as the checkpoint header. Only enforced when the reference is set.
+    // Check that last block properties match those of the checkpoint. The last block's Inbox prefix reference
+    // commits to the same rolling hash as the checkpoint header, so the checkpoint's consumed position is exactly
+    // its last block's. Only enforced when the reference is set.
     if (lastBlock?.bucketRef && !lastBlock.bucketRef.inboxRollingHash.equals(checkpointHeader.inboxRollingHash)) {
       throw new Error(
         `CheckpointProposal lastBlock bucketRef rolling hash ${lastBlock.bucketRef.inboxRollingHash} does not match checkpoint inboxRollingHash ${checkpointHeader.inboxRollingHash}`,
@@ -294,7 +297,7 @@ export class CheckpointProposal extends Gossipable implements Signable {
       } else {
         buffer.push(0); // hasSignedTxs = false
       }
-      // Optional bucket-reference tail. Appended only when set, so a proposal without a reference
+      // Optional Inbox prefix-reference tail. Appended only when set, so a proposal without a reference
       // serializes without the tail and a decoder that reaches EOF reads it as unset.
       if (this.lastBlock.bucketRef) {
         buffer.push(1); // hasBucketRef = true
@@ -336,7 +339,7 @@ export class CheckpointProposal extends Gossipable implements Signable {
         }
       }
 
-      // Optional bucket-reference tail. A buffer that ends after the signedTxs flag decodes as
+      // Optional Inbox prefix-reference tail. A buffer that ends after the signedTxs flag decodes as
       // "no reference", so proposals written without the tail round-trip cleanly.
       let bucketRef: InboxBucketRef | undefined;
       if (!reader.isEmpty()) {

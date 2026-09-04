@@ -106,7 +106,7 @@ function toBucketL1Span(seq: bigint, snapshot: BucketSnapshot): InboxBucketL1Spa
 export type InboxMessageReplacement = {
   /** Sequence of the newest bucket known to sit on canonical L1 blocks, if any. */
   lastCanonicalBucketSeq: bigint | undefined;
-  /** Lowest message index whose leaf or bucket boundary the canonical chain no longer backs, if any. */
+  /** Lowest message index whose leaf the canonical chain no longer backs, if any. Boundaries play no part. */
   firstInvalidatedIndex: bigint | undefined;
   /** The canonical messages from the last canonical bucket's opening L1 block onwards. */
   messages: InboxMessage[];
@@ -510,10 +510,10 @@ export class MessageStore {
    * Replaces everything the store holds above the given bucket with the messages the canonical chain delivers for the
    * same range, and moves the sync point to the L1 block that range was fetched up to, all in a single transaction.
    *
-   * The caller has already compared the two views: `firstInvalidatedIndex` is the lowest index whose leaf changed or
-   * whose bucket boundary the canonical chain took away, and is undefined when the canonical chain re-delivers the
-   * very same leaves under the same bucket boundaries, in which case not a single message is dropped and only the
-   * bucket metadata derived from the L1 blocks moves. The steps depend on each other in order:
+   * The caller has already compared the two views: `firstInvalidatedIndex` is the lowest index whose leaf changed,
+   * and is undefined when the canonical chain re-delivers the very same leaves — under whatever bucket boundaries —
+   * in which case not a single message is dropped and only the bucket partition and the metadata derived from the L1
+   * blocks move. The steps depend on each other in order:
    * the removal rewrites the snapshot of the bucket left holding the last surviving message, so it has to run while
    * that snapshot is still there; the snapshots above the last canonical bucket then go, because a re-delivery that
    * renumbers or merges buckets would otherwise be rejected as incomplete or leave a stale snapshot behind; and only
@@ -577,6 +577,30 @@ export class MessageStore {
     }
     const bucket = await this.getInboxBucket(deserializeInboxMessage(buffer).bucketSeq);
     return bucket !== undefined && bucket.totalMsgCount === totalMsgCount ? bucket : undefined;
+  }
+
+  /**
+   * Returns the consensus rolling hash of the canonical message prefix of length `totalMsgCount`, or undefined when
+   * this archiver has not synced a message at index `totalMsgCount - 1`.
+   *
+   * This is the count-addressed counterpart of {@link getInboxBucketByRollingHash}: it answers "what does the prefix
+   * of this many messages hash to" without requiring the count to sit on a boundary of the bucket partition the
+   * archiver currently holds. A block's L1-to-L2 tree leaf count is exactly such a prefix length, and an L1 reorg
+   * that merges buckets can leave it permanently interior, so consumers that authenticate a block's consumed prefix
+   * resolve it this way rather than through a bucket.
+   *
+   * Count zero is the genesis base case and returns the zero hash. Because each message's hash chains the one before
+   * it, equality at a count proves equality of every leaf through it.
+   */
+  public async getInboxRollingHashAt(totalMsgCount: bigint): Promise<Fr | undefined> {
+    if (totalMsgCount < 0n) {
+      throw new Error(`Invalid Inbox message count ${totalMsgCount}`);
+    }
+    if (totalMsgCount === 0n) {
+      return Fr.ZERO;
+    }
+    const buffer = await this.#l1ToL2Messages.getAsync(this.indexToKey(totalMsgCount - 1n));
+    return buffer && deserializeInboxMessage(buffer).inboxRollingHash;
   }
 
   /**

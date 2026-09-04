@@ -13,7 +13,7 @@ export {
   immediateEligibility,
 } from './sequencer/inbox_bucket_eligibility.js';
 export {
-  type ConsumedBucketCursor,
+  type ConsumedMessagePrefixCursor,
   type InboxBucketSelection,
   type InboxBucketSource,
   type SelectInboxBucketInput,

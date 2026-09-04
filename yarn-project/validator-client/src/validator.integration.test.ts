@@ -260,13 +260,13 @@ describe('ValidatorClient Integration', () => {
       l1ToL2Messages,
     });
 
-    // Resolve the Inbox bucket this block consumed through (keyed by its cumulative L1-to-L2 leaf count) and attach
-    // the reference, mirroring the sequencer's block-building loop which carries a bucketRef on every proposal.
-    // Without it the validator's streaming acceptance check rejects the proposal as
-    // `bucket_unknown`. A block that consumed nothing resolves to the genesis (or reused parent) bucket.
+    // Resolve the Inbox message prefix this block consumed through (keyed by its cumulative L1-to-L2 leaf count) and
+    // attach the reference, mirroring the sequencer's block-building loop which carries a bucketRef on every
+    // proposal. Without it the validator's streaming acceptance check rejects the proposal as `prefix_unavailable`.
+    // A block that consumed nothing resolves to the genesis zero hash.
     const blockTotal = BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
-    const bucket = await proposer.archiver.getInboxBucketByTotalMsgCount(blockTotal);
-    const bucketRef = bucket ? InboxBucketRef.fromBucket(bucket) : undefined;
+    const inboxRollingHash = await proposer.archiver.getInboxRollingHashAt(blockTotal);
+    const bucketRef = inboxRollingHash ? new InboxBucketRef(inboxRollingHash) : undefined;
 
     const proposal = await proposer.validator.createBlockProposal(
       block.header,

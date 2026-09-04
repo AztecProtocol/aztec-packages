@@ -14,6 +14,12 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
    * repartition the buckets (as an L1 reorg does) while the indexed leaves stay exactly as they were.
    */
   private leavesByIndex = new Map<bigint, Fr>();
+  /**
+   * The canonical prefix rolling hash, keyed by prefix length. Like {@link leavesByIndex} this is kept apart from the
+   * bucket partition, so a boundary a repartition takes away stays resolvable as an interior prefix — which is what
+   * an already-signed proposal reference names once its bucket is merged.
+   */
+  private rollingHashByCount = new Map<bigint, Fr>();
 
   constructor(private blockNumber: number) {}
 
@@ -24,11 +30,20 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     // out of order keeps every leaf at the index the archiver would give it.
     const firstIndex = bucket.totalMsgCount - BigInt(msgs.length);
     msgs.forEach((msg, i) => this.leavesByIndex.set(firstIndex + BigInt(i), msg));
+    this.setInboxRollingHashAt(bucket.totalMsgCount, bucket.inboxRollingHash);
+  }
+
+  /** Registers the canonical prefix rolling hash at a message count that no current bucket needs to end on. */
+  public setInboxRollingHashAt(totalMsgCount: bigint, inboxRollingHash: Fr) {
+    if (totalMsgCount > 0n) {
+      this.rollingHashByCount.set(totalMsgCount, inboxRollingHash);
+    }
   }
 
   /**
-   * Replaces the current bucket partition without touching the indexed leaf log, modelling an L1 reorg that re-mines
-   * the same messages under different bucket boundaries.
+   * Replaces the current bucket partition without touching the indexed leaf log or the prefix hashes already
+   * registered, modelling an L1 reorg that re-mines the same messages under different bucket boundaries. The new
+   * buckets' own boundary hashes are registered as prefix hashes too.
    */
   public replaceInboxBuckets(buckets: { bucket: InboxBucket; msgs: Fr[] }[]) {
     this.buckets = new Map();
@@ -36,6 +51,7 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     for (const { bucket, msgs } of buckets) {
       this.buckets.set(bucket.seq, bucket);
       this.messagesPerBucket.set(bucket.seq, msgs);
+      this.setInboxRollingHashAt(bucket.totalMsgCount, bucket.inboxRollingHash);
     }
   }
 
@@ -63,6 +79,13 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
       return Promise.resolve(this.buckets.get(0n));
     }
     return Promise.resolve([...this.buckets.values()].find(bucket => bucket.inboxRollingHash.equals(inboxRollingHash)));
+  }
+
+  getInboxRollingHashAt(totalMsgCount: bigint): Promise<Fr | undefined> {
+    if (totalMsgCount < 0n) {
+      return Promise.reject(new Error(`Invalid Inbox message count ${totalMsgCount}`));
+    }
+    return Promise.resolve(totalMsgCount === 0n ? Fr.ZERO : this.rollingHashByCount.get(totalMsgCount));
   }
 
   getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {

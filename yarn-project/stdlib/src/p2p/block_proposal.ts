@@ -87,9 +87,14 @@ export class BlockProposal extends Gossipable implements Signable {
     public readonly signedTxs?: SignedTxs,
 
     /**
-     * Reference to the Inbox bucket this block proposes to consume, when the proposer commits to one. Validators
-     * resolve it against their own Inbox view and derive the consumed message bundle from it rather than trusting a
-     * proposer-supplied message list. Covered by the proposal signature (part of `getPayloadToSign`).
+     * The signed cumulative Inbox message-prefix hash this block proposes to have consumed through, when the
+     * proposer commits to one. Interpreted together with the end count this proposal's own `blockHeader` commits to
+     * in `state.l1ToL2MessageTree.nextAvailableLeafIndex`: validators confirm the prefix hash at that count against
+     * their own Inbox view and read the consumed message bundle from the resulting count range, rather than trusting
+     * a proposer-supplied message list. The position may be interior to a current bucket, which is what a reorg that
+     * repartitions the same messages leaves behind. Covered by the proposal signature (part of `getPayloadToSign`),
+     * so the count and the hash are signed as a pair. The `bucketRef` name is retained from when the reference named
+     * a bucket; see {@link InboxBucketRef}.
      */
     public readonly bucketRef?: InboxBucketRef,
   ) {
@@ -129,9 +134,10 @@ export class BlockProposal extends Gossipable implements Signable {
 
   /**
    * Get the payload to sign for this block proposal.
-   * The signature is over: blockHeader + indexWithinCheckpoint + archiveRoot + txHashes, plus the bucket reference
-   * when set. Appending only when set binds the reference to the signature so a relay cannot strip or inject it
-   * without breaking recovery.
+   * The signature is over: blockHeader + indexWithinCheckpoint + archiveRoot + txHashes, plus the Inbox prefix
+   * reference when set. Appending only when set binds the reference to the signature so a relay cannot strip or
+   * inject it without breaking recovery. Signing it alongside the header is what makes the (end count, prefix hash)
+   * pair a single authenticated statement about what the block consumed.
    */
   getPayloadToSign(): Buffer {
     return serializeToBuffer([
@@ -268,7 +274,7 @@ export class BlockProposal extends Gossipable implements Signable {
     } else {
       buffer.push(0); // hasSignedTxs = false
     }
-    // Optional bucket-reference tail. Appended only when set, so a proposal without a reference
+    // Optional Inbox prefix-reference tail. Appended only when set, so a proposal without a reference
     // serializes without the tail and a decoder that reaches EOF reads it as unset.
     if (this.bucketRef) {
       buffer.push(1); // hasBucketRef = true
@@ -299,7 +305,7 @@ export class BlockProposal extends Gossipable implements Signable {
       }
     }
 
-    // Optional bucket-reference tail. A buffer that ends after the signedTxs flag decodes as
+    // Optional Inbox prefix-reference tail. A buffer that ends after the signedTxs flag decodes as
     // "no reference", so proposals written without the tail round-trip cleanly.
     let bucketRef: InboxBucketRef | undefined;
     if (!reader.isEmpty()) {

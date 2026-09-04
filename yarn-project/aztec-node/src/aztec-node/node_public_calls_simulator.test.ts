@@ -118,8 +118,8 @@ describe('NodePublicCallsSimulator', () => {
   });
 
   /**
-   * Mocks the Inbox so the next-block prediction selects a two-message bundle: the fork's message total (0)
-   * resolves to bucket 0, and bucket 1 holds both messages.
+   * Mocks the Inbox so the next-block prediction selects a two-message bundle: the prefix at the fork's message
+   * total (0) is the genesis zero hash, and bucket 1 holds both messages.
    */
   const mockInboxSelection = (timestamp = 0n) => {
     const makeBucket = (seq: bigint, totalMsgCount: bigint): InboxBucket => ({
@@ -133,9 +133,9 @@ describe('NodePublicCallsSimulator', () => {
       l1BlockHash: Buffer32.fromBigInt(seq),
     });
     const bundle = [new Fr(0x1234), new Fr(0x5678)];
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(makeBucket(0n, 0n));
+    l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(Fr.ZERO);
     l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(makeBucket(1n, 2n));
-    l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+    l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue(bundle);
     return bundle;
   };
 
@@ -173,9 +173,9 @@ describe('NodePublicCallsSimulator', () => {
     });
     blockSource.getPendingChainValidationStatus.mockResolvedValue({ valid: true });
     blockSource.getProposedCheckpointData.mockResolvedValue(undefined);
-    // No Inbox bucket resolves to the fork's message total by default, so the next-block message prediction
+    // No Inbox prefix is synced at the fork's message total by default, so the next-block message prediction
     // bails out and tests see the bare tip state unless they opt into it.
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(undefined);
+    l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(undefined);
     epochCache.getL1Constants.mockReturnValue(EmptyL1RollupConstants);
 
     globalVariableBuilder.buildCheckpointGlobalVariables.mockImplementation((_c, _f, slotNumber) =>

@@ -46,9 +46,26 @@ export interface L1ToL2MessageSource {
    * identifies the bucket by content: an L1 reorg that re-times or merges buckets can move a bucket's sequence
    * number while leaving the hash intact, and a proposer resolves the sequence number it publishes this way rather
    * than trusting the one it captured at build time. `Fr.ZERO` resolves the genesis sentinel bucket (sequence 0).
+   *
+   * Only a completed checkpoint's final consumed position has to resolve this way, since that is what the L1
+   * `bucketHint` and the censorship/cap checks are taken against. An intermediate block's consumed position is
+   * authenticated by count instead, with {@link getInboxRollingHashAt}.
    * @param inboxRollingHash - The consensus rolling hash to resolve to a bucket.
    */
   getInboxBucketByRollingHash(inboxRollingHash: Fr): Promise<InboxBucket | undefined>;
+
+  /**
+   * Returns the consensus rolling hash of the canonical message prefix of length `totalMsgCount`, or undefined when
+   * the source has not synced a message at index `totalMsgCount - 1`.
+   *
+   * The count addresses a canonical compact message index and need not land on a boundary of the bucket partition
+   * the source currently holds, so a block's committed leaf count stays authenticatable after an L1 reorg has merged
+   * away the bucket that once ended there. Each message's rolling hash chains the one before it, so equality at a
+   * count proves equality of every leaf through it: this is how a validator checks that a proposed block consumed
+   * the same message prefix it holds itself. `totalMsgCount === 0` is the genesis base case and returns `Fr.ZERO`.
+   * @param totalMsgCount - The cumulative Inbox message count (leaf count) whose prefix hash to return.
+   */
+  getInboxRollingHashAt(totalMsgCount: bigint): Promise<Fr | undefined>;
 
   /**
    * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion

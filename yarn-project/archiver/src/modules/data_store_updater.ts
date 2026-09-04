@@ -1,3 +1,4 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { filterAsync } from '@aztec/foundation/collection';
@@ -7,7 +8,7 @@ import {
   ContractInstancePublishedEvent,
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-registry';
-import type { CommitteeAttestation, L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type { BlockData, CommitteeAttestation, L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import {
   type L1PublishedData,
   type ProposedCheckpointInput,
@@ -20,8 +21,15 @@ import {
   computeContractClassId,
 } from '@aztec/stdlib/contract';
 import type { ContractClassLog, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import type { InboxBucketRef } from '@aztec/stdlib/messaging';
 import type { UInt64 } from '@aztec/stdlib/types';
 
+import {
+  InboxConsumptionRewindsError,
+  InboxPrefixMismatchError,
+  InboxPrefixNotSyncedError,
+  ProposedBlockParentNotFoundError,
+} from '../errors.js';
 import type { ArchiverDataStores } from '../store/data_stores.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
 import type { InboxMessageReplacement } from '../store/message_store.js';
@@ -30,6 +38,14 @@ import type { InboxMessageReplacement } from '../store/message_store.js';
 enum Operation {
   Store,
   Delete,
+}
+
+/**
+ * A block's L1-to-L2 message tree leaf count: the cumulative Inbox message count consumed through it. Messages are
+ * indexed compactly with no padding, so the leaf count is exactly the prefix length the block consumed.
+ */
+function blockLeafCount(block: Pick<L2Block, 'header'> | BlockData): bigint {
+  return BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
 }
 
 /** Result of adding checkpoints with information about any pruned blocks. */
@@ -55,19 +71,34 @@ export class ArchiverDataStoreUpdater {
    * This is an uncheckpointed block that has been proposed by the sequencer but not yet included in a checkpoint on L1.
    * Extracts ContractClassPublished, ContractInstancePublished, ContractInstanceUpdated events from the block logs.
    *
+   * When `inboxPrefixRef` is given, the block's signed Inbox prefix reference is validated against the canonical
+   * messages this store holds *inside the same transaction as the writes*. That closes the late-insert race: a block
+   * built before an L1 reorg rolled back the messages it consumed used to be insertable after
+   * {@link removeProposedBlocksConsumingMessagesFrom} had already pruned the chain it belongs to, landing on the
+   * parent that survived the prune with nothing left to remove it. Because both the message replacement and this
+   * insertion run as whole transactions on the same store, the two orderings converge: a replacement that commits
+   * first makes this validation fail, and an insertion that commits first is visible to the replacement's prune.
+   *
    * @param block - The proposed L2 block to add.
+   * @param inboxPrefixRef - The block proposal's signed Inbox prefix reference. Omitted only on the trusted
+   *   compatibility path (see {@link L2BlockSink.addBlock}), which skips the guard and keeps prior behavior.
    * @param pendingChainValidationStatus - Optional validation status to set.
    * @returns True if the operation is successful.
+   * @throws InboxPrefixNotSyncedError, InboxPrefixMismatchError, ProposedBlockParentNotFoundError or
+   *   InboxConsumptionRewindsError when a supplied reference does not check out; nothing is written in that case.
    */
-  // TODO: a block built before an L1 reorg rolled back the messages it consumed can be pushed here after
-  // `removeProposedBlocksConsumingMessagesFrom` already pruned the chain it belongs to, and lands on the parent that
-  // survived the prune with nothing left to remove it. Closing it needs the builder to carry the message-store state
-  // it built against so this insert can reject a stale one.
   public async addProposedBlock(
     block: L2Block,
+    inboxPrefixRef?: InboxBucketRef,
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
     const result = await this.stores.db.transactionAsync(async () => {
+      // Validate the signed prefix before anything block-associated is written, so a rejection leaves the store
+      // exactly as it was: the transaction is only committed if the whole callback resolves.
+      if (inboxPrefixRef !== undefined) {
+        await this.validateProposedBlockInboxPrefix(block, inboxPrefixRef);
+      }
+
       await this.stores.blocks.addProposedBlock(block);
 
       const opResults = await Promise.all([
@@ -84,6 +115,62 @@ export class ArchiverDataStoreUpdater {
     });
     await this.l2TipsCache?.refresh();
     return result;
+  }
+
+  /**
+   * Checks a proposed block's signed Inbox prefix reference against the canonical messages this store holds, and
+   * that the exact range it consumed is available whole.
+   *
+   * The block's end count comes from its own signed header's L1-to-L2 leaf count and the start from its stored
+   * parent's. Because each message's rolling hash chains the one before it, a matching hash at the end count proves
+   * the proposer consumed exactly the prefix this store holds, which makes the range between the two counts
+   * canonical by content. The range is then read to prove it is available whole, so a block whose messages this
+   * store cannot serve never enters the chain — reading it is about availability, not authentication.
+   *
+   * Deliberately absent is any requirement that either count sit on a boundary of the current bucket partition: an
+   * L1 reorg that re-mines the same messages under different boundaries leaves every leaf and prefix hash intact, so
+   * a block that ended on a boundary the reorg merged away is still exactly as valid as when it was signed.
+   *
+   * Must run inside the transaction that writes the block.
+   */
+  private async validateProposedBlockInboxPrefix(block: L2Block, inboxPrefixRef: InboxBucketRef): Promise<void> {
+    const blockNumber = block.number;
+    const endCount = blockLeafCount(block);
+    const parentCount = await this.getParentBlockLeafCount(block);
+    if (endCount < parentCount) {
+      throw new InboxConsumptionRewindsError(blockNumber, endCount, parentCount);
+    }
+
+    const canonicalHash = await this.stores.messages.getInboxRollingHashAt(endCount);
+    if (canonicalHash === undefined) {
+      throw new InboxPrefixNotSyncedError(blockNumber, endCount, 'no message is stored at that count');
+    }
+    if (!canonicalHash.equals(inboxPrefixRef.inboxRollingHash)) {
+      throw new InboxPrefixMismatchError(blockNumber, endCount, inboxPrefixRef.inboxRollingHash, canonicalHash);
+    }
+
+    try {
+      await this.stores.messages.getL1ToL2MessagesBetweenLeafCounts(parentCount, endCount);
+    } catch (err) {
+      throw new InboxPrefixNotSyncedError(blockNumber, endCount, `${err}`);
+    }
+  }
+
+  /**
+   * The cumulative Inbox message count consumed through a proposed block's parent: its L1-to-L2 tree leaf count, or
+   * zero when the block is the first of the chain. Throws when the parent is not in the store, since its consumed
+   * range would then have no lower bound. Must run inside the caller's transaction.
+   */
+  private async getParentBlockLeafCount(block: L2Block): Promise<bigint> {
+    const parentBlockNumber = block.number - 1;
+    if (parentBlockNumber < INITIAL_L2_BLOCK_NUM) {
+      return 0n;
+    }
+    const parent = await this.stores.blocks.getBlockData({ number: BlockNumber(parentBlockNumber) });
+    if (parent === undefined) {
+      throw new ProposedBlockParentNotFoundError(block.number, parentBlockNumber);
+    }
+    return blockLeafCount(parent);
   }
 
   /**
@@ -304,8 +391,11 @@ export class ArchiverDataStoreUpdater {
 
   /**
    * Replaces the messages above the last canonical Inbox bucket with the ones the canonical chain delivers, and
-   * prunes the proposed blocks that consumed a leaf the swap changed or ended on a bucket boundary it took away, in
-   * a single transaction.
+   * prunes the proposed blocks that consumed a leaf the swap changed, in a single transaction.
+   *
+   * Only changed leaves prune. A swap that re-delivers the very same messages under different bucket boundaries
+   * rewrites the partition and the metadata derived from the L1 blocks while dropping nothing, because a block is
+   * authenticated by the message prefix it consumed rather than by the boundary it stopped on.
    *
    * Splitting the two would make the prune unrecoverable, for the same reason
    * {@link rewindMessagesAndPruneProposedBlocks} keeps them together: the next sync pass would find the local
@@ -344,9 +434,11 @@ export class ArchiverDataStoreUpdater {
    * count of messages consumed through it, so a leaf count above the index means the block consumed a message the
    * local chain no longer backs, and one equal to it means the block stopped below it.
    *
-   * The index is the first leaf whose value actually changed, or whose bucket boundary the reorg took away, so a
-   * reorg that re-mines the same messages in a different L1 block prunes nothing, and one that replaces the tail of
-   * a bucket keeps the blocks that stopped below the replaced leaf.
+   * The index is the first leaf whose value actually changed or that the canonical chain no longer carries — bucket
+   * boundaries play no part. A reorg that re-mines the same messages prunes nothing, however differently it
+   * partitions them into buckets, because a block is authenticated by the message prefix it consumed and not by the
+   * boundary it happened to stop on; one that replaces the tail of a bucket keeps the blocks that stopped below the
+   * replaced leaf.
    *
    * Checkpointed blocks are never touched: a message store that disagrees with a checkpoint L1 accepted means one
    * of the two views of L1 is mid-reorg and this one is not necessarily the right one, so only the archive
@@ -369,9 +461,7 @@ export class ArchiverDataStoreUpdater {
       checkpointedBlockNumber > 0
         ? await this.stores.blocks.getBlockData({ number: BlockNumber(checkpointedBlockNumber) })
         : undefined;
-    const checkpointedTipLeafCount = BigInt(
-      checkpointedTip?.header.state.l1ToL2MessageTree.nextAvailableLeafIndex ?? 0,
-    );
+    const checkpointedTipLeafCount = checkpointedTip === undefined ? 0n : blockLeafCount(checkpointedTip);
     if (firstInvalidatedIndex < checkpointedTipLeafCount) {
       this.log.warn(
         `Not pruning proposed blocks: rollback index ${firstInvalidatedIndex} is below the checkpointed tip's leaf count`,
@@ -384,9 +474,7 @@ export class ArchiverDataStoreUpdater {
       from: BlockNumber(checkpointedBlockNumber + 1),
       limit: latestBlockNumber - checkpointedBlockNumber,
     });
-    const firstAffected = proposedBlocks.find(
-      block => BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex) > firstInvalidatedIndex,
-    );
+    const firstAffected = proposedBlocks.find(block => blockLeafCount(block) > firstInvalidatedIndex);
     if (firstAffected === undefined) {
       return [];
     }

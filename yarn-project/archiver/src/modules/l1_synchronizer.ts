@@ -849,24 +849,19 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   /**
-   * Returns the lowest index at or above `fromIndex` that the canonical chain no longer backs, or undefined when
-   * every stored message from there on survives the swap whole. An index is invalidated when its leaf changed, and
-   * also when the bucket boundary that closed on it is gone: a block ends on a bucket boundary and consumers derive
-   * the messages it inserted from the buckets that boundary belongs to, so a boundary that stops existing takes the
-   * blocks that ended on it with it.
+   * Returns the lowest index at or above `fromIndex` whose leaf the canonical chain no longer backs, or undefined
+   * when the canonical chain re-delivers every stored message from there on unchanged. An index is invalidated only
+   * when its leaf changed or the canonical chain does not carry it at all.
    *
    * Comparing consensus rolling hashes is enough to compare whole prefixes of leaves: each one chains the hash
-   * before it, so equal hashes at an index mean equal leaves at every index through it. A message that the canonical
-   * chain does not carry at all counts as invalidated.
+   * before it, so equal hashes at an index mean equal leaves at every index through it.
    *
-   * The boundary comparison is deliberately one-sided. A reorg that merges two buckets into one destroys the
-   * boundary between them, so the blocks that ended there are pruned; one that splits a bucket only adds a boundary
-   * no block ever ended on, and every boundary that existed still does, so it prunes nothing.
-   *
-   * The one boundary this cannot settle is the newest one: when the canonical fetch reaches the L1 head it cannot
-   * tell a bucket that closed from one that is still open, and a bucket that carries on absorbing messages later
-   * takes its boundary away. That exposure is the same one ordinary ingestion has, since it stores an open head
-   * bucket as readily as a closed one, and is neither created nor widened here.
+   * Bucket boundaries play no part. A block is authenticated by the message prefix it consumed — its signed header
+   * count paired with the signed prefix rolling hash — and not by the boundary it happened to stop on, so a reorg
+   * that re-mines the same messages under different boundaries leaves every block on the proposed chain exactly as
+   * valid as when it was signed, and drops nothing. Only the completed checkpoint endpoint has to sit on a current
+   * boundary, and that is re-checked where it matters: the proposer re-resolves its L1 `bucketHint` before
+   * publishing, and a validator re-resolves the final position before attesting.
    */
   private async findFirstInvalidatedMessageIndex(
     fromIndex: bigint,
@@ -877,28 +872,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     const canonicalAt = (index: bigint) =>
       firstCanonicalIndex === undefined ? undefined : canonicalMessages[Number(index - firstCanonicalIndex)];
 
-    let previous: { stored: InboxMessage; canonical: InboxMessage } | undefined;
     for await (const stored of this.stores.messages.iterateL1ToL2Messages({ start: fromIndex })) {
       const canonical = canonicalAt(stored.index);
       if (canonical === undefined || !canonical.inboxRollingHash.equals(stored.inboxRollingHash)) {
         return stored.index;
-      }
-      if (previous !== undefined) {
-        const storedBucketClosed = previous.stored.bucketSeq !== stored.bucketSeq;
-        const canonicalBucketClosed = previous.canonical.bucketSeq !== canonical.bucketSeq;
-        if (storedBucketClosed && !canonicalBucketClosed) {
-          return previous.stored.index;
-        }
-      }
-      previous = { stored, canonical };
-    }
-
-    // The last message we hold closes the last bucket we hold, so a canonical bucket that carries on past it takes
-    // that boundary away as much as a merge does.
-    if (previous !== undefined) {
-      const next = canonicalAt(previous.stored.index + 1n);
-      if (next !== undefined && next.bucketSeq === previous.canonical.bucketSeq) {
-        return previous.stored.index;
       }
     }
     return undefined;

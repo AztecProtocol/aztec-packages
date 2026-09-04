@@ -10,9 +10,9 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
-import type { P2P } from '@aztec/p2p';
+import type { P2P, PeerId } from '@aztec/p2p';
 import { BlockHash, GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
-import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import { type BlockData, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
 import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -37,7 +37,11 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorMetrics } from './metrics.js';
-import { ProposalHandler } from './proposal_handler.js';
+import {
+  ProposalHandler,
+  SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT,
+  SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT,
+} from './proposal_handler.js';
 
 /** Creates a checkpoint proposal core with the given overrides. */
 async function makeProposal(overrides: Parameters<typeof makeCheckpointProposal>[0] = {}) {
@@ -71,6 +75,21 @@ describe('ProposalHandler checkpoint validation', () => {
     blockSource.syncImmediate.mockResolvedValue(undefined);
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    // An Inbox that has absorbed nothing: count 0 is the genesis prefix (zero hash) and the genesis sentinel bucket,
+    // so a proposal that consumes nothing passes both the per-block prefix check and the checkpoint endpoint check.
+    // Tests that care about consumption override these.
+    l1ToL2MessageSource.getInboxRollingHashAt.mockImplementation(total =>
+      Promise.resolve(total === 0n ? Fr.ZERO : undefined),
+    );
+    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockImplementation(total =>
+      Promise.resolve(total === 0n ? genesisBucket : undefined),
+    );
+    l1ToL2MessageSource.getInboxBucketByRollingHash.mockImplementation(hash =>
+      Promise.resolve(hash.isZero() ? genesisBucket : undefined),
+    );
+    // Range reads default to empty rather than to an unconfigured `undefined`, which the handler treats as a range
+    // it cannot serve. Tests whose subject is the bundle mock this explicitly.
+    l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue([]);
 
     checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
     checkpointsBuilder.getConfig.mockReturnValue({
@@ -623,13 +642,14 @@ describe('ProposalHandler checkpoint validation', () => {
         ),
       );
 
-      // The checkpoint's final position is still a live bucket boundary; only the parent's is gone.
+      // The checkpoint's final position is still a live bucket boundary carrying the header's rolling hash; only the
+      // parent checkpoint's position is interior now.
       l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockImplementation(total =>
         Promise.resolve(
           total === 7n
             ? ({
                 seq: 1n,
-                inboxRollingHash: Fr.random(),
+                inboxRollingHash: header.inboxRollingHash,
                 totalMsgCount: 7n,
                 timestamp: 10n,
                 msgCount: 7,
@@ -849,12 +869,14 @@ describe('ProposalHandler checkpoint validation', () => {
    * handler wired to accept it up to the block-number guard.
    */
   async function setupGenesisProposal(proposalArchive: Fr, txHashes?: TxHash[]) {
+    // A block consuming nothing: leaf count 0, so its signed prefix is the genesis zero hash. That makes the
+    // streaming metadata checks pass and leaves the guard under test as what decides the outcome.
+    const blockHeader = makeBlockHeader(1, { slotNumber: SlotNumber(1) });
+    blockHeader.state.l1ToL2MessageTree = new AppendOnlyTreeSnapshot(Fr.random(), 0);
     const proposal = ValidatedBlockProposal(
       await makeBlockProposal({
-        blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+        blockHeader,
         archiveRoot: proposalArchive,
-        // A consume-nothing reference to the genesis bucket, so the streaming metadata checks pass and the
-        // guard under test is what decides the outcome.
         bucketRef: InboxBucketRef.fromBucket(genesisBucket),
         ...(txHashes ? { txHashes } : {}),
       }),
@@ -864,8 +886,6 @@ describe('ProposalHandler checkpoint validation', () => {
     blockSource.getGenesisValues.mockResolvedValue({
       genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
     } as any);
-    l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(genesisBucket);
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(genesisBucket);
 
     const txProvider = mock<ITxProvider>();
     txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
@@ -1010,9 +1030,12 @@ describe('ProposalHandler checkpoint validation', () => {
     // local latency into a slashable invalid-proposal verdict against an honest proposer.
     it('processes a proposal whose receive window closed while it waited to be processed', async () => {
       const signer = Secp256k1Signer.random();
+      // Consumes nothing, so its signed prefix is the genesis zero hash and the arrival window is what decides.
+      const blockHeader = makeBlockHeader(1, { slotNumber: SlotNumber(1) });
+      blockHeader.state.l1ToL2MessageTree = new AppendOnlyTreeSnapshot(Fr.random(), 0);
       const proposal = ValidatedBlockProposal(
         await makeBlockProposal({
-          blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+          blockHeader,
           archiveRoot: Fr.random(),
           bucketRef: InboxBucketRef.fromBucket(genesisBucket),
           signer,
@@ -1023,8 +1046,6 @@ describe('ProposalHandler checkpoint validation', () => {
       blockSource.getGenesisValues.mockResolvedValue({
         genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
       } as any);
-      l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(genesisBucket);
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(genesisBucket);
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
       // Slot 1's proposal receive window is [-4s, 17s]; 30s is well past its close.
       epochCache.getEpochAndSlotNow.mockReturnValue({
@@ -1060,23 +1081,44 @@ describe('ProposalHandler checkpoint validation', () => {
   // Streaming Inbox: a block proposal's L1-to-L2 bundle is derived from its bucket reference and gated by the four
   // acceptance checks, replacing the legacy per-checkpoint inHash comparison.
   describe('handleBlockProposal streaming inbox checks', () => {
-    const bucket = (overrides: Partial<InboxBucket> = {}): InboxBucket => ({
-      seq: 1n,
-      inboxRollingHash: new Fr(0xabc),
-      totalMsgCount: 2n,
-      timestamp: 100n,
-      msgCount: 2,
-      lastMessageIndex: 1n,
-      l1BlockNumber: 10n,
-      l1BlockHash: Buffer32.fromBigInt(10n),
-      ...overrides,
+    /** The prefix hash the proposals under test claim to have consumed through, at count `PROPOSED_END_COUNT`. */
+    const PROPOSED_PREFIX_HASH = new Fr(0xabc);
+    const PROPOSED_END_COUNT = 2n;
+
+    // attestation_deadline(slot=1) = 1*24 + 24 - 8 = 40s. Waits run on a real timer against the remaining budget
+    // read off the fake clock, so holding it 2s short of the deadline keeps the tests short.
+    const DEADLINE_MS = 40_000;
+    const WAIT_BUDGET_MS = 2_000;
+    const BEFORE_DEADLINE_MS = DEADLINE_MS - WAIT_BUDGET_MS;
+    const PAST_DEADLINE_MS = DEADLINE_MS + 1_000;
+    const WAIT_INTERVAL_MS = 500;
+    const proposalSender = mock<PeerId>();
+
+    /** A complete successful re-execution result for tests that stop short of executing a real block. */
+    const makeSuccessfulReexecution = async (block?: L2Block) => ({
+      block: block ?? (await L2Block.random(BlockNumber(1))),
+      failedTxs: [],
+      reexecutionTimeMs: 0,
+      totalManaUsed: 0,
     });
 
-    /** Genesis-parent streaming block proposal at slot 1, with the handler wired to reach the streaming checks. */
-    async function setupStreamingProposal(bucketRef: InboxBucketRef | undefined, options: { nowMs?: number } = {}) {
+    /**
+     * Genesis-parent streaming block proposal at slot 1, with the handler wired to reach the streaming checks. The
+     * header's L1-to-L2 leaf count is set explicitly, since that is the signed end count the prefix reference is
+     * interpreted against.
+     */
+    async function setupStreamingProposal(
+      bucketRef: InboxBucketRef | undefined,
+      options: { nowMs?: number; endCount?: bigint } = {},
+    ) {
+      const blockHeader = makeBlockHeader(1, { slotNumber: SlotNumber(1) });
+      blockHeader.state.l1ToL2MessageTree = new AppendOnlyTreeSnapshot(
+        Fr.random(),
+        Number(options.endCount ?? PROPOSED_END_COUNT),
+      );
       const proposal = ValidatedBlockProposal(
         await makeBlockProposal({
-          blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+          blockHeader,
           archiveRoot: Fr.random(),
           txHashes: [],
           bucketRef,
@@ -1110,57 +1152,55 @@ describe('ProposalHandler checkpoint validation', () => {
     }
 
     // The metadata checks are point lookups against the local Inbox view, so they run before tx collection: a
-    // proposer signing a bogus bucket reference must not be able to make validators spend their window fetching
+    // proposer signing a bogus prefix reference must not be able to make validators spend their window fetching
     // txs over P2P for a proposal a map lookup rejects.
-    it('rejects without collecting txs when the referenced bucket is unknown', async () => {
-      const ref = new InboxBucketRef(new Fr(0xabc));
-      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref);
-      l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(undefined);
+    it('rejects without collecting txs when the referenced prefix is not synced', async () => {
+      const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
+      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref, { nowMs: 100_000 });
+      l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(undefined);
       const reexecuteSpy = jest.spyOn(blockHandler, 'reexecuteTransactions');
 
-      const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+      const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
 
       expect(result).toEqual({
         isValid: false,
         blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-        reason: 'bucket_unknown',
+        reason: 'prefix_unavailable',
       });
       expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
       expect(reexecuteSpy).not.toHaveBeenCalled();
     });
 
-    it('rejects without collecting txs when the proposal carries no bucket reference', async () => {
+    it('rejects without collecting txs when the proposal carries no prefix reference', async () => {
       const { proposal, blockHandler, txProvider } = await setupStreamingProposal(undefined);
 
-      const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+      const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
 
       expect(result).toEqual({
         isValid: false,
         blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-        reason: 'bucket_unknown',
+        reason: 'prefix_unavailable',
       });
       expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
     });
 
-    it('re-executes with the bundle derived from the buckets when the checks pass', async () => {
-      const ref = new InboxBucketRef(new Fr(0xabc));
+    it('re-executes with the bundle read by count when the checks pass', async () => {
+      const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
       const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref);
       const derivedBundle = [new Fr(1000), new Fr(1001)];
-      l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(bucket());
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
-        bucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),
-      );
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(derivedBundle);
+      l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(PROPOSED_PREFIX_HASH);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue(derivedBundle);
       const reexecuteSpy = jest
         .spyOn(blockHandler, 'reexecuteTransactions')
-        .mockResolvedValue({ block: undefined } as any);
+        .mockResolvedValue(await makeSuccessfulReexecution());
 
-      const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+      const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
 
       expect(result.isValid).toBe(true);
       // A valid reference still triggers tx collection, which also feeds this node's ability to serve txs to peers.
       expect(txProvider.getTxsForBlockProposal).toHaveBeenCalledTimes(1);
-      // The block re-executes with the derived per-block bundle (streaming is the only path).
+      // The bundle is the exact count range between the parent's position (genesis) and the signed end count.
+      expect(l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts).toHaveBeenCalledWith(0n, PROPOSED_END_COUNT);
       expect(reexecuteSpy).toHaveBeenCalledWith(
         proposal,
         BlockNumber(INITIAL_L2_BLOCK_NUM),
@@ -1172,111 +1212,240 @@ describe('ProposalHandler checkpoint validation', () => {
       );
     });
 
+    // The whole point of A-1925: a reorg that re-mines the same messages under different bucket boundaries leaves
+    // the prefix at the block's end count intact, so the proposal stays valid even though no bucket ends there.
+    it('attests to a proposal whose end count a repartition left interior to a current bucket', async () => {
+      const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
+      const { proposal, blockHandler } = await setupStreamingProposal(ref);
+      l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(PROPOSED_PREFIX_HASH);
+      // No bucket carries the hash and none ends at the count: the boundary is gone, the content is not.
+      l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(undefined);
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(undefined);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue([new Fr(1000), new Fr(1001)]);
+      jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue(await makeSuccessfulReexecution());
+
+      const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
+
+      expect(result.isValid).toBe(true);
+      expect(blockSource.syncImmediate).not.toHaveBeenCalled();
+    });
+
+    // A content-changing replacement can commit between the point check and the bundle read. Re-executing against
+    // the post-replacement leaves would report `state_mismatch` — a slashable verdict — for a proposal that was
+    // valid on the view it was checked against, so the bundle read re-confirms the prefix and the proposal is
+    // rejected as a local-view disagreement instead.
+    it('does not re-execute when a replacement lands between the point check and the bundle read', async () => {
+      const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
+      const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: PAST_DEADLINE_MS });
+      // The first lookup (the point check) confirms; every later one sees the replaced prefix.
+      l1ToL2MessageSource.getInboxRollingHashAt
+        .mockResolvedValueOnce(PROPOSED_PREFIX_HASH)
+        .mockResolvedValue(new Fr(0xdead));
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue([new Fr(9000), new Fr(9001)]);
+      const reexecuteSpy = jest.spyOn(blockHandler, 'reexecuteTransactions');
+
+      const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
+
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'prefix_mismatch',
+      });
+      expect(reexecuteSpy).not.toHaveBeenCalled();
+      expect(SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT).not.toContain('prefix_mismatch');
+    });
+
+    it('does not re-execute, and does not throw, when the bundle range fails after a dropped suffix', async () => {
+      const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
+      const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: PAST_DEADLINE_MS });
+      l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(PROPOSED_PREFIX_HASH);
+      // The replacement shortened the chain, so the range the proposal names cannot be served whole any more.
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockRejectedValue(
+        new Error('Inbox message range [0, 2) is not fully synced'),
+      );
+      const reexecuteSpy = jest.spyOn(blockHandler, 'reexecuteTransactions');
+
+      const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
+
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'prefix_unavailable',
+      });
+      expect(reexecuteSpy).not.toHaveBeenCalled();
+    });
+
+    it('re-reads the bundle after a retry so the leaves and the confirmed prefix share one view', async () => {
+      const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
+      const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
+      const staleLeaves = [new Fr(9000), new Fr(9001)];
+      const freshLeaves = [new Fr(1000), new Fr(1001)];
+      // Before the sync this node holds the stale suffix; after it, the canonical one. The retry must hand
+      // re-execution the leaves it confirmed, never the pre-sync ones.
+      l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(new Fr(0xdead));
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue(staleLeaves);
+      blockSource.syncImmediate.mockImplementation(() => {
+        l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(PROPOSED_PREFIX_HASH);
+        l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue(freshLeaves);
+        return Promise.resolve();
+      });
+      const reexecuteSpy = jest
+        .spyOn(blockHandler, 'reexecuteTransactions')
+        .mockResolvedValue(await makeSuccessfulReexecution());
+
+      const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
+
+      expect(result.isValid).toBe(true);
+      expect(reexecuteSpy).toHaveBeenCalledWith(
+        proposal,
+        BlockNumber(INITIAL_L2_BLOCK_NUM),
+        CheckpointNumber.INITIAL,
+        [],
+        freshLeaves,
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it('classifies an archiver insert rejection as a non-slashable validation failure', async () => {
+      // A reorg can land between the precheck and the insert. The archiver then rejects the block, and that is a
+      // disagreement between this node's view and the proposal, not proposer misbehavior.
+      const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
+      const { proposal, blockHandler } = await setupStreamingProposal(ref);
+      l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(PROPOSED_PREFIX_HASH);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue([new Fr(1000), new Fr(1001)]);
+      jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue(await makeSuccessfulReexecution());
+      const mismatch = new Error('prefix moved');
+      mismatch.name = 'InboxPrefixMismatchError';
+      blockSource.addBlock.mockRejectedValue(mismatch);
+
+      const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
+
+      expect(result).toMatchObject({ isValid: false, reason: 'prefix_mismatch' });
+      expect(SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT).not.toContain('prefix_mismatch');
+    });
+
+    it('forwards the proposal reference verbatim to the archiver insert', async () => {
+      const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
+      const { proposal, blockHandler } = await setupStreamingProposal(ref);
+      l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(PROPOSED_PREFIX_HASH);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue([new Fr(1000), new Fr(1001)]);
+      const block = await L2Block.random(BlockNumber(1));
+      jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue(await makeSuccessfulReexecution(block));
+
+      await blockHandler.handleBlockProposal(proposal, proposalSender, true);
+
+      expect(blockSource.addBlock).toHaveBeenCalledWith(block, ref);
+    });
+
     // An L1 reorg that orphans the messages a proposal consumed reaches this node as an archiver rollback, which
-    // re-downloads the bucket at that position from the canonical chain with a different rolling hash. Resolving
-    // the reference by hash is what makes a proposal this node accepted before the rollback fail after it, so no
-    // attestation is signed for a block that L1 will not accept. Driven off a real message store so the rollback,
-    // the bucket resolution and the re-read the handler does after forcing a sync are the production ones.
-    it('rejects a proposal it accepted before its archiver rewound the bucket', async () => {
+    // re-downloads the messages at those indices from the canonical chain with different rolling hashes. Checking
+    // the reference against the prefix hash at the block's end count is what makes a proposal this node accepted
+    // before the rollback fail after it, so no attestation is signed for a block that L1 will not accept. Driven off
+    // a real message store so the rollback, the prefix lookup and the re-read after forcing a sync are production.
+    it('rejects a proposal it accepted before its archiver rewound the messages', async () => {
       const stores = await createArchiverStore(
         { archiverStoreMapSizeKb: 1024 * 1024, dataDirectory: undefined, dataStoreMapSizeKb: 1024 * 1024 },
         GENESIS_BLOCK_HEADER_HASH,
       );
       const messages = makeInboxMessages(2);
       await stores.messages.addL1ToL2MessageBuckets(messages);
-      l1ToL2MessageSource.getInboxBucketByRollingHash.mockImplementation(inboxRollingHash =>
-        stores.messages.getInboxBucketByRollingHash(inboxRollingHash),
+      l1ToL2MessageSource.getInboxRollingHashAt.mockImplementation(total =>
+        stores.messages.getInboxRollingHashAt(total),
       );
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockImplementation(total =>
-        stores.messages.getInboxBucketByTotalMsgCount(total),
-      );
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockImplementation((from, to) =>
-        stores.messages.getL1ToL2MessagesBetweenBuckets(from, to),
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockImplementation((from, to) =>
+        stores.messages.getL1ToL2MessagesBetweenLeafCounts(from, to),
       );
 
-      const consumedBucket = await stores.messages.getInboxBucket(2n);
-      const { proposal, blockHandler } = await setupStreamingProposal(InboxBucketRef.fromBucket(consumedBucket!), {
-        nowMs: 10_000,
-      });
+      const { proposal, blockHandler } = await setupStreamingProposal(
+        new InboxBucketRef(messages[1].inboxRollingHash),
+        { nowMs: 10_000, endCount: 2n },
+      );
 
-      expect(await blockHandler.handleBlockProposal(proposal, {} as any, false)).toEqual({
+      expect(await blockHandler.handleBlockProposal(proposal, proposalSender, false)).toEqual({
         isValid: true,
         blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
       });
 
-      // The reorg drops the second message and mines a different one in its place: bucket 2 keeps its sequence
-      // number and message count, but no bucket commits to the rolling hash the proposal signed any more. The
-      // handler cannot tell that from lag, so it waits out the remaining budget (held short here) and rejects.
+      // The reorg drops the second message and mines a different one in its place. The prefix at count 2 is present
+      // but is a different hash now, which from here is indistinguishable from lag: the handler waits out the
+      // remaining budget (held short here) and only then rejects, as a mismatch.
       await stores.messages.rewindMessagesTo({ l1BlockNumber: 0n, l1BlockHash: Buffer32.ZERO }, 1n);
       await stores.messages.addL1ToL2MessageBuckets(
         makeInboxMessages(1, { initialIndex: 1n, initialInboxHash: messages[0].inboxRollingHash }),
       );
       dateProvider.setTime(38_000);
 
-      expect(await blockHandler.handleBlockProposal(proposal, {} as any, false)).toEqual({
+      expect(await blockHandler.handleBlockProposal(proposal, proposalSender, false)).toEqual({
         isValid: false,
         blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-        reason: 'bucket_unknown',
+        reason: 'prefix_mismatch',
       });
 
       await stores.db.close();
     });
 
-    // A bucket the proposer already consumed is on L1 by construction, so a bucket this node cannot resolve is
-    // (usually) local archiver lag, not a divergence: the handler forces a sync and re-checks until the
-    // attestation deadline instead of dropping the attestation on the spot.
-    describe('bucket sync wait', () => {
-      // attestation_deadline(slot=1) = 1*24 + 24 - 8 = 40s. Waits run on a real timer against the remaining
-      // budget read off the fake clock, so holding it 2s short of the deadline keeps the tests short.
-      const DEADLINE_MS = 40_000;
-      const WAIT_BUDGET_MS = 2_000;
-      const BEFORE_DEADLINE_MS = DEADLINE_MS - WAIT_BUDGET_MS;
-      const PAST_DEADLINE_MS = DEADLINE_MS + 1_000;
-      const WAIT_INTERVAL_MS = 500;
-
-      /** The bucket a proposal under test consumes through. */
-      const eligibleBucket = (overrides: Partial<InboxBucket> = {}) => bucket({ timestamp: 10n, ...overrides });
-
-      /** Wires the parent-bucket lookup and the bundle read for a proposal that consumes `eligibleBucket()`. */
+    // The messages the proposer consumed are on L1 by construction, so a prefix this node cannot confirm is
+    // (usually) local archiver lag, not a divergence: the handler forces a sync and re-checks until the attestation
+    // deadline instead of dropping the attestation on the spot. Both prefix outcomes are waited out — a node that
+    // has not followed a reorg yet holds a *present* but non-canonical hash, which looks identical from here.
+    describe('prefix sync wait', () => {
+      /** Wires the bundle read for a proposal whose prefix check passes. */
       function mockAcceptedSurroundings() {
-        l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
-          eligibleBucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),
-        );
-        l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue([new Fr(1000), new Fr(1001)]);
+        l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue([new Fr(1000), new Fr(1001)]);
       }
 
-      it('attests once the referenced bucket shows up on a later archiver sync', async () => {
-        const ref = new InboxBucketRef(new Fr(0xabc));
+      it('attests once the referenced prefix shows up on a later archiver sync', async () => {
+        const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
         const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
         mockAcceptedSurroundings();
-        // Unknown on arrival, synced by the time the wait re-checks.
-        l1ToL2MessageSource.getInboxBucketByRollingHash
+        // Unsynced on arrival, present by the time the wait re-checks.
+        l1ToL2MessageSource.getInboxRollingHashAt
           .mockResolvedValueOnce(undefined)
-          .mockResolvedValue(eligibleBucket());
-        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: undefined } as any);
+          .mockResolvedValue(PROPOSED_PREFIX_HASH);
+        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue(await makeSuccessfulReexecution());
 
-        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+        const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
 
         expect(result.isValid).toBe(true);
         expect(result.blockNumber).toEqual(BlockNumber(INITIAL_L2_BLOCK_NUM));
       });
 
-      it('rejects with bucket_unknown when the bucket never syncs, no earlier than the deadline', async () => {
-        const ref = new InboxBucketRef(new Fr(0xabc));
+      // The A-1393 behavior a hard mismatch reject would have broken: this node may be the stale side of the reorg,
+      // in which case it holds a present-but-wrong hash at that count and the forced sync fixes it.
+      it('attests once the forced sync replaces our stale prefix with the canonical one', async () => {
+        const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
+        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
+        mockAcceptedSurroundings();
+        l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(new Fr(0xdead));
+        blockSource.syncImmediate.mockImplementation(() => {
+          l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(PROPOSED_PREFIX_HASH);
+          return Promise.resolve();
+        });
+        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue(await makeSuccessfulReexecution());
+
+        const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
+
+        expect(result.isValid).toBe(true);
+        expect(blockSource.syncImmediate).toHaveBeenCalled();
+      });
+
+      it('rejects with prefix_unavailable when the prefix never syncs, no earlier than the deadline', async () => {
+        const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
         const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref, {
           nowMs: BEFORE_DEADLINE_MS,
         });
         mockAcceptedSurroundings();
-        l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(undefined);
+        l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(undefined);
 
         const startMs = Date.now();
-        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+        const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
         const elapsedMs = Date.now() - startMs;
 
         expect(result).toEqual({
           isValid: false,
           blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-          reason: 'bucket_unknown',
+          reason: 'prefix_unavailable',
         });
         // The wait runs out the remaining budget and gives up within one retry interval of the deadline.
         expect(elapsedMs).toBeGreaterThanOrEqual(WAIT_BUDGET_MS - 100);
@@ -1285,24 +1454,43 @@ describe('ProposalHandler checkpoint validation', () => {
         expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
       });
 
-      it('rejects immediately without syncing when the attestation deadline has already passed', async () => {
-        const ref = new InboxBucketRef(new Fr(0xabc));
-        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: PAST_DEADLINE_MS });
+      it('rejects with prefix_mismatch only after waiting out the same budget', async () => {
+        const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
+        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
         mockAcceptedSurroundings();
-        l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(undefined);
+        l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(new Fr(0xdead));
 
-        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+        const startMs = Date.now();
+        const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
+        const elapsedMs = Date.now() - startMs;
 
         expect(result).toEqual({
           isValid: false,
           blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-          reason: 'bucket_unknown',
+          reason: 'prefix_mismatch',
+        });
+        expect(elapsedMs).toBeGreaterThanOrEqual(WAIT_BUDGET_MS - 100);
+        expect(blockSource.syncImmediate).toHaveBeenCalled();
+      });
+
+      it('rejects immediately without syncing when the attestation deadline has already passed', async () => {
+        const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
+        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: PAST_DEADLINE_MS });
+        mockAcceptedSurroundings();
+        l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(undefined);
+
+        const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
+
+        expect(result).toEqual({
+          isValid: false,
+          blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+          reason: 'prefix_unavailable',
         });
         // With no budget left there is nothing to wait for, so the archiver is not poked at all.
         expect(blockSource.syncImmediate).not.toHaveBeenCalled();
       });
 
-      it('rejects immediately without syncing when the proposal carries no bucket reference', async () => {
+      it('rejects immediately without syncing when the proposal carries no prefix reference', async () => {
         const { proposal, blockHandler } = await setupStreamingProposal(undefined, {
           nowMs: BEFORE_DEADLINE_MS,
         });
@@ -1312,77 +1500,24 @@ describe('ProposalHandler checkpoint validation', () => {
         expect(result).toEqual({
           isValid: false,
           blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-          reason: 'bucket_unknown',
+          reason: 'prefix_unavailable',
         });
         expect(blockSource.syncImmediate).not.toHaveBeenCalled();
       });
 
-      // Under immediate consumption a proposer can consume a bucket whose L1 block is then reorged and re-mined at
-      // a different timestamp. The rolling hash commits to the messages alone, so a re-time leaves it unchanged and
-      // the proposal stays valid against a validator still holding the pre-reorg bucket.
-      it('attests to a proposal referencing a re-timed bucket, whose rolling hash a re-time leaves alone', async () => {
-        const ref = new InboxBucketRef(new Fr(0xabc));
+      // A reorg that only re-times or re-partitions a bucket leaves every message where it was, so the prefix hash
+      // at the block's end count is unchanged and no wait is needed at all.
+      it('attests without syncing when only the bucket metadata moved', async () => {
+        const ref = new InboxBucketRef(PROPOSED_PREFIX_HASH);
         const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
         mockAcceptedSurroundings();
-        // This node still holds the orphaned block's timestamp; the reference carries only the rolling hash.
-        l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(eligibleBucket({ timestamp: 14n }));
-        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: undefined } as any);
+        l1ToL2MessageSource.getInboxRollingHashAt.mockResolvedValue(PROPOSED_PREFIX_HASH);
+        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue(await makeSuccessfulReexecution());
 
-        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+        const result = await blockHandler.handleBlockProposal(proposal, proposalSender, true);
 
         expect(result.isValid).toBe(true);
         expect(blockSource.syncImmediate).not.toHaveBeenCalled();
-      });
-
-      it('attests to a proposal whose bucket now sits at a different sequence number', async () => {
-        // An earlier reorg merged buckets on this node, renumbering the one the proposer consumed at seq 2. The
-        // reference carries only the rolling hash, so the bucket is found at whatever sequence number it now has.
-        const ref = new InboxBucketRef(new Fr(0xabc));
-        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
-        mockAcceptedSurroundings();
-        l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(eligibleBucket({ seq: 1n }));
-        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: undefined } as any);
-
-        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
-
-        expect(result.isValid).toBe(true);
-        expect(blockSource.syncImmediate).not.toHaveBeenCalled();
-      });
-
-      it('rejects with bucket_unknown when no local bucket carries the rolling hash', async () => {
-        // "Not synced yet" and "reorged away" are indistinguishable to a validator: both leave no local bucket
-        // carrying the hash, and both are an unknown bucket.
-        const ref = new InboxBucketRef(new Fr(0xabc));
-        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: PAST_DEADLINE_MS });
-        mockAcceptedSurroundings();
-        l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(undefined);
-
-        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
-
-        expect(result).toEqual({
-          isValid: false,
-          blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-          reason: 'bucket_unknown',
-        });
-      });
-
-      it('attests when the forced sync replaces our stale bucket with the proposed one', async () => {
-        // This validator held the orphaned side of an L1 reorg, so no local bucket carries the proposed hash until
-        // the forced sync rolls it back and re-syncs.
-        const ref = new InboxBucketRef(new Fr(0xabc));
-        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
-        mockAcceptedSurroundings();
-        l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(undefined);
-        blockSource.syncImmediate.mockImplementation(() => {
-          l1ToL2MessageSource.getInboxBucketByRollingHash.mockResolvedValue(eligibleBucket());
-          return Promise.resolve();
-        });
-        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: undefined } as any);
-
-        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
-
-        expect(result.isValid).toBe(true);
-        expect(result.blockNumber).toEqual(BlockNumber(INITIAL_L2_BLOCK_NUM));
       });
     });
   });
@@ -1426,15 +1561,62 @@ describe('ProposalHandler checkpoint validation', () => {
       );
     }
 
+    /**
+     * The rolling hash `makeCheckpointHeader(0, ...)` commits to. The final consumed position must resolve to a
+     * current bucket carrying exactly this hash, which is what L1 reads out of the `bucketHint` bucket.
+     */
+    const CHECKPOINT_ROLLING_HASH = new Fr(0x215);
+
+    /** The current bucket the checkpoint's final position ends on, carrying the header's rolling hash. */
+    const finalBucket = (overrides: Partial<InboxBucket> = {}): InboxBucket => ({
+      ...genesisBucket,
+      seq: 1n,
+      totalMsgCount: 2n,
+      inboxRollingHash: CHECKPOINT_ROLLING_HASH,
+      ...overrides,
+    });
+
+    it('refuses to attest when the final position resolves to no current bucket', async () => {
+      // Only the completed checkpoint's endpoint is held to the boundary rule: L1 reads the header's rolling hash
+      // out of the bucket the hint names, so an interior endpoint is one `propose` would revert on. Reported apart
+      // from insufficient consumption, and never as sufficient just because it could not be resolved.
+      handler.updateConfig(config);
+      const { archiveRoot } = setupCensorshipMocks(2);
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(undefined);
+
+      const result = await handler.handleCheckpointProposal(await makeSlot10Proposal(archiveRoot), proposalInfo);
+
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'inbox_final_endpoint_unresolved',
+        checkpointNumber: CheckpointNumber(1),
+      });
+      expect(SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT['inbox_final_endpoint_unresolved']).toBe(false);
+    });
+
+    it('refuses to attest when the final bucket carries a different rolling hash', async () => {
+      handler.updateConfig(config);
+      const { archiveRoot } = setupCensorshipMocks(2);
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
+        finalBucket({ inboxRollingHash: new Fr(0xdead) }),
+      );
+
+      const result = await handler.handleCheckpointProposal(await makeSlot10Proposal(archiveRoot), proposalInfo);
+
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'inbox_final_endpoint_mismatch',
+        checkpointNumber: CheckpointNumber(1),
+      });
+      expect(SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT['inbox_final_endpoint_mismatch']).toBe(false);
+    });
+
     it('refuses to attest when a mandatory bucket (at or before the cutoff) is left unconsumed', async () => {
       handler.updateConfig(config);
       const { archiveRoot } = setupCensorshipMocks(2);
       // cutoff(slot=10) is the build frame start: with l1GenesisTime=0, slotDuration=24 and
       // ethereumSlotDuration=4 that is (10-1)*24 - 4 = 212.
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
-        seq: 1n,
-        totalMsgCount: 2n,
-      } as InboxBucket);
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(finalBucket());
       // The next (first unconsumed) bucket opened at t=100 <= cutoff 212 is mandatory and was left unconsumed.
       l1ToL2MessageSource.getInboxBucket.mockResolvedValue({
         seq: 2n,
@@ -1454,10 +1636,7 @@ describe('ProposalHandler checkpoint validation', () => {
     it('does not reject on censorship when the first unconsumed bucket is past the cutoff', async () => {
       handler.updateConfig(config);
       const { archiveRoot } = setupCensorshipMocks(2);
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
-        seq: 1n,
-        totalMsgCount: 2n,
-      } as InboxBucket);
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(finalBucket());
       // Next bucket opened at t=213 > cutoff 212: not mandatory, so the censorship check passes and validation
       // proceeds past it to the checkpoint rebuild (which mismatches here, an unrelated reason).
       l1ToL2MessageSource.getInboxBucket.mockResolvedValue({

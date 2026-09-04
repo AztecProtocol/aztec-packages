@@ -150,6 +150,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     input: z.tuple([schemas.Fr]),
     output: InboxBucketSchema.optional(),
   }),
+  getInboxRollingHashAt: z.function({ input: z.tuple([schemas.BigInt]), output: schemas.Fr.optional() }),
   getL1ToL2MessagesBetweenBuckets: z.function({
     input: z.tuple([schemas.BigInt, schemas.BigInt]),
     output: z.array(schemas.Fr),
