@@ -555,6 +555,22 @@ mod tests {
         )
     }
 
+    fn assert_tx_effects_tree_leaf_changed(
+        tx_effect: TxEffect,
+        array_lengths: TxEffectArrayLengths,
+        contract_class_log_hashes: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+        original_leaf: Field,
+    ) {
+        assert(
+            compute_tx_effects_tree_leaf_with_reused_hashes(
+                tx_effect,
+                array_lengths,
+                contract_class_log_hashes,
+            )
+                != original_leaf,
+        );
+    }
+
     #[test]
     fn category_mutations_change_leaf() {
         let (tx_effect, array_lengths) = small_fixture();
@@ -567,91 +583,75 @@ mod tests {
 
         let (mut changed_note_hash, _) = small_fixture();
         changed_note_hash.note_hashes[0] += 1;
-        assert(
-            compute_tx_effects_tree_leaf_with_reused_hashes(
-                changed_note_hash,
-                array_lengths,
-                contract_class_log_hashes,
-            )
-                != original_leaf,
+        assert_tx_effects_tree_leaf_changed(
+            changed_note_hash,
+            array_lengths,
+            contract_class_log_hashes,
+            original_leaf,
         );
 
         let (mut changed_nullifier, _) = small_fixture();
         changed_nullifier.nullifiers[0] += 1;
-        assert(
-            compute_tx_effects_tree_leaf_with_reused_hashes(
-                changed_nullifier,
-                array_lengths,
-                contract_class_log_hashes,
-            )
-                != original_leaf,
+        assert_tx_effects_tree_leaf_changed(
+            changed_nullifier,
+            array_lengths,
+            contract_class_log_hashes,
+            original_leaf,
         );
 
         let (mut changed_l2_to_l1_msg, _) = small_fixture();
         changed_l2_to_l1_msg.l2_to_l1_msgs[0] += 1;
-        assert(
-            compute_tx_effects_tree_leaf_with_reused_hashes(
-                changed_l2_to_l1_msg,
-                array_lengths,
-                contract_class_log_hashes,
-            )
-                != original_leaf,
+        assert_tx_effects_tree_leaf_changed(
+            changed_l2_to_l1_msg,
+            array_lengths,
+            contract_class_log_hashes,
+            original_leaf,
         );
 
         let (mut changed_public_data_write, _) = small_fixture();
         changed_public_data_write.public_data_writes[0].value += 1;
-        assert(
-            compute_tx_effects_tree_leaf_with_reused_hashes(
-                changed_public_data_write,
-                array_lengths,
-                contract_class_log_hashes,
-            )
-                != original_leaf,
+        assert_tx_effects_tree_leaf_changed(
+            changed_public_data_write,
+            array_lengths,
+            contract_class_log_hashes,
+            original_leaf,
         );
 
         let (mut changed_private_log, _) = small_fixture();
         changed_private_log.private_logs[0].fields[0] += 1;
-        assert(
-            compute_tx_effects_tree_leaf_with_reused_hashes(
-                changed_private_log,
-                array_lengths,
-                contract_class_log_hashes,
-            )
-                != original_leaf,
+        assert_tx_effects_tree_leaf_changed(
+            changed_private_log,
+            array_lengths,
+            contract_class_log_hashes,
+            original_leaf,
         );
 
         let (mut changed_public_log, _) = small_fixture();
         changed_public_log.public_logs.payload[2] += 1;
-        assert(
-            compute_tx_effects_tree_leaf_with_reused_hashes(
-                changed_public_log,
-                array_lengths,
-                contract_class_log_hashes,
-            )
-                != original_leaf,
+        assert_tx_effects_tree_leaf_changed(
+            changed_public_log,
+            array_lengths,
+            contract_class_log_hashes,
+            original_leaf,
         );
 
         let (mut changed_contract_class_log_address, _) = small_fixture();
         changed_contract_class_log_address.contract_class_logs[0].contract_address =
             AztecAddress::from_field(CONTRACT_CLASS_LOG_ADDRESS + 1);
-        assert(
-            compute_tx_effects_tree_leaf_with_reused_hashes(
-                changed_contract_class_log_address,
-                array_lengths,
-                contract_class_log_hashes,
-            )
-                != original_leaf,
+        assert_tx_effects_tree_leaf_changed(
+            changed_contract_class_log_address,
+            array_lengths,
+            contract_class_log_hashes,
+            original_leaf,
         );
 
         let mut changed_contract_class_log_hashes = contract_class_log_hashes;
         changed_contract_class_log_hashes[0] += 1;
-        assert(
-            compute_tx_effects_tree_leaf_with_reused_hashes(
-                tx_effect,
-                array_lengths,
-                changed_contract_class_log_hashes,
-            )
-                != original_leaf,
+        assert_tx_effects_tree_leaf_changed(
+            tx_effect,
+            array_lengths,
+            changed_contract_class_log_hashes,
+            original_leaf,
         );
     }
 
