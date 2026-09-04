@@ -813,6 +813,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     }
     this.sequencer?.updateConfig(sequencerUpdate);
     this.automineSequencer?.updateConfig(sequencerUpdate);
+    this.nodePublicCallsSimulator.updateConfig(config);
     this.slasherClient?.updateConfig(config);
     this.validatorsSentinel?.updateConfig(config);
     await this.p2pClient.updateP2PConfig(config);

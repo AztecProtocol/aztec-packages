@@ -988,14 +988,14 @@ export class ProposalHandler {
   }
 
   /**
-   * Runs the streaming-Inbox metadata checks, waiting out a local sync lag. A bucket the proposer consumed is at
-   * least one Ethereum slot old, so it is on L1 by the time the proposal arrives: a bucket this node cannot
-   * resolve is almost always its own archiver trailing L1, not a divergence. That case (and the equivalent one
-   * where the block before the checkpoint's first block has not synced) forces an archiver sync and re-checks
-   * every half second until it resolves or the attestation deadline passes, instead of dropping the attestation
-   * on the spot. A hash mismatch on a bucket we do know gets exactly one forced sync and one re-check, because
-   * this node may be the stale side of an L1 reorg and that sync performs the rollback; a mismatch that survives
-   * it will not resolve by waiting. Every other reason is a structural rejection and returns immediately.
+   * Runs the streaming-Inbox metadata checks, waiting out a local sync lag. A bucket the proposer consumed is on L1
+   * by the time the proposal arrives, so a bucket this node cannot resolve by rolling hash is usually its own
+   * archiver trailing L1 — or this node being the stale side of an L1 reorg, which the forced sync rolls back. The
+   * two are indistinguishable from here (a reorg that changed the messages leaves no bucket carrying the hash
+   * either), so both cases (and the equivalent one where the block before the checkpoint's first block has not
+   * synced) force an archiver sync and re-check every half second until the bucket resolves or the attestation
+   * deadline passes, instead of dropping the attestation on the spot. Every other reason is a structural rejection
+   * and returns immediately.
    *
    * The wait is bounded by the same consensus deadline as the other sync waits here, so a proposer referencing a
    * bucket that never appears can at most make validators poll their own archiver for the remainder of its own
@@ -1009,50 +1009,26 @@ export class ProposalHandler {
   ): Promise<StreamingBlockMetadataCheckResult> {
     const first = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
     const bucketRef = proposal.bucketRef;
-    if (first.accepted || bucketRef === undefined) {
+    if (first.accepted || bucketRef === undefined || first.reason !== 'bucket_unknown') {
       return first;
     }
 
     const slotNumber = proposal.slotNumber;
-    const bucketSeq = bucketRef.bucketSeq;
-    const outOfBudget = this.getReexecutionDeadline(slotNumber).getTime() - this.dateProvider.now() <= 0;
-
-    if (first.reason === 'bucket_hash_mismatch') {
-      if (outOfBudget) {
-        return first;
-      }
-      await this.blockSource.syncImmediate();
-      const rechecked = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
-      if (!rechecked.accepted && rechecked.reason === 'bucket_hash_mismatch') {
-        this.log.warn(`Inbox bucket ${bucketSeq} still disagrees with the proposal after forcing an archiver sync`, {
-          reason: 'bucket_hash_mismatch_after_sync',
-          bucketSeq,
-          expected: bucketRef.inboxRollingHash.toString(),
-          actual: (await this.l1ToL2MessageSource.getInboxBucket(bucketSeq))?.inboxRollingHash.toString(),
-          ...proposalInfo,
-        });
-      }
-      return rechecked;
-    }
-
-    if (first.reason !== 'bucket_unknown') {
-      return first;
-    }
-
-    this.log.info(`Referenced Inbox bucket ${bucketSeq} not synced locally, awaiting archiver sync`, {
-      bucketSeq,
+    const inboxRollingHash = bucketRef.inboxRollingHash.toString();
+    this.log.info(`Referenced Inbox bucket ${inboxRollingHash} not synced locally, awaiting archiver sync`, {
+      inboxRollingHash,
       ...proposalInfo,
     });
     const timer = new Timer();
-    const resolved = await this.awaitLocalSync(slotNumber, `inbox bucket ${bucketSeq}`, async () => {
+    const resolved = await this.awaitLocalSync(slotNumber, `inbox bucket ${inboxRollingHash}`, async () => {
       const result = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
       return !result.accepted && result.reason === 'bucket_unknown' ? undefined : result;
     });
     if (resolved === undefined) {
-      this.log.warn(`Timed out waiting for Inbox bucket ${bucketSeq} to sync, rejecting proposal`, {
+      this.log.warn(`Timed out waiting for Inbox bucket ${inboxRollingHash} to sync, rejecting proposal`, {
         reason: 'bucket_sync_timeout',
         slot: slotNumber,
-        bucketSeq,
+        inboxRollingHash,
         waitedMs: timer.ms(),
         ...proposalInfo,
       });

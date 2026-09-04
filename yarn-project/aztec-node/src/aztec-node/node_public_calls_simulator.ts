@@ -7,12 +7,13 @@ import {
   type SimulationOverridesPlan,
 } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { compactArray } from '@aztec/foundation/collection';
+import { compact, compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import {
+  DEFAULT_INBOX_L1_CONFIRMATIONS,
   InboxBucketConfirmationTracker,
   type InboxBucketEligibility,
   type InboxBucketSource,
@@ -25,6 +26,7 @@ import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource, L2Tips } from '@aztec/stdlib/block';
 import { type ProposedCheckpointData, buildCheckpointSimulationOverridesPlan } from '@aztec/stdlib/checkpoint';
+import type { InboxL1Confirmations } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, appendL1ToL2MessagesToTree, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
@@ -55,6 +57,11 @@ export interface NodePublicCallsSimulatorConfig {
    * next-block prediction must not wait for an L1 confirmation the local chain will never produce on its own.
    */
   useAutomineSequencer?: boolean;
+  /**
+   * How many L1 confirmations the proposer waits for before consuming an Inbox bucket. The prediction has to apply
+   * the same rule, so it reads the sequencer's own setting.
+   */
+  inboxL1Confirmations?: InboxL1Confirmations;
 }
 
 /** Dependencies required to build a {@link NodePublicCallsSimulator}. */
@@ -119,7 +126,7 @@ export class NodePublicCallsSimulator {
   private readonly epochCache: EpochCacheInterface;
   private readonly signatureContext: CoordinationSignatureContext;
   private readonly l1Client: L1BlockReader | undefined;
-  private readonly config: NodePublicCallsSimulatorConfig;
+  private config: NodePublicCallsSimulatorConfig;
   /**
    * Shared by every simulation on this node. Its confirmations are permanent facts about L1, so a node-lifetime
    * cache is correct and keeps the RPC cost of the prediction near zero; its rejections expire every second.
@@ -144,6 +151,16 @@ export class NodePublicCallsSimulator {
     this.avmSimulator = deps.avmSimulator;
     this.telemetry = deps.telemetry ?? getTelemetryClient();
     this.log = deps.log ?? createLogger('node:public-calls-simulator');
+  }
+
+  /**
+   * Applies a runtime config update. The node replaces its own config object wholesale when an operator changes a
+   * setting, so the simulator is told about the change rather than reading through to it; otherwise a new
+   * `inboxL1Confirmations` would move the sequencer to a different consumption rule while the next-block prediction
+   * kept applying the old one. Keys absent from the update keep their current value.
+   */
+  public updateConfig(config: Partial<NodePublicCallsSimulatorConfig>): void {
+    this.config = { ...this.config, ...compact(config) };
   }
 
   /**
@@ -332,11 +349,15 @@ export class NodePublicCallsSimulator {
   /**
    * The eligibility rule the next proposer is expected to apply. It has to match the sequencer's: a transaction
    * simulated against a bundle no proposer will consume yet enters the pool and then fails when the block that
-   * includes it consumes less. Automine, and any node without an L1 client, never waits, so those predict against
-   * every synced bucket instead.
+   * includes it consumes less. So it follows the same `inboxL1Confirmations` setting the proposer does. Automine,
+   * and any node without an L1 client, never wait, so those predict against every synced bucket regardless.
    */
   private getInboxBucketEligibility(ethereumSlotDuration: number): InboxBucketEligibility {
-    if (this.config.useAutomineSequencer || this.l1Client === undefined) {
+    if (
+      (this.config.inboxL1Confirmations ?? DEFAULT_INBOX_L1_CONFIRMATIONS) === 0 ||
+      this.config.useAutomineSequencer ||
+      this.l1Client === undefined
+    ) {
       return immediateEligibility;
     }
     this.inboxBucketConfirmations ??= new InboxBucketConfirmationTracker({

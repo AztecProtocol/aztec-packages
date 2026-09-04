@@ -36,6 +36,13 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     return Promise.resolve([...this.buckets.values()].find(bucket => bucket.totalMsgCount === totalMsgCount));
   }
 
+  getInboxBucketByRollingHash(inboxRollingHash: Fr): Promise<InboxBucket | undefined> {
+    if (inboxRollingHash.isZero()) {
+      return Promise.resolve(this.buckets.get(0n));
+    }
+    return Promise.resolve([...this.buckets.values()].find(bucket => bucket.inboxRollingHash.equals(inboxRollingHash)));
+  }
+
   getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
     const atOrBefore = [...this.buckets.values()]
       .filter(bucket => bucket.timestamp <= timestamp)

@@ -2,7 +2,7 @@ import { type L1ContractAddresses, pickL1ContractAddressMappings } from '@aztec/
 import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-export { type SequencerConfig, SequencerConfigSchema } from '../interfaces/configs.js';
+export { type InboxL1Confirmations, type SequencerConfig, SequencerConfigSchema } from '../interfaces/configs.js';
 export { type AllowedElement } from '../interfaces/allowed_element.js';
 
 export const emptyChainConfig: ChainConfig = {

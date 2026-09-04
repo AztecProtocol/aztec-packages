@@ -26,7 +26,7 @@ describe('InboxBucket', () => {
 
 describe('InboxBucketRef', () => {
   it('serializes and deserializes round-trip', () => {
-    const ref = new InboxBucketRef(42n, 1_700_000_000n, Fr.random());
+    const ref = new InboxBucketRef(Fr.random());
     const deserialized = InboxBucketRef.fromBuffer(ref.toBuffer());
     expect(deserialized).toEqual(ref);
     expect(deserialized.equals(ref)).toBe(true);
@@ -38,19 +38,15 @@ describe('InboxBucketRef', () => {
     expect(ref.getSize()).toBe(InboxBucketRef.SIZE);
   });
 
-  it('equals distinguishes each component', () => {
-    const ref = new InboxBucketRef(7n, 100n, new Fr(9n));
-    expect(ref.equals(new InboxBucketRef(8n, 100n, new Fr(9n)))).toBe(false);
-    expect(ref.equals(new InboxBucketRef(7n, 101n, new Fr(9n)))).toBe(false);
-    expect(ref.equals(new InboxBucketRef(7n, 100n, new Fr(10n)))).toBe(false);
-    expect(ref.equals(new InboxBucketRef(7n, 100n, new Fr(9n)))).toBe(true);
+  it('equals compares the rolling hash', () => {
+    const ref = new InboxBucketRef(new Fr(9n));
+    expect(ref.equals(new InboxBucketRef(new Fr(10n)))).toBe(false);
+    expect(ref.equals(new InboxBucketRef(new Fr(9n)))).toBe(true);
   });
 
   it('derives from a bucket snapshot', () => {
     const bucket = makeBucket();
     const ref = InboxBucketRef.fromBucket(bucket);
-    expect(ref.bucketSeq).toBe(bucket.seq);
-    expect(ref.bucketTimestamp).toBe(bucket.timestamp);
     expect(ref.inboxRollingHash).toEqual(bucket.inboxRollingHash);
   });
 

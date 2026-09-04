@@ -7,7 +7,6 @@ import type { InboxBucket, InboxBucketRef, L1ToL2MessageSource } from '@aztec/st
  */
 export type StreamingBlockCheckReason =
   | 'bucket_unknown'
-  | 'bucket_hash_mismatch'
   | 'parent_bucket_unresolved'
   | 'bucket_moves_backwards'
   | 'bundle_over_block_cap'
@@ -16,14 +15,14 @@ export type StreamingBlockCheckReason =
 /** The subset of the archiver's Inbox-bucket queries the per-block streaming checks need. */
 export type StreamingInboxBucketSource = Pick<
   L1ToL2MessageSource,
-  'getInboxBucket' | 'getInboxBucketByTotalMsgCount' | 'getL1ToL2MessagesBetweenBuckets'
+  'getInboxBucketByRollingHash' | 'getInboxBucketByTotalMsgCount' | 'getL1ToL2MessagesBetweenBuckets'
 >;
 
 /** Inputs to the per-block streaming Inbox metadata checks. */
 export type StreamingBlockMetadataCheckInput = {
   /** Archiver Inbox-bucket queries (resolved against this node's own Inbox view). */
-  messageSource: Pick<StreamingInboxBucketSource, 'getInboxBucket' | 'getInboxBucketByTotalMsgCount'>;
-  /** The proposal's bucket reference: `bucketSeq` is the lookup hint, `inboxRollingHash` the expected commitment. */
+  messageSource: Pick<StreamingInboxBucketSource, 'getInboxBucketByRollingHash' | 'getInboxBucketByTotalMsgCount'>;
+  /** The proposal's bucket reference: the rolling hash of the bucket the block consumed through. */
   bucketRef: InboxBucketRef | undefined;
   /** Cumulative Inbox message count consumed through the parent block (its L1-to-L2 tree leaf count; 0 at genesis). */
   parentTotalMsgCount: bigint;
@@ -78,12 +77,13 @@ export type StreamingBlockCheckResult =
  * every check that is a bounded number of point lookups against the local Inbox view, with no message data read.
  * Mirrors the L1 acceptance conditions:
  *
- * 1. **Exists**: the referenced bucket resolves in this node's own Inbox view, and its consensus rolling hash matches
- *    the reference. An unknown bucket is an immediate reject here; the caller decides whether it is worth waiting for
- *    a local sync and re-running the checks (the validator's proposal handler does, bounded by the attestation
- *    deadline). A hash mismatch means the wire reference disagrees with the local bucket. The reference is trusted
- *    only as a `bucketSeq` lookup hint — timestamp and message counts are read from the locally resolved bucket,
- *    never from the wire.
+ * 1. **Exists**: a bucket carrying the referenced rolling hash resolves in this node's own Inbox view. The hash
+ *    commits to every message up to the bucket, so it is the bucket's identity: a bucket an L1 reorg re-timed or
+ *    renumbered still resolves, and one whose messages changed does not. An unknown bucket is an immediate reject
+ *    here; the caller decides whether it is worth waiting for a local sync and re-running the checks (the validator's
+ *    proposal handler does, bounded by the attestation deadline), since "not synced yet" and "reorged away" look the
+ *    same from here. Sequence number, timestamp and message counts are read from the locally resolved bucket, never
+ *    from the wire.
  * 2. **Moves forward**: the bucket's cumulative total is at least the parent block's, so consumption never rewinds.
  *    Equal totals mean the block consumes nothing (empty bundle).
  * 3. **Caps**: the per-block message count and the running per-checkpoint total fit their respective caps.
@@ -114,13 +114,10 @@ export async function checkStreamingBlockProposalMetadata(
     return { accepted: false, reason: 'bucket_unknown' };
   }
 
-  // Check 1: exists in our own Inbox view, and the resolved rolling hash matches the reference.
-  const bucket = await messageSource.getInboxBucket(bucketRef.bucketSeq);
+  // Check 1: a bucket carrying the referenced rolling hash exists in our own Inbox view.
+  const bucket = await messageSource.getInboxBucketByRollingHash(bucketRef.inboxRollingHash);
   if (bucket === undefined) {
     return { accepted: false, reason: 'bucket_unknown' };
-  }
-  if (!bucket.inboxRollingHash.equals(bucketRef.inboxRollingHash)) {
-    return { accepted: false, reason: 'bucket_hash_mismatch' };
   }
 
   // Check 2: consumption moves forward relative to the parent block.

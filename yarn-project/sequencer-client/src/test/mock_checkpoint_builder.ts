@@ -43,6 +43,13 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
   /** Set to an error to make buildBlock throw on next call */
   public errorOnBuild: Error | undefined = undefined;
 
+  /**
+   * Inbox rolling hash to seal into the checkpoint header, standing in for the commitment the real builder derives
+   * from the messages its blocks consumed. Streaming tests set it to the rolling hash of the bucket they seed, so
+   * lookups keyed on the header commitment resolve to that bucket instead of to the genesis sentinel.
+   */
+  public inboxRollingHash: Fr = Fr.ZERO;
+
   constructor(
     private readonly constants: CheckpointGlobalVariables,
     private readonly checkpointNumber: CheckpointNumber,
@@ -162,6 +169,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
       feeRecipient: gv.feeRecipient,
       gasFees: gv.gasFees,
       totalManaUsed: lastBlock.header.totalManaUsed,
+      inboxRollingHash: this.inboxRollingHash,
     });
 
     return new Checkpoint(
@@ -188,6 +196,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     this.buildBlockCalls = [];
     this.errorOnBuild = undefined;
     this.blockProvider = undefined;
+    this.inboxRollingHash = Fr.ZERO;
     this.resetCheckpointState();
   }
 }

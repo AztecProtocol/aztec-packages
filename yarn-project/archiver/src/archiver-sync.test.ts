@@ -1607,6 +1607,10 @@ describe('Archiver Sync', () => {
         l1BlockHash: fake.getL1BlockHash(101n),
       });
       expect(countReorgWarnings(warnSpy)).toEqual(1);
+      // A proposer that consumed this bucket before the reorg re-resolves its hint to the same sequence number.
+      expect(await archiverStore.messages.getInboxBucketByRollingHash(before!.inboxRollingHash)).toMatchObject({
+        seq: 1n,
+      });
     });
 
     it('merges two buckets when a reorg re-mines a block into the next one', async () => {
@@ -1619,6 +1623,8 @@ describe('Archiver Sync', () => {
 
       expect(await archiverStore.messages.getInboxBucket(1n)).toMatchObject({ msgCount: 2, totalMsgCount: 2n });
       expect(await archiverStore.messages.getInboxBucket(2n)).toMatchObject({ msgCount: 1, totalMsgCount: 3n });
+      // The rolling hash a checkpoint consuming both buckets would have committed to.
+      const consumedRollingHash = (await archiverStore.messages.getInboxBucket(2n))!.inboxRollingHash;
 
       fake.retimeMessages(100n, 101n);
       fake.setL1BlockNumber(111n);
@@ -1634,6 +1640,9 @@ describe('Archiver Sync', () => {
         timestamp: fake.getTimestampAtL1Block(101n),
       });
       expect(await archiverStore.messages.getInboxBucket(2n)).toBeUndefined();
+      // A proposer that had consumed through the old bucket 2 re-resolves its propose hint to the merged bucket 1,
+      // which is what keeps the checkpoint it already sealed publishable.
+      expect(await archiverStore.messages.getInboxBucketByRollingHash(consumedRollingHash)).toMatchObject({ seq: 1n });
     });
 
     it('splits a bucket when the co-timestamped L1 block it closed in is reorged', async () => {
@@ -1703,6 +1712,9 @@ describe('Archiver Sync', () => {
       expect(await getStoredLeaves()).toEqual(asHex([...msgs1, msgs2[1], msgs2[0]]));
       expect(await archiverStore.messages.getInboxBucket(1n)).toEqual(canonicalBucket);
       expect((await archiverStore.messages.getInboxBucket(2n))!.inboxRollingHash).not.toEqual(rollingHashBefore);
+      // No bucket carries the old hash any more, so a proposer that consumed through it abandons its slot rather
+      // than publishing a hint that no longer matches the header it sealed.
+      expect(await archiverStore.messages.getInboxBucketByRollingHash(rollingHashBefore)).toBeUndefined();
     });
 
     it('detects a reorg that re-mines the L1 head at the same height', async () => {

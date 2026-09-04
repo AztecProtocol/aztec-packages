@@ -13,6 +13,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { ManualDateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
@@ -69,6 +70,7 @@ import {
   makeBlock,
   makeProposerTimetable,
   makeTx,
+  mockInboxBuckets,
   mockPendingTxs,
   mockTxIterator,
   setupTxsAndBlock,
@@ -84,13 +86,14 @@ import { RequestsTracker } from './requests_tracker.js';
  * L1 view in which every bucket's opening block already has a canonical child, so the job's confirmation tracker
  * admits every bucket the archiver mock returns.
  */
-const confirmingL1Client: L1BlockReader = {
-  getBlock: ({ blockNumber }) =>
+const confirmingL1Client = {
+  getBlock: jest.fn(({ blockNumber }: { blockNumber: bigint }) =>
     Promise.resolve({
       hash: Buffer32.fromBigInt(blockNumber).toString(),
       parentHash: Buffer32.fromBigInt(blockNumber - 1n).toString(),
     }),
-};
+  ),
+} satisfies L1BlockReader;
 
 describe('CheckpointProposalJob', () => {
   let publisher: MockProxy<SequencerPublisher>;
@@ -264,17 +267,8 @@ describe('CheckpointProposalJob', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     // Genesis bucket for the empty-tree cursor above; with no newer synced buckets mocked, block bundle
-    // selection consumes nothing by default.
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
-      seq: 0n,
-      inboxRollingHash: Fr.ZERO,
-      totalMsgCount: 0n,
-      timestamp: 0n,
-      msgCount: 0,
-      lastMessageIndex: 0n,
-      l1BlockNumber: 0n,
-      l1BlockHash: Buffer32.ZERO,
-    });
+    // selection consumes nothing by default and the propose bucket hint resolves to the genesis sentinel.
+    mockInboxBuckets(l1ToL2MessageSource);
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);
@@ -381,6 +375,7 @@ describe('CheckpointProposalJob', () => {
       l1Constants,
     });
 
+    confirmingL1Client.getBlock.mockClear();
     job = createCheckpointProposalJob();
   });
 
@@ -1225,6 +1220,7 @@ describe('CheckpointProposalJob', () => {
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets
         .mockResolvedValueOnce([new Fr(1), new Fr(2)])
         .mockResolvedValue([new Fr(3), new Fr(4)]);
+      mockInboxBuckets(l1ToL2MessageSource, [makeBucket(2n, 2n, 1n), makeBucket(3n, 4n, 3n)]);
 
       const { lastBlock } = await setupMultipleBlocks(2, [2, 0]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
@@ -1511,6 +1507,8 @@ describe('CheckpointProposalJob', () => {
       const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+      mockInboxBuckets(l1ToL2MessageSource, [bucket]);
+      checkpointBuilder.inboxRollingHash = bucket.inboxRollingHash;
 
       const { lastBlock } = await setupMultipleBlocks(2, [2, 1]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
@@ -1530,8 +1528,8 @@ describe('CheckpointProposalJob', () => {
       // Both block proposals carry the selected bucket reference (the second reuses the first's).
       const bucketRefArgs = validatorClient.createBlockProposal.mock.calls.map(call => call[7]);
       expect(bucketRefArgs).toHaveLength(2);
-      expect(bucketRefArgs[0]?.bucketSeq).toBe(2n);
-      expect(bucketRefArgs[1]?.bucketSeq).toBe(2n);
+      expect(bucketRefArgs[0]?.inboxRollingHash).toEqual(bucket.inboxRollingHash);
+      expect(bucketRefArgs[1]?.inboxRollingHash).toEqual(bucket.inboxRollingHash);
     });
 
     it('produces a message-only block when a non-empty bundle is selected and no txs are pending', async () => {
@@ -1553,6 +1551,8 @@ describe('CheckpointProposalJob', () => {
       const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+      mockInboxBuckets(l1ToL2MessageSource, [bucket]);
+      checkpointBuilder.inboxRollingHash = bucket.inboxRollingHash;
 
       // Empty tx pool with the min-txs threshold at its default of one and no empty-checkpoint building: the
       // non-empty bundle alone must count as work, producing a zero-tx (message-only) block.
@@ -1593,6 +1593,8 @@ describe('CheckpointProposalJob', () => {
       const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+      mockInboxBuckets(l1ToL2MessageSource, [bucket]);
+      checkpointBuilder.inboxRollingHash = bucket.inboxRollingHash;
 
       // Seed a single message-only block; the second sub-slot has no seeded block, no txs, and no new bucket to
       // consume, so it fails the min-work threshold and no block is held for broadcast.
@@ -1610,6 +1612,181 @@ describe('CheckpointProposalJob', () => {
       // No held last block, yet the bucket hint (4th positional arg) is the consumed bucket seq 2, matching the
       // checkpoint header's rolling hash. Before the fix this fell back to genesis bucket 0n.
       expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(2n);
+    });
+
+    /** Seeds a single pending bucket the checkpoint's only block consumes through. */
+    async function setupSingleBucketCheckpoint(bucket: InboxBucket) {
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, true))
+        .mockReturnValue(noSubslot());
+
+      const bundle = Array.from({ length: Number(bucket.totalMsgCount) }, (_, i) => new Fr(i + 1));
+      l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+      mockInboxBuckets(l1ToL2MessageSource, [bucket]);
+      checkpointBuilder.inboxRollingHash = bucket.inboxRollingHash;
+
+      const { lastBlock } = await setupMultipleBlocks(1, [2]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+      return { bundle, lastBlock };
+    }
+
+    const pendingBucket = (overrides: Partial<InboxBucket> = {}): InboxBucket => ({
+      seq: 2n,
+      inboxRollingHash: new Fr(99),
+      totalMsgCount: 5n,
+      timestamp: 0n,
+      msgCount: 5,
+      lastMessageIndex: 4n,
+      l1BlockNumber: 2n,
+      l1BlockHash: Buffer32.fromBigInt(2n),
+      ...overrides,
+    });
+
+    it('consumes without reading L1 at the default confirmation depth', async () => {
+      const { bundle } = await setupSingleBucketCheckpoint(pendingBucket());
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(checkpointBuilder.buildBlockCalls[0].opts.l1ToL2Messages).toEqual(bundle);
+      // Immediate consumption asks L1 nothing about the bucket's opening block.
+      expect(confirmingL1Client.getBlock).not.toHaveBeenCalled();
+    });
+
+    it('waits for the opening L1 block to gain a descendant when configured to', async () => {
+      config = { ...config, inboxL1Confirmations: 1 };
+      job = createCheckpointProposalJob();
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 3000 }));
+      await setupSingleBucketCheckpoint(pendingBucket());
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      // The bucket is only consumed after its opening block's child is read off L1.
+      expect(confirmingL1Client.getBlock.mock.calls.map(([args]) => args.blockNumber)).toContain(3n);
+    });
+
+    it('publishes the bucket the rolling hash now sits at when an L1 reorg re-seats it', async () => {
+      // The bucket is consumed at sequence 2, then an L1 reorg merges the buckets before it: the messages and
+      // therefore the rolling hash the header commits to are unchanged, but they now live in bucket 1.
+      const bucket = pendingBucket();
+      await setupSingleBucketCheckpoint(bucket);
+      mockInboxBuckets(l1ToL2MessageSource, [{ ...bucket, seq: 1n }]);
+
+      const infoLog = jest.spyOn(job.log, 'info');
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      // The L1 propose hint (4th positional arg) is the re-resolved sequence number, not the one built against.
+      expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(1n);
+      // The signed block proposal carries only the rolling hash, which the merge leaves alone, so validators on
+      // either side of it resolve the same bucket.
+      expect(validatorClient.createBlockProposal.mock.calls[0][7]?.inboxRollingHash).toEqual(bucket.inboxRollingHash);
+      expect(infoLog).toHaveBeenCalledWith(
+        'Inbox bucket reference re-resolved after L1 reorg',
+        expect.objectContaining({ builtSeq: 2n, resolvedSeq: 1n }),
+      );
+    });
+
+    it('re-resolves the hint again for a reorg that lands while attestations are collected', async () => {
+      const bucket = pendingBucket();
+      const { lastBlock } = await setupSingleBucketCheckpoint(bucket);
+      // The merge lands after the proposal is gossiped, so only the pre-submission lookup sees it.
+      validatorClient.collectAttestations.mockImplementation(() => {
+        mockInboxBuckets(l1ToL2MessageSource, [{ ...bucket, seq: 1n }]);
+        return Promise.resolve(getAttestations(lastBlock));
+      });
+
+      const infoLog = jest.spyOn(job.log, 'info');
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(p2p.broadcastCheckpointProposal).toHaveBeenCalledTimes(1);
+      expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(1n);
+      expect(infoLog).toHaveBeenCalledWith(
+        'Inbox bucket hint re-resolved after L1 reorg',
+        expect.objectContaining({ builtSeq: 2n, publishedSeq: 1n }),
+      );
+    });
+
+    it('does not submit when the rolling hash disappears while attestations are collected', async () => {
+      const bucket = pendingBucket();
+      const { lastBlock } = await setupSingleBucketCheckpoint(bucket);
+      validatorClient.collectAttestations.mockImplementation(() => {
+        mockInboxBuckets(l1ToL2MessageSource);
+        return Promise.resolve(getAttestations(lastBlock));
+      });
+
+      const checkpoint = await job.executeAndAwait();
+
+      // The proposal was already gossiped when the reorg landed, but nothing reaches L1.
+      expect(checkpoint).toBeDefined();
+      expect(p2p.broadcastCheckpointProposal).toHaveBeenCalledTimes(1);
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_bucket_reorged');
+    });
+
+    it('does not submit when a mandatory bucket appears while attestations are collected', async () => {
+      const bucket = pendingBucket();
+      const { lastBlock } = await setupSingleBucketCheckpoint(bucket);
+      // A bucket opened well before the censorship cutoff syncs only after the checkpoint was built, so the
+      // position it committed to no longer clears the consumption floor and L1 `propose` would revert.
+      validatorClient.collectAttestations.mockImplementation(() => {
+        l1ToL2MessageSource.getInboxBucket.mockResolvedValue(
+          pendingBucket({ seq: 3n, totalMsgCount: 7n, inboxRollingHash: new Fr(100) }),
+        );
+        return Promise.resolve(getAttestations(lastBlock));
+      });
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(p2p.broadcastCheckpointProposal).toHaveBeenCalledTimes(1);
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_consumption_insufficient');
+    });
+
+    it('aborts the checkpoint before signing when the consumed bucket vanishes at the per-block refresh', async () => {
+      // The block builds against bucket 2, then an L1 reorg reorders the messages before the proposal is signed: no
+      // bucket carries the rolling hash the block consumed through any more. The block is known to be built on
+      // messages the local store no longer holds, so it must never be signed, pushed to the archiver or gossiped.
+      await setupSingleBucketCheckpoint(pendingBucket());
+      mockInboxBuckets(l1ToL2MessageSource);
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeUndefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      expect(validatorClient.createBlockProposal).not.toHaveBeenCalled();
+      expect(blockSink.addBlock).not.toHaveBeenCalled();
+      expect(p2p.broadcastProposal).not.toHaveBeenCalled();
+      expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_bucket_reorged');
+    });
+
+    it('abandons the slot when the rolling hash vanishes after the last block is signed', async () => {
+      // The reorg lands between the block proposal being signed and the checkpoint header being sealed, so the
+      // per-block refresh could not catch it: the block reached the archiver, but no bucket resolves to the header's
+      // rolling hash and nothing is gossiped or published.
+      await setupSingleBucketCheckpoint(pendingBucket());
+      const signBlockProposal = validatorClient.createBlockProposal.getMockImplementation()!;
+      validatorClient.createBlockProposal.mockImplementation((...args) => {
+        mockInboxBuckets(l1ToL2MessageSource);
+        return signBlockProposal(...args);
+      });
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeUndefined();
+      expect(blockSink.addBlock).toHaveBeenCalledTimes(1);
+      expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_bucket_reorged');
     });
 
     it('abandons the checkpoint when the mandatory backlog does not fit the remaining blocks', async () => {
@@ -1637,6 +1814,7 @@ describe('CheckpointProposalJob', () => {
       }));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(buckets[3]);
       l1ToL2MessageSource.getInboxBucket.mockImplementation(seq => Promise.resolve(buckets[Number(seq) - 1]));
+      mockInboxBuckets(l1ToL2MessageSource, buckets);
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockImplementation((from, to) =>
         Promise.resolve(
           Array.from({ length: Number(totals[Number(to) - 1] - (from === 0n ? 0n : totals[Number(from) - 1])) }, () =>
@@ -2034,6 +2212,7 @@ describe('CheckpointProposalJob', () => {
 
 class TestCheckpointProposalJob extends CheckpointProposalJob {
   declare public eventEmitter: EventEmitter;
+  declare public log: Logger;
 
   /** Override to be a no-op for testing - allows tests to run without timing delays */
   public override waitUntilNextSubslot(nextSubslotStart: number): Promise<void> {

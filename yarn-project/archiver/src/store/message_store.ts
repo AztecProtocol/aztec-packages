@@ -170,6 +170,12 @@ export class MessageStore {
    * leaves its rollover siblings indexed.
    */
   #bucketTimestampToSeq: AztecAsyncMultiMap<number, number>;
+  /**
+   * Maps from a bucket's consensus rolling hash to its sequence number, so a bucket can be resolved by content
+   * after an L1 reorg has moved its sequence number. A bucket always absorbs at least one message, so no two
+   * buckets share a rolling hash.
+   */
+  #bucketRollingHashToSeq: AztecAsyncMap<string, bigint>;
 
   #log = createLogger('archiver:message_store');
 
@@ -181,6 +187,7 @@ export class MessageStore {
     this.#messagesFinalizedL1Block = db.openSingleton('archiver_messages_finalized_l1_block');
     this.#inboxBuckets = db.openMap('archiver_inbox_buckets');
     this.#bucketTimestampToSeq = db.openMultiMap('archiver_inbox_bucket_timestamps');
+    this.#bucketRollingHashToSeq = db.openMap('archiver_inbox_bucket_rolling_hashes');
   }
 
   public async getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -450,6 +457,7 @@ export class MessageStore {
     for await (const [seqKey, snapBuffer] of this.#inboxBuckets.entriesAsync({ start: deleteFromKey })) {
       const snapshot = deserializeBucketSnapshot(snapBuffer);
       await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(snapshot.timestamp), seqKey);
+      await this.#bucketRollingHashToSeq.delete(this.rollingHashToKey(snapshot.inboxRollingHash));
       await this.#inboxBuckets.delete(seqKey);
     }
 
@@ -518,6 +526,27 @@ export class MessageStore {
     }
     const bucket = await this.getInboxBucket(deserializeInboxMessage(buffer).bucketSeq);
     return bucket !== undefined && bucket.totalMsgCount === totalMsgCount ? bucket : undefined;
+  }
+
+  /**
+   * Returns the Inbox bucket whose consensus rolling hash equals the given one, or undefined if no synced bucket
+   * carries it. A rolling hash commits to every message absorbed up to its bucket, so it identifies a bucket by
+   * content: after a reorg re-times or merges buckets, the bucket carrying a hash may sit at a different sequence
+   * number than it did before. A zero hash is the genesis sentinel (sequence 0), which is never stored.
+   *
+   * The index entry is confirmed against the bucket it names before being returned, so an entry left behind by a
+   * removal can only cost a read, never resolve to the wrong bucket.
+   */
+  public async getInboxBucketByRollingHash(inboxRollingHash: Fr): Promise<InboxBucket | undefined> {
+    if (inboxRollingHash.isZero()) {
+      return this.getInboxBucket(0n);
+    }
+    const seq = await this.#bucketRollingHashToSeq.getAsync(this.rollingHashToKey(inboxRollingHash));
+    if (seq === undefined) {
+      return undefined;
+    }
+    const bucket = await this.getInboxBucket(seq);
+    return bucket !== undefined && bucket.inboxRollingHash.equals(inboxRollingHash) ? bucket : undefined;
   }
 
   /**
@@ -652,8 +681,13 @@ export class MessageStore {
       // A reorg can re-deliver a bucket from an L1 block mined at a different timestamp, so drop the stale index entry.
       await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(stored.timestamp), this.bucketSeqToKey(seq));
     }
+    if (stored !== undefined && !stored.inboxRollingHash.equals(snapshot.inboxRollingHash)) {
+      // A re-delivered bucket can also end on a different message, so drop its stale rolling-hash entry too.
+      await this.#bucketRollingHashToSeq.delete(this.rollingHashToKey(stored.inboxRollingHash));
+    }
     await this.#inboxBuckets.set(this.bucketSeqToKey(seq), serializeBucketSnapshot(snapshot));
     await this.#bucketTimestampToSeq.set(this.timestampToKey(snapshot.timestamp), this.bucketSeqToKey(seq));
+    await this.#bucketRollingHashToSeq.set(this.rollingHashToKey(snapshot.inboxRollingHash), seq);
   }
 
   /** Returns the sequence number of the newest stored bucket, or undefined if none has been stored yet. */
@@ -689,6 +723,10 @@ export class MessageStore {
 
   private timestampToKey(timestamp: bigint): number {
     return Number(timestamp);
+  }
+
+  private rollingHashToKey(inboxRollingHash: Fr): string {
+    return inboxRollingHash.toString();
   }
 
   /**

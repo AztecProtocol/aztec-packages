@@ -45,7 +45,7 @@ import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient }
 
 import EventEmitter from 'node:events';
 
-import { DefaultSequencerConfig } from '../config.js';
+import { DefaultSequencerConfig, assertSupportedInboxL1Confirmations } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
@@ -169,16 +169,22 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /**
    * Updates sequencer config by the defined values and rebuilds the timetable.
    *
-   * The merged config is validated against a candidate before being committed: {@link buildTimetable} may
-   * reject the candidate (invalid timing geometry, or per-block allocation multipliers below the network
-   * minimums). On rejection we leave `this.config` and `this.timetable` untouched and rethrow, so a bad update
-   * never leaves the sequencer running with a rejected config and a stale timetable.
+   * The merged config is validated against a candidate before being committed: the Inbox confirmation depth must be
+   * one this node implements, and {@link buildTimetable} may reject the candidate (invalid timing geometry, or
+   * per-block allocation multipliers below the network minimums). On rejection we leave `this.config` and
+   * `this.timetable` untouched and rethrow, so a bad update never leaves the sequencer running with a rejected
+   * config and a stale timetable.
    */
   public updateConfig(config: Partial<SequencerConfig>) {
     const filteredConfig = pickFromSchema(config, SequencerConfigSchema);
     const candidate = merge(this.config, filteredConfig);
     let timetable: ProposerTimetable;
     try {
+      // pickFromSchema trusts its input, so an in-process caller can hand us a depth the env parser and the admin
+      // RPC schema would both have refused.
+      if (filteredConfig.inboxL1Confirmations !== undefined) {
+        assertSupportedInboxL1Confirmations(filteredConfig.inboxL1Confirmations);
+      }
       timetable = this.buildTimetable(candidate);
     } catch (err) {
       this.log.warn(`Rejecting sequencer config update: ${(err as Error).message}`, {

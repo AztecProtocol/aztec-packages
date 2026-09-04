@@ -664,6 +664,51 @@ describe('MessageStore', () => {
       expect((await messageStore.getLatestInboxBucketAtOrBefore(300n))!.seq).toEqual(1n);
     });
 
+    it('resolves a bucket by its consensus rolling hash', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      expect((await messageStore.getInboxBucketByRollingHash(msgs[2].inboxRollingHash))?.seq).toEqual(1n);
+      expect((await messageStore.getInboxBucketByRollingHash(msgs[4].inboxRollingHash))?.seq).toEqual(2n);
+      expect((await messageStore.getInboxBucketByRollingHash(msgs[5].inboxRollingHash))?.seq).toEqual(3n);
+      // A hash from inside a bucket is not a bucket boundary, so it resolves nothing.
+      expect(await messageStore.getInboxBucketByRollingHash(msgs[3].inboxRollingHash)).toBeUndefined();
+      expect(await messageStore.getInboxBucketByRollingHash(Fr.random())).toBeUndefined();
+    });
+
+    it('resolves the genesis sentinel from a zero rolling hash', async () => {
+      await messageStore.addL1ToL2MessageBuckets(makeBucketedMessages(threeBucketSpec));
+
+      expect(await messageStore.getInboxBucketByRollingHash(Fr.ZERO)).toMatchObject({ seq: 0n, totalMsgCount: 0n });
+    });
+
+    it('drops rolling-hash entries of buckets a removal deletes or rewrites', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      // Removes msgs[4] (cutting into bucket 2) and msgs[5] (all of bucket 3).
+      await messageStore.removeL1ToL2Messages(msgs[4].index);
+
+      expect(await messageStore.getInboxBucketByRollingHash(msgs[5].inboxRollingHash)).toBeUndefined();
+      expect(await messageStore.getInboxBucketByRollingHash(msgs[4].inboxRollingHash)).toBeUndefined();
+      // Bucket 2 now ends at its remaining message, and resolves by that hash instead.
+      expect((await messageStore.getInboxBucketByRollingHash(msgs[3].inboxRollingHash))?.seq).toEqual(2n);
+      expect((await messageStore.getInboxBucketByRollingHash(msgs[2].inboxRollingHash))?.seq).toEqual(1n);
+    });
+
+    it('resolves a rolling hash to the bucket an L1 reorg moved it to', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.removeL1ToL2Messages(msgs[3].index);
+
+      // The reorg merged the L1 blocks that opened buckets 2 and 3, so the same messages arrive in one bucket.
+      const merged = [msgs[3], msgs[4], msgs[5]].map(msg => ({ ...msg, bucketSeq: 2n, bucketTimestamp: 250n }));
+      await messageStore.addL1ToL2MessageBuckets(merged);
+
+      expect(await messageStore.getInboxBucket(3n)).toBeUndefined();
+      expect((await messageStore.getInboxBucketByRollingHash(msgs[5].inboxRollingHash))?.seq).toEqual(2n);
+    });
+
     it('clears all buckets when every message is removed', async () => {
       const msgs = makeBucketedMessages(threeBucketSpec);
       await messageStore.addL1ToL2MessageBuckets(msgs);

@@ -46,7 +46,7 @@ describe('CheckpointProposal serialization / deserialization', () => {
   describe('bucket reference', () => {
     it('round-trips with a bucket reference on the last block', async () => {
       const checkpointHeader = CheckpointHeader.random();
-      const bucketRef = new InboxBucketRef(17n, 1_700_000_000n, checkpointHeader.inboxRollingHash);
+      const bucketRef = new InboxBucketRef(checkpointHeader.inboxRollingHash);
       const proposal = await makeCheckpointProposal({ checkpointHeader, lastBlock: { bucketRef } });
 
       const deserialized = CheckpointProposal.fromBuffer(proposal.toBuffer());
@@ -72,7 +72,7 @@ describe('CheckpointProposal serialization / deserialization', () => {
     it('carries the bucket reference through getBlockProposal, covered by the block signature', async () => {
       const signer = Secp256k1Signer.random();
       const checkpointHeader = CheckpointHeader.random();
-      const bucketRef = new InboxBucketRef(3n, 42n, checkpointHeader.inboxRollingHash);
+      const bucketRef = new InboxBucketRef(checkpointHeader.inboxRollingHash);
       const proposal = await makeCheckpointProposal({ signer, checkpointHeader, lastBlock: { bucketRef } });
 
       const blockProposal = proposal.getBlockProposal();
@@ -96,7 +96,7 @@ describe('CheckpointProposal serialization / deserialization', () => {
               indexWithinCheckpoint: IndexWithinCheckpoint(4),
               txHashes: [],
               signature: Signature.empty(),
-              bucketRef: new InboxBucketRef(1n, 2n, new Fr(0x1234n)),
+              bucketRef: new InboxBucketRef(new Fr(0x1234n)),
             },
           ),
       ).not.toThrow();
@@ -117,7 +117,7 @@ describe('CheckpointProposal serialization / deserialization', () => {
               indexWithinCheckpoint: IndexWithinCheckpoint(4),
               txHashes: [],
               signature: Signature.empty(),
-              bucketRef: new InboxBucketRef(1n, 2n, new Fr(0x5678n)),
+              bucketRef: new InboxBucketRef(new Fr(0x5678n)),
             },
           ),
       ).toThrow(/bucketRef rolling hash/);

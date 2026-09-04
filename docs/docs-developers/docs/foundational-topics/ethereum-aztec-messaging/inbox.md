@@ -39,6 +39,27 @@ These functions allow you to query the current state of the Inbox.
 | `getTotalMessagesInserted()` | `uint64`        | Returns the total number of messages inserted into the inbox. |
 | `getFeeAssetPortal()`      | `address`         | Returns the address of the Fee Juice portal. |
 
+## Message consumption timing
+
+A message is available to L2 as soon as the L1 transaction that sent it is mined, but the block proposer decides
+when to consume it. That choice is a node setting, `SEQ_INBOX_L1_CONFIRMATIONS`, not a protocol rule:
+
+- **`0` (the default): consume immediately.** The message reaches L2 in the next block the proposer builds. The
+  proposer loses that slot if an L1 reorg touches an L1 block whose messages it has already consumed, whether or not
+  the messages themselves changed: its archiver rewinds those messages and drops the blocks built on them, and the
+  checkpoint is abandoned. The proposer also re-resolves the bucket it consumed by its contents before publishing,
+  which only prevents a false rejection when a reorg elsewhere renumbers buckets without touching their messages. At
+  ten one-block L1 reorgs per day and messages in 30% of L1 blocks, that bounds the loss at about 0.13% of slots
+  (about three per day) and affects nothing else — the chain carries on, and the next proposer consumes the message.
+- **`1`: wait for one L1 confirmation.** The proposer consumes a message only once a child block is observed on top
+  of the one carrying it, or the following L1 slot was missed and that block is still canonical after it. That makes
+  it immune to the one-block reorgs above at the cost of roughly one Ethereum slot (~12s) of extra latency per
+  message.
+
+Validators do not check how recently a message arrived; they check what L1 checks, plus that the Inbox contents a
+proposal references match their own view of the Inbox. So a network can run both settings side by side. The sandbox
+mines on demand and always consumes immediately, whatever the setting says.
+
 ## Related pages
 
 - [Outbox](./outbox.md) - L2 to L1 message passing

@@ -16,9 +16,10 @@ const PER_CHECKPOINT_CAP = 1024;
 const NOW = 10_000n;
 
 /**
- * In-memory Inbox-bucket view mirroring the archiver store's index semantics: buckets keyed by sequence number, a flat
- * leaves array indexed by global message index, and `getL1ToL2MessagesBetweenBuckets` slicing that array by the
- * `(from, to]` bucket range (start = fromBucket.lastMessageIndex + 1, genesis when from == 0).
+ * In-memory Inbox-bucket view mirroring the archiver store's index semantics: buckets keyed by sequence number and
+ * resolvable by rolling hash, a flat leaves array indexed by global message index, and
+ * `getL1ToL2MessagesBetweenBuckets` slicing that array by the `(from, to]` bucket range
+ * (start = fromBucket.lastMessageIndex + 1, genesis when from == 0).
  */
 class FakeInboxView implements StreamingInboxBucketSource {
   private readonly buckets = new Map<bigint, InboxBucket>();
@@ -59,8 +60,8 @@ class FakeInboxView implements StreamingInboxBucketSource {
     return bucket;
   }
 
-  getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
-    return Promise.resolve(this.buckets.get(seq));
+  getInboxBucketByRollingHash(inboxRollingHash: Fr): Promise<InboxBucket | undefined> {
+    return Promise.resolve([...this.buckets.values()].find(b => b.inboxRollingHash.equals(inboxRollingHash)));
   }
 
   getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined> {
@@ -88,7 +89,7 @@ class FakeInboxView implements StreamingInboxBucketSource {
 }
 
 function refFor(bucket: InboxBucket, rollingHash = bucket.inboxRollingHash): InboxBucketRef {
-  return new InboxBucketRef(bucket.seq, bucket.timestamp, rollingHash);
+  return new InboxBucketRef(rollingHash);
 }
 
 function baseInput(overrides: Partial<StreamingBlockCheckInput>): StreamingBlockCheckInput {
@@ -104,7 +105,7 @@ function baseInput(overrides: Partial<StreamingBlockCheckInput>): StreamingBlock
 }
 
 describe('checkStreamingBlockProposal', () => {
-  describe('check 1: bucket exists and hash matches', () => {
+  describe('check 1: a bucket carrying the referenced rolling hash exists', () => {
     it('rejects a proposal with no bucket reference', async () => {
       const result = await checkStreamingBlockProposal(baseInput({ bucketRef: undefined }));
       expect(result).toEqual({ accepted: false, reason: 'bucket_unknown' });
@@ -114,20 +115,27 @@ describe('checkStreamingBlockProposal', () => {
       const view = new FakeInboxView();
       const start = Date.now();
       const result = await checkStreamingBlockProposal(
-        baseInput({ messageSource: view, bucketRef: new InboxBucketRef(7n, 100n, new Fr(1)) }),
+        baseInput({ messageSource: view, bucketRef: new InboxBucketRef(new Fr(1)) }),
       );
       expect(result).toEqual({ accepted: false, reason: 'bucket_unknown' });
       // The happy path rejects immediately; there is no bounded wait yet. Assert it did not sleep.
       expect(Date.now() - start).toBeLessThan(500);
     });
 
-    it('rejects when the resolved bucket hash differs from the reference', async () => {
+    it('resolves the referenced bucket by rolling hash, whatever sequence number it sits at', async () => {
+      const view = new FakeInboxView();
+      const bucket = view.addBucket(7, 3, 100);
+      const result = await checkStreamingBlockProposal(baseInput({ messageSource: view, bucketRef: refFor(bucket) }));
+      expect(result).toEqual({ accepted: true, bundle: [new Fr(1000), new Fr(1001), new Fr(1002)] });
+    });
+
+    it('rejects as unknown when no bucket carries the referenced hash, whatever else is synced', async () => {
       const view = new FakeInboxView();
       const bucket = view.addBucket(1, 3, 100);
       const result = await checkStreamingBlockProposal(
         baseInput({ messageSource: view, bucketRef: refFor(bucket, new Fr(999)) }),
       );
-      expect(result).toEqual({ accepted: false, reason: 'bucket_hash_mismatch' });
+      expect(result).toEqual({ accepted: false, reason: 'bucket_unknown' });
     });
   });
 

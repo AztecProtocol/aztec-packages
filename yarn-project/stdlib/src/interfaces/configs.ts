@@ -138,7 +138,20 @@ export interface SequencerConfig {
    * check. Ignored when p2p is disabled by config.
    */
   minPeersToPropose?: number;
+  /** How many L1 blocks must build on top of an Inbox message's L1 block before this proposer consumes it. */
+  inboxL1Confirmations?: InboxL1Confirmations;
 }
+
+/**
+ * How many L1 confirmations a proposer waits for before consuming an Inbox bucket.
+ *
+ * `0` consumes a bucket as soon as the local archiver has it: bridged messages reach L2 in the next block, and this
+ * proposer loses its slot only to an L1 reorg that reorders or drops the messages it consumed — a reorg that
+ * re-mines the same messages is re-resolved before publishing. `1` waits until another L1 block builds on the
+ * bucket's opening block, which adds roughly one Ethereum slot of latency per message and makes the proposer immune
+ * to one-block reorgs. Deeper values are not supported yet.
+ */
+export type InboxL1Confirmations = 0 | 1;
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
   z.object({
@@ -192,6 +205,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     skipBroadcastCheckpointProposal: z.boolean().optional(),
     pauseProposingForSlots: z.array(SlotNumberSchema).optional(),
     minPeersToPropose: z.number().nonnegative().optional(),
+    inboxL1Confirmations: z.union([z.literal(0), z.literal(1)]).optional(),
   }),
 );
 

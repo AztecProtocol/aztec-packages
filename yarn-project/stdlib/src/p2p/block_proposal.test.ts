@@ -184,7 +184,7 @@ describe('Block Proposal serialization / deserialization', () => {
 
     it('breaks sender recovery when the bucket reference is tampered with', async () => {
       const signer = Secp256k1Signer.random();
-      const bucketRef = new InboxBucketRef(5n, 100n, new Fr(7n));
+      const bucketRef = new InboxBucketRef(new Fr(7n));
       const proposal = await makeBlockProposal({ signer, bucketRef });
       expect(proposal.getSender()).toEqual(signer.address);
 
@@ -197,7 +197,7 @@ describe('Block Proposal serialization / deserialization', () => {
         proposal.signature,
         proposal.signatureContext,
         proposal.signedTxs,
-        new InboxBucketRef(6n, 100n, new Fr(7n)),
+        new InboxBucketRef(new Fr(8n)),
       );
       expect(tampered.getSender()).not.toEqual(signer.address);
     });

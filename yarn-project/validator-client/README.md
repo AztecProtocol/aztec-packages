@@ -21,7 +21,7 @@ A `BlockProposal` is broadcast by the proposer for each block **except the last 
 BlockProposal {
   blockHeader          // Per-block header with global variables
   indexWithinCheckpoint // 0, 1, 2, ... position within checkpoint
-  bucketRef?           // Inbox bucket reference for the block's L1-to-L2 message bundle
+  bucketRef?           // Rolling hash of the Inbox bucket the block's L1-to-L2 message bundle consumes through
   archive              // Archive root after this block
   txHashes             // Transaction hashes in order
   signature            // Proposer's signature
