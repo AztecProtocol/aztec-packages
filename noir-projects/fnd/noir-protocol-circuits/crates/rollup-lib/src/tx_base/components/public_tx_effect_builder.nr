@@ -18,7 +18,7 @@ pub fn build_tx_effect(
     private_to_public: PrivateToPublicKernelCircuitPublicInputs,
     avm: AvmCircuitPublicInputs,
     contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
-) -> (TxEffect, TxEffectArrayLengths) {
+) -> (TxEffect, TxEffectArrayLengths, [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX]) {
     let reverted = avm.reverted;
     let revert_code = if reverted { 1 } else { 0 };
     let global_variables = avm.global_variables;
@@ -134,5 +134,8 @@ pub fn build_tx_effect(
         contract_class_logs: contract_class_logs_array_length,
     };
 
-    (tx_effect, tx_effect_array_lengths)
+    let contract_class_log_hash_values =
+        contract_class_log_hashes.map(|log_hash| log_hash.inner.value);
+
+    (tx_effect, tx_effect_array_lengths, contract_class_log_hash_values)
 }

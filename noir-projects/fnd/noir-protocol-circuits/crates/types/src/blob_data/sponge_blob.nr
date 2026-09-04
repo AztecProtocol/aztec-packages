@@ -10,7 +10,7 @@ use crate::{
 use super::{
     block_blob_data::create_block_end_blob_data,
     checkpoint_blob_data::create_checkpoint_end_marker,
-    tx_blob_data::{create_tx_blob_data, TxEffectArrayLengths},
+    tx_blob_data::{create_tx_blob_data_sections, TxBlobDataSections, TxEffectArrayLengths},
     tx_effect::TxEffect,
 };
 
@@ -94,8 +94,25 @@ impl SpongeBlob {
         tx_effect: TxEffect,
         array_lengths: TxEffectArrayLengths,
     ) {
-        let (tx_blob_data, num_blob_fields) = create_tx_blob_data(tx_effect, array_lengths);
-        self.absorb(tx_blob_data, num_blob_fields);
+        let sections = create_tx_blob_data_sections(tx_effect, array_lengths);
+        self.absorb_tx_blob_data_sections(tx_effect, array_lengths, sections);
+    }
+
+    pub fn absorb_tx_blob_data_sections(
+        &mut self,
+        tx_effect: TxEffect,
+        array_lengths: TxEffectArrayLengths,
+        sections: TxBlobDataSections,
+    ) {
+        let fixed_fields = [sections.tx_start_marker, tx_effect.tx_hash, tx_effect.transaction_fee];
+        self.absorb(fixed_fields, fixed_fields.len());
+        self.absorb(tx_effect.note_hashes, array_lengths.note_hashes);
+        self.absorb(tx_effect.nullifiers, array_lengths.nullifiers);
+        self.absorb(tx_effect.l2_to_l1_msgs, array_lengths.l2_to_l1_msgs);
+        self.absorb(sections.public_data_write_fields, sections.num_public_data_write_fields);
+        self.absorb(sections.private_log_fields, sections.num_private_log_fields);
+        self.absorb(tx_effect.public_logs.payload, tx_effect.public_logs.length);
+        self.absorb(sections.contract_class_log_fields, sections.num_contract_class_log_fields);
     }
 
     /// |----------|---------------------------------------------|---------|

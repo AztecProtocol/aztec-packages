@@ -1,5 +1,5 @@
 use crate::abis::TxRollupPublicInputs;
-use types::hash::accumulate_sha256;
+use types::{blob_data::accumulate_tx_effects_tree_root, hash::accumulate_sha256};
 
 // The `out_hash` is the root of a (potentially wonky, greedy) subtree of L2->L1 messages that the
 // various functions of txs of this block have emitted.
@@ -33,6 +33,12 @@ pub fn merge_tx_rollups(
 
     let out_hash = accumulate_out_hash(left.out_hash, right.out_hash);
 
+    // Unlike the out hash, zero roots are not skipped: every leaf is a real tx.
+    let accumulated_tx_effects_tree_root = accumulate_tx_effects_tree_root(
+        left.accumulated_tx_effects_tree_root,
+        right.accumulated_tx_effects_tree_root,
+    );
+
     // Convincing the reader the below Field additions won't overflow:
     //
     // mana is the sum of all txs' l2_gas, each of which is a u32. So it's not possible to overflow because it
@@ -57,6 +63,7 @@ pub fn merge_tx_rollups(
         start_sponge_blob: left.start_sponge_blob,
         end_sponge_blob: right.end_sponge_blob,
         out_hash,
+        accumulated_tx_effects_tree_root,
         accumulated_fees,
         accumulated_mana_used,
     }
