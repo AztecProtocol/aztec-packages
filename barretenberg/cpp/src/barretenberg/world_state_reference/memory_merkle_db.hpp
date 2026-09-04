@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "barretenberg/aztec/aztec_hash_policy.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/world_state_reference/merkle_tree_id.hpp"

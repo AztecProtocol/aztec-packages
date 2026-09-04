@@ -50,7 +50,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts wsdb bb-avm-sim
+.PHONY: noir barretenberg noir-projects l1-contracts lmdblib kvdb wsdb bb-avm-sim
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -59,7 +59,7 @@ endef
 # Fast bootstrap.
 # wsdb belongs to foundation until disentangled.
 fast-foundation: barretenberg bb-tests \
-		wsdb \
+		wsdb wsdb-tests lmdblib-tests \
 		l1-contracts l1-contracts-tests \
 		mock-protocol-circuits \
 		noir-protocol-circuits noir-protocol-circuits-tests \
@@ -390,11 +390,29 @@ ipc-runtime-cross-arm64-macos:
 ipc-runtime-cross: ipc-runtime ipc-runtime-cross-arm64-linux ipc-runtime-cross-amd64-macos ipc-runtime-cross-arm64-macos
 
 #==============================================================================
-# WSDB
+# Native packages (lmdblib, kvdb, wsdb)
 #==============================================================================
 
-wsdb: ipc-codegen ipc-runtime bb-cpp-native
-	$(call build,$@,wsdb)
+# lmdblib and kvdb are barretenberg-free: they build against their own deps
+# (lmdb, msgpack-c, node-addon-api) only, never bb.
+.PHONY: lmdblib kvdb lmdblib-tests wsdb-tests
+lmdblib:
+	$(call build,$@,native-packages/lmdblib)
+
+kvdb: lmdblib
+	$(call build,$@,native-packages/kvdb)
+
+wsdb: ipc-codegen ipc-runtime bb-cpp-native lmdblib
+	$(call build,$@,native-packages/wsdb)
+
+# Native-package C++ tests (self-contained gtest binaries). kvdb has no C++ tests
+# (its NAPI is exercised by yarn-project's kv-store tests). wsdb_tests use no bb
+# headers; the bb-header parity/equivalence target is manual (WSDB_BUILD_BB_TESTS).
+lmdblib-tests: lmdblib
+	$(call test,$@,native-packages/lmdblib)
+
+wsdb-tests: wsdb
+	$(call test,$@,native-packages/wsdb)
 
 #==============================================================================
 # .claude tooling
@@ -421,7 +439,7 @@ ci3-tests:
 # installs in CI.
 LABS_DIR := $(ROOT)/labs
 
-# What the labs manifests portal into (barretenberg/ts/*, wsdb/ts, ipc-runtime/ts,
+# What the labs manifests portal into (barretenberg/ts/*, native-packages/{wsdb,kvdb}/ts, ipc-runtime/ts,
 # l1-contracts/l1-artifacts, protocol/constants-codegen, noir/packages/*) plus the
 # binaries labs-aztec-toolchain symlinks (bb, bb-avm, nargo, noir-execute, noir-profiler).
 # The artifacts packages' installable content is a dist/ assembled from the built circuits.
@@ -430,7 +448,7 @@ LABS_DIR := $(ROOT)/labs
 fnd-artifacts-stage: noir-projects-fnd
 	$(call build,$@,noir-projects/fnd,stage_packages)
 
-labs-deps: bb-ts l1-contracts wsdb bb-avm-sim bb-cdb constants-codegen noir-projects-fnd fnd-artifacts-stage
+labs-deps: bb-ts l1-contracts wsdb kvdb bb-avm-sim bb-cdb constants-codegen noir-projects-fnd fnd-artifacts-stage
 
 # Checks the submodule out at its gitlink with the labs-patches series applied (no-op when
 # already there). use-local rewrites are re-done after it, so it must run first.

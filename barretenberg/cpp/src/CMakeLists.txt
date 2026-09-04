@@ -116,23 +116,18 @@ add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
 
-if(NOT BB_LITE)
-    add_subdirectory(barretenberg/lmdblib)
-endif()
-
 if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
-    # Fuzzing preset cannot be built with world_state as world_state cannot compile with MULTITHREADING=OFF
-    # Mobile builds exclude these modules that require LMDB or aren't needed on mobile
+    # Mobile builds exclude these modules that aren't needed on mobile
     add_subdirectory(barretenberg/aztec)
     add_subdirectory(barretenberg/world_state_reference)
-    add_subdirectory(barretenberg/world_state)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
     add_subdirectory(barretenberg/ipc)
-    add_subdirectory(barretenberg/wsdb)
     add_subdirectory(barretenberg/vm2_wsdb)
     add_subdirectory(barretenberg/cdb)
     add_subdirectory(barretenberg/avm)
+    # nodejs_module hosts only the msgpack_client NAPI wrappers now (bb.js's SHM
+    # transport). The lmdb_store kv-store NAPI moved to native-packages/kvdb.
     add_subdirectory(barretenberg/nodejs_module)
 endif()
 
@@ -149,7 +144,6 @@ if(FUZZING_AVM)
         # Only add these if they weren't added above (when NOT FUZZING AND NOT WASM)
         add_subdirectory(barretenberg/aztec)
         add_subdirectory(barretenberg/world_state_reference)
-        add_subdirectory(barretenberg/world_state)
         add_subdirectory(barretenberg/vm2)
     endif()
     add_subdirectory(barretenberg/avm_fuzzer)
@@ -218,13 +212,11 @@ set(BARRETENBERG_TARGET_OBJECTS
 set(BB_EXTERNAL_TARGET_OBJECTS ${BARRETENBERG_TARGET_OBJECTS})
 
 if(NOT WASM AND NOT FUZZING AND NOT BB_LITE)
-    # enable merkle trees and lmdb (not for mobile builds). world_state_reference carries the world-state
-    # vocabulary (getMerkleTreeName etc.) that world_state links against.
-    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
+    # crypto_merkle_tree is header-only now (no _objects target); api still contributes objects.
+    # world_state_reference carries the reference merkle DB and its C ABI
+    # (bb_wsref_*), which external world-state implementations link for conformance testing.
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_reference_objects>)
-    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:api_objects>)
-    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_objects>)
 endif()
 
 add_library(
@@ -237,6 +229,12 @@ add_library(
 # Uses the core object list without lmdb/world_state — FFI consumers only need bbapi().
 # Built with -fvisibility=hidden; only WASM_EXPORT symbols remain visible.
 if(NOT WASM)
+    # world_state_reference (the in-memory reference merkle DB and its bb_wsref_* C ABI) rides
+    # along so an external world-state implementation can link the release archive alone for
+    # its conformance tests. It is vm2-free; vm2_stub satisfies its Stats references.
+    if(NOT FUZZING AND NOT BB_LITE)
+        list(APPEND BB_EXTERNAL_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_reference_objects>)
+    endif()
     add_library(
         bb-external
         STATIC
