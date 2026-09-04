@@ -18,6 +18,9 @@ describe('capsule data provider', () => {
     scope = await AztecAddress.random();
     store = await openTmpStore('capsule_store_test');
     capsuleStore = new CapsuleStore(store);
+
+    // Leave a change set open for the tests to operate under: every store operation requires one.
+    capsuleStore.beginChangeSet('test');
   });
 
   describe('store and load', () => {
@@ -25,7 +28,7 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      capsuleStore.setCapsule(contract, slot, values, 'test', scope);
+      await capsuleStore.setCapsule(contract, slot, values, 'test', scope);
       const result = await capsuleStore.getCapsule(contract, slot, 'test', scope);
       expect(result).toEqual(values);
     });
@@ -34,7 +37,7 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42), new Fr(43), new Fr(44)];
 
-      capsuleStore.setCapsule(contract, slot, values, 'test', scope);
+      await capsuleStore.setCapsule(contract, slot, values, 'test', scope);
       const result = await capsuleStore.getCapsule(contract, slot, 'test', scope);
       expect(result).toEqual(values);
     });
@@ -44,8 +47,8 @@ describe('capsule data provider', () => {
       const initialValues = [new Fr(42)];
       const newValues = [new Fr(100)];
 
-      capsuleStore.setCapsule(contract, slot, initialValues, 'test', scope);
-      capsuleStore.setCapsule(contract, slot, newValues, 'test', scope);
+      await capsuleStore.setCapsule(contract, slot, initialValues, 'test', scope);
+      await capsuleStore.setCapsule(contract, slot, newValues, 'test', scope);
 
       const result = await capsuleStore.getCapsule(contract, slot, 'test', scope);
       expect(result).toEqual(newValues);
@@ -57,8 +60,8 @@ describe('capsule data provider', () => {
       const values1 = [new Fr(42)];
       const values2 = [new Fr(100)];
 
-      capsuleStore.setCapsule(contract, slot, values1, 'test', scope);
-      capsuleStore.setCapsule(anotherContract, slot, values2, 'test', scope);
+      await capsuleStore.setCapsule(contract, slot, values1, 'test', scope);
+      await capsuleStore.setCapsule(anotherContract, slot, values2, 'test', scope);
 
       const result1 = await capsuleStore.getCapsule(contract, slot, 'test', scope);
       const result2 = await capsuleStore.getCapsule(anotherContract, slot, 'test', scope);
@@ -74,8 +77,8 @@ describe('capsule data provider', () => {
       const valuesA = [new Fr(42)];
       const valuesB = [new Fr(100)];
 
-      capsuleStore.setCapsule(contract, slot, valuesA, 'test', scopeA);
-      capsuleStore.setCapsule(contract, slot, valuesB, 'test', scopeB);
+      await capsuleStore.setCapsule(contract, slot, valuesA, 'test', scopeA);
+      await capsuleStore.setCapsule(contract, slot, valuesB, 'test', scopeB);
 
       expect(await capsuleStore.getCapsule(contract, slot, 'test', scopeA)).toEqual(valuesA);
       expect(await capsuleStore.getCapsule(contract, slot, 'test', scopeB)).toEqual(valuesB);
@@ -86,7 +89,7 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      capsuleStore.setCapsule(contract, slot, values, 'test', scope);
+      await capsuleStore.setCapsule(contract, slot, values, 'test', scope);
 
       expect(await capsuleStore.getCapsule(contract, slot, 'test', scope)).toEqual(values);
       expect(await capsuleStore.getCapsule(contract, slot, 'test', AztecAddress.ZERO)).toBeNull();
@@ -104,15 +107,15 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      capsuleStore.setCapsule(contract, slot, values, 'test', scope);
-      capsuleStore.deleteCapsule(contract, slot, 'test', scope);
+      await capsuleStore.setCapsule(contract, slot, values, 'test', scope);
+      await capsuleStore.deleteCapsule(contract, slot, 'test', scope);
 
       expect(await capsuleStore.getCapsule(contract, slot, 'test', scope)).toBeNull();
     });
 
     it('deletes an empty slot', async () => {
       const slot = new Fr(1);
-      capsuleStore.deleteCapsule(contract, slot, 'test', scope);
+      await capsuleStore.deleteCapsule(contract, slot, 'test', scope);
 
       expect(await capsuleStore.getCapsule(contract, slot, 'test', scope)).toBeNull();
     });
@@ -125,11 +128,11 @@ describe('capsule data provider', () => {
       const valuesB = [Fr.random(), Fr.random(), Fr.random()];
       const globalValues = [Fr.random(), Fr.random(), Fr.random()];
 
-      capsuleStore.setCapsule(contract, slot, valuesA, 'test', scopeA);
-      capsuleStore.setCapsule(contract, slot, valuesB, 'test', scopeB);
-      capsuleStore.setCapsule(contract, slot, globalValues, 'test', scope);
+      await capsuleStore.setCapsule(contract, slot, valuesA, 'test', scopeA);
+      await capsuleStore.setCapsule(contract, slot, valuesB, 'test', scopeB);
+      await capsuleStore.setCapsule(contract, slot, globalValues, 'test', scope);
 
-      capsuleStore.deleteCapsule(contract, slot, 'test', scopeA);
+      await capsuleStore.deleteCapsule(contract, slot, 'test', scopeA);
 
       expect(await capsuleStore.getCapsule(contract, slot, 'test', scopeA)).toBeNull();
       expect(await capsuleStore.getCapsule(contract, slot, 'test', scopeB)).toEqual(valuesB);
@@ -142,7 +145,7 @@ describe('capsule data provider', () => {
       const slot = new Fr(1);
       const values = [new Fr(42)];
 
-      capsuleStore.setCapsule(contract, slot, values, 'test', scope);
+      await capsuleStore.setCapsule(contract, slot, values, 'test', scope);
 
       const dstSlot = new Fr(5);
       await capsuleStore.copyCapsule(contract, slot, dstSlot, 1, 'test', scope);
@@ -154,9 +157,9 @@ describe('capsule data provider', () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
-      capsuleStore.setCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
-      capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
+      await capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
+      await capsuleStore.setCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
+      await capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
 
       const dst = new Fr(5);
       await capsuleStore.copyCapsule(contract, src, dst, 3, 'test', scope);
@@ -170,9 +173,9 @@ describe('capsule data provider', () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
-      capsuleStore.setCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
-      capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
+      await capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
+      await capsuleStore.setCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
+      await capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
 
       const dst = new Fr(2);
       await capsuleStore.copyCapsule(contract, src, dst, 3, 'test', scope);
@@ -191,9 +194,9 @@ describe('capsule data provider', () => {
       const src = new Fr(5);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
-      capsuleStore.setCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
-      capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
+      await capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
+      await capsuleStore.setCapsule(contract, src.add(new Fr(1)), valuesArray[1], 'test', scope);
+      await capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
 
       const dst = new Fr(4);
       await capsuleStore.copyCapsule(contract, src, dst, 3, 'test', scope);
@@ -212,9 +215,9 @@ describe('capsule data provider', () => {
       const src = new Fr(1);
       const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
 
-      capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
+      await capsuleStore.setCapsule(contract, src, valuesArray[0], 'test', scope);
       // We skip src[1]
-      capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
+      await capsuleStore.setCapsule(contract, src.add(new Fr(2)), valuesArray[2], 'test', scope);
 
       const dst = new Fr(5);
       await expect(capsuleStore.copyCapsule(contract, src, dst, 3, 'test', scope)).rejects.toThrow(
@@ -228,7 +231,7 @@ describe('capsule data provider', () => {
       const dst = new Fr(5);
       const values = [new Fr(42)];
 
-      capsuleStore.setCapsule(contract, src, values, 'test', scope);
+      await capsuleStore.setCapsule(contract, src, values, 'test', scope);
       await capsuleStore.copyCapsule(contract, src, dst, 1, 'test', scope);
 
       expect(await capsuleStore.getCapsule(contract, dst, 'test', scope)).toEqual(values);
@@ -291,7 +294,7 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
 
         // Store in the base slot a non-zero value, indicating a non-zero array length
-        capsuleStore.setCapsule(contract, baseSlot, [new Fr(1)], 'test', scope);
+        await capsuleStore.setCapsule(contract, baseSlot, [new Fr(1)], 'test', scope);
 
         // Reading should now fail as some of the capsules in the array are empty
         await expect(capsuleStore.readCapsuleArray(contract, baseSlot, 'test', scope)).rejects.toThrow(
@@ -388,9 +391,7 @@ describe('capsule data provider', () => {
           scope,
         );
 
-        await store.transactionAsync(async () => {
-          await capsuleStore.commitChangeSet('test');
-        });
+        await commit();
       },
       TEST_TIMEOUT_MS,
     );
@@ -406,9 +407,7 @@ describe('capsule data provider', () => {
           scope,
         );
 
-        await store.transactionAsync(async () => {
-          await capsuleStore.commitChangeSet('test');
-        });
+        await commit();
       },
       TEST_TIMEOUT_MS,
     );
@@ -424,9 +423,7 @@ describe('capsule data provider', () => {
           scope,
         );
 
-        await store.transactionAsync(async () => {
-          await capsuleStore.commitChangeSet('test');
-        });
+        await commit();
 
         // Append a single element
         await capsuleStore.appendToCapsuleArray(
@@ -437,9 +434,7 @@ describe('capsule data provider', () => {
           scope,
         );
 
-        await store.transactionAsync(async () => {
-          await capsuleStore.commitChangeSet('test');
-        });
+        await commit();
       },
       TEST_TIMEOUT_MS,
     );
@@ -455,16 +450,12 @@ describe('capsule data provider', () => {
           scope,
         );
 
-        await store.transactionAsync(async () => {
-          await capsuleStore.commitChangeSet('test');
-        });
+        await commit();
 
         // We just move the entire thing one slot.
         await capsuleStore.copyCapsule(contract, new Fr(0), new Fr(1), NUMBER_OF_ITEMS, 'test', scope);
 
-        await store.transactionAsync(async () => {
-          await capsuleStore.commitChangeSet('test');
-        });
+        await commit();
       },
       TEST_TIMEOUT_MS,
     );
@@ -480,15 +471,11 @@ describe('capsule data provider', () => {
           scope,
         );
 
-        await store.transactionAsync(async () => {
-          await capsuleStore.commitChangeSet('test');
-        });
+        await commit();
 
         await capsuleStore.readCapsuleArray(contract, new Fr(0), 'test', scope);
 
-        await store.transactionAsync(async () => {
-          await capsuleStore.commitChangeSet('test');
-        });
+        await commit();
       },
       TEST_TIMEOUT_MS,
     );
@@ -504,121 +491,60 @@ describe('capsule data provider', () => {
           scope,
         );
 
-        await store.transactionAsync(async () => {
-          await capsuleStore.commitChangeSet('test');
-        });
+        await commit();
 
         await capsuleStore.setCapsuleArray(contract, new Fr(0), [], 'test', scope);
 
-        await store.transactionAsync(async () => {
-          await capsuleStore.commitChangeSet('test');
-        });
+        await commit();
       },
       TEST_TIMEOUT_MS,
     );
   });
 
   describe('staged writes', () => {
-    it('commit does not hold zombie data', async () => {
-      // This test tries to reproduce a scenario where we fail to clear a change set's data after commit. The effect of
-      // such an incorrect behavior would be perceived if we re-used a changeSetId we had previously committed, which
-      // should not happen given we generate random change set ids, but it's good to keep things clean and consistent.
-      const slot = Fr.random();
-      const committedValues1 = [Fr.random()];
-      const committedValues2 = [Fr.random()];
-
-      capsuleStore.setCapsule(contract, slot, committedValues1, 'change-set-1', scope);
-
-      // After this commit, 'change-set-1' should logically be reset
-      // Any read of contract-slot after this should see committedValues1
-      await capsuleStore.commitChangeSet('change-set-1');
-
-      // Any read of contract-slot should see committedValues2
-      capsuleStore.setCapsule(contract, slot, committedValues2, 'change-set-2', scope);
-      await capsuleStore.commitChangeSet('change-set-2');
-
-      // If we failed to properly dispose 'change-set-1's staged writes on commit, Instead of reading committedValues2
-      // (as we should), we would end up reading committedValues1 (which would be wrong)
-      expect(await capsuleStore.getCapsule(contract, slot, 'change-set-1', scope)).toEqual(committedValues2);
-    });
-
-    it('writes to one change set view are isolated from another change set view', async () => {
-      const slot = Fr.random();
-      const committedValues = [Fr.random()];
-      const stagedValues = [Fr.random()];
-      const commitChangeSetId: ChangeSetId = 'commit-change-set';
-      const stagedWrites1: string = 'staged-writes-1';
-      const stagedWrites2: string = 'staged-writes-2';
-
-      // First set a committed capsule (using a different change set that we commit)
-      capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
-      await capsuleStore.commitChangeSet(commitChangeSetId);
-
-      // Then set a staged capsule (not committed)
-      capsuleStore.setCapsule(contract, slot, stagedValues, stagedWrites1, scope);
-
-      // With changeSetId=1, should get staged capsule
-      expect(await capsuleStore.getCapsule(contract, slot, stagedWrites1, scope)).toEqual(stagedValues);
-
-      // With changeSetId=2, should get committed capsule
-      expect(await capsuleStore.getCapsule(contract, slot, stagedWrites2, scope)).toEqual(committedValues);
-    });
-
     it('staged deletions hide committed data', async () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
-      const commitChangeSetId: ChangeSetId = 'commit-change-set';
-      const stagedWrites1: string = 'staged-writes-1';
-      const stagedWrites2: string = 'staged-writes-2';
+      const deleteChangeSetId: ChangeSetId = 'delete-change-set';
 
       // First set a committed capsule
-      capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
-      await capsuleStore.commitChangeSet(commitChangeSetId);
+      await capsuleStore.setCapsule(contract, slot, committedValues, 'test', scope);
+      await commit();
 
-      // Delete in change set (not committed)
-      capsuleStore.deleteCapsule(contract, slot, stagedWrites1, scope);
+      // Delete in a change set of its own (not committed)
+      capsuleStore.discardChangeSet('test');
+      capsuleStore.beginChangeSet(deleteChangeSetId);
+      await capsuleStore.deleteCapsule(contract, slot, deleteChangeSetId, scope);
 
-      // Without changeSetId=2, should still see committed capsule
-      expect(await capsuleStore.getCapsule(contract, slot, stagedWrites2, scope)).toEqual(committedValues);
+      // The change set that staged the deletion sees null
+      expect(await capsuleStore.getCapsule(contract, slot, deleteChangeSetId, scope)).toBeNull();
 
-      // With changeSetId=1, should see null (deleted in change set)
-      expect(await capsuleStore.getCapsule(contract, slot, stagedWrites1, scope)).toBeNull();
+      // Dropping the staged deletion leaves the committed capsule in place
+      capsuleStore.discardChangeSet(deleteChangeSetId);
+      capsuleStore.beginChangeSet('reader');
+      expect(await capsuleStore.getCapsule(contract, slot, 'reader', scope)).toEqual(committedValues);
     });
 
     it('commit applies staged deletions', async () => {
       const slot = Fr.random();
       const committedValues = [Fr.random()];
-      const commitChangeSetId: ChangeSetId = 'commit-change-set';
       const deleteChangeSetId: ChangeSetId = 'delete-change-set';
 
-      capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
-      await capsuleStore.commitChangeSet(commitChangeSetId);
-      capsuleStore.deleteCapsule(contract, slot, deleteChangeSetId, scope);
+      await capsuleStore.setCapsule(contract, slot, committedValues, 'test', scope);
+      await commit();
 
-      await capsuleStore.commitChangeSet(deleteChangeSetId);
+      capsuleStore.discardChangeSet('test');
+      capsuleStore.beginChangeSet(deleteChangeSetId);
+      await capsuleStore.deleteCapsule(contract, slot, deleteChangeSetId, scope);
+      await commit(deleteChangeSetId);
 
-      // Now any change set should see this null (deleted)
-      expect(await capsuleStore.getCapsule(contract, slot, 'any-change-set-sees-this', scope)).toBeNull();
-    });
-
-    it('discardChangeSet removes staged data without affecting main', async () => {
-      const slot = Fr.random();
-      const committedValues = [Fr.random()];
-      const stagedValues = [Fr.random()];
-      const commitChangeSetId: ChangeSetId = 'commit-change-set';
-      const stagedChangeSetId: ChangeSetId = 'staged';
-
-      capsuleStore.setCapsule(contract, slot, committedValues, commitChangeSetId, scope);
-      await capsuleStore.commitChangeSet(commitChangeSetId);
-      capsuleStore.setCapsule(contract, slot, stagedValues, stagedChangeSetId, scope);
-
-      capsuleStore.discardChangeSet(stagedChangeSetId);
-
-      // Should still get committed capsule
-      expect(await capsuleStore.getCapsule(contract, slot, 'any-change-set', scope)).toEqual(committedValues);
-
-      // With stagedChangeSetId should fall back to committed since change set was discarded
-      expect(await capsuleStore.getCapsule(contract, slot, stagedChangeSetId, scope)).toEqual(committedValues);
+      expect(await capsuleStore.getCapsule(contract, slot, deleteChangeSetId, scope)).toBeNull();
     });
   });
+
+  // Commits the open change set and opens it again: a commit closes the change set, and every operation needs one open.
+  async function commit(changeSetId: ChangeSetId = 'test') {
+    await store.transactionAsync(() => capsuleStore.commitChangeSet(changeSetId));
+    capsuleStore.beginChangeSet(changeSetId);
+  }
 });

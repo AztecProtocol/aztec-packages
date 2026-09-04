@@ -333,7 +333,7 @@ export class PXE {
       readCachedNode,
       store,
       anchorBlockStore,
-      [noteStore, privateEventStore, factStore],
+      [noteStore, privateEventStore, factStore, capsuleStore, recipientTaggingStore],
       l2TipsStore,
       contractSyncService,
       config,
