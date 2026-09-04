@@ -864,6 +864,79 @@ contract RollupTest is RollupBase {
     assertEq(outbox.getRootData(Epoch.wrap(0), 2), outHash2, "Root at K=2 should be outHash2");
   }
 
+  function testLongerEpochProofAllowsModifiedPreviouslyProvenHeader() public setUpFor("mixed_checkpoint_1") {
+    _proposeCheckpoint("mixed_checkpoint_1", 1);
+    _proposeCheckpoint("mixed_checkpoint_2", 2);
+
+    DecoderBase.Data memory checkpoint1Data = load("mixed_checkpoint_1").checkpoint;
+    DecoderBase.Data memory checkpoint2Data = load("mixed_checkpoint_2").checkpoint;
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
+
+    _submitEpochProof(
+      1,
+      1,
+      checkpoint.archive,
+      checkpoint1Data.archive,
+      checkpoint1Data.batchedBlobInputs,
+      checkpoint1Data.header.outHash
+    );
+
+    address modifiedCoinbase = makeAddr("modifiedCoinbase");
+
+    // even though his header was tampered with the next _submitEpochProof call will succeed (with a MockVerifier):
+    // the correct header for slot 1 was correct when the previous proof was sent
+    // the fact that it is now bogus does no matter because its rewards will not be processed again
+    // with a RealVerifier the proof will fail because the header's hash is sent as a public input
+    proposedHeaders[1].coinbase = modifiedCoinbase;
+
+    _submitEpochProof(
+      1,
+      2,
+      checkpoint.archive,
+      checkpoint2Data.archive,
+      checkpoint2Data.batchedBlobInputs,
+      checkpoint2Data.header.outHash
+    );
+
+    assertEq(rollup.getProvenCheckpointNumber(), 2);
+    assertEq(rollup.getSequencerRewards(modifiedCoinbase), 0);
+  }
+
+  function testLongerEpochProofRejectsModifiedNewHeader() public setUpFor("mixed_checkpoint_1") {
+    _proposeCheckpoint("mixed_checkpoint_1", 1);
+    _proposeCheckpoint("mixed_checkpoint_2", 2);
+
+    DecoderBase.Data memory checkpoint1Data = load("mixed_checkpoint_1").checkpoint;
+    DecoderBase.Data memory checkpoint2Data = load("mixed_checkpoint_2").checkpoint;
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
+
+    _submitEpochProof(
+      1,
+      1,
+      checkpoint.archive,
+      checkpoint1Data.archive,
+      checkpoint1Data.batchedBlobInputs,
+      checkpoint1Data.header.outHash
+    );
+
+    bytes32 expectedHeaderHash = ProposedHeaderLib.hash(proposedHeaders[2]);
+    // send bogus header
+    proposedHeaders[2].accumulatedFees += 1;
+    bytes32 providedHeaderHash = ProposedHeaderLib.hash(proposedHeaders[2]);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__InvalidCheckpointHeader.selector, expectedHeaderHash, providedHeaderHash)
+    );
+    _submitEpochProof(
+      1,
+      2,
+      checkpoint.archive,
+      checkpoint2Data.archive,
+      checkpoint2Data.batchedBlobInputs,
+      checkpoint2Data.header.outHash
+    );
+  }
+
   // getEpochProofPublicInputs is the view that the prover-publisher calls off-chain to validate its inputs before
   // submitting. Because the fee recipient/value public inputs are taken from the supplied headers, the header check
   // must run here too - not only on the submit path - so a mismatch is caught before publishing rather than reverting
