@@ -944,6 +944,36 @@ describe('CheckpointProposalJob', () => {
       expect(mismatchEvents).toHaveLength(0);
     });
 
+    // The build pins the proven tip on the standing assumption that the epoch proof lands by the target slot; the
+    // actual `propose` validates that assumption. The publication preflight, simulated at the target slot's time
+    // against the current L1 state, must carry the same pin while the proof is still outstanding, or a due prune
+    // collapses the landed parent to the proven tip in simulation and the boundary checkpoint is abandoned.
+    it('keeps the proven-tip pin in the publication preflight while a prune is still due at the target slot', async () => {
+      const pipelinedJob = await createPipelinedJobWithBlock(proposedParent);
+      mockL2BlockSource({ checkpointedNumber: CheckpointNumber(1), checkpointedHash: parentCheckpointHash });
+      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(true);
+
+      await pipelinedJob.executeAndAwait();
+
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+      expect(publisher.validateCheckpointHeaderAndInbox).toHaveBeenCalledTimes(2);
+      const publicationPlan = publisher.validateCheckpointHeaderAndInbox.mock.calls[1][2];
+      expect(publicationPlan?.chainTipsOverride).toEqual({ proven: CheckpointNumber(1) });
+      // The unlanded-parent overrides are gone: the parent is on L1 now, and its real cell is what the send sees.
+      expect(publicationPlan?.pendingCheckpointState).toBeUndefined();
+    });
+
+    it('drops every build-time override from the publication preflight once no prune is due', async () => {
+      const pipelinedJob = await createPipelinedJobWithBlock(proposedParent);
+      mockL2BlockSource({ checkpointedNumber: CheckpointNumber(1), checkpointedHash: parentCheckpointHash });
+      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(false);
+
+      await pipelinedJob.executeAndAwait();
+
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+      expect(publisher.validateCheckpointHeaderAndInbox.mock.calls[1][2]).toBeUndefined();
+    });
+
     it('proposes checkpoint when no proposed parent and none appeared on L1', async () => {
       const pipelinedJob = await createPipelinedJobWithBlock(undefined);
       mockL2BlockSource({ checkpointedNumber: CheckpointNumber(0) });
@@ -1817,6 +1847,103 @@ describe('CheckpointProposalJob', () => {
       expect(checkpoint).toBeDefined();
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
       expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('checkpoint_blocks_pruned');
+    });
+
+    // The preflights are L1 simulations awaited inside the duty; a slow provider must not carry the job past the
+    // point at which its signature or its send could still land.
+    describe('preflight deadlines', () => {
+      const attestationDeadlineMs = () => job.getTimetable().getAttestationDeadline(SlotNumber(newSlotNumber)) * 1000;
+      const l1PublishDeadlineMs = () =>
+        (Number(l1Constants.l1GenesisTime) + newSlotNumber * slotDuration + slotDuration - ethereumSlotDuration) * 1000;
+
+      it('does not sign the checkpoint when the pre-gossip preflight resolves after the attestation deadline', async () => {
+        mockSubslots(1);
+        streamingInbox.set(leaves(2));
+        publisher.validateCheckpointHeaderAndInbox.mockImplementation(() => {
+          dateProvider.setTime(attestationDeadlineMs() + 1_000);
+          return Promise.resolve(0n);
+        });
+        await setupMultipleBlocks(1, [1]);
+
+        const checkpoint = await job.executeAndAwait();
+
+        expect(checkpoint).toBeUndefined();
+        expect(validatorClient.createCheckpointProposal).not.toHaveBeenCalled();
+        expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
+        expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('header_validation_timeout');
+      });
+
+      it('abandons a pre-gossip preflight that does not answer within the remaining attestation window', async () => {
+        mockSubslots(1);
+        streamingInbox.set(leaves(2));
+        publisher.validateCheckpointHeaderAndInbox.mockImplementation(() => new Promise<bigint>(() => {}));
+        await setupMultipleBlocks(1, [1]);
+        // Once the block is built there are 200ms left to gossip a proposal validators could still attest to.
+        const completeCheckpoint = checkpointBuilder.completeCheckpoint.bind(checkpointBuilder);
+        jest.spyOn(checkpointBuilder, 'completeCheckpoint').mockImplementation(() => {
+          dateProvider.setTime(attestationDeadlineMs() - 200);
+          return completeCheckpoint();
+        });
+
+        const checkpoint = await job.executeAndAwait();
+
+        expect(checkpoint).toBeUndefined();
+        expect(validatorClient.createCheckpointProposal).not.toHaveBeenCalled();
+        expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('header_validation_timeout');
+      });
+
+      it('does not sign the checkpoint when the job is interrupted while the pre-gossip preflight runs', async () => {
+        mockSubslots(1);
+        streamingInbox.set(leaves(2));
+        publisher.validateCheckpointHeaderAndInbox.mockImplementation(() => {
+          job.interrupt();
+          return Promise.resolve(0n);
+        });
+        await setupMultipleBlocks(1, [1]);
+
+        const checkpoint = await job.executeAndAwait();
+
+        expect(checkpoint).toBeUndefined();
+        expect(validatorClient.createCheckpointProposal).not.toHaveBeenCalled();
+        expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
+      });
+
+      it('does not enqueue the checkpoint when the pre-publication preflight resolves after the L1 publish deadline', async () => {
+        mockSubslots(1);
+        streamingInbox.set(leaves(2));
+        publisher.validateCheckpointHeaderAndInbox.mockResolvedValueOnce(0n).mockImplementationOnce(() => {
+          dateProvider.setTime(l1PublishDeadlineMs() + 1_000);
+          return Promise.resolve(0n);
+        });
+        const { lastBlock } = await setupMultipleBlocks(1, [1]);
+        validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+        const checkpoint = await job.executeAndAwait();
+
+        expect(checkpoint).toBeDefined();
+        expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+        expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('publication_preflight_timeout');
+      });
+
+      it('abandons a pre-publication preflight that does not answer before the L1 publish deadline', async () => {
+        mockSubslots(1);
+        streamingInbox.set(leaves(2));
+        publisher.validateCheckpointHeaderAndInbox
+          .mockResolvedValueOnce(0n)
+          .mockImplementationOnce(() => new Promise<bigint>(() => {}));
+        const { lastBlock } = await setupMultipleBlocks(1, [1]);
+        // Attestations arrive with 200ms left before the last L1 block of the target slot.
+        validatorClient.collectAttestations.mockImplementation(() => {
+          dateProvider.setTime(l1PublishDeadlineMs() - 200);
+          return Promise.resolve(getAttestations(lastBlock));
+        });
+
+        const checkpoint = await job.executeAndAwait();
+
+        expect(checkpoint).toBeDefined();
+        expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+        expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('publication_preflight_timeout');
+      });
     });
   });
 

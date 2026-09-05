@@ -104,6 +104,14 @@ const ARCHIVER_SYNC_POLLING_MS = 200;
 /** Cap on the single Inbox endpoint read message completion makes, well under a sub-slot. */
 const INBOX_ENDPOINT_READ_TIMEOUT_MS = 2_000;
 
+/** An integrated preflight did not deliver a usable verdict before the deadline of the phase it serves. */
+class PreflightDeadlineError extends Error {
+  constructor(public readonly deadline: Date) {
+    super(`Checkpoint preflight did not complete before its deadline at ${deadline.toISOString()}`);
+    this.name = 'PreflightDeadlineError';
+  }
+}
+
 /** Result from proposeCheckpoint when a checkpoint was successfully built and broadcast. */
 type CheckpointProposalBroadcast = {
   checkpoint: Checkpoint;
@@ -463,53 +471,123 @@ export class CheckpointProposalJob implements Traceable {
     header: CheckpointHeader,
     streamingState: StreamingCheckpointState,
   ): Promise<bigint | undefined> {
-    const overridesPlan = this.getPublicationSimulationOverridesPlan();
+    const overridesPlan = await this.getPublicationSimulationOverridesPlan();
     try {
-      return await this.publisher.validateCheckpointHeaderAndInbox(
-        header,
-        {
-          expectedTotal: streamingState.cursor.totalMessageCount,
-          expectedParentCheckpointNumber: CheckpointNumber(this.checkpointNumber - 1),
-        },
-        overridesPlan,
-      );
+      return await this.preflightWithinDeadline(header, streamingState, overridesPlan, this.getL1PublishDeadline());
     } catch (err) {
+      if (err instanceof SequencerInterruptedError) {
+        throw err;
+      }
+      const reason =
+        err instanceof PreflightDeadlineError ? 'publication_preflight_timeout' : 'publication_preflight_failed';
       const context = {
         slot: this.targetSlot,
         checkpointNumber: this.checkpointNumber,
         consumedTotalMsgCount: streamingState.cursor.totalMessageCount,
         inboxRollingHash: header.inboxRollingHash.toString(),
-        reason: 'publication_preflight_failed',
+        reason,
         error: err instanceof Error ? err.message : String(err),
       };
       this.logCheckpointEvent('publish-failed', `Checkpoint publish failed for slot ${this.targetSlot}`, context);
       this.log.warn(
-        `Pre-publication header and Inbox preflight rejected the checkpoint; abandoning slot ${this.targetSlot}`,
+        `Pre-publication header and Inbox preflight did not clear the checkpoint; abandoning slot ${this.targetSlot}`,
         context,
       );
-      this.metrics.recordCheckpointProposalFailed('publication_preflight_failed');
+      this.metrics.recordCheckpointProposalFailed(reason);
       return undefined;
     }
   }
 
   /**
-   * The state overrides for the pre-publication preflight: only the operations this bundle applies ahead of the
-   * propose. An invalidation enqueued for this slot forces the pending tip back before the propose executes, so the
-   * preflight must see that tip; nothing else is assumed into existence.
+   * Runs the integrated header and Inbox preflight within what remains of `deadline`. The simulation is abandoned
+   * once the phase it serves has run out of time, and a verdict arriving after the deadline, or after the job was
+   * interrupted, is not acted on: signing or enqueueing on it would commit this node past the point at which the
+   * checkpoint can still land.
+   */
+  private async preflightWithinDeadline(
+    header: CheckpointHeader,
+    streamingState: StreamingCheckpointState,
+    overridesPlan: SimulationOverridesPlan | undefined,
+    deadline: Date,
+  ): Promise<bigint> {
+    const remainingMs = deadline.getTime() - this.dateProvider.now();
+    if (remainingMs <= 0) {
+      throw new PreflightDeadlineError(deadline);
+    }
+    const bucketHint = await executeTimeout(
+      () =>
+        this.publisher.validateCheckpointHeaderAndInbox(
+          header,
+          {
+            expectedTotal: streamingState.cursor.totalMessageCount,
+            expectedParentCheckpointNumber: CheckpointNumber(this.checkpointNumber - 1),
+          },
+          overridesPlan,
+        ),
+      remainingMs,
+      () => new PreflightDeadlineError(deadline),
+    );
+    if (this.interrupted) {
+      throw new SequencerInterruptedError();
+    }
+    if (this.dateProvider.now() >= deadline.getTime()) {
+      throw new PreflightDeadlineError(deadline);
+    }
+    return bucketHint;
+  }
+
+  /**
+   * The latest moment at which the checkpoint proposal can still gather attestations: the single consensus
+   * `attestation_deadline` (`target_slot_start + S - 2E`). Nothing signed after it can be attested to.
+   */
+  private getAttestationDeadline(): Date {
+    return new Date(this.timetable.getAttestationDeadline(this.targetSlot) * 1000);
+  }
+
+  /**
+   * Latest L1 block the propose can still land in for the target slot: the last Ethereum block inside the target slot
+   * (`target_slot_start + S - E`). This is one ethereum slot later than `attestation_deadline`, which bounds when
+   * validators must have signed, not when the proposer must have sent. Using the attestation deadline here is too
+   * tight: attestations are collected up to (and, when not enforcing, past) it, so the propose tx would be enqueued
+   * already expired and time out before it can mine.
+   */
+  private getL1PublishDeadline(): Date {
+    const lastL1BlockInTargetSlot =
+      Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) +
+      this.l1Constants.slotDuration -
+      this.l1Constants.ethereumSlotDuration;
+    return new Date(lastL1BlockInTargetSlot * 1000);
+  }
+
+  /**
+   * The state overrides for the pre-publication preflight: only what the send will actually observe that the current
+   * L1 state does not show. An invalidation enqueued for this slot forces the pending tip back before the propose
+   * executes, so the preflight must see that tip. The build pinned the proven tip so that a prune due at the target
+   * slot would not collapse the parent in simulation, on the standing assumption that the epoch proof lands by then;
+   * `propose` itself is what validates that assumption, so while the proof is still outstanding the same pin is kept
+   * here rather than letting the preflight abandon a checkpoint the send may well land. The unlanded-parent overrides
+   * (archive, fee header, parent cell) are not carried over: the parent has been confirmed on L1 by now.
    *
    * Under the test-only `skipWaitForValidParentCheckpointOnL1` the parent was never confirmed on L1, so the build-time
    * plan describing it is reused; that keeps the hypothetical context the test asked for and is not a production path.
    */
-  private getPublicationSimulationOverridesPlan(): SimulationOverridesPlan | undefined {
+  private async getPublicationSimulationOverridesPlan(): Promise<SimulationOverridesPlan | undefined> {
     if (this.config.skipWaitForValidParentCheckpointOnL1) {
       return this.checkpointSimulationOverridesPlan;
     }
+    const builder = new SimulationOverridesBuilder();
     if (this.invalidateCheckpoint && !this.config.skipInvalidateBlockAsProposer) {
-      return new SimulationOverridesBuilder()
-        .withChainTips({ pending: this.invalidateCheckpoint.forcePendingCheckpointNumber })
-        .build();
+      builder.withChainTips({ pending: this.invalidateCheckpoint.forcePendingCheckpointNumber });
     }
-    return undefined;
+    const provenPin = this.checkpointSimulationOverridesPlan?.chainTipsOverride?.proven;
+    if (provenPin !== undefined && (await this.l2BlockSource.isPruneDueAtSlot(this.targetSlot))) {
+      this.log.warn(
+        `Assuming proof for epoch ending at checkpoint ${provenPin} lands by target slot ${this.targetSlot} for the publication preflight`,
+        { slot: this.targetSlot, checkpointNumber: this.checkpointNumber, provenOverride: provenPin },
+      );
+      builder.withChainTips({ proven: provenPin });
+    }
+    return builder.build();
   }
 
   /**
@@ -566,17 +644,7 @@ export class CheckpointProposalJob implements Traceable {
     const { checkpoint, attestations, attestationsSignature, bucketHint } = result;
 
     this.setState(SequencerState.PUBLISHING_CHECKPOINT);
-    // Latest L1 block the propose can still land in for the target slot: the last Ethereum block inside
-    // the target slot (`target_slot_start + S - E`). This is one ethereum slot later than
-    // `attestation_deadline` (= last_ethereum_block_in_target_slot - E), which bounds when validators must
-    // have signed, not when the proposer must have sent. Using the attestation deadline here is too tight:
-    // attestations are collected up to (and, when not enforcing, past) it, so the propose tx would be
-    // enqueued already expired and time out before it can mine.
-    const lastL1BlockInTargetSlot =
-      Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) +
-      this.l1Constants.slotDuration -
-      this.l1Constants.ethereumSlotDuration;
-    const txTimeoutAt = new Date(lastL1BlockInTargetSlot * 1000);
+    const txTimeoutAt = this.getL1PublishDeadline();
 
     // If we have been configured to potentially skip publishing checkpoint then roll the dice here
     if (
@@ -1013,24 +1081,29 @@ export class CheckpointProposalJob implements Traceable {
       // rules. If this fails the slot is aborted before any gossip work. The pipelined parent is supplied through
       // the simulation overrides, so this verdict is conditional on that parent landing; the pre-publication
       // preflight repeats it against the real state.
+      // The simulation is bounded by the attestation deadline: a verdict that arrives once no validator can attest
+      // any more must not lead to signing.
       let bucketHint: bigint;
       try {
-        bucketHint = await this.publisher.validateCheckpointHeaderAndInbox(
+        bucketHint = await this.preflightWithinDeadline(
           checkpoint.header,
-          {
-            expectedTotal: streamingState.cursor.totalMessageCount,
-            expectedParentCheckpointNumber: CheckpointNumber(this.checkpointNumber - 1),
-          },
+          streamingState,
           this.checkpointSimulationOverridesPlan,
+          this.getAttestationDeadline(),
         );
       } catch (err) {
+        if (err instanceof SequencerInterruptedError) {
+          return undefined;
+        }
+        const reason = err instanceof PreflightDeadlineError ? 'header_validation_timeout' : 'header_validation_failed';
         this.log.error(`Pre-broadcast header and Inbox validation failed for slot ${this.targetSlot}; aborting`, err, {
           slot: this.targetSlot,
           checkpointNumber: this.checkpointNumber,
           consumedTotalMsgCount: streamingState.cursor.totalMessageCount,
           inboxRollingHash: checkpoint.header.inboxRollingHash.toString(),
+          reason,
         });
-        this.metrics.recordCheckpointProposalFailed('header_validation_failed');
+        this.metrics.recordCheckpointProposalFailed(reason);
         this.eventEmitter.emit('header-validation-failed', {
           slot: this.targetSlot,
           checkpointNumber: this.checkpointNumber,
