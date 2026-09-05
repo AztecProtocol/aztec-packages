@@ -3,14 +3,25 @@ import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { InboxAbi } from '@aztec/l1-artifacts/InboxAbi';
 
-import { type Hex, getContract } from 'viem';
+import { mock } from 'jest-mock-extended';
+import {
+  ContractFunctionExecutionError,
+  ContractFunctionRevertedError,
+  type Hex,
+  encodeAbiParameters,
+  encodeErrorResult,
+  getContract,
+  keccak256,
+} from 'viem';
 import { foundry } from 'viem/chains';
 
+import { L1RpcError } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { type DeployAztecL1ContractsReturnType, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
 import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
+import type { ViemClient } from '../types.js';
 import { InboxContract } from './inbox.js';
 import { RollupContract } from './rollup.js';
 
@@ -102,6 +113,67 @@ describe('InboxContract', () => {
 
       const belowFirst = await inbox.getBucketAtOrBeforeTotal(2n);
       expect(belowFirst?.seq).toBe(0n);
+    });
+
+    // The ring has to wrap for a bound to fall below every live bucket, which no test can reach by sending messages.
+    // Rewrite the Inbox's storage instead: a wrapped sequence counter with the newest probed entries and the oldest
+    // live entry all ending past the bound, exactly the state the contract reverts on.
+    it('resolves to undefined when every live bucket ends past the bound', async () => {
+      const inboxAddress = deployed.l1ContractAddresses.inboxAddress;
+      const current = await inbox.getContract().read.BUCKET_RING_SIZE();
+      const oldest = 1n;
+      // Slot 1 packs (currentBucketSeq, provenConsumedBucketSeq); a bucket's packed word sits one slot after its
+      // `buckets` mapping entry and holds (totalMsgCount, timestamp, msgCount).
+      const seqSlot = 1n;
+      const totalsSlotOf = (seq: bigint) =>
+        BigInt(keccak256(encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [seq % current, 0n]))) + 1n;
+      const touched = [seqSlot, ...[current, current - 1n, current - 2n, current - 3n, oldest].map(totalsSlotOf)];
+      const saved = await Promise.all(touched.map(slot => cheatCodes.load(inboxAddress, slot)));
+
+      try {
+        await cheatCodes.store(inboxAddress, seqSlot, current);
+        for (const slot of touched.slice(1)) {
+          await cheatCodes.store(inboxAddress, slot, 10n);
+        }
+
+        await expect(inbox.getBucketAtOrBeforeTotal(9n)).resolves.toBeUndefined();
+        const hit = await inbox.getBucketAtOrBeforeTotal(10n);
+        expect(hit?.seq).toBe(current);
+        expect(hit?.bucket.totalMsgCount).toBe(10n);
+      } finally {
+        for (const [i, slot] of touched.entries()) {
+          await cheatCodes.store(inboxAddress, slot, saved[i]);
+        }
+      }
+      expect((await inbox.getBucketAtOrBeforeTotal(0n))?.seq).toBe(0n);
+    });
+
+    it('propagates reverts other than not-found and transport failures', async () => {
+      const address = deployed.l1ContractAddresses.inboxAddress.toString();
+      const revertWith = (errorName: 'Inbox__NoBucketAtOrBeforeTotal' | 'Inbox__BucketOutOfWindow') =>
+        new ContractFunctionExecutionError(
+          new ContractFunctionRevertedError({
+            abi: InboxAbi,
+            data: encodeErrorResult({ abi: InboxAbi, errorName, args: [3n, 7n] }),
+            functionName: 'getBucketAtOrBeforeTotal',
+          }),
+          { abi: InboxAbi, functionName: 'getBucketAtOrBeforeTotal', args: [3n], contractAddress: address },
+        );
+      const failing = (err: Error) => {
+        const client = mock<ViemClient>();
+        client.readContract.mockRejectedValue(err);
+        return new InboxContract(client, address);
+      };
+
+      await expect(failing(revertWith('Inbox__NoBucketAtOrBeforeTotal')).getBucketAtOrBeforeTotal(3n)).resolves.toBe(
+        undefined,
+      );
+      await expect(failing(revertWith('Inbox__BucketOutOfWindow')).getBucketAtOrBeforeTotal(3n)).rejects.toThrow(
+        /Inbox__BucketOutOfWindow/,
+      );
+      await expect(failing(new L1RpcError('L1 RPC request failed')).getBucketAtOrBeforeTotal(3n)).rejects.toThrow(
+        /L1 RPC request failed/,
+      );
     });
   });
 });

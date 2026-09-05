@@ -19,6 +19,7 @@ import { EthCheatCodes } from '../test/eth_cheat_codes.js';
 import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ViemClient } from '../types.js';
+import { buildSimulationOverridesStateOverride } from './chain_state_override.js';
 import { InboxContract } from './inbox.js';
 import { type CheckpointPreflightArgs, type FeeHeader, RollupContract, TempCheckpointLogField } from './rollup.js';
 
@@ -449,18 +450,25 @@ describe('Rollup', () => {
       );
     });
 
-    it('resolves a consumed bucket to its sequence and rejects a stale hash for it', async () => {
+    /** Sends one message in a fresh L1 block 12 seconds after the previous one, so it opens a new bucket. */
+    async function sendMessageInNewBucket(): Promise<void> {
       const inboxContract = getContract({
         address: deployed.l1ContractAddresses.inboxAddress.toString(),
         abi: InboxAbi,
         client: deployed.l1Client,
       });
       const version = await rollup.getVersion();
+      const { timestamp } = await publicClient.getBlock();
+      await cheatCodes.warp(timestamp + 12n, { silent: true });
       const hash = await inboxContract.write.sendL2Message(
         [{ actor: Fr.random().toString(), version }, Fr.random().toString(), Fr.random().toString()],
         { gas: 1_000_000n },
       );
       await deployed.l1Client.waitForTransactionReceipt({ hash });
+    }
+
+    it('resolves a consumed bucket to its sequence and rejects a stale hash for it', async () => {
+      await sendMessageInNewBucket();
       const bucket = await inbox.getBucket(1n);
       expect(bucket.totalMsgCount).toBe(1n);
 
@@ -473,6 +481,57 @@ describe('Rollup', () => {
       await expect(
         rollup.validateCheckpointHeaderAndInbox(l1TxUtils, { ...args, header: stale, expectedTotal: 1n }, { time }),
       ).rejects.toThrow(/Rollup__InvalidInboxRollingHash/);
+    });
+
+    // A pipelined checkpoint is validated against a parent that has not landed: the state overrides describe that
+    // parent (tips, archive, slot, consumed total) and the call reads the parent's total from them, so the same call
+    // without the overrides has no such parent and a parent total ahead of the child rejects the child.
+    it('validates against an unpublished parent supplied through state overrides', async () => {
+      // Bucket 1 (one message) is the parent's consumption; bucket 2 holds the child's message.
+      await sendMessageInNewBucket();
+      const parentBucket = await inbox.getBucket(1n);
+      const childBucket = await inbox.getBucket(2n);
+      expect([parentBucket.totalMsgCount, childBucket.totalMsgCount]).toEqual([1n, 2n]);
+
+      const { args, time } = await buildHeader(childBucket.rollingHash);
+      const parentArchive = Fr.random();
+      const parentSlot = SlotNumber(Number(args.header.slotNumber) - 1);
+      // The mana fee derivation reads the parent's fee header; the genesis one stands in for a real parent's.
+      const parentFeeHeader = await rollup.getFeeHeader(0n);
+      const overridesFor = (parentInboxMsgTotal: bigint) =>
+        buildSimulationOverridesStateOverride(rollup, {
+          chainTipsOverride: { pending: CheckpointNumber(1), proven: CheckpointNumber(0) },
+          pendingCheckpointState: {
+            archive: parentArchive,
+            slotNumber: parentSlot,
+            inboxMsgTotal: parentInboxMsgTotal,
+            inboxConsumedBucket: 1n,
+            feeHeader: parentFeeHeader,
+          },
+        });
+
+      const stateOverrides = await overridesFor(parentBucket.totalMsgCount);
+      const minFee = await rollup.getManaMinFeeAt(time, true, stateOverrides);
+      const header = {
+        ...args.header,
+        lastArchiveRoot: parentArchive.toString(),
+        gasFees: { ...args.header.gasFees, feePerL2Gas: minFee },
+      };
+      const childArgs = { ...args, header, expectedTotal: 2n, expectedParentCheckpointNumber: 1n };
+
+      await expect(
+        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, childArgs, { time, stateOverrides }),
+      ).resolves.toBe(2n);
+
+      // Without the parent's state the effective parent is still checkpoint 0.
+      await expect(rollup.validateCheckpointHeaderAndInbox(l1TxUtils, childArgs, { time })).rejects.toThrow(
+        /Rollup__UnexpectedParentCheckpoint/,
+      );
+
+      // The parent's stored total, not the caller, is the consumption floor.
+      await expect(
+        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, childArgs, { time, stateOverrides: await overridesFor(5n) }),
+      ).rejects.toThrow(/Rollup__InboxConsumptionBehindParent/);
     });
   });
 
