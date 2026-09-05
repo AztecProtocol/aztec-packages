@@ -42,7 +42,7 @@ import {
   type TreeInfo,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type InboxBucket, InboxMessagePrefixRef, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, CheckpointProposal, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { ProposerTimetable, SubslotSelection } from '@aztec/stdlib/timetable';
@@ -1528,10 +1528,10 @@ describe('CheckpointProposalJob', () => {
       expect(checkpointBuilder.buildBlockCalls[1].opts.l1ToL2Messages).toEqual([]);
 
       // Both block proposals carry the selected bucket reference (the second reuses the first's).
-      const bucketRefArgs = validatorClient.createBlockProposal.mock.calls.map(call => call[7]);
-      expect(bucketRefArgs).toHaveLength(2);
-      expect(bucketRefArgs[0]?.bucketSeq).toBe(2n);
-      expect(bucketRefArgs[1]?.bucketSeq).toBe(2n);
+      const prefixRefArgs = validatorClient.createBlockProposal.mock.calls.map(call => call[7]);
+      expect(prefixRefArgs).toHaveLength(2);
+      expect(prefixRefArgs[0]?.inboxRollingHash).toEqual(new Fr(99));
+      expect(prefixRefArgs[1]?.inboxRollingHash).toEqual(new Fr(99));
     });
 
     it('produces a message-only block when a non-empty bundle is selected and no txs are pending', async () => {
@@ -1880,7 +1880,7 @@ describe('CheckpointProposalJob', () => {
 
       // The checkpoint should be aborted since the archiver sync failure now propagates
       expect(checkpoint).toBeUndefined();
-      expect(blockSink.addBlock).toHaveBeenCalledWith(block);
+      expect(blockSink.addBlock).toHaveBeenCalledWith(block, expect.any(InboxMessagePrefixRef));
       // Should not attempt to collect attestations since the error aborts the loop
       expect(validatorClient.collectAttestations).not.toHaveBeenCalled();
     });

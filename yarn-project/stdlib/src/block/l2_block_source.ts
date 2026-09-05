@@ -20,6 +20,7 @@ import type { CheckpointInfo } from '../checkpoint/checkpoint_info.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { MAX_RPC_CHECKPOINTS_DATA_LEN } from '../interfaces/api_limit.js';
+import type { InboxMessagePrefixRef } from '../messaging/inbox_message_prefix_ref.js';
 import type { L2ToL1MembershipWitness } from '../messaging/l2_to_l1_membership.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
@@ -313,11 +314,18 @@ export interface L2BlockSource {
  */
 export interface L2BlockSink {
   /**
-   * Adds a block to the store.
+   * Adds a proposed block to the store, validating its Inbox consumption against the sink's own canonical messages
+   * in the same transaction as the writes: the block's signed prefix reference must equal the sink's rolling hash at
+   * the block header's L1-to-L2 leaf count, the parent block must be present, consumption must not rewind, and the
+   * consumed count range must be available whole. Every producer of proposed blocks (the checkpoint proposer,
+   * automine and a validator's re-execution) carries the reference it built or validated against, which is what stops
+   * a block built on messages an L1 reorg has since replaced from entering the chain.
    * @param block - The L2 block to add.
-   * @throws If block number is not incremental (i.e., not exactly one more than the last stored block).
+   * @param inboxPrefixRef - The signed Inbox message-prefix reference from the block's proposal.
+   * @throws If block number is not incremental (i.e., not exactly one more than the last stored block), or if the
+   *   prefix reference does not match the sink's canonical messages at the block's L1-to-L2 leaf count.
    */
-  addBlock(block: L2Block): Promise<void>;
+  addBlock(block: L2Block, inboxPrefixRef: InboxMessagePrefixRef): Promise<void>;
 }
 
 /**

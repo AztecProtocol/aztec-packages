@@ -24,7 +24,7 @@ import {
   getTimestampForSlot,
 } from '@aztec/stdlib/epoch-helpers';
 import { InsufficientValidTxsError, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { type L1ToL2MessageSource, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
+import { InboxMessagePrefixRef, type L1ToL2MessageSource, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { FailedTx, Tx } from '@aztec/stdlib/tx';
@@ -497,6 +497,9 @@ export class AutomineSequencer {
     });
     const streamingBundle = selection.consume ? selection.bundle : [];
     const bucketHint = selection.consume ? selection.bucket.seq : parentBucket.seq;
+    const consumedPrefixRef = new InboxMessagePrefixRef(
+      selection.consume ? selection.bucket.inboxRollingHash : parentBucket.inboxRollingHash,
+    );
 
     const checkpointBuilder = await this.deps.checkpointsBuilder.startCheckpoint(
       checkpointNumber,
@@ -536,7 +539,7 @@ export class AutomineSequencer {
     // first means the archiver already has the proposed entry when L1 polling fires; the L1
     // sync path then promotes the existing proposed checkpoint via promoteProposedToCheckpointed
     // rather than re-adding it.
-    await this.deps.archiver.addBlock(buildResult.block);
+    await this.deps.archiver.addBlock(buildResult.block, consumedPrefixRef);
     await this.deps.archiver.addProposedCheckpoint({
       header: checkpoint.header,
       checkpointNumber,

@@ -55,7 +55,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import {
   type InboxBucket,
-  InboxBucketRef,
+  InboxMessagePrefixRef,
   type L1ToL2MessageSource,
   getInboxCutoffTimestamp,
   isInboxConsumptionSufficient,
@@ -131,8 +131,8 @@ type StreamingCheckpointState = {
   checkpointStartTotalMsgCount: bigint;
   /** The last bucket consumed so far (parent checkpoint's at the first block); advances as blocks consume. */
   parent: ConsumedBucketCursor;
-  /** Reference to the last consumed bucket; reused by blocks that consume nothing. */
-  lastBucketRef: InboxBucketRef;
+  /** Signed reference to the consumed message prefix; reused by blocks that consume nothing. */
+  lastPrefixRef: InboxMessagePrefixRef;
 };
 
 /**
@@ -889,7 +889,7 @@ export class CheckpointProposalJob implements Traceable {
           checkpoint,
           proposal: undefined!,
           blockProposedAt: this.dateProvider.now(),
-          bucketHint: streamingState.lastBucketRef.bucketSeq,
+          bucketHint: streamingState.parent.seq,
         };
       }
 
@@ -947,7 +947,7 @@ export class CheckpointProposalJob implements Traceable {
       // Return immediately after broadcast — attestation collection happens in the background. The bucket hint is
       // the streaming cursor's final consumed bucket, which matches the header's rolling hash whether or not a last
       // block was held for broadcast.
-      return { checkpoint, proposal, blockProposedAt, bucketHint: streamingState.lastBucketRef.bucketSeq };
+      return { checkpoint, proposal, blockProposedAt, bucketHint: streamingState.parent.seq };
     } catch (err) {
       if (err && (err instanceof DutyAlreadySignedError || err instanceof SlashingProtectionError)) {
         // swallow this error. It's already been logged by a function deeper in the stack
@@ -1080,13 +1080,13 @@ export class CheckpointProposalJob implements Traceable {
 
       // Streaming Inbox: the block built successfully, so advance the consumption cursor and carry this block's
       // rolling-hash bucket reference. A block that consumed nothing reuses the parent bucket reference.
-      let blockBucketRef: InboxBucketRef | undefined = undefined;
+      let blockPrefixRef: InboxMessagePrefixRef | undefined = undefined;
       if (streamingState && selection) {
         if (selection.consume) {
           streamingState.parent = { seq: selection.bucket.seq, totalMsgCount: selection.bucket.totalMsgCount };
-          streamingState.lastBucketRef = InboxBucketRef.fromBucket(selection.bucket);
+          streamingState.lastPrefixRef = new InboxMessagePrefixRef(selection.bucket.inboxRollingHash);
         }
-        blockBucketRef = streamingState.lastBucketRef;
+        blockPrefixRef = streamingState.lastPrefixRef;
       }
 
       // Sign the block proposal. This will throw if HA signing fails.
@@ -1099,14 +1099,14 @@ export class CheckpointProposalJob implements Traceable {
             blockProposalOptions.broadcastInvalidBlockProposal ||
             block.indexWithinCheckpoint === this.config.invalidBlockProposalIndexWithinCheckpoint,
         },
-        blockBucketRef,
+        blockPrefixRef,
       );
 
       // Sync the proposed block to the archiver to make it available, only after we've managed to sign the proposal,
       // so we avoid polluting our archive with a block that would fail.
       // We wait for the sync to succeed, as this helps catch consistency errors, even if it means we lose some time for block-building.
       // If this throws, we abort the entire checkpoint.
-      await this.syncProposedBlockToArchiver(block);
+      await this.syncProposedBlockToArchiver(block, blockPrefixRef);
 
       // If this is the last block, do not broadcast it, since it will be included in the checkpoint proposal.
       if (timingInfo.isLastBlock) {
@@ -1142,7 +1142,7 @@ export class CheckpointProposalJob implements Traceable {
     block: L2Block,
     usedTxs: Tx[],
     blockProposalOptions: BlockProposalOptions,
-    bucketRef?: InboxBucketRef,
+    inboxPrefixRef?: InboxMessagePrefixRef,
   ): Promise<BlockProposal | undefined> {
     if (this.config.fishermanMode) {
       this.log.info(`Skipping block proposal for block ${block.number} in fisherman mode`);
@@ -1156,7 +1156,7 @@ export class CheckpointProposalJob implements Traceable {
       usedTxs,
       this.proposer,
       blockProposalOptions,
-      bucketRef,
+      inboxPrefixRef,
     );
   }
 
@@ -1179,7 +1179,7 @@ export class CheckpointProposalJob implements Traceable {
     return {
       checkpointStartTotalMsgCount: parentTotalMsgCount,
       parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
-      lastBucketRef: InboxBucketRef.fromBucket(parentBucket),
+      lastPrefixRef: new InboxMessagePrefixRef(parentBucket.inboxRollingHash),
     };
   }
 
@@ -1795,7 +1795,10 @@ export class CheckpointProposalJob implements Traceable {
    * and fee analysis only, and pushing them to the archiver causes spurious reorg cascades
    * whenever the real proposer's block arrives from L1.
    */
-  private async syncProposedBlockToArchiver(block: L2Block): Promise<void> {
+  private async syncProposedBlockToArchiver(
+    block: L2Block,
+    inboxPrefixRef: InboxMessagePrefixRef | undefined,
+  ): Promise<void> {
     if (this.config.skipPushProposedBlocksToArchiver || this.config.fishermanMode) {
       this.log.warn(`Skipping push of proposed block ${block.number} to archiver`, {
         blockNumber: block.number,
@@ -1803,11 +1806,17 @@ export class CheckpointProposalJob implements Traceable {
       });
       return;
     }
+    // The archiver re-validates this reference against its own messages inside the insert transaction, which is what
+    // stops a block built before an L1 reorg from landing after the reorg pruned the chain it belongs to. Streaming
+    // block building always produces one, so a missing reference here is a wiring bug, not a compatibility case.
+    if (inboxPrefixRef === undefined) {
+      throw new Error(`Streaming inbox: proposed block ${block.number} has no signed Inbox prefix reference`);
+    }
     this.log.debug(`Syncing proposed block ${block.number} to archiver`, {
       blockNumber: block.number,
       slot: block.header.globalVariables.slotNumber,
     });
-    await this.blockSink.addBlock(block);
+    await this.blockSink.addBlock(block, inboxPrefixRef);
   }
 
   /**

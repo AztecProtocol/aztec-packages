@@ -31,7 +31,7 @@ import {
   getTimestampForSlot,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
-import type { L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type { InboxMessagePrefixRef, L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
@@ -55,6 +55,8 @@ export type { ArchiverEmitter };
 type AddBlockRequest = {
   type: 'block';
   block: L2Block;
+  /** The signed Inbox prefix reference the block was built or validated against. */
+  inboxPrefixRef: InboxMessagePrefixRef;
   resolve: () => void;
   reject: (err: Error) => void;
 };
@@ -313,11 +315,13 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * The block will be processed by the sync loop.
    * Implements the L2BlockSink interface.
    * @param block - The L2 block to add.
+   * @param inboxPrefixRef - The signed Inbox prefix reference the block was built or validated against, checked
+   *   against this archiver's own messages in the same transaction as the insert.
    * @returns A promise that resolves when the block has been added to the store, or rejects on error.
    */
-  public addBlock(block: L2Block): Promise<void> {
+  public addBlock(block: L2Block, inboxPrefixRef: InboxMessagePrefixRef): Promise<void> {
     const promise = promiseWithResolvers<void>();
-    this.inboundQueue.push({ block, ...promise, type: 'block' });
+    this.inboundQueue.push({ block, inboxPrefixRef, ...promise, type: 'block' });
     this.log.debug(`Queued block ${block.number} for processing`);
     void this.trySyncImmediate();
     return promise.promise;
@@ -379,7 +383,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
       try {
         if (type === 'block') {
-          const [durationMs] = await elapsed(() => this.updater.addProposedBlock(item.block));
+          const [durationMs] = await elapsed(() => this.updater.addProposedBlock(item.block, item.inboxPrefixRef));
           this.instrumentation.processNewProposedBlock(durationMs, item.block);
           blocksAdded.push(item.block);
         } else {

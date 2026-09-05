@@ -1,3 +1,4 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { filterAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
@@ -6,7 +7,7 @@ import {
   ContractInstancePublishedEvent,
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-registry';
-import type { CommitteeAttestation, L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type { BlockData, CommitteeAttestation, L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import {
   type L1PublishedData,
   type ProposedCheckpointInput,
@@ -19,8 +20,15 @@ import {
   computeContractClassId,
 } from '@aztec/stdlib/contract';
 import type { ContractClassLog, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import type { InboxMessagePrefixRef } from '@aztec/stdlib/messaging';
 import type { UInt64 } from '@aztec/stdlib/types';
 
+import {
+  InboxConsumptionRewindsError,
+  InboxPrefixMismatchError,
+  InboxPrefixNotSyncedError,
+  ProposedBlockParentNotFoundError,
+} from '../errors.js';
 import type { ArchiverDataStores } from '../store/data_stores.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
 
@@ -28,6 +36,14 @@ import type { L2TipsCache } from '../store/l2_tips_cache.js';
 enum Operation {
   Store,
   Delete,
+}
+
+/**
+ * A block's L1-to-L2 message tree leaf count: the cumulative Inbox message count consumed through it. Messages are
+ * indexed compactly with no padding, so the leaf count is exactly the length of the message prefix the block consumed.
+ */
+export function blockLeafCount(block: Pick<L2Block, 'header'> | BlockData): bigint {
+  return BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
 }
 
 /** Result of adding checkpoints with information about any pruned blocks. */
@@ -53,16 +69,31 @@ export class ArchiverDataStoreUpdater {
    * This is an uncheckpointed block that has been proposed by the sequencer but not yet included in a checkpoint on L1.
    * Extracts ContractClassPublished, ContractInstancePublished, ContractInstanceUpdated events from the block logs.
    *
+   * The block's signed Inbox prefix reference is validated against the canonical messages this store holds *inside
+   * the same transaction as the writes*. A block built before an L1 reorg replaced the messages it consumed could
+   * otherwise be inserted after the reorg had already pruned the chain it belongs to, landing on the parent that
+   * survived the prune with nothing left to remove it. Because message replacement and this insertion each run as one
+   * transaction on the same store, the two orderings converge: a replacement that commits first makes this validation
+   * fail, and an insertion that commits first is visible to the replacement's prune.
+   *
    * @param block - The proposed L2 block to add.
+   * @param inboxPrefixRef - The signed Inbox prefix reference the block was built or validated against.
    * @param pendingChainValidationStatus - Optional validation status to set.
    * @returns True if the operation is successful.
+   * @throws InboxPrefixNotSyncedError, InboxPrefixMismatchError, ProposedBlockParentNotFoundError or
+   *   InboxConsumptionRewindsError when the reference does not check out; nothing is written in that case.
    */
   public async addProposedBlock(
     block: L2Block,
+    inboxPrefixRef: InboxMessagePrefixRef,
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
     const result = await this.stores.db.transactionAsync(async () => {
+      // The block store's own chain checks (sequential number, parent archive) run first so a structurally invalid
+      // block keeps its error. The prefix validation follows inside the same transaction, before logs and contract
+      // data are written: a rejection aborts the whole callback and leaves the store exactly as it was.
       await this.stores.blocks.addProposedBlock(block);
+      await this.validateProposedBlockInboxPrefix(block, inboxPrefixRef);
 
       const opResults = await Promise.all([
         // Update the pending chain validation status if provided
@@ -78,6 +109,60 @@ export class ArchiverDataStoreUpdater {
     });
     await this.l2TipsCache?.refresh();
     return result;
+  }
+
+  /**
+   * Checks a proposed block's signed Inbox prefix reference against the canonical messages this store holds, and
+   * that the exact range it consumed is available whole.
+   *
+   * The block's end count comes from its own signed header's L1-to-L2 leaf count and the start from its stored
+   * parent's. The range and the position it ends at are read from one store snapshot, so the hash compared against
+   * the reference is the hash over exactly the leaves the range holds. Because each message's rolling hash chains the
+   * one before it, a matching hash at the end count proves the proposer consumed exactly the prefix this store holds,
+   * which makes the range between the two counts canonical by content.
+   *
+   * Deliberately absent is any requirement that either count sit on a boundary of the L1 bucket partition: blocks
+   * consume arbitrary message prefixes, and an L1 reorg that re-mines the same messages under different boundaries
+   * leaves every leaf and prefix hash intact.
+   *
+   * Must run inside the transaction that writes the block.
+   */
+  private async validateProposedBlockInboxPrefix(block: L2Block, inboxPrefixRef: InboxMessagePrefixRef): Promise<void> {
+    const blockNumber = block.number;
+    const endCount = blockLeafCount(block);
+    const parentCount = await this.getParentBlockLeafCount(block);
+    if (endCount < parentCount) {
+      throw new InboxConsumptionRewindsError(blockNumber, endCount, parentCount);
+    }
+
+    let endRollingHash;
+    try {
+      ({
+        end: { rollingHash: endRollingHash },
+      } = await this.stores.messages.getL1ToL2MessageRange(parentCount, endCount));
+    } catch (err) {
+      throw new InboxPrefixNotSyncedError(blockNumber, endCount, `${err}`);
+    }
+    if (!endRollingHash.equals(inboxPrefixRef.inboxRollingHash)) {
+      throw new InboxPrefixMismatchError(blockNumber, endCount, inboxPrefixRef.inboxRollingHash, endRollingHash);
+    }
+  }
+
+  /**
+   * The cumulative Inbox message count consumed through a proposed block's parent: its L1-to-L2 tree leaf count, or
+   * zero when the block is the first of the chain. Throws when the parent is not in the store, since its consumed
+   * range would then have no lower bound. Must run inside the caller's transaction.
+   */
+  private async getParentBlockLeafCount(block: L2Block): Promise<bigint> {
+    const parentBlockNumber = block.number - 1;
+    if (parentBlockNumber < INITIAL_L2_BLOCK_NUM) {
+      return 0n;
+    }
+    const parent = await this.stores.blocks.getBlockData({ number: BlockNumber(parentBlockNumber) });
+    if (parent === undefined) {
+      throw new ProposedBlockParentNotFoundError(block.number, parentBlockNumber);
+    }
+    return blockLeafCount(parent);
   }
 
   /**

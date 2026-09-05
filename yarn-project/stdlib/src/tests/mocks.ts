@@ -50,7 +50,7 @@ import {
 import { PrivateToAvmAccumulatedData } from '../kernel/private_to_avm_accumulated_data.js';
 import { PrivateToPublicAccumulatedDataBuilder } from '../kernel/private_to_public_accumulated_data_builder.js';
 import { PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
-import { InboxBucketRef } from '../messaging/inbox_bucket.js';
+import { InboxMessagePrefixRef } from '../messaging/inbox_message_prefix_ref.js';
 import { BlockProposal } from '../p2p/block_proposal.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { CheckpointProposal } from '../p2p/checkpoint_proposal.js';
@@ -546,7 +546,7 @@ export interface MakeBlockProposalOptions {
   txHashes?: TxHash[];
   txs?: Tx[];
   signatureContext?: CoordinationSignatureContext;
-  bucketRef?: InboxBucketRef;
+  inboxPrefixRef?: InboxMessagePrefixRef;
 }
 
 export interface MakeCheckpointProposalOptions {
@@ -561,7 +561,7 @@ export interface MakeCheckpointProposalOptions {
     indexWithinCheckpoint?: IndexWithinCheckpoint;
     txHashes?: TxHash[];
     txs?: Tx[];
-    bucketRef?: InboxBucketRef;
+    inboxPrefixRef?: InboxMessagePrefixRef;
   };
 }
 
@@ -599,7 +599,7 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
   const txs = options?.txs;
   const signer = options?.signer ?? Secp256k1Signer.random();
   const signatureContext = options?.signatureContext ?? TEST_COORDINATION_SIGNATURE_CONTEXT;
-  const bucketRef = options?.bucketRef;
+  const inboxPrefixRef = options?.inboxPrefixRef;
 
   return BlockProposal.createProposalFromSigner(
     blockHeader,
@@ -611,7 +611,7 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
     signatureContext,
     (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
     (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
-    bucketRef,
+    inboxPrefixRef,
   );
 };
 
@@ -632,7 +632,7 @@ export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOpt
         txs: options.lastBlock.txs,
         signer,
         signatureContext,
-        bucketRef: options.lastBlock.bucketRef,
+        inboxPrefixRef: options.lastBlock.inboxPrefixRef,
       })
     : undefined;
 
