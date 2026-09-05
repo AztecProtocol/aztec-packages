@@ -5,7 +5,7 @@ import type { InboxMessagePosition, InboxMessageRange, L1ToL2MessageSource } fro
 
 /**
  * The message caps that bound streaming Inbox consumption. Blocks and L1 buckets share the same cap, so a cursor left
- * at most one bucket's worth of messages below the checkpoint cap can always reach the end of the bucket it sits in.
+ * at least one bucket's worth of messages below the checkpoint cap can always reach the end of the bucket it sits in.
  */
 export type InboxConsumptionCaps = {
   /** Maximum number of messages one block may consume (`MAX_L1_TO_L2_MSGS_PER_BLOCK`). */
