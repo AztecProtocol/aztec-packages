@@ -145,12 +145,12 @@ export class MessageStore {
   }
 
   /**
-   * Atomically updates the message sync state for a position the caller has authenticated against the Inbox at
-   * `l1Block`: the syncpoint, the scanned cursor and (optionally) the L1 finalized block as of this sync. The
-   * finalized block is advanced monotonically.
+   * Atomically updates the message sync state without storing messages: the scanned cursor, and for an authenticated
+   * position the syncpoint and (optionally) the L1 finalized block as of this sync, advanced monotonically. An
+   * unauthenticated position clears the syncpoint, since nothing has compared the stored log with the Inbox there.
    */
-  public setMessageSyncState(l1Block: L1BlockId, finalizedL1Block?: L1BlockId): Promise<void> {
-    return this.db.transactionAsync(() => this.setSyncState({ l1Block, authenticated: true, finalizedL1Block }));
+  public setMessageSyncState(syncState: MessageSyncState): Promise<void> {
+    return this.db.transactionAsync(() => this.setSyncState(syncState));
   }
 
   /**

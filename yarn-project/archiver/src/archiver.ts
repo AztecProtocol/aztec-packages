@@ -794,13 +794,18 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     );
     await this.updater.removeCheckpointsAfter(targetCheckpointNumber);
     this.log.info(`Rolling back L1 to L2 messages inserted after L1 block ${targetL1BlockNumber}`);
-    await this.stores.messages.rollbackL1ToL2MessagesAfterL1Block(targetL1BlockNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
-    await this.stores.blocks.setSynchedL1BlockNumber(targetL1BlockNumber);
-    await this.stores.messages.setMessageSyncState({
-      l1BlockNumber: targetL1BlockNumber,
-      l1BlockHash: targetL1BlockHash,
+    // The message log is trimmed by the stored L1 block hints, which is not a comparison with the Inbox at the
+    // target block, so the resulting log gets a scanned cursor and no syncpoint: message sync authenticates it
+    // against L1 before anything advertises it as synced. Both land in one transaction.
+    await this.stores.db.transactionAsync(async () => {
+      await this.stores.messages.rollbackL1ToL2MessagesAfterL1Block(targetL1BlockNumber);
+      await this.stores.messages.setMessageSyncState({
+        l1Block: { l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash },
+        authenticated: false,
+      });
     });
+    await this.stores.blocks.setSynchedL1BlockNumber(targetL1BlockNumber);
     if (targetL2BlockNumber < currentProvenBlock) {
       this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
       await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);

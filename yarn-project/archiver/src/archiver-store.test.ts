@@ -932,10 +932,12 @@ describe('Archiver Store', () => {
 
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
-      // Verify sync points are set to checkpoint 1's L1 block number (10)
+      // Verify sync points are set to checkpoint 1's L1 block number (10). The message log was trimmed by its
+      // stored L1 block hints rather than compared with the Inbox, so it gets a scanned cursor and no syncpoint.
       const synchPoint = await getArchiverSynchPoint(archiverStore);
       expect(synchPoint.blocksSynchedTo).toEqual(10n);
-      expect(synchPoint.messagesSynchedTo?.l1BlockNumber).toEqual(10n);
+      expect(synchPoint.messagesSynchedTo).toBeUndefined();
+      expect((await archiverStore.messages.getScannedL1Block())?.l1BlockNumber).toEqual(10n);
     });
 
     it('includes correct boundary info in error for mid-checkpoint rollback', async () => {

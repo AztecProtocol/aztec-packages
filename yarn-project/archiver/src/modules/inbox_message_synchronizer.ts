@@ -171,14 +171,15 @@ export class InboxMessageSynchronizer {
 
     const persistedSyncPoint = await this.stores.messages.getSynchedL1Block();
     const persistedCursor = await this.stores.messages.getScannedL1Block();
-    const syncPoint = persistedSyncPoint ?? this.l1Start;
     const cursor = persistedCursor ?? this.l1Start;
-    if (sameL1Block(head, syncPoint)) {
+    if (persistedSyncPoint !== undefined && sameL1Block(head, persistedSyncPoint)) {
       // The syncpoint only ever reaches a head once the log agrees with the Inbox there (a replacement batch ending
-      // at the head is the canonical sequence through it), so finality may advance over the whole log.
+      // at the head is the canonical sequence through it), so finality may advance over the whole log. The deployment
+      // block is not a syncpoint: nothing has compared the log with the Inbox there, so a head at it is compared like
+      // any other rather than answered from the absence of a syncpoint.
       this.log.trace(`L1 to L2 messages already synced to L1 block ${head.l1BlockNumber}`);
       if (finalizedL1Block !== undefined) {
-        await this.stores.messages.setMessageSyncState(head, finalizedL1Block);
+        await this.stores.messages.setMessageSyncState({ l1Block: head, authenticated: true, finalizedL1Block });
       }
       return synced();
     }
@@ -193,7 +194,7 @@ export class InboxMessageSynchronizer {
         this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while reading the Inbox state`);
         return pending();
       }
-      await this.stores.messages.setMessageSyncState(head, finalizedL1Block);
+      await this.stores.messages.setMessageSyncState({ l1Block: head, authenticated: true, finalizedL1Block });
       return synced();
     }
 
@@ -224,7 +225,7 @@ export class InboxMessageSynchronizer {
     if (persistedCursor !== undefined && !(await this.isHeadStillCanonical(persistedCursor))) {
       this.log.warn(`L1 block ${cursor.l1BlockNumber} the message log was scanned through has been replaced`, {
         cursor,
-        syncPoint,
+        syncPoint: persistedSyncPoint,
         headL1BlockNumber: head.l1BlockNumber,
       });
       return this.startRecovery(head, remote, finalizedL1Block);
@@ -538,7 +539,7 @@ export class InboxMessageSynchronizer {
     // by a stale tail the canonical chain no longer has.
     const local = await this.stores.messages.getSyncedMessagePosition();
     if (positionMatches(local, remote)) {
-      await this.stores.messages.setMessageSyncState(head, finalizedL1Block);
+      await this.stores.messages.setMessageSyncState({ l1Block: head, authenticated: true, finalizedL1Block });
       this.log.info(`L1 to L2 message recovery found no content change`, this.getRecoveryProgress());
       this.recovery = undefined;
       return synced();
@@ -590,7 +591,7 @@ export class InboxMessageSynchronizer {
     });
     // The remaining log is the canonical sequence at the head, so finality may advance over it.
     if (finalizedL1Block !== undefined) {
-      await this.stores.messages.setMessageSyncState(head, finalizedL1Block);
+      await this.stores.messages.setMessageSyncState({ l1Block: head, authenticated: true, finalizedL1Block });
     }
     return { status: 'synced', ...result };
   }

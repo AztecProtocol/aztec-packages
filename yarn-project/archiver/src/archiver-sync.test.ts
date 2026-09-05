@@ -2171,6 +2171,57 @@ describe('Archiver Sync', () => {
       expect(archiver.getL1BlockNumber()).toEqual(10n);
     });
 
+    it('reconciles the messages when L1 returns to the head of the last completed iteration', async () => {
+      // One slot of L1 blocks per batch: two blocks. A arrives in block 2 and is synced at head 4; B arrives later.
+      await useArchiver({ batchSize: 1 });
+      const [a, b] = randomLeaves(2);
+      fake.addMessages(CheckpointNumber(1), 2n, [a]);
+      fake.setL1BlockNumber(4n);
+      await archiver.syncImmediate();
+      expect(archiver.getL1BlockNumber()).toEqual(4n);
+
+      // B is scanned into the log by the blocks 5-6 batch, and the pass then fails before anything compared the log
+      // with the Inbox: the log holds a message no syncpoint covers.
+      fake.addMessages(CheckpointNumber(1), 6n, [b]);
+      fake.setL1BlockNumber(8n);
+      fake.setMessageSentEventsFailure(from => from >= 7n);
+      await expect(archiver.syncImmediate()).rejects.toThrow(/Cannot serve MessageSent logs/);
+      expect(await getStoredLeaves()).toEqual(asHex([a, b]));
+      expect(await archiverStore.messages.getSynchedL1Block()).toBeUndefined();
+
+      // L1 is seen at block 4 again, the head the last completed iteration announced. Skipping the iteration on that
+      // hash would leave B in the log while the head is advertised as synced.
+      fake.setMessageSentEventsFailure(undefined);
+      fake.setL1BlockNumber(4n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([a]));
+      expect(archiver.getL1BlockNumber()).toEqual(4n);
+    });
+
+    it('does not answer a head at the deployment block from the absence of a syncpoint', async () => {
+      // The archiver's start block is the deployment block; give it the hash L1 reports so a head there could be
+      // mistaken for a syncpoint.
+      l1Constants.l1StartBlockHash = fake.getL1BlockHash(0n);
+      await useArchiver({ batchSize: 1 });
+      const [a] = randomLeaves(1);
+      fake.addMessages(CheckpointNumber(1), 2n, [a]);
+      fake.setL1BlockNumber(4n);
+      fake.setMessageSentEventsFailure((_from, to) => to >= 3n);
+      await expect(archiver.syncImmediate()).rejects.toThrow(/Cannot serve MessageSent logs/);
+      expect(await getStoredLeaves()).toEqual(asHex([a]));
+      expect(await archiverStore.messages.getSynchedL1Block()).toBeUndefined();
+
+      // The provider now reports the deployment block as its head. The Inbox holds nothing there, and no syncpoint
+      // says otherwise, so the scanned message must go.
+      fake.setMessageSentEventsFailure(undefined);
+      fake.setL1BlockNumber(0n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual([]);
+      expect(archiver.getL1BlockNumber()).toEqual(0n);
+    });
+
     it('leaves a recovery batch uncommitted when its position at the head disagrees with the Inbox', async () => {
       const [a, b, c, d] = randomLeaves(4);
       fake.addMessages(CheckpointNumber(1), 100n, [a]);

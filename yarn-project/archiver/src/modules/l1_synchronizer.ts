@@ -149,6 +149,22 @@ export class ArchiverL1Synchronizer implements Traceable {
     this.config = newConfig;
   }
 
+  /**
+   * Whether the message log is certified at the given L1 head: the persisted message syncpoint is that head and no
+   * recovery is in progress. Only then does the log hold exactly what the Inbox held there.
+   */
+  private async messagesAreCertifiedAt(head: L1BlockId): Promise<boolean> {
+    if (this.messageSynchronizer.isRecovering()) {
+      return false;
+    }
+    const syncPoint = await this.stores.messages.getSynchedL1Block();
+    return (
+      syncPoint !== undefined &&
+      syncPoint.l1BlockNumber === head.l1BlockNumber &&
+      syncPoint.l1BlockHash.equals(head.l1BlockHash)
+    );
+  }
+
   /** Returns the last L1 block number that was synced. */
   public getL1BlockNumber(): bigint | undefined {
     return this.l1BlockNumber;
@@ -195,7 +211,14 @@ export class ArchiverL1Synchronizer implements Traceable {
     const currentL1Timestamp = currentL1Block.timestamp;
     const currentL1BlockData = { l1BlockNumber: currentL1BlockNumber, l1BlockHash: currentL1BlockHash };
 
-    if (this.l1BlockHash && currentL1BlockHash.equals(this.l1BlockHash)) {
+    // The head of the last completed iteration is skipped only while the message log is still certified at it: an
+    // uncertified batch stored since then, or an unfinished recovery, has to be reconciled with L1 before this head
+    // is advertised as synced again.
+    if (
+      this.l1BlockHash &&
+      currentL1BlockHash.equals(this.l1BlockHash) &&
+      (await this.messagesAreCertifiedAt(currentL1BlockData))
+    ) {
       this.log.trace(`No new L1 blocks since last sync at L1 block ${this.l1BlockNumber}`);
       return blocksAdded;
     }

@@ -79,7 +79,7 @@ describe('MessageStore', () => {
     it('returns the L1 block set via setMessageSyncState', async () => {
       const l1BlockHash = Buffer32.random();
       const l1BlockNumber = 10n;
-      await messageStore.setMessageSyncState({ l1BlockNumber, l1BlockHash });
+      await messageStore.setMessageSyncState({ l1Block: { l1BlockNumber, l1BlockHash }, authenticated: true });
       await messageStore.addL1ToL2Messages([makeInboxMessage(Fr.ZERO, { l1BlockNumber: 5n })]);
       await expect(getSynchPoint(blockStore, messageStore)).resolves.toEqual({
         blocksSynchedTo: undefined,
@@ -486,7 +486,7 @@ describe('MessageStore', () => {
 
     it('commits neither the batch nor the sync point when the batch is rejected', async () => {
       const before = { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() };
-      await messageStore.setMessageSyncState(before);
+      await messageStore.setMessageSyncState({ l1Block: before, authenticated: true });
       const msgs = makeInboxMessages(3);
       msgs[2].inboxRollingHash = Fr.random();
 
@@ -510,7 +510,7 @@ describe('MessageStore', () => {
 
     it('moves only the scanned cursor for a batch that was not compared with the Inbox', async () => {
       const synced = { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() };
-      await messageStore.setMessageSyncState(synced);
+      await messageStore.setMessageSyncState({ l1Block: synced, authenticated: true });
       const l1Block = { l1BlockNumber: 12n, l1BlockHash: Buffer32.random() };
 
       await messageStore.addL1ToL2Messages(makeInboxMessages(2), { l1Block, authenticated: false });
