@@ -121,7 +121,6 @@ export type CheckpointProposalValidationFailureReason =
   | 'block_fetch_error'
   | 'world_state_not_synced'
   | 'checkpoint_already_published'
-  | 'no_blocks_for_slot'
   | 'last_block_archive_mismatch'
   | 'too_many_blocks_in_checkpoint'
   | 'initial_archive_mismatch'
@@ -183,7 +182,6 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   block_fetch_error: 'unvalidated',
   world_state_not_synced: 'unvalidated',
   initial_archive_mismatch: 'unvalidated',
-  no_blocks_for_slot: 'unvalidated',
   last_block_archive_mismatch: 'invalid',
   too_many_blocks_in_checkpoint: 'invalid',
   checkpoint_header_mismatch: 'invalid',
@@ -215,6 +213,9 @@ export type CheckpointProposalValidationFailureCallback = (
   result: CheckpointProposalValidationFailureResult,
   proposalInfo: LogData,
 ) => void | Promise<void>;
+
+/** The blocks of a checkpoint proposal's slot, read in one go, and the index of the block carrying the signed archive. */
+type CheckpointBlocksSnapshot = { blocks: L2Block[]; lastBlockIndex: number };
 
 type CheckpointComputationResult =
   | { checkpointNumber: CheckpointNumber; reason?: undefined }
@@ -249,7 +250,6 @@ export const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<
   // checkpoint inputs, the proposer-signed payload disagrees with deterministic recomputation.
   ['archive_mismatch']: true,
   ['out_hash_mismatch']: true,
-  ['no_blocks_for_slot']: true,
   ['too_many_blocks_in_checkpoint']: true,
   ['checkpoint_validation_failed']: true,
   ['last_block_archive_mismatch']: true,
@@ -1312,6 +1312,28 @@ export class ProposalHandler {
    * unavailable or mismatching prefix forces an archiver sync and re-reads until it resolves or the attestation
    * deadline passes. Neither outcome is proposer misconduct, so a timeout keeps the nonpunitive reason.
    */
+  /**
+   * Reads the blocks of a slot as one snapshot for checkpoint validation, locating the checkpoint's last block by the
+   * signed archive. Undefined when the archive is not among the slot's blocks or the blocks do not chain onto each
+   * other, both of which are the archiver replacing or pruning blocks while they were read.
+   */
+  private async readCheckpointBlocksSnapshot(
+    slot: SlotNumber,
+    archive: Fr,
+  ): Promise<CheckpointBlocksSnapshot | undefined> {
+    const blocks = await this.blockSource.getBlocksForSlot(slot);
+    const lastBlockIndex = blocks.findIndex(block => block.archive.root.equals(archive));
+    if (lastBlockIndex === -1) {
+      return undefined;
+    }
+    const contiguous = blocks.every(
+      (block, i) =>
+        i === 0 ||
+        (block.number === blocks[i - 1].number + 1 && block.header.lastArchive.root.equals(blocks[i - 1].archive.root)),
+    );
+    return contiguous ? { blocks, lastBlockIndex } : undefined;
+  }
+
   private async awaitCheckpointConsumedMessages(
     slot: SlotNumber,
     checkpointStartTotal: bigint,
@@ -1560,15 +1582,19 @@ export class ProposalHandler {
     // right up to the proposer's real publish cutoff.
     const deadline = this.getReexecutionDeadline(slot);
 
-    // Wait for last block to sync by archive. The deadline is passed to retryUntil as an absolute date so
-    // the remaining budget is derived from the date provider; a deadline already in the past times out
-    // after a single attempt instead of looping (the immediate-timeout semantics of the deadline overload).
-    let lastBlockData;
+    // Wait for the checkpoint's blocks to sync. One read of the slot's blocks is the snapshot the whole validation
+    // runs on: the block carrying the signed archive is the checkpoint's last block, and the slot's blocks before it
+    // are the checkpoint's. Reading the last block by archive and the slot's blocks separately would let a local prune
+    // between the two reads look like a proposer offense; a slot read without the signed archive, or one that is not
+    // a contiguous chain, is local state in motion and is retried. The deadline is passed to retryUntil as an
+    // absolute date so the remaining budget is derived from the date provider; a deadline already in the past times
+    // out after a single attempt instead of looping (the immediate-timeout semantics of the deadline overload).
+    let snapshot: CheckpointBlocksSnapshot | undefined;
     try {
-      lastBlockData = await retryUntil(
+      snapshot = await retryUntil(
         async () => {
           await this.blockSource.syncImmediate();
-          return await this.blockSource.getBlockData({ archive: proposal.archive });
+          return await this.readCheckpointBlocksSnapshot(slot, proposal.archive);
         },
         `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
         { deadline, dateProvider: this.dateProvider },
@@ -1583,39 +1609,39 @@ export class ProposalHandler {
       return { isValid: false, reason: 'block_fetch_error' };
     }
 
-    if (!lastBlockData) {
+    if (!snapshot) {
       this.log.warn(`Last block not found for checkpoint proposal`, proposalInfo);
       return { isValid: false, reason: 'last_block_not_found' };
     }
+    const { blocks, lastBlockIndex } = snapshot;
+    const lastBlock = blocks[lastBlockIndex];
 
     // Refuse to attest if the block's enclosing checkpoint has already been published to L1.
-    const existingCheckpoint = await this.blockSource.getCheckpointData({ number: lastBlockData.checkpointNumber });
+    const existingCheckpoint = await this.blockSource.getCheckpointData({ number: lastBlock.checkpointNumber });
     if (existingCheckpoint) {
       this.log.warn(`Refusing to attest to checkpoint proposal whose checkpoint is already on L1`, {
         ...proposalInfo,
-        checkpointNumber: lastBlockData.checkpointNumber,
+        checkpointNumber: lastBlock.checkpointNumber,
       });
       return {
         isValid: false,
         reason: 'checkpoint_already_published',
-        checkpointNumber: lastBlockData.checkpointNumber,
+        checkpointNumber: lastBlock.checkpointNumber,
       };
     }
 
-    // Get all full blocks for the slot and checkpoint
-    const blocks = await this.blockSource.getBlocksForSlot(slot);
-    if (blocks.length === 0) {
-      this.log.warn(`No blocks found for slot ${slot}`, proposalInfo);
-      return { isValid: false, reason: 'no_blocks_for_slot', checkpointNumber: lastBlockData.checkpointNumber };
-    }
-
-    // Ensure the last block for this slot matches the archive in the checkpoint proposal
-    if (!blocks.at(-1)?.archive.root.equals(proposal.archive)) {
-      this.log.warn(`Last block archive mismatch for checkpoint proposal`, proposalInfo);
+    // The signed archive names a block of the slot that is followed by more of the proposer's blocks for the same
+    // slot: the proposal leaves signed blocks of its own slot out, which no local race explains.
+    if (lastBlockIndex !== blocks.length - 1) {
+      this.log.warn(`Last block archive mismatch for checkpoint proposal`, {
+        ...proposalInfo,
+        lastBlockNumber: lastBlock.number,
+        laterBlockNumbers: blocks.slice(lastBlockIndex + 1).map(b => b.number),
+      });
       return {
         isValid: false,
         reason: 'last_block_archive_mismatch',
-        checkpointNumber: lastBlockData.checkpointNumber,
+        checkpointNumber: lastBlock.checkpointNumber,
       };
     }
 
@@ -1636,7 +1662,7 @@ export class ProposalHandler {
       return {
         isValid: false,
         reason: 'too_many_blocks_in_checkpoint',
-        checkpointNumber: lastBlockData.checkpointNumber,
+        checkpointNumber: lastBlock.checkpointNumber,
       };
     }
 

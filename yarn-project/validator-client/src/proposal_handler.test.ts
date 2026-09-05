@@ -11,7 +11,12 @@ import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import {
+  type Checkpoint,
+  type CheckpointData,
+  CheckpointReexecutionTracker,
+  type ProposedCheckpointData,
+} from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { InboxMessagePosition, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -35,7 +40,11 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorMetrics } from './metrics.js';
-import { ProposalHandler } from './proposal_handler.js';
+import {
+  type CheckpointProposalValidationResult,
+  ProposalHandler,
+  SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT,
+} from './proposal_handler.js';
 
 /** A block header consuming no Inbox messages (leaf count zero), so the streaming checks see an empty bundle. */
 function makeBlockHeader(...args: Parameters<typeof makeRandomBlockHeader>) {
@@ -62,6 +71,26 @@ function mockEmptyInboxView(source: MockProxy<L1ToL2MessageSource>) {
   );
 }
 
+/**
+ * The blocks of slot 1 for checkpoint 1, one per archive root, numbered from 1 and each chaining onto the previous
+ * one's archive, consuming no Inbox messages.
+ */
+function makeSlotBlocks(archiveRoots: Fr[]): L2Block[] {
+  return archiveRoots.map(
+    (root, i) =>
+      ({
+        archive: new AppendOnlyTreeSnapshot(root, i + 1),
+        number: BlockNumber(i + 1),
+        checkpointNumber: CheckpointNumber(1),
+        header: makeBlockHeader(0, {
+          lastArchive: new AppendOnlyTreeSnapshot(i === 0 ? Fr.ZERO : archiveRoots[i - 1], i),
+          slotNumber: SlotNumber(1),
+          blockNumber: BlockNumber(i + 1),
+        }),
+      }) as unknown as L2Block,
+  );
+}
+
 /** Creates a checkpoint proposal core with the given overrides. */
 async function makeProposal(overrides: Parameters<typeof makeCheckpointProposal>[0] = {}) {
   return ValidatedCheckpointProposalCore(
@@ -84,6 +113,7 @@ describe('ProposalHandler checkpoint validation', () => {
   let metrics: MockProxy<ValidatorMetrics>;
   let config: ValidatorClientFullConfig;
   let consensusTimetable: ConsensusTimetable;
+  let reexecutionTracker: CheckpointReexecutionTracker;
 
   const proposalInfo = {};
 
@@ -122,6 +152,7 @@ describe('ProposalHandler checkpoint validation', () => {
     } as ValidatorClientFullConfig;
 
     consensusTimetable = new ConsensusTimetable({ l1Constants: epochCache.getL1Constants(), blockDuration: 3 });
+    reexecutionTracker = new CheckpointReexecutionTracker();
 
     handler = new ProposalHandler(
       checkpointsBuilder,
@@ -133,7 +164,7 @@ describe('ProposalHandler checkpoint validation', () => {
       consensusTimetable,
       config,
       mock<BlobClientInterface>(),
-      new CheckpointReexecutionTracker(),
+      reexecutionTracker,
       metrics,
       dateProvider,
     );
@@ -169,26 +200,63 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
     });
 
-    it('returns no_blocks_for_slot when no blocks exist for the slot', async () => {
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
-      blockSource.getBlocksForSlot.mockResolvedValue([]);
+    // Local pruning between the archiver reads of a checkpoint validation is a local-view outcome: the proposer's
+    // blocks may well be canonical, this node just no longer holds them. Neither shape may reach slashing, peer
+    // penalties or the invalid-slot marker.
+    describe('blocks pruned locally during validation', () => {
+      const expectNonPunitive = (result: CheckpointProposalValidationResult) => {
+        expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
+        if (result.isValid) {
+          throw new Error('unreachable');
+        }
+        expect(SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT[result.reason]).toBe(false);
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('unvalidated');
+        expect(handler.hasInvalidProposals(SlotNumber(1))).toBe(false);
+      };
 
-      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'no_blocks_for_slot' });
+      it('refuses without punishing when every block of the slot is gone after the last block was found', async () => {
+        // The by-archive lookup still serves the checkpoint's last block, but the slot read right after it comes back
+        // empty: a full prune landed between the two.
+        blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
+        blockSource.getBlocksForSlot.mockResolvedValue([]);
+
+        expectNonPunitive(await handler.handleCheckpointProposal(await makeProposal(), proposalInfo));
+      });
+
+      it('refuses without punishing when the slot read no longer ends at the signed archive', async () => {
+        // A partial prune took the checkpoint's last block and left the earlier ones of the slot in place.
+        blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
+        blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([Fr.random(), Fr.random()]));
+
+        expectNonPunitive(
+          await handler.handleCheckpointProposal(await makeProposal({ archiveRoot: Fr.random() }), proposalInfo),
+        );
+      });
+
+      it('refuses without punishing when the slot read is not a contiguous chain', async () => {
+        // A prune and a rebuild interleaved with the slot read: the blocks do not chain onto each other.
+        const archiveRoot = Fr.random();
+        const blocks = makeSlotBlocks([Fr.random(), archiveRoot]);
+        blocks[1] = { ...blocks[1], header: makeBlockHeader(1, { slotNumber: SlotNumber(1) }) } as L2Block;
+        blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+
+        expectNonPunitive(await handler.handleCheckpointProposal(await makeProposal({ archiveRoot }), proposalInfo));
+      });
     });
 
-    it('returns last_block_archive_mismatch when last block archive does not match', async () => {
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
-      const blocks = [
-        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 1), number: 1 },
-        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 2), number: 2 },
-      ] as unknown as L2Block[];
-      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+    it('returns last_block_archive_mismatch when signed blocks of the slot follow the checkpoint last block', async () => {
+      // The checkpoint's last block is local, and so is a later block of the same slot from the same proposer: the
+      // proposal leaves a signed block of its own slot out, which no local race explains.
+      const archiveRoot = Fr.random();
+      blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([archiveRoot, Fr.random()]));
 
-      const proposal = await makeProposal({ archiveRoot: Fr.random() });
-
-      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'last_block_archive_mismatch' });
+      const result = await handler.handleCheckpointProposal(await makeProposal({ archiveRoot }), proposalInfo);
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'last_block_archive_mismatch',
+        checkpointNumber: CheckpointNumber(1),
+      });
+      expect(SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT.last_block_archive_mismatch).toBe(true);
     });
 
     it('returns too_many_blocks_in_checkpoint when blocks exceed maxBlocksPerCheckpoint', async () => {
@@ -209,17 +277,15 @@ describe('ProposalHandler checkpoint validation', () => {
       );
 
       const archiveRoot = Fr.random();
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
-      const blocks = [
-        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 1), number: 1 },
-        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 2), number: 2 },
-        { archive: new AppendOnlyTreeSnapshot(archiveRoot, 3), number: 3 },
-      ] as unknown as L2Block[];
-      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+      blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([Fr.random(), Fr.random(), archiveRoot]));
 
       const proposal = await makeProposal({ archiveRoot });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'too_many_blocks_in_checkpoint' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'too_many_blocks_in_checkpoint',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
 
     it('returns too_many_blocks_in_checkpoint when blocks exceed the protocol cap without an operator limit', async () => {
@@ -228,17 +294,18 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(config.maxBlocksPerCheckpoint).toBeUndefined();
 
       const archiveRoot = Fr.random();
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
       const overCap = MAX_BLOCKS_PER_CHECKPOINT + 1;
-      const blocks = Array.from({ length: overCap }, (_, i) => ({
-        archive: new AppendOnlyTreeSnapshot(i === overCap - 1 ? archiveRoot : Fr.random(), i + 1),
-        number: i + 1,
-      })) as unknown as L2Block[];
-      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+      blockSource.getBlocksForSlot.mockResolvedValue(
+        makeSlotBlocks(Array.from({ length: overCap }, (_, i) => (i === overCap - 1 ? archiveRoot : Fr.random()))),
+      );
 
       const proposal = await makeProposal({ archiveRoot });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'too_many_blocks_in_checkpoint' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'too_many_blocks_in_checkpoint',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
 
     it('caches validation result and returns it on second call', async () => {
@@ -291,8 +358,8 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(blockSource.syncImmediate).toHaveBeenCalled();
     });
 
-    it('returns block_fetch_error when getBlockData throws', async () => {
-      blockSource.getBlockData.mockRejectedValue(new Error('db connection failed'));
+    it('returns block_fetch_error when reading the slot blocks throws', async () => {
+      blockSource.getBlocksForSlot.mockRejectedValue(new Error('db connection failed'));
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'block_fetch_error' });
@@ -317,13 +384,18 @@ describe('ProposalHandler checkpoint validation', () => {
     // Even past the deadline, an already-synced block must still be accepted (the immediate fetch
     // succeeds before the fail-fast applies), rather than being abandoned for being late.
     it('returns an already-synced block even when the deadline is in the past', async () => {
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
-      blockSource.getBlocksForSlot.mockResolvedValue([]);
+      const archiveRoot = Fr.random();
+      blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([archiveRoot]));
+      blockSource.getCheckpointData.mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as CheckpointData);
       dateProvider.setTime(41_000);
 
-      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+      const result = await handler.handleCheckpointProposal(await makeProposal({ archiveRoot }), proposalInfo);
       // Got past the block-sync wait (would be last_block_not_found if it failed fast unconditionally).
-      expect(result).toEqual({ isValid: false, reason: 'no_blocks_for_slot' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_already_published',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
 
     // With <1s remaining the old Math.floor(...) timeout collapsed to 0 ("never time out"). The fix uses
@@ -384,19 +456,23 @@ describe('ProposalHandler checkpoint validation', () => {
       // 30s into the epoch: past the old target-slot-start deadline (24s), before the publish one (40s).
       dateProvider.setTime(30_000);
 
-      // Block is unavailable for the first couple of polls, then syncs in. Under the new (later)
+      // The slot's blocks are unavailable for the first couple of polls, then sync in. Under the new (later)
       // deadline the retry budget covers this; under the old deadline the wait would time out first.
-      blockSource.getBlockData
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as BlockData);
-      // No blocks for the slot, so validation stops right after the sync wait with a distinct reason.
-      blockSource.getBlocksForSlot.mockResolvedValue([]);
+      blockSource.getBlocksForSlot
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValue(makeSlotBlocks([proposal.archive]));
+      // The checkpoint is already published, so validation stops right after the sync wait with a distinct reason.
+      blockSource.getCheckpointData.mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as CheckpointData);
 
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
 
       // Got past the block-sync wait (would be `last_block_not_found` under the old deadline).
-      expect(result).toEqual({ isValid: false, reason: 'no_blocks_for_slot', checkpointNumber: CheckpointNumber(1) });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_already_published',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
   });
 
