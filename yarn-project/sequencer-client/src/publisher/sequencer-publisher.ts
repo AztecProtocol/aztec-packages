@@ -3,6 +3,7 @@ import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
+  type CheckpointPreflightArgs,
   FeeAssetPriceOracle,
   type GovernanceProposerContract,
   MULTI_CALL_3_ADDRESS,
@@ -973,30 +974,39 @@ export class SequencerPublisher {
   }
 
   /**
-   * @notice  Will simulate the rollup's `validateHeaderWithAttestations` to make sure the checkpoint header is valid
-   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header,
-   *          skipping the DA and signature checks. It will throw if the checkpoint header is invalid.
-   * @param header - The checkpoint header to validate
+   * Simulates the rollup's integrated `validateCheckpointHeaderAndInbox` preflight for a checkpoint about to be
+   * gossiped or published, at the last L1 timestamp of the checkpoint's slot. The call derives the parent from the
+   * simulated Rollup storage the way `propose` does, checks it is the expected one, runs the shared header checks
+   * (DA and signatures skipped, as for a partial header), resolves the checkpoint's final message total to a live
+   * Inbox bucket and applies L1's settlement, cap and censorship rules to it. Throws with the decoded revert when the
+   * checkpoint would not be accepted.
+   *
+   * @param header - The checkpoint header to validate.
+   * @param inbox - The checkpoint's final consumed message total and the parent checkpoint it builds on.
+   * @param simulationOverridesPlan - Simulated L1 state for the call: the unpublished parent while pipelining before
+   *   gossip, or only the operations preceding the propose in the bundle before publication.
+   * @returns The sequence of the live Inbox bucket the final total resolved to, the unsigned `propose` bucket hint.
    */
-  @trackSpan('SequencerPublisher.validateCheckpointHeader')
-  public async validateCheckpointHeader(
+  @trackSpan('SequencerPublisher.validateCheckpointHeaderAndInbox')
+  public async validateCheckpointHeaderAndInbox(
     header: CheckpointHeader,
+    inbox: { expectedTotal: bigint; expectedParentCheckpointNumber: CheckpointNumber },
     simulationOverridesPlan?: SimulationOverridesPlan,
-  ): Promise<void> {
-    const flags = { ignoreDA: true, ignoreSignatures: true };
-
-    const args = [
-      header.toViem(),
-      CommitteeAttestationsAndSigners.packAttestations([]),
-      [], // no signers
-      Signature.empty().toViemSignature(),
-      `0x${'0'.repeat(64)}`, // 32 empty bytes
-      header.blobsHash.toString(),
-      flags,
-    ] as const;
+  ): Promise<bigint> {
+    const args: CheckpointPreflightArgs = {
+      header: header.toViem(),
+      attestations: CommitteeAttestationsAndSigners.packAttestations([]),
+      signers: [],
+      attestationsAndSignersSignature: Signature.empty().toViemSignature(),
+      digest: `0x${'0'.repeat(64)}`,
+      blobsHash: header.blobsHash.toString(),
+      flags: { ignoreDA: true },
+      expectedTotal: inbox.expectedTotal,
+      expectedParentCheckpointNumber: BigInt(inbox.expectedParentCheckpointNumber),
+    };
 
     const l1Constants = this.epochCache.getL1Constants();
-    const ts = getLastL1SlotTimestampForL2Slot(header.slotNumber, l1Constants);
+    const time = getLastL1SlotTimestampForL2Slot(header.slotNumber, l1Constants);
     const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
     // Balance override for compatibility with providers that apply an upfront funds check to simulated calls.
     stateOverrides.push({
@@ -1004,16 +1014,18 @@ export class SequencerPublisher {
       balance: 10n * WEI_CONST * WEI_CONST, // 10 ETH
     });
 
-    await this.l1TxUtils.simulate(
-      {
-        to: this.rollupContract.address,
-        data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeaderWithAttestations', args }),
-        from: MULTI_CALL_3_ADDRESS,
-      },
-      { time: ts },
+    const bucketHint = await this.rollupContract.validateCheckpointHeaderAndInbox(this.l1TxUtils, args, {
+      time,
       stateOverrides,
-    );
-    this.log.debug(`Simulated validateHeader`);
+      from: MULTI_CALL_3_ADDRESS,
+    });
+    this.log.debug(`Simulated validateCheckpointHeaderAndInbox`, {
+      slot: header.slotNumber,
+      expectedTotal: inbox.expectedTotal,
+      expectedParentCheckpointNumber: inbox.expectedParentCheckpointNumber,
+      bucketHint,
+    });
+    return bucketHint;
   }
 
   /**

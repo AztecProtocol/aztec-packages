@@ -1,4 +1,3 @@
-import { MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import { PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import {
@@ -13,12 +12,10 @@ import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import {
-  InboxBucketConfirmationTracker,
-  type InboxBucketEligibility,
-  type InboxBucketSource,
-  type L1BlockReader,
-  immediateEligibility,
-  selectInboxBucketForBlock,
+  PROTOCOL_INBOX_CONSUMPTION_CAPS,
+  type StreamingMessageSource,
+  selectOrdinaryMessageEnd,
+  shouldEnterMessageCompletion,
 } from '@aztec/sequencer-client';
 import { type AvmSimulator, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
@@ -27,7 +24,7 @@ import type { L2BlockSource, L2Tips } from '@aztec/stdlib/block';
 import { type ProposedCheckpointData, buildCheckpointSimulationOverridesPlan } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { type L1ToL2MessageSource, appendL1ToL2MessagesToTree, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
+import { appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -42,7 +39,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import { applyPublicDataOverrides } from './public_data_overrides.js';
 
 /** Inbox queries the simulator needs to predict the message bundle the next block would consume. */
-type SimulatorInboxSource = InboxBucketSource & Pick<L1ToL2MessageSource, 'getInboxBucketByTotalMsgCount'>;
+type SimulatorInboxSource = Pick<StreamingMessageSource, 'getSyncedMessagePosition' | 'getL1ToL2MessageRange'>;
 
 /** Config fields the simulator needs — a narrow subset of `AztecNodeConfig`. */
 export interface NodePublicCallsSimulatorConfig {
@@ -50,18 +47,13 @@ export interface NodePublicCallsSimulatorConfig {
   rpcSimulatePublicMaxGasLimit: number;
   /** Maximum number of debug-log memory reads collected during simulation. */
   rpcSimulatePublicMaxDebugLogMemoryReads: number;
-  /**
-   * Whether this node runs the automine sequencer. Automine consumes Inbox buckets the moment it sees them, so the
-   * next-block prediction must not wait for an L1 confirmation the local chain will never produce on its own.
-   */
-  useAutomineSequencer?: boolean;
 }
 
 /** Dependencies required to build a {@link NodePublicCallsSimulator}. */
 export interface NodePublicCallsSimulatorDeps {
   blockSource: L2BlockSource;
   worldStateSynchronizer: WorldStateSynchronizer;
-  /** Inbox bucket queries, used to predict the L1-to-L2 messages the next block will consume. */
+  /** Inbox message queries, used to predict the L1-to-L2 messages the next block will consume. */
   l1ToL2MessageSource: SimulatorInboxSource;
   contractDataSource: ContractDataSource;
   globalVariableBuilder: GlobalVariableBuilder;
@@ -74,11 +66,6 @@ export interface NodePublicCallsSimulatorDeps {
   rollupContract?: RollupContract;
   epochCache: EpochCacheInterface;
   signatureContext: CoordinationSignatureContext;
-  /**
-   * L1 client used to tell which Inbox buckets a proposer would consider confirmed. Optional: without one the
-   * prediction assumes every synced bucket is consumable, which is what automine and TXE nodes do anyway.
-   */
-  l1Client?: L1BlockReader;
   config: NodePublicCallsSimulatorConfig;
   /**
    * AVM execution backend the public processor drives to run public calls. Optional because unit/TXE nodes
@@ -118,13 +105,7 @@ export class NodePublicCallsSimulator {
   private readonly rollupContract: RollupContract | undefined;
   private readonly epochCache: EpochCacheInterface;
   private readonly signatureContext: CoordinationSignatureContext;
-  private readonly l1Client: L1BlockReader | undefined;
   private readonly config: NodePublicCallsSimulatorConfig;
-  /**
-   * Shared by every simulation on this node. Its confirmations are permanent facts about L1, so a node-lifetime
-   * cache is correct and keeps the RPC cost of the prediction near zero; its rejections expire every second.
-   */
-  private inboxBucketConfirmations: InboxBucketConfirmationTracker | undefined;
   private readonly avmSimulator?: AvmSimulator;
   private readonly telemetry: TelemetryClient;
   private readonly log: Logger;
@@ -139,7 +120,6 @@ export class NodePublicCallsSimulator {
     this.rollupContract = deps.rollupContract;
     this.epochCache = deps.epochCache;
     this.signatureContext = deps.signatureContext;
-    this.l1Client = deps.l1Client;
     this.config = deps.config;
     this.avmSimulator = deps.avmSimulator;
     this.telemetry = deps.telemetry ?? getTelemetryClient();
@@ -220,7 +200,6 @@ export class NodePublicCallsSimulator {
     await using merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
 
     await this.appendPredictedL1ToL2Messages(merkleTreeFork, {
-      slotNumber: newGlobalVariables.slotNumber,
       checkpointStartBlock: atCheckpointBoundary ? undefined : proposedCheckpointLastBlock,
     });
 
@@ -263,88 +242,63 @@ export class NodePublicCallsSimulator {
   }
 
   /**
-   * Appends the L1-to-L2 message bundle the next block would consume to the simulation fork, so a transaction
-   * consuming a message that has reached the Inbox but no block yet simulates against the state it will run in.
-   * Runs the same bucket selection the sequencer runs (the per-block and per-checkpoint caps), treating the next
-   * block as non-final: the censorship cutoff only widens consumption on a checkpoint's last block, and the node
-   * cannot know whether the next block is it.
+   * Appends the L1-to-L2 messages the next block would consume to the simulation fork, so a transaction consuming
+   * a message that has reached the Inbox but no block yet simulates against the state it will run in. Runs the same
+   * pure ordinary selection the sequencer runs: every message the archiver has observed, up to the per-block and
+   * per-checkpoint caps, with no L1 call.
    *
-   * Best-effort. Any failure — Inbox buckets not synced yet, a torn archiver snapshot — leaves the fork at the tip
-   * state, which is what the transaction sees if the next block consumes nothing.
+   * When that greedy step would cross the last bucket-sized portion of checkpoint capacity, the proposer enters
+   * message completion and ends its block at a live L1 bucket end this node cannot know without an L1 query, so the
+   * prediction stops at the tip rather than guess.
+   *
+   * Best-effort. Any failure, such as messages not synced yet or a torn archiver snapshot, leaves the fork at the
+   * tip state, which is what the transaction sees if the next block consumes nothing.
    */
   private async appendPredictedL1ToL2Messages(
     fork: MerkleTreeWriteOperations,
     opts: {
-      /** Slot the next block lands in; anchors the censorship cutoff. */
-      slotNumber: SlotNumber;
       /** Last block of the checkpoint the next block extends; undefined when the next block opens a checkpoint. */
       checkpointStartBlock: BlockNumber | undefined;
     },
   ): Promise<void> {
     try {
-      const parentTotalMsgCount = (await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size;
-      const parentBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(parentTotalMsgCount);
-      if (parentBucket === undefined) {
-        this.log.debug(`Inbox bucket at message total ${parentTotalMsgCount} not synced; simulating against the tip`, {
-          parentTotalMsgCount,
-        });
-        return;
-      }
+      const cursorCount = (await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size;
 
       // Origin of the per-checkpoint cap: the total consumed as of the checkpoint's parent. A block extending an
       // in-progress checkpoint reads it off that checkpoint's parent block; a block opening one starts from the tip.
-      const checkpointStartTotalMsgCount =
+      const checkpointStartCount =
         opts.checkpointStartBlock === undefined
-          ? parentTotalMsgCount
+          ? cursorCount
           : await this.getConsumedMessageTotal(opts.checkpointStartBlock);
-      if (checkpointStartTotalMsgCount === undefined) {
+      if (checkpointStartCount === undefined) {
         this.log.debug(`Block ${opts.checkpointStartBlock} has no header on this node; simulating against the tip`);
         return;
       }
 
-      const l1Constants = this.epochCache.getL1Constants();
-      const selection = await selectInboxBucketForBlock({
-        messageSource: this.l1ToL2MessageSource,
-        now: BigInt(Math.floor(this.dateProvider.now() / 1000)),
-        isEligible: this.getInboxBucketEligibility(l1Constants.ethereumSlotDuration),
-        ethereumSlotDuration: l1Constants.ethereumSlotDuration,
-        parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
-        checkpointStartTotalMsgCount,
-        perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
-        perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
-        isLastBlock: false,
-        cutoffTimestamp: getInboxCutoffTimestamp(opts.slotNumber, l1Constants),
-      });
-      if (!selection.consume || selection.bundle.length === 0) {
+      const caps = PROTOCOL_INBOX_CONSUMPTION_CAPS;
+      const localSyncedCount = (await this.l1ToL2MessageSource.getSyncedMessagePosition()).totalMessageCount;
+      const greedyEnd = selectOrdinaryMessageEnd({ cursorCount, localSyncedCount, checkpointStartCount, caps });
+      if (greedyEnd <= cursorCount) {
+        return;
+      }
+      if (shouldEnterMessageCompletion({ prospectiveGreedyEnd: greedyEnd, checkpointStartCount, caps })) {
+        this.log.debug(`Next block would enter Inbox message completion; simulating against the tip`, {
+          cursorCount,
+          localSyncedCount,
+          checkpointStartCount,
+        });
         return;
       }
 
-      await appendL1ToL2MessagesToTree(fork, selection.bundle);
-      this.log.debug(`Appended ${selection.bundle.length} predicted L1-to-L2 messages to the simulation fork`, {
-        bucketSeq: selection.bucket.seq,
-        messageCount: selection.bundle.length,
+      const { messages } = await this.l1ToL2MessageSource.getL1ToL2MessageRange(cursorCount, greedyEnd);
+      await appendL1ToL2MessagesToTree(fork, messages);
+      this.log.debug(`Appended ${messages.length} predicted L1-to-L2 messages to the simulation fork`, {
+        cursorCount,
+        greedyEnd,
       });
     } catch (err) {
       this.log.verbose(`Could not predict the next block's L1-to-L2 messages, simulating against the tip: ${err}`);
     }
-  }
-
-  /**
-   * The eligibility rule the next proposer is expected to apply. It has to match the sequencer's: a transaction
-   * simulated against a bundle no proposer will consume yet enters the pool and then fails when the block that
-   * includes it consumes less. Automine, and any node without an L1 client, never waits, so those predict against
-   * every synced bucket instead.
-   */
-  private getInboxBucketEligibility(ethereumSlotDuration: number): InboxBucketEligibility {
-    if (this.config.useAutomineSequencer || this.l1Client === undefined) {
-      return immediateEligibility;
-    }
-    this.inboxBucketConfirmations ??= new InboxBucketConfirmationTracker({
-      l1Client: this.l1Client,
-      ethereumSlotDuration,
-      log: this.log.createChild('inbox-bucket-confirmation'),
-    });
-    return this.inboxBucketConfirmations.isEligible;
   }
 
   /** Cumulative Inbox message total consumed as of `blockNumber`, i.e. its L1-to-L2 message tree leaf count. */

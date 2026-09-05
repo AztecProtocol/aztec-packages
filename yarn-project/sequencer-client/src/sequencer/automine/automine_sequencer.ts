@@ -1,5 +1,4 @@
 import type { Archiver } from '@aztec/archiver';
-import { MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { type EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -24,7 +23,7 @@ import {
   getTimestampForSlot,
 } from '@aztec/stdlib/epoch-helpers';
 import { InsufficientValidTxsError, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { InboxMessagePrefixRef, type L1ToL2MessageSource, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
+import { InboxMessagePrefixRef, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { FailedTx, Tx } from '@aztec/stdlib/tx';
@@ -38,8 +37,12 @@ import type { GlobalVariableBuilder } from '../../global_variable_builder/global
 import type { SequencerPublisherFactory } from '../../publisher/sequencer-publisher-factory.js';
 import type { SequencerPublisher } from '../../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from '../config.js';
-import { immediateEligibility } from '../inbox_bucket_eligibility.js';
-import { selectInboxBucketForBlock } from '../inbox_bucket_selector.js';
+import {
+  type InboxEndpointResolver,
+  PROTOCOL_INBOX_CONSUMPTION_CAPS,
+  computeCompletionUpperBound,
+  resolveCompletionTarget,
+} from '../inbox_message_selection.js';
 
 /**
  * L1 rollup constants needed by the AutomineSequencer. Same as SequencerRollupConstants
@@ -58,6 +61,8 @@ export type AutomineSequencerDeps = {
   worldState: WorldStateSynchronizer;
   l2BlockSource: L2BlockSource;
   l1ToL2MessageSource: L1ToL2MessageSource;
+  /** Inbox contract, resolving each single-block checkpoint's final message position to a live bucket. */
+  inboxContract: InboxEndpointResolver;
   /** P2P client; must also expose `sync()` for post-rollback pool recovery. */
   p2pClient: P2P & Pick<ConcreteP2PClient, 'sync'>;
   ethCheatCodes: EthCheatCodes;
@@ -471,35 +476,40 @@ export class AutomineSequencer {
 
     await using fork = await this.deps.worldState.fork(syncedToBlockNumber, { closeDelayMs: 0 });
 
-    // Streaming Inbox: automine builds a single-block checkpoint, so its one block is the
-    // checkpoint's final block; select its bundle from the newest synced bucket with the last-block censorship floor.
-    // Automine never waits for L1 confirmations: anvil mines on demand, so a bucket's opening block gains a
-    // descendant only when the next transaction is sent, which may be long after the block that consumes it.
-    // The parent total is the fork's L1-to-L2 leaf count (compact indexing), which resolves the parent bucket.
-    const parentInfo = await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
-    const parentTotalMsgCount = parentInfo.size;
-    const parentBucket = await this.deps.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(parentTotalMsgCount);
-    if (parentBucket === undefined) {
-      this.log.warn(`Automine streaming inbox: parent bucket for total ${parentTotalMsgCount} not synced; skipping`);
+    // Streaming Inbox: automine builds a single-block checkpoint, so its one block is the checkpoint's final block
+    // and goes straight to message completion: bound the consumed total by what the archiver holds and the caps,
+    // resolve the live L1 bucket end at or below it with one Inbox call, and authenticate the range to it against
+    // the local log. The parent total is the fork's L1-to-L2 leaf count (compact indexing).
+    const parentTotalMsgCount = (await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size;
+    const cursor = await this.deps.l1ToL2MessageSource.getMessagePosition(parentTotalMsgCount);
+    if (cursor === undefined) {
+      this.log.warn(`Automine streaming inbox: Inbox prefix at total ${parentTotalMsgCount} not synced; skipping`);
       return undefined;
     }
-    const selection = await selectInboxBucketForBlock({
-      messageSource: this.deps.l1ToL2MessageSource,
-      now: BigInt(Math.floor(this.deps.dateProvider.now() / 1000)),
-      isEligible: immediateEligibility,
-      ethereumSlotDuration: this.deps.l1Constants.ethereumSlotDuration,
-      parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
-      checkpointStartTotalMsgCount: parentTotalMsgCount,
-      perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
-      perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
-      isLastBlock: true,
-      cutoffTimestamp: getInboxCutoffTimestamp(SlotNumber(targetSlot), this.deps.l1Constants),
+    const localSyncedCount = (await this.deps.l1ToL2MessageSource.getSyncedMessagePosition()).totalMessageCount;
+    const upperBound = computeCompletionUpperBound({
+      cursorCount: parentTotalMsgCount,
+      localSyncedCount,
+      checkpointStartCount: parentTotalMsgCount,
+      remainingScheduledBlocks: 1,
+      caps: PROTOCOL_INBOX_CONSUMPTION_CAPS,
     });
-    const streamingBundle = selection.consume ? selection.bundle : [];
-    const bucketHint = selection.consume ? selection.bucket.seq : parentBucket.seq;
-    const consumedPrefixRef = new InboxMessagePrefixRef(
-      selection.consume ? selection.bucket.inboxRollingHash : parentBucket.inboxRollingHash,
-    );
+    const completion = await resolveCompletionTarget({
+      inbox: this.deps.inboxContract,
+      messageSource: this.deps.l1ToL2MessageSource,
+      cursor,
+      upperBound,
+    });
+    if (!completion.ok) {
+      this.log.warn(
+        `Automine streaming inbox: no publishable Inbox endpoint at or below message total ${upperBound}; skipping`,
+        { reason: completion.reason, parentTotalMsgCount, localSyncedCount, endpointTotal: completion.endpointTotal },
+      );
+      return undefined;
+    }
+    const streamingBundle = completion.range.messages;
+    const bucketHint = completion.bucketSeq;
+    const consumedPrefixRef = InboxMessagePrefixRef.fromPosition(completion.target);
 
     const checkpointBuilder = await this.deps.checkpointsBuilder.startCheckpoint(
       checkpointNumber,

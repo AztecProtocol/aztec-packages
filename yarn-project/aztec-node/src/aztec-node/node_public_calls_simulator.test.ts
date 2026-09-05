@@ -1,3 +1,4 @@
+import { MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { type FeeHeader, RollupContract } from '@aztec/ethereum/contracts';
 import {
@@ -7,11 +8,9 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { unfreeze } from '@aztec/foundation/types';
-import type { L1BlockReader } from '@aztec/sequencer-client';
 import { type AvmSimulator, PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -28,7 +27,7 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
@@ -117,25 +116,20 @@ describe('NodePublicCallsSimulator', () => {
   });
 
   /**
-   * Mocks the Inbox so the next-block prediction selects a two-message bundle: the fork's message total (0)
-   * resolves to bucket 0, and bucket 1 holds both messages.
+   * Mocks the archiver's ordered message log with `leaves`, so the next-block prediction consumes every observed
+   * message the caps allow, and returns them.
    */
-  const mockInboxSelection = (timestamp = 0n) => {
-    const makeBucket = (seq: bigint, totalMsgCount: bigint): InboxBucket => ({
-      seq,
-      inboxRollingHash: Fr.ZERO,
-      totalMsgCount,
-      timestamp,
-      msgCount: Number(totalMsgCount),
-      lastMessageIndex: totalMsgCount === 0n ? 0n : totalMsgCount - 1n,
-      l1BlockNumber: seq,
-      l1BlockHash: Buffer32.fromBigInt(seq),
-    });
-    const bundle = [new Fr(0x1234), new Fr(0x5678)];
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(makeBucket(0n, 0n));
-    l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(makeBucket(1n, 2n));
-    l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
-    return bundle;
+  const mockInboxMessages = (leaves = [new Fr(0x1234), new Fr(0x5678)]) => {
+    const position = (count: bigint) => ({ totalMessageCount: count, rollingHash: new Fr(count) });
+    l1ToL2MessageSource.getSyncedMessagePosition.mockResolvedValue(position(BigInt(leaves.length)));
+    l1ToL2MessageSource.getL1ToL2MessageRange.mockImplementation((start, end) =>
+      Promise.resolve({
+        messages: leaves.slice(Number(start), Number(end)),
+        start: position(start),
+        end: position(end),
+      }),
+    );
+    return leaves;
   };
 
   const lowGasTx = () =>
@@ -172,9 +166,9 @@ describe('NodePublicCallsSimulator', () => {
     });
     blockSource.getPendingChainValidationStatus.mockResolvedValue({ valid: true });
     blockSource.getProposedCheckpointData.mockResolvedValue(undefined);
-    // No Inbox bucket resolves to the fork's message total by default, so the next-block message prediction
-    // bails out and tests see the bare tip state unless they opt into it.
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(undefined);
+    // The archiver has observed no messages by default, so the next-block message prediction appends nothing and
+    // tests see the bare tip state unless they opt into it.
+    l1ToL2MessageSource.getSyncedMessagePosition.mockResolvedValue({ totalMessageCount: 0n, rollingHash: Fr.ZERO });
     epochCache.getL1Constants.mockReturnValue(EmptyL1RollupConstants);
 
     globalVariableBuilder.buildCheckpointGlobalVariables.mockImplementation((_c, _f, slotNumber) =>
@@ -262,120 +256,84 @@ describe('NodePublicCallsSimulator', () => {
         Promise.resolve('number' in query ? makeBlockData(query.number, SlotNumber(42)) : undefined),
       );
       mockNextL1Slot(SlotNumber(100));
-      const bundle = mockInboxSelection();
+      const bundle = mockInboxMessages();
 
       await simulator.simulate(tx);
 
       expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle);
     });
 
-    it('simulates against the tip when the parent Inbox bucket is not synced', async () => {
+    it('simulates against the tip when the archiver has observed no messages past the fork', async () => {
       const tx = await lowGasTx();
       setupMidCheckpoint();
       blockSource.getBlockData.mockImplementation((query: BlockQuery) =>
         Promise.resolve('number' in query ? makeBlockData(query.number, SlotNumber(42)) : undefined),
       );
       mockNextL1Slot(SlotNumber(100));
-      // Default mock: no bucket resolves the fork's message total.
+      // Default mock: the synced message total equals the fork's.
 
       await expect(simulator.simulate(tx)).resolves.toBeDefined();
 
       expect(merkleTreeFork.appendLeaves).not.toHaveBeenCalled();
     });
 
-    describe('with an L1 client, mirroring the proposer eligibility rule', () => {
-      const ETHEREUM_SLOT_DURATION = 12;
-      // The simulator reads wall-clock time, so bucket timestamps are placed relative to it.
-      const nowSeconds = () => BigInt(Math.floor(Date.now() / 1000));
-
-      /** An L1 view in which the bucket's opening block already has a canonical child. */
-      const makeL1Client = (): L1BlockReader & { reads: bigint[] } => {
-        const reads: bigint[] = [];
-        return {
-          reads,
-          getBlock({ blockNumber }) {
-            reads.push(blockNumber);
-            return Promise.resolve({
-              hash: Buffer32.fromBigInt(blockNumber).toString(),
-              parentHash: Buffer32.fromBigInt(blockNumber - 1n).toString(),
-            });
-          },
-        };
-      };
-
-      const makeSimulator = (opts: { l1Client?: L1BlockReader; useAutomineSequencer?: boolean }) =>
-        new NodePublicCallsSimulator({
-          blockSource,
-          worldStateSynchronizer,
-          l1ToL2MessageSource,
-          contractDataSource,
-          globalVariableBuilder,
-          rollupContract,
-          epochCache,
-          avmSimulator,
-          signatureContext: { chainId: CHAIN_ID.toNumber(), rollupAddress: ROLLUP_ADDRESS },
-          l1Client: opts.l1Client,
-          config: {
-            rpcSimulatePublicMaxGasLimit: 1e11,
-            rpcSimulatePublicMaxDebugLogMemoryReads: 100,
-            useAutomineSequencer: opts.useAutomineSequencer,
-          },
+    describe('mirroring the proposer selection caps', () => {
+      const forkSize = (size: bigint) =>
+        merkleTreeFork.getTreeInfo.mockResolvedValue({
+          treeId: MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+          root: Buffer.alloc(32),
+          size,
+          depth: 16,
         });
+      const leaves = (count: number) => Array.from({ length: count }, (_, i) => new Fr(i + 1));
+      const completionThreshold = MAX_L1_TO_L2_MSGS_PER_CHECKPOINT - MAX_L1_TO_L2_MSGS_PER_BLOCK;
 
       beforeEach(() => {
-        epochCache.getL1Constants.mockReturnValue({
-          ...EmptyL1RollupConstants,
-          ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        });
         setupMidCheckpoint();
+        // Block headers carry a zero message count, so the in-progress checkpoint started consuming at 0.
         blockSource.getBlockData.mockImplementation((query: BlockQuery) =>
           Promise.resolve('number' in query ? makeBlockData(query.number, SlotNumber(42)) : undefined),
         );
         mockNextL1Slot(SlotNumber(100));
       });
 
-      it('predicts nothing from a bucket the proposer would still be waiting on', async () => {
+      it('appends at most one block of messages', async () => {
         const tx = await lowGasTx();
-        // Opened this very second: no L1 block can have built on it yet, so no proposer will consume it.
-        mockInboxSelection(nowSeconds());
-        const l1Client = makeL1Client();
+        const all = mockInboxMessages(leaves(MAX_L1_TO_L2_MSGS_PER_BLOCK + 10));
 
-        await expect(makeSimulator({ l1Client }).simulate(tx)).resolves.toBeDefined();
+        await simulator.simulate(tx);
+
+        expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(
+          MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+          all.slice(0, MAX_L1_TO_L2_MSGS_PER_BLOCK),
+        );
+      });
+
+      it('continues from the fork message total while the greedy end stays within the completion threshold', async () => {
+        const tx = await lowGasTx();
+        const cursor = completionThreshold - MAX_L1_TO_L2_MSGS_PER_BLOCK;
+        forkSize(BigInt(cursor));
+        const all = mockInboxMessages(leaves(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT));
+
+        await simulator.simulate(tx);
+
+        // A greedy end exactly on the threshold is still an ordinary block.
+        expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(
+          MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+          all.slice(cursor, completionThreshold),
+        );
+      });
+
+      it('predicts nothing once the next block would enter message completion, whose end depends on L1', async () => {
+        const tx = await lowGasTx();
+        // One message past the threshold: the proposer resolves a live bucket end on L1 here instead of consuming
+        // greedily, and that end is not knowable from the local log alone.
+        forkSize(BigInt(completionThreshold - MAX_L1_TO_L2_MSGS_PER_BLOCK + 1));
+        mockInboxMessages(leaves(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT));
+
+        await expect(simulator.simulate(tx)).resolves.toBeDefined();
 
         expect(merkleTreeFork.appendLeaves).not.toHaveBeenCalled();
-        expect(l1Client.reads).toEqual([]);
-      });
-
-      it('predicts the bundle once the bucket opening block has a canonical child', async () => {
-        const tx = await lowGasTx();
-        const bundle = mockInboxSelection(nowSeconds() - BigInt(ETHEREUM_SLOT_DURATION));
-        const l1Client = makeL1Client();
-
-        await makeSimulator({ l1Client }).simulate(tx);
-
-        expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle);
-        // Bucket 1 was opened by L1 block 1, so its child is block 2.
-        expect(l1Client.reads).toEqual([2n]);
-      });
-
-      it('never waits for a confirmation under automine, which mines on demand', async () => {
-        const tx = await lowGasTx();
-        const bundle = mockInboxSelection(nowSeconds());
-        const l1Client = makeL1Client();
-
-        await makeSimulator({ l1Client, useAutomineSequencer: true }).simulate(tx);
-
-        expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle);
-        expect(l1Client.reads).toEqual([]);
-      });
-
-      it('predicts against every synced bucket when the node has no L1 client', async () => {
-        const tx = await lowGasTx();
-        const bundle = mockInboxSelection(nowSeconds());
-
-        await makeSimulator({}).simulate(tx);
-
-        expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle);
       });
     });
 
@@ -430,7 +388,7 @@ describe('NodePublicCallsSimulator', () => {
         Promise.resolve('number' in query ? makeBlockData(query.number, SlotNumber(5)) : undefined),
       );
       mockNextL1Slot(SlotNumber(20));
-      const bundle = mockInboxSelection();
+      const bundle = mockInboxMessages();
 
       await expect(simulator.simulate(tx)).resolves.toBeDefined();
 

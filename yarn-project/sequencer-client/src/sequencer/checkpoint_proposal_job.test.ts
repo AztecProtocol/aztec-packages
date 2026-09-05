@@ -1,4 +1,5 @@
 import { EpochCache } from '@aztec/epoch-cache';
+import type { InboxContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -6,7 +7,6 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -20,6 +20,7 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type BlockData,
   CommitteeAttestation,
   L2Block,
   type L2BlockSink,
@@ -42,7 +43,7 @@ import {
   type TreeInfo,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import { type InboxBucket, InboxMessagePrefixRef, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { InboxMessagePrefixRef, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, CheckpointProposal, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { ProposerTimetable, SubslotSelection } from '@aztec/stdlib/timetable';
@@ -65,32 +66,21 @@ import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publish
 import {
   MockCheckpointBuilder,
   MockCheckpointsBuilder,
+  type MockStreamingInbox,
   createCheckpointAttestation,
   makeBlock,
   makeProposerTimetable,
   makeTx,
   mockPendingTxs,
+  mockStreamingInbox,
   mockTxIterator,
   setupTxsAndBlock,
 } from '../test/utils.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
-import type { L1BlockReader } from './inbox_bucket_eligibility.js';
 import type { SequencerMetrics } from './metrics.js';
 import { RequestsTracker } from './requests_tracker.js';
-
-/**
- * L1 view in which every bucket's opening block already has a canonical child, so the job's confirmation tracker
- * admits every bucket the archiver mock returns.
- */
-const confirmingL1Client: L1BlockReader = {
-  getBlock: ({ blockNumber }) =>
-    Promise.resolve({
-      hash: Buffer32.fromBigInt(blockNumber).toString(),
-      parentHash: Buffer32.fromBigInt(blockNumber - 1n).toString(),
-    }),
-};
 
 describe('CheckpointProposalJob', () => {
   let publisher: MockProxy<SequencerPublisher>;
@@ -102,6 +92,8 @@ describe('CheckpointProposalJob', () => {
   let checkpointsBuilder: MockCheckpointsBuilder;
   let checkpointBuilder: MockCheckpointBuilder;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let inbox: MockProxy<InboxContract>;
+  let streamingInbox: MockStreamingInbox;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let blockSink: MockProxy<L2BlockSink & ProposedCheckpointSink>;
   let slasherClient: MockProxy<SlasherClientInterface>;
@@ -263,21 +255,22 @@ describe('CheckpointProposalJob', () => {
     checkpointBuilder = checkpointsBuilder.createCheckpointBuilder(checkpointConstants, checkpointNumber);
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
-    // Genesis bucket for the empty-tree cursor above; with no newer synced buckets mocked, block bundle
-    // selection consumes nothing by default.
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
-      seq: 0n,
-      inboxRollingHash: Fr.ZERO,
-      totalMsgCount: 0n,
-      timestamp: 0n,
-      msgCount: 0,
-      lastMessageIndex: 0n,
-      l1BlockNumber: 0n,
-      l1BlockHash: Buffer32.ZERO,
-    });
+    inbox = mock<InboxContract>();
+    // Empty Inbox for the empty-tree cursor above: with no leaves the job consumes nothing by default.
+    streamingInbox = mockStreamingInbox(l1ToL2MessageSource, inbox);
+    // The integrated header and Inbox preflight resolves the checkpoint's final position to a live bucket; the job
+    // publishes with the sequence it returns.
+    publisher.validateCheckpointHeaderAndInbox.mockResolvedValue(0n);
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);
+    // The publication guard checks the checkpoint's last block is still held locally under the hash it was built
+    // with; serve the blocks the mock builder built.
+    l2BlockSource.getBlockData.mockImplementation(async query => {
+      const built =
+        'number' in query ? checkpointBuilder.getBuiltBlocks().find(b => b.number === query.number) : undefined;
+      return built && ({ blockHash: await built.hash() } as BlockData);
+    });
     // The job sources the parent checkpoint's inboxRollingHash; serve an empty parent header so jobs beyond
     // the genesis checkpoint resolve their chain start.
     l2BlockSource.getCheckpointData.mockImplementation(query =>
@@ -831,7 +824,7 @@ describe('CheckpointProposalJob', () => {
       p2p,
       worldState,
       l1ToL2MessageSource,
-      confirmingL1Client,
+      inbox,
       l2BlockSource,
       checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
       blockSink,
@@ -1209,22 +1202,12 @@ describe('CheckpointProposalJob', () => {
         .mockReturnValueOnce(subslot(18, 1, true))
         .mockReturnValue(noSubslot());
 
-      const makeBucket = (seq: bigint, totalMsgCount: bigint, lastMessageIndex: bigint): InboxBucket => ({
-        seq,
-        inboxRollingHash: new Fr(Number(seq)),
-        totalMsgCount,
-        timestamp: 0n,
-        msgCount: 2,
-        lastMessageIndex,
-        l1BlockNumber: seq,
-        l1BlockHash: Buffer32.fromBigInt(seq),
+      // Two messages observed before the first block, two more arriving between the blocks.
+      streamingInbox.set([new Fr(1), new Fr(2)]);
+      jest.spyOn(job, 'waitUntilNextSubslot').mockImplementation(() => {
+        streamingInbox.append([new Fr(3), new Fr(4)], { closeBucket: true });
+        return Promise.resolve();
       });
-      l1ToL2MessageSource.getLatestInboxBucketAtOrBefore
-        .mockResolvedValueOnce(makeBucket(2n, 2n, 1n))
-        .mockResolvedValue(makeBucket(3n, 4n, 3n));
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets
-        .mockResolvedValueOnce([new Fr(1), new Fr(2)])
-        .mockResolvedValue([new Fr(3), new Fr(4)]);
 
       const { lastBlock } = await setupMultipleBlocks(2, [2, 0]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
@@ -1485,32 +1468,41 @@ describe('CheckpointProposalJob', () => {
   });
 
   describe('streaming inbox', () => {
+    const leaves = (count: number, from = 1) => Array.from({ length: count }, (_, i) => new Fr(from + i));
+    /** Mocks `count` sub-slots, the last one flagged as the checkpoint's final block. */
+    const mockSubslots = (count: number) => {
+      const spy = jest.spyOn(job.getTimetable(), 'selectNextSubslot');
+      for (let i = 0; i < count; i++) {
+        spy.mockReturnValueOnce(subslot(10 + 8 * i, i, i === count - 1));
+      }
+      spy.mockReturnValue(noSubslot());
+      jest.spyOn(job.getTimetable(), 'getMaxBlocksPerCheckpoint').mockReturnValue(count);
+    };
+    /** Runs `fn` after the `afterBlock`-th block has been built, from the wait for the next sub-slot. */
+    const betweenBlocks = (afterBlock: number, fn: () => void) => {
+      let waits = 0;
+      jest.spyOn(job, 'waitUntilNextSubslot').mockImplementation(() => {
+        if (++waits === afterBlock) {
+          fn();
+        }
+        return Promise.resolve();
+      });
+    };
+    const bundleLengths = () => checkpointBuilder.buildBlockCalls.map(call => call.opts.l1ToL2Messages?.length);
+    const signedPrefixes = () =>
+      validatorClient.createBlockProposal.mock.calls.map(call => call[7]?.inboxRollingHash.toString());
+    const prefixAt = (count: number) => streamingInbox.positionAt(BigInt(count)).rollingHash.toString();
+    const preflightTotals = () =>
+      publisher.validateCheckpointHeaderAndInbox.mock.calls.map(call => call[1].expectedTotal);
+
     beforeEach(() => {
       job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 3000 }));
     });
 
-    it('streams per-block bucket bundles, advances the reference, and skips the bulk message fetch', async () => {
-      jest
-        .spyOn(job.getTimetable(), 'selectNextSubslot')
-        .mockReturnValueOnce(subslot(10, 0, false))
-        .mockReturnValueOnce(subslot(18, 1, true))
-        .mockReturnValue(noSubslot());
-
-      // The archiver returns the newest synced bucket (seq 2) for any lag/cutoff lookup, so the first block
-      // consumes through it and the second block (cursor already at seq 2) consumes nothing and reuses the ref.
-      const bucket: InboxBucket = {
-        seq: 2n,
-        inboxRollingHash: new Fr(99),
-        totalMsgCount: 5n,
-        timestamp: 0n,
-        msgCount: 2,
-        lastMessageIndex: 4n,
-        l1BlockNumber: 2n,
-        l1BlockHash: Buffer32.fromBigInt(2n),
-      };
-      const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
-      l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+    it('consumes every observed message with no L1 query and completes at the tip on the final block', async () => {
+      mockSubslots(2);
+      streamingInbox.set(leaves(5));
+      publisher.validateCheckpointHeaderAndInbox.mockResolvedValue(7n);
 
       const { lastBlock } = await setupMultipleBlocks(2, [2, 1]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
@@ -1518,44 +1510,25 @@ describe('CheckpointProposalJob', () => {
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
-
       // Streaming has no bulk per-checkpoint list; every message reaches the builder through a block.
       expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
-
-      // The first block consumes the selected bundle; the second consumes nothing.
-      expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
-      expect(checkpointBuilder.buildBlockCalls[0].opts.l1ToL2Messages).toEqual(bundle);
-      expect(checkpointBuilder.buildBlockCalls[1].opts.l1ToL2Messages).toEqual([]);
-
-      // Both block proposals carry the selected bucket reference (the second reuses the first's).
-      const prefixRefArgs = validatorClient.createBlockProposal.mock.calls.map(call => call[7]);
-      expect(prefixRefArgs).toHaveLength(2);
-      expect(prefixRefArgs[0]?.inboxRollingHash).toEqual(new Fr(99));
-      expect(prefixRefArgs[1]?.inboxRollingHash).toEqual(new Fr(99));
+      // The first block greedily consumes all five messages; the final block finds nothing more and completes at
+      // the tip, where the only Inbox query of the checkpoint resolves the live bucket end.
+      expect(bundleLengths()).toEqual([5, 0]);
+      expect(signedPrefixes()).toEqual([prefixAt(5), prefixAt(5)]);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(5n);
+      // Pre-gossip and pre-publication preflights both check the final total; the send uses the hint of the latter.
+      expect(preflightTotals()).toEqual([5n, 5n]);
+      expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(7n);
     });
 
-    it('produces a message-only block when a non-empty bundle is selected and no txs are pending', async () => {
-      jest
-        .spyOn(job.getTimetable(), 'selectNextSubslot')
-        .mockReturnValueOnce(subslot(10, 0, true))
-        .mockReturnValue(noSubslot());
-
-      const bucket: InboxBucket = {
-        seq: 2n,
-        inboxRollingHash: new Fr(99),
-        totalMsgCount: 5n,
-        timestamp: 0n,
-        msgCount: 2,
-        lastMessageIndex: 4n,
-        l1BlockNumber: 2n,
-        l1BlockHash: Buffer32.fromBigInt(2n),
-      };
-      const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
-      l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+    it('produces a message-only block when messages are observed and no txs are pending', async () => {
+      mockSubslots(1);
+      streamingInbox.set(leaves(5));
 
       // Empty tx pool with the min-txs threshold at its default of one and no empty-checkpoint building: the
-      // non-empty bundle alone must count as work, producing a zero-tx (message-only) block.
+      // observed messages alone must count as work, producing a zero-tx (message-only) block.
       const { lastBlock } = await setupMultipleBlocks(1, [0]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
@@ -1563,39 +1536,18 @@ describe('CheckpointProposalJob', () => {
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
-      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
-      expect(checkpointBuilder.buildBlockCalls[0].opts.l1ToL2Messages).toEqual(bundle);
+      expect(bundleLengths()).toEqual([5]);
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
     });
 
-    it('carries the consumed bucket hint when the final block fails to build after earlier consumption', async () => {
-      // Two sub-slots. The first block consumes the pending bucket (seq 2) as a message-only block. The final
-      // sub-slot block has no txs and nothing left to consume (the cursor already sits at seq 2), so it fails to
-      // build and is not held for broadcast. The L1 propose bucket hint must still be the bucket the checkpoint
-      // header committed to (seq 2), not fall back to genesis bucket 0 — otherwise L1 rejects the proposal with an
-      // inbox-rolling-hash mismatch (the hint's bucket rolling hash would not match the header's).
-      jest
-        .spyOn(job.getTimetable(), 'selectNextSubslot')
-        .mockReturnValueOnce(subslot(10, 0, false))
-        .mockReturnValueOnce(subslot(18, 1, true))
-        .mockReturnValue(noSubslot());
+    it('publishes with the preflight bucket hint when the final block fails to build after earlier consumption', async () => {
+      // Two sub-slots. The first block consumes the observed messages as a message-only block. The final sub-slot
+      // block has no txs and nothing left to consume, so it fails to build and is not held for broadcast. The hint
+      // published with the checkpoint must still be the one resolved for the header's final position.
+      mockSubslots(2);
+      streamingInbox.set(leaves(5));
+      publisher.validateCheckpointHeaderAndInbox.mockResolvedValue(2n);
 
-      const bucket: InboxBucket = {
-        seq: 2n,
-        inboxRollingHash: new Fr(99),
-        totalMsgCount: 5n,
-        timestamp: 0n,
-        msgCount: 2,
-        lastMessageIndex: 4n,
-        l1BlockNumber: 2n,
-        l1BlockHash: Buffer32.fromBigInt(2n),
-      };
-      const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
-      l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
-
-      // Seed a single message-only block; the second sub-slot has no seeded block, no txs, and no new bucket to
-      // consume, so it fails the min-work threshold and no block is held for broadcast.
       const { lastBlock } = await setupMultipleBlocks(1, [0]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
@@ -1603,60 +1555,230 @@ describe('CheckpointProposalJob', () => {
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
-      // Only the first (message-only) block built and consumed through bucket 2; the final block did not build.
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
-
-      // No held last block, yet the bucket hint (4th positional arg) is the consumed bucket seq 2, matching the
-      // checkpoint header's rolling hash. Before the fix this fell back to genesis bucket 0n.
+      expect(preflightTotals()).toEqual([5n, 5n]);
       expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(2n);
     });
 
-    it('abandons the checkpoint when the mandatory backlog does not fit the remaining blocks', async () => {
-      // Four mandatory buckets alternating 256 and 1 messages, and only two sub-slots to clear them. Buckets are
-      // indivisible, so each block can advance by at most one bucket here, leaving bucket 3 mandatory and
-      // unconsumed at the end of the checkpoint. Every honest validator would refuse to attest and L1 `propose`
-      // would revert, so the checkpoint must never be assembled or gossiped.
-      jest
-        .spyOn(job.getTimetable(), 'selectNextSubslot')
-        .mockReturnValueOnce(subslot(10, 0, false))
-        .mockReturnValueOnce(subslot(18, 1, true))
-        .mockReturnValue(noSubslot());
+    it('enters completion before crossing start + 768 and selects 868 rather than signing 1024', async () => {
+      // Live bucket ends 100/356/612/868/1124 with the whole backlog observed. Greedy blocks reach 256, 512 and
+      // 768; the next greedy step (1024) would pass the last legal endpoint, so completion selects 868 instead.
+      mockSubslots(4);
+      job.updateConfig({ maxBlocksPerCheckpoint: 4 });
+      streamingInbox.set(leaves(1124), [100n, 356n, 612n, 868n, 1124n]);
 
-      const totals = [256n, 257n, 513n, 514n];
-      const buckets = totals.map((totalMsgCount, i) => ({
-        seq: BigInt(i + 1),
-        inboxRollingHash: new Fr(i + 1),
-        totalMsgCount,
-        // Well before the censorship cutoff, so every bucket is mandatory.
-        timestamp: 0n,
-        msgCount: Number(totalMsgCount - (i === 0 ? 0n : totals[i - 1])),
-        lastMessageIndex: totalMsgCount - 1n,
-        l1BlockNumber: BigInt(i + 1),
-        l1BlockHash: Buffer32.fromBigInt(BigInt(i + 1)),
-      }));
-      l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(buckets[3]);
-      l1ToL2MessageSource.getInboxBucket.mockImplementation(seq => Promise.resolve(buckets[Number(seq) - 1]));
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockImplementation((from, to) =>
-        Promise.resolve(
-          Array.from({ length: Number(totals[Number(to) - 1] - (from === 0n ? 0n : totals[Number(from) - 1])) }, () =>
-            Fr.random(),
-          ),
-        ),
-      );
+      const { lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
-      const { lastBlock } = await setupMultipleBlocks(2, [2, 1]);
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 256, 100]);
+      expect(signedPrefixes()).toEqual([prefixAt(256), prefixAt(512), prefixAt(768), prefixAt(868)]);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(1024n);
+      expect(preflightTotals()).toEqual([868n, 868n]);
+    });
+
+    it('selects 800 rather than signing 956 after partial blocks reached 700 for live ends 444/700/800/1056', async () => {
+      // The archiver lags at 700 for three blocks (greedy ends 256, 512, 700) and then catches up to 1056. The
+      // next greedy step would be 956, past the last legal endpoint 800, so completion selects 800.
+      mockSubslots(4);
+      job.updateConfig({ maxBlocksPerCheckpoint: 4 });
+      streamingInbox.set(leaves(700), [444n, 700n]);
+      betweenBlocks(3, () => {
+        streamingInbox.append(leaves(100, 701), { closeBucket: true });
+        streamingInbox.append(leaves(256, 801), { closeBucket: true });
+      });
+
+      const { lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 188, 100]);
+      expect(signedPrefixes().at(-1)).toEqual(prefixAt(800));
+      // One remaining block bounds the query at 700 + 256.
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(956n);
+    });
+
+    it('pins the completion threshold strictly above start + 768', async () => {
+      // A greedy end exactly at 768 stays ordinary; one message more enters completion a block earlier.
+      mockSubslots(4);
+      job.updateConfig({ maxBlocksPerCheckpoint: 4 });
+      streamingInbox.set(leaves(768));
+      let { lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      await job.executeAndAwait();
+
+      expect(bundleLengths()).toEqual([256, 256, 256, 0]);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(768n);
+
+      jest.restoreAllMocks();
+      inbox.getBucketAtOrBeforeTotal.mockClear();
+      job = createCheckpointProposalJob();
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 3000 }));
+      checkpointBuilder.reset();
+      mockSubslots(4);
+      job.updateConfig({ maxBlocksPerCheckpoint: 4 });
+      streamingInbox.set(leaves(769));
+      ({ lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]));
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      await job.executeAndAwait();
+
+      // The third block's prospective greedy end (769) crosses the line, so completion resolves the endpoint there
+      // and the remaining blocks consume toward it in per-block chunks.
+      expect(bundleLengths()).toEqual([256, 256, 256, 1]);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(769n);
+    });
+
+    it('freezes consumption once the completion target is reached, even as more messages arrive', async () => {
+      mockSubslots(5);
+      job.updateConfig({ maxBlocksPerCheckpoint: 5 });
+      streamingInbox.set(leaves(1000), [500n, 1000n]);
+      // New messages land after the target is reached; the frozen checkpoint ignores them.
+      betweenBlocks(4, () => streamingInbox.append(leaves(100, 1001), { closeBucket: true }));
+
+      const { lastBlock } = await setupMultipleBlocks(5, [1, 1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      // Greedy to 768, completion selects 1000 (queried with two blocks of capacity left), consumed in one chunk,
+      // then frozen.
+      expect(bundleLengths()).toEqual([256, 256, 256, 232, 0]);
+      expect(signedPrefixes().slice(-2)).toEqual([prefixAt(1000), prefixAt(1000)]);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(1000n);
+      expect(preflightTotals()).toEqual([1000n, 1000n]);
+    });
+
+    it('abandons the checkpoint when the final block cannot complete at a live endpoint', async () => {
+      // 900 messages in one open bucket: greedy blocks reach 256 and 512, and the final block's reachable bound
+      // (768) has no live bucket end at or above the cursor, so no checkpoint ending here can be published.
+      mockSubslots(3);
+      job.updateConfig({ maxBlocksPerCheckpoint: 3 });
+      streamingInbox.set(leaves(900), []);
+
+      const { lastBlock } = await setupMultipleBlocks(3, [1, 1, 1]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeUndefined();
-      // The final block is never built, so it is never held for broadcast, and no checkpoint reaches the network
-      // or L1.
-      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
       expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
-      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_consumption_insufficient');
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_completion_unresolved');
+    });
+
+    it('retries completion on a later block when no live endpoint is reachable yet', async () => {
+      // Completion is entered on the fourth block, but L1 has closed no bucket at or below the bound yet; the block
+      // consumes nothing and the final block resolves the endpoint once it appears.
+      mockSubslots(5);
+      job.updateConfig({ maxBlocksPerCheckpoint: 5 });
+      streamingInbox.set(leaves(1000), []);
+      betweenBlocks(4, () => streamingInbox.setBucketEnds([1000n]));
+
+      const { lastBlock } = await setupMultipleBlocks(5, [1, 1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 256, 0, 232]);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(2);
+    });
+
+    it('abandons the checkpoint when the local message prefix changes under already signed blocks', async () => {
+      mockSubslots(2);
+      streamingInbox.set(leaves(5));
+      // A content-changing L1 reorg replaces the messages the first block consumed before the second block builds.
+      betweenBlocks(1, () => streamingInbox.set(leaves(5, 1000)));
+
+      const { lastBlock } = await setupMultipleBlocks(2, [1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeUndefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_prefix_reorged');
+    });
+
+    it('abandons the slot when the pre-gossip preflight rejects the checkpoint', async () => {
+      mockSubslots(1);
+      streamingInbox.set(leaves(5));
+      publisher.validateCheckpointHeaderAndInbox.mockRejectedValue(new Error('Rollup__InboxTotalNotAtBucketBoundary'));
+
+      const { lastBlock } = await setupMultipleBlocks(1, [1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeUndefined();
+      expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('header_validation_failed');
+    });
+
+    it('re-runs the preflight against the real state before publishing and takes its bucket hint', async () => {
+      mockSubslots(1);
+      streamingInbox.set(leaves(5));
+      publisher.validateCheckpointHeaderAndInbox.mockResolvedValueOnce(3n).mockResolvedValueOnce(4n);
+
+      const { lastBlock } = await setupMultipleBlocks(1, [1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      await job.executeAndAwait();
+
+      expect(publisher.validateCheckpointHeaderAndInbox).toHaveBeenCalledTimes(2);
+      // The pre-gossip call carries the build-time simulation plan; the pre-publication call carries no synthetic
+      // overrides, so L1's real parent and prune state decide.
+      expect(publisher.validateCheckpointHeaderAndInbox.mock.calls[1][2]).toBeUndefined();
+      expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(4n);
+    });
+
+    it('abandons publication when the pre-publication preflight rejects the checkpoint', async () => {
+      mockSubslots(1);
+      streamingInbox.set(leaves(5));
+      publisher.validateCheckpointHeaderAndInbox
+        .mockResolvedValueOnce(3n)
+        .mockRejectedValueOnce(new Error('Rollup__UnexpectedParentCheckpoint'));
+
+      const { lastBlock } = await setupMultipleBlocks(1, [1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      // The checkpoint was built and gossiped, but never sent.
+      expect(checkpoint).toBeDefined();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('publication_preflight_failed');
+    });
+
+    it('abandons publication when the archiver no longer holds the checkpoint blocks', async () => {
+      mockSubslots(1);
+      streamingInbox.set(leaves(5));
+      // The archiver pruned the built block (or holds a different one at that number) by the time the slot arrives.
+      l2BlockSource.getBlockData.mockResolvedValue(undefined);
+
+      const { lastBlock } = await setupMultipleBlocks(1, [1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('checkpoint_blocks_pruned');
     });
   });
 
