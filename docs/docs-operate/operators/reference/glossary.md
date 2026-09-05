@@ -113,7 +113,7 @@ The process of calculating the expected gas cost for an Ethereum transaction bef
 
 ### Inbox
 
-The L1 contract that receives messages sent from Ethereum to Aztec L2. It commits to every message it accepts with a rolling hash, snapshotted per L1 block into a ring of buckets. The archiver monitors the Inbox for new L1-to-L2 messages, and the proposer includes the messages its node has observed in the next L2 block it builds.
+The L1 contract that receives messages sent from Ethereum to Aztec L2. It commits to every message it accepts with a rolling hash, snapshotted per L1 block into a ring of buckets. The archiver monitors the Inbox for new L1-to-L2 messages, and the proposer includes the messages its node has observed in the L2 blocks it builds.
 
 ## J
 
