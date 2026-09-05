@@ -5,19 +5,22 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
+import { InboxAbi } from '@aztec/l1-artifacts/InboxAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import { jest } from '@jest/globals';
-import { type Abi, RpcRequestError, encodeErrorResult } from 'viem';
+import { type Abi, RpcRequestError, encodeErrorResult, getContract } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
-import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
+import { type DeployAztecL1ContractsReturnType, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
+import { ReadOnlyL1TxUtils } from '../l1_tx_utils/index.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
 import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ViemClient } from '../types.js';
-import { type FeeHeader, RollupContract, TempCheckpointLogField } from './rollup.js';
+import { InboxContract } from './inbox.js';
+import { type CheckpointPreflightArgs, type FeeHeader, RollupContract, TempCheckpointLogField } from './rollup.js';
 
 describe('compressFeeHeader', () => {
   /** Creates a zero fee header with the given overrides. */
@@ -237,25 +240,28 @@ describe('Rollup', () => {
 
   let vkTreeRoot: Fr;
   let protocolContractsHash: Fr;
+  let genesisArchiveRoot: Fr;
   let rollupAddress: `0x${string}`;
   let rollup: RollupContract;
+  let deployed: DeployAztecL1ContractsReturnType;
 
   beforeAll(async () => {
     // this is the 6th address that gets funded by the junk mnemonic
     const privateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
     vkTreeRoot = Fr.random();
     protocolContractsHash = Fr.random();
+    genesisArchiveRoot = Fr.random();
 
     ({ anvil, rpcUrl } = await startAnvil());
 
     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
 
-    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
+    deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
       ...DefaultL1ContractsConfig,
       vkTreeRoot,
       protocolContractsHash,
-      genesisArchiveRoot: Fr.random(),
+      genesisArchiveRoot,
       realVerifier: false,
     });
 
@@ -358,6 +364,115 @@ describe('Rollup', () => {
       await expect(rollup.makeChainTipsOverride({ proven: CheckpointNumber(20) })).rejects.toThrow(
         /proven .* > pending/,
       );
+    });
+  });
+
+  describe('validateCheckpointHeaderAndInbox', () => {
+    let l1TxUtils: ReadOnlyL1TxUtils;
+    let inbox: InboxContract;
+    let slotDuration: bigint;
+    let l1GenesisTime: bigint;
+    let liveTips: bigint;
+
+    beforeAll(async () => {
+      l1TxUtils = new ReadOnlyL1TxUtils(publicClient, undefined, new DateProvider());
+      inbox = InboxContract.getFromL1ContractsValues(deployed);
+      slotDuration = BigInt(await rollup.getSlotDuration());
+      l1GenesisTime = await rollup.getL1GenesisTime();
+      // Earlier tests rewrote the chain tips; run against the fresh chain (effective parent 0) and put them back after.
+      liveTips = await cheatCodes.load(EthAddress.fromString(rollupAddress), BigInt(RollupContract.stfStorageSlot));
+      await cheatCodes.store(EthAddress.fromString(rollupAddress), BigInt(RollupContract.stfStorageSlot), 0n);
+    });
+
+    afterAll(async () => {
+      await cheatCodes.store(EthAddress.fromString(rollupAddress), BigInt(RollupContract.stfStorageSlot), liveTips);
+    });
+
+    /** Builds an otherwise valid header for the second L2 slot after the current L1 time, and the time to simulate at. */
+    async function buildHeader(inboxRollingHash: Fr): Promise<{ args: CheckpointPreflightArgs; time: bigint }> {
+      const now = (await publicClient.getBlock()).timestamp;
+      const slot = SlotNumber(Number((now - l1GenesisTime) / slotDuration) + 2);
+      const time = await rollup.getTimestampForSlot(slot);
+      const minFee = await rollup.getManaMinFeeAt(time, true);
+      const zero = Fr.ZERO.toString();
+      const args: CheckpointPreflightArgs = {
+        header: {
+          lastArchiveRoot: genesisArchiveRoot.toString(),
+          blockHeadersHash: zero,
+          blobsHash: zero,
+          inboxRollingHash: inboxRollingHash.toString(),
+          outHash: zero,
+          slotNumber: BigInt(slot),
+          timestamp: time,
+          coinbase: EthAddress.random().toString(),
+          feeRecipient: zero,
+          gasFees: { feePerDaGas: 0n, feePerL2Gas: minFee },
+          totalManaUsed: 0n,
+          accumulatedFees: 0n,
+        },
+        attestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
+        signers: [],
+        attestationsAndSignersSignature: { r: zero, s: zero, v: 0 },
+        digest: zero,
+        blobsHash: zero,
+        flags: { ignoreDA: true },
+        expectedTotal: 0n,
+        expectedParentCheckpointNumber: 0n,
+      };
+      return { args, time };
+    }
+
+    it('returns the genesis bucket for a checkpoint consuming nothing on a fresh chain', async () => {
+      const { args, time } = await buildHeader(Fr.ZERO);
+      await expect(rollup.validateCheckpointHeaderAndInbox(l1TxUtils, args, { time })).resolves.toBe(0n);
+    });
+
+    it('rejects a parent claim that differs from the parent propose would use', async () => {
+      const { args, time } = await buildHeader(Fr.ZERO);
+      await expect(
+        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, { ...args, expectedParentCheckpointNumber: 1n }, { time }),
+      ).rejects.toThrow(/Rollup__UnexpectedParentCheckpoint/);
+    });
+
+    it('rejects a consumed total that is not a bucket boundary', async () => {
+      const { args, time } = await buildHeader(Fr.ZERO);
+      await expect(
+        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, { ...args, expectedTotal: 1n }, { time }),
+      ).rejects.toThrow(/Rollup__InboxTotalNotAtBucketBoundary/);
+    });
+
+    it('runs the shared header checks against the derived parent', async () => {
+      const { args, time } = await buildHeader(Fr.ZERO);
+      const header = { ...args.header, lastArchiveRoot: Fr.random().toString() };
+      await expect(rollup.validateCheckpointHeaderAndInbox(l1TxUtils, { ...args, header }, { time })).rejects.toThrow(
+        /Rollup__InvalidArchive/,
+      );
+    });
+
+    it('resolves a consumed bucket to its sequence and rejects a stale hash for it', async () => {
+      const inboxContract = getContract({
+        address: deployed.l1ContractAddresses.inboxAddress.toString(),
+        abi: InboxAbi,
+        client: deployed.l1Client,
+      });
+      const version = await rollup.getVersion();
+      const hash = await inboxContract.write.sendL2Message(
+        [{ actor: Fr.random().toString(), version }, Fr.random().toString(), Fr.random().toString()],
+        { gas: 1_000_000n },
+      );
+      await deployed.l1Client.waitForTransactionReceipt({ hash });
+      const bucket = await inbox.getBucket(1n);
+      expect(bucket.totalMsgCount).toBe(1n);
+
+      const { args, time } = await buildHeader(bucket.rollingHash);
+      await expect(
+        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, { ...args, expectedTotal: 1n }, { time }),
+      ).resolves.toBe(1n);
+
+      const stale = { ...args.header, inboxRollingHash: Fr.random().toString() };
+      await expect(
+        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, { ...args, header: stale, expectedTotal: 1n }, { time }),
+      ).rejects.toThrow(/Rollup__InvalidInboxRollingHash/);
     });
   });
 

@@ -11,8 +11,9 @@ import { getPublicClient } from '../client.js';
 import type { DeployAztecL1ContractsReturnType } from '../deploy_aztec_l1_contracts.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
 import type { ViemClient } from '../types.js';
+import { formatViemError } from '../utils.js';
 import type { L1EventLog } from './log.js';
-import { checkBlockTag } from './utils.js';
+import { checkBlockTag, getRevertedErrorName } from './utils.js';
 
 /** The full L1-to-L2 message emitted by the Inbox, decoded from the event. Hashing it yields `leaf`. */
 export type MessageSentMessage = {
@@ -105,12 +106,29 @@ export class InboxContract {
   ): Promise<InboxContractBucket> {
     await checkBlockTag(opts.blockNumber, this.client);
     const bucket = await this.inbox.read.getBucket([seq], opts);
-    return {
-      rollingHash: Fr.fromString(bucket.rollingHash),
-      totalMsgCount: bucket.totalMsgCount,
-      timestamp: bucket.timestamp,
-      msgCount: bucket.msgCount,
-    };
+    return toInboxContractBucket(bucket);
+  }
+
+  /**
+   * Returns the live Inbox bucket with the greatest cumulative message total at or below `upperBound`, together with
+   * its sequence number. Resolves to `undefined` when even the oldest retained bucket ends past the bound, i.e. the
+   * ring has already evicted every bucket that could have matched. Totals strictly increase per bucket, so the result
+   * is the newest bucket boundary reachable from a local message count.
+   */
+  public async getBucketAtOrBeforeTotal(
+    upperBound: bigint,
+    opts: { blockTag?: BlockTag; blockNumber?: bigint } = {},
+  ): Promise<{ seq: bigint; bucket: InboxContractBucket } | undefined> {
+    await checkBlockTag(opts.blockNumber, this.client);
+    try {
+      const [seq, bucket] = await this.inbox.read.getBucketAtOrBeforeTotal([upperBound], opts);
+      return { seq, bucket: toInboxContractBucket(bucket) };
+    } catch (err) {
+      if (getRevertedErrorName(err) === 'Inbox__NoBucketAtOrBeforeTotal') {
+        return undefined;
+      }
+      throw formatViemError(err);
+    }
   }
 
   /** Fetches MessageSent events within the given block range. */
@@ -209,6 +227,20 @@ export type InboxContractState = {
   /** Sequence number of the bucket currently accumulating messages. */
   currentBucketSeq: bigint;
 };
+
+function toInboxContractBucket(bucket: {
+  rollingHash: Hex;
+  totalMsgCount: bigint;
+  timestamp: bigint;
+  msgCount: number;
+}): InboxContractBucket {
+  return {
+    rollingHash: Fr.fromString(bucket.rollingHash),
+    totalMsgCount: bucket.totalMsgCount,
+    timestamp: bucket.timestamp,
+    msgCount: bucket.msgCount,
+  };
+}
 
 /** A snapshot of an on-chain Inbox rolling-hash bucket. */
 export type InboxContractBucket = {
