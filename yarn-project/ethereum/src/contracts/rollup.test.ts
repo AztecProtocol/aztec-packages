@@ -487,11 +487,15 @@ describe('Rollup', () => {
     // parent (tips, archive, slot, consumed total) and the call reads the parent's total from them, so the same call
     // without the overrides has no such parent and a parent total ahead of the child rejects the child.
     it('validates against an unpublished parent supplied through state overrides', async () => {
-      // Bucket 1 (one message) is the parent's consumption; bucket 2 holds the child's message.
+      // Two fresh buckets: the parent consumed through the first, the child consumes the second.
       await sendMessageInNewBucket();
-      const parentBucket = await inbox.getBucket(1n);
-      const childBucket = await inbox.getBucket(2n);
-      expect([parentBucket.totalMsgCount, childBucket.totalMsgCount]).toEqual([1n, 2n]);
+      const parentSeq = await inbox.getCurrentBucketSeq();
+      await sendMessageInNewBucket();
+      const childSeq = await inbox.getCurrentBucketSeq();
+      expect(childSeq).toBe(parentSeq + 1n);
+      const parentBucket = await inbox.getBucket(parentSeq);
+      const childBucket = await inbox.getBucket(childSeq);
+      expect(childBucket.totalMsgCount).toBe(parentBucket.totalMsgCount + 1n);
 
       const { args, time } = await buildHeader(childBucket.rollingHash);
       const parentArchive = Fr.random();
@@ -505,7 +509,7 @@ describe('Rollup', () => {
             archive: parentArchive,
             slotNumber: parentSlot,
             inboxMsgTotal: parentInboxMsgTotal,
-            inboxConsumedBucket: 1n,
+            inboxConsumedBucket: parentSeq,
             feeHeader: parentFeeHeader,
           },
         });
@@ -517,11 +521,16 @@ describe('Rollup', () => {
         lastArchiveRoot: parentArchive.toString(),
         gasFees: { ...args.header.gasFees, feePerL2Gas: minFee },
       };
-      const childArgs = { ...args, header, expectedTotal: 2n, expectedParentCheckpointNumber: 1n };
+      const childArgs = {
+        ...args,
+        header,
+        expectedTotal: childBucket.totalMsgCount,
+        expectedParentCheckpointNumber: 1n,
+      };
 
       await expect(
         rollup.validateCheckpointHeaderAndInbox(l1TxUtils, childArgs, { time, stateOverrides }),
-      ).resolves.toBe(2n);
+      ).resolves.toBe(childSeq);
 
       // Without the parent's state the effective parent is still checkpoint 0.
       await expect(rollup.validateCheckpointHeaderAndInbox(l1TxUtils, childArgs, { time })).rejects.toThrow(
@@ -530,7 +539,10 @@ describe('Rollup', () => {
 
       // The parent's stored total, not the caller, is the consumption floor.
       await expect(
-        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, childArgs, { time, stateOverrides: await overridesFor(5n) }),
+        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, childArgs, {
+          time,
+          stateOverrides: await overridesFor(childBucket.totalMsgCount + 3n),
+        }),
       ).rejects.toThrow(/Rollup__InboxConsumptionBehindParent/);
     });
   });
