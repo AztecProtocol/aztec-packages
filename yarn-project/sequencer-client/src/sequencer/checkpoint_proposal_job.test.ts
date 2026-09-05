@@ -1798,7 +1798,7 @@ describe('CheckpointProposalJob', () => {
       expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('header_validation_failed');
     });
 
-    it('re-runs the preflight against the real state before publishing and takes its bucket hint', async () => {
+    it('re-runs the preflight before publishing and takes its bucket hint', async () => {
       mockSubslots(1);
       streamingInbox.set(leaves(5));
       publisher.validateCheckpointHeaderAndInbox.mockResolvedValueOnce(3n).mockResolvedValueOnce(4n);
