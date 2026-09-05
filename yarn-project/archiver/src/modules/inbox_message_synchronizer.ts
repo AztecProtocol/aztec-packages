@@ -70,8 +70,9 @@ export type InboxMessageRecoveryProgress = {
  * Normal ingestion captures an L1 head, reads the Inbox's position (message count and rolling hash) at that head,
  * fetches the MessageSent events forward from the persisted syncpoint in bounded L1 block ranges and commits each
  * batch together with the syncpoint covering it, so completed batches are usable immediately and a later RPC failure
- * leaves them in place. The final position is compared with the captured one; a disagreement means an L1 reorg
- * changed messages this node already holds, and recovery starts.
+ * leaves them in place. The batch reaching the head is staged and committed with the head only once the position
+ * after it equals the captured one, so the log never holds messages past its syncpoint; a disagreement means an L1
+ * reorg changed messages this node already holds, and recovery starts.
  *
  * Recovery never deletes on a failed lookup. It first finds an anchor: either the canonical tip itself is a shorter
  * prefix of the local log (checked by hash, so truncation needs no event lookups), or a stored message whose event L1
@@ -175,6 +176,11 @@ export class InboxMessageSynchronizer {
     const remote = await this.inbox.getState({ blockNumber: head.l1BlockNumber });
     const local = await this.stores.messages.getSyncedMessagePosition();
     if (positionMatches(local, remote)) {
+      // The state was read by block number: only a head that is still canonical proves it was this head's.
+      if (!(await this.isHeadStillCanonical(head))) {
+        this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while reading the Inbox state`);
+        return pending();
+      }
       await this.stores.messages.setMessageSyncState(head, finalizedL1Block);
       return synced();
     }
@@ -199,8 +205,9 @@ export class InboxMessageSynchronizer {
       return this.startRecovery(head, remote, finalizedL1Block);
     }
 
+    let headBatch: InboxMessage[];
     try {
-      await this.ingestForward(syncPoint.l1BlockNumber + 1n, head);
+      headBatch = await this.ingestForward(syncPoint.l1BlockNumber + 1n, head);
     } catch (err) {
       if (err instanceof MessageStoreError) {
         this.log.warn(`Fetched L1 to L2 messages do not continue the local log: ${err.message}`, {
@@ -213,13 +220,30 @@ export class InboxMessageSynchronizer {
 
     if (!(await this.isHeadStillCanonical(head))) {
       // The chain moved under the fetch: the logs may belong to another chain than the position they are compared
-      // with, so neither the head's syncpoint nor a recovery is committed; the next pass reads the replacement head.
+      // with, so neither the head batch nor a recovery is committed; the next pass reads the replacement head.
       this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while fetching L1 to L2 messages`);
       return pending();
     }
     const localAfterFetch = await this.stores.messages.getSyncedMessagePosition();
-    if (positionMatches(localAfterFetch, remote)) {
-      await this.stores.messages.setMessageSyncState(head, finalizedL1Block);
+    const lastStaged = headBatch.at(-1);
+    const positionAfterHeadBatch =
+      lastStaged === undefined
+        ? localAfterFetch
+        : { totalMessageCount: lastStaged.index + 1n, rollingHash: lastStaged.inboxRollingHash };
+    if (positionMatches(positionAfterHeadBatch, remote)) {
+      // The staged head batch continues the log and lands exactly on the Inbox's position: commit it with the head
+      // as syncpoint in one transaction. A batch that does not chain onto the log is a reorg to recover from.
+      try {
+        await this.storeMessages(headBatch, { l1Block: head, finalizedL1Block });
+      } catch (err) {
+        if (err instanceof MessageStoreError) {
+          this.log.warn(`Head batch of L1 to L2 messages does not continue the local log: ${err.message}`, {
+            inboxMessage: err.inboxMessage,
+          });
+          return this.startRecovery(head, remote, finalizedL1Block);
+        }
+        throw err;
+      }
       return synced();
     }
     return this.startRecovery(head, remote, finalizedL1Block);
@@ -227,21 +251,26 @@ export class InboxMessageSynchronizer {
 
   /**
    * Fetches messages forward in bounded L1 block ranges and commits each batch with the syncpoint that covers it,
-   * except for the batch reaching the head: its syncpoint is only persisted once the caller has established that the
-   * log agrees with the Inbox at the head, so a restart mid-recovery cannot mistake a disagreeing log for a synced
-   * one just because the head was already scanned. Throws `MessageStoreError` when a batch does not continue the
+   * except for the batch reaching the head, which is returned staged instead of stored: the log must never hold
+   * messages past its syncpoint, or a later head equal to that syncpoint would pass the same-head shortcut over
+   * messages the canonical chain may have dropped. The caller commits the staged batch together with the head once
+   * the log agrees with the Inbox there. Throws `MessageStoreError` when an intermediate batch does not continue the
    * stored chain, leaving the earlier batches in place.
    */
-  private async ingestForward(fromL1Block: bigint, head: L1BlockId) {
+  private async ingestForward(fromL1Block: bigint, head: L1BlockId): Promise<InboxMessage[]> {
     let start = fromL1Block;
     let stored = 0;
+    let headBatch: InboxMessage[] = [];
     while (start <= head.l1BlockNumber) {
       const end = minBigint(start + this.getBatchSizeInL1Blocks() - 1n, head.l1BlockNumber);
       this.log.trace(`Retrieving L1 to L2 messages in L1 blocks ${start}-${end}`);
       const messages = await retrieveL1ToL2Messages(this.inbox, start, end);
-      const syncState = end === head.l1BlockNumber ? undefined : { l1Block: await this.l1BlockIdFor(end, head) };
-      await this.storeMessages(messages, syncState);
-      stored += messages.length;
+      if (end === head.l1BlockNumber) {
+        headBatch = messages;
+      } else {
+        await this.storeMessages(messages, { l1Block: await this.l1BlockIdFor(end, head) });
+        stored += messages.length;
+      }
       start = end + 1n;
     }
     if (stored > 0) {
@@ -251,9 +280,13 @@ export class InboxMessageSynchronizer {
         lastMessage: last,
       });
     }
+    return headBatch;
   }
 
-  private async storeMessages(messages: InboxMessage[], syncState: { l1Block: L1BlockId } | undefined): Promise<void> {
+  private async storeMessages(
+    messages: InboxMessage[],
+    syncState: { l1Block: L1BlockId; finalizedL1Block?: L1BlockId } | undefined,
+  ): Promise<void> {
     const timer = new Timer();
     await this.stores.messages.addL1ToL2Messages(messages, syncState);
     if (messages.length > 0) {

@@ -1845,7 +1845,10 @@ describe('Archiver Sync', () => {
       await addLocalBlock(cp2.blocks[0]);
       await archiver.addProposedCheckpoint({
         checkpointNumber: CheckpointNumber(2),
-        header: CheckpointHeader.empty({ slotNumber: fake.getL2SlotAtL1Block(LOCAL_BLOCKS_L1_BLOCK) }),
+        header: CheckpointHeader.empty({
+          slotNumber: fake.getL2SlotAtL1Block(LOCAL_BLOCKS_L1_BLOCK),
+          inboxRollingHash: fake.getInboxRollingHash(),
+        }),
         startBlock: cp2.blocks[0].number,
         blockCount: 1,
         totalManaUsed: 0n,
@@ -1866,9 +1869,20 @@ describe('Archiver Sync', () => {
       // The checkpointed block stays; the speculative block consuming the replaced message is gone.
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCp1.number);
-      // Nothing may build on the disagreeing checkpointed tip either: the synced L1 block (and with it the synced L2
-      // slot proposers build from) is not advanced while the gate holds.
+      // Nothing may build on the disagreeing checkpointed tip either: the synced L1 block is not advanced and no L2
+      // slot is reported as synced while the gate holds, so a proposer's sync check refuses the tip.
       expect(archiver.getL1BlockNumber()).toEqual(110n);
+      expect(await archiver.getSyncedL2SlotNumber()).toBeUndefined();
+
+      // The gate survives a restart: it is rebuilt from the persisted checkpoint and message state.
+      ({ archiver, synchronizer } = await buildArchiver('archiver_message_recovery_gate_restart', {
+        store: archiverStore,
+      }));
+      await archiver.syncImmediate();
+      expect(synchronizer.isSpeculationGated()).toBe(true);
+      expect(await archiver.getProposedCheckpointData()).toBeUndefined();
+      expect(await archiver.getSyncedL2SlotNumber()).toBeUndefined();
+      expect(archiver.getL1BlockNumber()).toBeUndefined();
 
       // L1 reconciles the published chain: checkpoint 1 is pruned, the tip agrees with the log again.
       fake.markCheckpointAsPruned(CheckpointNumber(1));
@@ -1878,6 +1892,39 @@ describe('Archiver Sync', () => {
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
       expect(synchronizer.isSpeculationGated()).toBe(false);
       expect(archiver.getL1BlockNumber()).toEqual(112n);
+      expect(await archiver.getSyncedL2SlotNumber()).toBeDefined();
+    });
+
+    it('never holds messages past its syncpoint, so a later head at that syncpoint cannot skip the comparison', async () => {
+      // One slot of L1 blocks per batch: two blocks. Message A arrives in block 2, message B in block 4.
+      await useArchiver({ batchSize: 1 });
+      const [a, b] = randomLeaves(2);
+      fake.addMessages(CheckpointNumber(1), 2n, [a]);
+      fake.addMessages(CheckpointNumber(1), 4n, [b]);
+      fake.setL1BlockNumber(4n);
+      // While the head batch (blocks 3-4) is being fetched, L1 replaces block 3 onward, dropping B, and the chain is
+      // now shorter than the head being synced: the batch must not be stored ahead of the syncpoint.
+      const readLogs = inboxContract.getMessageSentEvents.getMockImplementation()!;
+      inboxContract.getMessageSentEvents.mockImplementation(async (from, to) => {
+        const logs = await readLogs(from, to);
+        if (to === 4n) {
+          inboxContract.getMessageSentEvents.mockImplementation(readLogs);
+          fake.removeMessagesAfter(1);
+          fake.reorgL1BlocksFrom(3n);
+          fake.setL1BlockNumber(2n);
+        }
+        return logs;
+      });
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([a]));
+      expect(archiver.getL1BlockNumber()).toBeUndefined();
+
+      // The new head is block 2, which is exactly the syncpoint the first batch committed: the shortcut is sound
+      // because nothing past that syncpoint was ever stored.
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex([a]));
+      expect(archiver.getL1BlockNumber()).toEqual(2n);
     });
 
     it('does not truncate when the head is replaced while the Inbox state is being read', async () => {
@@ -2595,7 +2642,7 @@ describe('Archiver Sync', () => {
       // Set a proposed checkpoint covering these blocks (simulating pipelining)
       const proposedCheckpoint: ProposedCheckpointInput = {
         checkpointNumber: CheckpointNumber(2),
-        header: CheckpointHeader.empty({ slotNumber: SlotNumber(1) }),
+        header: CheckpointHeader.empty({ slotNumber: SlotNumber(1), inboxRollingHash: fake.getInboxRollingHash() }),
         startBlock: BlockNumber(lastBlockInCheckpoint1 + 1),
         blockCount: provisionalBlocks.length,
         totalManaUsed: 0n,
@@ -2660,7 +2707,7 @@ describe('Archiver Sync', () => {
       // Set a proposed checkpoint (simulating pipelining)
       const proposedCheckpoint: ProposedCheckpointInput = {
         checkpointNumber: CheckpointNumber(2),
-        header: CheckpointHeader.empty({ slotNumber: SlotNumber(1) }),
+        header: CheckpointHeader.empty({ slotNumber: SlotNumber(1), inboxRollingHash: fake.getInboxRollingHash() }),
         startBlock: BlockNumber(lastBlockInCheckpoint1 + 1),
         blockCount: provisionalBlocks.length,
         totalManaUsed: 0n,
@@ -2757,7 +2804,7 @@ describe('Archiver Sync', () => {
 
     const makeProposedCheckpoint = (lastBlockInCp1: BlockNumber, blockCount: number): ProposedCheckpointInput => ({
       checkpointNumber: CheckpointNumber(2),
-      header: CheckpointHeader.empty({ slotNumber: orphanSlot }),
+      header: CheckpointHeader.empty({ slotNumber: orphanSlot, inboxRollingHash: fake.getInboxRollingHash() }),
       startBlock: BlockNumber(lastBlockInCp1 + 1),
       blockCount,
       totalManaUsed: 0n,

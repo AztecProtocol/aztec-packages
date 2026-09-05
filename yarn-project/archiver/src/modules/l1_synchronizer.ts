@@ -259,7 +259,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     // Update the finalized L2 checkpoint based on L1 finality.
     await this.updateFinalizedCheckpoint(finalizedL1Block);
 
-    await this.maybeReleaseSpeculationGate();
+    await this.updateSpeculationGate(currentL1BlockNumber);
 
     // Readiness (the synced L1 block, which drives the synced L2 slot proposers build on) is only advanced once the
     // messages agree with L1 at this head and the checkpointed tip agrees with them: while either is pending, nothing
@@ -488,19 +488,24 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   /**
-   * Lifts the speculation gate once the checkpointed tip's consumed message prefix agrees with the message log again,
-   * which happens when checkpoint sync rolls the published chain back or replaces it with what L1 mined over the new
-   * messages.
+   * Re-evaluates the speculation gate from persisted state: it holds while the latest checkpoint's consumed message
+   * prefix (its count and rolling hash) disagrees with the message log, and lifts once checkpoint sync has rolled the
+   * published chain back or replaced it with what L1 mined over the new messages. Evaluated every iteration rather
+   * than only after a replacement, so a restart between a replacement and its reconciliation rebuilds the gate.
    */
-  private async maybeReleaseSpeculationGate(): Promise<void> {
-    if (this.speculationGate === undefined) {
-      return;
-    }
-    if (await this.checkpointedTipAgreesWithMessages()) {
-      this.log.info(`Checkpointed tip agrees with the Inbox message log again; releasing proposed checkpoints`, {
+  private async updateSpeculationGate(currentL1BlockNumber: bigint): Promise<void> {
+    const agrees = await this.checkpointedTipAgreesWithMessages();
+    if (agrees && this.speculationGate !== undefined) {
+      this.log.info(`Checkpointed tip agrees with the Inbox message log again; releasing speculative work`, {
         ...this.speculationGate,
+        currentL1BlockNumber,
       });
       this.speculationGate = undefined;
+    } else if (!agrees && this.speculationGate === undefined) {
+      this.speculationGate = { sinceL1BlockNumber: currentL1BlockNumber };
+      this.log.warn(`Checkpointed tip disagrees with the Inbox message log; gating speculative work`, {
+        currentL1BlockNumber,
+      });
     }
   }
 

@@ -620,6 +620,12 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   }
 
   public async getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+    // While the checkpointed tip disagrees with the Inbox message log, no slot is reported as synced: the latest
+    // checkpoint's slot would otherwise let a proposer build on a tip whose messages L1 no longer has.
+    if (this.synchronizer.isSpeculationGated()) {
+      return undefined;
+    }
+
     // The synced L2 slot is the latest slot for which we have all L1 data,
     // either because we have seen all L1 blocks for that slot, or because
     // we have seen the corresponding checkpoint.

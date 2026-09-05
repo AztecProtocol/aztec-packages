@@ -1651,14 +1651,17 @@ describe('CheckpointProposalJob', () => {
 
     it('consumes toward a completion target across several blocks, one block cap at a time', async () => {
       // The archiver holds 700 messages for three blocks (greedy ends 256, 512, 700), then catches up to 1300 with
-      // live ends at 1000 and 1300. The fourth block's prospective greedy end (956) crosses the line, so completion
-      // resolves the highest live end two blocks can reach (1000) and consumes toward it in per-block chunks.
+      // live ends at 956, 1000, 1256 and 1300. The fourth block's prospective greedy end (956) crosses the line, so
+      // completion resolves the highest live end two blocks can reach (1000) and consumes toward it in per-block
+      // chunks.
       mockSubslots(5);
       job.updateConfig({ maxBlocksPerCheckpoint: 5 });
       streamingInbox.set(leaves(700), [256n, 512n, 700n]);
       betweenBlocks(3, () => {
-        streamingInbox.append(leaves(300, 701), { closeBucket: true });
-        streamingInbox.append(leaves(300, 1001), { closeBucket: true });
+        streamingInbox.append(leaves(256, 701), { closeBucket: true });
+        streamingInbox.append(leaves(44, 957), { closeBucket: true });
+        streamingInbox.append(leaves(256, 1001), { closeBucket: true });
+        streamingInbox.append(leaves(44, 1257), { closeBucket: true });
       });
 
       const { lastBlock } = await setupMultipleBlocks(5, [1, 1, 1, 1, 1]);

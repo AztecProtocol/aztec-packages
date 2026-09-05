@@ -13,7 +13,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
-import { InboxMessagePrefixRef, updateInboxRollingHash } from '@aztec/stdlib/messaging';
+import { InboxMessagePrefixRef, accumulateInboxRollingHash, updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -204,6 +204,11 @@ export class FakeL1State {
     return this.getInboxPrefixRefAt(BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex));
   }
 
+  /** The Inbox rolling hash over every message the fake currently holds. */
+  public getInboxRollingHash(): Fr {
+    return this.messagesConsensusRollingHash;
+  }
+
   /** The signed Inbox prefix reference at a cumulative message count: the fake's rolling hash over that prefix. */
   public getInboxPrefixRefAt(totalMessageCount: bigint): InboxMessagePrefixRef {
     if (totalMessageCount === 0n) {
@@ -308,6 +313,13 @@ export class FakeL1State {
         block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex = Number(consumedMessageTotal);
       }
     }
+    // The checkpoint header commits to the Inbox rolling hash over every message consumed through it, which on L1 is
+    // the fake's chain extended by this checkpoint's own messages; the archiver checks the checkpointed tip against
+    // its message log with it.
+    result.checkpoint.header.inboxRollingHash = accumulateInboxRollingHash(
+      this.messagesConsensusRollingHash,
+      result.messages,
+    );
     return result;
   }
 
