@@ -265,6 +265,15 @@ describe('MessageStore', () => {
       expect(await messageStore.getSyncedMessagePosition()).toEqual(zeroPosition);
     });
 
+    it('hands out positions a caller can mutate without affecting later reads', async () => {
+      const position = (await messageStore.getMessagePosition(0n))!;
+      position.rollingHash = new Fr(99);
+      position.totalMessageCount = 99n;
+
+      expect(await messageStore.getMessagePosition(0n)).toEqual(zeroPosition);
+      expect((await messageStore.getL1ToL2MessageRange(0n, 0n)).start).toEqual(zeroPosition);
+    });
+
     it('tracks the synced position through appends and removals', async () => {
       const msgs = makeInboxMessages(6);
       await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 4));
@@ -305,6 +314,22 @@ describe('MessageStore', () => {
         start: positionAfter(msgs[5]),
         end: positionAfter(msgs[5]),
       });
+    });
+
+    it('reads the messages and the ending position from one snapshot under a concurrent removal', async () => {
+      const msgs = makeInboxMessages(6);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      // Both operations are queued without awaiting: the read runs as one store transaction, so it sees either the
+      // full sequence or the truncated one, never the leaves of one with the ending hash of the other.
+      const rangePromise = messageStore.getL1ToL2MessageRange(0n, 6n);
+      const removalPromise = messageStore.removeL1ToL2Messages(3n);
+      const [range] = await Promise.all([rangePromise, removalPromise]);
+
+      expect(range.messages).toEqual(msgs.map(m => m.leaf));
+      expect(range.end).toEqual(positionAfter(msgs[5]));
+      expect(await messageStore.getSyncedMessagePosition()).toEqual(positionAfter(msgs[2]));
+      await expect(messageStore.getL1ToL2MessageRange(0n, 6n)).rejects.toThrow(InboxMessageRangeNotSyncedError);
     });
 
     it('reads the empty range at position zero on an empty store', async () => {

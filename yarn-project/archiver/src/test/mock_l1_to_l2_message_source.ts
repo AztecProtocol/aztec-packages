@@ -9,6 +9,8 @@ import {
   updateInboxRollingHash,
 } from '@aztec/stdlib/messaging';
 
+import { InboxMessageRangeNotSyncedError } from '../errors.js';
+
 /**
  * A mocked implementation of L1ToL2MessageSource to be used in tests.
  */
@@ -104,26 +106,16 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
   }
 
   /**
-   * Slices the indexed leaf log, enforcing the same range contract as the archiver's message store. Every failure is
+   * Slices the indexed leaf log, enforcing the same range contract as the archiver's message store: invalid bounds and
+   * ranges past the synced tip are rejected, the latter with the archiver's typed availability error. Every failure is
    * a rejection rather than a synchronous throw, so callers see this stand-in behave like the async source it mocks.
    */
   getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
-    if (startLeafCount < 0n || endLeafCount < 0n || startLeafCount > endLeafCount) {
-      return Promise.reject(new Error(`Invalid Inbox leaf count range [${startLeafCount}, ${endLeafCount})`));
+    try {
+      return Promise.resolve(this.readLeafCountRange(startLeafCount, endLeafCount));
+    } catch (err) {
+      return Promise.reject(err);
     }
-    const leaves: Fr[] = [];
-    for (let index = startLeafCount; index < endLeafCount; index++) {
-      const leaf = this.leavesByIndex.get(index);
-      if (leaf === undefined) {
-        return Promise.reject(
-          new Error(
-            `Inbox message range [${startLeafCount}, ${endLeafCount}) is not fully mocked (missing index ${index})`,
-          ),
-        );
-      }
-      leaves.push(leaf);
-    }
-    return Promise.resolve(leaves);
   }
 
   getMessagePosition(totalMessageCount: bigint): Promise<InboxMessagePosition | undefined> {
@@ -141,13 +133,42 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     return Promise.resolve({ totalMessageCount, rollingHash: this.computeRollingHash(totalMessageCount) });
   }
 
-  async getL1ToL2MessageRange(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageRange> {
-    const messages = await this.getL1ToL2MessagesBetweenLeafCounts(startLeafCount, endLeafCount);
-    return {
-      messages,
-      start: { totalMessageCount: startLeafCount, rollingHash: this.computeRollingHash(startLeafCount) },
-      end: { totalMessageCount: endLeafCount, rollingHash: this.computeRollingHash(endLeafCount) },
-    };
+  /**
+   * Reads the range and both positions synchronously from the current leaf log, so a test that mutates the log while
+   * a range read is pending cannot pair leaves of one version with hashes of another, as the archiver's single-transaction
+   * read cannot either.
+   */
+  getL1ToL2MessageRange(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageRange> {
+    try {
+      const messages = this.readLeafCountRange(startLeafCount, endLeafCount);
+      return Promise.resolve({
+        messages,
+        start: { totalMessageCount: startLeafCount, rollingHash: this.computeRollingHash(startLeafCount) },
+        end: { totalMessageCount: endLeafCount, rollingHash: this.computeRollingHash(endLeafCount) },
+      });
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  private readLeafCountRange(startLeafCount: bigint, endLeafCount: bigint): Fr[] {
+    if (startLeafCount < 0n || endLeafCount < 0n || startLeafCount > endLeafCount) {
+      throw new Error(`Invalid Inbox leaf count range [${startLeafCount}, ${endLeafCount})`);
+    }
+    const syncedCount = this.getSyncedMessageCount();
+    if (endLeafCount > syncedCount) {
+      const available = syncedCount > startLeafCount ? syncedCount - startLeafCount : 0n;
+      throw new InboxMessageRangeNotSyncedError(
+        startLeafCount,
+        endLeafCount,
+        `only ${available} of ${endLeafCount - startLeafCount} messages are mocked`,
+      );
+    }
+    const leaves: Fr[] = [];
+    for (let index = startLeafCount; index < endLeafCount; index++) {
+      leaves.push(this.leavesByIndex.get(index)!);
+    }
+    return leaves;
   }
 
   getBlockNumber() {

@@ -92,12 +92,11 @@ export class MockPrefilledArchiver extends MockArchiver {
       this.prefilledMessages[checkpoint.number - 1] = messages;
     }
 
-    // Register the Inbox buckets the streaming world-state synchronizer reconstructs each block's consumed
-    // message bundle from: a genesis sentinel (totalMsgCount 0) so a leaf count of 0
-    // resolves to a bucket, plus one bucket per message-carrying checkpoint whose cumulative totalMsgCount
-    // matches the block's post-insertion L1-to-L2 leaf count. Rebuilt from the full prefilled chain (not just
-    // this call's checkpoints) so a reorg re-prefill that replaces a suffix keeps the cumulative aligned.
-    // Without these the synchronizer derives an empty bundle and the reconstructed block state diverges.
+    // Index every message-carrying checkpoint's leaves at the compact positions the archiver would give them, which is
+    // what published-block replay reads by count. The leaves are registered through buckets (a genesis sentinel plus
+    // one bucket per message-carrying checkpoint) so tests can still model the live partition and repartition it as an
+    // L1 reorg would. Rebuilt from the full prefilled chain (not just this call's checkpoints) so a reorg re-prefill
+    // that replaces a suffix keeps the cumulative counts aligned.
     this.setInboxBucket(
       {
         seq: 0n,

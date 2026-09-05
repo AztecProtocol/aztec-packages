@@ -115,8 +115,13 @@ const GENESIS_INBOX_BUCKET: InboxBucket = {
   l1BlockHash: Buffer32.ZERO,
 };
 
-/** The position before any message: zero count and zero rolling hash, mirroring the on-chain Inbox base case. */
-const ZERO_MESSAGE_POSITION: InboxMessagePosition = { totalMessageCount: 0n, rollingHash: Fr.ZERO };
+/**
+ * The position before any message: zero count and zero rolling hash, mirroring the on-chain Inbox base case. Built
+ * fresh on every call because positions are plain mutable objects handed out to callers.
+ */
+function zeroMessagePosition(): InboxMessagePosition {
+  return { totalMessageCount: 0n, rollingHash: Fr.ZERO };
+}
 
 /** Rejects reversed or negative compact leaf count bounds, which are caller errors rather than sync state. */
 function assertValidLeafCountRange(startLeafCount: bigint, endLeafCount: bigint): void {
@@ -518,7 +523,7 @@ export class MessageStore {
       throw new Error(`Invalid Inbox message count ${totalMessageCount}`);
     }
     if (totalMessageCount === 0n) {
-      return ZERO_MESSAGE_POSITION;
+      return zeroMessagePosition();
     }
     const buffer = await this.#l1ToL2Messages.getAsync(this.indexToKey(totalMessageCount - 1n));
     return buffer === undefined

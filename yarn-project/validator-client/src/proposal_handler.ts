@@ -1165,8 +1165,10 @@ export class ProposalHandler {
    *
    * Neither bound is resolved as an Inbox bucket. Both are counts committed by block headers, and an L1 reorg that
    * merges buckets can leave either one interior to the current partition without changing the messages the blocks
-   * consumed; whether the final position is a live bucket end is a publication rule L1 `propose` enforces, checked
-   * separately by the censorship guard. Throws when part of the range is not available locally: a local availability
+   * consumed; whether the final position is a live bucket end is a publication rule L1 `propose` enforces. The
+   * minimum-consumption guard that runs before this only checks censorship against the buckets it can resolve
+   * locally and defers an unresolved endpoint to L1. Throws when part of the range is not available locally: a local
+   * availability
    * gap must surface as such rather than as an empty bundle that would make a valid proposal fail its rolling-hash
    * recomputation.
    */

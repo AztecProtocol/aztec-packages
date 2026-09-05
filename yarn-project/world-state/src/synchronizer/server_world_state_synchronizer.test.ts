@@ -330,11 +330,19 @@ describe('ServerWorldStateSynchronizer', () => {
 
       await expect(pushBlocks(1, 3)).rejects.toThrow(/Unexpected leaf count range \[3, 7\)/);
 
-      // The unavailable range fails the sync instead of silently applying the block with no messages, and the blocks
-      // already applied are kept so the retry resumes from there.
+      // The unavailable range fails the sync instead of silently applying the block with no messages; the blocks before
+      // it were fetched and applied one at a time, so the failure does not discard them.
       expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls).toEqual([
         [allBlocks()[0], messagesByRange.get('0-3')],
         [allBlocks()[1], []],
+      ]);
+
+      // Once the archiver serves the range, replay resumes from the failed block, reading its parent's leaf count.
+      messagesByRange.set('3-7', [new Fr(13n), new Fr(14n), new Fr(15n), new Fr(16n)]);
+      await pushBlocks(3, 3);
+      expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls.at(-1)).toEqual([
+        allBlocks()[2],
+        messagesByRange.get('3-7'),
       ]);
     });
 
