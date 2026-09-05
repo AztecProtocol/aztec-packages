@@ -41,9 +41,11 @@ describe('single-node/cross-chain/streaming_inbox_backlog', () => {
   /** Sub-slots per checkpoint the 36s/6s profile yields, which is also the configured `maxBlocksPerCheckpoint`. */
   const MAX_BLOCKS_PER_CHECKPOINT = 4;
   /**
-   * Buckets of the full backlog whose consumption is mandatory once they are all older than the slot's Inbox
-   * cutoff: the fifth bucket ends 1100 messages past the parent, the first endpoint the per-checkpoint cap escape
-   * covers, so a checkpoint must consume through the fourth (880 messages, four blocks' worth) or through none.
+   * Buckets of the full backlog whose consumption is mandatory once they are all older than the slot's Inbox cutoff:
+   * the fifth ends 1100 messages past the parent, over the per-checkpoint cap, so it is the only bucket the cap
+   * escape covers and the fourth (880 messages, four blocks' worth) is the one endpoint a checkpoint may publish at.
+   * Consuming nothing fails the censorship assert just as consuming less does, so a proposer that cannot reach it has
+   * to give up the slot.
    */
   const MANDATORY_BUCKETS = 4;
 
@@ -166,15 +168,6 @@ describe('single-node/cross-chain/streaming_inbox_backlog', () => {
     const tip = await aztecNode.getCheckpointNumber();
     const recent = await aztecNode.getCheckpoints(CheckpointNumber(Math.max(1, tip - 4)), 5);
     return recent.some(c => c.header.slotNumber === slot);
-  };
-
-  /** The cumulative consumption each checkpoint covering `blocks` ends at, keyed by checkpoint number. */
-  const checkpointEndTotals = (blocks: NodeBlock[]) => {
-    const ends = new Map<number, bigint>();
-    for (const block of blocks) {
-      ends.set(block.checkpointNumber, BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex));
-    }
-    return ends;
   };
 
   /**
@@ -333,12 +326,29 @@ describe('single-node/cross-chain/streaming_inbox_backlog', () => {
     expect(await hasCheckpointAtSlot(targetSlot)).toBe(false);
 
     const drainedAt = await withBackgroundFeeder(() => waitForBacklogDrained(inboxTotal, blockBefore));
-    const ends = [...checkpointEndTotals(await getBlocks(BlockNumber(blockBefore + 1), drainedAt)).values()];
-    log.warn(`Backlog of ${inboxTotal - consumedBefore} messages drained after the late slot was given up`, { ends });
+    // The drain is only recovered once the consuming blocks are published, so the totals are read from the
+    // checkpoints L1 holds rather than from the proposed tip.
+    const firstCheckpoint = (await aztecNode.getBlock(BlockNumber(blockBefore + 1)))!.checkpointNumber;
+    const lastCheckpoint = (await aztecNode.getBlock(drainedAt))!.checkpointNumber;
+    await waitForNodeCheckpoint(aztecNode, CheckpointNumber(lastCheckpoint), {
+      timeout: t.constants.slotDuration * 3,
+    });
+    const published = await aztecNode.getCheckpoints(
+      CheckpointNumber(firstCheckpoint),
+      lastCheckpoint - firstCheckpoint + 1,
+      { includeBlocks: true },
+    );
+    const ends = published.map(c => BigInt(c.blocks.at(-1)!.header.state.l1ToL2MessageTree.nextAvailableLeafIndex));
+    log.warn(`Backlog of ${inboxTotal - consumedBefore} messages drained after the late slot was given up`, {
+      firstCheckpoint,
+      lastCheckpoint,
+      ends,
+    });
 
-    // Every checkpoint that followed ended at a live bucket end, the mandatory prefix among them.
+    // Every checkpoint published while the aged backlog was outstanding ended at a bucket end the censorship assert
+    // allows, which is the mandatory prefix and then the rest.
     for (const end of ends) {
-      expect([consumedBefore, ...bucketEnds]).toContain(end);
+      expect(bucketEnds).toContain(end);
     }
     expect(ends).toContain(mandatoryEnd);
     expect(ends).toContain(inboxTotal);
