@@ -9,12 +9,34 @@ import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
   private buckets = new Map<bigint, InboxBucket>();
   private messagesPerBucket = new Map<bigint, Fr[]>();
+  /**
+   * The canonical message log, keyed by compact global index. Kept apart from the bucket partition so a test can
+   * repartition the buckets (as an L1 reorg does) while the indexed leaves stay exactly as they were.
+   */
+  private leavesByIndex = new Map<bigint, Fr>();
 
   constructor(private blockNumber: number) {}
 
   public setInboxBucket(bucket: InboxBucket, msgs: Fr[] = []) {
     this.buckets.set(bucket.seq, bucket);
     this.messagesPerBucket.set(bucket.seq, msgs);
+    // Index from the bucket's own cumulative total rather than call order, so re-registering a bucket or setting them
+    // out of order keeps every leaf at the index the archiver would give it.
+    const firstIndex = bucket.totalMsgCount - BigInt(msgs.length);
+    msgs.forEach((msg, i) => this.leavesByIndex.set(firstIndex + BigInt(i), msg));
+  }
+
+  /**
+   * Replaces the current bucket partition without touching the indexed leaf log, modelling an L1 reorg that re-mines
+   * the same messages under different bucket boundaries.
+   */
+  public replaceInboxBuckets(buckets: { bucket: InboxBucket; msgs: Fr[] }[]) {
+    this.buckets = new Map();
+    this.messagesPerBucket = new Map();
+    for (const { bucket, msgs } of buckets) {
+      this.buckets.set(bucket.seq, bucket);
+      this.messagesPerBucket.set(bucket.seq, msgs);
+    }
   }
 
   public setBlockNumber(blockNumber: number) {
@@ -50,13 +72,27 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     return Promise.resolve(seqs.flatMap(seq => this.messagesPerBucket.get(seq) ?? []));
   }
 
-  async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
-    const startBucket = await this.getInboxBucketByTotalMsgCount(startLeafCount);
-    const endBucket = await this.getInboxBucketByTotalMsgCount(endLeafCount);
-    if (startBucket === undefined || endBucket === undefined) {
-      throw new Error(`No mocked Inbox bucket boundary at ${startLeafCount} or ${endLeafCount}`);
+  /**
+   * Slices the indexed leaf log, enforcing the same range contract as the archiver's message store. Every failure is
+   * a rejection rather than a synchronous throw, so callers see this stand-in behave like the async source it mocks.
+   */
+  getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+    if (startLeafCount < 0n || endLeafCount < 0n || startLeafCount > endLeafCount) {
+      return Promise.reject(new Error(`Invalid Inbox leaf count range [${startLeafCount}, ${endLeafCount})`));
     }
-    return this.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
+    const leaves: Fr[] = [];
+    for (let index = startLeafCount; index < endLeafCount; index++) {
+      const leaf = this.leavesByIndex.get(index);
+      if (leaf === undefined) {
+        return Promise.reject(
+          new Error(
+            `Inbox message range [${startLeafCount}, ${endLeafCount}) is not fully mocked (missing index ${index})`,
+          ),
+        );
+      }
+      leaves.push(leaf);
+    }
+    return Promise.resolve(leaves);
   }
 
   getBlockNumber() {

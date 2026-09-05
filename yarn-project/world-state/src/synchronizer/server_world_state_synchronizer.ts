@@ -369,31 +369,22 @@ export class ServerWorldStateSynchronizer
   private async handleL2Blocks(l2Blocks: L2Block[]) {
     this.log.debug(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
 
-    // Derive each block's real L1-to-L2 message bundle from the compact leaf-index range it inserted:
-    // the messages between the parent block's L1-to-L2 tree leaf count and this block's, resolved via the
-    // Inbox buckets. Blocks in a batch are consecutive, so we track the running leaf count.
-    const messagesForBlocks = new Map<BlockNumber, Fr[]>();
+    // Each block's real L1-to-L2 message bundle is the compact leaf-index range it inserted: the messages between the
+    // parent block's L1-to-L2 tree leaf count and this block's. The range addresses canonical message indices, so it
+    // is served whole even after an L1 reorg merged away the bucket that once ended at the parent's count. Blocks in
+    // a batch are consecutive, so we track the running leaf count; each block is fetched and applied before the next
+    // one is read, so a range the archiver cannot serve yet does not discard the blocks already applied.
     let prevLeafCount = await this.getL1ToL2LeafCountBefore(l2Blocks[0].number);
-    for (const block of l2Blocks) {
-      const blockLeafCount = BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
-      if (blockLeafCount > prevLeafCount) {
-        const startBucket = await this.l2BlockSource.getInboxBucketByTotalMsgCount(prevLeafCount);
-        const endBucket = await this.l2BlockSource.getInboxBucketByTotalMsgCount(blockLeafCount);
-        if (startBucket !== undefined && endBucket !== undefined) {
-          messagesForBlocks.set(
-            block.number,
-            await this.l2BlockSource.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq),
-          );
-        }
-      }
-      prevLeafCount = blockLeafCount;
-    }
-
     let updateStatus: WorldStateStatusFull | undefined = undefined;
     for (const block of l2Blocks) {
-      const [duration, result] = await elapsed(() =>
-        this.handleL2Block(block, messagesForBlocks.get(block.number) ?? []),
-      );
+      const blockLeafCount = BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+      const messages =
+        blockLeafCount > prevLeafCount
+          ? await this.l2BlockSource.getL1ToL2MessagesBetweenLeafCounts(prevLeafCount, blockLeafCount)
+          : [];
+      prevLeafCount = blockLeafCount;
+
+      const [duration, result] = await elapsed(() => this.handleL2Block(block, messages));
       this.log.info(`World state updated with L2 block ${block.number}`, {
         eventName: 'l2-block-handled',
         duration,
@@ -410,14 +401,21 @@ export class ServerWorldStateSynchronizer
     this.instrumentation.updateWorldStateMetrics(updateStatus);
   }
 
-  /** The L1-to-L2 message tree leaf count as of the block before `blockNumber` (0 if that block is genesis). */
+  /**
+   * The L1-to-L2 message tree leaf count as of the block before `blockNumber` (0 if that block is genesis). Throws
+   * when a non-genesis parent is unavailable: treating it as zero would ask for every message ever received as the
+   * next block's bundle.
+   */
   private async getL1ToL2LeafCountBefore(blockNumber: BlockNumber): Promise<bigint> {
     const parentNumber = blockNumber - 1;
     if (parentNumber < INITIAL_L2_BLOCK_NUM) {
       return 0n;
     }
     const parentBlock = await this.l2BlockSource.getBlockData({ number: BlockNumber(parentNumber) });
-    return parentBlock === undefined ? 0n : BigInt(parentBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+    if (parentBlock === undefined) {
+      throw new Error(`Cannot derive L1 to L2 messages for block ${blockNumber}: block ${parentNumber} is unavailable`);
+    }
+    return BigInt(parentBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
   }
 
   /**

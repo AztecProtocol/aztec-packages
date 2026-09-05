@@ -562,6 +562,74 @@ describe('ProposalHandler checkpoint validation', () => {
       return makeHeader({ epochOutHash, ...overrides });
     }
 
+    // An L1 reorg can merge the bucket a checkpointed block consumed through into a later one. The archiver never
+    // prunes a checkpointed block, so that block's committed count stays interior to the current partition forever;
+    // reading the consumed range by count keeps the parent position resolvable, where resolving it as a bucket would
+    // derive an empty bundle and make this node decline a valid checkpoint.
+    it('derives the consumed bundle from a checkpoint-start count interior to the current buckets', async () => {
+      const header = makeHeader();
+      const consumedMessages = [new Fr(1000), new Fr(1001), new Fr(1002), new Fr(1003)];
+      setupDeepValidationMocks({ header });
+
+      const firstBlockNumber = 5;
+      const block = {
+        archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
+        number: firstBlockNumber,
+        checkpointNumber: CheckpointNumber(1),
+        header: {
+          globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(1) }),
+          state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 7 } },
+        },
+      } as unknown as L2Block;
+      blockSource.getBlocksForSlot.mockResolvedValue([block]);
+      blockSource.getBlockData.mockImplementation(query =>
+        Promise.resolve(
+          'number' in query && query.number === firstBlockNumber - 1
+            ? ({
+                header: { state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 3 } } },
+              } as unknown as BlockData)
+            : ({ header: makeBlockHeader() } as BlockData),
+        ),
+      );
+
+      // The checkpoint's final position is still a live bucket boundary; only the parent's is gone.
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockImplementation(total =>
+        Promise.resolve(
+          total === 7n
+            ? ({
+                seq: 1n,
+                inboxRollingHash: Fr.random(),
+                totalMsgCount: 7n,
+                timestamp: 10n,
+                msgCount: 7,
+                lastMessageIndex: 6n,
+                l1BlockNumber: 10n,
+                l1BlockHash: Buffer32.fromBigInt(10n),
+              } satisfies InboxBucket)
+            : undefined,
+        ),
+      );
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue(consumedMessages);
+
+      await handler.handleCheckpointProposal(
+        await makeProposal({ archiveRoot, checkpointHeader: header }),
+        proposalInfo,
+      );
+
+      expect(l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts).toHaveBeenCalledWith(3n, 7n);
+      expect(checkpointsBuilder.openCheckpoint).toHaveBeenCalledWith(
+        CheckpointNumber(1),
+        expect.anything(),
+        expect.anything(),
+        consumedMessages,
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        [block],
+        expect.anything(),
+      );
+    });
+
     it('returns checkpoint_header_mismatch when headers differ', async () => {
       const proposalHeader = makeHeader();
       const computedHeader = makeHeader({ totalManaUsed: new Fr(999) });

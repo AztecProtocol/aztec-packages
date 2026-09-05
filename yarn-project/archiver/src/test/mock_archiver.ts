@@ -18,6 +18,10 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
     this.messageSource.setInboxBucket(bucket, msgs);
   }
 
+  public replaceInboxBuckets(buckets: { bucket: InboxBucket; msgs: Fr[] }[]) {
+    this.messageSource.replaceInboxBuckets(buckets);
+  }
+
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.messageSource.getL1ToL2MessageIndex(_l1ToL2Message);
   }

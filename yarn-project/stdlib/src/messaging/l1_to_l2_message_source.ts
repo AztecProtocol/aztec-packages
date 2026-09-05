@@ -53,9 +53,13 @@ export interface L1ToL2MessageSource {
 
   /**
    * Returns the message leaves in the cumulative Inbox message-count range `[startLeafCount, endLeafCount)`, in
-   * insertion order. The bounds are compact L1-to-L2 tree leaf counts, which every block header
-   * carries, so a consumer can ask for the messages a block or checkpoint consumed without resolving Inbox buckets
-   * itself. Both bounds must land on a bucket boundary the source has synced; it throws otherwise.
+   * insertion order. The bounds are compact L1-to-L2 tree leaf counts, which every block header carries, so a
+   * consumer can ask for the messages a block or checkpoint consumed without resolving Inbox buckets itself.
+   *
+   * The bounds address canonical compact message indices and need not land on a boundary of the bucket partition the
+   * source currently holds, so a published block's committed leaf counts stay resolvable after an L1 reorg has merged
+   * the bucket that ended at one of them. An invalid range, one past the synced tip, or one the source cannot serve
+   * whole throws, so an empty result always means the range holds no messages.
    * @param startLeafCount - The cumulative Inbox message count the range starts at, inclusive.
    * @param endLeafCount - The cumulative Inbox message count the range ends at, exclusive.
    */
