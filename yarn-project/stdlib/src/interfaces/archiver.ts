@@ -26,7 +26,11 @@ import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogResultSchema } from '../logs/log_result.js';
 import { PrivateLogsQuerySchema, PublicLogsQuerySchema } from '../logs/logs_query.js';
 import { InboxBucketSchema } from '../messaging/inbox_bucket.js';
-import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
+import {
+  InboxMessagePositionSchema,
+  InboxMessageRangeSchema,
+  type L1ToL2MessageSource,
+} from '../messaging/l1_to_l2_message_source.js';
 import { L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { optional, schemas } from '../schemas/schemas.js';
 import { indexedTxSchema } from '../tx/indexed_tx_effect.js';
@@ -153,6 +157,12 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1ToL2MessagesBetweenLeafCounts: z.function({
     input: z.tuple([schemas.BigInt, schemas.BigInt]),
     output: z.array(schemas.Fr),
+  }),
+  getMessagePosition: z.function({ input: z.tuple([schemas.BigInt]), output: InboxMessagePositionSchema.optional() }),
+  getSyncedMessagePosition: z.function({ input: z.tuple([]), output: InboxMessagePositionSchema }),
+  getL1ToL2MessageRange: z.function({
+    input: z.tuple([schemas.BigInt, schemas.BigInt]),
+    output: InboxMessageRangeSchema,
   }),
   getDebugFunctionName: z.function({
     input: z.tuple([schemas.AztecAddress, schemas.FunctionSelector]),

@@ -226,6 +226,122 @@ describe('MessageStore', () => {
     });
   });
 
+  describe('iterateL1ToL2Messages', () => {
+    it('honours zero range bounds', async () => {
+      const msgs = makeInboxMessages(3);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      // Zero is a valid compact index, so an exclusive end of zero selects nothing rather than everything.
+      expect(await toArray(messageStore.iterateL1ToL2Messages({ end: 0n }))).toEqual([]);
+      expect(await toArray(messageStore.iterateL1ToL2Messages({ start: 0n, end: 2n }))).toEqual(msgs.slice(0, 2));
+      expect(await toArray(messageStore.iterateL1ToL2Messages({ start: 0n }))).toEqual(msgs);
+    });
+  });
+
+  describe('message positions', () => {
+    const zeroPosition = { totalMessageCount: 0n, rollingHash: Fr.ZERO };
+    const positionAfter = (msg: InboxMessage) => ({
+      totalMessageCount: msg.index + 1n,
+      rollingHash: msg.inboxRollingHash,
+    });
+
+    it('resolves the position at a synced message count', async () => {
+      const msgs = makeInboxMessages(6);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      // Position zero always resolves; every other count resolves to the hash stored with the message before it.
+      expect(await messageStore.getMessagePosition(0n)).toEqual(zeroPosition);
+      expect(await messageStore.getMessagePosition(1n)).toEqual(positionAfter(msgs[0]));
+      expect(await messageStore.getMessagePosition(4n)).toEqual(positionAfter(msgs[3]));
+      expect(await messageStore.getMessagePosition(6n)).toEqual(positionAfter(msgs[5]));
+      // Past the synced tip there is no position yet.
+      expect(await messageStore.getMessagePosition(7n)).toBeUndefined();
+      await expect(messageStore.getMessagePosition(-1n)).rejects.toThrow(/Invalid Inbox message count/);
+    });
+
+    it('resolves position zero on an empty store', async () => {
+      expect(await messageStore.getMessagePosition(0n)).toEqual(zeroPosition);
+      expect(await messageStore.getMessagePosition(1n)).toBeUndefined();
+      expect(await messageStore.getSyncedMessagePosition()).toEqual(zeroPosition);
+    });
+
+    it('tracks the synced position through appends and removals', async () => {
+      const msgs = makeInboxMessages(6);
+      await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 4));
+      expect(await messageStore.getSyncedMessagePosition()).toEqual(positionAfter(msgs[3]));
+
+      await messageStore.addL1ToL2MessageBuckets(msgs.slice(4));
+      expect(await messageStore.getSyncedMessagePosition()).toEqual(positionAfter(msgs[5]));
+
+      await messageStore.removeL1ToL2Messages(2n);
+      expect(await messageStore.getSyncedMessagePosition()).toEqual(positionAfter(msgs[1]));
+      // The removed suffix no longer has positions.
+      expect(await messageStore.getMessagePosition(3n)).toBeUndefined();
+    });
+
+    it('reads a message range together with the positions at both bounds', async () => {
+      const msgs = makeInboxMessages(6);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+      const leaves = msgs.map(m => m.leaf);
+
+      expect(await messageStore.getL1ToL2MessageRange(0n, 6n)).toEqual({
+        messages: leaves,
+        start: zeroPosition,
+        end: positionAfter(msgs[5]),
+      });
+      expect(await messageStore.getL1ToL2MessageRange(1n, 4n)).toEqual({
+        messages: leaves.slice(1, 4),
+        start: positionAfter(msgs[0]),
+        end: positionAfter(msgs[3]),
+      });
+      // An empty range is valid at any synced count and returns equal positions.
+      expect(await messageStore.getL1ToL2MessageRange(3n, 3n)).toEqual({
+        messages: [],
+        start: positionAfter(msgs[2]),
+        end: positionAfter(msgs[2]),
+      });
+      expect(await messageStore.getL1ToL2MessageRange(6n, 6n)).toEqual({
+        messages: [],
+        start: positionAfter(msgs[5]),
+        end: positionAfter(msgs[5]),
+      });
+    });
+
+    it('reads the empty range at position zero on an empty store', async () => {
+      expect(await messageStore.getL1ToL2MessageRange(0n, 0n)).toEqual({
+        messages: [],
+        start: zeroPosition,
+        end: zeroPosition,
+      });
+    });
+
+    it('throws on an invalid or unsynced message range', async () => {
+      const msgs = makeInboxMessages(6);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      await expect(messageStore.getL1ToL2MessageRange(3n, 9n)).rejects.toThrow(InboxMessageRangeNotSyncedError);
+      await expect(messageStore.getL1ToL2MessageRange(7n, 7n)).rejects.toThrow(InboxMessageRangeNotSyncedError);
+      await expect(messageStore.getL1ToL2MessageRange(5n, 3n)).rejects.toThrow(/Invalid Inbox leaf count range/);
+      await expect(messageStore.getL1ToL2MessageRange(-1n, 3n)).rejects.toThrow(/Invalid Inbox leaf count range/);
+    });
+
+    it('throws when the range or its starting position has a hole', async () => {
+      const msgs = makeInboxMessages(6);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await db.openMap<number, Buffer>('archiver_l1_to_l2_messages').delete(2);
+
+      // Index 2 is missing: ranges over it are short, and a range starting at count 3 has no starting position.
+      await expect(messageStore.getL1ToL2MessageRange(0n, 6n)).rejects.toThrow(InboxMessageRangeNotSyncedError);
+      await expect(messageStore.getL1ToL2MessageRange(3n, 6n)).rejects.toThrow(/missing the message at index 2/);
+      // Ranges that need neither the hole nor a position at it are unaffected.
+      expect(await messageStore.getL1ToL2MessageRange(4n, 6n)).toEqual({
+        messages: msgs.slice(4).map(m => m.leaf),
+        start: positionAfter(msgs[3]),
+        end: positionAfter(msgs[5]),
+      });
+    });
+  });
+
   describe('Inbox buckets', () => {
     // Builds `count` consecutive valid messages, then reassigns their bucket sequence and timestamp per the given
     // per-message spec so we can exercise multi-message and rollover buckets.

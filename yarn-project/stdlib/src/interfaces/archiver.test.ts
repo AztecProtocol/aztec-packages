@@ -39,6 +39,7 @@ import type { PrivateLogsQuery, PublicLogsQuery } from '../logs/logs_query.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
 import type { InboxBucket } from '../messaging/inbox_bucket.js';
+import type { InboxMessagePosition, InboxMessageRange } from '../messaging/l1_to_l2_message_source.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
@@ -240,6 +241,25 @@ describe('ArchiverApiSchema', () => {
   it('getL1ToL2MessagesBetweenLeafCounts', async () => {
     const result = await context.client.getL1ToL2MessagesBetweenLeafCounts(0n, 3n);
     expect(result).toEqual([expect.any(Fr)]);
+  });
+
+  it('getMessagePosition', async () => {
+    const result = await context.client.getMessagePosition(3n);
+    expect(result).toEqual({ totalMessageCount: 3n, rollingHash: expect.any(Fr) });
+  });
+
+  it('getSyncedMessagePosition', async () => {
+    const result = await context.client.getSyncedMessagePosition();
+    expect(result).toEqual({ totalMessageCount: 3n, rollingHash: expect.any(Fr) });
+  });
+
+  it('getL1ToL2MessageRange', async () => {
+    const result = await context.client.getL1ToL2MessageRange(2n, 3n);
+    expect(result).toEqual({
+      messages: [expect.any(Fr)],
+      start: { totalMessageCount: 2n, rollingHash: expect.any(Fr) },
+      end: { totalMessageCount: 3n, rollingHash: expect.any(Fr) },
+    });
   });
 
   it('registerContractFunctionSignatures', async () => {
@@ -649,6 +669,22 @@ class MockArchiver implements ArchiverApi {
     expect(typeof startLeafCount).toEqual('bigint');
     expect(typeof endLeafCount).toEqual('bigint');
     return Promise.resolve([Fr.random()]);
+  }
+  getMessagePosition(totalMessageCount: bigint): Promise<InboxMessagePosition | undefined> {
+    expect(typeof totalMessageCount).toEqual('bigint');
+    return Promise.resolve({ totalMessageCount, rollingHash: Fr.random() });
+  }
+  getSyncedMessagePosition(): Promise<InboxMessagePosition> {
+    return Promise.resolve({ totalMessageCount: 3n, rollingHash: Fr.random() });
+  }
+  getL1ToL2MessageRange(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageRange> {
+    expect(typeof startLeafCount).toEqual('bigint');
+    expect(typeof endLeafCount).toEqual('bigint');
+    return Promise.resolve({
+      messages: [Fr.random()],
+      start: { totalMessageCount: startLeafCount, rollingHash: Fr.random() },
+      end: { totalMessageCount: endLeafCount, rollingHash: Fr.random() },
+    });
   }
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);

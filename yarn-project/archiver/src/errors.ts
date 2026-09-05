@@ -115,18 +115,16 @@ export class InboxBucketNotSyncedError extends Error {
 
 /**
  * Thrown when a cumulative Inbox message-count range is not fully backed by the messages this archiver has synced,
- * either because it reaches past the synced tip or because the store is missing an index inside it.
+ * either because it reaches past the synced tip or because the store is missing a message the range needs.
+ * Distinguishes "not available locally, retry once L1 sync catches up" from a genuinely empty range.
  */
 export class InboxMessageRangeNotSyncedError extends Error {
   constructor(
     public readonly startLeafCount: bigint,
     public readonly endLeafCount: bigint,
-    public readonly actualCount: bigint,
+    detail: string,
   ) {
-    super(
-      `Inbox message range [${startLeafCount}, ${endLeafCount}) is not fully synced ` +
-        `(got ${actualCount} of ${endLeafCount - startLeafCount} messages)`,
-    );
+    super(`Inbox message range [${startLeafCount}, ${endLeafCount}) is not fully synced: ${detail}`);
     this.name = 'InboxMessageRangeNotSyncedError';
   }
 }

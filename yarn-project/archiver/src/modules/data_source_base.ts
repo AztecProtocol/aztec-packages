@@ -40,7 +40,13 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import type { LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
-import type { InboxBucket, L1ToL2MessageSource, L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type {
+  InboxBucket,
+  InboxMessagePosition,
+  InboxMessageRange,
+  L1ToL2MessageSource,
+  L2ToL1MembershipWitness,
+} from '@aztec/stdlib/messaging';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import type { BlockHeader, IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -338,6 +344,18 @@ export abstract class ArchiverDataSourceBase
 
   public getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
     return this.stores.messages.getL1ToL2MessagesBetweenLeafCounts(startLeafCount, endLeafCount);
+  }
+
+  public getMessagePosition(totalMessageCount: bigint): Promise<InboxMessagePosition | undefined> {
+    return this.stores.messages.getMessagePosition(totalMessageCount);
+  }
+
+  public getSyncedMessagePosition(): Promise<InboxMessagePosition> {
+    return this.stores.messages.getSyncedMessagePosition();
+  }
+
+  public getL1ToL2MessageRange(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageRange> {
+    return this.stores.messages.getL1ToL2MessageRange(startLeafCount, endLeafCount);
   }
 
   private async getPublishedCheckpointFromCheckpointData(checkpoint: CheckpointData): Promise<PublishedCheckpoint> {
