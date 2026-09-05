@@ -9,6 +9,74 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [L1 Contracts] `Inbox.MessageSent` emits the full message and the consensus rolling hash
+
+The streaming Inbox (Fast Inbox) no longer ties a message to the checkpoint that will consume it, so the `MessageSent` event changed shape. The old event carried the target checkpoint number, the leaf index and a truncated `bytes16` sync hash; the new one carries the whole `L1ToL2Msg` (whose `index` field is the leaf index), the `bytes32` consensus rolling hash after the message, and the sequence number of the L1 bucket that absorbed it:
+
+```diff
+- event MessageSent(uint256 indexed checkpointNumber, uint256 index, bytes32 indexed hash, bytes16 rollingHash);
++ event MessageSent(bytes32 indexed hash, bytes32 inboxRollingHash, uint256 bucketSeq, DataStructures.L1ToL2Msg message);
+```
+
+**Migration:**
+
+```diff
+  const [log] = parseEventLogs({ abi: InboxAbi, eventName: 'MessageSent', logs: receipt.logs });
+- const leafIndex = log.args.index;
++ const leafIndex = log.args.message.index;
+```
+
+**Impact**: Any code that decodes `MessageSent` from an L1 receipt (portals, bridges, indexers) must read the leaf index from `args.message.index`. There is no per-message checkpoint number any more: which checkpoint includes a message is decided when the proposer builds its blocks, not when the message is sent (see the next entry for how to check readiness). The leaf index itself is unchanged in meaning: it is the compact cumulative Inbox message count at insertion, with no per-checkpoint padding. This change shipped with the Fast Inbox umbrella and was previously undocumented here.
+
+### [Aztec.js] `getL1ToL2MessageCheckpoint` replaced by `getL1ToL2MessageIndex`
+
+Because a message is no longer bound to a checkpoint when it is sent, `AztecNode.getL1ToL2MessageCheckpoint(messageHash)` (JSON-RPC `aztec_getL1ToL2MessageCheckpoint`), which returned the `CheckpointNumber` that would include the message, is gone. Its replacement `getL1ToL2MessageIndex(messageHash)` (JSON-RPC `aztec_getL1ToL2MessageIndex`) returns the message's leaf index as a `bigint`, or `undefined` if the node has not seen the message on L1 yet. A message is consumable at a chain tip once that tip's L1-to-L2 message tree has grown past the index, which is what `waitForL1ToL2MessageReady` and `isL1ToL2MessageReady` in `@aztec/aztec.js/utils` now check:
+
+```diff
+- const checkpoint = await node.getL1ToL2MessageCheckpoint(messageHash);
+- const ready = checkpoint !== undefined && checkpoint <= (await node.getCheckpointNumber());
++ const index = await node.getL1ToL2MessageIndex(messageHash);
++ const block = await node.getBlockData('latest');
++ const ready = index !== undefined && block !== undefined && index < BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+```
+
+`waitForL1ToL2MessageReady(node, messageHash, { timeoutSeconds, chainTip })` accepts an optional `chainTip` (default `'latest'`); pass the tip the consuming PXE syncs to (for example `'proven'`) so readiness is answered at the block the transaction simulation will anchor to. This change shipped with the Fast Inbox umbrella and was previously undocumented here.
+
+### [L1 Contracts] Inbox and Rollup views for streaming message consumption
+
+Additive. The Inbox exposes its bucket ring: `getCurrentBucketSeq()`, `getBucket(seq)` (reverts `Inbox__BucketOutOfWindow(seq, current)` for a future or evicted bucket), `getBucketAtOrBeforeTotal(total)` returning `(seq, bucket)` for the live bucket with the greatest cumulative message total at or below `total` (reverts `Inbox__NoBucketAtOrBeforeTotal(upperBound, oldestLiveTotal)` when the ring no longer holds any such bucket), `getProvenConsumedBucketSeq()` and `getRingHeadroom()`. `getState()` returns `{ rollingHash, totalMessagesInserted, currentBucketSeq }`. `sendL2Message` reverts with `Inbox__WouldOverwriteUnconsumedBucket(evictedBucketSeq)` when the 4096-bucket ring would wrap onto a bucket the proven chain has not consumed.
+
+The Rollup gains `validateCheckpointHeaderAndInbox(CheckpointPreflightArgs calldata) returns (uint64 bucketHint)`, the proposer's pre-publication simulation of `propose`: it derives the effective parent checkpoint from the Rollup's own storage at the simulated `block.timestamp` (`Rollup__UnexpectedParentCheckpoint(expected, actual)` if it is not the one the caller expected), runs the shared header checks, resolves `expectedTotal` to a live bucket (`Rollup__InboxTotalNotAtBucketBoundary(expected, actual)` if the total is not a bucket end) and applies the same settlement, cap and censorship rules as `propose` (`Rollup__InvalidInboxRollingHash`, `Rollup__InboxBucketStillMutable`, `Rollup__InboxConsumptionBehindParent`, `Rollup__TooManyInboxMessagesConsumed`, `Rollup__UnconsumedInboxMessages`). `propose` is unchanged: it still takes the unsigned `bucketHint` in `ProposeArgs` and checks the bucket against the signed header's `inboxRollingHash`. Portals need none of this; it documents what proposers call.
+
+### [Aztec Node] The archiver's L1-to-L2 message API is addressed by message count, not by Inbox bucket
+
+The node stores the Inbox as an ordered message log and no longer keeps L1's bucket partition. On `L1ToL2MessageSource` (the archiver, `AztecNode` consumers of it and the archiver JSON-RPC schema):
+
+- Removed: `getLatestInboxBucketAtOrBefore`, `getInboxBucket`, `getInboxBucketByTotalMsgCount`, `getL1ToL2MessagesBetweenBuckets`.
+- `getL1ToL2MessagesBetweenLeafCounts(start, end)` keeps its name but the bounds are now plain cumulative message counts (L1-to-L2 tree leaf counts) that need not be bucket boundaries. An invalid range rejects with `Error(/Invalid Inbox leaf count range/)`; a range the archiver has not fully synced rejects with `InboxMessageRangeNotSyncedError(startLeafCount, endLeafCount, detail)` (`@aztec/archiver`), which replaces `InboxBucketBoundaryNotSyncedError` and `InboxBucketNotSyncedError`. An empty result always means the range holds no messages.
+- New: `getMessagePosition(totalMessageCount)` returning `InboxMessagePosition = { totalMessageCount: bigint; rollingHash: Fr }` (zero count resolves to the zero hash; a count past the synced tip resolves to `undefined`), `getSyncedMessagePosition()`, and `getL1ToL2MessageRange(start, end)` returning `InboxMessageRange = { messages: Fr[]; start; end }` read from one store snapshot, so `end.rollingHash` authenticates exactly `messages`. Both types and their zod schemas are exported from `@aztec/stdlib/messaging`.
+
+In `@aztec/stdlib/messaging`, `InboxBucket`, `InboxBucketSchema`, `isInboxConsumptionSufficient` and `getInboxCutoffTimestamp` are removed, and `InboxBucketRef` is renamed `InboxMessagePrefixRef`: the signed one-field reference a block proposal carries is the rolling hash over the message prefix the block consumed through, interpreted together with the block header's `state.l1ToL2MessageTree.nextAvailableLeafIndex`; it may name a position inside an L1 bucket. `BlockProposal.bucketRef` and `CheckpointProposal.lastBlock.bucketRef` are renamed `inboxPrefixRef`; the serialized bytes are unchanged. `L2BlockSink.addBlock(block, inboxPrefixRef)` now requires the reference and rejects, inside the insertion transaction, a block whose reference does not match the sink's own messages (`InboxPrefixMismatchError`), whose consumed range the sink does not hold (`InboxPrefixNotSyncedError`), whose parent is missing (`ProposedBlockParentNotFoundError`) or whose consumption rewinds (`InboxConsumptionRewindsError`).
+
+In `@aztec/ethereum/contracts`, `MessageSentLog.args.l1BlockTimestamp` and `InboxContract.getBlockTimestamps` are removed; `InboxContract.getBucketAtOrBeforeTotal(upperBound)` (resolving to `undefined` on `Inbox__NoBucketAtOrBeforeTotal`) and `RollupContract.validateCheckpointHeaderAndInbox(l1TxUtils, args, { time, stateOverrides, from })` are added. `MIN_BLOCKS_FOR_INBOX_CATCHUP`, the floor on a network's `maxBlocksPerCheckpoint`, drops from 7 to 4, since a block can now carry any 256 messages regardless of bucket layout.
+
+**Migration:**
+
+```diff
+- const bucket = await source.getInboxBucketByTotalMsgCount(parentCount);
+- const messages = await source.getL1ToL2MessagesBetweenBuckets(bucket.seq, endBucket.seq);
++ const { messages, end } = await source.getL1ToL2MessageRange(parentCount, endCount);
++ // end.rollingHash is the hash a block ending at endCount signs as its InboxMessagePrefixRef
+```
+
+**Impact**: Only node-internal and tooling consumers are affected; `getL1ToL2MessageIndex`, `getL1ToL2MessageMembershipWitness` and the Aztec.nr consumption functions are unchanged. Operators upgrading a node: see the node changelog for the archiver store reset.
+
+### [Aztec Node] Sequencer and validator streaming-Inbox internals
+
+For consumers wiring these packages directly. `Sequencer` and `AutomineSequencer` take an `InboxContract` (after `rollupContract`), which completion uses to resolve a checkpoint's final message position to a live bucket. `NodePublicCallsSimulator` deps drop `l1Client` and `useAutomineSequencer`. `SequencerPublisher.validateCheckpointHeader` is replaced by `validateCheckpointHeaderAndInbox(header, { expectedTotal, expectedParentCheckpointNumber }, simulationOverridesPlan?)`, which returns the `bucketHint` to pass to `propose`. `@aztec/sequencer-client` no longer exports `InboxBucketConfirmationTracker`, `InboxBucketEligibility`, `L1BlockReader`, `immediateEligibility`, `ConsumedBucketCursor`, `InboxBucketSelection`, `InboxBucketSource`, `SelectInboxBucketInput` or `selectInboxBucketForBlock`; it exports `InboxConsumptionCaps`, `PROTOCOL_INBOX_CONSUMPTION_CAPS`, `InboxEndpointResolver`, `StreamingMessageSource`, `selectOrdinaryMessageEnd`, `shouldEnterMessageCompletion`, `computeCompletionUpperBound` and `resolveCompletionTarget` instead.
+
+Validator result reasons: the checkpoint reason `inbox_consumption_insufficient` is removed (only the proposer's preflight and L1 assess censorship now), and the block reasons `bucket_unknown`, `bucket_hash_mismatch`, `parent_bucket_unresolved` and `bucket_moves_backwards` are replaced by `inbox_prefix_unavailable`, `inbox_prefix_mismatch` and `consumption_moves_backwards`. `inbox_prefix_unavailable` and `inbox_prefix_mismatch` exist for both block and checkpoint proposals, are recorded as `unvalidated`, are retried through a bounded local L1 sync, and never produce a slashing event, a peer penalty or an invalid-proposal-slot marker.
+
 ### [Aztec.js] Contract artifacts preserve the names of `#[abi(tag)]` globals
 
 Globals exported from a Noir contract with `#[abi(tag)]` now keep their names in the artifact: entries in `ContractArtifact.outputs.globals` are `{ name, value }` objects as emitted by the compiler, where the names used to be stripped on load. This lets TypeScript read contract constants by name instead of duplicating their values:
