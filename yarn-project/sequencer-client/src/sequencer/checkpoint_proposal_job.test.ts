@@ -1825,12 +1825,16 @@ describe('CheckpointProposalJob', () => {
       const { lastBlock } = await setupMultipleBlocks(1, [1]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
+      const publishFailed = jest.fn();
+      job.eventEmitter.on('checkpoint-publish-failed', publishFailed);
+
       const checkpoint = await job.executeAndAwait();
 
       // The checkpoint was built and gossiped, but never sent.
       expect(checkpoint).toBeDefined();
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
       expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('publication_preflight_failed');
+      expect(publishFailed).toHaveBeenCalledWith({ slot: SlotNumber(newSlotNumber) });
     });
 
     it('abandons publication when the archiver no longer holds the checkpoint blocks', async () => {

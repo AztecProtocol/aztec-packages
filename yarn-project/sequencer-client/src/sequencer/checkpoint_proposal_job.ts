@@ -494,6 +494,7 @@ export class CheckpointProposalJob implements Traceable {
         context,
       );
       this.metrics.recordCheckpointProposalFailed(reason);
+      this.eventEmitter.emit('checkpoint-publish-failed', { slot: this.targetSlot });
       return undefined;
     }
   }

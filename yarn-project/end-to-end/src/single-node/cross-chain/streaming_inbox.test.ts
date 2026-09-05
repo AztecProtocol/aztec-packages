@@ -1,3 +1,4 @@
+import type { Archiver } from '@aztec/archiver';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -32,6 +33,7 @@ describe('single-node/cross-chain/streaming_inbox', () => {
 
   let log: Logger;
   let aztecNode: AztecNode;
+  let archiver: Archiver;
   let wallet: Wallet;
   let user1Address: AztecAddress;
   let testContract: TestContract;
@@ -58,6 +60,7 @@ describe('single-node/cross-chain/streaming_inbox', () => {
     await t.setup();
 
     ({ logger: log, wallet, user1Address, aztecNode } = t);
+    archiver = t.context.aztecNodeService.getBlockSource() as Archiver;
     ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: user1Address }));
 
     ({ sendMessageToL2, advanceBlock, waitForMessageReady } = createL1ToL2MessageHelpers({
@@ -79,6 +82,18 @@ describe('single-node/cross-chain/streaming_inbox', () => {
     const block = await t.harnessL1Client.getBlock({ blockNumber: l1BlockNumber });
     return block.timestamp;
   };
+
+  /**
+   * Waits until the node's archiver holds `msgHash` in its message log. That is the proposer's trigger for consuming
+   * it: nothing about a later L1 block is awaited.
+   */
+  const waitForMessageObserved = (msgHash: Fr) =>
+    retryUntil(
+      async () => (await archiver.getL1ToL2MessageIndex(msgHash)) !== undefined,
+      `archiver observes message ${msgHash.toString()}`,
+      t.constants.ethereumSlotDuration * 3,
+      0.1,
+    );
 
   /**
    * Finds the L2 block that inserted `msgHash` into the L1-to-L2 message tree by scanning forward from
@@ -333,7 +348,9 @@ describe('single-node/cross-chain/streaming_inbox', () => {
   // not, this tx would revert at proposal time and succeed at proving time, making the epoch unprovable. The node
   // simulates public calls against the messages predicted for the next block, so a consume tx sent as soon as the
   // node's archiver has observed the message passes simulation and lands in the pool before the inserting block
-  // is built. The send is timed to that instant and retried with fresh messages when a block slips in between.
+  // is built. Observation is the only trigger: a message in a mined L1 block is consumable at once, without waiting
+  // for a descendant L1 block. The send is timed to the archiver's observation and retried with fresh messages when a
+  // block slips in between.
   it('consumes a message in the same block that inserts it', async () => {
     const l1Account = t.ethAccount;
     const maxAttempts = 5;
@@ -343,22 +360,11 @@ describe('single-node/cross-chain/streaming_inbox', () => {
       const [secret, secretHash] = await generateClaimSecret();
       const message = { recipient: testContract.address, content: Fr.random(), secretHash };
       const { msgHash, globalLeafIndex, txReceipt: l1Receipt } = await sendMessageToL2(message);
-      const messageL1Ts = await getMessageL1Timestamp(l1Receipt.blockNumber!);
-      const messageL1Block = l1Receipt.blockNumber!;
-      // The proposer consumes a message as soon as its archiver has observed it, which it does on its next poll
-      // after the message's L1 block; give it the next L1 block, or two Ethereum slots when that block is missed.
-      const fallbackAt = messageL1Ts + 2n * BigInt(t.constants.ethereumSlotDuration);
-      log.warn(`Attempt ${attempt}: sent message ${msgHash.toString()} in L1 block ${messageL1Block}`);
+      log.warn(`Attempt ${attempt}: sent message ${msgHash.toString()} in L1 block ${l1Receipt.blockNumber}`);
 
       // Do not drive L2 blocks while waiting: an extra block here only shifts the timing of the inserting block.
-      await retryUntil(
-        async () =>
-          (await t.harnessL1Client.getBlockNumber()) > messageL1Block ||
-          BigInt(await t.cheatCodes.eth.lastBlockTimestamp()) >= fallbackAt,
-        `the L1 block after the message is mined (or the chain reaches ${fallbackAt})`,
-        Number(t.constants.slotDuration) * 3,
-        0.2,
-      );
+      // The archiver polls L1 within an Ethereum slot; no later L1 block is needed for the message to be usable.
+      await waitForMessageObserved(msgHash);
       const blockAtSend = await aztecNode.getBlockNumber();
 
       const { receipt } = await testContract.methods

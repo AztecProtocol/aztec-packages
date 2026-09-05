@@ -2181,7 +2181,7 @@ describe('Archiver Sync', () => {
       // While recovery reads the block that ends the replay batch carrying C, L1 replaces the chain again with D in
       // place of C and shortens to block 5: the logs belong to the chain with C, the block hash to the chain with D.
       const readBlock = publicClient.getBlock.getMockImplementation()!;
-      publicClient.getBlock.mockImplementation((async (args: { blockNumber?: bigint }) => {
+      publicClient.getBlock.mockImplementation(((args: { blockNumber?: bigint }) => {
         if (args?.blockNumber === 5n) {
           publicClient.getBlock.mockImplementation(readBlock);
           fake.removeMessagesAfter(1);

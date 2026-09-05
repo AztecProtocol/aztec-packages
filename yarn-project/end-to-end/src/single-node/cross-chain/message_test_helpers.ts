@@ -1,12 +1,17 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { Fr } from '@aztec/aztec.js/fields';
+import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { times } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
+import { InboxAbi } from '@aztec/l1-artifacts';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
+
+import { encodeFunctionData, multicall3Abi, parseEventLogs } from 'viem';
 
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
 import type { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
@@ -25,6 +30,15 @@ export interface L1ToL2MessageHelperDeps {
   markAsProven: () => Promise<void>;
 }
 
+/** One `MessageSent` event of a batched Inbox send. */
+export type SentInboxMessage = {
+  msgHash: Fr;
+  /** The message's compact index in the Inbox sequence. */
+  index: bigint;
+  /** The Inbox bucket the message was absorbed into. */
+  bucketSeq: bigint;
+};
+
 /** Helpers for driving L1→L2 messages through the inbox, shared across the L1→L2 messaging suites. */
 export interface L1ToL2MessageHelpers {
   sendMessageToL2(message: {
@@ -32,6 +46,15 @@ export interface L1ToL2MessageHelpers {
     content: Fr;
     secretHash: Fr;
   }): ReturnType<typeof sendL1ToL2Message>;
+  /**
+   * Sends `count` L1→L2 messages with random contents to `recipient` in one L1 transaction, bundling the
+   * `sendL2Message` calls through Multicall3 so they all land in the same L1 block. Returns the emitted `MessageSent`
+   * events in insertion order and the L1 block that carried them.
+   */
+  sendMessageBatch(
+    count: number,
+    recipient: AztecAddress,
+  ): Promise<{ messages: SentInboxMessage[]; l1BlockNumber: bigint; l1Timestamp: bigint }>;
   advanceBlock(): Promise<BlockNumber>;
   waitForMessageIndexed(msgHash: Fr): Promise<bigint>;
   waitForMessageReady(
@@ -56,6 +79,48 @@ export function createL1ToL2MessageHelpers(deps: L1ToL2MessageHelperDeps): L1ToL
       l1Client: t.harnessL1Client,
       l1ContractAddresses: t.deployL1ContractsValues.l1ContractAddresses,
     });
+
+  const sendMessageBatch = async (count: number, recipient: AztecAddress) => {
+    const inboxAddress = t.deployL1ContractsValues.l1ContractAddresses.inboxAddress.toString();
+    const version = BigInt(await t.rollup.getVersion());
+    const calls = times(count, () => ({
+      target: inboxAddress,
+      allowFailure: false,
+      callData: encodeFunctionData({
+        abi: InboxAbi,
+        functionName: 'sendL2Message',
+        args: [{ actor: recipient.toString(), version }, Fr.random().toString(), Fr.random().toString()],
+      }),
+    }));
+    const data = encodeFunctionData({ abi: multicall3Abi, functionName: 'aggregate3', args: [calls] });
+    // A send stays well under 60k gas, and the e2e anvil runs with a block gas limit several times the largest
+    // batch these suites send.
+    const gas = 1_000_000n + 60_000n * BigInt(count);
+    const txHash = await t.harnessL1Client.sendTransaction({ to: MULTI_CALL_3_ADDRESS, data, gas });
+    const txReceipt = await t.harnessL1Client.waitForTransactionReceipt({ hash: txHash });
+    if (txReceipt.status !== 'success') {
+      throw new Error(`Batched send of ${count} L1 to L2 messages reverted in tx ${txHash}`);
+    }
+    const messages = parseEventLogs({
+      abi: InboxAbi,
+      eventName: 'MessageSent',
+      logs: txReceipt.logs.filter(entry => entry.address.toLowerCase() === inboxAddress.toLowerCase()),
+    }).map(entry => ({
+      msgHash: Fr.fromHexString(entry.args.hash),
+      index: entry.args.message.index,
+      bucketSeq: entry.args.bucketSeq,
+    }));
+    if (messages.length !== count) {
+      throw new Error(`Batched send emitted ${messages.length} MessageSent events, expected ${count}`);
+    }
+    const block = await t.harnessL1Client.getBlock({ blockNumber: txReceipt.blockNumber });
+    log.warn(`Sent ${count} L1 to L2 messages in L1 block ${txReceipt.blockNumber}`, {
+      firstIndex: messages[0].index,
+      lastIndex: messages.at(-1)!.index,
+      l1Timestamp: block.timestamp,
+    });
+    return { messages, l1BlockNumber: txReceipt.blockNumber, l1Timestamp: block.timestamp };
+  };
 
   // Sends a tx to L2 to advance the block number by 1
   const advanceBlock = async () => {
@@ -124,5 +189,5 @@ export function createL1ToL2MessageHelpers(deps: L1ToL2MessageHelperDeps): L1ToL
     );
   };
 
-  return { sendMessageToL2, advanceBlock, waitForMessageIndexed, waitForMessageReady };
+  return { sendMessageToL2, sendMessageBatch, advanceBlock, waitForMessageIndexed, waitForMessageReady };
 }
