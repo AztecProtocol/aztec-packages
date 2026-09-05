@@ -31,7 +31,7 @@ Use the `Inbox` contract's `sendL2Message` function:
 #include_code deposit_public l1-contracts/test/portals/TokenPortal.sol solidity
 
 :::note Message availability
-L1 to L2 messages are not available immediately. The proposer batches messages from the Inbox and includes them in the next L2 block. You must wait for this before consuming the message on L2.
+L1 to L2 messages are not available the moment the L1 transaction is mined. The proposer includes every message its node has observed on L1 in the next L2 block it builds, so you must wait for a block containing the message before consuming it on L2. Public functions can consume a message in the block that inserts it; private functions prove membership against a block header the wallet has synced, so they additionally wait for that block to reach the wallet. See [Inbox](../../foundational-topics/ethereum-aztec-messaging/inbox.md#how-messages-reach-l2) for how consumption works.
 :::
 
 ### Consume the message on L2

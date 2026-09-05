@@ -89,7 +89,7 @@ The `blocksSynchedTo` syncpoint is updated:
 
 Note that the `blocksSynchedTo` pointer is NOT updated during normal sync when there are no new checkpoints. This protects against small L1 reorgs that could add a checkpoint on an L1 block we have flagged as already synced.
 
-The `messagesSynchedTo` pointer is always advanced to the current L1 block on success. If a rolling hash mismatch or post-download inconsistency is detected, the pointer rolls back to the last common message and the operation retries. The rolling hash chain and pre/post-sync consistency checks provide the primary reorg protection.
+The `messagesSynchedTo` pointer advances with every committed message batch and reaches the captured L1 head once the local position agrees with the Inbox's at that head. On a disagreement it is rewound to the last verified position as part of the recovery transaction described above, never ahead of content the node has actually compared. The rolling hash chain and the pre/post-sync position comparison provide the primary reorg protection.
 
 ### Block Queue
 
@@ -123,7 +123,7 @@ Use checkpointed queries when the result must reflect L1 state (e.g., determinin
 
 Both message and checkpoint sync detect L1 reorgs by comparing local state against L1. When detected, they find the last common ancestor and rollback.
 
-**Messages**: Each stored message includes its rolling hash. During sync, if the local last message's rolling hash doesn't match L1, the archiver walks backwards through local messages, querying L1 for each one, until it finds a message with a matching rolling hash. Everything after that message is deleted, and the syncpoint is rolled back.
+**Messages**: Each stored message includes its rolling hash. During sync, if the local position doesn't match the Inbox's at the captured L1 head, the archiver finds an anchor (a shorter canonical prefix matched by hash, or a stored message L1 still emits at the same index and hash), replays the canonical messages forward from it and compares them with the stored ones. Only messages from the first actual content difference onwards are replaced, together with the proposed blocks that consumed them; a re-mine that keeps the same messages changes nothing. See "L1-to-L2 Messages" above for the bounded, per-pass procedure.
 
 **Checkpoints**: When the archiver queries the Rollup contract for the archive root at the local pending checkpoint number, and it doesn't match the local archive root, the local checkpoint is no longer in L1's chain. The archiver walks backwards through local checkpoints, querying `archiveAt()` for each, until it finds one that matches. All checkpoints after that are unwound.
 

@@ -96,7 +96,7 @@ sequenceDiagram
     Portal->>Aave: withdraw(aTokenAmount)
     Aave-->>Portal: underlying + yield
     Portal->>Inbox: sendL2Message(content)
-    Note over Inbox: Wait for an L2 block to include the message (12-30s)
+    Note over Inbox: Wait for the next L2 block to include the message
     User->>Bridge: claim_public(amount_with_yield)
     Bridge->>Inbox: consume_l1_to_l2_message
     Bridge->>Token: mint_to_public(user, amount_with_yield)
