@@ -12,6 +12,7 @@ import {
   ManaMinFeeComponents,
   EthPerFeeAssetE12,
   CheckpointHeaderValidationFlags,
+  CheckpointPreflightArgs,
   FeeHeader,
   RollupConfigInput,
   RollupStore
@@ -99,6 +100,24 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     RollupOperationsExtLib.validateHeaderWithAttestations(
       _header, _attestations, _signers, _attestationsAndSignersSignature, _digest, _blobsHash, _flags
     );
+  }
+
+  /**
+   * @notice  Validate a header and its final Inbox consumption against the parent `propose` would use at this time
+   *
+   * @dev     Convenience function for the sequencer to simulate with the intended execution timestamp and state;
+   *          derives the parent from storage, so the caller's `_expectedParentCheckpointNumber` is checked rather
+   *          than trusted. See `RollupOperationsExtLib.validateCheckpointHeaderAndInbox`.
+   *
+   * @param _args - The header validation inputs plus the consumed Inbox total and the expected parent
+   * @return The Inbox bucket sequence to submit as `bucketHint`
+   */
+  function validateCheckpointHeaderAndInbox(CheckpointPreflightArgs calldata _args)
+    external
+    override(IRollup)
+    returns (uint64)
+  {
+    return RollupOperationsExtLib.validateCheckpointHeaderAndInbox(_args, _getRollupConfig().inbox);
   }
 
   /**

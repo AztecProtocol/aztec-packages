@@ -31,6 +31,18 @@ contract ProposeLibHarness {
       _inbox, _inboxRollingHash, _bucketHint, _slotNumber, _parentTotalMsgCount
     );
   }
+
+  function validateInboxConsumptionAtTotal(
+    IInbox _inbox,
+    bytes32 _inboxRollingHash,
+    uint64 _expectedTotal,
+    Slot _slotNumber,
+    uint256 _parentTotalMsgCount
+  ) external view returns (uint64) {
+    return ProposeLib.validateInboxConsumptionAtTotal(
+      _inbox, _inboxRollingHash, _expectedTotal, _slotNumber, _parentTotalMsgCount
+    );
+  }
 }
 
 contract ProposeInboxConsumptionTest is Test {
@@ -223,6 +235,49 @@ contract ProposeInboxConsumptionTest is Test {
     // in getBucket before any cutoff logic reads the clock.
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, 1, MIN_BUCKET_RING_SIZE + 1));
     rollup.validateInboxConsumption(ringInbox, bytes32(0), 1, SLOT, 0);
+  }
+
+  // Resolving by total agrees with the hinted check on every bucket, and rejects totals that are not boundaries.
+  function testResolveByTotalMatchesHintedValidation() public {
+    vm.warp(cutoff - 100);
+    _sendMany(3);
+    vm.roll(block.number + 1);
+    // Past the cutoff, so stopping at bucket 1 is not censorship.
+    vm.warp(cutoff + 10);
+    _sendMany(2);
+    vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
+
+    for (uint64 seq = 1; seq <= 2; seq++) {
+      IInbox.InboxBucket memory bucket = inbox.getBucket(seq);
+      uint64 hinted = uint64(rollup.validateInboxConsumption(inbox, bucket.rollingHash, seq, SLOT, 0));
+      uint64 resolved = rollup.validateInboxConsumptionAtTotal(inbox, bucket.rollingHash, bucket.totalMsgCount, SLOT, 0);
+      assertEq(resolved, seq, "resolved sequence");
+      assertEq(hinted, bucket.totalMsgCount, "hinted total");
+    }
+
+    bytes32 endHash = inbox.getBucket(2).rollingHash;
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InboxTotalNotAtBucketBoundary.selector, 4, 3));
+    rollup.validateInboxConsumptionAtTotal(inbox, endHash, 4, SLOT, 0);
+  }
+
+  // A total below the oldest retained bucket cannot be resolved once the ring has wrapped past it.
+  function testResolveByTotalBelowRetainedWindowReverts() public {
+    InboxHarness ringInbox = _deployInbox(MIN_BUCKET_RING_SIZE);
+    for (uint256 i = 1; i <= MIN_BUCKET_RING_SIZE + 1; i++) {
+      vm.roll(block.number + 1);
+      vm.warp(block.timestamp + 1);
+      ringInbox.sendL2Message(
+        DataStructures.L2Actor({actor: bytes32(uint256(0x1000 + i)), version: version}),
+        bytes32(uint256(0x2000 + i)),
+        bytes32(uint256(0x3000 + i))
+      );
+      vm.prank(address(rollup));
+      ringInbox.markProvenConsumed(uint64(i - 1));
+    }
+
+    // Genesis and bucket 1 are overwritten; the oldest retained bucket ends at total 2.
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__NoBucketAtOrBeforeTotal.selector, 1, 2));
+    rollup.validateInboxConsumptionAtTotal(ringInbox, bytes32(0), 1, SLOT, 0);
   }
 
   function testCurrentBlockBucketRejected() public {
