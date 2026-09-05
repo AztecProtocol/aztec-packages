@@ -4,7 +4,6 @@ import { INITIAL_L2_BLOCK_NUM, MAX_BLOCKS_PER_CHECKPOINT } from '@aztec/constant
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -12,31 +11,85 @@ import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import {
+  type Checkpoint,
+  type CheckpointData,
+  CheckpointReexecutionTracker,
+  type ProposedCheckpointData,
+} from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { InboxBucketRef, accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
+import type { InboxMessagePosition, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { InboxMessagePrefixRef, accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
 import { ValidatedBlockProposal, ValidatedCheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
-  makeBlockHeader,
   makeBlockProposal,
   makeCheckpointHeader,
   makeCheckpointProposal,
+  makeBlockHeader as makeRandomBlockHeader,
 } from '@aztec/stdlib/testing';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { GlobalVariables, TX_ERROR_INVALID_PROOF, TxHash } from '@aztec/stdlib/tx';
-import { InvalidBlockProposalTxsError } from '@aztec/stdlib/validators';
+import { InvalidBlockProposalTxsError, ReExStateMismatchError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorMetrics } from './metrics.js';
-import { ProposalHandler } from './proposal_handler.js';
+import {
+  type CheckpointProposalValidationResult,
+  ProposalHandler,
+  SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT,
+} from './proposal_handler.js';
+
+/** A block header consuming no Inbox messages (leaf count zero), so the streaming checks see an empty bundle. */
+function makeBlockHeader(...args: Parameters<typeof makeRandomBlockHeader>) {
+  const header = makeRandomBlockHeader(...args);
+  header.state.l1ToL2MessageTree.nextAvailableLeafIndex = 0;
+  return header;
+}
+
+/** The position after `totalMessageCount` messages, with the given rolling hash. */
+const position = (totalMessageCount: bigint, rollingHash: Fr): InboxMessagePosition => ({
+  totalMessageCount,
+  rollingHash,
+});
+
+/** Mocks a local Inbox view holding no messages: only position zero resolves, and only the empty range reads. */
+function mockEmptyInboxView(source: MockProxy<L1ToL2MessageSource>) {
+  source.getMessagePosition.mockImplementation(count =>
+    Promise.resolve(count === 0n ? position(0n, Fr.ZERO) : undefined),
+  );
+  source.getL1ToL2MessageRange.mockImplementation((start, end) =>
+    start === 0n && end === 0n
+      ? Promise.resolve({ messages: [], start: position(0n, Fr.ZERO), end: position(0n, Fr.ZERO) })
+      : Promise.reject(new Error(`Inbox message range [${start}, ${end}) is not fully synced`)),
+  );
+}
+
+/**
+ * The blocks of slot 1 for checkpoint 1, one per archive root, numbered from 1 and each chaining onto the previous
+ * one's archive, consuming no Inbox messages.
+ */
+function makeSlotBlocks(archiveRoots: Fr[]): L2Block[] {
+  return archiveRoots.map(
+    (root, i) =>
+      ({
+        archive: new AppendOnlyTreeSnapshot(root, i + 1),
+        number: BlockNumber(i + 1),
+        checkpointNumber: CheckpointNumber(1),
+        header: makeBlockHeader(0, {
+          lastArchive: new AppendOnlyTreeSnapshot(i === 0 ? Fr.ZERO : archiveRoots[i - 1], i),
+          slotNumber: SlotNumber(1),
+          blockNumber: BlockNumber(i + 1),
+        }),
+      }) as unknown as L2Block,
+  );
+}
 
 /** Creates a checkpoint proposal core with the given overrides. */
 async function makeProposal(overrides: Parameters<typeof makeCheckpointProposal>[0] = {}) {
@@ -60,6 +113,7 @@ describe('ProposalHandler checkpoint validation', () => {
   let metrics: MockProxy<ValidatorMetrics>;
   let config: ValidatorClientFullConfig;
   let consensusTimetable: ConsensusTimetable;
+  let reexecutionTracker: CheckpointReexecutionTracker;
 
   const proposalInfo = {};
 
@@ -70,6 +124,7 @@ describe('ProposalHandler checkpoint validation', () => {
     blockSource.syncImmediate.mockResolvedValue(undefined);
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    mockEmptyInboxView(l1ToL2MessageSource);
 
     checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
     checkpointsBuilder.getConfig.mockReturnValue({
@@ -97,6 +152,7 @@ describe('ProposalHandler checkpoint validation', () => {
     } as ValidatorClientFullConfig;
 
     consensusTimetable = new ConsensusTimetable({ l1Constants: epochCache.getL1Constants(), blockDuration: 3 });
+    reexecutionTracker = new CheckpointReexecutionTracker();
 
     handler = new ProposalHandler(
       checkpointsBuilder,
@@ -108,7 +164,7 @@ describe('ProposalHandler checkpoint validation', () => {
       consensusTimetable,
       config,
       mock<BlobClientInterface>(),
-      new CheckpointReexecutionTracker(),
+      reexecutionTracker,
       metrics,
       dateProvider,
     );
@@ -144,26 +200,63 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
     });
 
-    it('returns no_blocks_for_slot when no blocks exist for the slot', async () => {
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
-      blockSource.getBlocksForSlot.mockResolvedValue([]);
+    // Local pruning between the archiver reads of a checkpoint validation is a local-view outcome: the proposer's
+    // blocks may well be canonical, this node just no longer holds them. Neither shape may reach slashing, peer
+    // penalties or the invalid-slot marker.
+    describe('blocks pruned locally during validation', () => {
+      const expectNonPunitive = (result: CheckpointProposalValidationResult) => {
+        expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
+        if (result.isValid) {
+          throw new Error('unreachable');
+        }
+        expect(SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT[result.reason]).toBe(false);
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('unvalidated');
+        expect(handler.hasInvalidProposals(SlotNumber(1))).toBe(false);
+      };
 
-      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'no_blocks_for_slot' });
+      it('refuses without punishing when every block of the slot is gone after the last block was found', async () => {
+        // The by-archive lookup still serves the checkpoint's last block, but the slot read right after it comes back
+        // empty: a full prune landed between the two.
+        blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
+        blockSource.getBlocksForSlot.mockResolvedValue([]);
+
+        expectNonPunitive(await handler.handleCheckpointProposal(await makeProposal(), proposalInfo));
+      });
+
+      it('refuses without punishing when the slot read no longer ends at the signed archive', async () => {
+        // A partial prune took the checkpoint's last block and left the earlier ones of the slot in place.
+        blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
+        blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([Fr.random(), Fr.random()]));
+
+        expectNonPunitive(
+          await handler.handleCheckpointProposal(await makeProposal({ archiveRoot: Fr.random() }), proposalInfo),
+        );
+      });
+
+      it('refuses without punishing when the slot read is not a contiguous chain', async () => {
+        // A prune and a rebuild interleaved with the slot read: the blocks do not chain onto each other.
+        const archiveRoot = Fr.random();
+        const blocks = makeSlotBlocks([Fr.random(), archiveRoot]);
+        blocks[1] = { ...blocks[1], header: makeBlockHeader(1, { slotNumber: SlotNumber(1) }) } as L2Block;
+        blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+
+        expectNonPunitive(await handler.handleCheckpointProposal(await makeProposal({ archiveRoot }), proposalInfo));
+      });
     });
 
-    it('returns last_block_archive_mismatch when last block archive does not match', async () => {
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
-      const blocks = [
-        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 1), number: 1 },
-        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 2), number: 2 },
-      ] as unknown as L2Block[];
-      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+    it('returns last_block_archive_mismatch when signed blocks of the slot follow the checkpoint last block', async () => {
+      // The checkpoint's last block is local, and so is a later block of the same slot from the same proposer: the
+      // proposal leaves a signed block of its own slot out, which no local race explains.
+      const archiveRoot = Fr.random();
+      blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([archiveRoot, Fr.random()]));
 
-      const proposal = await makeProposal({ archiveRoot: Fr.random() });
-
-      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'last_block_archive_mismatch' });
+      const result = await handler.handleCheckpointProposal(await makeProposal({ archiveRoot }), proposalInfo);
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'last_block_archive_mismatch',
+        checkpointNumber: CheckpointNumber(1),
+      });
+      expect(SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT.last_block_archive_mismatch).toBe(true);
     });
 
     it('returns too_many_blocks_in_checkpoint when blocks exceed maxBlocksPerCheckpoint', async () => {
@@ -184,17 +277,15 @@ describe('ProposalHandler checkpoint validation', () => {
       );
 
       const archiveRoot = Fr.random();
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
-      const blocks = [
-        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 1), number: 1 },
-        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 2), number: 2 },
-        { archive: new AppendOnlyTreeSnapshot(archiveRoot, 3), number: 3 },
-      ] as unknown as L2Block[];
-      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+      blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([Fr.random(), Fr.random(), archiveRoot]));
 
       const proposal = await makeProposal({ archiveRoot });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'too_many_blocks_in_checkpoint' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'too_many_blocks_in_checkpoint',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
 
     it('returns too_many_blocks_in_checkpoint when blocks exceed the protocol cap without an operator limit', async () => {
@@ -203,17 +294,18 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(config.maxBlocksPerCheckpoint).toBeUndefined();
 
       const archiveRoot = Fr.random();
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
       const overCap = MAX_BLOCKS_PER_CHECKPOINT + 1;
-      const blocks = Array.from({ length: overCap }, (_, i) => ({
-        archive: new AppendOnlyTreeSnapshot(i === overCap - 1 ? archiveRoot : Fr.random(), i + 1),
-        number: i + 1,
-      })) as unknown as L2Block[];
-      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+      blockSource.getBlocksForSlot.mockResolvedValue(
+        makeSlotBlocks(Array.from({ length: overCap }, (_, i) => (i === overCap - 1 ? archiveRoot : Fr.random()))),
+      );
 
       const proposal = await makeProposal({ archiveRoot });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'too_many_blocks_in_checkpoint' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'too_many_blocks_in_checkpoint',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
 
     it('caches validation result and returns it on second call', async () => {
@@ -266,8 +358,8 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(blockSource.syncImmediate).toHaveBeenCalled();
     });
 
-    it('returns block_fetch_error when getBlockData throws', async () => {
-      blockSource.getBlockData.mockRejectedValue(new Error('db connection failed'));
+    it('returns block_fetch_error when reading the slot blocks throws', async () => {
+      blockSource.getBlocksForSlot.mockRejectedValue(new Error('db connection failed'));
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'block_fetch_error' });
@@ -292,13 +384,18 @@ describe('ProposalHandler checkpoint validation', () => {
     // Even past the deadline, an already-synced block must still be accepted (the immediate fetch
     // succeeds before the fail-fast applies), rather than being abandoned for being late.
     it('returns an already-synced block even when the deadline is in the past', async () => {
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
-      blockSource.getBlocksForSlot.mockResolvedValue([]);
+      const archiveRoot = Fr.random();
+      blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([archiveRoot]));
+      blockSource.getCheckpointData.mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as CheckpointData);
       dateProvider.setTime(41_000);
 
-      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+      const result = await handler.handleCheckpointProposal(await makeProposal({ archiveRoot }), proposalInfo);
       // Got past the block-sync wait (would be last_block_not_found if it failed fast unconditionally).
-      expect(result).toEqual({ isValid: false, reason: 'no_blocks_for_slot' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_already_published',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
 
     // With <1s remaining the old Math.floor(...) timeout collapsed to 0 ("never time out"). The fix uses
@@ -359,19 +456,23 @@ describe('ProposalHandler checkpoint validation', () => {
       // 30s into the epoch: past the old target-slot-start deadline (24s), before the publish one (40s).
       dateProvider.setTime(30_000);
 
-      // Block is unavailable for the first couple of polls, then syncs in. Under the new (later)
+      // The slot's blocks are unavailable for the first couple of polls, then sync in. Under the new (later)
       // deadline the retry budget covers this; under the old deadline the wait would time out first.
-      blockSource.getBlockData
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as BlockData);
-      // No blocks for the slot, so validation stops right after the sync wait with a distinct reason.
-      blockSource.getBlocksForSlot.mockResolvedValue([]);
+      blockSource.getBlocksForSlot
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValue(makeSlotBlocks([proposal.archive]));
+      // The checkpoint is already published, so validation stops right after the sync wait with a distinct reason.
+      blockSource.getCheckpointData.mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as CheckpointData);
 
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
 
       // Got past the block-sync wait (would be `last_block_not_found` under the old deadline).
-      expect(result).toEqual({ isValid: false, reason: 'no_blocks_for_slot', checkpointNumber: CheckpointNumber(1) });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_already_published',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
   });
 
@@ -593,27 +694,32 @@ describe('ProposalHandler checkpoint validation', () => {
       return block;
     }
 
-    // An L1 reorg can merge the buckets a checkpointed block and the proposal's last block consumed through into
-    // others. The archiver never prunes a checkpointed block, so the parent position stays interior to the current
-    // partition forever, and the proposal's own final position may sit interior to it as well while the messages
-    // themselves are unchanged. The consumed bundle is derived from the committed counts alone, so neither position
-    // needs to resolve to a bucket; whether the final position is a live bucket end is L1's publication rule.
-    it('derives the consumed bundle by count when neither checkpoint bound is a current bucket boundary', async () => {
-      const header = makeHeader();
+    /** Mocks the consumed range read to return `messages` ending at the given rolling hash. */
+    function mockConsumedRange(start: bigint, end: bigint, messages: Fr[], endRollingHash: Fr) {
+      l1ToL2MessageSource.getL1ToL2MessageRange.mockImplementation((from, to) =>
+        from === start && to === end
+          ? Promise.resolve({ messages, start: position(start, Fr.random()), end: position(end, endRollingHash) })
+          : Promise.reject(new Error(`Unexpected Inbox message range [${from}, ${to})`)),
+      );
+    }
+
+    // The consumed bundle is derived from the committed counts alone and authenticated by the header's rolling hash;
+    // no position is resolved as an L1 bucket. Whether the final position is a live bucket end is the proposer's and
+    // L1's publication rule.
+    it('reads the consumed bundle by count and authenticates it against the header rolling hash', async () => {
+      const inboxRollingHash = Fr.random();
+      const header = makeHeader({ inboxRollingHash });
       const consumedMessages = [new Fr(1000), new Fr(1001), new Fr(1002), new Fr(1003)];
       setupDeepValidationMocks({ header });
       const block = setupCheckpointWithConsumption({ firstBlockNumber: 5, parentLeafCount: 3, lastLeafCount: 7 });
-
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(undefined);
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue(consumedMessages);
+      mockConsumedRange(3n, 7n, consumedMessages, inboxRollingHash);
 
       await handler.handleCheckpointProposal(
         await makeProposal({ archiveRoot, checkpointHeader: header }),
         proposalInfo,
       );
 
-      expect(l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts).toHaveBeenCalledWith(3n, 7n);
-      expect(l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets).not.toHaveBeenCalled();
+      expect(l1ToL2MessageSource.getL1ToL2MessageRange).toHaveBeenCalledWith(3n, 7n);
       expect(checkpointsBuilder.openCheckpoint).toHaveBeenCalledWith(
         CheckpointNumber(1),
         expect.anything(),
@@ -627,17 +733,18 @@ describe('ProposalHandler checkpoint validation', () => {
       );
     });
 
-    it('derives an empty bundle without any message query when the checkpoint consumed nothing', async () => {
-      const header = makeHeader();
+    it('derives an empty bundle when the checkpoint consumed nothing, still checking the header hash', async () => {
+      const inboxRollingHash = Fr.random();
+      const header = makeHeader({ inboxRollingHash });
       setupDeepValidationMocks({ header });
       const block = setupCheckpointWithConsumption({ firstBlockNumber: 5, parentLeafCount: 3, lastLeafCount: 3 });
+      mockConsumedRange(3n, 3n, [], inboxRollingHash);
 
       await handler.handleCheckpointProposal(
         await makeProposal({ archiveRoot, checkpointHeader: header }),
         proposalInfo,
       );
 
-      expect(l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts).not.toHaveBeenCalled();
       expect(checkpointsBuilder.openCheckpoint).toHaveBeenCalledWith(
         CheckpointNumber(1),
         expect.anything(),
@@ -664,23 +771,83 @@ describe('ProposalHandler checkpoint validation', () => {
       );
 
       expect(result).toEqual({ isValid: false, reason: 'block_fetch_error', checkpointNumber: CheckpointNumber(1) });
-      expect(l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts).not.toHaveBeenCalled();
+      expect(l1ToL2MessageSource.getL1ToL2MessageRange).not.toHaveBeenCalled();
       expect(checkpointsBuilder.openCheckpoint).not.toHaveBeenCalled();
     });
 
-    it('surfaces an unavailable consumed range instead of deriving an empty bundle', async () => {
+    // Both local-view outcomes are nonpunitive: the attestation deadline for slot 1 has long passed on the real
+    // clock the handler reads, so the bounded sync retry gives up immediately and the reason is reported as is.
+    it('refuses to attest, without punishing, when the consumed range is unavailable locally', async () => {
       const header = makeHeader();
       setupDeepValidationMocks({ header });
       setupCheckpointWithConsumption({ firstBlockNumber: 5, parentLeafCount: 3, lastLeafCount: 7 });
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockRejectedValue(
+      l1ToL2MessageSource.getL1ToL2MessageRange.mockRejectedValue(
         new Error('Inbox message range [3, 7) is not fully synced'),
       );
 
-      await expect(
-        handler.handleCheckpointProposal(await makeProposal({ archiveRoot, checkpointHeader: header }), proposalInfo),
-      ).rejects.toThrow(/not fully synced/);
+      const result = await handler.handleCheckpointProposal(
+        await makeProposal({ archiveRoot, checkpointHeader: header }),
+        proposalInfo,
+      );
 
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'inbox_prefix_unavailable',
+        checkpointNumber: CheckpointNumber(1),
+      });
       expect(checkpointsBuilder.openCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('refuses to attest, without punishing, when the local prefix disagrees with the header rolling hash', async () => {
+      const header = makeHeader({ inboxRollingHash: Fr.random() });
+      setupDeepValidationMocks({ header });
+      setupCheckpointWithConsumption({ firstBlockNumber: 5, parentLeafCount: 3, lastLeafCount: 7 });
+      mockConsumedRange(3n, 7n, [new Fr(1), new Fr(2), new Fr(3), new Fr(4)], Fr.random());
+
+      const result = await handler.handleCheckpointProposal(
+        await makeProposal({ archiveRoot, checkpointHeader: header }),
+        proposalInfo,
+      );
+
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'inbox_prefix_mismatch',
+        checkpointNumber: CheckpointNumber(1),
+      });
+      expect(checkpointsBuilder.openCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('attests once a forced sync brings the consumed prefix into agreement with the header', async () => {
+      const inboxRollingHash = Fr.random();
+      const header = makeHeader({ inboxRollingHash });
+      setupDeepValidationMocks({ header });
+      setupCheckpointWithConsumption({ firstBlockNumber: 5, parentLeafCount: 3, lastLeafCount: 7 });
+      // Slot 1's attestation deadline is 1*24 + 24 - 8 = 40s; leave two seconds of budget for the retry.
+      dateProvider.setTime(38_000);
+      const consumedMessages = [new Fr(1000), new Fr(1001), new Fr(1002), new Fr(1003)];
+      mockConsumedRange(3n, 7n, consumedMessages, Fr.random());
+      blockSource.syncImmediate.mockImplementation(() => {
+        mockConsumedRange(3n, 7n, consumedMessages, inboxRollingHash);
+        return Promise.resolve();
+      });
+
+      await handler.handleCheckpointProposal(
+        await makeProposal({ archiveRoot, checkpointHeader: header }),
+        proposalInfo,
+      );
+
+      expect(blockSource.syncImmediate).toHaveBeenCalled();
+      expect(checkpointsBuilder.openCheckpoint).toHaveBeenCalledWith(
+        CheckpointNumber(1),
+        expect.anything(),
+        expect.anything(),
+        consumedMessages,
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      );
     });
 
     it('returns checkpoint_header_mismatch when headers differ', async () => {
@@ -854,18 +1021,6 @@ describe('ProposalHandler checkpoint validation', () => {
     });
   });
 
-  /** The archiver's genesis sentinel bucket: the "consumed nothing" position every chain starts from. */
-  const genesisBucket: InboxBucket = {
-    seq: 0n,
-    inboxRollingHash: Fr.ZERO,
-    totalMsgCount: 0n,
-    timestamp: 0n,
-    msgCount: 0,
-    lastMessageIndex: 0n,
-    l1BlockNumber: 0n,
-    l1BlockHash: Buffer32.ZERO,
-  };
-
   /**
    * Builds a proposal whose parent resolves to genesis (so blockNumber = INITIAL_L2_BLOCK_NUM) and a
    * handler wired to accept it up to the block-number guard.
@@ -875,9 +1030,9 @@ describe('ProposalHandler checkpoint validation', () => {
       await makeBlockProposal({
         blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
         archiveRoot: proposalArchive,
-        // A consume-nothing reference to the genesis bucket, so the streaming metadata checks pass and the
+        // A consume-nothing reference to the empty prefix, so the streaming metadata checks pass and the
         // guard under test is what decides the outcome.
-        bucketRef: new InboxBucketRef(genesisBucket.seq, genesisBucket.timestamp, genesisBucket.inboxRollingHash),
+        inboxPrefixRef: InboxMessagePrefixRef.empty(),
         ...(txHashes ? { txHashes } : {}),
       }),
     );
@@ -886,8 +1041,6 @@ describe('ProposalHandler checkpoint validation', () => {
     blockSource.getGenesisValues.mockResolvedValue({
       genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
     } as any);
-    l1ToL2MessageSource.getInboxBucket.mockResolvedValue(genesisBucket);
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(genesisBucket);
 
     const txProvider = mock<ITxProvider>();
     txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
@@ -1036,7 +1189,7 @@ describe('ProposalHandler checkpoint validation', () => {
         await makeBlockProposal({
           blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
           archiveRoot: Fr.random(),
-          bucketRef: new InboxBucketRef(genesisBucket.seq, genesisBucket.timestamp, genesisBucket.inboxRollingHash),
+          inboxPrefixRef: InboxMessagePrefixRef.empty(),
           signer,
         }),
       );
@@ -1045,8 +1198,6 @@ describe('ProposalHandler checkpoint validation', () => {
       blockSource.getGenesisValues.mockResolvedValue({
         genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
       } as any);
-      l1ToL2MessageSource.getInboxBucket.mockResolvedValue(genesisBucket);
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(genesisBucket);
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
       // Slot 1's proposal receive window is [-4s, 17s]; 30s is well past its close.
       epochCache.getEpochAndSlotNow.mockReturnValue({
@@ -1079,30 +1230,36 @@ describe('ProposalHandler checkpoint validation', () => {
     });
   });
 
-  // Streaming Inbox: a block proposal's L1-to-L2 bundle is derived from its bucket reference and gated by the four
-  // acceptance checks, replacing the legacy per-checkpoint inHash comparison.
+  // Streaming Inbox: a block proposal's L1-to-L2 bundle is read by count from the local message log and authenticated
+  // by the signed prefix hash at the block header's leaf count.
   describe('handleBlockProposal streaming inbox checks', () => {
-    const bucket = (overrides: Partial<InboxBucket> = {}): InboxBucket => ({
-      seq: 1n,
-      inboxRollingHash: new Fr(0xabc),
-      totalMsgCount: 2n,
-      timestamp: 100n,
-      msgCount: 2,
-      lastMessageIndex: 1n,
-      l1BlockNumber: 10n,
-      l1BlockHash: Buffer32.fromBigInt(10n),
-      ...overrides,
-    });
+    const consumedLeaves = [new Fr(1000), new Fr(1001)];
+    const prefixHash = new Fr(0xabc);
+    const signedRef = new InboxMessagePrefixRef(prefixHash);
 
-    /** Genesis-parent streaming block proposal at slot 1, with the handler wired to reach the streaming checks. */
-    async function setupStreamingProposal(bucketRef: InboxBucketRef | undefined, options: { nowMs?: number } = {}) {
+    /** Mocks a local view holding two messages whose prefix hashes to `hashAtTwo` (or nothing past genesis). */
+    function mockLocalView(hashAtTwo: Fr | undefined) {
+      l1ToL2MessageSource.getMessagePosition.mockImplementation(count =>
+        Promise.resolve(
+          count === 0n ? position(0n, Fr.ZERO) : count === 2n && hashAtTwo ? position(2n, hashAtTwo) : undefined,
+        ),
+      );
+      l1ToL2MessageSource.getL1ToL2MessageRange.mockImplementation((start, end) =>
+        hashAtTwo && start === 0n && end === 2n
+          ? Promise.resolve({ messages: consumedLeaves, start: position(0n, Fr.ZERO), end: position(2n, hashAtTwo) })
+          : Promise.reject(new Error(`Inbox message range [${start}, ${end}) is not fully synced`)),
+      );
+    }
+
+    /** Genesis-parent block proposal at slot 1 consuming two messages, with the handler wired to reach the checks. */
+    async function setupStreamingProposal(
+      inboxPrefixRef: InboxMessagePrefixRef | undefined,
+      options: { nowMs?: number } = {},
+    ) {
+      const blockHeader = makeBlockHeader(1, { slotNumber: SlotNumber(1) });
+      blockHeader.state.l1ToL2MessageTree.nextAvailableLeafIndex = 2;
       const proposal = ValidatedBlockProposal(
-        await makeBlockProposal({
-          blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
-          archiveRoot: Fr.random(),
-          txHashes: [],
-          bucketRef,
-        }),
+        await makeBlockProposal({ blockHeader, archiveRoot: Fr.random(), txHashes: [], inboxPrefixRef }),
       );
       blockSource.getGenesisValues.mockResolvedValue({
         genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
@@ -1131,90 +1288,76 @@ describe('ProposalHandler checkpoint validation', () => {
       return { proposal, blockHandler, txProvider };
     }
 
+    const rejection = (reason: string) => ({ isValid: false, blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM), reason });
+
     // The metadata checks are point lookups against the local Inbox view, so they run before tx collection: a
-    // proposer signing a bogus bucket reference must not be able to make validators spend their window fetching
+    // proposer signing a bogus prefix reference must not be able to make validators spend their window fetching
     // txs over P2P for a proposal a map lookup rejects.
-    it('rejects without collecting txs when the referenced bucket is unknown', async () => {
-      const ref = new InboxBucketRef(1n, 100n, new Fr(0xabc));
-      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref);
-      l1ToL2MessageSource.getInboxBucket.mockResolvedValue(undefined);
+    it('rejects without collecting txs when the local view has not synced the signed count', async () => {
+      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(signedRef);
+      mockLocalView(undefined);
       const reexecuteSpy = jest.spyOn(blockHandler, 'reexecuteTransactions');
 
       const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
 
-      expect(result).toEqual({
-        isValid: false,
-        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-        reason: 'bucket_unknown',
-      });
+      expect(result).toEqual(rejection('inbox_prefix_unavailable'));
       expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
       expect(reexecuteSpy).not.toHaveBeenCalled();
     });
 
-    it('rejects without collecting txs when the resolved bucket hash disagrees with the reference', async () => {
-      const ref = new InboxBucketRef(1n, 100n, new Fr(0xdead));
-      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref);
-      l1ToL2MessageSource.getInboxBucket.mockResolvedValue(bucket({ inboxRollingHash: new Fr(0xabc) }));
+    it('rejects without collecting txs when the local prefix hash disagrees with the reference', async () => {
+      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(signedRef);
+      mockLocalView(new Fr(0xdead));
       const reexecuteSpy = jest.spyOn(blockHandler, 'reexecuteTransactions');
 
       const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
 
-      expect(result).toEqual({
-        isValid: false,
-        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-        reason: 'bucket_hash_mismatch',
-      });
+      expect(result).toEqual(rejection('inbox_prefix_mismatch'));
       expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
       expect(reexecuteSpy).not.toHaveBeenCalled();
     });
 
-    it('rejects without collecting txs when the proposal carries no bucket reference', async () => {
+    it('rejects without collecting txs when the proposal carries no prefix reference', async () => {
       const { proposal, blockHandler, txProvider } = await setupStreamingProposal(undefined);
+      mockLocalView(prefixHash);
 
       const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
 
-      expect(result).toEqual({
-        isValid: false,
-        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-        reason: 'bucket_unknown',
-      });
+      expect(result).toEqual(rejection('inbox_prefix_unavailable'));
       expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
     });
 
-    it('re-executes with the bundle derived from the buckets when the checks pass', async () => {
-      const ref = new InboxBucketRef(1n, 100n, new Fr(0xabc));
-      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref);
-      const derivedBundle = [new Fr(1000), new Fr(1001)];
-      l1ToL2MessageSource.getInboxBucket.mockResolvedValue(bucket());
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
-        bucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),
-      );
-      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(derivedBundle);
+    it('re-executes with the bundle read by count when the checks pass, and inserts it with the signed reference', async () => {
+      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(signedRef);
+      mockLocalView(prefixHash);
+      const builtBlock = { number: BlockNumber(INITIAL_L2_BLOCK_NUM) } as unknown as L2Block;
       const reexecuteSpy = jest
         .spyOn(blockHandler, 'reexecuteTransactions')
-        .mockResolvedValue({ block: undefined } as any);
+        .mockResolvedValue({ block: builtBlock } as any);
 
       const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
 
       expect(result.isValid).toBe(true);
       // A valid reference still triggers tx collection, which also feeds this node's ability to serve txs to peers.
       expect(txProvider.getTxsForBlockProposal).toHaveBeenCalledTimes(1);
-      // The block re-executes with the derived per-block bundle (streaming is the only path).
+      // The block re-executes with the bundle read from the local log by count.
       expect(reexecuteSpy).toHaveBeenCalledWith(
         proposal,
         BlockNumber(INITIAL_L2_BLOCK_NUM),
         CheckpointNumber.INITIAL,
         [],
-        derivedBundle,
+        consumedLeaves,
         expect.anything(),
         expect.anything(),
       );
+      // The archiver insert carries the signed reference the checks validated against.
+      expect(blockSource.addBlock).toHaveBeenCalledWith(builtBlock, signedRef);
     });
 
-    // A bucket the proposer already consumed is on L1 by construction, so a bucket this node cannot resolve is
-    // (usually) local archiver lag, not a divergence: the handler forces a sync and re-checks until the
-    // attestation deadline instead of dropping the attestation on the spot.
-    describe('bucket sync wait', () => {
+    // A prefix this node cannot confirm is (usually) local archiver lag or the stale side of a reorg, not a
+    // divergence: the handler forces a sync and re-checks until the attestation deadline instead of dropping the
+    // attestation on the spot, and never attributes the outcome to the proposer.
+    describe('prefix sync wait', () => {
       // attestation_deadline(slot=1) = 1*24 + 24 - 8 = 40s. Waits run on a real timer against the remaining
       // budget read off the fake clock, so holding it 2s short of the deadline keeps the tests short.
       const DEADLINE_MS = 40_000;
@@ -1223,23 +1366,13 @@ describe('ProposalHandler checkpoint validation', () => {
       const PAST_DEADLINE_MS = DEADLINE_MS + 1_000;
       const WAIT_INTERVAL_MS = 500;
 
-      /** The bucket a proposal under test consumes through. */
-      const eligibleBucket = (overrides: Partial<InboxBucket> = {}) => bucket({ timestamp: 10n, ...overrides });
-
-      /** Wires the parent-bucket lookup and the bundle read for a proposal that consumes `eligibleBucket()`. */
-      function mockAcceptedSurroundings() {
-        l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
-          eligibleBucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),
-        );
-        l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue([new Fr(1000), new Fr(1001)]);
-      }
-
-      it('attests once the referenced bucket shows up on a later archiver sync', async () => {
-        const ref = new InboxBucketRef(1n, 10n, new Fr(0xabc));
-        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
-        mockAcceptedSurroundings();
-        // Unknown on arrival, synced by the time the wait re-checks.
-        l1ToL2MessageSource.getInboxBucket.mockResolvedValueOnce(undefined).mockResolvedValue(eligibleBucket());
+      it('attests once the signed prefix shows up on a later archiver sync', async () => {
+        const { proposal, blockHandler } = await setupStreamingProposal(signedRef, { nowMs: BEFORE_DEADLINE_MS });
+        mockLocalView(undefined);
+        blockSource.syncImmediate.mockImplementation(() => {
+          mockLocalView(prefixHash);
+          return Promise.resolve();
+        });
         jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: undefined } as any);
 
         const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
@@ -1248,23 +1381,17 @@ describe('ProposalHandler checkpoint validation', () => {
         expect(result.blockNumber).toEqual(BlockNumber(INITIAL_L2_BLOCK_NUM));
       });
 
-      it('rejects with bucket_unknown when the bucket never syncs, no earlier than the deadline', async () => {
-        const ref = new InboxBucketRef(1n, 10n, new Fr(0xabc));
-        const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref, {
+      it('rejects as unavailable when the prefix never syncs, no earlier than the deadline', async () => {
+        const { proposal, blockHandler, txProvider } = await setupStreamingProposal(signedRef, {
           nowMs: BEFORE_DEADLINE_MS,
         });
-        mockAcceptedSurroundings();
-        l1ToL2MessageSource.getInboxBucket.mockResolvedValue(undefined);
+        mockLocalView(undefined);
 
         const startMs = Date.now();
         const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
         const elapsedMs = Date.now() - startMs;
 
-        expect(result).toEqual({
-          isValid: false,
-          blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-          reason: 'bucket_unknown',
-        });
+        expect(result).toEqual(rejection('inbox_prefix_unavailable'));
         // The wait runs out the remaining budget and gives up within one retry interval of the deadline.
         expect(elapsedMs).toBeGreaterThanOrEqual(WAIT_BUDGET_MS - 100);
         expect(elapsedMs).toBeLessThan(WAIT_BUDGET_MS + 2 * WAIT_INTERVAL_MS);
@@ -1273,65 +1400,46 @@ describe('ProposalHandler checkpoint validation', () => {
       });
 
       it('rejects immediately without syncing when the attestation deadline has already passed', async () => {
-        const ref = new InboxBucketRef(1n, 10n, new Fr(0xabc));
-        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: PAST_DEADLINE_MS });
-        mockAcceptedSurroundings();
-        l1ToL2MessageSource.getInboxBucket.mockResolvedValue(undefined);
+        const { proposal, blockHandler } = await setupStreamingProposal(signedRef, { nowMs: PAST_DEADLINE_MS });
+        mockLocalView(undefined);
 
         const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
 
-        expect(result).toEqual({
-          isValid: false,
-          blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-          reason: 'bucket_unknown',
-        });
+        expect(result).toEqual(rejection('inbox_prefix_unavailable'));
         // With no budget left there is nothing to wait for, so the archiver is not poked at all.
         expect(blockSource.syncImmediate).not.toHaveBeenCalled();
       });
 
-      it('rejects immediately without syncing when the proposal carries no bucket reference', async () => {
-        const { proposal, blockHandler } = await setupStreamingProposal(undefined, {
-          nowMs: BEFORE_DEADLINE_MS,
-        });
+      it('rejects immediately without syncing when the proposal carries no prefix reference', async () => {
+        const { proposal, blockHandler } = await setupStreamingProposal(undefined, { nowMs: BEFORE_DEADLINE_MS });
+        mockLocalView(prefixHash);
 
         const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
 
-        expect(result).toEqual({
-          isValid: false,
-          blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-          reason: 'bucket_unknown',
-        });
+        expect(result).toEqual(rejection('inbox_prefix_unavailable'));
         expect(blockSource.syncImmediate).not.toHaveBeenCalled();
       });
 
-      it('rejects a hash mismatch that survives one forced sync, without looping', async () => {
-        const ref = new InboxBucketRef(1n, 10n, new Fr(0xdead));
-        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
-        mockAcceptedSurroundings();
-        l1ToL2MessageSource.getInboxBucket.mockResolvedValue(eligibleBucket({ inboxRollingHash: new Fr(0xabc) }));
+      // This node may be the stale side of an L1 reorg holding a present-but-noncanonical hash at the signed count,
+      // so a mismatch is retried exactly like a missing prefix and stays nonpunitive when it persists.
+      it('rejects a mismatch that survives the deadline as a mismatch, after retrying', async () => {
+        const { proposal, blockHandler } = await setupStreamingProposal(signedRef, { nowMs: BEFORE_DEADLINE_MS });
+        mockLocalView(new Fr(0xdead));
 
         const startMs = Date.now();
         const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
         const elapsedMs = Date.now() - startMs;
 
-        expect(result).toEqual({
-          isValid: false,
-          blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
-          reason: 'bucket_hash_mismatch',
-        });
-        // A persistent mismatch is a divergence from L1, not local lag: one sync, one re-check, no retry loop.
-        expect(blockSource.syncImmediate).toHaveBeenCalledTimes(1);
-        expect(elapsedMs).toBeLessThan(WAIT_INTERVAL_MS);
+        expect(result).toEqual(rejection('inbox_prefix_mismatch'));
+        expect(blockSource.syncImmediate).toHaveBeenCalled();
+        expect(elapsedMs).toBeGreaterThanOrEqual(WAIT_BUDGET_MS - 100);
       });
 
-      it('attests when the forced sync replaces our stale bucket with the proposed one', async () => {
-        // This validator held the orphaned side of an L1 reorg; the forced sync rolls it back and re-syncs.
-        const ref = new InboxBucketRef(1n, 10n, new Fr(0xabc));
-        const { proposal, blockHandler } = await setupStreamingProposal(ref, { nowMs: BEFORE_DEADLINE_MS });
-        mockAcceptedSurroundings();
-        l1ToL2MessageSource.getInboxBucket.mockResolvedValue(eligibleBucket({ inboxRollingHash: new Fr(0xbad) }));
+      it('attests when the forced sync replaces our stale prefix with the proposed one', async () => {
+        const { proposal, blockHandler } = await setupStreamingProposal(signedRef, { nowMs: BEFORE_DEADLINE_MS });
+        mockLocalView(new Fr(0xbad));
         blockSource.syncImmediate.mockImplementation(() => {
-          l1ToL2MessageSource.getInboxBucket.mockResolvedValue(eligibleBucket());
+          mockLocalView(prefixHash);
           return Promise.resolve();
         });
         jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: undefined } as any);
@@ -1342,110 +1450,75 @@ describe('ProposalHandler checkpoint validation', () => {
         expect(result.blockNumber).toEqual(BlockNumber(INITIAL_L2_BLOCK_NUM));
       });
     });
-  });
 
-  // Streaming Inbox: the checkpoint handler enforces the last-block minimum-consumption (censorship) rule before
-  // attesting.
-  describe('checkpoint proposal last-block censorship', () => {
-    /** Two-block checkpoint at slot 10 whose last block consumed through leaf count `lastBlockTotal`. */
-    function setupCensorshipMocks(lastBlockTotal: number) {
-      const archiveRoot = Fr.random();
-      const blockWithLeafCount = (leafCount: number, archive: Fr, number: number) =>
-        ({
-          archive: new AppendOnlyTreeSnapshot(archive, number),
-          number,
-          checkpointNumber: CheckpointNumber(1),
-          header: {
-            globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(10) }),
-            state: { l1ToL2MessageTree: { nextAvailableLeafIndex: leafCount } },
-          },
-        }) as unknown as L2Block;
+    // A content-changing message replacement can land between the metadata check and later steps. Neither the bundle
+    // read nor the insert may turn it into a proposer offense.
+    describe('reorg between the checks', () => {
+      it('classifies a replacement between the metadata check and the bundle read as a mismatch', async () => {
+        const { proposal, blockHandler } = await setupStreamingProposal(signedRef, { nowMs: 50_000 });
+        mockLocalView(prefixHash);
+        // The metadata check sees the signed prefix; the bundle read then sees a replaced log.
+        l1ToL2MessageSource.getMessagePosition.mockResolvedValueOnce(position(2n, prefixHash));
+        l1ToL2MessageSource.getMessagePosition.mockResolvedValue(position(2n, new Fr(0xdead)));
+        l1ToL2MessageSource.getL1ToL2MessageRange.mockResolvedValue({
+          messages: [new Fr(1), new Fr(2)],
+          start: position(0n, Fr.ZERO),
+          end: position(2n, new Fr(0xdead)),
+        });
+        const reexecuteSpy = jest.spyOn(blockHandler, 'reexecuteTransactions');
 
-      blockSource.getBlockData.mockResolvedValue({
-        header: makeBlockHeader(),
-        checkpointNumber: CheckpointNumber(1),
-      } as any);
-      blockSource.getBlocksForSlot.mockResolvedValue([
-        blockWithLeafCount(0, Fr.random(), 1),
-        blockWithLeafCount(lastBlockTotal, archiveRoot, 2),
-      ]);
-      return { archiveRoot };
-    }
+        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
 
-    async function makeSlot10Proposal(archiveRoot: Fr) {
-      return ValidatedCheckpointProposalCore(
-        (
-          await makeCheckpointProposal({
-            checkpointHeader: makeCheckpointHeader(0, { slotNumber: SlotNumber(10) }),
-            archiveRoot,
-          })
-        ).toCore(),
-      );
-    }
-
-    it('refuses to attest when a mandatory bucket (at or before the cutoff) is left unconsumed', async () => {
-      handler.updateConfig(config);
-      const { archiveRoot } = setupCensorshipMocks(2);
-      // cutoff(slot=10) is the build frame start: with l1GenesisTime=0, slotDuration=24 and
-      // ethereumSlotDuration=4 that is (10-1)*24 - 4 = 212.
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
-        seq: 1n,
-        totalMsgCount: 2n,
-      } as InboxBucket);
-      // The next (first unconsumed) bucket opened at t=100 <= cutoff 212 is mandatory and was left unconsumed.
-      l1ToL2MessageSource.getInboxBucket.mockResolvedValue({
-        seq: 2n,
-        totalMsgCount: 5n,
-        timestamp: 100n,
-      } as InboxBucket);
-
-      const result = await handler.handleCheckpointProposal(await makeSlot10Proposal(archiveRoot), proposalInfo);
-
-      expect(result).toEqual({
-        isValid: false,
-        reason: 'inbox_consumption_insufficient',
-        checkpointNumber: CheckpointNumber(1),
+        expect(result).toEqual(rejection('inbox_prefix_mismatch'));
+        expect(reexecuteSpy).not.toHaveBeenCalled();
       });
-    });
 
-    it('does not reject on censorship when the first unconsumed bucket is past the cutoff', async () => {
-      handler.updateConfig(config);
-      const { archiveRoot } = setupCensorshipMocks(2);
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
-        seq: 1n,
-        totalMsgCount: 2n,
-      } as InboxBucket);
-      // Next bucket opened at t=213 > cutoff 212: not mandatory, so the censorship check passes and validation
-      // proceeds past it to the checkpoint rebuild (which mismatches here, an unrelated reason).
-      l1ToL2MessageSource.getInboxBucket.mockResolvedValue({
-        seq: 2n,
-        totalMsgCount: 5n,
-        timestamp: 213n,
-      } as InboxBucket);
-      const proposal = await makeSlot10Proposal(archiveRoot);
-      // The fork's archive root is checked against the proposal's before the rebuild; report a match so
-      // validation gets past it to the rebuild, which is the rejection this test asserts on.
-      checkpointsBuilder.getFork.mockResolvedValue({
-        [Symbol.asyncDispose]: jest.fn(),
-        getTreeInfo: () => Promise.resolve({ root: proposal.checkpointHeader.lastArchiveRoot.toBuffer() }),
-      } as any);
-      const mockBuilder = mock<CheckpointBuilder>();
-      mockBuilder.completeCheckpoint.mockResolvedValue({
-        header: CheckpointHeader.empty(),
-        archive: new AppendOnlyTreeSnapshot(Fr.ZERO, 0),
-        getCheckpointOutHash: () => Fr.random(),
-        blocks: [],
-        number: CheckpointNumber(1),
-      } as unknown as Checkpoint);
-      checkpointsBuilder.openCheckpoint.mockResolvedValue(mockBuilder);
+      it('classifies a re-execution mismatch as a local disagreement when the local prefix moved', async () => {
+        const { proposal, blockHandler } = await setupStreamingProposal(signedRef, { nowMs: 50_000 });
+        mockLocalView(prefixHash);
+        jest.spyOn(blockHandler, 'reexecuteTransactions').mockImplementation(() => {
+          // The reorg lands during re-execution: the local prefix at the signed count no longer matches.
+          mockLocalView(new Fr(0xdead));
+          throw new ReExStateMismatchError(Fr.random(), Fr.random());
+        });
 
-      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
 
-      // The censorship rule passed; the checkpoint is rejected later by the rebuild, not the consumption check.
-      expect(result).toEqual({
-        isValid: false,
-        reason: 'checkpoint_header_mismatch',
-        checkpointNumber: CheckpointNumber(1),
+        expect(result).toMatchObject({ isValid: false, reason: 'inbox_prefix_mismatch' });
+      });
+
+      it('keeps a re-execution mismatch with authenticated inputs as a proposer offense', async () => {
+        const { proposal, blockHandler } = await setupStreamingProposal(signedRef, { nowMs: 50_000 });
+        mockLocalView(prefixHash);
+        jest.spyOn(blockHandler, 'reexecuteTransactions').mockImplementation(() => {
+          throw new ReExStateMismatchError(Fr.random(), Fr.random());
+        });
+
+        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+        expect(result).toMatchObject({ isValid: false, reason: 'state_mismatch' });
+      });
+
+      it('classifies an insert-time prefix rejection from the archiver as a local disagreement', async () => {
+        const { proposal, blockHandler } = await setupStreamingProposal(signedRef, { nowMs: 50_000 });
+        mockLocalView(prefixHash);
+        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: {} } as any);
+        blockSource.addBlock.mockRejectedValue(
+          Object.assign(new Error('prefix mismatch at insert'), { name: 'InboxPrefixMismatchError' }),
+        );
+
+        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+        expect(result).toMatchObject({ isValid: false, reason: 'inbox_prefix_mismatch' });
+      });
+
+      it('propagates insert failures that are not prefix rejections', async () => {
+        const { proposal, blockHandler } = await setupStreamingProposal(signedRef, { nowMs: 50_000 });
+        mockLocalView(prefixHash);
+        jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({ block: {} } as any);
+        blockSource.addBlock.mockRejectedValue(new Error('disk on fire'));
+
+        await expect(blockHandler.handleBlockProposal(proposal, {} as any, true)).rejects.toThrow('disk on fire');
       });
     });
   });

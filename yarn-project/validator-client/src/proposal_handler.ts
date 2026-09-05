@@ -40,12 +40,7 @@ import type {
   ValidatorClientFullConfig,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import {
-  type L1ToL2MessageSource,
-  accumulateCheckpointOutHashes,
-  getInboxCutoffTimestamp,
-  isInboxConsumptionSufficient,
-} from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
 import type {
   BlockProposal,
   CheckpointAttestation,
@@ -55,7 +50,7 @@ import type {
 } from '@aztec/stdlib/p2p';
 import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { CheckpointGlobalVariables, FailedTx, Tx, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, CheckpointGlobalVariables, FailedTx, Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   InvalidBlockProposalTxsError,
   ReExFailedTxsError,
@@ -70,9 +65,11 @@ import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorMetrics } from './metrics.js';
 import {
   type StreamingBlockCheckReason,
+  type StreamingBlockCheckResult,
   type StreamingBlockMetadataCheckResult,
   checkStreamingBlockProposalMetadata,
-  getStreamingBlockBundle,
+  isRetryableStreamingBlockCheckReason,
+  readStreamingBlockBundle,
 } from './streaming_inbox_checks.js';
 
 export type BlockProposalValidationFailureReason =
@@ -124,16 +121,49 @@ export type CheckpointProposalValidationFailureReason =
   | 'block_fetch_error'
   | 'world_state_not_synced'
   | 'checkpoint_already_published'
-  | 'no_blocks_for_slot'
   | 'last_block_archive_mismatch'
   | 'too_many_blocks_in_checkpoint'
   | 'initial_archive_mismatch'
   | 'checkpoint_header_mismatch'
   | 'archive_mismatch'
   | 'out_hash_mismatch'
-  // Streaming Inbox last-block censorship failure.
-  | 'inbox_consumption_insufficient'
+  // Streaming Inbox: this node's Inbox view cannot confirm, or disagrees with, the message prefix the checkpoint
+  // consumed. Local-view outcomes, never proposer misconduct.
+  | 'inbox_prefix_unavailable'
+  | 'inbox_prefix_mismatch'
   | 'checkpoint_validation_failed';
+
+/** The streaming-Inbox reasons a checkpoint proposal can fail on; both are retried through a bounded local sync. */
+type CheckpointInboxPrefixReason = Extract<
+  CheckpointProposalValidationFailureReason,
+  'inbox_prefix_unavailable' | 'inbox_prefix_mismatch'
+>;
+
+/**
+ * Maps an archiver insert rejection to the matching per-block validation reason, or undefined when the error is not
+ * an Inbox prefix rejection and must keep propagating.
+ *
+ * Matched on the error name rather than with `instanceof`, because the archiver package is only a dev dependency
+ * here: the validator talks to its archiver through the `L2BlockSink` interface and must not take a runtime
+ * dependency on the implementation to classify its errors. Both prefix outcomes are local-view disagreements, so
+ * neither is in {@link SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT}.
+ */
+function getInboxPrefixInsertFailureReason(err: unknown): StreamingBlockCheckReason | undefined {
+  if (!(err instanceof Error)) {
+    return undefined;
+  }
+  switch (err.name) {
+    case 'InboxPrefixMismatchError':
+      return 'inbox_prefix_mismatch';
+    case 'InboxPrefixNotSyncedError':
+    case 'ProposedBlockParentNotFoundError':
+      return 'inbox_prefix_unavailable';
+    case 'InboxConsumptionRewindsError':
+      return 'consumption_moves_backwards';
+    default:
+      return undefined;
+  }
+}
 
 /**
  * Mapping from a checkpoint-proposal validation failure reason to the tracker outcome that
@@ -152,13 +182,14 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   block_fetch_error: 'unvalidated',
   world_state_not_synced: 'unvalidated',
   initial_archive_mismatch: 'unvalidated',
-  no_blocks_for_slot: 'unvalidated',
   last_block_archive_mismatch: 'invalid',
   too_many_blocks_in_checkpoint: 'invalid',
   checkpoint_header_mismatch: 'invalid',
   archive_mismatch: 'invalid',
   out_hash_mismatch: 'invalid',
-  inbox_consumption_insufficient: 'invalid',
+  // Not proposer misbehavior: this node's Inbox view could not confirm the consumed prefix, or disagrees with it.
+  inbox_prefix_unavailable: 'unvalidated',
+  inbox_prefix_mismatch: 'unvalidated',
   checkpoint_validation_failed: 'invalid',
 };
 
@@ -182,6 +213,9 @@ export type CheckpointProposalValidationFailureCallback = (
   result: CheckpointProposalValidationFailureResult,
   proposalInfo: LogData,
 ) => void | Promise<void>;
+
+/** The blocks of a checkpoint proposal's slot, read in one go, and the index of the block carrying the signed archive. */
+type CheckpointBlocksSnapshot = { blocks: L2Block[]; lastBlockIndex: number };
 
 type CheckpointComputationResult =
   | { checkpointNumber: CheckpointNumber; reason?: undefined }
@@ -216,15 +250,16 @@ export const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<
   // checkpoint inputs, the proposer-signed payload disagrees with deterministic recomputation.
   ['archive_mismatch']: true,
   ['out_hash_mismatch']: true,
-  ['no_blocks_for_slot']: true,
   ['too_many_blocks_in_checkpoint']: true,
   ['checkpoint_validation_failed']: true,
   ['last_block_archive_mismatch']: true,
 
   // disabled
-  // Streaming Inbox last-block censorship: kept out of slashing while the streaming path is new; L1 `propose` is the
-  // authoritative reject (Rollup__UnconsumedInboxMessages).
-  ['inbox_consumption_insufficient']: false,
+  // Streaming Inbox: this node's Inbox view could not confirm the checkpoint's consumed message prefix, or disagrees
+  // with it. Both are local-view outcomes (a trailing archiver, or a reorg this node has not followed yet), not a
+  // proposer offense, even when they persist through the attestation deadline.
+  ['inbox_prefix_unavailable']: false,
+  ['inbox_prefix_mismatch']: false,
   ['invalid_signature']: false,
   ['last_block_not_found']: false,
   ['block_fetch_error']: false,
@@ -575,13 +610,13 @@ export class ProposalHandler {
     }
 
     // Streaming Inbox: run the metadata checks before committing to any network work. They are point lookups
-    // against our own Inbox view, so a proposal carrying a bucket reference that does not resolve locally is
+    // against our own Inbox view, so a proposal carrying a prefix reference that does not resolve locally is
     // rejected without a proposer being able to make us spend the validation window collecting its txs.
     const streamingMetadata = await this.awaitStreamingBlockMetadata(proposal, blockNumber, parentBlock, proposalInfo);
     if (!streamingMetadata.accepted) {
       this.log.warn(`Streaming Inbox block acceptance check failed, skipping processing`, {
         reason: streamingMetadata.reason,
-        bucketRef: proposal.bucketRef?.toInspect(),
+        inboxPrefixRef: proposal.inboxPrefixRef?.toInspect(),
         ...proposalInfo,
       });
       return { isValid: false, blockNumber, reason: streamingMetadata.reason };
@@ -591,15 +626,27 @@ export class ProposalHandler {
     // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
     // The block's message bundle is an independent read, so derive it concurrently with the collection.
     const txsPromise = this.collectProposalTxs(proposal, blockNumber, proposalSender, proposalInfo);
-    const bundlePromise = getStreamingBlockBundle(this.l1ToL2MessageSource, streamingMetadata);
+    const bundlePromise = this.awaitStreamingBlockBundle(proposal, blockNumber, parentBlock, proposalInfo);
     // Promise.all settles on the first rejection, so without a handler of its own the loser's later rejection
     // would surface as an unhandled rejection. Awaiting below still observes whichever rejected first.
     txsPromise.catch(() => {});
     bundlePromise.catch(() => {});
-    const [collected, l1ToL2Messages] = await Promise.all([txsPromise, bundlePromise]);
+    const [collected, bundle] = await Promise.all([txsPromise, bundlePromise]);
     if (collected === 'invalid_embedded_txs') {
       return { isValid: false, blockNumber, reason: collected };
     }
+    // The bundle and the prefix hash it ends at come from one snapshot, so a message replacement that landed between
+    // the metadata check and the read is caught here rather than surfacing as a slashable `state_mismatch` from
+    // re-execution against leaves the proposer never saw.
+    if (!bundle.accepted) {
+      this.log.warn(`Streaming Inbox bundle read failed, skipping processing`, {
+        reason: bundle.reason,
+        inboxPrefixRef: proposal.inboxPrefixRef?.toInspect(),
+        ...proposalInfo,
+      });
+      return { isValid: false, blockNumber, reason: bundle.reason };
+    }
+    const l1ToL2Messages = bundle.bundle;
     const { txs, missingTxs } = collected;
 
     // Record the tx-collection outcome on the re-execution tracker
@@ -662,13 +709,26 @@ export class ProposalHandler {
       );
     } catch (error) {
       this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
-      const reason = this.getReexecuteFailureReason(error);
+      const reason = await this.classifyReexecutionFailure(error, proposal, streamingMetadata, proposalInfo);
       return { isValid: false, blockNumber, reason, reexecutionResult };
     }
 
-    // If we succeeded, push this block into the archiver (unless disabled)
+    // If we succeeded, push this block into the archiver (unless disabled), carrying the proposal's signed Inbox
+    // prefix reference so the archiver re-validates it against its own messages inside the insert transaction. The
+    // checks above already matched it, but an L1 reorg can land in between, and that rejection is a disagreement
+    // between this node's view and the proposal, not proposer misbehavior, so it is classified as a validation
+    // failure rather than left to escape as an unhandled proposal error.
     if (reexecutionResult?.block && !this.config.skipPushProposedBlocksToArchiver) {
-      await this.blockSource.addBlock(reexecutionResult.block);
+      try {
+        await this.blockSource.addBlock(reexecutionResult.block, streamingMetadata.inboxPrefixRef);
+      } catch (err) {
+        const reason = getInboxPrefixInsertFailureReason(err);
+        if (reason === undefined) {
+          throw err;
+        }
+        this.log.warn(`Archiver rejected the re-executed block's Inbox prefix: ${err}`, { ...proposalInfo, reason });
+        return { isValid: false, blockNumber, reason, reexecutionResult };
+      }
     }
 
     this.log.info(
@@ -988,71 +1048,85 @@ export class ProposalHandler {
   }
 
   /**
-   * Runs the streaming-Inbox metadata checks, waiting out a local sync lag. A bucket the proposer consumed is at
-   * least one Ethereum slot old, so it is on L1 by the time the proposal arrives: a bucket this node cannot
-   * resolve is almost always its own archiver trailing L1, not a divergence. That case (and the equivalent one
-   * where the block before the checkpoint's first block has not synced) forces an archiver sync and re-checks
-   * every half second until it resolves or the attestation deadline passes, instead of dropping the attestation
-   * on the spot. A hash mismatch on a bucket we do know gets exactly one forced sync and one re-check, because
-   * this node may be the stale side of an L1 reorg and that sync performs the rollback; a mismatch that survives
-   * it will not resolve by waiting. Every other reason is a structural rejection and returns immediately.
-   *
-   * The wait is bounded by the same consensus deadline as the other sync waits here, so a proposer referencing a
-   * bucket that never appears can at most make validators poll their own archiver for the remainder of its own
-   * slot — which it could waste anyway by not proposing.
+   * Classifies a re-execution failure, demoting a `state_mismatch` to a local-view disagreement when this node's
+   * Inbox view no longer confirms the prefix the block was checked against. The bundle handed to re-execution was
+   * authenticated against the signed reference, so a genuine mismatch with the same inputs is the proposer's; but if
+   * the local prefix at the block's end count has moved since (a reorg this node followed mid-validation), the
+   * proposer may well be the one holding canonical L1 and the verdict must not reach slashing. An appended message
+   * leaves the prefix hash at that count intact, so unrelated L1 activity cannot suppress a real offense.
    */
-  private async awaitStreamingBlockMetadata(
+  private async classifyReexecutionFailure(
+    error: unknown,
+    proposal: BlockProposal,
+    streamingMetadata: StreamingBlockMetadataCheckResult & { accepted: true },
+    proposalInfo: LogData,
+  ): Promise<BlockProposalValidationFailureReason> {
+    const reason = this.getReexecuteFailureReason(error);
+    if (reason !== 'state_mismatch') {
+      return reason;
+    }
+    const current = await this.l1ToL2MessageSource.getMessagePosition(streamingMetadata.endTotalMsgCount);
+    if (current === undefined) {
+      this.log.warn(`Re-execution mismatch while the local Inbox prefix became unavailable, not attributing it`, {
+        ...proposalInfo,
+        endTotalMsgCount: streamingMetadata.endTotalMsgCount,
+      });
+      return 'inbox_prefix_unavailable';
+    }
+    if (!current.rollingHash.equals(proposal.inboxPrefixRef!.inboxRollingHash)) {
+      this.log.warn(`Re-execution mismatch while the local Inbox prefix changed, not attributing it`, {
+        ...proposalInfo,
+        endTotalMsgCount: streamingMetadata.endTotalMsgCount,
+        signed: proposal.inboxPrefixRef!.inboxRollingHash.toString(),
+        local: current.rollingHash.toString(),
+      });
+      return 'inbox_prefix_mismatch';
+    }
+    return reason;
+  }
+
+  /**
+   * Reads the block's message bundle together with the prefix hash it ends at and confirms that hash against the
+   * signed reference, waiting out a local sync lag the same way {@link awaitStreamingBlockMetadata} does.
+   *
+   * The metadata check confirmed the prefix as a point lookup; a content-changing message replacement can commit
+   * between it and this read. {@link readStreamingBlockBundle} reads the leaves and the ending hash from one snapshot,
+   * so a replacement landing before the read shows up as an unconfirmed prefix rather than as leaves the proposer
+   * never saw. The retry re-runs the whole read (metadata plus range) on each attempt rather than reusing a range
+   * from an earlier view, because the parent and checkpoint-start counts it derives can move while a reorg is being
+   * followed.
+   */
+  private async awaitStreamingBlockBundle(
     proposal: BlockProposal,
     blockNumber: BlockNumber,
     parentBlock: 'genesis' | BlockData,
     proposalInfo: LogData,
-  ): Promise<StreamingBlockMetadataCheckResult> {
-    const first = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
-    const bucketRef = proposal.bucketRef;
-    if (first.accepted || bucketRef === undefined) {
+  ): Promise<StreamingBlockCheckResult> {
+    const readBundle = async (): Promise<StreamingBlockCheckResult> => {
+      const metadata = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
+      return metadata.accepted ? readStreamingBlockBundle(this.l1ToL2MessageSource, metadata) : metadata;
+    };
+
+    const first = await readBundle();
+    if (first.accepted || !isRetryableStreamingBlockCheckReason(first.reason)) {
       return first;
     }
 
     const slotNumber = proposal.slotNumber;
-    const bucketSeq = bucketRef.bucketSeq;
-    const outOfBudget = this.getReexecutionDeadline(slotNumber).getTime() - this.dateProvider.now() <= 0;
-
-    if (first.reason === 'bucket_hash_mismatch') {
-      if (outOfBudget) {
-        return first;
-      }
-      await this.blockSource.syncImmediate();
-      const rechecked = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
-      if (!rechecked.accepted && rechecked.reason === 'bucket_hash_mismatch') {
-        this.log.warn(`Inbox bucket ${bucketSeq} still disagrees with the proposal after forcing an archiver sync`, {
-          reason: 'bucket_hash_mismatch_after_sync',
-          bucketSeq,
-          expected: bucketRef.inboxRollingHash.toString(),
-          actual: (await this.l1ToL2MessageSource.getInboxBucket(bucketSeq))?.inboxRollingHash.toString(),
-          ...proposalInfo,
-        });
-      }
-      return rechecked;
-    }
-
-    if (first.reason !== 'bucket_unknown') {
-      return first;
-    }
-
-    this.log.info(`Referenced Inbox bucket ${bucketSeq} not synced locally, awaiting archiver sync`, {
-      bucketSeq,
+    this.log.info(`Inbox bundle read did not confirm the signed prefix, awaiting archiver sync`, {
+      reason: first.reason,
       ...proposalInfo,
     });
     const timer = new Timer();
-    const resolved = await this.awaitLocalSync(slotNumber, `inbox bucket ${bucketSeq}`, async () => {
-      const result = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
-      return !result.accepted && result.reason === 'bucket_unknown' ? undefined : result;
+    const resolved = await this.awaitLocalSync(slotNumber, `inbox bundle for block ${blockNumber}`, async () => {
+      const result = await readBundle();
+      return !result.accepted && isRetryableStreamingBlockCheckReason(result.reason) ? undefined : result;
     });
     if (resolved === undefined) {
-      this.log.warn(`Timed out waiting for Inbox bucket ${bucketSeq} to sync, rejecting proposal`, {
-        reason: 'bucket_sync_timeout',
+      this.log.warn(`Timed out reading a consistent Inbox bundle, rejecting proposal`, {
+        reason: 'inbox_prefix_sync_timeout',
+        firstReason: first.reason,
         slot: slotNumber,
-        bucketSeq,
         waitedMs: timer.ms(),
         ...proposalInfo,
       });
@@ -1062,10 +1136,64 @@ export class ProposalHandler {
   }
 
   /**
-   * Runs the streaming-Inbox per-block metadata checks for a block proposal, returning the bucket range its message
-   * bundle derives from or a rejection reason. The parent block's consumed total and the checkpoint's starting total
-   * are derived from L1-to-L2 tree leaf counts; a parent whose count does not sit on a bucket boundary is rejected
-   * inside {@link checkStreamingBlockProposalMetadata}.
+   * Runs the streaming-Inbox metadata checks, waiting out a local sync lag. The messages the proposer consumed were
+   * observed on L1 by its archiver, so a prefix this node cannot confirm at the block's signed end count is usually
+   * its own archiver trailing L1, or this node being the stale side of an L1 reorg, which the forced sync rolls back.
+   *
+   * Both prefix outcomes are waited out, not just the missing one. A node that has not yet followed a reorg holds a
+   * *present* prefix hash at that count which simply is not canonical any more, and from here that is
+   * indistinguishable from a proposer naming a prefix that never existed. Hard-rejecting the mismatch would drop an
+   * attestation this node would have made moments later, so both it and the unavailable case (and the equivalent one
+   * where the block before the checkpoint's first block has not synced) force an archiver sync and re-check every
+   * half second until the prefix resolves or the attestation deadline passes. Neither is ever attributed to the
+   * proposer. Every other reason is a structural rejection and returns immediately.
+   *
+   * The wait is bounded by the same consensus deadline as the other sync waits here, so a proposer referencing a
+   * prefix that never appears can at most make validators poll their own archiver for the remainder of its own
+   * slot, which it could waste anyway by not proposing.
+   */
+  private async awaitStreamingBlockMetadata(
+    proposal: BlockProposal,
+    blockNumber: BlockNumber,
+    parentBlock: 'genesis' | BlockData,
+    proposalInfo: LogData,
+  ): Promise<StreamingBlockMetadataCheckResult> {
+    const first = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
+    const inboxPrefixRef = proposal.inboxPrefixRef;
+    if (first.accepted || inboxPrefixRef === undefined || !isRetryableStreamingBlockCheckReason(first.reason)) {
+      return first;
+    }
+
+    const slotNumber = proposal.slotNumber;
+    const inboxRollingHash = inboxPrefixRef.inboxRollingHash.toString();
+    this.log.info(`Referenced Inbox prefix ${inboxRollingHash} unconfirmed locally, awaiting archiver sync`, {
+      reason: first.reason,
+      inboxRollingHash,
+      ...proposalInfo,
+    });
+    const timer = new Timer();
+    const resolved = await this.awaitLocalSync(slotNumber, `inbox prefix ${inboxRollingHash}`, async () => {
+      const result = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
+      return !result.accepted && isRetryableStreamingBlockCheckReason(result.reason) ? undefined : result;
+    });
+    if (resolved === undefined) {
+      this.log.warn(`Timed out waiting for Inbox prefix ${inboxRollingHash} to sync, rejecting proposal`, {
+        reason: 'inbox_prefix_sync_timeout',
+        firstReason: first.reason,
+        slot: slotNumber,
+        inboxRollingHash,
+        waitedMs: timer.ms(),
+        ...proposalInfo,
+      });
+      return first;
+    }
+    return resolved;
+  }
+
+  /**
+   * Runs the streaming-Inbox per-block metadata checks for a block proposal, returning the cumulative message-count
+   * range its bundle derives from or a rejection reason. The block's end total comes from its own signed header, and
+   * the parent's and the checkpoint's starting totals from the L1-to-L2 tree leaf counts of the local chain.
    */
   private async checkStreamingBlockMetadata(
     proposal: BlockProposal,
@@ -1080,13 +1208,14 @@ export class ProposalHandler {
     );
     if (checkpointStartTotalMsgCount === undefined) {
       // The block before the checkpoint's first block has not synced locally, so the per-checkpoint cap origin is
-      // unavailable: treat as an unknown local view. Like an unknown bucket this is local lag rather than a
-      // divergence, and `awaitStreamingBlockMetadata` waits it out by re-running the whole check after a sync.
-      return { accepted: false, reason: 'bucket_unknown' };
+      // unavailable: treat it as an unresolvable local view. Like an unconfirmable prefix this is local lag rather
+      // than a divergence, and `awaitStreamingBlockMetadata` waits it out by re-running the whole check after a sync.
+      return { accepted: false, reason: 'inbox_prefix_unavailable' };
     }
     return checkStreamingBlockProposalMetadata({
       messageSource: this.l1ToL2MessageSource,
-      bucketRef: proposal.bucketRef,
+      inboxPrefixRef: proposal.inboxPrefixRef,
+      endTotalMsgCount: this.headerLeafCount(proposal.blockHeader),
       parentTotalMsgCount,
       checkpointStartTotalMsgCount,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
@@ -1096,7 +1225,12 @@ export class ProposalHandler {
 
   /** A block's L1-to-L2 message tree leaf count: the cumulative Inbox message count it consumed through. */
   private blockLeafCount(block: BlockData | L2Block): bigint {
-    return BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+    return this.headerLeafCount(block.header);
+  }
+
+  /** A block header's L1-to-L2 message tree leaf count, for the signed header a proposal carries. */
+  private headerLeafCount(header: BlockHeader): bigint {
+    return BigInt(header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
   }
 
   /** The cumulative Inbox message count consumed through a block: its L1-to-L2 tree leaf count (0 at genesis). */
@@ -1133,50 +1267,107 @@ export class ProposalHandler {
   }
 
   /**
-   * Enforces the streaming-Inbox last-block minimum-consumption (censorship) rule for a checkpoint, mirroring
-   * `ProposeLib.validateInboxConsumption`: the first bucket the checkpoint left unconsumed must be absent, past the
-   * cutoff, or a cap-escape. Returns true (sufficient) when the checkpoint's final consumption position cannot be
-   * resolved against the local Inbox view, deferring to L1 `propose` as the authoritative reject.
+   * Reads the ordered list of L1-to-L2 messages a checkpoint consumed across its blocks, the compact message-count
+   * range between the parent checkpoint's consumed position and the checkpoint's last block, and confirms that the
+   * prefix it ends at hashes to the checkpoint header's `inboxRollingHash`. Both are read from one snapshot of the
+   * local message log, so the list handed to the checkpoint recomputation is exactly the one the header commits to.
+   *
+   * This is a content check, not an L1 endpoint oracle: whether the final position is a live Inbox bucket and
+   * whether it satisfies L1's settlement and censorship rules is left to the proposer's publication preflight and
+   * to `propose` itself, so a content-valid checkpoint the committee attests can still fail to publish. A range this
+   * node cannot serve, or whose ending hash disagrees with the header, is a local-view outcome the caller retries
+   * through a bounded sync and never attributes to the proposer; it is never turned into an empty bundle, which would
+   * make a valid proposal fail its rolling-hash recomputation as a proposer offense.
    */
-  private async isLastBlockConsumptionSufficient(
-    slot: SlotNumber,
+  private async readCheckpointConsumedMessages(
     checkpointStartTotal: bigint,
-    blocks: L2Block[],
-  ): Promise<boolean> {
-    const lastBlockTotal = this.blockLeafCount(blocks[blocks.length - 1]);
-    const lastConsumedBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(lastBlockTotal);
-    if (lastConsumedBucket === undefined) {
-      return true;
+    lastBlockTotal: bigint,
+    checkpointInboxRollingHash: Fr,
+  ): Promise<{ accepted: true; messages: Fr[] } | { accepted: false; reason: CheckpointInboxPrefixReason }> {
+    if (lastBlockTotal < checkpointStartTotal) {
+      return { accepted: false, reason: 'inbox_prefix_mismatch' };
     }
-    const nextBucket = await this.l1ToL2MessageSource.getInboxBucket(lastConsumedBucket.seq + 1n);
-    const cutoffTimestamp = getInboxCutoffTimestamp(slot, this.epochCache.getL1Constants());
-    return isInboxConsumptionSufficient({
-      nextBucket,
-      cutoffTimestamp,
-      checkpointStartTotalMsgCount: checkpointStartTotal,
-      perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
-    });
+    let messages: Fr[];
+    let endRollingHash: Fr;
+    try {
+      ({
+        messages,
+        end: { rollingHash: endRollingHash },
+      } = await this.l1ToL2MessageSource.getL1ToL2MessageRange(checkpointStartTotal, lastBlockTotal));
+    } catch (err) {
+      this.log.warn(`Cannot read the messages this checkpoint consumed: ${err}`, {
+        checkpointStartTotal,
+        lastBlockTotal,
+      });
+      return { accepted: false, reason: 'inbox_prefix_unavailable' };
+    }
+    if (!endRollingHash.equals(checkpointInboxRollingHash)) {
+      return { accepted: false, reason: 'inbox_prefix_mismatch' };
+    }
+    return { accepted: true, messages };
   }
 
   /**
-   * Derives the ordered list of L1-to-L2 messages a checkpoint consumed across its blocks: the compact message-count
-   * range between the parent checkpoint's consumed position and the checkpoint's last block, read by count from the
-   * local message log. Empty when the checkpoint consumed nothing.
-   *
-   * Neither bound is resolved as an Inbox bucket. Both are counts committed by block headers, and an L1 reorg that
-   * merges buckets can leave either one interior to the current partition without changing the messages the blocks
-   * consumed; whether the final position is a live bucket end is a publication rule L1 `propose` enforces. The
-   * minimum-consumption guard that runs before this only checks censorship against the buckets it can resolve
-   * locally and defers an unresolved endpoint to L1. Throws when part of the range is not available locally: a local
-   * availability
-   * gap must surface as such rather than as an empty bundle that would make a valid proposal fail its rolling-hash
-   * recomputation.
+   * Runs {@link readCheckpointConsumedMessages}, waiting out a local sync lag the way the per-block checks do: an
+   * unavailable or mismatching prefix forces an archiver sync and re-reads until it resolves or the attestation
+   * deadline passes. Neither outcome is proposer misconduct, so a timeout keeps the nonpunitive reason.
    */
-  private deriveCheckpointConsumedMessages(checkpointStartTotal: bigint, blocks: L2Block[]): Promise<Fr[]> {
-    const lastBlockTotal = this.blockLeafCount(blocks[blocks.length - 1]);
-    return lastBlockTotal <= checkpointStartTotal
-      ? Promise.resolve([])
-      : this.l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts(checkpointStartTotal, lastBlockTotal);
+  /**
+   * Reads the blocks of a slot as one snapshot for checkpoint validation, locating the checkpoint's last block by the
+   * signed archive. Undefined when the archive is not among the slot's blocks or the blocks do not chain onto each
+   * other, both of which are the archiver replacing or pruning blocks while they were read.
+   */
+  private async readCheckpointBlocksSnapshot(
+    slot: SlotNumber,
+    archive: Fr,
+  ): Promise<CheckpointBlocksSnapshot | undefined> {
+    const blocks = await this.blockSource.getBlocksForSlot(slot);
+    const lastBlockIndex = blocks.findIndex(block => block.archive.root.equals(archive));
+    if (lastBlockIndex === -1) {
+      return undefined;
+    }
+    const contiguous = blocks.every(
+      (block, i) =>
+        i === 0 ||
+        (block.number === blocks[i - 1].number + 1 && block.header.lastArchive.root.equals(blocks[i - 1].archive.root)),
+    );
+    return contiguous ? { blocks, lastBlockIndex } : undefined;
+  }
+
+  private async awaitCheckpointConsumedMessages(
+    slot: SlotNumber,
+    checkpointStartTotal: bigint,
+    lastBlockTotal: bigint,
+    checkpointInboxRollingHash: Fr,
+    proposalInfo: LogData,
+  ): Promise<{ accepted: true; messages: Fr[] } | { accepted: false; reason: CheckpointInboxPrefixReason }> {
+    const read = () =>
+      this.readCheckpointConsumedMessages(checkpointStartTotal, lastBlockTotal, checkpointInboxRollingHash);
+    const first = await read();
+    if (first.accepted) {
+      return first;
+    }
+    this.log.info(`Checkpoint's consumed Inbox prefix unconfirmed locally, awaiting archiver sync`, {
+      reason: first.reason,
+      checkpointStartTotal,
+      lastBlockTotal,
+      ...proposalInfo,
+    });
+    const resolved = await this.awaitLocalSync(slot, `inbox prefix for checkpoint at slot ${slot}`, async () => {
+      const result = await read();
+      return result.accepted ? result : undefined;
+    });
+    if (resolved === undefined) {
+      this.log.warn(`Timed out waiting for the checkpoint's consumed Inbox prefix to sync, refusing to attest`, {
+        reason: 'inbox_prefix_sync_timeout',
+        firstReason: first.reason,
+        checkpointStartTotal,
+        lastBlockTotal,
+        ...proposalInfo,
+      });
+      return first;
+    }
+    return resolved;
   }
 
   async reexecuteTransactions(
@@ -1321,10 +1512,17 @@ export class ProposalHandler {
     const slot = proposal.slotNumber;
     const payloadHash = proposal.getPayloadHash();
 
-    // Check cache: same signed-payload hash means we already validated this exact proposal.
+    // Check cache: same signed-payload hash means we already validated this exact proposal. A valid verdict rests
+    // on blocks this node holds locally, and p2p makes two calls for one proposal (the all-nodes validation, then
+    // the attestation), so an archiver rollback in between can prune those blocks. Re-check that the checkpoint's
+    // last block is still local before reusing a valid verdict, or the attestation outlives what it was based on.
     if (this.lastCheckpointValidationResult && this.lastCheckpointValidationResult.payloadHash === payloadHash) {
-      this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
-      return this.lastCheckpointValidationResult.result;
+      const cached = this.lastCheckpointValidationResult.result;
+      if (!cached.isValid || (await this.blockSource.getBlockData({ archive: proposal.archive })) !== undefined) {
+        this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
+        return cached;
+      }
+      this.log.warn(`Re-validating checkpoint proposal at slot ${slot}: its blocks are no longer local`, proposalInfo);
     }
 
     const proposer = proposal.getSender();
@@ -1384,15 +1582,19 @@ export class ProposalHandler {
     // right up to the proposer's real publish cutoff.
     const deadline = this.getReexecutionDeadline(slot);
 
-    // Wait for last block to sync by archive. The deadline is passed to retryUntil as an absolute date so
-    // the remaining budget is derived from the date provider; a deadline already in the past times out
-    // after a single attempt instead of looping (the immediate-timeout semantics of the deadline overload).
-    let lastBlockData;
+    // Wait for the checkpoint's blocks to sync. One read of the slot's blocks is the snapshot the whole validation
+    // runs on: the block carrying the signed archive is the checkpoint's last block, and the slot's blocks before it
+    // are the checkpoint's. Reading the last block by archive and the slot's blocks separately would let a local prune
+    // between the two reads look like a proposer offense; a slot read without the signed archive, or one that is not
+    // a contiguous chain, is local state in motion and is retried. The deadline is passed to retryUntil as an
+    // absolute date so the remaining budget is derived from the date provider; a deadline already in the past times
+    // out after a single attempt instead of looping (the immediate-timeout semantics of the deadline overload).
+    let snapshot: CheckpointBlocksSnapshot | undefined;
     try {
-      lastBlockData = await retryUntil(
+      snapshot = await retryUntil(
         async () => {
           await this.blockSource.syncImmediate();
-          return await this.blockSource.getBlockData({ archive: proposal.archive });
+          return await this.readCheckpointBlocksSnapshot(slot, proposal.archive);
         },
         `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
         { deadline, dateProvider: this.dateProvider },
@@ -1407,39 +1609,39 @@ export class ProposalHandler {
       return { isValid: false, reason: 'block_fetch_error' };
     }
 
-    if (!lastBlockData) {
+    if (!snapshot) {
       this.log.warn(`Last block not found for checkpoint proposal`, proposalInfo);
       return { isValid: false, reason: 'last_block_not_found' };
     }
+    const { blocks, lastBlockIndex } = snapshot;
+    const lastBlock = blocks[lastBlockIndex];
 
     // Refuse to attest if the block's enclosing checkpoint has already been published to L1.
-    const existingCheckpoint = await this.blockSource.getCheckpointData({ number: lastBlockData.checkpointNumber });
+    const existingCheckpoint = await this.blockSource.getCheckpointData({ number: lastBlock.checkpointNumber });
     if (existingCheckpoint) {
       this.log.warn(`Refusing to attest to checkpoint proposal whose checkpoint is already on L1`, {
         ...proposalInfo,
-        checkpointNumber: lastBlockData.checkpointNumber,
+        checkpointNumber: lastBlock.checkpointNumber,
       });
       return {
         isValid: false,
         reason: 'checkpoint_already_published',
-        checkpointNumber: lastBlockData.checkpointNumber,
+        checkpointNumber: lastBlock.checkpointNumber,
       };
     }
 
-    // Get all full blocks for the slot and checkpoint
-    const blocks = await this.blockSource.getBlocksForSlot(slot);
-    if (blocks.length === 0) {
-      this.log.warn(`No blocks found for slot ${slot}`, proposalInfo);
-      return { isValid: false, reason: 'no_blocks_for_slot', checkpointNumber: lastBlockData.checkpointNumber };
-    }
-
-    // Ensure the last block for this slot matches the archive in the checkpoint proposal
-    if (!blocks.at(-1)?.archive.root.equals(proposal.archive)) {
-      this.log.warn(`Last block archive mismatch for checkpoint proposal`, proposalInfo);
+    // The signed archive names a block of the slot that is followed by more of the proposer's blocks for the same
+    // slot: the proposal leaves signed blocks of its own slot out, which no local race explains.
+    if (lastBlockIndex !== blocks.length - 1) {
+      this.log.warn(`Last block archive mismatch for checkpoint proposal`, {
+        ...proposalInfo,
+        lastBlockNumber: lastBlock.number,
+        laterBlockNumbers: blocks.slice(lastBlockIndex + 1).map(b => b.number),
+      });
       return {
         isValid: false,
         reason: 'last_block_archive_mismatch',
-        checkpointNumber: lastBlockData.checkpointNumber,
+        checkpointNumber: lastBlock.checkpointNumber,
       };
     }
 
@@ -1460,7 +1662,7 @@ export class ProposalHandler {
       return {
         isValid: false,
         reason: 'too_many_blocks_in_checkpoint',
-        checkpointNumber: lastBlockData.checkpointNumber,
+        checkpointNumber: lastBlock.checkpointNumber,
       };
     }
 
@@ -1486,20 +1688,27 @@ export class ProposalHandler {
       return { isValid: false, reason: 'block_fetch_error', checkpointNumber };
     }
 
-    // Streaming Inbox: on the last block of a checkpoint, enforce the minimum-consumption
-    // (censorship) rule before attesting. Reject (no attestation) if a mandatory bucket was left unconsumed.
-    if (!(await this.isLastBlockConsumptionSufficient(slot, checkpointStartTotal, blocks))) {
-      this.log.warn(`Streaming Inbox last-block censorship check failed, refusing to attest`, {
+    // Streaming Inbox: read the checkpoint's consumed L1-to-L2 message list from the count range between the parent
+    // checkpoint's consumed position and the last block's, and confirm it ends at the header's rolling hash. The
+    // messages are already in the db from per-block validation; this list drives the checkpoint's rolling-hash
+    // recomputation in completeCheckpoint. No bucket or L1 endpoint is resolved here: that is the proposer's and
+    // L1's publication check.
+    const consumed = await this.awaitCheckpointConsumedMessages(
+      slot,
+      checkpointStartTotal,
+      this.blockLeafCount(blocks[blocks.length - 1]),
+      proposal.checkpointHeader.inboxRollingHash,
+      proposalInfo,
+    );
+    if (!consumed.accepted) {
+      this.log.warn(`Streaming Inbox checkpoint content check failed, refusing to attest`, {
         ...proposalInfo,
+        reason: consumed.reason,
         checkpointNumber,
       });
-      return { isValid: false, reason: 'inbox_consumption_insufficient', checkpointNumber };
+      return { isValid: false, reason: consumed.reason, checkpointNumber };
     }
-
-    // Derive the checkpoint's consumed L1-to-L2 message list from the message-count range between the parent
-    // checkpoint's consumed position and the last block's. The messages are already in the db from per-block
-    // validation; this list only drives the checkpoint's rolling-hash recomputation in completeCheckpoint.
-    const l1ToL2Messages = await this.deriveCheckpointConsumedMessages(checkpointStartTotal, blocks);
+    const l1ToL2Messages = consumed.messages;
 
     // Collect the out hashes of all the checkpoints before this one in the same epoch.
     // See note on the analogous block-proposal site: the helper handles pipelining lag.

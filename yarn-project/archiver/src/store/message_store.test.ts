@@ -5,17 +5,14 @@ import { toArray } from '@aztec/foundation/iterable';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import '@aztec/stdlib/testing/jest';
 
-import { InboxBucketNotSyncedError, InboxMessageRangeNotSyncedError } from '../errors.js';
+import { InboxMessageRangeNotSyncedError } from '../errors.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import {
   makeInboxMessage,
   makeInboxMessages,
   makeInboxMessagesWithFullBlocks,
-  makeL1BlockHash,
-  makeL1BlockNumberForBucket,
   makePublishedCheckpoint,
   makeStateForBlock,
 } from '../test/mock_structs.js';
@@ -82,10 +79,8 @@ describe('MessageStore', () => {
     it('returns the L1 block set via setMessageSyncState', async () => {
       const l1BlockHash = Buffer32.random();
       const l1BlockNumber = 10n;
-      await messageStore.setMessageSyncState({ l1BlockNumber, l1BlockHash });
-      await messageStore.addL1ToL2MessageBuckets([
-        makeInboxMessage(Fr.ZERO, { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() }),
-      ]);
+      await messageStore.setMessageSyncState({ l1Block: { l1BlockNumber, l1BlockHash }, authenticated: true });
+      await messageStore.addL1ToL2Messages([makeInboxMessage(Fr.ZERO, { l1BlockNumber: 5n })]);
       await expect(getSynchPoint(blockStore, messageStore)).resolves.toEqual({
         blocksSynchedTo: undefined,
         messagesSynchedTo: { l1BlockHash, l1BlockNumber },
@@ -102,22 +97,22 @@ describe('MessageStore', () => {
 
     it('stores first message ever', async () => {
       const msg = makeInboxMessage(Fr.ZERO, { index: 0n });
-      await messageStore.addL1ToL2MessageBuckets([msg]);
+      await messageStore.addL1ToL2Messages([msg]);
 
       await checkMessages([msg]);
     });
 
     it('stores and returns messages across different blocks', async () => {
       const msgs = makeInboxMessages(5);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
 
       await checkMessages(msgs);
     });
 
     it('stores the same messages again', async () => {
       const msgs = makeInboxMessages(5);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(2));
+      await messageStore.addL1ToL2Messages(msgs);
+      await messageStore.addL1ToL2Messages(msgs.slice(2));
 
       await checkMessages(msgs);
     });
@@ -129,37 +124,37 @@ describe('MessageStore', () => {
         initialIndex: BigInt(msgs1.length),
       });
 
-      await messageStore.addL1ToL2MessageBuckets(msgs1);
-      await messageStore.addL1ToL2MessageBuckets(msgs2);
+      await messageStore.addL1ToL2Messages(msgs1);
+      await messageStore.addL1ToL2Messages(msgs2);
 
       await checkMessages([...msgs1, ...msgs2]);
     });
 
     it('stores and returns messages with block numbers larger than a byte', async () => {
       const msgs = makeInboxMessages(5, { overrideFn: (msg, i) => ({ ...msg, l1BlockNumber: BigInt(1000 + i) }) });
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
 
       await checkMessages(msgs);
     });
 
     it('stores and returns multiple messages per block', async () => {
       const msgs = makeInboxMessagesWithFullBlocks(4);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
 
       await checkMessages(msgs);
     });
 
     it('stores messages in multiple operations', async () => {
       const msgs = makeInboxMessages(20);
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 10));
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(10, 20));
+      await messageStore.addL1ToL2Messages(msgs.slice(0, 10));
+      await messageStore.addL1ToL2Messages(msgs.slice(10, 20));
 
       await checkMessages(msgs);
     });
 
     it('iterates over messages from start index', async () => {
       const msgs = makeInboxMessages(10);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
 
       const iterated = await toArray(messageStore.iterateL1ToL2Messages({ start: msgs[3].index }));
       expect(iterated).toEqual(msgs.slice(3));
@@ -167,7 +162,7 @@ describe('MessageStore', () => {
 
     it('iterates over messages in reverse', async () => {
       const msgs = makeInboxMessages(10);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
 
       const iterated = await toArray(messageStore.iterateL1ToL2Messages({ reverse: true, end: msgs[3].index }));
       expect(iterated).toEqual(msgs.slice(0, 4).reverse());
@@ -175,32 +170,32 @@ describe('MessageStore', () => {
 
     it('throws if messages are added out of order', async () => {
       const msgs = makeInboxMessages(5, { overrideFn: (msg, i) => ({ ...msg, index: BigInt(10 - i) }) });
-      await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
+      await expect(messageStore.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
     });
 
     it('throws if index is not contiguous with the previous message', async () => {
       const msgs = makeInboxMessages(5);
       msgs.at(-1)!.index += 100n;
-      await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
+      await expect(messageStore.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
     });
 
     it('throws if there is a gap in the indices', async () => {
       const msgs = makeInboxMessages(4);
       msgs[2].index++;
-      await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
+      await expect(messageStore.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
     });
 
     it('throws if the first index of a batch does not follow the last stored message', async () => {
       const msgs = makeInboxMessages(4);
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 2));
+      await messageStore.addL1ToL2Messages(msgs.slice(0, 2));
       msgs[2].index++;
-      await expect(messageStore.addL1ToL2MessageBuckets(msgs.slice(2, 4))).rejects.toThrow(MessageStoreError);
+      await expect(messageStore.addL1ToL2Messages(msgs.slice(2, 4))).rejects.toThrow(MessageStoreError);
     });
 
     it('throws if the consensus rolling hash is not correct', async () => {
       const msgs = makeInboxMessages(5);
       msgs[1].inboxRollingHash = Fr.random();
-      await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
+      await expect(messageStore.addL1ToL2Messages(msgs)).rejects.toThrow(MessageStoreError);
     });
 
     it('removes messages inserted after a given L1 block', async () => {
@@ -208,7 +203,7 @@ describe('MessageStore', () => {
       const msgs = makeInboxMessages(6, {
         overrideFn: (msg, i) => ({ ...msg, l1BlockNumber: BigInt(100 + Math.floor(i / 2)) }),
       });
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
       await checkMessages(msgs);
 
       await messageStore.rollbackL1ToL2MessagesAfterL1Block(101n);
@@ -219,7 +214,7 @@ describe('MessageStore', () => {
 
     it('removes messages starting with the given index', async () => {
       const msgs = makeInboxMessagesWithFullBlocks(4);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
 
       await messageStore.removeL1ToL2Messages(msgs[13].index);
       await checkMessages(msgs.slice(0, 13));
@@ -229,7 +224,7 @@ describe('MessageStore', () => {
   describe('iterateL1ToL2Messages', () => {
     it('honours zero range bounds', async () => {
       const msgs = makeInboxMessages(3);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
 
       // Zero is a valid compact index, so an exclusive end of zero selects nothing rather than everything.
       expect(await toArray(messageStore.iterateL1ToL2Messages({ end: 0n }))).toEqual([]);
@@ -247,7 +242,7 @@ describe('MessageStore', () => {
 
     it('resolves the position at a synced message count', async () => {
       const msgs = makeInboxMessages(6);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
 
       // Position zero always resolves; every other count resolves to the hash stored with the message before it.
       expect(await messageStore.getMessagePosition(0n)).toEqual(zeroPosition);
@@ -276,10 +271,10 @@ describe('MessageStore', () => {
 
     it('tracks the synced position through appends and removals', async () => {
       const msgs = makeInboxMessages(6);
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 4));
+      await messageStore.addL1ToL2Messages(msgs.slice(0, 4));
       expect(await messageStore.getSyncedMessagePosition()).toEqual(positionAfter(msgs[3]));
 
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(4));
+      await messageStore.addL1ToL2Messages(msgs.slice(4));
       expect(await messageStore.getSyncedMessagePosition()).toEqual(positionAfter(msgs[5]));
 
       await messageStore.removeL1ToL2Messages(2n);
@@ -290,7 +285,7 @@ describe('MessageStore', () => {
 
     it('reads a message range together with the positions at both bounds', async () => {
       const msgs = makeInboxMessages(6);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
       const leaves = msgs.map(m => m.leaf);
 
       expect(await messageStore.getL1ToL2MessageRange(0n, 6n)).toEqual({
@@ -318,7 +313,7 @@ describe('MessageStore', () => {
 
     it('reads the messages and the ending position from one snapshot under a concurrent removal', async () => {
       const msgs = makeInboxMessages(6);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
 
       // Both operations are queued without awaiting: the read runs as one store transaction, so it sees either the
       // full sequence or the truncated one, never the leaves of one with the ending hash of the other.
@@ -342,7 +337,7 @@ describe('MessageStore', () => {
 
     it('throws on an invalid or unsynced message range', async () => {
       const msgs = makeInboxMessages(6);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
 
       await expect(messageStore.getL1ToL2MessageRange(3n, 9n)).rejects.toThrow(InboxMessageRangeNotSyncedError);
       await expect(messageStore.getL1ToL2MessageRange(7n, 7n)).rejects.toThrow(InboxMessageRangeNotSyncedError);
@@ -352,7 +347,7 @@ describe('MessageStore', () => {
 
     it('throws when the range or its starting position has a hole', async () => {
       const msgs = makeInboxMessages(6);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(msgs);
       await db.openMap<number, Buffer>('archiver_l1_to_l2_messages').delete(2);
 
       // Index 2 is missing: ranges over it are short, and a range starting at count 3 has no starting position.
@@ -367,284 +362,31 @@ describe('MessageStore', () => {
     });
   });
 
-  describe('Inbox buckets', () => {
-    // Builds `count` consecutive valid messages, then reassigns their bucket sequence and timestamp per the given
-    // per-message spec so we can exercise multi-message and rollover buckets.
-    const makeBucketedMessages = (
-      spec: { seq: bigint; timestamp: bigint; l1BlockNumber?: bigint }[],
-    ): InboxMessage[] => {
-      const msgs = makeInboxMessages(spec.length);
-      msgs.forEach((msg, i) => {
-        msg.bucketSeq = spec[i].seq;
-        msg.bucketTimestamp = spec[i].timestamp;
-        // Buckets opened at the same L1 timestamp are rollover siblings within one L1 block, so derive the block
-        // from the timestamp rather than from the bucket sequence.
-        msg.l1BlockNumber = spec[i].l1BlockNumber ?? makeL1BlockNumberForBucket(spec[i].timestamp);
-        msg.l1BlockHash = makeL1BlockHash(msg.l1BlockNumber);
-      });
-      return msgs;
-    };
-
-    // Builds a valid message continuing the chain after `previous`, absorbed into the given bucket.
-    const makeNextMessage = (previous: InboxMessage, bucket: { seq: bigint; timestamp: bigint }): InboxMessage => {
-      const leaf = Fr.random();
-      return {
-        ...previous,
-        leaf,
-        index: previous.index + 1n,
-        inboxRollingHash: updateInboxRollingHash(previous.inboxRollingHash, leaf),
-        bucketSeq: bucket.seq,
-        bucketTimestamp: bucket.timestamp,
-      };
-    };
-
-    // Three buckets over six messages: bucket 1 = [0,1,2], bucket 2 = [3,4], bucket 3 = [5].
-    const threeBucketSpec = [
-      { seq: 1n, timestamp: 100n },
-      { seq: 1n, timestamp: 100n },
-      { seq: 1n, timestamp: 100n },
-      { seq: 2n, timestamp: 200n },
-      { seq: 2n, timestamp: 200n },
-      { seq: 3n, timestamp: 300n },
-    ];
-
-    it('snapshots buckets as messages are inserted', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-
-      expect(await messageStore.getInboxBucket(1n)).toEqual({
-        seq: 1n,
-        inboxRollingHash: msgs[2].inboxRollingHash,
-        totalMsgCount: 3n,
-        timestamp: 100n,
-        msgCount: 3,
-        lastMessageIndex: msgs[2].index,
-        l1BlockNumber: msgs[0].l1BlockNumber,
-        l1BlockHash: msgs[0].l1BlockHash,
-      });
-      expect(await messageStore.getInboxBucket(2n)).toEqual({
-        seq: 2n,
-        inboxRollingHash: msgs[4].inboxRollingHash,
-        totalMsgCount: 5n,
-        timestamp: 200n,
-        msgCount: 2,
-        lastMessageIndex: msgs[4].index,
-        l1BlockNumber: msgs[3].l1BlockNumber,
-        l1BlockHash: msgs[3].l1BlockHash,
-      });
-      expect(await messageStore.getInboxBucket(3n)).toEqual({
-        seq: 3n,
-        inboxRollingHash: msgs[5].inboxRollingHash,
-        totalMsgCount: 6n,
-        timestamp: 300n,
-        msgCount: 1,
-        lastMessageIndex: msgs[5].index,
-        l1BlockNumber: msgs[5].l1BlockNumber,
-        l1BlockHash: msgs[5].l1BlockHash,
-      });
-      expect(await messageStore.getInboxBucket(4n)).toBeUndefined();
-    });
-
-    it('resolves a bucket by its cumulative message total', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-
-      // Each bucket boundary (cumulative totals 3, 5, 6) resolves to its bucket.
-      expect((await messageStore.getInboxBucketByTotalMsgCount(3n))?.seq).toEqual(1n);
-      expect((await messageStore.getInboxBucketByTotalMsgCount(5n))?.seq).toEqual(2n);
-      expect((await messageStore.getInboxBucketByTotalMsgCount(6n))?.seq).toEqual(3n);
-      // A total inside a bucket (not on a boundary) does not resolve.
-      expect(await messageStore.getInboxBucketByTotalMsgCount(4n)).toBeUndefined();
-      // A total past the last synced bucket does not resolve.
-      expect(await messageStore.getInboxBucketByTotalMsgCount(7n)).toBeUndefined();
-    });
-
-    it('synthesizes the genesis sentinel bucket (sequence 0, total 0) which is never ingested', async () => {
-      // With real messages present but no ingested sequence-0 snapshot, both lookups still resolve genesis.
-      await messageStore.addL1ToL2MessageBuckets(makeBucketedMessages(threeBucketSpec));
-
-      expect(await messageStore.getInboxBucket(0n)).toMatchObject({ seq: 0n, totalMsgCount: 0n, msgCount: 0 });
-      expect(await messageStore.getInboxBucketByTotalMsgCount(0n)).toMatchObject({ seq: 0n, totalMsgCount: 0n });
-    });
-
-    it('rejects a bucket delivered without the messages already stored for it', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 2));
-
-      // The second batch continues bucket 1 from its third message, so its snapshot would undercount the bucket.
-      await expect(messageStore.addL1ToL2MessageBuckets(msgs.slice(2))).rejects.toThrow(/Incomplete Inbox bucket 1/);
-    });
-
-    it('rebuilds a stored bucket re-delivered in full with a replaced tail', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 3));
-      // An L1 reorg drops bucket 1's last message; the re-sync replays the whole L1 block it lives in.
-      await messageStore.removeL1ToL2Messages(msgs[2].index);
-      const replacement = makeNextMessage(msgs[1], { seq: 1n, timestamp: 100n });
-      await messageStore.addL1ToL2MessageBuckets([msgs[0], msgs[1], replacement]);
-
-      expect(await messageStore.getInboxBucket(1n)).toEqual({
-        seq: 1n,
-        inboxRollingHash: replacement.inboxRollingHash,
-        totalMsgCount: 3n,
-        timestamp: 100n,
-        msgCount: 3,
-        lastMessageIndex: replacement.index,
-        l1BlockNumber: msgs[0].l1BlockNumber,
-        l1BlockHash: msgs[0].l1BlockHash,
-      });
-      expect(await messageStore.getTotalL1ToL2MessageCount()).toEqual(3n);
-    });
-
-    it('records the L1 block a bucket is re-delivered in after a rollback', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec).slice(0, 3);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-      expect(await messageStore.getInboxBucket(1n)).toMatchObject({
-        l1BlockNumber: msgs[0].l1BlockNumber,
-        l1BlockHash: msgs[0].l1BlockHash,
-      });
-
-      // The L1 block holding bucket 1 was reorged out and re-mined with the same messages under a different hash.
-      await messageStore.rollbackL1ToL2MessagesAfterL1Block(0n);
-      const replayed = msgs.map(msg => ({ ...msg, l1BlockHash: makeL1BlockHash(99n) }));
-      await messageStore.addL1ToL2MessageBuckets(replayed);
-
-      expect(await messageStore.getInboxBucket(1n)).toMatchObject({
-        msgCount: 3,
-        l1BlockNumber: msgs[0].l1BlockNumber,
-        l1BlockHash: makeL1BlockHash(99n),
-      });
-    });
-
-    it('records the L1 block a bucket is re-delivered in without a rollback', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec).slice(0, 3);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-
-      // The same messages are seen again under a different L1 block hash, and are reinserted in place.
-      const replayed = msgs.map(msg => ({ ...msg, l1BlockHash: makeL1BlockHash(99n) }));
-      await messageStore.addL1ToL2MessageBuckets(replayed);
-
-      expect(await messageStore.getInboxBucket(1n)).toMatchObject({
-        msgCount: 3,
-        totalMsgCount: 3n,
-        l1BlockNumber: msgs[0].l1BlockNumber,
-        l1BlockHash: makeL1BlockHash(99n),
-      });
-      expect(await messageStore.getTotalL1ToL2MessageCount()).toEqual(3n);
-    });
-
-    it('records the opening L1 block of a bucket spanning co-timestamped L1 blocks', async () => {
-      // Chains that allow consecutive blocks to share a timestamp (anvil with manual mining) can spread one
-      // bucket over several L1 blocks; the snapshot keeps the block the bucket was opened in.
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      msgs[2].l1BlockNumber = msgs[0].l1BlockNumber + 1n;
-      msgs[2].l1BlockHash = makeL1BlockHash(msgs[2].l1BlockNumber);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-
-      expect(await messageStore.getInboxBucket(1n)).toMatchObject({
-        msgCount: 3,
-        l1BlockNumber: msgs[0].l1BlockNumber,
-        l1BlockHash: msgs[0].l1BlockHash,
-      });
-    });
-
-    it('rejects a message opening a bucket older than the newest stored one', async () => {
-      const msgs = makeBucketedMessages([
-        { seq: 1n, timestamp: 100n },
-        { seq: 2n, timestamp: 200n },
-        { seq: 4n, timestamp: 400n },
-      ]);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-
-      const stale = makeNextMessage(msgs[2], { seq: 3n, timestamp: 300n });
-      await expect(messageStore.addL1ToL2MessageBuckets([stale])).rejects.toThrow(/Cannot open Inbox bucket 3/);
-    });
-
-    it('throws if the consensus rolling hash is not correct', async () => {
-      const msgs = makeInboxMessages(5);
-      msgs[1].inboxRollingHash = Fr.random();
-      await expect(messageStore.addL1ToL2MessageBuckets(msgs)).rejects.toThrow(MessageStoreError);
-    });
-
-    it('resolves the latest bucket at or before a timestamp', async () => {
-      await messageStore.addL1ToL2MessageBuckets(makeBucketedMessages(threeBucketSpec));
-
-      expect((await messageStore.getLatestInboxBucketAtOrBefore(100n))!.seq).toEqual(1n);
-      expect((await messageStore.getLatestInboxBucketAtOrBefore(150n))!.seq).toEqual(1n);
-      expect((await messageStore.getLatestInboxBucketAtOrBefore(300n))!.seq).toEqual(3n);
-      expect((await messageStore.getLatestInboxBucketAtOrBefore(10_000n))!.seq).toEqual(3n);
-      expect(await messageStore.getLatestInboxBucketAtOrBefore(99n)).toBeUndefined();
-    });
-
-    it('resolves rollover buckets that share a timestamp to the highest sequence', async () => {
-      // Buckets 2 and 3 share timestamp 200 (a full bucket rolling over within the same L1 block).
-      const msgs = makeBucketedMessages([
-        { seq: 1n, timestamp: 100n },
-        { seq: 2n, timestamp: 200n },
-        { seq: 3n, timestamp: 200n },
-      ]);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-
-      expect((await messageStore.getLatestInboxBucketAtOrBefore(200n))!.seq).toEqual(3n);
-    });
-
-    it('returns messages between buckets in insertion order', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-      const leaves = msgs.map(m => m.leaf);
-
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual(leaves);
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual(leaves.slice(3, 5));
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual(leaves.slice(5));
-      // An empty (fromExclusive, toInclusive] range yields no messages.
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(3n, 3n)).toEqual([]);
-    });
-
-    it('throws when a bucket bound has not been synced', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-
-      // An unsynced bound is reported rather than collapsing into an empty range.
-      await expect(messageStore.getL1ToL2MessagesBetweenBuckets(0n, 9n)).rejects.toThrow(InboxBucketNotSyncedError);
-      await expect(messageStore.getL1ToL2MessagesBetweenBuckets(9n, 12n)).rejects.toThrow(InboxBucketNotSyncedError);
-      // A nonzero lower bound is never treated as genesis.
-      await expect(messageStore.getL1ToL2MessagesBetweenBuckets(4n, 5n)).rejects.toThrow(InboxBucketNotSyncedError);
-      await expect(messageStore.getL1ToL2MessagesBetweenBuckets(4n, 3n)).rejects.toThrow(/Invalid Inbox bucket range/);
-    });
+  describe('leaf count ranges', () => {
+    // Six messages over three L1 blocks: block 100 = [0,1,2], block 101 = [3,4], block 102 = [5].
+    const l1Blocks = [100n, 100n, 100n, 101n, 101n, 102n];
+    const makeMessagesAcrossL1Blocks = () =>
+      makeInboxMessages(l1Blocks.length, { overrideFn: (msg, i) => ({ ...msg, l1BlockNumber: l1Blocks[i] }) });
 
     it('returns messages between cumulative leaf counts', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      const msgs = makeMessagesAcrossL1Blocks();
+      await messageStore.addL1ToL2Messages(msgs);
       const leaves = msgs.map(m => m.leaf);
 
-      // Bucket boundaries sit at cumulative counts 0 (genesis), 3, 5 and 6.
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 6n)).toEqual(leaves);
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 3n)).toEqual(leaves.slice(0, 3));
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(3n, 5n)).toEqual(leaves.slice(3, 5));
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 6n)).toEqual(leaves.slice(5));
-      // An empty range consumes nothing, at a bucket boundary or at genesis.
+      // Counts interior to an L1 block's messages are addressed like any other: the log knows no partition.
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(1n, 4n)).toEqual(leaves.slice(1, 4));
+      // An empty range consumes nothing, anywhere in the log.
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 5n)).toEqual([]);
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(4n, 4n)).toEqual([]);
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 0n)).toEqual([]);
     });
 
-    it('returns messages between leaf counts interior to the bucket partition', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-      const leaves = msgs.map(m => m.leaf);
-
-      // Counts 1, 2 and 4 sit inside a bucket. A published block commits to a leaf count, and a reorg can merge away
-      // the bucket that ended there, so the range is addressed by message index alone.
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(1n, 6n)).toEqual(leaves.slice(1));
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 4n)).toEqual(leaves.slice(0, 4));
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(1n, 4n)).toEqual(leaves.slice(1, 4));
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(4n, 6n)).toEqual(leaves.slice(4));
-      // An empty range at an interior count consumes nothing rather than failing.
-      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(4n, 4n)).toEqual([]);
-    });
-
     it('throws on an invalid or unsynced leaf count range', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      await messageStore.addL1ToL2Messages(makeMessagesAcrossL1Blocks());
 
       // Ranges reaching past the synced tip fail rather than returning a partial range, empty ones included.
       await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(3n, 9n)).rejects.toThrow(
@@ -667,8 +409,8 @@ describe('MessageStore', () => {
     });
 
     it('throws when the leaf count range has a hole', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+      const msgs = makeMessagesAcrossL1Blocks();
+      await messageStore.addL1ToL2Messages(msgs);
 
       // Defense in depth: insertion is contiguity-checked and removal only ever drops a suffix, so no caller can put
       // a hole in the middle of the log. Punch one straight into the map to prove a short read is never returned.
@@ -684,107 +426,108 @@ describe('MessageStore', () => {
       expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(3n, 6n)).toEqual(msgs.slice(3).map(m => m.leaf));
     });
 
-    it('rewinds buckets when messages are removed', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+    it('reads a stored message by index', async () => {
+      const msgs = makeMessagesAcrossL1Blocks();
+      await messageStore.addL1ToL2Messages(msgs);
 
-      // Remove the last two messages (msgs[4] in bucket 2, msgs[5] in bucket 3), splitting bucket 2.
-      await messageStore.removeL1ToL2Messages(msgs[4].index);
-
-      expect(await messageStore.getInboxBucket(3n)).toBeUndefined();
-      expect(await messageStore.getInboxBucket(2n)).toEqual({
-        seq: 2n,
-        inboxRollingHash: msgs[3].inboxRollingHash,
-        totalMsgCount: 4n,
-        timestamp: 200n,
-        msgCount: 1,
-        lastMessageIndex: msgs[3].index,
-        l1BlockNumber: msgs[3].l1BlockNumber,
-        l1BlockHash: msgs[3].l1BlockHash,
-      });
-      expect(await messageStore.getInboxBucket(1n)).toMatchObject({ msgCount: 3, totalMsgCount: 3n });
-
-      // Bucket 3's timestamp index entry is gone, so an at-or-before lookup falls back to bucket 2.
-      expect((await messageStore.getLatestInboxBucketAtOrBefore(300n))!.seq).toEqual(2n);
+      expect(await messageStore.getL1ToL2Message(0n)).toEqual(msgs[0]);
+      expect(await messageStore.getL1ToL2Message(5n)).toEqual(msgs[5]);
+      expect(await messageStore.getL1ToL2Message(6n)).toBeUndefined();
     });
 
-    it('rewinds a rollover bucket sharing a timestamp with the surviving boundary', async () => {
-      const msgs = makeBucketedMessages([
-        { seq: 1n, timestamp: 100n },
-        { seq: 2n, timestamp: 200n },
-        { seq: 3n, timestamp: 200n },
-      ]);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-
-      // Removing the last message deletes bucket 3, whose timestamp (200) is shared with the surviving bucket 2.
-      await messageStore.removeL1ToL2Messages(msgs[2].index);
-
-      expect(await messageStore.getInboxBucket(3n)).toBeUndefined();
-      expect((await messageStore.getLatestInboxBucketAtOrBefore(200n))!.seq).toEqual(2n);
-    });
-
-    it('keeps rollover siblings indexed when a bucket sharing their timestamp is removed', async () => {
-      // Three buckets rolling over within one L1 block, so all three share timestamp 100.
-      const msgs = makeBucketedMessages([
-        { seq: 1n, timestamp: 100n },
-        { seq: 2n, timestamp: 100n },
-        { seq: 3n, timestamp: 100n },
-      ]);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
-
-      await messageStore.removeL1ToL2Messages(msgs[2].index);
-
-      expect(await messageStore.getInboxBucket(3n)).toBeUndefined();
-      expect(await messageStore.getInboxBucket(1n)).toMatchObject({ msgCount: 1, totalMsgCount: 1n });
-      expect((await messageStore.getLatestInboxBucketAtOrBefore(100n))!.seq).toEqual(2n);
-    });
-
-    it('reindexes a bucket re-delivered from an L1 block with a different timestamp', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 3));
-      await messageStore.removeL1ToL2Messages(msgs[2].index);
-
-      // The reorged L1 block holding bucket 1 was re-mined at a later timestamp.
-      const replayed = [msgs[0], msgs[1], makeNextMessage(msgs[1], { seq: 1n, timestamp: 100n })].map(msg => ({
-        ...msg,
-        bucketTimestamp: 150n,
-      }));
-      await messageStore.addL1ToL2MessageBuckets(replayed);
-
-      expect(await messageStore.getInboxBucket(1n)).toMatchObject({ timestamp: 150n, msgCount: 3 });
-      expect(await messageStore.getLatestInboxBucketAtOrBefore(100n)).toBeUndefined();
-      expect((await messageStore.getLatestInboxBucketAtOrBefore(150n))!.seq).toEqual(1n);
-    });
-
-    it('rolls back whole buckets past an L1 block', async () => {
-      // Bucket 1 fills L1 block 100, bucket 2 fills L1 block 101 and bucket 3 fills L1 block 102.
-      const msgs = makeBucketedMessages([
-        { seq: 1n, timestamp: 100n, l1BlockNumber: 100n },
-        { seq: 1n, timestamp: 100n, l1BlockNumber: 100n },
-        { seq: 1n, timestamp: 100n, l1BlockNumber: 100n },
-        { seq: 2n, timestamp: 200n, l1BlockNumber: 101n },
-        { seq: 2n, timestamp: 200n, l1BlockNumber: 101n },
-        { seq: 3n, timestamp: 300n, l1BlockNumber: 102n },
-      ]);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+    it('rolls back the messages observed after an L1 block', async () => {
+      const msgs = makeMessagesAcrossL1Blocks();
+      await messageStore.addL1ToL2Messages(msgs);
 
       await messageStore.rollbackL1ToL2MessagesAfterL1Block(100n);
 
       expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual(msgs.slice(0, 3));
-      expect(await messageStore.getInboxBucket(2n)).toBeUndefined();
-      expect(await messageStore.getInboxBucket(3n)).toBeUndefined();
-      expect(await messageStore.getInboxBucket(1n)).toMatchObject({ msgCount: 3, totalMsgCount: 3n });
-      expect((await messageStore.getLatestInboxBucketAtOrBefore(300n))!.seq).toEqual(1n);
+      expect(await messageStore.getTotalL1ToL2MessageCount()).toEqual(3n);
+      expect(await messageStore.getMessagePosition(3n)).toEqual({
+        totalMessageCount: 3n,
+        rollingHash: msgs[2].inboxRollingHash,
+      });
+      expect(await messageStore.getMessagePosition(4n)).toBeUndefined();
     });
 
-    it('clears all buckets when every message is removed', async () => {
-      const msgs = makeBucketedMessages(threeBucketSpec);
-      await messageStore.addL1ToL2MessageBuckets(msgs);
+    it('keeps every message when the rollback block is at or past the last observed one', async () => {
+      const msgs = makeMessagesAcrossL1Blocks();
+      await messageStore.addL1ToL2Messages(msgs);
 
-      await messageStore.removeL1ToL2Messages(msgs[0].index);
+      await messageStore.rollbackL1ToL2MessagesAfterL1Block(102n);
+      await messageStore.rollbackL1ToL2MessagesAfterL1Block(500n);
 
-      expect(await messageStore.getInboxBucket(1n)).toBeUndefined();
-      expect(await messageStore.getLatestInboxBucketAtOrBefore(300n)).toBeUndefined();
+      expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual(msgs);
+    });
+
+    it('clears every message when the rollback block precedes the first observed one', async () => {
+      const msgs = makeMessagesAcrossL1Blocks();
+      await messageStore.addL1ToL2Messages(msgs);
+
+      await messageStore.rollbackL1ToL2MessagesAfterL1Block(99n);
+
+      expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual([]);
+      expect(await messageStore.getSyncedMessagePosition()).toEqual({ totalMessageCount: 0n, rollingHash: Fr.ZERO });
+    });
+  });
+
+  describe('sync state', () => {
+    it('commits a batch together with the sync point covering it', async () => {
+      const msgs = makeInboxMessages(3);
+      const l1Block = { l1BlockNumber: 12n, l1BlockHash: Buffer32.random() };
+      const finalizedL1Block = { l1BlockNumber: 7n, l1BlockHash: Buffer32.random() };
+
+      await messageStore.addL1ToL2Messages(msgs, { l1Block, authenticated: true, finalizedL1Block });
+
+      expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual(msgs);
+      expect(await messageStore.getSynchedL1Block()).toEqual(l1Block);
+      expect(await messageStore.getMessagesFinalizedL1Block()).toEqual(finalizedL1Block);
+    });
+
+    it('commits neither the batch nor the sync point when the batch is rejected', async () => {
+      const before = { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() };
+      await messageStore.setMessageSyncState({ l1Block: before, authenticated: true });
+      const msgs = makeInboxMessages(3);
+      msgs[2].inboxRollingHash = Fr.random();
+
+      await expect(
+        messageStore.addL1ToL2Messages(msgs, {
+          l1Block: { l1BlockNumber: 12n, l1BlockHash: Buffer32.random() },
+          authenticated: true,
+        }),
+      ).rejects.toThrow(MessageStoreError);
+
+      expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual([]);
+      expect(await messageStore.getSynchedL1Block()).toEqual(before);
+    });
+
+    it('moves the sync point on an empty authenticated batch', async () => {
+      const l1Block = { l1BlockNumber: 12n, l1BlockHash: Buffer32.random() };
+      await messageStore.addL1ToL2Messages([], { l1Block, authenticated: true });
+      expect(await messageStore.getSynchedL1Block()).toEqual(l1Block);
+      expect(await messageStore.getScannedL1Block()).toEqual(l1Block);
+    });
+
+    it('moves only the scanned cursor for a batch that was not compared with the Inbox', async () => {
+      const synced = { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() };
+      await messageStore.setMessageSyncState({ l1Block: synced, authenticated: true });
+      const l1Block = { l1BlockNumber: 12n, l1BlockHash: Buffer32.random() };
+
+      await messageStore.addL1ToL2Messages(makeInboxMessages(2), { l1Block, authenticated: false });
+
+      expect(await messageStore.getScannedL1Block()).toEqual(l1Block);
+      expect(await messageStore.getSynchedL1Block()).toBeUndefined();
+    });
+
+    it('refreshes the L1 block hint of a message re-delivered with the same content', async () => {
+      const msgs = makeInboxMessages(3);
+      await messageStore.addL1ToL2Messages(msgs);
+
+      const moved = { ...msgs[1], l1BlockNumber: msgs[1].l1BlockNumber + 7n };
+      await messageStore.addL1ToL2Messages([moved]);
+
+      expect(await messageStore.getL1ToL2Message(1n)).toEqual(moved);
+      expect(await messageStore.getTotalL1ToL2MessageCount()).toEqual(3n);
     });
   });
 });

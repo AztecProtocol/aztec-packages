@@ -45,7 +45,7 @@ type CheckpointSimulationOverridesPlanInput = {
 /**
  * Builds the SimulationOverridesPlan describing the simulated L1 rollup state for a checkpoint's
  * enqueue-time simulations: `canProposeAt` (in Sequencer.doWork) and the propose-related sims
- * (validateCheckpointHeader, simulateProposeTx). The plan reflects "as if our pipelined parent
+ * (validateCheckpointHeaderAndInbox, simulateProposeTx). The plan reflects "as if our pipelined parent
  * checkpoint has landed and any required invalidation has executed" — the gap that needs to be
  * bridged at enqueue time.
  *
@@ -83,7 +83,7 @@ export async function buildCheckpointSimulationOverridesPlan(
     // read by `ProposeLib.validateInboxConsumption` as the parent's consumed total: left at zero it
     // makes our consumption look like the Inbox's entire history and trips
     // `Rollup__TooManyInboxMessagesConsumed`. The remaining fields (headerHash, outHash,
-    // payloadDigest) are not read by `canProposeAt` / `validateCheckpointHeader`, but mirroring the full
+    // payloadDigest) are not read by `canProposeAt` / `validateCheckpointHeaderAndInbox`, but mirroring the full
     // cell keeps the simulation byte-faithful with what the actual `propose()` send will observe,
     // which is a defense against future reads taking dependencies on them. The parent's
     // `inboxConsumedBucket` shares the word and stays zero: only a proven-tip advance reads it back, and a

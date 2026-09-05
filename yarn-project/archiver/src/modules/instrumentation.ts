@@ -163,7 +163,7 @@ export class ArchiverInstrumentation {
    * 'l1_mismatch' (the local checkpointed tip diverged from L1 — an L1 reorg or a pruned/missed-proof checkpoint — so
    * already-checkpointed blocks were rewound).
    */
-  public recordPrune(pruneType: 'uncheckpointed' | 'l1_conflict' | 'orphan' | 'l1_mismatch') {
+  public recordPrune(pruneType: 'uncheckpointed' | 'l1_conflict' | 'orphan' | 'l1_mismatch' | 'inbox_reorg') {
     this.pruneCount.add(1, { [Attributes.PRUNE_TYPE]: pruneType });
   }
 

@@ -15,10 +15,11 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { InboxMessagePrefixRef } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeStateReference } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { BlockHeader } from '@aztec/stdlib/tx';
+import { BlockHeader, StateReference } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -539,8 +540,10 @@ describe('Archiver Store', () => {
   });
 
   describe('addBlock (L2BlockSink)', () => {
-    // State reference needs to be valid for LogStore's dataStartIndexForBlock calculation
-    // All blocks use checkpoint number 1 since they're being added to the initial checkpoint
+    // State reference needs to be valid for LogStore's dataStartIndexForBlock calculation. The L1-to-L2 tree is left
+    // empty: these blocks consume no Inbox messages, so they reference the empty prefix and validate against a message
+    // store that has synced nothing. All blocks use checkpoint number 1 since they're being added to the initial
+    // checkpoint.
     const makeBlock = (
       blockNumber: BlockNumber,
       indexIntoCheckpoint = IndexWithinCheckpoint(0),
@@ -548,10 +551,11 @@ describe('Archiver Store', () => {
     ) =>
       L2Block.random(blockNumber, {
         checkpointNumber: CheckpointNumber(1),
-        state: makeStateReference(0x100),
+        state: new StateReference(AppendOnlyTreeSnapshot.empty(), makeStateReference(0x100).partial),
         indexWithinCheckpoint: indexIntoCheckpoint,
         ...(previousArchive ? { lastArchive: previousArchive } : {}),
       });
+    const emptyPrefix = InboxMessagePrefixRef.empty();
 
     // Genesis archive for the first block — bound in beforeEach so it picks up the suite-level genesisArchiveRoot.
     let genesisArchive: AppendOnlyTreeSnapshot;
@@ -561,7 +565,7 @@ describe('Archiver Store', () => {
 
     it('adds a block to the store', async () => {
       const block = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
-      await archiver.addBlock(block);
+      await archiver.addBlock(block, emptyPrefix);
 
       const retrievedBlock = await archiver.getBlock({ number: BlockNumber(1) });
       expect(retrievedBlock).toBeDefined();
@@ -574,9 +578,9 @@ describe('Archiver Store', () => {
       const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
       const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block2.archive);
 
-      await archiver.addBlock(block1);
-      await archiver.addBlock(block2);
-      await archiver.addBlock(block3);
+      await archiver.addBlock(block1, emptyPrefix);
+      await archiver.addBlock(block2, emptyPrefix);
+      await archiver.addBlock(block3, emptyPrefix);
 
       const retrievedBlock1 = await archiver.getBlock({ number: BlockNumber(1) });
       const retrievedBlock2 = await archiver.getBlock({ number: BlockNumber(2) });
@@ -591,34 +595,34 @@ describe('Archiver Store', () => {
       const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
       const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block1.archive); // Skip block 2
 
-      await archiver.addBlock(block1);
+      await archiver.addBlock(block1, emptyPrefix);
 
       // Block 3 should be rejected because block 2 is missing
-      await expect(archiver.addBlock(block3)).rejects.toThrow(BlockNumberNotSequentialError);
+      await expect(archiver.addBlock(block3, emptyPrefix)).rejects.toThrow(BlockNumberNotSequentialError);
     });
 
     it('rejects blocks with duplicate block numbers', async () => {
       const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
       const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
 
-      await archiver.addBlock(block1);
-      await archiver.addBlock(block2);
+      await archiver.addBlock(block1, emptyPrefix);
+      await archiver.addBlock(block2, emptyPrefix);
 
       // Adding block 2 again shoud be rejected
-      await expect(archiver.addBlock(block2)).rejects.toThrow(BlockNumberNotSequentialError);
+      await expect(archiver.addBlock(block2, emptyPrefix)).rejects.toThrow(BlockNumberNotSequentialError);
     });
 
     it('rejects first block if not starting from block 1', async () => {
       const block5 = await makeBlock(BlockNumber(5), IndexWithinCheckpoint(0), genesisArchive);
 
       // First block must be block 1
-      await expect(archiver.addBlock(block5)).rejects.toThrow();
+      await expect(archiver.addBlock(block5, emptyPrefix)).rejects.toThrow();
     });
 
     it('allows block number to start from 1 (initial block)', async () => {
       const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
 
-      await archiver.addBlock(block1);
+      await archiver.addBlock(block1, emptyPrefix);
 
       const retrievedBlock = await archiver.getBlock({ number: BlockNumber(1) });
       expect(retrievedBlock).toBeDefined();
@@ -630,9 +634,9 @@ describe('Archiver Store', () => {
       const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
       const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block2.archive);
 
-      await archiver.addBlock(block1);
-      await archiver.addBlock(block2);
-      await archiver.addBlock(block3);
+      await archiver.addBlock(block1, emptyPrefix);
+      await archiver.addBlock(block2, emptyPrefix);
+      await archiver.addBlock(block3, emptyPrefix);
 
       const blocks = await archiver.getBlocks({ from: BlockNumber(1), limit: 3 });
       expect(blocks.length).toEqual(3);
@@ -646,9 +650,9 @@ describe('Archiver Store', () => {
       const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
       const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block2.archive);
 
-      await archiver.addBlock(block1);
-      await archiver.addBlock(block2);
-      await archiver.addBlock(block3);
+      await archiver.addBlock(block1, emptyPrefix);
+      await archiver.addBlock(block2, emptyPrefix);
+      await archiver.addBlock(block3, emptyPrefix);
 
       // Request only 2 blocks starting from block 1
       const blocks = await archiver.getBlocks({ from: BlockNumber(1), limit: 2 });
@@ -662,9 +666,9 @@ describe('Archiver Store', () => {
       const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
       const block3 = await makeBlock(BlockNumber(3), IndexWithinCheckpoint(2), block2.archive);
 
-      await archiver.addBlock(block1);
-      await archiver.addBlock(block2);
-      await archiver.addBlock(block3);
+      await archiver.addBlock(block1, emptyPrefix);
+      await archiver.addBlock(block2, emptyPrefix);
+      await archiver.addBlock(block3, emptyPrefix);
 
       // Start from block 2
       const blocks = await archiver.getBlocks({ from: BlockNumber(2), limit: 2 });
@@ -676,7 +680,7 @@ describe('Archiver Store', () => {
     it('returns empty array when requesting blocks beyond available range', async () => {
       const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
 
-      await archiver.addBlock(block1);
+      await archiver.addBlock(block1, emptyPrefix);
 
       // Request blocks starting from block 5 (which doesn't exist)
       const blocks = await archiver.getBlocks({ from: BlockNumber(5), limit: 3 });
@@ -687,8 +691,8 @@ describe('Archiver Store', () => {
       const block1 = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
       const block2 = await makeBlock(BlockNumber(2), IndexWithinCheckpoint(1), block1.archive);
 
-      await archiver.addBlock(block1);
-      await archiver.addBlock(block2);
+      await archiver.addBlock(block1, emptyPrefix);
+      await archiver.addBlock(block2, emptyPrefix);
 
       // Request 10 blocks but only 2 are available
       const blocks = await archiver.getBlocks({ from: BlockNumber(1), limit: 10 });
@@ -928,10 +932,12 @@ describe('Archiver Store', () => {
 
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
-      // Verify sync points are set to checkpoint 1's L1 block number (10)
+      // Verify sync points are set to checkpoint 1's L1 block number (10). The message log was trimmed by its
+      // stored L1 block hints rather than compared with the Inbox, so it gets a scanned cursor and no syncpoint.
       const synchPoint = await getArchiverSynchPoint(archiverStore);
       expect(synchPoint.blocksSynchedTo).toEqual(10n);
-      expect(synchPoint.messagesSynchedTo?.l1BlockNumber).toEqual(10n);
+      expect(synchPoint.messagesSynchedTo).toBeUndefined();
+      expect((await archiverStore.messages.getScannedL1Block())?.l1BlockNumber).toEqual(10n);
     });
 
     it('includes correct boundary info in error for mid-checkpoint rollback', async () => {

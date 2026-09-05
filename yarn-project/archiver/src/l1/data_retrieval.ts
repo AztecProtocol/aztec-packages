@@ -372,7 +372,7 @@ export async function retrieveL1ToL2Messages(
 ): Promise<InboxMessage[]> {
   const retrievedL1ToL2Messages: InboxMessage[] = [];
   while (searchStartBlock <= searchEndBlock) {
-    const messageSentLogs = await inbox.getMessageSentEvents(searchStartBlock, searchEndBlock);
+    const messageSentLogs = await getMessageSentEventsBisecting(inbox, searchStartBlock, searchEndBlock);
 
     if (messageSentLogs.length === 0) {
       break;
@@ -385,15 +385,38 @@ export async function retrieveL1ToL2Messages(
   return retrievedL1ToL2Messages;
 }
 
+/**
+ * Fetches the Inbox's MessageSent events in an L1 block range, halving the range at complete-block boundaries when
+ * the provider rejects it (typically a log-range or response-size limit). A single block the provider cannot serve
+ * is a provider or history failure and is thrown as such: a range this function returns is complete, and a failure
+ * is never reported as an absence of messages.
+ */
+async function getMessageSentEventsBisecting(
+  inbox: InboxContract,
+  fromBlock: bigint,
+  toBlock: bigint,
+): Promise<MessageSentLog[]> {
+  try {
+    return await inbox.getMessageSentEvents(fromBlock, toBlock);
+  } catch (err) {
+    if (fromBlock >= toBlock) {
+      throw err;
+    }
+    const midBlock = fromBlock + (toBlock - fromBlock) / 2n;
+    const [lower, upper] = [
+      await getMessageSentEventsBisecting(inbox, fromBlock, midBlock),
+      await getMessageSentEventsBisecting(inbox, midBlock + 1n, toBlock),
+    ];
+    return [...lower, ...upper];
+  }
+}
+
 function mapLogInboxMessage(log: MessageSentLog): InboxMessage {
   return {
     index: log.args.index,
     leaf: log.args.leaf,
     l1BlockNumber: log.l1BlockNumber,
-    l1BlockHash: log.l1BlockHash,
     inboxRollingHash: log.args.inboxRollingHash,
-    bucketSeq: log.args.bucketSeq,
-    bucketTimestamp: log.l1BlockTimestamp,
   };
 }
 
