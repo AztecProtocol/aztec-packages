@@ -78,9 +78,10 @@ describe('Archiver Sync', () => {
   // beforeEach default instance and by tests that need a second archiver with a different config.
   const buildArchiver = async (
     storeName: string,
-    configOverrides: { skipOrphanProposedBlockPruning?: boolean; batchSize?: number } = {},
+    configOverrides: { skipOrphanProposedBlockPruning?: boolean; batchSize?: number; store?: ArchiverDataStores } = {},
   ): Promise<{ archiver: Archiver; synchronizer: ArchiverL1Synchronizer; archiverStore: ArchiverDataStores }> => {
-    const store = createArchiverDataStores(await openTmpStore(storeName), GENESIS_BLOCK_HEADER_HASH);
+    const { store: existingStore, ...overrides } = configOverrides;
+    const store = existingStore ?? createArchiverDataStores(await openTmpStore(storeName), GENESIS_BLOCK_HEADER_HASH);
 
     const contractAddresses = {
       rollupAddress,
@@ -100,7 +101,7 @@ describe('Archiver Sync', () => {
       orphanPruneNoProposalTolerance: 1,
       skipOrphanProposedBlockPruning: false,
       blockDuration: 2,
-      ...configOverrides,
+      ...overrides,
     };
 
     const events = new EventEmitter() as ArchiverEmitter;
@@ -1865,6 +1866,9 @@ describe('Archiver Sync', () => {
       // The checkpointed block stays; the speculative block consuming the replaced message is gone.
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCp1.number);
+      // Nothing may build on the disagreeing checkpointed tip either: the synced L1 block (and with it the synced L2
+      // slot proposers build from) is not advanced while the gate holds.
+      expect(archiver.getL1BlockNumber()).toEqual(110n);
 
       // L1 reconciles the published chain: checkpoint 1 is pruned, the tip agrees with the log again.
       fake.markCheckpointAsPruned(CheckpointNumber(1));
@@ -1873,6 +1877,86 @@ describe('Archiver Sync', () => {
 
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
       expect(synchronizer.isSpeculationGated()).toBe(false);
+      expect(archiver.getL1BlockNumber()).toEqual(112n);
+    });
+
+    it('does not truncate when the head is replaced while the Inbox state is being read', async () => {
+      const msgs = randomLeaves(5);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      // The canonical sequence shrinks, but the chain is replaced again right after the Inbox state is read.
+      fake.removeMessagesAfter(3);
+      fake.setL1BlockNumber(112n);
+      const readState = inboxContract.getState.getMockImplementation()!;
+      inboxContract.getState.mockImplementationOnce(async opts => {
+        const state = await readState(opts);
+        fake.reorgL1BlocksFrom(112n);
+        return state;
+      });
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+      expect(archiver.getL1BlockNumber()).toEqual(110n);
+
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex(msgs.slice(0, 3)));
+      expect(archiver.getL1BlockNumber()).toEqual(112n);
+    });
+
+    it('does not advertise a scanned head as synced across a restart while recovery is unfinished', async () => {
+      const msgs = randomLeaves(100);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      const replacement = randomLeaves(100);
+      fake.removeMessagesAfter(0);
+      fake.addMessages(CheckpointNumber(1), 100n, replacement);
+      fake.reorgL1BlocksFrom(100n);
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+      expect(synchronizer.isRecoveringMessages()).toBe(true);
+      // The head was scanned but the log does not agree with it, so the persisted syncpoint stays behind it.
+      expect((await archiverStore.messages.getSynchedL1Block())?.l1BlockNumber).toEqual(110n);
+
+      // A restart loses the process-local recovery cursor; the new instance must not take the same-head shortcut.
+      ({ archiver, synchronizer } = await buildArchiver('archiver_message_recovery_restart', { store: archiverStore }));
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+      expect(synchronizer.isRecoveringMessages()).toBe(true);
+      expect(archiver.getL1BlockNumber()).toBeUndefined();
+
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex(replacement));
+      expect(archiver.getL1BlockNumber()).toEqual(111n);
+    });
+
+    it('anchors on the finality marker of the last agreed sync, not on a fresher finalized height', async () => {
+      const msgs = randomLeaves(4);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs.slice(0, 2));
+      fake.addMessages(CheckpointNumber(1), 101n, msgs.slice(2));
+      fake.setFinalizedL1BlockNumber(90n);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      expect((await archiverStore.messages.getMessagesFinalizedL1Block())?.l1BlockNumber).toEqual(90n);
+
+      // Every message is replaced and L1 finality has since moved past them. Trusting the fresh height would anchor
+      // on a stale message without a lookup and try to graft the replacement onto a prefix L1 no longer has.
+      const replacement = randomLeaves(4);
+      fake.removeMessagesAfter(0);
+      fake.addMessages(CheckpointNumber(1), 100n, replacement.slice(0, 2));
+      fake.addMessages(CheckpointNumber(1), 101n, replacement.slice(2));
+      fake.reorgL1BlocksFrom(100n);
+      fake.setFinalizedL1BlockNumber(150n);
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(replacement));
+      expect(archiver.getL1BlockNumber()).toEqual(111n);
+      // Finality advances only once the log agrees with L1 again.
+      expect((await archiverStore.messages.getMessagesFinalizedL1Block())?.l1BlockNumber).toEqual(150n);
     });
   });
 

@@ -85,9 +85,10 @@ export type InboxMessageRecoveryProgress = {
  * only a replaced or unavailable head does. The cursor is process-local; after a restart, anchor discovery starts
  * over from the committed syncpoint, which is correct.
  *
- * The inherited finalized-height shortcut is kept: a stored message observed at or below the L1 finalized block is
- * accepted as an anchor without a lookup. A message re-mined above the finalized height whose old height was below
- * it can therefore be trusted wrongly; that exception is deliberately retained and not repaired here.
+ * The inherited finalized-height shortcut is kept: a stored message observed at or below the finality marker
+ * persisted by the last sync that reached agreement with L1 is accepted as an anchor without a lookup, and the marker
+ * only advances on such agreement. A message re-mined above the finalized height whose old height was below it can
+ * therefore be trusted wrongly; that exception is deliberately retained and not repaired here.
  */
 export class InboxMessageSynchronizer {
   private recovery: RecoveryState | undefined;
@@ -146,8 +147,11 @@ export class InboxMessageSynchronizer {
 
   private async syncPass(head: L1BlockId, finalizedL1Block: L1BlockId | undefined): Promise<InboxMessageSyncResult> {
     if (this.recovery !== undefined) {
-      if (await this.isHeadStillCanonical(this.recovery.head)) {
-        return this.continueRecovery();
+      const pinnedHead = this.recovery.head;
+      if (await this.isHeadStillCanonical(pinnedHead)) {
+        const result = await this.continueRecovery();
+        // Recovery is complete relative to the head it was pinned to; blocks after it still need normal ingestion.
+        return result.status === 'synced' && !sameL1Block(pinnedHead, head) ? { ...result, status: 'pending' } : result;
       }
       this.log.warn(`L1 head ${this.recovery.head.l1BlockNumber} recovery was pinned to has been replaced`, {
         ...this.getRecoveryProgress(),
@@ -156,8 +160,13 @@ export class InboxMessageSynchronizer {
     }
 
     const syncPoint = (await this.stores.messages.getSynchedL1Block()) ?? this.l1Start;
-    if (head.l1BlockNumber === syncPoint.l1BlockNumber && head.l1BlockHash.equals(syncPoint.l1BlockHash)) {
+    if (sameL1Block(head, syncPoint)) {
+      // The syncpoint only ever reaches a head once the log agrees with the Inbox there (a replacement batch ending
+      // at the head is the canonical sequence through it), so finality may advance over the whole log.
       this.log.trace(`L1 to L2 messages already synced to L1 block ${head.l1BlockNumber}`);
+      if (finalizedL1Block !== undefined) {
+        await this.stores.messages.setMessageSyncState(head, finalizedL1Block);
+      }
       return synced();
     }
 
@@ -175,6 +184,10 @@ export class InboxMessageSynchronizer {
       // itself proves where it ends, so no old placement lookup is needed.
       const localAtRemote = await this.stores.messages.getMessagePosition(remote.totalMessagesInserted);
       if (localAtRemote !== undefined && localAtRemote.rollingHash.equals(remote.rollingHash)) {
+        if (!(await this.isHeadStillCanonical(head))) {
+          this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while reading the Inbox state; not truncating`);
+          return pending();
+        }
         return this.truncate(localAtRemote, head, finalizedL1Block);
       }
       return this.startRecovery(head, remote, finalizedL1Block);
@@ -187,7 +200,7 @@ export class InboxMessageSynchronizer {
     }
 
     try {
-      await this.ingestForward(syncPoint.l1BlockNumber + 1n, head, finalizedL1Block);
+      await this.ingestForward(syncPoint.l1BlockNumber + 1n, head);
     } catch (err) {
       if (err instanceof MessageStoreError) {
         this.log.warn(`Fetched L1 to L2 messages do not continue the local log: ${err.message}`, {
@@ -198,32 +211,36 @@ export class InboxMessageSynchronizer {
       throw err;
     }
 
+    if (!(await this.isHeadStillCanonical(head))) {
+      // The chain moved under the fetch: the logs may belong to another chain than the position they are compared
+      // with, so neither the head's syncpoint nor a recovery is committed; the next pass reads the replacement head.
+      this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while fetching L1 to L2 messages`);
+      return pending();
+    }
     const localAfterFetch = await this.stores.messages.getSyncedMessagePosition();
     if (positionMatches(localAfterFetch, remote)) {
       await this.stores.messages.setMessageSyncState(head, finalizedL1Block);
       return synced();
     }
-    if (!(await this.isHeadStillCanonical(head))) {
-      // The chain moved under the fetch; the next pass compares against the replacement head.
-      this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while fetching L1 to L2 messages`);
-      return pending();
-    }
     return this.startRecovery(head, remote, finalizedL1Block);
   }
 
   /**
-   * Fetches messages forward in bounded L1 block ranges and commits each batch with the syncpoint that covers it.
-   * Throws `MessageStoreError` when a batch does not continue the stored chain, leaving the earlier batches in place.
+   * Fetches messages forward in bounded L1 block ranges and commits each batch with the syncpoint that covers it,
+   * except for the batch reaching the head: its syncpoint is only persisted once the caller has established that the
+   * log agrees with the Inbox at the head, so a restart mid-recovery cannot mistake a disagreeing log for a synced
+   * one just because the head was already scanned. Throws `MessageStoreError` when a batch does not continue the
+   * stored chain, leaving the earlier batches in place.
    */
-  private async ingestForward(fromL1Block: bigint, head: L1BlockId, finalizedL1Block: L1BlockId | undefined) {
+  private async ingestForward(fromL1Block: bigint, head: L1BlockId) {
     let start = fromL1Block;
     let stored = 0;
     while (start <= head.l1BlockNumber) {
       const end = minBigint(start + this.getBatchSizeInL1Blocks() - 1n, head.l1BlockNumber);
       this.log.trace(`Retrieving L1 to L2 messages in L1 blocks ${start}-${end}`);
       const messages = await retrieveL1ToL2Messages(this.inbox, start, end);
-      const l1Block = await this.l1BlockIdFor(end, head);
-      await this.storeMessages(messages, { l1Block, finalizedL1Block });
+      const syncState = end === head.l1BlockNumber ? undefined : { l1Block: await this.l1BlockIdFor(end, head) };
+      await this.storeMessages(messages, syncState);
       stored += messages.length;
       start = end + 1n;
     }
@@ -236,10 +253,7 @@ export class InboxMessageSynchronizer {
     }
   }
 
-  private async storeMessages(
-    messages: InboxMessage[],
-    syncState: { l1Block: L1BlockId; finalizedL1Block: L1BlockId | undefined } | undefined,
-  ): Promise<void> {
+  private async storeMessages(messages: InboxMessage[], syncState: { l1Block: L1BlockId } | undefined): Promise<void> {
     const timer = new Timer();
     await this.stores.messages.addL1ToL2Messages(messages, syncState);
     if (messages.length > 0) {
@@ -295,7 +309,10 @@ export class InboxMessageSynchronizer {
    */
   private async searchAnchor(recovery: RecoveryState): Promise<boolean> {
     const phase = recovery.phase as RecoveryPhase & { kind: 'anchor' };
-    const finalizedL1Block = recovery.finalizedL1Block ?? (await this.stores.messages.getMessagesFinalizedL1Block());
+    // Only the finality marker persisted by the last sync that reached agreement with L1 is trusted here: a fresher
+    // finalized height covers messages this node never verified against it, and trusting them would widen the
+    // inherited shortcut to whatever the local log happens to hold.
+    const finalizedL1Block = await this.stores.messages.getMessagesFinalizedL1Block();
     let lookups = 0;
     while (true) {
       const candidateIndex = phase.nextCandidateIndex;
@@ -410,7 +427,7 @@ export class InboxMessageSynchronizer {
         firstDivergentIndex: divergent.index,
         expectedPrefix,
         messages: canonical,
-        syncState: { l1Block, finalizedL1Block },
+        syncState: { l1Block },
       });
       this.recovery = undefined;
       return { status: 'pending', ...result };
@@ -424,7 +441,7 @@ export class InboxMessageSynchronizer {
           appendCount: canonical.length - firstNew,
         },
       );
-      await this.storeMessages(canonical, { l1Block, finalizedL1Block });
+      await this.storeMessages(canonical, { l1Block });
       this.recovery = undefined;
       return pending();
     }
@@ -475,8 +492,12 @@ export class InboxMessageSynchronizer {
       firstDivergentIndex: keep.totalMessageCount,
       expectedPrefix: keep,
       messages: [],
-      syncState: { l1Block: head, finalizedL1Block },
+      syncState: { l1Block: head },
     });
+    // The remaining log is the canonical sequence at the head, so finality may advance over it.
+    if (finalizedL1Block !== undefined) {
+      await this.stores.messages.setMessageSyncState(head, finalizedL1Block);
+    }
     return { status: 'synced', ...result };
   }
 
@@ -497,6 +518,10 @@ export class InboxMessageSynchronizer {
       return false;
     }
   }
+}
+
+function sameL1Block(a: L1BlockId, b: L1BlockId): boolean {
+  return a.l1BlockNumber === b.l1BlockNumber && a.l1BlockHash.equals(b.l1BlockHash);
 }
 
 function positionMatches(local: InboxMessagePosition, remote: InboxContractState): boolean {

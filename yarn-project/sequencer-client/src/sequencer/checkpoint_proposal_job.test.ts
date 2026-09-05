@@ -1606,7 +1606,16 @@ describe('CheckpointProposalJob', () => {
     });
 
     it('pins the completion threshold strictly above start + 768', async () => {
-      // A greedy end exactly at 768 stays ordinary; one message more enters completion a block earlier.
+      // Records how many blocks had been built when the Inbox was queried, i.e. which block entered completion.
+      const blocksBuiltAtInboxQuery: number[] = [];
+      const resolveEndpoint = inbox.getBucketAtOrBeforeTotal.getMockImplementation()!;
+      inbox.getBucketAtOrBeforeTotal.mockImplementation(upperBound => {
+        blocksBuiltAtInboxQuery.push(checkpointBuilder.buildBlockCalls.length);
+        return resolveEndpoint(upperBound);
+      });
+
+      // A third-block greedy end of exactly 768 stays ordinary: the Inbox is only queried by the final (fourth)
+      // block, which completes at the tip.
       mockSubslots(4);
       job.updateConfig({ maxBlocksPerCheckpoint: 4 });
       streamingInbox.set(leaves(768));
@@ -1616,33 +1625,59 @@ describe('CheckpointProposalJob', () => {
       await job.executeAndAwait();
 
       expect(bundleLengths()).toEqual([256, 256, 256, 0]);
-      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
       expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(768n);
+      expect(blocksBuiltAtInboxQuery).toEqual([3]);
 
       jest.restoreAllMocks();
       inbox.getBucketAtOrBeforeTotal.mockClear();
+      blocksBuiltAtInboxQuery.length = 0;
       job = createCheckpointProposalJob();
       job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 3000 }));
       checkpointBuilder.reset();
       mockSubslots(4);
       job.updateConfig({ maxBlocksPerCheckpoint: 4 });
+      // One message past the line: the fourth block's prospective greedy end (769) crosses it, so that block enters
+      // completion instead of consuming greedily and resolves the endpoint at the tip.
       streamingInbox.set(leaves(769));
       ({ lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]));
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
       await job.executeAndAwait();
 
-      // The third block's prospective greedy end (769) crosses the line, so completion resolves the endpoint there
-      // and the remaining blocks consume toward it in per-block chunks.
       expect(bundleLengths()).toEqual([256, 256, 256, 1]);
-      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
       expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(769n);
+      expect(blocksBuiltAtInboxQuery).toEqual([3]);
+    });
+
+    it('consumes toward a completion target across several blocks, one block cap at a time', async () => {
+      // The archiver holds 700 messages for three blocks (greedy ends 256, 512, 700), then catches up to 1300 with
+      // live ends at 1000 and 1300. The fourth block's prospective greedy end (956) crosses the line, so completion
+      // resolves the highest live end two blocks can reach (1000) and consumes toward it in per-block chunks.
+      mockSubslots(5);
+      job.updateConfig({ maxBlocksPerCheckpoint: 5 });
+      streamingInbox.set(leaves(700), [256n, 512n, 700n]);
+      betweenBlocks(3, () => {
+        streamingInbox.append(leaves(300, 701), { closeBucket: true });
+        streamingInbox.append(leaves(300, 1001), { closeBucket: true });
+      });
+
+      const { lastBlock } = await setupMultipleBlocks(5, [1, 1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 188, 256, 44]);
+      expect(signedPrefixes().slice(-2)).toEqual([prefixAt(956), prefixAt(1000)]);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(1024n);
+      expect(preflightTotals()).toEqual([1000n, 1000n]);
     });
 
     it('freezes consumption once the completion target is reached, even as more messages arrive', async () => {
       mockSubslots(5);
       job.updateConfig({ maxBlocksPerCheckpoint: 5 });
-      streamingInbox.set(leaves(1000), [500n, 1000n]);
+      streamingInbox.set(leaves(1000), [256n, 512n, 768n, 1000n]);
       // New messages land after the target is reached; the frozen checkpoint ignores them.
       betweenBlocks(4, () => streamingInbox.append(leaves(100, 1001), { closeBucket: true }));
 

@@ -80,7 +80,7 @@ export class ArchiverL1Synchronizer implements Traceable {
    * is then L1's to reconcile through checkpoint sync; until the checkpointed tip agrees with the message log again,
    * proposed checkpoints are withheld so nothing speculates on top of blocks whose messages no longer exist.
    */
-  private speculationGate: { firstDivergentIndex: bigint; l1BlockNumber: bigint } | undefined;
+  private speculationGate: { sinceL1BlockNumber: bigint } | undefined;
   public readonly tracer: Tracer;
 
   constructor(
@@ -126,8 +126,9 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   /**
-   * Whether speculative reuse of proposed checkpoints is gated because the Inbox message log disagrees with the
-   * checkpointed tip, pending checkpoint reconciliation from L1.
+   * Whether speculative work is gated because the Inbox message log disagrees with the checkpointed tip, pending
+   * checkpoint reconciliation from L1: proposed checkpoints are withheld and the synced L1 block is not advanced, so
+   * proposers neither pipeline on a proposed checkpoint nor build on the checkpointed tip until the gate lifts.
    */
   public isSpeculationGated(): boolean {
     return this.speculationGate !== undefined;
@@ -260,14 +261,16 @@ export class ArchiverL1Synchronizer implements Traceable {
 
     await this.maybeReleaseSpeculationGate();
 
-    if (messageSync !== 'synced') {
-      this.log.verbose(
-        `L1 to L2 message sync to L1 block ${currentL1BlockNumber} is still pending; not advertising it`,
-        {
-          currentL1BlockNumber,
-          recovery: this.messageSynchronizer.getRecoveryProgress(),
-        },
-      );
+    // Readiness (the synced L1 block, which drives the synced L2 slot proposers build on) is only advanced once the
+    // messages agree with L1 at this head and the checkpointed tip agrees with them: while either is pending, nothing
+    // may build on the local tip.
+    if (messageSync !== 'synced' || this.speculationGate !== undefined) {
+      this.log.verbose(`Not advertising L1 block ${currentL1BlockNumber} as synced`, {
+        currentL1BlockNumber,
+        messageSync,
+        speculationGate: this.speculationGate,
+        recovery: this.messageSynchronizer.getRecoveryProgress(),
+      });
       return blocksAdded;
     }
 
@@ -461,18 +464,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     for (let pass = 0; pass < MAX_MESSAGE_SYNC_PASSES_PER_ITERATION; pass++) {
       const result = await this.messageSynchronizer.sync(currentL1Block, finalizedL1Block);
       if (result.checkpointedTipAffected) {
-        this.speculationGate = {
-          firstDivergentIndex: result.prunedBlocks[0]
-            ? BigInt(result.prunedBlocks[0].header.state.l1ToL2MessageTree.nextAvailableLeafIndex)
-            : 0n,
-          l1BlockNumber: currentL1Block.l1BlockNumber,
-        };
-        this.log.warn(
-          `Inbox messages consumed by the checkpointed tip changed on L1; withholding proposed checkpoints`,
-          {
-            currentL1BlockNumber: currentL1Block.l1BlockNumber,
-          },
-        );
+        this.speculationGate = { sinceL1BlockNumber: currentL1Block.l1BlockNumber };
+        this.log.warn(`Inbox messages consumed by the checkpointed tip changed on L1; gating speculative work`, {
+          currentL1BlockNumber: currentL1Block.l1BlockNumber,
+        });
       }
       if (result.prunedBlocks.length > 0) {
         this.log.warn(`Pruned ${result.prunedBlocks.length} proposed blocks that consumed replaced Inbox messages`, {
