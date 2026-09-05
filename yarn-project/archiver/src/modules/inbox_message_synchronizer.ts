@@ -160,7 +160,8 @@ export class InboxMessageSynchronizer {
       this.recovery = undefined;
     }
 
-    const syncPoint = (await this.stores.messages.getSynchedL1Block()) ?? this.l1Start;
+    const persistedSyncPoint = await this.stores.messages.getSynchedL1Block();
+    const syncPoint = persistedSyncPoint ?? this.l1Start;
     if (sameL1Block(head, syncPoint)) {
       // The syncpoint only ever reaches a head once the log agrees with the Inbox there (a replacement batch ending
       // at the head is the canonical sequence through it), so finality may advance over the whole log.
@@ -205,6 +206,18 @@ export class InboxMessageSynchronizer {
       return this.startRecovery(head, remote, finalizedL1Block);
     }
 
+    // Forward ingestion inherits the log through the syncpoint as canonical, and every batch it commits certifies that
+    // inherited prefix again under a new syncpoint. That is only sound while the syncpoint's block is still on the
+    // chain: after a reorg below it, even an empty batch would move the syncpoint over a stale tail that the head
+    // batch's comparison has not authenticated yet, so the log has to be compared with the canonical one instead.
+    if (persistedSyncPoint !== undefined && !(await this.isHeadStillCanonical(persistedSyncPoint))) {
+      this.log.warn(`L1 block ${syncPoint.l1BlockNumber} the message syncpoint was committed at has been replaced`, {
+        syncPoint,
+        headL1BlockNumber: head.l1BlockNumber,
+      });
+      return this.startRecovery(head, remote, finalizedL1Block);
+    }
+
     let headBatch: InboxMessage[];
     try {
       headBatch = await this.ingestForward(syncPoint.l1BlockNumber + 1n, head);
@@ -228,12 +241,8 @@ export class InboxMessageSynchronizer {
       this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while fetching L1 to L2 messages`);
       return pending();
     }
-    const localAfterFetch = await this.stores.messages.getSyncedMessagePosition();
-    const lastStaged = headBatch.at(-1);
     const positionAfterHeadBatch =
-      lastStaged === undefined
-        ? localAfterFetch
-        : { totalMessageCount: lastStaged.index + 1n, rollingHash: lastStaged.inboxRollingHash };
+      headBatch.length === 0 ? await this.stores.messages.getSyncedMessagePosition() : positionAfter(headBatch);
     if (positionMatches(positionAfterHeadBatch, remote)) {
       // The staged head batch continues the log and lands exactly on the Inbox's position: commit it with the head
       // as syncpoint in one transaction. A batch that does not chain onto the log is a reorg to recover from.
@@ -418,23 +427,22 @@ export class InboxMessageSynchronizer {
   /**
    * Replays one batch of canonical messages from the recovery cursor and compares it with the stored log. Commits
    * only at an actual difference (a replacement plus prune, or an append), or refreshes L1 block hints for a batch
-   * that matched in full.
+   * that matched in full. A batch reaching the captured head is committed only if the log's position after it is the
+   * Inbox's position there, the same agreement normal ingestion demands: an incomplete or inconsistent response stays
+   * uncommitted, prunes nothing and does not advance the syncpoint, and recovery is retried.
    */
   private async replayBatch(recovery: RecoveryState): Promise<InboxMessageSyncResult> {
     const phase = recovery.phase as RecoveryPhase & { kind: 'replay' };
     const { head, remote, finalizedL1Block } = recovery;
     const start = phase.nextL1Block;
     const end = minBigint(start + this.getBatchSizeInL1Blocks() - 1n, head.l1BlockNumber);
+    const reachesHead = end === head.l1BlockNumber;
     this.log.verbose(
       `Replaying L1 to L2 messages in L1 blocks ${start}-${end} for recovery`,
       this.getRecoveryProgress(),
     );
     const canonical = await retrieveL1ToL2Messages(this.inbox, start, end);
-    if (!(await this.isHeadStillCanonical(head))) {
-      this.log.warn(`L1 head ${head.l1BlockNumber} was replaced during L1 to L2 message replay; restarting recovery`);
-      this.recovery = undefined;
-      return pending();
-    }
+    const l1Block = await this.l1BlockIdFor(end, head);
 
     let firstNew: number | undefined;
     let firstDivergent: number | undefined;
@@ -451,7 +459,14 @@ export class InboxMessageSynchronizer {
       }
     }
 
-    const l1Block = await this.l1BlockIdFor(end, head);
+    // The logs and the batch-end block were both read by number: only a head still canonical after both reads proves
+    // they came from the captured chain. This is the last L1 read of the pass; every mutation below follows it with
+    // nothing but local store reads in between, so a batch is never committed under a replacement chain's syncpoint.
+    if (!(await this.isHeadStillCanonical(head))) {
+      this.log.warn(`L1 head ${head.l1BlockNumber} was replaced during L1 to L2 message replay; restarting recovery`);
+      this.recovery = undefined;
+      return pending();
+    }
     phase.batchesReplayed++;
 
     if (firstDivergent !== undefined) {
@@ -459,6 +474,9 @@ export class InboxMessageSynchronizer {
       const expectedPrefix = await this.stores.messages.getMessagePosition(divergent.index);
       if (expectedPrefix === undefined) {
         throw new InboxMessagePrefixChangedError(divergent.index, remote.rollingHash, undefined);
+      }
+      if (reachesHead && !positionMatches(positionAfter(canonical), remote)) {
+        return this.abandonDisagreeingBatch(head, positionAfter(canonical), remote);
       }
       this.log.warn(`L1 to L2 message ${divergent.index} differs from L1; replacing the local suffix from it`, {
         firstDivergentIndex: divergent.index,
@@ -471,13 +489,16 @@ export class InboxMessageSynchronizer {
         firstDivergentIndex: divergent.index,
         expectedPrefix,
         messages: canonical,
-        syncState: { l1Block },
+        syncState: reachesHead ? { l1Block, finalizedL1Block } : { l1Block },
       });
       this.recovery = undefined;
-      return { status: 'pending', ...result };
+      return { status: reachesHead ? 'synced' : 'pending', ...result };
     }
 
     if (firstNew !== undefined) {
+      if (reachesHead && !positionMatches(positionAfter(canonical), remote)) {
+        return this.abandonDisagreeingBatch(head, positionAfter(canonical), remote);
+      }
       this.log.info(
         `Canonical L1 to L2 messages rejoin the local log at index ${canonical[firstNew].index}; appending`,
         {
@@ -485,16 +506,16 @@ export class InboxMessageSynchronizer {
           appendCount: canonical.length - firstNew,
         },
       );
-      await this.storeMessages(canonical, { l1Block });
+      await this.storeMessages(canonical, reachesHead ? { l1Block, finalizedL1Block } : { l1Block });
       this.recovery = undefined;
-      return pending();
+      return reachesHead ? synced() : pending();
     }
 
     if (canonical.length > 0) {
       // Everything matched; only the L1 block hints may have moved.
       await this.storeMessages(canonical, undefined);
     }
-    if (end < head.l1BlockNumber) {
+    if (!reachesHead) {
       phase.nextL1Block = end + 1n;
       return pending();
     }
@@ -513,9 +534,24 @@ export class InboxMessageSynchronizer {
       this.recovery = undefined;
       return this.truncate(localAtRemote, head, finalizedL1Block);
     }
+    return this.abandonDisagreeingBatch(head, local, remote);
+  }
+
+  /**
+   * Drops the current recovery without committing anything: the replayed events and the Inbox state at the captured
+   * head do not describe the same sequence, so neither can be trusted over the other. The next pass retries.
+   */
+  private abandonDisagreeingBatch(
+    head: L1BlockId,
+    local: InboxMessagePosition,
+    remote: InboxContractState,
+  ): InboxMessageSyncResult {
     this.log.error(`Inbox events and state at L1 block ${head.l1BlockNumber} disagree; retrying recovery`, {
+      headL1BlockNumber: head.l1BlockNumber,
       localTotalMessageCount: local.totalMessageCount,
+      localRollingHash: local.rollingHash.toString(),
       remoteTotalMessageCount: remote.totalMessagesInserted,
+      remoteRollingHash: remote.rollingHash.toString(),
     });
     this.recovery = undefined;
     return pending();
@@ -574,6 +610,12 @@ class CapturedHeadReplacedError extends Error {
 
 function sameL1Block(a: L1BlockId, b: L1BlockId): boolean {
   return a.l1BlockNumber === b.l1BlockNumber && a.l1BlockHash.equals(b.l1BlockHash);
+}
+
+/** The message position the log ends at once `messages`, a non-empty batch, is its tail. */
+function positionAfter(messages: InboxMessage[]): InboxMessagePosition {
+  const last = messages.at(-1)!;
+  return { totalMessageCount: last.index + 1n, rollingHash: last.inboxRollingHash };
 }
 
 function positionMatches(local: InboxMessagePosition, remote: InboxContractState): boolean {

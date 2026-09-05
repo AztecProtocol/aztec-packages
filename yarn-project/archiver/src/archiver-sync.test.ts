@@ -2036,6 +2036,116 @@ describe('Archiver Sync', () => {
       // Finality advances only once the log agrees with L1 again.
       expect((await archiverStore.messages.getMessagesFinalizedL1Block())?.l1BlockNumber).toEqual(150n);
     });
+
+    it('re-verifies the persisted syncpoint before ingesting forward, so an empty batch cannot certify a stale tail', async () => {
+      // One slot of L1 blocks per batch: two blocks. A arrives in block 2 and B in block 4; the log is synced to head 4.
+      await useArchiver({ batchSize: 1 });
+      const [a, b, c] = randomLeaves(3);
+      fake.addMessages(CheckpointNumber(1), 2n, [a]);
+      fake.addMessages(CheckpointNumber(1), 4n, [b]);
+      fake.setL1BlockNumber(4n);
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex([a, b]));
+
+      // L1 replaces block 3 onwards: B is gone, C is mined much later in block 10, and blocks 5-9 carry no message.
+      // The empty batches between the stale syncpoint and C must not move the syncpoint over the retained B.
+      fake.removeMessagesAfter(1);
+      fake.reorgL1BlocksFrom(3n);
+      fake.addMessages(CheckpointNumber(1), 10n, [c]);
+      fake.setL1BlockNumber(10n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([a, b]));
+      expect((await archiverStore.messages.getSynchedL1Block())?.l1BlockNumber).toEqual(4n);
+      expect(archiver.getL1BlockNumber()).toEqual(4n);
+
+      // The head recovery was pinned to is replaced and the chain shortens to block 8: a syncpoint advanced by the
+      // empty batches would now match the head and report B as canonical.
+      fake.reorgL1BlocksFrom(9n);
+      fake.setL1BlockNumber(8n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([a]));
+      expect(archiver.getL1BlockNumber()).toEqual(8n);
+
+      fake.setL1BlockNumber(10n);
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex([a, c]));
+      expect(archiver.getL1BlockNumber()).toEqual(10n);
+    });
+
+    it('leaves a recovery batch uncommitted when its position at the head disagrees with the Inbox', async () => {
+      const [a, b, c, d] = randomLeaves(4);
+      fake.addMessages(CheckpointNumber(1), 100n, [a]);
+      fake.addMessages(CheckpointNumber(1), 102n, [b]);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      const [block1, block2] = await addLocalBlocksConsuming([1, 2]);
+
+      // L1 replaces block 102 onwards: B is replaced by C, and D follows it in the same block.
+      fake.removeMessagesAfter(1);
+      fake.addMessages(CheckpointNumber(1), 102n, [c, d]);
+      fake.reorgL1BlocksFrom(102n);
+      fake.setL1BlockNumber(111n);
+      // The provider serves an incomplete log response that drops D from every range that should carry it.
+      const readLogs = inboxContract.getMessageSentEvents.getMockImplementation()!;
+      inboxContract.getMessageSentEvents.mockImplementation(async (from, to) => {
+        const logs = await readLogs(from, to);
+        return logs.filter(log => !log.args.leaf.equals(d));
+      });
+      await archiver.syncImmediate();
+
+      // [A, C] ends nowhere the Inbox does at the head, so the log, the proposed blocks and readiness are untouched.
+      expect(await getStoredLeaves()).toEqual(asHex([a, b]));
+      expect(await localBlockNumbers()).toEqual([block1.number, block2.number]);
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(archiver.getL1BlockNumber()).toEqual(110n);
+
+      inboxContract.getMessageSentEvents.mockImplementation(readLogs);
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex([a, c, d]));
+      expect(await localBlockNumbers()).toEqual([block1.number]);
+      expect(archiver.getL1BlockNumber()).toEqual(111n);
+    });
+
+    it('discards a replay batch whose chain was replaced while its syncpoint block was being read', async () => {
+      // One slot of L1 blocks per batch: two blocks. A arrives in block 2 and B in block 4; the log is synced to head 6.
+      await useArchiver({ batchSize: 1 });
+      const [a, b, c, d] = randomLeaves(4);
+      fake.addMessages(CheckpointNumber(1), 2n, [a]);
+      fake.addMessages(CheckpointNumber(1), 4n, [b]);
+      fake.setL1BlockNumber(6n);
+      await archiver.syncImmediate();
+
+      // L1 replaces block 3 onwards at the same height, with C in place of B.
+      fake.removeMessagesAfter(1);
+      fake.addMessages(CheckpointNumber(1), 4n, [c]);
+      fake.reorgL1BlocksFrom(3n);
+      // While recovery reads the block that ends the replay batch carrying C, L1 replaces the chain again with D in
+      // place of C and shortens to block 5: the logs belong to the chain with C, the block hash to the chain with D.
+      const readBlock = publicClient.getBlock.getMockImplementation()!;
+      publicClient.getBlock.mockImplementation((async (args: { blockNumber?: bigint }) => {
+        if (args?.blockNumber === 5n) {
+          publicClient.getBlock.mockImplementation(readBlock);
+          fake.removeMessagesAfter(1);
+          fake.addMessages(CheckpointNumber(1), 4n, [d]);
+          fake.reorgL1BlocksFrom(4n);
+          fake.setL1BlockNumber(5n);
+        }
+        return readBlock(args);
+      }) as any);
+      await archiver.syncImmediate();
+
+      // Nothing was certified under the replacement chain: the syncpoint is still the one committed before the reorg.
+      expect((await archiverStore.messages.getSynchedL1Block())?.l1BlockNumber).toEqual(6n);
+      expect(archiver.getL1BlockNumber()).toEqual(6n);
+
+      // The head is now block 5 of the chain with D; a syncpoint committed at block 5 with the logs of the chain with
+      // C would pass the same-head shortcut and report C as canonical.
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex([a, d]));
+      expect(archiver.getL1BlockNumber()).toEqual(5n);
+    });
   });
 
   describe('finalized checkpoint', () => {
