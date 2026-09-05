@@ -7,6 +7,7 @@ import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { getErrorCause } from '@aztec/foundation/types';
+import { ErrorsAbi } from '@aztec/l1-artifacts/ErrorsAbi';
 import { EscapeHatchAbi } from '@aztec/l1-artifacts/EscapeHatchAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
@@ -22,6 +23,7 @@ import {
   type StateOverride,
   type WatchContractEventReturnType,
   decodeErrorResult,
+  decodeFunctionResult,
   encodeAbiParameters,
   encodeFunctionData,
   getContract,
@@ -33,9 +35,9 @@ import { getPublicClient } from '../client.js';
 import type { DeployAztecL1ContractsReturnType } from '../deploy_aztec_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
-import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
+import type { L1TxRequest, L1TxUtils, ReadOnlyL1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
-import { formatViemError } from '../utils.js';
+import { formatViemError, mergeAbis } from '../utils.js';
 import { GSEContract } from './gse.js';
 import type { L1EventLog } from './log.js';
 import { SlasherContract } from './slasher_contract.js';
@@ -94,6 +96,21 @@ export type ViemHeader = {
 export type ViemGasFees = {
   feePerDaGas: bigint;
   feePerL2Gas: bigint;
+};
+
+/** Inputs of the Rollup's integrated header and Inbox preflight, mirroring the contract's `CheckpointPreflightArgs`. */
+export type CheckpointPreflightArgs = {
+  header: ViemHeader;
+  attestations: ViemCommitteeAttestations;
+  signers: `0x${string}`[];
+  attestationsAndSignersSignature: ViemSignature;
+  digest: `0x${string}`;
+  blobsHash: `0x${string}`;
+  flags: { ignoreDA: boolean };
+  /** Cumulative Inbox message count the checkpoint consumed up to; must be a live bucket boundary. */
+  expectedTotal: bigint;
+  /** Checkpoint number the header was built on; the call derives the real parent and rejects any other. */
+  expectedParentCheckpointNumber: bigint;
 };
 
 /**
@@ -878,6 +895,39 @@ export class RollupContract {
     } catch (error: unknown) {
       throw formatViemError(error);
     }
+  }
+
+  /**
+   * Simulates `validateCheckpointHeaderAndInbox` at the intended execution time and state, and returns the Inbox
+   * bucket sequence to submit to `propose` as `bucketHint`.
+   *
+   * The call derives the parent checkpoint from the simulated Rollup storage the way `propose` does (the proven tip if
+   * the pending chain is prunable at `time`), so `stateOverrides` must describe the state the real transaction will
+   * see: a pipelined parent, or the tips after a bundled invalidation. It runs over `eth_simulateV1` with a block time
+   * override, the same transport as the header-only preflight, and throws a formatted error naming the contract
+   * revert (`Rollup__UnexpectedParentCheckpoint`, `Rollup__InboxTotalNotAtBucketBoundary`,
+   * `Inbox__NoBucketAtOrBeforeTotal`, or any header/Inbox consumption error `propose` raises) when the checkpoint is
+   * not publishable in that context.
+   * @param l1TxUtils - The simulation transport
+   * @param args - The header validation inputs plus the consumed Inbox total and the expected parent
+   * @param opts - The block timestamp to simulate at, the state overrides to apply, and the simulated sender
+   */
+  public async validateCheckpointHeaderAndInbox(
+    l1TxUtils: Pick<ReadOnlyL1TxUtils, 'simulate'>,
+    args: CheckpointPreflightArgs,
+    opts: { time: bigint; stateOverrides?: StateOverride; from?: `0x${string}` },
+  ): Promise<bigint> {
+    const { result } = await l1TxUtils.simulate(
+      {
+        to: this.address,
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateCheckpointHeaderAndInbox', args: [args] }),
+        from: opts.from,
+      },
+      { time: opts.time },
+      opts.stateOverrides ?? [],
+      mergeAbis([RollupAbi, ErrorsAbi]),
+    );
+    return decodeFunctionResult({ abi: RollupAbi, functionName: 'validateCheckpointHeaderAndInbox', data: result });
   }
 
   /**

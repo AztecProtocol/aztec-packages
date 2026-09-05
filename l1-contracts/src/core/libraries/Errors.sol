@@ -29,6 +29,7 @@ library Errors {
   error Inbox__BucketOutOfWindow(uint256 seq, uint256 current); // 0xfee255b7
   error Inbox__Unauthorized(); // 0xe5336a6b
   error Inbox__WouldOverwriteUnconsumedBucket(uint64 evictedBucketSeq); // 0x2eb49c6d
+  error Inbox__NoBucketAtOrBeforeTotal(uint256 upperBound, uint256 oldestLiveTotal);
 
   // Outbox
   error Outbox__Unauthorized(); // 0x2c9490c2
@@ -64,6 +65,8 @@ library Errors {
   error Rollup__UnconsumedInboxMessages(uint256 nextBucketSeq); // 0x2bd4bf10
   error Rollup__InboxConsumptionBehindParent(uint256 expected, uint256 actual); // 0x54e0c025
   error Rollup__TooManyInboxMessagesConsumed(uint256 consumed); // 0xf76d1426
+  error Rollup__InboxTotalNotAtBucketBoundary(uint256 expected, uint256 actual);
+  error Rollup__UnexpectedParentCheckpoint(uint256 expected, uint256 actual);
   error Rollup__InvalidOutHash(bytes32 expected, bytes32 actual); // 0x8eb39062
   error Rollup__InvalidPreviousArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidProof(); // 0xa5b2ba17

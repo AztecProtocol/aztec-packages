@@ -26,6 +26,11 @@ uint256 constant INBOX_BUCKET_RING_SIZE = 4096;
 // rounded up to the next power of two, kept at or below the production ring.
 uint256 constant MIN_BUCKET_RING_SIZE = 512;
 
+// Number of newest live buckets `getBucketAtOrBeforeTotal` probes one by one before binary-searching the rest of
+// the ring. Checkpoint endpoints normally sit within the last few buckets, so the short walk resolves the common
+// case in a handful of reads while a target far behind a deposit backlog still costs O(probes + log ring size).
+uint256 constant ENDPOINT_WALKBACK_PROBES = 4;
+
 /**
  * @title Inbox
  * @author Aztec Labs
@@ -156,6 +161,64 @@ contract Inbox is IInbox {
     uint256 current = currentBucketSeq;
     require(_seq <= current && current - _seq < BUCKET_RING_SIZE, Errors.Inbox__BucketOutOfWindow(_seq, current));
     return buckets[_seq % BUCKET_RING_SIZE];
+  }
+
+  /**
+   * @notice Returns the live bucket with the greatest cumulative message total at or below `_upperBound`
+   *
+   * @dev Totals strictly increase with the bucket sequence, so the newest live bucket whose total does not exceed
+   * the bound is the answer. The live interval is `[oldest, current]` with `oldest = current - ringSize + 1` once the
+   * ring has wrapped (computed subtraction-first so `current + 1` cannot overflow at the sequence maximum); entries
+   * below `oldest` share a ring slot with a newer bucket and are never dereferenced. Walks back from `current` for
+   * at most ENDPOINT_WALKBACK_PROBES live entries, checking for `oldest` before each step down, then binary-searches
+   * only the still unscanned interval below the walk.
+   *
+   * @param _upperBound - The cumulative message total the returned bucket may not exceed
+   *
+   * @return The sequence number of the matching bucket and the bucket itself
+   */
+  function getBucketAtOrBeforeTotal(uint64 _upperBound)
+    external
+    view
+    override(IInbox)
+    returns (uint64, InboxBucket memory)
+  {
+    uint256 current = currentBucketSeq;
+    uint256 oldest = 0;
+    if (current >= BUCKET_RING_SIZE) {
+      oldest = current - BUCKET_RING_SIZE + 1;
+    }
+
+    uint256 seq = current;
+    for (uint256 i = 0; i < ENDPOINT_WALKBACK_PROBES; i++) {
+      uint64 total = buckets[seq % BUCKET_RING_SIZE].totalMsgCount;
+      if (total <= _upperBound) {
+        return (SafeCast.toUint64(seq), buckets[seq % BUCKET_RING_SIZE]);
+      }
+      if (seq == oldest) {
+        revert Errors.Inbox__NoBucketAtOrBeforeTotal(_upperBound, total);
+      }
+      seq -= 1;
+    }
+
+    // Every entry in (seq, current] exceeds the bound, so the answer, if any, lies in [oldest, seq].
+    uint256 lo = oldest;
+    uint256 hi = seq;
+    uint64 oldestTotal = buckets[lo % BUCKET_RING_SIZE].totalMsgCount;
+    if (oldestTotal > _upperBound) {
+      revert Errors.Inbox__NoBucketAtOrBeforeTotal(_upperBound, oldestTotal);
+    }
+    // Invariant: the bucket at `lo` qualifies and every bucket above `hi` does not; `mid` rounds up so `lo` always
+    // moves on a hit and the loop converges on the greatest qualifying sequence.
+    while (lo < hi) {
+      uint256 mid = hi - (hi - lo) / 2;
+      if (buckets[mid % BUCKET_RING_SIZE].totalMsgCount <= _upperBound) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return (SafeCast.toUint64(lo), buckets[lo % BUCKET_RING_SIZE]);
   }
 
   function getProvenConsumedBucketSeq() external view override(IInbox) returns (uint64) {

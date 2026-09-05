@@ -2,12 +2,14 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Constants} from "../../libraries/ConstantsGen.sol";
 import {DataStructures} from "../../libraries/DataStructures.sol";
 
 // Maximum number of messages a single bucket can hold before further messages in the same L1 block spill over
-// into the next bucket. Matches the number of L1 to L2 messages a single L2 block can insert, so any one bucket
-// is always consumable by one block.
-uint256 constant MAX_MSGS_PER_BUCKET = 256;
+// into the next bucket. Aliases the protocol's per-block message cap so any one bucket is always consumable by one
+// L2 block, and so the node-side completion guard that reserves one bucket of checkpoint capacity uses the same
+// generated value.
+uint256 constant MAX_MSGS_PER_BUCKET = Constants.MAX_L1_TO_L2_MSGS_PER_BLOCK;
 
 /**
  * @title Inbox
@@ -106,6 +108,18 @@ interface IInbox {
    * @return The bucket
    */
   function getBucket(uint256 _seq) external view returns (InboxBucket memory);
+
+  /**
+   * @notice Returns the live bucket with the greatest cumulative message total at or below `_upperBound`
+   * @dev Cumulative totals strictly increase with the bucket sequence (every opened bucket absorbs at least one
+   * message), so the result is the newest retained bucket whose end position does not exceed the bound. Probes the
+   * newest four live entries first, then binary-searches the remaining live interval. Only ring entries that have
+   * not been overwritten are candidates; the genesis bucket qualifies only while its ring entry is still live.
+   * Reverts with `Inbox__NoBucketAtOrBeforeTotal` when even the oldest retained bucket ends past the bound.
+   * @param _upperBound - The cumulative message total the returned bucket may not exceed
+   * @return The sequence number of the matching bucket and the bucket itself
+   */
+  function getBucketAtOrBeforeTotal(uint64 _upperBound) external view returns (uint64, InboxBucket memory);
 
   /**
    * @notice Returns the sequence number of the newest bucket consumed by the proven chain

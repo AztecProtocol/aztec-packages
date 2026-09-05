@@ -52,6 +52,32 @@ struct CheckpointHeaderValidationFlags {
   bool ignoreDA;
 }
 
+/**
+ * @notice Inputs of the proposer's integrated header and Inbox preflight
+ * @dev Bundles the `validateHeaderWithAttestations` argument set with the two Inbox inputs so the call stays off
+ *      the stack limit and the Rollup's forwarder stays small.
+ * @param header - The proposed checkpoint header
+ * @param attestations - Committee attestations to validate, or empty to skip signature checks
+ * @param signers - Addresses of the signers in the attestations
+ * @param attestationsAndSignersSignature - The proposer's signature over the attestations and signers
+ * @param digest - The digest the attestations signed
+ * @param blobsHash - The blobs hash for this checkpoint
+ * @param flags - Which header checks to skip
+ * @param expectedTotal - The cumulative Inbox message count the checkpoint consumed up to
+ * @param expectedParentCheckpointNumber - The checkpoint number the header was built on
+ */
+struct CheckpointPreflightArgs {
+  ProposedHeader header;
+  CommitteeAttestations attestations;
+  address[] signers;
+  Signature attestationsAndSignersSignature;
+  bytes32 digest;
+  bytes32 blobsHash;
+  CheckpointHeaderValidationFlags flags;
+  uint64 expectedTotal;
+  uint256 expectedParentCheckpointNumber;
+}
+
 struct GenesisState {
   bytes32 vkTreeRoot;
   bytes32 protocolContractsHash;
@@ -172,6 +198,8 @@ interface IRollup is IRollupCore, IHaveVersion {
     bytes32 _blobsHash,
     CheckpointHeaderValidationFlags memory _flags
   ) external;
+
+  function validateCheckpointHeaderAndInbox(CheckpointPreflightArgs calldata _args) external returns (uint64);
 
   function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who) external returns (Slot, uint256);
 

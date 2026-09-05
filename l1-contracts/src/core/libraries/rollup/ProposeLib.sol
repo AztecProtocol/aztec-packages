@@ -486,6 +486,39 @@ library ProposeLib {
   }
 
   /**
+   * @notice Resolves a checkpoint's final consumed Inbox total to a live bucket and validates the consumption it
+   *         implies, returning the bucket sequence to pass to `propose` as `bucketHint`
+   *
+   * @dev The proposer-side counterpart of the `propose` check. `propose` receives the bucket sequence as an unsigned
+   *      hint; a proposer only knows the total it consumed up to, so this resolves that total to the bucket ending
+   *      exactly there and runs that bucket through the same `validateInboxConsumption` predicate. A total that is
+   *      not a bucket boundary has no snapshot to compare the header's rolling hash against and is rejected, as is a
+   *      total below the oldest retained bucket (`Inbox__NoBucketAtOrBeforeTotal`).
+   *
+   * @param _inbox - The Inbox holding the rolling-hash buckets
+   * @param _inboxRollingHash - The checkpoint header's inbox rolling hash
+   * @param _expectedTotal - The cumulative Inbox message count the checkpoint consumed up to
+   * @param _slotNumber - The slot the checkpoint is proposed in
+   * @param _parentTotalMsgCount - Cumulative Inbox message count consumed as of the parent checkpoint
+   * @return The sequence number of the bucket ending at `_expectedTotal`
+   */
+  function validateInboxConsumptionAtTotal(
+    IInbox _inbox,
+    bytes32 _inboxRollingHash,
+    uint64 _expectedTotal,
+    Slot _slotNumber,
+    uint256 _parentTotalMsgCount
+  ) internal view returns (uint64) {
+    (uint64 seq, IInbox.InboxBucket memory bucket) = _inbox.getBucketAtOrBeforeTotal(_expectedTotal);
+    require(
+      bucket.totalMsgCount == _expectedTotal,
+      Errors.Rollup__InboxTotalNotAtBucketBoundary(_expectedTotal, bucket.totalMsgCount)
+    );
+    validateInboxConsumption(_inbox, _inboxRollingHash, seq, _slotNumber, _parentTotalMsgCount);
+    return seq;
+  }
+
+  /**
    * @notice  Gets the mana min fee components
    *          For more context, consult:
    *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
