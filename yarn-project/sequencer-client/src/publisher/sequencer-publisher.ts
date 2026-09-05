@@ -984,7 +984,8 @@ export class SequencerPublisher {
    * @param header - The checkpoint header to validate.
    * @param inbox - The checkpoint's final consumed message total and the parent checkpoint it builds on.
    * @param simulationOverridesPlan - Simulated L1 state for the call: the unpublished parent while pipelining before
-   *   gossip, or only the operations preceding the propose in the bundle before publication.
+   *   gossip, or, before publication, the operations preceding the propose in the bundle plus the build's proven pin
+   *   while the epoch proof it assumed is still outstanding.
    * @returns The sequence of the live Inbox bucket the final total resolved to, the unsigned `propose` bucket hint.
    */
   @trackSpan('SequencerPublisher.validateCheckpointHeaderAndInbox')

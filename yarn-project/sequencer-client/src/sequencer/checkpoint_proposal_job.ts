@@ -384,7 +384,7 @@ export class CheckpointProposalJob implements Traceable {
       // matches the proposed checkpoint we used as parent, and has valid attestations.
       if (signedAttestations && (await this.waitForValidParentCheckpointOnL1())) {
         // Attestation collection took seconds and L1 may have moved: re-run the integrated header and Inbox
-        // preflight against the state the send will actually execute in, and take the bucket hint from it.
+        // preflight against L1's current state, and take the bucket hint from it.
         const bucketHint = await this.preflightBeforePublication(checkpoint.header, streamingState);
         if (bucketHint !== undefined && (await this.checkpointBlocksAreStillLocal(checkpoint))) {
           await this.enqueueCheckpointForSubmission({ checkpoint, ...signedAttestations, bucketHint });
@@ -458,11 +458,12 @@ export class CheckpointProposalJob implements Traceable {
   }
 
   /**
-   * Runs the integrated header and Inbox preflight immediately before publication, against the L1 state the send
-   * will execute in: the real Rollup storage, plus the operations this job's bundle applies before the propose (an
-   * invalidation forcing the pending tip back). The synthetic overrides the pre-gossip preflight used to bridge the
-   * unpublished parent and to suppress prunes are deliberately not carried over: by now the parent has been confirmed
-   * on L1, and whether a prune collapses it is exactly what this simulation has to observe.
+   * Runs the integrated header and Inbox preflight immediately before publication, against L1's current Rollup
+   * storage plus the operations this job's bundle applies before the propose (an invalidation forcing the pending tip
+   * back). The pre-gossip overrides that bridged the unpublished parent are not carried over, since the parent has
+   * been confirmed on L1 by now. The one assumption that is carried over is the build's proven pin while a prune is
+   * due at the target slot: the verdict is then conditional on the epoch proof landing by the target slot, which is
+   * the same assumption the build made and which `propose` itself validates.
    *
    * Returns the live bucket sequence to publish as the unsigned `propose` hint, or undefined when the checkpoint can
    * no longer be published, in which case the slot is abandoned without touching the signed contents.
@@ -1081,7 +1082,7 @@ export class CheckpointProposalJob implements Traceable {
       // builds on, the final message position resolving to a live bucket, and L1's settlement, cap and censorship
       // rules. If this fails the slot is aborted before any gossip work. The pipelined parent is supplied through
       // the simulation overrides, so this verdict is conditional on that parent landing; the pre-publication
-      // preflight repeats it against the real state.
+      // preflight repeats it once the parent has landed, keeping only the assumptions still outstanding then.
       // The simulation is bounded by the attestation deadline: a verdict that arrives once no validator can attest
       // any more must not lead to signing.
       let bucketHint: bigint;
