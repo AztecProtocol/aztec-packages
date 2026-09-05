@@ -477,7 +477,7 @@ describe('MessageStore', () => {
       const l1Block = { l1BlockNumber: 12n, l1BlockHash: Buffer32.random() };
       const finalizedL1Block = { l1BlockNumber: 7n, l1BlockHash: Buffer32.random() };
 
-      await messageStore.addL1ToL2Messages(msgs, { l1Block, finalizedL1Block });
+      await messageStore.addL1ToL2Messages(msgs, { l1Block, authenticated: true, finalizedL1Block });
 
       expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual(msgs);
       expect(await messageStore.getSynchedL1Block()).toEqual(l1Block);
@@ -491,17 +491,32 @@ describe('MessageStore', () => {
       msgs[2].inboxRollingHash = Fr.random();
 
       await expect(
-        messageStore.addL1ToL2Messages(msgs, { l1Block: { l1BlockNumber: 12n, l1BlockHash: Buffer32.random() } }),
+        messageStore.addL1ToL2Messages(msgs, {
+          l1Block: { l1BlockNumber: 12n, l1BlockHash: Buffer32.random() },
+          authenticated: true,
+        }),
       ).rejects.toThrow(MessageStoreError);
 
       expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual([]);
       expect(await messageStore.getSynchedL1Block()).toEqual(before);
     });
 
-    it('moves the sync point on an empty batch', async () => {
+    it('moves the sync point on an empty authenticated batch', async () => {
       const l1Block = { l1BlockNumber: 12n, l1BlockHash: Buffer32.random() };
-      await messageStore.addL1ToL2Messages([], { l1Block });
+      await messageStore.addL1ToL2Messages([], { l1Block, authenticated: true });
       expect(await messageStore.getSynchedL1Block()).toEqual(l1Block);
+      expect(await messageStore.getScannedL1Block()).toEqual(l1Block);
+    });
+
+    it('moves only the scanned cursor for a batch that was not compared with the Inbox', async () => {
+      const synced = { l1BlockNumber: 5n, l1BlockHash: Buffer32.random() };
+      await messageStore.setMessageSyncState(synced);
+      const l1Block = { l1BlockNumber: 12n, l1BlockHash: Buffer32.random() };
+
+      await messageStore.addL1ToL2Messages(makeInboxMessages(2), { l1Block, authenticated: false });
+
+      expect(await messageStore.getScannedL1Block()).toEqual(l1Block);
+      expect(await messageStore.getSynchedL1Block()).toBeUndefined();
     });
 
     it('refreshes the L1 block hint of a message re-delivered with the same content', async () => {

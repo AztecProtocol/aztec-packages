@@ -11,7 +11,7 @@ import type { InboxMessagePosition } from '@aztec/stdlib/messaging';
 import { InboxMessagePrefixChangedError } from '../errors.js';
 import { retrieveL1ToL2Message, retrieveL1ToL2Messages } from '../l1/data_retrieval.js';
 import type { ArchiverDataStores } from '../store/data_stores.js';
-import { MessageStoreError } from '../store/message_store.js';
+import { MessageStoreError, type MessageSyncState } from '../store/message_store.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import type { ArchiverDataStoreUpdater } from './data_store_updater.js';
 
@@ -67,12 +67,21 @@ export type InboxMessageRecoveryProgress = {
 /**
  * Keeps the archiver's ordered Inbox message log equal to L1's.
  *
+ * The invariant every path here maintains: a persisted message syncpoint certifies the entire stored prefix, and the
+ * completeness of a log response is never inferred from block identity. Two positions are therefore persisted. The
+ * scanned cursor is where the log responses read so far end; it only says which L1 blocks were queried, and a
+ * canonical block at that height says nothing about whether its response held every message it emitted. The syncpoint
+ * is the L1 block at which the stored log's position was found equal to the Inbox's own position; storing messages
+ * without such a comparison clears it, so a syncpoint is only ever a verified position. Only the syncpoint may answer
+ * a head as synced, advance the finality marker or be inherited as canonical; the cursor only says where fetching
+ * resumes.
+ *
  * Normal ingestion captures an L1 head, reads the Inbox's position (message count and rolling hash) at that head,
- * fetches the MessageSent events forward from the persisted syncpoint in bounded L1 block ranges and commits each
- * batch together with the syncpoint covering it, so completed batches are usable immediately and a later RPC failure
- * leaves them in place. The batch reaching the head is staged and committed with the head only once the position
- * after it equals the captured one, so the log never holds messages past its syncpoint; a disagreement means an L1
- * reorg changed messages this node already holds, and recovery starts.
+ * fetches the MessageSent events forward from the scanned cursor in bounded L1 block ranges and commits each batch
+ * with the cursor covering it, so completed batches are usable immediately and a later RPC failure leaves them in
+ * place. The batch reaching the head is staged and committed with the head as syncpoint only once the position after
+ * it equals the captured one, which certifies the intermediate batches with it; a disagreement means either an L1
+ * reorg changed messages this node already holds or a response was incomplete, and recovery starts.
  *
  * Recovery never deletes on a failed lookup. It first finds an anchor: either the canonical tip itself is a shorter
  * prefix of the local log (checked by hash, so truncation needs no event lookups), or a stored message whose event L1
@@ -80,11 +89,11 @@ export type InboxMessageRecoveryProgress = {
  * per pass. A lookup that misses only moves the search to an older candidate. From the anchor's canonical L1 block it
  * replays the canonical messages forward one batch per pass, comparing each with the stored message at its index.
  * Rows and proposed blocks are preserved until an actual content difference is found; at that first difference the
- * old suffix is removed, the verified replacement batch appended, the syncpoint moved and the proposed blocks that
- * consumed the replaced messages pruned, all in one store transaction. A moved prefix followed by new messages is
- * plain append. Recovery is pinned to the head it started against: a merely advancing `latest` does not reset it,
- * only a replaced or unavailable head does. The cursor is process-local; after a restart, anchor discovery starts
- * over from the committed syncpoint, which is correct.
+ * old suffix is removed, the verified replacement batch appended, the cursor moved (the syncpoint with it only for a
+ * batch reaching the head) and the proposed blocks that consumed the replaced messages pruned, all in one store
+ * transaction. A moved prefix followed by new messages is plain append. Recovery is pinned to the head it started
+ * against: a merely advancing `latest` does not reset it, only a replaced or unavailable head does. Its replay
+ * position is process-local; after a restart, anchor discovery starts over from the stored log, which is correct.
  *
  * The inherited finalized-height shortcut is kept: a stored message observed at or below the finality marker
  * persisted by the last sync that reached agreement with L1 is accepted as an anchor without a lookup, and the marker
@@ -161,7 +170,9 @@ export class InboxMessageSynchronizer {
     }
 
     const persistedSyncPoint = await this.stores.messages.getSynchedL1Block();
+    const persistedCursor = await this.stores.messages.getScannedL1Block();
     const syncPoint = persistedSyncPoint ?? this.l1Start;
+    const cursor = persistedCursor ?? this.l1Start;
     if (sameL1Block(head, syncPoint)) {
       // The syncpoint only ever reaches a head once the log agrees with the Inbox there (a replacement batch ending
       // at the head is the canonical sequence through it), so finality may advance over the whole log.
@@ -200,18 +211,19 @@ export class InboxMessageSynchronizer {
       return this.startRecovery(head, remote, finalizedL1Block);
     }
 
-    if (head.l1BlockNumber <= syncPoint.l1BlockNumber) {
-      // A same-height or shorter replacement head that does not simply shorten our log: there is no forward range to
-      // fetch, so find where the local log and the canonical one part ways.
+    if (head.l1BlockNumber <= cursor.l1BlockNumber) {
+      // A head at or below what has already been scanned, and the log does not agree with it: there is no forward
+      // range to fetch, so find where the local log and the canonical one part ways.
       return this.startRecovery(head, remote, finalizedL1Block);
     }
 
-    // Forward ingestion inherits the log through the syncpoint as canonical, and every batch it commits certifies that
-    // inherited prefix again under a new syncpoint. That is only sound while the syncpoint's block is still on the
-    // chain: after a reorg below it, even an empty batch would move the syncpoint over a stale tail that the head
-    // batch's comparison has not authenticated yet, so the log has to be compared with the canonical one instead.
-    if (persistedSyncPoint !== undefined && !(await this.isHeadStillCanonical(persistedSyncPoint))) {
-      this.log.warn(`L1 block ${syncPoint.l1BlockNumber} the message syncpoint was committed at has been replaced`, {
+    // Forward ingestion inherits the scanned log as canonical, and the head batch's comparison then certifies that
+    // inherited prefix. That is only sound while the cursor's block is still on the chain: after a reorg below it, the
+    // messages read up to it may belong to a chain L1 no longer has, so the log has to be compared with the canonical
+    // one instead.
+    if (persistedCursor !== undefined && !(await this.isHeadStillCanonical(persistedCursor))) {
+      this.log.warn(`L1 block ${cursor.l1BlockNumber} the message log was scanned through has been replaced`, {
+        cursor,
         syncPoint,
         headL1BlockNumber: head.l1BlockNumber,
       });
@@ -220,7 +232,7 @@ export class InboxMessageSynchronizer {
 
     let headBatch: InboxMessage[];
     try {
-      headBatch = await this.ingestForward(syncPoint.l1BlockNumber + 1n, head);
+      headBatch = await this.ingestForward(cursor.l1BlockNumber + 1n, head);
     } catch (err) {
       if (err instanceof CapturedHeadReplacedError) {
         this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while fetching L1 to L2 messages`);
@@ -247,7 +259,7 @@ export class InboxMessageSynchronizer {
       // The staged head batch continues the log and lands exactly on the Inbox's position: commit it with the head
       // as syncpoint in one transaction. A batch that does not chain onto the log is a reorg to recover from.
       try {
-        await this.storeMessages(headBatch, { l1Block: head, finalizedL1Block });
+        await this.storeMessages(headBatch, { l1Block: head, authenticated: true, finalizedL1Block });
       } catch (err) {
         if (err instanceof MessageStoreError) {
           this.log.warn(`Head batch of L1 to L2 messages does not continue the local log: ${err.message}`, {
@@ -263,13 +275,14 @@ export class InboxMessageSynchronizer {
   }
 
   /**
-   * Fetches messages forward in bounded L1 block ranges and commits each batch with the syncpoint that covers it,
-   * except for the batch reaching the head, which is returned staged instead of stored: the log must never hold
-   * messages past its syncpoint, or a later head equal to that syncpoint would pass the same-head shortcut over
-   * messages the canonical chain may have dropped. The caller commits the staged batch together with the head once
-   * the log agrees with the Inbox there. Throws `MessageStoreError` when an intermediate batch does not continue the
-   * stored chain and `CapturedHeadReplacedError` when the chain moved under a batch, leaving the earlier batches in
-   * place either way.
+   * Fetches messages forward in bounded L1 block ranges and commits each batch with the scanned cursor that covers
+   * it, except for the batch reaching the head, which is returned staged instead of stored. No intermediate batch is
+   * compared with the Inbox's position at its end block, so none of them may move the syncpoint: an incomplete
+   * response would otherwise be certified by the mere identity of a canonical block, and a later head at that block
+   * would take the same-head shortcut over a message L1 does hold. The caller commits the staged batch together with
+   * the head as syncpoint once the log agrees with the Inbox there, which certifies the intermediate batches too.
+   * Throws `MessageStoreError` when an intermediate batch does not continue the stored chain and
+   * `CapturedHeadReplacedError` when the chain moved under a batch, leaving the earlier batches in place either way.
    */
   private async ingestForward(fromL1Block: bigint, head: L1BlockId): Promise<InboxMessage[]> {
     let start = fromL1Block;
@@ -283,12 +296,12 @@ export class InboxMessageSynchronizer {
         headBatch = messages;
       } else {
         // Logs and the batch-end block are read by number: only a head still canonical after both reads proves they
-        // came from the captured chain, so a batch is never committed under a replacement chain's syncpoint.
+        // came from the captured chain, so a batch is never committed under a replacement chain's cursor.
         const l1Block = await this.l1BlockIdFor(end, head);
         if (!(await this.isHeadStillCanonical(head))) {
           throw new CapturedHeadReplacedError(head);
         }
-        await this.storeMessages(messages, { l1Block });
+        await this.storeMessages(messages, { l1Block, authenticated: false });
         stored += messages.length;
       }
       start = end + 1n;
@@ -303,10 +316,7 @@ export class InboxMessageSynchronizer {
     return headBatch;
   }
 
-  private async storeMessages(
-    messages: InboxMessage[],
-    syncState: { l1Block: L1BlockId; finalizedL1Block?: L1BlockId } | undefined,
-  ): Promise<void> {
+  private async storeMessages(messages: InboxMessage[], syncState: MessageSyncState | undefined): Promise<void> {
     const timer = new Timer();
     await this.stores.messages.addL1ToL2Messages(messages, syncState);
     if (messages.length > 0) {
@@ -429,7 +439,8 @@ export class InboxMessageSynchronizer {
    * only at an actual difference (a replacement plus prune, or an append), or refreshes L1 block hints for a batch
    * that matched in full. A batch reaching the captured head is committed only if the log's position after it is the
    * Inbox's position there, the same agreement normal ingestion demands: an incomplete or inconsistent response stays
-   * uncommitted, prunes nothing and does not advance the syncpoint, and recovery is retried.
+   * uncommitted, prunes nothing and does not advance the syncpoint, and recovery is retried. Earlier batches move the
+   * scanned cursor alone, since nothing has compared the log with the Inbox at their end block.
    */
   private async replayBatch(recovery: RecoveryState): Promise<InboxMessageSyncResult> {
     const phase = recovery.phase as RecoveryPhase & { kind: 'replay' };
@@ -489,7 +500,7 @@ export class InboxMessageSynchronizer {
         firstDivergentIndex: divergent.index,
         expectedPrefix,
         messages: canonical,
-        syncState: reachesHead ? { l1Block, finalizedL1Block } : { l1Block },
+        syncState: reachesHead ? { l1Block, authenticated: true, finalizedL1Block } : { l1Block, authenticated: false },
       });
       this.recovery = undefined;
       return { status: reachesHead ? 'synced' : 'pending', ...result };
@@ -506,7 +517,10 @@ export class InboxMessageSynchronizer {
           appendCount: canonical.length - firstNew,
         },
       );
-      await this.storeMessages(canonical, reachesHead ? { l1Block, finalizedL1Block } : { l1Block });
+      await this.storeMessages(
+        canonical,
+        reachesHead ? { l1Block, authenticated: true, finalizedL1Block } : { l1Block, authenticated: false },
+      );
       this.recovery = undefined;
       return reachesHead ? synced() : pending();
     }
@@ -572,7 +586,7 @@ export class InboxMessageSynchronizer {
       firstDivergentIndex: keep.totalMessageCount,
       expectedPrefix: keep,
       messages: [],
-      syncState: { l1Block: head },
+      syncState: { l1Block: head, authenticated: true },
     });
     // The remaining log is the canonical sequence at the head, so finality may advance over it.
     if (finalizedL1Block !== undefined) {

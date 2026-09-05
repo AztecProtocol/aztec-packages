@@ -24,6 +24,16 @@ function zeroMessagePosition(): InboxMessagePosition {
   return { totalMessageCount: 0n, rollingHash: Fr.ZERO };
 }
 
+/** Reads an L1 block id from a singleton holding its serialized number and hash. */
+async function readL1BlockId(singleton: AztecAsyncSingleton<Buffer>): Promise<L1BlockId | undefined> {
+  const buffer = await singleton.getAsync();
+  if (!buffer) {
+    return undefined;
+  }
+  const reader = BufferReader.asReader(buffer);
+  return { l1BlockNumber: reader.readUInt256(), l1BlockHash: Buffer32.fromBuffer(reader.readBytes(Buffer32.SIZE)) };
+}
+
 /** Rejects reversed or negative compact leaf count bounds, which are caller errors rather than sync state. */
 function assertValidLeafCountRange(startLeafCount: bigint, endLeafCount: bigint): void {
   if (startLeafCount < 0n || endLeafCount < 0n || startLeafCount > endLeafCount) {
@@ -41,13 +51,20 @@ export class MessageStoreError extends Error {
   }
 }
 
-/** The L1 sync state a batch of messages is committed together with. */
-export type MessageSyncState = {
-  /** The L1 block through which the Inbox has been synced once the batch is stored. */
-  l1Block: L1BlockId;
-  /** The L1 finalized block as of this sync, advanced monotonically. */
-  finalizedL1Block?: L1BlockId;
-};
+/**
+ * The L1 sync state a batch of messages is committed together with. `l1Block` always advances the scanned cursor, the
+ * L1 block through which MessageSent logs have been read into the store. It becomes the message syncpoint only when
+ * `authenticated` says the resulting log position was found equal to the Inbox's own position at that block, because
+ * the syncpoint certifies the whole stored prefix rather than the blocks it was scanned from.
+ */
+export type MessageSyncState =
+  | { l1Block: L1BlockId; authenticated: false }
+  | {
+      l1Block: L1BlockId;
+      authenticated: true;
+      /** The L1 finalized block as of this sync, advanced monotonically. */
+      finalizedL1Block?: L1BlockId;
+    };
 
 /**
  * The ordered Inbox message log: one row per message at its compact index, holding the leaf, the cumulative rolling
@@ -62,6 +79,8 @@ export class MessageStore {
   #l1ToL2MessageIndices: AztecAsyncMap<string, bigint>;
   /** Stores L1 block number and hash of the L1 synchpoint */
   #lastSynchedL1Block: AztecAsyncSingleton<Buffer>;
+  /** Stores L1 block number and hash of the L1 block through which MessageSent logs have been read into the store */
+  #lastScannedL1Block: AztecAsyncSingleton<Buffer>;
   /** Stores total messages stored */
   #totalMessageCount: AztecAsyncSingleton<bigint>;
   /** Stores the L1 finalized block as of the last successful message sync. */
@@ -73,6 +92,7 @@ export class MessageStore {
     this.#l1ToL2Messages = db.openMap('archiver_l1_to_l2_messages');
     this.#l1ToL2MessageIndices = db.openMap('archiver_l1_to_l2_message_indices');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_l1_block_id');
+    this.#lastScannedL1Block = db.openSingleton('archiver_messages_scanned_l1_block');
     this.#totalMessageCount = db.openSingleton('archiver_l1_to_l2_message_count');
     this.#messagesFinalizedL1Block = db.openSingleton('archiver_messages_finalized_l1_block');
   }
@@ -81,31 +101,37 @@ export class MessageStore {
     return (await this.#totalMessageCount.getAsync()) ?? 0n;
   }
 
-  /** Gets the last L1 block synced. */
+  /**
+   * Gets the message syncpoint: the L1 block at which the stored message log was found equal to the Inbox's own
+   * position, which certifies the whole stored log. Undefined while the log holds messages read from responses no
+   * comparison has covered yet, i.e. whenever the scanned cursor has moved without such a comparison.
+   */
   public async getSynchedL1Block(): Promise<L1BlockId | undefined> {
-    const buffer = await this.#lastSynchedL1Block.getAsync();
-    if (!buffer) {
-      return undefined;
-    }
-
-    const reader = BufferReader.asReader(buffer);
-    return { l1BlockNumber: reader.readUInt256(), l1BlockHash: Buffer32.fromBuffer(reader.readBytes(Buffer32.SIZE)) };
+    return await readL1BlockId(this.#lastSynchedL1Block);
   }
 
-  /** Sets the last L1 block synced */
-  public async setSynchedL1Block(l1Block: L1BlockId): Promise<void> {
+  /**
+   * Gets the scanned cursor: the L1 block through which MessageSent logs were read into the store. It equals the
+   * syncpoint while one is held and otherwise stands alone, since a log response for a canonical block is no evidence
+   * that the response was complete.
+   */
+  public async getScannedL1Block(): Promise<L1BlockId | undefined> {
+    return (await readL1BlockId(this.#lastScannedL1Block)) ?? (await this.getSynchedL1Block());
+  }
+
+  private async setSynchedL1Block(l1Block: L1BlockId): Promise<void> {
     const buffer = serializeToBuffer([l1Block.l1BlockNumber, l1Block.l1BlockHash]);
     await this.#lastSynchedL1Block.set(buffer);
   }
 
+  private async setScannedL1Block(l1Block: L1BlockId): Promise<void> {
+    const buffer = serializeToBuffer([l1Block.l1BlockNumber, l1Block.l1BlockHash]);
+    await this.#lastScannedL1Block.set(buffer);
+  }
+
   /** Gets the L1 finalized block as of the last successful message sync. */
   public async getMessagesFinalizedL1Block(): Promise<L1BlockId | undefined> {
-    const buffer = await this.#messagesFinalizedL1Block.getAsync();
-    if (!buffer) {
-      return undefined;
-    }
-    const reader = BufferReader.asReader(buffer);
-    return { l1BlockNumber: reader.readUInt256(), l1BlockHash: Buffer32.fromBuffer(reader.readBytes(Buffer32.SIZE)) };
+    return await readL1BlockId(this.#messagesFinalizedL1Block);
   }
 
   /** Monotonically advances the persisted L1 finalized block for message sync. Never regresses. */
@@ -119,21 +145,33 @@ export class MessageStore {
   }
 
   /**
-   * Atomically updates the message sync state: the L1 sync point and (optionally) the L1 finalized block as of this
-   * sync. The finalized block is advanced monotonically.
+   * Atomically updates the message sync state for a position the caller has authenticated against the Inbox at
+   * `l1Block`: the syncpoint, the scanned cursor and (optionally) the L1 finalized block as of this sync. The
+   * finalized block is advanced monotonically.
    */
   public setMessageSyncState(l1Block: L1BlockId, finalizedL1Block?: L1BlockId): Promise<void> {
-    return this.db.transactionAsync(async () => {
-      await this.setSynchedL1Block(l1Block);
-      if (finalizedL1Block !== undefined) {
-        await this.maybeAdvanceFinalizedL1Block(finalizedL1Block);
-      }
-    });
+    return this.db.transactionAsync(() => this.setSyncState({ l1Block, authenticated: true, finalizedL1Block }));
+  }
+
+  /**
+   * Applies one sync state within an open transaction. Only an authenticated position becomes the syncpoint; an
+   * unauthenticated one clears it, since the stored prefix it certified is not the one the store now holds.
+   */
+  private async setSyncState(syncState: MessageSyncState): Promise<void> {
+    await this.setScannedL1Block(syncState.l1Block);
+    if (!syncState.authenticated) {
+      await this.#lastSynchedL1Block.delete();
+      return;
+    }
+    await this.setSynchedL1Block(syncState.l1Block);
+    if (syncState.finalizedL1Block !== undefined) {
+      await this.maybeAdvanceFinalizedL1Block(syncState.finalizedL1Block);
+    }
   }
 
   /**
    * Appends L1 to L2 messages to the store, optionally committing the L1 sync state they were retrieved through in
-   * the same transaction, so a batch and the sync point that covers it either both land or neither does.
+   * the same transaction, so a batch and the cursor or syncpoint that covers it either both land or neither does.
    *
    * Requires messages to be ordered by index and to continue the stored chain: each index is one past the previous
    * one and each rolling hash extends the previous one by the message's leaf. A message the store already holds with
@@ -202,10 +240,7 @@ export class MessageStore {
       await this.increaseTotalMessageCount(messageCount);
 
       if (syncState !== undefined) {
-        await this.setSynchedL1Block(syncState.l1Block);
-        if (syncState.finalizedL1Block !== undefined) {
-          await this.maybeAdvanceFinalizedL1Block(syncState.finalizedL1Block);
-        }
+        await this.setSyncState(syncState);
       }
     });
   }

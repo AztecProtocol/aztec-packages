@@ -1724,9 +1724,12 @@ describe('Archiver Sync', () => {
 
       await expect(archiver.syncImmediate()).rejects.toThrow(/Cannot serve MessageSent logs/);
 
-      // The batches before the failing block are stored and their syncpoint persisted; nothing was announced.
+      // The batches before the failing block are stored and the cursor persisted at their end, so the next attempt
+      // resumes there. No comparison with the Inbox covered them, so they leave no syncpoint and nothing was
+      // announced.
       expect(await getStoredLeaves()).toEqual(asHex(msgs.slice(0, 4)));
-      expect((await archiverStore.messages.getSynchedL1Block())?.l1BlockNumber).toEqual(106n);
+      expect((await archiverStore.messages.getScannedL1Block())?.l1BlockNumber).toEqual(106n);
+      expect(await archiverStore.messages.getSynchedL1Block()).toBeUndefined();
       expect(archiver.getL1BlockNumber()).toBeUndefined();
 
       fake.setMessageSentEventsFailure(undefined);
@@ -2128,6 +2131,43 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(10n);
       await archiver.syncImmediate();
       expect(await getStoredLeaves()).toEqual(asHex([a, c]));
+      expect(archiver.getL1BlockNumber()).toEqual(10n);
+    });
+
+    it('does not certify an incomplete batch, so a head at the block it scanned is still compared with the Inbox', async () => {
+      // One slot of L1 blocks per batch: two blocks. A and B are mined in block 2, C much later in block 10.
+      await useArchiver({ batchSize: 1 });
+      const [a, b, c] = randomLeaves(3);
+      fake.addMessages(CheckpointNumber(1), 2n, [a, b]);
+      fake.addMessages(CheckpointNumber(1), 10n, [c]);
+      fake.setL1BlockNumber(10n);
+
+      // The provider answers the blocks 1-2 range without B and then stops serving logs, so the empty blocks 3-4
+      // batch is the last one to be scanned. Every block involved stays canonical: only the response was incomplete.
+      const readLogs = inboxContract.getMessageSentEvents.getMockImplementation()!;
+      inboxContract.getMessageSentEvents.mockImplementation(async (from, to) => {
+        const logs = await readLogs(from, to);
+        return to === 2n ? logs.slice(0, 1) : logs;
+      });
+      fake.setMessageSentEventsFailure(from => from >= 5n);
+      await expect(archiver.syncImmediate()).rejects.toThrow(/Cannot serve MessageSent logs/);
+
+      expect(await getStoredLeaves()).toEqual(asHex([a]));
+      expect(archiver.getL1BlockNumber()).toBeUndefined();
+
+      // A later view of L1 ends exactly at block 4, the last block scanned. Nothing has compared the log with the
+      // Inbox there, so the head must not be answered from the scanned cursor: B is still missing.
+      inboxContract.getMessageSentEvents.mockImplementation(readLogs);
+      fake.setMessageSentEventsFailure(undefined);
+      fake.setL1BlockNumber(4n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([a, b]));
+      expect(archiver.getL1BlockNumber()).toEqual(4n);
+
+      fake.setL1BlockNumber(10n);
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex([a, b, c]));
       expect(archiver.getL1BlockNumber()).toEqual(10n);
     });
 

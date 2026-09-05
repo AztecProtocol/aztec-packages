@@ -733,7 +733,10 @@ describe('ArchiverDataStoreUpdater', () => {
   });
 
   describe('replaceMessageSuffixAndPruneProposedBlocks', () => {
-    const syncState = { l1Block: { l1BlockNumber: 200n, l1BlockHash: Buffer32.random() } };
+    const syncState = {
+      l1Block: { l1BlockNumber: 200n, l1BlockHash: Buffer32.random() },
+      authenticated: true as const,
+    };
     let messages: ReturnType<typeof makeInboxMessages>;
 
     /** A block consuming through `leafCount` messages, chained on `previousBlock` when given. */
