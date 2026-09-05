@@ -36,6 +36,16 @@ describe('single-node/cross-chain/streaming_inbox_backlog', () => {
 
   const BATCH_SIZE = 220;
   const BATCHES = 5;
+  /** Block sub-slot duration in seconds, matching `blockDurationMs` below. */
+  const BLOCK_DURATION = 6;
+  /** Sub-slots per checkpoint the 36s/6s profile yields, which is also the configured `maxBlocksPerCheckpoint`. */
+  const MAX_BLOCKS_PER_CHECKPOINT = 4;
+  /**
+   * Buckets of the full backlog whose consumption is mandatory once they are all older than the slot's Inbox
+   * cutoff: the fifth bucket ends 1100 messages past the parent, the first endpoint the per-checkpoint cap escape
+   * covers, so a checkpoint must consume through the fourth (880 messages, four blocks' worth) or through none.
+   */
+  const MANDATORY_BUCKETS = 4;
 
   type NodeBlock = NonNullable<Awaited<ReturnType<AztecNode['getBlock']>>>;
 
@@ -72,9 +82,9 @@ describe('single-node/cross-chain/streaming_inbox_backlog', () => {
     BigInt((await aztecNode.getBlock(blockNumber))!.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
 
   /** Sends the backlog in batches (one L1 block, hence one bucket, each) and returns the Inbox total after it. */
-  const sendBacklog = async () => {
+  const sendBacklog = async (batches = BATCHES) => {
     const bucketEnds: bigint[] = [];
-    for (let i = 0; i < BATCHES; i++) {
+    for (let i = 0; i < batches; i++) {
       const { messages } = await sendMessageBatch(BATCH_SIZE, recipient);
       bucketEnds.push(messages.at(-1)!.index + 1n);
     }
@@ -127,13 +137,95 @@ describe('single-node/cross-chain/streaming_inbox_backlog', () => {
     }
   };
 
+  /** Waits until the node's archiver holds the whole Inbox backlog, so a proposer can consume all of it. */
+  const waitForArchiverToObserve = (inboxTotal: bigint) =>
+    retryUntil(
+      async () => (await archiver.getSyncedMessagePosition()).totalMessageCount >= inboxTotal,
+      `archiver observes ${inboxTotal} Inbox messages`,
+      t.constants.ethereumSlotDuration * 6,
+      0.5,
+    );
+
+  /** The checkpoint published for `slot`, once it shows up on the node. */
+  const waitForCheckpointAtSlot = (slot: SlotNumber) =>
+    retryUntil(
+      async () => {
+        const tip = await aztecNode.getCheckpointNumber();
+        const recent = await aztecNode.getCheckpoints(CheckpointNumber(Math.max(1, tip - 3)), 4, {
+          includeBlocks: true,
+        });
+        return recent.find(c => c.header.slotNumber === slot);
+      },
+      `checkpoint for slot ${slot} published`,
+      t.constants.slotDuration * 2,
+      0.5,
+    );
+
+  /** Whether any of the last few checkpoints was published for `slot`. */
+  const hasCheckpointAtSlot = async (slot: SlotNumber) => {
+    const tip = await aztecNode.getCheckpointNumber();
+    const recent = await aztecNode.getCheckpoints(CheckpointNumber(Math.max(1, tip - 4)), 5);
+    return recent.some(c => c.header.slotNumber === slot);
+  };
+
+  /** The cumulative consumption each checkpoint covering `blocks` ends at, keyed by checkpoint number. */
+  const checkpointEndTotals = (blocks: NodeBlock[]) => {
+    const ends = new Map<number, bigint>();
+    for (const block of blocks) {
+      ends.set(block.checkpointNumber, BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex));
+    }
+    return ends;
+  };
+
+  /**
+   * Pauses block production, sends `batches` message batches (one L1 bucket each) while nothing consumes them, and
+   * waits until `subslotsIntoFrame` sub-slots into the build frame of a slot whose frame has not opened yet. The
+   * caller starts the sequencer, which then proposes for that slot with only its remaining sub-slots to build in.
+   */
+  const pauseAndFillUntilLateInto = async (opts: { batches: number; subslotsIntoFrame: number }) => {
+    const sequencer = t.context.aztecNodeService.getSequencer()!;
+    const { slotDuration, ethereumSlotDuration } = t.constants;
+    // The pending tip is proven before the pause so the proof window cannot expire while nothing is built.
+    await t.cheatCodes.rollup.markAsProven();
+    await sequencer.pause();
+    const blockBefore = await aztecNode.getBlockNumber();
+    const consumedBefore = await consumedThrough(blockBefore);
+    const { inboxTotal, bucketEnds } = await sendBacklog(opts.batches);
+    await waitForArchiverToObserve(inboxTotal);
+
+    const currentSlot = getSlotAtTimestamp(BigInt(await t.cheatCodes.eth.lastBlockTimestamp()), t.constants);
+    const targetSlot = SlotNumber(Number(currentSlot) + 3);
+    const buildFrameStart = Number(getTimestampForSlot(targetSlot, t.constants)) - slotDuration - ethereumSlotDuration;
+    const lateStart = buildFrameStart + opts.subslotsIntoFrame * BLOCK_DURATION + 1;
+    log.warn(`Waiting to resume ${opts.subslotsIntoFrame} sub-slots into the build frame of slot ${targetSlot}`, {
+      targetSlot,
+      buildFrameStart,
+      lateStart,
+      inboxTotal,
+      consumedBefore,
+    });
+    await t.monitor.waitUntilL1Timestamp(lateStart);
+    return { sequencer, targetSlot, blockBefore, consumedBefore, inboxTotal, bucketEnds };
+  };
+
   // A backlog above the per-checkpoint cap drains over successive checkpoints, each publishing at a live bucket end
   // within the caps, rather than one checkpoint aborting on the cap and the next one repeating the abort.
   it('keeps publishing checkpoints within the caps under a sustained message backlog', async () => {
+    const sequencer = t.context.aztecNodeService.getSequencer()!;
+    // Production is paused while the batches are sent, so the demand measured here is the demand the first
+    // checkpoint after the resume faces: a running sequencer consumes part of the backlog while the L1 sends land,
+    // which would leave the outstanding backlog below the cap this test is about.
+    await t.cheatCodes.rollup.markAsProven();
+    await sequencer.pause();
     const blockBefore = await aztecNode.getBlockNumber();
     const consumedBefore = await consumedThrough(blockBefore);
     const { inboxTotal, bucketEnds } = await sendBacklog();
+    await waitForArchiverToObserve(inboxTotal);
     expect(inboxTotal - consumedBefore).toBeGreaterThan(BigInt(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT));
+
+    // Resuming at a slot boundary gives the proposer that faces the backlog its whole build frame.
+    await t.monitor.waitUntilNextL2Slot();
+    await sequencer.start();
 
     const drainedAt = await withBackgroundFeeder(() => waitForBacklogDrained(inboxTotal, blockBefore));
     const blocks = await getBlocks(BlockNumber(blockBefore + 1), drainedAt);
@@ -178,67 +270,77 @@ describe('single-node/cross-chain/streaming_inbox_backlog', () => {
     expect(Math.max(...checkpointsSpanned) - Math.min(...checkpointsSpanned) + 1).toEqual(checkpointsSpanned.length);
   });
 
-  // A proposer that starts its checkpoint late has fewer sub-slots left. Its completion target must be derived
-  // from the blocks it can still build, not from the full schedule: with a backlog of several buckets, a checkpoint
-  // that only has two sub-slots left ends at a live bucket end within two blocks' worth of messages and publishes,
-  // instead of targeting a bucket end its remaining blocks cannot carry and aborting on the cap.
-  it('derives the completion capacity from the sub-slots left when the proposer starts late', async () => {
-    const sequencer = t.context.aztecNodeService.getSequencer()!;
-    const { slotDuration, ethereumSlotDuration } = t.constants;
-    const blockDuration = 6;
-
-    await sequencer.pause();
-    const blockBefore = await aztecNode.getBlockNumber();
-    const consumedBefore = await consumedThrough(blockBefore);
-    const { inboxTotal, bucketEnds } = await sendBacklog();
-    await retryUntil(
-      async () => (await archiver.getSyncedMessagePosition()).totalMessageCount >= inboxTotal,
-      'archiver observes the whole backlog',
-      ethereumSlotDuration * 4,
-      0.5,
-    );
-
-    // Resume two sub-slots into the build frame of a slot far enough ahead that the frame has not opened yet.
-    const currentSlot = getSlotAtTimestamp(BigInt(await t.cheatCodes.eth.lastBlockTimestamp()), t.constants);
-    const targetSlot = SlotNumber(Number(currentSlot) + 3);
-    const buildFrameStart = Number(getTimestampForSlot(targetSlot, t.constants)) - slotDuration - ethereumSlotDuration;
-    const lateStart = buildFrameStart + 2 * blockDuration + 1;
-    log.warn(`Resuming the sequencer two sub-slots into the build frame of slot ${targetSlot}`, {
-      targetSlot,
-      buildFrameStart,
-      lateStart,
+  // A proposer that starts its checkpoint late has fewer sub-slots left, so its completion target has to come from
+  // the blocks it can still build. With a backlog that those blocks can carry whole and no older bucket left behind
+  // it, the late checkpoint publishes at that bucket end instead of giving up the slot.
+  it('publishes a late checkpoint at the bucket end its remaining sub-slots can carry', async () => {
+    // Two buckets, 440 messages: more than one block may consume and less than the remaining sub-slots can, and
+    // the endpoint is the newest bucket, so no aged bucket is left unconsumed behind it.
+    const { sequencer, targetSlot, consumedBefore, inboxTotal, bucketEnds } = await pauseAndFillUntilLateInto({
+      batches: 2,
+      subslotsIntoFrame: 1,
     });
-    await t.monitor.waitUntilL1Timestamp(lateStart);
     await sequencer.start();
 
-    // The late checkpoint publishes with what its remaining sub-slots can carry, ending at a bucket end.
-    await t.monitor.waitUntilL2Slot(SlotNumber(targetSlot + 1));
-    const checkpoint = await retryUntil(
-      async () => {
-        const tip = await aztecNode.getCheckpointNumber();
-        const recent = await aztecNode.getCheckpoints(CheckpointNumber(Math.max(1, tip - 3)), 4, {
-          includeBlocks: true,
-        });
-        return recent.find(c => c.header.slotNumber === targetSlot);
-      },
-      `checkpoint for slot ${targetSlot} published`,
-      slotDuration * 2,
-      0.5,
-    );
+    const checkpoint = await waitForCheckpointAtSlot(targetSlot);
     const consumed = BigInt(checkpoint.blocks.at(-1)!.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
     log.warn(`Late checkpoint ${checkpoint.number} built ${checkpoint.blocks.length} blocks`, {
       blocks: checkpoint.blocks.length,
       consumedBefore,
       consumedThrough: consumed,
     });
-    expect(checkpoint.blocks.length).toBeLessThan(4);
-    expect(consumed).toBeGreaterThan(consumedBefore);
+
+    expect(checkpoint.blocks.length).toBeLessThan(MAX_BLOCKS_PER_CHECKPOINT);
+    // The newest bucket end, which is the whole backlog.
+    expect(consumed).toEqual(inboxTotal);
+    expect(bucketEnds).toContain(consumed);
+    // More than one block's worth, so the checkpoint did consume toward its endpoint across the sub-slots it had.
+    expect(consumed - consumedBefore).toBeGreaterThan(BigInt(MAX_L1_TO_L2_MSGS_PER_BLOCK));
     expect(consumed - consumedBefore).toBeLessThanOrEqual(
       BigInt(checkpoint.blocks.length * MAX_L1_TO_L2_MSGS_PER_BLOCK),
     );
-    expect(bucketEnds).toContain(consumed);
+  });
 
-    // The rest of the backlog drains in the following checkpoints.
-    await withBackgroundFeeder(() => waitForBacklogDrained(inboxTotal, blockBefore));
+  // The same late start against an aged backlog whose mandatory prefix its remaining sub-slots cannot carry. L1
+  // requires consuming through the fourth bucket (the fifth is the first endpoint the cap escape covers) and that
+  // needs four blocks, so the checkpoint cannot be published at all: the proposer's own pre-broadcast preflight
+  // rejects it and the slot is given up, and the following checkpoints, which have their whole build frame, consume
+  // the mandatory prefix and then the rest.
+  it('gives up a late slot whose aged backlog needs more blocks than it has left, then recovers', async () => {
+    const { sequencer, targetSlot, blockBefore, consumedBefore, inboxTotal, bucketEnds } =
+      await pauseAndFillUntilLateInto({ batches: BATCHES, subslotsIntoFrame: 2 });
+    // The mandatory prefix needs more than the two sub-slots left, sits within the per-checkpoint cap, and the
+    // bucket after it is past the cap, so it is the only endpoint the cap escape covers.
+    const mandatoryEnd = bucketEnds[MANDATORY_BUCKETS - 1];
+    expect(mandatoryEnd - consumedBefore).toBeGreaterThan(BigInt(2 * MAX_L1_TO_L2_MSGS_PER_BLOCK));
+    expect(mandatoryEnd - consumedBefore).toBeLessThanOrEqual(BigInt(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT));
+    expect(inboxTotal - consumedBefore).toBeGreaterThan(BigInt(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT));
+
+    // Armed before the sequencer starts so the rejection cannot fire before anyone is listening.
+    const rejection = t.waitForSequencerEvent(
+      sequencer.getSequencer(),
+      'header-validation-failed',
+      args => args.slot === targetSlot,
+      { timeout: t.constants.slotDuration * 3 * 1000 },
+    );
+    await sequencer.start();
+
+    const { reason } = await rejection;
+    log.warn(`Late checkpoint for slot ${targetSlot} was rejected before broadcast`, { reason });
+    expect(reason).toContain('UnconsumedInboxMessages');
+
+    await t.monitor.waitUntilL2Slot(SlotNumber(targetSlot + 1));
+    expect(await hasCheckpointAtSlot(targetSlot)).toBe(false);
+
+    const drainedAt = await withBackgroundFeeder(() => waitForBacklogDrained(inboxTotal, blockBefore));
+    const ends = [...checkpointEndTotals(await getBlocks(BlockNumber(blockBefore + 1), drainedAt)).values()];
+    log.warn(`Backlog of ${inboxTotal - consumedBefore} messages drained after the late slot was given up`, { ends });
+
+    // Every checkpoint that followed ended at a live bucket end, the mandatory prefix among them.
+    for (const end of ends) {
+      expect([consumedBefore, ...bucketEnds]).toContain(end);
+    }
+    expect(ends).toContain(mandatoryEnd);
+    expect(ends).toContain(inboxTotal);
   });
 });
