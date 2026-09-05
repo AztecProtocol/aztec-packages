@@ -209,6 +209,10 @@ export class InboxMessageSynchronizer {
     try {
       headBatch = await this.ingestForward(syncPoint.l1BlockNumber + 1n, head);
     } catch (err) {
+      if (err instanceof CapturedHeadReplacedError) {
+        this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while fetching L1 to L2 messages`);
+        return pending();
+      }
       if (err instanceof MessageStoreError) {
         this.log.warn(`Fetched L1 to L2 messages do not continue the local log: ${err.message}`, {
           inboxMessage: err.inboxMessage,
@@ -255,7 +259,8 @@ export class InboxMessageSynchronizer {
    * messages past its syncpoint, or a later head equal to that syncpoint would pass the same-head shortcut over
    * messages the canonical chain may have dropped. The caller commits the staged batch together with the head once
    * the log agrees with the Inbox there. Throws `MessageStoreError` when an intermediate batch does not continue the
-   * stored chain, leaving the earlier batches in place.
+   * stored chain and `CapturedHeadReplacedError` when the chain moved under a batch, leaving the earlier batches in
+   * place either way.
    */
   private async ingestForward(fromL1Block: bigint, head: L1BlockId): Promise<InboxMessage[]> {
     let start = fromL1Block;
@@ -268,7 +273,13 @@ export class InboxMessageSynchronizer {
       if (end === head.l1BlockNumber) {
         headBatch = messages;
       } else {
-        await this.storeMessages(messages, { l1Block: await this.l1BlockIdFor(end, head) });
+        // Logs and the batch-end block are read by number: only a head still canonical after both reads proves they
+        // came from the captured chain, so a batch is never committed under a replacement chain's syncpoint.
+        const l1Block = await this.l1BlockIdFor(end, head);
+        if (!(await this.isHeadStillCanonical(head))) {
+          throw new CapturedHeadReplacedError(head);
+        }
+        await this.storeMessages(messages, { l1Block });
         stored += messages.length;
       }
       start = end + 1n;
@@ -550,6 +561,14 @@ export class InboxMessageSynchronizer {
       this.log.debug(`Could not read L1 block ${head.l1BlockNumber} to confirm the captured head: ${err}`);
       return false;
     }
+  }
+}
+
+/** The L1 head a sync pass was captured against is no longer canonical; the pass's uncommitted work is discarded. */
+class CapturedHeadReplacedError extends Error {
+  constructor(head: L1BlockId) {
+    super(`L1 head ${head.l1BlockNumber} (${head.l1BlockHash.toString()}) was replaced during message sync`);
+    this.name = 'CapturedHeadReplacedError';
   }
 }
 

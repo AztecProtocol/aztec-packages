@@ -1895,6 +1895,37 @@ describe('Archiver Sync', () => {
       expect(await archiver.getSyncedL2SlotNumber()).toBeDefined();
     });
 
+    it('discards an intermediate batch whose chain was replaced before it could be committed', async () => {
+      // One slot of L1 blocks per batch: two blocks. Message A arrives in block 2; the head is block 4.
+      await useArchiver({ batchSize: 1 });
+      const [a] = randomLeaves(1);
+      fake.addMessages(CheckpointNumber(1), 2n, [a]);
+      fake.setL1BlockNumber(4n);
+      // While the first batch (blocks 1-2) is being fetched, L1 replaces block 2 with a block carrying no message and
+      // shortens to it: the batch's logs belong to the old chain, its syncpoint block to the new one.
+      const readLogs = inboxContract.getMessageSentEvents.getMockImplementation()!;
+      inboxContract.getMessageSentEvents.mockImplementation(async (from, to) => {
+        const logs = await readLogs(from, to);
+        if (to === 2n) {
+          inboxContract.getMessageSentEvents.mockImplementation(readLogs);
+          fake.removeMessagesAfter(0);
+          fake.reorgL1BlocksFrom(2n);
+          fake.setL1BlockNumber(2n);
+        }
+        return logs;
+      });
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual([]);
+      expect(archiver.getL1BlockNumber()).toBeUndefined();
+
+      // The new head is the replacement block 2; had the batch been committed under its hash, the same-head shortcut
+      // would now report a message L1 never had.
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual([]);
+      expect(archiver.getL1BlockNumber()).toEqual(2n);
+    });
+
     it('never holds messages past its syncpoint, so a later head at that syncpoint cannot skip the comparison', async () => {
       // One slot of L1 blocks per batch: two blocks. Message A arrives in block 2, message B in block 4.
       await useArchiver({ batchSize: 1 });
