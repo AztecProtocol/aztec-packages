@@ -149,22 +149,6 @@ export class ArchiverL1Synchronizer implements Traceable {
     this.config = newConfig;
   }
 
-  /**
-   * Whether the message log is certified at the given L1 head: the persisted message syncpoint is that head and no
-   * recovery is in progress. Only then does the log hold exactly what the Inbox held there.
-   */
-  private async messagesAreCertifiedAt(head: L1BlockId): Promise<boolean> {
-    if (this.messageSynchronizer.isRecovering()) {
-      return false;
-    }
-    const syncPoint = await this.stores.messages.getSynchedL1Block();
-    return (
-      syncPoint !== undefined &&
-      syncPoint.l1BlockNumber === head.l1BlockNumber &&
-      syncPoint.l1BlockHash.equals(head.l1BlockHash)
-    );
-  }
-
   /** Returns the last L1 block number that was synced. */
   public getL1BlockNumber(): bigint | undefined {
     return this.l1BlockNumber;
@@ -532,6 +516,22 @@ export class ArchiverL1Synchronizer implements Traceable {
         currentL1BlockNumber,
       });
     }
+  }
+
+  /**
+   * Whether the message log is certified at the given L1 head: the persisted message syncpoint is that head and no
+   * recovery is in progress. Only then does the log hold exactly what the Inbox held there.
+   */
+  private async messagesAreCertifiedAt(head: L1BlockId): Promise<boolean> {
+    if (this.messageSynchronizer.isRecovering()) {
+      return false;
+    }
+    const syncPoint = await this.stores.messages.getSynchedL1Block();
+    return (
+      syncPoint !== undefined &&
+      syncPoint.l1BlockNumber === head.l1BlockNumber &&
+      syncPoint.l1BlockHash.equals(head.l1BlockHash)
+    );
   }
 
   /** Whether the latest checkpoint's consumed message prefix (its count and rolling hash) is what the message log holds. */
