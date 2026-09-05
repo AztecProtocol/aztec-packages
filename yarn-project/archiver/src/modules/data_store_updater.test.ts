@@ -1,6 +1,8 @@
 import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { toArray } from '@aztec/foundation/iterable';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
@@ -21,11 +23,22 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
-import { InboxConsumptionRewindsError, InboxPrefixMismatchError, InboxPrefixNotSyncedError } from '../errors.js';
+import {
+  InboxConsumptionRewindsError,
+  InboxMessagePrefixChangedError,
+  InboxPrefixMismatchError,
+  InboxPrefixNotSyncedError,
+  NoProposedCheckpointToPromoteError,
+} from '../errors.js';
 import { registerProtocolContracts, registerStandardContracts } from '../factory.js';
 import { type ArchiverDataStores, createArchiverDataStores } from '../store/data_stores.js';
 import { L2TipsCache } from '../store/l2_tips_cache.js';
-import { makeCheckpoint, makeInboxMessages, makePublishedCheckpoint } from '../test/mock_structs.js';
+import {
+  makeCheckpoint,
+  makeInboxMessages,
+  makeL1PublishedData,
+  makePublishedCheckpoint,
+} from '../test/mock_structs.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 
 /**
@@ -716,6 +729,174 @@ describe('ArchiverDataStoreUpdater', () => {
       );
       await expect(updater.addProposedBlock(block, staleRef)).rejects.toThrow(InboxPrefixMismatchError);
       await storeIsUntouched(block);
+    });
+  });
+
+  describe('replaceMessageSuffixAndPruneProposedBlocks', () => {
+    const syncState = { l1Block: { l1BlockNumber: 200n, l1BlockHash: Buffer32.random() } };
+    let messages: ReturnType<typeof makeInboxMessages>;
+
+    /** A block consuming through `leafCount` messages, chained on `previousBlock` when given. */
+    const makeConsumingBlock = async (blockNumber: number, leafCount: number, previousBlock?: L2Block) => {
+      const block = await randomBlock(blockNumber, {
+        checkpointNumber: CheckpointNumber(previousBlock ? previousBlock.checkpointNumber : 1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(blockNumber - 1),
+        slotNumber: SlotNumber(100),
+        ...(previousBlock ? { lastArchive: previousBlock.archive } : {}),
+      });
+      block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex = leafCount;
+      return block;
+    };
+    const positionAt = async (count: number) => (await store.messages.getMessagePosition(BigInt(count)))!;
+    const storedLeaves = async () => (await toArray(store.messages.iterateL1ToL2Messages())).map(m => m.leaf);
+    /** Replacement messages continuing the stored chain from `fromIndex`. */
+    const replacementFrom = async (fromIndex: number, count: number) =>
+      makeInboxMessages(count, {
+        initialIndex: BigInt(fromIndex),
+        initialInboxHash: (await positionAt(fromIndex)).rollingHash,
+      });
+
+    beforeEach(async () => {
+      messages = makeInboxMessages(6);
+      await store.messages.addL1ToL2Messages(messages);
+    });
+
+    it('replaces the suffix, moves the syncpoint and prunes from the first block consuming a replaced message', async () => {
+      const block1 = await makeConsumingBlock(1, 3);
+      const block2 = await makeConsumingBlock(2, 5, block1);
+      const block3 = await makeConsumingBlock(3, 6, block2);
+      for (const [block, count] of [
+        [block1, 3],
+        [block2, 5],
+        [block3, 6],
+      ] as const) {
+        await updater.addProposedBlock(block, InboxMessagePrefixRef.fromPosition(await positionAt(count)));
+      }
+      const replacement = await replacementFrom(4, 3);
+
+      const result = await updater.replaceMessageSuffixAndPruneProposedBlocks({
+        firstDivergentIndex: 4n,
+        expectedPrefix: await positionAt(4),
+        messages: replacement,
+        syncState,
+      });
+
+      expect(await storedLeaves()).toEqual([...messages.slice(0, 4), ...replacement].map(m => m.leaf));
+      expect(await store.messages.getSynchedL1Block()).toEqual(syncState.l1Block);
+      // Block 1 consumed only messages before the divergence; block 2 consumed message 4 and block 3 chains on it.
+      expect(result.prunedBlocks.map(b => b.number)).toEqual([2, 3]);
+      expect(result.checkpointedTipAffected).toBe(false);
+      expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeDefined();
+      expect(await store.blocks.getBlock({ number: BlockNumber(2) })).toBeUndefined();
+      expect(await store.blocks.getLatestL2BlockNumber()).toBe(1);
+    });
+
+    it('refuses a replacement whose comparison prefix has moved and writes nothing', async () => {
+      const block = await makeConsumingBlock(1, 6);
+      await updater.addProposedBlock(block, InboxMessagePrefixRef.fromPosition(await positionAt(6)));
+      const replacement = await replacementFrom(4, 1);
+
+      await expect(
+        updater.replaceMessageSuffixAndPruneProposedBlocks({
+          firstDivergentIndex: 4n,
+          expectedPrefix: { totalMessageCount: 4n, rollingHash: Fr.random() },
+          messages: replacement,
+          syncState,
+        }),
+      ).rejects.toThrow(InboxMessagePrefixChangedError);
+
+      expect(await storedLeaves()).toEqual(messages.map(m => m.leaf));
+      expect(await store.messages.getSynchedL1Block()).toBeUndefined();
+      expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeDefined();
+    });
+
+    it('rolls the whole replacement back when the block prune fails', async () => {
+      const block = await makeConsumingBlock(1, 6);
+      await updater.addProposedBlock(block, InboxMessagePrefixRef.fromPosition(await positionAt(6)));
+      const failure = new Error('prune failed');
+      jest.spyOn(store.blocks, 'removeBlocksAfter').mockRejectedValueOnce(failure);
+
+      await expect(
+        updater.replaceMessageSuffixAndPruneProposedBlocks({
+          firstDivergentIndex: 4n,
+          expectedPrefix: await positionAt(4),
+          messages: await replacementFrom(4, 1),
+          syncState,
+        }),
+      ).rejects.toBe(failure);
+
+      expect(await storedLeaves()).toEqual(messages.map(m => m.leaf));
+      expect(await store.messages.getSynchedL1Block()).toBeUndefined();
+      expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeDefined();
+    });
+
+    it('evicts the proposed checkpoint of pruned blocks so it can no longer be promoted', async () => {
+      const block = await makeConsumingBlock(1, 6);
+      await updater.addProposedBlock(block, InboxMessagePrefixRef.fromPosition(await positionAt(6)));
+      await store.blocks.addProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      });
+      const proposed = (await store.blocks.getLastProposedCheckpoint())!;
+
+      await updater.replaceMessageSuffixAndPruneProposedBlocks({
+        firstDivergentIndex: 5n,
+        expectedPrefix: await positionAt(5),
+        messages: await replacementFrom(5, 1),
+        syncState,
+      });
+
+      expect(await store.blocks.getLastProposedCheckpoint()).toBeUndefined();
+      await expect(
+        store.blocks.promoteProposedToCheckpointed(
+          CheckpointNumber(1),
+          makeL1PublishedData(10),
+          [],
+          proposed.archive.root,
+        ),
+      ).rejects.toThrow(NoProposedCheckpointToPromoteError);
+    });
+
+    it('flags a divergence below the checkpointed tip and leaves checkpointed blocks in place', async () => {
+      const block1 = await makeConsumingBlock(1, 3);
+      await updater.addCheckpoints([makePublishedCheckpoint(makeCheckpoint([block1]), 10)]);
+      const block2 = await makeConsumingBlock(2, 6, block1);
+      block2.checkpointNumber = CheckpointNumber(2);
+      block2.indexWithinCheckpoint = IndexWithinCheckpoint(0);
+      await updater.addProposedBlock(block2, InboxMessagePrefixRef.fromPosition(await positionAt(6)));
+
+      const result = await updater.replaceMessageSuffixAndPruneProposedBlocks({
+        firstDivergentIndex: 2n,
+        expectedPrefix: await positionAt(2),
+        messages: await replacementFrom(2, 1),
+        syncState,
+      });
+
+      expect(result.checkpointedTipAffected).toBe(true);
+      expect(result.prunedBlocks.map(b => b.number)).toEqual([2]);
+      expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeDefined();
+      expect(await store.blocks.getCheckpointedL2BlockNumber()).toBe(1);
+      expect(await storedLeaves()).toHaveLength(3);
+    });
+
+    it('treats an empty replacement as a truncation', async () => {
+      const block = await makeConsumingBlock(1, 4);
+      await updater.addProposedBlock(block, InboxMessagePrefixRef.fromPosition(await positionAt(4)));
+
+      const result = await updater.replaceMessageSuffixAndPruneProposedBlocks({
+        firstDivergentIndex: 3n,
+        expectedPrefix: await positionAt(3),
+        messages: [],
+        syncState,
+      });
+
+      expect(await storedLeaves()).toEqual(messages.slice(0, 3).map(m => m.leaf));
+      expect(result.prunedBlocks.map(b => b.number)).toEqual([1]);
+      expect(await store.messages.getSynchedL1Block()).toEqual(syncState.l1Block);
     });
   });
 });

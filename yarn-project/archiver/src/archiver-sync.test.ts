@@ -78,7 +78,7 @@ describe('Archiver Sync', () => {
   // beforeEach default instance and by tests that need a second archiver with a different config.
   const buildArchiver = async (
     storeName: string,
-    configOverrides: { skipOrphanProposedBlockPruning?: boolean } = {},
+    configOverrides: { skipOrphanProposedBlockPruning?: boolean; batchSize?: number } = {},
   ): Promise<{ archiver: Archiver; synchronizer: ArchiverL1Synchronizer; archiverStore: ArchiverDataStores }> => {
     const store = createArchiverDataStores(await openTmpStore(storeName), GENESIS_BLOCK_HEADER_HASH);
 
@@ -1560,6 +1560,320 @@ describe('Archiver Sync', () => {
       await archiver.syncImmediate();
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
     }, 15_000);
+  });
+
+  describe('Inbox message recovery', () => {
+    let synchronizer: ArchiverL1Synchronizer;
+    let pruneSpy: jest.Mock;
+    let eventByHashSpy: ReturnType<typeof jest.spyOn>;
+
+    const useArchiver = async (configOverrides: { batchSize?: number } = {}) => {
+      await archiver.stop();
+      ({ archiver, archiverStore, synchronizer } = await buildArchiver('archiver_message_recovery', configOverrides));
+      pruneSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.L2PruneUncheckpointed, pruneSpy);
+    };
+
+    beforeEach(async () => {
+      await useArchiver();
+      eventByHashSpy = jest.spyOn(inboxContract, 'getMessageSentEventByHash');
+    });
+
+    // Local blocks are placed far ahead on L1 so their slot never expires while the tests move the L1 head.
+    const LOCAL_BLOCKS_L1_BLOCK = 5000n;
+
+    /** Locally proposed blocks chained on genesis, each consuming through the given message counts. */
+    const addLocalBlocksConsuming = async (leafCounts: number[]) => {
+      const { checkpoint } = await mockCheckpointAndMessages(CheckpointNumber(1), {
+        startBlockNumber: BlockNumber(1),
+        numBlocks: leafCounts.length,
+        slotNumber: fake.getL2SlotAtL1Block(LOCAL_BLOCKS_L1_BLOCK),
+      });
+      checkpoint.blocks.forEach(
+        (block, i) => (block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex = leafCounts[i]),
+      );
+      for (const block of checkpoint.blocks) {
+        await addLocalBlock(block);
+      }
+      return checkpoint.blocks;
+    };
+    const localBlockNumbers = async () =>
+      (await archiverStore.blocks.getBlocksData({ from: BlockNumber(1), limit: 10 })).map(b =>
+        b.header.getBlockNumber(),
+      );
+    const randomLeaves = (count: number) => times(count, () => Fr.random());
+
+    it('re-mines the same messages beyond the lookup window and appends new ones without touching proposed blocks', async () => {
+      const msgs = randomLeaves(3);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      await addLocalBlocksConsuming([3]);
+
+      // The messages move 20 L1 blocks later, well past the +-5 window a lookup around their old height covers,
+      // and two new ones follow them.
+      fake.moveMessagesToL1Block(100n, 120n);
+      const appended = randomLeaves(2);
+      fake.addMessages(CheckpointNumber(2), 121n, appended);
+      fake.setL1BlockNumber(125n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([...msgs, ...appended]));
+      // Unchanged content is a plain forward append; nothing needed to be looked up or pruned.
+      expect(eventByHashSpy).not.toHaveBeenCalled();
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await localBlockNumbers()).toEqual([1]);
+      expect(archiver.getL1BlockNumber()).toEqual(125n);
+      expect(synchronizer.isRecoveringMessages()).toBe(false);
+    });
+
+    it('prunes proposed blocks from the first replaced message rather than at the first failed lookup', async () => {
+      const msgs = randomLeaves(6);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs.slice(0, 3));
+      fake.addMessages(CheckpointNumber(1), 101n, msgs.slice(3));
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      const [block1, block2] = await addLocalBlocksConsuming([3, 6]);
+
+      // The reorg keeps the first four messages but re-mines them far from their old heights, so every lookup for
+      // them misses, and replaces the last two.
+      fake.removeMessagesAfter(4);
+      fake.moveMessagesToL1Block(100n, 130n);
+      fake.moveMessagesToL1Block(101n, 130n);
+      const replacement = randomLeaves(2);
+      fake.addMessages(CheckpointNumber(2), 131n, replacement);
+      fake.setL1BlockNumber(135n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([...msgs.slice(0, 4), ...replacement]));
+      // Every candidate was looked up and missed, yet the surviving prefix was kept: deletion followed the content
+      // comparison, not the lookups.
+      expect(eventByHashSpy).toHaveBeenCalled();
+      // Block 1 consumed only unchanged messages; block 2 consumed a replaced one.
+      expect(await localBlockNumbers()).toEqual([block1.number]);
+      expect(pruneSpy).toHaveBeenCalledTimes(1);
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ blocks: [expect.objectContaining({ number: block2.number })] }),
+      );
+      expect(archiver.getL1BlockNumber()).toEqual(135n);
+    });
+
+    it('truncates to a shorter canonical prefix by hash without any event lookups', async () => {
+      const msgs = randomLeaves(5);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs.slice(0, 3));
+      fake.addMessages(CheckpointNumber(1), 102n, msgs.slice(3));
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      await addLocalBlocksConsuming([3, 5]);
+
+      fake.removeMessagesAfter(3);
+      fake.setL1BlockNumber(112n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(msgs.slice(0, 3)));
+      expect(eventByHashSpy).not.toHaveBeenCalled();
+      expect(await localBlockNumbers()).toEqual([1]);
+      expect(pruneSpy).toHaveBeenCalledTimes(1);
+      expect(archiver.getL1BlockNumber()).toEqual(112n);
+    });
+
+    it('recovers from a same-height head replacement', async () => {
+      const msgs = randomLeaves(3);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      // The head keeps its number but is a different block: the last message was replaced in the same L1 block.
+      fake.removeMessagesAfter(2);
+      const replacement = Fr.random();
+      fake.addMessages(CheckpointNumber(1), 100n, [replacement]);
+      fake.reorgL1BlocksFrom(100n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([...msgs.slice(0, 2), replacement]));
+      expect(archiver.getL1BlockNumber()).toEqual(110n);
+      expect(synchronizer.isRecoveringMessages()).toBe(false);
+    });
+
+    it('recovers when the head is replaced by a shorter chain', async () => {
+      const msgs = randomLeaves(5);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs.slice(0, 3));
+      fake.addMessages(CheckpointNumber(1), 105n, msgs.slice(3));
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      fake.removeMessagesAfter(3);
+      fake.reorgL1BlocksFrom(104n);
+      fake.setL1BlockNumber(106n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(msgs.slice(0, 3)));
+      expect(archiver.getL1BlockNumber()).toEqual(106n);
+    });
+
+    it('commits each batch as it completes and keeps them when a later batch fails', async () => {
+      // One slot of L1 blocks per batch: two blocks.
+      await useArchiver({ batchSize: 1 });
+      const msgs = randomLeaves(6);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs.slice(0, 2));
+      fake.addMessages(CheckpointNumber(1), 104n, msgs.slice(2, 4));
+      fake.addMessages(CheckpointNumber(1), 108n, msgs.slice(4));
+      fake.setL1BlockNumber(109n);
+      fake.setMessageSentEventsFailure((_from, to) => to >= 108n);
+
+      await expect(archiver.syncImmediate()).rejects.toThrow(/Cannot serve MessageSent logs/);
+
+      // The batches before the failing block are stored and their syncpoint persisted; nothing was announced.
+      expect(await getStoredLeaves()).toEqual(asHex(msgs.slice(0, 4)));
+      expect((await archiverStore.messages.getSynchedL1Block())?.l1BlockNumber).toEqual(106n);
+      expect(archiver.getL1BlockNumber()).toBeUndefined();
+
+      fake.setMessageSentEventsFailure(undefined);
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+      expect(archiver.getL1BlockNumber()).toEqual(109n);
+    });
+
+    it('reports unavailable logs during recovery without deleting anything', async () => {
+      const msgs = randomLeaves(4);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      await addLocalBlocksConsuming([4]);
+
+      // A replaced tail whose surviving prefix moved out of the lookup window forces a replay from deployment, and
+      // the provider cannot serve the deployment block.
+      fake.removeMessagesAfter(2);
+      fake.moveMessagesToL1Block(100n, 130n);
+      const replacement = randomLeaves(2);
+      fake.addMessages(CheckpointNumber(2), 131n, replacement);
+      fake.setL1BlockNumber(135n);
+      fake.setMessageSentEventsFailure(from => from <= 1n);
+
+      await expect(archiver.syncImmediate()).rejects.toThrow(/Cannot serve MessageSent logs/);
+
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+      expect(await localBlockNumbers()).toEqual([1]);
+      expect(synchronizer.isRecoveringMessages()).toBe(true);
+      expect(archiver.getL1BlockNumber()).toEqual(110n);
+
+      fake.setMessageSentEventsFailure(undefined);
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex([...msgs.slice(0, 2), ...replacement]));
+      expect(await localBlockNumbers()).toEqual([]);
+      expect(synchronizer.isRecoveringMessages()).toBe(false);
+      expect(archiver.getL1BlockNumber()).toEqual(135n);
+    });
+
+    it('resumes a bounded anchor search across iterations while the head advances', async () => {
+      const msgs = randomLeaves(100);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      // Every message is replaced, so no candidate is ever found: 100 lookups are needed to exhaust the search,
+      // more than the 96 one iteration is allowed.
+      const replacement = randomLeaves(100);
+      fake.removeMessagesAfter(0);
+      fake.addMessages(CheckpointNumber(1), 100n, replacement);
+      fake.reorgL1BlocksFrom(100n);
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      expect(eventByHashSpy).toHaveBeenCalledTimes(96);
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+      expect(synchronizer.isRecoveringMessages()).toBe(true);
+      // Budget exhaustion is pending work: the iteration did not announce the head as synced.
+      expect(archiver.getL1BlockNumber()).toEqual(110n);
+
+      // The head advances; the recovery keeps comparing against the head it was pinned to and finishes.
+      fake.setL1BlockNumber(112n);
+      await archiver.syncImmediate();
+
+      expect(eventByHashSpy).toHaveBeenCalledTimes(100);
+      expect(await getStoredLeaves()).toEqual(asHex(replacement));
+      expect(synchronizer.isRecoveringMessages()).toBe(false);
+      expect(archiver.getL1BlockNumber()).toEqual(112n);
+    });
+
+    it('restarts recovery only when the head it was pinned to is replaced', async () => {
+      const msgs = randomLeaves(100);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      const replacement = randomLeaves(100);
+      fake.removeMessagesAfter(0);
+      fake.addMessages(CheckpointNumber(1), 100n, replacement);
+      fake.reorgL1BlocksFrom(100n);
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+      expect(eventByHashSpy).toHaveBeenCalledTimes(96);
+
+      // The captured head itself is replaced: the search starts over against the new view.
+      fake.reorgL1BlocksFrom(111n);
+      await archiver.syncImmediate();
+      expect(eventByHashSpy).toHaveBeenCalledTimes(192);
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+
+      await archiver.syncImmediate();
+      expect(eventByHashSpy).toHaveBeenCalledTimes(196);
+      expect(await getStoredLeaves()).toEqual(asHex(replacement));
+      expect(archiver.getL1BlockNumber()).toEqual(111n);
+    });
+
+    it('withholds proposed checkpoints while the checkpointed tip disagrees with the message log', async () => {
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 105n,
+        messagesL1BlockNumber: 100n,
+        numL1ToL2Messages: 3,
+      });
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // A proposed checkpoint speculating on top of the checkpointed tip.
+      const lastBlockInCp1 = cp1.blocks.at(-1)!;
+      const { checkpoint: cp2 } = await mockCheckpointAndMessages(CheckpointNumber(2), {
+        startBlockNumber: BlockNumber(lastBlockInCp1.number + 1),
+        numBlocks: 1,
+        previousArchive: lastBlockInCp1.archive,
+        slotNumber: fake.getL2SlotAtL1Block(LOCAL_BLOCKS_L1_BLOCK),
+      });
+      cp2.blocks[0].header.state.l1ToL2MessageTree.nextAvailableLeafIndex = 3;
+      await addLocalBlock(cp2.blocks[0]);
+      await archiver.addProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty({ slotNumber: fake.getL2SlotAtL1Block(LOCAL_BLOCKS_L1_BLOCK) }),
+        startBlock: cp2.blocks[0].number,
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      });
+      expect(await archiver.getProposedCheckpointData()).toBeDefined();
+
+      // L1 replaces the last message checkpoint 1 consumed, while the checkpoint itself is still reported: the
+      // published chain is L1's to reconcile, so nothing speculates on it meanwhile.
+      fake.removeMessagesAfter(2);
+      fake.addMessages(CheckpointNumber(1), 100n, [Fr.random()]);
+      fake.reorgL1BlocksFrom(100n);
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      expect(synchronizer.isSpeculationGated()).toBe(true);
+      expect(await archiver.getProposedCheckpointData()).toBeUndefined();
+      // The checkpointed block stays; the speculative block consuming the replaced message is gone.
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getBlockNumber()).toEqual(lastBlockInCp1.number);
+
+      // L1 reconciles the published chain: checkpoint 1 is pruned, the tip agrees with the log again.
+      fake.markCheckpointAsPruned(CheckpointNumber(1));
+      fake.setL1BlockNumber(112n);
+      await archiver.syncImmediate();
+
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+      expect(synchronizer.isSpeculationGated()).toBe(false);
+    });
   });
 
   describe('finalized checkpoint', () => {

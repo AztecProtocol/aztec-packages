@@ -144,6 +144,13 @@ export class FakeL1State {
   // Computed from checkpoints based on L1 block visibility
   private pendingCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
 
+  // L1 block numbers from which the chain has been replaced, in order. Blocks at or past a replacement point get a
+  // different hash per replacement, so a captured head can be observed to have changed.
+  private l1Reorgs: bigint[] = [];
+  // When set, `getMessageSentEvents` rejects for ranges the predicate matches, modelling a provider that cannot
+  // serve them (a log-range limit, pruned history or an outage).
+  private messageSentEventsFailure: ((fromBlock: bigint, toBlock: bigint) => boolean) | undefined;
+
   // The L1 block number reported as "finalized" (defaults to the start block).
   // `undefined` simulates the startup window on a fresh devnet where
   // `getBlock({ blockTag: 'finalized' })` fails with "finalized block not found".
@@ -397,6 +404,25 @@ export class FakeL1State {
   }
 
   /**
+   * Replaces the L1 chain from `l1BlockNumber` on: every block at or past it gets a new hash, as after an L1 reorg
+   * that re-mined those blocks. The messages and checkpoints are left alone; change them separately.
+   */
+  reorgL1BlocksFrom(l1BlockNumber: bigint): void {
+    this.l1Reorgs.push(l1BlockNumber);
+  }
+
+  /** The hash of an L1 block, distinct per block number and per replacement of the chain covering it. */
+  getL1BlockHash(l1BlockNumber: bigint): Buffer32 {
+    const generation = BigInt(this.l1Reorgs.filter(from => from <= l1BlockNumber).length);
+    return Buffer32.fromBigInt(l1BlockNumber + (generation << 128n));
+  }
+
+  /** Makes `getMessageSentEvents` reject for the L1 block ranges `shouldFail` matches; pass undefined to clear. */
+  setMessageSentEventsFailure(shouldFail: ((fromBlock: bigint, toBlock: bigint) => boolean) | undefined): void {
+    this.messageSentEventsFailure = shouldFail;
+  }
+
+  /**
    * Simulates a pruned checkpoint by marking all entries with this number as pruned.
    * The event will still be returned, but archiveAt() will return the previous checkpoint's archive
    * (or genesis if no previous checkpoint), causing a mismatch that the archiver will detect.
@@ -515,7 +541,9 @@ export class FakeL1State {
 
     // Mock the wrapper methods for fetching message events
     mockInbox.getMessageSentEvents.mockImplementation((fromBlock: bigint, toBlock: bigint) =>
-      Promise.resolve(this.getMessageSentLogs(fromBlock, toBlock)),
+      this.messageSentEventsFailure?.(fromBlock, toBlock)
+        ? Promise.reject(new Error(`Cannot serve MessageSent logs for L1 blocks ${fromBlock}-${toBlock}`))
+        : Promise.resolve(this.getMessageSentLogs(fromBlock, toBlock)),
     );
 
     mockInbox.getMessageSentEventByHash.mockImplementation((msgHash: string, aroundL1BlockNumber: bigint) =>
@@ -550,7 +578,7 @@ export class FakeL1State {
       return {
         number: blockNum,
         timestamp: BigInt(blockNum) * BigInt(this.config.ethereumSlotDuration) + this.config.l1GenesisTime,
-        hash: Buffer32.fromBigInt(blockNum).toString(),
+        hash: this.getL1BlockHash(blockNum).toString(),
       } as FormattedBlock;
     }) as any);
 
@@ -636,7 +664,7 @@ export class FakeL1State {
       )
       .map(msg => ({
         l1BlockNumber: msg.l1BlockNumber,
-        l1BlockHash: Buffer32.fromBigInt(msg.l1BlockNumber),
+        l1BlockHash: this.getL1BlockHash(msg.l1BlockNumber),
         l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
         args: {
           index: msg.index,
@@ -660,7 +688,7 @@ export class FakeL1State {
     }
     return {
       l1BlockNumber: msg.l1BlockNumber,
-      l1BlockHash: Buffer32.fromBigInt(msg.l1BlockNumber),
+      l1BlockHash: this.getL1BlockHash(msg.l1BlockNumber),
       l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
       args: {
         index: msg.index,
