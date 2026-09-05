@@ -103,13 +103,20 @@ export class BlockAlreadyCheckpointedError extends Error {
 }
 
 /**
- * Thrown when a query names an Inbox bucket this archiver has not synced. Distinguishes "not synced yet, retry once
- * L1 sync catches up" from a genuinely empty result.
+ * Thrown when a message suffix replacement finds the local prefix it was compared against already changed, so the
+ * comparison that established the divergence no longer describes the store and must be redone.
  */
-export class InboxBucketNotSyncedError extends Error {
-  constructor(public readonly bucketSeq: bigint) {
-    super(`Inbox bucket ${bucketSeq} has not been synced`);
-    this.name = 'InboxBucketNotSyncedError';
+export class InboxMessagePrefixChangedError extends Error {
+  constructor(
+    public readonly totalMessageCount: bigint,
+    public readonly expected: Fr,
+    public readonly actual: Fr | undefined,
+  ) {
+    super(
+      `Inbox message prefix at count ${totalMessageCount} changed from ${expected.toString()} to ` +
+        `${actual?.toString() ?? 'unavailable'} while a replacement was being prepared`,
+    );
+    this.name = 'InboxMessagePrefixChangedError';
   }
 }
 

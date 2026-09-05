@@ -20,17 +20,20 @@ import {
   computeContractClassId,
 } from '@aztec/stdlib/contract';
 import type { ContractClassLog, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
-import type { InboxMessagePrefixRef } from '@aztec/stdlib/messaging';
+import type { InboxMessagePosition, InboxMessagePrefixRef } from '@aztec/stdlib/messaging';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import {
   InboxConsumptionRewindsError,
+  InboxMessagePrefixChangedError,
   InboxPrefixMismatchError,
   InboxPrefixNotSyncedError,
   ProposedBlockParentNotFoundError,
 } from '../errors.js';
 import type { ArchiverDataStores } from '../store/data_stores.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
+import type { MessageSyncState } from '../store/message_store.js';
+import type { InboxMessage } from '../structs/inbox_message.js';
 
 /** Operation type for contract data updates. */
 enum Operation {
@@ -52,6 +55,14 @@ type ReconcileCheckpointsResult = {
   prunedBlocks: L2Block[] | undefined;
   /** Last block number that was already inserted locally, or undefined if none. */
   lastAlreadyInsertedBlockNumber: BlockNumber | undefined;
+};
+
+/** Outcome of an Inbox message suffix replacement. */
+export type MessageSuffixReplacementResult = {
+  /** Uncheckpointed blocks pruned because they consumed a replaced or removed message. */
+  prunedBlocks: L2Block[];
+  /** Whether the checkpointed tip itself consumed a replaced or removed message; published blocks are left to L1 sync. */
+  checkpointedTipAffected: boolean;
 };
 
 /** Archiver helper module to handle updates to the data store. */
@@ -328,6 +339,79 @@ export class ArchiverDataStoreUpdater {
     }
 
     return { prunedBlocks: undefined, lastAlreadyInsertedBlockNumber };
+  }
+
+  /**
+   * Replaces the local Inbox message log from `firstDivergentIndex` on with `messages`, moves the message syncpoint
+   * and prunes every uncheckpointed block that consumed a message at or past that index, in one store transaction.
+   * The caller established the divergence by comparing against a local prefix; that prefix is re-checked inside the
+   * transaction and the replacement refused if it moved, so a concurrent change cannot be overwritten by a stale
+   * comparison. `messages` may reach back before the divergence (those rows are rewritten in place) and may be empty
+   * for a pure truncation.
+   *
+   * Checkpointed blocks are never pruned here: if the divergence sits below the checkpointed tip's consumed count the
+   * published chain is L1's to reconcile, and the result flags it so the caller can gate speculative work meanwhile.
+   */
+  public async replaceMessageSuffixAndPruneProposedBlocks(input: {
+    firstDivergentIndex: bigint;
+    expectedPrefix: InboxMessagePosition;
+    messages: InboxMessage[];
+    syncState: MessageSyncState;
+  }): Promise<MessageSuffixReplacementResult> {
+    const { firstDivergentIndex, expectedPrefix, messages, syncState } = input;
+    const result = await this.stores.db.transactionAsync(async () => {
+      const currentPrefix = await this.stores.messages.getMessagePosition(firstDivergentIndex);
+      if (currentPrefix === undefined || !currentPrefix.rollingHash.equals(expectedPrefix.rollingHash)) {
+        throw new InboxMessagePrefixChangedError(
+          firstDivergentIndex,
+          expectedPrefix.rollingHash,
+          currentPrefix?.rollingHash,
+        );
+      }
+      await this.stores.messages.removeL1ToL2Messages(firstDivergentIndex);
+      await this.stores.messages.addL1ToL2Messages(messages, syncState);
+
+      const [checkpointedBlockNumber, latestBlockNumber] = await Promise.all([
+        this.stores.blocks.getCheckpointedL2BlockNumber(),
+        this.stores.blocks.getLatestL2BlockNumber(),
+      ]);
+      const checkpointedTipAffected =
+        checkpointedBlockNumber > BlockNumber.ZERO &&
+        (await this.getConsumedMessageCount(checkpointedBlockNumber)) > firstDivergentIndex;
+
+      let prunedBlocks: L2Block[] = [];
+      if (latestBlockNumber > checkpointedBlockNumber) {
+        const uncheckpointed = await this.stores.blocks.getBlocksData({
+          from: BlockNumber.add(checkpointedBlockNumber, 1),
+          limit: latestBlockNumber - checkpointedBlockNumber,
+        });
+        const firstConsumer = uncheckpointed.find(
+          block => BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex) > firstDivergentIndex,
+        );
+        if (firstConsumer !== undefined) {
+          const firstConsumerNumber = firstConsumer.header.getBlockNumber();
+          this.log.warn(`Pruning proposed blocks from ${firstConsumerNumber} that consumed replaced Inbox messages`, {
+            firstDivergentIndex,
+            firstConsumerNumber,
+            latestBlockNumber,
+          });
+          prunedBlocks = await this.removeBlocksAfter(BlockNumber(firstConsumerNumber - 1));
+          await this.evictProposedCheckpointsForPrunedBlocks(prunedBlocks);
+        }
+      }
+      return { prunedBlocks, checkpointedTipAffected };
+    });
+    await this.l2TipsCache?.refresh();
+    return result;
+  }
+
+  /** The cumulative Inbox message count consumed as of the given block: its L1-to-L2 message tree leaf count. */
+  private async getConsumedMessageCount(blockNumber: BlockNumber): Promise<bigint> {
+    const [block] = await this.stores.blocks.getBlocksData({ from: blockNumber, limit: 1 });
+    if (block === undefined || block.header.getBlockNumber() !== blockNumber) {
+      throw new Error(`Block ${blockNumber} is missing from the store`);
+    }
+    return BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
   }
 
   /**

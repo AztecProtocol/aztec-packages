@@ -60,31 +60,32 @@ describe('validateNetworkConsensusConfig', () => {
   });
 
   it('derives the streaming-Inbox catch-up floor from the message caps', () => {
-    // 2 * ceil((1024 + 1) / (256 + 1)) - 1 = 7 for the current caps.
-    expect(MIN_BLOCKS_FOR_INBOX_CATCHUP).toBe(7);
+    // ceil(1024 / 256) = 4 for the current caps: blocks consume message prefixes, so each carries a full block cap.
+    expect(MIN_BLOCKS_FOR_INBOX_CATCHUP).toBe(4);
   });
 
   it('rejects a maxBlocksPerCheckpoint below the streaming-Inbox catch-up floor', () => {
-    // A 36s slot with 6s blocks derives 4 blocks per checkpoint, so the derived-count check passes while the
+    // A 36s slot with 8s blocks derives 2 blocks per checkpoint, so the derived-count check passes while the
     // network remains permanently haltable by a mandatory backlog no checkpoint can clear.
     const errors = validateNetworkConsensusConfig({
       ...base,
       aztecSlotDuration: 36,
-      maxBlocksPerCheckpoint: 4,
+      blockDurationMs: 8000,
+      maxBlocksPerCheckpoint: 2,
       checkpointProposalSyncGraceSeconds: 12,
     });
     expect(errors).toEqual([expect.stringContaining(`at least ${MIN_BLOCKS_FOR_INBOX_CATCHUP}`)]);
-    expect(errors[0]).toContain('4');
+    expect(errors[0]).toContain('2');
   });
 
   it('accepts a maxBlocksPerCheckpoint exactly at the catch-up floor', () => {
-    // A 72s slot with 8s blocks derives exactly 7 blocks: floor((72 - 1 - 8 - 4 - 1) / 8).
+    // A 36s slot with 6s blocks derives exactly 4 blocks: floor((36 - 1 - 6 - 4 - 1) / 6).
     expect(
       validateNetworkConsensusConfig({
         ...base,
-        blockDurationMs: 8000,
+        aztecSlotDuration: 36,
         maxBlocksPerCheckpoint: MIN_BLOCKS_FOR_INBOX_CATCHUP,
-        checkpointProposalSyncGraceSeconds: 16,
+        checkpointProposalSyncGraceSeconds: 12,
       }),
     ).toEqual([]);
   });

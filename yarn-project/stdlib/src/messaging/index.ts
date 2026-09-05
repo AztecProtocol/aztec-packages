@@ -1,5 +1,4 @@
 export * from './append_l1_to_l2_messages.js';
-export * from './inbox_bucket.js';
 export * from './inbox_consumption.js';
 export * from './inbox_message_prefix_ref.js';
 export * from './inbox_rolling_hash.js';

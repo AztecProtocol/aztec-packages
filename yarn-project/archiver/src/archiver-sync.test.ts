@@ -29,6 +29,7 @@ import {
 } from '@aztec/stdlib/block';
 import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
@@ -271,37 +272,20 @@ describe('Archiver Sync', () => {
         (await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 100 })).map(b => b.checkpoint.number),
       ).toEqual([1, 2, 3]);
 
-      // Inbox buckets: each of the three L1 message blocks opened its own bucket, in insertion order.
-      const t1 = fake.getTimestampAtL1Block(98n);
-      const t2 = fake.getTimestampAtL1Block(2504n);
-      const t3 = fake.getTimestampAtL1Block(2511n);
-
-      expect(await archiver.getInboxBucket(1n)).toMatchObject({
-        seq: 1n,
-        msgCount: 3,
-        totalMsgCount: 3n,
-        timestamp: t1,
-        l1BlockNumber: 98n,
-        l1BlockHash: Buffer32.fromBigInt(98n),
+      // Message positions: counts resolve to the rolling hash over exactly that many messages, and ranges are read by
+      // count regardless of which L1 blocks the messages arrived in.
+      const allMessages = [...msgs1, ...msgs2, ...msgs3];
+      const rollingHashAt = (count: number) =>
+        allMessages.slice(0, count).reduce((hash, leaf) => updateInboxRollingHash(hash, leaf), Fr.ZERO);
+      expect(await archiver.getMessagePosition(3n)).toEqual({ totalMessageCount: 3n, rollingHash: rollingHashAt(3) });
+      expect(await archiver.getSyncedMessagePosition()).toEqual({
+        totalMessageCount: 9n,
+        rollingHash: rollingHashAt(9),
       });
-      expect(await archiver.getInboxBucket(3n)).toMatchObject({
-        seq: 3n,
-        msgCount: 3,
-        totalMsgCount: 9n,
-        timestamp: t3,
-        l1BlockNumber: 2511n,
-        l1BlockHash: Buffer32.fromBigInt(2511n),
-      });
-
-      // At-or-before lookups resolve the latest bucket not opened after the given timestamp.
-      expect((await archiver.getLatestInboxBucketAtOrBefore(t3))!.seq).toEqual(3n);
-      expect((await archiver.getLatestInboxBucketAtOrBefore(t2))!.seq).toEqual(2n);
-      expect(await archiver.getLatestInboxBucketAtOrBefore(t1 - 1n)).toBeUndefined();
-
-      // Messages between buckets, in insertion order.
-      expect(await archiver.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual([...msgs1, ...msgs2, ...msgs3]);
-      expect(await archiver.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual(msgs2);
-      expect(await archiver.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual(msgs3);
+      expect(await archiver.getMessagePosition(10n)).toBeUndefined();
+      expect(await archiver.getL1ToL2MessagesBetweenLeafCounts(0n, 9n)).toEqual(allMessages);
+      expect(await archiver.getL1ToL2MessagesBetweenLeafCounts(3n, 6n)).toEqual(msgs2);
+      expect((await archiver.getL1ToL2MessageRange(6n, 9n)).messages).toEqual(msgs3);
     }, 30_000);
 
     it('ignores checkpoint 3 because it has been pruned', async () => {
@@ -1188,9 +1172,10 @@ describe('Archiver Sync', () => {
 
       await archiver.syncImmediate();
 
-      // Without a finalized pointer the synchronizer must use per-message log queries to find the common point.
-      // 2 messages mismatch on remote (msgs3[2], msgs3[3]) and one matches (msgs3[1]) before we break.
-      expect(eventByHashSpy).toHaveBeenCalledTimes(3);
+      // Without a finalized pointer the synchronizer must use per-message log queries to find the common point. The
+      // search starts below the canonical count (5), so msgs3[3] is never looked up: msgs3[2] mismatches on remote and
+      // msgs3[1] matches, anchoring the replay.
+      expect(eventByHashSpy).toHaveBeenCalledTimes(2);
 
       expect(await getStoredLeaves()).toEqual(asHex([msgs1[0], msgs1[1], msgs3[0], msgs3[1], msg40]));
     });

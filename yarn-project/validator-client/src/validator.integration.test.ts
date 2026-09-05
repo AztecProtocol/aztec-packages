@@ -485,8 +485,8 @@ describe('ValidatorClient Integration', () => {
     it('validates and attests with txs anchored to proposed blocks and non-empty l1-to-l2 messages', async () => {
       // Create l1 to l2 messages and seed them into the archivers
       const l1ToL2Messages = makeInboxMessages(4);
-      await proposer.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
-      await attestor.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
+      await proposer.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
+      await attestor.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
 
       // Build txs anchored to the previously proposed block
       const { blocks, proposal } = await buildCheckpoint(
@@ -703,10 +703,10 @@ describe('ValidatorClient Integration', () => {
 
     it('refuses block proposal with mismatching l1 to l2 messages', async () => {
       const l1ToL2Messages = makeInboxMessages(4);
-      await proposer.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
+      await proposer.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
 
       const otherL1ToL2Messages = makeInboxMessages(4);
-      await attestor.archiver.dataStores.messages.addL1ToL2MessageBuckets(otherL1ToL2Messages);
+      await attestor.archiver.dataStores.messages.addL1ToL2Messages(otherL1ToL2Messages);
 
       const { blocks } = await buildCheckpoint(
         CheckpointNumber(1),

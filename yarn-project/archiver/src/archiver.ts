@@ -19,10 +19,15 @@ import {
   type L2BlockSink,
   L2BlockSourceEvents,
   type L2Tips,
+  type ProposedCheckpointQuery,
   type ValidateCheckpointResult,
   l2TipsEqual,
 } from '@aztec/stdlib/block';
-import { type ProposedCheckpointInput, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  type ProposedCheckpointData,
+  type ProposedCheckpointInput,
+  PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
   getEpochAtSlot,
@@ -692,6 +697,20 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   /** Returns whether the archiver has completed an initial sync run successfully. */
   public isInitialSyncComplete(): boolean {
     return this.initialSyncComplete;
+  }
+
+  /**
+   * Proposed checkpoints are withheld while an Inbox message replacement below the checkpointed tip awaits checkpoint
+   * reconciliation from L1: anything built on them would consume messages L1 no longer has.
+   */
+  public override getProposedCheckpointData(
+    query?: ProposedCheckpointQuery,
+  ): Promise<ProposedCheckpointData | undefined> {
+    if (this.synchronizer.isSpeculationGated()) {
+      this.log.debug(`Withholding proposed checkpoint data while the checkpointed tip disagrees with the Inbox`);
+      return Promise.resolve(undefined);
+    }
+    return super.getProposedCheckpointData(query);
   }
 
   public removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<boolean> {

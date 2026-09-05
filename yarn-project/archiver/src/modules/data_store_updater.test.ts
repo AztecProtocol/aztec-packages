@@ -656,7 +656,7 @@ describe('ArchiverDataStoreUpdater', () => {
     };
 
     beforeEach(async () => {
-      await store.messages.addL1ToL2MessageBuckets(makeInboxMessages(5));
+      await store.messages.addL1ToL2Messages(makeInboxMessages(5));
     });
 
     it('accepts a block whose signed prefix matches the local messages at its leaf count', async () => {
@@ -668,7 +668,7 @@ describe('ArchiverDataStoreUpdater', () => {
     it('accepts a prefix interior to the synced log and is unaffected by messages appended after it', async () => {
       const block = await makeConsumingBlock(1, 3);
       const ref = await refAt(3);
-      await store.messages.addL1ToL2MessageBuckets(
+      await store.messages.addL1ToL2Messages(
         makeInboxMessages(2, {
           initialIndex: 5n,
           initialInboxHash: (await store.messages.getSyncedMessagePosition()).rollingHash,
@@ -708,11 +708,10 @@ describe('ArchiverDataStoreUpdater', () => {
       // A reorg replaces the last two messages before the block is inserted.
       await store.messages.removeL1ToL2Messages(3n);
       const hashAtThree = (await store.messages.getSyncedMessagePosition()).rollingHash;
-      await store.messages.addL1ToL2MessageBuckets(
+      await store.messages.addL1ToL2Messages(
         makeInboxMessages(2, {
           initialIndex: 3n,
           initialInboxHash: hashAtThree,
-          overrideFn: m => ({ ...m, bucketSeq: 4n, bucketTimestamp: 4n }),
         }),
       );
       await expect(updater.addProposedBlock(block, staleRef)).rejects.toThrow(InboxPrefixMismatchError);

@@ -105,11 +105,7 @@ type MessageData = {
   index: bigint;
   leaf: Fr;
   inboxRollingHash: Fr;
-  bucketSeq: bigint;
 };
-
-// Mirror of the on-chain per-bucket message cap: further messages in the same L1 block spill into the next bucket.
-const MAX_MSGS_PER_BUCKET = 256;
 
 /**
  * Stateful fake for L1 data used by the archiver.
@@ -137,11 +133,8 @@ export class FakeL1State {
   private l1BlockNumber: bigint;
   private checkpoints: CheckpointData[] = [];
   private messages: MessageData[] = [];
-  // Consensus rolling-hash and bucket-ring state, mirroring the on-chain Inbox.
+  // Consensus rolling hash over every message, mirroring the on-chain Inbox.
   private messagesConsensusRollingHash: Fr = Fr.ZERO;
-  private currentBucketSeq: bigint = 0n;
-  private currentBucketTimestamp: bigint = 0n;
-  private currentBucketMsgCount: number = 0;
   private lastArchive: AppendOnlyTreeSnapshot;
   private provenCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
   private targetCommitteeSize: number = 0;
@@ -170,52 +163,21 @@ export class FakeL1State {
    * Use this method only when you need to add messages without creating a checkpoint (e.g., for reorg tests).
    */
   addMessages(_checkpointNumber: CheckpointNumber, l1BlockNumber: bigint, messageLeaves: Fr[]): void {
-    const timestamp = this.getTimestampAtL1Block(l1BlockNumber);
     messageLeaves.forEach(leaf => {
       // Compact global insertion index: the position in the Inbox's insertion order.
       const index = BigInt(this.messages.length);
-      const { bucketSeq, inboxRollingHash } = this.absorbIntoBucket(leaf, timestamp);
-
-      this.messages.push({
-        l1BlockNumber,
-        index,
-        leaf,
-        inboxRollingHash,
-        bucketSeq,
-      });
+      this.messagesConsensusRollingHash = updateInboxRollingHash(this.messagesConsensusRollingHash, leaf);
+      this.messages.push({ l1BlockNumber, index, leaf, inboxRollingHash: this.messagesConsensusRollingHash });
     });
   }
 
-  /** Mirrors the on-chain `_absorbIntoBucket`: opens a new bucket on a strictly larger timestamp or a full bucket. */
-  private absorbIntoBucket(leaf: Fr, timestamp: bigint): { bucketSeq: bigint; inboxRollingHash: Fr } {
-    if (
-      this.currentBucketSeq === 0n ||
-      this.currentBucketTimestamp < timestamp ||
-      this.currentBucketMsgCount === MAX_MSGS_PER_BUCKET
-    ) {
-      this.currentBucketSeq += 1n;
-      this.currentBucketTimestamp = timestamp;
-      this.currentBucketMsgCount = 0;
-    }
-    this.messagesConsensusRollingHash = updateInboxRollingHash(this.messagesConsensusRollingHash, leaf);
-    this.currentBucketMsgCount += 1;
-    return { bucketSeq: this.currentBucketSeq, inboxRollingHash: this.messagesConsensusRollingHash };
-  }
-
-  /** Rebuilds all per-message derived state (rolling hashes and bucket assignments) after the message set changes. */
+  /** Rebuilds the per-message rolling hashes after the message set changes. */
   private recomputeDerivedMessageState(): void {
     this.messagesConsensusRollingHash = Fr.ZERO;
-    this.currentBucketSeq = 0n;
-    this.currentBucketTimestamp = 0n;
-    this.currentBucketMsgCount = 0;
     this.messages.forEach((msg, i) => {
-      const { bucketSeq, inboxRollingHash } = this.absorbIntoBucket(
-        msg.leaf,
-        this.getTimestampAtL1Block(msg.l1BlockNumber),
-      );
+      this.messagesConsensusRollingHash = updateInboxRollingHash(this.messagesConsensusRollingHash, msg.leaf);
       msg.index = BigInt(i);
-      msg.inboxRollingHash = inboxRollingHash;
-      msg.bucketSeq = bucketSeq;
+      msg.inboxRollingHash = this.messagesConsensusRollingHash;
     });
   }
 
@@ -547,7 +509,7 @@ export class FakeL1State {
       return Promise.resolve({
         rollingHash: last?.inboxRollingHash ?? Fr.ZERO,
         totalMessagesInserted: BigInt(visibleMessages.length),
-        currentBucketSeq: last?.bucketSeq ?? 0n,
+        currentBucketSeq: 0n,
       });
     });
 
@@ -676,12 +638,11 @@ export class FakeL1State {
         l1BlockNumber: msg.l1BlockNumber,
         l1BlockHash: Buffer32.fromBigInt(msg.l1BlockNumber),
         l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
-        l1BlockTimestamp: this.getTimestampAtL1Block(msg.l1BlockNumber),
         args: {
           index: msg.index,
           leaf: msg.leaf,
           inboxRollingHash: msg.inboxRollingHash,
-          bucketSeq: msg.bucketSeq,
+          bucketSeq: 0n,
           message: this.makeFakeMessageSentMessage(msg.index),
         },
       }));
@@ -701,12 +662,11 @@ export class FakeL1State {
       l1BlockNumber: msg.l1BlockNumber,
       l1BlockHash: Buffer32.fromBigInt(msg.l1BlockNumber),
       l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
-      l1BlockTimestamp: this.getTimestampAtL1Block(msg.l1BlockNumber),
       args: {
         index: msg.index,
         leaf: msg.leaf,
         inboxRollingHash: msg.inboxRollingHash,
-        bucketSeq: msg.bucketSeq,
+        bucketSeq: 0n,
         message: this.makeFakeMessageSentMessage(msg.index),
       },
     };
