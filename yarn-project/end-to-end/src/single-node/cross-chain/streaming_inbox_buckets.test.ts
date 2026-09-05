@@ -214,10 +214,22 @@ describe('single-node/cross-chain/streaming_inbox_buckets', () => {
       extensionIndex: extension.index,
     });
 
-    // Publication is refused by the pre-publication preflight and the slot given up.
+    // Publication is refused and the slot given up. The refusal is the send-time L1 bundle simulation, not the
+    // pre-publication preflight: the propose is enqueued as soon as the checkpoint is signed, so the preflight runs
+    // before the extension exists, and it is the simulation at the target slot that finds no bucket ending at the
+    // signed endpoint and reverts with Rollup__InvalidInboxRollingHash.
     await t.waitForSequencerEvent(sequencer, 'checkpoint-publish-failed', args => args.slot === abandonedSlot, {
       timeout: slotDuration * 2 * 1000,
     });
+
+    // Nothing was published for the abandoned slot: the checkpoint number it would have taken went to a later slot.
+    // Awaited before the extension is located, because the blocks pipelined on top of the abandoned checkpoint are
+    // still local at this point and are only pruned once the slot closes uncheckpointed.
+    await waitForNodeCheckpoint(aztecNode, proposed!.checkpointNumber, { timeout: slotDuration * 4 });
+    const [republished] = await aztecNode.getCheckpoints(proposed!.checkpointNumber, 1);
+    expect(republished.header.slotNumber).toBeGreaterThan(abandonedSlot);
+    const published = await aztecNode.getCheckpoints(proposed!.checkpointNumber, 10);
+    expect(published.map(c => c.header.slotNumber)).not.toContain(abandonedSlot);
 
     // The extended bucket is consumed by a later checkpoint, with the earlier messages' prefixes untouched.
     const insertingExtension = await findInsertingBlock(aztecNode, extension.msgHash, BlockNumber(1));
@@ -226,12 +238,5 @@ describe('single-node/cross-chain/streaming_inbox_buckets', () => {
     expect(
       await aztecNode.getL1ToL2MessageMembershipWitness(insertingExtension.blockNumber, endpointMsg.msgHash),
     ).toBeDefined();
-
-    // Nothing was published for the abandoned slot: the checkpoint number it would have taken went to a later slot.
-    await waitForNodeCheckpoint(aztecNode, insertingExtension.checkpointNumber, { timeout: slotDuration * 3 });
-    const [republished] = await aztecNode.getCheckpoints(proposed!.checkpointNumber, 1);
-    expect(republished.header.slotNumber).toBeGreaterThan(abandonedSlot);
-    const published = await aztecNode.getCheckpoints(proposed!.checkpointNumber, 10);
-    expect(published.map(c => c.header.slotNumber)).not.toContain(abandonedSlot);
   });
 });
