@@ -1,7 +1,15 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { CheckpointId, L2BlockId, L2TipId, L2Tips } from '@aztec/stdlib/block';
-import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import {
+  type InboxBucket,
+  type InboxMessagePosition,
+  type InboxMessageRange,
+  type L1ToL2MessageSource,
+  updateInboxRollingHash,
+} from '@aztec/stdlib/messaging';
+
+import { InboxMessageRangeNotSyncedError } from '../errors.js';
 
 /**
  * A mocked implementation of L1ToL2MessageSource to be used in tests.
@@ -9,16 +17,63 @@ import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
   private buckets = new Map<bigint, InboxBucket>();
   private messagesPerBucket = new Map<bigint, Fr[]>();
+  /**
+   * The canonical message log, keyed by compact global index. This is the primary fixture: message positions and
+   * count ranges derive from it alone, and it is kept apart from the bucket partition so a test can repartition the
+   * buckets (as an L1 reorg does) while the indexed leaves stay exactly as they were.
+   */
+  private leavesByIndex = new Map<bigint, Fr>();
 
   constructor(private blockNumber: number) {}
 
   public setInboxBucket(bucket: InboxBucket, msgs: Fr[] = []) {
     this.buckets.set(bucket.seq, bucket);
     this.messagesPerBucket.set(bucket.seq, msgs);
+    // Index from the bucket's own cumulative total rather than call order, so re-registering a bucket or setting them
+    // out of order keeps every leaf at the index the archiver would give it.
+    const firstIndex = bucket.totalMsgCount - BigInt(msgs.length);
+    msgs.forEach((msg, i) => this.leavesByIndex.set(firstIndex + BigInt(i), msg));
+  }
+
+  /**
+   * Replaces the current bucket partition without touching the indexed leaf log, modelling an L1 reorg that re-mines
+   * the same messages under different bucket boundaries.
+   */
+  public replaceInboxBuckets(buckets: { bucket: InboxBucket; msgs: Fr[] }[]) {
+    this.buckets = new Map();
+    this.messagesPerBucket = new Map();
+    for (const { bucket, msgs } of buckets) {
+      this.buckets.set(bucket.seq, bucket);
+      this.messagesPerBucket.set(bucket.seq, msgs);
+    }
+  }
+
+  /** Appends leaves to the indexed message log at its synced tip, without registering any bucket for them. */
+  public appendL1ToL2Messages(msgs: Fr[]) {
+    const firstIndex = this.getSyncedMessageCount();
+    msgs.forEach((msg, i) => this.leavesByIndex.set(firstIndex + BigInt(i), msg));
   }
 
   public setBlockNumber(blockNumber: number) {
     this.blockNumber = blockNumber;
+  }
+
+  /** The number of leaves indexed contiguously from zero: the mocked synced tip. */
+  private getSyncedMessageCount(): bigint {
+    let count = 0n;
+    while (this.leavesByIndex.has(count)) {
+      count++;
+    }
+    return count;
+  }
+
+  /** Recomputes the rolling hash over the first `totalMessageCount` indexed leaves, as the archiver stores per message. */
+  private computeRollingHash(totalMessageCount: bigint): Fr {
+    let hash = Fr.ZERO;
+    for (let index = 0n; index < totalMessageCount; index++) {
+      hash = updateInboxRollingHash(hash, this.leavesByIndex.get(index)!);
+    }
+    return hash;
   }
 
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
@@ -50,13 +105,70 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     return Promise.resolve(seqs.flatMap(seq => this.messagesPerBucket.get(seq) ?? []));
   }
 
-  async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
-    const startBucket = await this.getInboxBucketByTotalMsgCount(startLeafCount);
-    const endBucket = await this.getInboxBucketByTotalMsgCount(endLeafCount);
-    if (startBucket === undefined || endBucket === undefined) {
-      throw new Error(`No mocked Inbox bucket boundary at ${startLeafCount} or ${endLeafCount}`);
+  /**
+   * Slices the indexed leaf log, enforcing the same range contract as the archiver's message store: invalid bounds and
+   * ranges past the synced tip are rejected, the latter with the archiver's typed availability error. Every failure is
+   * a rejection rather than a synchronous throw, so callers see this stand-in behave like the async source it mocks.
+   */
+  getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+    try {
+      return Promise.resolve(this.readLeafCountRange(startLeafCount, endLeafCount));
+    } catch (err) {
+      return Promise.reject(err);
     }
-    return this.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
+  }
+
+  getMessagePosition(totalMessageCount: bigint): Promise<InboxMessagePosition | undefined> {
+    if (totalMessageCount < 0n) {
+      return Promise.reject(new Error(`Invalid Inbox message count ${totalMessageCount}`));
+    }
+    if (totalMessageCount > this.getSyncedMessageCount()) {
+      return Promise.resolve(undefined);
+    }
+    return Promise.resolve({ totalMessageCount, rollingHash: this.computeRollingHash(totalMessageCount) });
+  }
+
+  getSyncedMessagePosition(): Promise<InboxMessagePosition> {
+    const totalMessageCount = this.getSyncedMessageCount();
+    return Promise.resolve({ totalMessageCount, rollingHash: this.computeRollingHash(totalMessageCount) });
+  }
+
+  /**
+   * Reads the range and both positions synchronously from the current leaf log, so a test that mutates the log while
+   * a range read is pending cannot pair leaves of one version with hashes of another, as the archiver's single-transaction
+   * read cannot either.
+   */
+  getL1ToL2MessageRange(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageRange> {
+    try {
+      const messages = this.readLeafCountRange(startLeafCount, endLeafCount);
+      return Promise.resolve({
+        messages,
+        start: { totalMessageCount: startLeafCount, rollingHash: this.computeRollingHash(startLeafCount) },
+        end: { totalMessageCount: endLeafCount, rollingHash: this.computeRollingHash(endLeafCount) },
+      });
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  private readLeafCountRange(startLeafCount: bigint, endLeafCount: bigint): Fr[] {
+    if (startLeafCount < 0n || endLeafCount < 0n || startLeafCount > endLeafCount) {
+      throw new Error(`Invalid Inbox leaf count range [${startLeafCount}, ${endLeafCount})`);
+    }
+    const syncedCount = this.getSyncedMessageCount();
+    if (endLeafCount > syncedCount) {
+      const available = syncedCount > startLeafCount ? syncedCount - startLeafCount : 0n;
+      throw new InboxMessageRangeNotSyncedError(
+        startLeafCount,
+        endLeafCount,
+        `only ${available} of ${endLeafCount - startLeafCount} messages are mocked`,
+      );
+    }
+    const leaves: Fr[] = [];
+    for (let index = startLeafCount; index < endLeafCount; index++) {
+      leaves.push(this.leavesByIndex.get(index)!);
+    }
+    return leaves;
   }
 
   getBlockNumber() {

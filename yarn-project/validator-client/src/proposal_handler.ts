@@ -1135,14 +1135,17 @@ export class ProposalHandler {
   /**
    * Enforces the streaming-Inbox last-block minimum-consumption (censorship) rule for a checkpoint, mirroring
    * `ProposeLib.validateInboxConsumption`: the first bucket the checkpoint left unconsumed must be absent, past the
-   * cutoff, or a cap-escape. Returns true (sufficient) when the checkpoint's consumption cannot be resolved against
-   * the local Inbox view, deferring to L1 `propose` as the authoritative reject.
+   * cutoff, or a cap-escape. Returns true (sufficient) when the checkpoint's final consumption position cannot be
+   * resolved against the local Inbox view, deferring to L1 `propose` as the authoritative reject.
    */
-  private async isLastBlockConsumptionSufficient(slot: SlotNumber, blocks: L2Block[]): Promise<boolean> {
+  private async isLastBlockConsumptionSufficient(
+    slot: SlotNumber,
+    checkpointStartTotal: bigint,
+    blocks: L2Block[],
+  ): Promise<boolean> {
     const lastBlockTotal = this.blockLeafCount(blocks[blocks.length - 1]);
-    const checkpointStartTotal = await this.getPreBlockConsumedTotal(blocks[0].number);
     const lastConsumedBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(lastBlockTotal);
-    if (checkpointStartTotal === undefined || lastConsumedBucket === undefined) {
+    if (lastConsumedBucket === undefined) {
       return true;
     }
     const nextBucket = await this.l1ToL2MessageSource.getInboxBucket(lastConsumedBucket.seq + 1n);
@@ -1156,22 +1159,24 @@ export class ProposalHandler {
   }
 
   /**
-   * Derives the ordered list of L1-to-L2 messages a checkpoint consumed across its blocks, from the Inbox buckets
-   * between the parent checkpoint's consumed position and the checkpoint's last block. Empty when
-   * the checkpoint consumed nothing or its consumption cannot be resolved against the local Inbox view.
+   * Derives the ordered list of L1-to-L2 messages a checkpoint consumed across its blocks: the compact message-count
+   * range between the parent checkpoint's consumed position and the checkpoint's last block, read by count from the
+   * local message log. Empty when the checkpoint consumed nothing.
+   *
+   * Neither bound is resolved as an Inbox bucket. Both are counts committed by block headers, and an L1 reorg that
+   * merges buckets can leave either one interior to the current partition without changing the messages the blocks
+   * consumed; whether the final position is a live bucket end is a publication rule L1 `propose` enforces. The
+   * minimum-consumption guard that runs before this only checks censorship against the buckets it can resolve
+   * locally and defers an unresolved endpoint to L1. Throws when part of the range is not available locally: a local
+   * availability
+   * gap must surface as such rather than as an empty bundle that would make a valid proposal fail its rolling-hash
+   * recomputation.
    */
-  private async deriveCheckpointConsumedMessages(blocks: L2Block[]): Promise<Fr[]> {
-    const checkpointStartTotal = await this.getPreBlockConsumedTotal(blocks[0].number);
+  private deriveCheckpointConsumedMessages(checkpointStartTotal: bigint, blocks: L2Block[]): Promise<Fr[]> {
     const lastBlockTotal = this.blockLeafCount(blocks[blocks.length - 1]);
-    if (checkpointStartTotal === undefined || lastBlockTotal <= checkpointStartTotal) {
-      return [];
-    }
-    const startBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(checkpointStartTotal);
-    const endBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(lastBlockTotal);
-    if (startBucket === undefined || endBucket === undefined) {
-      return [];
-    }
-    return this.l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
+    return lastBlockTotal <= checkpointStartTotal
+      ? Promise.resolve([])
+      : this.l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts(checkpointStartTotal, lastBlockTotal);
   }
 
   async reexecuteTransactions(
@@ -1469,9 +1474,21 @@ export class ProposalHandler {
     const constants = this.extractCheckpointConstants(firstBlock);
     const checkpointNumber = firstBlock.checkpointNumber;
 
+    // The checkpoint's Inbox consumption starts at the leaf count of the block before its first block. Without that
+    // block the consumed bundle cannot be derived; an empty bundle would make a valid proposal fail its rolling-hash
+    // recomputation and be classified as a proposer offense, so a missing parent is a local fetch failure instead.
+    const checkpointStartTotal = await this.getPreBlockConsumedTotal(firstBlock.number);
+    if (checkpointStartTotal === undefined) {
+      this.log.warn(`Block before checkpoint proposal's first block ${firstBlock.number} is unavailable locally`, {
+        ...proposalInfo,
+        checkpointNumber,
+      });
+      return { isValid: false, reason: 'block_fetch_error', checkpointNumber };
+    }
+
     // Streaming Inbox: on the last block of a checkpoint, enforce the minimum-consumption
     // (censorship) rule before attesting. Reject (no attestation) if a mandatory bucket was left unconsumed.
-    if (!(await this.isLastBlockConsumptionSufficient(slot, blocks))) {
+    if (!(await this.isLastBlockConsumptionSufficient(slot, checkpointStartTotal, blocks))) {
       this.log.warn(`Streaming Inbox last-block censorship check failed, refusing to attest`, {
         ...proposalInfo,
         checkpointNumber,
@@ -1479,10 +1496,10 @@ export class ProposalHandler {
       return { isValid: false, reason: 'inbox_consumption_insufficient', checkpointNumber };
     }
 
-    // Derive the checkpoint's consumed L1-to-L2 message list from the Inbox buckets between the parent checkpoint's
-    // consumed position and the last block's (compact indexing). The messages are already in the db from per-block
+    // Derive the checkpoint's consumed L1-to-L2 message list from the message-count range between the parent
+    // checkpoint's consumed position and the last block's. The messages are already in the db from per-block
     // validation; this list only drives the checkpoint's rolling-hash recomputation in completeCheckpoint.
-    const l1ToL2Messages = await this.deriveCheckpointConsumedMessages(blocks);
+    const l1ToL2Messages = await this.deriveCheckpointConsumedMessages(checkpointStartTotal, blocks);
 
     // Collect the out hashes of all the checkpoints before this one in the same epoch.
     // See note on the analogous block-proposal site: the helper handles pipelining lag.

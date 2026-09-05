@@ -149,9 +149,9 @@ describe('L1Publisher integration', () => {
 
   let builderDb: NativeWorldStateService;
 
-  // Backs the blockSource mock's streaming L1->L2 message queries. The world-state synchronizer reconstructs each
-  // block's consumed message bundle from Inbox buckets when it syncs a block back, so the test
-  // registers one bucket per published block here (see buildAndPublishBlock).
+  // Backs the blockSource mock's streaming L1->L2 message queries. The world-state synchronizer reads each block's
+  // consumed message bundle by leaf count when it syncs a block back, so the test mirrors every Inbox bucket and its
+  // leaves here before publishing the block that consumes them (see buildAndPublishBlock).
   let messageSource: MockL1ToL2MessageSource;
 
   // The header of the last block
@@ -381,13 +381,10 @@ describe('L1Publisher integration', () => {
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
       },
-      // Streaming L1->L2 message reconstruction: the world-state synchronizer resolves each
-      // block's consumed message bundle from the Inbox buckets registered per published block in buildAndPublishBlock.
-      getInboxBucketByTotalMsgCount(totalMsgCount: bigint) {
-        return messageSource.getInboxBucketByTotalMsgCount(totalMsgCount);
-      },
-      getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint) {
-        return messageSource.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
+      // Streaming L1->L2 message reconstruction: the world-state synchronizer reads each block's consumed message
+      // bundle by leaf count from the leaves mirrored per published block in buildAndPublishBlock.
+      getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint) {
+        return messageSource.getL1ToL2MessagesBetweenLeafCounts(startLeafCount, endLeafCount);
       },
     });
 

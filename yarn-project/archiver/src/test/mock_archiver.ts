@@ -2,7 +2,12 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type {
+  InboxBucket,
+  InboxMessagePosition,
+  InboxMessageRange,
+  L1ToL2MessageSource,
+} from '@aztec/stdlib/messaging';
 
 import { MockL1ToL2MessageSource } from './mock_l1_to_l2_message_source.js';
 import { MockL2BlockSource } from './mock_l2_block_source.js';
@@ -16,6 +21,14 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
 
   public setInboxBucket(bucket: InboxBucket, msgs: Fr[] = []) {
     this.messageSource.setInboxBucket(bucket, msgs);
+  }
+
+  public replaceInboxBuckets(buckets: { bucket: InboxBucket; msgs: Fr[] }[]) {
+    this.messageSource.replaceInboxBuckets(buckets);
+  }
+
+  public appendL1ToL2Messages(msgs: Fr[]) {
+    this.messageSource.appendL1ToL2Messages(msgs);
   }
 
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
@@ -40,6 +53,18 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
 
   getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
     return this.messageSource.getL1ToL2MessagesBetweenLeafCounts(startLeafCount, endLeafCount);
+  }
+
+  getMessagePosition(totalMessageCount: bigint): Promise<InboxMessagePosition | undefined> {
+    return this.messageSource.getMessagePosition(totalMessageCount);
+  }
+
+  getSyncedMessagePosition(): Promise<InboxMessagePosition> {
+    return this.messageSource.getSyncedMessagePosition();
+  }
+
+  getL1ToL2MessageRange(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageRange> {
+    return this.messageSource.getL1ToL2MessageRange(startLeafCount, endLeafCount);
   }
 }
 
@@ -67,12 +92,11 @@ export class MockPrefilledArchiver extends MockArchiver {
       this.prefilledMessages[checkpoint.number - 1] = messages;
     }
 
-    // Register the Inbox buckets the streaming world-state synchronizer reconstructs each block's consumed
-    // message bundle from: a genesis sentinel (totalMsgCount 0) so a leaf count of 0
-    // resolves to a bucket, plus one bucket per message-carrying checkpoint whose cumulative totalMsgCount
-    // matches the block's post-insertion L1-to-L2 leaf count. Rebuilt from the full prefilled chain (not just
-    // this call's checkpoints) so a reorg re-prefill that replaces a suffix keeps the cumulative aligned.
-    // Without these the synchronizer derives an empty bundle and the reconstructed block state diverges.
+    // Index every message-carrying checkpoint's leaves at the compact positions the archiver would give them, which is
+    // what published-block replay reads by count. The leaves are registered through buckets (a genesis sentinel plus
+    // one bucket per message-carrying checkpoint) so tests can still model the live partition and repartition it as an
+    // L1 reorg would. Rebuilt from the full prefilled chain (not just this call's checkpoints) so a reorg re-prefill
+    // that replaces a suffix keeps the cumulative counts aligned.
     this.setInboxBucket(
       {
         seq: 0n,

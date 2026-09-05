@@ -51,6 +51,21 @@ describe('ServerWorldStateSynchronizer', () => {
   beforeEach(() => {
     blockAndMessagesSource = mock<L2BlockSource & L1ToL2MessageSource>();
     blockAndMessagesSource.getBlockNumber.mockResolvedValue(BlockNumber(LATEST_BLOCK_NUMBER));
+    // Published-block replay reads the parent block's leaf count and then the messages in the range it opens, so the
+    // source answers both like an archiver holding the whole mock chain.
+    blockAndMessagesSource.getBlockData.mockImplementation(async query => {
+      const block = allBlocks().find(b => 'number' in query && b.number === query.number);
+      return block === undefined
+        ? undefined
+        : {
+            header: block.header,
+            archive: block.archive,
+            blockHash: await block.hash(),
+            checkpointNumber: block.checkpointNumber,
+            indexWithinCheckpoint: block.indexWithinCheckpoint,
+          };
+    });
+    blockAndMessagesSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue([]);
 
     merkleTreeRead = mock<MerkleTreeReadOperations>();
     merkleTreeRead.getInitialHeader.mockReturnValue({
@@ -88,8 +103,10 @@ describe('ServerWorldStateSynchronizer', () => {
     await server.stop();
   });
 
+  const allBlocks = () => checkpoints.flatMap(c => c.checkpoint.blocks);
+
   const pushBlocks = async (from: number, to: number) => {
-    const blocks = checkpoints.flatMap(c => c.checkpoint.blocks).filter(b => b.number >= from && b.number <= to);
+    const blocks = allBlocks().filter(b => b.number >= from && b.number <= to);
     await server.handleBlockStreamEvent({
       type: 'blocks-added',
       blocks,
@@ -246,6 +263,96 @@ describe('ServerWorldStateSynchronizer', () => {
     void server.start();
     merkleTreeDb.handleL2BlockAndMessages.mockRejectedValue(new Error('Test error'));
     await expect(pushBlocks(1, 5)).rejects.toThrow(/Test error/i);
+  });
+
+  describe('L1 to L2 message replay', () => {
+    // Blocks with a strictly growing leaf count, so each one opens a non-empty range over the one before it.
+    const blockLeafCounts = [3, 3, 7];
+
+    let messagesByRange: Map<string, Fr[]>;
+    let originalLeafCounts: number[];
+
+    afterEach(() => {
+      const blocks = allBlocks();
+      originalLeafCounts.forEach(
+        (count, i) => (blocks[i].header.state.l1ToL2MessageTree.nextAvailableLeafIndex = count),
+      );
+    });
+
+    beforeEach(() => {
+      const blocks = allBlocks();
+      originalLeafCounts = blockLeafCounts.map(
+        (_, i) => blocks[i].header.state.l1ToL2MessageTree.nextAvailableLeafIndex,
+      );
+      blockLeafCounts.forEach((count, i) => (blocks[i].header.state.l1ToL2MessageTree.nextAvailableLeafIndex = count));
+
+      // Historical replay addresses canonical message indices: resolving a count as a bucket of the current
+      // partition is exactly what a reorg can make impossible, so it must not happen here.
+      blockAndMessagesSource.getInboxBucketByTotalMsgCount.mockImplementation(() => {
+        throw new Error('Published-block replay must not resolve leaf counts as buckets');
+      });
+      blockAndMessagesSource.getL1ToL2MessagesBetweenBuckets.mockImplementation(() => {
+        throw new Error('Published-block replay must not read messages by bucket');
+      });
+
+      messagesByRange = new Map([
+        ['0-3', [new Fr(10n), new Fr(11n), new Fr(12n)]],
+        ['3-7', [new Fr(13n), new Fr(14n), new Fr(15n), new Fr(16n)]],
+      ]);
+      blockAndMessagesSource.getL1ToL2MessagesBetweenLeafCounts.mockImplementation((start, end) => {
+        const messages = messagesByRange.get(`${start}-${end}`);
+        return messages === undefined
+          ? Promise.reject(new Error(`Unexpected leaf count range [${start}, ${end})`))
+          : Promise.resolve(messages);
+      });
+    });
+
+    it('replays each block from the leaf count range it committed to', async () => {
+      void server.start();
+      await pushBlocks(1, 3);
+
+      const blocks = allBlocks();
+      expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls).toEqual([
+        [blocks[0], messagesByRange.get('0-3')],
+        // The second block consumed nothing, so its range is empty and needs no query at all.
+        [blocks[1], []],
+        [blocks[2], messagesByRange.get('3-7')],
+      ]);
+      expect(blockAndMessagesSource.getL1ToL2MessagesBetweenLeafCounts.mock.calls).toEqual([
+        [0n, 3n],
+        [3n, 7n],
+      ]);
+    });
+
+    it('applies the blocks before an unavailable range and stops there', async () => {
+      void server.start();
+      messagesByRange.delete('3-7');
+
+      await expect(pushBlocks(1, 3)).rejects.toThrow(/Unexpected leaf count range \[3, 7\)/);
+
+      // The unavailable range fails the sync instead of silently applying the block with no messages; the blocks before
+      // it were fetched and applied one at a time, so the failure does not discard them.
+      expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls).toEqual([
+        [allBlocks()[0], messagesByRange.get('0-3')],
+        [allBlocks()[1], []],
+      ]);
+
+      // Once the archiver serves the range, replay resumes from the failed block, reading its parent's leaf count.
+      messagesByRange.set('3-7', [new Fr(13n), new Fr(14n), new Fr(15n), new Fr(16n)]);
+      await pushBlocks(3, 3);
+      expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls.at(-1)).toEqual([
+        allBlocks()[2],
+        messagesByRange.get('3-7'),
+      ]);
+    });
+
+    it('fails instead of replaying a whole message history when the parent block is missing', async () => {
+      void server.start();
+      blockAndMessagesSource.getBlockData.mockResolvedValue(undefined);
+
+      await expect(pushBlocks(2, 3)).rejects.toThrow(/block 1 is unavailable/);
+      expect(merkleTreeDb.handleL2BlockAndMessages).not.toHaveBeenCalled();
+    });
   });
 
   describe('getVerifiedSnapshot', () => {

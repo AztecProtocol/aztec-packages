@@ -12,9 +12,14 @@ import {
   type CustomRange,
   mapRange,
 } from '@aztec/kv-store';
-import { type InboxBucket, updateInboxRollingHash } from '@aztec/stdlib/messaging';
+import {
+  type InboxBucket,
+  type InboxMessagePosition,
+  type InboxMessageRange,
+  updateInboxRollingHash,
+} from '@aztec/stdlib/messaging';
 
-import { InboxBucketBoundaryNotSyncedError, InboxBucketNotSyncedError } from '../errors.js';
+import { InboxBucketNotSyncedError, InboxMessageRangeNotSyncedError } from '../errors.js';
 import { type InboxMessage, deserializeInboxMessage, serializeInboxMessage } from '../structs/inbox_message.js';
 
 /**
@@ -109,6 +114,21 @@ const GENESIS_INBOX_BUCKET: InboxBucket = {
   l1BlockNumber: 0n,
   l1BlockHash: Buffer32.ZERO,
 };
+
+/**
+ * The position before any message: zero count and zero rolling hash, mirroring the on-chain Inbox base case. Built
+ * fresh on every call because positions are plain mutable objects handed out to callers.
+ */
+function zeroMessagePosition(): InboxMessagePosition {
+  return { totalMessageCount: 0n, rollingHash: Fr.ZERO };
+}
+
+/** Rejects reversed or negative compact leaf count bounds, which are caller errors rather than sync state. */
+function assertValidLeafCountRange(startLeafCount: bigint, endLeafCount: bigint): void {
+  if (startLeafCount < 0n || endLeafCount < 0n || startLeafCount > endLeafCount) {
+    throw new Error(`Invalid Inbox leaf count range [${startLeafCount}, ${endLeafCount})`);
+  }
+}
 
 export class MessageStoreError extends Error {
   constructor(
@@ -474,27 +494,116 @@ export class MessageStore {
 
   /**
    * Returns the message leaves in the cumulative Inbox message-count range `[startLeafCount, endLeafCount)`, in
-   * insertion order. The bounds are compact L1-to-L2 tree leaf counts, which every block header
-   * carries, so consumers can ask for the messages a block or checkpoint consumed without resolving buckets
-   * themselves. Both bounds must land on a bucket boundary this archiver has synced; it throws otherwise, since a
-   * caller asking for a range always expects the messages in it.
+   * insertion order. The bounds are compact L1-to-L2 tree leaf counts, which every block header carries, so consumers
+   * can ask for the messages a block or checkpoint consumed without resolving buckets themselves.
+   *
+   * The bounds address canonical compact message indices and need not land on a bucket boundary of the partition this
+   * archiver currently holds: a published block commits to a leaf count, while an L1 reorg can merge away the bucket
+   * that once ended there. An invalid range, one reaching past the synced tip, or one the store cannot serve whole
+   * throws, since a caller asking for a range always expects every message in it.
    */
   public async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
-    if (startLeafCount > endLeafCount) {
-      throw new Error(`Invalid Inbox leaf count range [${startLeafCount}, ${endLeafCount})`);
-    }
-    const startBucket = await this.getBucketAtBoundary(startLeafCount);
-    const endBucket = await this.getBucketAtBoundary(endLeafCount);
-    return this.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
+    assertValidLeafCountRange(startLeafCount, endLeafCount);
+    // The synced total and the leaves are read together so a concurrent suffix removal cannot land between them and
+    // turn a range this store holds whole into a spurious incomplete one.
+    return await this.db.transactionAsync(async () => {
+      await this.assertLeafCountRangeSynced(startLeafCount, endLeafCount);
+      const messages = await this.getMessagesInLeafCountRange(startLeafCount, endLeafCount);
+      return messages.map(message => message.leaf);
+    });
   }
 
-  /** Resolves the bucket ending at the given cumulative message count, failing loudly if there is none. */
-  private async getBucketAtBoundary(totalMsgCount: bigint): Promise<InboxBucket> {
-    const bucket = await this.getInboxBucketByTotalMsgCount(totalMsgCount);
-    if (bucket === undefined) {
-      throw new InboxBucketBoundaryNotSyncedError(totalMsgCount);
+  /**
+   * Returns the position of the Inbox message sequence after `totalMessageCount` messages: that count and the rolling
+   * hash over them, which is the rolling hash stored with the message at compact index `totalMessageCount - 1`.
+   * Position zero always resolves with a zero hash; a count past the synced tip returns undefined.
+   */
+  public async getMessagePosition(totalMessageCount: bigint): Promise<InboxMessagePosition | undefined> {
+    if (totalMessageCount < 0n) {
+      throw new Error(`Invalid Inbox message count ${totalMessageCount}`);
     }
-    return bucket;
+    if (totalMessageCount === 0n) {
+      return zeroMessagePosition();
+    }
+    const buffer = await this.#l1ToL2Messages.getAsync(this.indexToKey(totalMessageCount - 1n));
+    return buffer === undefined
+      ? undefined
+      : { totalMessageCount, rollingHash: deserializeInboxMessage(buffer).inboxRollingHash };
+  }
+
+  /** Returns the position at the synced tip: the total message count and the rolling hash over every stored message. */
+  public getSyncedMessagePosition(): Promise<InboxMessagePosition> {
+    return this.db.transactionAsync(async () => {
+      const syncedTotal = await this.getTotalL1ToL2MessageCount();
+      const position = await this.getMessagePosition(syncedTotal);
+      if (position === undefined) {
+        throw new Error(`Inbox message store holds ${syncedTotal} messages but is missing index ${syncedTotal - 1n}`);
+      }
+      return position;
+    });
+  }
+
+  /**
+   * Returns the messages in the cumulative Inbox message-count range `[startLeafCount, endLeafCount)` together with
+   * the positions at both bounds. Everything is read in one store transaction, so the ending hash authenticates
+   * exactly the returned messages appended after the starting position, and a concurrent suffix replacement cannot
+   * pair the leaves of one version of the sequence with the hash of another. Follows the range contract of
+   * `getL1ToL2MessagesBetweenLeafCounts`, with the starting position also required to be available; an empty range
+   * returns equal positions.
+   */
+  public async getL1ToL2MessageRange(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessageRange> {
+    assertValidLeafCountRange(startLeafCount, endLeafCount);
+    return await this.db.transactionAsync(async () => {
+      await this.assertLeafCountRangeSynced(startLeafCount, endLeafCount);
+      const start = await this.getMessagePosition(startLeafCount);
+      if (start === undefined) {
+        throw new InboxMessageRangeNotSyncedError(
+          startLeafCount,
+          endLeafCount,
+          `the store is missing the message at index ${startLeafCount - 1n}`,
+        );
+      }
+      const messages = await this.getMessagesInLeafCountRange(startLeafCount, endLeafCount);
+      const lastMessage = messages.at(-1);
+      const end =
+        lastMessage === undefined
+          ? start
+          : { totalMessageCount: endLeafCount, rollingHash: lastMessage.inboxRollingHash };
+      return { messages: messages.map(message => message.leaf), start, end };
+    });
+  }
+
+  /** Throws unless every message in `[startLeafCount, endLeafCount)` is within the synced total. Empty ranges included. */
+  private async assertLeafCountRangeSynced(startLeafCount: bigint, endLeafCount: bigint): Promise<void> {
+    const syncedTotal = await this.getTotalL1ToL2MessageCount();
+    if (endLeafCount > syncedTotal) {
+      const available = syncedTotal > startLeafCount ? syncedTotal - startLeafCount : 0n;
+      throw new InboxMessageRangeNotSyncedError(
+        startLeafCount,
+        endLeafCount,
+        `only ${available} of ${endLeafCount - startLeafCount} messages are synced`,
+      );
+    }
+  }
+
+  /**
+   * Reads the messages in the compact index range `[startLeafCount, endLeafCount)`, which the caller has established
+   * lies within the synced total. The map holds at most one entry per index, so a short read is the only way a hole
+   * inside the range can show up, and the count catches every one of them.
+   */
+  private async getMessagesInLeafCountRange(startLeafCount: bigint, endLeafCount: bigint): Promise<InboxMessage[]> {
+    if (startLeafCount === endLeafCount) {
+      return [];
+    }
+    const messages = await toArray(this.iterateL1ToL2Messages({ start: startLeafCount, end: endLeafCount }));
+    if (BigInt(messages.length) !== endLeafCount - startLeafCount) {
+      throw new InboxMessageRangeNotSyncedError(
+        startLeafCount,
+        endLeafCount,
+        `the store holds ${messages.length} of ${endLeafCount - startLeafCount} messages`,
+      );
+    }
+    return messages;
   }
 
   /**

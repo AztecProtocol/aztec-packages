@@ -406,6 +406,16 @@ describe('ValidatorClient', () => {
       } as unknown as L2Block;
       const disposeFork = jest.fn();
       blockSource.getBlocksForSlot.mockResolvedValue([checkpointBlock]);
+      // The checkpoint's consumed message bundle derives from the leaf count of the block before its first block, so
+      // that parent must resolve by number; other number queries stay unresolved as in the surrounding setup.
+      blockSource.getBlockData.mockImplementation(query =>
+        Promise.resolve('number' in query && query.number !== blockNumber - 1 ? undefined : parentBlockData),
+      );
+      // With the parent resolvable, the censorship check runs too: leave no bucket after genesis so nothing is left
+      // unconsumed and validation reaches the header comparison.
+      l1ToL2MessageSource.getInboxBucket.mockImplementation(seq =>
+        Promise.resolve(seq === 0n ? genesisInboxBucket : undefined),
+      );
       checkpointsBuilder.getFork.mockResolvedValue({
         [Symbol.asyncDispose]: disposeFork,
         // Match the proposal's expected starting archive so the fork archive check passes and validation
@@ -551,6 +561,7 @@ describe('ValidatorClient', () => {
       l1ToL2MessageSource.getInboxBucket.mockResolvedValue(genesisInboxBucket);
       l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(genesisInboxBucket);
       l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue([]);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue([]);
 
       const clonedBlockHeader = blockHeader.clone();
       blockBuildResult = {
