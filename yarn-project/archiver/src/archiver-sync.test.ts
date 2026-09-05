@@ -1895,6 +1895,63 @@ describe('Archiver Sync', () => {
       expect(await archiver.getSyncedL2SlotNumber()).toBeDefined();
     });
 
+    /**
+     * Publishes checkpoint 1 at L1 block 105 and syncs at head 110, then replaces L1 from block 100 so that the last
+     * message the checkpoint consumed is different and the checkpoint itself is gone, with the replacement chain's
+     * head at `replacementHead`. Message recovery gates speculative work; only checkpoint reconciliation can lift it.
+     */
+    const replaceCheckpointedChainAtHead = async (replacementHead: bigint) => {
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 105n,
+        messagesL1BlockNumber: 100n,
+        numL1ToL2Messages: 3,
+      });
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiverStore.blocks.getSynchedL1BlockNumber()).toEqual(105n);
+
+      fake.removeMessagesAfter(2);
+      fake.addMessages(CheckpointNumber(1), 100n, [Fr.random()]);
+      fake.removeCheckpoint(CheckpointNumber(1));
+      fake.reorgL1BlocksFrom(100n);
+      fake.setL1BlockNumber(replacementHead);
+      await archiver.syncImmediate();
+    };
+
+    it('reconciles the checkpointed chain at a replaced head of the same height as the checkpoint syncpoint', async () => {
+      await replaceCheckpointedChainAtHead(105n);
+
+      // The head did not advance past the checkpoint syncpoint, yet the published chain is L1's to reconcile now:
+      // without it the gate could only lift once L1 grew past the syncpoint.
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+      expect(synchronizer.isSpeculationGated()).toBe(false);
+      expect(archiver.getL1BlockNumber()).toEqual(105n);
+      expect(await archiver.getSyncedL2SlotNumber()).toBeDefined();
+    });
+
+    it('reconciles the checkpointed chain at a replaced head shorter than the checkpoint syncpoint', async () => {
+      await replaceCheckpointedChainAtHead(104n);
+
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+      expect(synchronizer.isSpeculationGated()).toBe(false);
+      expect(archiver.getL1BlockNumber()).toEqual(104n);
+      expect(await archiver.getSyncedL2SlotNumber()).toBeDefined();
+      // Blocks past the head no longer exist; whatever L1 mines there next has to be scanned.
+      expect(await archiverStore.blocks.getSynchedL1BlockNumber()).toEqual(104n);
+
+      // A checkpoint mined on the replacement chain is picked up as L1 grows again.
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 105n,
+        messagesL1BlockNumber: 100n,
+        numL1ToL2Messages: 0,
+      });
+      fake.setL1BlockNumber(106n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(archiver.getL1BlockNumber()).toEqual(106n);
+    });
+
     it('discards an intermediate batch whose chain was replaced before it could be committed', async () => {
       // One slot of L1 blocks per batch: two blocks. Message A arrives in block 2; the head is block 4.
       await useArchiver({ batchSize: 1 });

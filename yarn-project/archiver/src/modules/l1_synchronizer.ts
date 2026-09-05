@@ -254,6 +254,8 @@ export class ArchiverL1Synchronizer implements Traceable {
       }
 
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
+    } else if (await this.checkpointedChainNeedsReconciliation(currentL1BlockData)) {
+      await this.reconcileCheckpointedChainAtNonAdvancingHead(blocksSynchedTo, currentL1BlockNumber);
     }
 
     // Update the finalized L2 checkpoint based on L1 finality.
@@ -539,13 +541,62 @@ export class ArchiverL1Synchronizer implements Traceable {
     );
   }
 
-  @trackSpan('Archiver.handleCheckpoints')
-  private async handleCheckpoints(
+  /**
+   * Whether a head that did not advance past the checkpoint syncpoint (a same-height or shorter replacement, or a
+   * view of the chain behind what was already synced) calls for the checkpointed chain to be reconciled against L1:
+   * when the checkpointed tip disagrees with the message log, so that only reconciliation can lift the speculation
+   * gate, or when the L1 block the latest local checkpoint was published in is within the head's reach and no longer
+   * carries that hash. A view that merely stops short of the latest checkpoint's block waits for L1 to grow past it.
+   */
+  private async checkpointedChainNeedsReconciliation(head: L1BlockId): Promise<boolean> {
+    if (this.speculationGate !== undefined || !(await this.checkpointedTipAgreesWithMessages())) {
+      return true;
+    }
+    const latestCheckpointNumber = await this.stores.blocks.getLatestCheckpointNumber();
+    if (latestCheckpointNumber === CheckpointNumber.ZERO) {
+      return false;
+    }
+    const checkpoint = await this.stores.blocks.getCheckpointData(latestCheckpointNumber);
+    if (checkpoint === undefined || checkpoint.l1.blockNumber > head.l1BlockNumber) {
+      return false;
+    }
+    const block = await this.publicClient.getBlock({
+      blockNumber: checkpoint.l1.blockNumber,
+      includeTransactions: false,
+    });
+    return !Buffer32.fromString(block.hash).equals(Buffer32.fromString(checkpoint.l1.blockHash));
+  }
+
+  /**
+   * Reconciles the checkpointed chain with L1 at a head that is not past the checkpoint syncpoint, without fetching
+   * any log range (there is no forward range to fetch, and an inverted one must never be issued). Rolls the published
+   * chain back to what L1 holds at the head, and moves the syncpoint back to a head below it: the blocks past the head
+   * no longer exist, so whatever L1 mines there next has to be scanned.
+   */
+  private async reconcileCheckpointedChainAtNonAdvancingHead(
     blocksSynchedTo: bigint,
     currentL1BlockNumber: bigint,
-    initialSyncComplete: boolean,
-  ): Promise<RollupStatus> {
-    const blocksAdded: L2Block[] = [];
+  ): Promise<void> {
+    this.log.warn(
+      `L1 head ${currentL1BlockNumber} is not past the checkpoint syncpoint ${blocksSynchedTo}; reconciling the checkpointed chain with it`,
+      { blocksSynchedTo, currentL1BlockNumber },
+    );
+    const { rollupStatus } = await this.reconcileCheckpointedChain(blocksSynchedTo, currentL1BlockNumber);
+    if (currentL1BlockNumber < (await this.stores.blocks.getSynchedL1BlockNumber())!) {
+      await this.stores.blocks.setSynchedL1BlockNumber(currentL1BlockNumber);
+    }
+    await this.checkForNewCheckpointsBeforeL1SyncPoint(rollupStatus, blocksSynchedTo, currentL1BlockNumber);
+  }
+
+  /**
+   * Compares the local checkpointed chain with the rollup's status at the given L1 head: updates the proven tip and
+   * unwinds local checkpoints L1 no longer has. Returns whether checkpoint logs still have to be fetched forward, which
+   * is not the case when neither side has checkpoints or L1's pending tip is exactly the local one.
+   */
+  private async reconcileCheckpointedChain(
+    blocksSynchedTo: bigint,
+    currentL1BlockNumber: bigint,
+  ): Promise<{ rollupStatus: RollupStatus; fetchCheckpoints: boolean; provenArchive: Fr }> {
     const localPendingCheckpointNumber = await this.stores.blocks.getLatestCheckpointNumber();
     const initialValidationResult: ValidateCheckpointResult | undefined =
       await this.stores.blocks.getPendingChainValidationStatus();
@@ -564,7 +615,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       pendingCheckpointNumber,
       pendingArchive: pendingArchive.toString(),
       validationResult: initialValidationResult,
-      blocksAdded,
+      blocksAdded: [],
     };
     this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
       localPendingCheckpointNumber,
@@ -574,67 +625,6 @@ export class ArchiverL1Synchronizer implements Traceable {
       ...rollupStatus,
     });
 
-    const updateProvenCheckpoint = async () => {
-      // Annoying edge case: if proven checkpoint is moved back to 0 due to a reorg at the beginning of the chain,
-      // we need to set it to zero. This is an edge case because we dont have a checkpoint zero (initial checkpoint is one),
-      // so localCheckpointForDestinationProvenCheckpointNumber would not be found below.
-      if (provenCheckpointNumber === 0) {
-        const localProvenCheckpointNumber = await this.stores.blocks.getProvenCheckpointNumber();
-        if (localProvenCheckpointNumber !== provenCheckpointNumber) {
-          await this.updater.setProvenCheckpointNumber(provenCheckpointNumber);
-          this.log.info(`Rolled back proven chain to checkpoint ${provenCheckpointNumber}`, { provenCheckpointNumber });
-        }
-      }
-
-      const localCheckpointForDestinationProvenCheckpointNumber =
-        await this.stores.blocks.getCheckpointData(provenCheckpointNumber);
-
-      // Sanity check. I've hit what seems to be a state where the proven checkpoint is set to a value greater than the latest
-      // synched checkpoint when requesting L2Tips from the archiver. This is the only place where the proven checkpoint is set.
-      const synched = await this.stores.blocks.getLatestCheckpointNumber();
-      if (
-        localCheckpointForDestinationProvenCheckpointNumber &&
-        synched < localCheckpointForDestinationProvenCheckpointNumber.checkpointNumber
-      ) {
-        this.log.error(
-          `Hit local checkpoint greater than last synched checkpoint: ${localCheckpointForDestinationProvenCheckpointNumber.checkpointNumber} > ${synched}`,
-        );
-      }
-
-      this.log.trace(
-        `Local checkpoint for remote proven checkpoint ${provenCheckpointNumber} is ${
-          localCheckpointForDestinationProvenCheckpointNumber?.archive.root.toString() ?? 'undefined'
-        }`,
-      );
-
-      if (
-        localCheckpointForDestinationProvenCheckpointNumber &&
-        provenArchive.equals(localCheckpointForDestinationProvenCheckpointNumber.archive.root)
-      ) {
-        const localProvenCheckpointNumber = await this.stores.blocks.getProvenCheckpointNumber();
-        if (localProvenCheckpointNumber !== provenCheckpointNumber) {
-          await this.updater.setProvenCheckpointNumber(provenCheckpointNumber);
-          this.log.info(`Updated proven chain to checkpoint ${provenCheckpointNumber}`, { provenCheckpointNumber });
-          const provenSlotNumber = localCheckpointForDestinationProvenCheckpointNumber.header.slotNumber;
-          const provenEpochNumber: EpochNumber = getEpochAtSlot(provenSlotNumber, this.l1Constants);
-          const lastBlockNumberInCheckpoint =
-            localCheckpointForDestinationProvenCheckpointNumber.startBlock +
-            localCheckpointForDestinationProvenCheckpointNumber.blockCount -
-            1;
-
-          this.events.emit(L2BlockSourceEvents.L2BlockProven, {
-            type: L2BlockSourceEvents.L2BlockProven,
-            blockNumber: BlockNumber(lastBlockNumberInCheckpoint),
-            slotNumber: provenSlotNumber,
-            epochNumber: provenEpochNumber,
-          });
-          this.instrumentation.updateLastProvenCheckpoint(localCheckpointForDestinationProvenCheckpointNumber);
-        } else {
-          this.log.trace(`Proven checkpoint ${provenCheckpointNumber} already stored.`);
-        }
-      }
-    };
-
     // This is an edge case that we only hit if there are no proposed checkpoints.
     // If we have 0 checkpoints locally and there are no checkpoints onchain there is nothing to do.
     const noCheckpoints = localPendingCheckpointNumber === 0 && pendingCheckpointNumber === 0;
@@ -643,10 +633,10 @@ export class ArchiverL1Synchronizer implements Traceable {
       this.log.debug(
         `No checkpoints to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}, no checkpoints on chain`,
       );
-      return rollupStatus;
+      return { rollupStatus, fetchCheckpoints: false, provenArchive };
     }
 
-    await updateProvenCheckpoint();
+    await this.updateProvenCheckpoint(provenCheckpointNumber, provenArchive);
 
     // Related to the L2 reorgs of the pending chain. We are only interested in actually addressing a reorg if there
     // are any state that could be impacted by it. If we have no checkpoints, there is no impact.
@@ -668,7 +658,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         // TODO(#8621): Tackle this properly when we handle L1 Re-orgs.
         // await this.stores.blocks.setSynchedL1BlockNumber(currentL1BlockNumber);
         this.log.debug(`No checkpoints to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
-        return rollupStatus;
+        return { rollupStatus, fetchCheckpoints: false, provenArchive };
       }
 
       const localPendingCheckpointInChain = archiveForLocalPendingCheckpointNumber.equals(
@@ -718,6 +708,85 @@ export class ArchiverL1Synchronizer implements Traceable {
         );
       }
     }
+
+    return { rollupStatus, fetchCheckpoints: true, provenArchive };
+  }
+
+  private async updateProvenCheckpoint(provenCheckpointNumber: CheckpointNumber, provenArchive: Fr): Promise<void> {
+    // Annoying edge case: if proven checkpoint is moved back to 0 due to a reorg at the beginning of the chain,
+    // we need to set it to zero. This is an edge case because we dont have a checkpoint zero (initial checkpoint is one),
+    // so localCheckpointForDestinationProvenCheckpointNumber would not be found below.
+    if (provenCheckpointNumber === 0) {
+      const localProvenCheckpointNumber = await this.stores.blocks.getProvenCheckpointNumber();
+      if (localProvenCheckpointNumber !== provenCheckpointNumber) {
+        await this.updater.setProvenCheckpointNumber(provenCheckpointNumber);
+        this.log.info(`Rolled back proven chain to checkpoint ${provenCheckpointNumber}`, { provenCheckpointNumber });
+      }
+    }
+
+    const localCheckpointForDestinationProvenCheckpointNumber =
+      await this.stores.blocks.getCheckpointData(provenCheckpointNumber);
+
+    // Sanity check. I've hit what seems to be a state where the proven checkpoint is set to a value greater than the latest
+    // synched checkpoint when requesting L2Tips from the archiver. This is the only place where the proven checkpoint is set.
+    const synched = await this.stores.blocks.getLatestCheckpointNumber();
+    if (
+      localCheckpointForDestinationProvenCheckpointNumber &&
+      synched < localCheckpointForDestinationProvenCheckpointNumber.checkpointNumber
+    ) {
+      this.log.error(
+        `Hit local checkpoint greater than last synched checkpoint: ${localCheckpointForDestinationProvenCheckpointNumber.checkpointNumber} > ${synched}`,
+      );
+    }
+
+    this.log.trace(
+      `Local checkpoint for remote proven checkpoint ${provenCheckpointNumber} is ${
+        localCheckpointForDestinationProvenCheckpointNumber?.archive.root.toString() ?? 'undefined'
+      }`,
+    );
+
+    if (
+      localCheckpointForDestinationProvenCheckpointNumber &&
+      provenArchive.equals(localCheckpointForDestinationProvenCheckpointNumber.archive.root)
+    ) {
+      const localProvenCheckpointNumber = await this.stores.blocks.getProvenCheckpointNumber();
+      if (localProvenCheckpointNumber !== provenCheckpointNumber) {
+        await this.updater.setProvenCheckpointNumber(provenCheckpointNumber);
+        this.log.info(`Updated proven chain to checkpoint ${provenCheckpointNumber}`, { provenCheckpointNumber });
+        const provenSlotNumber = localCheckpointForDestinationProvenCheckpointNumber.header.slotNumber;
+        const provenEpochNumber: EpochNumber = getEpochAtSlot(provenSlotNumber, this.l1Constants);
+        const lastBlockNumberInCheckpoint =
+          localCheckpointForDestinationProvenCheckpointNumber.startBlock +
+          localCheckpointForDestinationProvenCheckpointNumber.blockCount -
+          1;
+
+        this.events.emit(L2BlockSourceEvents.L2BlockProven, {
+          type: L2BlockSourceEvents.L2BlockProven,
+          blockNumber: BlockNumber(lastBlockNumberInCheckpoint),
+          slotNumber: provenSlotNumber,
+          epochNumber: provenEpochNumber,
+        });
+        this.instrumentation.updateLastProvenCheckpoint(localCheckpointForDestinationProvenCheckpointNumber);
+      } else {
+        this.log.trace(`Proven checkpoint ${provenCheckpointNumber} already stored.`);
+      }
+    }
+  }
+
+  @trackSpan('Archiver.handleCheckpoints')
+  private async handleCheckpoints(
+    blocksSynchedTo: bigint,
+    currentL1BlockNumber: bigint,
+    initialSyncComplete: boolean,
+  ): Promise<RollupStatus> {
+    const { rollupStatus, fetchCheckpoints, provenArchive } = await this.reconcileCheckpointedChain(
+      blocksSynchedTo,
+      currentL1BlockNumber,
+    );
+    if (!fetchCheckpoints) {
+      return rollupStatus;
+    }
+    const { blocksAdded, validationResult: initialValidationResult } = rollupStatus;
 
     // Retrieve checkpoints in batches. Each batch is estimated to accommodate up to 'blockBatchSize' L1 blocks,
     // computed using the L2 block time vs the L1 block time.
@@ -1049,7 +1118,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     } while (searchEndBlock < currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.
-    await updateProvenCheckpoint();
+    await this.updateProvenCheckpoint(rollupStatus.provenCheckpointNumber, provenArchive);
 
     return { ...rollupStatus, lastRetrievedCheckpoint, lastSeenCheckpoint };
   }
