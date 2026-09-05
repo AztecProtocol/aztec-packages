@@ -443,7 +443,7 @@ Use viem to extract this information:
 
 #include_code get_message_leaf_index /docs/examples/ts/token_bridge/index.ts typescript
 
-This extracts the logs from the deposit and retrieves the leaf index. You can now claim it on L2. However, a message can only be claimed once an L2 block includes it. On a live network the sequencer first waits for the L1 block carrying the message to gain a child, which takes one more L1 block (around 12 to 14 seconds), so expect 15 to 30 seconds of latency; the local sandbox consumes the message as soon as it sees it. If you called `claim` on the L2 contract immediately, it would return "no message available".
+This extracts the logs from the deposit and retrieves the leaf index. You can now claim it on L2. However, a message can only be claimed once an L2 block includes it. On a live network the proposer normally includes the message in the next L2 block it builds after its node observes the L1 block carrying it, within a few seconds of that block being mined, though near the end of a checkpoint it may wait for the next one; the local sandbox consumes the message as soon as it sees it. If you called `claim` on the L2 contract immediately, it would return "no message available".
 
 On a local network blocks are only produced when transactions are submitted, so add a utility function that forces a couple of blocks (it deploys a contract with a random salt):
 

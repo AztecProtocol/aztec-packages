@@ -38,7 +38,7 @@ With the aforementioned restrictions taken into account, cross-chain messages ca
 
 As an illustration, suppose a private function adds a cross-chain call. In such a case, the private function would not have knowledge of the result of the cross-chain call within the same rollup (since it has yet to be executed).
 
-Similarly to the ordering of private and public functions, we can also reap the benefits of intentionally ordering messages between L1 and L2. When a message is sent from L1 to L2, it has been "emitted" by an action in the past (an L1 interaction), allowing us to add it to the list of consumables at the "beginning" of the block execution. This practical approach means that a message could be consumed in the same block it is included. In a sophisticated setup, rollup $n$ could send an L2 to L1 message that is then consumed on L1, and the response is added already in $n+1$. However, messages going from L2 to L1 will be added as they are emitted.
+Similarly to the ordering of private and public functions, we can also reap the benefits of intentionally ordering messages between L1 and L2. When a message is sent from L1 to L2, it has been "emitted" by an action in the past (an L1 interaction), allowing us to add it to the list of consumables at the "beginning" of the block execution. This practical approach means that a message could be consumed by a public function in the same block it is included. The proposer inserts the L1-to-L2 messages its node has observed into every L2 block it builds, not only the first block of a checkpoint, so a message normally becomes consumable on L2 shortly after the L1 block carrying it is mined (see [Inbox](./inbox.md#how-messages-reach-l2) for the rules and their limitations). In a sophisticated setup, rollup $n$ could send an L2 to L1 message that is then consumed on L1, and the response is added already in $n+1$. However, messages going from L2 to L1 will be added as they are emitted.
 
 :::info
 Because everything is unilateral and async, application developers must explicitly handle failure cases so users can gracefully recover. Token bridges are a prime example: it would be very inconvenient if funds are locked on one domain but never minted or unlocked on the other.
@@ -80,7 +80,7 @@ The rollup contract has a few very important responsibilities. The contract must
 
 To ensure that _state transitions_ are performed correctly, the contract will derive public inputs for the **rollup circuit** based on the input data, and then use a _verifier_ contract to validate that inputs correctly transition the current state to the next. All data needed for the public inputs to the circuit must be from the rollup block, ensuring that the block is available. For a valid proof, the _rollup state root_ is updated and it will emit an _event_ to make it easy for anyone to find the data.
 
-As part of _state transitions_ where cross-chain messages are included, the contract must "move" messages along the way, e.g., from "pending" to "ready".
+As part of _state transitions_ where cross-chain messages are included, the contract must "move" messages along the way, e.g., from "pending" to "ready". For L1 to L2 messages this means checking, when a checkpoint is proposed, that the rolling hash the checkpoint header commits to matches an Inbox bucket end, that consumption never rewinds or exceeds the per-checkpoint cap, and that no bucket old enough to be mandatory was skipped.
 
 ### Kernel Circuit
 
