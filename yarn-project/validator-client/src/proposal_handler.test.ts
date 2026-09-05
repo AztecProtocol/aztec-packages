@@ -562,53 +562,49 @@ describe('ProposalHandler checkpoint validation', () => {
       return makeHeader({ epochOutHash, ...overrides });
     }
 
-    // An L1 reorg can merge the bucket a checkpointed block consumed through into a later one. The archiver never
-    // prunes a checkpointed block, so that block's committed count stays interior to the current partition forever;
-    // reading the consumed range by count keeps the parent position resolvable, where resolving it as a bucket would
-    // derive an empty bundle and make this node decline a valid checkpoint.
-    it('derives the consumed bundle from a checkpoint-start count interior to the current buckets', async () => {
-      const header = makeHeader();
-      const consumedMessages = [new Fr(1000), new Fr(1001), new Fr(1002), new Fr(1003)];
-      setupDeepValidationMocks({ header });
-
-      const firstBlockNumber = 5;
+    /** A checkpoint whose first block is `firstBlockNumber`, with the parent block reporting `parentLeafCount`. */
+    function setupCheckpointWithConsumption(opts: {
+      firstBlockNumber: number;
+      parentLeafCount: number | undefined;
+      lastLeafCount: number;
+    }) {
+      const { firstBlockNumber, parentLeafCount, lastLeafCount } = opts;
       const block = {
         archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),
         number: firstBlockNumber,
         checkpointNumber: CheckpointNumber(1),
         header: {
           globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(1) }),
-          state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 7 } },
+          state: { l1ToL2MessageTree: { nextAvailableLeafIndex: lastLeafCount } },
         },
       } as unknown as L2Block;
       blockSource.getBlocksForSlot.mockResolvedValue([block]);
       blockSource.getBlockData.mockImplementation(query =>
         Promise.resolve(
           'number' in query && query.number === firstBlockNumber - 1
-            ? ({
-                header: { state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 3 } } },
-              } as unknown as BlockData)
+            ? parentLeafCount === undefined
+              ? undefined
+              : ({
+                  header: { state: { l1ToL2MessageTree: { nextAvailableLeafIndex: parentLeafCount } } },
+                } as unknown as BlockData)
             : ({ header: makeBlockHeader() } as BlockData),
         ),
       );
+      return block;
+    }
 
-      // The checkpoint's final position is still a live bucket boundary; only the parent's is gone.
-      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockImplementation(total =>
-        Promise.resolve(
-          total === 7n
-            ? ({
-                seq: 1n,
-                inboxRollingHash: Fr.random(),
-                totalMsgCount: 7n,
-                timestamp: 10n,
-                msgCount: 7,
-                lastMessageIndex: 6n,
-                l1BlockNumber: 10n,
-                l1BlockHash: Buffer32.fromBigInt(10n),
-              } satisfies InboxBucket)
-            : undefined,
-        ),
-      );
+    // An L1 reorg can merge the buckets a checkpointed block and the proposal's last block consumed through into
+    // others. The archiver never prunes a checkpointed block, so the parent position stays interior to the current
+    // partition forever, and the proposal's own final position may sit interior to it as well while the messages
+    // themselves are unchanged. The consumed bundle is derived from the committed counts alone, so neither position
+    // needs to resolve to a bucket; whether the final position is a live bucket end is L1's publication rule.
+    it('derives the consumed bundle by count when neither checkpoint bound is a current bucket boundary', async () => {
+      const header = makeHeader();
+      const consumedMessages = [new Fr(1000), new Fr(1001), new Fr(1002), new Fr(1003)];
+      setupDeepValidationMocks({ header });
+      const block = setupCheckpointWithConsumption({ firstBlockNumber: 5, parentLeafCount: 3, lastLeafCount: 7 });
+
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(undefined);
       l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockResolvedValue(consumedMessages);
 
       await handler.handleCheckpointProposal(
@@ -617,6 +613,7 @@ describe('ProposalHandler checkpoint validation', () => {
       );
 
       expect(l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts).toHaveBeenCalledWith(3n, 7n);
+      expect(l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets).not.toHaveBeenCalled();
       expect(checkpointsBuilder.openCheckpoint).toHaveBeenCalledWith(
         CheckpointNumber(1),
         expect.anything(),
@@ -628,6 +625,62 @@ describe('ProposalHandler checkpoint validation', () => {
         [block],
         expect.anything(),
       );
+    });
+
+    it('derives an empty bundle without any message query when the checkpoint consumed nothing', async () => {
+      const header = makeHeader();
+      setupDeepValidationMocks({ header });
+      const block = setupCheckpointWithConsumption({ firstBlockNumber: 5, parentLeafCount: 3, lastLeafCount: 3 });
+
+      await handler.handleCheckpointProposal(
+        await makeProposal({ archiveRoot, checkpointHeader: header }),
+        proposalInfo,
+      );
+
+      expect(l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts).not.toHaveBeenCalled();
+      expect(checkpointsBuilder.openCheckpoint).toHaveBeenCalledWith(
+        CheckpointNumber(1),
+        expect.anything(),
+        expect.anything(),
+        [],
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        [block],
+        expect.anything(),
+      );
+    });
+
+    // A missing parent is a local chain-availability failure. Deriving an empty bundle instead would make the
+    // rolling-hash recomputation fail and classify the proposer's valid checkpoint as a slashable header mismatch.
+    it('reports a fetch error instead of deriving an empty bundle when the parent block is unavailable', async () => {
+      const header = makeHeader();
+      setupDeepValidationMocks({ header });
+      setupCheckpointWithConsumption({ firstBlockNumber: 5, parentLeafCount: undefined, lastLeafCount: 7 });
+
+      const result = await handler.handleCheckpointProposal(
+        await makeProposal({ archiveRoot, checkpointHeader: header }),
+        proposalInfo,
+      );
+
+      expect(result).toEqual({ isValid: false, reason: 'block_fetch_error', checkpointNumber: CheckpointNumber(1) });
+      expect(l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts).not.toHaveBeenCalled();
+      expect(checkpointsBuilder.openCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('surfaces an unavailable consumed range instead of deriving an empty bundle', async () => {
+      const header = makeHeader();
+      setupDeepValidationMocks({ header });
+      setupCheckpointWithConsumption({ firstBlockNumber: 5, parentLeafCount: 3, lastLeafCount: 7 });
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts.mockRejectedValue(
+        new Error('Inbox message range [3, 7) is not fully synced'),
+      );
+
+      await expect(
+        handler.handleCheckpointProposal(await makeProposal({ archiveRoot, checkpointHeader: header }), proposalInfo),
+      ).rejects.toThrow(/not fully synced/);
+
+      expect(checkpointsBuilder.openCheckpoint).not.toHaveBeenCalled();
     });
 
     it('returns checkpoint_header_mismatch when headers differ', async () => {
