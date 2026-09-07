@@ -1,4 +1,5 @@
 import { L1ToL2MessagesNotReadyError } from '@aztec/archiver';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import {
@@ -17,7 +18,7 @@ import { isErrorClass } from '@aztec/foundation/types';
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockSource, L2Tips } from '@aztec/stdlib/block';
+import { BlockHash, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
 import { type ProposedCheckpointData, buildCheckpointSimulationOverridesPlan } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -301,7 +302,7 @@ export class NodePublicCallsSimulator {
     // `proposedCheckpointData` read, so they cannot disagree about the proposed parent.
     const proposedCheckpointNumber = proposedCheckpointData?.checkpointNumber ?? checkpointedCheckpointNumber;
 
-    const targetSlot = this.computeTargetSlot(proposedCheckpointData);
+    const targetSlot = this.computeTargetSlot(proposedCheckpointData, await this.getCheckpointedTipSlot(l2Tips));
     const plan = await this.buildSimulationOverridesPlan(proposedCheckpointData, checkpointedCheckpointNumber);
 
     const checkpointGlobalVariables = await this.globalVariableBuilder.buildCheckpointGlobalVariables(
@@ -318,22 +319,56 @@ export class NodePublicCallsSimulator {
   }
 
   /**
-   * Slot the next block will land in. The first term is the sequencer's exact formula
-   * (`getEpochAndSlotInNextL1Slot().slot + PROPOSER_PIPELINING_SLOT_OFFSET`). The `max` with
-   * `proposedCheckpointSlot + 1` is an RPC-side approximation of the next build: when a proposed
-   * checkpoint is gossiped before its L1 slot starts, the next build (once its wall clock arrives)
-   * will target `parentSlot + 1`. The sequencer never advances its own target past wall clock — it
-   * just declines to build — so this is a prediction of inclusion globals, not literal sequencer
-   * behavior. The parent slot comes from the proposed checkpoint header so the slot and the
-   * overrides plan cannot derive from different snapshots.
+   * Slot the next block will land in, the largest of three terms:
+   *
+   * - The sequencer's exact formula, `getEpochAndSlotInNextL1Slot().slot + PROPOSER_PIPELINING_SLOT_OFFSET`.
+   * - `proposedCheckpointSlot + 1`, an RPC-side approximation of the next build: when a proposed checkpoint
+   *   is gossiped before its L1 slot starts, the next build (once its wall clock arrives) will target
+   *   `parentSlot + 1`. The sequencer never advances its own target past wall clock — it just declines to
+   *   build — so this is a prediction of inclusion globals, not literal sequencer behavior. The parent slot
+   *   comes from the proposed checkpoint header so the slot and the overrides plan cannot derive from
+   *   different snapshots.
+   * - `checkpointedTipSlot + 1`, a floor: the next block can never land in a slot already taken by a
+   *   checkpointed checkpoint. This only binds when this node's clock is behind the chain, in which case the
+   *   first term would otherwise price the next block in a slot L1 has already moved past — and the L1 gas
+   *   oracle can step between the two, so wallet quotes and simulations would disagree on the fee.
    */
-  private computeTargetSlot(proposedCheckpointData: ProposedCheckpointData | undefined): SlotNumber {
+  private computeTargetSlot(
+    proposedCheckpointData: ProposedCheckpointData | undefined,
+    checkpointedTipSlot: SlotNumber | undefined,
+  ): SlotNumber {
     const slotFromNextL1Timestamp =
       this.epochCache.getEpochAndSlotInNextL1Slot().slot + PROPOSER_PIPELINING_SLOT_OFFSET;
     const slotAfterProposedCheckpoint = proposedCheckpointData
       ? proposedCheckpointData.header.slotNumber + 1
       : undefined;
-    return SlotNumber(Math.max(...compactArray([slotFromNextL1Timestamp, slotAfterProposedCheckpoint])));
+    const slotAfterCheckpointedTip = checkpointedTipSlot !== undefined ? checkpointedTipSlot + 1 : undefined;
+    return SlotNumber(
+      Math.max(...compactArray([slotFromNextL1Timestamp, slotAfterProposedCheckpoint, slotAfterCheckpointedTip])),
+    );
+  }
+
+  /**
+   * Slot of the latest checkpointed block, used as the floor for the next block's slot. Undefined before the
+   * first checkpoint lands, where the checkpointed tip is the genesis block and no slot is taken yet.
+   *
+   * Looked up by the tip's block hash rather than its number, so a checkpoint unwind that replaces the block
+   * at that number cannot silently answer with a different block. A miss means the archiver no longer holds
+   * the block its own tips name, which is a torn snapshot rather than a reason to drop the floor.
+   */
+  private async getCheckpointedTipSlot(l2Tips: L2Tips): Promise<SlotNumber | undefined> {
+    const { number, hash } = l2Tips.checkpointed.block;
+    if (number < INITIAL_L2_BLOCK_NUM) {
+      return undefined;
+    }
+    const blockData = await this.blockSource.getBlockData({ hash: BlockHash.fromString(hash) });
+    if (!blockData) {
+      throw new Error(
+        `Cannot simulate public calls: checkpointed tip block ${number} (${hash}) has no header on this node ` +
+          `(torn archiver snapshot); retry`,
+      );
+    }
+    return blockData.header.globalVariables.slotNumber;
   }
 
   /**
