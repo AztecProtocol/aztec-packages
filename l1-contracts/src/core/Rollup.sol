@@ -607,20 +607,20 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return ValidatorOperationsExtLib.getEntryQueueAt(_index);
   }
 
-  function getSlasherExecutionDelay() external pure override(IStaking) returns (uint256) {
-    return StakingLib.SLASHER_EXECUTION_DELAY;
-  }
-
-  function getLegacySlasherDrainWindow() external pure override(IStaking) returns (uint256) {
-    return StakingLib.LEGACY_SLASHER_DRAIN_WINDOW;
-  }
-
   function getProtocolFeeRecipient() external view override(IRollup) returns (address) {
     return RewardExtLib.getProtocolFeeRecipient();
   }
 
   function getProtocolFeeMargin() external view override(IRollup) returns (uint16) {
     return RewardExtLib.getProtocolFeeMargin();
+  }
+
+  function getSlasherExecutionDelay() external pure override(IStaking) returns (uint256) {
+    return StakingLib.SLASHER_EXECUTION_DELAY;
+  }
+
+  function getLegacySlasherDrainWindow() external pure override(IStaking) returns (uint256) {
+    return StakingLib.LEGACY_SLASHER_DRAIN_WINDOW;
   }
 
   /**
