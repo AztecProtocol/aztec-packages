@@ -1,3 +1,4 @@
 .yarn/releases/** binary
 .yarn/plugins/** binary
 yarn.lock -diff
+labs-patches/*.patch -whitespace

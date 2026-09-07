@@ -82,12 +82,14 @@ function stage_expected_changes {
 }
 
 function fail_on_unstaged_changes {
-  if git diff --quiet; then
+  # The build advances labs to its patch series and use-local marker without changing the upstream gitlink.
+  if git diff --quiet -- . ":(exclude)labs" && git -C labs diff --quiet HEAD; then
     return 0
   fi
 
   echo_stderr "ERROR: Chonk input update produced tracked changes outside the allowed scope:"
-  git diff --name-only >&2
+  git diff --name-only -- . ":(exclude)labs" >&2
+  git -C labs diff --name-only HEAD | sed 's|^|labs/|' >&2
   if [[ -n "${PR_NUMBER:-}" ]]; then
     comment_diff_failure "tracked files outside the pinned Chonk input hash scope also changed"
   fi

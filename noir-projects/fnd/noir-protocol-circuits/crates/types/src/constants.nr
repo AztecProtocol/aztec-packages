@@ -197,9 +197,9 @@ pub global MAX_BLOCKS_PER_CHECKPOINT: u32 = 72;
 pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x0e7bf88e8833c27b0fca6be614ecc2c63def7bffa35b3ccfa1caff3e39e0c0d2;
+    0x22c20c79c14de01ee15231d523dcfc20a1d4aba37f8c590baad4df9f80ba3e60;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x177a4955b31ecaafad999753938a44e526b54c5ba5d536688227f85f15cfbdf5;
+    0x0a0877e7fa8646252b46122976de111ece73d0cc054da8d780e3f12ec1709305;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
     0xc95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093;
 
@@ -411,6 +411,7 @@ pub global TOTAL_MANA_USED_LENGTH: u32 = 1;
 pub global BLOCK_HEADER_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + STATE_REFERENCE_LENGTH
     + 1 /* blob_sponge_hash */
+    + 1 /* tx_effects_tree_root */
     + GLOBAL_VARIABLES_LENGTH
     + TOTAL_FEES_LENGTH
     + TOTAL_MANA_USED_LENGTH;
@@ -568,6 +569,7 @@ pub global TX_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
     + SPONGE_BLOB_LENGTH /* end_sponge_blob */
     + 1 /* num_txs */
     + 1 /* out_hash */
+    + 1 /* tx_effects_tree_root */
     + 1 /* accumulated_fees */
     + 1 /* accumulated_mana_used */;
 pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LENGTH
@@ -765,6 +767,21 @@ pub global DOM_SEP__BLOCK_HEADER_HASH: u32 = 4195546849;
 pub global DOM_SEP__TX_REQUEST: u32 = 3763737512;
 pub global DOM_SEP__PUBLIC_TX_HASH: u32 = 1630108851;
 pub global DOM_SEP__PRIVATE_TX_HASH: u32 = 1971680439;
+
+/// The number of variable-length effect categories committed by a tx effects tree leaf.
+pub global NUM_TX_EFFECT_CATEGORIES: u32 = 7;
+/// The tx start marker, transaction fee, and one hash per effect category.
+pub global TX_EFFECT_CATEGORIES_HASH_PREIMAGE_LENGTH: u32 = 2 + NUM_TX_EFFECT_CATEGORIES;
+
+/// Domain separator shared by the effect category hashes, which occupy fixed positions in the categories hash.
+pub global DOM_SEP__TX_EFFECT_CATEGORY_HASH: u32 = 1030022731;
+/// Domain separator for the hash over the tx start marker, transaction fee, and effect category hashes.
+pub global DOM_SEP__TX_EFFECT_CATEGORIES_HASH: u32 = 1426387399;
+/// Domain separator for a tx effects tree leaf, which binds a tx hash to its categories hash.
+pub global DOM_SEP__TX_EFFECTS_TREE_LEAF: u32 = 1186802524;
+/// Domain separator for the internal nodes of the tx effects tree. Distinct from
+/// [`DOM_SEP__TX_EFFECTS_TREE_LEAF`] so that a leaf can never be confused with an internal node.
+pub global DOM_SEP__TX_EFFECTS_TREE: u32 = 2908237871;
 
 // Hashing the calldata of public functions:
 pub global DOM_SEP__PUBLIC_CALLDATA: u32 = 2760353947;

@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Thu, 3 Sep 2026 21:39:28 +0000
+Subject: [PATCH] test: align tx effect hash terminology
+
+
+diff --git a/yarn-project/stdlib/src/tx/tx_effect.test.ts b/yarn-project/stdlib/src/tx/tx_effect.test.ts
+index 735f8f8aee8e9b4e999248aa2714b356f59e49bd..4c29a08d5d64b83c096b7cdc40e5c34bdd8f4085 100644
+--- a/yarn-project/stdlib/src/tx/tx_effect.test.ts
++++ b/yarn-project/stdlib/src/tx/tx_effect.test.ts
+@@ -78,7 +78,8 @@ function maximumFixture(): TxEffect {
+   );
+ }
+ 
+-const fieldHash = (blobFields: Fr[]) => poseidon2HashWithSeparator(blobFields, DomainSeparator.TX_EFFECT_CATEGORY_HASH);
++const categoryHash = (blobFields: Fr[]) =>
++  poseidon2HashWithSeparator(blobFields, DomainSeparator.TX_EFFECT_CATEGORY_HASH);
+ 
+ describe('TxEffect', () => {
+   it('converts to and from buffer', async () => {
+@@ -153,21 +154,21 @@ describe('TxEffect', () => {
+     ).toThrow(/Too many contract class logs/);
+   });
+ 
+-  describe('effect hash', () => {
+-    it('hashes each field over its slice of the blob encoding', async () => {
++  describe('categories hash', () => {
++    it('hashes each category over its slice of the blob encoding', async () => {
+       const txEffect = smallFixture();
+ 
+-      const expectedTxEffectHash = await poseidon2HashWithSeparator(
++      const expectedCategoriesHash = await poseidon2HashWithSeparator(
+         [
+           encodeTxStartMarker(txEffect.getTxStartMarker()),
+           new Fr(42), // transactionFee
+-          await fieldHash([new Fr(11), new Fr(12)]),
+-          await fieldHash([new Fr(21)]),
+-          await fieldHash([new Fr(31)]),
+-          await fieldHash([new Fr(41), new Fr(42)]),
+-          await fieldHash([new Fr(3), new Fr(101), new Fr(102), new Fr(103)]),
+-          await fieldHash([new Fr(2), new Fr(PUBLIC_LOG_ADDRESS), new Fr(201), new Fr(202)]),
+-          await fieldHash([
++          await categoryHash([new Fr(11), new Fr(12)]),
++          await categoryHash([new Fr(21)]),
++          await categoryHash([new Fr(31)]),
++          await categoryHash([new Fr(41), new Fr(42)]),
++          await categoryHash([new Fr(3), new Fr(101), new Fr(102), new Fr(103)]),
++          await categoryHash([new Fr(2), new Fr(PUBLIC_LOG_ADDRESS), new Fr(201), new Fr(202)]),
++          await categoryHash([
+             new Fr(CONTRACT_CLASS_LOG_ADDRESS),
+             await txEffect.contractClassLogs[0].hash(),
+           ]),
+@@ -175,18 +176,18 @@ describe('TxEffect', () => {
+         DomainSeparator.TX_EFFECT_CATEGORIES_HASH,
+       );
+ 
+-      expect(await txEffect.computeTxEffectCategoriesHash()).toEqual(expectedTxEffectHash);
++      expect(await txEffect.computeTxEffectCategoriesHash()).toEqual(expectedCategoriesHash);
+     });
+ 
+-    it('hashes empty fields to zero', async () => {
++    it('hashes empty categories to zero', async () => {
+       const txEffect = TxEffect.empty();
+ 
+-      const expectedTxEffectHash = await poseidon2HashWithSeparator(
++      const expectedCategoriesHash = await poseidon2HashWithSeparator(
+         [encodeTxStartMarker(txEffect.getTxStartMarker()), Fr.ZERO, ...Array(7).fill(Fr.ZERO)],
+         DomainSeparator.TX_EFFECT_CATEGORIES_HASH,
+       );
+ 
+-      expect(await txEffect.computeTxEffectCategoriesHash()).toEqual(expectedTxEffectHash);
++      expect(await txEffect.computeTxEffectCategoriesHash()).toEqual(expectedCategoriesHash);
+     });
+ 
+     it('binds the tx hash into the leaf', async () => {

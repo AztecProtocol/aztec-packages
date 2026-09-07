@@ -3,6 +3,7 @@ mod fee_tests;
 mod end_blob_sponge_tests;
 mod end_tree_snapshot_tests;
 mod out_hash_tests;
+mod tx_effects_tree_root_tests;
 mod validate_private_tail_tests;
 
 use crate::{

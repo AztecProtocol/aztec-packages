@@ -29,6 +29,7 @@ pub struct TxMergeRollupPrivateInputs {
 /// - Merges the tree snapshots (left's start with right's end)
 /// - Merges the sponge blobs (left's start with right's end)
 /// - Accumulates the out_hash by hashing the left and right out_hashes
+/// - Accumulates the tx-effects tree root by hashing the left and right roots
 /// - Accumulates the transaction fees and mana used
 ///
 /// The output feeds into another Tx Merge circuit to continue building the tree,

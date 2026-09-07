@@ -1,6 +1,7 @@
 mod child_proof_vk_tests;
 mod consecutive_tx_rollups_tests;
 mod rollup_structure_tests;
+mod tx_effects_tree_root_tests;
 
 use crate::{
     abis::TxRollupPublicInputs,
@@ -8,6 +9,7 @@ use crate::{
     tx_merge::tx_merge_rollup::{self, TxMergeRollupPrivateInputs},
 };
 use types::{
+    blob_data::accumulate_tx_effects_tree_root,
     constants::{
         PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
     },
@@ -117,6 +119,16 @@ impl TestBuilder {
         };
         assert_eq(pi.out_hash, expected_out_hash);
         // The tests to cover all the above scenarios are in `consecutive_tx_rollups_tests.nr`.
+
+        // Unlike the out hash, zero roots are never skipped.
+        assert_eq(
+            pi.accumulated_tx_effects_tree_root,
+            accumulate_tx_effects_tree_root(
+                left.accumulated_tx_effects_tree_root,
+                right.accumulated_tx_effects_tree_root,
+            ),
+        );
+        // The tree shapes are tested in `tx_effects_tree_root_tests.nr`.
 
         assert_eq(pi.accumulated_fees, left.accumulated_fees + right.accumulated_fees);
         assert_eq(

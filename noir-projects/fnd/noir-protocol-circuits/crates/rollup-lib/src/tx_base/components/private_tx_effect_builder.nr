@@ -24,7 +24,7 @@ pub fn build_tx_effect(
     constants: BlockConstantData,
     contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     fee_payer_balance_leaf_preimage: PublicDataTreeLeafPreimage,
-) -> (TxEffect, TxEffectArrayLengths) {
+) -> (TxEffect, TxEffectArrayLengths, [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX]) {
     let accumulated_data = private_to_rollup.end;
 
     // Compute siloed L2-to-L1 message hashes (siloed with the contract address of the function that
@@ -102,5 +102,8 @@ pub fn build_tx_effect(
         ),
     };
 
-    (tx_effect, tx_effect_array_lengths)
+    let contract_class_log_hashes =
+        accumulated_data.contract_class_logs_hashes.map(|log_hash| log_hash.inner.value);
+
+    (tx_effect, tx_effect_array_lengths, contract_class_log_hashes)
 }
