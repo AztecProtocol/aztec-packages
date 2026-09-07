@@ -250,7 +250,7 @@ export async function createAztecNodeService(
     };
 
     const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig);
-    const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
+    const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig, archiver);
     await feeProvider.start();
     started.push(feeProvider);
 

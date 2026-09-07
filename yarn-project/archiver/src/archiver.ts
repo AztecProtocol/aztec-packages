@@ -15,6 +15,7 @@ import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import {
   type ArchiverEmitter,
   type BlockHash,
+  type L1SyncPoint,
   L2Block,
   type L2BlockSink,
   L2BlockSourceEvents,
@@ -719,6 +720,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
   public getL2Frontier(): Promise<L2Frontier> {
     return this.l2FrontierCache.getL2Frontier();
+  }
+
+  public getL1SyncPoint(): Promise<L1SyncPoint | undefined> {
+    return Promise.resolve(this.l2FrontierCache.getL1SyncPoint());
   }
 
   public async rollbackTo(targetL2BlockNumber: BlockNumber): Promise<void> {
