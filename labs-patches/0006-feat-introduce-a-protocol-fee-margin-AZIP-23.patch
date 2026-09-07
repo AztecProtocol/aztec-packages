@@ -388,8 +388,8 @@ index c2707c9072..5f9ccc0bfb 100644
 +    // The predictor must agree with L1 exactly at mu != 0. This is the only check that catches
 +    // the same factor+divisor double-scaling on the TS side of the mirror.
 +    for (const manaUsage of Object.values(ManaUsageEstimate)) {
-+      const predictor = new FeePredictor(rollup, dateProvider, feePredictorConfig);
-+      const predicted = await predictor.getPredictedMinFees(manaUsage);
++      const predictor = await makeRefreshedPredictor();
++      const predicted = predictor.getPredictedMinFees(manaUsage);
 +      const predictionStartSlot = await getPredictionStartSlot();
 +      const l1FeeAtStart = await rollup.getManaMinFeeAt(getTimestamp(predictionStartSlot), true);
 +      expect(predicted[0].feePerL2Gas).toBe(l1FeeAtStart);
