@@ -222,7 +222,7 @@ function build {
 
   [ -f "package.json" ] && denoise "yarn && yarn generate_variants"
 
-  grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
+  grep -oP '(?<="crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
       toml_file=./crates/$dir/Nargo.toml
       if grep -q 'type = "bin"' "$toml_file"; then
@@ -236,6 +236,26 @@ function build {
   [ "$code" -eq 0 ] || return $code
 
   check_reset_costs
+  build_integration_tests
+}
+
+# Compiles the integration tests' circuits (see integration-tests/README.md). They are members of
+# this workspace because nargo always resolves the topmost Nargo.toml, and nargo only writes into
+# the workspace's target/, so each artifact is moved into its test's own target/ afterwards to keep
+# the protocol artifacts directory free of test circuits. The mock circuits reuse this script and
+# have no integration tests.
+function build_integration_tests {
+  set -euo pipefail
+  local test_dir pkg
+  for test_dir in ./integration-tests/*/; do
+    [ -d "$test_dir/crates" ] || continue
+    echo_stderr "Compiling integration test: $test_dir"
+    mkdir -p "$test_dir/target"
+    for pkg in $(grep -hoP '(?<=^name = ")[^"]+' "$test_dir"/crates/*/Nargo.toml); do
+      $NARGO compile --package "$pkg" --skip-brillig-constraints-check --silence-warnings
+      mv "target/$pkg.json" "$test_dir/target/"
+    done
+  done
 }
 
 # Fails if any `cost` in private_kernel_reset_config.json no longer matches the gate count
@@ -280,6 +300,23 @@ function test_cmds {
   for circuit in $circuits_to_execute; do
     echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/fnd/noir-protocol-circuits/crates/$circuit --silence-warnings  --skip-brillig-constraints-check"
   done
+  integration_test_cmds
+}
+
+# The integration tests prove real circuits with bb, so their hash also covers bb and the Noir
+# verifier library. Each test lists its own commands here (see integration-tests/README.md).
+function integration_test_cmds {
+  [ -d ./integration-tests ] || return 0
+  local hash test_dir
+  hash=$(hash_str "$circuits_hash" "$BB_HASH" $(cache_content_hash \
+    "^noir-projects/fnd/noir-protocol-circuits/integration-tests/" \
+    "^barretenberg/noir/bb_proof_verification/"))
+
+  # verify-uh-proof-within-smart-contract: the flow must prove and verify, and must be rejected
+  # once the proof the app verifies is corrupted.
+  test_dir=noir-projects/fnd/noir-protocol-circuits/integration-tests/verify-uh-proof-within-smart-contract
+  echo "$hash:CPUS=8:MEM=16g:TIMEOUT=20m $test_dir/prove_uh_verifier_app_with_real_kernels.py --skip-compile"
+  echo "$hash:CPUS=8:MEM=16g:TIMEOUT=20m $test_dir/prove_uh_verifier_app_with_real_kernels.py --skip-compile --corrupt-inner-proof --work-dir target/flow-corrupt"
 }
 
 function test {

@@ -1,0 +1,3 @@
+target
+# nargo check drops input templates next to each crate.
+crates/*/Prover.toml

@@ -1,0 +1,9 @@
+[package]
+name = "app_uh_verifier"
+type = "bin"
+authors = [""]
+compiler_version = ">=0.18.0"
+
+[dependencies]
+types = { path = "../../../../crates/types" }
+bb_proof_verification = { path = "../../../../../../../barretenberg/noir/bb_proof_verification" }

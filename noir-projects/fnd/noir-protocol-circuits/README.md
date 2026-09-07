@@ -50,6 +50,8 @@ To compile a circuit:
 For most circuits, you will see its sample inputs Prover.toml in the folder. You can execute the circuits with these private inputs by running:
 `nargo execute --package rollup_root`
 
+Tests that prove the real circuits end to end with bb live in `integration-tests/`; see the README there.
+
 ## Naming Conventions
 
 **What is a "Hint"**

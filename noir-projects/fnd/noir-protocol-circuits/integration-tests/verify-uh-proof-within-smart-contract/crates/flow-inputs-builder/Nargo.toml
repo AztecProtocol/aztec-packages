@@ -1,0 +1,10 @@
+[package]
+name = "flow_inputs_builder"
+type = "bin"
+authors = [""]
+compiler_version = ">=0.18.0"
+
+[dependencies]
+types = { path = "../../../../crates/types" }
+protocol_test_utils = { path = "../../../../crates/protocol-test-utils" }
+private_kernel_lib = { path = "../../../../crates/private-kernel-lib" }
