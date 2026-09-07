@@ -54,7 +54,9 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-wakeup-pr-after-merge')
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-wakeup-pr-after-merge --repo ${{ github.repository }} || true
+        # REST, not `gh pr edit --remove-label`: the latter's GraphQL query needs the `read:org`
+        # scope AZTEC_BOT_GITHUB_TOKEN does not carry.
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/ci-wakeup-pr-after-merge" || true
 
       # Do NOT bump actions/checkout to v6 here. v6 ("persist creds to a separate file", #2286)
       # stores the persisted github.token in a temp credentials file pulled in via includeIf, which
@@ -233,7 +235,9 @@ jobs:
         if: github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-scenario --repo ${{ github.repository }} || true
+        # REST, not `gh pr edit --remove-label`: the latter's GraphQL query needs the `read:org`
+        # scope AZTEC_BOT_GITHUB_TOKEN does not carry.
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/ci-network-scenario" || true
 
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -366,7 +370,9 @@ jobs:
       - name: Remove label (one-time use)
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-bench --repo ${{ github.repository }} || true
+        # REST, not `gh pr edit --remove-label`: the latter's GraphQL query needs the `read:org`
+        # scope AZTEC_BOT_GITHUB_TOKEN does not carry.
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/ci-network-bench" || true
 
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -448,7 +454,9 @@ jobs:
       - name: Remove label
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-kind --repo ${{ github.repository }}
+        # REST, not `gh pr edit --remove-label`: the latter's GraphQL query needs the `read:org`
+        # scope AZTEC_BOT_GITHUB_TOKEN does not carry.
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/ci-network-kind" || true
 
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
