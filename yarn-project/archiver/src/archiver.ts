@@ -18,6 +18,7 @@ import {
   L2Block,
   type L2BlockSink,
   L2BlockSourceEvents,
+  type L2Frontier,
   type L2Tips,
   type ValidateCheckpointResult,
   l2TipsEqual,
@@ -46,7 +47,7 @@ import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import type { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { OutboxTreesResolver } from './modules/outbox_trees_resolver.js';
 import { type ArchiverDataStores, backupArchiverDataStores, getArchiverSynchPoint } from './store/data_stores.js';
-import { L2TipsCache } from './store/l2_tips_cache.js';
+import { L2FrontierCache } from './store/l2_frontier_cache.js';
 
 /** Export ArchiverEmitter for use in factory and tests. */
 export type { ArchiverEmitter };
@@ -112,7 +113,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   private readonly updater: ArchiverDataStoreUpdater;
 
   /** In-memory cache for L2 chain tips. */
-  private readonly l2TipsCache: L2TipsCache;
+  private readonly l2FrontierCache: L2FrontierCache;
 
   /** Consensus timing model used for proposed-checkpoint arrival expectations. */
   private readonly timetable: ConsensusTimetable;
@@ -138,7 +139,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param events - Event emitter shared with the synchronizer.
    * @param initialHeader - Genesis block header.
    * @param initialBlockHash - Precomputed hash of the genesis block header.
-   * @param l2TipsCache - In-memory cache for L2 chain tips.
+   * @param l2FrontierCache - In-memory cache for L2 chain tips.
    * @param dateProvider - Provider for current date/time, used for wall-clock orphan-block pruning.
    * @param log - A logger.
    */
@@ -176,7 +177,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     events: ArchiverEmitter,
     initialHeader: BlockHeader,
     initialBlockHash: BlockHash,
-    l2TipsCache: L2TipsCache,
+    l2FrontierCache: L2FrontierCache,
     private readonly dateProvider: DateProvider,
     private checkpointProposalPresence: CheckpointProposalPresence = noCheckpointProposalPresence,
     private readonly log: Logger = createLogger('archiver'),
@@ -188,13 +189,13 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     this.initialSyncPromise = promiseWithResolvers();
     this.synchronizer = synchronizer;
     this.events = events;
-    this.l2TipsCache = l2TipsCache;
+    this.l2FrontierCache = l2FrontierCache;
     this.timetable = new ConsensusTimetable({
       l1Constants,
       blockDuration: this.config.blockDuration,
       checkpointProposalSyncGrace: this.config.checkpointProposalSyncGrace,
     });
-    this.updater = new ArchiverDataStoreUpdater(this.dataStores, this.l2TipsCache, {
+    this.updater = new ArchiverDataStoreUpdater(this.dataStores, this.l2FrontierCache, {
       rollupManaLimit: l1Constants.rollupManaLimit,
     });
 
@@ -713,7 +714,11 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   }
 
   public getL2Tips(): Promise<L2Tips> {
-    return this.l2TipsCache.getL2Tips();
+    return this.l2FrontierCache.getL2Tips();
+  }
+
+  public getL2Frontier(): Promise<L2Frontier> {
+    return this.l2FrontierCache.getL2Frontier();
   }
 
   public async rollbackTo(targetL2BlockNumber: BlockNumber): Promise<void> {

@@ -1,28 +1,20 @@
 import { L1ToL2MessagesNotReadyError } from '@aztec/archiver';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { type FeeHeader, RollupContract } from '@aztec/ethereum/contracts';
-import {
-  BlockNumber,
-  CheckpointNumber,
-  EpochNumber,
-  IndexWithinCheckpoint,
-  SlotNumber,
-} from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { unfreeze } from '@aztec/foundation/types';
 import { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type BlockData,
   BlockHash,
-  type BlockQuery,
-  L2Block,
   type L2BlockSource,
+  type L2Frontier,
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import type { ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import { L1PublishedData, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -63,17 +55,27 @@ describe('NodePublicCallsSimulator', () => {
   // would run them through, so tests can assert on the result rather than on mock call counts.
   let builtGlobals: GlobalVariables | undefined;
 
-  /** Stable per-block hash, so tips and the block-data mock agree on block identity for hash lookups. */
+  /** Stable per-block hash, so tips and the frontier agree on block identity. */
   const blockHashOf = (blockNumber: BlockNumber): BlockHash => new BlockHash(new Fr(1000 + blockNumber));
 
-  const makeTips = (args: {
+  type L2FrontierArgs = {
     proposed: BlockNumber;
     checkpointedBlock: BlockNumber;
     checkpointed: CheckpointNumber;
     proven?: CheckpointNumber;
-  }): L2Tips => {
+    /** Slot of the checkpointed checkpoint, the floor for the next block's slot. Omit for the genesis shape. */
+    checkpointedTipSlot?: SlotNumber;
+    proposedCheckpoint?: ProposedCheckpointData;
+    /** Globals of the proposed tip's header, copied verbatim when the next block continues a checkpoint. */
+    latestBlockGlobals?: { slotNumber: SlotNumber; gasFees?: GasFees };
+    /** Omit the proposed tip's header from the snapshot, an invariant violation the simulator must reject. */
+    omitLatestBlockHeader?: boolean;
+    pendingChainValidationStatus?: ValidateCheckpointResult;
+  };
+
+  const makeTips = (args: L2FrontierArgs): L2Tips => {
     const blockId = (number: BlockNumber) => ({ number, hash: blockHashOf(number).toString() });
-    const checkpointId = (number: CheckpointNumber) => ({ number, hash: '0x0' });
+    const checkpointId = (number: CheckpointNumber) => ({ number, hash: `0xc${number}` });
     return {
       proposed: blockId(args.proposed),
       checkpointed: { block: blockId(args.checkpointedBlock), checkpoint: checkpointId(args.checkpointed) },
@@ -82,30 +84,36 @@ describe('NodePublicCallsSimulator', () => {
     };
   };
 
-  const makeBlockData = (blockNumber: BlockNumber, slotNumber: SlotNumber, gasFees = GasFees.empty()): BlockData => ({
-    header: BlockHeader.empty({
-      globalVariables: GlobalVariables.empty({ blockNumber, slotNumber, gasFees }),
-    }),
-    archive: L2Block.empty().archive,
-    blockHash: blockHashOf(blockNumber),
-    checkpointNumber: CheckpointNumber(1),
-    indexWithinCheckpoint: IndexWithinCheckpoint(0),
+  const makeFrontier = (args: L2FrontierArgs): L2Frontier => ({
+    tips: makeTips(args),
+    proposedCheckpoint: args.proposedCheckpoint,
+    l1SyncPoint: undefined,
+    latestBlockHeader:
+      args.omitLatestBlockHeader || !args.latestBlockGlobals
+        ? undefined
+        : BlockHeader.empty({
+            globalVariables: GlobalVariables.empty({
+              blockNumber: args.proposed,
+              slotNumber: args.latestBlockGlobals.slotNumber,
+              gasFees: args.latestBlockGlobals.gasFees ?? GasFees.empty(),
+            }),
+          }),
+    checkpointedCheckpoint:
+      args.checkpointedTipSlot === undefined
+        ? undefined
+        : {
+            header: CheckpointHeader.empty({ slotNumber: args.checkpointedTipSlot }),
+            l1: new L1PublishedData(1n, 0n, `0x`),
+          },
+    pendingChainValidationStatus: args.pendingChainValidationStatus ?? { valid: true },
   });
 
-  /**
-   * Answers both number and hash lookups with a block at the given slot. The block number only matters for
-   * the copy branch, which always looks the latest proposed block up by number.
-   */
-  const mockBlockDataAtSlot = (slotNumber: SlotNumber, gasFees = GasFees.empty()) =>
-    blockSource.getBlockData.mockImplementation((query: BlockQuery) =>
-      Promise.resolve(
-        'number' in query
-          ? makeBlockData(query.number, slotNumber, gasFees)
-          : 'hash' in query
-            ? makeBlockData(BlockNumber.ZERO, slotNumber, gasFees)
-            : undefined,
-      ),
-    );
+  /** Points the block source at one atomic L2 frontier snapshot, the single read the simulator makes. */
+  const mockL2Frontier = (args: L2FrontierArgs) => {
+    const frontier = makeFrontier(args);
+    blockSource.getL2Frontier.mockResolvedValue(frontier);
+    return frontier;
+  };
 
   const mockNextL1Slot = (slot: SlotNumber) => {
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
@@ -152,8 +160,6 @@ describe('NodePublicCallsSimulator', () => {
       Promise.resolve();
     worldStateSynchronizer.fork.mockResolvedValue(merkleTreeFork);
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
-    blockSource.getPendingChainValidationStatus.mockResolvedValue({ valid: true });
-    blockSource.getProposedCheckpointData.mockResolvedValue(undefined);
 
     globalVariableBuilder.buildCheckpointGlobalVariables.mockImplementation((_c, _f, slotNumber) =>
       Promise.resolve(checkpointGlobals(slotNumber)),
@@ -202,21 +208,24 @@ describe('NodePublicCallsSimulator', () => {
   describe('continuing an in-progress checkpoint', () => {
     // A proposed checkpoint (#2) terminates at block 5, but the latest proposed block (block 9) is
     // ahead of it, so the next block continues the in-progress checkpoint built on top of the proposed one.
-    const setupMidCheckpoint = () => {
-      blockSource.getL2Tips.mockResolvedValue(
-        makeTips({ proposed: BlockNumber(9), checkpointedBlock: BlockNumber(3), checkpointed: CheckpointNumber(1) }),
-      );
-      blockSource.getProposedCheckpointData.mockResolvedValue(
-        makeProposedCheckpointData({ checkpointNumber: CheckpointNumber(2), lastBlock: BlockNumber(5) }),
-      );
-    };
+    const setupMidCheckpoint = (args: Partial<L2FrontierArgs> = {}) =>
+      mockL2Frontier({
+        proposed: BlockNumber(9),
+        checkpointedBlock: BlockNumber(3),
+        checkpointed: CheckpointNumber(1),
+        latestBlockGlobals: { slotNumber: SlotNumber(42) },
+        proposedCheckpoint: makeProposedCheckpointData({
+          checkpointNumber: CheckpointNumber(2),
+          lastBlock: BlockNumber(5),
+        }),
+        ...args,
+      });
 
-    it('copies the latest proposed header globals verbatim and bumps only the block number', async () => {
+    it('copies the snapshot header globals verbatim and bumps only the block number', async () => {
       const tx = await lowGasTx();
       const headerSlot = SlotNumber(42);
       const headerGasFees = new GasFees(0, 777);
-      setupMidCheckpoint();
-      mockBlockDataAtSlot(headerSlot, headerGasFees);
+      setupMidCheckpoint({ latestBlockGlobals: { slotNumber: headerSlot, gasFees: headerGasFees } });
       mockNextL1Slot(SlotNumber(100));
 
       await simulator.simulate(tx);
@@ -225,7 +234,8 @@ describe('NodePublicCallsSimulator', () => {
       expect(builtGlobals!.blockNumber).toEqual(BlockNumber(10));
       expect(builtGlobals!.slotNumber).toEqual(headerSlot);
       expect(builtGlobals!.gasFees).toEqual(headerGasFees);
-      // No fresh globals built and no L1 reads for fees when continuing an in-progress checkpoint.
+      // The header comes with the snapshot: no by-number or by-hash block lookup, no fresh globals, no L1 reads.
+      expect(blockSource.getBlockData).not.toHaveBeenCalled();
       expect(globalVariableBuilder.buildCheckpointGlobalVariables).not.toHaveBeenCalled();
       expect(rollupContract.getManaTarget).not.toHaveBeenCalled();
     });
@@ -233,7 +243,6 @@ describe('NodePublicCallsSimulator', () => {
     it('does not insert L1-to-L2 messages', async () => {
       const tx = await lowGasTx();
       setupMidCheckpoint();
-      mockBlockDataAtSlot(SlotNumber(42));
       mockNextL1Slot(SlotNumber(100));
 
       await simulator.simulate(tx);
@@ -242,14 +251,12 @@ describe('NodePublicCallsSimulator', () => {
       expect(merkleTreeFork.appendLeaves).not.toHaveBeenCalled();
     });
 
-    it('fails with a retryable error when the latest proposed header is missing, without double-inserting messages', async () => {
+    it('rejects a snapshot missing the proposed tip header, without double-inserting messages', async () => {
       const tx = await lowGasTx();
-      setupMidCheckpoint();
-      // Latest proposed block header is missing (torn snapshot).
-      blockSource.getBlockData.mockResolvedValue(undefined);
+      setupMidCheckpoint({ omitLatestBlockHeader: true });
       mockNextL1Slot(SlotNumber(100));
 
-      await expect(simulator.simulate(tx)).rejects.toThrow();
+      await expect(simulator.simulate(tx)).rejects.toThrow(/carries no header/);
 
       // Must not treat the next block as opening a new checkpoint and re-insert the ongoing checkpoint's messages.
       expect(l1ToL2MessageSource.getL1ToL2Messages).not.toHaveBeenCalled();
@@ -260,19 +267,20 @@ describe('NodePublicCallsSimulator', () => {
 
   describe('opening a new checkpoint', () => {
     // The latest proposed block (5) coincides with the proposed-checkpoint frontier, so the next
-    // block opens a new checkpoint. Tests that pipeline on a proposed checkpoint additionally mock
-    // `getProposedCheckpointData`; otherwise the frontier is the checkpointed tip (block 5).
-    const setupBoundary = (args?: { checkpointed?: CheckpointNumber }) =>
-      makeTips({
+    // block opens a new checkpoint. Tests that pipeline on a proposed checkpoint pass one in the
+    // snapshot; otherwise the frontier is the checkpointed tip (block 5).
+    const setupBoundary = (args: Partial<L2FrontierArgs> = {}) =>
+      mockL2Frontier({
         proposed: BlockNumber(5),
         checkpointedBlock: BlockNumber(5),
-        checkpointed: args?.checkpointed ?? CheckpointNumber(1),
+        checkpointed: CheckpointNumber(1),
+        checkpointedTipSlot: SlotNumber(5),
+        ...args,
       });
 
     it('targets the next L1 slot plus the pipelining offset and pins tips to the checkpointed tip when idle', async () => {
       const tx = await lowGasTx();
-      blockSource.getL2Tips.mockResolvedValue(setupBoundary());
-      mockBlockDataAtSlot(SlotNumber(5));
+      setupBoundary();
       mockNextL1Slot(SlotNumber(20));
 
       await simulator.simulate(tx);
@@ -287,9 +295,8 @@ describe('NodePublicCallsSimulator', () => {
 
     it('floors the target slot at the checkpointed tip slot plus one when the node clock lags the chain', async () => {
       const tx = await lowGasTx();
-      blockSource.getL2Tips.mockResolvedValue(setupBoundary());
       // The checkpointed tip already sits at slot 14, so the next block cannot land before slot 15.
-      mockBlockDataAtSlot(SlotNumber(14));
+      setupBoundary({ checkpointedTipSlot: SlotNumber(14) });
       mockNextL1Slot(SlotNumber(13));
 
       await simulator.simulate(tx);
@@ -300,8 +307,7 @@ describe('NodePublicCallsSimulator', () => {
 
     it('does not raise the target slot when the node clock is ahead of the checkpointed tip', async () => {
       const tx = await lowGasTx();
-      blockSource.getL2Tips.mockResolvedValue(setupBoundary());
-      mockBlockDataAtSlot(SlotNumber(14));
+      setupBoundary({ checkpointedTipSlot: SlotNumber(14) });
       mockNextL1Slot(SlotNumber(20));
 
       await simulator.simulate(tx);
@@ -310,37 +316,26 @@ describe('NodePublicCallsSimulator', () => {
       expect(slotArg).toEqual(SlotNumber(21));
     });
 
-    it('reads the checkpointed tip block by hash rather than by number', async () => {
+    it('takes the floor slot from the snapshot rather than reading the tip block', async () => {
       const tx = await lowGasTx();
-      const tips = setupBoundary();
-      blockSource.getL2Tips.mockResolvedValue(tips);
-      // Only the hash lookup resolves: a number lookup could answer with a different block after an unwind.
-      blockSource.getBlockData.mockImplementation((query: BlockQuery) =>
-        Promise.resolve(
-          'hash' in query && query.hash.equals(BlockHash.fromString(tips.checkpointed.block.hash))
-            ? makeBlockData(tips.checkpointed.block.number, SlotNumber(14))
-            : undefined,
-        ),
-      );
+      setupBoundary({ checkpointedTipSlot: SlotNumber(14) });
       mockNextL1Slot(SlotNumber(13));
 
       await simulator.simulate(tx);
 
-      const [, , slotArg] = globalVariableBuilder.buildCheckpointGlobalVariables.mock.calls[0];
-      expect(slotArg).toEqual(SlotNumber(15));
+      // The whole decision comes from the one frontier read: a by-number or by-hash lookup could answer with a
+      // block from a different instant after a checkpoint unwind.
+      expect(blockSource.getBlockData).not.toHaveBeenCalled();
+      expect(blockSource.getL2Frontier).toHaveBeenCalledTimes(1);
     });
 
-    it('skips the floor at genesis, where the checkpointed tip is the unstored genesis block', async () => {
+    it('skips the floor at genesis, where no checkpoint has landed yet', async () => {
       const tx = await lowGasTx();
-      blockSource.getL2Tips.mockResolvedValue(
-        makeTips({
-          proposed: BlockNumber.ZERO,
-          checkpointedBlock: BlockNumber.ZERO,
-          checkpointed: CheckpointNumber(0),
-        }),
-      );
-      // The archiver holds no block at genesis, so a floor read here would wrongly fail the simulation.
-      blockSource.getBlockData.mockResolvedValue(undefined);
+      mockL2Frontier({
+        proposed: BlockNumber.ZERO,
+        checkpointedBlock: BlockNumber.ZERO,
+        checkpointed: CheckpointNumber(0),
+      });
       mockNextL1Slot(SlotNumber(3));
 
       await simulator.simulate(tx);
@@ -349,24 +344,10 @@ describe('NodePublicCallsSimulator', () => {
       expect(slotArg).toEqual(SlotNumber(4));
     });
 
-    it('fails with a retryable error when the checkpointed tip block is missing', async () => {
-      const tx = await lowGasTx();
-      blockSource.getL2Tips.mockResolvedValue(setupBoundary());
-      // Number lookups still resolve, so dropping the floor would silently succeed at the wrong slot.
-      blockSource.getBlockData.mockImplementation((query: BlockQuery) =>
-        Promise.resolve('number' in query ? makeBlockData(query.number, SlotNumber(14)) : undefined),
-      );
-      mockNextL1Slot(SlotNumber(13));
-
-      await expect(simulator.simulate(tx)).rejects.toThrow(/torn archiver snapshot/);
-      expect(globalVariableBuilder.buildCheckpointGlobalVariables).not.toHaveBeenCalled();
-    });
-
     it('inserts L1-to-L2 messages for the next checkpoint', async () => {
       const tx = await lowGasTx();
       const messages = [Fr.fromString('0x1234'), Fr.fromString('0x5678')];
-      blockSource.getL2Tips.mockResolvedValue(setupBoundary());
-      mockBlockDataAtSlot(SlotNumber(5));
+      setupBoundary();
       mockNextL1Slot(SlotNumber(20));
       l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(messages);
 
@@ -381,8 +362,7 @@ describe('NodePublicCallsSimulator', () => {
 
     it('tolerates L1ToL2MessagesNotReadyError and simulates without messages', async () => {
       const tx = await lowGasTx();
-      blockSource.getL2Tips.mockResolvedValue(setupBoundary());
-      mockBlockDataAtSlot(SlotNumber(5));
+      setupBoundary();
       mockNextL1Slot(SlotNumber(20));
       l1ToL2MessageSource.getL1ToL2Messages.mockRejectedValue(new L1ToL2MessagesNotReadyError(CheckpointNumber(2), 0n));
 
@@ -394,20 +374,17 @@ describe('NodePublicCallsSimulator', () => {
       const tx = await lowGasTx();
       const parentSlot = SlotNumber(30);
       const parentArchiveRoot = Fr.fromString('0xabcabc');
-      blockSource.getL2Tips.mockResolvedValue(setupBoundary({ checkpointed: CheckpointNumber(2) }));
-      // Both the next L1 slot and the checkpointed tip sit well behind the proposed parent's slot, so the
-      // proposed-checkpoint + 1 term must win the max() and the parent slot must come from the proposed
-      // checkpoint data itself.
-      mockBlockDataAtSlot(SlotNumber(5));
-      mockNextL1Slot(SlotNumber(5));
-
       const proposedCheckpointData = makeProposedCheckpointData({
         checkpointNumber: CheckpointNumber(3),
         lastBlock: BlockNumber(5),
         slotNumber: parentSlot,
         archiveRoot: parentArchiveRoot,
       });
-      blockSource.getProposedCheckpointData.mockResolvedValue(proposedCheckpointData);
+      // Both the next L1 slot and the checkpointed tip sit well behind the proposed parent's slot, so the
+      // proposed-checkpoint + 1 term must win the max() and the parent slot must come from the proposed
+      // checkpoint data itself.
+      setupBoundary({ checkpointed: CheckpointNumber(2), proposedCheckpoint: proposedCheckpointData });
+      mockNextL1Slot(SlotNumber(5));
 
       const grandparentFeeHeader = makeFeeHeader();
       rollupContract.getCheckpoint.mockResolvedValue({ feeHeader: grandparentFeeHeader } as any);
@@ -432,10 +409,11 @@ describe('NodePublicCallsSimulator', () => {
 
     it('pins tips to firstInvalid - 1 when the pending chain is invalid', async () => {
       const tx = await lowGasTx();
-      blockSource.getL2Tips.mockResolvedValue(setupBoundary({ checkpointed: CheckpointNumber(5) }));
-      mockBlockDataAtSlot(SlotNumber(5));
+      setupBoundary({
+        checkpointed: CheckpointNumber(5),
+        pendingChainValidationStatus: makeInvalidStatus(CheckpointNumber(4)),
+      });
       mockNextL1Slot(SlotNumber(20));
-      blockSource.getPendingChainValidationStatus.mockResolvedValue(makeInvalidStatus(CheckpointNumber(4)));
 
       await simulator.simulate(tx);
 
@@ -447,17 +425,16 @@ describe('NodePublicCallsSimulator', () => {
     it('degrades to a pinned-tips plan when pipelining without a rollup contract', async () => {
       const tx = await lowGasTx();
       simulator = makeSimulatorWithoutRollupContract();
-      blockSource.getL2Tips.mockResolvedValue(setupBoundary({ checkpointed: CheckpointNumber(2) }));
-      mockBlockDataAtSlot(SlotNumber(5));
-      mockNextL1Slot(SlotNumber(5));
-      blockSource.getProposedCheckpointData.mockResolvedValue(
-        makeProposedCheckpointData({
+      setupBoundary({
+        checkpointed: CheckpointNumber(2),
+        proposedCheckpoint: makeProposedCheckpointData({
           checkpointNumber: CheckpointNumber(3),
           lastBlock: BlockNumber(5),
           slotNumber: SlotNumber(30),
           archiveRoot: Fr.fromString('0xabcabc'),
         }),
-      );
+      });
+      mockNextL1Slot(SlotNumber(5));
 
       await simulator.simulate(tx);
 
@@ -470,8 +447,7 @@ describe('NodePublicCallsSimulator', () => {
     it('simulates without a rollup contract when idle (the TXE shape)', async () => {
       const tx = await lowGasTx();
       simulator = makeSimulatorWithoutRollupContract();
-      blockSource.getL2Tips.mockResolvedValue(setupBoundary());
-      mockBlockDataAtSlot(SlotNumber(5));
+      setupBoundary();
       mockNextL1Slot(SlotNumber(20));
 
       await expect(simulator.simulate(tx)).resolves.toBeDefined();

@@ -11,12 +11,13 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type {
-  BlockData,
-  L2BlockSink,
-  L2BlockSource,
-  ProposedCheckpointSink,
-  ValidateCheckpointResult,
+import {
+  type BlockData,
+  BlockHash,
+  type L2BlockSink,
+  type L2BlockSource,
+  type ProposedCheckpointSink,
+  type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import {
   type Checkpoint,
@@ -887,15 +888,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         number: syncSummary.latestBlockNumber,
         hash: syncSummary.latestBlockHash,
       })),
-      this.l2BlockSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
+      this.l2BlockSource.getL2Frontier(),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
-      this.l2BlockSource.getPendingChainValidationStatus(),
-      this.l2BlockSource.getProposedCheckpointData(),
     ] as const);
 
-    const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpointData] =
-      syncedBlocks;
+    const [worldState, frontier, p2p, l1ToL2MessageSourceTips] = syncedBlocks;
+    const { proposedCheckpoint: proposedCheckpointData, pendingChainValidationStatus } = frontier;
+    const l2Tips = { proposed: frontier.tips.proposed, checkpointed: frontier.tips.checkpointed };
 
     const result =
       worldState.hash === l2Tips.proposed.hash &&
@@ -914,8 +914,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
+    // Look the tip block up by its hash rather than its number: the tips come from the cached snapshot, so
+    // after a prune-and-replace commits (but before the cache refreshes) a by-number read could return the
+    // replacement block while every hash check above still described the pruned one. A miss just fails the
+    // sync check and retries.
     const blockNumber = worldState.number;
-    const blockData = await this.l2BlockSource.getBlockData({ number: blockNumber });
+    const blockData = await this.l2BlockSource.getBlockData({ hash: BlockHash.fromString(l2Tips.proposed.hash) });
     if (!blockData) {
       this.log.warn(`Sequencer sync check failed: failed to get L2 block data ${blockNumber} from the archiver`, {
         blockNumber,
@@ -932,9 +936,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // matching proposed checkpoint (e.g. it crashed before assembling it). Building on this orphan block
     // would fork the chain off a tip no other node can follow. The archiver prunes these orphan blocks
     // once their build slot ends; this guard is the correctness barrier during the grace window before.
-    // `getProposedCheckpointData()` returns the latest proposed checkpoint payload, which is always
-    // the leading one (a proposed entry is only stored beyond the confirmed frontier and is deleted
-    // on confirmation). It carries no tip, so there is no tip-vs-payload split read to reconcile.
+    // The L2 frontier carries the leading proposed checkpoint payload (a proposed entry is only stored
+    // beyond the confirmed frontier and is deleted on confirmation) alongside the tips it is compared
+    // against, read atomically, so the two cannot describe different chain states.
     if (
       blockData.checkpointNumber > l2Tips.checkpointed.checkpoint.number &&
       proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber

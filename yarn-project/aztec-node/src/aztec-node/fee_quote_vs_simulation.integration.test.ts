@@ -14,18 +14,13 @@ import { createLogger } from '@aztec/foundation/log';
 import { ManualDateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import { FeeProviderImpl, GlobalVariableBuilder, type GlobalVariableBuilderConfig } from '@aztec/sequencer-client';
-import {
-  type BlockData,
-  BlockHash,
-  type BlockQuery,
-  L2Block,
-  type L2BlockSource,
-  type L2Tips,
-} from '@aztec/stdlib/block';
+import { type BlockData, BlockHash, L2Block, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
+import { L1PublishedData, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type { L2LogsSource, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockTx } from '@aztec/stdlib/testing';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
@@ -106,6 +101,29 @@ describe('fee quote vs public simulation', () => {
     };
   };
 
+  /** Points the block source at one atomic L2 frontier snapshot, the single read the simulator makes. */
+  const mockL2Frontier = (args: {
+    proposed: BlockNumber;
+    checkpointedBlock: BlockNumber;
+    checkpointedTipSlot: SlotNumber;
+    proposedCheckpoint?: ProposedCheckpointData;
+    /** Globals of the proposed tip's header, as the archiver reads them in the same snapshot. */
+    latestBlockGlobals?: { slotNumber: SlotNumber; gasFees: GasFees };
+  }) =>
+    blockSource.getL2Frontier.mockResolvedValue({
+      tips: makeTips(args),
+      proposedCheckpoint: args.proposedCheckpoint,
+      l1SyncPoint: undefined,
+      latestBlockHeader: args.latestBlockGlobals
+        ? makeBlockData(args.proposed, args.latestBlockGlobals.slotNumber, args.latestBlockGlobals.gasFees).header
+        : undefined,
+      checkpointedCheckpoint: {
+        header: CheckpointHeader.empty({ slotNumber: args.checkpointedTipSlot }),
+        l1: new L1PublishedData(1n, 0n, `0x`),
+      },
+      pendingChainValidationStatus: { valid: true },
+    });
+
   const makeBlockData = (blockNumber: BlockNumber, slotNumber: SlotNumber, gasFees: GasFees): BlockData => ({
     header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber, slotNumber, gasFees }) }),
     archive: L2Block.empty().archive,
@@ -113,15 +131,6 @@ describe('fee quote vs public simulation', () => {
     checkpointNumber: PENDING_CHECKPOINT,
     indexWithinCheckpoint: IndexWithinCheckpoint(0),
   });
-
-  /** Answers both number and hash lookups for the blocks the tips name, as the archiver does. */
-  const mockBlockData = (blocks: { number: BlockNumber; slotNumber: SlotNumber; gasFees: GasFees }[]) =>
-    blockSource.getBlockData.mockImplementation((query: BlockQuery) => {
-      const match = blocks.find(b =>
-        'number' in query ? query.number === b.number : 'hash' in query && query.hash.equals(blockHashOf(b.number)),
-      );
-      return Promise.resolve(match ? makeBlockData(match.number, match.slotNumber, match.gasFees) : undefined);
-    });
 
   const makeTx = (seed: number, maxFeesPerGas: GasFees): Promise<Tx> =>
     mockTx(seed, {
@@ -336,8 +345,12 @@ describe('fee quote vs public simulation', () => {
     await startNodeAt(tsOf(SlotNumber(changeSlot - 2)));
     expect(epochCache.getEpochAndSlotInNextL1Slot().slot).toEqual(SlotNumber(changeSlot - 2));
 
-    blockSource.getL2Tips.mockResolvedValue(makeTips({ proposed: BlockNumber(1), checkpointedBlock: BlockNumber(1) }));
-    mockBlockData([{ number: BlockNumber(1), slotNumber: SlotNumber(changeSlot - 1), gasFees: GasFees.empty() }]);
+    mockL2Frontier({
+      proposed: BlockNumber(1),
+      checkpointedBlock: BlockNumber(1),
+      checkpointedTipSlot: SlotNumber(changeSlot - 1),
+      latestBlockGlobals: { slotNumber: SlotNumber(changeSlot - 1), gasFees: GasFees.empty() },
+    });
 
     const fees = await feeProvider.getPredictedMinFees(ManaUsageEstimate.Limit);
     expect(fees[0].feePerL2Gas).toEqual(lowFee);
@@ -351,8 +364,12 @@ describe('fee quote vs public simulation', () => {
   it('quotes the same fee the simulation charges when nothing is lagging', async () => {
     await startNodeAt(tsOf(changeSlot));
 
-    blockSource.getL2Tips.mockResolvedValue(makeTips({ proposed: BlockNumber(1), checkpointedBlock: BlockNumber(1) }));
-    mockBlockData([{ number: BlockNumber(1), slotNumber: SlotNumber(changeSlot - 1), gasFees: GasFees.empty() }]);
+    mockL2Frontier({
+      proposed: BlockNumber(1),
+      checkpointedBlock: BlockNumber(1),
+      checkpointedTipSlot: SlotNumber(changeSlot - 1),
+      latestBlockGlobals: { slotNumber: SlotNumber(changeSlot - 1), gasFees: GasFees.empty() },
+    });
 
     const fees = await node.getPredictedMinFees(ManaUsageEstimate.Limit);
     expect(fees[0].feePerL2Gas).toEqual(lowFee);
