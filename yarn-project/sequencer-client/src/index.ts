@@ -11,8 +11,10 @@ export {
   type InboxEndpointResolver,
   PROTOCOL_INBOX_CONSUMPTION_CAPS,
   type StreamingMessageSource,
-  computeCompletionUpperBound,
-  resolveCompletionTarget,
+  getEndpointUpperBound,
+  getOrdinaryCeiling,
+  mustQueryEndpoint,
+  resolveEndpoint,
   selectOrdinaryMessageEnd,
-  shouldEnterMessageCompletion,
+  selectSafeLocalEnd,
 } from './sequencer/inbox_message_selection.js';

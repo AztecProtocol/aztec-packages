@@ -286,7 +286,7 @@ describe('NodePublicCallsSimulator', () => {
           depth: 16,
         });
       const leaves = (count: number) => Array.from({ length: count }, (_, i) => new Fr(i + 1));
-      const completionThreshold = MAX_L1_TO_L2_MSGS_PER_CHECKPOINT - MAX_L1_TO_L2_MSGS_PER_BLOCK;
+      const threshold = MAX_L1_TO_L2_MSGS_PER_CHECKPOINT - MAX_L1_TO_L2_MSGS_PER_BLOCK;
 
       beforeEach(() => {
         setupMidCheckpoint();
@@ -309,26 +309,25 @@ describe('NodePublicCallsSimulator', () => {
         );
       });
 
-      it('continues from the fork message total while the greedy end stays within the completion threshold', async () => {
+      it('continues from the fork message total and stops at the threshold', async () => {
         const tx = await lowGasTx();
-        const cursor = completionThreshold - MAX_L1_TO_L2_MSGS_PER_BLOCK;
+        // One message short of a full block below the threshold, so the threshold, not the per-block cap, ends it.
+        const cursor = threshold - MAX_L1_TO_L2_MSGS_PER_BLOCK + 1;
         forkSize(BigInt(cursor));
         const all = mockInboxMessages(leaves(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT));
 
         await simulator.simulate(tx);
 
-        // A greedy end exactly on the threshold is still an ordinary block.
         expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(
           MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-          all.slice(cursor, completionThreshold),
+          all.slice(cursor, threshold),
         );
       });
 
-      it('predicts nothing once the next block would enter message completion, whose end depends on L1', async () => {
+      it('predicts nothing once the cursor reaches the threshold, where the end depends on L1', async () => {
         const tx = await lowGasTx();
-        // One message past the threshold: the proposer resolves a live bucket end on L1 here instead of consuming
-        // greedily, and that end is not knowable from the local log alone.
-        forkSize(BigInt(completionThreshold - MAX_L1_TO_L2_MSGS_PER_BLOCK + 1));
+        // From the threshold on, the proposer's end comes from a live L1 bucket end this node does not read.
+        forkSize(BigInt(threshold));
         mockInboxMessages(leaves(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT));
 
         await expect(simulator.simulate(tx)).resolves.toBeDefined();

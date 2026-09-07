@@ -23,7 +23,7 @@ export const PROTOCOL_INBOX_CONSUMPTION_CAPS: InboxConsumptionCaps = {
   maxMessagesPerBucket: MAX_L1_TO_L2_MSGS_PER_BLOCK,
 };
 
-/** The Inbox contract read the completion step makes: the live bucket ending at or before a message total. */
+/** The Inbox contract read an endpoint block makes: the live bucket ending at or before a message total. */
 export type InboxEndpointResolver = Pick<InboxContract, 'getBucketAtOrBeforeTotal'>;
 
 /** The subset of the archiver's message queries streaming consumption needs. */
@@ -41,9 +41,33 @@ export function getCheckpointCapEnd(
 }
 
 /**
- * The end of an ordinary block's greedy message selection: every message the local archiver has observed, up to the
- * per-block cap and the checkpoint cap. No L1 call and no bucket boundary is involved; a block may end at any prefix
- * of the message sequence. Never below the cursor, so a block consuming nothing keeps its position.
+ * The threshold that separates local-only selection from one that must consult L1: the checkpoint cap less one
+ * bucket's worth of messages.
+ *
+ * A checkpoint's final position has to be a live L1 bucket end, and buckets hold at most `maxMessagesPerBucket`
+ * messages. While a block's end stays at or below this line the bucket the cursor lands in still ends within the cap
+ * and within one block's capacity, so no endpoint has been passed for good. A step above it may pass the last legal
+ * endpoint: with live bucket ends 444, 700, 800 and 1056 and a cap of 1024, ends 256, 512 and 700 are fine, but a
+ * step to 956 could leave 800 behind. With a cap of 1024 and buckets of 256 the threshold is the checkpoint start
+ * plus 768.
+ */
+export function getOrdinaryCeiling(
+  checkpointStartCount: bigint,
+  caps: Pick<InboxConsumptionCaps, 'perCheckpointCap' | 'maxMessagesPerBucket'>,
+): bigint {
+  if (caps.perCheckpointCap < caps.maxMessagesPerBucket) {
+    throw new Error(
+      `Inbox checkpoint cap ${caps.perCheckpointCap} is below the bucket size ${caps.maxMessagesPerBucket}`,
+    );
+  }
+  return getCheckpointCapEnd(checkpointStartCount, caps) - BigInt(caps.maxMessagesPerBucket);
+}
+
+/**
+ * The end of a block's greedy message selection: every message the local archiver has observed, up to the per-block
+ * and checkpoint caps. No L1 call and no bucket boundary is involved; a block may end at any prefix of the message
+ * sequence. Never below the cursor, so a block consuming nothing keeps its position. This is the *prospective* end:
+ * whether the block may take it without consulting L1 is {@link mustQueryEndpoint}.
  */
 export function selectOrdinaryMessageEnd(input: {
   cursorCount: bigint;
@@ -61,90 +85,94 @@ export function selectOrdinaryMessageEnd(input: {
 }
 
 /**
- * Whether a prospective greedy end would cross the last bucket-sized portion of the checkpoint's message capacity,
- * so the checkpoint must enter message completion before signing it.
- *
- * A checkpoint's final position has to be a live L1 bucket end, and buckets hold at most `maxMessagesPerBucket`
- * messages. A cursor at or below `capEnd - maxMessagesPerBucket` therefore always has the end of the bucket it sits
- * in within the cap; a cursor past that line may not, and a greedy step can pass the last legal endpoint for good.
- * With live bucket ends 444, 700, 800 and 1056 and a cap of 1024, greedy ends 256, 512 and 700 are fine, but the
- * next greedy step to 956 would leave 800 as the last reachable endpoint behind, so completion must select 800
- * first. The threshold is a fixed function of the protocol caps: with a cap of 1024 and buckets of 256 it is the
- * checkpoint start plus 768.
+ * The furthest a block may advance on the local log alone without risking the checkpoint's last legal endpoint: the
+ * greedy end held down to the threshold. A block whose endpoint lookup fails or resolves short of this still takes
+ * it, since ending at or below the threshold always leaves one bucket of checkpoint capacity in reserve.
  */
-export function shouldEnterMessageCompletion(input: {
-  prospectiveGreedyEnd: bigint;
-  checkpointStartCount: bigint;
-  caps: Pick<InboxConsumptionCaps, 'perCheckpointCap' | 'maxMessagesPerBucket'>;
-}): boolean {
-  const { prospectiveGreedyEnd, checkpointStartCount, caps } = input;
-  if (caps.perCheckpointCap < caps.maxMessagesPerBucket) {
-    throw new Error(
-      `Inbox checkpoint cap ${caps.perCheckpointCap} is below the bucket size ${caps.maxMessagesPerBucket}`,
-    );
-  }
-  const safeGreedyEnd = getCheckpointCapEnd(checkpointStartCount, caps) - BigInt(caps.maxMessagesPerBucket);
-  return prospectiveGreedyEnd > safeGreedyEnd;
-}
-
-/**
- * The highest message total a checkpoint entering completion may end at: what the local archiver has observed, what
- * the remaining scheduled blocks can carry, and the checkpoint cap. `remainingScheduledBlocks` counts the block about
- * to be built and only blocks the timetable and configuration still permit; the L1 censorship cap escape is not a
- * local scheduling limit, so a mandatory backlog that fits the cap but not the remaining schedule fails later at the
- * publication preflight.
- */
-export function computeCompletionUpperBound(input: {
+export function selectSafeLocalEnd(input: {
   cursorCount: bigint;
   localSyncedCount: bigint;
   checkpointStartCount: bigint;
-  remainingScheduledBlocks: number;
-  caps: Pick<InboxConsumptionCaps, 'perBlockCap' | 'perCheckpointCap'>;
+  caps: Pick<InboxConsumptionCaps, 'perBlockCap' | 'perCheckpointCap' | 'maxMessagesPerBucket'>;
 }): bigint {
-  const { cursorCount, localSyncedCount, checkpointStartCount, remainingScheduledBlocks, caps } = input;
-  const remainingMessageCapacity = BigInt(Math.max(remainingScheduledBlocks, 0)) * BigInt(caps.perBlockCap);
-  return minBigint(
+  const { cursorCount, localSyncedCount, checkpointStartCount, caps } = input;
+  const end = minBigint(
     localSyncedCount,
-    cursorCount + remainingMessageCapacity,
-    getCheckpointCapEnd(checkpointStartCount, caps),
+    cursorCount + BigInt(caps.perBlockCap),
+    getOrdinaryCeiling(checkpointStartCount, caps),
   );
+  return end < cursorCount ? cursorCount : end;
 }
 
-/** Why a completion target could not be established from the cursor and the local view. */
-export type CompletionTargetFailureReason =
+/**
+ * Whether this block has to resolve a live L1 bucket end before selecting its range: either it is the checkpoint's
+ * final block, whose position must be such an end, or its prospective greedy end would pass the threshold. The test
+ * is on the prospective end after the per-block cap, not on the cursor: from a cursor of 700 a step to 956 already
+ * needs the lookup, while a large backlog from a low cursor does not.
+ */
+export function mustQueryEndpoint(input: {
+  prospectiveEnd: bigint;
+  checkpointStartCount: bigint;
+  isFinalBlock: boolean;
+  caps: Pick<InboxConsumptionCaps, 'perCheckpointCap' | 'maxMessagesPerBucket'>;
+}): boolean {
+  const { prospectiveEnd, checkpointStartCount, isFinalBlock, caps } = input;
+  return isFinalBlock || prospectiveEnd > getOrdinaryCeiling(checkpointStartCount, caps);
+}
+
+/**
+ * The highest message total an endpoint lookup may return: what the local archiver has observed and the checkpoint
+ * cap. A non-final block takes the checkpoint-wide bound even though it can only consume one block's worth toward
+ * the result, so that a mandatory bucket beyond its own reach is not stranded by a nearer endpoint; the final block,
+ * which has to land on the endpoint, is additionally bounded by what it alone can carry.
+ */
+export function getEndpointUpperBound(input: {
+  cursorCount: bigint;
+  localSyncedCount: bigint;
+  checkpointStartCount: bigint;
+  isFinalBlock: boolean;
+  caps: Pick<InboxConsumptionCaps, 'perBlockCap' | 'perCheckpointCap'>;
+}): bigint {
+  const { cursorCount, localSyncedCount, checkpointStartCount, isFinalBlock, caps } = input;
+  const bound = minBigint(localSyncedCount, getCheckpointCapEnd(checkpointStartCount, caps));
+  return isFinalBlock ? minBigint(bound, cursorCount + BigInt(caps.perBlockCap)) : bound;
+}
+
+/** Why a checkpoint endpoint could not be established from the cursor and the local view. */
+export type EndpointFailureReason =
   | 'no_live_endpoint'
   | 'endpoint_behind_cursor'
   | 'endpoint_unavailable_locally'
   | 'local_prefix_changed'
   | 'endpoint_hash_mismatch';
 
-/** A completion target: the live L1 bucket end the checkpoint will consume through, authenticated locally. */
-export type CompletionTarget = {
+/** A checkpoint endpoint: the live L1 bucket end a block consumes through, authenticated locally. */
+export type ResolvedEndpoint = {
   /** The message position at the bucket end, as the local archiver holds it. */
-  target: InboxMessagePosition;
+  endpoint: InboxMessagePosition;
   /** Sequence of the live bucket ending there, the unsigned hint `propose` takes. */
   bucketSeq: bigint;
-  /** The messages from the cursor to the target, read from the same snapshot as the target's hash. */
+  /** The messages from the cursor to the endpoint, read from the same snapshot as the endpoint's hash. */
   range: InboxMessageRange;
 };
 
-export type CompletionTargetResolution =
-  | ({ ok: true } & CompletionTarget)
-  | { ok: false; reason: CompletionTargetFailureReason; upperBound: bigint; endpointTotal?: bigint };
+export type EndpointResolution =
+  | ({ ok: true } & ResolvedEndpoint)
+  | { ok: false; reason: EndpointFailureReason; upperBound: bigint; endpointTotal?: bigint };
 
 /**
  * Resolves the live L1 bucket end at or below `upperBound` and authenticates it against the local message log in
  * one snapshot: the range from the cursor to the endpoint must start at the cursor's hash and end at the bucket's.
- * This is the single Inbox call message completion makes. It establishes a reachable, content-matching endpoint
+ * This is the single Inbox call an endpoint block makes. It establishes a reachable, content-matching endpoint
  * within the local and protocol count limits; whether that endpoint satisfies L1's settlement and censorship rules
  * is left to the integrated publication preflight and to `propose`, so no bucket metadata is fetched beyond it.
  */
-export async function resolveCompletionTarget(input: {
+export async function resolveEndpoint(input: {
   inbox: InboxEndpointResolver;
   messageSource: Pick<StreamingMessageSource, 'getL1ToL2MessageRange'>;
   cursor: InboxMessagePosition;
   upperBound: bigint;
-}): Promise<CompletionTargetResolution> {
+}): Promise<EndpointResolution> {
   const { inbox, messageSource, cursor, upperBound } = input;
   const found = await inbox.getBucketAtOrBeforeTotal(upperBound);
   if (found === undefined) {
@@ -166,5 +194,5 @@ export async function resolveCompletionTarget(input: {
   if (!range.end.rollingHash.equals(found.bucket.rollingHash)) {
     return { ok: false, reason: 'endpoint_hash_mismatch', upperBound, endpointTotal };
   }
-  return { ok: true, target: range.end, bucketSeq: found.seq, range };
+  return { ok: true, endpoint: range.end, bucketSeq: found.seq, range };
 }

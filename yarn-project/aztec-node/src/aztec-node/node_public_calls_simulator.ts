@@ -14,8 +14,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import {
   PROTOCOL_INBOX_CONSUMPTION_CAPS,
   type StreamingMessageSource,
-  selectOrdinaryMessageEnd,
-  shouldEnterMessageCompletion,
+  selectSafeLocalEnd,
 } from '@aztec/sequencer-client';
 import { type AvmSimulator, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
@@ -244,12 +243,12 @@ export class NodePublicCallsSimulator {
   /**
    * Appends the L1-to-L2 messages the next block would consume to the simulation fork, so a transaction consuming
    * a message that has reached the Inbox but no block yet simulates against the state it will run in. Runs the same
-   * pure ordinary selection the sequencer runs: every message the archiver has observed, up to the per-block and
-   * per-checkpoint caps, with no L1 call.
+   * local-only part of the sequencer's selection: every message the archiver has observed, up to the per-block cap
+   * and the threshold one bucket below the checkpoint cap.
    *
-   * When that greedy step would cross the last bucket-sized portion of checkpoint capacity, the proposer enters
-   * message completion and ends its block at a live L1 bucket end this node cannot know without an L1 query, so the
-   * prediction stops at the tip rather than guess.
+   * This is a lower bound, not the sequencer's choice. Above that threshold, and on a checkpoint's final block, the
+   * sequencer's end depends on a live L1 bucket end it reads from the Inbox and this node does not, so the
+   * prediction stops where the local log alone is authoritative.
    *
    * Best-effort. Any failure, such as messages not synced yet or a torn archiver snapshot, leaves the fork at the
    * tip state, which is what the transaction sees if the next block consumes nothing.
@@ -277,16 +276,8 @@ export class NodePublicCallsSimulator {
 
       const caps = PROTOCOL_INBOX_CONSUMPTION_CAPS;
       const localSyncedCount = (await this.l1ToL2MessageSource.getSyncedMessagePosition()).totalMessageCount;
-      const greedyEnd = selectOrdinaryMessageEnd({ cursorCount, localSyncedCount, checkpointStartCount, caps });
+      const greedyEnd = selectSafeLocalEnd({ cursorCount, localSyncedCount, checkpointStartCount, caps });
       if (greedyEnd <= cursorCount) {
-        return;
-      }
-      if (shouldEnterMessageCompletion({ prospectiveGreedyEnd: greedyEnd, checkpointStartCount, caps })) {
-        this.log.debug(`Next block would enter Inbox message completion; simulating against the tip`, {
-          cursorCount,
-          localSyncedCount,
-          checkpointStartCount,
-        });
         return;
       }
 

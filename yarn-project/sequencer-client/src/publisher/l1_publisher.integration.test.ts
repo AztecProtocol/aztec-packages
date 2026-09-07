@@ -99,8 +99,8 @@ import { foundry } from 'viem/chains';
 import { type SequencerClientConfig, getConfigEnvVars } from '../config.js';
 import {
   PROTOCOL_INBOX_CONSUMPTION_CAPS,
-  computeCompletionUpperBound,
-  resolveCompletionTarget,
+  getEndpointUpperBound,
+  resolveEndpoint,
 } from '../sequencer/inbox_message_selection.js';
 import { sendL1ToL2Message } from './l1_to_l2_messaging.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -609,17 +609,17 @@ describe('L1Publisher integration', () => {
           new GasFees(0, await rollup.getManaMinFeeAt(timestamp, true)),
         );
 
-        // Reuse the production completion step: this single-block checkpoint must end at a live bucket, so resolve the
+        // Reuse the production endpoint step: this single-block checkpoint must end at a live bucket, so resolve the
         // latest bucket end within one block's reach and consume every message up to it.
         const cursor = (await messageSource.getMessagePosition(consumedTotal))!;
-        const upperBound = computeCompletionUpperBound({
+        const upperBound = getEndpointUpperBound({
           cursorCount: consumedTotal,
           localSyncedCount: (await messageSource.getSyncedMessagePosition()).totalMessageCount,
           checkpointStartCount: consumedTotal,
-          remainingScheduledBlocks: 1,
+          isFinalBlock: true,
           caps: PROTOCOL_INBOX_CONSUMPTION_CAPS,
         });
-        const completion = await resolveCompletionTarget({ inbox, messageSource, cursor, upperBound });
+        const completion = await resolveEndpoint({ inbox, messageSource, cursor, upperBound });
         if (!completion.ok) {
           throw new Error(`Cannot complete checkpoint ${i + 1} at a live Inbox bucket: ${completion.reason}`);
         }
@@ -635,7 +635,7 @@ describe('L1Publisher integration', () => {
         );
         previousInboxRollingHash = checkpoint.header.inboxRollingHash;
         const block = checkpoint.blocks[0];
-        consumedTotal = completion.target.totalMessageCount;
+        consumedTotal = completion.endpoint.totalMessageCount;
 
         const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
         expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());

@@ -1508,6 +1508,16 @@ describe('CheckpointProposalJob', () => {
       spy.mockReturnValue(noSubslot());
       jest.spyOn(job.getTimetable(), 'getMaxBlocksPerCheckpoint').mockReturnValue(count);
     };
+    /** Mocks `startable` sub-slots out of `maxBlocks`, so the loop runs out of time before the final one. */
+    const mockSubslotsRunningOut = (startable: number, maxBlocks: number) => {
+      const spy = jest.spyOn(job.getTimetable(), 'selectNextSubslot');
+      for (let i = 0; i < startable; i++) {
+        spy.mockReturnValueOnce(subslot(10 + 8 * i, i, false));
+      }
+      spy.mockReturnValue(noSubslot());
+      jest.spyOn(job.getTimetable(), 'getMaxBlocksPerCheckpoint').mockReturnValue(maxBlocks);
+      job.updateConfig({ maxBlocksPerCheckpoint: maxBlocks });
+    };
     /** Runs `fn` after the `afterBlock`-th block has been built, from the wait for the next sub-slot. */
     const betweenBlocks = (afterBlock: number, fn: () => void) => {
       let waits = 0;
@@ -1591,99 +1601,11 @@ describe('CheckpointProposalJob', () => {
       expect(publisher.enqueueProposeCheckpoint.mock.calls[0][3]).toBe(2n);
     });
 
-    it('enters completion before crossing start + 768 and selects 868 rather than signing 1024', async () => {
-      // Live bucket ends 100/356/612/868/1124 with the whole backlog observed. Greedy blocks reach 256, 512 and
-      // 768; the next greedy step (1024) would pass the last legal endpoint, so completion selects 868 instead.
-      mockSubslots(4);
-      job.updateConfig({ maxBlocksPerCheckpoint: 4 });
-      streamingInbox.set(leaves(1124), [100n, 356n, 612n, 868n, 1124n]);
-
-      const { lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]);
-      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
-
-      const checkpoint = await job.executeAndAwait();
-
-      expect(checkpoint).toBeDefined();
-      expect(bundleLengths()).toEqual([256, 256, 256, 100]);
-      expect(signedPrefixes()).toEqual([prefixAt(256), prefixAt(512), prefixAt(768), prefixAt(868)]);
-      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
-      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(1024n);
-      expect(preflightTotals()).toEqual([868n, 868n]);
-    });
-
-    it('selects 800 rather than signing 956 after partial blocks reached 700 for live ends 444/700/800/1056', async () => {
-      // The archiver lags at 700 for three blocks (greedy ends 256, 512, 700) and then catches up to 1056. The
-      // next greedy step would be 956, past the last legal endpoint 800, so completion selects 800.
-      mockSubslots(4);
-      job.updateConfig({ maxBlocksPerCheckpoint: 4 });
-      streamingInbox.set(leaves(700), [444n, 700n]);
-      betweenBlocks(3, () => {
-        streamingInbox.append(leaves(100, 701), { closeBucket: true });
-        streamingInbox.append(leaves(256, 801), { closeBucket: true });
-      });
-
-      const { lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]);
-      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
-
-      const checkpoint = await job.executeAndAwait();
-
-      expect(checkpoint).toBeDefined();
-      expect(bundleLengths()).toEqual([256, 256, 188, 100]);
-      expect(signedPrefixes().at(-1)).toEqual(prefixAt(800));
-      // One remaining block bounds the query at 700 + 256.
-      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
-      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(956n);
-    });
-
-    it('pins the completion threshold strictly above start + 768', async () => {
-      // Records how many blocks had been built when the Inbox was queried, i.e. which block entered completion.
-      const blocksBuiltAtInboxQuery: number[] = [];
-      const resolveEndpoint = inbox.getBucketAtOrBeforeTotal.getMockImplementation()!;
-      inbox.getBucketAtOrBeforeTotal.mockImplementation(upperBound => {
-        blocksBuiltAtInboxQuery.push(checkpointBuilder.buildBlockCalls.length);
-        return resolveEndpoint(upperBound);
-      });
-
-      // A third-block greedy end of exactly 768 stays ordinary: the Inbox is only queried by the final (fourth)
-      // block, which completes at the tip.
-      mockSubslots(4);
-      job.updateConfig({ maxBlocksPerCheckpoint: 4 });
-      streamingInbox.set(leaves(768));
-      let { lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]);
-      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
-
-      await job.executeAndAwait();
-
-      expect(bundleLengths()).toEqual([256, 256, 256, 0]);
-      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(768n);
-      expect(blocksBuiltAtInboxQuery).toEqual([3]);
-
-      jest.restoreAllMocks();
-      inbox.getBucketAtOrBeforeTotal.mockClear();
-      blocksBuiltAtInboxQuery.length = 0;
-      job = createCheckpointProposalJob();
-      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 3000 }));
-      checkpointBuilder.reset();
-      mockSubslots(4);
-      job.updateConfig({ maxBlocksPerCheckpoint: 4 });
-      // One message past the line: the fourth block's prospective greedy end (769) crosses it, so that block enters
-      // completion instead of consuming greedily and resolves the endpoint at the tip.
-      streamingInbox.set(leaves(769));
-      ({ lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]));
-      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
-
-      await job.executeAndAwait();
-
-      expect(bundleLengths()).toEqual([256, 256, 256, 1]);
-      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(769n);
-      expect(blocksBuiltAtInboxQuery).toEqual([3]);
-    });
-
-    it('consumes toward a completion target across several blocks, one block cap at a time', async () => {
-      // The archiver holds 700 messages for three blocks (greedy ends 256, 512, 700), then catches up to 1300 with
-      // live ends at 956, 1000, 1256 and 1300. The fourth block's prospective greedy end (956) crosses the line, so
-      // completion resolves the highest live end two blocks can reach (1000) and consumes toward it in per-block
-      // chunks.
+    it('consumes a full block toward the endpoint instead of stopping at the threshold', async () => {
+      // The archiver lags at 700 for three blocks (greedy ends 256, 512, 700) and then catches up to 1300, with live
+      // ends 956, 1000, 1256 and 1300. Block 4's greedy end (956) passes the threshold, so it resolves the endpoint
+      // within the checkpoint cap (1000) and consumes a full block toward it, ending inside the bucket that ends at
+      // 1000. Block 5 is final and finishes on 1000.
       mockSubslots(5);
       job.updateConfig({ maxBlocksPerCheckpoint: 5 });
       streamingInbox.set(leaves(700), [256n, 512n, 700n]);
@@ -1702,17 +1624,51 @@ describe('CheckpointProposalJob', () => {
       expect(checkpoint).toBeDefined();
       expect(bundleLengths()).toEqual([256, 256, 188, 256, 44]);
       expect(signedPrefixes().slice(-2)).toEqual([prefixAt(956), prefixAt(1000)]);
-      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
-      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(1024n);
+      // Block 4 asks for the whole checkpoint cap; block 5, being final, only for what it can carry.
+      expect(inbox.getBucketAtOrBeforeTotal.mock.calls.map(call => call[0])).toEqual([1024n, 1024n]);
       expect(preflightTotals()).toEqual([1000n, 1000n]);
     });
 
-    it('freezes consumption once the completion target is reached, even as more messages arrive', async () => {
+    it('takes the safe local step when the resolved endpoint is behind the cursor on a non-final block', async () => {
+      // The bucket the cursor sits in ends at 1000, which the archiver has not synced, so nothing above 700 resolves
+      // within the bound. The block still advances to the threshold rather than consuming nothing.
       mockSubslots(5);
       job.updateConfig({ maxBlocksPerCheckpoint: 5 });
-      streamingInbox.set(leaves(1000), [256n, 512n, 768n, 1000n]);
-      // New messages land after the target is reached; the frozen checkpoint ignores them.
-      betweenBlocks(4, () => streamingInbox.append(leaves(100, 1001), { closeBucket: true }));
+      streamingInbox.set(leaves(700), [256n, 512n, 700n]);
+      betweenBlocks(3, () => {
+        streamingInbox.append(leaves(200, 701), { closeBucket: false });
+        streamingInbox.setBucketEnds([256n, 512n, 1000n]);
+      });
+      const blocksBuiltAtInboxQuery: number[] = [];
+      const resolveBucket = inbox.getBucketAtOrBeforeTotal.getMockImplementation()!;
+      inbox.getBucketAtOrBeforeTotal.mockImplementation(upperBound => {
+        blocksBuiltAtInboxQuery.push(checkpointBuilder.buildBlockCalls.length);
+        return resolveBucket(upperBound);
+      });
+
+      const { lastBlock } = await setupMultipleBlocks(5, [1, 1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      await job.executeAndAwait();
+
+      expect(bundleLengths().slice(0, 4)).toEqual([256, 256, 188, 68]);
+      // The fourth block did consult L1; its endpoint was simply not usable, so it took the safe local step.
+      expect(blocksBuiltAtInboxQuery[0]).toEqual(3);
+      expect(signedPrefixes()[3]).toEqual(prefixAt(768));
+    });
+
+    it('splits a bucket on a block that consulted L1, then finishes the checkpoint on the next one', async () => {
+      // Live ends 750, 1006 and 1024 above the cursor. A block bounded by its own reach would pick 750 and strand
+      // the bucket ending at 1024; the checkpoint-wide bound lets block 4 take a full block into the 1006 bucket and
+      // block 5 finish at 1024.
+      mockSubslots(5);
+      job.updateConfig({ maxBlocksPerCheckpoint: 5 });
+      streamingInbox.set(leaves(700), [256n, 512n, 700n]);
+      betweenBlocks(3, () => {
+        streamingInbox.append(leaves(50, 701), { closeBucket: true });
+        streamingInbox.append(leaves(256, 751), { closeBucket: true });
+        streamingInbox.append(leaves(18, 1007), { closeBucket: true });
+      });
 
       const { lastBlock } = await setupMultipleBlocks(5, [1, 1, 1, 1, 1]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
@@ -1720,13 +1676,242 @@ describe('CheckpointProposalJob', () => {
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
-      // Greedy to 768, completion selects 1000 (queried with two blocks of capacity left), consumed in one chunk,
-      // then frozen.
-      expect(bundleLengths()).toEqual([256, 256, 256, 232, 0]);
-      expect(signedPrefixes().slice(-2)).toEqual([prefixAt(1000), prefixAt(1000)]);
+      expect(bundleLengths()).toEqual([256, 256, 188, 256, 68]);
+      // Block 4 ends mid-bucket at 956 and signs the hash there, not the resolved endpoint's at 1024.
+      expect(signedPrefixes().slice(-2)).toEqual([prefixAt(956), prefixAt(1024)]);
+      expect(preflightTotals()).toEqual([1024n, 1024n]);
+    });
+
+    it('does not consult L1 while a large backlog is consumed in steps below the threshold', async () => {
+      // Everything is observed from the first block, but blocks 1..3 end at 256, 512 and 768, none of them above the
+      // threshold, so only the final block resolves an endpoint.
+      mockSubslots(4);
+      job.updateConfig({ maxBlocksPerCheckpoint: 4 });
+      streamingInbox.set(leaves(1124), [100n, 356n, 612n, 868n, 1124n]);
+      const blocksBuiltAtInboxQuery: number[] = [];
+      const resolveBucket = inbox.getBucketAtOrBeforeTotal.getMockImplementation()!;
+      inbox.getBucketAtOrBeforeTotal.mockImplementation(upperBound => {
+        blocksBuiltAtInboxQuery.push(checkpointBuilder.buildBlockCalls.length);
+        return resolveBucket(upperBound);
+      });
+
+      const { lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      await job.executeAndAwait();
+
+      expect(bundleLengths()).toEqual([256, 256, 256, 100]);
+      expect(blocksBuiltAtInboxQuery).toEqual([3]);
+    });
+
+    it('stops at the last endpoint within the cap rather than signing the greedy 1024', async () => {
+      // Live ends 100/356/612/868/1124 with the whole backlog observed: 1124 is past the cap, so the checkpoint ends
+      // at 868 and the sub-slots after it consume nothing.
+      mockSubslots(5);
+      job.updateConfig({ maxBlocksPerCheckpoint: 5 });
+      streamingInbox.set(leaves(1124), [100n, 356n, 612n, 868n, 1124n]);
+
+      const { lastBlock } = await setupMultipleBlocks(5, [1, 1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 256, 100, 0]);
+      expect(signedPrefixes().slice(-2)).toEqual([prefixAt(868), prefixAt(868)]);
+      expect(preflightTotals()).toEqual([868n, 868n]);
+    });
+
+    it('ends the final block on the endpoint even when the safe local step reaches further', async () => {
+      // The archiver holds 500 messages but only 300 of them are in closed buckets. The final block's safe local
+      // step would take all 500, which is not a live bucket end and cannot be published; it must take 300.
+      mockSubslots(2);
+      job.updateConfig({ maxBlocksPerCheckpoint: 2 });
+      streamingInbox.set(leaves(500), [300n]);
+
+      const { lastBlock } = await setupMultipleBlocks(2, [1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 44]);
+      expect(signedPrefixes().at(-1)).toEqual(prefixAt(300));
+      expect(preflightTotals()).toEqual([300n, 300n]);
+    });
+
+    it('selects 800 rather than signing 956 after partial blocks reached 700 for live ends 444/700/800/1056', async () => {
+      // The archiver lags at 700 for three blocks (greedy ends 256, 512, 700) and then catches up to 1056. The
+      // final block's lookup is bounded by what it alone can carry, so it takes 800, not 1056.
+      mockSubslots(4);
+      job.updateConfig({ maxBlocksPerCheckpoint: 4 });
+      streamingInbox.set(leaves(700), [444n, 700n]);
+      betweenBlocks(3, () => {
+        streamingInbox.append(leaves(100, 701), { closeBucket: true });
+        streamingInbox.append(leaves(256, 801), { closeBucket: true });
+      });
+
+      const { lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 188, 100]);
+      expect(signedPrefixes().at(-1)).toEqual(prefixAt(800));
       expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
-      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(1000n);
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledWith(956n);
+    });
+
+    it('clears a full backlog by the fourth block and consumes nothing in the sub-slots after it', async () => {
+      // Live ends 256/512/768/1000 with 1300 observed. Block 4's greedy end (1024) passes the threshold, so it
+      // resolves 1000 and lands on it; the checkpoint is publishable from there on.
+      mockSubslots(8);
+      job.updateConfig({ maxBlocksPerCheckpoint: 8 });
+      streamingInbox.set(leaves(1300), [256n, 512n, 768n, 1000n]);
+
+      const { lastBlock } = await setupMultipleBlocks(8, [1, 1, 1, 1, 1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 256, 232, 0, 0, 0, 0]);
+      expect(signedPrefixes().slice(-5)).toEqual(Array(5).fill(prefixAt(1000)));
+      // Past the threshold every later block resolves again; none of them can advance beyond 1000.
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(5);
       expect(preflightTotals()).toEqual([1000n, 1000n]);
+    });
+
+    it('publishes the full backlog even when the blocks after the crossing block are lost', async () => {
+      mockSubslots(8);
+      job.updateConfig({ maxBlocksPerCheckpoint: 8 });
+      streamingInbox.set(leaves(1300), [256n, 512n, 768n, 1000n]);
+      betweenBlocks(4, () => (checkpointBuilder.errorOnBuild = new Error('builder unavailable')));
+
+      const { lastBlock } = await setupMultipleBlocks(8, [1, 1, 1, 1, 1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(preflightTotals()).toEqual([1000n, 1000n]);
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+    });
+
+    it('treats the block that reaches the checkpoint block cap as the final block', async () => {
+      // Eight sub-slots on the timetable but only four blocks allowed: the fourth has to land on a live bucket end.
+      mockSubslots(8);
+      job.updateConfig({ maxBlocksPerCheckpoint: 4 });
+      streamingInbox.set(leaves(900), [256n, 512n, 868n]);
+
+      const { lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 256, 100]);
+      expect(preflightTotals()).toEqual([868n, 868n]);
+    });
+
+    it('builds a forced tx-less block to end the checkpoint when the timetable runs out', async () => {
+      // Three sub-slots are configured but only two can start: the second block's completion overruns, so the
+      // cursor is left at 512 with no block having landed on a live bucket end.
+      mockSubslotsRunningOut(2, 3);
+      // Before the ideal last-block build time, so the forced block gets that deadline rather than the hard stop.
+      dateProvider.setTime((job.getTimetable().getLastBlockBuildTime(SlotNumber(newSlotNumber)) - 1) * 1000);
+      streamingInbox.set(leaves(700), [256n, 512n, 700n]);
+
+      const { lastBlock } = await setupMultipleBlocks(3, [1, 1, 0]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 188]);
+      expect(signedPrefixes().at(-1)).toEqual(prefixAt(700));
+      expect(preflightTotals()).toEqual([700n, 700n]);
+      // The forced block is bounded by the proposer's last-block build time, never by the attestation deadline.
+      const forcedDeadline = checkpointBuilder.buildBlockCalls[2].opts.deadline;
+      expect(forcedDeadline).toEqual(
+        new Date(job.getTimetable().getLastBlockBuildTime(SlotNumber(newSlotNumber)) * 1000),
+      );
+      expect(forcedDeadline!.getTime()).toBeLessThan(
+        job.getTimetable().getAttestationDeadline(SlotNumber(newSlotNumber)) * 1000,
+      );
+    });
+
+    it('builds the forced block after a block that consulted L1 and ended inside a bucket', async () => {
+      // Block 4 crosses the threshold and stops at 956, inside the bucket that ends at 1006; having consulted L1 is
+      // not the same as having ended on an endpoint, so the tail still has to be built.
+      mockSubslotsRunningOut(4, 5);
+      streamingInbox.set(leaves(700), [256n, 512n, 700n]);
+      betweenBlocks(3, () => {
+        streamingInbox.append(leaves(50, 701), { closeBucket: true });
+        streamingInbox.append(leaves(256, 751), { closeBucket: true });
+        streamingInbox.append(leaves(18, 1007), { closeBucket: true });
+      });
+
+      const { lastBlock } = await setupMultipleBlocks(5, [1, 1, 1, 1, 0]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 188, 256, 68]);
+      expect(signedPrefixes().at(-1)).toEqual(prefixAt(1024));
+      expect(preflightTotals()).toEqual([1024n, 1024n]);
+    });
+
+    it('builds the forced block after an ordinary block that consumed nothing', async () => {
+      // Block 3 builds on txs alone with nothing new to consume, so the cursor is still at the unaligned 512 when
+      // the schedule runs out. The endpoint that closes at 700 only becomes visible afterwards.
+      mockSubslotsRunningOut(3, 4);
+      streamingInbox.set(leaves(512), [256n, 512n]);
+      betweenBlocks(3, () => streamingInbox.append(leaves(188, 513), { closeBucket: true }));
+
+      const { lastBlock } = await setupMultipleBlocks(4, [1, 1, 1, 0]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 0, 188]);
+      expect(signedPrefixes().at(-1)).toEqual(prefixAt(700));
+      expect(preflightTotals()).toEqual([700n, 700n]);
+    });
+
+    it('builds no forced block when the cursor already sits on a live endpoint', async () => {
+      mockSubslotsRunningOut(3, 4);
+      streamingInbox.set(leaves(700), [256n, 512n, 700n]);
+
+      const { lastBlock } = await setupMultipleBlocks(3, [1, 1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(bundleLengths()).toEqual([256, 256, 188]);
+      // The tail check still resolves once; it just finds nothing to build.
+      expect(inbox.getBucketAtOrBeforeTotal).toHaveBeenCalledTimes(1);
+      expect(preflightTotals()).toEqual([700n, 700n]);
+    });
+
+    it('abandons the checkpoint when the forced block finds no live endpoint above the cursor', async () => {
+      // Only one closed bucket, at 256; the blocks consumed past it and nothing above the cursor is live.
+      mockSubslotsRunningOut(2, 3);
+      streamingInbox.set(leaves(700), [256n]);
+
+      const { lastBlock } = await setupMultipleBlocks(2, [1, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeUndefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('inbox_completion_unresolved');
     });
 
     it('abandons the checkpoint when the final block cannot complete at a live endpoint', async () => {

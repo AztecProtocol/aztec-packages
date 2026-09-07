@@ -1,6 +1,6 @@
 import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { SimulationOverridesBuilder, type SimulationOverridesPlan } from '@aztec/ethereum/contracts';
-import { minBigint } from '@aztec/foundation/bigint';
+import { maxBigint, minBigint } from '@aztec/foundation/bigint';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -85,13 +85,13 @@ import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
 import {
-  type CompletionTarget,
   type InboxEndpointResolver,
   PROTOCOL_INBOX_CONSUMPTION_CAPS,
-  computeCompletionUpperBound,
-  resolveCompletionTarget,
+  getEndpointUpperBound,
+  mustQueryEndpoint,
+  resolveEndpoint,
   selectOrdinaryMessageEnd,
-  shouldEnterMessageCompletion,
+  selectSafeLocalEnd,
 } from './inbox_message_selection.js';
 import type { SequencerMetrics } from './metrics.js';
 import type { RequestsTracker } from './requests_tracker.js';
@@ -101,8 +101,11 @@ import { SequencerState } from './utils.js';
 /** How much time to sleep while waiting for min transactions to accumulate for a block */
 const TXS_POLLING_MS = 500;
 const ARCHIVER_SYNC_POLLING_MS = 200;
-/** Cap on the single Inbox endpoint read message completion makes, well under a sub-slot. */
+/** Cap on the Inbox endpoint read a block makes near the checkpoint cap, well under a sub-slot. */
 const INBOX_ENDPOINT_READ_TIMEOUT_MS = 2_000;
+
+/** An empty transaction stream, for a block built over Inbox messages alone. */
+async function* noTransactions(): AsyncGenerator<Tx> {}
 
 /** An integrated preflight did not deliver a usable verdict before the deadline of the phase it serves. */
 class PreflightDeadlineError extends Error {
@@ -137,22 +140,15 @@ type CheckpointProposalResult = {
 
 /**
  * Running state of streaming Inbox message consumption across the blocks of one checkpoint. Consumption starts from
- * the parent checkpoint's consumed message prefix and advances one block at a time: ordinary blocks greedily take
- * every message the local archiver has observed, and once a completion trigger fires the remaining blocks consume
- * toward a live L1 bucket end and then freeze.
+ * the parent checkpoint's consumed message prefix and advances one block at a time, greedily on the local log while
+ * the step stays clear of the checkpoint cap and against a live L1 bucket end once it does not. Nothing about the
+ * endpoint is retained between blocks: every attempt decides again from the cursor and the current view.
  */
 type StreamingCheckpointState = {
   /** Cumulative Inbox message count consumed as of the parent checkpoint; the per-checkpoint cap origin (fixed). */
   checkpointStartTotalMsgCount: bigint;
   /** The message prefix consumed so far (the parent checkpoint's at the first block); advances as blocks consume. */
   cursor: InboxMessagePosition;
-  /**
-   * Set once message completion has selected its target: the live bucket end the remaining blocks consume toward.
-   * Selecting it is the one L1 endpoint query a checkpoint makes while building.
-   */
-  completion?: Pick<CompletionTarget, 'target' | 'bucketSeq'>;
-  /** Whether the cursor has reached the completion target; later blocks re-sign the cursor and consume nothing. */
-  consumptionComplete: boolean;
 };
 
 /** What a block's streaming message selection decided. */
@@ -1073,7 +1069,7 @@ export class CheckpointProposalJob implements Traceable {
           checkpoint,
           proposal: undefined!,
           blockProposedAt: this.dateProvider.now(),
-          bucketHint: streamingState.completion?.bucketSeq ?? 0n,
+          bucketHint: 0n,
           streamingState,
         };
       }
@@ -1177,6 +1173,9 @@ export class CheckpointProposalJob implements Traceable {
 
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
     let blockPendingBroadcast: BlockProposal | undefined = undefined;
+    // Streaming Inbox: the loop ran out of sub-slots rather than finishing the checkpoint, so the cursor may be
+    // sitting at a prefix that is not a live L1 bucket end.
+    let ranOutOfSubslots = false;
 
     while (true) {
       const blocksBuilt = blocksInCheckpoint.length;
@@ -1201,27 +1200,20 @@ export class CheckpointProposalJob implements Traceable {
           blocksBuilt,
           nowSeconds,
         });
+        ranOutOfSubslots = true;
         break;
       }
 
       // Streaming Inbox: select this block's message range against the current (not-yet-advanced) consumption
       // cursor. The state is only advanced once the block builds successfully, so a failed build (retried in a
       // later sub-slot) re-derives the range rather than losing it. The builder inserts the messages and rolls them
-      // back with the fork on failure. Completion must be reached by whichever block ends the checkpoint, which
+      // back with the fork on failure. The endpoint must be reached by whichever block ends the checkpoint, which
       // includes the block that reaches the per-checkpoint block cap, not just the timetable's last sub-slot.
       const maxBlocks = Math.min(this.config.maxBlocksPerCheckpoint, this.timetable.getMaxBlocksPerCheckpoint());
       const isCheckpointFinalBlock = timingInfo.isLastBlock || blocksBuilt + 1 >= maxBlocks;
-      const remainingScheduledBlocks = Math.max(
-        1,
-        Math.min(
-          this.config.maxBlocksPerCheckpoint - blocksBuilt,
-          this.timetable.getMaxBlocksPerCheckpoint() - timingInfo.index,
-        ),
-      );
       const selection = streamingState
         ? await this.selectStreamingBundle(streamingState, {
             isFinalBlock: isCheckpointFinalBlock,
-            remainingScheduledBlocks,
             buildDeadline: timingInfo.deadline,
           })
         : undefined;
@@ -1285,14 +1277,10 @@ export class CheckpointProposalJob implements Traceable {
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
       // Streaming Inbox: the block built successfully, so advance the cursor to the prefix it consumed through and
-      // sign that prefix as this block's reference. A block that consumed nothing re-signs the cursor's prefix. Once
-      // the completion target is reached, consumption freezes for the rest of the checkpoint.
+      // sign that prefix as this block's reference. A block that consumed nothing re-signs the cursor's prefix.
       let blockPrefixRef: InboxMessagePrefixRef | undefined = undefined;
       if (streamingState && selection) {
         streamingState.cursor = selection.range.end;
-        if (streamingState.completion?.target.totalMessageCount === streamingState.cursor.totalMessageCount) {
-          streamingState.consumptionComplete = true;
-        }
         blockPrefixRef = InboxMessagePrefixRef.fromPosition(streamingState.cursor);
       }
 
@@ -1336,12 +1324,151 @@ export class CheckpointProposalJob implements Traceable {
       await this.waitUntilNextSubslot(timingInfo.deadline);
     }
 
+    // Streaming Inbox: the sub-slot schedule ran out mid-checkpoint, so the cursor may sit at a prefix that is not a
+    // live L1 bucket end, which no checkpoint can be published on. Resolve once and, if it is not one, build one more
+    // block rather than lose the slot; this is the only place the loop overrides the timetable. A cursor still at the
+    // checkpoint start needs nothing: the parent checkpoint already ended on a live bucket end.
+    if (
+      streamingState &&
+      ranOutOfSubslots &&
+      blocksInCheckpoint.length > 0 &&
+      streamingState.cursor.totalMessageCount > streamingState.checkpointStartTotalMsgCount
+    ) {
+      const forced = await this.buildForcedEndpointBlock(checkpointBuilder, streamingState, {
+        blockTimestamp: timestamp,
+        blockNumber: BlockNumber(initialBlockNumber + blocksInCheckpoint.length),
+        indexWithinCheckpoint: IndexWithinCheckpoint(blocksInCheckpoint.length),
+        txHashesAlreadyIncluded,
+        blockProposalOptions,
+      });
+      if (forced !== undefined) {
+        if ('aborted' in forced) {
+          return { aborted: true };
+        }
+        blocksInCheckpoint.push(forced.block);
+        blockPendingBroadcast = forced.proposal;
+      }
+    }
+
     this.log.verbose(`Block building loop completed for slot ${this.targetSlot}`, {
       slot: this.targetSlot,
       blocksBuilt: blocksInCheckpoint.length,
     });
 
     return { aborted: false, blocksInCheckpoint, blockPendingBroadcast };
+  }
+
+  /**
+   * Ends the checkpoint at a live L1 bucket end with one extra message-only block, after the sub-slot schedule ran
+   * out mid-checkpoint. Resolves the endpoint the way the checkpoint's final block would; when the cursor already is
+   * one, nothing is built and the checkpoint publishes as it stands. The block carries no transactions: it is
+   * already past the schedule, so it must not spend its remaining time executing any.
+   *
+   * Returns the block and its signed proposal, `undefined` when no block was needed, or an abort when the checkpoint
+   * has to be abandoned. The abort is already reported.
+   */
+  private async buildForcedEndpointBlock(
+    checkpointBuilder: CheckpointBuilder,
+    streamingState: StreamingCheckpointState,
+    opts: {
+      blockTimestamp: bigint;
+      blockNumber: BlockNumber;
+      indexWithinCheckpoint: IndexWithinCheckpoint;
+      txHashesAlreadyIncluded: Set<string>;
+      blockProposalOptions: BlockProposalOptions;
+    },
+  ): Promise<{ block: L2Block; proposal: BlockProposal | undefined } | { aborted: true } | undefined> {
+    const { cursor, checkpointStartTotalMsgCount: checkpointStartCount } = streamingState;
+    const localSyncedCount = (await this.l1ToL2MessageSource.getSyncedMessagePosition()).totalMessageCount;
+    const upperBound = getEndpointUpperBound({
+      cursorCount: cursor.totalMessageCount,
+      localSyncedCount,
+      checkpointStartCount,
+      isFinalBlock: true,
+      caps: PROTOCOL_INBOX_CONSUMPTION_CAPS,
+    });
+    const { deadline, pastLastBlockBuildTime } = this.getForcedEndpointBlockDeadline();
+    this.log.warn(`Ending checkpoint ${this.checkpointNumber} with a forced Inbox endpoint block`, {
+      slot: this.targetSlot,
+      checkpointNumber: this.checkpointNumber,
+      blockNumber: opts.blockNumber,
+      cursorTotalMsgCount: cursor.totalMessageCount,
+      upperBound,
+      deadline: deadline.toISOString(),
+      pastLastBlockBuildTime,
+    });
+
+    const resolved = await this.resolveEndpointWithinDeadline(cursor, upperBound, deadline.getTime() / 1000);
+    if (!resolved.ok) {
+      const reason =
+        resolved.reason === 'local_prefix_changed' ? 'inbox_prefix_reorged' : 'inbox_completion_unresolved';
+      this.reportStreamingAbort(streamingState, reason, {
+        phase: 'forced_tail_block',
+        cause: resolved.reason,
+        upperBound,
+        endpointTotal: resolved.endpointTotal,
+        localSyncedCount,
+      });
+      return { aborted: true };
+    }
+    if (resolved.endpoint.totalMessageCount === cursor.totalMessageCount) {
+      this.log.verbose(`Checkpoint ${this.checkpointNumber} already ends at a live Inbox bucket end`, {
+        slot: this.targetSlot,
+        checkpointNumber: this.checkpointNumber,
+        cursorTotalMsgCount: cursor.totalMessageCount,
+      });
+      return undefined;
+    }
+
+    const buildResult = await this.buildSingleBlock(checkpointBuilder, {
+      forceCreate: true,
+      skipTransactions: true,
+      blockTimestamp: opts.blockTimestamp,
+      buildDeadline: deadline,
+      blockNumber: opts.blockNumber,
+      indexWithinCheckpoint: opts.indexWithinCheckpoint,
+      txHashesAlreadyIncluded: opts.txHashesAlreadyIncluded,
+      l1ToL2Messages: resolved.range.messages,
+    });
+    if (!('block' in buildResult)) {
+      this.reportStreamingAbort(streamingState, 'inbox_completion_unresolved', {
+        phase: 'forced_tail_block',
+        cause: 'failure' in buildResult ? buildResult.failure : buildResult.error.message,
+        endpointTotalMsgCount: resolved.endpoint.totalMessageCount,
+      });
+      return { aborted: true };
+    }
+
+    streamingState.cursor = resolved.range.end;
+    const blockPrefixRef = InboxMessagePrefixRef.fromPosition(streamingState.cursor);
+    const proposal = await this.createBlockProposal(
+      buildResult.block,
+      buildResult.usedTxs,
+      opts.blockProposalOptions,
+      blockPrefixRef,
+    );
+    await this.syncProposedBlockToArchiver(buildResult.block, blockPrefixRef);
+    this.checkpointMetrics.noteCheckpointBlockBuilt(this.dateProvider.now(), {
+      isFirstBlock: false,
+      isLastBlock: true,
+    });
+    return { block: buildResult.block, proposal };
+  }
+
+  /**
+   * Build deadline for the forced endpoint block. The proposer timetable's last block build time already budgets
+   * checkpoint preparation and propagation ahead of the receive deadline validators enforce on ingress, so it is the
+   * bound. Past it the block is still attempted (a late proposal beats an unpublishable checkpoint), bounded by that
+   * receive deadline less one propagation budget. The attestation deadline is a re-execution cutoff and never applies.
+   */
+  private getForcedEndpointBlockDeadline(): { deadline: Date; pastLastBlockBuildTime: boolean } {
+    const lastBlockBuildTime = this.timetable.getLastBlockBuildTime(this.targetSlot);
+    if (this.dateProvider.now() / 1000 < lastBlockBuildTime) {
+      return { deadline: new Date(lastBlockBuildTime * 1000), pastLastBlockBuildTime: false };
+    }
+    const hardStop =
+      this.timetable.getCheckpointProposalReceiveDeadline(this.targetSlot) - this.timetable.p2pPropagationTime;
+    return { deadline: new Date(hardStop * 1000), pastLastBlockBuildTime: true };
   }
 
   /** Creates a block proposal for a given block via the validator client (unless in fisherman mode) */
@@ -1383,100 +1510,93 @@ export class CheckpointProposalJob implements Traceable {
           `(checkpoint ${this.checkpointNumber}); local Inbox view has not synced it`,
       );
     }
-    return { checkpointStartTotalMsgCount: parentTotalMsgCount, cursor, consumptionComplete: false };
+    return { checkpointStartTotalMsgCount: parentTotalMsgCount, cursor };
   }
 
   /**
    * Selects the message range this block consumes. Does not mutate the cursor; the caller advances it only after the
    * block builds successfully.
    *
-   * Ordinary blocks are greedy: they take every message the local archiver has observed, up to the per-block and
-   * checkpoint caps, with no L1 call and no bucket boundary. Message completion starts on the checkpoint's final
-   * block, or earlier when the greedy step would cross the last bucket-sized portion of checkpoint capacity, since
-   * a checkpoint's final position must be a live L1 bucket end. Completion resolves its target with a single Inbox
-   * endpoint query bounded by the local count, the remaining scheduled blocks and the cap, authenticates the range
-   * to it against the local log, and then consumes toward it in per-block-cap chunks; once reached, consumption
-   * freezes even if more messages arrive.
+   * Selection is greedy on the local log: every message the archiver has observed, up to the per-block and
+   * checkpoint caps. A block consults L1 only when it is the checkpoint's final block, whose position must be a live
+   * L1 bucket end, or when its prospective end would pass the threshold one bucket below the cap and could leave the
+   * last legal endpoint behind. The lookup is bounded by the checkpoint cap on a non-final block, so a mandatory
+   * bucket beyond this block's own reach is not stranded by a nearer endpoint, and additionally by one block's
+   * capacity on the final block. The block then ends at the further of what the lookup allows and the safe local
+   * step, so consulting L1 never consumes less than staying below the threshold would have; a block that consulted
+   * L1 may legitimately end inside a bucket. Nothing is retained: the next attempt decides again.
    *
-   * A target that cannot be resolved on a non-final block (local lag, no live endpoint yet) is retried on the next
-   * block, which consumes nothing meanwhile; on the final block it abandons the checkpoint. A local prefix that no
-   * longer matches the cursor means the blocks already signed were built on messages the local log has since
-   * replaced, which also abandons the checkpoint.
+   * An endpoint that cannot be resolved on a non-final block (local lag, no live endpoint yet) leaves the block with
+   * that safe local step and is retried on the next block; on the final block it abandons the checkpoint. A local
+   * prefix that no longer matches the cursor means the blocks already signed were built on messages the local log
+   * has since replaced, which also abandons the checkpoint.
    */
   private async selectStreamingBundle(
     state: StreamingCheckpointState,
-    opts: { isFinalBlock: boolean; remainingScheduledBlocks: number; buildDeadline: number },
+    opts: { isFinalBlock: boolean; buildDeadline: number },
   ): Promise<StreamingBundleSelection> {
     const caps = PROTOCOL_INBOX_CONSUMPTION_CAPS;
     const { cursor, checkpointStartTotalMsgCount: checkpointStartCount } = state;
     const cursorCount = cursor.totalMessageCount;
-
-    if (state.consumptionComplete) {
-      return this.readStreamingRange(state, cursorCount);
-    }
-
     const localSyncedCount = (await this.l1ToL2MessageSource.getSyncedMessagePosition()).totalMessageCount;
     const greedyEnd = selectOrdinaryMessageEnd({ cursorCount, localSyncedCount, checkpointStartCount, caps });
-    const enterCompletion =
-      state.completion !== undefined ||
-      opts.isFinalBlock ||
-      shouldEnterMessageCompletion({ prospectiveGreedyEnd: greedyEnd, checkpointStartCount, caps });
 
-    if (!enterCompletion) {
+    if (
+      !mustQueryEndpoint({ prospectiveEnd: greedyEnd, checkpointStartCount, isFinalBlock: opts.isFinalBlock, caps })
+    ) {
       return this.readStreamingRange(state, greedyEnd);
     }
 
-    if (state.completion === undefined) {
-      const upperBound = computeCompletionUpperBound({
-        cursorCount,
-        localSyncedCount,
-        checkpointStartCount,
-        remainingScheduledBlocks: opts.remainingScheduledBlocks,
-        caps,
-      });
-      const resolved = await this.resolveCompletionTargetWithinDeadline(cursor, upperBound, opts.buildDeadline);
-      if (resolved.ok) {
-        state.completion = { target: resolved.target, bucketSeq: resolved.bucketSeq };
-        this.log.verbose(`Streaming Inbox completion targets message total ${resolved.target.totalMessageCount}`, {
-          slot: this.targetSlot,
-          checkpointNumber: this.checkpointNumber,
-          cursorTotalMsgCount: cursorCount,
-          localSyncedCount,
-          upperBound,
-          targetTotalMsgCount: resolved.target.totalMessageCount,
-          bucketSeq: resolved.bucketSeq,
-        });
-      } else if (resolved.reason === 'local_prefix_changed') {
+    const upperBound = getEndpointUpperBound({
+      cursorCount,
+      localSyncedCount,
+      checkpointStartCount,
+      isFinalBlock: opts.isFinalBlock,
+      caps,
+    });
+    const resolved = await this.resolveEndpointWithinDeadline(cursor, upperBound, opts.buildDeadline);
+    const safeLocalEnd = selectSafeLocalEnd({ cursorCount, localSyncedCount, checkpointStartCount, caps });
+    if (!resolved.ok) {
+      if (resolved.reason === 'local_prefix_changed') {
         return { kind: 'abort', reason: 'inbox_prefix_reorged', context: { upperBound } };
-      } else if (opts.isFinalBlock) {
+      }
+      if (opts.isFinalBlock) {
         return {
           kind: 'abort',
           reason: 'inbox_completion_unresolved',
           context: { cause: resolved.reason, upperBound, endpointTotal: resolved.endpointTotal, localSyncedCount },
         };
-      } else {
-        this.log.warn(`Streaming Inbox completion target not resolvable yet, consuming nothing this block`, {
-          slot: this.targetSlot,
-          checkpointNumber: this.checkpointNumber,
-          cause: resolved.reason,
-          cursorTotalMsgCount: cursorCount,
-          localSyncedCount,
-          upperBound,
-          endpointTotal: resolved.endpointTotal,
-        });
-        return this.readStreamingRange(state, cursorCount);
       }
+      this.log.warn(`Streaming Inbox endpoint not resolvable yet, taking the safe local step`, {
+        slot: this.targetSlot,
+        checkpointNumber: this.checkpointNumber,
+        cause: resolved.reason,
+        cursorTotalMsgCount: cursorCount,
+        localSyncedCount,
+        upperBound,
+        endpointTotal: resolved.endpointTotal,
+        safeLocalEnd,
+      });
+      return this.readStreamingRange(state, safeLocalEnd);
     }
 
-    const targetCount = state.completion.target.totalMessageCount;
-    const end = minBigint(targetCount, cursorCount + BigInt(caps.perBlockCap));
-    if (opts.isFinalBlock && end < targetCount) {
-      return {
-        kind: 'abort',
-        reason: 'inbox_completion_unreachable',
-        context: { targetTotalMsgCount: targetCount, reachableTotalMsgCount: end },
-      };
-    }
+    const endpointTotal = resolved.endpoint.totalMessageCount;
+    const endpointEnd = minBigint(cursorCount + BigInt(caps.perBlockCap), endpointTotal);
+    // The final block has to land on the endpoint, so it takes it even when the safe local step reaches further; any
+    // other block takes the further of the two, so consulting L1 never consumes less than staying below the
+    // threshold would have.
+    const end = opts.isFinalBlock ? endpointEnd : maxBigint(safeLocalEnd, endpointEnd);
+    this.log.verbose(`Streaming Inbox resolved endpoint ${endpointTotal}, consuming through ${end}`, {
+      slot: this.targetSlot,
+      checkpointNumber: this.checkpointNumber,
+      cursorTotalMsgCount: cursorCount,
+      localSyncedCount,
+      upperBound,
+      endpointTotalMsgCount: endpointTotal,
+      bucketSeq: resolved.bucketSeq,
+      end,
+    });
+    // Re-read the selected prefix so the signed hash is the one at `end`, never the farther endpoint's.
     return this.readStreamingRange(state, end);
   }
 
@@ -1508,17 +1628,13 @@ export class CheckpointProposalJob implements Traceable {
     return { kind: 'consume', range };
   }
 
-  /** Runs the single Inbox endpoint query of message completion within the block's build deadline. */
-  private resolveCompletionTargetWithinDeadline(
-    cursor: InboxMessagePosition,
-    upperBound: bigint,
-    buildDeadline: number,
-  ) {
+  /** Runs the single Inbox endpoint query of an endpoint block within the block's build deadline. */
+  private resolveEndpointWithinDeadline(cursor: InboxMessagePosition, upperBound: bigint, buildDeadline: number) {
     const remainingMs = buildDeadline * 1000 - this.dateProvider.now();
     const timeoutMs = Math.max(1, Math.min(INBOX_ENDPOINT_READ_TIMEOUT_MS, remainingMs));
     return executeTimeout(
       () =>
-        resolveCompletionTarget({
+        resolveEndpoint({
           inbox: this.inbox,
           messageSource: this.l1ToL2MessageSource,
           cursor,
@@ -1526,8 +1642,8 @@ export class CheckpointProposalJob implements Traceable {
         }),
       timeoutMs,
       `Inbox endpoint lookup at or before message total ${upperBound}`,
-    ).catch((err): ReturnType<typeof resolveCompletionTarget> => {
-      this.log.warn(`Inbox endpoint lookup failed, treating the completion target as unresolved: ${err}`, {
+    ).catch((err): ReturnType<typeof resolveEndpoint> => {
+      this.log.warn(`Inbox endpoint lookup failed, treating the endpoint as unresolved: ${err}`, {
         slot: this.targetSlot,
         checkpointNumber: this.checkpointNumber,
         upperBound,
@@ -1552,7 +1668,6 @@ export class CheckpointProposalJob implements Traceable {
       checkpointStartTotalMsgCount: state.checkpointStartTotalMsgCount,
       consumedTotalMsgCount: state.cursor.totalMessageCount,
       inboxRollingHash: state.cursor.rollingHash.toString(),
-      completionTargetTotalMsgCount: state.completion?.target.totalMessageCount,
       reason,
       ...extraContext,
     };
@@ -1583,6 +1698,8 @@ export class CheckpointProposalJob implements Traceable {
     checkpointBuilder: CheckpointBuilder,
     opts: {
       forceCreate?: boolean;
+      /** Build over the messages alone, without offering the builder any transaction to execute. */
+      skipTransactions?: boolean;
       blockTimestamp: bigint;
       blockNumber: BlockNumber;
       indexWithinCheckpoint: IndexWithinCheckpoint;
@@ -1597,6 +1714,7 @@ export class CheckpointProposalJob implements Traceable {
     const {
       blockTimestamp,
       forceCreate,
+      skipTransactions,
       blockNumber,
       indexWithinCheckpoint,
       buildDeadline,
@@ -1641,10 +1759,12 @@ export class CheckpointProposalJob implements Traceable {
       // just in case p2p failed to sync the provisional block and didn't get to remove those txs from the mempool yet.
       // Block building only executes txs, so we skip loading their proofs unless these same tx objects get attached
       // to the broadcasted proposals via publishTxsWithProposals.
-      const pendingTxs = filter(
-        this.p2pClient.iterateEligiblePendingTxs({ includeProof: !!this.config.publishTxsWithProposals }),
-        tx => !txHashesAlreadyIncluded.has(tx.txHash.toString()),
-      );
+      const pendingTxs = skipTransactions
+        ? noTransactions()
+        : filter(
+            this.p2pClient.iterateEligiblePendingTxs({ includeProof: !!this.config.publishTxsWithProposals }),
+            tx => !txHashesAlreadyIncluded.has(tx.txHash.toString()),
+          );
 
       this.log.debug(`Building block ${blockNumber} at index ${indexWithinCheckpoint} for slot ${this.targetSlot}`, {
         slot: this.targetSlot,

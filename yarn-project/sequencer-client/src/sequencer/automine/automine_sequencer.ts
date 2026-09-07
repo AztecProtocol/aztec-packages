@@ -40,8 +40,8 @@ import type { SequencerConfig } from '../config.js';
 import {
   type InboxEndpointResolver,
   PROTOCOL_INBOX_CONSUMPTION_CAPS,
-  computeCompletionUpperBound,
-  resolveCompletionTarget,
+  getEndpointUpperBound,
+  resolveEndpoint,
 } from '../inbox_message_selection.js';
 
 /**
@@ -477,7 +477,7 @@ export class AutomineSequencer {
     await using fork = await this.deps.worldState.fork(syncedToBlockNumber, { closeDelayMs: 0 });
 
     // Streaming Inbox: automine builds a single-block checkpoint, so its one block is the checkpoint's final block
-    // and goes straight to message completion: bound the consumed total by what the archiver holds and the caps,
+    // and has to land on a live bucket end: bound the consumed total by what the archiver holds and the caps,
     // resolve the live L1 bucket end at or below it with one Inbox call, and authenticate the range to it against
     // the local log. The parent total is the fork's L1-to-L2 leaf count (compact indexing).
     const parentTotalMsgCount = (await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size;
@@ -487,14 +487,14 @@ export class AutomineSequencer {
       return undefined;
     }
     const localSyncedCount = (await this.deps.l1ToL2MessageSource.getSyncedMessagePosition()).totalMessageCount;
-    const upperBound = computeCompletionUpperBound({
+    const upperBound = getEndpointUpperBound({
       cursorCount: parentTotalMsgCount,
       localSyncedCount,
       checkpointStartCount: parentTotalMsgCount,
-      remainingScheduledBlocks: 1,
+      isFinalBlock: true,
       caps: PROTOCOL_INBOX_CONSUMPTION_CAPS,
     });
-    const completion = await resolveCompletionTarget({
+    const completion = await resolveEndpoint({
       inbox: this.deps.inboxContract,
       messageSource: this.deps.l1ToL2MessageSource,
       cursor,
@@ -509,7 +509,7 @@ export class AutomineSequencer {
     }
     const streamingBundle = completion.range.messages;
     const bucketHint = completion.bucketSeq;
-    const consumedPrefixRef = InboxMessagePrefixRef.fromPosition(completion.target);
+    const consumedPrefixRef = InboxMessagePrefixRef.fromPosition(completion.endpoint);
 
     const checkpointBuilder = await this.deps.checkpointsBuilder.startCheckpoint(
       checkpointNumber,
