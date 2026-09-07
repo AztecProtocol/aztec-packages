@@ -82,14 +82,14 @@ library STFLib {
   using TimeLib for Epoch;
   using TimeLib for Timestamp;
   using CompressedTimeMath for CompressedSlot;
-
-  uint256 private constant PROVER_ID_PRESENT_BIT = 1 << 160;
   using ChainTipsLib for CompressedChainTips;
   using CompressedTempCheckpointLogLib for CompressedTempCheckpointLog;
   using CompressedTempCheckpointLogLib for TempCheckpointLog;
   using CompressedTimeMath for Slot;
   using CompressedTimeMath for CompressedSlot;
   using FeeHeaderLib for CompressedFeeHeader;
+
+  uint256 private constant PROVER_ID_PRESENT_BIT = 1 << 160;
 
   // @note  This is also used in the cheatcodes, so if updating, please also update the cheatcode.
   bytes32 private constant STF_STORAGE_POSITION = keccak256("aztec.stf.storage");
