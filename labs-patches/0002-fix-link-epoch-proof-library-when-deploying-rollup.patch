@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Gherghisan <alexghr@users.noreply.github.com>
+Date: Mon, 7 Sep 2026 09:54:14 +0000
+Subject: [PATCH] fix: link epoch proof library when deploying rollup
+
+Register EpochProofExtLib with the Rollup deployment artifacts and verify that every link reference has deployable bytecode. Requires regenerated foundation L1 artifacts exporting the epoch proof library.
+
+diff --git a/yarn-project/ethereum/src/l1_artifacts.test.ts b/yarn-project/ethereum/src/l1_artifacts.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..570d2852ce95b796c9614638303dc6708e8a0dd7
+--- /dev/null
++++ b/yarn-project/ethereum/src/l1_artifacts.test.ts
+@@ -0,0 +1,13 @@
++import { RollupArtifact } from './l1_artifacts.js';
++
++describe('Rollup deployment artifacts', () => {
++  it('supplies deployable bytecode for every linked library', () => {
++    const libraries: Record<string, { contractBytecode: string }> = RollupArtifact.libraries.libraryCode;
++    for (const references of Object.values(RollupArtifact.libraries.linkReferences)) {
++      for (const name of Object.keys(references)) {
++        expect(libraries[name]).toBeDefined();
++        expect(libraries[name]?.contractBytecode).toMatch(/^0x[0-9a-f]+$/i);
++      }
++    }
++  });
++});
+diff --git a/yarn-project/ethereum/src/l1_artifacts.ts b/yarn-project/ethereum/src/l1_artifacts.ts
+index d404aac730012d52c0c095fdddbf6a816b8ec705..2e6979daa1c516ddb8741772f705985674bf0f4c 100644
+--- a/yarn-project/ethereum/src/l1_artifacts.ts
++++ b/yarn-project/ethereum/src/l1_artifacts.ts
+@@ -3,6 +3,8 @@ import {
+   CoinIssuerBytecode,
+   DateGatedRelayerAbi,
+   DateGatedRelayerBytecode,
++  EpochProofExtLibAbi,
++  EpochProofExtLibBytecode,
+   FeeAssetHandlerAbi,
+   FeeAssetHandlerBytecode,
+   FeeJuicePortalAbi,
+@@ -91,6 +93,11 @@ export const RollupArtifact = {
+         contractAbi: RollupOperationsExtLibAbi,
+         contractBytecode: RollupOperationsExtLibBytecode as Hex,
+       },
++      EpochProofExtLib: {
++        name: 'EpochProofExtLib',
++        contractAbi: EpochProofExtLibAbi,
++        contractBytecode: EpochProofExtLibBytecode as Hex,
++      },
+       ValidatorOperationsExtLib: {
+         name: 'ValidatorOperationsExtLib',
+         contractAbi: ValidatorOperationsExtLibAbi,

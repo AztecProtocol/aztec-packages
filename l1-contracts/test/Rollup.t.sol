@@ -2,6 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {DecoderBase} from "./base/DecoderBase.sol";
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -1108,6 +1110,7 @@ contract RollupTest is RollupBase {
         start: _start,
         end: _end,
         args: args,
+        provenCheckpointFees: new ProvenCheckpointFees[](0),
         headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: _blobInputs,

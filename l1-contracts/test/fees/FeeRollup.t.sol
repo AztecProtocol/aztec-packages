@@ -2,6 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
@@ -251,6 +253,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         start: _start,
         end: _start + _epochSize - 1,
         args: args,
+        provenCheckpointFees: new ProvenCheckpointFees[](0),
         headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: full.checkpoint.batchedBlobInputs,

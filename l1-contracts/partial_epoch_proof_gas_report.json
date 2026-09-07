@@ -3,71 +3,71 @@
     "contract": "test/RollupWithPreheating.sol:RollupWithPreheating",
     "deployment": {
       "gas": 0,
-      "size": 44750
+      "size": 44946
     },
     "functions": {
-      "gasReportSubmit16Checkpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+      "gasReportSubmit16Checkpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 1251816,
-        "mean": 1251816,
-        "median": 1251816,
-        "max": 1251816
+        "min": 1255881,
+        "mean": 1255881,
+        "median": 1255881,
+        "max": 1255881
       },
-      "gasReportSubmit16CheckpointsWithTwoOverrides((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+      "gasReportSubmit16CheckpointsWithTwoOverrides((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 1416995,
-        "mean": 1416995,
-        "median": 1416995,
-        "max": 1416995
+        "min": 1421159,
+        "mean": 1421159,
+        "median": 1421159,
+        "max": 1421159
       },
-      "gasReportSubmit1Checkpoint((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+      "gasReportSubmit1Checkpoint((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 656546,
-        "mean": 656546,
-        "median": 656546,
-        "max": 656546
+        "min": 658412,
+        "mean": 658412,
+        "median": 658412,
+        "max": 658412
       },
-      "gasReportSubmit1CheckpointWithTwoOverrides((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+      "gasReportSubmit1CheckpointWithTwoOverrides((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 683299,
-        "mean": 683299,
-        "median": 683299,
-        "max": 683299
+        "min": 685559,
+        "mean": 685559,
+        "median": 685559,
+        "max": 685559
       },
-      "gasReportSubmit32Checkpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+      "gasReportSubmit32Checkpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 1742662,
-        "mean": 1742662,
-        "median": 1742662,
-        "max": 1742662
+        "min": 1748763,
+        "mean": 1748763,
+        "median": 1748763,
+        "max": 1748763
       },
-      "gasReportSubmit32CheckpointsWithTwoOverrides((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+      "gasReportSubmit32CheckpointsWithTwoOverrides((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 2001294,
-        "mean": 2001294,
-        "median": 2001294,
-        "max": 2001294
+        "min": 2007827,
+        "mean": 2007827,
+        "median": 2007827,
+        "max": 2007827
       },
-      "gasReportSubmit8Checkpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+      "gasReportSubmit8Checkpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 960537,
-        "mean": 960537,
-        "median": 960537,
-        "max": 960537
+        "min": 963262,
+        "mean": 963262,
+        "median": 963262,
+        "max": 963262
       },
-      "gasReportSubmit8CheckpointsWithTwoOverrides((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+      "gasReportSubmit8CheckpointsWithTwoOverrides((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 1057116,
-        "mean": 1057116,
-        "median": 1057116,
-        "max": 1057116
+        "min": 1060278,
+        "mean": 1060278,
+        "median": 1060278,
+        "max": 1060278
       },
-      "gasReportSubmit8MoreCheckpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
+      "gasReportSubmit8MoreCheckpoints((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,bytes32,address),(address,uint256)[],(bytes32,bytes32,bytes32,bytes32,bytes32,uint256,uint256,address,bytes32,(uint128,uint128),uint256,uint256)[],(bytes,bytes),bytes,bytes))": {
         "calls": 1,
-        "min": 943741,
-        "mean": 943741,
-        "median": 943741,
-        "max": 943741
+        "min": 916794,
+        "mean": 916794,
+        "median": 916794,
+        "max": 916794
       }
     }
   }

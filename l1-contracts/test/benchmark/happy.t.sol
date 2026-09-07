@@ -2,6 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
@@ -553,6 +555,7 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
             start: start,
             end: start + epochSize - 1,
             args: args,
+            provenCheckpointFees: new ProvenCheckpointFees[](0),
             headers: headers,
             attestations: checkpointAttestations[start + epochSize - 1],
             blobInputs: full.checkpoint.batchedBlobInputs,
@@ -678,6 +681,7 @@ abstract contract PartialEpochProofGasReportBase is BenchmarkRollupBase {
       start: 1,
       end: _length,
       args: args,
+      provenCheckpointFees: new ProvenCheckpointFees[](0),
       headers: headers,
       attestations: checkpointAttestations[_length],
       blobInputs: full.checkpoint.batchedBlobInputs,
@@ -687,6 +691,23 @@ abstract contract PartialEpochProofGasReportBase is BenchmarkRollupBase {
 
   function _gasReporter() internal view returns (PartialEpochProofGasReporter) {
     return PartialEpochProofGasReporter(address(rollup));
+  }
+
+  function _compactSubmission(SubmitEpochRootProofArgs memory _args, uint256 _prefixLength)
+    internal
+    pure
+    returns (SubmitEpochRootProofArgs memory)
+  {
+    _args.provenCheckpointFees = new ProvenCheckpointFees[](_prefixLength);
+    ProposedHeader[] memory headers = new ProposedHeader[](_args.headers.length - _prefixLength);
+    for (uint256 i = 0; i < _prefixLength; i++) {
+      _args.provenCheckpointFees[i] = ProvenCheckpointFees(_args.headers[i].coinbase, _args.headers[i].accumulatedFees);
+    }
+    for (uint256 i = 0; i < headers.length; i++) {
+      headers[i] = _args.headers[_prefixLength + i];
+    }
+    _args.headers = headers;
+    return _args;
   }
 }
 
@@ -755,6 +776,23 @@ contract PartialEpochProofWithTwoOverridesGasReportTest is PartialEpochProofGasR
     _gasReporter().gasReportSubmit32CheckpointsWithTwoOverrides(_getGasReportSubmission(32));
     assertEq(rollup.getProvenCheckpointNumber(), 32);
   }
+
+  function testCompactExtensionWithTwoOverridesPreservesRewards() public {
+    rollup.submitEpochRootProof(_getGasReportSubmission(8));
+    uint256 snapshot = vm.snapshotState();
+    rollup.submitEpochRootProof(_getGasReportSubmission(16));
+    uint256 rewards = rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(GAS_REPORT_EPOCH));
+    uint256[] memory sequencerRewards = new uint256[](16);
+    for (uint256 i = 0; i < 16; i++) {
+      sequencerRewards[i] = rollup.getSequencerRewards(checkpointHeaders[i + 1].coinbase);
+    }
+    vm.revertToState(snapshot);
+    rollup.submitEpochRootProof(_compactSubmission(_getGasReportSubmission(16), 8));
+    assertEq(rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(GAS_REPORT_EPOCH)), rewards);
+    for (uint256 i = 0; i < 16; i++) {
+      assertEq(rollup.getSequencerRewards(checkpointHeaders[i + 1].coinbase), sequencerRewards[i]);
+    }
+  }
 }
 
 contract PartialEpochProofExtensionGasReportTest is PartialEpochProofGasReportBase {
@@ -765,7 +803,7 @@ contract PartialEpochProofExtensionGasReportTest is PartialEpochProofGasReportBa
   }
 
   function testGasReportSubmit8MoreCheckpoints() public {
-    _gasReporter().gasReportSubmit8MoreCheckpoints(_getGasReportSubmission(16));
+    _gasReporter().gasReportSubmit8MoreCheckpoints(_compactSubmission(_getGasReportSubmission(16), 8));
     assertEq(rollup.getProvenCheckpointNumber(), 16);
   }
 }
