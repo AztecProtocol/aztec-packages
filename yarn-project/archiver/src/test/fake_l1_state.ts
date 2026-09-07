@@ -3,7 +3,7 @@ import { type Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@a
 import type { CheckpointProposedLog, InboxContract, MessageSentLog, RollupContract } from '@aztec/ethereum/contracts';
 import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
-import { minBigint } from '@aztec/foundation/bigint';
+import { maxBigint, minBigint } from '@aztec/foundation/bigint';
 import { type BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -560,8 +560,16 @@ export class FakeL1State {
     );
 
     mockInbox.getMessageSentEventByHash.mockImplementation(
-      (msgHash: string, aroundL1BlockNumber: bigint, upperBound?: bigint) =>
-        Promise.resolve(this.getMessageSentLogByHash(msgHash, aroundL1BlockNumber, upperBound) as MessageSentLog),
+      (msgHash: string, aroundL1BlockNumber: bigint, upperBound?: bigint) => {
+        const fromBlock = maxBigint(aroundL1BlockNumber - 5n, 1n);
+        const windowEnd = aroundL1BlockNumber + 5n;
+        const toBlock = upperBound === undefined ? windowEnd : minBigint(windowEnd, upperBound);
+        // Mirrors InboxContract: an inverted range is a miss, never a query.
+        if (fromBlock > toBlock) {
+          return Promise.resolve(undefined);
+        }
+        return Promise.resolve(this.getMessageSentLogByHash(msgHash, fromBlock, toBlock));
+      },
     );
 
     return mockInbox;
@@ -690,18 +698,16 @@ export class FakeL1State {
       }));
   }
 
-  private getMessageSentLogByHash(
-    msgHash: string,
-    aroundL1BlockNumber: bigint,
-    upperBound?: bigint,
-  ): MessageSentLog | undefined {
-    const toBlock =
-      upperBound === undefined ? aroundL1BlockNumber + 5n : minBigint(aroundL1BlockNumber + 5n, upperBound);
+  /**
+   * The provider's by-hash log query. Like a real `eth_getLogs`, it rejects an inverted range rather than reporting
+   * it as an absence of logs; the caller is expected not to ask.
+   */
+  private getMessageSentLogByHash(msgHash: string, fromBlock: bigint, toBlock: bigint): MessageSentLog | undefined {
+    if (fromBlock > toBlock) {
+      throw new Error(`Invalid L1 log range: fromBlock ${fromBlock} is above toBlock ${toBlock}`);
+    }
     const msg = this.messages.find(
-      msg =>
-        msg.leaf.toString() === msgHash &&
-        msg.l1BlockNumber >= aroundL1BlockNumber - 5n &&
-        msg.l1BlockNumber <= toBlock,
+      msg => msg.leaf.toString() === msgHash && msg.l1BlockNumber >= fromBlock && msg.l1BlockNumber <= toBlock,
     );
     if (!msg) {
       return undefined;

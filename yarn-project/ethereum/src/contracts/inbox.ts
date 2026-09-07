@@ -144,23 +144,21 @@ export class InboxContract {
     msgHash: Hex,
     aroundL1BlockNumber: bigint,
     upperBound?: bigint,
-  ): Promise<MessageSentLog> {
+  ): Promise<MessageSentLog | undefined> {
     // We don't use blockHash here because we don't want the query to throw if the L1 block number no longer exists on chain
     // due to an L1 reorg. The use case for this method is usually checking if a message still exists on the Inbox after
     // a reorg, so it's possible the message was moved one block up or down, and that the original L1 block where we
     // saw it no longer exists, rendering the block-by-hash approach invalid.
-    const toBlock = aroundL1BlockNumber + 5n;
-    const [log] = await this.inbox.getEvents.MessageSent(
-      { hash: msgHash },
-      {
-        fromBlock: maxBigint(aroundL1BlockNumber - 5n, 1n),
-        toBlock: upperBound === undefined ? toBlock : minBigint(toBlock, upperBound),
-      },
-    );
-    if (!log) {
-      return log as unknown as MessageSentLog;
+    const fromBlock = maxBigint(aroundL1BlockNumber - 5n, 1n);
+    const windowEnd = aroundL1BlockNumber + 5n;
+    const toBlock = upperBound === undefined ? windowEnd : minBigint(windowEnd, upperBound);
+    // An upper bound below the window leaves nothing to search. A provider rejects such a range rather than
+    // reporting it empty, and an exception is not a miss, so the caller would retry the same lookup forever.
+    if (fromBlock > toBlock) {
+      return undefined;
     }
-    return this.mapMessageSentLog(log);
+    const [log] = await this.inbox.getEvents.MessageSent({ hash: msgHash }, { fromBlock, toBlock });
+    return log && this.mapMessageSentLog(log);
   }
 
   private mapMessageSentLog(log: {

@@ -1806,6 +1806,30 @@ describe('Archiver Sync', () => {
       expect(archiver.getL1BlockNumber()).toEqual(106n);
     });
 
+    it('treats a lookup range entirely above the replacement head as a miss and refills from the deployment', async () => {
+      const msgs = randomLeaves(4);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs.slice(0, 2));
+      fake.addMessages(CheckpointNumber(1), 110n, msgs.slice(2));
+      fake.setL1BlockNumber(115n);
+      await archiver.syncImmediate();
+      await addLocalBlocksConsuming([4]);
+
+      // A replacement chain shorter than every stored height by more than the lookup window, carrying none of the
+      // stored messages. Each candidate's window (95..105 and 105..115) starts above the new head, so bounding it by
+      // the head inverts the range: no anchor is found, and the log rolls back to the deployment block.
+      fake.removeMessagesAfter(0);
+      const replacement = randomLeaves(2);
+      fake.addMessages(CheckpointNumber(1), 85n, replacement);
+      fake.reorgL1BlocksFrom(85n);
+      fake.setL1BlockNumber(90n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(replacement));
+      expect(await localBlockNumbers()).toEqual([]);
+      expect(archiver.getL1BlockNumber()).toEqual(90n);
+      expect(synchronizer.isRecoveringMessages()).toBe(false);
+    });
+
     it('commits each batch as it completes and keeps them when a later batch fails', async () => {
       // One slot of L1 blocks per batch: two blocks.
       await useArchiver({ batchSize: 1 });
