@@ -40,7 +40,7 @@ import {
   retrievedToPublishedCheckpoint,
 } from '../l1/data_retrieval.js';
 import type { RejectedCheckpoint } from '../store/block_store.js';
-import { type ArchiverDataStores, getArchiverSynchPoint } from '../store/data_stores.js';
+import type { ArchiverDataStores } from '../store/data_stores.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
 import { ArchiverDataStoreUpdater, blockLeafCount } from './data_store_updater.js';
 import { InboxMessageSynchronizer } from './inbox_message_synchronizer.js';
@@ -225,7 +225,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     };
 
     // Load sync point for blocks defaulting to start block
-    const { blocksSynchedTo = this.l1Constants.l1StartBlock } = await getArchiverSynchPoint(this.stores);
+    const blocksSynchedTo = (await this.stores.blocks.getSynchedL1BlockNumber()) ?? this.l1Constants.l1StartBlock;
     this.log.debug(`Starting new archiver sync iteration`, { blocksSynchedTo, currentL1BlockData, finalizedL1Block });
 
     // Sync L1 to L2 messages first, since blocks are checked against them. A reorg recovery is bounded per pass and

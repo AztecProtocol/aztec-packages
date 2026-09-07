@@ -58,9 +58,9 @@ type BlockBuilderOptionsBase = PublicProcessorLimits & {
   minValidTxs: number;
   /**
    * L1-to-L2 message leaves this block consumes, inserted into the fork's L1-to-L2 message tree before the block
-   * header is built. Omitted when the block consumes nothing from the Inbox.
+   * header is built. Empty when the block consumes nothing from the Inbox.
    */
-  l1ToL2Messages?: Fr[];
+  l1ToL2Messages: Fr[];
 };
 
 /** Proposer mode: redistribution params are required. */

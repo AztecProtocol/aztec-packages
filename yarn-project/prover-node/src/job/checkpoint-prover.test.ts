@@ -12,7 +12,7 @@ import type { ChonkCache, SubTreeResult } from '@aztec/prover-client/orchestrato
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ForkMerkleTreeOperations, ITxProvider } from '@aztec/stdlib/interfaces/server';
-import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
+import { BlockHeader, type Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -514,6 +514,83 @@ describe('CheckpointProver', () => {
 
   // ---------------- data-plane reorg fork fault ----------------
 
+  describe('streaming message slicing', () => {
+    /** Stubs the sub-tree and forks so the execute loop runs with empty-tx blocks, recording per-block messages. */
+    function stubExecution() {
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
+      const startNewBlock = jest.fn((..._args: unknown[]) => Promise.resolve());
+      const appendLeaves = jest.fn((..._args: unknown[]) => Promise.resolve());
+      const subTree = {
+        getSubTreeResult: () => new Promise<never>(() => {}),
+        startNewBlock,
+        startChonkVerifierCircuits: () => Promise.resolve(),
+        addTxs: () => Promise.resolve(),
+        setBlockCompleted: () => Promise.resolve(),
+        cancel: () => {},
+        stop: () => Promise.resolve(),
+      };
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(subTree as any);
+      dbProvider.fork.mockResolvedValue({ appendLeaves, close: () => Promise.resolve() } as any);
+      publicProcessorFactory.create.mockReturnValue({ process: () => Promise.resolve([[], []]) } as any);
+      return { startNewBlock, appendLeaves };
+    }
+
+    it('slices the checkpoint messages per block by the headers leaf counts', async () => {
+      checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 3, txsPerBlock: 0 });
+      // The parent consumed 10 messages; the blocks consume 2, 0 and 1 more.
+      pinConsumedMessageCounts(checkpoint, [12, 12, 13]);
+      const messages = [Fr.random(), Fr.random(), Fr.random()];
+      const { startNewBlock, appendLeaves } = stubExecution();
+
+      const prover = makeProver({ previousBlockHeader: makePreviousBlockHeader(10), l1ToL2Messages: messages });
+      await (prover as any).runPromise;
+
+      expect(startNewBlock.mock.calls.map(call => call[3])).toEqual([messages.slice(0, 2), [], messages.slice(2)]);
+      expect(appendLeaves.mock.calls.map(call => call[1])).toEqual([messages.slice(0, 2), [], messages.slice(2)]);
+      expect(prover.isFailed()).toBe(false);
+      prover.cancel();
+      await prover.whenDone();
+    });
+
+    it('fails the prover when the message list does not cover the blocks leaf count range', async () => {
+      checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, txsPerBlock: 0 });
+      pinConsumedMessageCounts(checkpoint, [12, 13]);
+      const { startNewBlock } = stubExecution();
+
+      // The parent consumed 10, the blocks reach 13, but only two messages are supplied.
+      const prover = makeProver({
+        previousBlockHeader: makePreviousBlockHeader(10),
+        l1ToL2Messages: [Fr.random(), Fr.random()],
+      });
+
+      await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(
+        /consumed 3 L1 to L2 messages .* but 2 were supplied/,
+      );
+      expect(startNewBlock).not.toHaveBeenCalled();
+      expect(prover.isFailed()).toBe(true);
+      expect(onFailed).toHaveBeenCalledWith(prover);
+      await prover.whenDone();
+    });
+
+    it('fails the prover when a block leaf count falls below its parent', async () => {
+      checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, txsPerBlock: 0 });
+      pinConsumedMessageCounts(checkpoint, [13, 12]);
+      const { startNewBlock } = stubExecution();
+
+      const prover = makeProver({
+        previousBlockHeader: makePreviousBlockHeader(10),
+        l1ToL2Messages: [Fr.random(), Fr.random()],
+      });
+
+      await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(/leaf count 12 is below its parent's 13/);
+      // The first block was started before the second's count was found to rewind.
+      expect(startNewBlock).toHaveBeenCalledTimes(1);
+      expect(prover.isFailed()).toBe(true);
+      await prover.whenDone();
+    });
+  });
+
   describe('data-plane reorg fault', () => {
     it('rejects whenSubTreeProofsReady when a world-state fork faults mid-proof', async () => {
       // Models the data-plane prune race: gather succeeds and the sub-tree starts, but the
@@ -540,9 +617,9 @@ describe('CheckpointProver', () => {
 
       const prover = makeProver();
 
-      // subTreeProofs rejects: the fork error aborts the block loop before completion, so the sub-tree
-      // never yields proofs. (The raw fork error is logged; the promise settles as not-completed.)
-      await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(/did not complete block processing/);
+      // subTreeProofs rejects with the fork error itself: it aborts the block loop before completion, so the
+      // sub-tree never yields proofs, and the cause is what consumers of the promise see.
+      await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(/Unable to get meta data for block 0/);
       expect(dbProvider.fork).toHaveBeenCalled();
       expect(prover.isFailed()).toBe(true);
       // The owner is notified exactly once, with this prover, so it can upload a checkpoint post-mortem.
@@ -595,12 +672,34 @@ describe('CheckpointProver', () => {
 
   // ---------------- helpers ----------------
 
+  /**
+   * Pins the L1-to-L2 leaf counts of a checkpoint's blocks: the prover slices its message list by the deltas between
+   * consecutive headers, and `Checkpoint.random` gives every header a random count. Each entry is the cumulative count
+   * consumed through the block at that index; defaults to every block consuming nothing.
+   */
+  function pinConsumedMessageCounts(target: Checkpoint, counts: number[] = target.blocks.map(() => 0)) {
+    target.blocks.forEach((block, i) => {
+      block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex = counts[i];
+    });
+  }
+
+  /** A previous block header whose L1-to-L2 leaf count is `consumedMessageCount`. */
+  function makePreviousBlockHeader(consumedMessageCount = 0): BlockHeader {
+    const header = BlockHeader.empty();
+    header.state.l1ToL2MessageTree.nextAvailableLeafIndex = consumedMessageCount;
+    return header;
+  }
+
   function makeProver(overrides: Partial<CheckpointProverArgs> = {}): CheckpointProver {
+    const target = overrides.checkpoint ?? checkpoint;
+    if (overrides.l1ToL2Messages === undefined && overrides.previousBlockHeader === undefined) {
+      pinConsumedMessageCounts(target);
+    }
     const args: CheckpointProverArgs = {
-      checkpoint,
+      checkpoint: target,
       epochNumber: EpochNumber(5),
       attestations: [],
-      previousBlockHeader: {} as BlockHeader,
+      previousBlockHeader: makePreviousBlockHeader(),
       l1ToL2Messages: [],
       previousInboxRollingHash: Fr.ZERO,
       previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
