@@ -243,6 +243,22 @@ pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Fi
     sponge.squeeze()
 }
 
+/// Computes a Poseidon2 hash with a domain separator over a dynamic-length subarray of the given input.
+/// Only the first `in_len` fields of `input` are absorbed; any remaining fields are ignored.
+/// For `in_len == N` this is equivalent to [`poseidon2_hash_with_separator`].
+#[no_predicates]
+pub fn poseidon2_hash_subarray_with_separator<let N: u32, T>(
+    input: [Field; N],
+    in_len: u32,
+    separator: T,
+) -> Field
+where
+    T: ToField,
+{
+    let inputs_with_separator = [separator.to_field()].concat(input);
+    poseidon::poseidon2::Poseidon2::hash(inputs_with_separator, in_len + 1)
+}
+
 // This function is  unconstrained because it is intended to be used in unconstrained context only as
 // in constrained contexts it would be too inefficient.
 pub unconstrained fn poseidon2_hash_with_separator_bounded_vec<let N: u32, T>(
@@ -306,6 +322,23 @@ fn subarray_hash_matches_variable() {
     let variable_len_hash = poseidon::poseidon2::Poseidon2::hash(padded, values_to_hash.len());
 
     assert_eq(subarray_hash, variable_len_hash);
+}
+
+#[test]
+fn subarray_hash_with_separator_matches_fixed_len_with_separator() {
+    let values_to_hash = [3; 17];
+    let padded = values_to_hash.concat([0; 11]);
+    let separator = 42;
+
+    assert_eq(
+        poseidon2_hash_subarray_with_separator(padded, values_to_hash.len(), separator),
+        poseidon2_hash_with_separator(values_to_hash, separator),
+    );
+    // Hashing the whole array must differ from hashing a prefix of it, even though the padding is zero.
+    assert(
+        poseidon2_hash_subarray_with_separator(padded, padded.len(), separator)
+            != poseidon2_hash_subarray_with_separator(padded, values_to_hash.len(), separator),
+    );
 }
 
 #[test]

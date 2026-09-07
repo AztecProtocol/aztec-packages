@@ -348,6 +348,7 @@ function test_cmds_native {
   if [ "$mode" != nightly ]; then
     echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
     echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
+    echo "$hash bash barretenberg/cpp/scripts/tests/chonk_inputs_test.sh"
   fi
 }
 

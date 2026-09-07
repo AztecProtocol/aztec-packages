@@ -7,6 +7,8 @@ set -eu
 
 cd $(dirname $0)/..
 
+export AZTEC_REPO_ROOT=${AZTEC_REPO_ROOT:-$(git rev-parse --show-toplevel)}
+
 export NODE_OPTIONS="--no-warnings --experimental-vm-modules"
 
 $(yarn bin jest) --testRegex '\.test\.js$' --rootDir ./dest/node --runInBand $1

@@ -13,7 +13,10 @@ use types::{
         gas::Gas, kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
         partial_state_reference::PartialStateReference,
     },
-    blob_data::{SpongeBlob, TxEffect, TxEffectArrayLengths},
+    blob_data::{
+        compute_tx_effects_tree_leaf_from_blob_data_sections, create_tx_blob_data_sections,
+        SpongeBlob, TxEffect, TxEffectArrayLengths,
+    },
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_L2_TO_L1_MSG_SUBTREES_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
@@ -26,6 +29,7 @@ pub struct TxBasePublicInputsComposer {
     pub(crate) constants: BlockConstantData,
     pub(crate) tx_effect: TxEffect,
     tx_effect_array_lengths: TxEffectArrayLengths,
+    contract_class_log_hashes: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     start_tree_snapshots: PartialStateReference,
     end_tree_snapshots: PartialStateReference,
     start_sponge_blob: SpongeBlob,
@@ -42,7 +46,7 @@ impl TxBasePublicInputsComposer {
         fee_payer_balance_leaf_preimage: PublicDataTreeLeafPreimage,
         tree_snapshot_diff_hints: TreeSnapshotDiffHints,
     ) -> Self {
-        let (tx_effect, tx_effect_array_lengths) = private_tx_effect_builder::build_tx_effect(
+        let (tx_effect, tx_effect_array_lengths, contract_class_log_hashes) = private_tx_effect_builder::build_tx_effect(
             private_to_rollup,
             constants,
             contract_class_log_fields,
@@ -63,6 +67,7 @@ impl TxBasePublicInputsComposer {
             constants,
             tx_effect,
             tx_effect_array_lengths,
+            contract_class_log_hashes,
             start_tree_snapshots,
             end_tree_snapshots,
             start_sponge_blob,
@@ -96,7 +101,7 @@ impl TxBasePublicInputsComposer {
             prover_id: public_chonk_verifier.prover_id,
         };
 
-        let (tx_effect, tx_effect_array_lengths) = public_tx_effect_builder::build_tx_effect(
+        let (tx_effect, tx_effect_array_lengths, contract_class_log_hashes) = public_tx_effect_builder::build_tx_effect(
             private_to_public,
             avm,
             contract_class_log_fields,
@@ -109,6 +114,7 @@ impl TxBasePublicInputsComposer {
             constants,
             tx_effect,
             tx_effect_array_lengths,
+            contract_class_log_hashes,
             start_tree_snapshots,
             end_tree_snapshots,
             start_sponge_blob,
@@ -117,10 +123,23 @@ impl TxBasePublicInputsComposer {
     }
 
     pub fn finish(self) -> TxRollupPublicInputs {
+        let tx_blob_data_sections =
+            create_tx_blob_data_sections(self.tx_effect, self.tx_effect_array_lengths);
         let mut end_sponge_blob = self.start_sponge_blob;
-        end_sponge_blob.absorb_tx_blob_data(self.tx_effect, self.tx_effect_array_lengths);
+        end_sponge_blob.absorb_tx_blob_data_sections(
+            self.tx_effect,
+            self.tx_effect_array_lengths,
+            tx_blob_data_sections,
+        );
 
         let out_hash = self.compute_kernel_out_hash();
+
+        let tx_effects_tree_leaf = compute_tx_effects_tree_leaf_from_blob_data_sections(
+            self.tx_effect,
+            self.tx_effect_array_lengths,
+            tx_blob_data_sections,
+            self.contract_class_log_hashes,
+        );
 
         TxRollupPublicInputs {
             num_txs: 1,
@@ -130,6 +149,7 @@ impl TxBasePublicInputsComposer {
             start_sponge_blob: self.start_sponge_blob,
             end_sponge_blob,
             out_hash,
+            accumulated_tx_effects_tree_root: tx_effects_tree_leaf,
             accumulated_fees: self.tx_effect.transaction_fee,
             accumulated_mana_used: self.gas_used.l2_gas as Field,
         }

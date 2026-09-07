@@ -1,0 +1,1275 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: IlyasRidhuan <ilyasridhuan@gmail.com>
+Date: Tue, 1 Sep 2026 13:15:31 +0000
+Subject: [PATCH] feat: tx effect membership witness node API
+
+The archiver stores each block's tx effect leaves and resolves membership
+witnesses against the unbalanced tx effects tree; the node exposes
+getTxEffectMembershipWitness. Bumps the PXE data schema to 15 and the
+archiver store version to 10 for the new column.
+
+diff --git a/docs/docs-developers/docs/resources/migration_notes.md b/docs/docs-developers/docs/resources/migration_notes.md
+index a877f2e736aa633b0af398bfade6fd8fcfe84d09..ad79a5a10d907cec799d326abd63bcbb5351a275 100644
+--- a/docs/docs-developers/docs/resources/migration_notes.md
++++ b/docs/docs-developers/docs/resources/migration_notes.md
+@@ -9,6 +9,23 @@ Aztec is in active development. Each version may introduce breaking changes that
+ 
+ ## TBD
+ 
++### [Protocol] Block header commits to a per-block tx effects tree
++
++The L2 block header gains a `tx_effects_tree_root` field: the root of a per-block merkle tree with one leaf per
++transaction, where each leaf binds the transaction hash to a structured hash of its effects (note hashes, nullifiers,
++L2-to-L1 messages, public data writes, and logs). Holding a block header is now enough to verify that a transaction was
++included in that block and produced exactly a given set of effects with a short membership proof, instead of replaying
++the checkpoint's full sponge blob. The root is computed by the rollup circuits and is available on `BlockHeader` as
++`txEffectsTreeRoot`; `TxEffect.computeTxEffectLeaf()` and `Body.computeTxEffectsTreeRoot()` compute the leaves and root
++from published data.
++
++This is a breaking protocol change: the block header serialization grew by one field, so every transaction hash,
++verification key, contract artifact, canonical contract address, and the genesis constants change. Contracts must be
++recompiled against the updated `aztec-nr`. The PXE oracle interface version was bumped (30 → 31), as was the TXE
++oracle interface version (8 → 9), and existing PXE databases are re-initialized on next open (data schema version
++14 → 15). Nodes resync their archiver, which now also stores the tx effects tree leaves of each block (archiver data
++schema version 9 → 10).
++
+ ### [npm] Packages moved to the `@aztec-labs` scope
+ 
+ Every package published from this repository is now scoped `@aztec-labs` instead of `@aztec`.
+diff --git a/yarn-project/archiver/src/archiver.ts b/yarn-project/archiver/src/archiver.ts
+index 71b1e127a90ae25b44577ac529930a6898f80d07..be5599ab14f7e843e6d82c845e4fbe5b0729690d 100644
+--- a/yarn-project/archiver/src/archiver.ts
++++ b/yarn-project/archiver/src/archiver.ts
+@@ -33,7 +33,7 @@ import {
+ } from '@aztec-labs/stdlib/epoch-helpers';
+ import type { L2ToL1MembershipWitness } from '@aztec-labs/stdlib/messaging';
+ import { ConsensusTimetable } from '@aztec-labs/stdlib/timetable';
+-import type { BlockHeader, TxHash } from '@aztec-labs/stdlib/tx';
++import type { BlockHeader, TxEffectMembershipWitness, TxHash } from '@aztec-labs/stdlib/tx';
+ import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec-labs/telemetry-client';
+ 
+ import { type ArchiverConfig, mapArchiverConfig } from './config.js';
+@@ -45,6 +45,7 @@ import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
+ import type { ArchiverInstrumentation } from './modules/instrumentation.js';
+ import type { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
+ import { OutboxTreesResolver } from './modules/outbox_trees_resolver.js';
++import { TxEffectsTreeResolver } from './modules/tx_effects_tree_resolver.js';
+ import { type ArchiverDataStores, backupArchiverDataStores, getArchiverSynchPoint } from './store/data_stores.js';
+ import { L2TipsCache } from './store/l2_tips_cache.js';
+ 
+@@ -102,6 +103,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
+   /** Resolver for L2-to-L1 message membership witnesses, built over this archiver's read view. */
+   private readonly outboxTreesResolver: OutboxTreesResolver;
+ 
++  /** Resolver for tx effect membership witnesses, built over the block store's persisted tx effects tree leaves. */
++  private readonly txEffectsTreeResolver: TxEffectsTreeResolver;
++
+   private initialSyncComplete: boolean = false;
+   private initialSyncPromise: PromiseWithResolvers<void>;
+ 
+@@ -208,6 +212,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
+       l1Constants.epochDuration,
+     );
+ 
++    this.txEffectsTreeResolver = new TxEffectsTreeResolver(this.dataStores.blocks, this.dataStores.db);
++
+     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
+     // are done as fast as possible. This then gets updated once the initial sync completes.
+     this.runningPromise = new RunningPromise(
+@@ -239,6 +245,15 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
+     return this.outboxTreesResolver.getL2ToL1MembershipWitness(txHash, message, messageIndexInTx);
+   }
+ 
++  /**
++   * Returns a membership witness proving that tx `txHash` was included in its block and produced exactly the effects
++   * this archiver stores for it, verifiable against the block header's `txEffectsTreeRoot`. Returns `undefined` if the
++   * tx is not in a block this archiver knows about.
++   */
++  public getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined> {
++    return this.txEffectsTreeResolver.getTxEffectMembershipWitness(txHash);
++  }
++
+   /** Updates archiver config */
+   public updateConfig(newConfig: Partial<ArchiverConfig>) {
+     this.config = merge(this.config, mapArchiverConfig(newConfig));
+diff --git a/yarn-project/archiver/src/l1/data_retrieval.ts b/yarn-project/archiver/src/l1/data_retrieval.ts
+index 3d209395af0217949a3aa7bf5f531008fbde65d5..d55b01d8abe27fef398d1125073e4ca46b7af1f1 100644
+--- a/yarn-project/archiver/src/l1/data_retrieval.ts
++++ b/yarn-project/archiver/src/l1/data_retrieval.ts
+@@ -137,6 +137,7 @@ export async function retrievedToPublishedCheckpoint({
+       lastArchive: new AppendOnlyTreeSnapshot(lastArchiveRoot, l2BlockNumber),
+       state,
+       spongeBlobHash,
++      txEffectsTreeRoot: await body.computeTxEffectsTreeRoot(),
+       globalVariables,
+       totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
+       totalManaUsed: new Fr(blockEndStateField.totalManaUsed),
+diff --git a/yarn-project/archiver/src/modules/data_source_base.ts b/yarn-project/archiver/src/modules/data_source_base.ts
+index bee930fbae214dc6a29cf883c8b4f7d6e4d932fe..7d26ce52e840b041770ba84db72cc530a4418b03 100644
+--- a/yarn-project/archiver/src/modules/data_source_base.ts
++++ b/yarn-project/archiver/src/modules/data_source_base.ts
+@@ -42,7 +42,7 @@ import type { L2LogsSource } from '@aztec-labs/stdlib/interfaces/server';
+ import type { LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec-labs/stdlib/logs';
+ import type { InboxBucket, L1ToL2MessageSource, L2ToL1MembershipWitness } from '@aztec-labs/stdlib/messaging';
+ import { AppendOnlyTreeSnapshot } from '@aztec-labs/stdlib/trees';
+-import type { BlockHeader, IndexedTxEffect, TxHash } from '@aztec-labs/stdlib/tx';
++import type { BlockHeader, IndexedTxEffect, TxEffectMembershipWitness, TxHash } from '@aztec-labs/stdlib/tx';
+ import type { UInt64 } from '@aztec-labs/stdlib/types';
+ 
+ import type { ArchiverDataSource } from '../interfaces.js';
+@@ -155,6 +155,8 @@ export abstract class ArchiverDataSourceBase
+     messageIndexInTx?: number,
+   ): Promise<L2ToL1MembershipWitness | undefined>;
+ 
++  abstract getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined>;
++
+   public async isPruneDueAtSlot(slot: SlotNumber): Promise<boolean> {
+     if (!this.l1Constants) {
+       throw new Error('isPruneDueAtSlot requires l1Constants');
+diff --git a/yarn-project/archiver/src/modules/tx_effects_tree_resolver.ts b/yarn-project/archiver/src/modules/tx_effects_tree_resolver.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..450aca63eeb68b6df469c35c760cb3b3ef37e94d
+--- /dev/null
++++ b/yarn-project/archiver/src/modules/tx_effects_tree_resolver.ts
+@@ -0,0 +1,86 @@
++import type { BlockNumber } from '@aztec-labs/foundation/branded-types';
++import type { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { type Logger, createLogger } from '@aztec-labs/foundation/log';
++import type { AztecAsyncKVStore } from '@aztec-labs/kv-store';
++import type { BlockData } from '@aztec-labs/stdlib/block';
++import {
++  type IndexedTxEffect,
++  type TxEffectMembershipWitness,
++  type TxHash,
++  computeTxEffectMembershipWitnessFromLeaves,
++} from '@aztec-labs/stdlib/tx';
++
++/**
++ * Store-side view of the data the resolver needs to assemble a witness. The archiver block store holds each of these
++ * natively, so no L2 RPC plumbing is required.
++ */
++export interface TxEffectsTreeStoreView {
++  getBlockData(query: { number: BlockNumber }): Promise<BlockData | undefined>;
++  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
++  getTxEffectLeaves(blockNumber: BlockNumber): Promise<Fr[] | undefined>;
++}
++
++/**
++ * Builds membership witnesses against a block's tx effects tree root.
++ *
++ * No tree is cached: only the tx effects tree leaves are, computed once per block when the store ingests it. Per
++ * request, the internal nodes are rebuilt from those leaves (one cheap two-field hash per tx) and the rebuilt root is
++ * checked against the root the block header commits to.
++ */
++export class TxEffectsTreeResolver {
++  constructor(
++    private readonly blocks: TxEffectsTreeStoreView,
++    private readonly store: AztecAsyncKVStore,
++    private readonly log: Logger = createLogger('archiver:tx_effects_tree'),
++  ) {}
++
++  /**
++   * Builds the membership witness proving that `txHash` was included in its block and produced exactly the effects the
++   * archiver stores for it. Returns `undefined` if the tx is not in a block the archiver knows about.
++   *
++   * Throws if the stored leaves do not hash up to the root in the block header, or if the leaf stored for the tx does
++   * not match the effects the archiver serves for it, either of which would mean the stored block is corrupted.
++   */
++  public async getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined> {
++    // Read the tx effect, its block header, and the block's leaves within a single store transaction so the tx index
++    // cannot be paired with data from a different chain state, which would surface as a spurious mismatch below.
++    return await this.store.transactionAsync(async () => {
++      const indexed = await this.blocks.getTxEffect(txHash);
++      if (!indexed) {
++        this.log.trace(`No tx effect for tx, no witness available`, { txHash });
++        return undefined;
++      }
++
++      const blockNumber = indexed.l2BlockNumber;
++      const blockData = await this.blocks.getBlockData({ number: blockNumber });
++      if (!blockData) {
++        this.log.trace(`No block for tx, no witness available`, { txHash, blockNumber });
++        return undefined;
++      }
++
++      const leaves = await this.blocks.getTxEffectLeaves(blockNumber);
++      if (!leaves) {
++        throw new Error(`No tx effects tree leaves stored for block ${blockNumber} holding tx ${txHash}`);
++      }
++
++      const txIndexInBlock = indexed.txIndexInBlock;
++      const leaf = await indexed.data.computeTxEffectLeaf();
++      if (!leaves[txIndexInBlock]?.equals(leaf)) {
++        throw new Error(
++          `Tx ${txHash} is indexed at position ${txIndexInBlock} of block ${blockNumber} but the leaf stored for ` +
++            `that position is ${leaves[txIndexInBlock] ?? 'missing'} instead of ${leaf}`,
++        );
++      }
++
++      const { root, leafIndex, siblingPath } = await computeTxEffectMembershipWitnessFromLeaves(leaves, txIndexInBlock);
++      if (!root.equals(blockData.header.txEffectsTreeRoot)) {
++        throw new Error(
++          `Tx effects tree root rebuilt from the stored leaves of block ${blockNumber} does not match its header: ` +
++            `rebuilt=${root} header=${blockData.header.txEffectsTreeRoot}`,
++        );
++      }
++
++      return { blockNumber, root, leafIndex, siblingPath };
++    });
++  }
++}
+diff --git a/yarn-project/archiver/src/store/block_store.ts b/yarn-project/archiver/src/store/block_store.ts
+index d1bcb2150640a4ddd6bd25f361981c56289cfa28..0e533d20a9febcfcfa8881d1f13ae11921618df6 100644
+--- a/yarn-project/archiver/src/store/block_store.ts
++++ b/yarn-project/archiver/src/store/block_store.ts
+@@ -37,6 +37,7 @@ import {
+   type IndexedTxEffect,
+   TxEffect,
+   TxHash,
++  computeTxEffectLeaves,
+   deserializeIndexedTxEffect,
+   serializeIndexedTxEffect,
+ } from '@aztec-labs/stdlib/tx';
+@@ -165,6 +166,9 @@ export class BlockStore {
+   /** Tx hash to serialized IndexedTxEffect */
+   #txEffects: AztecAsyncMap<string, Buffer>;
+ 
++  /** Map block number to the concatenated leaves of the block's tx effects tree, in tx order */
++  #txEffectLeaves: AztecAsyncMap<number, Buffer>;
++
+   /** Stores L1 block number in which the last processed L2 block was included */
+   #lastSynchedL1Block: AztecAsyncSingleton<bigint>;
+ 
+@@ -198,6 +202,7 @@ export class BlockStore {
+     this.#blocks = db.openMap('archiver_blocks');
+     this.#blockTxs = db.openMap('archiver_block_txs');
+     this.#txEffects = db.openMap('archiver_tx_effects');
++    this.#txEffectLeaves = db.openMap('archiver_tx_effect_leaves');
+     this.#contractIndex = db.openMap('archiver_contract_index');
+     this.#blockHashIndex = db.openMap('archiver_block_hash_index');
+     this.#blockArchiveIndex = db.openMap('archiver_block_archive_index');
+@@ -511,6 +516,11 @@ export class BlockStore {
+   private async addBlockToDatabase(block: L2Block, checkpointNumber: number, indexWithinCheckpoint: number) {
+     const blockHash = await block.hash();
+ 
++    // Each leaf is a structured hash over a tx's full effect data, so it is computed once here, at ingestion, and read
++    // back by membership-witness requests instead of being recomputed per request.
++    const txEffectLeaves = await computeTxEffectLeaves(block.body.txEffects);
++    await this.#txEffectLeaves.set(block.number, Buffer.concat(txEffectLeaves.map(leaf => leaf.toBuffer())));
++
+     await this.#blocks.set(block.number, {
+       header: block.header.toBuffer(),
+       blockHash: blockHash.toBuffer(),
+@@ -541,6 +551,7 @@ export class BlockStore {
+   private async deleteBlock(blockNumber: number, blockStorage: BlockStorage): Promise<void> {
+     // Delete the block from the main blocks map
+     await this.#blocks.delete(blockNumber);
++    await this.#txEffectLeaves.delete(blockNumber);
+ 
+     const blockHash = bufferToHex(blockStorage.blockHash);
+ 
+@@ -1164,6 +1175,24 @@ export class BlockStore {
+     return deserializeIndexedTxEffect(buffer);
+   }
+ 
++  /**
++   * Gets the leaves of a block's tx effects tree, in tx order, as computed when the block was stored.
++   * @param blockNumber - The block to read the leaves of.
++   * @returns The leaves, or undefined if the block is not stored.
++   */
++  async getTxEffectLeaves(blockNumber: BlockNumber): Promise<Fr[] | undefined> {
++    const buffer = await this.#txEffectLeaves.getAsync(blockNumber);
++    if (buffer === undefined) {
++      return undefined;
++    }
++    const reader = BufferReader.asReader(buffer);
++    const leaves: Fr[] = [];
++    while (!reader.isEmpty()) {
++      leaves.push(reader.readObject(Fr));
++    }
++    return leaves;
++  }
++
+   /**
+    * Looks up which block included the requested tx effect.
+    * @param txHash - The txHash of the tx.
+diff --git a/yarn-project/archiver/src/store/data_stores.ts b/yarn-project/archiver/src/store/data_stores.ts
+index ccc2b2bbaefb38371c3b9bf50c33abd985d7da09..780577d87d3c5c38be009d69dfe6edcd3a21d414 100644
+--- a/yarn-project/archiver/src/store/data_stores.ts
++++ b/yarn-project/archiver/src/store/data_stores.ts
+@@ -12,7 +12,7 @@ import { FunctionNamesCache } from './function_names_cache.js';
+ import { LogStore } from './log_store.js';
+ import { MessageStore } from './message_store.js';
+ 
+-export const ARCHIVER_DB_VERSION = 9;
++export const ARCHIVER_DB_VERSION = 10;
+ 
+ /**
+  * Represents the latest L1 block processed by the archiver for various objects in L2.
+diff --git a/yarn-project/aztec-node/src/aztec-node/server.ts b/yarn-project/aztec-node/src/aztec-node/server.ts
+index 44e734488e394d79d4f5bb1b5c226949d3ba5c91..46ac478b7c5b304523a3a7261b385a6afbbb9720 100644
+--- a/yarn-project/aztec-node/src/aztec-node/server.ts
++++ b/yarn-project/aztec-node/src/aztec-node/server.ts
+@@ -94,6 +94,7 @@ import {
+   PublicSimulationOutput,
+   type SimulationOverrides,
+   Tx,
++  type TxEffectMembershipWitness,
+   type TxHash,
+   type TxReceipt,
+   type TxValidationResult,
+@@ -708,6 +709,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
+     return this.worldStateQueries.getL2ToL1MembershipWitness(txHash, message, messageIndexInTx);
+   }
+ 
++  /**
++   * Returns a membership witness proving that `txHash` was included in its block and produced exactly the effects the
++   * node reports for it. Passthrough to the archiver — see {@link Archiver.getTxEffectMembershipWitness}.
++   */
++  public getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined> {
++    return this.worldStateQueries.getTxEffectMembershipWitness(txHash);
++  }
++
+   public getNullifierMembershipWitness(
+     referenceBlock: BlockParameter,
+     nullifier: Fr,
+diff --git a/yarn-project/aztec-node/src/modules/node_world_state_queries.ts b/yarn-project/aztec-node/src/modules/node_world_state_queries.ts
+index 1af07aa7b0b69b1719427af629c64a64f44f9a61..44cc32812a50bdf719afee838ae5780617762dab 100644
+--- a/yarn-project/aztec-node/src/modules/node_world_state_queries.ts
++++ b/yarn-project/aztec-node/src/modules/node_world_state_queries.ts
+@@ -24,7 +24,7 @@ import {
+   type PublicDataTreeLeafPreimage,
+   PublicDataWitness,
+ } from '@aztec-labs/stdlib/trees';
+-import type { TxHash } from '@aztec-labs/stdlib/tx';
++import type { TxEffectMembershipWitness, TxHash } from '@aztec-labs/stdlib/tx';
+ import { WorldStateSynchronizerError } from '@aztec-labs/world-state';
+ 
+ import { normalizeBlockParameter } from './block_parameter.js';
+@@ -207,6 +207,14 @@ export class NodeWorldStateQueries {
+     return this.blockSource.getL2ToL1MembershipWitness(txHash, message, messageIndexInTx);
+   }
+ 
++  /**
++   * Returns a membership witness proving that `txHash` was included in its block and produced exactly the effects
++   * reported for it. Passthrough to the archiver — see {@link Archiver.getTxEffectMembershipWitness}.
++   */
++  public getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined> {
++    return this.blockSource.getTxEffectMembershipWitness(txHash);
++  }
++
+   public async getNullifierMembershipWitness(
+     referenceBlock: BlockParameter,
+     nullifier: Fr,
+diff --git a/yarn-project/blob-lib/src/encoding/tx_blob_data.ts b/yarn-project/blob-lib/src/encoding/tx_blob_data.ts
+index e33b8ee3f831003ac906b3dbece7f645d35a01cf..00181649028759d09f20fb173bd1e9ba587997c8 100644
+--- a/yarn-project/blob-lib/src/encoding/tx_blob_data.ts
++++ b/yarn-project/blob-lib/src/encoding/tx_blob_data.ts
+@@ -20,6 +20,16 @@ export interface TxBlobData {
+   contractClassLog: Fr[];
+ }
+ 
++/** The blob encoding of a tx effect's public data writes: the leaf slot and value of each write. */
++export function encodePublicDataWritesBlobFields(publicDataWrites: [Fr, Fr][]): Fr[] {
++  return publicDataWrites.flat();
++}
++
++/** The blob encoding of a tx effect's private logs: for each log, its length followed by its fields. */
++export function encodePrivateLogsBlobFields(privateLogs: Fr[][]): Fr[] {
++  return privateLogs.flatMap(log => [new Fr(log.length), ...log]);
++}
++
+ export function encodeTxBlobData(txBlobData: TxBlobData): Fr[] {
+   return [
+     encodeTxStartMarker(txBlobData.txStartMarker),
+@@ -28,8 +38,8 @@ export function encodeTxBlobData(txBlobData: TxBlobData): Fr[] {
+     ...txBlobData.noteHashes,
+     ...txBlobData.nullifiers,
+     ...txBlobData.l2ToL1Msgs,
+-    ...txBlobData.publicDataWrites.flat(),
+-    ...txBlobData.privateLogs.map(log => [new Fr(log.length), ...log]).flat(),
++    ...encodePublicDataWritesBlobFields(txBlobData.publicDataWrites),
++    ...encodePrivateLogsBlobFields(txBlobData.privateLogs),
+     ...txBlobData.publicLogs,
+     ...txBlobData.contractClassLog,
+   ];
+diff --git a/yarn-project/foundation/src/trees/unbalanced_merkle_tree_calculator.ts b/yarn-project/foundation/src/trees/unbalanced_merkle_tree_calculator.ts
+index 19986fe0bc843debba55bb7b0e6305d6426c80fc..993114f56af3334952580dbd14e2d69c205a69f0 100644
+--- a/yarn-project/foundation/src/trees/unbalanced_merkle_tree_calculator.ts
++++ b/yarn-project/foundation/src/trees/unbalanced_merkle_tree_calculator.ts
+@@ -1,4 +1,4 @@
+-import { type Hasher, shaMerkleHash } from './hasher.js';
++import { type AsyncHasher, type Hasher, shaMerkleHash } from './hasher.js';
+ import { SiblingPath } from './sibling_path.js';
+ import { type TreeNodeLocation, UnbalancedTreeStore } from './unbalanced_tree_store.js';
+ 
+@@ -7,6 +7,9 @@ interface TreeNode {
+   leafIndex?: number;
+ }
+ 
++/** A pair of node values whose hash the caller of the build routine must supply to continue. */
++type PendingHash = [left: Buffer, right: Buffer];
++
+ /**
+  * An ephemeral unbalanced Merkle tree implementation.
+  * Follows the rollup implementation which greedily hashes pairs of nodes up the tree.
+@@ -19,23 +22,46 @@ export class UnbalancedMerkleTreeCalculator {
+   private store: UnbalancedTreeStore<TreeNode>;
+   private leafLocations: TreeNodeLocation[] = [];
+ 
+-  public constructor(
++  private constructor(
+     private readonly leaves: Buffer[],
+     private readonly valueToCompress: Buffer,
+     private readonly emptyRoot: Buffer,
+-    private readonly hasher: Hasher['hash'],
+   ) {
+     this.store = new UnbalancedTreeStore(leaves.length);
+-    this.buildTree();
+   }
+ 
+   static create(
+     leaves: Buffer[],
+     valueToCompress = Buffer.alloc(0),
+     emptyRoot = Buffer.alloc(32),
+-    hasher = shaMerkleHash,
++    hasher: Hasher['hash'] = shaMerkleHash,
+   ) {
+-    return new UnbalancedMerkleTreeCalculator(leaves, valueToCompress, emptyRoot, hasher);
++    const calculator = new UnbalancedMerkleTreeCalculator(leaves, valueToCompress, emptyRoot);
++    const build = calculator.buildTree();
++    let step = build.next();
++    while (!step.done) {
++      step = build.next(hasher(...step.value));
++    }
++    return calculator;
++  }
++
++  /**
++   * Same as {@link create}, for hashers that resolve asynchronously (e.g. poseidon2). The hasher comes second here
++   * because it is required, unlike in the synchronous factory where it defaults to sha256.
++   */
++  static async createAsync(
++    leaves: Buffer[],
++    hasher: AsyncHasher['hash'],
++    valueToCompress = Buffer.alloc(0),
++    emptyRoot = Buffer.alloc(32),
++  ): Promise<UnbalancedMerkleTreeCalculator> {
++    const calculator = new UnbalancedMerkleTreeCalculator(leaves, valueToCompress, emptyRoot);
++    const build = calculator.buildTree();
++    let step = build.next();
++    while (!step.done) {
++      step = build.next(await hasher(...step.value));
++    }
++    return calculator;
+   }
+ 
+   /**
+@@ -93,9 +119,12 @@ export class UnbalancedMerkleTreeCalculator {
+ 
+   /**
+    * Adds leaves and nodes to the store. Updates the leafLocations.
+-   * @param leaves - The leaves of the tree.
++   *
++   * Implemented as a coroutine: each pair of nodes to hash is yielded to the caller, which hashes it and passes the
++   * result back into the generator. That keeps a single copy of the tree-shaping logic usable by both the synchronous
++   * and the asynchronous factory, since only the caller needs to know whether hashing awaits.
+    */
+-  private buildTree() {
++  private *buildTree(): Generator<PendingHash, void, Buffer> {
+     this.leafLocations = this.leaves.map((value, i) => this.store.setLeaf(i, { value, leafIndex: i }));
+ 
+     // Start with the leaves that are not compressed.
+@@ -130,7 +159,7 @@ export class UnbalancedMerkleTreeCalculator {
+         } else {
+           // Hash the value with the (right) sibling and update the parent node.
+           const node = this.store.getNode(location)!;
+-          const parentValue = this.hasher(node.value, sibling.value);
++          const parentValue = yield [node.value, sibling.value];
+           this.store.setNode(parentLocation, { value: parentValue });
+         }
+ 
+diff --git a/yarn-project/noir-protocol-circuits-types/src/conversion/common.ts b/yarn-project/noir-protocol-circuits-types/src/conversion/common.ts
+index c05efd2f63c49d407479f1d9ccf8f5470a36d4fd..589e80ec9bab46b392f9548caf42e508d4249367 100644
+--- a/yarn-project/noir-protocol-circuits-types/src/conversion/common.ts
++++ b/yarn-project/noir-protocol-circuits-types/src/conversion/common.ts
+@@ -390,6 +390,7 @@ export function mapBlockHeaderToNoir(header: BlockHeader): BlockHeaderNoir {
+     last_archive: mapAppendOnlyTreeSnapshotToNoir(header.lastArchive),
+     state: mapStateReferenceToNoir(header.state),
+     sponge_blob_hash: mapFieldToNoir(header.spongeBlobHash),
++    tx_effects_tree_root: mapFieldToNoir(header.txEffectsTreeRoot),
+     global_variables: mapGlobalVariablesToNoir(header.globalVariables),
+     total_fees: mapFieldToNoir(header.totalFees),
+     total_mana_used: mapFieldToNoir(header.totalManaUsed),
+@@ -406,6 +407,7 @@ export function mapBlockHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
+     mapAppendOnlyTreeSnapshotFromNoir(header.last_archive),
+     mapStateReferenceFromNoir(header.state),
+     mapFieldFromNoir(header.sponge_blob_hash),
++    mapFieldFromNoir(header.tx_effects_tree_root),
+     mapGlobalVariablesFromNoir(header.global_variables),
+     mapFieldFromNoir(header.total_fees),
+     mapFieldFromNoir(header.total_mana_used),
+diff --git a/yarn-project/noir-protocol-circuits-types/src/conversion/server.ts b/yarn-project/noir-protocol-circuits-types/src/conversion/server.ts
+index e7f3207bb26abc3f46a606fd00cc9b96de1cf051..d39a38652a0ce16fc6722fd0955180545e166a2e 100644
+--- a/yarn-project/noir-protocol-circuits-types/src/conversion/server.ts
++++ b/yarn-project/noir-protocol-circuits-types/src/conversion/server.ts
+@@ -423,6 +423,7 @@ export function mapTxRollupPublicInputsFromNoir(publicInputs: TxRollupPublicInpu
+     mapSpongeBlobFromNoir(publicInputs.start_sponge_blob),
+     mapSpongeBlobFromNoir(publicInputs.end_sponge_blob),
+     mapFieldFromNoir(publicInputs.out_hash),
++    mapFieldFromNoir(publicInputs.tx_effects_tree_root),
+     mapFieldFromNoir(publicInputs.accumulated_fees),
+     mapFieldFromNoir(publicInputs.accumulated_mana_used),
+   );
+@@ -437,6 +438,7 @@ export function mapTxRollupPublicInputsToNoir(publicInputs: TxRollupPublicInputs
+     start_sponge_blob: mapSpongeBlobToNoir(publicInputs.startSpongeBlob),
+     end_sponge_blob: mapSpongeBlobToNoir(publicInputs.endSpongeBlob),
+     out_hash: mapFieldToNoir(publicInputs.outHash),
++    tx_effects_tree_root: mapFieldToNoir(publicInputs.txEffectsTreeRoot),
+     accumulated_fees: mapFieldToNoir(publicInputs.accumulatedFees),
+     accumulated_mana_used: mapFieldToNoir(publicInputs.accumulatedManaUsed),
+   };
+diff --git a/yarn-project/prover-client/src/orchestrator/block-building-helpers.ts b/yarn-project/prover-client/src/orchestrator/block-building-helpers.ts
+index dfe7b4f6c90384c278f3610431b2c7ffccb11ee8..14564dbad3252b3025e1c655f656ae5a914c37c9 100644
+--- a/yarn-project/prover-client/src/orchestrator/block-building-helpers.ts
++++ b/yarn-project/prover-client/src/orchestrator/block-building-helpers.ts
+@@ -273,10 +273,12 @@ export const accumulateBlobs = runInSpan(
+   },
+ );
+ 
++// The tx effects tree root is committed via the header hash only, so it is not part of the block root rollup public
++// inputs and must be supplied by the caller, which holds the block's tx effects.
+ export const buildHeaderFromCircuitOutputs = runInSpan(
+   'BlockBuilderHelpers',
+   'buildHeaderFromCircuitOutputs',
+-  async (_span, blockRootRollupOutput: BlockRollupPublicInputs) => {
++  async (_span, blockRootRollupOutput: BlockRollupPublicInputs, txEffectsTreeRoot: Fr) => {
+     const constants = blockRootRollupOutput.constants;
+     const globalVariables = GlobalVariables.from({
+       chainId: constants.chainId,
+@@ -295,6 +297,7 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
+       blockRootRollupOutput.previousArchive,
+       blockRootRollupOutput.endState,
+       spongeBlobHash,
++      txEffectsTreeRoot,
+       globalVariables,
+       blockRootRollupOutput.accumulatedFees,
+       blockRootRollupOutput.accumulatedManaUsed,
+@@ -353,6 +356,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
+       lastArchive,
+       state: endState,
+       spongeBlobHash,
++      txEffectsTreeRoot: await body.computeTxEffectsTreeRoot(),
+       globalVariables,
+       totalFees,
+       totalManaUsed,
+diff --git a/yarn-project/prover-client/src/orchestrator/block-proving-state.ts b/yarn-project/prover-client/src/orchestrator/block-proving-state.ts
+index 66aace9f451d6486bbdb56f7537c02fd3843c5df..d7584359cd3de4a483957d102e436d685529e47f 100644
+--- a/yarn-project/prover-client/src/orchestrator/block-proving-state.ts
++++ b/yarn-project/prover-client/src/orchestrator/block-proving-state.ts
+@@ -13,6 +13,7 @@ import { BlockNumber } from '@aztec-labs/foundation/branded-types';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import type { Tuple } from '@aztec-labs/foundation/serialize';
+ import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec-labs/foundation/trees';
++import { Body } from '@aztec-labs/stdlib/block';
+ import type { PublicInputsAndRecursiveProof } from '@aztec-labs/stdlib/interfaces/server';
+ import { L1ToL2MessageBundle, type L1ToL2MessageSponge, makeL1ToL2MessageBundle } from '@aztec-labs/stdlib/messaging';
+ import {
+@@ -201,6 +202,7 @@ export class BlockProvingState {
+       this.lastArchiveTreeSnapshot,
+       this.endState,
+       endSpongeBlobHash,
++      await this.#computeTxEffectsTreeRoot(),
+       this.#getGlobalVariables(),
+       this.#getTotalFees(),
+       new Fr(this.#getTotalManaUsed()),
+@@ -385,7 +387,10 @@ export class BlockProvingState {
+       throw new Error('Block root rollup is not ready.');
+     }
+ 
+-    return await buildHeaderFromCircuitOutputs(this.blockRootProof.provingOutput.inputs);
++    return await buildHeaderFromCircuitOutputs(
++      this.blockRootProof.provingOutput.inputs,
++      await this.#computeTxEffectsTreeRoot(),
++    );
+   }
+ 
+   public isReadyForMergeRollup(location: TreeNodeLocation) {
+@@ -447,6 +452,10 @@ export class BlockProvingState {
+     });
+   }
+ 
++  #computeTxEffectsTreeRoot() {
++    return new Body(this.getTxEffects()).computeTxEffectsTreeRoot();
++  }
++
+   #getTotalFees() {
+     return this.txs.reduce((acc, tx) => acc.add(tx.processedTx.txEffect.transactionFee), Fr.ZERO);
+   }
+diff --git a/yarn-project/prover-client/src/orchestrator/checkpoint-sub-tree-orchestrator.ts b/yarn-project/prover-client/src/orchestrator/checkpoint-sub-tree-orchestrator.ts
+index e6628d2f3992593d58c8e1a3d14a5bfd1aefde5b..00f030760a542803abbc9c31818a232ea1e52040 100644
+--- a/yarn-project/prover-client/src/orchestrator/checkpoint-sub-tree-orchestrator.ts
++++ b/yarn-project/prover-client/src/orchestrator/checkpoint-sub-tree-orchestrator.ts
+@@ -44,7 +44,6 @@ import {
+ import { inspect } from 'util';
+ 
+ import {
+-  buildHeaderFromCircuitOutputs,
+   getFrontierSiblingPath,
+   getLastSiblingPath,
+   getPublicChonkVerifierPrivateInputsFromTx,
+@@ -955,7 +954,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
+       return;
+     }
+ 
+-    const header = await buildHeaderFromCircuitOutputs(output);
++    const header = await provingState.buildHeaderFromProvingOutputs();
+ 
+     if (!(await header.hash()).equals(await builtBlockHeader.hash())) {
+       this.logger.error(`Block header mismatch.\nCircuit: ${inspect(header)}\nComputed: ${inspect(builtBlockHeader)}`);
+diff --git a/yarn-project/pxe/src/contract_function_simulator/oracle/oracle_type_mappings.ts b/yarn-project/pxe/src/contract_function_simulator/oracle/oracle_type_mappings.ts
+index edb435c198efcdf14d55c49c496c4e6c9f55f64d..bde15903133a14f79b5c12a2d57a83d619af3364 100644
+--- a/yarn-project/pxe/src/contract_function_simulator/oracle/oracle_type_mappings.ts
++++ b/yarn-project/pxe/src/contract_function_simulator/oracle/oracle_type_mappings.ts
+@@ -359,6 +359,7 @@ export const BLOCK_HEADER: TypeMapping<BlockHeader> = STRUCT<BlockHeader>([
+   { name: 'lastArchive', type: APPEND_ONLY_TREE_SNAPSHOT },
+   { name: 'state', type: STATE_REFERENCE },
+   { name: 'spongeBlobHash', type: FIELD },
++  { name: 'txEffectsTreeRoot', type: FIELD },
+   { name: 'globalVariables', type: GLOBAL_VARIABLES },
+   { name: 'totalFees', type: FIELD },
+   { name: 'totalManaUsed', type: FIELD },
+diff --git a/yarn-project/pxe/src/oracle_version.ts b/yarn-project/pxe/src/oracle_version.ts
+index e6def26931f685a25735447eb7d1b28160e75421..9bf738792aa15ce012f146361080c9a4c311e1a2 100644
+--- a/yarn-project/pxe/src/oracle_version.ts
++++ b/yarn-project/pxe/src/oracle_version.ts
+@@ -10,8 +10,8 @@
+ /// used to provide helpful error messages if a contract calls an oracle that doesn't exist. We don't throw immediately
+ /// if AZTEC_NR_MINOR > PXE_MINOR because if a contract is updated to use a newer Aztec.nr dependency without actually
+ /// using any of the new oracles then there is no reason to throw.
+-export const ORACLE_VERSION_MAJOR = 30;
+-export const ORACLE_VERSION_MINOR = 8;
++export const ORACLE_VERSION_MAJOR = 31;
++export const ORACLE_VERSION_MINOR = 0;
+ 
+ /// This hash is computed from `ORACLE_REGISTRY` (each oracle's name, ordered parameter names and
+ /// types, and return type) and is used to detect when the oracle interface changes. When it does, you need to either:
+@@ -19,4 +19,4 @@ export const ORACLE_VERSION_MINOR = 8;
+ /// - increment only `ORACLE_VERSION_MINOR` if the change is additive (a new oracle was added).
+ ///
+ /// These constants must be kept in sync between this file and `noir-projects/aztec-nr/aztec/src/oracle/version.nr`.
+-export const ORACLE_INTERFACE_HASH = '16a4ca6f5342a5b7a12fe9ec3aa88be16c40cf685f5a205a58187c2c41bb2661';
++export const ORACLE_INTERFACE_HASH = '34050955eaba2373f10bb168a41d8ea2634cf1bb3b86048cd168fe784fc82a73';
+diff --git a/yarn-project/pxe/src/storage/metadata.ts b/yarn-project/pxe/src/storage/metadata.ts
+index b1396891c2fb9472113cfa25de383915fff8b18c..7cb230189fffd7ae0d4e2ebebf58ab9449f11dfe 100644
+--- a/yarn-project/pxe/src/storage/metadata.ts
++++ b/yarn-project/pxe/src/storage/metadata.ts
+@@ -1 +1 @@
+-export const PXE_DATA_SCHEMA_VERSION = 14;
++export const PXE_DATA_SCHEMA_VERSION = 15;
+diff --git a/yarn-project/stdlib/src/block/body.ts b/yarn-project/stdlib/src/block/body.ts
+index ffabb467dcf5eaf56a6c22f3ed24e6282a3ac668..4b8a4a36a3f4975758f7ef28c9d9bd4642bf7bac 100644
+--- a/yarn-project/stdlib/src/block/body.ts
++++ b/yarn-project/stdlib/src/block/body.ts
+@@ -1,12 +1,15 @@
+ import type { TxBlobData } from '@aztec-labs/blob-lib/encoding';
+ import { timesParallel } from '@aztec-labs/foundation/collection';
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { BufferReader, serializeToBuffer } from '@aztec-labs/foundation/serialize';
++import { computeUnbalancedMerkleTreeRootAsync } from '@aztec-labs/foundation/trees';
+ import { inspect } from 'util';
+ import { z } from 'zod';
+ 
+ import { MAX_TX_EFFECTS_PER_BODY } from '../deserialization/index.js';
+ import type { ZodFor } from '../schemas/index.js';
+ import { TxEffect } from '../tx/tx_effect.js';
++import { computeTxEffectLeaves, txEffectsTreeNodeHash } from '../tx/tx_effect_membership.js';
+ 
+ export class Body {
+   constructor(public txEffects: TxEffect[]) {}
+@@ -50,6 +53,22 @@ export class Body {
+     return this.txEffects.map(txEffect => txEffect.toTxBlobData());
+   }
+ 
++  /**
++   * Root of the block's tx effects tree, with one leaf per tx binding the tx hash to the hash of its effects.
++   *
++   * Mirrors the accumulation performed by the rollup circuits: an unbalanced (greedily filled) tree over the leaves in
++   * tx order. Zero leaves are not skipped — there are no padding txs, so the shape is a function of the tx count
++   * alone. A block with no txs has root 0, and a single-tx block's root is that tx's leaf, unhashed.
++   */
++  async computeTxEffectsTreeRoot(): Promise<Fr> {
++    const leaves = await computeTxEffectLeaves(this.txEffects);
++    const root = await computeUnbalancedMerkleTreeRootAsync(
++      leaves.map(leaf => leaf.toBuffer()),
++      txEffectsTreeNodeHash,
++    );
++    return Fr.fromBuffer(root);
++  }
++
+   /**
+    * Decodes a block from blob fields.
+    */
+diff --git a/yarn-project/stdlib/src/block/l2_block_source.ts b/yarn-project/stdlib/src/block/l2_block_source.ts
+index be58fb89bfd6b3977d8e82a992ffd0a9135e5509..d396ddf3fa7e3b6b8f29e054433d30694b387071 100644
+--- a/yarn-project/stdlib/src/block/l2_block_source.ts
++++ b/yarn-project/stdlib/src/block/l2_block_source.ts
+@@ -22,6 +22,7 @@ import { MAX_RPC_CHECKPOINTS_DATA_LEN } from '../interfaces/api_limit.js';
+ import type { L2ToL1MembershipWitness } from '../messaging/l2_to_l1_membership.js';
+ import { CheckpointHeader } from '../rollup/checkpoint_header.js';
+ import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
++import type { TxEffectMembershipWitness } from '../tx/tx_effect_membership.js';
+ import type { TxHash } from '../tx/tx_hash.js';
+ import type { BlockData } from './block_data.js';
+ import { BlockHash } from './block_hash.js';
+@@ -200,6 +201,13 @@ export interface L2BlockSource {
+     messageIndexInTx?: number,
+   ): Promise<L2ToL1MembershipWitness | undefined>;
+ 
++  /**
++   * Returns a membership witness proving that tx `txHash` was included in its block and produced exactly the effects
++   * reported for it, verifiable against the `txEffectsTreeRoot` of that block's header. Returns `undefined` if the tx
++   * is unknown.
++   */
++  getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined>;
++
+   /**
+    * Returns the last L2 slot number for which we have all L1 data needed to build the next checkpoint.
+    * Determined by the max of two signals: L1 block sync progress and latest synced checkpoint slot.
+diff --git a/yarn-project/stdlib/src/interfaces/archiver.ts b/yarn-project/stdlib/src/interfaces/archiver.ts
+index 6a082ec3e9fbb7cdb60267313bf0777981de6c3e..e40062dea1c6e1a436aad67d8f4dccdbbb25d97d 100644
+--- a/yarn-project/stdlib/src/interfaces/archiver.ts
++++ b/yarn-project/stdlib/src/interfaces/archiver.ts
+@@ -29,6 +29,7 @@ import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.j
+ import { L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
+ import { optional, schemas } from '../schemas/schemas.js';
+ import { indexedTxSchema } from '../tx/indexed_tx_effect.js';
++import { TxEffectMembershipWitnessSchema } from '../tx/tx_effect_membership.js';
+ import { TxHash } from '../tx/tx_hash.js';
+ import type { L2LogsSource } from './l2_logs_source.js';
+ 
+@@ -114,6 +115,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
+     input: z.tuple([TxHash.schema, schemas.Fr, optional(schemas.Integer)]),
+     output: L2ToL1MembershipWitnessSchema.optional(),
+   }),
++  getTxEffectMembershipWitness: z.function({
++    input: z.tuple([TxHash.schema]),
++    output: TxEffectMembershipWitnessSchema.optional(),
++  }),
+   getSyncedL2SlotNumber: z.function({ input: z.tuple([]), output: schemas.SlotNumber.optional() }),
+   getSyncedL2EpochNumber: z.function({ input: z.tuple([]), output: EpochNumberSchema.optional() }),
+   getBlocksForSlot: z.function({ input: z.tuple([schemas.SlotNumber]), output: z.array(L2Block.schema) }),
+diff --git a/yarn-project/stdlib/src/interfaces/aztec-node.ts b/yarn-project/stdlib/src/interfaces/aztec-node.ts
+index c110e8d7b6945eae8e8ddba60924a4759c9900b8..1160899b06a2c4a65fd07c6b953ef8beec210413 100644
+--- a/yarn-project/stdlib/src/interfaces/aztec-node.ts
++++ b/yarn-project/stdlib/src/interfaces/aztec-node.ts
+@@ -70,6 +70,8 @@ import {
+   PublicSimulationOutput,
+   SimulationOverrides,
+   Tx,
++  type TxEffectMembershipWitness,
++  TxEffectMembershipWitnessSchema,
+   TxHash,
+   type TxReceipt,
+   TxReceiptSchema,
+@@ -245,6 +247,17 @@ export interface AztecNode {
+     messageIndexInTx?: number,
+   ): Promise<L2ToL1MembershipWitness | undefined>;
+ 
++  /**
++   * Returns a membership witness proving that tx `txHash` was included in its block and produced exactly the effects
++   * the node reports for it. The witness is verified against the `txEffectsTreeRoot` of the block header of
++   * `witness.blockNumber`.
++   *
++   * Returns `undefined` if the node does not know the tx.
++   *
++   * @param txHash - The tx to prove inclusion of.
++   */
++  getTxEffectMembershipWitness(txHash: TxHash): Promise<TxEffectMembershipWitness | undefined>;
++
+   /**
+    * Returns the block number at a given block tag, or the latest proposed block number when
+    * `tip` is omitted.
+@@ -632,6 +645,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
+     output: L2ToL1MembershipWitnessSchema.optional(),
+   }),
+ 
++  getTxEffectMembershipWitness: z.function({
++    input: z.tuple([TxHash.schema]),
++    output: TxEffectMembershipWitnessSchema.optional(),
++  }),
++
+   getBlockNumber: z.function({ input: z.tuple([optional(BlockTagWithoutLatestSchema)]), output: BlockNumberSchema }),
+ 
+   getCheckpointNumber: z.function({ input: z.tuple([optional(CheckpointTagSchema)]), output: CheckpointNumberSchema }),
+diff --git a/yarn-project/stdlib/src/rollup/tx_rollup_public_inputs.ts b/yarn-project/stdlib/src/rollup/tx_rollup_public_inputs.ts
+index ec45ce9a710d27b62db7fc72cb4b896998596baf..224d0c8d64bd125b87055ea44663664243a6a255 100644
+--- a/yarn-project/stdlib/src/rollup/tx_rollup_public_inputs.ts
++++ b/yarn-project/stdlib/src/rollup/tx_rollup_public_inputs.ts
+@@ -41,6 +41,14 @@ export class TxRollupPublicInputs {
+      * Note: Truncated to 31 bytes to fit in Fr.
+      */
+     public outHash: Fr,
++    /**
++     * Root of the tx effects tree over the constituent transactions, with one leaf per tx.
++     *
++     * Accumulated pairwise up the rollup tree with `DomainSeparator.TX_EFFECTS_TREE`, without skipping zero roots. The
++     * greedy-fill assertions on the rollup tree admit exactly one shape per tx count, so the root is a function of the
++     * txs and their count alone.
++     */
++    public txEffectsTreeRoot: Fr,
+     /**
+      * The summed `transaction_fee` of the constituent transactions.
+      */
+@@ -63,6 +71,7 @@ export class TxRollupPublicInputs {
+       Fr.zero(),
+       Fr.zero(),
+       Fr.zero(),
++      Fr.zero(),
+     );
+   }
+ 
+@@ -84,6 +93,7 @@ export class TxRollupPublicInputs {
+       Fr.fromBuffer(reader),
+       Fr.fromBuffer(reader),
+       Fr.fromBuffer(reader),
++      Fr.fromBuffer(reader),
+     );
+   }
+ 
+@@ -103,6 +113,7 @@ export class TxRollupPublicInputs {
+       this.endSpongeBlob,
+ 
+       this.outHash,
++      this.txEffectsTreeRoot,
+ 
+       this.accumulatedFees,
+       this.accumulatedManaUsed,
+diff --git a/yarn-project/stdlib/src/tx/block_header.ts b/yarn-project/stdlib/src/tx/block_header.ts
+index 07c627c5ae71f2a4dbf97e62709a551ffee5dd70..e15ca98ac80124b115d1fe91a4950a48a28bde7f 100644
+--- a/yarn-project/stdlib/src/tx/block_header.ts
++++ b/yarn-project/stdlib/src/tx/block_header.ts
+@@ -35,6 +35,8 @@ export class BlockHeader {
+      * May contain tx effects from the previous blocks in the same checkpoint.
+      */
+     public readonly spongeBlobHash: Fr,
++    /** Root of this block's tx effects tree, with one leaf per tx. Zero for an empty block. */
++    public readonly txEffectsTreeRoot: Fr,
+     /** Global variables of an L2 block. */
+     public readonly globalVariables: GlobalVariables,
+     /** Total fees in the block, computed by the root rollup circuit */
+@@ -49,6 +51,7 @@ export class BlockHeader {
+         lastArchive: AppendOnlyTreeSnapshot.schema,
+         state: StateReference.schema,
+         spongeBlobHash: schemas.Fr,
++        txEffectsTreeRoot: schemas.Fr,
+         globalVariables: GlobalVariables.schema,
+         totalFees: schemas.Fr,
+         totalManaUsed: schemas.Fr,
+@@ -61,6 +64,7 @@ export class BlockHeader {
+       fields.lastArchive,
+       fields.state,
+       fields.spongeBlobHash,
++      fields.txEffectsTreeRoot,
+       fields.globalVariables,
+       fields.totalFees,
+       fields.totalManaUsed,
+@@ -84,6 +88,7 @@ export class BlockHeader {
+       this.lastArchive.getSize() +
+       this.state.getSize() +
+       this.spongeBlobHash.size +
++      this.txEffectsTreeRoot.size +
+       this.globalVariables.getSize() +
+       this.totalFees.size +
+       this.totalManaUsed.size
+@@ -118,6 +123,7 @@ export class BlockHeader {
+       reader.readObject(AppendOnlyTreeSnapshot),
+       reader.readObject(StateReference),
+       reader.readObject(Fr),
++      reader.readObject(Fr),
+       reader.readObject(GlobalVariables),
+       reader.readObject(Fr),
+       reader.readObject(Fr),
+@@ -131,6 +137,7 @@ export class BlockHeader {
+       AppendOnlyTreeSnapshot.fromFields(reader),
+       StateReference.fromFields(reader),
+       reader.readField(),
++      reader.readField(),
+       GlobalVariables.fromFields(reader),
+       reader.readField(),
+       reader.readField(),
+@@ -142,6 +149,7 @@ export class BlockHeader {
+       lastArchive: AppendOnlyTreeSnapshot.empty(),
+       state: StateReference.empty(),
+       spongeBlobHash: Fr.ZERO,
++      txEffectsTreeRoot: Fr.ZERO,
+       globalVariables: GlobalVariables.empty(),
+       totalFees: Fr.ZERO,
+       totalManaUsed: Fr.ZERO,
+@@ -154,6 +162,7 @@ export class BlockHeader {
+       this.lastArchive.isEmpty() &&
+       this.state.isEmpty() &&
+       this.spongeBlobHash.isZero() &&
++      this.txEffectsTreeRoot.isZero() &&
+       this.globalVariables.isEmpty() &&
+       this.totalFees.isZero() &&
+       this.totalManaUsed.isZero()
+@@ -197,6 +206,7 @@ export class BlockHeader {
+       lastArchive: AppendOnlyTreeSnapshot.random(),
+       state: StateReference.random(),
+       spongeBlobHash: Fr.random(),
++      txEffectsTreeRoot: Fr.random(),
+       globalVariables: GlobalVariables.random(overrides),
+       totalFees: new Fr(randomInt(100_000)),
+       totalManaUsed: new Fr(randomInt(100_000_000)),
+@@ -209,6 +219,7 @@ export class BlockHeader {
+       lastArchive: this.lastArchive.root.toString(),
+       state: this.state.toInspect(),
+       spongeBlobHash: this.spongeBlobHash.toBigInt(),
++      txEffectsTreeRoot: this.txEffectsTreeRoot.toBigInt(),
+       globalVariables: this.globalVariables.toInspect(),
+       totalFees: this.totalFees.toBigInt(),
+       totalManaUsed: this.totalManaUsed.toBigInt(),
+@@ -223,6 +234,7 @@ export class BlockHeader {
+   state.nullifierTree: ${inspect(this.state.partial.nullifierTree)},
+   state.publicDataTree: ${inspect(this.state.partial.publicDataTree)},
+   spongeBlobHash: ${this.spongeBlobHash},
++  txEffectsTreeRoot: ${this.txEffectsTreeRoot},
+   globalVariables: ${inspect(this.globalVariables)},
+   totalFees: ${this.totalFees},
+   totalManaUsed: ${this.totalManaUsed},
+@@ -234,6 +246,7 @@ export class BlockHeader {
+       this.lastArchive.equals(other.lastArchive) &&
+       this.state.equals(other.state) &&
+       this.spongeBlobHash.equals(other.spongeBlobHash) &&
++      this.txEffectsTreeRoot.equals(other.txEffectsTreeRoot) &&
+       this.globalVariables.equals(other.globalVariables) &&
+       this.totalFees.equals(other.totalFees) &&
+       this.totalManaUsed.equals(other.totalManaUsed)
+diff --git a/yarn-project/stdlib/src/tx/index.ts b/yarn-project/stdlib/src/tx/index.ts
+index 3a328e1f871d9bcf12e809deeadc59f7a87953ac..7e0dde07412bfe4aab9c11b43fa5fd93e5bf89f8 100644
+--- a/yarn-project/stdlib/src/tx/index.ts
++++ b/yarn-project/stdlib/src/tx/index.ts
+@@ -18,6 +18,7 @@ export * from './processed_tx.js';
+ export * from './proven_tx.js';
+ export * from './simulated_tx.js';
+ export * from './tx_effect.js';
++export * from './tx_effect_membership.js';
+ export * from './public_simulation_output.js';
+ export * from './tx_execution_request.js';
+ export * from './validator/tx_validator.js';
+diff --git a/yarn-project/stdlib/src/tx/tx_effect.ts b/yarn-project/stdlib/src/tx/tx_effect.ts
+index 2b502c73d2120a90ff4ea8c6048e9c06e5537a6d..0a7cc93e07a224f1506ba376e949670ea241c70b 100644
+--- a/yarn-project/stdlib/src/tx/tx_effect.ts
++++ b/yarn-project/stdlib/src/tx/tx_effect.ts
+@@ -2,10 +2,14 @@ import {
+   type TxBlobData,
+   type TxStartMarker,
+   decodeTxBlobData,
++  encodePrivateLogsBlobFields,
++  encodePublicDataWritesBlobFields,
+   encodeTxBlobData,
++  encodeTxStartMarker,
+   getNumTxBlobFields,
+ } from '@aztec-labs/blob-lib/encoding';
+ import {
++  DomainSeparator,
+   MAX_CONTRACT_CLASS_LOGS_PER_TX,
+   MAX_L2_TO_L1_MSGS_PER_TX,
+   MAX_NOTE_HASHES_PER_TX,
+@@ -14,6 +18,7 @@ import {
+   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+ } from '@aztec-labs/constants';
+ import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec-labs/foundation/array';
++import { poseidon2HashWithSeparator } from '@aztec-labs/foundation/crypto/poseidon';
+ import { randomInt } from '@aztec-labs/foundation/crypto/random';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { type ZodFor, schemas } from '@aztec-labs/foundation/schemas';
+@@ -121,6 +126,12 @@ export class TxEffect {
+         throw new Error('Private log is empty');
+       }
+     });
++
++    if (contractClassLogs.length > MAX_CONTRACT_CLASS_LOGS_PER_TX) {
++      throw new Error(
++        `Too many contract class logs: ${contractClassLogs.length}, max: ${MAX_CONTRACT_CLASS_LOGS_PER_TX}`,
++      );
++    }
+   }
+ 
+   toBuffer(): Buffer {
+@@ -276,6 +287,35 @@ export class TxEffect {
+     };
+   }
+ 
++  /**
++   * Hash committing to the full contents of this tx's effects.
++   *
++   * The hash is structured rather than flat: each variable-length field is hashed on its own first, and this hash is
++   * taken over those sub-hashes plus the small scalar fields inline. Proving a single field (e.g. one note hash)
++   * therefore only requires the preimage of that field's sub-hash, with the other sub-hashes as opaque witnesses.
++   *
++   * Must match `compute_tx_effect_hash` in noir-protocol-circuits/crates/types/src/blob_data/tx_effect.nr.
++   */
++  async computeTxEffectHash(): Promise<Fr> {
++    const txBlobData = this.toTxBlobData();
++    const fieldHashes = await Promise.all(getTxEffectFieldBlobSlices(txBlobData).map(computeTxEffectFieldHash));
++    return poseidon2HashWithSeparator(
++      [encodeTxStartMarker(txBlobData.txStartMarker), this.transactionFee, ...fieldHashes],
++      DomainSeparator.TX_EFFECT_HASH,
++    );
++  }
++
++  /**
++   * This tx's leaf of the block's tx effects tree: a hash binding the tx hash to the hash of the tx's effects.
++   *
++   * A holder of the block header can verify "tx X was included in this block and produced exactly effects E" with a
++   * membership proof against `BlockHeader.txEffectsTreeRoot`.
++   */
++  async computeTxEffectLeaf(): Promise<Fr> {
++    const txEffectHash = await this.computeTxEffectHash();
++    return poseidon2HashWithSeparator([this.txHash.hash, txEffectHash], DomainSeparator.TX_EFFECT_LEAF);
++  }
++
+   /**
+    * Decodes a flat packed array of fields to TxEffect.
+    */
+@@ -372,3 +412,32 @@ export class TxEffect {
+     return TxEffect.fromBuffer(hexToBuffer(str));
+   }
+ }
++
++/**
++ * The blob-encoding slices of a tx effect's variable-length fields, in the order they are hashed into the tx effect
++ * hash. Each slice is exactly what `encodeTxBlobData` writes for that field, so no new serialization format is
++ * introduced.
++ */
++function getTxEffectFieldBlobSlices(txBlobData: TxBlobData): Fr[][] {
++  return [
++    txBlobData.noteHashes,
++    txBlobData.nullifiers,
++    txBlobData.l2ToL1Msgs,
++    encodePublicDataWritesBlobFields(txBlobData.publicDataWrites),
++    encodePrivateLogsBlobFields(txBlobData.privateLogs),
++    txBlobData.publicLogs,
++    txBlobData.contractClassLog,
++  ];
++}
++
++/**
++ * Hashes one variable-length field of a tx effect over that field's slice of the blob encoding.
++ *
++ * An empty field hashes to 0 rather than to a hash of nothing. This is unambiguous because every array count is bound
++ * by the tx start marker, which is hashed alongside the sub-hashes.
++ */
++function computeTxEffectFieldHash(blobFields: Fr[]): Promise<Fr> {
++  return blobFields.length === 0
++    ? Promise.resolve(Fr.ZERO)
++    : poseidon2HashWithSeparator(blobFields, DomainSeparator.TX_EFFECT_FIELD_HASH);
++}
+diff --git a/yarn-project/stdlib/src/tx/tx_effect_membership.ts b/yarn-project/stdlib/src/tx/tx_effect_membership.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..0073e73824ee235b8f3d536cef2b7269d6a9bb1d
+--- /dev/null
++++ b/yarn-project/stdlib/src/tx/tx_effect_membership.ts
+@@ -0,0 +1,138 @@
++import { DomainSeparator } from '@aztec-labs/constants';
++import { type BlockNumber, BlockNumberSchema } from '@aztec-labs/foundation/branded-types';
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import {
++  SiblingPath,
++  UnbalancedMerkleTreeCalculator,
++  computeRootFromSiblingPath,
++  makePoseidonMerkleHash,
++} from '@aztec-labs/foundation/trees';
++import { z } from 'zod';
++
++import { schemas } from '../schemas/schemas.js';
++import type { TxEffect } from './tx_effect.js';
++
++/**
++ * Hasher for the internal nodes of a block's tx effects tree. Must match the accumulation the rollup circuits perform
++ * up the tx rollup tree.
++ */
++export const txEffectsTreeNodeHash = makePoseidonMerkleHash(DomainSeparator.TX_EFFECTS_TREE);
++
++/**
++ * Proof that a tx was included in a block and produced exactly the effects the block reports for it.
++ *
++ * The witness is verified against `BlockHeader.txEffectsTreeRoot` of block {@link blockNumber} by hashing the tx's leaf
++ * (`TxEffect.computeTxEffectLeaf`, which binds the tx hash to the hash of its effects) up the sibling path.
++ */
++export type TxEffectMembershipWitness = {
++  /** Block the tx was included in, whose header carries the root this witness is built against. */
++  blockNumber: BlockNumber;
++  /** Root of the block's tx effects tree, equal to `BlockHeader.txEffectsTreeRoot`. */
++  root: Fr;
++  /**
++   * Index of the tx's leaf at its own depth in the tree, least significant bit first. The tree is unbalanced (greedily
++   * filled), so leaves sit at different depths and this is not the tx's index within the block.
++   */
++  leafIndex: bigint;
++  /** Sibling path from the tx's leaf up to the root, lowest level first. */
++  siblingPath: SiblingPath<number>;
++};
++
++/**
++ * Zod schema for {@link TxEffectMembershipWitness}. The sibling-path length varies per leaf because the tree is
++ * unbalanced, so we use the unsized `SiblingPath.schema` here rather than a fixed-height `schemaFor`.
++ */
++export const TxEffectMembershipWitnessSchema = z.object({
++  blockNumber: BlockNumberSchema,
++  root: schemas.Fr,
++  leafIndex: schemas.BigInt,
++  siblingPath: SiblingPath.schema,
++}) as unknown as z.ZodType<TxEffectMembershipWitness>;
++
++/**
++ * Computes the leaves of a block's tx effects tree, in block order. Each leaf is an expensive structured hash over the
++ * tx's full effect data, so callers that need the leaves more than once should keep them around.
++ *
++ * @param txEffects - All tx effects of the block, in block order.
++ */
++export function computeTxEffectLeaves(txEffects: TxEffect[]): Promise<Fr[]> {
++  return Promise.all(txEffects.map(txEffect => txEffect.computeTxEffectLeaf()));
++}
++
++/**
++ * Rebuilds a block's tx effects tree from all its tx effects and returns the membership witness for the tx at
++ * `txIndexInBlock`. The returned root must be checked against the block header's `txEffectsTreeRoot` by the caller.
++ *
++ * @param txEffects - All tx effects of the block, in block order.
++ * @param txIndexInBlock - Index within the block of the tx to prove.
++ */
++export async function computeTxEffectMembershipWitness(
++  txEffects: TxEffect[],
++  txIndexInBlock: number,
++): Promise<Omit<TxEffectMembershipWitness, 'blockNumber'>> {
++  return await computeTxEffectMembershipWitnessFromLeaves(await computeTxEffectLeaves(txEffects), txIndexInBlock);
++}
++
++/**
++ * Rebuilds a block's tx effects tree from its precomputed leaves and returns the membership witness for the tx at
++ * `txIndexInBlock`. The returned root must be checked against the block header's `txEffectsTreeRoot` by the caller.
++ *
++ * Only the internal nodes are hashed here (one cheap two-field hash per tx), so this is the cheap path for callers
++ * that already hold the leaves.
++ *
++ * @param leaves - Leaves of the block's tx effects tree, in block order.
++ * @param txIndexInBlock - Index within the block of the tx to prove.
++ */
++export async function computeTxEffectMembershipWitnessFromLeaves(
++  leaves: Fr[],
++  txIndexInBlock: number,
++): Promise<Omit<TxEffectMembershipWitness, 'blockNumber'>> {
++  if (txIndexInBlock < 0 || txIndexInBlock >= leaves.length) {
++    throw new Error(`Tx index ${txIndexInBlock} is out of bounds for a block with ${leaves.length} txs`);
++  }
++
++  const tree = await UnbalancedMerkleTreeCalculator.createAsync(
++    leaves.map(leaf => leaf.toBuffer()),
++    txEffectsTreeNodeHash,
++  );
++
++  return {
++    root: Fr.fromBuffer(tree.getRoot()),
++    leafIndex: BigInt(tree.getLeafLocation(txIndexInBlock).index),
++    siblingPath: tree.getSiblingPathByLeafIndex(txIndexInBlock),
++  };
++}
++
++/**
++ * Hashes `leaf` up the witness' sibling path, taking the side of each step from the witness' leaf index (an even index
++ * puts the leaf on the left). For a single-tx block the sibling path is empty and the leaf itself is the root.
++ *
++ * @param leaf - The tx's leaf, as computed by `TxEffect.computeTxEffectLeaf`.
++ */
++export async function computeRootFromTxEffectMembershipWitness(
++  leaf: Fr,
++  witness: Pick<TxEffectMembershipWitness, 'leafIndex' | 'siblingPath'>,
++): Promise<Fr> {
++  const root = await computeRootFromSiblingPath(
++    leaf.toBuffer(),
++    witness.siblingPath.toBufferArray(),
++    Number(witness.leafIndex),
++    txEffectsTreeNodeHash,
++  );
++  return Fr.fromBuffer(root);
++}
++
++/**
++ * Verifies that a membership witness proves inclusion of `leaf` under `expectedRoot`, which callers must take from a
++ * trusted source: the `txEffectsTreeRoot` of the header of block {@link TxEffectMembershipWitness.blockNumber}.
++ *
++ * @param leaf - The tx's leaf, as computed by `TxEffect.computeTxEffectLeaf`.
++ * @returns True iff hashing `leaf` up the sibling path yields `expectedRoot`.
++ */
++export async function verifyTxEffectMembershipWitness(
++  leaf: Fr,
++  witness: Pick<TxEffectMembershipWitness, 'leafIndex' | 'siblingPath'>,
++  expectedRoot: Fr,
++): Promise<boolean> {
++  return (await computeRootFromTxEffectMembershipWitness(leaf, witness)).equals(expectedRoot);
++}
+diff --git a/yarn-project/txe/src/oracle/txe_oracle_version.ts b/yarn-project/txe/src/oracle/txe_oracle_version.ts
+index 9461c917d787e61d7776fedfde665dc74224bde5..e6ac39f535046b6668d13fee0fe73c736787dc1d 100644
+--- a/yarn-project/txe/src/oracle/txe_oracle_version.ts
++++ b/yarn-project/txe/src/oracle/txe_oracle_version.ts
+@@ -5,7 +5,7 @@
+  *
+  * The Noir counterparts are in `noir-projects/aztec-nr/aztec/src/test/helpers/txe_oracles.nr`.
+  */
+-export const TXE_ORACLE_VERSION_MAJOR = 8;
++export const TXE_ORACLE_VERSION_MAJOR = 9;
+ export const TXE_ORACLE_VERSION_MINOR = 0;
+ 
+ /**
+@@ -14,4 +14,4 @@ export const TXE_ORACLE_VERSION_MINOR = 0;
+  *   - TXE_ORACLE_VERSION_MAJOR (and reset MINOR to 0) for breaking changes, or
+  *   - TXE_ORACLE_VERSION_MINOR for additive changes (new oracle method added).
+  */
+-export const TXE_ORACLE_INTERFACE_HASH = 'e06f29fc2b03516b7122021f95bdcfa7816680469fc46b21eb36d2368bc4e708';
++export const TXE_ORACLE_INTERFACE_HASH = 'f3b89d259e3f94ab60ca7d994683a666a2f0129715403ff6a97775ef46948ab7';
+diff --git a/yarn-project/txe/src/state_machine/archiver.ts b/yarn-project/txe/src/state_machine/archiver.ts
+index 788c94b0fda1dc5f730a0a4bc1b2e8a151e701f1..ea893dc291fede2a508ff151f56219cd66218ace 100644
+--- a/yarn-project/txe/src/state_machine/archiver.ts
++++ b/yarn-project/txe/src/state_machine/archiver.ts
+@@ -115,4 +115,9 @@ export class TXEArchiver extends ArchiverDataSourceBase {
+     // TXE doesn't drive the L2-to-L1 message flow through this archiver.
+     return Promise.resolve(undefined);
+   }
++
++  public getTxEffectMembershipWitness(): Promise<undefined> {
++    // TXE doesn't serve tx effect membership witnesses.
++    return Promise.resolve(undefined);
++  }
+ }
+diff --git a/yarn-project/txe/src/utils/block_creation.ts b/yarn-project/txe/src/utils/block_creation.ts
+index 476e1569c421bef942511d536ec4a06187ccbbaf..483f6b5382a99e0e909a2d9d8f35db4bbe7639c3 100644
+--- a/yarn-project/txe/src/utils/block_creation.ts
++++ b/yarn-project/txe/src/utils/block_creation.ts
+@@ -40,6 +40,7 @@ export async function insertTxEffectIntoWorldTrees(
+ export async function makeTXEBlockHeader(
+   worldTrees: MerkleTreeWriteOperations,
+   globalVariables: GlobalVariables,
++  txEffects: TxEffect[],
+ ): Promise<BlockHeader> {
+   const stateReference = await worldTrees.getStateReference();
+   const archiveInfo = await worldTrees.getTreeInfo(MerkleTreeId.ARCHIVE);
+@@ -47,6 +48,7 @@ export async function makeTXEBlockHeader(
+   return BlockHeader.from({
+     lastArchive: new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
+     spongeBlobHash: Fr.ZERO,
++    txEffectsTreeRoot: await new Body(txEffects).computeTxEffectsTreeRoot(),
+     state: stateReference,
+     globalVariables,
+     totalFees: Fr.ZERO,
+@@ -72,7 +74,7 @@ export async function makeTXEBlock(
+   globalVariables: GlobalVariables,
+   txEffects: TxEffect[],
+ ): Promise<L2Block> {
+-  const header = await makeTXEBlockHeader(worldTrees, globalVariables);
++  const header = await makeTXEBlockHeader(worldTrees, globalVariables, txEffects);
+ 
+   // Update the archive tree with this block's header hash
+   await worldTrees.updateArchive(header);

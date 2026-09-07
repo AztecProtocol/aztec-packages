@@ -1038,6 +1038,7 @@ bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initi
           initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).first,
           initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).second,
           0, // sponge_blob_hash
+          0, // tx_effects_tree_root
           // global variables
           0,                         // chain_id
           0,                         // version

@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: IlyasRidhuan <ilyasridhuan@gmail.com>
+Date: Tue, 1 Sep 2026 12:56:54 +0000
+Subject: [PATCH] feat: bump the oracle and TXE oracle interface major versions
+
+The block header gains a tx_effects_tree_root field, which changes the
+header layout returned by the PXE and TXE oracles: the oracle interface
+major version moves 30 -> 31 and the TXE oracle major version 8 -> 9.
+
+diff --git a/noir-projects/aztec-nr/aztec/src/oracle/version.nr b/noir-projects/aztec-nr/aztec/src/oracle/version.nr
+index 6137d3d641d7d2d964a3a5d74a04aa76ef8ecc26..8ef8a54b6afb59bb38133a32f54786f28bda3c9f 100644
+--- a/noir-projects/aztec-nr/aztec/src/oracle/version.nr
++++ b/noir-projects/aztec-nr/aztec/src/oracle/version.nr
+@@ -10,8 +10,8 @@
+ /// the PXE and used to provide helpful error messages if a contract calls an oracle that doesn't exist. We don't throw
+ /// immediately if AZTEC_NR_MINOR > PXE_MINOR because if a contract is updated to use a newer Aztec.nr dependency
+ /// without actually using any of the new oracles then there is no reason to throw.
+-pub global ORACLE_VERSION_MAJOR: Field = 30;
+-pub global ORACLE_VERSION_MINOR: Field = 8;
++pub global ORACLE_VERSION_MAJOR: Field = 31;
++pub global ORACLE_VERSION_MINOR: Field = 0;
+ 
+ /// Asserts that the version of the oracle is compatible with the version expected by the contract.
+ pub fn assert_compatible_oracle_version() {
+diff --git a/noir-projects/aztec-nr/aztec/src/test/helpers/txe_oracles.nr b/noir-projects/aztec-nr/aztec/src/test/helpers/txe_oracles.nr
+index 1e51db51ff11bb08fdba62152f6a3bfe7658520b..8d946d9d4cdb85abc2571540c5ef10a3cba4047e 100644
+--- a/noir-projects/aztec-nr/aztec/src/test/helpers/txe_oracles.nr
++++ b/noir-projects/aztec-nr/aztec/src/test/helpers/txe_oracles.nr
+@@ -21,7 +21,7 @@ use crate::protocol::{
+ /// [`oracle::version`](crate::oracle::version), which covers oracles used during contract execution by PXE.
+ ///
+ /// The TypeScript counterparts are in `yarn-project/txe/src/oracle/txe_oracle_version.ts`.
+-pub global TXE_ORACLE_VERSION_MAJOR: Field = 8;
++pub global TXE_ORACLE_VERSION_MAJOR: Field = 9;
+ pub global TXE_ORACLE_VERSION_MINOR: Field = 0;
+ 
+ /// Asserts that the TXE oracle interface version is compatible.
