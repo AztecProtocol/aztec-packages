@@ -349,12 +349,16 @@ export async function getCheckpointBlobDataFromBlobs(
   return checkpointBlobData;
 }
 
-/** Given an L1 to L2 message, retrieves its corresponding event from the Inbox within a specific block range. */
+/**
+ * Given an L1 to L2 message, retrieves its corresponding event from the Inbox around the L1 block it was observed in,
+ * never looking past `upperBound` when one is given.
+ */
 export async function retrieveL1ToL2Message(
   inbox: InboxContract,
   message: InboxMessage,
+  upperBound?: bigint,
 ): Promise<InboxMessage | undefined> {
-  const log = await inbox.getMessageSentEventByHash(message.leaf.toString(), message.l1BlockNumber);
+  const log = await inbox.getMessageSentEventByHash(message.leaf.toString(), message.l1BlockNumber, upperBound);
   return log && mapLogInboxMessage(log);
 }
 

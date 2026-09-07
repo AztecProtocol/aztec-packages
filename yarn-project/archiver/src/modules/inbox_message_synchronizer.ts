@@ -1,7 +1,7 @@
 import type { InboxContract, InboxContractState } from '@aztec/ethereum/contracts';
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
-import { minBigint } from '@aztec/foundation/bigint';
+import { maxBigint, minBigint } from '@aztec/foundation/bigint';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -11,7 +11,7 @@ import type { InboxMessagePosition } from '@aztec/stdlib/messaging';
 import { InboxMessagePrefixChangedError } from '../errors.js';
 import { retrieveL1ToL2Message, retrieveL1ToL2Messages } from '../l1/data_retrieval.js';
 import type { ArchiverDataStores } from '../store/data_stores.js';
-import { MessageStoreError, type MessageSyncState } from '../store/message_store.js';
+import { MessageStoreError, type MessageSyncState, zeroMessagePosition } from '../store/message_store.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import type { ArchiverDataStoreUpdater } from './data_store_updater.js';
 
@@ -25,20 +25,11 @@ export type InboxMessageSyncStatus = 'synced' | 'pending';
 
 export type InboxMessageSyncResult = {
   status: InboxMessageSyncStatus;
-  /** Proposed blocks pruned in this pass because a message they consumed was replaced or removed. */
+  /** Proposed blocks pruned in this pass because a message they consumed was rolled back. */
   prunedBlocks: L2Block[];
-  /** Whether a replacement in this pass reached below the checkpointed tip's consumed message count. */
+  /** Whether a rollback in this pass reached below the checkpointed tip's consumed message count. */
   checkpointedTipAffected: boolean;
 };
-
-/**
- * Where a recovery pass stands. The anchor phase walks the local log backwards looking for a message L1 still holds
- * at the same index and hash; the replay phase re-fetches the canonical messages forward from the anchor's L1 block,
- * one batch per pass, comparing them with the stored ones before touching anything.
- */
-type RecoveryPhase =
-  | { kind: 'anchor'; nextCandidateIndex: bigint | undefined }
-  | { kind: 'replay'; nextL1Block: bigint; batchesReplayed: number };
 
 /** A recovery in progress, pinned to the L1 head it was started against. */
 type RecoveryState = {
@@ -47,19 +38,26 @@ type RecoveryState = {
   /** The Inbox's position at `head`. */
   remote: InboxContractState;
   finalizedL1Block: L1BlockId | undefined;
-  phase: RecoveryPhase;
+  /** The next stored message to look up on L1, or undefined once the search has run out of candidates. */
+  nextCandidateIndex: bigint | undefined;
   /** Number of per-message event lookups made so far, for progress reporting. */
   lookups: number;
   startedAt: Timer;
+};
+
+/** The prefix a rollback retains, and the L1 block the deleted suffix is re-fetched from. */
+type RecoveryAnchor = {
+  /** Cumulative count and rolling hash of the prefix to keep. */
+  keep: InboxMessagePosition;
+  /** The anchor's canonical L1 block; the scanned cursor rewinds to the block before it. */
+  anchorL1Block: bigint;
 };
 
 /** Progress of an ongoing recovery, for logging and inspection. */
 export type InboxMessageRecoveryProgress = {
   headL1BlockNumber: bigint;
   remoteTotalMessageCount: bigint;
-  phase: RecoveryPhase['kind'];
   nextCandidateIndex?: bigint;
-  nextL1Block?: bigint;
   lookups: number;
   elapsedMs: number;
 };
@@ -83,17 +81,29 @@ export type InboxMessageRecoveryProgress = {
  * it equals the captured one, which certifies the intermediate batches with it; a disagreement means either an L1
  * reorg changed messages this node already holds or a response was incomplete, and recovery starts.
  *
- * Recovery never deletes on a failed lookup. It first finds an anchor: either the canonical tip itself is a shorter
- * prefix of the local log (checked by hash, so truncation needs no event lookups), or a stored message whose event L1
- * still emits at the same index and hash, found by walking the log backwards with a bounded number of event lookups
- * per pass. A lookup that misses only moves the search to an older candidate. From the anchor's canonical L1 block it
- * replays the canonical messages forward one batch per pass, comparing each with the stored message at its index.
- * Rows and proposed blocks are preserved until an actual content difference is found; at that first difference the
- * old suffix is removed, the verified replacement batch appended, the cursor moved (the syncpoint with it only for a
- * batch reaching the head) and the proposed blocks that consumed the replaced messages pruned, all in one store
- * transaction. A moved prefix followed by new messages is plain append. Recovery is pinned to the head it started
- * against: a merely advancing `latest` does not reset it, only a replaced or unavailable head does. Its replay
- * position is process-local; after a restart, anchor discovery starts over from the stored log, which is correct.
+ * Recovery is conservative: it keeps what it can still authenticate on L1 and reconstructs the rest. It first finds
+ * an anchor: either the canonical tip itself is a shorter prefix of the local log (checked by hash, so truncation
+ * needs no event lookups), or a stored message whose event L1 still emits at the same index and hash within five L1
+ * blocks of the height it was observed at, found by walking the log backwards with a bounded number of event lookups
+ * per pass. A lookup that misses moves the search to an older candidate, and running out of candidates falls back to
+ * the deployment block. Once an anchor is chosen the log is rolled back to it in one store transaction: the suffix
+ * rows are deleted, the proposed blocks that consumed more messages than the retained count are pruned with their
+ * descendants, the scanned cursor rewinds to the block before the anchor's and the syncpoint is cleared. Nothing is
+ * fetched in that pass; ordinary forward ingestion refills the log from the rewound cursor, rewriting the retained
+ * rows in place and appending the canonical suffix.
+ *
+ * The accepted cost is that a message the bounded search cannot place is discarded even if its content is unchanged
+ * and comes straight back: the reference case is a message re-mined far from its old height, whose lookup misses, so
+ * the anchor lands before it and the proposed blocks that consumed it are pruned. A provider answering `eth_getLogs`
+ * with an empty result rather than an error has the same effect on a larger scale, walking the search back to the
+ * finality marker or the deployment block. This is a liveness cost, not a safety one: L1 stays authoritative, the
+ * deleted rows are re-fetched, and published checkpoints are never deleted by this path. An RPC exception is not a
+ * miss and commits nothing.
+ *
+ * Recovery is pinned to the head it started against: a merely advancing `latest` does not reset it, only a replaced
+ * or unavailable head does. Event lookups are bounded above by that head, so an anchor can never sit at or past it
+ * and leave the rewound cursor unreachable. The search position is process-local; after a restart, anchor discovery
+ * starts over from the stored log, which is correct.
  *
  * The inherited finalized-height shortcut is kept: a stored message observed at or below the finality marker
  * persisted by the last sync that reached agreement with L1 is accepted as an anchor without a lookup, and the marker
@@ -128,9 +138,7 @@ export class InboxMessageSynchronizer {
     return {
       headL1BlockNumber: recovery.head.l1BlockNumber,
       remoteTotalMessageCount: recovery.remote.totalMessagesInserted,
-      phase: recovery.phase.kind,
-      nextCandidateIndex: recovery.phase.kind === 'anchor' ? recovery.phase.nextCandidateIndex : undefined,
-      nextL1Block: recovery.phase.kind === 'replay' ? recovery.phase.nextL1Block : undefined,
+      nextCandidateIndex: recovery.nextCandidateIndex,
       lookups: recovery.lookups,
       elapsedMs: recovery.startedAt.ms(),
     };
@@ -341,7 +349,7 @@ export class InboxMessageSynchronizer {
       head,
       remote,
       finalizedL1Block,
-      phase: { kind: 'anchor', nextCandidateIndex: lastCandidate < 0n ? undefined : lastCandidate },
+      nextCandidateIndex: lastCandidate < 0n ? undefined : lastCandidate,
       lookups: 0,
       startedAt: new Timer(),
     };
@@ -355,38 +363,40 @@ export class InboxMessageSynchronizer {
     return this.continueRecovery();
   }
 
+  /**
+   * Runs the anchor search and, once it settles on a prefix, commits the rollback to it. Returns `pending` either
+   * way: a spent lookup budget resumes on the next pass, and a committed rollback leaves the refetch to ordinary
+   * forward ingestion.
+   */
   private async continueRecovery(): Promise<InboxMessageSyncResult> {
     const recovery = this.recovery!;
-    if (recovery.phase.kind === 'anchor') {
-      const anchored = await this.searchAnchor(recovery);
-      if (!anchored) {
-        return pending();
-      }
+    const anchor = await this.searchAnchor(recovery);
+    if (anchor === undefined) {
+      return pending();
     }
-    return this.replayBatch(recovery);
+    return await this.rollbackTo(anchor, recovery);
   }
 
   /**
    * Walks the local log backwards from the current candidate looking for a message L1 still emits at the same index
-   * and hash, spending at most the per-pass lookup budget. Returns true once the replay start is set, false when the
-   * budget ran out first. A message at or below the finalized L1 block is accepted without a lookup.
+   * and hash, spending at most the per-pass lookup budget. Returns the prefix to roll back to, or undefined when the
+   * budget ran out first. A message at or below the finalized L1 block is accepted without a lookup; a search that
+   * runs out of candidates keeps nothing and starts again from the deployment block.
    */
-  private async searchAnchor(recovery: RecoveryState): Promise<boolean> {
-    const phase = recovery.phase as RecoveryPhase & { kind: 'anchor' };
+  private async searchAnchor(recovery: RecoveryState): Promise<RecoveryAnchor | undefined> {
     // Only the finality marker persisted by the last sync that reached agreement with L1 is trusted here: a fresher
     // finalized height covers messages this node never verified against it, and trusting them would widen the
     // inherited shortcut to whatever the local log happens to hold.
     const finalizedL1Block = await this.stores.messages.getMessagesFinalizedL1Block();
     let lookups = 0;
     while (true) {
-      const candidateIndex = phase.nextCandidateIndex;
+      const candidateIndex = recovery.nextCandidateIndex;
       if (candidateIndex === undefined) {
         this.log.warn(`No local L1 to L2 message is still on L1; replaying the Inbox from its deployment`, {
           headL1BlockNumber: recovery.head.l1BlockNumber,
           lookups: recovery.lookups,
         });
-        recovery.phase = { kind: 'replay', nextL1Block: this.l1Start.l1BlockNumber + 1n, batchesReplayed: 0 };
-        return true;
+        return { keep: zeroMessagePosition(), anchorL1Block: this.l1Start.l1BlockNumber + 1n };
       }
       const candidate = await this.stores.messages.getL1ToL2Message(candidateIndex);
       if (candidate === undefined) {
@@ -397,16 +407,17 @@ export class InboxMessageSynchronizer {
           candidateIndex,
           l1BlockNumber: candidate.l1BlockNumber,
         });
-        recovery.phase = { kind: 'replay', nextL1Block: candidate.l1BlockNumber, batchesReplayed: 0 };
-        return true;
+        return { keep: positionAfter([candidate]), anchorL1Block: candidate.l1BlockNumber };
       }
       if (lookups >= this.opts.maxAnchorLookupsPerPass) {
         this.log.verbose(`L1 to L2 message anchor search paused after ${lookups} lookups`, this.getRecoveryProgress());
-        return false;
+        return undefined;
       }
       lookups++;
       recovery.lookups++;
-      const remoteMessage = await retrieveL1ToL2Message(this.inbox, candidate);
+      // The lookup is bounded above by the captured head: an event only reachable past it would rewind the scanned
+      // cursor to at or beyond the head, leaving the next pass with no forward range and re-entering recovery.
+      const remoteMessage = await retrieveL1ToL2Message(this.inbox, candidate, recovery.head.l1BlockNumber);
       if (
         remoteMessage !== undefined &&
         remoteMessage.index === candidate.index &&
@@ -420,8 +431,7 @@ export class InboxMessageSynchronizer {
             previousL1BlockNumber: candidate.l1BlockNumber,
           },
         );
-        recovery.phase = { kind: 'replay', nextL1Block: remoteMessage.l1BlockNumber, batchesReplayed: 0 };
-        return true;
+        return { keep: positionAfter([candidate]), anchorL1Block: remoteMessage.l1BlockNumber };
       }
       // A miss near the old height says nothing about where the message is now; only an older candidate can anchor.
       this.log.debug(
@@ -431,145 +441,46 @@ export class InboxMessageSynchronizer {
           remoteMessage,
         },
       );
-      phase.nextCandidateIndex = candidateIndex === 0n ? undefined : candidateIndex - 1n;
+      recovery.nextCandidateIndex = candidateIndex === 0n ? undefined : candidateIndex - 1n;
     }
   }
 
   /**
-   * Replays one batch of canonical messages from the recovery cursor and compares it with the stored log. Commits
-   * only at an actual difference (a replacement plus prune, or an append), or refreshes L1 block hints for a batch
-   * that matched in full. A batch reaching the captured head is committed only if the log's position after it is the
-   * Inbox's position there, the same agreement normal ingestion demands: an incomplete or inconsistent response stays
-   * uncommitted, prunes nothing and does not advance the syncpoint, and recovery is retried. Earlier batches move the
-   * scanned cursor alone, since nothing has compared the log with the Inbox at their end block.
+   * Commits the one conservative rollback a recovery makes: the log suffix after the anchor is deleted, the proposed
+   * blocks that consumed more than the retained count are pruned with their descendants, the scanned cursor rewinds
+   * to the block before the anchor's and the syncpoint is cleared, all in one store transaction. Nothing is fetched
+   * here, so the prune this pass reports cannot be lost behind a later failed log request; the next ordinary forward
+   * pass re-reads the anchor's block onwards, rewriting the retained rows in place and appending the canonical
+   * suffix.
    */
-  private async replayBatch(recovery: RecoveryState): Promise<InboxMessageSyncResult> {
-    const phase = recovery.phase as RecoveryPhase & { kind: 'replay' };
-    const { head, remote, finalizedL1Block } = recovery;
-    const start = phase.nextL1Block;
-    const end = minBigint(start + this.getBatchSizeInL1Blocks() - 1n, head.l1BlockNumber);
-    const reachesHead = end === head.l1BlockNumber;
-    this.log.verbose(
-      `Replaying L1 to L2 messages in L1 blocks ${start}-${end} for recovery`,
-      this.getRecoveryProgress(),
-    );
-    const canonical = await retrieveL1ToL2Messages(this.inbox, start, end);
-    const l1Block = await this.l1BlockIdFor(end, head);
-
-    let firstNew: number | undefined;
-    let firstDivergent: number | undefined;
-    for (let i = 0; i < canonical.length; i++) {
-      const message = canonical[i];
-      const stored = await this.stores.messages.getL1ToL2Message(message.index);
-      if (stored === undefined) {
-        firstNew = i;
-        break;
-      }
-      if (!stored.leaf.equals(message.leaf) || !stored.inboxRollingHash.equals(message.inboxRollingHash)) {
-        firstDivergent = i;
-        break;
-      }
-    }
-
-    // The logs and the batch-end block were both read by number: only a head still canonical after both reads proves
-    // they came from the captured chain. This is the last L1 read of the pass; every mutation below follows it with
-    // nothing but local store reads in between, so a batch is never committed under a replacement chain's syncpoint.
-    if (!(await this.isHeadStillCanonical(head))) {
-      this.log.warn(`L1 head ${head.l1BlockNumber} was replaced during L1 to L2 message replay; restarting recovery`);
-      this.recovery = undefined;
-      return pending();
-    }
-    phase.batchesReplayed++;
-
-    if (firstDivergent !== undefined) {
-      const divergent = canonical[firstDivergent];
-      const expectedPrefix = await this.stores.messages.getMessagePosition(divergent.index);
-      if (expectedPrefix === undefined) {
-        throw new InboxMessagePrefixChangedError(divergent.index, remote.rollingHash, undefined);
-      }
-      if (reachesHead && !positionMatches(positionAfter(canonical), remote)) {
-        return this.abandonDisagreeingBatch(head, positionAfter(canonical), remote);
-      }
-      this.log.warn(`L1 to L2 message ${divergent.index} differs from L1; replacing the local suffix from it`, {
-        firstDivergentIndex: divergent.index,
-        l1BlockNumber: divergent.l1BlockNumber,
-        replacementCount: canonical.length - firstDivergent,
-      });
-      // The whole batch goes to the store: the matching prefix of it is rewritten in place (refreshing L1 block
-      // hints), the suffix from the divergence replaces what was there.
-      const result = await this.updater.replaceMessageSuffixAndPruneProposedBlocks({
-        firstDivergentIndex: divergent.index,
-        expectedPrefix,
-        messages: canonical,
-        syncState: reachesHead ? { l1Block, authenticated: true, finalizedL1Block } : { l1Block, authenticated: false },
-      });
-      this.recovery = undefined;
-      return { status: reachesHead ? 'synced' : 'pending', ...result };
-    }
-
-    if (firstNew !== undefined) {
-      if (reachesHead && !positionMatches(positionAfter(canonical), remote)) {
-        return this.abandonDisagreeingBatch(head, positionAfter(canonical), remote);
-      }
-      this.log.info(
-        `Canonical L1 to L2 messages rejoin the local log at index ${canonical[firstNew].index}; appending`,
-        {
-          firstNewIndex: canonical[firstNew].index,
-          appendCount: canonical.length - firstNew,
-        },
-      );
-      await this.storeMessages(
-        canonical,
-        reachesHead ? { l1Block, authenticated: true, finalizedL1Block } : { l1Block, authenticated: false },
-      );
-      this.recovery = undefined;
-      return reachesHead ? synced() : pending();
-    }
-
-    if (canonical.length > 0) {
-      // Everything matched; only the L1 block hints may have moved.
-      await this.storeMessages(canonical, undefined);
-    }
-    if (!reachesHead) {
-      phase.nextL1Block = end + 1n;
-      return pending();
-    }
-
-    // Replayed through the head without a difference: the local log holds the canonical sequence, possibly followed
-    // by a stale tail the canonical chain no longer has.
+  private async rollbackTo(anchor: RecoveryAnchor, recovery: RecoveryState): Promise<InboxMessageSyncResult> {
+    const { head } = recovery;
     const local = await this.stores.messages.getSyncedMessagePosition();
-    if (positionMatches(local, remote)) {
-      await this.stores.messages.setMessageSyncState({ l1Block: head, authenticated: true, finalizedL1Block });
-      this.log.info(`L1 to L2 message recovery found no content change`, this.getRecoveryProgress());
+    const cursor = await this.l1BlockIdFor(maxBigint(anchor.anchorL1Block - 1n, this.l1Start.l1BlockNumber), head);
+    // The anchor event and the cursor block were both read by number: only a head still canonical after both reads
+    // proves they came from the captured chain, so a rollback never commits against a replacement chain.
+    if (!(await this.isHeadStillCanonical(head))) {
+      this.log.warn(`L1 head ${head.l1BlockNumber} was replaced during L1 to L2 message recovery; restarting`);
       this.recovery = undefined;
-      return synced();
+      return pending();
     }
-    const localAtRemote = await this.stores.messages.getMessagePosition(remote.totalMessagesInserted);
-    if (localAtRemote !== undefined && localAtRemote.rollingHash.equals(remote.rollingHash)) {
-      this.recovery = undefined;
-      return this.truncate(localAtRemote, head, finalizedL1Block);
-    }
-    return this.abandonDisagreeingBatch(head, local, remote);
-  }
-
-  /**
-   * Drops the current recovery without committing anything: the replayed events and the Inbox state at the captured
-   * head do not describe the same sequence, so neither can be trusted over the other. The next pass retries.
-   */
-  private abandonDisagreeingBatch(
-    head: L1BlockId,
-    local: InboxMessagePosition,
-    remote: InboxContractState,
-  ): InboxMessageSyncResult {
-    this.log.error(`Inbox events and state at L1 block ${head.l1BlockNumber} disagree; retrying recovery`, {
-      headL1BlockNumber: head.l1BlockNumber,
-      localTotalMessageCount: local.totalMessageCount,
-      localRollingHash: local.rollingHash.toString(),
-      remoteTotalMessageCount: remote.totalMessagesInserted,
-      remoteRollingHash: remote.rollingHash.toString(),
+    this.log.warn(
+      `Rolling local L1 to L2 messages back from ${local.totalMessageCount} to ${anchor.keep.totalMessageCount}`,
+      {
+        headL1BlockNumber: head.l1BlockNumber,
+        keptCount: anchor.keep.totalMessageCount,
+        localCount: local.totalMessageCount,
+        anchorL1BlockNumber: anchor.anchorL1Block,
+      },
+    );
+    const result = await this.updater.rollbackMessagesAndPruneProposedBlocks({
+      keep: anchor.keep,
+      // Unauthenticated on purpose: the retained prefix was never compared with the Inbox at the cursor's block, and
+      // the log is missing everything the refetch is about to restore.
+      syncState: { l1Block: cursor, authenticated: false },
     });
     this.recovery = undefined;
-    return pending();
+    return { status: 'pending', ...result };
   }
 
   /** Removes every local message past `keep`, which the canonical chain has authenticated as its tip. */
@@ -583,16 +494,12 @@ export class InboxMessageSynchronizer {
       `Truncating local L1 to L2 messages from ${local.totalMessageCount} to ${keep.totalMessageCount} to match L1`,
       { headL1BlockNumber: head.l1BlockNumber, keptCount: keep.totalMessageCount, localCount: local.totalMessageCount },
     );
-    const result = await this.updater.replaceMessageSuffixAndPruneProposedBlocks({
-      firstDivergentIndex: keep.totalMessageCount,
-      expectedPrefix: keep,
-      messages: [],
-      syncState: { l1Block: head, authenticated: true },
+    // The whole retained log was compared with the Inbox at the head, so unlike a recovery rollback this one may
+    // certify the head, and finality may advance over it.
+    const result = await this.updater.rollbackMessagesAndPruneProposedBlocks({
+      keep,
+      syncState: { l1Block: head, authenticated: true, finalizedL1Block },
     });
-    // The remaining log is the canonical sequence at the head, so finality may advance over it.
-    if (finalizedL1Block !== undefined) {
-      await this.stores.messages.setMessageSyncState({ l1Block: head, authenticated: true, finalizedL1Block });
-    }
     return { status: 'synced', ...result };
   }
 

@@ -1628,7 +1628,32 @@ describe('Archiver Sync', () => {
       expect(synchronizer.isRecoveringMessages()).toBe(false);
     });
 
-    it('prunes proposed blocks from the first replaced message rather than at the first failed lookup', async () => {
+    it('rolls back to the newest message still found on L1 and re-fetches the rest, dropping unchanged work', async () => {
+      const [a, b, c, d] = randomLeaves(4);
+      fake.addMessages(CheckpointNumber(1), 100n, [a, b]);
+      fake.addMessages(CheckpointNumber(1), 101n, [c, d]);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      const [block1] = await addLocalBlocksConsuming([2, 3]);
+
+      // A and B stay in block 100. C keeps its content but moves 29 blocks away, out of the lookup window, and D is
+      // replaced by X. The newest message a lookup can still place is B, so the log rolls back to it.
+      fake.removeMessagesAfter(3);
+      fake.moveMessagesToL1Block(101n, 130n);
+      const x = Fr.random();
+      fake.addMessages(CheckpointNumber(2), 131n, [x]);
+      fake.setL1BlockNumber(135n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([a, b, c, x]));
+      // Block 2 consumed C, which comes back unchanged, yet it was pruned: the rollback precedes the refetch.
+      expect(await localBlockNumbers()).toEqual([block1.number]);
+      expect(pruneSpy).toHaveBeenCalledTimes(1);
+      expect(archiver.getL1BlockNumber()).toEqual(135n);
+      expect(synchronizer.isRecoveringMessages()).toBe(false);
+    });
+
+    it('rolls back to the deployment block and prunes every proposed block when no lookup finds an anchor', async () => {
       const msgs = randomLeaves(6);
       fake.addMessages(CheckpointNumber(1), 100n, msgs.slice(0, 3));
       fake.addMessages(CheckpointNumber(1), 101n, msgs.slice(3));
@@ -1646,17 +1671,86 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(135n);
       await archiver.syncImmediate();
 
+      // Everything comes back, four of the six messages unchanged, but the search could place none of them, so the
+      // rollback went to the deployment block and took both proposed blocks with it.
       expect(await getStoredLeaves()).toEqual(asHex([...msgs.slice(0, 4), ...replacement]));
-      // Every candidate was looked up and missed, yet the surviving prefix was kept: deletion followed the content
-      // comparison, not the lookups.
       expect(eventByHashSpy).toHaveBeenCalled();
-      // Block 1 consumed only unchanged messages; block 2 consumed a replaced one.
-      expect(await localBlockNumbers()).toEqual([block1.number]);
+      expect(await localBlockNumbers()).toEqual([]);
       expect(pruneSpy).toHaveBeenCalledTimes(1);
       expect(pruneSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ blocks: [expect.objectContaining({ number: block2.number })] }),
+        expect.objectContaining({
+          blocks: [
+            expect.objectContaining({ number: block1.number }),
+            expect.objectContaining({ number: block2.number }),
+          ],
+        }),
       );
       expect(archiver.getL1BlockNumber()).toEqual(135n);
+    });
+
+    it('keeps the prefix through a message found inside the lookup window', async () => {
+      const [a, b, c, d] = randomLeaves(4);
+      fake.addMessages(CheckpointNumber(1), 100n, [a, b]);
+      fake.addMessages(CheckpointNumber(1), 101n, [c, d]);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      const [block1, block2] = await addLocalBlocksConsuming([2, 3]);
+
+      // C moves only to the far edge of the +-5 window around its recorded height, so the lookup still places it and
+      // the rollback keeps it and the block that ended on it.
+      fake.removeMessagesAfter(3);
+      fake.moveMessagesToL1Block(101n, 106n);
+      const x = Fr.random();
+      fake.addMessages(CheckpointNumber(2), 107n, [x]);
+      fake.setL1BlockNumber(115n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([a, b, c, x]));
+      expect(eventByHashSpy).toHaveBeenCalled();
+      expect(await localBlockNumbers()).toEqual([block1.number, block2.number]);
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(archiver.getL1BlockNumber()).toEqual(115n);
+    });
+
+    it('refetches the whole L1 block the anchor sits in, including the messages that follow it there', async () => {
+      const [a, b, c] = randomLeaves(3);
+      fake.addMessages(CheckpointNumber(1), 100n, [a, b, c]);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      // A and B stay in block 100 and C is replaced by X in that same block: the anchor is B, whose L1 block also
+      // carries the canonical suffix the refetch has to pick up.
+      const x = Fr.random();
+      fake.removeMessagesAfter(2);
+      fake.addMessages(CheckpointNumber(1), 100n, [x]);
+      fake.reorgL1BlocksFrom(100n);
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex([a, b, x]));
+      expect(archiver.getL1BlockNumber()).toEqual(111n);
+      expect(synchronizer.isRecoveringMessages()).toBe(false);
+    });
+
+    it('treats a placement-only reorg as synced without looking anything up', async () => {
+      const msgs = randomLeaves(3);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      await addLocalBlocksConsuming([3]);
+
+      // The same messages are re-mined elsewhere: the Inbox's count and rolling hash are unchanged, so there is
+      // nothing to recover from.
+      fake.moveMessagesToL1Block(100n, 105n);
+      fake.reorgL1BlocksFrom(100n);
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+      expect(eventByHashSpy).not.toHaveBeenCalled();
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await localBlockNumbers()).toEqual([1]);
+      expect(archiver.getL1BlockNumber()).toEqual(111n);
     });
 
     it('truncates to a shorter canonical prefix by hash without any event lookups', async () => {
@@ -1738,15 +1832,40 @@ describe('Archiver Sync', () => {
       expect(archiver.getL1BlockNumber()).toEqual(109n);
     });
 
-    it('reports unavailable logs during recovery without deleting anything', async () => {
+    it('commits nothing when a per-message lookup fails before an anchor is chosen', async () => {
       const msgs = randomLeaves(4);
       fake.addMessages(CheckpointNumber(1), 100n, msgs);
       fake.setL1BlockNumber(110n);
       await archiver.syncImmediate();
       await addLocalBlocksConsuming([4]);
 
-      // A replaced tail whose surviving prefix moved out of the lookup window forces a replay from deployment, and
-      // the provider cannot serve the deployment block.
+      // The tail is replaced by messages in an L1 block the scan already passed, so the head batch disagrees and
+      // recovery starts; the provider then cannot answer the anchor search at all.
+      fake.removeMessagesAfter(2);
+      const replacement = randomLeaves(2);
+      fake.addMessages(CheckpointNumber(2), 101n, replacement);
+      fake.setL1BlockNumber(111n);
+      inboxContract.getMessageSentEventByHash.mockRejectedValue(new Error('Cannot serve MessageSent logs by hash'));
+
+      await expect(archiver.syncImmediate()).rejects.toThrow(/Cannot serve MessageSent logs by hash/);
+
+      // An RPC exception is not a miss: no anchor was chosen, so nothing was deleted or pruned.
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+      expect(await localBlockNumbers()).toEqual([1]);
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(synchronizer.isRecoveringMessages()).toBe(true);
+      expect(archiver.getL1BlockNumber()).toEqual(110n);
+    });
+
+    it('keeps the shortened log and the delivered prune when the refetch after a rollback fails', async () => {
+      const msgs = randomLeaves(4);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      await addLocalBlocksConsuming([4]);
+
+      // Every surviving message moved out of the lookup window, so the rollback goes to the deployment block; the
+      // provider then cannot serve the range the refetch needs.
       fake.removeMessagesAfter(2);
       fake.moveMessagesToL1Block(100n, 130n);
       const replacement = randomLeaves(2);
@@ -1756,16 +1875,17 @@ describe('Archiver Sync', () => {
 
       await expect(archiver.syncImmediate()).rejects.toThrow(/Cannot serve MessageSent logs/);
 
-      expect(await getStoredLeaves()).toEqual(asHex(msgs));
-      expect(await localBlockNumbers()).toEqual([1]);
-      expect(synchronizer.isRecoveringMessages()).toBe(true);
+      // The rollback is committed and its prune reported; the failed fetch does not undo either.
+      expect(await getStoredLeaves()).toEqual([]);
+      expect(await localBlockNumbers()).toEqual([]);
+      expect(pruneSpy).toHaveBeenCalledTimes(1);
+      expect(await archiverStore.messages.getSynchedL1Block()).toBeUndefined();
+      expect(synchronizer.isRecoveringMessages()).toBe(false);
       expect(archiver.getL1BlockNumber()).toEqual(110n);
 
       fake.setMessageSentEventsFailure(undefined);
       await archiver.syncImmediate();
       expect(await getStoredLeaves()).toEqual(asHex([...msgs.slice(0, 2), ...replacement]));
-      expect(await localBlockNumbers()).toEqual([]);
-      expect(synchronizer.isRecoveringMessages()).toBe(false);
       expect(archiver.getL1BlockNumber()).toEqual(135n);
     });
 
@@ -2108,19 +2228,22 @@ describe('Archiver Sync', () => {
       expect(await getStoredLeaves()).toEqual(asHex([a, b]));
 
       // L1 replaces block 3 onwards: B is gone, C is mined much later in block 10, and blocks 5-9 carry no message.
-      // The empty batches between the stale syncpoint and C must not move the syncpoint over the retained B.
+      // Recovery rolls back to A, and the empty batches that refill the log up to C must not certify a syncpoint of
+      // their own; the provider cannot serve C's block, so the batch that would certify one never lands.
       fake.removeMessagesAfter(1);
       fake.reorgL1BlocksFrom(3n);
       fake.addMessages(CheckpointNumber(1), 10n, [c]);
       fake.setL1BlockNumber(10n);
-      await archiver.syncImmediate();
+      fake.setMessageSentEventsFailure((_from, to) => to >= 10n);
+      await expect(archiver.syncImmediate()).rejects.toThrow(/Cannot serve MessageSent logs/);
 
-      expect(await getStoredLeaves()).toEqual(asHex([a, b]));
-      expect((await archiverStore.messages.getSynchedL1Block())?.l1BlockNumber).toEqual(4n);
-      expect(archiver.getL1BlockNumber()).toEqual(4n);
+      expect(await getStoredLeaves()).toEqual(asHex([a]));
+      expect(await archiverStore.messages.getSynchedL1Block()).toBeUndefined();
+      expect((await archiverStore.messages.getScannedL1Block())?.l1BlockNumber).toEqual(9n);
 
-      // The head recovery was pinned to is replaced and the chain shortens to block 8: a syncpoint advanced by the
-      // empty batches would now match the head and report B as canonical.
+      // The chain shortens to block 8: a syncpoint advanced by the empty batches would match this head and answer it
+      // as synced without ever comparing the log with the Inbox.
+      fake.setMessageSentEventsFailure(undefined);
       fake.reorgL1BlocksFrom(9n);
       fake.setL1BlockNumber(8n);
       await archiver.syncImmediate();
@@ -2222,7 +2345,7 @@ describe('Archiver Sync', () => {
       expect(archiver.getL1BlockNumber()).toEqual(0n);
     });
 
-    it('leaves a recovery batch uncommitted when its position at the head disagrees with the Inbox', async () => {
+    it('leaves the batch that refills the log after a rollback uncommitted when it disagrees with the Inbox', async () => {
       const [a, b, c, d] = randomLeaves(4);
       fake.addMessages(CheckpointNumber(1), 100n, [a]);
       fake.addMessages(CheckpointNumber(1), 102n, [b]);
@@ -2243,10 +2366,14 @@ describe('Archiver Sync', () => {
       });
       await archiver.syncImmediate();
 
-      // [A, C] ends nowhere the Inbox does at the head, so the log, the proposed blocks and readiness are untouched.
-      expect(await getStoredLeaves()).toEqual(asHex([a, b]));
-      expect(await localBlockNumbers()).toEqual([block1.number, block2.number]);
-      expect(pruneSpy).not.toHaveBeenCalled();
+      // The rollback to A and its prune stand, but [A, C] ends nowhere the Inbox does at the head, so that batch is
+      // not appended and readiness does not advance.
+      expect(await getStoredLeaves()).toEqual(asHex([a]));
+      expect(await localBlockNumbers()).toEqual([block1.number]);
+      expect(pruneSpy).toHaveBeenCalledTimes(1);
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ blocks: [expect.objectContaining({ number: block2.number })] }),
+      );
       expect(archiver.getL1BlockNumber()).toEqual(110n);
 
       inboxContract.getMessageSentEvents.mockImplementation(readLogs);
@@ -2256,7 +2383,7 @@ describe('Archiver Sync', () => {
       expect(archiver.getL1BlockNumber()).toEqual(111n);
     });
 
-    it('discards a replay batch whose chain was replaced while its syncpoint block was being read', async () => {
+    it('refuses a rollback whose captured head was replaced while the rewind cursor block was read', async () => {
       // One slot of L1 blocks per batch: two blocks. A arrives in block 2 and B in block 4; the log is synced to head 6.
       await useArchiver({ batchSize: 1 });
       const [a, b, c, d] = randomLeaves(4);
@@ -2265,15 +2392,15 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(6n);
       await archiver.syncImmediate();
 
-      // L1 replaces block 3 onwards at the same height, with C in place of B.
+      // L1 replaces block 3 onwards at the same height, with C in place of B, so the search anchors on A in block 2.
       fake.removeMessagesAfter(1);
       fake.addMessages(CheckpointNumber(1), 4n, [c]);
       fake.reorgL1BlocksFrom(3n);
-      // While recovery reads the block that ends the replay batch carrying C, L1 replaces the chain again with D in
-      // place of C and shortens to block 5: the logs belong to the chain with C, the block hash to the chain with D.
+      // While recovery reads block 1 to rewind the cursor to it, L1 replaces the chain again with D in place of C and
+      // shortens to block 5: the anchor evidence belongs to the chain with C, the cursor hash to the chain with D.
       const readBlock = publicClient.getBlock.getMockImplementation()!;
       publicClient.getBlock.mockImplementation(((args: { blockNumber?: bigint }) => {
-        if (args?.blockNumber === 5n) {
+        if (args?.blockNumber === 1n) {
           publicClient.getBlock.mockImplementation(readBlock);
           fake.removeMessagesAfter(1);
           fake.addMessages(CheckpointNumber(1), 4n, [d]);
@@ -2284,12 +2411,12 @@ describe('Archiver Sync', () => {
       }) as any);
       await archiver.syncImmediate();
 
-      // Nothing was certified under the replacement chain: the syncpoint is still the one committed before the reorg.
+      // Nothing was deleted or certified under the replacement chain.
+      expect(await getStoredLeaves()).toEqual(asHex([a, b]));
       expect((await archiverStore.messages.getSynchedL1Block())?.l1BlockNumber).toEqual(6n);
       expect(archiver.getL1BlockNumber()).toEqual(6n);
 
-      // The head is now block 5 of the chain with D; a syncpoint committed at block 5 with the logs of the chain with
-      // C would pass the same-head shortcut and report C as canonical.
+      // The head is now block 5 of the chain with D; recovery runs again against it and converges.
       await archiver.syncImmediate();
       expect(await getStoredLeaves()).toEqual(asHex([a, d]));
       expect(archiver.getL1BlockNumber()).toEqual(5n);

@@ -3,6 +3,7 @@ import { type Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@a
 import type { CheckpointProposedLog, InboxContract, MessageSentLog, RollupContract } from '@aztec/ethereum/contracts';
 import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
+import { minBigint } from '@aztec/foundation/bigint';
 import { type BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -558,8 +559,9 @@ export class FakeL1State {
         : Promise.resolve(this.getMessageSentLogs(fromBlock, toBlock)),
     );
 
-    mockInbox.getMessageSentEventByHash.mockImplementation((msgHash: string, aroundL1BlockNumber: bigint) =>
-      Promise.resolve(this.getMessageSentLogByHash(msgHash, aroundL1BlockNumber) as MessageSentLog),
+    mockInbox.getMessageSentEventByHash.mockImplementation(
+      (msgHash: string, aroundL1BlockNumber: bigint, upperBound?: bigint) =>
+        Promise.resolve(this.getMessageSentLogByHash(msgHash, aroundL1BlockNumber, upperBound) as MessageSentLog),
     );
 
     return mockInbox;
@@ -688,12 +690,18 @@ export class FakeL1State {
       }));
   }
 
-  private getMessageSentLogByHash(msgHash: string, aroundL1BlockNumber: bigint): MessageSentLog | undefined {
+  private getMessageSentLogByHash(
+    msgHash: string,
+    aroundL1BlockNumber: bigint,
+    upperBound?: bigint,
+  ): MessageSentLog | undefined {
+    const toBlock =
+      upperBound === undefined ? aroundL1BlockNumber + 5n : minBigint(aroundL1BlockNumber + 5n, upperBound);
     const msg = this.messages.find(
       msg =>
         msg.leaf.toString() === msgHash &&
         msg.l1BlockNumber >= aroundL1BlockNumber - 5n &&
-        msg.l1BlockNumber <= aroundL1BlockNumber + 5n,
+        msg.l1BlockNumber <= toBlock,
     );
     if (!msg) {
       return undefined;

@@ -479,7 +479,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         });
       }
       if (result.prunedBlocks.length > 0) {
-        this.log.warn(`Pruned ${result.prunedBlocks.length} proposed blocks that consumed replaced Inbox messages`, {
+        this.log.warn(`Pruned ${result.prunedBlocks.length} proposed blocks that consumed rolled-back Inbox messages`, {
           prunedBlocks: result.prunedBlocks.map(b => b.toBlockInfo()),
         });
         this.instrumentation.recordPrune('inbox_reorg');

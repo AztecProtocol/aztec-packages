@@ -732,7 +732,7 @@ describe('ArchiverDataStoreUpdater', () => {
     });
   });
 
-  describe('replaceMessageSuffixAndPruneProposedBlocks', () => {
+  describe('rollbackMessagesAndPruneProposedBlocks', () => {
     const syncState = {
       l1Block: { l1BlockNumber: 200n, l1BlockHash: Buffer32.random() },
       authenticated: true as const,
@@ -752,19 +752,13 @@ describe('ArchiverDataStoreUpdater', () => {
     };
     const positionAt = async (count: number) => (await store.messages.getMessagePosition(BigInt(count)))!;
     const storedLeaves = async () => (await toArray(store.messages.iterateL1ToL2Messages())).map(m => m.leaf);
-    /** Replacement messages continuing the stored chain from `fromIndex`. */
-    const replacementFrom = async (fromIndex: number, count: number) =>
-      makeInboxMessages(count, {
-        initialIndex: BigInt(fromIndex),
-        initialInboxHash: (await positionAt(fromIndex)).rollingHash,
-      });
 
     beforeEach(async () => {
       messages = makeInboxMessages(6);
       await store.messages.addL1ToL2Messages(messages);
     });
 
-    it('replaces the suffix, moves the syncpoint and prunes from the first block consuming a replaced message', async () => {
+    it('rolls back to the retained prefix, moves the sync state and prunes from the first block consuming past it', async () => {
       const block1 = await makeConsumingBlock(1, 3);
       const block2 = await makeConsumingBlock(2, 5, block1);
       const block3 = await makeConsumingBlock(3, 6, block2);
@@ -775,18 +769,12 @@ describe('ArchiverDataStoreUpdater', () => {
       ] as const) {
         await updater.addProposedBlock(block, InboxMessagePrefixRef.fromPosition(await positionAt(count)));
       }
-      const replacement = await replacementFrom(4, 3);
 
-      const result = await updater.replaceMessageSuffixAndPruneProposedBlocks({
-        firstDivergentIndex: 4n,
-        expectedPrefix: await positionAt(4),
-        messages: replacement,
-        syncState,
-      });
+      const result = await updater.rollbackMessagesAndPruneProposedBlocks({ keep: await positionAt(4), syncState });
 
-      expect(await storedLeaves()).toEqual([...messages.slice(0, 4), ...replacement].map(m => m.leaf));
+      expect(await storedLeaves()).toEqual(messages.slice(0, 4).map(m => m.leaf));
       expect(await store.messages.getSynchedL1Block()).toEqual(syncState.l1Block);
-      // Block 1 consumed only messages before the divergence; block 2 consumed message 4 and block 3 chains on it.
+      // Block 1 stayed within the retained prefix; block 2 consumed past it and block 3 chains on it.
       expect(result.prunedBlocks.map(b => b.number)).toEqual([2, 3]);
       expect(result.checkpointedTipAffected).toBe(false);
       expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeDefined();
@@ -794,16 +782,13 @@ describe('ArchiverDataStoreUpdater', () => {
       expect(await store.blocks.getLatestL2BlockNumber()).toBe(1);
     });
 
-    it('refuses a replacement whose comparison prefix has moved and writes nothing', async () => {
+    it('refuses a rollback whose retained prefix has moved and writes nothing', async () => {
       const block = await makeConsumingBlock(1, 6);
       await updater.addProposedBlock(block, InboxMessagePrefixRef.fromPosition(await positionAt(6)));
-      const replacement = await replacementFrom(4, 1);
 
       await expect(
-        updater.replaceMessageSuffixAndPruneProposedBlocks({
-          firstDivergentIndex: 4n,
-          expectedPrefix: { totalMessageCount: 4n, rollingHash: Fr.random() },
-          messages: replacement,
+        updater.rollbackMessagesAndPruneProposedBlocks({
+          keep: { totalMessageCount: 4n, rollingHash: Fr.random() },
           syncState,
         }),
       ).rejects.toThrow(InboxMessagePrefixChangedError);
@@ -813,19 +798,14 @@ describe('ArchiverDataStoreUpdater', () => {
       expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeDefined();
     });
 
-    it('rolls the whole replacement back when the block prune fails', async () => {
+    it('rolls the whole rollback back when the block prune fails', async () => {
       const block = await makeConsumingBlock(1, 6);
       await updater.addProposedBlock(block, InboxMessagePrefixRef.fromPosition(await positionAt(6)));
       const failure = new Error('prune failed');
       jest.spyOn(store.blocks, 'removeBlocksAfter').mockRejectedValueOnce(failure);
 
       await expect(
-        updater.replaceMessageSuffixAndPruneProposedBlocks({
-          firstDivergentIndex: 4n,
-          expectedPrefix: await positionAt(4),
-          messages: await replacementFrom(4, 1),
-          syncState,
-        }),
+        updater.rollbackMessagesAndPruneProposedBlocks({ keep: await positionAt(4), syncState }),
       ).rejects.toBe(failure);
 
       expect(await storedLeaves()).toEqual(messages.map(m => m.leaf));
@@ -846,12 +826,7 @@ describe('ArchiverDataStoreUpdater', () => {
       });
       const proposed = (await store.blocks.getLastProposedCheckpoint())!;
 
-      await updater.replaceMessageSuffixAndPruneProposedBlocks({
-        firstDivergentIndex: 5n,
-        expectedPrefix: await positionAt(5),
-        messages: await replacementFrom(5, 1),
-        syncState,
-      });
+      await updater.rollbackMessagesAndPruneProposedBlocks({ keep: await positionAt(5), syncState });
 
       expect(await store.blocks.getLastProposedCheckpoint()).toBeUndefined();
       await expect(
@@ -864,7 +839,7 @@ describe('ArchiverDataStoreUpdater', () => {
       ).rejects.toThrow(NoProposedCheckpointToPromoteError);
     });
 
-    it('flags a divergence below the checkpointed tip and leaves checkpointed blocks in place', async () => {
+    it('flags a rollback below the checkpointed tip and leaves checkpointed blocks in place', async () => {
       const block1 = await makeConsumingBlock(1, 3);
       await updater.addCheckpoints([makePublishedCheckpoint(makeCheckpoint([block1]), 10)]);
       const block2 = await makeConsumingBlock(2, 6, block1);
@@ -872,34 +847,39 @@ describe('ArchiverDataStoreUpdater', () => {
       block2.indexWithinCheckpoint = IndexWithinCheckpoint(0);
       await updater.addProposedBlock(block2, InboxMessagePrefixRef.fromPosition(await positionAt(6)));
 
-      const result = await updater.replaceMessageSuffixAndPruneProposedBlocks({
-        firstDivergentIndex: 2n,
-        expectedPrefix: await positionAt(2),
-        messages: await replacementFrom(2, 1),
-        syncState,
-      });
+      const result = await updater.rollbackMessagesAndPruneProposedBlocks({ keep: await positionAt(2), syncState });
 
       expect(result.checkpointedTipAffected).toBe(true);
       expect(result.prunedBlocks.map(b => b.number)).toEqual([2]);
       expect(await store.blocks.getBlock({ number: BlockNumber(1) })).toBeDefined();
       expect(await store.blocks.getCheckpointedL2BlockNumber()).toBe(1);
-      expect(await storedLeaves()).toHaveLength(3);
+      expect(await storedLeaves()).toHaveLength(2);
     });
 
-    it('treats an empty replacement as a truncation', async () => {
-      const block = await makeConsumingBlock(1, 4);
-      await updater.addProposedBlock(block, InboxMessagePrefixRef.fromPosition(await positionAt(4)));
+    it('clears the syncpoint when the rewound cursor is unauthenticated', async () => {
+      await store.messages.setMessageSyncState(syncState);
 
-      const result = await updater.replaceMessageSuffixAndPruneProposedBlocks({
-        firstDivergentIndex: 3n,
-        expectedPrefix: await positionAt(3),
-        messages: [],
-        syncState,
+      await updater.rollbackMessagesAndPruneProposedBlocks({
+        keep: await positionAt(3),
+        syncState: { l1Block: { l1BlockNumber: 99n, l1BlockHash: Buffer32.random() }, authenticated: false },
       });
 
       expect(await storedLeaves()).toEqual(messages.slice(0, 3).map(m => m.leaf));
-      expect(result.prunedBlocks.map(b => b.number)).toEqual([1]);
-      expect(await store.messages.getSynchedL1Block()).toEqual(syncState.l1Block);
+      expect(await store.messages.getSynchedL1Block()).toBeUndefined();
+      expect((await store.messages.getScannedL1Block())?.l1BlockNumber).toEqual(99n);
+    });
+
+    it('empties the log and prunes every proposed block when nothing is retained', async () => {
+      const block1 = await makeConsumingBlock(1, 3);
+      const block2 = await makeConsumingBlock(2, 6, block1);
+      await updater.addProposedBlock(block1, InboxMessagePrefixRef.fromPosition(await positionAt(3)));
+      await updater.addProposedBlock(block2, InboxMessagePrefixRef.fromPosition(await positionAt(6)));
+
+      const result = await updater.rollbackMessagesAndPruneProposedBlocks({ keep: await positionAt(0), syncState });
+
+      expect(await storedLeaves()).toEqual([]);
+      expect(await store.messages.getTotalL1ToL2MessageCount()).toEqual(0n);
+      expect(result.prunedBlocks.map(b => b.number)).toEqual([1, 2]);
     });
   });
 });

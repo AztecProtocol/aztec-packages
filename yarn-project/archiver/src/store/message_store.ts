@@ -20,7 +20,7 @@ import { type InboxMessage, deserializeInboxMessage, serializeInboxMessage } fro
  * The position before any message: zero count and zero rolling hash, mirroring the on-chain Inbox base case. Built
  * fresh on every call because positions are plain mutable objects handed out to callers.
  */
-function zeroMessagePosition(): InboxMessagePosition {
+export function zeroMessagePosition(): InboxMessagePosition {
   return { totalMessageCount: 0n, rollingHash: Fr.ZERO };
 }
 
