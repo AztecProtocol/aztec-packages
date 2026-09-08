@@ -34,6 +34,9 @@ describe('syncSenderTaggingIndexes', () => {
 
     aztecNode = mock<AztecNode>();
     taggingStore = new SenderTaggingStore(await openTmpStore('test'));
+
+    // Leave a change set open for the tests to operate under: every store operation requires one.
+    taggingStore.beginChangeSet('test');
   }
 
   it('no new logs found for a given secret', async () => {

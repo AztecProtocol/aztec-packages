@@ -329,11 +329,20 @@ export class PXE {
     );
     const txResolver = new TxResolverService(readCachedNode);
 
+    const stagedStores = [
+      capsuleStore,
+      senderTaggingStore,
+      recipientTaggingStore,
+      privateEventStore,
+      noteStore,
+      factStore,
+    ];
+
     const synchronizer = new BlockSynchronizer(
       readCachedNode,
       store,
       anchorBlockStore,
-      [noteStore, privateEventStore, factStore, capsuleStore, recipientTaggingStore],
+      stagedStores,
       l2TipsStore,
       contractSyncService,
       config,
@@ -342,7 +351,7 @@ export class PXE {
 
     const stagedWriteCoordinator = new StagedWriteCoordinator({
       kvStore: store,
-      stagedStores: [capsuleStore, senderTaggingStore, recipientTaggingStore, privateEventStore, noteStore, factStore],
+      stagedStores,
       bindings,
     });
 

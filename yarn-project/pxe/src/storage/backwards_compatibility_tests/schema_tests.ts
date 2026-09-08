@@ -602,6 +602,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const senderTaggingStore = new SenderTaggingStore(kvStore);
 
       const changeSetId = 'fixture-change-set';
+      senderTaggingStore.beginChangeSet(changeSetId);
       const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigIntUnsafe(3n));
       const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigIntUnsafe(7n));
       const secretC = new AppTaggingSecret(new Fr(11n), AztecAddress.fromBigIntUnsafe(13n));
@@ -632,8 +633,9 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         changeSetId,
       );
 
-      // Re-store the exact same (secret, txHash, range). Exercises the "exact duplicate — skip" branch at
-      // sender_tagging_store.ts:199. The snapshot must be unchanged by this call; it pins the no-op assumption.
+      // Re-store the exact same (secret, txHash, range). Exercises the "exact duplicate — skip" branch of
+      // SenderTaggingStore#storePendingIndexes. The snapshot must be unchanged by this call; it pins the no-op
+      // assumption.
       await senderTaggingStore.storePendingIndexes(
         [{ extendedSecret: secretA, lowestIndex: 4, highestIndex: 7 }],
         txHashB,
