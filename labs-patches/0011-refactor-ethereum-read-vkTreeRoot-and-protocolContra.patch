@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Santiago Palladino <santiago@aztec-labs.com>
+Date: Tue, 8 Sep 2026 17:46:57 -0300
+Subject: [PATCH] refactor(ethereum): read vkTreeRoot and protocolContractsHash
+ via their getters
+
+
+diff --git a/yarn-project/ethereum/src/contracts/rollup.test.ts b/yarn-project/ethereum/src/contracts/rollup.test.ts
+index 2262d7755c2938fd1cf066743c63196e77fab7a9..54744f5474fa00832e9eb0abc510bea8a90bbaec 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.test.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.test.ts
+@@ -362,12 +362,12 @@ describe('Rollup', () => {
+   });
+ 
+   describe('getVkTreeRoot and getProtocolContractsHash', () => {
+-    it('reads vkTreeRoot from storage', async () => {
++    it('reads vkTreeRoot', async () => {
+       const result = await rollup.getVkTreeRoot();
+       expect(result).toEqual(vkTreeRoot);
+     });
+ 
+-    it('reads protocolContractsHash from storage', async () => {
++    it('reads protocolContractsHash', async () => {
+       const result = await rollup.getProtocolContractsHash();
+       expect(result).toEqual(protocolContractsHash);
+     });
+diff --git a/yarn-project/ethereum/src/contracts/rollup.ts b/yarn-project/ethereum/src/contracts/rollup.ts
+index cd27a307a7c8c8182b9f0e19647914424a20f5e6..6ac1639751d082d633487d7dcf04fa58714f82d1 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.ts
+@@ -459,16 +459,12 @@ export class RollupContract {
+ 
+   @memoize
+   async getVkTreeRoot(): Promise<Fr> {
+-    const slot = BigInt(RollupContract.stfStorageSlot) + 3n;
+-    const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
+-    return Fr.fromString(value ?? '0x0');
++    return Fr.fromString(await this.rollup.read.getVkTreeRoot());
+   }
+ 
+   @memoize
+   async getProtocolContractsHash(): Promise<Fr> {
+-    const slot = BigInt(RollupContract.stfStorageSlot) + 4n;
+-    const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
+-    return Fr.fromString(value ?? '0x0');
++    return Fr.fromString(await this.rollup.read.getProtocolContractsHash());
+   }
+ 
+   /**
