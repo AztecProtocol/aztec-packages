@@ -1,8 +1,10 @@
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, NextBlockPredictor } from '@aztec/aztec-node';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import {
   type AnchorBlockStore,
   ContractClassService,
@@ -49,6 +51,16 @@ export class TXEStateMachine {
     const aztecNodeConfig = {} as AztecNodeConfig;
 
     const log = createLogger('txe_node');
+    const globalVariableBuilder = new TXEGlobalVariablesBuilder();
+    const epochCache = new MockEpochCache();
+    // Never started: TXE has no L1 to poll, and the predictor prices inline through the same path when asked.
+    const nextBlockPredictor = NextBlockPredictor.create({
+      blockSource: archiver,
+      globalVariableBuilder,
+      epochCache,
+      signatureContext: { chainId: CHAIN_ID, rollupAddress: EthAddress.ZERO },
+      dateProvider: new DateProvider(),
+    });
     const node = new AztecNodeService({
       config: aztecNodeConfig,
       p2pClient: new DummyP2P(),
@@ -64,10 +76,11 @@ export class TXEStateMachine {
       stopStartedWatchers: async () => {},
       l1ChainId: CHAIN_ID,
       version: VERSION,
-      globalVariableBuilder: new TXEGlobalVariablesBuilder(),
+      globalVariableBuilder,
       rollupContract: undefined,
       feeProvider: new TXEFeeProvider(),
-      epochCache: new MockEpochCache(),
+      nextBlockPredictor,
+      epochCache,
       packageVersion: PACKAGE_VERSION,
       peerProofVerifier: new TestCircuitVerifier(),
       rpcProofVerifier: new TestCircuitVerifier(),
