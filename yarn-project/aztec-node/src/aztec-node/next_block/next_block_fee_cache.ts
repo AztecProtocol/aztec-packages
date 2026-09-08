@@ -67,11 +67,13 @@ export interface NextBlockFeeCacheDeps {
  * This is the only value on the RPC path that has to be read from L1.
  *
  * A background loop prices the upcoming boundary on every pass, so requests are normally answered from memory.
- * Records are looked up by {@link BoundaryFeeKey}, which captures every input the fee depends on: the target slot
- * and the checkpoint the block builds on. The L1 block a record was priced at is stored with it but is not part
- * of the key, because any L1 write that moves the fee also moves the frontier and hence the key. A miss therefore
- * means the chain moved (a slot rollover, a checkpoint landing or being proposed, a validity flip), not merely
- * that L1 produced a block.
+ * Records are looked up by {@link BoundaryFeeKey}: the target slot, the checkpointed tip, the block the plan
+ * builds on, and the proposed parent's fee-relevant fields or the pending chain's validity. The L1 block a record
+ * was priced at is stored with it but is not part of the key: the rollup transactions that move the fee also move
+ * the frontier and hence the key, so a miss means the chain moved (a slot rollover, a checkpoint landing or being
+ * proposed, a validity flip), not merely that L1 produced a block. Governance updates such as the mana target are
+ * the exception; the loop re-prices a matching record whenever the L1 anchor moves, so those lag by at most one
+ * refresh interval.
  *
  * On a miss a request does not call L1 itself. It joins the single refresh already in flight, or starts the one
  * the loop would have started, so a burst of requests during a transition costs one L1 round trip. Simulations
@@ -107,18 +109,17 @@ export class NextBlockFeeCache {
   }
 
   /**
-   * Starts the background refresh and resolves once its first pass has completed. Priming is best-effort: a node
-   * whose archiver or L1 client is not ready yet still starts, and the loop fills the cache once they are. A
-   * second call while running is a no-op, so it cannot orphan a loop that {@link stop} could then never reach.
+   * Starts the background refresh. The loop's first pass begins immediately and a request that arrives before it
+   * completes joins it rather than pricing on its own, so nothing waits on priming here: a node whose archiver or
+   * L1 client is not ready yet still starts, and the loop fills the cache once they are. A second call while
+   * running is a no-op, so it cannot orphan a loop that {@link stop} could then never reach.
    */
-  public async start(pollingIntervalMs = DEFAULT_REFRESH_INTERVAL_MS): Promise<void> {
+  public start(pollingIntervalMs = DEFAULT_REFRESH_INTERVAL_MS): void {
     if (this.refreshLoop) {
       return;
     }
     this.refreshIntervalMs = pollingIntervalMs;
-    this.refreshLoop = new RunningPromise(() => this.refresh(), this.log, pollingIntervalMs);
-    this.refreshLoop.start();
-    await this.refreshLoop.trigger();
+    this.refreshLoop = new RunningPromise(() => this.refresh(), this.log, pollingIntervalMs).start();
   }
 
   public async stop(): Promise<void> {

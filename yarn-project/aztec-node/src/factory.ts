@@ -264,7 +264,7 @@ export async function createAztecNodeService(
       dateProvider,
       log: log.createChild('next-block-predictor'),
     });
-    await nextBlockPredictor.start();
+    nextBlockPredictor.start();
     started.push(nextBlockPredictor);
 
     const collectOffenses = !config.disableValidator || config.enableOffenseCollection;

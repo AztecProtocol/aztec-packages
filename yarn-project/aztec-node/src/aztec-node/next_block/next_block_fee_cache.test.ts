@@ -226,21 +226,24 @@ describe('NextBlockFeeCache', () => {
     await expect(cache.getBoundaryGlobals(keyOf(frontier), frontier)).rejects.toThrow('L1 is down');
   });
 
-  it('starts idempotently and primes the cache', async () => {
+  it('starts idempotently and serves a read arriving during the first pass from that pass', async () => {
     const frontier = setFrontier();
 
-    await cache.start();
-    await cache.start();
+    cache.start();
+    cache.start();
 
-    expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(1);
     expect((await cache.getBoundaryGlobals(keyOf(frontier), frontier))?.gasFees).toEqual(new GasFees(0, 1));
+    expect(globalVariableBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(1);
   });
 
-  it('starts even when the priming pass fails', async () => {
-    setFrontier();
+  it('starts even when the first pass fails', async () => {
+    const frontier = setFrontier();
     globalVariableBuilder.buildCheckpointGlobalVariables.mockRejectedValue(new Error('L1 is down'));
 
-    await expect(cache.start()).resolves.toBeUndefined();
+    cache.start();
+
+    await expect(cache.getBoundaryGlobals(keyOf(frontier), frontier)).rejects.toThrow('L1 is down');
+    await expect(cache.stop()).resolves.toBeUndefined();
   });
 
   describe('overrides plan', () => {

@@ -70,8 +70,8 @@ export class NextBlockPredictor {
     });
   }
 
-  public start(pollingIntervalMs?: number): Promise<void> {
-    return this.feeCache.start(pollingIntervalMs);
+  public start(pollingIntervalMs?: number): void {
+    this.feeCache.start(pollingIntervalMs);
   }
 
   public stop(): Promise<void> {
