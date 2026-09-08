@@ -125,6 +125,22 @@ contract MainnetATPRewardOverrideTest is RewardLibBase {
     overrides[0] = RegistryRewardOverride({registry: AUCTION_ATP_REGISTRY, sequencerReward: 10e18});
     overrides[1] = RegistryRewardOverride({registry: GENESIS_SALE_ATP_REGISTRY, sequencerReward: 20e18});
 
+    _settleEachCaseAndAssertSequencerRewards(overrides, 10e18, 20e18);
+  }
+
+  function test_OnlyMainnetATPValidatorsOfOverriddenRegistryReceiveOverride() external prepare(100e18, 5000) {
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory overrides;
+    overrides[0] = RegistryRewardOverride({registry: AUCTION_ATP_REGISTRY, sequencerReward: 10e18});
+
+    // The genesis sale registry has no override, so its validator keeps the default 50% of 100e18.
+    _settleEachCaseAndAssertSequencerRewards(overrides, 10e18, 50e18);
+  }
+
+  function _settleEachCaseAndAssertSequencerRewards(
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _overrides,
+    uint256 _auctionSequencerReward,
+    uint256 _genesisSaleSequencerReward
+  ) internal {
     // Each case settles a different epoch, so move past them to make their sample seeds stable.
     vm.warp(
       block.timestamp + (cases.length + 1) * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
@@ -137,9 +153,11 @@ contract MainnetATPRewardOverrideTest is RewardLibBase {
 
       address[] memory committee = new address[](1);
       committee[0] = c.attester;
-      wrapper.handleRewardsAndFees(args, Epoch.wrap(i), committee, overrides);
+      wrapper.handleRewardsAndFees(args, Epoch.wrap(i), committee, _overrides);
 
-      expectedSequencerRewards += c.registry == AUCTION_ATP_REGISTRY ? 10e18 : 20e18;
+      expectedSequencerRewards += c.registry == AUCTION_ATP_REGISTRY
+        ? _auctionSequencerReward
+        : _genesisSaleSequencerReward;
       assertEq(wrapper.getSequencerRewards(sequencer), expectedSequencerRewards, c.name);
       assertEq(wrapper.getCollectiveProverRewardsForEpoch(Epoch.wrap(i)), 50e18, c.name);
     }
