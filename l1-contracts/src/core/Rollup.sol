@@ -30,6 +30,8 @@ import {CompressedSlot, CompressedTimestamp, CompressedTimeMath} from "@aztec/sh
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ChainTipsLib, CompressedChainTips} from "./libraries/compressed-data/Tips.sol";
 import {RewardExtLib, RewardConfig} from "./libraries/rollup/RewardExtLib.sol";
+import {FeeLib} from "./libraries/rollup/FeeLib.sol";
+import {RewardLib} from "./libraries/rollup/RewardLib.sol";
 import {DepositArgs} from "./libraries/StakingQueue.sol";
 import {
   RollupCore,
@@ -236,11 +238,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getManaTarget() external view override(IRollup) returns (uint256) {
-    return RewardExtLib.getManaTarget();
+    return FeeLib.getManaTarget();
   }
 
   function getManaLimit() external view override(IRollup) returns (uint256) {
-    return RewardExtLib.getManaLimit();
+    return FeeLib.getManaLimit();
   }
 
   function getTips() external view override(IRollup) returns (ChainTips memory) {
@@ -613,11 +615,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getProtocolFeeRecipient() external view override(IRollup) returns (address) {
-    return RewardExtLib.getProtocolFeeRecipient();
+    return RewardLib.getProtocolFeeRecipient();
   }
 
   function getProtocolFeeMargin() external view override(IRollup) returns (uint16) {
-    return RewardExtLib.getProtocolFeeMargin();
+    return FeeLib.getProtocolFeeMarginBps();
   }
 
   function getSlasherExecutionDelay() external pure override(IStaking) returns (uint256) {

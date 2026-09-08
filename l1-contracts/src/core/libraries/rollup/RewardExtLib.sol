@@ -90,14 +90,6 @@ library RewardExtLib {
     return RewardLib.getStorage().config.rewardDistributor;
   }
 
-  function getProtocolFeeRecipient() external view returns (address) {
-    return RewardLib.getProtocolFeeRecipient();
-  }
-
-  function getProtocolFeeMargin() external view returns (uint16) {
-    return FeeLib.getProtocolFeeMarginBps();
-  }
-
   // FeeLib/STFLib/ProposeLib view wrappers - overflow from RollupOperationsExtLib
 
   function getManaMinFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
@@ -130,14 +122,6 @@ library RewardExtLib {
 
   function getProvingCostPerMana() external view returns (EthValue) {
     return FeeLib.getProvingCostPerMana();
-  }
-
-  function getManaTarget() external view returns (uint256) {
-    return FeeLib.getManaTarget();
-  }
-
-  function getManaLimit() external view returns (uint256) {
-    return FeeLib.getManaLimit();
   }
 
   function summedMinFee(ManaMinFeeComponents memory _components) external pure returns (uint256) {
