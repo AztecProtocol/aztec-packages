@@ -24,12 +24,9 @@ export interface StagedStore {
   /**
    * Notifies the store that a change set has been opened.
    *
-   * TODO: make it required once every staged store extends `BaseStagingStore`. It is optional only while
-   * they migrate to per-change-set staging.
-   *
    * @param changeSetId - The change set identifier
    */
-  beginChangeSet?(changeSetId: ChangeSetId): void;
+  beginChangeSet(changeSetId: ChangeSetId): void;
 
   /**
    * Commits staged data to persistent storage. Will be called within a db transaction for atomicity, alongside the
@@ -61,10 +58,10 @@ export interface StagedStore {
  * sets would mean merging them when one of them commits — a problem in its own right, and one no caller needs solved.
  * Avoiding that throw is up to the caller, which must serialize whatever opens change sets, e.g. with a queue.
  *
- * Staged data is nonetheless keyed by change set ID, because aborting a change set does not cancel the async work it
- * started. An oracle that was mid-write when the operation failed still finishes writing afterwards, and stages its
- * write under the aborted ID, which nothing will ever promote. Were staged data not keyed by ID, that late write
- * would instead sit in the store and be promoted by whichever change set commits next.
+ * Change sets nonetheless carry an ID, because aborting one does not cancel the async work it started. An oracle that
+ * was mid-write when the operation failed still attempts that write afterwards, naming the aborted ID. The stores
+ * reject it, since the change set it names is no longer open. Without the ID there would be nothing to reject it by,
+ * and the late write would be promoted by whichever change set commits next.
  */
 export class StagedWriteCoordinator {
   readonly #kvStore: AztecAsyncKVStore;
@@ -168,7 +165,7 @@ export class StagedWriteCoordinator {
     const begunStores: StagedStore[] = [];
     try {
       for (const store of this.#stagedStores.values()) {
-        store.beginChangeSet?.(changeSetId);
+        store.beginChangeSet(changeSetId);
         begunStores.push(store);
       }
     } catch (err) {
