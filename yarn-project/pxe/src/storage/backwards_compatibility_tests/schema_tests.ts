@@ -129,13 +129,15 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const capsuleStore = new CapsuleStore(kvStore);
 
       const changeSetId = 'fixture-change-set';
+      capsuleStore.beginChangeSet(changeSetId);
+
       const contractAddress = AztecAddress.fromBigIntUnsafe(2n);
       const scope = AztecAddress.fromBigIntUnsafe(3n);
 
       // Three setCapsule calls (2-element, 1-element, 0-element value vector) pin every value-encoding length case.
-      capsuleStore.setCapsule(contractAddress, new Fr(5n), [new Fr(7n), new Fr(11n)], changeSetId, scope);
-      capsuleStore.setCapsule(contractAddress, new Fr(13n), [new Fr(17n)], changeSetId, scope);
-      capsuleStore.setCapsule(contractAddress, new Fr(19n), [], changeSetId, scope);
+      await capsuleStore.setCapsule(contractAddress, new Fr(5n), [new Fr(7n), new Fr(11n)], changeSetId, scope);
+      await capsuleStore.setCapsule(contractAddress, new Fr(13n), [new Fr(17n)], changeSetId, scope);
+      await capsuleStore.setCapsule(contractAddress, new Fr(19n), [], changeSetId, scope);
       await kvStore.transactionAsync(() => capsuleStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
