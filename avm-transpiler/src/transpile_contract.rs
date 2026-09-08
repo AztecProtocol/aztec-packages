@@ -6,7 +6,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use acvm::acir::circuit::Program;
-use noirc_abi::{Abi, AbiErrorType, AbiParameter, AbiType};
+use noirc_abi::{ABI_VERSION, Abi, AbiErrorType, AbiParameter, AbiType};
 use noirc_artifacts::debug::{DebugInfo, ProgramDebugInfo};
 use noirc_evaluator::ErrorType;
 
@@ -194,6 +194,7 @@ fn create_revert_dispatch_fn() -> AvmOrAcirContractFunctionArtifact {
         is_unconstrained: true,
         custom_attributes: vec!["abi_public".to_string()],
         abi: Abi {
+            abi_version: ABI_VERSION,
             parameters: vec![AbiParameter {
                 name: "selector".to_string(),
                 typ: AbiType::Field,

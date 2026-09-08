@@ -18,11 +18,11 @@
     { "name": "all_64", "dimensions": [64, 64, 64, 64, 64, 64, 64, 64, 64], "cost": 319672 }
   ],
   "finalTailToPublic": [
-    { "name": "md_pay", "dimensions": [0, 8, 0, 8, 4, 0, 4, 16, 8], "cost": 104210 },
-    { "name": "all_4", "dimensions": [4, 4, 4, 4, 4, 4, 4, 4, 4], "cost": 102943 },
-    { "name": "all_8", "dimensions": [8, 8, 8, 8, 8, 8, 8, 8, 8], "cost": 119386 },
-    { "name": "all_16", "dimensions": [16, 16, 16, 16, 16, 16, 16, 16, 16], "cost": 152270 },
-    { "name": "all_32", "dimensions": [32, 32, 32, 32, 32, 32, 32, 32, 32], "cost": 218044 },
-    { "name": "all_64", "dimensions": [64, 64, 64, 64, 64, 64, 64, 64, 64], "cost": 349853 }
+    { "name": "md_pay", "dimensions": [0, 8, 0, 8, 4, 0, 4, 16, 8], "cost": 103025 },
+    { "name": "all_4", "dimensions": [4, 4, 4, 4, 4, 4, 4, 4, 4], "cost": 101758 },
+    { "name": "all_8", "dimensions": [8, 8, 8, 8, 8, 8, 8, 8, 8], "cost": 118201 },
+    { "name": "all_16", "dimensions": [16, 16, 16, 16, 16, 16, 16, 16, 16], "cost": 151085 },
+    { "name": "all_32", "dimensions": [32, 32, 32, 32, 32, 32, 32, 32, 32], "cost": 216859 },
+    { "name": "all_64", "dimensions": [64, 64, 64, 64, 64, 64, 64, 64, 64], "cost": 348668 }
   ]
 }
