@@ -18,11 +18,11 @@ where
     pub fn new() -> Self {
         ReadRequestHintsBuilder {
             read_request_actions: [ReadRequestAction::empty(); ReadRequestLen],
-            pending_read_hints: BoundedVec::from_parts_unchecked(
+            pending_read_hints: BoundedVec::from_parts(
                 [PendingReadHint::skip(ReadRequestLen); PendingHintsLen],
                 0,
             ),
-            settled_read_hints: BoundedVec::from_parts_unchecked(
+            settled_read_hints: BoundedVec::from_parts(
                 [SettledReadHint::skip(ReadRequestLen); SettledHintsLen],
                 0,
             ),

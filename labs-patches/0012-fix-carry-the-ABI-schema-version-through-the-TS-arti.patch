@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Tue, 8 Sep 2026 17:12:02 +0000
+Subject: [PATCH] fix: carry the ABI schema version through the TS artifact
+ types
+
+noirc_abi's Abi gained a required abi_version field in noir
+v1.0.0-rc.0, so NoirFunctionAbi no longer satisfies the Abi that
+noir_js's conversion helpers take, and the synthesized ABI used to
+decode assertion payloads is missing it too.
+
+diff --git a/yarn-project/simulator/src/common/errors.ts b/yarn-project/simulator/src/common/errors.ts
+index 9ea7dc33ed1fe7bd419b4f1d5a6f376bed4e40bb..4e4ab17fe397cf0af7d9133213f7a2df3f78142f 100644
+--- a/yarn-project/simulator/src/common/errors.ts
++++ b/yarn-project/simulator/src/common/errors.ts
+@@ -183,7 +183,7 @@ function extractBrilligLocation(opcodeLocation: string): string | undefined {
+ 
+ export function resolveAssertionMessage(errorPayload: RawAssertionPayload, abi: FunctionAbi): string | undefined {
+   const decoded = abiDecodeError(
+-    { parameters: [], error_types: abi.errorTypes, return_type: null }, // eslint-disable-line camelcase
++    { abi_version: 1, parameters: [], error_types: abi.errorTypes, return_type: null }, // eslint-disable-line camelcase
+     errorPayload,
+   );
+ 
+diff --git a/yarn-project/stdlib/src/noir/index.ts b/yarn-project/stdlib/src/noir/index.ts
+index cefdfd6c7b8eb00dc6bff584bd3c79bd3485978c..d570f32a52e784e9aa382d05e4e1212b0259db9e 100644
+--- a/yarn-project/stdlib/src/noir/index.ts
++++ b/yarn-project/stdlib/src/noir/index.ts
+@@ -17,6 +17,8 @@ export const AZTEC_VIEW_ATTRIBUTE = 'abi_view';
+ 
+ /** The ABI of an Aztec.nr function. */
+ export interface NoirFunctionAbi {
++  /** The version of the serialized ABI schema this was emitted under. */
++  abi_version: 1;
+   /** The parameters of the function. */
+   parameters: ABIParameter[];
+   /** The return type of the function, or null for void functions. */

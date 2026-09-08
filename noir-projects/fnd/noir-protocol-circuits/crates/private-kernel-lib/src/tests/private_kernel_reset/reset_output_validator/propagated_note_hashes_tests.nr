@@ -56,11 +56,11 @@ fn previous_note_hashes_beyond_claimed_length() {
 
     builder.previous_kernel.append_note_hashes(2);
     let note_hashes = builder.previous_kernel.note_hashes.storage();
-    builder.previous_kernel.note_hashes = BoundedVec::from_parts_unchecked(note_hashes, 1);
+    builder.previous_kernel.note_hashes = BoundedVec::from_parts(note_hashes, 1);
 
     builder.output.append_siloed_note_hashes(2);
     let output_note_hashes = builder.output.note_hashes.storage();
-    builder.output.note_hashes = BoundedVec::from_parts_unchecked(output_note_hashes, 1);
+    builder.output.note_hashes = BoundedVec::from_parts(output_note_hashes, 1);
 
     let mut output_hints = builder.get_output_hints();
     // Add the extra note hash beyond the claimed length to the kept note hashes array.

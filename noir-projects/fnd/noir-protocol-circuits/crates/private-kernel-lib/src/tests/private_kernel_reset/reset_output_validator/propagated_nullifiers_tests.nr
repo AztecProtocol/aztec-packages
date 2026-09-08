@@ -56,11 +56,11 @@ fn previous_nullifiers_beyond_claimed_length() {
 
     builder.previous_kernel.append_nullifiers(2);
     let nullifiers = builder.previous_kernel.nullifiers.storage();
-    builder.previous_kernel.nullifiers = BoundedVec::from_parts_unchecked(nullifiers, 1);
+    builder.previous_kernel.nullifiers = BoundedVec::from_parts(nullifiers, 1);
 
     builder.output.append_siloed_nullifiers(2);
     let output_nullifiers = builder.output.nullifiers.storage();
-    builder.output.nullifiers = BoundedVec::from_parts_unchecked(output_nullifiers, 1);
+    builder.output.nullifiers = BoundedVec::from_parts(output_nullifiers, 1);
 
     let mut output_hints = builder.get_output_hints();
     // Add the extra nullifier beyond the claimed length to the kept nullifiers array.

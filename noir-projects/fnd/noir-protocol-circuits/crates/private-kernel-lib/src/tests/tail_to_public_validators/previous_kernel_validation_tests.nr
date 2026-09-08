@@ -102,7 +102,7 @@ fn non_empty_note_hash_beyond_claimed_length() {
     let mut array = builder.previous_kernel.note_hashes.storage();
     // Add a non-empty note hash beyond the claimed length.
     array[5] = array[1];
-    builder.previous_kernel.note_hashes = BoundedVec::from_parts_unchecked(array, 3);
+    builder.previous_kernel.note_hashes = BoundedVec::from_parts(array, 3);
 
     let _ = builder.execute();
 }
@@ -126,7 +126,7 @@ fn non_empty_nullifier_beyond_claimed_length() {
     let mut array = builder.previous_kernel.nullifiers.storage();
     // Add a non-empty nullifier beyond the claimed length.
     array[5] = array[1];
-    builder.previous_kernel.nullifiers = BoundedVec::from_parts_unchecked(array, 4);
+    builder.previous_kernel.nullifiers = BoundedVec::from_parts(array, 4);
 
     let _ = builder.execute();
 }
@@ -190,7 +190,7 @@ fn non_empty_l2_to_l1_msg_recipient_beyond_claimed_length() {
     let mut array = builder.previous_kernel.l2_to_l1_msgs.storage();
     // Add a non-empty recipient to an L2 to L1 message beyond the claimed length.
     array[5].inner.inner.recipient = array[0].innermost().recipient;
-    builder.previous_kernel.l2_to_l1_msgs = BoundedVec::from_parts_unchecked(array, 2);
+    builder.previous_kernel.l2_to_l1_msgs = BoundedVec::from_parts(array, 2);
 
     let _ = builder.execute();
 }
@@ -203,7 +203,7 @@ fn non_empty_l2_to_l1_msg_content_beyond_claimed_length() {
     let mut array = builder.previous_kernel.l2_to_l1_msgs.storage();
     // Add a non-empty content to an L2 to L1 message beyond the claimed length.
     array[5].inner.inner.content = array[0].innermost().content;
-    builder.previous_kernel.l2_to_l1_msgs = BoundedVec::from_parts_unchecked(array, 2);
+    builder.previous_kernel.l2_to_l1_msgs = BoundedVec::from_parts(array, 2);
 
     let _ = builder.execute();
 }
@@ -216,7 +216,7 @@ fn non_empty_l2_to_l1_msg_contract_address_beyond_claimed_length() {
     let mut array = builder.previous_kernel.l2_to_l1_msgs.storage();
     // Add a non-empty contract address to an L2 to L1 message beyond the claimed length.
     array[5].contract_address = array[0].contract_address;
-    builder.previous_kernel.l2_to_l1_msgs = BoundedVec::from_parts_unchecked(array, 2);
+    builder.previous_kernel.l2_to_l1_msgs = BoundedVec::from_parts(array, 2);
 
     let _ = builder.execute();
 }
@@ -254,7 +254,7 @@ fn non_empty_private_log_length_beyond_claimed_length() {
     let mut array = builder.previous_kernel.private_logs.storage();
     // Add a private log with non-zero length beyond the claimed length.
     array[5].inner.inner.log.length = 1;
-    builder.previous_kernel.private_logs = BoundedVec::from_parts_unchecked(array, 2);
+    builder.previous_kernel.private_logs = BoundedVec::from_parts(array, 2);
 
     let _ = builder.execute();
 }
@@ -267,7 +267,7 @@ fn non_empty_private_log_fields_beyond_claimed_length() {
     let mut array = builder.previous_kernel.private_logs.storage();
     // Add a private log with non-empty fields beyond the claimed length.
     array[5].inner.inner.log.fields[2] = 1;
-    builder.previous_kernel.private_logs = BoundedVec::from_parts_unchecked(array, 2);
+    builder.previous_kernel.private_logs = BoundedVec::from_parts(array, 2);
 
     let _ = builder.execute();
 }
@@ -298,7 +298,7 @@ fn non_empty_contract_class_log_length_beyond_claimed_length() {
     let mut array = builder.previous_kernel.contract_class_logs_hashes.storage();
     // Add a contract class log with non-zero length beyond the claimed length.
     array[0].inner.inner.length = 1;
-    builder.previous_kernel.contract_class_logs_hashes = BoundedVec::from_parts_unchecked(array, 0);
+    builder.previous_kernel.contract_class_logs_hashes = BoundedVec::from_parts(array, 0);
 
     let _ = builder.execute();
 }
@@ -310,7 +310,7 @@ fn non_empty_contract_class_log_hash_beyond_claimed_length() {
     let mut array = builder.previous_kernel.contract_class_logs_hashes.storage();
     // Add a contract class log with non-empty log hash value beyond the claimed length.
     array[0].inner.inner.value = 1;
-    builder.previous_kernel.contract_class_logs_hashes = BoundedVec::from_parts_unchecked(array, 0);
+    builder.previous_kernel.contract_class_logs_hashes = BoundedVec::from_parts(array, 0);
 
     let _ = builder.execute();
 }
@@ -322,7 +322,7 @@ fn non_empty_contract_class_log_contract_address_beyond_claimed_length() {
     let mut array = builder.previous_kernel.contract_class_logs_hashes.storage();
     // Add a contract class log with non-empty contract address beyond the claimed length.
     array[0].contract_address = AztecAddress::from_field(1);
-    builder.previous_kernel.contract_class_logs_hashes = BoundedVec::from_parts_unchecked(array, 0);
+    builder.previous_kernel.contract_class_logs_hashes = BoundedVec::from_parts(array, 0);
 
     let _ = builder.execute();
 }
@@ -335,7 +335,7 @@ fn non_empty_public_call_request_msg_sender_beyond_claimed_length() {
     let mut array = builder.previous_kernel.public_call_requests.storage();
     // Add a non-empty msg sender to a public call request beyond the claimed length.
     array[5].inner.msg_sender = array[1].inner.msg_sender;
-    builder.previous_kernel.public_call_requests = BoundedVec::from_parts_unchecked(array, 2);
+    builder.previous_kernel.public_call_requests = BoundedVec::from_parts(array, 2);
 
     let _ = builder.execute();
 }
@@ -348,7 +348,7 @@ fn non_empty_public_call_request_contract_address_beyond_claimed_length() {
     let mut array = builder.previous_kernel.public_call_requests.storage();
     // Add a non-empty contract address to a public call request beyond the claimed length.
     array[5].inner.contract_address = array[1].inner.contract_address;
-    builder.previous_kernel.public_call_requests = BoundedVec::from_parts_unchecked(array, 2);
+    builder.previous_kernel.public_call_requests = BoundedVec::from_parts(array, 2);
 
     let _ = builder.execute();
 }
@@ -361,7 +361,7 @@ fn non_empty_public_call_request_is_static_call_beyond_claimed_length() {
     let mut array = builder.previous_kernel.public_call_requests.storage();
     // Add a non-empty is static call to a public call request beyond the claimed length.
     array[5].inner.is_static_call = true;
-    builder.previous_kernel.public_call_requests = BoundedVec::from_parts_unchecked(array, 2);
+    builder.previous_kernel.public_call_requests = BoundedVec::from_parts(array, 2);
 
     let _ = builder.execute();
 }
@@ -374,7 +374,7 @@ fn non_empty_public_call_request_calldata_hash_beyond_claimed_length() {
     let mut array = builder.previous_kernel.public_call_requests.storage();
     // Add a non-empty calldata hash to a public call request beyond the claimed length.
     array[5].inner.calldata_hash = 1;
-    builder.previous_kernel.public_call_requests = BoundedVec::from_parts_unchecked(array, 2);
+    builder.previous_kernel.public_call_requests = BoundedVec::from_parts(array, 2);
 
     let _ = builder.execute();
 }
