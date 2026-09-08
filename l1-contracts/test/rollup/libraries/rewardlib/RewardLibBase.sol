@@ -55,7 +55,7 @@ contract RewardLibBase is TestBase {
     // These tests call RewardLib directly instead of going through proposal, so seed the temp checkpoint
     // logs that proposal would normally write before handleRewardsAndFees reads them.
     FeeHeader memory feeHeader =
-      FeeHeader({excessMana: 0, manaUsed: 0, ethPerFeeAsset: 0, congestionCost: 0, proverCost: 0});
+      FeeHeader({excessMana: 0, manaUsed: 0, ethPerFeeAsset: 0, protocolFee: 0, proverCost: 0});
 
     for (uint256 i = 0; i < _count; i++) {
       wrapper.addFeeHeader(feeHeader);

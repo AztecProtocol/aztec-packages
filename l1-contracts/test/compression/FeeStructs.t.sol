@@ -11,7 +11,7 @@ contract FeeStructsTest is Test {
 
   function test_compressAndDecompress(
     uint64 _proverCost,
-    uint64 _congestionCost,
+    uint64 _protocolFee,
     uint48 _ethPerFeeAsset,
     uint48 _excessMana,
     uint32 _manaUsed
@@ -20,7 +20,7 @@ contract FeeStructsTest is Test {
       excessMana: _excessMana,
       manaUsed: _manaUsed,
       ethPerFeeAsset: _ethPerFeeAsset,
-      congestionCost: _congestionCost,
+      protocolFee: _protocolFee,
       proverCost: bound(_proverCost, 0, 2 ** 63 - 1)
     });
 
@@ -32,14 +32,14 @@ contract FeeStructsTest is Test {
     assertEq(compressedFeeHeader.getManaUsed(), feeHeader.manaUsed, "Getter Mana used");
     assertEq(compressedFeeHeader.getExcessMana(), feeHeader.excessMana, "Getter Excess mana");
     assertEq(compressedFeeHeader.getEthPerFeeAsset(), feeHeader.ethPerFeeAsset, "Getter Eth per fee asset");
-    assertEq(compressedFeeHeader.getCongestionCost(), feeHeader.congestionCost, "Getter Congestion cost");
+    assertEq(compressedFeeHeader.getProtocolFee(), feeHeader.protocolFee, "Getter Protocol fee");
     assertEq(compressedFeeHeader.getProverCost(), feeHeader.proverCost, "Getter Prover cost");
 
     // Check the decompressed value
     assertEq(decompressedFeeHeader.manaUsed, feeHeader.manaUsed, "Decompressed Mana used");
     assertEq(decompressedFeeHeader.excessMana, feeHeader.excessMana, "Decompressed Excess mana");
     assertEq(decompressedFeeHeader.ethPerFeeAsset, feeHeader.ethPerFeeAsset, "Decompressed Eth per fee asset");
-    assertEq(decompressedFeeHeader.congestionCost, feeHeader.congestionCost, "Decompressed Congestion cost");
+    assertEq(decompressedFeeHeader.protocolFee, feeHeader.protocolFee, "Decompressed Protocol fee");
     assertEq(decompressedFeeHeader.proverCost, feeHeader.proverCost, "Decompressed Prover cost");
   }
 }

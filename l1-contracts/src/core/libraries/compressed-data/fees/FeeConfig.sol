@@ -38,13 +38,14 @@ function subEthValue(EthValue _a, EthValue _b) pure returns (EthValue) {
 
 using {addEthValue as +, subEthValue as -} for EthValue global;
 
-// 32 bit manaTarget, 128 bit congestionUpdateFraction, 64 bit provingCostPerMana
+// 16 bit protocolFeeMarginBps, 32 bit manaTarget, 128 bit congestionUpdateFraction, 64 bit provingCostPerMana
 type CompressedFeeConfig is uint256;
 
 struct FeeConfig {
   uint256 manaTarget;
   uint256 congestionUpdateFraction;
   EthValue provingCostPerMana;
+  uint256 protocolFeeMarginBps;
 }
 
 /// @notice Library for converting between ETH and fee asset values using the price oracle.
@@ -89,6 +90,7 @@ library PriceLib {
 library FeeConfigLib {
   using SafeCast for uint256;
 
+  uint256 private constant MASK_16_BITS = 0xFFFF;
   uint256 private constant MASK_32_BITS = 0xFFFFFFFF;
   uint256 private constant MASK_64_BITS = 0xFFFFFFFFFFFFFFFF;
   uint256 private constant MASK_128_BITS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
@@ -105,11 +107,16 @@ library FeeConfigLib {
     return EthValue.wrap(CompressedFeeConfig.unwrap(_compressedFeeConfig) & MASK_64_BITS);
   }
 
+  function getProtocolFeeMarginBps(CompressedFeeConfig _compressedFeeConfig) internal pure returns (uint256) {
+    return (CompressedFeeConfig.unwrap(_compressedFeeConfig) >> 224) & MASK_16_BITS;
+  }
+
   function compress(FeeConfig memory _config) internal pure returns (CompressedFeeConfig) {
     uint256 value = 0;
     value |= uint256(EthValue.unwrap(_config.provingCostPerMana).toUint64());
     value |= uint256(_config.congestionUpdateFraction.toUint128()) << 64;
     value |= uint256(_config.manaTarget.toUint32()) << 192;
+    value |= uint256(_config.protocolFeeMarginBps.toUint16()) << 224;
 
     return CompressedFeeConfig.wrap(value);
   }
@@ -118,7 +125,8 @@ library FeeConfigLib {
     return FeeConfig({
       provingCostPerMana: getProvingCostPerMana(_compressedFeeConfig),
       congestionUpdateFraction: getCongestionUpdateFraction(_compressedFeeConfig),
-      manaTarget: getManaTarget(_compressedFeeConfig)
+      manaTarget: getManaTarget(_compressedFeeConfig),
+      protocolFeeMarginBps: getProtocolFeeMarginBps(_compressedFeeConfig)
     });
   }
 }

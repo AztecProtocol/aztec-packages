@@ -54,6 +54,7 @@ struct RewardStorage {
   mapping(Epoch => EpochRewards) epochRewards;
   mapping(address prover => BitMaps.BitMap claimed) proverClaimed;
   RewardConfig config;
+  address protocolFeeRecipient;
 }
 
 struct Values {
@@ -66,7 +67,7 @@ struct Values {
 
 struct Totals {
   uint256 feesToClaim;
-  uint256 totalBurn;
+  uint256 totalProtocolFee;
 }
 
 library RewardLib {
@@ -79,11 +80,6 @@ library RewardLib {
 
   bytes32 private constant REWARD_STORAGE_POSITION = keccak256("aztec.reward.storage");
 
-  // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold
-  // offerings,
-  // such as sacrificial hearts, during rituals performed within temples.
-  address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
-
   /// @notice One-shot writer used during rollup construction. Writes every field of
   ///         {RewardConfig}, including the immutable `rewardDistributor` and `booster`.
   /// @dev Must only be reachable from the constructor path. Post-deployment updates go through
@@ -92,6 +88,18 @@ library RewardLib {
     require(Bps.unwrap(_config.sequencerBps) <= 10_000, Errors.RewardLib__InvalidSequencerBps());
     RewardStorage storage rewardStorage = getStorage();
     rewardStorage.config = _config;
+    // A Cuauhxicalli ("eagle gourd bowl") is a ceremonial Aztec vessel used to hold offerings.
+    rewardStorage.protocolFeeRecipient = address(bytes20("CUAUHXICALLI"));
+  }
+
+  /// @notice Owner-gated post-deployment writer for the protocol fee recipient.
+  /// @param _recipient The new recipient of the protocol fee tranche
+  /// @return oldRecipient The recipient in effect before this call
+  function updateProtocolFeeRecipient(address _recipient) internal returns (address oldRecipient) {
+    require(_recipient != address(0), Errors.RewardLib__InvalidProtocolFeeRecipient());
+    RewardStorage storage rewardStorage = getStorage();
+    oldRecipient = rewardStorage.protocolFeeRecipient;
+    rewardStorage.protocolFeeRecipient = _recipient;
   }
 
   /// @notice Owner-gated post-deployment writer. Only updates the mutable subset
@@ -216,18 +224,18 @@ library RewardLib {
         v.manaUsed = feeHeader.getManaUsed();
 
         uint256 fee = _args.headers[i].accumulatedFees;
-        uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
+        uint256 protocolFee = feeHeader.getProtocolFee() * v.manaUsed;
 
         t.feesToClaim += fee;
-        t.totalBurn += burn;
+        t.totalProtocolFee += protocolFee;
 
         // Compute the proving fee in the fee asset
-        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
+        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - protocolFee);
         if (v.proverFee > 0) {
           $er.rewards += v.proverFee.toUint128();
         }
 
-        v.sequencerFee = fee - burn - v.proverFee;
+        v.sequencerFee = fee - protocolFee - v.proverFee;
 
         {
           v.sequencer = _args.headers[i].coinbase;
@@ -244,8 +252,8 @@ library RewardLib {
         rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
       }
 
-      if (t.totalBurn > 0) {
-        rollupStore.config.feeAsset.safeTransfer(BURN_ADDRESS, t.totalBurn);
+      if (t.totalProtocolFee > 0) {
+        rollupStore.config.feeAsset.safeTransfer(rewardStorage.protocolFeeRecipient, t.totalProtocolFee);
       }
     }
   }
@@ -272,6 +280,10 @@ library RewardLib {
 
   function getCheckpointReward() internal view returns (uint256) {
     return getStorage().config.checkpointReward;
+  }
+
+  function getProtocolFeeRecipient() internal view returns (address) {
+    return getStorage().protocolFeeRecipient;
   }
 
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover) internal view returns (uint256) {
