@@ -2,7 +2,7 @@ import type { IDBPDatabase, IDBPObjectStore } from 'idb';
 import { hash } from 'ohash';
 
 import type { Key, Range, Value } from '../../interfaces/common.js';
-import type { AztecAsyncMap } from '../../interfaces/map.js';
+import type { AztecAsyncMap, GetManyOptions } from '../../interfaces/map.js';
 import type { AztecIDBSchema } from './store.js';
 
 /**
@@ -32,6 +32,10 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
   async getAsync(key: K): Promise<V | undefined> {
     const data = await this.db.get(this.slot(key));
     return data ? this.restoreBuffers(data.value as V) : undefined;
+  }
+
+  getManyAsync(keys: K[], _opts?: GetManyOptions): Promise<(V | undefined)[]> {
+    return Promise.all(keys.map(key => this.getAsync(key)));
   }
 
   async hasAsync(key: K): Promise<boolean> {

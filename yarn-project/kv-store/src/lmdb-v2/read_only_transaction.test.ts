@@ -69,6 +69,39 @@ describe('AztecLMDBStoreV2 readOnlyTransaction', () => {
     await expect(map.getAsync('k')).resolves.toBe('v2');
   });
 
+  it('serves batched container reads from the snapshot', async () => {
+    const map = store.openMap<string, string>('batched');
+    await store.transactionAsync(async () => {
+      await map.set('a', '1');
+      await map.set('b', '2');
+    });
+
+    const opened = promiseWithResolvers<void>();
+    const writeCommitted = promiseWithResolvers<void>();
+
+    const snapshotReads = store.readOnlyTransaction(async () => {
+      const first = await map.getManyAsync(['a', 'b', 'c']);
+      opened.resolve();
+      await writeCommitted.promise;
+      return [first, await map.getManyAsync(['a', 'b', 'c'])];
+    });
+
+    await opened.promise;
+    await store.transactionAsync(async () => {
+      await map.set('b', '22');
+      await map.set('c', '3');
+    });
+    writeCommitted.resolve();
+
+    await expect(snapshotReads).resolves.toEqual([
+      ['1', '2', undefined],
+      ['1', '2', undefined],
+    ]);
+
+    // outside the snapshot the batched read sees the committed values
+    await expect(map.getManyAsync(['a', 'b', 'c'])).resolves.toEqual(['1', '22', '3']);
+  });
+
   it('does not observe rows committed after the snapshot was taken while iterating', async () => {
     const map = store.openMap<string, string>('iteration');
     await store.transactionAsync(async () => {

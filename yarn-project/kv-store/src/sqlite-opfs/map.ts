@@ -4,7 +4,7 @@ import { Buffer } from 'buffer';
 import { hash } from 'ohash';
 
 import type { Key, Range, Value } from '../interfaces/common.js';
-import type { AztecAsyncMap } from '../interfaces/map.js';
+import type { AztecAsyncMap, GetManyOptions } from '../interfaces/map.js';
 import type { SqlValue } from './messages.js';
 import type { AztecSQLiteOPFSStore } from './store.js';
 
@@ -29,6 +29,10 @@ export class SQLiteOPFSAztecMap<K extends Key, V extends Value> implements Aztec
     }
     const raw = rows[0][0];
     return raw == null ? undefined : this.decodeValue(raw);
+  }
+
+  getManyAsync(keys: K[], _opts?: GetManyOptions): Promise<(V | undefined)[]> {
+    return Promise.all(keys.map(key => this.getAsync(key)));
   }
 
   async hasAsync(key: K): Promise<boolean> {

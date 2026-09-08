@@ -8,6 +8,7 @@ import {
   removeFromSortedArray,
 } from '@aztec/foundation/array';
 
+import type { GetManyOptions } from '../interfaces/map.js';
 import { type Batch, Database, LMDBMessageType } from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 import { keyCmp, singleKeyCmp } from './utils.js';
@@ -58,16 +59,50 @@ export class WriteTransaction extends ReadTransaction {
   public override async get(key: Buffer): Promise<Uint8Array | undefined> {
     this.assertIsOpen();
 
-    const addEntry = findInSortedArray(this.dataBatch.addEntries, key, singleKeyCmp);
-    if (addEntry) {
-      return addEntry[1][0];
-    }
-    const removeEntryIdx = findIndexInSortedArray(this.dataBatch.removeEntries, key, singleKeyCmp);
-    if (removeEntryIdx > -1) {
-      return undefined;
+    const pending = this.#getPending(key);
+    if (pending) {
+      return pending.value;
     }
 
     return await super.get(key);
+  }
+
+  public override async getMany(keys: Uint8Array[], opts?: GetManyOptions): Promise<(Uint8Array | undefined)[]> {
+    this.assertIsOpen();
+
+    const results: (Uint8Array | undefined)[] = new Array(keys.length);
+    const unresolvedKeys: Uint8Array[] = [];
+    const unresolvedIndices: number[] = [];
+
+    for (let i = 0; i < keys.length; i++) {
+      const pending = this.#getPending(keys[i]);
+      if (pending) {
+        results[i] = pending.value;
+      } else {
+        unresolvedKeys.push(keys[i]);
+        unresolvedIndices.push(i);
+      }
+    }
+
+    const committed = await super.getMany(unresolvedKeys, opts);
+    for (let i = 0; i < unresolvedIndices.length; i++) {
+      results[unresolvedIndices[i]] = committed[i];
+    }
+
+    return results;
+  }
+
+  /** Resolves a key against the pending data batch, returning undefined when the batch says nothing about it. */
+  #getPending(key: Uint8Array): { value: Uint8Array | undefined } | undefined {
+    const addEntry = findInSortedArray(this.dataBatch.addEntries, key, singleKeyCmp);
+    if (addEntry) {
+      return { value: addEntry[1][0] };
+    }
+    const removeEntryIdx = findIndexInSortedArray(this.dataBatch.removeEntries, key, singleKeyCmp);
+    if (removeEntryIdx > -1) {
+      return { value: undefined };
+    }
+    return undefined;
   }
 
   setIndex(key: Buffer, ...values: Buffer[]): Promise<void> {

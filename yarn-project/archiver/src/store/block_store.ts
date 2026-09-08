@@ -1136,13 +1136,18 @@ export class BlockStore {
       return undefined;
     }
 
-    const txEffects: TxEffect[] = [];
+    const txHashes: TxHash[] = [];
     const reader = BufferReader.asReader(blockTxsBuffer);
     while (!reader.isEmpty()) {
-      const txHash = reader.readObject(TxHash);
-      const txEffect = await this.#txEffects.getAsync(txHash.toString());
+      txHashes.push(reader.readObject(TxHash));
+    }
+
+    const storedTxEffects = await this.#txEffects.getManyAsync(txHashes.map(txHash => txHash.toString()));
+    const txEffects: TxEffect[] = [];
+    for (let i = 0; i < storedTxEffects.length; i++) {
+      const txEffect = storedTxEffects[i];
       if (txEffect === undefined) {
-        this.#log.warn(`Could not find tx effect for tx ${txHash} in block ${blockNumber}`);
+        this.#log.warn(`Could not find tx effect for tx ${txHashes[i]} in block ${blockNumber}`);
         return undefined;
       }
       txEffects.push(deserializeIndexedTxEffect(txEffect).data);
@@ -1204,22 +1209,20 @@ export class BlockStore {
    * skip the header, then read the two vectors, and stop — the large tail (`l2ToL1Msgs`,
    * `publicDataWrites`, `privateLogs`, `publicLogs`, `contractClassLogs`) is never touched.
    */
-  public getNoteHashesAndNullifiers(txHashes: TxHash[]): Promise<[Fr[], Fr[]][]> {
-    return Promise.all(
-      txHashes.map(async (txHash): Promise<[Fr[], Fr[]]> => {
-        const buffer = await this.#txEffects.getAsync(txHash.toString());
-        if (!buffer) {
-          return [[], []];
-        }
-        const reader = BufferReader.asReader(buffer);
-        // Skip the fixed-length header: blockHash + l2BlockNumber + txIndexInBlock + slotNumber + revertCode +
-        // txHash + transactionFee.
-        reader.readBytes(32 + 4 + 4 + 4 + 1 + 32 + 32);
-        const noteHashes = reader.readVectorUint8Prefix(Fr);
-        const nullifiers = reader.readVectorUint8Prefix(Fr);
-        return [noteHashes, nullifiers];
-      }),
-    );
+  public async getNoteHashesAndNullifiers(txHashes: TxHash[]): Promise<[Fr[], Fr[]][]> {
+    const buffers = await this.#txEffects.getManyAsync(txHashes.map(txHash => txHash.toString()));
+    return buffers.map((buffer): [Fr[], Fr[]] => {
+      if (!buffer) {
+        return [[], []];
+      }
+      const reader = BufferReader.asReader(buffer);
+      // Skip the fixed-length header: blockHash + l2BlockNumber + txIndexInBlock + slotNumber + revertCode +
+      // txHash + transactionFee.
+      reader.readBytes(32 + 4 + 4 + 4 + 1 + 32 + 32);
+      const noteHashes = reader.readVectorUint8Prefix(Fr);
+      const nullifiers = reader.readVectorUint8Prefix(Fr);
+      return [noteHashes, nullifiers];
+    });
   }
 
   /**

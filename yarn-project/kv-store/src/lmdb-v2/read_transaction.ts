@@ -1,4 +1,13 @@
-import { CURSOR_PAGE_SIZE, Database, type LMDBMessageChannel, LMDBMessageType } from './message.js';
+import { chunk } from '@aztec/foundation/collection';
+
+import type { GetManyOptions } from '../interfaces/map.js';
+import {
+  CURSOR_PAGE_SIZE,
+  DEFAULT_GET_CHUNK_SIZE,
+  Database,
+  type LMDBMessageChannel,
+  LMDBMessageType,
+} from './message.js';
 
 /**
  * Reads against the store. When constructed with the id of a native read transaction, every read and iteration is
@@ -34,6 +43,33 @@ export class ReadTransaction {
       txId: this.txId ?? null,
     });
     return response.values[0]?.[0] ?? undefined;
+  }
+
+  /**
+   * Reads many keys, sending at most `opts.chunkSize` keys per GET message (default {@link DEFAULT_GET_CHUNK_SIZE}).
+   * Returns one entry per input key, in input order, `undefined` where the key is absent.
+   */
+  public async getMany(keys: Uint8Array[], opts: GetManyOptions = {}): Promise<(Uint8Array | undefined)[]> {
+    this.assertIsOpen();
+    if (keys.length === 0) {
+      return [];
+    }
+    const chunkSize = opts.chunkSize ?? DEFAULT_GET_CHUNK_SIZE;
+    if (!Number.isInteger(chunkSize) || chunkSize < 1) {
+      throw new Error(`Invalid getMany chunk size: ${chunkSize}`);
+    }
+    const results: (Uint8Array | undefined)[] = [];
+    for (const keysChunk of chunk(keys, chunkSize)) {
+      const response = await this.channel.sendMessage(LMDBMessageType.GET, {
+        keys: keysChunk,
+        db: Database.DATA,
+        txId: this.txId ?? null,
+      });
+      for (let i = 0; i < keysChunk.length; i++) {
+        results.push(response.values[i]?.[0] ?? undefined);
+      }
+    }
+    return results;
   }
 
   public async getIndex(key: Uint8Array): Promise<Uint8Array[]> {

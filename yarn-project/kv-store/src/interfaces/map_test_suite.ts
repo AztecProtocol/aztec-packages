@@ -29,6 +29,10 @@ export function describeAztecMap(
         : await (sut as AztecAsyncMap<any, any>).getAsync(key);
     }
 
+    async function getMany(keys: Key[], sut: AztecAsyncMap<any, any> | AztecMap<any, any> = map) {
+      return await (sut as AztecAsyncMap<any, any>).getManyAsync(keys);
+    }
+
     async function size(sut: AztecAsyncMap<any, any> | AztecMap<any, any> = map) {
       return isSyncStore(store) && !forceAsync
         ? (sut as AztecMap<any, any>).size()
@@ -69,6 +73,33 @@ export function describeAztecMap(
       for (const { key, value } of pairs) {
         expect(await get(key)).toBe(value);
       }
+    });
+
+    it('should be able to get many values at once', async () => {
+      await map.set('foo', 'bar');
+      await map.set('baz', 'qux');
+
+      expect(await getMany(['foo', 'baz'])).toEqual(['bar', 'qux']);
+    });
+
+    it('returns undefined for missing keys when getting many', async () => {
+      await map.set('foo', 'bar');
+
+      expect(await getMany(['missing', 'foo', 'alsoMissing'])).toEqual([undefined, 'bar', undefined]);
+    });
+
+    it('preserves input order when getting many', async () => {
+      const pairs = Array.from({ length: 20 }, (_, i) => ({ key: `key${i}`, value: `value${i}` }));
+      await map.setMany(pairs);
+
+      const requested = [...pairs].reverse().map(({ key }) => key);
+      expect(await getMany(requested)).toEqual([...pairs].reverse().map(({ value }) => value));
+    });
+
+    it('returns an empty array when getting many with no keys', async () => {
+      await map.set('foo', 'bar');
+
+      expect(await getMany([])).toEqual([]);
     });
 
     it('should be able to overwrite values', async () => {
