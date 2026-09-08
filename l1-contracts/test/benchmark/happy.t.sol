@@ -221,7 +221,9 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
       rollup.getEpochProofVerifier(),
       address(this),
       config.genesisState,
-      config.rollupConfigInput
+      config.rollupConfigInput,
+      rollup.getOutbox(),
+      rollup.getFeeAssetPortal()
     );
     // Keep the initialized rollup storage while exposing named gas-report entrypoints.
     vm.etch(address(rollup), address(reporter).code);

@@ -666,7 +666,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     RewardExtLib.initializeConfig(rewardConfig);
   }
 
-  function _getRollupConfig() internal view returns (RollupConfig memory) {
+  function _getRollupConfig() internal view virtual returns (RollupConfig memory) {
     return RollupConfig({
       vkTreeRoot: VK_TREE_ROOT,
       protocolContractsHash: PROTOCOL_CONTRACTS_HASH,
