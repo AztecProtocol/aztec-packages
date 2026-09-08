@@ -21,7 +21,7 @@ A `BlockProposal` is broadcast by the proposer for each block **except the last 
 BlockProposal {
   blockHeader          // Per-block header with global variables
   indexWithinCheckpoint // 0, 1, 2, ... position within checkpoint
-  bucketRef?           // Inbox bucket reference for the block's L1-to-L2 message bundle
+  inboxPrefixRef       // Rolling hash of the Inbox message prefix the block consumed through (with the header's leaf count)
   archive              // Archive root after this block
   txHashes             // Transaction hashes in order
   signature            // Proposer's signature
@@ -75,7 +75,7 @@ These rules must always hold:
 
 1. **Attestations are checkpoint-only**: Validators never attest to individual `BlockProposal`s
 2. **Global variables match within checkpoint**: All blocks within the same checkpoint must have identical global variables (except `blockNumber`), which includes the slot number
-3. **Inbox consumption moves forward**: Each block's bucket reference consumes at or past its parent block's Inbox position (AZIP-22 Fast Inbox)
+3. **Inbox consumption moves forward**: Each block's L1-to-L2 leaf count is at or past its parent block's, and its signed prefix reference names the local message prefix at that count; no L1 bucket boundary is involved (AZIP-22 Fast Inbox)
 4. **Sequential indexWithinCheckpoint**: Block N must have `indexWithinCheckpoint = parent.indexWithinCheckpoint + 1`
 5. **One proposer per slot**: Each slot has exactly one designated proposer. Sending multiple proposals for the same position (slot, indexWithinCheckpoint) with different content is equivocation and slashable
 6. **One attestation per slot**: Validators should only attest to one checkpoint per slot. Attesting to different proposals (different archives) for the same slot is equivocation and slashable
@@ -93,7 +93,7 @@ When a `BlockProposal` is received via P2P, the `BlockProposalHandler` performs:
 4. Find parent block by archive root (wait/retry if not synced)
 5. Compute checkpoint number from parent
 6. If indexWithinCheckpoint > 0, then validate global variables match parent (chainId, version, slotNumber, timestamp, coinbase, feeRecipient, gasFees)
-7. Run the streaming Inbox acceptance checks on the proposal's bucket reference and derive the block's L1-to-L2 message bundle (AZIP-22 Fast Inbox)
+7. Run the streaming Inbox content checks: the signed prefix reference must match the local rolling hash at the block's leaf count, and the block's L1-to-L2 message bundle is read by count from the same snapshot (AZIP-22 Fast Inbox). A prefix the local view cannot confirm or disagrees with is a local-view outcome: the check is retried after a bounded L1 sync and never counts against the proposer
 8. Collect transactions from pool/network/proposal
 9. Re-execute transactions (if enabled)
 10. Compare re-execution result with proposal

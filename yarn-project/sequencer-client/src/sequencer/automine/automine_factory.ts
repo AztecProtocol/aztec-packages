@@ -1,7 +1,7 @@
 import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { GovernanceProposerContract, type RollupContract } from '@aztec/ethereum/contracts';
+import { GovernanceProposerContract, InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthCheatCodes } from '@aztec/ethereum/test';
@@ -126,6 +126,7 @@ export async function createAutomineSequencer({
     worldState: worldStateSynchronizer,
     l2BlockSource: archiver,
     l1ToL2MessageSource: archiver,
+    inboxContract: new InboxContract(publicClient, config.inboxAddress),
     p2pClient,
     ethCheatCodes,
     dateProvider: dateProvider as any, // TestDateProvider; verified at construction in fixture

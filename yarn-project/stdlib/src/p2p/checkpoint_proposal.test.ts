@@ -5,7 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { InboxBucketRef } from '../messaging/inbox_bucket.js';
+import { InboxMessagePrefixRef } from '../messaging/inbox_message_prefix_ref.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { makeCheckpointProposal } from '../tests/mocks.js';
 import { BlockHeader } from '../tx/block_header.js';
@@ -15,7 +15,7 @@ import { EMPTY_COORDINATION_SIGNATURE_CONTEXT } from './signature_utils.js';
 import { LEGACY_CHECKPOINT_PROPOSAL_HEX } from './wire_compat_fixtures.js';
 
 /**
- * Deterministic legacy-shaped checkpoint proposal (lastBlock without signedTxs or bucketRef) matching the golden
+ * Deterministic legacy-shaped checkpoint proposal (lastBlock without signedTxs or inboxPrefixRef) matching the golden
  * fixture in wire_compat_fixtures.ts. Constructed identically to how those bytes were captured on the pre-change code.
  */
 const makeLegacyFixtureCheckpointProposal = () =>
@@ -43,40 +43,40 @@ describe('CheckpointProposal serialization / deserialization', () => {
     expect(deserialized.toBuffer()).toEqual(proposal.toBuffer());
   });
 
-  describe('bucket reference', () => {
-    it('round-trips with a bucket reference on the last block', async () => {
+  describe('inbox prefix reference', () => {
+    it('round-trips with a inbox prefix reference on the last block', async () => {
       const checkpointHeader = CheckpointHeader.random();
-      const bucketRef = new InboxBucketRef(17n, 1_700_000_000n, checkpointHeader.inboxRollingHash);
-      const proposal = await makeCheckpointProposal({ checkpointHeader, lastBlock: { bucketRef } });
+      const inboxPrefixRef = new InboxMessagePrefixRef(checkpointHeader.inboxRollingHash);
+      const proposal = await makeCheckpointProposal({ checkpointHeader, lastBlock: { inboxPrefixRef } });
 
       const deserialized = CheckpointProposal.fromBuffer(proposal.toBuffer());
 
-      expect(deserialized.lastBlock?.bucketRef?.equals(bucketRef)).toBe(true);
+      expect(deserialized.lastBlock?.inboxPrefixRef?.equals(inboxPrefixRef)).toBe(true);
       expect(deserialized.getSize()).toEqual(proposal.getSize());
       expect(deserialized.toBuffer()).toEqual(proposal.toBuffer());
     });
 
     it('serializes byte-identically to the legacy format when unset', () => {
       const proposal = makeLegacyFixtureCheckpointProposal();
-      expect(proposal.lastBlock?.bucketRef).toBeUndefined();
+      expect(proposal.lastBlock?.inboxPrefixRef).toBeUndefined();
       expect(bufferToHex(proposal.toBuffer())).toEqual(LEGACY_CHECKPOINT_PROPOSAL_HEX);
     });
 
-    it('decodes a legacy buffer (no tail) as having no bucket reference', () => {
+    it('decodes a legacy buffer (no tail) as having no inbox prefix reference', () => {
       const deserialized = CheckpointProposal.fromBuffer(hexToBuffer(LEGACY_CHECKPOINT_PROPOSAL_HEX));
       expect(deserialized.lastBlock).toBeDefined();
-      expect(deserialized.lastBlock?.bucketRef).toBeUndefined();
+      expect(deserialized.lastBlock?.inboxPrefixRef).toBeUndefined();
       expect(bufferToHex(deserialized.toBuffer())).toEqual(LEGACY_CHECKPOINT_PROPOSAL_HEX);
     });
 
-    it('carries the bucket reference through getBlockProposal, covered by the block signature', async () => {
+    it('carries the inbox prefix reference through getBlockProposal, covered by the block signature', async () => {
       const signer = Secp256k1Signer.random();
       const checkpointHeader = CheckpointHeader.random();
-      const bucketRef = new InboxBucketRef(3n, 42n, checkpointHeader.inboxRollingHash);
-      const proposal = await makeCheckpointProposal({ signer, checkpointHeader, lastBlock: { bucketRef } });
+      const inboxPrefixRef = new InboxMessagePrefixRef(checkpointHeader.inboxRollingHash);
+      const proposal = await makeCheckpointProposal({ signer, checkpointHeader, lastBlock: { inboxPrefixRef } });
 
       const blockProposal = proposal.getBlockProposal();
-      expect(blockProposal?.bucketRef?.equals(bucketRef)).toBe(true);
+      expect(blockProposal?.inboxPrefixRef?.equals(inboxPrefixRef)).toBe(true);
       expect(blockProposal?.getSender()).toEqual(signer.address);
       expect(proposal.getSender()).toEqual(signer.address);
     });
@@ -96,7 +96,7 @@ describe('CheckpointProposal serialization / deserialization', () => {
               indexWithinCheckpoint: IndexWithinCheckpoint(4),
               txHashes: [],
               signature: Signature.empty(),
-              bucketRef: new InboxBucketRef(1n, 2n, new Fr(0x1234n)),
+              inboxPrefixRef: new InboxMessagePrefixRef(new Fr(0x1234n)),
             },
           ),
       ).not.toThrow();
@@ -117,10 +117,10 @@ describe('CheckpointProposal serialization / deserialization', () => {
               indexWithinCheckpoint: IndexWithinCheckpoint(4),
               txHashes: [],
               signature: Signature.empty(),
-              bucketRef: new InboxBucketRef(1n, 2n, new Fr(0x5678n)),
+              inboxPrefixRef: new InboxMessagePrefixRef(new Fr(0x5678n)),
             },
           ),
-      ).toThrow(/bucketRef rolling hash/);
+      ).toThrow(/inboxPrefixRef rolling hash/);
     });
   });
 });

@@ -61,10 +61,11 @@ export type SequencerEvents = {
   }) => void;
   ['checkpoint-empty']: (args: { slot: SlotNumber }) => void;
   /**
-   * Emitted when the proposer's pre-broadcast `validateCheckpointHeader` simulation fails. This is a
-   * last-chance check before we gossip a checkpoint proposal: a failure here means the header
-   * would not be accepted by L1 (e.g. archive mismatch, stale chain tip, or some other state
-   * drift between when we built the checkpoint and when we are about to broadcast it).
+   * Emitted when the proposer's pre-gossip `validateCheckpointHeaderAndInbox` simulation fails. This is a
+   * last-chance check before we gossip a checkpoint proposal: a failure here means the header or its
+   * Inbox consumption would not be accepted by L1 (e.g. archive mismatch, stale chain tip, a final
+   * message total that is not a live bucket end, or some other state drift between when we built the
+   * checkpoint and when we are about to broadcast it).
    */
   ['header-validation-failed']: (args: {
     slot: SlotNumber;

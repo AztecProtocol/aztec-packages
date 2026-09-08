@@ -1,5 +1,4 @@
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -38,7 +37,6 @@ import { type LogResult, randomLogResult } from '../logs/log_result.js';
 import type { PrivateLogsQuery, PublicLogsQuery } from '../logs/logs_query.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
-import type { InboxBucket } from '../messaging/inbox_bucket.js';
 import type { InboxMessagePosition, InboxMessageRange } from '../messaging/l1_to_l2_message_source.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
@@ -211,31 +209,6 @@ describe('ArchiverApiSchema', () => {
   it('getL1ToL2MessageIndex', async () => {
     const result = await context.client.getL1ToL2MessageIndex(Fr.random());
     expect(result).toBe(1n);
-  });
-
-  it('getLatestInboxBucketAtOrBefore', async () => {
-    const result = await context.client.getLatestInboxBucketAtOrBefore(123n);
-    expect(result).toMatchObject({ seq: 1n, msgCount: 3, totalMsgCount: 3n });
-  });
-
-  it('getInboxBucket', async () => {
-    const result = await context.client.getInboxBucket(2n);
-    expect(result).toMatchObject({
-      seq: 2n,
-      msgCount: 3,
-      l1BlockNumber: 20n,
-      l1BlockHash: Buffer32.fromBigInt(20n),
-    });
-  });
-
-  it('getInboxBucketByTotalMsgCount', async () => {
-    const result = await context.client.getInboxBucketByTotalMsgCount(3n);
-    expect(result).toMatchObject({ seq: 2n, totalMsgCount: 3n, msgCount: 3 });
-  });
-
-  it('getL1ToL2MessagesBetweenBuckets', async () => {
-    const result = await context.client.getL1ToL2MessagesBetweenBuckets(0n, 3n);
-    expect(result).toEqual([expect.any(Fr)]);
   });
 
   it('getL1ToL2MessagesBetweenLeafCounts', async () => {
@@ -620,50 +593,6 @@ class MockArchiver implements ArchiverApi {
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(1n);
-  }
-  getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
-    expect(typeof timestamp).toEqual('bigint');
-    return Promise.resolve({
-      seq: 1n,
-      inboxRollingHash: Fr.random(),
-      totalMsgCount: 3n,
-      timestamp: 100n,
-      msgCount: 3,
-      lastMessageIndex: 2n,
-      l1BlockNumber: 20n,
-      l1BlockHash: Buffer32.fromBigInt(20n),
-    });
-  }
-  getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
-    expect(typeof seq).toEqual('bigint');
-    return Promise.resolve({
-      seq,
-      inboxRollingHash: Fr.random(),
-      totalMsgCount: 3n,
-      timestamp: 100n,
-      msgCount: 3,
-      lastMessageIndex: 2n,
-      l1BlockNumber: 20n,
-      l1BlockHash: Buffer32.fromBigInt(20n),
-    });
-  }
-  getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined> {
-    expect(typeof totalMsgCount).toEqual('bigint');
-    return Promise.resolve({
-      seq: 2n,
-      inboxRollingHash: Fr.random(),
-      totalMsgCount,
-      timestamp: 100n,
-      msgCount: 3,
-      lastMessageIndex: 2n,
-      l1BlockNumber: 20n,
-      l1BlockHash: Buffer32.fromBigInt(20n),
-    });
-  }
-  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
-    expect(typeof fromExclusive).toEqual('bigint');
-    expect(typeof toInclusive).toEqual('bigint');
-    return Promise.resolve([Fr.random()]);
   }
   getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
     expect(typeof startLeafCount).toEqual('bigint');

@@ -46,6 +46,12 @@ class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
   syncFromL1(_initialSyncComplete: boolean): Promise<L2Block[]> {
     return Promise.resolve([]);
   }
+  isSpeculationGated(): boolean {
+    return false;
+  }
+  isRecoveringMessages(): boolean {
+    return false;
+  }
 }
 
 /**

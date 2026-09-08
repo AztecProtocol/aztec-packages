@@ -10,6 +10,12 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import {
+  type InboxMessagePosition,
+  type InboxMessageRange,
+  type L1ToL2MessageSource,
+  accumulateInboxRollingHash,
+} from '@aztec/stdlib/messaging';
 import { BlockProposal, CheckpointAttestation, CheckpointProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -27,6 +33,8 @@ import {
 import { BlockHeader, GlobalVariables, type Tx, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 
 import type { MockProxy } from 'jest-mock-extended';
+
+import type { InboxEndpointResolver } from '../sequencer/inbox_message_selection.js';
 
 // Re-export mock classes from their dedicated file
 export { MockCheckpointBuilder, MockCheckpointsBuilder } from './mock_checkpoint_builder.js';
@@ -214,4 +222,103 @@ export async function setupTxsAndBlock(
   const block = await makeBlock(txs, globalVariables);
   mockPendingTxs(p2p, txs);
   return { txs, block };
+}
+
+/** Controls over the in-memory Inbox that {@link mockStreamingInbox} wires into the message-source and Inbox mocks. */
+export type MockStreamingInbox = {
+  /** The leaves the local archiver has observed, in insertion order. */
+  readonly leaves: Fr[];
+  /** Replaces the log and the live L1 bucket ends (cumulative totals) in one step. */
+  set(leaves: Fr[], bucketEnds?: bigint[]): void;
+  /** Appends leaves at the synced tip; `closeBucket` also records a live bucket end at the new tip. */
+  append(leaves: Fr[], opts?: { closeBucket?: boolean }): void;
+  /** Sets the live L1 bucket ends the Inbox contract reports. */
+  setBucketEnds(bucketEnds: bigint[]): void;
+  /** The position after `count` messages, as the archiver would report it. */
+  positionAt(count: bigint): InboxMessagePosition;
+};
+
+/**
+ * Wires an in-memory Inbox into the archiver message-source mock and the Inbox contract mock a job consumes:
+ * positions and ranges derive from an ordered leaf log, and `getBucketAtOrBeforeTotal` answers from a list of live
+ * bucket ends (cumulative totals) plus genesis. Buckets are only consulted by message completion; ordinary blocks read
+ * the log alone. Unless leaves are given the Inbox starts empty, so a job consumes nothing by default.
+ */
+export function mockStreamingInbox(
+  source: MockProxy<L1ToL2MessageSource>,
+  inbox: MockProxy<InboxEndpointResolver>,
+  initial: { leaves?: Fr[]; bucketEnds?: bigint[] } = {},
+): MockStreamingInbox {
+  let leaves: Fr[] = [...(initial.leaves ?? [])];
+  let bucketEnds: bigint[] = initial.bucketEnds ?? (leaves.length > 0 ? [BigInt(leaves.length)] : []);
+
+  const positionAt = (count: bigint): InboxMessagePosition => ({
+    totalMessageCount: count,
+    rollingHash: accumulateInboxRollingHash(Fr.ZERO, leaves.slice(0, Number(count))),
+  });
+  const readRange = (start: bigint, end: bigint): InboxMessageRange => {
+    if (start < 0n || start > end) {
+      throw new Error(`Invalid Inbox leaf count range [${start}, ${end})`);
+    }
+    if (end > BigInt(leaves.length)) {
+      throw new Error(`Inbox message range [${start}, ${end}) is not fully synced`);
+    }
+    return { messages: leaves.slice(Number(start), Number(end)), start: positionAt(start), end: positionAt(end) };
+  };
+
+  source.getSyncedMessagePosition.mockImplementation(() => Promise.resolve(positionAt(BigInt(leaves.length))));
+  source.getMessagePosition.mockImplementation(count =>
+    Promise.resolve(count > BigInt(leaves.length) ? undefined : positionAt(count)),
+  );
+  source.getL1ToL2MessageRange.mockImplementation((start, end) => {
+    try {
+      return Promise.resolve(readRange(start, end));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  });
+  source.getL1ToL2MessagesBetweenLeafCounts.mockImplementation((start, end) => {
+    try {
+      return Promise.resolve(readRange(start, end).messages);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  });
+  inbox.getBucketAtOrBeforeTotal.mockImplementation(upperBound => {
+    const ends = [0n, ...bucketEnds].filter(end => end <= upperBound);
+    if (ends.length === 0) {
+      return Promise.resolve(undefined);
+    }
+    const total = ends.reduce((max, end) => (end > max ? end : max), 0n);
+    const previous = [0n, ...bucketEnds].filter(end => end < total).reduce((max, end) => (end > max ? end : max), 0n);
+    return Promise.resolve({
+      seq: BigInt([0n, ...bucketEnds].indexOf(total)),
+      bucket: {
+        rollingHash: positionAt(total).rollingHash,
+        totalMsgCount: total,
+        timestamp: total,
+        msgCount: Number(total - previous),
+      },
+    });
+  });
+
+  return {
+    get leaves() {
+      return leaves;
+    },
+    set(newLeaves, newBucketEnds) {
+      leaves = [...newLeaves];
+      bucketEnds = newBucketEnds ?? (leaves.length > 0 ? [BigInt(leaves.length)] : []);
+    },
+    append(newLeaves, opts = {}) {
+      leaves = [...leaves, ...newLeaves];
+      if (opts.closeBucket) {
+        bucketEnds = [...bucketEnds, BigInt(leaves.length)];
+      }
+    },
+    setBucketEnds(newBucketEnds) {
+      bucketEnds = [...newBucketEnds];
+    },
+    positionAt,
+  };
 }

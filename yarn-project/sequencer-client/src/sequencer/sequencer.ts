@@ -1,6 +1,6 @@
 import { getKzg } from '@aztec/blob-lib';
 import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
-import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
+import { type InboxContract, NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -144,6 +144,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected dateProvider: DateProvider,
     protected epochCache: EpochCache,
     protected rollupContract: RollupContract,
+    protected inboxContract: InboxContract,
     config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>,
     protected telemetry: TelemetryClient = getTelemetryClient(),
     protected log = createLogger('sequencer'),
@@ -780,7 +781,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.p2pClient,
       this.worldState,
       this.l1ToL2MessageSource,
-      this.rollupContract.client,
+      this.inboxContract,
       this.l2BlockSource,
       this.checkpointsBuilder,
       this.l2BlockSource,

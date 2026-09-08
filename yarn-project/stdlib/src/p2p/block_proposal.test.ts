@@ -5,7 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { InboxBucketRef } from '../messaging/inbox_bucket.js';
+import { InboxMessagePrefixRef } from '../messaging/inbox_message_prefix_ref.js';
 import { TEST_COORDINATION_SIGNATURE_CONTEXT, makeBlockProposal } from '../tests/mocks.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { Tx } from '../tx/tx.js';
@@ -16,7 +16,7 @@ import { SignedTxs } from './signed_txs.js';
 import { LEGACY_BLOCK_PROPOSAL_HEX, LEGACY_BLOCK_PROPOSAL_PAYLOAD_HEX } from './wire_compat_fixtures.js';
 
 /**
- * Deterministic legacy-shaped proposal (no signedTxs, no bucketRef) matching the golden fixtures in
+ * Deterministic legacy-shaped proposal (no signedTxs, no inboxPrefixRef) matching the golden fixtures in
  * wire_compat_fixtures.ts. Constructed identically to how those bytes were captured on the pre-change code.
  */
 const makeLegacyFixtureProposal = () =>
@@ -114,48 +114,48 @@ describe('Block Proposal serialization / deserialization', () => {
     expect(tampered.getSender()).toBeUndefined();
   });
 
-  describe('bucket reference', () => {
-    it('round-trips with a bucket reference set', async () => {
-      const bucketRef = InboxBucketRef.random();
-      const proposal = await makeBlockProposal({ bucketRef });
+  describe('inbox prefix reference', () => {
+    it('round-trips with a inbox prefix reference set', async () => {
+      const inboxPrefixRef = InboxMessagePrefixRef.random();
+      const proposal = await makeBlockProposal({ inboxPrefixRef });
 
       const deserialized = BlockProposal.fromBuffer(proposal.toBuffer());
 
-      expect(deserialized.bucketRef).toBeDefined();
-      expect(deserialized.bucketRef!.equals(bucketRef)).toBe(true);
+      expect(deserialized.inboxPrefixRef).toBeDefined();
+      expect(deserialized.inboxPrefixRef!.equals(inboxPrefixRef)).toBe(true);
       expect(deserialized.getSize()).toEqual(proposal.getSize());
       expect(deserialized).toEqual(proposal);
     });
 
-    it('round-trips with a bucket reference set alongside signed txs', async () => {
-      const bucketRef = InboxBucketRef.random();
+    it('round-trips with a inbox prefix reference set alongside signed txs', async () => {
+      const inboxPrefixRef = InboxMessagePrefixRef.random();
       const txs = await Promise.all([Tx.random(), Tx.random()]);
-      const proposal = await makeBlockProposal({ txs, bucketRef });
+      const proposal = await makeBlockProposal({ txs, inboxPrefixRef });
 
       const deserialized = BlockProposal.fromBuffer(proposal.toBuffer());
 
-      expect(deserialized.bucketRef!.equals(bucketRef)).toBe(true);
+      expect(deserialized.inboxPrefixRef!.equals(inboxPrefixRef)).toBe(true);
       expect(deserialized.txs?.length).toEqual(txs.length);
       expect(deserialized).toEqual(proposal);
     });
 
     it('serializes byte-identically to the legacy format when unset', () => {
       const proposal = makeLegacyFixtureProposal();
-      expect(proposal.bucketRef).toBeUndefined();
+      expect(proposal.inboxPrefixRef).toBeUndefined();
       expect(bufferToHex(proposal.toBuffer())).toEqual(LEGACY_BLOCK_PROPOSAL_HEX);
       expect(bufferToHex(proposal.getPayloadToSign())).toEqual(LEGACY_BLOCK_PROPOSAL_PAYLOAD_HEX);
     });
 
-    it('decodes a legacy buffer (no tail) as having no bucket reference', () => {
+    it('decodes a legacy buffer (no tail) as having no inbox prefix reference', () => {
       const deserialized = BlockProposal.fromBuffer(hexToBuffer(LEGACY_BLOCK_PROPOSAL_HEX));
-      expect(deserialized.bucketRef).toBeUndefined();
+      expect(deserialized.inboxPrefixRef).toBeUndefined();
       // Re-encoding a legacy buffer yields the same legacy bytes: no phantom tail is introduced.
       expect(bufferToHex(deserialized.toBuffer())).toEqual(LEGACY_BLOCK_PROPOSAL_HEX);
     });
 
-    it('appends the bucket reference only when set, changing the signed payload', async () => {
-      const bucketRef = InboxBucketRef.random();
-      const withRef = await makeBlockProposal({ bucketRef });
+    it('appends the inbox prefix reference only when set, changing the signed payload', async () => {
+      const inboxPrefixRef = InboxMessagePrefixRef.random();
+      const withRef = await makeBlockProposal({ inboxPrefixRef });
       const withoutRef = await makeBlockProposal({
         blockHeader: withRef.blockHeader,
         indexWithinCheckpoint: withRef.indexWithinCheckpoint,
@@ -167,25 +167,25 @@ describe('Block Proposal serialization / deserialization', () => {
       const withoutRefPayload = withoutRef.getPayloadToSign();
 
       // The set payload extends the unset payload by exactly the reference bytes (appended tail, no marker).
-      expect(withRefPayload.length).toEqual(withoutRefPayload.length + InboxBucketRef.SIZE);
+      expect(withRefPayload.length).toEqual(withoutRefPayload.length + InboxMessagePrefixRef.SIZE);
       expect(withRefPayload.subarray(0, withoutRefPayload.length)).toEqual(withoutRefPayload);
       // The payload hashes differ, so the attestation pool treats set-vs-unset as distinct payloads.
       expect(withRef.getPayloadHash().toString()).not.toEqual(withoutRef.getPayloadHash().toString());
     });
 
-    it('covers the bucket reference under the proposal signature', async () => {
+    it('covers the inbox prefix reference under the proposal signature', async () => {
       const signer = Secp256k1Signer.random();
-      const bucketRef = InboxBucketRef.random();
-      const proposal = await makeBlockProposal({ signer, bucketRef });
+      const inboxPrefixRef = InboxMessagePrefixRef.random();
+      const proposal = await makeBlockProposal({ signer, inboxPrefixRef });
 
       const deserialized = BlockProposal.fromBuffer(proposal.toBuffer());
       expect(deserialized.getSender()).toEqual(signer.address);
     });
 
-    it('breaks sender recovery when the bucket reference is tampered with', async () => {
+    it('breaks sender recovery when the inbox prefix reference is tampered with', async () => {
       const signer = Secp256k1Signer.random();
-      const bucketRef = new InboxBucketRef(5n, 100n, new Fr(7n));
-      const proposal = await makeBlockProposal({ signer, bucketRef });
+      const inboxPrefixRef = new InboxMessagePrefixRef(new Fr(7n));
+      const proposal = await makeBlockProposal({ signer, inboxPrefixRef });
       expect(proposal.getSender()).toEqual(signer.address);
 
       // A relay swapping the signed reference for a different one is not covered by the original signature.
@@ -197,12 +197,12 @@ describe('Block Proposal serialization / deserialization', () => {
         proposal.signature,
         proposal.signatureContext,
         proposal.signedTxs,
-        new InboxBucketRef(6n, 100n, new Fr(7n)),
+        new InboxMessagePrefixRef(new Fr(8n)),
       );
       expect(tampered.getSender()).not.toEqual(signer.address);
     });
 
-    it('breaks sender recovery when a bucket reference is injected into an unsigned proposal', async () => {
+    it('breaks sender recovery when a inbox prefix reference is injected into an unsigned proposal', async () => {
       const signer = Secp256k1Signer.random();
       const proposal = await makeBlockProposal({ signer });
       expect(proposal.getSender()).toEqual(signer.address);
@@ -216,7 +216,7 @@ describe('Block Proposal serialization / deserialization', () => {
         proposal.signature,
         proposal.signatureContext,
         proposal.signedTxs,
-        InboxBucketRef.random(),
+        InboxMessagePrefixRef.random(),
       );
       expect(injected.getSender()).not.toEqual(signer.address);
     });

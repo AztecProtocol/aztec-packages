@@ -1,5 +1,5 @@
 import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/schemas';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 
 export class NoBlobBodiesFoundError extends Error {
   constructor(l2BlockNum: number) {
@@ -103,13 +103,20 @@ export class BlockAlreadyCheckpointedError extends Error {
 }
 
 /**
- * Thrown when a query names an Inbox bucket this archiver has not synced. Distinguishes "not synced yet, retry once
- * L1 sync catches up" from a genuinely empty result.
+ * Thrown when a message suffix replacement finds the local prefix it was compared against already changed, so the
+ * comparison that established the divergence no longer describes the store and must be redone.
  */
-export class InboxBucketNotSyncedError extends Error {
-  constructor(public readonly bucketSeq: bigint) {
-    super(`Inbox bucket ${bucketSeq} has not been synced`);
-    this.name = 'InboxBucketNotSyncedError';
+export class InboxMessagePrefixChangedError extends Error {
+  constructor(
+    public readonly totalMessageCount: bigint,
+    public readonly expected: Fr,
+    public readonly actual: Fr | undefined,
+  ) {
+    super(
+      `Inbox message prefix at count ${totalMessageCount} changed from ${expected.toString()} to ` +
+        `${actual?.toString() ?? 'unavailable'} while a replacement was being prepared`,
+    );
+    this.name = 'InboxMessagePrefixChangedError';
   }
 }
 
@@ -126,6 +133,71 @@ export class InboxMessageRangeNotSyncedError extends Error {
   ) {
     super(`Inbox message range [${startLeafCount}, ${endLeafCount}) is not fully synced: ${detail}`);
     this.name = 'InboxMessageRangeNotSyncedError';
+  }
+}
+
+/**
+ * Thrown when a proposed block's signed Inbox prefix reference cannot be checked against the local view, because the
+ * archiver has not synced a message at the block's end count or cannot serve its consumed range whole. Distinguishes
+ * "our view is behind, retry" from {@link InboxPrefixMismatchError}'s "our view disagrees".
+ */
+export class InboxPrefixNotSyncedError extends Error {
+  constructor(
+    public readonly blockNumber: number,
+    public readonly endTotalMsgCount: bigint,
+    cause?: string,
+  ) {
+    super(
+      `Cannot confirm the Inbox prefix at message count ${endTotalMsgCount} for proposed block ${blockNumber}` +
+        (cause ? `: ${cause}` : ''),
+    );
+    this.name = 'InboxPrefixNotSyncedError';
+  }
+}
+
+/**
+ * Thrown when a proposed block's signed Inbox prefix reference does not match the canonical prefix this archiver
+ * holds at the block's end count. The block consumed messages this node's view of L1 does not back, so inserting it
+ * would put a chain nothing can replay into the store.
+ */
+export class InboxPrefixMismatchError extends Error {
+  constructor(
+    public readonly blockNumber: number,
+    public readonly endTotalMsgCount: bigint,
+    public readonly expected: Fr,
+    public readonly actual: Fr,
+  ) {
+    super(
+      `Proposed block ${blockNumber} references Inbox prefix ${expected.toString()} at message count ` +
+        `${endTotalMsgCount}, but the canonical prefix there is ${actual.toString()}`,
+    );
+    this.name = 'InboxPrefixMismatchError';
+  }
+}
+
+/** Thrown when a proposed block's parent is not in the store, so its consumed range has no lower bound. */
+export class ProposedBlockParentNotFoundError extends Error {
+  constructor(
+    public readonly blockNumber: number,
+    public readonly parentBlockNumber: number,
+  ) {
+    super(`Cannot resolve parent block ${parentBlockNumber} of proposed block ${blockNumber}`);
+    this.name = 'ProposedBlockParentNotFoundError';
+  }
+}
+
+/** Thrown when a proposed block's end message count is below its parent's, so consumption would rewind. */
+export class InboxConsumptionRewindsError extends Error {
+  constructor(
+    public readonly blockNumber: number,
+    public readonly endTotalMsgCount: bigint,
+    public readonly parentTotalMsgCount: bigint,
+  ) {
+    super(
+      `Proposed block ${blockNumber} consumes through message count ${endTotalMsgCount}, ` +
+        `behind its parent's ${parentTotalMsgCount}`,
+    );
+    this.name = 'InboxConsumptionRewindsError';
   }
 }
 

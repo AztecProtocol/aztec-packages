@@ -1,5 +1,4 @@
-import { asyncPool } from '@aztec/foundation/async-pool';
-import { maxBigint } from '@aztec/foundation/bigint';
+import { maxBigint, minBigint } from '@aztec/foundation/bigint';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -37,11 +36,8 @@ export type MessageSentArgs = {
   message: MessageSentMessage;
 };
 
-/** Log type for MessageSent events, enriched with the emitting L1 block's timestamp (the bucket recency key). */
-export type MessageSentLog = L1EventLog<MessageSentArgs> & {
-  /** Timestamp (in seconds) of the L1 block that emitted the event; the key of the message's Inbox bucket. */
-  l1BlockTimestamp: bigint;
-};
+/** Log type for MessageSent events. */
+export type MessageSentLog = L1EventLog<MessageSentArgs>;
 
 export class InboxContract {
   private readonly inbox: GetContractReturnType<typeof InboxAbi, ViemClient>;
@@ -136,71 +132,57 @@ export class InboxContract {
     const logs = (await this.inbox.getEvents.MessageSent({}, { fromBlock, toBlock })).filter(
       log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock,
     );
-    const timestamps = await this.getBlockTimestamps(logs.map(log => log.blockHash!));
-    return logs.map(log => this.mapMessageSentLog(log, timestamps.get(log.blockHash!)!));
+    return logs.map(log => this.mapMessageSentLog(log));
   }
 
-  /** Fetches MessageSent events for a specific message hash around a specific block. */
-  async getMessageSentEventByHash(msgHash: Hex, aroundL1BlockNumber: bigint): Promise<MessageSentLog> {
+  /**
+   * Fetches MessageSent events for a specific message hash around a specific block, never looking past `upperBound`
+   * when one is given. Callers comparing the result against a state read at a captured L1 head pass that head, so an
+   * event only reachable above it is not returned as evidence about the head's chain.
+   */
+  async getMessageSentEventByHash(
+    msgHash: Hex,
+    aroundL1BlockNumber: bigint,
+    upperBound?: bigint,
+  ): Promise<MessageSentLog | undefined> {
     // We don't use blockHash here because we don't want the query to throw if the L1 block number no longer exists on chain
     // due to an L1 reorg. The use case for this method is usually checking if a message still exists on the Inbox after
     // a reorg, so it's possible the message was moved one block up or down, and that the original L1 block where we
     // saw it no longer exists, rendering the block-by-hash approach invalid.
-    const [log] = await this.inbox.getEvents.MessageSent(
-      { hash: msgHash },
-      { fromBlock: maxBigint(aroundL1BlockNumber - 5n, 1n), toBlock: aroundL1BlockNumber + 5n },
-    );
-    if (!log) {
-      return log as unknown as MessageSentLog;
+    const fromBlock = maxBigint(aroundL1BlockNumber - 5n, 1n);
+    const windowEnd = aroundL1BlockNumber + 5n;
+    const toBlock = upperBound === undefined ? windowEnd : minBigint(windowEnd, upperBound);
+    // An upper bound below the window leaves nothing to search. A provider rejects such a range rather than
+    // reporting it empty, and an exception is not a miss, so the caller would retry the same lookup forever.
+    if (fromBlock > toBlock) {
+      return undefined;
     }
-    const [timestamp] = (await this.getBlockTimestamps([log.blockHash!])).values();
-    return this.mapMessageSentLog(log, timestamp);
+    const [log] = await this.inbox.getEvents.MessageSent({ hash: msgHash }, { fromBlock, toBlock });
+    return log && this.mapMessageSentLog(log);
   }
 
-  /**
-   * Fetches the timestamp of each distinct L1 block, so each MessageSent log can carry its bucket key. Blocks are
-   * resolved by hash, which pins them to the same fork the logs were read from: resolving by number would silently
-   * return the same-height block of another fork if the chain reorgs between the log query and this lookup, storing a
-   * timestamp that never applied to the message. By hash, such a reorg fails the lookup instead, and the caller
-   * retries against the reorged chain. Fetched with bounded concurrency to keep a large sync batch from fanning out
-   * unbounded RPC requests.
-   */
-  private async getBlockTimestamps(blockHashes: Hex[]): Promise<Map<Hex, bigint>> {
-    const uniqueBlockHashes = [...new Set(blockHashes)];
-    const timestamps = new Map<Hex, bigint>();
-    await asyncPool(10, uniqueBlockHashes, async blockHash => {
-      const block = await this.client.getBlock({ blockHash, includeTransactions: false });
-      timestamps.set(blockHash, block.timestamp);
-    });
-    return timestamps;
-  }
-
-  private mapMessageSentLog(
-    log: {
-      blockNumber: bigint | null;
-      blockHash: `0x${string}` | null;
-      transactionHash: `0x${string}` | null;
-      args: {
-        hash?: `0x${string}`;
-        inboxRollingHash?: `0x${string}`;
-        bucketSeq?: bigint;
-        message?: {
-          sender: { actor: `0x${string}`; chainId: bigint };
-          recipient: { actor: `0x${string}`; version: bigint };
-          content: `0x${string}`;
-          secretHash: `0x${string}`;
-          index: bigint;
-        };
+  private mapMessageSentLog(log: {
+    blockNumber: bigint | null;
+    blockHash: `0x${string}` | null;
+    transactionHash: `0x${string}` | null;
+    args: {
+      hash?: `0x${string}`;
+      inboxRollingHash?: `0x${string}`;
+      bucketSeq?: bigint;
+      message?: {
+        sender: { actor: `0x${string}`; chainId: bigint };
+        recipient: { actor: `0x${string}`; version: bigint };
+        content: `0x${string}`;
+        secretHash: `0x${string}`;
+        index: bigint;
       };
-    },
-    l1BlockTimestamp: bigint,
-  ): MessageSentLog {
+    };
+  }): MessageSentLog {
     const message = log.args.message!;
     return {
       l1BlockNumber: log.blockNumber!,
       l1BlockHash: Buffer32.fromString(log.blockHash!),
       l1TransactionHash: log.transactionHash!,
-      l1BlockTimestamp,
       args: {
         index: message.index,
         leaf: Fr.fromString(log.args.hash!),

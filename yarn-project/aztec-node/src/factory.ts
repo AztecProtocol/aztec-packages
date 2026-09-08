@@ -664,7 +664,6 @@ export async function createAztecNodeService(
       debugLogStore,
       automineSequencer,
       avmSimulator,
-      l1Client: publicClient,
     });
 
     return node;

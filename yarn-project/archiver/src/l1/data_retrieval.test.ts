@@ -1,11 +1,16 @@
 import { type BlockBlobData, type CheckpointBlobData, makeBlockEndBlobData } from '@aztec/blob-lib/encoding';
+import type { InboxContract, MessageSentLog } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Body, CommitteeAttestation } from '@aztec/stdlib/block';
 import { L1PublishedData } from '@aztec/stdlib/checkpoint';
+import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
-import { type RetrievedCheckpoint, retrievedToPublishedCheckpoint } from './data_retrieval.js';
+import { mock } from 'jest-mock-extended';
+
+import { type RetrievedCheckpoint, retrieveL1ToL2Messages, retrievedToPublishedCheckpoint } from './data_retrieval.js';
 
 describe('data_retrieval', () => {
   describe('retrievedToPublishedCheckpoint', () => {
@@ -126,6 +131,57 @@ describe('data_retrieval', () => {
       expect(publishedCheckpoint.checkpoint.blocks[0].body.txEffects.map(tx => tx.txHash.toString())).toEqual(
         body1.txEffects.map(tx => tx.txHash.toString()),
       );
+    });
+  });
+
+  describe('retrieveL1ToL2Messages', () => {
+    /** One MessageSent log per L1 block in `l1Blocks`, chained by index and rolling hash. */
+    const makeLogs = (l1Blocks: bigint[]): MessageSentLog[] => {
+      let rollingHash = Fr.ZERO;
+      return l1Blocks.map((l1BlockNumber, i) => {
+        const leaf = new Fr(1000 + i);
+        rollingHash = updateInboxRollingHash(rollingHash, leaf);
+        return {
+          l1BlockNumber,
+          l1BlockHash: Buffer32.fromBigInt(l1BlockNumber),
+          l1TransactionHash: `0x${l1BlockNumber.toString(16)}`,
+          args: { index: BigInt(i), leaf, inboxRollingHash: rollingHash, bucketSeq: 0n },
+        } as MessageSentLog;
+      });
+    };
+
+    /** An Inbox whose provider rejects log queries spanning more than `maxRange` blocks. */
+    const mockInbox = (logs: MessageSentLog[], maxRange: bigint) => {
+      const inbox = mock<InboxContract>();
+      inbox.getMessageSentEvents.mockImplementation((from, to) =>
+        to - from + 1n > maxRange
+          ? Promise.reject(new Error('query returned more than 10000 results'))
+          : Promise.resolve(logs.filter(log => log.l1BlockNumber >= from && log.l1BlockNumber <= to)),
+      );
+      return inbox;
+    };
+
+    it('bisects a range the provider rejects and returns every message in order', async () => {
+      const logs = makeLogs([10n, 11n, 13n, 14n, 17n, 20n]);
+      const inbox = mockInbox(logs, 3n);
+
+      const messages = await retrieveL1ToL2Messages(inbox, 10n, 20n);
+
+      expect(messages.map(m => m.index)).toEqual([0n, 1n, 2n, 3n, 4n, 5n]);
+      expect(messages.map(m => m.l1BlockNumber)).toEqual([10n, 11n, 13n, 14n, 17n, 20n]);
+      expect(messages[5].inboxRollingHash).toEqual(logs[5].args.inboxRollingHash);
+    });
+
+    it('reports a single block the provider cannot serve instead of returning fewer messages', async () => {
+      const logs = makeLogs([10n, 11n, 12n]);
+      const inbox = mockInbox(logs, 3n);
+      inbox.getMessageSentEvents.mockImplementation((from, to) =>
+        from <= 11n && to >= 11n
+          ? Promise.reject(new Error('block 11 unavailable'))
+          : Promise.resolve(logs.filter(log => log.l1BlockNumber >= from && log.l1BlockNumber <= to)),
+      );
+
+      await expect(retrieveL1ToL2Messages(inbox, 10n, 12n)).rejects.toThrow('block 11 unavailable');
     });
   });
 });

@@ -184,7 +184,7 @@ describe('single-node/cross-chain/l1_to_l2_inbox_drift', () => {
     await markAsProven();
 
     // The invariant under test: the compact-indexed message survives the L2 prune and is re-consumed on the
-    // new chain within a reasonable window (its bucket and rolling-hash state must persist across the
+    // new chain within a reasonable window (its compact index and rolling-hash state must persist across the
     // reorg), becoming consumable from the requested scope.
     await waitForMessageReady(msgHash, scope);
 

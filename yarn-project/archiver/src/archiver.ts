@@ -19,10 +19,15 @@ import {
   type L2BlockSink,
   L2BlockSourceEvents,
   type L2Tips,
+  type ProposedCheckpointQuery,
   type ValidateCheckpointResult,
   l2TipsEqual,
 } from '@aztec/stdlib/block';
-import { type ProposedCheckpointInput, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  type ProposedCheckpointData,
+  type ProposedCheckpointInput,
+  PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
   getEpochAtSlot,
@@ -31,7 +36,7 @@ import {
   getTimestampForSlot,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
-import type { L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type { InboxMessagePrefixRef, L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
@@ -55,6 +60,8 @@ export type { ArchiverEmitter };
 type AddBlockRequest = {
   type: 'block';
   block: L2Block;
+  /** The signed Inbox prefix reference the block was built or validated against. */
+  inboxPrefixRef: InboxMessagePrefixRef;
   resolve: () => void;
   reject: (err: Error) => void;
 };
@@ -313,11 +320,13 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * The block will be processed by the sync loop.
    * Implements the L2BlockSink interface.
    * @param block - The L2 block to add.
+   * @param inboxPrefixRef - The signed Inbox prefix reference the block was built or validated against, checked
+   *   against this archiver's own messages in the same transaction as the insert.
    * @returns A promise that resolves when the block has been added to the store, or rejects on error.
    */
-  public addBlock(block: L2Block): Promise<void> {
+  public addBlock(block: L2Block, inboxPrefixRef: InboxMessagePrefixRef): Promise<void> {
     const promise = promiseWithResolvers<void>();
-    this.inboundQueue.push({ block, ...promise, type: 'block' });
+    this.inboundQueue.push({ block, inboxPrefixRef, ...promise, type: 'block' });
     this.log.debug(`Queued block ${block.number} for processing`);
     void this.trySyncImmediate();
     return promise.promise;
@@ -379,7 +388,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
       try {
         if (type === 'block') {
-          const [durationMs] = await elapsed(() => this.updater.addProposedBlock(item.block));
+          const [durationMs] = await elapsed(() => this.updater.addProposedBlock(item.block, item.inboxPrefixRef));
           this.instrumentation.processNewProposedBlock(durationMs, item.block);
           blocksAdded.push(item.block);
         } else {
@@ -611,6 +620,12 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   }
 
   public async getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+    // While the checkpointed tip disagrees with the Inbox message log, no slot is reported as synced: the latest
+    // checkpoint's slot would otherwise let a proposer build on a tip whose messages L1 no longer has.
+    if (this.synchronizer.isSpeculationGated()) {
+      return undefined;
+    }
+
     // The synced L2 slot is the latest slot for which we have all L1 data,
     // either because we have seen all L1 blocks for that slot, or because
     // we have seen the corresponding checkpoint.
@@ -690,6 +705,20 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     return this.initialSyncComplete;
   }
 
+  /**
+   * Proposed checkpoints are withheld while an Inbox message replacement below the checkpointed tip awaits checkpoint
+   * reconciliation from L1: anything built on them would consume messages L1 no longer has.
+   */
+  public override getProposedCheckpointData(
+    query?: ProposedCheckpointQuery,
+  ): Promise<ProposedCheckpointData | undefined> {
+    if (this.synchronizer.isSpeculationGated()) {
+      this.log.debug(`Withholding proposed checkpoint data while the checkpointed tip disagrees with the Inbox`);
+      return Promise.resolve(undefined);
+    }
+    return super.getProposedCheckpointData(query);
+  }
+
   public removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<boolean> {
     return this.updater.removeCheckpointsAfter(checkpointNumber);
   }
@@ -765,13 +794,18 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     );
     await this.updater.removeCheckpointsAfter(targetCheckpointNumber);
     this.log.info(`Rolling back L1 to L2 messages inserted after L1 block ${targetL1BlockNumber}`);
-    await this.stores.messages.rollbackL1ToL2MessagesAfterL1Block(targetL1BlockNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
-    await this.stores.blocks.setSynchedL1BlockNumber(targetL1BlockNumber);
-    await this.stores.messages.setMessageSyncState({
-      l1BlockNumber: targetL1BlockNumber,
-      l1BlockHash: targetL1BlockHash,
+    // The message log is trimmed by the stored L1 block hints, which is not a comparison with the Inbox at the
+    // target block, so the resulting log gets a scanned cursor and no syncpoint: message sync authenticates it
+    // against L1 before anything advertises it as synced. Both land in one transaction.
+    await this.stores.db.transactionAsync(async () => {
+      await this.stores.messages.rollbackL1ToL2MessagesAfterL1Block(targetL1BlockNumber);
+      await this.stores.messages.setMessageSyncState({
+        l1Block: { l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash },
+        authenticated: false,
+      });
     });
+    await this.stores.blocks.setSynchedL1BlockNumber(targetL1BlockNumber);
     if (targetL2BlockNumber < currentProvenBlock) {
       this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
       await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);

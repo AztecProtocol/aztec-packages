@@ -44,18 +44,23 @@ Two independent syncpoints track progress on L1:
 
 ### L1-to-L2 Messages
 
-Messages are synced from the Inbox contract. The sync compares local state (message count and consensus rolling hash) against the Inbox's current rolling-hash bucket on L1, downloads any missing messages, and verifies consistency afterwards. On success, the syncpoint advances to the current L1 block. On failure (L1 reorg or inconsistency), the syncpoint rolls back to the last known-good message and the operation retries (up to 3 times within the same sync iteration).
+Messages are synced from the Inbox contract by `InboxMessageSynchronizer`. Each sync pass captures the L1 head, reads the Inbox's position at that head (cumulative message count and consensus rolling hash) and compares it with the local message log.
 
-1. Query the Inbox's current bucket at the current L1 block (cumulative message count + consensus rolling hash)
-2. Compare local state against remote
-3. If they match, advance syncpoint and return
-4. If mismatch, fetch `MessageSent` events in batches and store them
-   - If storing fails due to a rolling hash mismatch (indicating an L1 reorg changed or removed messages), find the last common message with L1, delete everything after, reset the syncpoint, and retry
-5. After storing, verify local state matches the remote state queried in step 1
-   - If still mismatched (e.g., messages missed due to a concurrent L1 reorg), rollback and retry
-6. On success, advance the syncpoint
+1. If the persisted message syncpoint already is the captured head (number and hash), there is nothing to do.
+2. If the local position equals the Inbox's, only the syncpoint (and the finalized-block marker) is updated.
+3. Otherwise `MessageSent` events are fetched forward from the syncpoint in bounded L1 block batches. Each batch is validated (contiguous compact indices, unbroken rolling-hash chain) and committed together with the syncpoint covering it, so completed batches are usable at once and a later RPC failure leaves them in place. Oversized log ranges are bisected at block boundaries; a single block the provider cannot serve is reported as a failure, never as an absence of messages.
+4. After the fetch the local position is compared with the captured one again. A disagreement means an L1 reorg changed messages the node already holds, and recovery starts.
 
-Messages are stored with compact (unpadded) global indices matching the Inbox's insertion order, and each carries the consensus rolling hash (a truncated sha256 chain) and the sequence of the Inbox bucket it was absorbed into (AZIP-22 Fast Inbox). Bucket snapshots let the sequencer and validator resolve message bundles per block.
+Recovery is pinned to the captured head and bounded per pass:
+
+- An exact shorter canonical prefix (the Inbox's count is lower and its hash equals the local hash at that count) is truncated by hash alone, without event lookups.
+- Otherwise the local log is walked backwards, at most 32 per-message event lookups per pass, until a stored message L1 still emits at the same index and hash within five L1 blocks of its recorded height is found (a message at or below the L1 finalized block is accepted without a lookup, an inherited shortcut). Lookups are bounded above by the captured head. A lookup that misses moves the search to an older candidate. With no anchor, the rollback goes to the Inbox's deployment block.
+- The anchor is then committed as one conservative rollback: a single store transaction deletes every message past it, prunes every uncheckpointed block that consumed more messages than the retained count (`ArchiverDataStoreUpdater.rollbackMessagesAndPruneProposedBlocks`), rewinds the scanned cursor to the block before the anchor's and clears the syncpoint. Nothing is fetched in that pass, so the prune it reports cannot be lost behind a later failed request; ordinary forward ingestion then re-reads the anchor's L1 block onwards, rewriting the retained rows in place and appending the canonical suffix.
+- The rollback is deliberately conservative: a message the bounded search cannot place is discarded even when its content is unchanged and comes straight back, and the proposed blocks that consumed it go with it. That is a liveness cost, not a safety one — L1 stays authoritative, the deleted rows are re-fetched and published checkpoints are never deleted by this path. An RPC exception is not a miss and commits nothing.
+- Budget exhaustion is pending work: the iteration still processes checkpoints but does not advertise the L1 head as synced until message recovery reaches it. A merely advancing `latest` does not reset the recovery; a replaced or unavailable captured head does. The search position is process-local, so a restart begins anchor discovery again from the stored log.
+- If the retained count sits below the checkpointed tip's consumed message count, published blocks are left to checkpoint sync to reconcile and `getProposedCheckpointData` returns nothing until the checkpointed tip's `inboxRollingHash` agrees with the message log again, so nothing speculates on blocks whose messages the node cannot currently serve.
+
+Messages are stored with compact (unpadded) global indices matching the Inbox's insertion order; each carries the consensus rolling hash (a truncated sha256 chain) over the prefix ending at it and the L1 block it was observed in (a recovery search hint only). No record of L1's bucket partition is kept: blocks consume message prefixes addressed by count, and only a checkpoint's final position has to be a live bucket end, which the proposer resolves against L1 at publication time (AZIP-22 Fast Inbox).
 
 ### Checkpoints
 
@@ -75,7 +80,7 @@ Checkpoints are synced from the Rollup contract via `handleCheckpoints()`:
 7. Handle epoch prune if applicable
 8. Check for checkpoints behind syncpoint (L1 reorg case)
 
-L1 enforces at propose time that a checkpoint header's consensus rolling hash matches the Inbox bucket the checkpoint consumes through (AZIP-22 Fast Inbox), so the archiver does not re-derive or cross-check a per-checkpoint message hash while syncing.
+L1 enforces at propose time that a checkpoint header's consensus rolling hash matches a live Inbox bucket ending at the checkpoint's final message count (AZIP-22 Fast Inbox), so the archiver does not re-derive or cross-check a per-checkpoint message hash while syncing.
 
 The `blocksSynchedTo` syncpoint is updated:
 - When checkpoints are stored: set to the L1 block of the last stored checkpoint

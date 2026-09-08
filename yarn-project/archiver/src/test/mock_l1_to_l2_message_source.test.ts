@@ -1,21 +1,8 @@
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type InboxBucket, updateInboxRollingHash } from '@aztec/stdlib/messaging';
+import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 
 import { InboxMessageRangeNotSyncedError } from '../errors.js';
 import { MockL1ToL2MessageSource } from './mock_l1_to_l2_message_source.js';
-
-/** A single-message bucket at the start of the Inbox; only its total matters to the leaf index. */
-const singleMessageBucket: InboxBucket = {
-  seq: 1n,
-  inboxRollingHash: Fr.ZERO,
-  totalMsgCount: 1n,
-  timestamp: 1n,
-  msgCount: 1,
-  lastMessageIndex: 0n,
-  l1BlockNumber: 1n,
-  l1BlockHash: Buffer32.ZERO,
-};
 
 describe('MockL1ToL2MessageSource', () => {
   let source: MockL1ToL2MessageSource;
@@ -49,14 +36,23 @@ describe('MockL1ToL2MessageSource', () => {
   });
 
   it('reads the leaves and the ending hash of a range from the same version of the log', async () => {
-    source.setInboxBucket(singleMessageBucket, [new Fr(11)]);
+    source.setL1ToL2Messages([new Fr(11)]);
 
     // Replace the leaf while the read is pending: the result must describe one version, not a mix of both.
     const pending = source.getL1ToL2MessageRange(0n, 1n);
-    source.setInboxBucket(singleMessageBucket, [new Fr(22)]);
+    source.setL1ToL2Messages([new Fr(22)]);
 
     const range = await pending;
     expect(range.messages).toEqual([new Fr(11)]);
     expect(range.end.rollingHash).toEqual(updateInboxRollingHash(Fr.ZERO, new Fr(11)));
+  });
+
+  it('drops a suffix and appends after it like a reorg', async () => {
+    source.appendL1ToL2Messages([new Fr(1), new Fr(2), new Fr(3)]);
+    source.removeL1ToL2MessagesFrom(1n);
+    source.appendL1ToL2Messages([new Fr(9)]);
+
+    expect(await source.getL1ToL2MessagesBetweenLeafCounts(0n, 2n)).toEqual([new Fr(1), new Fr(9)]);
+    expect((await source.getSyncedMessagePosition()).totalMessageCount).toEqual(2n);
   });
 });

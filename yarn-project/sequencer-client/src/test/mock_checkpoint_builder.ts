@@ -123,10 +123,17 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     };
   }
 
+  /** The blocks built so far, in order. */
+  getBuiltBlocks(): L2Block[] {
+    return this.blockProvider ? this.builtBlocks : this.blocks.slice(0, this.blockIndex);
+  }
+
   completeCheckpoint(): Promise<Checkpoint> {
     this.completeCheckpointCalled = true;
-    const allBlocks = this.blockProvider ? this.builtBlocks : this.blocks;
-    return this.buildCheckpoint(allBlocks);
+    // A checkpoint holds only the blocks actually built; seeded blocks never reached are left out, unless nothing was
+    // built at all, in which case the whole seeded list stands in for the checkpoint.
+    const builtBlocks = this.getBuiltBlocks();
+    return this.buildCheckpoint(builtBlocks.length === 0 && !this.blockProvider ? this.blocks : builtBlocks);
   }
 
   getCheckpoint(): Promise<Checkpoint> {

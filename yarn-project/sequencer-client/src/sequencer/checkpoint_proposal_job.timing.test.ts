@@ -1,6 +1,6 @@
 import { EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
+import type { InboxContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -10,7 +10,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block, L2BlockSink, L2BlockSource, ProposedCheckpointSink } from '@aztec/stdlib/block';
+import type { BlockData, L2Block, L2BlockSink, L2BlockSource, ProposedCheckpointSink } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
@@ -45,12 +45,12 @@ import {
   makeBlock,
   makeProposerTimetable,
   makeTx,
+  mockStreamingInbox,
   mockTxIterator,
 } from '../test/utils.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
-import type { L1BlockReader } from './inbox_bucket_eligibility.js';
 import type { SequencerMetrics } from './metrics.js';
 import { RequestsTracker } from './requests_tracker.js';
 import { SequencerState } from './utils.js';
@@ -191,18 +191,6 @@ class TimingTestCheckpointProposalJob extends CheckpointProposalJob {
   }
 }
 
-/**
- * L1 view in which every bucket's opening block already has a canonical child, so the job's confirmation tracker
- * admits every bucket the archiver mock returns.
- */
-const confirmingL1Client: L1BlockReader = {
-  getBlock: ({ blockNumber }) =>
-    Promise.resolve({
-      hash: Buffer32.fromBigInt(blockNumber).toString(),
-      parentHash: Buffer32.fromBigInt(blockNumber - 1n).toString(),
-    }),
-};
-
 describe('CheckpointProposalJob Timing Tests', () => {
   // Realistic production-like timing configuration
   const ETHEREUM_SLOT_DURATION = 12; // seconds
@@ -234,6 +222,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let inbox: MockProxy<InboxContract>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let blockSink: MockProxy<L2BlockSink & ProposedCheckpointSink>;
   let slasherClient: MockProxy<SlasherClientInterface>;
@@ -345,7 +334,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       p2p,
       worldState,
       l1ToL2MessageSource,
-      confirmingL1Client,
+      inbox,
       l2BlockSource,
       checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
       blockSink,
@@ -470,19 +459,17 @@ describe('CheckpointProposalJob Timing Tests', () => {
     worldState.fork.mockResolvedValue(mockFork);
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
-      seq: 0n,
-      inboxRollingHash: Fr.ZERO,
-      totalMsgCount: 0n,
-      timestamp: 0n,
-      msgCount: 0,
-      lastMessageIndex: 0n,
-      l1BlockNumber: 0n,
-      l1BlockHash: Buffer32.ZERO,
-    });
+    inbox = mock<InboxContract>();
+    mockStreamingInbox(l1ToL2MessageSource, inbox);
+    publisher.validateCheckpointHeaderAndInbox.mockResolvedValue(0n);
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);
+    l2BlockSource.getBlockData.mockImplementation(async query => {
+      const built =
+        'number' in query ? checkpointBuilder.getBuiltBlocks().find(b => b.number === query.number) : undefined;
+      return built && ({ blockHash: await built.hash() } as BlockData);
+    });
     // The always-pipelined submission path calls `waitForValidParentCheckpointOnL1()` for every job
     // that collects attestations. Without these mocks `getSyncedL2SlotNumber` returns undefined and
     // the job spins in a real-clock `retryUntil` until its multi-slot timeout (~80s of wall time per

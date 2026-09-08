@@ -286,15 +286,6 @@ describe('ServerWorldStateSynchronizer', () => {
       );
       blockLeafCounts.forEach((count, i) => (blocks[i].header.state.l1ToL2MessageTree.nextAvailableLeafIndex = count));
 
-      // Historical replay addresses canonical message indices: resolving a count as a bucket of the current
-      // partition is exactly what a reorg can make impossible, so it must not happen here.
-      blockAndMessagesSource.getInboxBucketByTotalMsgCount.mockImplementation(() => {
-        throw new Error('Published-block replay must not resolve leaf counts as buckets');
-      });
-      blockAndMessagesSource.getL1ToL2MessagesBetweenBuckets.mockImplementation(() => {
-        throw new Error('Published-block replay must not read messages by bucket');
-      });
-
       messagesByRange = new Map([
         ['0-3', [new Fr(10n), new Fr(11n), new Fr(12n)]],
         ['3-7', [new Fr(13n), new Fr(14n), new Fr(15n), new Fr(16n)]],

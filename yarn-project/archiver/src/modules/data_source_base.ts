@@ -41,7 +41,6 @@ import {
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import type { LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
 import type {
-  InboxBucket,
   InboxMessagePosition,
   InboxMessageRange,
   L1ToL2MessageSource,
@@ -324,22 +323,6 @@ export abstract class ArchiverDataSourceBase
 
   public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.stores.messages.getL1ToL2MessageIndex(l1ToL2Message);
-  }
-
-  public getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
-    return this.stores.messages.getLatestInboxBucketAtOrBefore(timestamp);
-  }
-
-  public getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
-    return this.stores.messages.getInboxBucket(seq);
-  }
-
-  public getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined> {
-    return this.stores.messages.getInboxBucketByTotalMsgCount(totalMsgCount);
-  }
-
-  public getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
-    return this.stores.messages.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
   }
 
   public getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {

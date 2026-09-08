@@ -26,7 +26,7 @@ import { CheckpointReexecutionTracker, L1PublishedData, PublishedCheckpoint } fr
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { InboxBucketRef } from '@aztec/stdlib/messaging';
+import { InboxMessagePrefixRef } from '@aztec/stdlib/messaging';
 import {
   type BlockProposal,
   CheckpointProposal,
@@ -260,13 +260,13 @@ describe('ValidatorClient Integration', () => {
       l1ToL2Messages,
     });
 
-    // Resolve the Inbox bucket this block consumed through (keyed by its cumulative L1-to-L2 leaf count) and attach
-    // the reference, mirroring the sequencer's block-building loop which carries a bucketRef on every proposal.
-    // Without it the validator's streaming acceptance check rejects the proposal as
-    // `bucket_unknown`. A block that consumed nothing resolves to the genesis (or reused parent) bucket.
+    // Attach the signed reference to the message prefix this block consumed through (the rolling hash at its
+    // cumulative L1-to-L2 leaf count), mirroring the sequencer's block-building loop which carries one on every
+    // proposal. Without it the validator's streaming acceptance check rejects the proposal as
+    // `inbox_prefix_unavailable`. A block that consumed nothing references the parent's prefix.
     const blockTotal = BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
-    const bucket = await proposer.archiver.getInboxBucketByTotalMsgCount(blockTotal);
-    const bucketRef = bucket ? InboxBucketRef.fromBucket(bucket) : undefined;
+    const position = await proposer.archiver.getMessagePosition(blockTotal);
+    const inboxPrefixRef = position ? InboxMessagePrefixRef.fromPosition(position) : undefined;
 
     const proposal = await proposer.validator.createBlockProposal(
       block.header,
@@ -276,7 +276,7 @@ describe('ValidatorClient Integration', () => {
       usedTxs,
       proposerSigner.address,
       {},
-      bucketRef,
+      inboxPrefixRef,
     );
 
     logger.warn(`Built block proposal for block ${blockNumber}`, { ...block.toBlockInfo() });
@@ -485,8 +485,8 @@ describe('ValidatorClient Integration', () => {
     it('validates and attests with txs anchored to proposed blocks and non-empty l1-to-l2 messages', async () => {
       // Create l1 to l2 messages and seed them into the archivers
       const l1ToL2Messages = makeInboxMessages(4);
-      await proposer.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
-      await attestor.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
+      await proposer.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
+      await attestor.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
 
       // Build txs anchored to the previously proposed block
       const { blocks, proposal } = await buildCheckpoint(
@@ -703,10 +703,10 @@ describe('ValidatorClient Integration', () => {
 
     it('refuses block proposal with mismatching l1 to l2 messages', async () => {
       const l1ToL2Messages = makeInboxMessages(4);
-      await proposer.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
+      await proposer.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
 
       const otherL1ToL2Messages = makeInboxMessages(4);
-      await attestor.archiver.dataStores.messages.addL1ToL2MessageBuckets(otherL1ToL2Messages);
+      await attestor.archiver.dataStores.messages.addL1ToL2Messages(otherL1ToL2Messages);
 
       const { blocks } = await buildCheckpoint(
         CheckpointNumber(1),

@@ -1,5 +1,5 @@
 import { type EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
-import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
+import { type InboxContract, NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -7,7 +7,6 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { omit, times, timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -21,6 +20,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
   BlockHash,
+  type BlockQuery,
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   GENESIS_CHECKPOINT_HEADER_HASH,
@@ -75,6 +75,7 @@ describe('sequencer', () => {
   let publisherFactory: MockProxy<SequencerPublisherFactory>;
 
   let rollupContract: MockProxy<RollupContract>;
+  let inboxContract: MockProxy<InboxContract>;
 
   let dateProvider: TestDateProvider;
 
@@ -234,7 +235,7 @@ describe('sequencer', () => {
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
-    publisher.validateCheckpointHeader.mockResolvedValue();
+    publisher.validateCheckpointHeaderAndInbox.mockResolvedValue(0n);
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
@@ -318,13 +319,19 @@ describe('sequencer', () => {
     checkpointBuilder.setBlockProvider(() => block);
 
     l2BlockSource = mock<L2BlockSource & L2BlockSink & ProposedCheckpointSink>({
-      getBlockData: mockFn().mockResolvedValue({
-        header: BlockHeader.empty(),
-        archive: AppendOnlyTreeSnapshot.empty(),
-        blockHash: BlockHash.ZERO,
-        checkpointNumber: CheckpointNumber(0),
-        indexWithinCheckpoint: IndexWithinCheckpoint(0),
-      } satisfies BlockData),
+      // The publication guard compares the checkpoint's last block hash with the one the archiver holds at its
+      // number; serve the blocks the mock builder built.
+      getBlockData: mockFn().mockImplementation(async (query: BlockQuery) => {
+        const built =
+          'number' in query ? checkpointBuilder.getBuiltBlocks().find(b => b.number === query.number) : undefined;
+        return {
+          header: BlockHeader.empty(),
+          archive: AppendOnlyTreeSnapshot.empty(),
+          blockHash: await (built ?? block).hash(),
+          checkpointNumber: CheckpointNumber(0),
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        };
+      }),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
@@ -366,16 +373,8 @@ describe('sequencer', () => {
         },
       }),
     });
-    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
-      seq: 0n,
-      inboxRollingHash: Fr.ZERO,
-      totalMsgCount: 0n,
-      timestamp: 0n,
-      msgCount: 0,
-      lastMessageIndex: 0n,
-      l1BlockNumber: 0n,
-      l1BlockHash: Buffer32.ZERO,
-    });
+    inboxContract = mock<InboxContract>();
+    TestUtils.mockStreamingInbox(l1ToL2MessageSource, inboxContract);
 
     validatorClient = mock<ValidatorClient>();
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve(getCheckpointAttestations()));
@@ -414,6 +413,7 @@ describe('sequencer', () => {
       dateProvider,
       epochCache,
       rollupContract,
+      inboxContract,
       config,
     );
     sequencer.updateConfig(config);
@@ -791,7 +791,7 @@ describe('sequencer', () => {
       await setupSingleTxBlock();
 
       // This could practically be for any reason, e.g., could also be that we have entered a new slot.
-      publisher.validateCheckpointHeader.mockRejectedValueOnce(new Error('No block for you'));
+      publisher.validateCheckpointHeaderAndInbox.mockRejectedValueOnce(new Error('No block for you'));
 
       await sequencer.work();
 
@@ -842,7 +842,7 @@ describe('sequencer', () => {
         const pub = mockDeep<SequencerPublisher>();
         pub.epochCache = epochCache;
         pub.getSenderAddress.mockImplementation(() => EthAddress.random());
-        pub.validateCheckpointHeader.mockResolvedValue();
+        pub.validateCheckpointHeaderAndInbox.mockResolvedValue(0n);
         pub.enqueueProposeCheckpoint.mockResolvedValue(undefined);
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);
