@@ -50,7 +50,7 @@ export class NoteStore extends BaseStagingStore<NoteStoreChangeSet, NoteStoreDb>
    * @param changeSetId - The change set to stage writes under
    */
   public addNotes(notes: NoteDao[], scope: AztecAddress, changeSetId: ChangeSetId): Promise<void[]> {
-    return this.withChangeSet(changeSetId, (changeSet, db) =>
+    return this.withChangeSetAndDb(changeSetId, (changeSet, db) =>
       allToCompletion(
         notes.map(async note => {
           const noteForChangeSet =
@@ -103,7 +103,7 @@ export class NoteStore extends BaseStagingStore<NoteStoreChangeSet, NoteStoreDb>
    * @returns Filtered and deduplicated notes (a note might be present in multiple scopes, but returned at most once)
    */
   getNotes(filter: NotesFilter, changeSetId: ChangeSetId): Promise<NoteDao[]> {
-    return this.withChangeSet(changeSetId, async (changeSet, db) => {
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
       if (filter.scopes.length === 0) {
         return [];
       }
@@ -227,7 +227,7 @@ export class NoteStore extends BaseStagingStore<NoteStoreChangeSet, NoteStoreDb>
       return Promise.reject(new Error('applyNullifiers: nullifiers cannot have been emitted at block 0'));
     }
 
-    return this.withChangeSet(changeSetId, async (changeSet, db) => {
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
       // Kick off the note read and the existing-emission read together during the synchronous map so all are in
       // flight before the first await, which keeps the IndexedDB transaction alive.
       const resolved = await allToCompletion(
