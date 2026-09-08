@@ -55,7 +55,11 @@ export class NextBlockPredictor {
     this.log = deps.log ?? createLogger('node:next-block-predictor');
   }
 
-  /** Builds a predictor together with the fee cache it reads from. */
+  /**
+   * Builds a predictor together with the fee cache it reads from. It takes the cache's dependencies rather than
+   * {@link NextBlockPredictorDeps} because the cache is constructed here; everything the predictor itself needs is
+   * a subset of them.
+   */
   public static create(deps: NextBlockFeeCacheDeps): NextBlockPredictor {
     const feeCache = new NextBlockFeeCache({ ...deps, log: deps.log?.createChild('fee-cache') });
     return new NextBlockPredictor({
