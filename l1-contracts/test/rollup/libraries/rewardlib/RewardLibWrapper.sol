@@ -128,6 +128,14 @@ contract RewardLibWrapper {
     currentEpoch = _epoch;
   }
 
+  function updateProtocolFeeRecipient(address _recipient) external returns (address) {
+    return RewardLib.updateProtocolFeeRecipient(_recipient);
+  }
+
+  function getProtocolFeeRecipient() external view returns (address) {
+    return RewardLib.getProtocolFeeRecipient();
+  }
+
   function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) external {
     RewardLib.handleRewardsAndFees(_args, _endEpoch);
   }

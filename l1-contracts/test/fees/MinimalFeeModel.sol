@@ -94,8 +94,8 @@ contract MinimalFeeModel {
       FeeLib.getManaMinFeeComponentsAt(populatedThrough, Timestamp.wrap(block.timestamp), _inFeeAsset);
 
     return ManaMinFeeComponentsModel({
-      congestion_cost: components.congestionCost,
       congestion_multiplier: components.congestionMultiplier,
+      protocol_fee: components.protocolFee,
       prover_cost: components.proverCost,
       sequencer_cost: components.sequencerCost
     });
