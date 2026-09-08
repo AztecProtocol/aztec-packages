@@ -25,34 +25,34 @@ contract PartialEpochProofGasReporter is RollupWithPreheating {
    * Reports submission gas for a fresh one-checkpoint epoch prefix.
    */
   function gasReportSubmit1Checkpoint(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args);
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
    * Reports submission gas for a fresh eight-checkpoint epoch prefix.
    */
   function gasReportSubmit8Checkpoints(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args);
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
    * Reports submission gas for checkpoints nine through sixteen after an eight-checkpoint prefix.
    */
   function gasReportSubmit8MoreCheckpoints(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args);
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
    * Reports submission gas for a fresh sixteen-checkpoint epoch prefix.
    */
   function gasReportSubmit16Checkpoints(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args);
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 
   /**
    * Reports submission gas for a complete thirty-two-checkpoint epoch.
    */
   function gasReportSubmit32Checkpoints(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofExtLib.submitEpochRootProof(_args);
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
   }
 }

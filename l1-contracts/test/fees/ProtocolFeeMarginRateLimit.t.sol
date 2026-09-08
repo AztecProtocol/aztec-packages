@@ -42,7 +42,8 @@ contract FeeLibMarginHarness {
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
       TestConstants.AZTEC_EPOCH_DURATION,
-      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS,
+      TestConstants.ETHEREUM_SLOT_DURATION
     );
     FeeLib.initialize(
       TestConstants.AZTEC_MANA_TARGET, EthValue.wrap(100), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET

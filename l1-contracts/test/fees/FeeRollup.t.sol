@@ -346,13 +346,16 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
         Checkpoint memory b = getCheckpoint();
+        uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
+        b.header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
         skipBlobCheck(address(rollup));
         checkpointHeaders[rollup.getPendingCheckpointNumber() + 1] = b.header;
         rollup.propose(
           ProposeArgs({
             header: b.header,
             archive: b.archive,
-            oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
+            oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
+            bucketHint: bucketHint
           }),
           AttestationLibHelper.packAttestations(b.attestations),
           b.signers,
