@@ -1,4 +1,5 @@
 use crate::serialization::{Deserialize, Serialize};
+use std::test::OracleMock;
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct Empty {}
@@ -150,7 +151,7 @@ fn option_array_serialization() {
 }
 
 #[test]
-unconstrained fn bounded_vec_serialization() {
+fn bounded_vec_serialization() {
     // Test empty BoundedVec
     let empty_vec: BoundedVec<Field, 3> = BoundedVec::from_array([]);
     let serialized = empty_vec.serialize();
@@ -175,4 +176,44 @@ unconstrained fn bounded_vec_serialization() {
     assert_eq(deserialized.get(0), [1, 2]);
     assert_eq(deserialized.get(1), [3, 4]);
     assert_eq(deserialized.get(2), [5, 6]);
+}
+
+#[test(should_fail_with = "BoundedVec length exceeds max")]
+fn bounded_vec_deserialization_rejects_len_above_max() {
+    let _ = BoundedVec::<Field, 2>::deserialize([11, 22, 3]);
+}
+
+#[test(should_fail_with = "BoundedVec length is not u32")]
+fn bounded_vec_deserialization_rejects_non_u32_len() {
+    let _ = BoundedVec::<Field, 2>::deserialize([11, 22, 4294967298]);
+}
+
+// Test-only oracle used to obtain a `BoundedVec` that violates its own invariant (`len > MaxLen`).
+//
+// Such a value cannot be written in Noir source:
+// - A struct literal `BoundedVec { storage: [11, 22], len: 3 }` does not compile here. Both fields are declared
+//   without `pub` in the stdlib, so the compiler rejects the literal with "storage is private and not visible
+//   from the current module".
+// - Every public way of producing or mutating a `BoundedVec` (`new`, `push`, `set_len`, `from_parts`,
+//   `from_parts_unchecked`, `extend_*`) asserts `len <= MaxLen` first.
+// - `Deserialize for BoundedVec` asserts the same bound, so decoding a hand-written field array is closed too.
+//
+// In production the value can still appear, because two boundaries build structs directly from raw fields without
+// running any Noir constructor: program (ABI) inputs, and values returned by oracles. This oracle reproduces the
+// second boundary inside a unit test. `OracleMock` supplies the return value as raw fields, which the runtime
+// decodes positionally into `storage` and then `len`, exactly as a forged witness would arrive.
+#[oracle(forged_bounded_vec)]
+unconstrained fn forged_bounded_vec_oracle() -> BoundedVec<Field, 2> {}
+
+// Exercises the `len <= MaxLen` assertion in `Serialize for BoundedVec`. That assertion is what stops a forged
+// private-function argument from being hashed into `args_hash`, so it must be hit on an actual `BoundedVec` value
+// rather than on a field array. The value comes from `forged_bounded_vec_oracle` (see its comment for why there is
+// no other way to build one). `OracleMock` only works in unconstrained code, which is why this test is
+// `unconstrained` while the deserialize tests above are constrained.
+#[test(should_fail_with = "BoundedVec length exceeds max")]
+unconstrained fn bounded_vec_serialization_rejects_len_above_max() {
+    // Mocked return is decoded as `storage = [11, 22]`, `len = 3`.
+    OracleMock::mock("forged_bounded_vec").returns(([11, 22], 3));
+    let invalid_vec = forged_bounded_vec_oracle();
+    let _ = invalid_vec.serialize();
 }
