@@ -70,6 +70,12 @@ type BlockStorage = {
   indexWithinCheckpoint: number;
 };
 
+/**
+ * The subset of {@link L2Block} needed to check that a block chains onto the one before it, so validation can run
+ * against either a full block or the lightweight metadata read back from the store.
+ */
+type PreviousBlockInfo = Pick<L2Block, 'number' | 'checkpointNumber' | 'indexWithinCheckpoint' | 'archive'>;
+
 /** Reason a checkpoint was rejected during sync. */
 export type RejectedCheckpointReason = 'invalid-attestations' | 'descends-from-invalid-attestations';
 
@@ -443,10 +449,10 @@ export class BlockStore {
   }
 
   /**
-   * Gets the last block of the checkpoint before the given one.
+   * Gets the chaining info for the last block of the checkpoint before the given one.
    * Returns undefined if there is no previous checkpoint (i.e. genesis).
    */
-  private async getPreviousCheckpointBlock(checkpointNumber: CheckpointNumber): Promise<L2Block | undefined> {
+  private async getPreviousCheckpointBlock(checkpointNumber: CheckpointNumber): Promise<PreviousBlockInfo | undefined> {
     const previousCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
     if (previousCheckpointNumber === INITIAL_CHECKPOINT_NUMBER - 1) {
       return undefined;
@@ -462,11 +468,16 @@ export class BlockStore {
     }
 
     const previousBlockNumber = BlockNumber(predecessor.startBlock + predecessor.blockCount - 1);
-    const previousBlock = await this.getBlock({ number: previousBlockNumber });
+    const previousBlock = await this.getBlockData({ number: previousBlockNumber });
     if (previousBlock === undefined) {
       throw new BlockNotFoundError(previousBlockNumber);
     }
-    return previousBlock;
+    return {
+      number: previousBlock.header.globalVariables.blockNumber,
+      checkpointNumber: previousBlock.checkpointNumber,
+      indexWithinCheckpoint: previousBlock.indexWithinCheckpoint,
+      archive: previousBlock.archive,
+    };
   }
 
   /**
@@ -474,7 +485,7 @@ export class BlockStore {
    * This is the same validation used for both confirmed checkpoints (addCheckpoints) and
    * proposed checkpoints (addProposedCheckpoint).
    */
-  private validateCheckpointBlocks(blocks: L2Block[], previousBlock: L2Block | undefined): void {
+  private validateCheckpointBlocks(blocks: L2Block[], previousBlock: PreviousBlockInfo | undefined): void {
     for (const block of blocks) {
       if (previousBlock) {
         if (previousBlock.number !== block.number - 1) {
