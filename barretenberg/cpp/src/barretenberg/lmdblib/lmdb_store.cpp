@@ -113,7 +113,15 @@ void LMDBStore::put(std::vector<PutData>& data)
 
 void LMDBStore::get(KeysVector& keys, OptionalValuesVector& values, const std::string& name)
 {
-    get(keys, values, get_database(name));
+    get(keys, values, get_database(name), create_shared_read_transaction());
+}
+
+void LMDBStore::get(KeysVector& keys,
+                    OptionalValuesVector& values,
+                    const std::string& name,
+                    ReadTransaction::SharedPtr tx)
+{
+    get(keys, values, get_database(name), std::move(tx));
 }
 
 void LMDBStore::put(KeyDupValuesVector& toWrite,
@@ -136,10 +144,12 @@ void LMDBStore::put(KeyDupValuesVector& toWrite,
         }
     }
 }
-void LMDBStore::get(KeysVector& keys, OptionalValuesVector& values, LMDBDatabase::SharedPtr db)
+void LMDBStore::get(KeysVector& keys,
+                    OptionalValuesVector& values,
+                    LMDBDatabase::SharedPtr db,
+                    ReadTransaction::SharedPtr tx)
 {
     values.reserve(keys.size());
-    ReadTransaction::SharedPtr tx = create_read_transaction();
     if (!db->duplicate_keys_permitted()) {
         const LMDBDatabase& dbRef = *db;
         for (auto& k : keys) {

@@ -186,6 +186,17 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   }
 
   /**
+   * Runs a callback against a consistent view of the store.
+   * @param callback - Function to execute against the snapshot
+   * @returns A promise that resolves to the return value of the callback
+   */
+  readOnlyTransaction<T>(callback: () => Promise<T>): Promise<T> {
+    // IndexedDB has no read-only snapshot of its own that outlives a single transaction, so the regular
+    // transaction is what gives the callback a consistent view.
+    return this.transactionAsync(callback);
+  }
+
+  /**
    * Clears all entries in the store & sub DBs.
    */
   async clear() {

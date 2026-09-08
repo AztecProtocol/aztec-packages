@@ -28,6 +28,9 @@ enum LMDBStoreMessageType {
 
     CLOSE,
     COPY_STORE,
+
+    START_READ_TX,
+    CLOSE_READ_TX,
 };
 
 struct OpenDatabaseRequest {
@@ -39,7 +42,9 @@ struct OpenDatabaseRequest {
 struct GetRequest {
     lmdblib::KeysVector keys;
     std::string db;
-    SERIALIZATION_FIELDS(keys, db);
+    // When set, read against the snapshot of the read transaction with this id instead of opening a fresh one
+    std::optional<uint64_t> txId;
+    SERIALIZATION_FIELDS(keys, db, txId);
 };
 
 struct GetResponse {
@@ -78,7 +83,9 @@ struct StartCursorRequest {
     std::optional<uint32_t> count;
     std::optional<bool> onePage;
     std::string db;
-    SERIALIZATION_FIELDS(key, reverse, count, onePage, db);
+    // When set, iterate against the snapshot of the read transaction with this id instead of opening a fresh one
+    std::optional<uint64_t> txId;
+    SERIALIZATION_FIELDS(key, reverse, count, onePage, db, txId);
 };
 
 struct StartCursorResponse {
@@ -137,6 +144,16 @@ struct CopyStoreRequest {
     std::string dstPath;
     std::optional<bool> compact;
     SERIALIZATION_FIELDS(dstPath, compact);
+};
+
+struct StartReadTxResponse {
+    uint64_t tx;
+    SERIALIZATION_FIELDS(tx);
+};
+
+struct CloseReadTxRequest {
+    uint64_t tx;
+    SERIALIZATION_FIELDS(tx);
 };
 
 } // namespace bb::nodejs::lmdb_store

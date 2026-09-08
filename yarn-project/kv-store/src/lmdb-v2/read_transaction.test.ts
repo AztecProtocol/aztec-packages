@@ -31,6 +31,7 @@ describe('ReadTransaction', () => {
     expect(channel.sendMessage).toHaveBeenCalledWith(LMDBMessageType.GET, {
       db: Database.DATA,
       keys: [Buffer.from('test_key1')],
+      txId: null,
     });
 
     getDeferred.resolve({
@@ -38,6 +39,18 @@ describe('ReadTransaction', () => {
     });
 
     expect(await resp).toEqual(Buffer.from('foo'));
+  });
+
+  it('routes reads through the read transaction it was given', async () => {
+    const boundTx = new ReadTransaction(channel, 7);
+    channel.sendMessage.mockResolvedValue({ values: [[Buffer.from('foo')]] });
+
+    await expect(boundTx.get(Buffer.from('test_key1'))).resolves.toEqual(Buffer.from('foo'));
+    expect(channel.sendMessage).toHaveBeenCalledWith(LMDBMessageType.GET, {
+      db: Database.DATA,
+      keys: [Buffer.from('test_key1')],
+      txId: 7,
+    });
   });
 
   it('iterates the database', async () => {
@@ -69,6 +82,7 @@ describe('ReadTransaction', () => {
       count: CURSOR_PAGE_SIZE,
       onePage: false,
       reverse: false,
+      txId: null,
     });
 
     expect(channel.sendMessage).toHaveBeenCalledWith(LMDBMessageType.ADVANCE_CURSOR, {
