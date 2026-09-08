@@ -16,7 +16,7 @@ pub struct WithHash<T, let M: u32> {
 
 impl<T, let M: u32> WithHash<T, M>
 where
-    T: Packable<N = M> + Eq,
+    T: Packable<N = M>,
 {
     pub fn new(value: T) -> Self {
         let packed = value.pack();
