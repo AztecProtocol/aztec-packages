@@ -39,7 +39,6 @@ export function runMainWorker(
               memory: o.memory,
               env: o.env,
               entry: o.entry,
-              allocatorExports: o.allocatorExports,
               hostImports: opts.hostImports,
               logger: log,
             },

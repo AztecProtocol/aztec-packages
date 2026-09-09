@@ -18,8 +18,6 @@ export interface WasmFfiOptions {
   hostImports?: HostImportsFactory;
   /** FFI entry export; default: the module's one `<service>_ipc_ffi_entry` export. */
   entry?: string;
-  /** Allocator export pairs to look for, in order of preference. */
-  allocatorExports?: Array<[string, string]>;
 }
 
 /**
@@ -204,7 +202,6 @@ export class WasmFfiEngine {
               memory,
               env,
               entry: opts.entry,
-              allocatorExports: opts.allocatorExports,
             },
             logger,
           )
@@ -217,7 +214,6 @@ export class WasmFfiEngine {
       logger,
       hostImports: opts.hostImports,
       entry: opts.entry,
-      allocatorExports: opts.allocatorExports,
       threads,
       spawnThread: (startArg) => threadWorkers?.spawn(startArg) ?? -1,
     });
@@ -344,7 +340,6 @@ export class WasmFfiBackend implements IpcClientAsync {
         memory: opts.memory,
         env: opts.env,
         entry: opts.entry,
-        allocatorExports: opts.allocatorExports,
       },
     });
     await ready;

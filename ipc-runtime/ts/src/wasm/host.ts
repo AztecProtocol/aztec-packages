@@ -36,11 +36,6 @@ export interface InstanceOptions {
    * export named `<service>_ipc_ffi_entry` (or bare `ipc_ffi_entry`).
    */
   entry?: string;
-  /**
-   * Allocator export pairs to look for, in order of preference. Default: the entry's sibling
-   * `<service>_ipc_ffi_alloc`/`_free`, then wasi-libc's `malloc`/`free`, then bb's `bbmalloc`/`bbfree`.
-   */
-  allocatorExports?: Array<[string, string]>;
   /** Call the reactor's `_initialize` after instantiation (main instances only). Default true. */
   runInitialize?: boolean;
   /** Threads this instance may use (reported to `hostImports`). Default 1. */
@@ -167,7 +162,7 @@ export class WasmInstanceHost {
       (exports._initialize as () => void)();
     }
     const { entry, prefix } = findEntry(exports, opts.entry);
-    const allocatorExports = opts.allocatorExports ?? [
+    const allocatorExports: Array<[string, string]> = [
       [`${prefix}ipc_ffi_alloc`, `${prefix}ipc_ffi_free`],
       ...FALLBACK_ALLOCATOR_EXPORTS,
     ];
