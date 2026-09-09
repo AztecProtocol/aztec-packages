@@ -1,0 +1,214 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Adam Domurad <domuradical@gmail.com>
+Date: Wed, 9 Sep 2026 18:34:28 -0400
+Subject: [PATCH] feat(ci3): the dashboard serves the ci3 server API
+
+Adds ci3_api.py, registered by rk.py: the API in aztec-packages' ci3/CI3_SERVER_API.md on the
+dashboard's redis and S3, with the key shapes the dashboard already renders. Every route takes the
+dashboard's basic auth, which the ci3 client sends from ~/.ci3/config.json once it is pointed here.
+
+diff --git a/ci3/dashboard/ci3_api.py b/ci3/dashboard/ci3_api.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e59bc893d6a0e64bacc6d9a38d56b21ebacfbb1c
+--- /dev/null
++++ b/ci3/dashboard/ci3_api.py
+@@ -0,0 +1,184 @@
++"""The ci3 server API (aztec-packages ci3/CI3_SERVER_API.md) on the dashboard's redis and S3.
++
++The key shapes are the ones the dashboard already renders: gzipped logs under their id, test-cache
++values under the command hash, `history_*` / `failed_tests*` lists, `ci-run-<section>` sorted sets,
++`ci:test:*` events, final logs at logs/<4>/<id>.log.gz (or logs/<path>.log.gz for path ids such as
++test-timings/... and bench/bb-breakdown/...), artifacts in the build cache. Register with rk.py's
++app, auth decorator and S3 settings: every route takes the dashboard's basic auth.
++"""
++import gzip
++import json
++import re
++
++from botocore.exceptions import ClientError
++from flask import Response, abort, redirect, request
++
++from rk_core import r
++
++SEGMENT = re.compile(r"^[A-Za-z0-9._:+@=,-]+$")
++LOG_TTL = 60 * 60 * 24 * 14
++LIST_DEFAULT_MAX = 1000
++RUNS_MAX = 1000
++CACHE_BUCKET = "aztec-ci-artifacts"
++CACHE_PREFIX = "build-cache"
++
++
++def check_key(key):
++    if any(p in ("", ".", "..") or not SEGMENT.match(p) for p in key.split("/")):
++        abort(400, "bad path")
++    return key
++
++
++def log_object(prefix, key):
++    return "%s/%s.log.gz" % (prefix, key if "/" in key else "%s/%s" % (key[:4], key))
++
++
++def ttl_arg(default=None):
++    v = request.args.get("ttl")
++    return int(v) if v else default
++
++
++def body():
++    data = request.get_data()
++    if request.headers.get("Content-Encoding", "").lower() == "gzip":
++        data = gzip.decompress(data)
++    return data
++
++
++def text(data, missing="", status_missing=404):
++    if data is None:
++        return Response(missing, status=status_missing, mimetype="text/plain")
++    return Response(data, mimetype="text/plain")
++
++
++def register(app, protect, s3, logs_bucket, logs_prefix):
++    def route(rule, **kw):
++        def deco(fn):
++            return app.route(rule, **kw)(protect(fn))
++        return deco
++
++    @app.route("/health")
++    def ci3_health():
++        return Response("ci3-server", mimetype="text/plain", headers={"X-CI3-Server": "rkapp"})
++
++    # --- logs
++    @route("/logs/<path:prefix>/")
++    def ci3_log_list(prefix):
++        check_key(prefix)
++        names = []
++        pages = s3.get_paginator("list_objects_v2").paginate(Bucket=logs_bucket, Prefix="%s/%s/" % (logs_prefix, prefix), Delimiter="/")
++        for page in pages:
++            for obj in page.get("Contents", []):
++                name = obj["Key"].rsplit("/", 1)[-1]
++                if name.endswith(".log.gz"):
++                    names.append(name[: -len(".log.gz")])
++        return Response("".join(n + "\n" for n in sorted(names)), mimetype="text/plain")
++
++    @route("/logs/<path:key>", methods=["PUT"])
++    def ci3_log_put(key):
++        check_key(key)
++        packed = gzip.compress(body())
++        r.setex(key, ttl_arg(LOG_TTL), packed)
++        if request.args.get("final") == "1":
++            s3.put_object(Bucket=logs_bucket, Key=log_object(logs_prefix, key), Body=packed)
++        return "", 204
++
++    @route("/logs/<path:key>")
++    def ci3_log_get(key):
++        check_key(key)
++        data = r.get(key)
++        if data is None:
++            try:
++                data = s3.get_object(Bucket=logs_bucket, Key=log_object(logs_prefix, key))["Body"].read()
++            except ClientError:
++                data = None
++        if data is not None and data[:2] == b"\x1f\x8b":
++            data = gzip.decompress(data)
++        return text(data, "Log not found: %s\n" % key)
++
++    # --- key/value: the test cache and heartbeats
++    @route("/kv/mget", methods=["POST"])
++    def ci3_kv_mget():
++        keys = [k for k in body().decode().split("\n") if k]
++        values = r.mget([check_key(k) for k in keys]) if keys else []
++        return Response("".join((v or b"").decode(errors="replace").rstrip("\n") + "\n" for v in values), mimetype="text/plain")
++
++    @route("/kv/<path:key>", methods=["PUT"])
++    def ci3_kv_put(key):
++        check_key(key)
++        ttl = ttl_arg()
++        r.setex(key, ttl, body()) if ttl else r.set(key, body())
++        return "", 204
++
++    @route("/kv/<path:key>")
++    def ci3_kv_get(key):
++        return text(r.get(check_key(key)))
++
++    # --- lists: test history
++    @route("/lists/<path:name>", methods=["POST"])
++    def ci3_list_push(name):
++        check_key(name)
++        r.lpush(name, body().decode(errors="replace").rstrip("\n"))
++        r.ltrim(name, 0, int(request.args.get("max", LIST_DEFAULT_MAX)) - 1)
++        return "", 204
++
++    @route("/lists/<path:name>")
++    def ci3_list_get(name):
++        lines = r.lrange(check_key(name), 0, -1)
++        return text(b"".join(l + b"\n" for l in lines) if lines else None)
++
++    # --- runs: the sections this dashboard renders
++    def split_run(rest):
++        section, _, run_id = rest.rpartition("/")
++        return (section, run_id) if section and run_id.isdigit() else (rest, None)
++
++    @route("/runs/<path:rest>", methods=["PUT"])
++    def ci3_run_put(rest):
++        section, run_id = split_run(rest)
++        if run_id is None:
++            abort(405)
++        key = "ci-run-" + check_key(section)
++        data = body()
++        json.loads(data)
++        for old in r.zrangebyscore(key, run_id, run_id):
++            r.zrem(key, old)
++        r.zadd(key, {data: int(run_id)})
++        r.zremrangebyrank(key, 0, -(RUNS_MAX + 1))
++        return "", 204
++
++    @route("/runs/<path:rest>")
++    def ci3_run_get(rest):
++        section, run_id = split_run(rest)
++        key = "ci-run-" + check_key(section)
++        if run_id is not None:
++            found = r.zrangebyscore(key, run_id, run_id)
++            return Response(found[0], mimetype="application/json") if found else Response("{}", status=404, mimetype="application/json")
++        runs = [json.loads(raw) for raw in r.zrevrange(key, 0, RUNS_MAX - 1)]
++        return Response(json.dumps(runs), mimetype="application/json")
++
++    # --- events
++    @route("/events/<path:channel>", methods=["POST"])
++    def ci3_event(channel):
++        r.publish(check_key(channel), body().decode(errors="replace").strip())
++        return "", 204
++
++    # --- artifacts: the build cache
++    def artifact_key(name):
++        return "%s/%s" % (CACHE_PREFIX, check_key(name))
++
++    @route("/artifacts/<path:name>", methods=["PUT"])
++    def ci3_artifact_put(name):
++        s3.upload_fileobj(request.stream, CACHE_BUCKET, artifact_key(name))
++        return "", 201
++
++    @route("/artifacts/<path:name>", methods=["GET"])
++    def ci3_artifact_get(name):
++        return redirect("http://%s.s3.amazonaws.com/%s" % (CACHE_BUCKET, artifact_key(name)), code=302)
++
++    @route("/artifacts/<path:name>", methods=["HEAD"])
++    def ci3_artifact_head(name):
++        try:
++            s3.head_object(Bucket=CACHE_BUCKET, Key=artifact_key(name))
++            return "", 200
++        except ClientError:
++            return "", 404
+diff --git a/ci3/dashboard/rk.py b/ci3/dashboard/rk.py
+index 6907b70a6d0999b314af3a5e9a1c9d5d13b734c8..e72f8456666467264be1671de965d732b9a104f5 100644
+--- a/ci3/dashboard/rk.py
++++ b/ci3/dashboard/rk.py
+@@ -639,6 +639,10 @@ def proxy_dashboard():
+ def proxy_api(path):
+     return _proxy(f'/api/{path}')
+ 
++# The ci3 server API (ci3/CI3_SERVER_API.md in aztec-packages): what the ci3 scripts talk to.
++import ci3_api
++ci3_api.register(app, optional_auth, _s3, S3_LOGS_BUCKET, S3_LOGS_PREFIX)
++
+ @app.route('/<key>')
+ @optional_auth
+ def get_value(key):
