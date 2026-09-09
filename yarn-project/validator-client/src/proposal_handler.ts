@@ -62,6 +62,11 @@ import {
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import {
+  type InboxEndpointCheckResult,
+  type InboxEndpointReader,
+  checkInboxEndpoint,
+} from './checkpoint_endpoint_check.js';
 import { DutyBudget, DutyBudgetExpiredError } from './duty_budget.js';
 import type { ValidatorMetrics } from './metrics.js';
 import {
@@ -132,10 +137,20 @@ export type CheckpointProposalValidationFailureReason =
   // consumed. Local-view outcomes, never proposer misconduct.
   | 'inbox_prefix_unavailable'
   | 'inbox_prefix_mismatch'
+  // Streaming Inbox: the checkpoint's final consumed position was not confirmed as a live Inbox bucket endpoint.
+  // Both describe the L1 view this node read, never proposer misconduct.
+  | 'inbox_endpoint_unverifiable'
+  | 'inbox_endpoint_not_live'
   // The slot's duty budget ran out before validation reached a verdict. Says nothing about the proposal, so it is
   // neither cached for the next caller nor recorded against the proposer.
   | 'validation_deadline_expired'
   | 'checkpoint_validation_failed';
+
+/** The two outcomes of the live Inbox endpoint check, both of which describe an L1 view rather than a proposer. */
+type CheckpointEndpointReason = Extract<
+  CheckpointProposalValidationFailureReason,
+  'inbox_endpoint_unverifiable' | 'inbox_endpoint_not_live'
+>;
 
 /** The streaming-Inbox reasons a checkpoint proposal can fail on; both are retried through a bounded local sync. */
 type CheckpointInboxPrefixReason = Extract<
@@ -194,6 +209,10 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   // Not proposer misbehavior: this node's Inbox view could not confirm the consumed prefix, or disagrees with it.
   inbox_prefix_unavailable: 'unvalidated',
   inbox_prefix_mismatch: 'unvalidated',
+  // Nor is an endpoint this node could not confirm: the bucket ring, the local provider and L1 itself all move
+  // independently of the moment the checkpoint was signed.
+  inbox_endpoint_unverifiable: 'unvalidated',
+  inbox_endpoint_not_live: 'unvalidated',
   // This node ran out of time to look; it observed nothing about the proposer. Recorded by the duty-expiry path
   // itself, which also refuses to overwrite an outcome the slot already has.
   validation_deadline_expired: 'unverifiable',
@@ -234,6 +253,50 @@ type BlockProposalSlotValidationResult =
 
 const MAX_TRACKED_INVALID_PROPOSAL_SLOTS = 1000;
 
+/**
+ * How long the live Inbox endpoint check keeps re-reading L1 before giving up, and how long it waits between
+ * attempts. A provider trailing the head by a block or two catches up within a read or two; waiting longer only
+ * multiplies RPC load for an answer the slot's duty budget may no longer have room for anyway.
+ */
+const INBOX_ENDPOINT_RETRY_WINDOW_MS = 2_000;
+const INBOX_ENDPOINT_RETRY_INTERVAL_S = 0.5;
+
+/**
+ * Splits an endpoint check failure into a view this node could not read at all and one that answered but did not
+ * show the signed position closing a live bucket, so the two stay apart in diagnostics. Neither is attributed to
+ * the proposer, and an absent result (the duty was already over) counts as unread.
+ */
+function describeEndpointFailure(result: InboxEndpointCheckResult | undefined): {
+  reason: CheckpointEndpointReason;
+  context: LogData;
+} {
+  if (result === undefined || result.verified) {
+    return { reason: 'inbox_endpoint_unverifiable', context: {} };
+  }
+  if (result.reason === 'unreadable') {
+    return {
+      reason: 'inbox_endpoint_unverifiable',
+      context: { endpointReason: result.reason, err: String(result.err) },
+    };
+  }
+  return {
+    reason: 'inbox_endpoint_not_live',
+    context: {
+      endpointReason: result.reason,
+      endpointTotal: result.endpointTotal,
+      l1BlockNumber: result.l1BlockNumber,
+    },
+  };
+}
+
+/**
+ * Whether a refusal only describes the L1 view read at that instant. Such a verdict is not remembered as the
+ * proposal's, so the next call re-reads and can still accept it once the view recovers.
+ */
+function isInboxEndpointReason(reason: CheckpointProposalValidationFailureReason): boolean {
+  return reason === 'inbox_endpoint_unverifiable' || reason === 'inbox_endpoint_not_live';
+}
+
 /** Block-proposal validation failures that constitute a slashable invalid-block offense. */
 export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailureReason[] = [
   'state_mismatch',
@@ -267,6 +330,11 @@ export const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<
   // proposer offense, even when they persist through the attestation deadline.
   ['inbox_prefix_unavailable']: false,
   ['inbox_prefix_mismatch']: false,
+  // The final consumed position was not confirmed as a live Inbox bucket endpoint. An unreadable or trailing L1
+  // view, and a ring that moved after the proposal was signed, look the same from here, and none of them is
+  // evidence that the proposer signed a position that was never an endpoint.
+  ['inbox_endpoint_unverifiable']: false,
+  ['inbox_endpoint_not_live']: false,
   ['invalid_signature']: false,
   ['last_block_not_found']: false,
   ['block_fetch_error']: false,
@@ -317,6 +385,7 @@ export class ProposalHandler {
     private worldState: WorldStateSynchronizer,
     private blockSource: L2BlockSource & L2BlockSink,
     private l1ToL2MessageSource: L1ToL2MessageSource,
+    private inbox: InboxEndpointReader,
     private txProvider: ITxProvider,
     private epochCache: EpochCache,
     private timetable: ConsensusTimetable,
@@ -352,6 +421,10 @@ export class ProposalHandler {
    * been deliberately corrupted in tests via `broadcastInvalidBlockProposal` /
    * `broadcastInvalidCheckpointProposalOnly`). Recording the local archive correctly models the
    * proposer's own view of its own work.
+   *
+   * This is the one path that records a `valid` outcome without running the live Inbox endpoint check: the
+   * checkpoint ends at the bucket end its own sequencer resolved against the Inbox when it built the last block,
+   * so the evidence exists, it was just gathered while building rather than while validating.
    */
   public recordOwnCheckpointProposalAsValid(slot: SlotNumber, archive: Fr, checkpointNumber: CheckpointNumber): void {
     this.reexecutionTracker.recordOutcome(slot, archive, 'valid', checkpointNumber);
@@ -499,6 +572,9 @@ export class ProposalHandler {
       proposer: proposal.getSender()?.toString(),
     };
 
+    // Test-only escape hatch: nothing is validated, so nothing is recorded as valid either — no outcome on the
+    // re-execution tracker and no proposed checkpoint — but a validator configured this way still attests without
+    // any evidence, L1 endpoint included. It must not be set on a production node.
     if (this.config.skipCheckpointProposalValidation) {
       this.log.warn(`Skipping checkpoint proposal validation for slot ${proposal.slotNumber}`, proposalInfo);
       return undefined;
@@ -521,6 +597,11 @@ export class ProposalHandler {
     // shares the proposer's keys sees the same "own" proposal over gossip but never built it, so it has
     // nothing stored; it falls through to the normal validate-and-persist path below to hydrate the
     // proposed-checkpoint metadata it needs to build the next slot on top of this checkpoint.
+    //
+    // The fast path is not a way around the live endpoint check: the checkpoint's final position is the live
+    // bucket end its own sequencer resolved against the Inbox while building the checkpoint's last block, and it
+    // re-reads L1 again in the publication preflight before submitting. That evidence is fresher than a
+    // re-validation here would be. Only the node that actually built the checkpoint takes this path.
     const proposer = proposal.getSender();
     const ownAddresses = this.getOwnValidatorAddresses?.();
     const isOwnProposal = proposer && ownAddresses?.some(addr => addr === proposer.toString());
@@ -1456,6 +1537,67 @@ export class ProposalHandler {
     return resolved;
   }
 
+  /**
+   * Confirms through L1 that the position a checkpoint finishes at closes a live Inbox bucket committing to the
+   * rolling hash it signed. The content checks authenticate what the checkpoint consumed against this node's own
+   * message log; they cannot tell whether the position it ends at is one L1 will accept, and only a checkpoint's
+   * final position has to be a bucket boundary.
+   *
+   * A view that disagrees, and one that cannot be read at all, are both refusals rather than verdicts about the
+   * proposer: a provider trailing the head has not seen the message that closed the bucket yet, an eviction or a
+   * reorg can move the ring after the proposal was signed, and none of that is visible from here. Both are re-read
+   * within {@link INBOX_ENDPOINT_RETRY_WINDOW_MS} and the slot's duty budget, whichever is shorter, so a view that
+   * recovers in time still yields a valid verdict, and a stalled read cannot hold the acceptance path open.
+   */
+  private async awaitInboxEndpoint(
+    slot: SlotNumber,
+    finalTotalMsgCount: bigint,
+    inboxRollingHash: Fr,
+    proposalInfo: LogData,
+    budget: DutyBudget,
+  ): Promise<{ accepted: true } | { accepted: false; reason: CheckpointEndpointReason }> {
+    const timer = new Timer();
+    const deadline = new Date(
+      Math.min(budget.deadline.getTime(), this.dateProvider.now() + INBOX_ENDPOINT_RETRY_WINDOW_MS),
+    );
+    let last: InboxEndpointCheckResult | undefined;
+    try {
+      const verified = await budget.run(`inbox endpoint check for slot ${slot}`, () =>
+        retryUntil(
+          async () => {
+            last = await checkInboxEndpoint(this.inbox, finalTotalMsgCount, inboxRollingHash);
+            return last.verified ? last : undefined;
+          },
+          `live Inbox endpoint at message ${finalTotalMsgCount}`,
+          { deadline, dateProvider: this.dateProvider },
+          INBOX_ENDPOINT_RETRY_INTERVAL_S,
+        ),
+      );
+      this.log.debug(`Checkpoint's final message position confirmed as a live Inbox endpoint`, {
+        ...proposalInfo,
+        finalTotalMsgCount,
+        bucketSeq: verified.bucketSeq,
+        l1BlockNumber: verified.l1BlockNumber,
+        waitedMs: timer.ms(),
+      });
+      return { accepted: true };
+    } catch (err) {
+      if (!(err instanceof TimeoutError) && !(err instanceof DutyBudgetExpiredError)) {
+        throw err;
+      }
+      const { reason, context } = describeEndpointFailure(last);
+      this.log.warn(`Cannot confirm the checkpoint's final message position as a live Inbox endpoint`, {
+        ...proposalInfo,
+        reason,
+        ...context,
+        finalTotalMsgCount,
+        inboxRollingHash: inboxRollingHash.toString(),
+        waitedMs: timer.ms(),
+      });
+      return { accepted: false, reason };
+    }
+  }
+
   async reexecuteTransactions(
     proposal: BlockProposal,
     blockNumber: BlockNumber,
@@ -1644,14 +1786,30 @@ export class ProposalHandler {
     // That re-check is a store read like any other, so it runs inside the duty budget rather than unbounded.
     if (this.lastCheckpointValidationResult && this.lastCheckpointValidationResult.payloadHash === payloadHash) {
       const cached = this.lastCheckpointValidationResult.result;
-      const blocksStillLocal =
-        cached.isValid &&
-        (await budget.run(`cached checkpoint verdict re-check for slot ${slot}`, () =>
-          this.blockSource.getBlockData({ archive: proposal.archive }),
-        )) !== undefined;
-      if (!cached.isValid || blocksStillLocal) {
+      if (!cached.isValid) {
         this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
         return cached;
+      }
+      const lastBlock = await budget.run(`cached checkpoint verdict re-check for slot ${slot}`, () =>
+        this.blockSource.getBlockData({ archive: proposal.archive }),
+      );
+      if (lastBlock !== undefined) {
+        // The other half of a valid verdict is an Inbox endpoint that was live in the L1 view read at the time.
+        // The ring and the head both move between the two calls, so the endpoint is re-read rather than carried
+        // over: reuse is bound to a view, not just to a payload.
+        const endpoint = await this.awaitInboxEndpoint(
+          slot,
+          this.blockLeafCount(lastBlock),
+          proposal.checkpointHeader.inboxRollingHash,
+          proposalInfo,
+          budget,
+        );
+        if (endpoint.accepted) {
+          this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
+          return cached;
+        }
+        // Not the proposal's verdict, only this view's: leave the cached one in place so a later call can reuse it.
+        return { isValid: false, reason: endpoint.reason, checkpointNumber: cached.checkpointNumber };
       }
       this.log.warn(`Re-validating checkpoint proposal at slot ${slot}: its blocks are no longer local`, proposalInfo);
     }
@@ -1670,7 +1828,11 @@ export class ProposalHandler {
       result = await this.validateCheckpointProposal(proposal, proposalInfo, budget);
     }
 
-    this.lastCheckpointValidationResult = { payloadHash, result };
+    // An endpoint refusal describes the L1 view of the moment, not this proposal, so it is not remembered as its
+    // verdict: the attestation call re-reads and can still accept the same payload once the view recovers.
+    if (result.isValid || !isInboxEndpointReason(result.reason)) {
+      this.lastCheckpointValidationResult = { payloadHash, result };
+    }
 
     // Record the outcome on the re-execution tracker.
     const outcome = result.isValid ? ('valid' as const) : CHECKPOINT_VALIDATION_REASON_TO_OUTCOME[result.reason];
@@ -1844,10 +2006,11 @@ export class ProposalHandler {
     // messages are already in the db from per-block validation; this list drives the checkpoint's rolling-hash
     // recomputation in completeCheckpoint. No bucket or L1 endpoint is resolved here: that is the proposer's and
     // L1's publication check.
+    const lastBlockTotal = this.blockLeafCount(lastBlock);
     const consumed = await this.awaitCheckpointConsumedMessages(
       slot,
       checkpointStartTotal,
-      this.blockLeafCount(blocks[blocks.length - 1]),
+      lastBlockTotal,
       proposal.checkpointHeader.inboxRollingHash,
       proposalInfo,
       budget,
@@ -2005,6 +2168,22 @@ export class ProposalHandler {
     } catch (err) {
       this.log.warn(`Checkpoint validation failed: ${err}`, proposalInfo);
       return { isValid: false, reason: 'checkpoint_validation_failed', checkpointNumber };
+    }
+
+    // Everything above is deterministic and local: it says the checkpoint is the one its signed payload describes
+    // and that this node holds the messages it consumed. What it cannot say is whether the position the checkpoint
+    // finishes at is one L1 accepts, which is the last thing left before this becomes an accepted parent or an
+    // attestation. It is checked last so the cheap deterministic work decides the outcome wherever it can, and so
+    // an offense keeps its own reason instead of being reported as an unconfirmed endpoint.
+    const endpoint = await this.awaitInboxEndpoint(
+      slot,
+      lastBlockTotal,
+      proposal.checkpointHeader.inboxRollingHash,
+      proposalInfo,
+      budget,
+    );
+    if (!endpoint.accepted) {
+      return { isValid: false, reason: endpoint.reason, checkpointNumber };
     }
 
     this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);

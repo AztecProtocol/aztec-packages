@@ -79,7 +79,8 @@ export const validatorClientConfigMappings: ConfigMappingsType<
     ...booleanConfigHelper(false),
   },
   skipCheckpointProposalValidation: {
-    description: 'Skip checkpoint proposal validation and always attest (default: false)',
+    description:
+      'Skip checkpoint proposal validation, including the live Inbox endpoint check, and always attest. For testing only (default: false)',
     defaultValue: false,
   },
   skipPushProposedBlocksToArchiver: {

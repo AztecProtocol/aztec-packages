@@ -62,6 +62,7 @@ import type {
   CheckpointBuilder,
   FullNodeCheckpointsBuilder,
 } from './checkpoint_builder.js';
+import type { InboxEndpointReader } from './checkpoint_endpoint_check.js';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
 import type { ValidationService } from './duties/validation_service.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
@@ -118,6 +119,7 @@ describe('ValidatorClient', () => {
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let inbox: InboxEndpointReader;
   let epochCache: MockProxy<EpochCache>;
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -194,6 +196,17 @@ describe('ValidatorClient', () => {
     );
     epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    // An L1 Inbox that never received a message: its genesis bucket is the endpoint the consume-nothing
+    // checkpoints of these tests end at.
+    inbox = {
+      client: { getBlockNumber: () => Promise.resolve(1n) },
+      getBucketAtOrBeforeTotal: upperBound =>
+        Promise.resolve(
+          upperBound >= 0n
+            ? { seq: 0n, bucket: { rollingHash: Fr.ZERO, totalMsgCount: 0n, timestamp: 0n, msgCount: 0 } }
+            : undefined,
+        ),
+    };
     txProvider = mock<TxProvider>();
     dateProvider = new TestDateProvider();
     blobClient = mock<BlobClientInterface>();
@@ -241,6 +254,7 @@ describe('ValidatorClient', () => {
       p2pClient,
       blockSource,
       l1ToL2MessageSource,
+      inbox,
       txProvider,
       keyStoreManager,
       blobClient,

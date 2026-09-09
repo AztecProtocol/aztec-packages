@@ -26,7 +26,7 @@ import { CheckpointReexecutionTracker, L1PublishedData, PublishedCheckpoint } fr
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { InboxMessagePrefixRef } from '@aztec/stdlib/messaging';
+import { InboxMessagePrefixRef, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import {
   type BlockProposal,
   CheckpointProposal,
@@ -46,7 +46,34 @@ import { hashTypedData } from 'viem';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import type { InboxEndpointReader } from './checkpoint_endpoint_check.js';
 import { ValidatorClient } from './validator.js';
+
+/**
+ * An Inbox whose live bucket ring ends wherever this node's own message log does: every position the archiver can
+ * serve is reported as a bucket boundary committing to the rolling hash the archiver holds there. Real buckets also
+ * close on time and size boundaries; what the checkpoint endpoint gate asks is whether the checkpoint's final
+ * position closes one, and with which content.
+ */
+function makeArchiverBackedInbox(messageSource: Pick<L1ToL2MessageSource, 'getMessagePosition'>): InboxEndpointReader {
+  return {
+    client: { getBlockNumber: () => Promise.resolve(1n) },
+    getBucketAtOrBeforeTotal: async upperBound => {
+      const position = await messageSource.getMessagePosition(upperBound);
+      return (
+        position && {
+          seq: 0n,
+          bucket: {
+            rollingHash: position.rollingHash,
+            totalMsgCount: position.totalMessageCount,
+            timestamp: 0n,
+            msgCount: 0,
+          },
+        }
+      );
+    },
+  };
+}
 
 jest.setTimeout(60_000);
 
@@ -221,6 +248,7 @@ describe('ValidatorClient Integration', () => {
       p2pClient,
       archiver,
       archiver,
+      makeArchiverBackedInbox(archiver),
       txProvider,
       keyStoreManager,
       blobClient,

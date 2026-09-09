@@ -602,7 +602,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   skipCheckpointProposalValidation: {
     description:
-      'Skip checkpoint proposal validation and always attest, broadcasting the attestation before processing the embedded last block',
+      'Skip checkpoint proposal validation, including the live Inbox endpoint check, and always attest, broadcasting the attestation before processing the embedded last block. For testing only',
     ...booleanConfigHelper(false),
   },
   minTxPoolAgeMs: {
