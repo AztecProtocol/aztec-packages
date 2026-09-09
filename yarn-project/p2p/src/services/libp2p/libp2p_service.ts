@@ -1660,6 +1660,10 @@ export class LibP2PService extends WithTracer implements P2PService {
       source: sender.toString(),
     });
 
+    // The all-nodes callback runs first, and to completion: it is where the proposal is validated — including
+    // the check that its final message position closes a live Inbox bucket — and where a valid one becomes this
+    // node's proposed checkpoint. The validator callback below reuses that verdict, so attesting can never
+    // outrun it.
     await this.allNodesCheckpointReceivedCallback(checkpoint, sender);
 
     // Call the checkpoint received callback with the core version (without lastBlock)

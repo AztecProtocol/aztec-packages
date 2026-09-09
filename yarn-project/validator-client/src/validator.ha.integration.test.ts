@@ -41,6 +41,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import type { InboxEndpointReader } from './checkpoint_endpoint_check.js';
 import type { ValidatorClientConfig } from './config.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
@@ -59,6 +60,7 @@ describe('ValidatorClient HA Integration', () => {
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let inbox: InboxEndpointReader;
   let epochCache: MockProxy<EpochCache>;
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -112,6 +114,12 @@ describe('ValidatorClient HA Integration', () => {
     epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
     blockSource = mock<L2BlockSource & L2BlockSink>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    // No messages were ever sent to L1 here, so the Inbox's genesis bucket is the only live endpoint.
+    inbox = {
+      client: { getBlockNumber: () => Promise.resolve(1n) },
+      getBucketAtOrBeforeTotal: () =>
+        Promise.resolve({ seq: 0n, bucket: { rollingHash: Fr.ZERO, totalMsgCount: 0n, timestamp: 0n, msgCount: 0 } }),
+    };
     txProvider = mock<TxProvider>();
     dateProvider = new TestDateProvider();
     blobClient = mock<BlobClientInterface>();
@@ -225,6 +233,7 @@ describe('ValidatorClient HA Integration', () => {
       worldState,
       blockSource,
       l1ToL2MessageSource,
+      inbox,
       txProvider,
       epochCache,
       consensusTimetable,
