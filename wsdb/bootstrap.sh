@@ -10,7 +10,7 @@ hash=$(hash_str \
   $(cache_content_hash .rebuild_patterns))
 
 function generate_ts_package {
-  node --experimental-strip-types --experimental-transform-types --no-warnings \
+  node --experimental-strip-types --no-warnings \
     "$ROOT/ipc-codegen/src/generate.ts" \
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/wsdb/wsdb_schema.jsonc" \
     --lang ts \
