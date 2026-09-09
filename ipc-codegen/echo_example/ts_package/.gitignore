@@ -7,6 +7,8 @@ package.json
 tsconfig.json
 src/generated/
 src/index.ts
+src/react-native.ts
 src/platform.ts
+src/process.ts
 src/bin.ts
 scripts/prepare_arch_packages.sh
