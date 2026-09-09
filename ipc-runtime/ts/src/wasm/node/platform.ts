@@ -2,19 +2,10 @@ import { readFile } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { Worker, type MessagePort, parentPort } from "node:worker_threads";
-import type { WasmPlatform, WorkerHandle, WorkerSide } from "./platform.js";
-import { browserWorkerHandle } from "./platform.browser.js";
+import type { WasmPlatform, WorkerHandle, WorkerSide } from "../platform.js";
 
-/**
- * The parent's handle on a `worker_threads` worker. Also accepts a web `Worker`, so code that is
- * type-checked against this (node) entry but bundled for browsers type-checks too.
- */
-export function nodeWorkerHandle(
-  worker: Worker | globalThis.Worker,
-): WorkerHandle {
-  if ("addEventListener" in worker) {
-    return browserWorkerHandle(worker);
-  }
+/** The parent's handle on a `worker_threads` worker. */
+export function nodeWorkerHandle(worker: Worker): WorkerHandle {
   return {
     postMessage: (message, transfer) =>
       worker.postMessage(

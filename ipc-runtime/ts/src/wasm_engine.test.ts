@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { WasmFfiEngine } from "./wasm/backend.js";
-import type { WasmFfiBinding, WorkerHandle } from "./wasm/index.node.js";
-import { nodePlatform } from "./wasm/platform.node.js";
+import type { WasmFfiBinding, WorkerHandle } from "./wasm/node/index.js";
+import { nodePlatform } from "./wasm/node/platform.js";
 
 /**
  * A module small enough to write out by hand, so the engine can be pinned without a real service.

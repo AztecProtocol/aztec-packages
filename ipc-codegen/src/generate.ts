@@ -533,11 +533,11 @@ function generate(args: Args) {
               packageGen.generateThreadWorker(),
             );
             writePackage(
-              "src/wasm/main.worker.ts",
+              "src/wasm/node/main.worker.ts",
               packageGen.generateMainWorker(),
             );
             writePackage(
-              "src/wasm/main.worker.browser.ts",
+              "src/wasm/browser/main.worker.ts",
               packageGen.generateBrowserMainWorker(),
             );
             writePackage(

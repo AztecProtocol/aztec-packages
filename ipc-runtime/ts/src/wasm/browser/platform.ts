@@ -1,4 +1,4 @@
-import type { WasmPlatform, WorkerHandle, WorkerSide } from "./platform.js";
+import type { WasmPlatform, WorkerHandle, WorkerSide } from "../platform.js";
 
 /** The parent's handle on a browser `Worker`. */
 export function browserWorkerHandle(worker: Worker): WorkerHandle {

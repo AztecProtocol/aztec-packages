@@ -11,9 +11,22 @@
       "import": "./dest/index.js"
     },
     "./wasm": {
-      "types": "./dest/wasm/index.node.d.ts",
-      "browser": "./dest/wasm/index.browser.js",
-      "default": "./dest/wasm/index.node.js"
+      "browser": {
+        "types": "./dest/wasm/browser/index.d.ts",
+        "default": "./dest/wasm/browser/index.js"
+      },
+      "default": {
+        "types": "./dest/wasm/node/index.d.ts",
+        "default": "./dest/wasm/node/index.js"
+      }
+    },
+    "./wasm/node": {
+      "types": "./dest/wasm/node/index.d.ts",
+      "default": "./dest/wasm/node/index.js"
+    },
+    "./wasm/browser": {
+      "types": "./dest/wasm/browser/index.d.ts",
+      "default": "./dest/wasm/browser/index.js"
     }
   },
   "scripts": {
