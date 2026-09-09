@@ -30,6 +30,7 @@ import type { L2LogsSource, WorldStateSynchronizer } from '@aztec/stdlib/interfa
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockTx } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -157,6 +158,21 @@ describe('fee quote vs public simulation', () => {
     blockHash: blockHashOf(blockNumber),
     checkpointNumber: PENDING_CHECKPOINT,
     indexWithinCheckpoint: IndexWithinCheckpoint(0),
+  });
+
+  const makeProposedCheckpointData = (args: {
+    checkpointNumber: CheckpointNumber;
+    startBlock: BlockNumber;
+    slotNumber: SlotNumber;
+  }): ProposedCheckpointData => ({
+    checkpointNumber: args.checkpointNumber,
+    header: CheckpointHeader.empty({ slotNumber: args.slotNumber }),
+    startBlock: args.startBlock,
+    blockCount: 1,
+    totalManaUsed: 0n,
+    feeAssetPriceModifier: 0n,
+    archive: AppendOnlyTreeSnapshot.empty(),
+    checkpointOutHash: Fr.ZERO,
   });
 
   const makeTx = (seed: number, maxFeesPerGas: GasFees): Promise<Tx> =>
@@ -401,6 +417,35 @@ describe('fee quote vs public simulation', () => {
     expect(output.globalVariables.gasFees.feePerL2Gas).toEqual(fees[0].feePerL2Gas);
   }, 120_000);
 
+  it('quotes the frozen checkpoint fee the simulation charges mid-checkpoint', async () => {
+    await startNodeAt(tsOf(changeSlot));
+
+    // Checkpoint 2 is proposed and terminates at block 2, but block 3 already extends it, so the next block
+    // continues the in-progress checkpoint and inherits the (pre-step, high) fee frozen into its header. No
+    // forward-looking L1 projection can see that fee: it was priced at a slot L1 has already moved past.
+    mockL2Frontier({
+      proposed: BlockNumber(3),
+      checkpointedBlock: BlockNumber(1),
+      checkpointedTipSlot: SlotNumber(changeSlot - 1),
+      proposedCheckpoint: makeProposedCheckpointData({
+        checkpointNumber: CheckpointNumber(2),
+        startBlock: BlockNumber(2),
+        slotNumber: SlotNumber(changeSlot - 1),
+      }),
+      latestBlockGlobals: { slotNumber: SlotNumber(changeSlot - 1), gasFees: new GasFees(0, highFee) },
+    });
+
+    const fees = await node.getPredictedMinFees(ManaUsageEstimate.Limit);
+    expect(fees[0].feePerL2Gas).toEqual(highFee);
+
+    const output = await node.simulatePublicCalls(await makeTx(0x20000, walletCap(fees)));
+
+    expect(output.globalVariables.slotNumber).toEqual(SlotNumber(changeSlot - 1));
+    expect(output.globalVariables.gasFees.feePerL2Gas).toEqual(highFee);
+    // What the wallet would actually quote covers what the simulation charges.
+    expect(walletCap(fees).feePerL2Gas).toBeGreaterThanOrEqual(output.globalVariables.gasFees.feePerL2Gas);
+  }, 120_000);
+
   it('quotes the same fee the simulation charges when nothing is lagging', async () => {
     await startNodeAt(tsOf(changeSlot));
 
@@ -418,6 +463,7 @@ describe('fee quote vs public simulation', () => {
 
     expect(output.globalVariables.slotNumber).toEqual(SlotNumber(changeSlot + 1));
     expect(output.globalVariables.gasFees.feePerL2Gas).toEqual(lowFee);
+    expect(output.globalVariables.gasFees).toEqual(fees[0]);
   }, 120_000);
 
   it('reuses the cached boundary fee across simulations instead of asking L1 again', async () => {

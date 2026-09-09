@@ -9,6 +9,12 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec Node] `getPredictedMinFees` leads with the fee the next block will charge
+
+The first entry of `getPredictedMinFees` is now the fee the node's public simulation would charge for the next block: the fee frozen into an in-progress checkpoint when the next block continues one, or the price of the slot the next block opens. The remaining entries are the L1 projections for the current slot and the following ones, unchanged. The node omits the leading entry when it cannot price the next block (for example during an L1 outage), in which case only the projections are returned.
+
+Clients that reduce the list with `max` (the wallet SDK's `getMinFees`, the CLI) are unaffected, and now quote a fee the node's simulation accepts even mid-checkpoint. A client that reads `fees[0]` as "the current min fee" should call `getCurrentMinFees` instead.
+
 ### [Aztec.js] Protocol contracts removed from `@aztec/noir-contracts.js`
 
 `@aztec/noir-contracts.js` no longer includes the protocol contracts: the `FeeJuice`, `ContractClassRegistry`, and `ContractInstanceRegistry` artifacts and typed wrappers have been removed from the package, so imports such as `@aztec/noir-contracts.js/FeeJuice` no longer resolve. These names are also no longer available to the `aztec` CLI's contract-name lookup (e.g. in `aztec example-contracts`).

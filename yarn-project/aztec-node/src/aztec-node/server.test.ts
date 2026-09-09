@@ -8,6 +8,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -29,6 +30,7 @@ import {
   BlockHash,
   type BlockParameter,
   type BlockQuery,
+  type L1SyncPoint,
   L2Block,
   type L2BlockSource,
   type L2BlockSourceEventEmitter,
@@ -84,7 +86,7 @@ import { join } from 'path';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
-import { NextBlockPredictor } from './next_block/index.js';
+import { NextBlockPredictor, QUOTE_MAX_WAIT_MS } from './next_block/index.js';
 import { AztecNodeService } from './server.js';
 
 // Arbitrary fixed timestamp for the mock date provider. DateProvider.now() returns milliseconds but ExpirationTimestamp
@@ -449,6 +451,65 @@ describe('aztec node', () => {
 
       await node.sendTx(tx);
       expect(p2p.sendTx).toHaveBeenCalledWith(tx);
+    });
+  });
+
+  describe('min fee quotes', () => {
+    const l1SyncPoint: L1SyncPoint = { blockNumber: 42n, blockHash: Buffer32.random() };
+    const headFees = new GasFees(3, 3000);
+    /** The provider answers differently per L1 view, so which view the node asked for is visible in the result. */
+    const projectionsAtLatest = [new GasFees(1, 100), new GasFees(1, 110)];
+    const projectionsAtSyncPoint = [new GasFees(2, 200), new GasFees(2, 210)];
+
+    let quoteMinFees: jest.SpiedFunction<NextBlockPredictor['quoteMinFees']>;
+
+    beforeEach(() => {
+      feeProvider.getPredictedMinFees.mockImplementation((_manaUsage, asOf) =>
+        Promise.resolve(
+          asOf?.blockNumber === l1SyncPoint.blockNumber &&
+            asOf.maxWaitMs !== undefined &&
+            asOf.maxWaitMs <= QUOTE_MAX_WAIT_MS
+            ? projectionsAtSyncPoint
+            : projectionsAtLatest,
+        ),
+      );
+      quoteMinFees = jest.spyOn(node['nextBlockPredictor'], 'quoteMinFees');
+    });
+
+    it('leads with the next-block fee and prices the projections at the same L1 block', async () => {
+      quoteMinFees.mockResolvedValue({ fees: headFees, l1SyncPoint });
+
+      expect(await node.getPredictedMinFees()).toEqual([headFees, ...projectionsAtSyncPoint]);
+    });
+
+    it('leaves the projections untagged when the next-block fee carries no L1 sync point', async () => {
+      quoteMinFees.mockResolvedValue({ fees: headFees, l1SyncPoint: undefined });
+
+      expect(await node.getPredictedMinFees()).toEqual([headFees, ...projectionsAtLatest]);
+    });
+
+    it('serves the projections alone when the node cannot price the next block', async () => {
+      quoteMinFees.mockResolvedValue(undefined);
+
+      expect(await node.getPredictedMinFees()).toEqual(projectionsAtLatest);
+    });
+
+    it('serves the projections alone and warns when pricing the next block throws', async () => {
+      const warn = jest.spyOn(node['log'], 'warn');
+      quoteMinFees.mockRejectedValue(new Error('l1 is down'));
+
+      expect(await node.getPredictedMinFees()).toEqual(projectionsAtLatest);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('next-block min fee'), expect.any(Error));
+    });
+
+    it('does not fold the next-block fee into the current min fees or tx admission', async () => {
+      quoteMinFees.mockResolvedValue({ fees: headFees, l1SyncPoint });
+      const currentFees = new GasFees(0, 0);
+      feeProvider.getCurrentMinFees.mockResolvedValue(currentFees);
+
+      expect(await node.getCurrentMinFees()).toEqual(currentFees);
+      // A tx priced at the current min fees stays admissible even though the quote's head is far above them.
+      expect(await node.isValidTx(await mockTxForRollup(0x10000))).toEqual({ result: 'valid' });
     });
   });
 

@@ -28,6 +28,11 @@ export interface Anvil {
 // so trapping the kill directly on TERM would leave the poll loop running and the caller's teardown
 // hanging until its SIGKILL escalation. `sleep & wait` makes the poll interruptible, so INT/TERM are
 // handled immediately rather than after the current `sleep` returns.
+//
+// The loop also stops once anvil itself is gone. Anvil's stdio is inherited by the supervisor, so a
+// supervisor that outlives a dead anvil holds the pipes open: the caller below sees neither a
+// "Listening on" line nor a `close` event, and waits forever. Watching the child means an anvil that
+// dies on startup (a port already in use, say) closes the supervisor and surfaces as an error.
 const ANVIL_WATCHDOG = `
 set -u
 parent=$PPID
@@ -35,8 +40,12 @@ parent=$PPID
 anvil_pid=$!
 trap 'kill "$anvil_pid" 2>/dev/null' EXIT
 trap 'exit 0' INT TERM
-while kill -0 "$parent" 2>/dev/null; do sleep 1 & wait $!; done
+while kill -0 "$parent" 2>/dev/null && kill -0 "$anvil_pid" 2>/dev/null; do sleep 1 & wait $!; done
 `;
+
+// How long to wait for anvil's "Listening on" banner before giving up on a spawn. Anvil normally
+// prints it in well under a second, so this only bounds a start that neither listens nor exits.
+const ANVIL_STARTUP_TIMEOUT_MS = 30_000;
 
 /**
  * Ensures there's a running Anvil instance and returns the RPC URL.
@@ -105,12 +114,26 @@ export async function startAnvil(
         env: { ...process.env, ANVIL_BIN: anvilBinary, RAYON_NUM_THREADS: '1' },
       });
 
-      // Wait for "Listening on" or an early exit.
+      // Wait for "Listening on", an early exit, or the startup budget running out. Both streams are
+      // collected so the rejection carries whatever anvil managed to say about why it did not start:
+      // it reports a refused bind on stdout, and `retry` only logs the error it is handed.
       await new Promise<void>((resolve, reject) => {
-        let stderr = '';
+        let output = '';
+        let startupTimer: NodeJS.Timeout | undefined;
+
+        const stopListening = () => {
+          if (startupTimer !== undefined) {
+            clearTimeout(startupTimer);
+            startupTimer = undefined;
+          }
+          child.stdout?.removeListener('data', onStdout);
+          child.stderr?.removeListener('data', onStderr);
+          child.removeListener('close', onClose);
+        };
 
         const onStdout = (data: Buffer) => {
           const text = data.toString();
+          output += text;
           logger?.debug(text.trim());
           methodCalls?.push(...(text.match(/eth_[^\s]+/g) || []));
 
@@ -121,27 +144,35 @@ export async function startAnvil(
             }
           }
           if (detectedPort !== undefined) {
-            child.stdout?.removeListener('data', onStdout);
-            child.stderr?.removeListener('data', onStderr);
-            child.removeListener('close', onClose);
+            stopListening();
             resolve();
           }
         };
 
         const onStderr = (data: Buffer) => {
-          stderr += data.toString();
-          logger?.debug(data.toString().trim());
+          const text = data.toString();
+          output += text;
+          logger?.debug(text.trim());
         };
 
         const onClose = (code: number | null) => {
-          child.stdout?.removeListener('data', onStdout);
-          child.stderr?.removeListener('data', onStderr);
-          reject(new Error(`Anvil exited with code ${code} before listening. stderr: ${stderr}`));
+          stopListening();
+          reject(new Error(`Anvil exited with code ${code} before listening. Output: ${output}`));
         };
 
         child.stdout?.on('data', onStdout);
         child.stderr?.on('data', onStderr);
         child.once('close', onClose);
+
+        startupTimer = setTimeout(() => {
+          stopListening();
+          // Tear the spawn down before retrying, so a stuck anvil does not keep holding the port.
+          void killChild(child).finally(() =>
+            reject(
+              new Error(`Anvil did not listen within ${ANVIL_STARTUP_TIMEOUT_MS}ms of starting. Output: ${output}`),
+            ),
+          );
+        }, ANVIL_STARTUP_TIMEOUT_MS);
       });
 
       // Continue piping for logging, method-call capture, and/or dateProvider sync after startup.
