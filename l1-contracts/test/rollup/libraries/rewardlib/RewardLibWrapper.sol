@@ -2,7 +2,14 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {RewardLib, RewardConfig, RewardStorage} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {
+  RewardLib,
+  RewardConfig,
+  MutableRewardConfig,
+  RewardStorage,
+  RegistryRewardOverride,
+  MAX_REGISTRY_REWARD_OVERRIDES
+} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardBooster, IBoosterCore, RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -16,9 +23,24 @@ import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/Checkpoin
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {CompressedChainTips, ChainTipsLib} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {TestConstants} from "@test/harnesses/TestConstants.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
+
+contract RewardLibFakeGSE {
+  mapping(address attester => address withdrawer) internal withdrawers;
+
+  function setWithdrawer(address _attester, address _withdrawer) external {
+    withdrawers[_attester] = _withdrawer;
+  }
+
+  function getWithdrawer(address _attester) external view returns (address) {
+    return withdrawers[_attester];
+  }
+}
 
 contract FakeFeePortal {
   IERC20 public feeAsset;
@@ -67,6 +89,7 @@ contract RewardLibWrapper {
   IFeeJuicePortal internal immutable FEE_ASSET_PORTAL;
   FakeRewardDistributor public rewardDistributor;
   FakeFeePortal public feePortal;
+  RewardLibFakeGSE public gse;
 
   constructor(IERC20 _feeAsset, uint96 _checkpointReward, uint32 _sequencerBps) {
     booster = new RewardBooster(
@@ -76,6 +99,7 @@ contract RewardLibWrapper {
 
     rewardDistributor = new FakeRewardDistributor(_feeAsset);
     feePortal = new FakeFeePortal(_feeAsset);
+    gse = new RewardLibFakeGSE();
     RewardConfig memory config = RewardConfig({
       rewardDistributor: IRewardDistributor(address(rewardDistributor)),
       sequencerBps: Bps.wrap(_sequencerBps),
@@ -87,6 +111,7 @@ contract RewardLibWrapper {
 
     FEE_ASSET = _feeAsset;
     FEE_ASSET_PORTAL = IFeeJuicePortal(address(feePortal));
+    StakingLib.getStorage().gse = GSE(address(gse));
 
     TimeLib.initialize(
       block.timestamp,
@@ -137,8 +162,32 @@ contract RewardLibWrapper {
     return RewardLib.getProtocolFeeRecipient();
   }
 
+  function setWithdrawer(address _attester, address _withdrawer) external {
+    gse.setWithdrawer(_attester, _withdrawer);
+  }
+
+  function getProposerIndex(Epoch _epoch, Slot _slot, uint256 _committeeSize) external view returns (uint256) {
+    return ValidatorSelectionLib.computeProposerIndex(
+      _epoch, _slot, ValidatorSelectionLib.getSampleSeed(_epoch), _committeeSize
+    );
+  }
+
   function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) external {
-    RewardLib.handleRewardsAndFees(_args, _endEpoch, _rollupConfig(), true);
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory registryRewardOverrides;
+    RewardLib.handleRewardsAndFees(_args, _endEpoch, _rollupConfig(), true, new address[](0), registryRewardOverrides);
+  }
+
+  function handleRewardsAndFees(
+    SubmitEpochRootProofArgs calldata _args,
+    Epoch _endEpoch,
+    address[] memory _committee,
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory _registryRewardOverrides
+  ) external {
+    RewardLib.handleRewardsAndFees(_args, _endEpoch, _rollupConfig(), true, _committee, _registryRewardOverrides);
+  }
+
+  function updateRewardConfig(MutableRewardConfig memory _config) external {
+    RewardLib.updateConfig(_config);
   }
 
   function getSequencerRewards(address _sequencer) external view returns (uint256) {

@@ -68,7 +68,7 @@ contract RollupBuilder is Test {
     config.deployer = _deployer;
 
     config.genesisState = TestConstants.getGenesisState();
-    config.rollupConfigInput = TestConstants.getRollupConfigInput();
+    _setRollupConfigInput(TestConstants.getRollupConfigInput());
 
     config.values.govProposerN = 1;
     config.values.govProposerM = 1;
@@ -101,8 +101,42 @@ contract RollupBuilder is Test {
   }
 
   function setRollupConfigInput(RollupConfigInput memory _rollupConfigInput) public returns (RollupBuilder) {
-    config.rollupConfigInput = _rollupConfigInput;
+    _setRollupConfigInput(_rollupConfigInput);
     return this;
+  }
+
+  function _setRollupConfigInput(RollupConfigInput memory _source) private {
+    RollupConfigInput storage target = config.rollupConfigInput;
+    target.aztecSlotDuration = _source.aztecSlotDuration;
+    target.aztecEpochDuration = _source.aztecEpochDuration;
+    target.targetCommitteeSize = _source.targetCommitteeSize;
+    target.lagInEpochsForValidatorSet = _source.lagInEpochsForValidatorSet;
+    target.lagInEpochsForRandao = _source.lagInEpochsForRandao;
+    target.aztecProofSubmissionEpochs = _source.aztecProofSubmissionEpochs;
+    target.slashingQuorum = _source.slashingQuorum;
+    target.slashingRoundSize = _source.slashingRoundSize;
+    target.slashingLifetimeInRounds = _source.slashingLifetimeInRounds;
+    target.slashingExecutionDelayInRounds = _source.slashingExecutionDelayInRounds;
+    target.slashAmounts = _source.slashAmounts;
+    target.slashingOffsetInRounds = _source.slashingOffsetInRounds;
+    target.slasherEnabled = _source.slasherEnabled;
+    target.slashingVetoer = _source.slashingVetoer;
+    target.slashingDisableDuration = _source.slashingDisableDuration;
+    target.manaTarget = _source.manaTarget;
+    target.exitDelaySeconds = _source.exitDelaySeconds;
+    target.version = _source.version;
+    target.provingCostPerMana = _source.provingCostPerMana;
+    target.initialEthPerFeeAsset = _source.initialEthPerFeeAsset;
+    target.rewardConfig = _source.rewardConfig;
+    target.rewardBoostConfig = _source.rewardBoostConfig;
+    target.stakingQueueConfig = _source.stakingQueueConfig;
+    target.localEjectionThreshold = _source.localEjectionThreshold;
+    target.ethereumSlotDuration = _source.ethereumSlotDuration;
+
+    for (uint256 i = 0; i < _source.registryRewardOverrides.length; i++) {
+      target.registryRewardOverrides[i].registry = _source.registryRewardOverrides[i].registry;
+      target.registryRewardOverrides[i].sequencerReward = _source.registryRewardOverrides[i].sequencerReward;
+    }
   }
 
   function setRewardDistributor(RewardDistributor _rewardDistributor) public returns (RollupBuilder) {
