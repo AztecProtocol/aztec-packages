@@ -65,6 +65,9 @@ interface Args {
   binaryEnvVar: string;
   packageTransports: string;
   packageIpcPathArgs: string;
+  packageWasmModule: string;
+  packageWasmThreadsModule: string;
+  packageWasmHostImports: string;
   ipcRuntimeDependency: string;
   cppNamespace: string;
   cppWireNamespace: string;
@@ -94,9 +97,17 @@ Optional:
   --package-name <name>    TS package name for --package
   --binary-name <name>     Native service binary name for --package
   --binary-env-var <name>  Env var overriding the binary path for --package
-  --package-transports <t> Comma-separated transports for --package (uds,shm)
+  --package-transports <t> Comma-separated transports for --package (uds,shm,wasm)
   --package-ipc-path-args <args>
                            Comma-separated binary args for IPC path; use {path}
+  --package-wasm-module <file>
+                           wasm transport: the single-thread module, shipped in the
+                           package's wasm/ directory
+  --package-wasm-threads-module <file>
+                           wasm transport: the threads module, shipped in wasm/
+  --package-wasm-host-imports <path>
+                           wasm transport: TS module copied to src/wasm_host_imports.ts
+                           supplying the module's imports beyond WASI (default: none)
   --ipc-runtime-dependency <spec>
                            package.json dependency spec for @aztec-foundation/ipc-runtime
   --prefix <str>           Type prefix (auto-detected when >= 2 commands share one)
@@ -106,7 +117,9 @@ Optional:
                            names too (e.g. BbCircuitProve -> CircuitProve).
                            Wire tags always keep the full schema name.
   --uds                    Copy UDS backend templates (rust, zig only)
-  --ffi                    Copy in-process FFI backend templates (rust, zig only)
+  --ffi                    In-process FFI. With --client (rust, zig): copy the FFI
+                           client backend template. With --server (rust, cpp): emit
+                           the exported FFI entry (ipc_ffi_entry) over the dispatch
   --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
   --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
@@ -128,6 +141,9 @@ function parseArgs(argv: string[]): Args {
     binaryEnvVar: "",
     packageTransports: "uds",
     packageIpcPathArgs: "--socket,{path}",
+    packageWasmModule: "",
+    packageWasmThreadsModule: "",
+    packageWasmHostImports: "",
     ipcRuntimeDependency: "@aztec-foundation/ipc-runtime",
     cppNamespace: "",
     cppWireNamespace: "wire",
@@ -186,6 +202,15 @@ function parseArgs(argv: string[]): Args {
       case "--package-ipc-path-args":
         args.packageIpcPathArgs = takeValue();
         break;
+      case "--package-wasm-module":
+        args.packageWasmModule = takeValue();
+        break;
+      case "--package-wasm-threads-module":
+        args.packageWasmThreadsModule = takeValue();
+        break;
+      case "--package-wasm-host-imports":
+        args.packageWasmHostImports = takeValue();
+        break;
       case "--ipc-runtime-dependency":
         args.ipcRuntimeDependency = takeValue();
         break;
@@ -226,10 +251,23 @@ function parseArgs(argv: string[]): Args {
     console.error(`--package is only supported for --lang ts`);
     process.exit(1);
   }
-  if ((args.uds || args.ffi) && args.lang !== "rust" && args.lang !== "zig") {
+  if (args.uds && args.lang !== "rust" && args.lang !== "zig") {
     console.error(
-      `--uds/--ffi copy backend templates and only apply to rust and zig; ` +
+      `--uds copies backend templates and only applies to rust and zig; ` +
         `ts and cpp consume transports from ipc-runtime directly`,
+    );
+    process.exit(1);
+  }
+  if (args.ffi && !["rust", "zig", "cpp"].includes(args.lang)) {
+    console.error(
+      `--ffi applies to rust, zig and cpp; a ts package reaches an FFI module ` +
+        `through the wasm transport (--package-transports wasm)`,
+    );
+    process.exit(1);
+  }
+  if (args.ffi && args.lang === "cpp" && !args.server) {
+    console.error(
+      `--ffi for cpp emits the server-side FFI entry; pass --server`,
     );
     process.exit(1);
   }
@@ -429,20 +467,35 @@ function generate(args: Args) {
         } else {
           const binaryName =
             args.binaryName || toSnakeCase(prefix).replace(/_/g, "-");
+          const transports = args.packageTransports
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean);
+          const wasm = transports.includes("wasm");
+          if (
+            wasm &&
+            !args.packageWasmModule &&
+            !args.packageWasmThreadsModule
+          ) {
+            console.error(
+              `--package-transports wasm needs --package-wasm-module and/or --package-wasm-threads-module`,
+            );
+            process.exit(1);
+          }
           const packageGen = new TypeScriptPackageCodegen({
             prefix,
             packageName,
             binaryName,
             binaryEnvVar: args.binaryEnvVar || defaultBinaryEnvVar(binaryName),
             ipcRuntimeDependency: args.ipcRuntimeDependency,
-            transports: args.packageTransports
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean),
+            transports,
             ipcPathArgs: args.packageIpcPathArgs
               .split(",")
               .map((arg) => arg.trim())
               .filter(Boolean),
+            wasmModule: args.packageWasmModule || undefined,
+            wasmThreadsModule: args.packageWasmThreadsModule || undefined,
+            curveConstants: !!args.curveConstants,
           });
           writePackage("package.json", packageGen.generatePackageJson());
           writePackage("tsconfig.json", packageGen.generateTsconfig());
@@ -451,6 +504,28 @@ function generate(args: Args) {
           writePackage("src/platform.ts", packageGen.generatePlatform());
           if (binaryName) {
             writePackage("src/bin.ts", packageGen.generateBin());
+          }
+          if (wasm) {
+            writePackage("src/browser.ts", packageGen.generateBrowserIndex());
+            writePackage("src/wasm.ts", packageGen.generateWasm());
+            writePackage(
+              "src/wasm/thread.worker.ts",
+              packageGen.generateThreadWorker(),
+            );
+            writePackage(
+              "src/wasm/main.worker.ts",
+              packageGen.generateMainWorker(),
+            );
+            writePackage(
+              "src/wasm/main.worker.browser.ts",
+              packageGen.generateBrowserMainWorker(),
+            );
+            writePackage(
+              "src/wasm_host_imports.ts",
+              args.packageWasmHostImports
+                ? readFileSync(resolve(args.packageWasmHostImports), "utf-8")
+                : packageGen.generateDefaultHostImports(),
+            );
           }
           for (const manifest of packageGen.generateArchPackageManifests()) {
             writePackage(manifest.path, manifest.content);
@@ -479,6 +554,9 @@ function generate(args: Args) {
           `${toSnakeCase(prefix)}_server.rs`,
           gen.generateServer(compiled),
         );
+        if (args.ffi) {
+          writeFile(`${toSnakeCase(prefix)}_ffi.rs`, gen.generateFfi());
+        }
       }
       if (args.client) {
         writeFile(
@@ -565,6 +643,20 @@ function generate(args: Args) {
             gen.generateServerHeader(),
           ),
         );
+        if (args.ffi) {
+          cppFiles.push(
+            writeFile(
+              `${toSnakeCase(prefix)}_ffi.hpp`,
+              gen.generateFfiHeader(),
+            ),
+          );
+          cppFiles.push(
+            writeFile(
+              `${toSnakeCase(prefix)}_ffi.cpp`,
+              gen.generateFfiSource(),
+            ),
+          );
+        }
       }
       if (args.client) {
         cppFiles.push(

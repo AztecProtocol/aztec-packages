@@ -9,6 +9,11 @@
     ".": {
       "types": "./dest/index.d.ts",
       "import": "./dest/index.js"
+    },
+    "./wasm": {
+      "types": "./dest/wasm/index.node.d.ts",
+      "browser": "./dest/wasm/index.browser.js",
+      "default": "./dest/wasm/index.node.js"
     }
   },
   "scripts": {

@@ -212,6 +212,29 @@ msgpack uses the smallest encoding that fits the value, not the declared type:
 a `u64` of `5` encodes as a single positive-fixint byte. Decoders MUST accept
 any integer encoding width for any integer field.
 
+### FFI entry
+
+A service linked into its caller — a native library, or a wasm reactor — takes
+requests through one exported C symbol instead of a transport:
+
+```c
+void  ipc_ffi_entry(const uint8_t* input, size_t input_len,
+                    uint8_t** output, size_t* output_len);
+void* ipc_ffi_alloc(size_t size);
+void  ipc_ffi_free(void* ptr);
+```
+
+`input` is exactly the request payload above — no framing envelope, since an
+in-process call has no transport — and `*output` receives the response payload
+in a buffer from `ipc_ffi_alloc()` that the caller releases with
+`ipc_ffi_free()` (both malloc/free-compatible). Input buffers the caller hands
+over are allocated the same way when the caller lives outside the module's
+memory (wasm). The entry is not thread-safe; callers serialize their calls.
+`--server --ffi` generates it; the client side is the Rust/Zig `ffi_backend`
+templates natively and `@aztec-foundation/ipc-runtime/wasm` for a wasm module,
+which also expects a wasi reactor (`_initialize`, WASI imports, wasi-threads
+`thread-spawn` for a threads build).
+
 ## Schema versioning
 
 A SHA-256 hash of the schema can be computed and embedded in generated code for

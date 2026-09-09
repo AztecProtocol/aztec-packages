@@ -9,6 +9,8 @@ set(BB_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
 if(NOT FUZZING)
     set(BB_GEN_OUTPUTS
         ${BB_GEN_DIR}/bb_dispatch.hpp
+        ${BB_GEN_DIR}/bb_ffi.cpp
+        ${BB_GEN_DIR}/bb_ffi.hpp
         ${BB_GEN_DIR}/bb_ipc_server.hpp
         ${BB_GEN_DIR}/bb_types.hpp
         ${BB_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
@@ -20,6 +22,7 @@ if(NOT FUZZING)
         ${IPC_CODEGEN_DIR}/src/*.ts
         ${IPC_CODEGEN_DIR}/templates/cpp/*.hpp
     )
+    # --ffi emits the in-process entry (ipc_ffi_entry) bb.js's wasm backend and barretenberg-rs call.
     add_custom_command(
         OUTPUT ${BB_GEN_OUTPUTS}
         COMMAND node --experimental-strip-types --experimental-transform-types --no-warnings
@@ -28,11 +31,12 @@ if(NOT FUZZING)
                 --lang cpp
                 --out ${BB_GEN_DIR}
                 --server
+                --ffi
                 --cpp-namespace bb::bbapi
                 --cpp-include-dir barretenberg/bbapi/generated
                 --strip-method-prefix
         DEPENDS ${BB_SCHEMA} ${IPC_CODEGEN_SRC}
-        COMMENT "Generating BB IPC wire types + server dispatch from bb_schema.json"
+        COMMENT "Generating BB IPC wire types + server dispatch + FFI entry from bb_schema.json"
         VERBATIM
     )
     add_custom_target(bb_ipc_generated DEPENDS ${BB_GEN_OUTPUTS})
@@ -48,6 +52,12 @@ barretenberg_module(bbapi common chonk dsl crypto_poseidon2 crypto_pedersen_comm
 
 if(NOT FUZZING)
     add_dependencies(bbapi_objects bb_ipc_generated)
+    # The FFI entry is generated at build time, so the module's configure-time source glob misses it
+    # on a clean tree; list it explicitly (skipping the duplicate once the glob does see it).
+    get_target_property(BBAPI_SOURCES bbapi_objects SOURCES)
+    if(NOT "${BB_GEN_DIR}/bb_ffi.cpp" IN_LIST BBAPI_SOURCES)
+        target_sources(bbapi_objects PRIVATE ${BB_GEN_DIR}/bb_ffi.cpp)
+    endif()
 endif()
 
 # bbapi_tests needs vm2_stub to resolve dsl's AVM recursion constraint references

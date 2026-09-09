@@ -1,10 +1,10 @@
+import { AsyncApi, SyncApi } from '@aztec-foundation/bb.js-api';
+
 import { BackendOptions, BackendType } from '../bb_backends/index.js';
 import { IMsgpackBackendAsync, IMsgpackBackendSync } from '../bb_backends/interface.js';
 import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
 import { BBApiException } from '../bbapi_exception.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
-import { AsyncApi } from '../generated/async.js';
-import { SyncApi } from '../generated/sync.js';
 
 const DEFAULT_BB_CRS_SIZE = 2 ** 19;
 // Keep the iOS default separate so it can diverge when mobile memory limits require it.
@@ -54,11 +54,8 @@ export class Barretenberg extends AsyncApi {
     if (options.backend) {
       // Explicit backend required - no fallback
       const backend = new Barretenberg(await createAsyncBackend(options.backend, options, logger), options);
-      if (
-        !options.skipSrsInit &&
-        (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker)
-      ) {
-        await backend.initSRSChonk(options.srsSize);
+      if (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker) {
+        await backend.initWasm();
       }
       return backend;
     }
@@ -69,18 +66,27 @@ export class Barretenberg extends AsyncApi {
       } catch (err: any) {
         logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
         const backend = new Barretenberg(await createAsyncBackend(BackendType.Wasm, options, logger), options);
-        if (!options.skipSrsInit) {
-          await backend.initSRSChonk(options.srsSize);
-        }
+        await backend.initWasm();
         return backend;
       }
     } else {
       logger(`In browser, using WASM over worker backend.`);
       const backend = new Barretenberg(await createAsyncBackend(BackendType.WasmWorker, options, logger), options);
-      if (!options.skipSrsInit) {
-        await backend.initSRSChonk(options.srsSize);
-      }
+      await backend.initWasm();
       return backend;
+    }
+  }
+
+  /**
+   * A WASM backend starts with no SRS loaded (a native bb reads its own), and with its code
+   * unoptimized by the engine's baseline tier until it has run.
+   */
+  private async initWasm(): Promise<void> {
+    if (!this.options.skipSrsInit) {
+      await this.initSRSChonk(this.options.srsSize);
+    }
+    if (this.options.warmup) {
+      await this.warmup({});
     }
   }
 

@@ -15,5 +15,6 @@ $NODE "$CODEGEN/src/generate.ts" \
   --out "$DIR/src/generated"
 
 (cd "$DIR" && cargo build --locked --quiet)
-# Compile-check the generated FFI backend (not linked into the binaries).
-(cd "$DIR" && cargo check --locked --quiet --features ffi)
+# The generated FFI entry and the FFI client backend, linked into one crate: the
+# client calls the service in-process (tests/ffi_roundtrip.rs).
+(cd "$DIR" && cargo test --locked --quiet --features ffi)

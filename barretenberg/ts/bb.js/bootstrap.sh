@@ -13,10 +13,9 @@ hash=$(hash_str \
   ${AVM_TRANSPILER:-1})
 
 function prepare_project {
-  (cd .. && ./bootstrap.sh generate_packages)
-  # Same cache-key inputs as barretenberg/ts/bootstrap.sh: the workspaces
-  # portal into ipc-runtime/ts, so its manifest belongs in the key.
-  (cd .. && npm_install_deps "^ipc-runtime/ts/package\.json$")
+  # Generates the workspace packages (including @aztec-foundation/bb.js-api, which bb.js
+  # compiles against) and installs; same cache-key inputs as barretenberg/ts/bootstrap.sh.
+  (cd .. && ./bootstrap.sh build_bb_js_api_ts)
 }
 
 function formatting {
@@ -29,12 +28,13 @@ function build {
   echo_header "bb.js build"
   prepare_project
   yarn formatting
+  # The wasm modules and bb binary bb.js runs at test time ship in bb.js-api; stage them
+  # whether or not bb.js's own build is cached.
+  (cd .. && ./bootstrap.sh build_bb_js_api)
 
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
     yarn clean
-    yarn generate
-    yarn build:wasm
     yarn build:native
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
     cache_upload bb.js-$hash.tar.gz dest build

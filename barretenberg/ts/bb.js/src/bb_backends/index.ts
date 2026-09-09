@@ -25,8 +25,17 @@ export type BackendOptions = {
   /** @description Number of G1 points to download when initializing the CRS/SRS for WASM backends */
   srsSize?: number;
 
-  /** @description Path to download WASM files */
+  /**
+   * @description A bb wasm module to run instead of the one bundled with @aztec-foundation/bb.js-api:
+   * a file path (node) or URL of the (optionally gzipped) module. Defaults to BB_WASM_PATH in node.
+   */
   wasmPath?: string;
+
+  /**
+   * @description After initializing a WASM backend, run bb's Warmup command: a pass over the
+   * prover's hot loops so the engine has optimized them before the first real request.
+   */
+  warmup?: boolean;
 
   /** @description Custom path to bb binary for native backend (overrides automatic detection) */
   bbPath?: string;

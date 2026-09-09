@@ -1,6 +1,7 @@
+import { createWasmBackend, createWasmBackendSync } from '@aztec-foundation/bb.js-api';
+
 import { BackendOptions, BackendType } from '../index.js';
 import type { IMsgpackBackendAsync, IMsgpackBackendSync } from '../interface.js';
-import { BarretenbergWasmAsyncBackend, BarretenbergWasmSyncBackend } from '../wasm.js';
 import { BarretenbergNativeShmSyncBackend } from './native_shm.js';
 import { BarretenbergNativeShmAsyncBackend } from './native_shm_async.js';
 import { BarretenbergNativeSocketAsyncBackend } from './native_socket.js';
@@ -46,16 +47,21 @@ export async function createAsyncBackend(
 
     case BackendType.Wasm:
     case BackendType.WasmWorker: {
-      const useWorker = type === BackendType.WasmWorker;
-      logger(`Using WASM backend (worker: ${useWorker})`);
-      return await BarretenbergWasmAsyncBackend.new({
+      // WasmWorker hosts the module in a worker thread; Wasm runs it on the calling thread, where
+      // every call blocks until bb returns.
+      const worker = type === BackendType.WasmWorker;
+      logger(`Using WASM backend (worker: ${worker})`);
+      const backend = await createWasmBackend({
         threads: options.threads,
-        wasmPath: options.wasmPath,
+        module: options.wasmPath,
         logger: options.logger,
         memory: options.memory,
-        useWorker,
-        unref: options.unref,
+        worker,
       });
+      if (options.unref) {
+        backend.unref();
+      }
+      return backend;
     }
 
     default:
@@ -94,7 +100,15 @@ export async function createSyncBackend(
 
     case BackendType.Wasm: {
       logger('Using WASM backend');
-      return await BarretenbergWasmSyncBackend.new(options.wasmPath, logger);
+      const backend = await createWasmBackendSync({
+        module: options.wasmPath,
+        logger: options.logger,
+        memory: options.memory,
+      });
+      if (options.unref) {
+        backend.unref();
+      }
+      return backend;
     }
 
     default:

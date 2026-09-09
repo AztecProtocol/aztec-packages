@@ -5,6 +5,7 @@ ROOT=$(git rev-parse --show-toplevel)
 BB_AVM_SIM_BINARY=bb-avm-sim
 BB_AVM_SIM_PACKAGE=@aztec-foundation/bb-avm-sim
 CDB_PACKAGE=@aztec-foundation/cdb
+BB_JS_API_PACKAGE=@aztec-foundation/bb.js-api
 
 hash=$(hash_str \
   $(bb.js/bootstrap.sh hash) \
@@ -49,12 +50,91 @@ function generate_cdb_package {
     --package-name "$CDB_PACKAGE"
 }
 
-# Both bb-avm-sim and cdb are gitignored workspaces declared in package.json, so
-# `yarn install --immutable` fails against the committed lockfile unless both exist.
+# The bb API as a generated client package: typed AsyncApi/SyncApi over bb spawned as a
+# process (uds, shm) or run in-process as the wasm module (node and browsers). bb.js is
+# a consumer of this package, keeping only its facades and CRS handling.
+function generate_bb_js_api_package {
+  local bbapi="$ROOT/barretenberg/cpp/src/barretenberg/bbapi"
+  # bb.js keeps its historical API surface (poseidon2Hash, Poseidon2Hash), so the Bb
+  # service prefix is stripped from identifiers; wire tags keep it.
+  node --experimental-strip-types --experimental-transform-types --no-warnings \
+    "$ROOT/ipc-codegen/src/generate.ts" \
+    --schema "$bbapi/bb_schema.json" \
+    --lang ts \
+    --client \
+    --out "$ROOT/barretenberg/ts/bb.js-api/src/generated" \
+    --package "$ROOT/barretenberg/ts/bb.js-api" \
+    --package-name "$BB_JS_API_PACKAGE" \
+    --binary-name bb \
+    --binary-env-var BB_BINARY_PATH \
+    --strip-method-prefix \
+    --strip-type-prefix \
+    --curve-constants "$bbapi/bb_curve_constants.json" \
+    --package-transports uds,shm,wasm \
+    --package-ipc-path-args 'msgpack,run,--input,{path}' \
+    --package-wasm-module barretenberg.wasm.gz \
+    --package-wasm-threads-module barretenberg-threads.wasm.gz \
+    --package-wasm-host-imports "$ROOT/barretenberg/ts/codegen/bb_wasm_host_imports.ts"
+}
+
+# bb-avm-sim, cdb and bb.js-api are gitignored workspaces declared in package.json, so
+# `yarn install --immutable` fails against the committed lockfile unless all exist.
 # Generate them together before installing, whichever one we're about to build.
 function generate_packages {
   generate_bb_avm_sim_package
   generate_cdb_package
+  generate_bb_js_api_package
+}
+
+# The wasm builds the bb.js-api package ships: threads (node, cross-origin isolated
+# browsers) and single-thread (browsers without SharedArrayBuffer).
+function copy_bb_js_api_wasm {
+  mkdir -p bb.js-api/wasm
+  cp "$ROOT/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm.gz" bb.js-api/wasm/barretenberg-threads.wasm.gz
+  cp "$ROOT/barretenberg/cpp/build-wasm/bin/barretenberg.wasm.gz" bb.js-api/wasm/barretenberg.wasm.gz
+}
+
+function copy_bb_js_api_native {
+  local target_dir="bb.js-api/build/$(arch)-$(os)"
+  mkdir -p "$target_dir"
+  cp "$ROOT/barretenberg/cpp/build/bin/bb" "$target_dir/bb"
+}
+
+function copy_bb_js_api_cross {
+  if [ -n "${1:-}" ]; then
+    local cross_arch="$1"
+    mkdir -p "bb.js-api/build/$cross_arch"
+    cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/bb" "bb.js-api/build/$cross_arch/bb"
+  elif semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
+    for cross_arch in arm64-linux amd64-macos arm64-macos; do
+      mkdir -p "bb.js-api/build/$cross_arch"
+      cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/bb" "bb.js-api/build/$cross_arch/bb"
+    done
+  else
+    echo "This task is expected to be run with an explicit arch or in an x86 release context."
+  fi
+}
+
+function prepare_bb_js_api_arch_packages {
+  (cd bb.js-api && ./scripts/prepare_arch_packages.sh "$@")
+}
+
+# Generate + compile the package bb.js compiles against, without the wasm/binary artifacts
+# (enough for type-checking, formatting and lint). Not cached: it is a few seconds of tsc.
+function build_bb_js_api_ts {
+  generate_packages
+  npm_install_deps "$IPC_RUNTIME_PKG"
+  yarn workspace "$BB_JS_API_PACKAGE" build
+}
+
+# The full package: compiled TS plus the wasm modules and this machine's bb binary. bb.js
+# runs these at test time, so it stages them even when its own build is cached.
+function build_bb_js_api {
+  echo_header "bb.js-api package build"
+  build_bb_js_api_ts
+  copy_bb_js_api_wasm
+  copy_bb_js_api_native
+  prepare_bb_js_api_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/bb"
 }
 
 function copy_bb_avm_sim_native {
@@ -173,11 +253,18 @@ function cross_copy_bb_avm_sim {
 }
 
 function cross_copy {
+  cross_copy_bb_js_api "$@"
   cross_copy_bb_js "$@"
 }
 
 function get_projects {
   echo "$PWD/bb.js"
+  if [ -d bb.js-api ]; then
+    for package_dir in bb.js-api/packages/*; do
+      [ -d "$package_dir" ] && echo "$PWD/$package_dir"
+    done
+    echo "$PWD/bb.js-api"
+  fi
   if [ -d bb-avm-sim ]; then
     for package_dir in bb-avm-sim/packages/*; do
       [ -d "$package_dir" ] && echo "$PWD/$package_dir"
@@ -209,7 +296,31 @@ function release_cdb {
   (cd cdb && retry "deploy_npm ${REF_NAME#v}")
 }
 
+function cross_copy_bb_js_api {
+  generate_packages
+  copy_bb_js_api_cross "$@"
+  npm_install_deps "$IPC_RUNTIME_PKG"
+  yarn workspace "$BB_JS_API_PACKAGE" build
+  prepare_bb_js_api_arch_packages
+}
+
+# bb.js depends on bb.js-api, so it is published first (with its arch packages).
+function release_bb_js_api {
+  generate_packages
+  copy_bb_js_api_wasm
+  copy_bb_js_api_native
+  copy_bb_js_api_cross
+  npm_install_deps "$IPC_RUNTIME_PKG"
+  yarn workspace "$BB_JS_API_PACKAGE" build
+  prepare_bb_js_api_arch_packages
+  for package_dir in bb.js-api/packages/*; do
+    (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
+  done
+  (cd bb.js-api && retry "deploy_npm ${REF_NAME#v}")
+}
+
 function release {
+  release_bb_js_api
   (cd bb.js && ./bootstrap.sh release)
   release_bb_avm_sim
   release_cdb
@@ -217,7 +328,8 @@ function release {
 }
 
 export -f generate_bb_avm_sim_package copy_bb_avm_sim_native copy_bb_avm_sim_cross generate_cdb_package generate_packages
-export -f build_bb_js build_bb_avm_sim build_cdb build cross_copy_bb_js cross_copy_bb_avm_sim release release_cdb
+export -f generate_bb_js_api_package copy_bb_js_api_wasm copy_bb_js_api_native copy_bb_js_api_cross prepare_bb_js_api_arch_packages build_bb_js_api_ts build_bb_js_api
+export -f build_bb_js build_bb_avm_sim build_cdb build cross_copy_bb_js cross_copy_bb_avm_sim cross_copy_bb_js_api release release_cdb release_bb_js_api
 
 case "$cmd" in
   "")

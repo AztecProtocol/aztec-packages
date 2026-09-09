@@ -56,10 +56,62 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec-foundation/bb.js-api-darwin-arm64@npm:0.1.0, @aztec-foundation/bb.js-api-darwin-arm64@workspace:bb.js-api/packages/bb.js-api-darwin-arm64":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js-api-darwin-arm64@workspace:bb.js-api/packages/bb.js-api-darwin-arm64"
+  languageName: unknown
+  linkType: soft
+
+"@aztec-foundation/bb.js-api-darwin-x64@npm:0.1.0, @aztec-foundation/bb.js-api-darwin-x64@workspace:bb.js-api/packages/bb.js-api-darwin-x64":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js-api-darwin-x64@workspace:bb.js-api/packages/bb.js-api-darwin-x64"
+  languageName: unknown
+  linkType: soft
+
+"@aztec-foundation/bb.js-api-linux-arm64@npm:0.1.0, @aztec-foundation/bb.js-api-linux-arm64@workspace:bb.js-api/packages/bb.js-api-linux-arm64":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js-api-linux-arm64@workspace:bb.js-api/packages/bb.js-api-linux-arm64"
+  languageName: unknown
+  linkType: soft
+
+"@aztec-foundation/bb.js-api-linux-x64@npm:0.1.0, @aztec-foundation/bb.js-api-linux-x64@workspace:bb.js-api/packages/bb.js-api-linux-x64":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js-api-linux-x64@workspace:bb.js-api/packages/bb.js-api-linux-x64"
+  languageName: unknown
+  linkType: soft
+
+"@aztec-foundation/bb.js-api@workspace:^, @aztec-foundation/bb.js-api@workspace:bb.js-api":
+  version: 0.0.0-use.local
+  resolution: "@aztec-foundation/bb.js-api@workspace:bb.js-api"
+  dependencies:
+    "@aztec-foundation/bb.js-api-darwin-arm64": "npm:0.1.0"
+    "@aztec-foundation/bb.js-api-darwin-x64": "npm:0.1.0"
+    "@aztec-foundation/bb.js-api-linux-arm64": "npm:0.1.0"
+    "@aztec-foundation/bb.js-api-linux-x64": "npm:0.1.0"
+    "@aztec-foundation/ipc-runtime": "@aztec-foundation/ipc-runtime"
+    "@types/node": "npm:^22.15.17"
+    msgpackr: "npm:^1.11.2"
+    tslib: "npm:^2.4.0"
+    typescript: "npm:^5.3.3"
+  dependenciesMeta:
+    "@aztec-foundation/bb.js-api-darwin-arm64":
+      optional: true
+    "@aztec-foundation/bb.js-api-darwin-x64":
+      optional: true
+    "@aztec-foundation/bb.js-api-linux-arm64":
+      optional: true
+    "@aztec-foundation/bb.js-api-linux-x64":
+      optional: true
+  bin:
+    bb: ./dest/bin.js
+  languageName: unknown
+  linkType: soft
+
 "@aztec-foundation/bb.js@workspace:bb.js":
   version: 0.0.0-use.local
   resolution: "@aztec-foundation/bb.js@workspace:bb.js"
   dependencies:
+    "@aztec-foundation/bb.js-api": "workspace:^"
     "@aztec-foundation/ipc-runtime": "@aztec-foundation/ipc-runtime"
     "@jest/globals": "npm:^30.0.0"
     "@swc/core": "npm:^1.10.1"
@@ -71,7 +123,6 @@ __metadata:
     "@types/pako": "npm:^2.0.3"
     "@types/source-map-support": "npm:^0.5.6"
     "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
-    comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
     eslint: "npm:^9.26.0"
     eslint-config-prettier: "npm:^10.1.5"
@@ -2691,13 +2742,6 @@ __metadata:
   version: 1.1.4
   resolution: "color-name@npm:1.1.4"
   checksum: 10/b0445859521eb4021cd0fb0cc1a75cecf67fceecae89b63f62b201cca8d345baf8b952c966862a9d9a2632987d4f6581f0ec8d957dfacece86f0a7919316f610
-  languageName: node
-  linkType: hard
-
-"comlink@npm:^4.4.1":
-  version: 4.4.2
-  resolution: "comlink@npm:4.4.2"
-  checksum: 10/ecee53b5b4536b3aa3f7636c383f831e68fbc013def77665cc7fad873d72cfa23b994e1ec4b49e83e4e909c1089a03acae03a523e33a5e5ed938cdb613456434
   languageName: node
   linkType: hard
 
