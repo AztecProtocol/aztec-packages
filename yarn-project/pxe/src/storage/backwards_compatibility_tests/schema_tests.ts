@@ -129,13 +129,15 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const capsuleStore = new CapsuleStore(kvStore);
 
       const changeSetId = 'fixture-change-set';
+      capsuleStore.beginChangeSet(changeSetId);
+
       const contractAddress = AztecAddress.fromBigIntUnsafe(2n);
       const scope = AztecAddress.fromBigIntUnsafe(3n);
 
       // Three setCapsule calls (2-element, 1-element, 0-element value vector) pin every value-encoding length case.
-      capsuleStore.setCapsule(contractAddress, new Fr(5n), [new Fr(7n), new Fr(11n)], changeSetId, scope);
-      capsuleStore.setCapsule(contractAddress, new Fr(13n), [new Fr(17n)], changeSetId, scope);
-      capsuleStore.setCapsule(contractAddress, new Fr(19n), [], changeSetId, scope);
+      await capsuleStore.setCapsule(contractAddress, new Fr(5n), [new Fr(7n), new Fr(11n)], changeSetId, scope);
+      await capsuleStore.setCapsule(contractAddress, new Fr(13n), [new Fr(17n)], changeSetId, scope);
+      await capsuleStore.setCapsule(contractAddress, new Fr(19n), [], changeSetId, scope);
       await kvStore.transactionAsync(() => capsuleStore.commitChangeSet(changeSetId));
     },
     snapshotStore: async kvStore => ({
@@ -223,6 +225,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     writeToStore: async kvStore => {
       const factStore = new FactStore(kvStore);
       const changeSetId = 'fixture-change-set';
+      factStore.beginChangeSet(changeSetId);
       const contract = AztecAddress.fromBigIntUnsafe(100n);
       const scope = AztecAddress.fromBigIntUnsafe(1n);
       const factCollectionTypeId = new Fr(7n);
@@ -433,6 +436,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const privateEventStore = new PrivateEventStore(kvStore);
 
       const changeSetId = 'fixture-change-set';
+      privateEventStore.beginChangeSet(changeSetId);
 
       // Two (contract, selector) pairs and two block numbers so each multimap exhibits both a multi-value row
       // (contractA/selectorA → {e1, e2} and blockN1 → {e1, e2}) and a contrasting single-value row.
@@ -599,6 +603,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const senderTaggingStore = new SenderTaggingStore(kvStore);
 
       const changeSetId = 'fixture-change-set';
+      senderTaggingStore.beginChangeSet(changeSetId);
       const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigIntUnsafe(3n));
       const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigIntUnsafe(7n));
       const secretC = new AppTaggingSecret(new Fr(11n), AztecAddress.fromBigIntUnsafe(13n));
@@ -629,8 +634,9 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         changeSetId,
       );
 
-      // Re-store the exact same (secret, txHash, range). Exercises the "exact duplicate — skip" branch at
-      // sender_tagging_store.ts:199. The snapshot must be unchanged by this call; it pins the no-op assumption.
+      // Re-store the exact same (secret, txHash, range). Exercises the "exact duplicate — skip" branch of
+      // SenderTaggingStore#storePendingIndexes. The snapshot must be unchanged by this call; it pins the no-op
+      // assumption.
       await senderTaggingStore.storePendingIndexes(
         [{ extendedSecret: secretA, lowestIndex: 4, highestIndex: 7 }],
         txHashB,

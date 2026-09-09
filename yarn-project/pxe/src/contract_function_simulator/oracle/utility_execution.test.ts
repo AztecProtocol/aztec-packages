@@ -118,6 +118,7 @@ describe('Utility Execution test suite', () => {
     taggingSecretSourcesStore = mock<TaggingSecretSourcesStore>();
     capsuleStore = mock<CapsuleStore>();
     factStore = new FactStore(await openTmpStore('utility-exec-fact-test'));
+    factStore.beginChangeSet('test-change-set-id');
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();
@@ -396,9 +397,9 @@ describe('Utility Execution test suite', () => {
 
         capsuleStore.getCapsule.mockResolvedValueOnce(capsule);
 
-        utilityExecutionOracle.setCapsule(contractAddress, slot, capsule, scope);
+        await utilityExecutionOracle.setCapsule(contractAddress, slot, capsule, scope);
         await utilityExecutionOracle.getCapsule(contractAddress, slot, capsule.length, scope);
-        utilityExecutionOracle.deleteCapsule(contractAddress, slot, scope);
+        await utilityExecutionOracle.deleteCapsule(contractAddress, slot, scope);
         await utilityExecutionOracle.copyCapsule(contractAddress, srcSlot, dstSlot, 1, scope);
 
         expect(capsuleStore.setCapsule).toHaveBeenCalledWith(

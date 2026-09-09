@@ -12,12 +12,13 @@ import type { ChangeSetId, StagedStore } from './staged_write_coordinator.js';
  * abort) finds no matching change set and throws, so it cannot stage new data for a dead one.
  *
  * The staged data and the store's kv handles live in this base class and are only reachable through
- * {@link withChangeSet} (change set operations, with the DB read-only), {@link flushChangeSet} (the commit-time
- * write-back) and {@link applyRollback} (the reorg truncation).
+ * {@link withChangeSet} (change set operations, staged data only), {@link withChangeSetAndDb} (change set operations
+ * that also read the DB), {@link flushChangeSet} (the commit-time write-back) and {@link applyRollback} (the reorg
+ * truncation).
  *
- * The class is thread safe: an internal lock serializes the operations run through {@link withChangeSet}, so two of
- * them issued concurrently (e.g. under `Promise.all`) never interleave across awaits. Subclasses can therefore read
- * staged data and write it back without handling atomicity themselves.
+ * The class is thread safe: an internal lock serializes the operations run through {@link withChangeSet} and
+ * {@link withChangeSetAndDb}, so two of them issued concurrently (e.g. under `Promise.all`) never interleave across
+ * awaits. Subclasses can therefore read staged data and write it back without handling atomicity themselves.
  *
  * @typeParam TChangeSet - The in-memory buffer a change set accumulates its writes in, built empty by `buildChangeSet`
  * on every {@link beginChangeSet} and dropped when the change set ends. A store keyed by id might stage
@@ -117,40 +118,65 @@ export abstract class BaseStagingStore<TChangeSet, TDb> implements StagedStore, 
 
   /**
    * Writes the change set's staged data to persistent storage. Runs inside the caller's transaction: it must not
-   * open a transaction of its own or call {@link withChangeSet}.
+   * open a transaction of its own or call {@link withChangeSetAndDb}.
    */
   protected abstract flushChangeSet(changeSet: TChangeSet, db: TDb): Promise<void>;
 
   /**
    * Deletes the state originating from blocks strictly above `toBlock`. Runs inside the transaction owned by
-   * {@link rollbackToBlock}'s caller: it must not open a transaction of its own or call {@link withChangeSet}.
+   * {@link rollbackToBlock}'s caller: it must not open a transaction of its own or call {@link withChangeSetAndDb}.
    */
   protected abstract applyRollback(toBlock: number, db: TDb): Promise<void>;
 
   /**
-   * Runs a change set operation (read or write). Takes the store's lock, opens a transaction, and calls `fn` with the
-   * change set's staged data and a read-only view of the DB (writes are staged in memory until {@link flushChangeSet}
-   * runs on commit).
+   * Runs a change set operation that reads the DB. Takes the store's lock, opens a transaction, and calls `fn` with
+   * the change set's staged data and a read-only view of the DB (writes are staged in memory until
+   * {@link flushChangeSet} runs on commit).
+   *
+   * Prefer {@link withChangeSet} unless `fn` actually reads the DB.
    *
    * The lock makes the store thread safe: two operations issued concurrently (e.g. under `Promise.all`) cannot
    * interleave across awaits, so `fn` can read staged data and write it back without handling atomicity itself.
    *
    * @throws If the change set is not open.
    */
-  protected async withChangeSet<R>(
+  protected withChangeSetAndDb<R>(
     changeSetId: ChangeSetId,
     fn: (changeSet: TChangeSet, db: ReadonlyDb<TDb>) => Promise<R>,
   ): Promise<R> {
+    return this.#runLocked(changeSetId, () =>
+      this.#store.transactionAsync(() => {
+        // Re-resolve after the wait: the change set may have been discarded while this operation queued on the lock
+        // or on the store's transaction queue.
+        const current = this.#currentOrThrow(changeSetId);
+        return fn(current.changeSet, this.#db);
+      }),
+    );
+  }
+
+  /**
+   * Runs a change set operation over the staged data alone: takes the store's lock and calls `fn` with the change
+   * set's staged data, opening no db transaction.
+   *
+   * Use {@link withChangeSetAndDb} instead when `fn` reads the DB.
+   *
+   * @throws If the change set is not open.
+   */
+  protected withChangeSet<R>(changeSetId: ChangeSetId, fn: (changeSet: TChangeSet) => R | Promise<R>): Promise<R> {
+    return this.#runLocked(changeSetId, async () => {
+      // Re-resolve after the wait: the change set may have been discarded while this operation queued on the lock.
+      const current = this.#currentOrThrow(changeSetId);
+      return await fn(current.changeSet);
+    });
+  }
+
+  async #runLocked<R>(changeSetId: ChangeSetId, run: () => Promise<R>): Promise<R> {
     const entered = this.#currentOrThrow(changeSetId);
     entered.inFlight++;
     try {
       await this.#lock.acquire();
       try {
-        return await this.#store.transactionAsync(() => {
-          // Re-resolve after the wait: the change set may have been discarded while this operation queued on the lock.
-          const current = this.#currentOrThrow(changeSetId);
-          return fn(current.changeSet, this.#db);
-        });
+        return await run();
       } finally {
         this.#lock.release();
       }

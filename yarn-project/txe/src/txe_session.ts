@@ -634,7 +634,7 @@ export class TXESession implements TXESessionStateHandler {
     await handler.syncContractNonOracleMethod(contractAddress, scope, this.currentChangeSetId);
     // Cycle the change set to commit the stores after the contract sync.
     await this.cycleOperation();
-    return handler.getPrivateEvents(selector, contractAddress, scope);
+    return handler.getPrivateEvents(selector, contractAddress, scope, this.currentChangeSetId);
   }
 
   private handlerAsTxe(): ITxeExecutionOracle {
