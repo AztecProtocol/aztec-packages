@@ -8,7 +8,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import { BlockHash } from '@aztec/stdlib/block';
@@ -1298,8 +1298,12 @@ describe('ProposalHandler checkpoint validation', () => {
         );
       }
 
-      /** Asserts a refusal that must not reach slashing, the invalid-slot marker or a valid outcome. */
-      function expectNonPunitiveRefusal(
+      /**
+       * Asserts what a refusal actually records: it is not slashable and sets no invalid-slot marker, and the
+       * slot's outcome is `unvalidated` rather than valid. That last part is not neutral — the sentinel counts
+       * `unvalidated` as a missed proposal for the slot's proposer whenever no checkpoint for the slot lands.
+       */
+      function expectRefusalRecordedAsUnvalidated(
         result: CheckpointProposalValidationResult,
         reason: 'inbox_endpoint_not_live' | 'inbox_endpoint_unverifiable',
       ) {
@@ -1344,14 +1348,14 @@ describe('ProposalHandler checkpoint validation', () => {
           { seq: 4n, total: 9n, rollingHash: inboxRollingHash },
         ]);
 
-        expectNonPunitiveRefusal(await validate(header), 'inbox_endpoint_not_live');
+        expectRefusalRecordedAsUnvalidated(await validate(header), 'inbox_endpoint_not_live');
       });
 
       it('refuses a live boundary that commits to a different message prefix than the signed one', async () => {
         const { header } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
         inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: Fr.random() }]);
 
-        expectNonPunitiveRefusal(await validate(header), 'inbox_endpoint_not_live');
+        expectRefusalRecordedAsUnvalidated(await validate(header), 'inbox_endpoint_not_live');
       });
 
       // A missing endpoint is never special-cased into success: the ring may simply have evicted it.
@@ -1359,14 +1363,14 @@ describe('ProposalHandler checkpoint validation', () => {
         const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
         inbox.setBuckets([{ seq: 40n, total: 5000n, rollingHash: inboxRollingHash }]);
 
-        expectNonPunitiveRefusal(await validate(header), 'inbox_endpoint_not_live');
+        expectRefusalRecordedAsUnvalidated(await validate(header), 'inbox_endpoint_not_live');
       });
 
       it('refuses, without attributing anything to the proposer, when the L1 view cannot be read', async () => {
         const { header } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
         inbox.setUnreadable(new Error('l1 rpc request failed'));
 
-        expectNonPunitiveRefusal(await validate(header), 'inbox_endpoint_unverifiable');
+        expectRefusalRecordedAsUnvalidated(await validate(header), 'inbox_endpoint_unverifiable');
       });
 
       // A provider still catching up reports the boundary below the checkpoint's end. The gate re-reads within the
@@ -1457,6 +1461,64 @@ describe('ProposalHandler checkpoint validation', () => {
         });
         expect(checkpointsBuilder.openCheckpoint).toHaveBeenCalledTimes(1);
         expect(inbox.reads).toHaveLength(2);
+      });
+
+      // A height is not a view: a provider on a stale fork, or one the chain reorged under, answers a call at a
+      // captured block as readily as the canonical chain does. An answer that cannot be shown to come from the
+      // block it was asked at verifies nothing, however exactly its bucket matches.
+      it('refuses a matching endpoint answered from a view it cannot confirm was the one queried', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+        // The block at the captured height keeps changing under the call, so no attempt can bind its answer.
+        inbox.onRead(readIndex => inbox.setViewHash(`0xreplaced${readIndex}`));
+
+        expectRefusalRecordedAsUnvalidated(await validate(header), 'inbox_endpoint_unverifiable');
+      });
+
+      // The two seconds are a ceiling on the stage, not a deadline consulted between attempts: a provider that
+      // accepts the call and never answers must not spend the rest of the slot's duty on one read.
+      it('gives up at its own ceiling when the L1 read never settles', async () => {
+        const { header } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setUnresponsive();
+        // Start of slot 1, so the duty has its full budget: only the stage's own ceiling can end this read.
+        dateProvider.setTime(0);
+        const timer = new Timer();
+
+        const result = await validate(header);
+
+        // Slot 1's duty runs until its 40s attestation deadline; the endpoint stage may only take two seconds.
+        expect(timer.ms()).toBeLessThan(10_000);
+        expectRefusalRecordedAsUnvalidated(result, 'inbox_endpoint_unverifiable');
+      });
+
+      // Pruning the tracker is bookkeeping that happens to read L1 tips. The validator calls this path directly
+      // for its attestation, so a tips read that never answers must not hold the accepted verdict back.
+      it('accepts without waiting on the tracker prune to read L1 tips', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+        blockSource.getL2Tips.mockReturnValue(new Promise(() => {}));
+
+        await expect(validate(header)).resolves.toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
+      });
+
+      // The all-nodes callback and the attestation call the same proposal twice, and `unvalidated` is what the
+      // sentinel counts as a missed proposal for the slot's proposer. An RPC failure on the second call is this
+      // node's problem, and must not turn a checkpoint it did validate into a missed proposal for someone else.
+      it('keeps the slot recorded as valid when a later call cannot read the L1 view', async () => {
+        const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
+        inbox.setBuckets([{ seq: 4n, total: 7n, rollingHash: inboxRollingHash }]);
+        const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
+        await handler.handleCheckpointProposal(proposal, proposalInfo);
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('valid');
+
+        inbox.setUnreadable(new Error('l1 rpc request failed'));
+
+        await expect(handler.handleCheckpointProposal(proposal, proposalInfo)).resolves.toEqual({
+          isValid: false,
+          reason: 'inbox_endpoint_unverifiable',
+          checkpointNumber: CheckpointNumber(1),
+        });
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('valid');
       });
 
       // A refusal describes the L1 view at that instant, so it is not remembered as this proposal's verdict: the

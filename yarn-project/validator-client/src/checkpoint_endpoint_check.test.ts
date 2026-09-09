@@ -95,7 +95,43 @@ describe('checkInboxEndpoint', () => {
     await expect(checkInboxEndpoint(inbox, 200n, hashAt200)).resolves.toEqual({
       verified: false,
       reason: 'unreadable',
+      l1BlockNumber: 900n,
       err,
+    });
+  });
+
+  // A height is not an identity: a provider serving a stale fork answers a call at it as readily as the canonical
+  // chain does. The block is re-read afterwards, and an answer that belongs to a block that is no longer there
+  // names no view, so it cannot verify anything — including a bucket that matches exactly.
+  it('refuses a matching answer read at a block that is no longer the one at that height', async () => {
+    const inbox = makeFakeInbox(ring);
+    inbox.onRead(() => inbox.setViewHash('0xreplaced'));
+
+    await expect(checkInboxEndpoint(inbox, 200n, hashAt200)).resolves.toEqual({
+      verified: false,
+      reason: 'view_replaced',
+      l1BlockNumber: 900n,
+    });
+  });
+
+  it('refuses when the block the answer was read at cannot be identified afterwards', async () => {
+    const inbox = makeFakeInbox(ring);
+    inbox.onRead(() => inbox.setViewHash(null));
+
+    await expect(checkInboxEndpoint(inbox, 200n, hashAt200)).resolves.toMatchObject({
+      verified: false,
+      reason: 'unreadable',
+      l1BlockNumber: 900n,
+    });
+  });
+
+  it('refuses when the head answers without a block identity', async () => {
+    const inbox = makeFakeInbox(ring);
+    inbox.setViewHash(null);
+
+    await expect(checkInboxEndpoint(inbox, 200n, hashAt200)).resolves.toMatchObject({
+      verified: false,
+      reason: 'unreadable',
     });
   });
 });

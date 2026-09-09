@@ -262,9 +262,9 @@ const INBOX_ENDPOINT_RETRY_WINDOW_MS = 2_000;
 const INBOX_ENDPOINT_RETRY_INTERVAL_S = 0.5;
 
 /**
- * Splits an endpoint check failure into a view this node could not read at all and one that answered but did not
- * show the signed position closing a live bucket, so the two stay apart in diagnostics. Neither is attributed to
- * the proposer, and an absent result (the duty was already over) counts as unread.
+ * Splits an endpoint check failure into a view this node could not read, or could not identify, and one that
+ * answered but did not show the signed position ending a live bucket, so the two stay apart in diagnostics.
+ * Neither is attributed to the proposer, and an absent result (the duty was already over) counts as unread.
  */
 function describeEndpointFailure(result: InboxEndpointCheckResult | undefined): {
   reason: CheckpointEndpointReason;
@@ -273,20 +273,27 @@ function describeEndpointFailure(result: InboxEndpointCheckResult | undefined): 
   if (result === undefined || result.verified) {
     return { reason: 'inbox_endpoint_unverifiable', context: {} };
   }
-  if (result.reason === 'unreadable') {
-    return {
-      reason: 'inbox_endpoint_unverifiable',
-      context: { endpointReason: result.reason, err: String(result.err) },
-    };
+  switch (result.reason) {
+    case 'unreadable':
+      return {
+        reason: 'inbox_endpoint_unverifiable',
+        context: { endpointReason: result.reason, l1BlockNumber: result.l1BlockNumber, err: String(result.err) },
+      };
+    case 'view_replaced':
+      return {
+        reason: 'inbox_endpoint_unverifiable',
+        context: { endpointReason: result.reason, l1BlockNumber: result.l1BlockNumber },
+      };
+    default:
+      return {
+        reason: 'inbox_endpoint_not_live',
+        context: {
+          endpointReason: result.reason,
+          endpointTotal: result.endpointTotal,
+          l1BlockNumber: result.l1BlockNumber,
+        },
+      };
   }
-  return {
-    reason: 'inbox_endpoint_not_live',
-    context: {
-      endpointReason: result.reason,
-      endpointTotal: result.endpointTotal,
-      l1BlockNumber: result.l1BlockNumber,
-    },
-  };
 }
 
 /** Block-proposal validation failures that constitute a slashable invalid-block offense. */
@@ -618,6 +625,16 @@ export class ProposalHandler {
       }
       await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
     } else if (this.archiver) {
+      if (budget.signal.aborted) {
+        // Validation outlived the duty: the callback that started it gave up, stopped the budget and returned,
+        // and a read that settled afterwards resumed here. Recording the proposal as this node's pipelining
+        // parent now would be a mutation of accepted state on behalf of a slot nobody is waiting on any more.
+        this.log.warn(
+          `Not setting the proposed checkpoint for slot ${proposal.slotNumber}: its duty is over`,
+          proposalInfo,
+        );
+        return undefined;
+      }
       const set = await this.setProposedCheckpoint(proposal, budget);
       if (set) {
         this.metrics?.recordCheckpointProposalToPipelinedStateDuration(pipeliningTimer.ms());
@@ -1539,7 +1556,8 @@ export class ProposalHandler {
    * proposer: a provider trailing the head has not seen the message that closed the bucket yet, an eviction or a
    * reorg can move the ring after the proposal was signed, and none of that is visible from here. Both are re-read
    * within {@link INBOX_ENDPOINT_RETRY_WINDOW_MS} and the slot's duty budget, whichever is shorter, so a view that
-   * recovers in time still yields a valid verdict, and a stalled read cannot hold the acceptance path open.
+   * recovers in time still yields a valid verdict. That window bounds the whole stage rather than the interval
+   * between attempts, so a read that never settles is abandoned at it and leaves the rest of the duty its budget.
    */
   private async awaitInboxEndpoint(
     proposal: CheckpointProposalCore,
@@ -1557,21 +1575,24 @@ export class ProposalHandler {
     const finalTotalMsgCount = this.blockLeafCount(lastBlock);
     const inboxRollingHash = proposal.checkpointHeader.inboxRollingHash;
     const timer = new Timer();
-    const deadline = new Date(
-      Math.min(budget.deadline.getTime(), this.dateProvider.now() + INBOX_ENDPOINT_RETRY_WINDOW_MS),
-    );
     let last: InboxEndpointCheckResult | undefined;
     try {
-      const verified = await budget.run(`inbox endpoint check for slot ${slot}`, () =>
-        retryUntil(
-          async () => {
-            last = await checkInboxEndpoint(this.inbox, finalTotalMsgCount, inboxRollingHash);
-            return last.verified ? last : undefined;
-          },
-          `live Inbox endpoint at message ${finalTotalMsgCount}`,
-          { deadline, dateProvider: this.dateProvider },
-          INBOX_ENDPOINT_RETRY_INTERVAL_S,
-        ),
+      const verified = await budget.runWithin(
+        `inbox endpoint check for slot ${slot}`,
+        INBOX_ENDPOINT_RETRY_WINDOW_MS,
+        signal =>
+          retryUntil(
+            async () => {
+              // The window is a race, so an attempt that outlives it has no reader left; the loop it would
+              // otherwise keep driving stops here rather than starting another read against the same provider.
+              signal.throwIfAborted();
+              last = await checkInboxEndpoint(this.inbox, finalTotalMsgCount, inboxRollingHash);
+              return last.verified ? last : undefined;
+            },
+            `live Inbox endpoint at message ${finalTotalMsgCount}`,
+            0,
+            INBOX_ENDPOINT_RETRY_INTERVAL_S,
+          ),
       );
       this.log.debug(`Checkpoint's final message position confirmed as a live Inbox endpoint`, {
         ...proposalInfo,
@@ -1844,15 +1865,30 @@ export class ProposalHandler {
       }
     }
 
-    // Record the outcome on the re-execution tracker.
+    // Record the outcome on the re-execution tracker, except where that would forget a validation this node
+    // already completed. p2p evaluates one proposal twice (all-nodes validation, then attestation) and the second
+    // look can fail on something purely local; `unvalidated` reaches the sentinel as a missed proposal for the
+    // slot's proposer, so downgrading a recorded `valid` would charge someone else's validator for an RPC failure
+    // here. Only the very checkpoint that was validated is protected: another archive at this slot still records.
     const outcome = result.isValid ? ('valid' as const) : CHECKPOINT_VALIDATION_REASON_TO_OUTCOME[result.reason];
-    if (outcome !== undefined) {
+    const wouldForgetValid =
+      outcome === 'unvalidated' &&
+      result.checkpointNumber !== undefined &&
+      this.reexecutionTracker.hasReexecuted(result.checkpointNumber, proposal.archive);
+    if (outcome !== undefined && !wouldForgetValid) {
       this.reexecutionTracker.recordOutcome(slot, proposal.archive, outcome, result.checkpointNumber);
     }
 
-    // Drop tracker entries for checkpoints that have reached L1 finality. This is bookkeeping the verdict does not
-    // depend on, so it runs inside the budget and is skipped once the budget is gone rather than holding a caller
-    // that has already been answered on a store read.
+    // Tracker pruning is bookkeeping, not part of the verdict, and it reads L1 tips. Nothing waits on it: it runs
+    // on its own, bounded by whatever is left of the duty so a provider that never answers cannot leave it going
+    // for the rest of the slot.
+    void this.pruneReexecutionTracker(slot, proposalInfo, budget);
+
+    return result;
+  }
+
+  /** Drops re-execution tracker entries for checkpoints that have reached L1 finality. */
+  private async pruneReexecutionTracker(slot: SlotNumber, proposalInfo: LogData, budget: DutyBudget): Promise<void> {
     try {
       const tips = await budget.run(`reexecution tracker prune for slot ${slot}`, () => this.blockSource.getL2Tips());
       const finalizedCheckpointNumber = tips.finalized.checkpoint.number;
@@ -1866,8 +1902,6 @@ export class ProposalHandler {
         this.log.error(`Error pruning reexecution tracker`, err, proposalInfo);
       }
     }
-
-    return result;
   }
 
   /**
