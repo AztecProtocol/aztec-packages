@@ -6,6 +6,7 @@ import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
@@ -396,6 +397,47 @@ describe('ProposalHandler checkpoint validation', () => {
         reason: 'checkpoint_already_published',
         checkpointNumber: CheckpointNumber(1),
       });
+    });
+
+    // retryUntil only consults its deadline once an attempt returns, so an attempt that never settles never
+    // reaches it. The duty budget races the whole loop, so the caller settles instead of being held open.
+    it('settles within the duty budget when a readiness read never returns', async () => {
+      blockSource.getBlocksForSlot.mockImplementation(() => new Promise(() => {}));
+      // attestation_deadline(slot=1) is 40s; leave a short but nonzero budget.
+      dateProvider.setTime(39_800);
+
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+
+      expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
+    });
+
+    it('settles within the grace when a readiness read never returns past the deadline', async () => {
+      blockSource.getBlocksForSlot.mockImplementation(() => new Promise(() => {}));
+      dateProvider.setTime(41_000);
+
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+
+      expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
+    });
+
+    // The cached-valid path re-reads the checkpoint's blocks before reusing a verdict; that read is a store
+    // call like any other and must not be able to hold the duty open either.
+    it('settles when the cached-verdict re-check never returns', async () => {
+      const archiveRoot = Fr.random();
+      blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([archiveRoot]));
+      blockSource.getCheckpointData.mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as CheckpointData);
+      const proposal = await makeProposal({ archiveRoot });
+
+      // First call caches a verdict; it is not valid, so make one that is by re-running against a valid result.
+      const cached = { isValid: true as const, checkpointNumber: CheckpointNumber(1) };
+      (handler as unknown as { lastCheckpointValidationResult: unknown }).lastCheckpointValidationResult = {
+        payloadHash: proposal.getPayloadHash(),
+        result: cached,
+      };
+      blockSource.getBlockData.mockImplementation(() => new Promise(() => {}));
+      dateProvider.setTime(39_800);
+
+      await expect(handler.handleCheckpointProposal(proposal, proposalInfo)).rejects.toThrow(/Duty budget/);
     });
 
     // With <1s remaining the old Math.floor(...) timeout collapsed to 0 ("never time out"). The fix uses
@@ -1397,6 +1439,31 @@ describe('ProposalHandler checkpoint validation', () => {
         expect(elapsedMs).toBeLessThan(WAIT_BUDGET_MS + 2 * WAIT_INTERVAL_MS);
         // Waiting never buys the proposer any network work: the rejection still happens before tx collection.
         expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
+      });
+
+      // The bundle read and tx collection are started together. Once collection has failed there is no proposal
+      // left to validate, so the bundle's retries must stop rather than keep forcing archiver syncs for the rest
+      // of the slot; a catch handler on the abandoned promise only silences its rejection.
+      it('stops the bundle retries when tx collection rejects', async () => {
+        const { proposal, blockHandler, txProvider } = await setupStreamingProposal(signedRef, {
+          nowMs: BEFORE_DEADLINE_MS,
+        });
+        // The metadata check passes so both siblings start; only the bundle read keeps missing.
+        l1ToL2MessageSource.getMessagePosition.mockImplementation(count =>
+          Promise.resolve(count === 0n ? position(0n, Fr.ZERO) : count === 2n ? position(2n, prefixHash) : undefined),
+        );
+        l1ToL2MessageSource.getL1ToL2MessageRange.mockRejectedValue(new Error('range is not fully synced'));
+        txProvider.getTxsForBlockProposal.mockRejectedValue(new Error('tx provider down'));
+
+        const startMs = Date.now();
+        await expect(blockHandler.handleBlockProposal(proposal, {} as any, true)).rejects.toThrow('tx provider down');
+        const elapsedMs = Date.now() - startMs;
+
+        // It gave up as soon as its sibling failed rather than running out the remaining budget.
+        expect(elapsedMs).toBeLessThan(WAIT_BUDGET_MS);
+        const syncsAtGiveUp = blockSource.syncImmediate.mock.calls.length;
+        await sleep(3 * WAIT_INTERVAL_MS);
+        expect(blockSource.syncImmediate).toHaveBeenCalledTimes(syncsAtGiveUp);
       });
 
       it('rejects immediately without syncing when the attestation deadline has already passed', async () => {

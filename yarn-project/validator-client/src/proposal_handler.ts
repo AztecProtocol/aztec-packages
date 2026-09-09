@@ -62,6 +62,7 @@ import {
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import { DutyBudget, DutyBudgetExpiredError } from './duty_budget.js';
 import type { ValidatorMetrics } from './metrics.js';
 import {
   type StreamingBlockCheckReason,
@@ -442,69 +443,98 @@ export class ProposalHandler {
       proposal: ValidatedCheckpointProposalCore,
       _sender: PeerId,
     ): Promise<CheckpointAttestation[] | undefined> => {
+      // This callback runs before the validator's own, and does the reads and waits the attestation later rests on,
+      // so the duty's absolute budget starts here rather than around the attestation alone. A wrapper further in
+      // would leave this work — and every non-validator node, which only ever runs this callback — unbounded.
+      const budget = new DutyBudget(this.getReexecutionDeadline(proposal.slotNumber), this.dateProvider);
       try {
-        const pipeliningTimer = new Timer();
-        const proposalInfo: LogData = {
-          slot: proposal.slotNumber,
-          archive: proposal.archive.toString(),
-          proposer: proposal.getSender()?.toString(),
-        };
-
-        if (this.config.skipCheckpointProposalValidation) {
-          this.log.warn(`Skipping checkpoint proposal validation for slot ${proposal.slotNumber}`, proposalInfo);
-          return undefined;
-        }
-
-        if (await this.epochCache.isEscapeHatchOpenAtSlot(proposal.slotNumber)) {
-          this.log.warn(
-            `Escape hatch open for slot ${proposal.slotNumber}, skipping checkpoint proposal validation`,
-            proposalInfo,
-          );
-          return undefined;
-        }
-
-        // A proposal is "own" when it was signed by a validator key this node also owns. The true local
-        // proposer already built, validated, and stored this checkpoint before broadcasting, so a matching
-        // proposed checkpoint is already in its archiver — skip the redundant re-validation. An HA peer that
-        // shares the proposer's keys sees the same "own" proposal over gossip but never built it, so it has
-        // nothing stored; it falls through to the normal validate-and-persist path below to hydrate the
-        // proposed-checkpoint metadata it needs to build the next slot on top of this checkpoint.
-        const proposer = proposal.getSender();
-        const ownAddresses = this.getOwnValidatorAddresses?.();
-        const isOwnProposal = proposer && ownAddresses?.some(addr => addr === proposer.toString());
-
-        if (isOwnProposal) {
-          const existing = await this.archiver?.getProposedCheckpointData({ slot: proposal.slotNumber });
-          if (existing?.archive.root.equals(proposal.archive)) {
-            this.log.debug(`Skipping sync for existing own checkpoint proposal at slot ${proposal.slotNumber}`);
-            return undefined;
-          }
-        }
-
-        const result = await this.handleCheckpointProposal(proposal, proposalInfo);
-        if (!result.isValid) {
-          // Track invalid checkpoint proposals so offense observers (the attested-invalid-proposal watcher)
-          // work on non-validator nodes too. This handler runs for all nodes; validators also mark via the
-          // failure callback below (idempotent).
-          if (SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT[result.reason]) {
-            this.markInvalidProposalSlot(proposal.slotNumber);
-          }
-          await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
-        } else if (this.archiver) {
-          const set = await this.setProposedCheckpoint(proposal);
-          if (set) {
-            this.metrics?.recordCheckpointProposalToPipelinedStateDuration(pipeliningTimer.ms());
-          }
-        }
+        return await budget.run(`checkpoint proposal validation for slot ${proposal.slotNumber}`, () =>
+          this.handleAllNodesCheckpointProposal(proposal, budget),
+        );
       } catch (err) {
-        this.log.warn(`Error handling checkpoint proposal for slot ${proposal.slotNumber}`, { err });
+        if (err instanceof DutyBudgetExpiredError) {
+          this.log.warn(`Checkpoint proposal handling for slot ${proposal.slotNumber} ran out of duty budget`, {
+            slot: proposal.slotNumber,
+            deadline: budget.deadline.toISOString(),
+          });
+        } else {
+          this.log.warn(`Error handling checkpoint proposal for slot ${proposal.slotNumber}`, { err });
+        }
+        return undefined;
+      } finally {
+        // Anything still retrying belongs to a duty nobody will read from any more.
+        budget.stop(`checkpoint proposal validation for slot ${proposal.slotNumber}`);
       }
-      return undefined;
     };
 
     p2pClient.registerAllNodesCheckpointProposalHandler(checkpointHandler);
 
     return this;
+  }
+
+  /**
+   * The body of the all-nodes checkpoint proposal callback: validates, caches and (for pipelining) records the
+   * proposal as this node's proposed checkpoint. Runs inside the slot's duty budget, which every stage consults
+   * before starting further work.
+   */
+  private async handleAllNodesCheckpointProposal(
+    proposal: ValidatedCheckpointProposalCore,
+    budget: DutyBudget,
+  ): Promise<undefined> {
+    const pipeliningTimer = new Timer();
+    const proposalInfo: LogData = {
+      slot: proposal.slotNumber,
+      archive: proposal.archive.toString(),
+      proposer: proposal.getSender()?.toString(),
+    };
+
+    if (this.config.skipCheckpointProposalValidation) {
+      this.log.warn(`Skipping checkpoint proposal validation for slot ${proposal.slotNumber}`, proposalInfo);
+      return undefined;
+    }
+
+    if (await this.epochCache.isEscapeHatchOpenAtSlot(proposal.slotNumber)) {
+      this.log.warn(
+        `Escape hatch open for slot ${proposal.slotNumber}, skipping checkpoint proposal validation`,
+        proposalInfo,
+      );
+      return undefined;
+    }
+
+    // A proposal is "own" when it was signed by a validator key this node also owns. The true local
+    // proposer already built, validated, and stored this checkpoint before broadcasting, so a matching
+    // proposed checkpoint is already in its archiver — skip the redundant re-validation. An HA peer that
+    // shares the proposer's keys sees the same "own" proposal over gossip but never built it, so it has
+    // nothing stored; it falls through to the normal validate-and-persist path below to hydrate the
+    // proposed-checkpoint metadata it needs to build the next slot on top of this checkpoint.
+    const proposer = proposal.getSender();
+    const ownAddresses = this.getOwnValidatorAddresses?.();
+    const isOwnProposal = proposer && ownAddresses?.some(addr => addr === proposer.toString());
+
+    if (isOwnProposal) {
+      const existing = await this.archiver?.getProposedCheckpointData({ slot: proposal.slotNumber });
+      if (existing?.archive.root.equals(proposal.archive)) {
+        this.log.debug(`Skipping sync for existing own checkpoint proposal at slot ${proposal.slotNumber}`);
+        return undefined;
+      }
+    }
+
+    const result = await this.handleCheckpointProposal(proposal, proposalInfo, budget);
+    if (!result.isValid) {
+      // Track invalid checkpoint proposals so offense observers (the attested-invalid-proposal watcher)
+      // work on non-validator nodes too. This handler runs for all nodes; validators also mark via the
+      // failure callback below (idempotent).
+      if (SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT[result.reason]) {
+        this.markInvalidProposalSlot(proposal.slotNumber);
+      }
+      await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
+    } else if (this.archiver) {
+      const set = await this.setProposedCheckpoint(proposal);
+      if (set) {
+        this.metrics?.recordCheckpointProposalToPipelinedStateDuration(pipeliningTimer.ms());
+      }
+    }
+    return undefined;
   }
 
   /**
@@ -625,11 +655,20 @@ export class ProposalHandler {
     // Collect txs from the proposal. We start doing this as early as possible,
     // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
     // The block's message bundle is an independent read, so derive it concurrently with the collection.
+    const bundleStop = new AbortController();
     const txsPromise = this.collectProposalTxs(proposal, blockNumber, proposalSender, proposalInfo);
-    const bundlePromise = this.awaitStreamingBlockBundle(proposal, blockNumber, parentBlock, proposalInfo);
+    const bundlePromise = this.awaitStreamingBlockBundle(
+      proposal,
+      blockNumber,
+      parentBlock,
+      proposalInfo,
+      bundleStop.signal,
+    );
     // Promise.all settles on the first rejection, so without a handler of its own the loser's later rejection
-    // would surface as an unhandled rejection. Awaiting below still observes whichever rejected first.
-    txsPromise.catch(() => {});
+    // would surface as an unhandled rejection. Awaiting below still observes whichever rejected first. A handler
+    // silences the rejection but does not stop the work: once tx collection has failed there is no proposal left
+    // to validate, so the bundle's retries are cancelled instead of forcing archiver syncs for the rest of the slot.
+    txsPromise.catch(() => bundleStop.abort());
     bundlePromise.catch(() => {});
     const [collected, bundle] = await Promise.all([txsPromise, bundlePromise]);
     if (collected === 'invalid_embedded_txs') {
@@ -795,19 +834,28 @@ export class ProposalHandler {
    * passed on entry (nothing is forced in that case) or when it passes while waiting; anything other than the
    * timeout propagates. Callers own their own logging and whatever they fall back to on `undefined`, and check
    * the deadline themselves when they need to tell "no budget on entry" apart from "timed out while waiting".
+   *
+   * `stop` cancels the loop for callers whose result nobody will read any more — a sibling read that already
+   * failed, or a duty whose budget is gone. Attaching a rejection handler to an abandoned promise keeps the
+   * process quiet but does not stop it forcing an archiver sync every half second for the rest of the slot. The
+   * shared archiver run itself is never cancelled, only this caller's retries.
    */
   private async awaitLocalSync<T>(
     slotNumber: SlotNumber,
     what: string,
     resolve: () => Promise<T | undefined>,
+    stop?: AbortSignal,
   ): Promise<T | undefined> {
     const deadline = this.getReexecutionDeadline(slotNumber);
-    if (deadline.getTime() - this.dateProvider.now() <= 0) {
+    if (deadline.getTime() - this.dateProvider.now() <= 0 || stop?.aborted) {
       return undefined;
     }
     try {
       return await retryUntil(
         async () => {
+          if (stop?.aborted) {
+            throw new TimeoutError(`Stopped waiting for ${what}`);
+          }
           await this.blockSource.syncImmediate();
           return await resolve();
         },
@@ -1027,7 +1075,7 @@ export class ProposalHandler {
    * checkpoint can land on L1 in the target slot; all nodes agree on it. Loosened from the previous
    * next-wall-clock-slot-boundary bound (see the timetable spec / refactor notes).
    */
-  private getReexecutionDeadline(slotNumber: SlotNumber): Date {
+  public getReexecutionDeadline(slotNumber: SlotNumber): Date {
     return new Date(this.timetable.getAttestationDeadline(slotNumber) * 1000);
   }
 
@@ -1101,6 +1149,7 @@ export class ProposalHandler {
     blockNumber: BlockNumber,
     parentBlock: 'genesis' | BlockData,
     proposalInfo: LogData,
+    stop?: AbortSignal,
   ): Promise<StreamingBlockCheckResult> {
     const readBundle = async (): Promise<StreamingBlockCheckResult> => {
       const metadata = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
@@ -1118,10 +1167,15 @@ export class ProposalHandler {
       ...proposalInfo,
     });
     const timer = new Timer();
-    const resolved = await this.awaitLocalSync(slotNumber, `inbox bundle for block ${blockNumber}`, async () => {
-      const result = await readBundle();
-      return !result.accepted && isRetryableStreamingBlockCheckReason(result.reason) ? undefined : result;
-    });
+    const resolved = await this.awaitLocalSync(
+      slotNumber,
+      `inbox bundle for block ${blockNumber}`,
+      async () => {
+        const result = await readBundle();
+        return !result.accepted && isRetryableStreamingBlockCheckReason(result.reason) ? undefined : result;
+      },
+      stop,
+    );
     if (resolved === undefined) {
       this.log.warn(`Timed out reading a consistent Inbox bundle, rejecting proposal`, {
         reason: 'inbox_prefix_sync_timeout',
@@ -1340,6 +1394,7 @@ export class ProposalHandler {
     lastBlockTotal: bigint,
     checkpointInboxRollingHash: Fr,
     proposalInfo: LogData,
+    budget?: DutyBudget,
   ): Promise<{ accepted: true; messages: Fr[] } | { accepted: false; reason: CheckpointInboxPrefixReason }> {
     const read = () =>
       this.readCheckpointConsumedMessages(checkpointStartTotal, lastBlockTotal, checkpointInboxRollingHash);
@@ -1353,10 +1408,15 @@ export class ProposalHandler {
       lastBlockTotal,
       ...proposalInfo,
     });
-    const resolved = await this.awaitLocalSync(slot, `inbox prefix for checkpoint at slot ${slot}`, async () => {
-      const result = await read();
-      return result.accepted ? result : undefined;
-    });
+    const resolved = await this.awaitLocalSync(
+      slot,
+      `inbox prefix for checkpoint at slot ${slot}`,
+      async () => {
+        const result = await read();
+        return result.accepted ? result : undefined;
+      },
+      budget?.signal,
+    );
     if (resolved === undefined) {
       this.log.warn(`Timed out waiting for the checkpoint's consumed Inbox prefix to sync, refusing to attest`, {
         reason: 'inbox_prefix_sync_timeout',
@@ -1508,6 +1568,7 @@ export class ProposalHandler {
   async handleCheckpointProposal(
     proposal: ValidatedCheckpointProposalCore,
     proposalInfo: LogData,
+    budget: DutyBudget = new DutyBudget(this.getReexecutionDeadline(proposal.slotNumber), this.dateProvider),
   ): Promise<CheckpointProposalValidationResult> {
     const slot = proposal.slotNumber;
     const payloadHash = proposal.getPayloadHash();
@@ -1516,9 +1577,15 @@ export class ProposalHandler {
     // on blocks this node holds locally, and p2p makes two calls for one proposal (the all-nodes validation, then
     // the attestation), so an archiver rollback in between can prune those blocks. Re-check that the checkpoint's
     // last block is still local before reusing a valid verdict, or the attestation outlives what it was based on.
+    // That re-check is a store read like any other, so it runs inside the duty budget rather than unbounded.
     if (this.lastCheckpointValidationResult && this.lastCheckpointValidationResult.payloadHash === payloadHash) {
       const cached = this.lastCheckpointValidationResult.result;
-      if (!cached.isValid || (await this.blockSource.getBlockData({ archive: proposal.archive })) !== undefined) {
+      const blocksStillLocal =
+        cached.isValid &&
+        (await budget.run(`cached checkpoint verdict re-check for slot ${slot}`, () =>
+          this.blockSource.getBlockData({ archive: proposal.archive }),
+        )) !== undefined;
+      if (!cached.isValid || blocksStillLocal) {
         this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
         return cached;
       }
@@ -1536,7 +1603,7 @@ export class ProposalHandler {
       );
       result = { isValid: false, reason: 'invalid_fee_asset_price_modifier' };
     } else {
-      result = await this.validateCheckpointProposal(proposal, proposalInfo);
+      result = await this.validateCheckpointProposal(proposal, proposalInfo, budget);
     }
 
     this.lastCheckpointValidationResult = { payloadHash, result };
@@ -1573,6 +1640,7 @@ export class ProposalHandler {
   async validateCheckpointProposal(
     proposal: CheckpointProposalCore,
     proposalInfo: LogData,
+    budget: DutyBudget = new DutyBudget(this.getReexecutionDeadline(proposal.slotNumber), this.dateProvider),
   ): Promise<CheckpointProposalValidationResult> {
     const slot = proposal.slotNumber;
 
@@ -1591,17 +1659,21 @@ export class ProposalHandler {
     // out after a single attempt instead of looping (the immediate-timeout semantics of the deadline overload).
     let snapshot: CheckpointBlocksSnapshot | undefined;
     try {
-      snapshot = await retryUntil(
-        async () => {
-          await this.blockSource.syncImmediate();
-          return await this.readCheckpointBlocksSnapshot(slot, proposal.archive);
-        },
-        `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
-        { deadline, dateProvider: this.dateProvider },
-        0.5,
+      // `retryUntil` only checks its own deadline after an attempt returns, so an attempt that never settles never
+      // reaches it. Race the whole loop against the budget as well, so a hanging read cannot hold the duty open.
+      snapshot = await budget.run(`checkpoint blocks snapshot for slot ${slot}`, () =>
+        retryUntil(
+          async () => {
+            await this.blockSource.syncImmediate();
+            return await this.readCheckpointBlocksSnapshot(slot, proposal.archive);
+          },
+          `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
+          { deadline, dateProvider: this.dateProvider },
+          0.5,
+        ),
       );
     } catch (err) {
-      if (err instanceof TimeoutError) {
+      if (err instanceof TimeoutError || err instanceof DutyBudgetExpiredError) {
         this.log.warn(`Timed out waiting for block with archive matching checkpoint proposal`, proposalInfo);
         return { isValid: false, reason: 'last_block_not_found' };
       }
@@ -1699,6 +1771,7 @@ export class ProposalHandler {
       this.blockLeafCount(blocks[blocks.length - 1]),
       proposal.checkpointHeader.inboxRollingHash,
       proposalInfo,
+      budget,
     );
     if (!consumed.accepted) {
       this.log.warn(`Streaming Inbox checkpoint content check failed, refusing to attest`, {

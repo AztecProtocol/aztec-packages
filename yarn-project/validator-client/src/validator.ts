@@ -627,7 +627,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
-    return await this.createCheckpointAttestationsFromProposal(proposal, attestors, checkpointNumber);
+    // Everything above may have waited on local state to catch up, so the signing gate takes the slot's consensus
+    // attestation deadline: nothing signed after it reaches a peer that would still accept it.
+    return await this.createCheckpointAttestationsFromProposal(
+      proposal,
+      attestors,
+      checkpointNumber,
+      this.proposalHandler.getReexecutionDeadline(proposalSlotNumber),
+    );
   }
 
   /**
@@ -651,20 +658,46 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return true;
   }
 
+  /**
+   * The one place a checkpoint attestation is produced, so `deadline` gates every path that reaches it, the
+   * cached-verdict one included. Callers responding to a peer's proposal pass the slot's consensus attestation
+   * deadline; the proposer's own attestations are produced inside its publish budget instead and pass none.
+   */
   private async createCheckpointAttestationsFromProposal(
     proposal: CheckpointProposalCore,
     attestors: EthAddress[] = [],
     checkpointNumber: CheckpointNumber,
+    deadline?: Date,
   ): Promise<CheckpointAttestation[] | undefined> {
     // Equivocation check: must happen right before signing to minimize the race window
     if (!this.shouldAttestToSlot(proposal.slotNumber)) {
       return undefined;
     }
 
+    const expired = () => deadline !== undefined && this.dateProvider.now() >= deadline.getTime();
+    if (expired()) {
+      this.log.warn(`Not requesting an attestation for slot ${proposal.slotNumber}: past the attestation deadline`, {
+        slot: proposal.slotNumber,
+        deadline: deadline!.toISOString(),
+      });
+      return undefined;
+    }
+
     const attestations = await this.validationService.attestToCheckpointProposal(proposal, attestors, checkpointNumber);
 
-    // Track the proposal we attested to (to prevent equivocation)
+    // Track the proposal we attested to (to prevent equivocation). The signing-protection record stands even when
+    // the signature itself turns out to be too late to use.
     this.lastAttestedProposal = proposal;
+
+    // Signing may be remote (HA), so a request that started in time can still return past the deadline. Peers
+    // reject a stale attestation, so discard it rather than putting it in the pool or handing it back for gossip.
+    if (expired()) {
+      this.log.warn(`Discarding attestations for slot ${proposal.slotNumber}: the signer returned too late`, {
+        slot: proposal.slotNumber,
+        deadline: deadline!.toISOString(),
+      });
+      return undefined;
+    }
 
     await this.p2pClient.addOwnCheckpointAttestations(attestations);
     return attestations;

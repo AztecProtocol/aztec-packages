@@ -63,6 +63,7 @@ import type {
   FullNodeCheckpointsBuilder,
 } from './checkpoint_builder.js';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
+import type { ValidationService } from './duties/validation_service.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import { type CheckpointProposalValidationFailureReason, ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
@@ -899,6 +900,50 @@ describe('ValidatorClient', () => {
       expect(uploadBlobsSpy).toHaveBeenCalled();
 
       uploadBlobsSpy.mockRestore();
+      validateCheckpointSpy.mockRestore();
+    });
+
+    // Signing may be remote (HA), so a request that started in time can return past the attestation deadline.
+    // Peers reject a stale attestation, so it must not reach the pool or be handed back for gossip; the
+    // signing-protection record it produced still stands.
+    it('discards a checkpoint attestation whose signer returns past the attestation deadline', async () => {
+      const addCheckpointAttestationsSpy = jest.spyOn(p2pClient, 'addOwnCheckpointAttestations');
+      epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+
+      const checkpointProposal = await makeCheckpointProposal({
+        archiveRoot: proposal.archive,
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: proposal.slotNumber }),
+        lastBlock: {
+          blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(123), slotNumber: proposal.slotNumber }),
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
+          txHashes: proposal.txHashes,
+        },
+      });
+
+      const validateCheckpointSpy = jest
+        .spyOn(validatorClient.getProposalHandler(), 'validateCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(1) });
+
+      // The signer takes long enough that the slot's attestation deadline passes while it runs.
+      const deadline = validatorClient.getProposalHandler().getReexecutionDeadline(proposal.slotNumber);
+      const validationService = (validatorClient as unknown as { validationService: ValidationService })
+        .validationService;
+      const attest = validationService.attestToCheckpointProposal.bind(validationService);
+      jest
+        .spyOn(validationService, 'attestToCheckpointProposal')
+        .mockImplementation(async (...args: Parameters<typeof attest>) => {
+          const attestations = await attest(...args);
+          dateProvider.setTime(deadline.getTime() + 1_000);
+          return attestations;
+        });
+
+      const attestations = await validatorClient.attestToCheckpointProposal(
+        ValidatedCheckpointProposalCore(checkpointProposal),
+        sender,
+      );
+
+      expect(attestations).toBeUndefined();
+      expect(addCheckpointAttestationsSpy).not.toHaveBeenCalled();
       validateCheckpointSpy.mockRestore();
     });
 
