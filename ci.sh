@@ -31,7 +31,6 @@ function print_usage {
   echo_cmd "shell-container"       "Shell into a running build container. Optional filter tokens (e.g. 'pr-123 bench') select the instance; defaults to the current branch."
   echo_cmd "shell-host"            "Shell into a running build host. Same instance selection as shell-container."
   echo_cmd "test-timings"          "Download per-test timing JSONL for a job: test-timings <ci_log_id> <folder>."
-  echo_cmd "dash"                  "Display a dashboard showing CI runs for the current user."
   echo_cmd "log"                   "Display the log of the given log ID."
   echo_cmd "kill"                  "Terminate running build instances matching the filter tokens (default: current branch)."
   echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
@@ -157,9 +156,6 @@ function multi_job_run {
 export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
 case "$cmd" in
-  dash)
-    watch_ci -s next,prs --user --watch
-    ;;
   fast|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
     # Route through multi_job_run (even for a single instance) so the runner-side
@@ -355,15 +351,16 @@ case "$cmd" in
       key=${key#list/}
     fi
     if [[ "$key" == history_* || "$key" == failed_tests* ]]; then
-      ci3_client_list_get "$key" | $pager
-    elif log=$(ci3_client_log_get "$key" 2>/dev/null); then
+      ci3_client list_get "$key" | $pager
+    elif log=$(ci3_client log_get "$key" 2>/dev/null); then
       echo "$log" | $pager
     else
       # Transitional: CI logs live behind the labs dashboard until it serves the ci3 API, and it
       # wants its basic-auth password (CI_PASSWORD) to show them.
-      curl -sf ${CI_PASSWORD:+-u "aztec:$CI_PASSWORD"} "$ci3_dashboard_url/$key.txt" | $pager
+      dashboard_url=http://ci.aztec-labs.com
+      curl -sf ${CI_PASSWORD:+-u "aztec:$CI_PASSWORD"} "$dashboard_url/$key.txt" | $pager
       if [ ${PIPESTATUS[0]} -ne 0 ]; then
-        echo "Log $key not found locally nor at $ci3_dashboard_url (set CI_PASSWORD for the latter)."
+        echo "Log $key not found locally nor at $dashboard_url (set CI_PASSWORD for the latter)."
         exit 1
       fi
     fi
@@ -380,10 +377,10 @@ case "$cmd" in
       exit 1
     fi
     mkdir -p "$folder"
-    ids=$(ci3_client_log_list "test-timings/$ci_log_id" 2>/dev/null || true)
+    ids=$(ci3_client log_list "test-timings/$ci_log_id" 2>/dev/null || true)
     if [ -n "$ids" ]; then
       for id in $ids; do
-        ci3_client_log_get "test-timings/$ci_log_id/$id" > "$folder/$id.jsonl"
+        ci3_client log_get "test-timings/$ci_log_id/$id" > "$folder/$id.jsonl"
       done
     else
       # Transitional: a CI job's timings live in the labs log bucket until the dashboard serves the
