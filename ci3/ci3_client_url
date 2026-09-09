@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Prints the browse URL of a log id (or any server path): what we print in terminal links.
+# Usage: ci3_client_url [<id or path>]
+NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
+echo "$CI3_PUBLIC_URL/${1:-}"

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Publishes a JSON event (argument, or stdin when omitted) on <channel>. Fire and forget.
+# Usage: ci3_client_event <channel> [json]
+NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
+set -uo pipefail
+channel=${1:?usage: ci3_client_event <channel> [json]}
+if [ $# -ge 2 ]; then
+  json=$2
+else
+  json=$(cat)
+fi
+[ "$CI3_SERVER_AVAILABLE" -eq 1 ] || exit 0
+printf '%s' "$json" | ci3_curl --max-time 30 -H 'Content-Type: application/json' --data-binary @- \
+  -o /dev/null "$CI3_SERVER_URL/events/$channel" || true

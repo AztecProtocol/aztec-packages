@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Prints the log <id>. Exit 1 if there is no server or no such log.
+# Usage: ci3_client_log_get <id>
+NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
+set -uo pipefail
+id=${1:?usage: ci3_client_log_get <id>}
+if [ "$CI3_SERVER_AVAILABLE" -ne 1 ]; then
+  echo "No ci3 server available." >&2
+  exit 1
+fi
+if ! ci3_curl --max-time 120 "$CI3_SERVER_URL/logs/$id"; then
+  echo "Log not found: $id" >&2
+  exit 1
+fi

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Sets <key> to <value>, optionally expiring after ttl seconds. Best effort: never fails the caller.
+# Usage: ci3_client_kv_set <key> <value> [ttl_seconds]
+NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
+set -uo pipefail
+key=${1:?usage: ci3_client_kv_set <key> <value> [ttl]}
+value=${2?usage: ci3_client_kv_set <key> <value> [ttl]}
+ttl=${3:-}
+[ "$CI3_SERVER_AVAILABLE" -eq 1 ] || exit 0
+printf '%s' "$value" | ci3_curl --max-time 30 -X PUT --data-binary @- -o /dev/null \
+  "$CI3_SERVER_URL/kv/$key${ttl:+?ttl=$ttl}" || true

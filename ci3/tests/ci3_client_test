@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# Exercises the ci3_client_* scripts against the file-backed reference server (ci3_server) on a
+# private port and directory. Nothing here touches the default local server or /tmp/ci3.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# The ci3 scripts under test resolve their includes from $root and their branch from $REF_NAME, as
+# every real caller has both exported; some steps below run them from a scratch directory.
+export root="$ROOT"
+export ci3="$ROOT/ci3"
+export REF_NAME=${REF_NAME:-$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)}
+export PATH="$ci3:$PATH"
+
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+NC=$'\033[0m'
+TESTS_PASSED=0
+TESTS_FAILED=0
+pass() { echo "${GREEN}✓${NC} $1"; ((TESTS_PASSED++)) || true; }
+fail() { echo "${RED}✗${NC} $1: $2"; ((TESTS_FAILED++)) || true; }
+check() { # <name> <expected> <actual>
+  if [ "$2" == "$3" ]; then pass "$1"; else fail "$1" "expected [$2] got [$3]"; fi
+}
+
+echo "=== ci3 client/server test suite ==="
+
+work=$(mktemp -d)
+port=$((20000 + RANDOM % 20000))
+token="test-token-$RANDOM"
+cleanup() {
+  "$ci3/ci3_server" stop --port $port --dir "$work/store" >/dev/null 2>&1 || true
+  rm -rf "$work"
+}
+trap cleanup EXIT
+
+# A fresh probe in this process tree, against our private file-backed server, with the write token.
+# CI runs this inside a build whose environment selects the compat backend and the production
+# redis; none of that may leak into the server under test.
+unset CI3_SERVER_AVAILABLE CI3_PUBLIC_URL CI3_SERVER_BACKEND PARENT_LOG_ID
+unset "${!CI3_COMPAT_@}"
+export CI=0
+export CI3_SERVER_TOKEN=$token
+url=$("$ci3/ci3_server" start --backend file --port $port --dir "$work/store")
+export CI3_SERVER_URL=$url
+source "$ci3/source_ci3_client"
+# A separately started on-demand server, to check it is marked local (never handed to an instance).
+CI3_SERVER_LOCAL_EXPECTED=$(unset CI3_SERVER_AVAILABLE CI3_SERVER_URL; CI=0 CI3_LOCAL_PORT=$((port + 1)) CI3_LOCAL_DIR="$work/store-local" bash -c 'source $ci3/source_ci3_client >/dev/null 2>&1; echo $CI3_SERVER_LOCAL; $ci3/ci3_server stop --port $CI3_LOCAL_PORT --dir $CI3_LOCAL_DIR >/dev/null')
+check "server probed as available" 1 "$CI3_SERVER_AVAILABLE"
+check "url points at the server" "$url/abc" "$(ci3_client_url abc)"
+check "CI3_PUBLIC_URL overrides printed links" "https://me.example/abc" "$(CI3_PUBLIC_URL=https://me.example ci3_client_url abc)"
+
+# --- logs ---
+echo "--- logs ---"
+printf 'line one\nline two\n' | ci3_client_log_put log1
+check "log roundtrip" "$(printf 'line one\nline two')" "$(ci3_client_log_get log1)"
+check "browse url serves the log" "$(printf 'line one\nline two')" "$(curl -s "$url/log1")"
+check ".txt suffix still serves the log" "line one" "$(curl -s "$url/log1.txt" | head -1)"
+printf 'replaced\n' | ci3_client_log_put log1
+check "log put replaces" "replaced" "$(ci3_client_log_get log1)"
+printf 'nested\n' | ci3_client_log_put group/123/abc
+check "log ids may be paths" "nested" "$(ci3_client_log_get group/123/abc)"
+printf 'flow\n' | ci3_client_log_put bench/bb-breakdown/native-ecdsar1+transfer_0_recursions+sponsored_fpc-abc
+check "benchmark flow names with + are valid ids" "flow" "$(ci3_client_log_get bench/bb-breakdown/native-ecdsar1+transfer_0_recursions+sponsored_fpc-abc)"
+printf 'two\n' | ci3_client_log_put group/123/def
+check "log list under a prefix" "$(printf 'abc\ndef')" "$(ci3_client_log_list group/123)"
+check "log list of an unknown prefix is empty" "" "$(ci3_client_log_list group/nope)"
+head -c 300000 /dev/urandom | base64 >"$work/big"
+ci3_client_log_put big <"$work/big"
+if cmp -s "$work/big" <(ci3_client_log_get big); then pass "large log survives gzip transport"; else fail "large log survives gzip transport" "content differs"; fi
+if ci3_client_log_get nope 2>/dev/null; then fail "missing log exits 1" "exit 0"; else pass "missing log exits 1"; fi
+printf 'short lived\n' | ci3_client_log_put ttl1 1
+sleep 2
+if ci3_client_log_get ttl1 2>/dev/null; then fail "log ttl expires" "still readable"; else pass "log ttl expires"; fi
+
+# --- kv ---
+echo "--- kv ---"
+ci3_client_kv_set k1 v1
+ci3_client_kv_set k2 v2
+check "kv get" "v1" "$(ci3_client_kv_get k1)"
+check "kv miss is an empty line" "" "$(ci3_client_kv_get nope)"
+mapfile -t got < <(ci3_client_kv_get k1 nope k2)
+check "kv mget count" 3 "${#got[@]}"
+check "kv mget values in order" "v1||v2" "${got[0]}|${got[1]}|${got[2]}"
+ci3_client_kv_set hb 1 1
+sleep 2
+check "kv ttl expires" "" "$(ci3_client_kv_get hb)"
+
+# --- lists ---
+echo "--- lists ---"
+ci3_client_list_push hist one 2
+ci3_client_list_push hist two 2
+ci3_client_list_push hist three 2
+check "list newest first, bounded" "$(printf 'three\ntwo')" "$(ci3_client_list_get hist)"
+ci3_client_list_push history_abc_merge-train/avm "with slash"
+check "list names may be paths" "with slash" "$(ci3_client_list_get history_abc_merge-train/avm)"
+check "list browse url" "with slash" "$(curl -s "$url/list/history_abc_merge-train/avm")"
+if ci3_client_list_get nolist 2>/dev/null; then fail "missing list exits 1" "exit 0"; else pass "missing list exits 1"; fi
+
+# --- runs ---
+echo "--- runs ---"
+echo '{"status":"RUNNING","name":"x"}' | ci3_client_run_put prs 1700000000000123
+echo '{"status":"RUNNING","name":"y"}' | ci3_client_run_put prs 1700000000000456
+check "run get" '{"status":"RUNNING","name":"x"}' "$(ci3_client_run_get prs 1700000000000123)"
+check "runs listed newest first" "y,x" "$(curl -s "$url/runs/prs" | jq -r 'map(.name) | join(",")')"
+echo '{"status":"RUNNING"}' | ci3_client_run_put merge-train/avm 1700000000000789
+check "run section may contain a slash" '{"status":"RUNNING"}' "$(ci3_client_run_get merge-train/avm 1700000000000789)"
+check "runs list for a slashed section" 1 "$(curl -s "$url/runs/merge-train/avm" | jq length)"
+if ci3_client_run_get prs 1 2>/dev/null; then fail "missing run exits 1" "exit 0"; else pass "missing run exits 1"; fi
+check "unknown section lists empty" "[]" "$(curl -s "$url/runs/nothing")"
+
+# --- events ---
+echo "--- events ---"
+ci3_client_event ci:test:started '{"a":1}'
+echo '{"b":2}' | ci3_client_event ci:test:started
+check "events appended" "$(printf '{"a":1}\n{"b":2}')" "$(cat "$work/store/events/ci:test:started.jsonl")"
+
+# --- artifacts ---
+echo "--- artifacts ---"
+head -c 200000 /dev/urandom >"$work/blob"
+ci3_client_artifact_put foo-abc.tar.gz "$work/blob"
+if ci3_client_artifact_exists foo-abc.tar.gz; then pass "artifact exists after put"; else fail "artifact exists after put" "exit 1"; fi
+if cmp -s "$work/blob" <(ci3_client_artifact_get foo-abc.tar.gz); then pass "artifact roundtrip"; else fail "artifact roundtrip" "content differs"; fi
+if ci3_client_artifact_exists nope.tar.gz; then fail "missing artifact exists exits 1" "exit 0"; else pass "missing artifact exists exits 1"; fi
+if ci3_client_artifact_get nope.tar.gz >/dev/null 2>&1; then fail "missing artifact get exits 1" "exit 0"; else pass "missing artifact get exits 1"; fi
+# A client that dies mid-upload announces more bytes than it sends; nothing may be published.
+port_only=${url##*:}
+{ printf 'PUT /artifacts/truncated.tar.gz HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer %s\r\nContent-Length: 100000\r\n\r\n' "$token"; head -c 1000 /dev/urandom; } | timeout 5 bash -c "cat >/dev/tcp/127.0.0.1/$port_only" 2>/dev/null || true
+sleep 0.5
+if ci3_client_artifact_exists truncated.tar.gz; then fail "truncated upload is not published" "artifact exists"; else pass "truncated upload is not published"; fi
+check "artifact ttl recorded" 1 "$( [ -f "$work/store/artifacts/foo-abc.tar.gz.expires" ] && echo 1 || echo 0)"
+# A chunked upload cut off before its terminating chunk is not published either.
+{ printf 'PUT /logs/chunked-truncated HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer %s\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n' "$token"; } | timeout 5 bash -c "cat >/dev/tcp/127.0.0.1/$port_only" 2>/dev/null || true
+sleep 0.3
+if ci3_client_log_get chunked-truncated >/dev/null 2>&1; then fail "truncated chunked upload is not published" "log exists"; else pass "truncated chunked upload is not published"; fi
+check "anonymous oversized write is refused without being read" 401 "$(head -c 20000 /dev/urandom | curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary @- "$url/kv/anon-big")"
+
+# --- auth ---
+echo "--- auth ---"
+check "anonymous write rejected" 401 "$(curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary x "$url/kv/anon")"
+if CI3_SERVER_TOKEN=other "$ci3/ci3_server" start --backend file --port $port --dir "$work/store" >/dev/null 2>&1; then fail "start with a different token refuses to reuse the server" "reused"; else pass "start with a different token refuses to reuse the server"; fi
+if "$ci3/ci3_server" start --backend file --port $port --dir "$work/other-store" >/dev/null 2>&1; then fail "start with a different storage dir refuses to reuse the server" "reused"; else pass "start with a different storage dir refuses to reuse the server"; fi
+check "start with the same configuration reuses the server" "$url" "$("$ci3/ci3_server" start --backend file --port $port --dir "$work/store" 2>/dev/null)"
+check "anonymous read allowed" "v1" "$(curl -s "$url/kv/k1")"
+CI3_SERVER_TOKEN=wrong ci3_client_kv_set k1 hacked
+check "wrong token write ignored" "v1" "$(ci3_client_kv_get k1)"
+check "bad path rejected" 400 "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" -X PUT --data-binary x "$url/logs/%2E%2E/etc")"
+check "server sidecars are not addressable" 400 "$(curl -s -o /dev/null -w '%{http_code}' "$url/logs/log1.expires")"
+check "run files are not addressable as logs" 400 "$(curl -s -o /dev/null -w '%{http_code}' "$url/logs/x.json")"
+
+# --- no server: every client is a harmless no-op ---
+echo "--- no server ---"
+check "log_put drains stdin and exits 0" 0 "$( { printf 'x\n' | CI3_SERVER_AVAILABLE=0 ci3_client_log_put z; echo $?; } )"
+mapfile -t got < <(CI3_SERVER_AVAILABLE=0 ci3_client_kv_get a b)
+check "kv_get answers one empty line per key" "2||" "${#got[@]}|${got[0]}|${got[1]}"
+check "kv_set exits 0" 0 "$( { CI3_SERVER_AVAILABLE=0 ci3_client_kv_set a b; echo $?; } )"
+if CI3_SERVER_AVAILABLE=0 ci3_client_artifact_exists foo-abc.tar.gz; then fail "artifact_exists exits 1" "exit 0"; else pass "artifact_exists exits 1"; fi
+check "unreachable server probes as unavailable" 0 "$(unset CI3_SERVER_AVAILABLE; CI3_SERVER_URL=http://127.0.0.1:1 bash -c 'source $ci3/source_ci3_client 2>/dev/null; echo $CI3_SERVER_AVAILABLE')"
+check "CI with no server links to the dashboard" "http://dash.example/abc" "$(unset CI3_SERVER_AVAILABLE CI3_SERVER_URL CI3_PUBLIC_URL; CI=1 CI3_COMPAT_PUBLIC_URL=http://dash.example bash -c 'source $ci3/source_ci3_client 2>/dev/null; ci3_client_url abc')"
+check "on-demand server is marked local" 1 "$CI3_SERVER_LOCAL_EXPECTED"
+
+echo
+if [[ $TESTS_FAILED -eq 0 ]]; then
+  echo "${GREEN}All $TESTS_PASSED tests passed.${NC}"
+  exit 0
+else
+  echo "${RED}$TESTS_FAILED of $((TESTS_PASSED + TESTS_FAILED)) tests failed.${NC}"
+  exit 1
+fi
