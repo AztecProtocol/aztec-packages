@@ -30,7 +30,6 @@ export function runThreadWorker(
             memory: msg.memory,
             env: msg.env,
             entry: msg.entry,
-            allocatorExports: msg.allocatorExports,
             hostImports: opts.hostImports,
             threads: 1,
             runInitialize: false,

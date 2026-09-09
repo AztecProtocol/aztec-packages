@@ -841,8 +841,7 @@ export class ${svc}Sync extends SyncApi {
       name ? `new URL('../wasm/${name}', import.meta.url)` : "undefined";
     // The module's FFI symbols carry the service name (see the FFI entry in SCHEMA_SPEC.md).
     const sym = prefix ? `${toSnakeCase(prefix)}_` : "";
-    const ffiExports = `    entry: '${sym}ipc_ffi_entry',
-    allocatorExports: [['${sym}ipc_ffi_alloc', '${sym}ipc_ffi_free']],`;
+    const ffiExports = `    entry: '${sym}ipc_ffi_entry',`;
 
     return `import {
   type WasmFfiBackend,

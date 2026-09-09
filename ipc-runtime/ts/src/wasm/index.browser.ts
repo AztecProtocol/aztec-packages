@@ -1,27 +1,12 @@
 // Browser entry of the wasm FFI backend (`@aztec-foundation/ipc-runtime/wasm`, `browser` condition).
-import {
-  type WasmFfiBackendOptions,
-  type WasmFfiBinding,
-  type WasmFfiOptions,
-  WasmFfiBackend,
-  WasmFfiBackendSync,
-  WasmFfiEngine,
-} from "./backend.js";
+import { type WasmFfiBinding, bindEntry } from "./entry.js";
 import {
   browserPlatform,
   browserWorkerHandle,
   browserWorkerSide,
 } from "./platform.browser.js";
 
-export type { HostImportsContext, HostImportsFactory } from "./host.js";
-export type { WasmModuleSource } from "./module_source.js";
-export type { WasmPlatform, WorkerHandle, WorkerSide } from "./platform.js";
-export type { WasmFfiBackendOptions, WasmFfiBinding, WasmFfiOptions };
-export { WasmFfiBackend, WasmFfiBackendSync, WasmFfiEngine };
-export { compileWasmModule } from "./module_source.js";
-export { WasmExitError } from "./wasi_shim.js";
-export { runMainWorker } from "./main_worker.js";
-export { runThreadWorker } from "./thread_worker.js";
+export * from "./entry.js";
 export {
   browserPlatform as platform,
   browserWorkerHandle as workerHandle,
@@ -48,19 +33,8 @@ export const binding: WasmFfiBinding = {
     ),
 };
 
-export function createWasmFfiBackend(
-  opts: WasmFfiBackendOptions,
-): Promise<WasmFfiBackend> {
-  return WasmFfiBackend.create(opts, binding);
-}
-
-export function createWasmFfiBackendSync(
-  opts: WasmFfiOptions,
-): Promise<WasmFfiBackendSync> {
-  return WasmFfiBackendSync.create(opts, binding);
-}
-
-/** Threads need `SharedArrayBuffer`, which browsers expose only under COOP/COEP headers. */
-export function sharedMemoryAvailable(): boolean {
-  return browserPlatform.sharedMemoryAvailable();
-}
+export const {
+  createWasmFfiBackend,
+  createWasmFfiBackendSync,
+  sharedMemoryAvailable,
+} = bindEntry(binding);
