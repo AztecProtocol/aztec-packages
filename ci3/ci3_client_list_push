@@ -1,11 +1,1 @@
-#!/usr/bin/env bash
-# Prepends <line> to the list <name>, keeping at most <max> (default 1000) lines. Best effort.
-# Usage: ci3_client_list_push <name> <line> [max]
-NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
-set -uo pipefail
-name=${1:?usage: ci3_client_list_push <name> <line> [max]}
-line=${2?usage: ci3_client_list_push <name> <line> [max]}
-max=${3:-}
-[ -n "$CI3_SERVER" ] || exit 0
-printf '%s\n' "$line" | ci3_curl --max-time 30 --data-binary @- -o /dev/null \
-  "$CI3_SERVER/lists/$name${max:+?max=$max}" || true
+ci3_client

@@ -1,8 +1,1 @@
-#!/usr/bin/env bash
-# Lists the log ids directly under <prefix>, one per line (e.g. a run's test-timings/<run id>).
-# Usage: ci3_client_log_list <prefix>
-NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
-set -uo pipefail
-prefix=${1:?usage: ci3_client_log_list <prefix>}
-[ -n "$CI3_SERVER" ] || exit 1
-ci3_curl --max-time 60 "$CI3_SERVER/logs/${prefix%/}/"
+ci3_client

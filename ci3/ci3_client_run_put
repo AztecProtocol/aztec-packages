@@ -1,13 +1,1 @@
-#!/usr/bin/env bash
-# Records (replaces) the CI run <id> in dashboard <section> from the JSON object on stdin. Best effort.
-# Usage: <json> | ci3_client_run_put <section> <id>
-NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
-set -uo pipefail
-section=${1:?usage: ci3_client_run_put <section> <id>}
-id=${2:?usage: ci3_client_run_put <section> <id>}
-if [ -z "$CI3_SERVER" ]; then
-  cat >/dev/null
-  exit 0
-fi
-ci3_curl --max-time 30 -X PUT -H 'Content-Type: application/json' --data-binary @- -o /dev/null \
-  "$CI3_SERVER/runs/$section/$id" || true
+ci3_client

@@ -1,10 +1,1 @@
-#!/usr/bin/env bash
-# Uploads <file> as build-cache artifact <name>. Exit 1 on failure (or no server).
-# Follows a 307 from the server (re-sending the body to e.g. a presigned upload URL).
-# Usage: ci3_client_artifact_put <name> <file>
-NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
-set -uo pipefail
-name=${1:?usage: ci3_client_artifact_put <name> <file>}
-file=${2:?usage: ci3_client_artifact_put <name> <file>}
-[ -n "$CI3_SERVER" ] || exit 1
-ci3_curl --connect-timeout 10 -L -X PUT -T "$file" -o /dev/null "$CI3_SERVER/artifacts/$name?ttl=$ci3_artifact_expire"
+ci3_client

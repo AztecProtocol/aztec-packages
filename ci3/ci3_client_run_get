@@ -1,9 +1,1 @@
-#!/usr/bin/env bash
-# Prints the JSON of CI run <id> in dashboard <section>. Exit 1 if unknown.
-# Usage: ci3_client_run_get <section> <id>
-NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
-set -uo pipefail
-section=${1:?usage: ci3_client_run_get <section> <id>}
-id=${2:?usage: ci3_client_run_get <section> <id>}
-[ -n "$CI3_SERVER" ] || exit 1
-ci3_curl --max-time 30 "$CI3_SERVER/runs/$section/$id"
+ci3_client

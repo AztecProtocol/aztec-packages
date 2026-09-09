@@ -1,8 +1,1 @@
-#!/usr/bin/env bash
-# Streams build-cache artifact <name> to stdout. Exit 1 if absent (or no server).
-# Usage: ci3_client_artifact_get <name>
-NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
-set -uo pipefail
-name=${1:?usage: ci3_client_artifact_get <name>}
-[ -n "$CI3_SERVER" ] || exit 1
-ci3_curl --connect-timeout 10 -L "$CI3_SERVER/artifacts/$name"
+ci3_client

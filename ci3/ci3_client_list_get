@@ -1,14 +1,1 @@
-#!/usr/bin/env bash
-# Prints the list <name>, newest first. Exit 1 if there is no server or no such list.
-# Usage: ci3_client_list_get <name>
-NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
-set -uo pipefail
-name=${1:?usage: ci3_client_list_get <name>}
-if [ -z "$CI3_SERVER" ]; then
-  echo "No ci3 server available." >&2
-  exit 1
-fi
-if ! ci3_curl --max-time 60 "$CI3_SERVER/lists/$name"; then
-  echo "List not found: $name" >&2
-  exit 1
-fi
+ci3_client
