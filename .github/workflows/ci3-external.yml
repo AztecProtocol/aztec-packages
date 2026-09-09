@@ -123,6 +123,8 @@ jobs:
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           # DO NOT allow build instance key access to external jobs.
           CI_USE_BUILD_INSTANCE_KEY: "0"
+          CI3_SERVER_URL: ${{ vars.CI3_SERVER_URL }}
+          CI3_SERVER_TOKEN: ${{ secrets.CI3_SERVER_TOKEN }}
           MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}

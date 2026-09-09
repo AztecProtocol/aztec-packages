@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_redis
 source $ci3/source_refname
 
 cmd=${1:-}
@@ -18,7 +17,6 @@ function echo_cmd {
 function print_usage {
   echo "usage: $(basename $0) <cmd>"
   echo
-  echo_cmd "dash"                  "Display a dashboard showing CI runs for the current user."
   echo_cmd "fast"                  "Spin up an EC2 instance and run bootstrap ci-fast."
   echo_cmd "full"                  "Spin up an EC2 instance and run bootstrap ci-full."
   echo_cmd "full-no-test-cache"    "Spin up an EC2 instance and run bootstrap ci-full-no-test-cache."
@@ -32,8 +30,9 @@ function print_usage {
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell-container"       "Shell into a running build container. Optional filter tokens (e.g. 'pr-123 bench') select the instance; defaults to the current branch."
   echo_cmd "shell-host"            "Shell into a running build host. Same instance selection as shell-container."
-  echo_cmd "log"                   "Display the log of the given log ID."
   echo_cmd "test-timings"          "Download per-test timing JSONL for a job: test-timings <ci_log_id> <folder>."
+  echo_cmd "dash"                  "Display a dashboard showing CI runs for the current user."
+  echo_cmd "log"                   "Display the log of the given log ID."
   echo_cmd "kill"                  "Terminate running build instances matching the filter tokens (default: current branch)."
   echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"                 "Mark the current PR as ready (enable automatic CI runs when pushing)."
@@ -356,30 +355,23 @@ case "$cmd" in
       key=${key#list/}
     fi
     if [[ "$key" == history_* || "$key" == failed_tests* ]]; then
-      if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
-        echo "No redis available for list log query."
-        exit 1
-      fi
-      redis_cli LRANGE "$key" 0 -1 | $pager
-    elif [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-      redis_getz "$key" | $pager
+      ci3_client_list_get "$key" | $pager
+    elif log=$(ci3_client_log_get "$key" 2>/dev/null); then
+      echo "$log" | $pager
     else
-      if [ -z "${CI_PASSWORD:-}" ]; then
-        echo "No redis available and CI_PASSWORD not set for http fallback."
-        exit 1
-      fi
-      curl -sf "http://aztec:$CI_PASSWORD@ci.aztec-labs.com/$key.txt" | $pager
+      # Transitional: CI logs live behind the labs dashboard until it serves the ci3 API, and it
+      # wants its basic-auth password (CI_PASSWORD) to show them.
+      curl -sf ${CI_PASSWORD:+-u "aztec:$CI_PASSWORD"} "$CI3_COMPAT_PUBLIC_URL/$key.txt" | $pager
       if [ ${PIPESTATUS[0]} -ne 0 ]; then
-        echo "Failed to fetch log via http."
+        echo "Log $key not found locally nor at $CI3_COMPAT_PUBLIC_URL (set CI_PASSWORD for the latter)."
         exit 1
       fi
     fi
     ;;
 
   test-timings)
-    # Download all per-test timing files for a CI job and gunzip them into a folder.
-    # ci_log_id is the job's top-level log id (the decimal id in its ci.aztec-labs.com URL).
-    # Each downloaded file is named after the test's individual log id (ci.aztec-labs.com/<log_id>).
+    # Download all per-test timing files for a CI job into a folder, one <test log id>.jsonl each.
+    # ci_log_id is the job's top-level log id (the decimal id in its dashboard URL).
     # Usage: ./ci.sh test-timings <ci_log_id> <folder>
     ci_log_id="${1:-}"
     folder="${2:-}"
@@ -388,14 +380,21 @@ case "$cmd" in
       exit 1
     fi
     mkdir -p "$folder"
-    aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp --recursive \
-      "s3://aztec-ci-artifacts/logs/test-timings/${ci_log_id}/" "$folder/"
-    for f in "$folder"/*.log.gz; do
-      [ -e "$f" ] || continue
-      out="${f%.log.gz}.jsonl"
-      gunzip -c "$f" > "$out"
-      rm -f "$f"
-    done
+    ids=$(ci3_client_log_list "test-timings/$ci_log_id" 2>/dev/null || true)
+    if [ -n "$ids" ]; then
+      for id in $ids; do
+        ci3_client_log_get "test-timings/$ci_log_id/$id" > "$folder/$id.jsonl"
+      done
+    else
+      # Transitional: a CI job's timings live in the labs log bucket until the dashboard serves the
+      # ci3 API; reading them needs AWS credentials.
+      aws s3 cp --recursive "$CI3_COMPAT_S3_LOGS/test-timings/${ci_log_id}/" "$folder/"
+      for f in "$folder"/*.log.gz; do
+        [ -e "$f" ] || continue
+        gunzip -c "$f" > "${f%.log.gz}.jsonl"
+        rm -f "$f"
+      done
+    fi
     echo "Downloaded test timings for job $ci_log_id into $folder/"
     ;;
 

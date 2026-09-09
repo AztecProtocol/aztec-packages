@@ -60,9 +60,9 @@ elif [[ "$MODE" == "merged" ]]; then
 
 else
   "$TOPDIR/ci3/slack_notify_with_claudebox_kickoff" "$channel" \
-    "$(printf 'There was a failure in %s: http://ci.aztec-labs.com/%s\n%s by %s (🤖)' "$REF_NAME" "$ci_log_id" "$commit_title" "$commit_author")" \
-    "CI failure in merge-train branch $REF_NAME. Log: http://ci.aztec-labs.com/$ci_log_id — $commit_title by $commit_author. Investigate the failure, fix it, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
-    --link "http://ci.aztec-labs.com/$ci_log_id" \
+    "$(printf 'There was a failure in %s: %s\n%s by %s (🤖)' "$REF_NAME" "$(ci3_client_url $ci_log_id)" "$commit_title" "$commit_author")" \
+    "CI failure in merge-train branch $REF_NAME. Log: $(ci3_client_url $ci_log_id) — $commit_title by $commit_author. Investigate the failure, fix it, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
+    --link "$(ci3_client_url $ci_log_id)" \
     --target-ref "origin/$REF_NAME" \
     --repo "${GITHUB_REPOSITORY:-}"
 fi

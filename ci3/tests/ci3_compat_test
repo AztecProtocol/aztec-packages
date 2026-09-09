@@ -155,6 +155,14 @@ if ci3_client_artifact_exists nope.tar.gz; then fail "missing artifact exists ex
 check "artifact get redirects to the public endpoint" "302" "$(curl -s -o /dev/null -w '%{http_code}' "$CI3_SERVER_URL/artifacts/foo-abc.tar.gz")"
 if cmp -s "$work/blob" <(ci3_client_artifact_get foo-abc.tar.gz); then pass "artifact get follows the redirect"; else fail "artifact get follows the redirect" "content differs"; fi
 
+echo "--- build cache through the compat server ---"
+mkdir -p "$work/src" "$work/dst"
+echo "artifact content" >"$work/src/file.txt"
+(cd "$work" && cache_upload "compat-test-$$.tar.gz" src/file.txt 2>"$work/upload.err")
+if [ -f "$fake_s3/aztec-ci-artifacts/build-cache/compat-test-$$.tar.gz" ]; then pass "cache_upload lands in the bucket"; else fail "cache_upload lands in the bucket" "$(cat "$work/upload.err")"; fi
+cache_download "compat-test-$$.tar.gz" "$work/dst" 2>"$work/download.err"
+check "cache_download extracts it" "artifact content" "$(cat "$work/dst/src/file.txt")"
+
 echo "--- unreachable redis ---"
 # Redis is best effort: the server comes up, redis-backed operations fail per request, S3 still works.
 url2=$(CI3_COMPAT_REDIS_PORT=1 "$ci3/ci3_server" start --backend compat --port $((server_port + 1)) --dir "$work/store2" 2>/dev/null)

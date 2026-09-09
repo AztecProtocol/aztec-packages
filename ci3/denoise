@@ -54,7 +54,7 @@ export FORCE_COLOR=${FORCE_COLOR:-1}
 [ -t 1 ] && realtime=1 || realtime=0
 
 key=$(uuid)
-url=$DASHBOARD_URL/$key
+url=$(ci3_client_url $key)
 # DENOISE_TMPDIR gives a run a private output directory, so tests can scope their
 # leaked-process checks to their own denoise instead of every one on the machine.
 outfile=${DENOISE_TMPDIR:-/tmp}/$key
@@ -74,13 +74,13 @@ function format_log_output {
 }
 
 function publish_log {
-  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
-  format_log_output | redis_setexz $key $CI_REDIS_EXPIRE
+  [ "$CI3_SERVER_AVAILABLE" -eq 0 ] && return
+  format_log_output | ci3_client_log_put $key
 }
 
 function publish_log_final {
-  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
-  format_log_output | cache_persistent $key $CI_REDIS_EXPIRE
+  [ "$CI3_SERVER_AVAILABLE" -eq 0 ] && return
+  format_log_output | ci3_client_log_put $key $CI3_LOG_EXPIRE final
 }
 
 function live_publish_log {
@@ -92,7 +92,7 @@ function live_publish_log {
   done
 }
 
-if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+if [ "$CI3_SERVER_AVAILABLE" -eq 1 ]; then
   live_publish_log &
   publish_pid=$!
   log_info="(${yellow}${url}${reset})"
@@ -144,9 +144,9 @@ if [ "$status" -ne 0 ]; then
   if [ "$status" -eq 143 ] || [ "$status" -eq 130 ]; then
     echo -e ". ${yellow}interrupted${reset} ($time)"
   else
-    # With no redis there is no log URL to point the reader at, so the output has to go
+    # With no log server there is no log URL to point the reader at, so the output has to go
     # inline or the failure is invisible.
-    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ] || [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
+    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ] || [ "$CI3_SERVER_AVAILABLE" -eq 0 ]; then
       echo -e "\nCommand exited with status $status. Dumping output:"
       cat $outfile
     fi
@@ -156,9 +156,9 @@ if [ "$status" -ne 0 ]; then
     fi
   fi
 else
-  # With no redis there is no log to link to, so a CI orchestrator (e.g. the GitHub runner
+  # With no log server there is no log to link to, so a CI orchestrator (e.g. the GitHub runner
   # driving bootstrap_ec2) would lose the output entirely, including the build's CI Log link.
-  if [ "$CI_REDIS_AVAILABLE" -eq 0 ] && [ "${CI:-0}" == "1" ]; then
+  if [ "$CI3_SERVER_AVAILABLE" -eq 0 ] && [ "${CI:-0}" == "1" ]; then
     echo -e "\nOutput (no log store available):"
     cat $outfile
   fi

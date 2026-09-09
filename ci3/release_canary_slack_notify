@@ -39,6 +39,6 @@ set -x
 
 TOPDIR=$(git rev-parse --show-toplevel)
 "$TOPDIR/ci3/slack_notify_with_claudebox_kickoff" "#alpha-team" \
-  "CI failed on alpha team canary (ci-release-pr): http://ci.aztec-labs.com/$ci_log_id (🤖)" \
-  "Alpha team canary CI failed. Log: http://ci.aztec-labs.com/$ci_log_id. Investigate the failure, identify the root cause, and create a fix PR." \
-  --link "http://ci.aztec-labs.com/$ci_log_id"
+  "CI failed on alpha team canary (ci-release-pr): $(ci3_client_url $ci_log_id) (🤖)" \
+  "Alpha team canary CI failed. Log: $(ci3_client_url $ci_log_id). Investigate the failure, identify the root cause, and create a fix PR." \
+  --link "$(ci3_client_url $ci_log_id)"

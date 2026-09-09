@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Check if a cache artifact exists in S3 without downloading it.
+# Check if a build-cache artifact exists (on the ci3 server or in the public build cache) without
+# downloading it.
 # DO NOT output to stdout. This script is used in contexts where stdout is processed.
 # Exit 0 if exists, exit 1 if not found or cache disabled.
 
@@ -20,22 +21,4 @@ fi
 
 tar_file="$1"
 
-# Check if artifact exists in S3
-if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
-  # Use AWS CLI to check object existence
-  if aws $S3_BUILD_CACHE_AWS_PARAMS s3api head-object \
-      --bucket aztec-ci-artifacts \
-      --key "build-cache/$tar_file" &>/dev/null; then
-    exit 0
-  else
-    exit 1
-  fi
-else
-  # Use HTTP HEAD request to check existence
-  S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
-  if curl -s -I -f "$S3_ENDPOINT/build-cache/$tar_file" &>/dev/null; then
-    exit 0
-  else
-    exit 1
-  fi
-fi
+ci3_client_artifact_exists "$tar_file" || curl -s -I -f "$CI3_PUBLIC_CACHE_URL/$tar_file" &>/dev/null

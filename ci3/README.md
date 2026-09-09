@@ -1,6 +1,6 @@
 # Build System
 
-This repository uses a custom build system that is **agnostic to CI platforms** and **leverages a remote cache** (S3 or MinIO) for caching build artifacts. Our approach enables efficient incremental builds, distributed parallel testing, and consistent deployment to ephemeral infrastructure (e.g., AWS Spot Instances).
+This repository uses a custom build system that is **agnostic to CI platforms** and **leverages a remote cache** for build artifacts, logs and test results. Our approach enables efficient incremental builds, distributed parallel testing, and consistent deployment to ephemeral infrastructure (e.g., AWS Spot Instances).
 
 We avoid heavy CI vendor lock-in by using shell scripts with a uniform framework (ci3 folder). Each project defines its own bootstrap or build script but relies on the shared `ci3` folder for advanced features like:
 
@@ -16,7 +16,7 @@ We avoid heavy CI vendor lock-in by using shell scripts with a uniform framework
    Multiple projects within one repository can have separate build steps that only rebuild if their subset of files changes.
 
 2. **Remote Caching**
-   A stateless approach using S3-compatible storage (AWS S3 or MinIO). This replaces older Docker-image-based caches, streamlines artifact reuse, and easily shares builds across different runners or machines.
+   Build artifacts, logs and the test cache go through one small HTTP API, [`CI3_SERVER_API.md`](CI3_SERVER_API.md), via the `ci3_client_*` scripts. Nothing else in ci3 knows what stores them. A local run starts the file-backed reference server (`ci3_server`, files under `/tmp/ci3`); CI points `CI3_SERVER_URL` at the labs dashboard. Artifact reads fall back to the public build cache (S3 over plain HTTP), which ci3 never writes to.
 
 3. **Content-based Rebuilds**
    We compare content-hashes of relevant files. If no changes, no rebuild. This encourages fine-grained patterns (e.g., ignoring docs changes, but not ignoring new code).
@@ -46,17 +46,18 @@ Tools are provided for the following themes.
 
 1. **Caching**
    - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
-   - **`cache_upload`, `cache_download`**: Upload/download `.tar.gz` artifacts from a remote S3-like cache.
-   - **`cache_upload_flag`, `cache_download_flag`**: Mark or detect a particular test's success state. Avoids re-running long tests.
+   - **`cache_upload`, `cache_download`, `cache_exists`**: Store/fetch `.tar.gz` artifacts on the ci3 server, falling back to the public build cache for reads. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
+   - **`ci3_client_*`**: The only way ci3 talks to its server: `log_put/log_get/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, `event`, `artifact_put/artifact_get/artifact_exists`.
+   - **`ci3_server`**: The reference server (`start`, `stop`, `status`, `run`): `--backend file` for local runs, `--backend compat` forwarding to the production redis/S3 until the labs dashboard speaks the API.
 
 2. **Test Parallelization & Caching**
    - **`parallelize`**: Reads test commands from STDIN, executes in parallel, aggregates logs.
    - **`run_test_cmd`**: Single test runner that can skip tests cached as “already passed.”
-   - **`filter_cached_test_cmd`**: Filters out test commands known to have succeeded (based on flags in redis).
+   - **`filter_cached_test_cmd`**: Filters out test commands known to have succeeded (the test cache on the ci3 server).
 
 3. **Ephemeral Logging**
    - **`denoise`**: Minimizes output spam; prints dots for each line, reveals full logs only if a command fails.
-   - **`cache_log`**, **`dump_fail`**: Captures output for ephemeral storage and prints or reveals logs when needed.
+   - **`cache_log`**, **`dump_fail`**: Captures output into a log on the ci3 server and prints or reveals logs when needed. `./ci.sh log <id>` reads one back.
 
 4. **AWS Provisioning**
    - **`aws_request_instance`** & **`aws_terminate_instance`**: Provision ephemeral spot or on-demand instances.
