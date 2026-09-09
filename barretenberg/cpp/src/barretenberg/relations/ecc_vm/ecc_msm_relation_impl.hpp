@@ -186,14 +186,24 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      *
      * First of all, note the asymmetry: we do not explicitly add tuples corresponding to skew on the MSM side of the
      * table. Indeeed, this is implicit with `msm_round == 32`. Now, the point is that the pair (pc, round) uniquely
-     * specifies the point + wNAF digit that we are processing (and adding to the accumulator) and both `pc` and `round`
-     * are directly constrained to be monotonic.
+     * specifies the point + wNAF digit that we are processing (and adding to the accumulator). `round` is directly
+     * constrained to be periodic; `pc` is not directly constrained to be monotonic. The ordering of `pc` is addressed
+     * below.
      *
      * Suppose the Prover sets `q_addK = 0` when an honest Prover would set `q_addK == 1`. Then there would be some (pc,
      * round, wnaf_slice) that the Precomputed table added to its multiset that the prover did not add. The Prover can
-     * _never_ "compensate" for this, as `pc` is locally constrained to be monotonic and `round` is constrained to be
-     * periodic; this means that the Prover has "lost their chance" to add this element to the multiset and hence the
-     * multiset equality check will fail.
+     * _never_ "compensate" for this, as `round` is constrained to be periodic and `pc` cannot revisit a value it has
+     * already left; this means that the Prover has "lost their chance" to add this element to the multiset and hence
+     * the multiset equality check will fail.
+     *
+     * The ordering of `pc` is not established by a local constraint. `MSM_TRANSITION_PC` fixes only the step
+     * `pc = pc_shift + msm_size_of_msm`, and no subrelation constrains `msm_size_of_msm`, including its positivity, so
+     * a zero-size boundary repeats a `pc` without wrapping the modulus. Both the ordering of `pc` and the agreement
+     * between a segment's consumed point count and its declared `msm_size_of_msm` follow from the multiset argument:
+     * the per-round read runs are anchored at each segment's own `pc` and must tile the point range exactly, so a
+     * segment consuming the wrong number of points produces a double-read and a gap. This argument spans this relation
+     * and `ECCVMSetRelation`, and additionally relies on the trace row count being small enough to preclude wraparound.
+     * Changes to the set relation, the tuple layout, or the per-round read structure must re-establish it.
      *
      * Conversely, if the Prover sets `q_addK = 1` when it should be set to 0, there are several options: either
      * we are at the end of a `round` (so e.g. `q_add4 ` _should_ be 0), or we are at a double row, or we are at a row
