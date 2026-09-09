@@ -4,6 +4,8 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 test_root="/tmp/cache-local-test-$$"
+# Exercise only the CACHE_LOCAL_DIR paths: no ci3 server, so nothing is uploaded or fetched remotely.
+export CI3_SERVER=
 passed=0
 failed=0
 
@@ -98,11 +100,9 @@ test_upload_saves_to_local_cache() {
   export CACHE_LOCAL_DIR="$test_root/local-cache-upload"
   mkdir -p "$CACHE_LOCAL_DIR"
 
-  # cache_upload requires CI=1 or S3_FORCE_UPLOAD, and AWS credentials.
-  # We set S3_FORCE_UPLOAD but expect S3 upload to fail (no credentials) - that's OK,
-  # we just want to verify the local cache copy happens.
+  # With no ci3 server the upload itself is skipped; we just want to verify the local cache copy happens.
   local stderr_output
-  stderr_output=$(S3_FORCE_UPLOAD=1 "$script_dir/cache_upload" "test-upload.tar.gz" "$test_root/source/file1.txt" "$test_root/source/file2.txt" 2>&1 >/dev/null) || true
+  stderr_output=$("$script_dir/cache_upload" "test-upload.tar.gz" "$test_root/source/file1.txt" "$test_root/source/file2.txt" 2>&1 >/dev/null) || true
 
   if [[ -f "$CACHE_LOCAL_DIR/test-upload.tar.gz" ]]; then
     pass "cache_upload saved artifact to local cache"
@@ -124,7 +124,7 @@ test_upload_without_local_cache() {
 
   # Without CACHE_LOCAL_DIR, upload should not create any local cache files.
   local stderr_output
-  stderr_output=$(S3_FORCE_UPLOAD=1 "$script_dir/cache_upload" "test-no-local.tar.gz" "$test_root/source/file1.txt" 2>&1 >/dev/null) || true
+  stderr_output=$("$script_dir/cache_upload" "test-no-local.tar.gz" "$test_root/source/file1.txt" 2>&1 >/dev/null) || true
 
   if echo "$stderr_output" | grep -q "local cache"; then
     fail "Should not mention local cache when CACHE_LOCAL_DIR is unset"
@@ -140,7 +140,7 @@ test_roundtrip() {
   mkdir -p "$CACHE_LOCAL_DIR"
 
   # Upload: creates the tar and saves to local cache.
-  S3_FORCE_UPLOAD=1 "$script_dir/cache_upload" "roundtrip.tar.gz" "$test_root/source/file1.txt" "$test_root/source/file2.txt" 2>/dev/null || true
+  "$script_dir/cache_upload" "roundtrip.tar.gz" "$test_root/source/file1.txt" "$test_root/source/file2.txt" 2>/dev/null || true
 
   # Download: should find it in local cache and extract.
   rm -rf "$test_root/extract"
@@ -196,7 +196,7 @@ test_inaccessible_cache_dir_falls_through() {
   fi
 
   # Test upload too.
-  stderr_output=$(S3_FORCE_UPLOAD=1 "$script_dir/cache_upload" "test-upload-fallthrough.tar.gz" "$test_root/source/file1.txt" 2>&1 >/dev/null) || true
+  stderr_output=$("$script_dir/cache_upload" "test-upload-fallthrough.tar.gz" "$test_root/source/file1.txt" 2>&1 >/dev/null) || true
   if echo "$stderr_output" | grep -q "Cannot create local cache dir"; then
     pass "Upload warns about inaccessible cache dir"
   else

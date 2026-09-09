@@ -156,6 +156,40 @@ check "CI with no configured server has none" "server=[] cache=0" "$(unset CI3_S
 # A local run starts a server on demand; CI3_SERVER_URL stays unset, so it is never handed to an instance.
 check "local run starts a server on demand and leaves CI3_SERVER_URL unset" "http://localhost:$((port + 1)) unset" "$(unset CI3_SERVER CI3_SERVER_URL; CI=0 CI3_SERVER_START_ARGS="--port $((port + 1)) --dir $work/store-local" bash -c 'source $ci3/source_ci3_client >/dev/null 2>&1; echo "$CI3_SERVER ${CI3_SERVER_URL:-unset}"; $ci3/ci3_server stop --port '$((port + 1))' --dir '$work/store-local' >/dev/null')"
 
+# --- the ci3 scripts built on the clients ---
+echo "--- cache_log ---"
+out=$(printf 'hello from cache_log\n' | DUP=1 cache_log "Test" cachelog1 2>/dev/null)
+check "cache_log DUP=1 passes output through" "hello from cache_log" "$out"
+stored=$(ci3_client log_get cachelog1)
+if [[ "$stored" == *"Parent Log:"* && "$stored" == *"hello from cache_log"* && "$stored" == *"Took: "*s* ]]; then
+  pass "cache_log stores a finalized log"
+else
+  fail "cache_log stores a finalized log" "$stored"
+fi
+
+echo "--- test cache ---"
+source "$ci3/source_stdlib"
+cached="deadbeef00000000 echo cached-test"
+fresh="deadbeef00000000 echo fresh-test"
+ci3_client kv_set "$(hash_str_orig "$cached")" cachelog1
+kept=$(printf '%s\n%s\n' "$cached" "$fresh" | USE_TEST_CACHE=1 filter_cached_test_cmd 2>/dev/null)
+check "filter_cached_test_cmd drops the cached command" "$fresh" "$kept"
+kept=$(printf '%s\n%s\n' "$cached" "$fresh" | USE_TEST_CACHE=0 filter_cached_test_cmd 2>/dev/null)
+check "filter_cached_test_cmd is a passthrough without the test cache" "$(printf '%s\n%s' "$cached" "$fresh")" "$kept"
+
+echo "--- build cache ---"
+mkdir -p "$work/src" "$work/dst"
+echo "artifact content" >"$work/src/file.txt"
+(cd "$work" && cache_upload "ci3-client-test-$$.tar.gz" src/file.txt 2>"$work/upload.err")
+if grep -q "Cache upload of ci3-client-test-$$.tar.gz complete" "$work/upload.err"; then pass "cache_upload stores on the server"; else fail "cache_upload stores on the server" "$(cat "$work/upload.err")"; fi
+if cache_exists "ci3-client-test-$$.tar.gz"; then pass "cache_exists finds it"; else fail "cache_exists finds it" "exit 1"; fi
+cache_download "ci3-client-test-$$.tar.gz" "$work/dst" 2>"$work/download.err"
+check "cache_download extracts it" "artifact content" "$(cat "$work/dst/src/file.txt")"
+if grep -q "(ci3 server)" "$work/download.err"; then pass "cache_download reports the server as the source"; else fail "cache_download reports the server as the source" "$(cat "$work/download.err")"; fi
+(cd "$work" && cache_upload "ci3-client-test-$$.tar.gz" src/file.txt 2>"$work/upload2.err")
+if grep -q "already exists" "$work/upload2.err"; then pass "cache_upload skips an existing artifact"; else fail "cache_upload skips an existing artifact" "$(cat "$work/upload2.err")"; fi
+if NO_CACHE=1 cache_download "ci3-client-test-$$.tar.gz" "$work/dst" 2>/dev/null; then fail "NO_CACHE=1 skips download" "exit 0"; else pass "NO_CACHE=1 skips download"; fi
+
 echo
 if [[ $TESTS_FAILED -eq 0 ]]; then
   echo "${GREEN}All $TESTS_PASSED tests passed.${NC}"

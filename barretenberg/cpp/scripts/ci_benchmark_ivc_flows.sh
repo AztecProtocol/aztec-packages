@@ -3,8 +3,6 @@
 # Downloads the pinned inputs itself when the requested flow is missing or stale.
 REPO_ROOT=$(git rev-parse --show-toplevel)
 NO_CD=1 source "$REPO_ROOT/ci3/source"
-source "$REPO_ROOT/ci3/source_redis"
-source "$REPO_ROOT/ci3/source_cache"
 source "$REPO_ROOT/barretenberg/cpp/scripts/pinned_chonk_inputs.sh"
 
 default_chonk_flow="ecdsar1+transfer_0_recursions+sponsored_fpc"
@@ -280,20 +278,20 @@ if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_
     # Other flows might delete bench-out before we finish uploading
     cp "$benchmark_breakdown_file" "$tmp_breakdown_file"
 
-    # Upload to S3 (bench/bb-breakdown subfolder) in background
+    # Stored on the ci3 server under bench/bb-breakdown (the dashboard reads it there), in background.
     # Key format: <runtime>-<flow_name>-<sha>
     disk_key="${runtime}-${flow_name}-${current_sha}"
     {
-      cat "$tmp_breakdown_file" | gzip | cache_s3_transfer_to "bench/bb-breakdown" "$disk_key"
+      cat "$tmp_breakdown_file" | ci3_client log_put "bench/bb-breakdown/$disk_key" "" final
       rm -rf "$upload_state_dir"
     } &
 
-    echo "Uploaded benchmark breakdown to S3: bench/bb-breakdown/$disk_key"
+    echo "Stored benchmark breakdown: bench/bb-breakdown/$disk_key"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi
 
-  # Upload memory profile to S3
+  # Store the memory profile alongside it.
   memory_profile_file="bench-out/app-proving/$flow_name/$runtime/memory_profile.json"
   if [[ -f "$memory_profile_file" ]]; then
     upload_state_dir="$(make_pinned_chonk_state_tmpdir memory-upload)"
@@ -301,9 +299,9 @@ if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_
     cp "$memory_profile_file" "$tmp_memory_file"
     memory_disk_key="memory-${runtime}-${flow_name}-${current_sha}"
     {
-      cat "$tmp_memory_file" | gzip | cache_s3_transfer_to "bench/bb-breakdown" "$memory_disk_key"
+      cat "$tmp_memory_file" | ci3_client log_put "bench/bb-breakdown/$memory_disk_key" "" final
       rm -rf "$upload_state_dir"
     } &
-    echo "Uploaded memory profile to S3: bench/bb-breakdown/$memory_disk_key"
+    echo "Stored memory profile: bench/bb-breakdown/$memory_disk_key"
   fi
 fi

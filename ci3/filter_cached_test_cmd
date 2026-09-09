@@ -13,10 +13,10 @@ function process_batch {
     hashes+=($(hash_str_orig "$line"))
   done
 
-  # Batch resolve in redis.
-  readarray -t results < <(redis_cli MGET ${hashes[@]})
+  # Batch resolve against the test cache: one line per hash, empty when the test has not passed.
+  readarray -t results < <(ci3_client kv_get ${hashes[@]})
 
-  # Iterate over the results and output lines whose hashes don't exist in redis.
+  # Output the lines whose hashes have no passing run recorded.
   for i in "${!results[@]}"; do
     if [ -z "${results[$i]}" ] || [[ "${lines[$i]}" == *disabled-cache* ]]; then
       echo "${lines[$i]}"
@@ -27,7 +27,7 @@ function process_batch {
 }
 export -f process_batch
 
-if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ -n "$CI3_SERVER" ]; then
   exec 3> >(cache_log "Skipped tests")
   # Process stdin in batches of 50.
   parallel --pipe -N50 --keep-order process_batch

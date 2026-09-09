@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs the given command.
-# If a redis cache is available, redirect input into a cache log.
+# If a ci3 server is available, store the input as a log there.
 # If DUP=1 then we duplicate input also to stdout.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
@@ -27,13 +27,12 @@ function finalize_log {
 }
 
 function publish_log {
-  cat $outfile | redis_setexz $key $CI_REDIS_EXPIRE
+  cat $outfile | ci3_client log_put $key
 }
 
 function publish_log_final {
   finalize_log
-  # Synchronous: this is the run's top-level log and the instance goes away right after.
-  cat $outfile | CACHE_PERSIST_SYNC=1 cache_persistent $key $CI_REDIS_EXPIRE
+  cat $outfile | ci3_client log_put $key $ci3_log_expire final
 }
 
 function live_publish_log {
@@ -48,8 +47,8 @@ function live_publish_log {
   done
 }
 
-if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-  log_str="$name log id: ${yellow}$DASHBOARD_URL/$key${reset}"
+if [ -n "$CI3_SERVER" ]; then
+  log_str="$name log id: ${yellow}$(ci3_client url $key)${reset}"
   echo_stderr -e "$log_str"
   # Close inherited pipeline FDs to prevent blocking parent pipelines.
   # When cache_log runs inside a pipeline, fd 1/2 may reference the parent's pipe.
