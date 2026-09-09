@@ -113,7 +113,7 @@ When a `CheckpointProposal` is received, before creating attestations:
 6. Verify checkpoint header fields match last block's global variables:
    - slotNumber, coinbase, feeRecipient, gasFees
 7. Verify lastArchiveRoot matches first block's lastArchive
-8. Confirm against L1 that the last block's consumed message total closes a live Inbox bucket committing to the
+8. Confirm against L1 that the last block's consumed message total ends a live Inbox bucket committing to the
    checkpoint's signed `inboxRollingHash`
 ```
 
@@ -125,6 +125,11 @@ the last step reads the Inbox contract before the proposal may be recorded as va
 optimistic checkpoint parent, or attested to. It runs on every node, validator or not, because the all-nodes
 validation callback is what makes a proposal the accepted parent for the next slot.
 
+The gate is narrower than what L1 enforces. It confirms only that a live bucket *ends* at that total committing to
+the signed rolling hash; it says nothing about whether that bucket has settled. A checkpoint ending at the total of
+the still-open current bucket therefore passes here and is still rejected by `propose` with
+`Rollup__InboxBucketStillMutable`. Settlement remains an L1-only check that this one does not replace.
+
 Load: one head read plus one `eth_call` per checkpoint proposal validated, that is per slot, and a second pair on
 validators when the attestation path reuses a cached valid verdict. The head is read to pin the call to an explicit
 L1 block, so the verdict names the view it was made in; viem caches it briefly, and the contract wrapper's own
@@ -132,7 +137,7 @@ block-tag guard reads it again. Failures are re-read for up to two seconds, boun
 
 The check never fails open. An unreadable L1 view (RPC outage, timeout, a provider trailing the head, a block the
 provider will not serve) is reported as `inbox_endpoint_unverifiable`, and a view that answers without showing the
-signed position closing a live bucket (interior position, evicted endpoint, different rolling hash) as
+signed position ending a live bucket (interior position, evicted endpoint, different rolling hash) as
 `inbox_endpoint_not_live`. Both are refusals to validate now, not accusations: the bucket ring, the local provider
 and L1 itself all move independently of the moment the proposal was signed. Neither reaches slashing, the
 invalid-proposal slot marker or a peer penalty, and neither is remembered as the proposal's verdict, so a view that

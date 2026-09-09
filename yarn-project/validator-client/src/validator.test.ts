@@ -62,9 +62,9 @@ import type {
   CheckpointBuilder,
   FullNodeCheckpointsBuilder,
 } from './checkpoint_builder.js';
-import type { InboxEndpointReader } from './checkpoint_endpoint_check.js';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
 import type { ValidationService } from './duties/validation_service.js';
+import { type FakeInbox, makeFakeInbox } from './fake_inbox_test_helper.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import { type CheckpointProposalValidationFailureReason, ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
@@ -119,7 +119,7 @@ describe('ValidatorClient', () => {
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource & L2BlockSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
-  let inbox: InboxEndpointReader;
+  let inbox: FakeInbox;
   let epochCache: MockProxy<EpochCache>;
   let checkpointsBuilder: MockProxy<FullNodeCheckpointsBuilder>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -198,15 +198,7 @@ describe('ValidatorClient', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     // An L1 Inbox that never received a message: its genesis bucket is the endpoint the consume-nothing
     // checkpoints of these tests end at.
-    inbox = {
-      client: { getBlockNumber: () => Promise.resolve(1n) },
-      getBucketAtOrBeforeTotal: upperBound =>
-        Promise.resolve(
-          upperBound >= 0n
-            ? { seq: 0n, bucket: { rollingHash: Fr.ZERO, totalMsgCount: 0n, timestamp: 0n, msgCount: 0 } }
-            : undefined,
-        ),
-    };
+    inbox = makeFakeInbox();
     txProvider = mock<TxProvider>();
     dateProvider = new TestDateProvider();
     blobClient = mock<BlobClientInterface>();
@@ -894,6 +886,10 @@ describe('ValidatorClient', () => {
         },
       });
 
+      // The checkpoint consumes nothing, so it ends where the Inbox's genesis bucket does; make that bucket
+      // commit to the hash this proposal signed, so the live endpoint gate confirms it.
+      inbox.setBuckets([{ seq: 0n, total: 0n, rollingHash: checkpointProposal.checkpointHeader.inboxRollingHash }]);
+
       // Mock validateCheckpointProposal to pass, so handleCheckpointProposal runs its
       // own checks (signature, fee modifier) and then proceeds to blob upload.
       const validateCheckpointSpy = jest
@@ -934,6 +930,7 @@ describe('ValidatorClient', () => {
         },
       });
 
+      inbox.setBuckets([{ seq: 0n, total: 0n, rollingHash: checkpointProposal.checkpointHeader.inboxRollingHash }]);
       const validateCheckpointSpy = jest
         .spyOn(validatorClient.getProposalHandler(), 'validateCheckpointProposal')
         .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(1) });
