@@ -417,6 +417,101 @@ describe('CheckpointProver', () => {
     });
   });
 
+  // ---------------- proofs ready before local processing finishes ----------------
+
+  describe('handoff join', () => {
+    /** A sub-tree whose proofs are ready from the outset, with its first block parked on a gate. */
+    function makeEagerSubTree(gate: Promise<void>, stop: jest.Mock<() => Promise<void>>) {
+      let firstBlock = true;
+      return {
+        getSubTreeResult: () =>
+          Promise.resolve({
+            blockProofOutputs: [{ tag: 'block-proof-output' }],
+            inboxParityProof: { tag: 'inbox-parity-proof' },
+            previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
+          } as unknown as SubTreeResult),
+        startNewBlock: () => {
+          if (firstBlock) {
+            firstBlock = false;
+            return gate;
+          }
+          return Promise.resolve();
+        },
+        startChonkVerifierCircuits: () => Promise.resolve(),
+        addTxs: () => Promise.resolve(),
+        setBlockCompleted: () => Promise.resolve(),
+        cancel: () => {},
+        stop,
+      };
+    }
+
+    it('holds the proofs and the sub-tree until the block loop is done with them', async () => {
+      // A cached identical-input proof, or a checkpoint of empty blocks, can make the sub-tree's proofs available
+      // before the caller has finished creating and using its processing forks. Handing them over then — and
+      // tearing the sub-tree down on the way — pulls it out from under the loop still running against it.
+      checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, txsPerBlock: 0 });
+
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
+
+      const firstBlockGate = promiseWithResolvers<void>();
+      const stop = jest.fn(() => Promise.resolve());
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(
+        makeEagerSubTree(firstBlockGate.promise, stop) as any,
+      );
+      dbProvider.fork.mockResolvedValue({
+        appendLeaves: () => Promise.resolve(),
+        close: () => Promise.resolve(),
+      } as any);
+      publicProcessorFactory.create.mockReturnValue({ process: () => Promise.resolve([[], []]) } as any);
+
+      const prover = makeProver();
+      let handedOff = false;
+      const proofs = prover.whenSubTreeProofsReady().then(result => {
+        handedOff = true;
+        return result;
+      });
+
+      // The proofs are ready but the first block is still parked, so nothing may be handed over or released.
+      await sleep(50);
+      expect(handedOff).toBe(false);
+      expect(stop).not.toHaveBeenCalled();
+
+      firstBlockGate.resolve();
+      await expect(proofs).resolves.toEqual({
+        blockProofOutputs: [{ tag: 'block-proof-output' }],
+        inboxParityProof: { tag: 'inbox-parity-proof' },
+      });
+      await prover.whenDone();
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(prover.isFailed()).toBe(false);
+    });
+
+    it('fails rather than handing off proofs that arrived before a block loop that then broke', async () => {
+      // Same early arrival, but the loop gives up. The failure has to win: no success handoff off the back of
+      // proofs the local work never validated, and exactly one teardown.
+      checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, txsPerBlock: 0 });
+
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
+
+      const stop = jest.fn(() => Promise.resolve());
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(
+        makeEagerSubTree(Promise.resolve(), stop) as any,
+      );
+      // The base block was unwound underneath the prover, so the loop cannot fork it.
+      dbProvider.fork.mockRejectedValue(new Error('Unable to get meta data for block 0'));
+
+      const prover = makeProver();
+
+      await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(/did not complete block processing/);
+      await prover.whenDone();
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(prover.isFailed()).toBe(true);
+      expect(onFailed).toHaveBeenCalledTimes(1);
+    });
+  });
+
   // ---------------- data-plane reorg fork fault ----------------
 
   describe('data-plane reorg fault', () => {
