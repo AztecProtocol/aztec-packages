@@ -214,11 +214,6 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const totalBlobCapacity = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
     const blockEndOverhead = getNumBlockEndBlobFields();
 
-    // How many more blocks this checkpoint can still hold, this one included.
-    const remainingBlocks = opts.isBuildingProposal
-      ? Math.max(1, opts.maxBlocksPerCheckpoint - existingBlocks.length)
-      : 1;
-
     // A proposer whose sub-slots run out while the consumption cursor sits at a prefix that is not a live L1 Inbox
     // bucket end appends one transaction-less block to reach one, so the checkpoint can be published at all. That
     // block still writes its own block-end fields, so hold them back from transaction packing while such a block can
@@ -226,7 +221,8 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     // proposer packs against this: re-executing a peer's proposal must not reject a block over it. The checkpoint end
     // marker is already deducted from the total capacity, so the reservation is a block's end fields alone.
     // Reserving blob space does not reserve build time, nor guarantee that the extra block can be built.
-    const rescueTailReservation = opts.isBuildingProposal && remainingBlocks > 1 ? blockEndOverhead : 0;
+    const rescueTailReservation =
+      opts.isBuildingProposal && opts.maxBlocksPerCheckpoint - existingBlocks.length > 1 ? blockEndOverhead : 0;
     const maxBlobFieldsForTxs = Math.max(
       0,
       totalBlobCapacity - usedBlobFields - blockEndOverhead - rescueTailReservation,
@@ -244,6 +240,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
 
     // Proposer mode: further cap by fair share of remaining budget across remaining blocks
     if (opts.isBuildingProposal) {
+      const remainingBlocks = Math.max(1, opts.maxBlocksPerCheckpoint - existingBlocks.length);
       const multiplier = opts.perBlockAllocationMultiplier;
       // DA gas and blob fields use a higher multiplier so the largest contract class deploy fits a block.
       const daMultiplier = opts.perBlockDAAllocationMultiplier ?? multiplier;
