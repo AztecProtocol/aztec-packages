@@ -8,7 +8,9 @@ import {
   IRollupCore,
   RollupConfig,
   SubmitEpochRootProofArgs,
-  RollupConfigInput
+  RollupConfigInput,
+  MAX_REGISTRY_REWARD_OVERRIDES,
+  RegistryRewardOverride
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
@@ -201,6 +203,11 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   IInbox internal immutable INBOX;
   IOutbox internal immutable OUTBOX;
 
+  address internal immutable REGISTRY_REWARD_OVERRIDE_0_REGISTRY;
+  uint96 internal immutable REGISTRY_REWARD_OVERRIDE_0_SEQUENCER_REWARD;
+  address internal immutable REGISTRY_REWARD_OVERRIDE_1_REGISTRY;
+  uint96 internal immutable REGISTRY_REWARD_OVERRIDE_1_SEQUENCER_REWARD;
+
   /**
    * @dev Storage gap to ensure checkBlob is in its own storage slot
    */
@@ -275,6 +282,10 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     );
 
     _initializeRewards(_config);
+    REGISTRY_REWARD_OVERRIDE_0_REGISTRY = _config.registryRewardOverrides[0].registry;
+    REGISTRY_REWARD_OVERRIDE_0_SEQUENCER_REWARD = _config.registryRewardOverrides[0].sequencerReward;
+    REGISTRY_REWARD_OVERRIDE_1_REGISTRY = _config.registryRewardOverrides[1].registry;
+    REGISTRY_REWARD_OVERRIDE_1_SEQUENCER_REWARD = _config.registryRewardOverrides[1].sequencerReward;
 
     L1_BLOCK_AT_GENESIS = block.number;
 
@@ -516,7 +527,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _args Contains the epoch range, public inputs, fees, attestations, and the ZK proof
    */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external override(IRollupCore) {
-    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig());
+    EpochProofExtLib.submitEpochRootProof(_args, _getRollupConfig(), _getRegistryRewardOverrides());
   }
 
   /**
@@ -653,7 +664,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     }
 
     // Constructor-only writer; post-deployment updates go through {setRewardConfig}.
-    RewardExtLib.initializeConfig(rewardConfig);
+    RewardExtLib.initializeConfig(rewardConfig, _config.registryRewardOverrides);
   }
 
   function _getRollupConfig() internal view virtual returns (RollupConfig memory) {
@@ -666,6 +677,19 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       epochProofVerifier: EPOCH_PROOF_VERIFIER,
       inbox: INBOX,
       outbox: OUTBOX
+    });
+  }
+
+  function _getRegistryRewardOverrides()
+    internal
+    view
+    returns (RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory overrides)
+  {
+    overrides[0] = RegistryRewardOverride({
+      registry: REGISTRY_REWARD_OVERRIDE_0_REGISTRY, sequencerReward: REGISTRY_REWARD_OVERRIDE_0_SEQUENCER_REWARD
+    });
+    overrides[1] = RegistryRewardOverride({
+      registry: REGISTRY_REWARD_OVERRIDE_1_REGISTRY, sequencerReward: REGISTRY_REWARD_OVERRIDE_1_SEQUENCER_REWARD
     });
   }
 }

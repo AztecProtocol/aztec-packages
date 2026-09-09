@@ -9,10 +9,11 @@ import {CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {EthValue, EthPerFeeAssetE12} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {GenesisState, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
+import {GenesisState, RegistryRewardOverride, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 interface IRollupConfiguration {
   function loadConfig() external;
@@ -28,6 +29,7 @@ interface IRollupConfiguration {
 
 contract RollupConfiguration is IRollupConfiguration, Test {
   using stdJson for string;
+  using SafeCast for uint256;
 
   // Storage for loaded config
   string public networkName;
@@ -127,6 +129,24 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     config.version = 0; // Computed below
     config.provingCostPerMana = EthValue.wrap(vm.envUint("AZTEC_PROVING_COST_PER_MANA"));
     config.initialEthPerFeeAsset = EthPerFeeAssetE12.wrap(vm.envUint("AZTEC_INITIAL_ETH_PER_FEE_ASSET"));
+    config.registryRewardOverrides[0] = _getRegistryRewardOverride("AZTEC_REGISTRY_REWARD_OVERRIDE_0");
+    config.registryRewardOverrides[1] = _getRegistryRewardOverride("AZTEC_REGISTRY_REWARD_OVERRIDE_1");
+  }
+
+  function _getRegistryRewardOverride(string memory _envName)
+    internal
+    view
+    returns (RegistryRewardOverride memory registryRewardOverride)
+  {
+    string memory value = vm.envOr(_envName, string(""));
+    if (bytes(value).length == 0) {
+      return registryRewardOverride;
+    }
+
+    string[] memory fields = vm.split(value, ",");
+    require(fields.length == 2, "Invalid registry reward override");
+    registryRewardOverride.registry = vm.parseAddress(fields[0]);
+    registryRewardOverride.sequencerReward = vm.parseUint(fields[1]).toUint96();
   }
 
   /// @notice Compute rollup config version by hashing config + genesis state
