@@ -1,12 +1,12 @@
 // Node entry of the wasm FFI backend (`@aztec-foundation/ipc-runtime/wasm`, `default` condition).
-import { type WasmFfiBinding, bindEntry } from "./entry.js";
+import { type WasmFfiBinding, bindEntry } from "../entry.js";
 import {
   nodePlatform,
   nodeWorkerHandle,
   nodeWorkerSide,
-} from "./platform.node.js";
+} from "./platform.js";
 
-export * from "./entry.js";
+export * from "../entry.js";
 export {
   nodePlatform as platform,
   nodeWorkerHandle as workerHandle,

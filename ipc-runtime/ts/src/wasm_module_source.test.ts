@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { gzipSync } from "node:zlib";
 import { compileWasmModule } from "./wasm/module_source.js";
-import { nodePlatform } from "./wasm/platform.node.js";
+import { nodePlatform } from "./wasm/node/platform.js";
 
 // The smallest valid module: magic + version, no sections.
 const EMPTY_MODULE = new Uint8Array([

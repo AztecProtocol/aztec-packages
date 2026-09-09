@@ -576,7 +576,7 @@ ${
     ) as string[];
 
     return `import { type IpcClientAsync, type IpcClientSync${process ? ", SpawnedProcessBackend" : ""} } from '@aztec-foundation/ipc-runtime';
-${wasm ? "import { type WasmFfiBackend, platform } from '@aztec-foundation/ipc-runtime/wasm';\n" : ""}import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
+${wasm ? "import { type WasmFfiBackend, platform } from '@aztec-foundation/ipc-runtime/wasm/node';\n" : ""}import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
 ${process ? `import { type ${prefix}ProcessOptions, spawnProcessBackend${shm ? ", spawnProcessBackendSync" : ""} } from './process.js';\n` : ""}import { ${findBinary} } from './platform.js';
 ${wasm ? `import { type ${prefix}WasmOptions, createWasmBackendSync, createWasmBackendWith } from './wasm.js';\n` : ""}
@@ -592,7 +592,7 @@ ${this.createOptionTypes(backends)}${
 export function createWasmBackend(options: ${prefix}WasmOptions = {}): Promise<WasmFfiBackend> {
   return createWasmBackendWith(
     {
-      createMainWorker: () => platform.createWorker(new URL('./wasm/main.worker.js', import.meta.url)),
+      createMainWorker: () => platform.createWorker(new URL('./wasm/node/main.worker.js', import.meta.url)),
       createThreadWorker: () => platform.createWorker(new URL('./wasm/thread.worker.js', import.meta.url)),
     },
     options,
@@ -672,7 +672,7 @@ ${this.serviceClasses({ process, wasm })}`;
     const { prefix, packageName } = this.opts;
 
     return `import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
-import { type WasmFfiBackend, workerHandle } from '@aztec-foundation/ipc-runtime/wasm';
+import { type WasmFfiBackend, workerHandle } from '@aztec-foundation/ipc-runtime/wasm/browser';
 import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
 import { type ${prefix}WasmOptions, createWasmBackendSync, createWasmBackendWith } from './wasm.js';
@@ -711,7 +711,7 @@ export function createWasmBackend(options: ${prefix}WasmOptions = {}): Promise<W
   return createWasmBackendWith(
     {
       createMainWorker: () =>
-        workerHandle(new Worker(new URL('./wasm/main.worker.browser.js', import.meta.url), { type: 'module' })),
+        workerHandle(new Worker(new URL('./wasm/browser/main.worker.js', import.meta.url), { type: 'module' })),
       createThreadWorker: () =>
         workerHandle(new Worker(new URL('./wasm/thread.worker.js', import.meta.url), { type: 'module' })),
     },
@@ -968,25 +968,25 @@ runThreadWorker(workerSide(), { hostImports });
 
   /** Main-instance worker for node. */
   generateMainWorker(): string {
-    return `import { platform, runMainWorker, workerSide } from '@aztec-foundation/ipc-runtime/wasm';
-import { hostImports } from '../wasm_host_imports.js';
+    return `import { platform, runMainWorker, workerSide } from '@aztec-foundation/ipc-runtime/wasm/node';
+import { hostImports } from '../../wasm_host_imports.js';
 
 runMainWorker(workerSide(), platform, {
   hostImports,
-  createThreadWorker: () => platform.createWorker(new URL('./thread.worker.js', import.meta.url)),
+  createThreadWorker: () => platform.createWorker(new URL('../thread.worker.js', import.meta.url)),
 });
 `;
   }
 
   /** Main-instance worker for browsers: spawns thread workers with the expression bundlers detect. */
   generateBrowserMainWorker(): string {
-    return `import { platform, runMainWorker, workerHandle, workerSide } from '@aztec-foundation/ipc-runtime/wasm';
-import { hostImports } from '../wasm_host_imports.js';
+    return `import { platform, runMainWorker, workerHandle, workerSide } from '@aztec-foundation/ipc-runtime/wasm/browser';
+import { hostImports } from '../../wasm_host_imports.js';
 
 runMainWorker(workerSide(), platform, {
   hostImports,
   createThreadWorker: () =>
-    workerHandle(new Worker(new URL('./thread.worker.js', import.meta.url), { type: 'module' })),
+    workerHandle(new Worker(new URL('../thread.worker.js', import.meta.url), { type: 'module' })),
 });
 `;
   }

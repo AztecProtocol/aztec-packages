@@ -1,12 +1,12 @@
 // Browser entry of the wasm FFI backend (`@aztec-foundation/ipc-runtime/wasm`, `browser` condition).
-import { type WasmFfiBinding, bindEntry } from "./entry.js";
+import { type WasmFfiBinding, bindEntry } from "../entry.js";
 import {
   browserPlatform,
   browserWorkerHandle,
   browserWorkerSide,
-} from "./platform.browser.js";
+} from "./platform.js";
 
-export * from "./entry.js";
+export * from "../entry.js";
 export {
   browserPlatform as platform,
   browserWorkerHandle as workerHandle,

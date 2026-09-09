@@ -1,10 +1,10 @@
 // Default main-instance worker for browsers: hosts the module and its thread pool off the page's thread.
-import { runMainWorker } from "./main_worker.js";
+import { runMainWorker } from "../main_worker.js";
 import {
   browserPlatform,
   browserWorkerHandle,
   browserWorkerSide,
-} from "./platform.browser.js";
+} from "./platform.js";
 
 runMainWorker(browserWorkerSide(), browserPlatform, {
   createThreadWorker: () =>
