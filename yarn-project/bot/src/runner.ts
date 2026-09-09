@@ -76,18 +76,11 @@ export class BotRunner implements BotRunnerApi, Traceable {
   }
 
   /**
-   * Stops sending txs. Returns once all ongoing txs are finished. A bot that owns its schedule is stopped
-   * before the store is closed, so that it can persist any recoverable work.
+   * Stops sending txs and closes the store. Returns once all ongoing txs are finished. A bot that owns its
+   * schedule is stopped before the store is closed, so that it can persist any recoverable work.
    */
   public async stop() {
-    if (this.lifecycleBot && this.lifecycleRunning) {
-      this.log.verbose(`Stopping bot`);
-      await this.lifecycleBot.stop();
-      this.lifecycleRunning = false;
-    } else if (this.runningPromise.isRunning()) {
-      this.log.verbose(`Stopping bot`);
-      await this.runningPromise.stop();
-    }
+    await this.#stopBot();
     await this.store.close();
     this.log.info(`Stopped bot`);
   }
@@ -112,7 +105,9 @@ export class BotRunner implements BotRunnerApi, Traceable {
     this.log.verbose(`Updating bot config`);
     const wasRunning = this.isRunning();
     if (wasRunning) {
-      await this.stop();
+      // Only the bot is stopped, not the store: the recreated bot keeps using it, and a bot that persists its
+      // work needs it open to resume from what the stopped one wrote.
+      await this.#stopBot();
     }
     this.config = { ...this.config, ...config };
     this.runningPromise.setPollingIntervalMS(this.config.txIntervalSeconds * 1000);
@@ -165,6 +160,18 @@ export class BotRunner implements BotRunnerApi, Traceable {
     }
     const botAddress = await this.bot.then(b => b.defaultAccountAddress);
     return { botAddress };
+  }
+
+  /** Stops whichever scheduling the current bot uses, leaving the store open. */
+  async #stopBot() {
+    if (this.lifecycleBot && this.lifecycleRunning) {
+      this.log.verbose(`Stopping bot`);
+      await this.lifecycleBot.stop();
+      this.lifecycleRunning = false;
+    } else if (this.runningPromise.isRunning()) {
+      this.log.verbose(`Stopping bot`);
+      await this.runningPromise.stop();
+    }
   }
 
   async #createBot() {

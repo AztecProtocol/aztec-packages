@@ -31,7 +31,7 @@ const BotInboxConsumeMode = ['mixed', 'public', 'private'] as const;
 export type BotInboxConsumeMode = (typeof BotInboxConsumeMode)[number];
 
 /** Largest number of messages that fit in a single Inbox bucket, plus the one that rolls it over. */
-const MAX_INBOX_MESSAGES_PER_BATCH = 257;
+export const MAX_INBOX_MESSAGES_PER_BATCH = 257;
 
 /** Effective `l1ToL2SeedCount` for inbox mode when the operator left it at its default. */
 const INBOX_DEFAULT_L1_TO_L2_SEED_COUNT = 512;

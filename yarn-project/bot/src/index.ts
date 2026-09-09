@@ -6,8 +6,18 @@ export { type BotLifecycle, type RunnableBot, isBotLifecycle } from './base_bot.
 export { BotRunner } from './runner.js';
 export { BotStore } from './store/bot_store.js';
 export {
+  InboxStore,
+  InboxStoreCorruptionError,
+  type InboxBatchRecord,
+  type InboxMessageRecord,
+  type InboxMessageState,
+  type InboxScheduleRecord,
+} from './store/index.js';
+export { type InboxL1Producer, ViemInboxL1Producer } from './inbox_l1_producer.js';
+export {
   type BotConfig,
   type BotInboxConsumeMode,
+  MAX_INBOX_MESSAGES_PER_BATCH,
   applyInboxModeDefaults,
   assertValidInboxConfig,
   getBotConfigFromEnv,
