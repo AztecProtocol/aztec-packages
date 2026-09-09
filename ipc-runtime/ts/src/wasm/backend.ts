@@ -73,59 +73,86 @@ function awaitReady(worker: WorkerHandle, what: string): Promise<void> {
   });
 }
 
-/** `threads - 1` workers, each holding one instance of the module over the shared memory. */
-class ThreadPool {
-  private next = 0;
+/**
+ * One worker per wasi thread, created when the module spawns it and dropped when it exits.
+ *
+ * A worker runs a thread to completion inside `wasi_thread_start`, so it can serve exactly one
+ * thread at a time; giving each its own worker is both the simplest arrangement and the only
+ * correct one. The module decides how many threads it wants — typically a pool of its own, sized
+ * from the thread count it was told — and this follows.
+ */
+class Threads {
+  private readonly workers = new Map<number, WorkerHandle>();
+  private nextTid = FIRST_THREAD_ID;
+  private unrefed = false;
 
-  private constructor(private readonly workers: WorkerHandle[]) {}
+  constructor(
+    private readonly createWorker: () => WorkerHandle,
+    private readonly init: Record<string, unknown>,
+    private readonly logger: (msg: string) => void,
+  ) {}
 
-  static async create(
-    createWorker: () => WorkerHandle,
-    count: number,
-    init: Record<string, unknown>,
-    logger: (msg: string) => void,
-  ): Promise<ThreadPool> {
-    const workers = Array.from({ length: count }, createWorker);
-    await Promise.all(
-      workers.map((w) => {
-        w.onMessage((msg) => {
-          if (msg?.type === "log") {
-            logger(msg.message);
-          }
-        });
-        const ready = awaitReady(w, "wasm thread worker");
-        w.postMessage({ type: "init", ...init });
-        return ready;
-      }),
-    );
-    return new ThreadPool(workers);
-  }
-
-  /** wasi-threads: run the module's thread entry with `startArg` as thread `tid` on the next worker. */
-  start(tid: number, startArg: number): void {
-    const worker = this.workers[this.next++ % this.workers.length];
+  /**
+   * wasi-threads `thread-spawn`: start the module's thread entry on a new worker and return its
+   * tid. The import is synchronous, so the worker boots while the caller carries on; its `init`
+   * and `start` messages are queued in order and the worker serializes them.
+   */
+  spawn(startArg: number): number {
+    const tid = this.nextTid++;
+    let worker: WorkerHandle;
+    try {
+      worker = this.createWorker();
+    } catch (e) {
+      this.logger(`wasm thread ${tid} could not be created: ${String(e)}`);
+      return -1;
+    }
+    this.workers.set(tid, worker);
+    worker.onMessage((msg) => {
+      if (msg?.type === "log") {
+        this.logger(msg.message);
+      } else if (msg?.type === "thread-exit" || msg?.type === "init-error") {
+        if (msg.type === "init-error") {
+          this.logger(`wasm thread ${tid} failed to start: ${msg.message}`);
+        }
+        this.workers.delete(tid);
+        void worker.terminate();
+      }
+    });
+    worker.onError((err) => {
+      this.logger(`wasm thread ${tid}: ${String(err)}`);
+      this.workers.delete(tid);
+    });
+    worker.postMessage({ type: "init", ...this.init });
     worker.postMessage({ type: "start", tid, startArg });
+    if (this.unrefed) {
+      worker.unref();
+    }
+    return tid;
   }
 
   unref(): void {
-    for (const w of this.workers) {
+    this.unrefed = true;
+    for (const w of this.workers.values()) {
       w.unref();
     }
   }
 
   async destroy(): Promise<void> {
-    await Promise.all(this.workers.map((w) => w.terminate()));
+    const workers = [...this.workers.values()];
+    this.workers.clear();
+    await Promise.all(workers.map((w) => w.terminate()));
   }
 }
 
 /**
- * The module running on the current thread: memory, main instance, and the thread pool serving
- * its `thread-spawn` requests. `call` is synchronous and blocks until the module returns.
+ * The module running on the current thread: memory, main instance, and the workers serving its
+ * `thread-spawn` requests. `call` is synchronous and blocks until the module returns.
  */
 export class WasmFfiEngine {
   private constructor(
-    private readonly host: WasmInstanceHost,
-    private readonly pool: ThreadPool | undefined,
+    /** The module instance, for reaching exports of its own beyond the FFI entry. */
+    readonly host: WasmInstanceHost,
+    private readonly threadWorkers: Threads | undefined,
     readonly memory: WebAssembly.Memory,
     readonly threads: number,
   ) {}
@@ -166,11 +193,12 @@ export class WasmFfiEngine {
       `wasm: ${threads} thread(s), memory ${memory.buffer.byteLength >> 16} pages initial, shared=${shared}`,
     );
 
-    const pool =
+    // Threads are created when the module asks for them, so nothing is spawned here — and
+    // nothing at all if the module never spawns a thread.
+    const threadWorkers =
       threads > 1
-        ? await ThreadPool.create(
+        ? new Threads(
             binding.createThreadWorker,
-            threads - 1,
             {
               module,
               memory,
@@ -182,7 +210,6 @@ export class WasmFfiEngine {
           )
         : undefined;
 
-    let nextTid = FIRST_THREAD_ID;
     const host = await WasmInstanceHost.instantiate({
       module,
       memory,
@@ -192,16 +219,9 @@ export class WasmFfiEngine {
       entry: opts.entry,
       allocatorExports: opts.allocatorExports,
       threads,
-      spawnThread: (startArg) => {
-        if (!pool) {
-          return -1;
-        }
-        const tid = nextTid++;
-        pool.start(tid, startArg);
-        return tid;
-      },
+      spawnThread: (startArg) => threadWorkers?.spawn(startArg) ?? -1,
     });
-    return new WasmFfiEngine(host, pool, memory, threads);
+    return new WasmFfiEngine(host, threadWorkers, memory, threads);
   }
 
   call(input: Uint8Array): Uint8Array {
@@ -209,11 +229,11 @@ export class WasmFfiEngine {
   }
 
   unref(): void {
-    this.pool?.unref();
+    this.threadWorkers?.unref();
   }
 
   async destroy(): Promise<void> {
-    await this.pool?.destroy();
+    await this.threadWorkers?.destroy();
   }
 }
 
