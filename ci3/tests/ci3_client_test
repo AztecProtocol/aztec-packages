@@ -28,25 +28,24 @@ echo "=== ci3 client/server test suite ==="
 
 work=$(mktemp -d)
 port=$((20000 + RANDOM % 20000))
-token="test-token-$RANDOM"
 cleanup() {
   "$ci3/ci3_server" stop --port $port --dir "$work/store" >/dev/null 2>&1 || true
   rm -rf "$work"
 }
 trap cleanup EXIT
 
-# A fresh probe in this process tree, against our private file-backed server, with the write token.
-# CI runs this inside a build whose environment selects the compat backend and the production
-# redis; none of that may leak into the server under test.
-unset CI3_SERVER CI3_PUBLIC_URL CI3_SERVER_START_ARGS PARENT_LOG_ID
+# A private file-backed server and a config naming it. The build's own ~/.ci3/config.json must not
+# leak in, so CI3_CONFIG points at ours.
+unset CI3_SERVER CI3_PUBLIC_URL PARENT_LOG_ID
 export CI=0
-export CI3_SERVER_TOKEN=$token
 url=$("$ci3/ci3_server" start --port $port --dir "$work/store")
-export CI3_SERVER_URL=$url
+export CI3_CONFIG=$work/config.json
+printf '{"mode": "local", "server": "%s", "public_url": "%s"}\n' "$url" "$url" >"$CI3_CONFIG"
 source "$ci3/source_ci3_client"
 check "configured server probed" "$url" "$CI3_SERVER"
 check "url points at the server" "$url/abc" "$(ci3_client url abc)"
-check "CI3_PUBLIC_URL overrides printed links" "https://me.example/abc" "$(CI3_PUBLIC_URL=https://me.example ci3_client url abc)"
+printf '{"mode": "local", "server": "%s", "public_url": "https://me.example"}\n' "$url" >"$work/shared.json"
+check "public_url in the config is the link base" "https://me.example/abc" "$(CI3_CONFIG=$work/shared.json ci3_client url abc)"
 
 # --- logs ---
 echo "--- logs ---"
@@ -123,26 +122,21 @@ if ci3_client artifact_exists nope.tar.gz; then fail "missing artifact exists ex
 if ci3_client artifact_get nope.tar.gz >/dev/null 2>&1; then fail "missing artifact get exits 1" "exit 0"; else pass "missing artifact get exits 1"; fi
 # A client that dies mid-upload announces more bytes than it sends; nothing may be published.
 port_only=${url##*:}
-{ printf 'PUT /artifacts/truncated.tar.gz HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer %s\r\nContent-Length: 100000\r\n\r\n' "$token"; head -c 1000 /dev/urandom; } | timeout 5 bash -c "cat >/dev/tcp/127.0.0.1/$port_only" 2>/dev/null || true
+{ printf 'PUT /artifacts/truncated.tar.gz HTTP/1.1\r\nHost: x\r\nContent-Length: 100000\r\n\r\n'; head -c 1000 /dev/urandom; } | timeout 5 bash -c "cat >/dev/tcp/127.0.0.1/$port_only" 2>/dev/null || true
 sleep 0.5
 if ci3_client artifact_exists truncated.tar.gz; then fail "truncated upload is not published" "artifact exists"; else pass "truncated upload is not published"; fi
 check "artifact ttl recorded" 1 "$( [ -f "$work/store/artifacts/foo-abc.tar.gz.expires" ] && echo 1 || echo 0)"
 # Bodies must announce their length: a chunked upload (curl -T -) is refused outright.
-check "chunked upload is refused" 411 "$(printf 'x' | curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" -H 'Transfer-Encoding: chunked' -T - "$url/logs/chunked")"
+check "chunked upload is refused" 411 "$(printf 'x' | curl -s -o /dev/null -w '%{http_code}' -H 'Transfer-Encoding: chunked' -T - "$url/logs/chunked")"
 check "anonymous oversized write is refused without being read" 401 "$(head -c 20000 /dev/urandom | curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary @- "$url/kv/anon-big")"
 
 # --- auth ---
-echo "--- auth ---"
-check "anonymous write rejected" 401 "$(curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary x "$url/kv/anon")"
-if CI3_SERVER_TOKEN=other "$ci3/ci3_server" start --port $port --dir "$work/store" >/dev/null 2>&1; then fail "start with a different token refuses to reuse the server" "reused"; else pass "start with a different token refuses to reuse the server"; fi
-if "$ci3/ci3_server" start --port $port --dir "$work/other-store" >/dev/null 2>&1; then fail "start with a different storage dir refuses to reuse the server" "reused"; else pass "start with a different storage dir refuses to reuse the server"; fi
-check "start with the same configuration reuses the server" "$url" "$("$ci3/ci3_server" start --port $port --dir "$work/store" 2>/dev/null)"
-check "anonymous read allowed" "v1" "$(curl -s "$url/kv/k1")"
-CI3_SERVER_TOKEN=wrong ci3_client kv_set k1 hacked
-check "wrong token write ignored" "v1" "$(ci3_client kv_get k1)"
-check "bad path rejected" 400 "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" -X PUT --data-binary x "$url/logs/%2E%2E/etc")"
+echo "--- bad paths and reuse ---"
+check "bad path rejected" 400 "$(curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary x "$url/logs/%2E%2E/etc")"
 check "server sidecars are not addressable" 400 "$(curl -s -o /dev/null -w '%{http_code}' "$url/logs/log1.expires")"
 check "run files are not addressable as logs" 400 "$(curl -s -o /dev/null -w '%{http_code}' "$url/logs/x.json")"
+if "$ci3/ci3_server" start --port $port --dir "$work/other-store" >/dev/null 2>&1; then fail "start with a different storage dir refuses to reuse the server" "reused"; else pass "start with a different storage dir refuses to reuse the server"; fi
+check "start with the same configuration reuses the server" "$url" "$("$ci3/ci3_server" start --port $port --dir "$work/store" 2>/dev/null)"
 
 # --- no server: every client is a harmless no-op ---
 echo "--- no server ---"
@@ -151,10 +145,25 @@ mapfile -t got < <(CI3_SERVER= ci3_client kv_get a b)
 check "kv_get answers one empty line per key" "2||" "${#got[@]}|${got[0]}|${got[1]}"
 check "kv_set exits 0" 0 "$( { CI3_SERVER= ci3_client kv_set a b; echo $?; } )"
 if CI3_SERVER= ci3_client artifact_exists foo-abc.tar.gz; then fail "artifact_exists exits 1" "exit 0"; else pass "artifact_exists exits 1"; fi
-check "unreachable server resolves to no server" "" "$(unset CI3_SERVER; CI3_SERVER_URL=http://127.0.0.1:1 bash -c 'source $ci3/source_ci3_client 2>/dev/null; echo $CI3_SERVER')"
-check "CI with no configured server has none" "server=[] cache=0" "$(unset CI3_SERVER CI3_SERVER_URL CI3_PUBLIC_URL USE_TEST_CACHE; CI=1 bash -c 'source $ci3/source_ci3_client 2>/dev/null; echo "server=[$CI3_SERVER] cache=$USE_TEST_CACHE"')"
-# A local run starts a server on demand; CI3_SERVER_URL stays unset, so it is never handed to an instance.
-check "local run starts a server on demand and leaves CI3_SERVER_URL unset" "http://localhost:$((port + 1)) unset" "$(unset CI3_SERVER CI3_SERVER_URL; CI=0 CI3_SERVER_START_ARGS="--port $((port + 1)) --dir $work/store-local" bash -c 'source $ci3/source_ci3_client >/dev/null 2>&1; echo "$CI3_SERVER ${CI3_SERVER_URL:-unset}"; $ci3/ci3_server stop --port '$((port + 1))' --dir '$work/store-local' >/dev/null')"
+check "no config resolves to no server" "server=[] cache=0" "$(unset CI3_SERVER USE_TEST_CACHE; CI3_CONFIG=$work/missing.json bash -c 'source $ci3/source_ci3_client 2>/dev/null; echo "server=[$CI3_SERVER] cache=$USE_TEST_CACHE"')"
+printf '{"mode": "local", "server": "http://127.0.0.1:1"}\n' >"$work/dead.json"
+check "a configured server that does not answer resolves to no server" "" "$(unset CI3_SERVER; CI3_CONFIG=$work/dead.json bash -c 'source $ci3/source_ci3_client 2>/dev/null; echo $CI3_SERVER')"
+
+# --- ci3_setup: writes the config once, honours it, refuses a silent switch ---
+echo "--- ci3_setup ---"
+setup_cfg=$work/setup/config.json
+if CI3_CONFIG=$setup_cfg CI=0 CI3_PASSWORD= "$ci3/ci3_setup" </dev/null >/dev/null 2>&1; then started=started; else started=failed; fi
+check "local setup writes a local config and starts the server" "local started" "$(jq -r .mode "$setup_cfg" 2>/dev/null) $started"
+check "local setup stores no password" "null" "$(jq -r '.password' "$setup_cfg")"
+if CI3_CONFIG=$setup_cfg CI=0 CI3_PASSWORD=secret "$ci3/ci3_setup" </dev/null >/dev/null 2>&1; then fail "non-interactive switch to aztec is refused" "exit 0"; else pass "non-interactive switch to aztec is refused"; fi
+check "refused switch leaves the config alone" "local" "$(jq -r .mode "$setup_cfg")"
+CI3_CONFIG=$setup_cfg CI=0 "$ci3/ci3_setup" </dev/null >/dev/null 2>&1 || true
+check "existing local config is honoured without a password" "local" "$(jq -r .mode "$setup_cfg")"
+aztec_cfg=$work/setup-aztec/config.json
+CI3_CONFIG=$aztec_cfg CI=0 CI3_PASSWORD=secret "$ci3/ci3_setup" </dev/null >/dev/null 2>&1 || true
+check "aztec setup stores the password and links to the dashboard" "aztec secret http://ci.aztec-labs.com" "$(jq -r '"\(.mode) \(.password) \(.public_url)"' "$aztec_cfg")"
+CI3_CONFIG=$work/setup-ci/config.json CI=1 "$ci3/ci3_setup" </dev/null >/dev/null 2>&1 || true
+check "CI selects the aztec server" "aztec" "$(jq -r .mode "$work/setup-ci/config.json")"
 
 # --- the ci3 scripts built on the clients ---
 echo "--- cache_log ---"

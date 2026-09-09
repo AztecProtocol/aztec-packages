@@ -231,7 +231,7 @@ def add_flags(p):
 
 
 def identity_of(args):
-    return "compat redis=%s auth=%s" % (args.redis, "token" if os.environ.get("CI3_SERVER_TOKEN") else "none")
+    return "compat redis=%s" % args.redis
 
 
 if __name__ == "__main__":

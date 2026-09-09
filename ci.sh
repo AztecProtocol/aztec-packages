@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+"$(git rev-parse --show-toplevel)/ci3/ci3_setup"
 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_refname
 

@@ -37,8 +37,7 @@ PR_REF="HEAD"
 OUT=""
 SCAN_LIMIT=300
 # The public build cache cache_download falls back to (the in-CI S3 http endpoint, else the CDN).
-# Only the URL is wanted: a set CI3_SERVER keeps the client from starting a local server.
-CI3_SERVER=${CI3_SERVER-} source "$(git rev-parse --show-toplevel)/ci3/source_ci3_client"
+source "$(git rev-parse --show-toplevel)/ci3/source_ci3_client"
 CACHE_ENDPOINT="$ci3_public_cache_url"
 
 die() { echo "bench_compare: error: $*" >&2; exit 1; }

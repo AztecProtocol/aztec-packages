@@ -11,9 +11,6 @@ Everything is a file under --dir (default /tmp/ci3):
 A write with ?ttl= gets a `<path>.expires` sidecar holding the expiry epoch; expired entries read as
 absent and are swept periodically.
 
-Set CI3_SERVER_TOKEN to require `Authorization: Bearer` on writes (reads stay anonymous), which is what
-makes exposing a server through a tunnel safe.
-
 Another backend can reuse the HTTP handling and process management here (ci3_compat_server does):
 call run_cli() with its backend factory, identity function and extra flags.
 """
@@ -339,19 +336,8 @@ class Handler(BaseHTTPRequestHandler):
     def text(self, data, missing):
         return self.reply(200, data) if data is not None else self.reply(404, missing)
 
-    def authorized(self):
-        token = self.server.token
-        if token and self.headers.get("Authorization") != "Bearer " + token:
-            # The body is not read: an anonymous client must not make the server buffer it.
-            self.close_connection = True
-            self.reply(401, "missing or invalid bearer token\n")
-            return False
-        return True
-
     def put(self, parts, head, rest):
         b = self.server.backend
-        if not self.authorized():
-            return
         if head == "logs" and rest:
             b.log_put(rest, self.body_bytes(), self.ttl(), self.query.get("final", ["0"])[0] == "1")
             return self.reply(204)
@@ -370,8 +356,6 @@ class Handler(BaseHTTPRequestHandler):
 
     def post(self, parts, head, rest):
         b = self.server.backend
-        if not self.authorized():
-            return
         if head == "kv" and rest == "mget":
             keys = self.body_bytes().decode().split("\n")
             keys = keys[:-1] if keys and keys[-1] == "" else keys
@@ -404,13 +388,11 @@ class Server(ThreadingHTTPServer):
     def __init__(self, addr, backend, identity, verbose):
         super().__init__(addr, Handler)
         self.backend, self.identity, self.verbose = backend, identity, verbose
-        self.token = os.environ.get("CI3_SERVER_TOKEN", "")
 
 
 def identity_of(args):
-    """What two starters must agree on to share a server. The token's value is checked with a write
-    probe, never exposed."""
-    return "dir=%s auth=%s" % (os.path.abspath(args.dir), "token" if os.environ.get("CI3_SERVER_TOKEN") else "none")
+    """What two starters must agree on to share a server."""
+    return "dir=%s" % os.path.abspath(args.dir)
 
 
 def health(port):
@@ -422,16 +404,6 @@ def health(port):
         return resp.getheader("X-CI3-Server", "") if resp.status == 200 and resp.read() == b"ci3-server" else None
     except OSError:
         return None
-
-
-def token_accepted(port, token):
-    """A write probe with a 1 second ttl: nothing is stored."""
-    try:
-        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-        conn.request("PUT", "/kv/ci3-server-probe?ttl=1", body=b"1", headers={"Authorization": "Bearer " + token})
-        return conn.getresponse().status < 300
-    except OSError:
-        return False
 
 
 def port_taken(port):
@@ -470,10 +442,6 @@ class Cli:
         if identity != self.identity_of(args):
             sys.stderr.write("port %d has a ci3 server with a different configuration (%s), wanted (%s); stop it first\n"
                              % (args.port, identity, self.identity_of(args)))
-            return False
-        token = os.environ.get("CI3_SERVER_TOKEN", "")
-        if token and not token_accepted(args.port, token):
-            sys.stderr.write("port %d has a ci3 server that rejects this CI3_SERVER_TOKEN; stop it first\n" % args.port)
             return False
         return True
 

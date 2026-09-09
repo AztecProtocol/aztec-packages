@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(git rev-parse --show-toplevel)/ci3/ci3_setup"
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 function save_cache {

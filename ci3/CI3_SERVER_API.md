@@ -3,34 +3,41 @@
 ci3 stores CI logs, the test cache, run metadata and build artifacts through the HTTP API below. It knows
 nothing about what sits behind it. Two implementations exist:
 
-- `ci3/ci3_server`: the file-backed reference implementation. A local run starts it on demand
-  (`http://localhost:4275`, files under `/tmp/ci3`). Put it behind a tunnel (ngrok etc.) and set
-  `CI3_PUBLIC_URL` to share links.
+- `ci3/ci3_server`: the file-backed reference implementation, what a local run uses
+  (`http://localhost:4275`, files under `/tmp/ci3`).
 - `ci3/ci3_compat_server`: transitional. Forwards to the redis and S3 stores the pre-API ci3 wrote
-  to directly, with the key shapes the labs dashboard reads, so CI keeps its logs and test cache
-  before that dashboard speaks the API. The CI launcher (`bootstrap_ec2`) starts it on the build
-  instance when no `CI3_SERVER_URL` is configured; it is the implementation to upstream into the
-  dashboard, and nothing else in ci3 knows it exists.
+  to directly, with the key shapes the labs CI dashboard reads, so CI keeps its logs and test cache
+  before that dashboard speaks the API. Nothing in ci3 but `ci3_setup` knows it exists.
 - The labs CI dashboard (`ci.aztec-labs.com`, in the aztec-node repository): the production
-  implementation once it serves this API; then `CI3_SERVER_URL` points at it.
+  implementation once it serves this API; the aztec mode below then names it directly.
 
 Every ci3 script reaches the server only through `ci3/ci3_client <command>` (python, stdlib only),
 so a new backend needs to implement exactly this document.
 
 ## Client configuration
 
-| Variable | Meaning |
-|---|---|
-| `CI3_SERVER_URL` | The server's base URL. Unset: a local run (`CI=0`) starts the file-backed server on `localhost:4275`; a CI run has no server and proceeds with no logs and no test cache. |
-| `CI3_SERVER_TOKEN` | Sent on every request as `Authorization: Bearer <token>`. Servers require it for writes and may allow anonymous reads. |
-| `CI3_PUBLIC_URL` | Base of the URLs printed in terminal links (default: the server). Set it to share a tunnelled local server, or when the logs are viewed somewhere else (CI points it at the dashboard). |
-| `CI3_SERVER_START_ARGS` | Extra `ci3_server` flags for a server started on demand (`--port`, `--dir`). |
+`~/.ci3/config.json` (or the file `CI3_CONFIG` names) is all `ci3_client` reads:
 
-`ci3_client env` resolves this once per process tree into `CI3_SERVER`, the base URL every
-`ci3_client <command>` command talks to, or empty when there is none: then every command is a no-op (draining
-stdin, returning empty results, exit codes callers can rely on). Setting `CI3_SERVER` (even empty)
-skips discovery. Retention is fixed by the clients: logs 14 days in CI and 2 days locally, artifacts 7 days
-(so a local file server does not grow without bound; a CI backend may ignore it).
+| Field | Meaning |
+|---|---|
+| `mode` | `local` or `aztec`: which server `ci3_setup` set up (and restarts). |
+| `server` | Base URL of the server every command talks to. |
+| `public_url` | Base of the URLs printed in terminal links (default: `server`). Edit it to share a tunnelled local server. |
+| `password` | The aztec server's password, in `aztec` mode. Stored for the dashboard's API; not used yet. |
+
+`ci3_setup`, run by the entry points (`bootstrap.sh`, `ci.sh`, the CI launcher) before ci3 loads,
+writes the file once and honours it afterwards. `CI3_PASSWORD` in the environment, or `CI=1`, selects
+the aztec server: the labs CI dashboard, where CI logs live. Until it serves this API that means
+`ci3_compat_server` on the same machine, forwarding to the dashboard's redis/S3, with links to the
+dashboard. Otherwise `ci3_server`, the file-backed server. When the environment asks for the aztec
+server and an existing config disagrees, a terminal is asked whether to switch; a non-interactive
+run stops with an error.
+
+`ci3_client env` resolves the config once per process tree into `CI3_SERVER` (the server, or empty
+when there is none or it does not answer): then every command is a no-op (draining stdin,
+returning empty results, exit codes callers can rely on). Retention is fixed by the client: logs 14
+days in CI and 2 days locally, artifacts 7 days (so a local file server does not grow without bound;
+a CI backend may ignore it).
 
 ## Conventions
 
@@ -41,12 +48,14 @@ skips discovery. Retention is fixed by the clients: logs 14 days in CI and 2 day
   server applies its own retention.
 - Bodies are raw bytes. A write with `Content-Encoding: gzip` carries a gzipped body; the server
   stores the decompressed content.
-- Writes answer 2xx. Reads answer 200 with the content, 404 when absent. 401 for a missing or wrong
-  token, 400 for a bad path, 405 for an unsupported method.
+- Writes answer 2xx. Reads answer 200 with the content, 404 when absent. 400 for a bad path, 405 for
+  an unsupported method, 411 for a body without a Content-Length.
 - `GET /health` answers 200 with the body `ci3-server` (the probe checks the body, so a stale
   unrelated service on the port is not mistaken for a server). The reference servers also return an
   `X-CI3-Server` header naming their configuration, so a second `start` with a different one refuses
   to reuse them.
+- Authentication: the reference servers take none (a local server is not exposed). The aztec server
+  takes HTTP basic auth (`aztec:<password>`), which the client sends when its config has a password.
 
 ## Logs
 

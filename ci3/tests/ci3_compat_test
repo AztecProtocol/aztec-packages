@@ -78,14 +78,15 @@ redis() { docker exec "$redis_name" redis-cli --raw "$@"; }
 (cd "$fake_s3/aztec-ci-artifacts/build-cache" && exec python3 -m http.server $public_port --bind 127.0.0.1 >/dev/null 2>&1) &
 public_pid=$!
 
-# The way the build instance runs it: the CI launcher starts the compat server explicitly, points
-# CI3_SERVER_URL at it and CI3_PUBLIC_URL at the dashboard; the clients know nothing about compat.
-unset CI3_SERVER CI3_SERVER_TOKEN CI3_SERVER_START_ARGS PARENT_LOG_ID
+# As on the build instance: an aztec-mode config naming the compat server (here with the test's redis
+# and fake bucket endpoint), links to the dashboard; the clients know nothing about compat.
+unset CI3_SERVER CI3_PUBLIC_URL PARENT_LOG_ID
 url=$("$ci3/ci3_compat_server" start --port $server_port --dir "$work/store" --redis 127.0.0.1:$redis_port --public-cache-url http://127.0.0.1:$public_port)
-export CI=1 CI3_SERVER_URL=$url CI3_PUBLIC_URL=http://dashboard.example
+export CI=1 CI3_CONFIG=$work/config.json
+printf '{"mode": "aztec", "server": "%s", "public_url": "http://dashboard.example", "password": "secret"}\n' "$url" >"$CI3_CONFIG"
 source "$ci3/source_ci3_client"
 check "compat server probed" "http://localhost:$server_port" "$CI3_SERVER"
-check "links point where the launcher says" "http://dashboard.example/abc" "$(ci3_client url abc)"
+check "links point at the dashboard" "http://dashboard.example/abc" "$(ci3_client url abc)"
 
 echo "--- logs ---"
 printf 'live\n' | ci3_client log_put log1 100

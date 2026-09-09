@@ -5,7 +5,7 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 test_root="/tmp/cache-local-test-$$"
 # Exercise only the CACHE_LOCAL_DIR paths: no ci3 server, so nothing is uploaded or fetched remotely.
-export CI3_SERVER=
+export CI3_CONFIG=/dev/null
 passed=0
 failed=0
 

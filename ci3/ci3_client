@@ -19,25 +19,20 @@ Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Py
   artifact_get <name>              stream a build-cache artifact -> stdout (exit 1 if absent)
   artifact_exists <name>           exit 0 if present, else 1
 
-Configuration, all read from the environment:
-  CI3_SERVER_URL         the server. Unset: a local run (CI=0) starts ci3_server, the file-backed
-                         server, on demand; a CI run has no server.
-  CI3_SERVER_TOKEN       bearer token for writes.
-  CI3_PUBLIC_URL         base of the links we print (default: the server). Set it to share a
-                         tunnelled server, or when the logs are viewed somewhere else.
-  CI3_SERVER_START_ARGS  extra ci3_server flags for a server started on demand (--port, --dir, ...).
-  CI3_SERVER             the outcome, exported once per process tree by `env`: the server every
-                         command talks to, or empty for none. Set (even empty) it skips discovery.
-
-With no server every command is a harmless no-op: stdin is drained, kv_get answers one empty line
-per key, writes exit 0, reads exit 1. Writes never fail the caller: logging is best effort.
+Configuration is ~/.ci3/config.json, written by ci3_setup (CI3_CONFIG names another file):
+  server      base URL of the server every command talks to
+  public_url  base of the links we print (default: server); edit it to share a tunnelled server
+  password    the aztec server's password, when set up for it (stored by ci3_setup; not used yet)
+No config, or a server that does not answer: every command is a harmless no-op. Stdin is drained,
+kv_get answers one empty line per key, writes exit 0, reads exit 1. Writes never fail the caller.
 """
+import base64
 import gzip
 import http.client
+import json
 import io
 import os
 import shlex
-import subprocess
 import sys
 import urllib.parse
 
@@ -52,7 +47,6 @@ LOG_EXPIRE_LOCAL = 60 * 60 * 24 * 2
 ARTIFACT_EXPIRE = 60 * 60 * 24 * 7
 
 YELLOW, RESET = "\033[38;2;250;217;121m", "\033[0m"
-HERE = os.path.dirname(os.path.realpath(__file__))
 
 
 def warn(msg):
@@ -63,16 +57,31 @@ def in_ci():
     return os.environ.get("CI", "0") == "1"
 
 
-# --- discovery ---------------------------------------------------------------------------------
+# --- configuration ---------------------------------------------------------------------------
 
 
-def start_server():
-    cmd = [os.path.join(HERE, "ci3_server"), "start", *shlex.split(os.environ.get("CI3_SERVER_START_ARGS", ""))]
-    r = subprocess.run(cmd, stdout=subprocess.PIPE)
-    return r.stdout.decode().strip() if r.returncode == 0 else None
+def config():
+    try:
+        with open(os.environ.get("CI3_CONFIG") or os.path.expanduser("~/.ci3/config.json")) as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {}
 
 
-def probe(url):
+def resolve_server():
+    """The server this process tree talks to, or "" for none. Cached in CI3_SERVER by `env`."""
+    if "CI3_SERVER" in os.environ:
+        return os.environ["CI3_SERVER"]
+    server = config().get("server", "").rstrip("/")
+    if server and not answers(server):
+        warn("ci3 server %s (from %s) does not answer; run ci3/ci3_setup. Logs and test cache disabled."
+             % (server, os.environ.get("CI3_CONFIG") or "~/.ci3/config.json"))
+        server = ""
+    os.environ["CI3_SERVER"] = server
+    return server
+
+
+def answers(url):
     try:
         conn = connection(url, timeout=5)
         conn.request("GET", "/health")
@@ -82,36 +91,14 @@ def probe(url):
         return False
 
 
-def resolve_server():
-    """The server this process tree talks to, or "" for none. Cached in CI3_SERVER."""
-    if "CI3_SERVER" in os.environ:
-        return os.environ["CI3_SERVER"]
-    configured = os.environ.get("CI3_SERVER_URL", "")
-    server = ""
-    if configured == "":
-        if not in_ci():
-            server = start_server() or ""
-            if not server:
-                warn("Could not start the local ci3 server. Logs and test cache disabled.")
-    else:
-        url = configured.rstrip("/")
-        if probe(url):
-            server = url
-        else:
-            warn("Cannot reach ci3 server at %s. Logs and test cache disabled." % url)
-    os.environ["CI3_SERVER"] = server
-    return server
-
-
 def public_url():
-    """Base of the links we print: CI3_PUBLIC_URL, else the server."""
-    return os.environ.get("CI3_PUBLIC_URL", "").rstrip("/") or resolve_server()
+    return config().get("public_url", "").rstrip("/") or resolve_server()
 
 
 def cmd_env(args):
+    """Shell exports of the resolved configuration, for source_ci3_client."""
     server = resolve_server()
-    public = public_url()
-    lines = ["export CI3_SERVER=%s" % shlex.quote(server), "export CI3_PUBLIC_URL=%s" % shlex.quote(public)]
+    lines = ["export CI3_SERVER=%s" % shlex.quote(server), "export CI3_PUBLIC_URL=%s" % shlex.quote(public_url())]
     if not server:
         lines.append("export USE_TEST_CACHE=0")
     lines += [
@@ -135,9 +122,9 @@ def connection(url, timeout):
 def request(method, url, body=None, headers=None, timeout=30, redirects=5):
     """One request; 3xx answers are followed, re-sending the body (a file body is rewound)."""
     headers = dict(headers or {})
-    token = os.environ.get("CI3_SERVER_TOKEN")
-    if token:
-        headers["Authorization"] = "Bearer " + token
+    password = config().get("password")
+    if password:
+        headers["Authorization"] = "Basic " + base64.b64encode(("aztec:" + password).encode()).decode()
     for _ in range(redirects + 1):
         u = urllib.parse.urlsplit(url)
         conn = connection(url, timeout)
