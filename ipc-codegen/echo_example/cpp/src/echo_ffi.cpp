@@ -1,6 +1,6 @@
 // The service's half of the generated in-process FFI entry
-// (generated/echo_ffi.cpp defines ipc_ffi_entry and calls back here for the
-// dispatcher).
+// (generated/echo_ffi.cpp defines echo_ipc_ffi_entry and calls back here for
+// the dispatcher).
 #include "generated/echo_ffi.hpp"
 #include "echo_handlers.hpp"
 

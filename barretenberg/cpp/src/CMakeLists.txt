@@ -233,7 +233,7 @@ add_library(
 )
 
 # bb-external: static library for external consumers (e.g. barretenberg-rs).
-# Uses the core object list without lmdb/world_state — FFI consumers only need ipc_ffi_entry().
+# Uses the core object list without lmdb/world_state — FFI consumers only need bb_ipc_ffi_entry().
 # Built with -fvisibility=hidden; only WASM_EXPORT symbols remain visible.
 if(NOT WASM)
     add_library(

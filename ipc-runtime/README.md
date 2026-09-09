@@ -217,8 +217,8 @@ C++.
 
 The `@aztec-foundation/ipc-runtime/wasm` entry (node and `browser` export
 conditions) runs a service compiled to a wasi reactor in-process, through the
-FFI entry of the ipc-codegen contract (`ipc_ffi_entry` / `ipc_ffi_alloc` /
-`ipc_ffi_free`; see `ipc-codegen/SCHEMA_SPEC.md`):
+FFI entry of the ipc-codegen contract (`<svc>_ipc_ffi_entry` / `_alloc` /
+`_free`, found by suffix when not named; see `ipc-codegen/SCHEMA_SPEC.md`):
 
 | Export                        | Role                                                                                     |
 |-------------------------------|------------------------------------------------------------------------------------------|

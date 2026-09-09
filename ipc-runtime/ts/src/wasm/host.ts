@@ -31,9 +31,15 @@ export interface InstanceOptions {
    * its tid, or a negative errno when no thread can be started.
    */
   spawnThread?: (startArg: number) => number;
-  /** Export taking `(input, input_len, output_out, output_len_out)`; default `ipc_ffi_entry`. */
+  /**
+   * Export taking `(input, input_len, output_out, output_len_out)`. Default: the module's one
+   * export named `<service>_ipc_ffi_entry` (or bare `ipc_ffi_entry`).
+   */
   entry?: string;
-  /** Allocator export pairs to look for, in order of preference. */
+  /**
+   * Allocator export pairs to look for, in order of preference. Default: the entry's sibling
+   * `<service>_ipc_ffi_alloc`/`_free`, then wasi-libc's `malloc`/`free`, then bb's `bbmalloc`/`bbfree`.
+   */
   allocatorExports?: Array<[string, string]>;
   /** Call the reactor's `_initialize` after instantiation (main instances only). Default true. */
   runInitialize?: boolean;
@@ -41,24 +47,50 @@ export interface InstanceOptions {
   threads?: number;
 }
 
-export const DEFAULT_ENTRY = "ipc_ffi_entry";
+/** Every FFI entry export ends with this; the generated ones are prefixed by their service. */
+export const ENTRY_SUFFIX = "ipc_ffi_entry";
 
-/**
- * The generated `ipc_ffi_alloc`/`ipc_ffi_free` first; wasi-libc's `malloc`/`free` for modules that
- * export them; bb's historical `bbmalloc`/`bbfree` last.
- */
-export const DEFAULT_ALLOCATOR_EXPORTS: Array<[string, string]> = [
-  ["ipc_ffi_alloc", "ipc_ffi_free"],
+/** Allocator pairs tried after the entry's own `<service>_ipc_ffi_alloc`/`_free`. */
+export const FALLBACK_ALLOCATOR_EXPORTS: Array<[string, string]> = [
   ["malloc", "free"],
   ["bbmalloc", "bbfree"],
 ];
 
 type WasmFn = (...args: number[]) => number;
 
+/** The entry export to use and the service prefix it carries (`bb_` for `bb_ipc_ffi_entry`). */
+function findEntry(
+  exports: Record<string, WebAssembly.ExportValue>,
+  wanted?: string,
+): { entry: string; prefix: string } {
+  const prefixOf = (name: string) =>
+    name.endsWith(ENTRY_SUFFIX) ? name.slice(0, -ENTRY_SUFFIX.length) : "";
+  if (wanted) {
+    if (typeof exports[wanted] !== "function") {
+      throw new Error(`wasm module does not export ${wanted}`);
+    }
+    return { entry: wanted, prefix: prefixOf(wanted) };
+  }
+  const candidates = Object.keys(exports).filter(
+    (name) =>
+      typeof exports[name] === "function" &&
+      (name === ENTRY_SUFFIX || name.endsWith(`_${ENTRY_SUFFIX}`)),
+  );
+  if (candidates.length === 0) {
+    throw new Error(`wasm module exports no FFI entry (*_${ENTRY_SUFFIX})`);
+  }
+  if (candidates.length > 1) {
+    throw new Error(
+      `wasm module exports several FFI entries (${candidates.join(", ")}); pass \`entry\``,
+    );
+  }
+  return { entry: candidates[0], prefix: prefixOf(candidates[0]) };
+}
+
 /**
  * One instance of an FFI-contract module: imports resolved (WASI shim, wasi-threads, module
- * specific host imports), `_initialize` run, and the `ipc_ffi_entry` call protocol implemented
- * over the module's own allocator.
+ * specific host imports), `_initialize` run, and the `<service>_ipc_ffi_entry` call protocol
+ * implemented over the module's own allocator.
  */
 export class WasmInstanceHost {
   private constructor(
@@ -129,20 +161,18 @@ export class WasmInstanceHost {
     ) {
       (exports._initialize as () => void)();
     }
-    const entryName = opts.entry ?? DEFAULT_ENTRY;
-    const entry = exports[entryName];
-    if (typeof entry !== "function") {
-      throw new Error(`wasm module does not export ${entryName}`);
-    }
-    const pair = (opts.allocatorExports ?? DEFAULT_ALLOCATOR_EXPORTS).find(
+    const { entry, prefix } = findEntry(exports, opts.entry);
+    const allocatorExports = opts.allocatorExports ?? [
+      [`${prefix}ipc_ffi_alloc`, `${prefix}ipc_ffi_free`],
+      ...FALLBACK_ALLOCATOR_EXPORTS,
+    ];
+    const pair = allocatorExports.find(
       ([a, f]) =>
         typeof exports[a] === "function" && typeof exports[f] === "function",
     );
     if (!pair) {
       throw new Error(
-        `wasm module exports no allocator pair (looked for ${(
-          opts.allocatorExports ?? DEFAULT_ALLOCATOR_EXPORTS
-        )
+        `wasm module exports no allocator pair (looked for ${allocatorExports
           .map(([a, f]) => `${a}/${f}`)
           .join(", ")})`,
       );
@@ -150,7 +180,7 @@ export class WasmInstanceHost {
     return new WasmInstanceHost(
       instance,
       memory,
-      entry as WasmFn,
+      exports[entry] as WasmFn,
       exports[pair[0]] as WasmFn,
       exports[pair[1]] as WasmFn,
       logger,

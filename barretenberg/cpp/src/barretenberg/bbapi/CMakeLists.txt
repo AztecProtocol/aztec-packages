@@ -22,7 +22,7 @@ if(NOT FUZZING)
         ${IPC_CODEGEN_DIR}/src/*.ts
         ${IPC_CODEGEN_DIR}/templates/cpp/*.hpp
     )
-    # --ffi emits the in-process entry (ipc_ffi_entry) bb.js's wasm backend and barretenberg-rs call.
+    # --ffi emits the in-process entry (bb_ipc_ffi_entry) bb.js's wasm backend and barretenberg-rs call.
     add_custom_command(
         OUTPUT ${BB_GEN_OUTPUTS}
         COMMAND node --experimental-strip-types --experimental-transform-types --no-warnings

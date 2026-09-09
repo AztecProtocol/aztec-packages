@@ -16,7 +16,7 @@ export interface WasmFfiOptions {
   logger?: (msg: string) => void;
   /** Module-specific imports beyond WASI/wasi-threads (see `HostImportsFactory`). */
   hostImports?: HostImportsFactory;
-  /** FFI entry export; default `ipc_ffi_entry`. */
+  /** FFI entry export; default: the module's one `<service>_ipc_ffi_entry` export. */
   entry?: string;
   /** Allocator export pairs to look for, in order of preference. */
   allocatorExports?: Array<[string, string]>;

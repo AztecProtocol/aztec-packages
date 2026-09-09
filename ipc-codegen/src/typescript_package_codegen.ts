@@ -482,6 +482,10 @@ export class ${serviceClass} extends AsyncApi {
     const wasmOptions = wasmOptionsType(prefix);
     const moduleUrl = (name: string | undefined) =>
       name ? `new URL('../wasm/${name}', import.meta.url)` : "undefined";
+    // The module's FFI symbols carry the service name (see the FFI entry in SCHEMA_SPEC.md).
+    const sym = prefix ? `${toSnakeCase(prefix)}_` : "";
+    const ffiExports = `    entry: '${sym}ipc_ffi_entry',
+    allocatorExports: [['${sym}ipc_ffi_alloc', '${sym}ipc_ffi_free']],`;
 
     return `import {
   type WasmFfiBackend,
@@ -548,6 +552,7 @@ export function createWasmBackendWith(workers: WasmWorkers, options: ${wasmOptio
     logger: options.logger,
     worker: options.worker,
     hostImports,
+${ffiExports}
     createMainWorker: workers.createMainWorker,
     createThreadWorker: workers.createThreadWorker,
   });
@@ -562,6 +567,7 @@ export function createWasmBackendSync(options: ${wasmOptions} = {}): Promise<Was
     env: options.env,
     logger: options.logger,
     hostImports,
+${ffiExports}
   });
 }
 `;

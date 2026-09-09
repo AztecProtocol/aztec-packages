@@ -5,7 +5,7 @@
 namespace bb::bbapi {
 
 /**
- * @brief The dispatcher behind the generated in-process FFI entry (ipc_ffi_entry, see bb_ffi.hpp).
+ * @brief The dispatcher behind the generated in-process FFI entry (bb_ipc_ffi_entry, see bb_ffi.hpp).
  *
  * One request context for the process so stateful command sequences (ChonkStart/Load/Accumulate/
  * Prove) share IVC state, mirroring a serve loop's single connection context.

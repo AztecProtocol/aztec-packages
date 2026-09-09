@@ -68,8 +68,8 @@ ipc-codegen/
     naming.ts              # snake_case / PascalCase helpers
   templates/             # static templates copied alongside generated code
     cpp/ipc_codegen/*.hpp   # C++ support headers copied into generated output
-    rust/{backend,error,ffi_backend}.rs
-    zig/{backend,ffi_backend}.zig
+    rust/{backend,error}.rs
+    zig/backend.zig
   echo_example/          # 4-language echo service (cross-lang test harness)
   SCHEMA_SPEC.md         # wire protocol and schema-format reference
 ```
@@ -104,7 +104,7 @@ node --experimental-strip-types --experimental-transform-types --no-warnings \
 | `--client` | Emit a typed client class/struct with one method per command. Pair it with an `ipc::IpcClient` (C++) or the equivalent Rust/Zig/TS binding. |
 | `--package <dir>` | TS only. Emit a complete package shell. Which of the two shells you get depends on the role flags. With `--client` (or with neither role flag): a wrapper around the generated async client that launches a native service binary, connects over UDS or SHM, and resolves the binary from an override path, environment variable, installed arch package, or local `build/<platform>/` directory. With `--server` and no `--client`: a pure-TS server binding package instead, holding wire types, the `Handler` interface and `handleRequest`/`dispatch`, plus the schema file at the package root, with no binary launcher and no arch packages. The byte transport is then supplied by the consumer, e.g. `UdsIpcServer` from ipc-runtime. Passing `--server --client` selects the client shell. |
 | `--uds` | Rust/Zig only. Copies the `Backend` trait template (and `error.rs` for Rust) into `<out>` so consumers can plug ipc-runtime — or any custom transport — behind the generated client. The flag name is historical: the trait is transport-agnostic. |
-| `--ffi` | In-process FFI, both directions of the contract in `SCHEMA_SPEC.md` ("FFI entry"). With `--client` (Rust/Zig): adds the `ffi_backend` template, a client backend that calls a linked library's `ipc_ffi_entry`. With `--server` (C++/Rust): emits the entry itself — `<service>_ffi.{hpp,cpp}` defining `ipc_ffi_entry`/`ipc_ffi_alloc`/`ipc_ffi_free` over the generated dispatch (the service defines `ipc_ffi_dispatcher()`), or `<service>_ffi.rs` with an `export_<service>_ffi!` macro doing the same over a `Handler + Default` type. A wasm reactor built from these is what the TS `wasm` transport runs. |
+| `--ffi` | In-process FFI, both directions of the contract in `SCHEMA_SPEC.md` ("FFI entry"). With `--client` (Rust/Zig): generates `ffi_backend`, a client backend that calls a linked library's `<service>_ipc_ffi_entry`. With `--server` (C++/Rust): emits the entry itself — `<service>_ffi.{hpp,cpp}` defining `<service>_ipc_ffi_entry`/`_alloc`/`_free` over the generated dispatch (the service defines `ipc_ffi_dispatcher()`), or `<service>_ffi.rs` with an `export_<service>_ffi!` macro doing the same over a `Handler + Default` type. The service prefix on the symbols lets several services be linked into one binary. A wasm reactor built from these is what the TS `wasm` transport runs. |
 | `--package-transports <t>` | TS `--package` only. Comma-separated transports the package offers: `uds`, `shm` (spawned process) and `wasm` (the service's wasm module, run in-process through `@aztec-foundation/ipc-runtime/wasm`; adds a browser entry). |
 | `--package-wasm-module <file>`, `--package-wasm-threads-module <file>` | TS `wasm` transport. Basenames of the single-thread and threads builds the owning project copies into the package's `wasm/` directory; at least one is required. |
 | `--package-wasm-host-imports <path>` | TS `wasm` transport. A TS module copied to `src/wasm_host_imports.ts` exporting `hostImports`, for a module whose platform layer imports functions beyond WASI (bb imports a logger, an abort hook and its thread count). Default: none. |
