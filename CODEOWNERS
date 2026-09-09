@@ -1,26 +1,82 @@
-/.devcontainer/ @charlielye
-/.github/ @charlielye
-/build-images/ @charlielye
-/ci3/ @charlielye
+/.devcontainer/ @charlielye @ludamad
+/.github/ @charlielye @ludamad
+/build-images/ @charlielye @ludamad
+/ci3/ @charlielye @ludamad
 
 # Notify the Noir team of divergences to upstream
 /noir/noir-repo.patch @TomAFrench
 
 #####################################################
+# Notify the barretenberg team
+#
+# Ordering matters: this file is last-match-wins, so this broad rule sits above
+# the AVM block, which re-claims the AVM subtrees of barretenberg below.
+/barretenberg/ @iakovenkos @ledwards2225 @ludamad
+#####################################################
+
+#####################################################
 # Notify the AVM team
 #
 # on changes to PIL code-generator
-/bb-pilcom @MirandaWood @jeanmon @IlyasRidhuan
+/bb-pilcom @IlyasRidhuan @fcarreiro
 # on changes to PIL code (AVM circuit)
-/barretenberg/cpp/pil @MirandaWood @jeanmon @IlyasRidhuan
+/barretenberg/cpp/pil @IlyasRidhuan @fcarreiro
 # on changes to AVM C++ code
-/barretenberg/cpp/src/barretenberg/vm2 @MirandaWood @jeanmon @IlyasRidhuan
-# on changes to the AVM transpiler
-/avm-transpiler/src @MirandaWood @jeanmon @IlyasRidhuan @sirasistant
+/barretenberg/cpp/src/barretenberg/vm2 @IlyasRidhuan @fcarreiro
+/barretenberg/cpp/src/barretenberg/vm2_stub @IlyasRidhuan @fcarreiro
+/barretenberg/cpp/src/barretenberg/vm2_wsdb @IlyasRidhuan @fcarreiro
+/barretenberg/cpp/src/barretenberg/avm @IlyasRidhuan @fcarreiro
+/barretenberg/cpp/src/barretenberg/avm_fuzzer @IlyasRidhuan @fcarreiro
+/barretenberg/cpp/src/barretenberg/goblin_avm @IlyasRidhuan @fcarreiro
+# on changes to the AVM transpiler: its sources, the C interface it exposes,
+# and the manifest that pins what it compiles against. Not Cargo.lock, which
+# churns on transitive bumps that do not change transpilation.
+/avm-transpiler/src @IlyasRidhuan @fcarreiro @sirasistant
+/avm-transpiler/avm_transpiler.h @IlyasRidhuan @fcarreiro @sirasistant
+/avm-transpiler/Cargo.toml @IlyasRidhuan @fcarreiro @sirasistant
 #####################################################
 
-# Notify turtles of changes to L1-contracts
-/l1-contracts/src @just-mitch
+# Notify the L1 team of changes to the L1 contracts and their tests
+/l1-contracts/src @koenmtb1 @iAmMichaelConnor @just-mitch
+/l1-contracts/test @koenmtb1 @iAmMichaelConnor @just-mitch
 
+#####################################################
 # Notify the circuit team of changes to the protocol circuits
-/noir-projects/fnd/noir-protocol-circuits @LeilaWang
+#
+# Scoped to code whose modification can let a circuit bug through unnoticed, not
+# to everything under noir-projects. This first rule covers the crates shared by
+# the kernel and rollup circuits (types, serde, ts-types, protocol-test-utils
+# and its vk_tree fixture, ...) and the machinery that derives the many circuit
+# variants: Nargo.template.toml, scripts/generate_variants.js,
+# private_kernel_reset_config.json, and the bootstrap.sh that writes each
+# variant's key. The rules below it narrow the kernel circuits, the rollup
+# circuits and the protocol contracts to their own owners.
+#
+# Deliberately not covered: mock-protocol-circuits, the *-artifacts staging
+# packages, and the fnd-level bootstrap/gates-report/test-runner scripts. Those
+# are build, packaging and reporting plumbing rather than constraint logic.
+/noir-projects/fnd/noir-protocol-circuits/ @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
+
+# These decide which circuit variants get chonk keys rather than ultra-honk ones
+/noir-projects/fnd/chonk_circuits.json @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
+/noir-projects/fnd/chonk_tail_circuits.json @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
+/noir-projects/fnd/rollup_honk_circuits.json @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
+
+# Kernel circuits
+/noir-projects/fnd/noir-protocol-circuits/crates/private-kernel-*/ @LeilaWang @iakovenkos @ledwards2225 @iAmMichaelConnor
+/noir-projects/fnd/noir-protocol-circuits/crates/hiding-kernel-to-public/ @LeilaWang @iakovenkos @ledwards2225 @iAmMichaelConnor
+
+# Rollup circuits
+/noir-projects/fnd/noir-protocol-circuits/crates/rollup-*/ @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
+/noir-projects/fnd/noir-protocol-circuits/crates/inbox-parity-*/ @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
+/noir-projects/fnd/noir-protocol-circuits/crates/hiding-kernel-to-rollup/ @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
+/noir-projects/fnd/noir-protocol-circuits/crates/blob/ @LeilaWang @iakovenkos @IlyasRidhuan @ledwards2225 @iAmMichaelConnor
+#####################################################
+
+# Notify the protocol team of changes to the protocol contracts
+/noir-projects/fnd/noir-contracts/ @iAmMichaelConnor @IlyasRidhuan @ledwards2225
+
+# Stated after the protocol contracts rule above so that it is not shadowed by
+# it: this file is last-match-wins, and the AVM team owns the public context
+# inputs.
+/noir-projects/fnd/noir-contracts/contracts/protocol/aztec_sublib/src/context/public_context.nr @IlyasRidhuan @fcarreiro
