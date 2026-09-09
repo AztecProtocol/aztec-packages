@@ -1165,6 +1165,22 @@ done
     ]
       .filter(Boolean)
       .join(", otherwise ");
+    const threadsNote = wasm
+      ? "(a process reads it from `HARDWARE_CONCURRENCY`/`RAYON_NUM_THREADS`; wasm runs that many\nworker threads, and asking for more than one where no shared memory exists is an error rather than\na silent downgrade)"
+      : "(the process reads it from `HARDWARE_CONCURRENCY`/`RAYON_NUM_THREADS`)";
+    const syncForm = [
+      this.shm && "shared memory for a process",
+      wasm && "the single-threaded wasm module on the calling thread",
+    ]
+      .filter(Boolean)
+      .join(", else ");
+    const hosts = [
+      "node (`default`) has every backend above",
+      wasm
+        ? "browsers (`browser`) have the wasm module only"
+        : "browsers have no backend of their own (this service has no wasm module)",
+      "React Native (`react-native`) has no built-in backend, because Hermes has no WebAssembly or workers — a native backend package registers one with `registerBackend`, or the app passes `options.backend`",
+    ].join("; ");
 
     return `# ${this.opts.packageName}
 
@@ -1187,21 +1203,15 @@ try {
 
 ${backends}
 
-\`threads\` sets the service's parallelism for any backend (a process reads it
-from \`HARDWARE_CONCURRENCY\`/\`RAYON_NUM_THREADS\`; wasm runs that many worker
-threads, and asking for more than one where no shared memory exists is an error
-rather than a silent downgrade). \`${svc}Sync.create\` is the synchronous form
-(${this.shm ? "shared memory for a process, " : ""}${wasm ? "the single-threaded wasm module on the calling thread" : ""}).
+\`threads\` sets the service's parallelism for any backend
+${threadsNote}.${syncForm ? ` \`${svc}Sync.create\` is the synchronous form (${syncForm}).` : ""}
 \`createBackend\`/\`createBackendSync\` expose the same policy for code that wraps
 the generated API itself.
 
 ## Entries per host
 
 The package resolves to a different entry per host through export conditions:
-node (\`default\`) has every backend above; browsers (\`browser\`) have the wasm
-module only; React Native (\`react-native\`) has no built-in backend, because
-Hermes has no WebAssembly or workers — a native backend package registers one
-with \`registerBackend\`, or the app passes \`options.backend\`.
+${hosts}.
 
 ## Build
 
