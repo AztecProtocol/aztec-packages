@@ -114,6 +114,7 @@ import { NodeWorldStateQueries } from '../modules/node_world_state_queries.js';
 import { UnseenBlockHoldOff } from '../modules/unseen_block_hold_off.js';
 import { Sentinel } from '../sentinel/sentinel.js';
 import type { AztecNodeConfig } from './config.js';
+import { type NextBlockPredictor, QUOTE_MAX_WAIT_MS } from './next_block/index.js';
 import { NodeMetrics } from './node_metrics.js';
 import { NodePublicCallsSimulator } from './node_public_calls_simulator.js';
 
@@ -140,6 +141,7 @@ export interface AztecNodeServiceDeps {
   globalVariableBuilder: GlobalVariableBuilderInterface;
   rollupContract: RollupContract | undefined;
   feeProvider: FeeProvider;
+  nextBlockPredictor: NextBlockPredictor;
   epochCache: EpochCacheInterface;
   packageVersion: string;
   peerProofVerifier: ClientProtocolCircuitVerifier;
@@ -187,6 +189,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   protected readonly globalVariableBuilder: GlobalVariableBuilderInterface;
   protected readonly rollupContract: RollupContract | undefined;
   protected readonly feeProvider: FeeProvider;
+  protected readonly nextBlockPredictor: NextBlockPredictor;
   protected readonly epochCache: EpochCacheInterface;
   protected readonly packageVersion: string;
   private peerProofVerifier: ClientProtocolCircuitVerifier;
@@ -217,6 +220,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.globalVariableBuilder = deps.globalVariableBuilder;
     this.rollupContract = deps.rollupContract;
     this.feeProvider = deps.feeProvider;
+    this.nextBlockPredictor = deps.nextBlockPredictor;
     this.epochCache = deps.epochCache;
     this.packageVersion = deps.packageVersion;
     this.peerProofVerifier = deps.peerProofVerifier;
@@ -232,17 +236,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.metrics = new NodeMetrics(this.telemetry, 'AztecNodeService');
     this.tracer = this.telemetry.getTracer('AztecNodeService');
 
-    // The node never represents a proposer's payout addresses, so the simulator zeroes coinbase and
-    // fee recipient. The signature context only needs chain id + rollup address (see signature_utils).
     this.nodePublicCallsSimulator = new NodePublicCallsSimulator({
-      blockSource: this.blockSource,
       worldStateSynchronizer: this.worldStateSynchronizer,
       l1ToL2MessageSource: this.l1ToL2MessageSource,
       contractDataSource: this.contractDataSource,
-      globalVariableBuilder: this.globalVariableBuilder,
-      rollupContract: this.rollupContract,
-      epochCache: this.epochCache,
-      signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
+      predictor: this.nextBlockPredictor,
       config: this.config,
       telemetry: this.telemetry,
       log: this.log.createChild('public-calls-simulator'),
@@ -463,9 +461,33 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return await this.feeProvider.getCurrentMinFees();
   }
 
-  /** Returns predicted min fees for the current slot and next N slots. */
+  /**
+   * Returns the min fees a transaction submitted now may have to pay, worst entry first in intent: the list
+   * leads with the fee this node's public simulation would charge the next block right now, followed by the
+   * fee provider's projections for the current slot and the next N slots. Clients pad the worst entry, so a
+   * quoted transaction clears the simulation's fee check whether the difference comes from a frozen
+   * mid-checkpoint fee, a lagging clock, or L1 lag.
+   *
+   * The head normally comes from memory: the plan from the archiver's in-memory frontier and the boundary fee
+   * from the background-refreshed cache. At a boundary the cache has not priced yet, the request joins the
+   * shared refresh for at most {@link QUOTE_MAX_WAIT_MS}, a budget the projections' wait shares so the whole
+   * quote stays under that bound. The head is omitted when the node cannot produce it in time — an L1 outage
+   * that outlasts the cache's cutoff, or a frontier with no header for its proposed tip — in which case the
+   * projections alone are returned, as before this method grew a head.
+   */
   public async getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {
-    return await this.feeProvider.getPredictedMinFees(manaUsage);
+    const timer = new Timer();
+    const head = await this.nextBlockPredictor.quoteMinFees().catch((err: Error) => {
+      this.log.warn(`Failed to compute the next-block min fee for a quote, serving L1 projections only`, err);
+      return undefined;
+    });
+    // Tagging the projections with the head's L1 sync point keeps both halves of the answer on one L1 block.
+    const asOf = head?.l1SyncPoint && {
+      blockNumber: head.l1SyncPoint.blockNumber,
+      maxWaitMs: Math.max(0, QUOTE_MAX_WAIT_MS - timer.ms()),
+    };
+    const projections = await this.feeProvider.getPredictedMinFees(manaUsage, asOf);
+    return head ? [head.fees, ...projections] : projections;
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {
@@ -598,6 +620,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await tryStop(this.automineSequencer);
     await tryStop(this.proverNode);
     await tryStop(this.p2pClient);
+    await tryStop(this.nextBlockPredictor);
     await tryStop(this.feeProvider);
     await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);

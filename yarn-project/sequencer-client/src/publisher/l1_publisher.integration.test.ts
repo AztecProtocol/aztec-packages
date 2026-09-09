@@ -218,9 +218,10 @@ describe('L1Publisher integration', () => {
       getNextL1SlotTimestamp(dateProvider.nowInSeconds(), l1Constants) + BigInt(config.aztecSlotDuration),
     );
 
-  let port = 8545; // We increase the port for each test to avoid anvil conflicts
   const setup = async (deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {}) => {
-    ({ rpcUrl, anvil } = await startAnvil({ port: port++ }));
+    // Port 0 lets the OS pick a free port, so neither the tests in this file nor other suites sharing
+    // the CI host can collide on it.
+    ({ rpcUrl, anvil } = await startAnvil({ port: 0 }));
     config.l1RpcUrls = [rpcUrl];
 
     deployerAccount = privateKeyToAccount(deployerPK);

@@ -23,7 +23,7 @@ export { LogStore } from './store/log_store.js';
 export { MessageStore } from './store/message_store.js';
 export { ContractClassStore } from './store/contract_class_store.js';
 export { ContractInstanceStore } from './store/contract_instance_store.js';
-export { L2TipsCache } from './store/l2_tips_cache.js';
+export { L2FrontierCache } from './store/l2_frontier_cache.js';
 
 export { retrieveL2ProofVerifiedEvents } from './l1/data_retrieval.js';
 export { CalldataRetriever } from './l1/calldata_retriever.js';

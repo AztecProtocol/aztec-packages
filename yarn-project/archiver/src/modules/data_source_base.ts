@@ -19,7 +19,9 @@ import {
   Body,
   type CheckpointQuery,
   type CheckpointsQuery,
+  type L1SyncPoint,
   L2Block,
+  type L2Frontier,
   type L2Tips,
   type ProposedCheckpointQuery,
 } from '@aztec/stdlib/block';
@@ -140,6 +142,10 @@ export abstract class ArchiverDataSourceBase
   abstract getL1Timestamp(): Promise<bigint | undefined>;
 
   abstract getL2Tips(): Promise<L2Tips>;
+
+  abstract getL2Frontier(): Promise<L2Frontier>;
+
+  abstract getL1SyncPoint(): Promise<L1SyncPoint | undefined>;
 
   abstract getSyncedL2SlotNumber(): Promise<SlotNumber | undefined>;
 
