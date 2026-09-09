@@ -120,11 +120,6 @@ type CheckpointProposalBroadcast = {
   checkpoint: Checkpoint;
   proposal: CheckpointProposal;
   blockProposedAt: number;
-  /**
-   * Sequence number of the live Inbox bucket the checkpoint's final message position resolved to at the pre-gossip
-   * preflight: the unsigned L1 `propose` lookup aid. Re-resolved by the pre-publication preflight before the send.
-   */
-  bucketHint: bigint;
   /** The checkpoint's final streaming state, for the pre-publication preflight. */
   streamingState: StreamingCheckpointState;
 };
@@ -1102,14 +1097,8 @@ export class CheckpointProposalJob implements Traceable {
         );
         this.metrics.recordCheckpointSuccess();
         // Return a broadcast result with a dummy proposal — fisherman mode skips attestation collection and never
-        // publishes, so the bucket hint is never read.
-        return {
-          checkpoint,
-          proposal: undefined!,
-          blockProposedAt: this.dateProvider.now(),
-          bucketHint: 0n,
-          streamingState,
-        };
+        // publishes.
+        return { checkpoint, proposal: undefined!, blockProposedAt: this.dateProvider.now(), streamingState };
       }
 
       // Validate the header and the Inbox consumption against L1 state before broadcasting: the parent the header
@@ -1120,9 +1109,8 @@ export class CheckpointProposalJob implements Traceable {
       // The simulation is bounded by the proposal send deadline, not the attestation deadline: a verdict arriving
       // once peers have stopped accepting proposals for this slot must not lead to signing and gossiping one.
       const sendDeadline = this.getProposalSendDeadline();
-      let bucketHint: bigint;
       try {
-        bucketHint = await this.preflightWithinDeadline(
+        await this.preflightWithinDeadline(
           checkpoint.header,
           streamingState,
           this.checkpointSimulationOverridesPlan,
@@ -1195,10 +1183,8 @@ export class CheckpointProposalJob implements Traceable {
         this.checkpointMetrics.noteCheckpointBroadcast(this.dateProvider.now());
       }
 
-      // Return immediately after broadcast — attestation collection happens in the background. The bucket hint is
-      // the live bucket the preflight resolved the header's final position to, whether or not a last block was held
-      // for broadcast.
-      return { checkpoint, proposal, blockProposedAt, bucketHint, streamingState };
+      // Return immediately after broadcast — attestation collection happens in the background.
+      return { checkpoint, proposal, blockProposedAt, streamingState };
     } catch (err) {
       if (err && (err instanceof DutyAlreadySignedError || err instanceof SlashingProtectionError)) {
         // swallow this error. It's already been logged by a function deeper in the stack
@@ -1574,9 +1560,11 @@ export class CheckpointProposalJob implements Traceable {
    * L1 bucket end, or when its prospective end would pass the threshold one bucket below the cap and could leave the
    * last legal endpoint behind. The lookup is bounded by the checkpoint cap on a non-final block, so a mandatory
    * bucket beyond this block's own reach is not stranded by a nearer endpoint, and additionally by one block's
-   * capacity on the final block. The block then ends at the further of what the lookup allows and the safe local
-   * step, so consulting L1 never consumes less than staying below the threshold would have; a block that consulted
-   * L1 may legitimately end inside a bucket. Nothing is retained: the next attempt decides again.
+   * capacity on the final block. A non-final block then ends at the further of what the lookup allows and the safe
+   * local step, so consulting L1 never consumes less than staying below the threshold would have, and it may
+   * legitimately end inside a bucket. The final block instead ends exactly on the resolved boundary, so whenever the
+   * last live boundary within reach sits behind the safe local step it consumes fewer messages than the local log
+   * alone would allow. Nothing is retained: the next attempt decides again.
    *
    * An endpoint that cannot be resolved on a non-final block (local lag, no live endpoint yet) leaves the block with
    * that safe local step and is retried on the next block; on the final block it abandons the checkpoint. A local
@@ -1648,8 +1636,10 @@ export class CheckpointProposalJob implements Traceable {
       bucketSeq: resolved.bucketSeq,
       end,
     });
-    // Re-read the selected prefix so the signed hash is the one at `end`, never the farther endpoint's.
-    return this.readStreamingRange(state, end);
+    // An end short of or past the endpoint needs its own read, so the signed hash is the one at `end` and never the
+    // endpoint's; landing exactly on the endpoint reuses the snapshot the resolver already read and checked against
+    // the cursor's hash.
+    return end === endpointTotal ? { kind: 'consume', range: resolved.range } : this.readStreamingRange(state, end);
   }
 
   /**

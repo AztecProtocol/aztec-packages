@@ -1,29 +1,20 @@
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
-import type { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import type { Buffer32 } from '@aztec/foundation/buffer';
+import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { merge } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { StateOverride } from 'viem';
 
-import { type FeeHeader, RollupContract } from './rollup.js';
+import { type FeeHeader, RollupContract, type TempCheckpointLogOverrideFields } from './rollup.js';
 
 /**
- * Override values for the pending checkpoint that the simulation should treat as already applied.
- * Every field is optional at plan-building time so callers can populate them incrementally; whatever
- * is present at translation time is forwarded to the partial `tempCheckpointLogs` helper so the
- * load-bearing `slotNumber` can land even if other fields could not be derived locally.
+ * Override values for the pending checkpoint that the simulation should treat as already applied: the
+ * `tempCheckpointLogs` cell fields plus the archive root, which lives in its own mapping. Every field is optional at
+ * plan-building time so callers can populate them incrementally; whatever is present at translation time is forwarded
+ * to the partial `tempCheckpointLogs` helper so the required `slotNumber` can land even if other fields could not be
+ * derived locally.
  */
-export type PendingCheckpointOverrideState = {
-  archive?: Fr;
-  feeHeader?: FeeHeader;
-  headerHash?: Fr;
-  outHash?: Fr;
-  payloadDigest?: Buffer32;
-  slotNumber?: SlotNumber;
-  inboxMsgTotal?: bigint;
-  inboxConsumedBucket?: bigint;
-};
+export type PendingCheckpointOverrideState = TempCheckpointLogOverrideFields & { archive?: Fr };
 
 export type ChainTipsOverride = {
   pending?: CheckpointNumber;
@@ -105,14 +96,7 @@ export class SimulationOverridesBuilder {
    * back to 0 and the contract treats the pending tip as belonging to epoch 0, triggering a phantom
    * prune that silently undoes the `pending` override.
    */
-  public withPendingTempCheckpointLogFields(fields: {
-    headerHash?: Fr;
-    outHash?: Fr;
-    payloadDigest?: Buffer32;
-    slotNumber?: SlotNumber;
-    inboxMsgTotal?: bigint;
-    inboxConsumedBucket?: bigint;
-  }): this {
+  public withPendingTempCheckpointLogFields(fields: Omit<TempCheckpointLogOverrideFields, 'feeHeader'>): this {
     this.assertPendingCheckpointNumber();
     this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), ...fields };
     return this;
@@ -172,17 +156,10 @@ export async function buildSimulationOverridesStateOverride(
   }
 
   if (plan.pendingCheckpointState) {
+    // `archive` rides along in the same state but lives in its own mapping, and the temp-log helper ignores it.
     rollupStateDiff.push(
       ...extractRollupStateDiff(
-        await rollup.makeTempCheckpointLogOverride(plan.chainTipsOverride!.pending!, {
-          headerHash: plan.pendingCheckpointState.headerHash,
-          outHash: plan.pendingCheckpointState.outHash,
-          payloadDigest: plan.pendingCheckpointState.payloadDigest,
-          slotNumber: plan.pendingCheckpointState.slotNumber,
-          inboxMsgTotal: plan.pendingCheckpointState.inboxMsgTotal,
-          inboxConsumedBucket: plan.pendingCheckpointState.inboxConsumedBucket,
-          feeHeader: plan.pendingCheckpointState.feeHeader,
-        }),
+        await rollup.makeTempCheckpointLogOverride(plan.chainTipsOverride!.pending!, plan.pendingCheckpointState),
       ),
     );
   }
