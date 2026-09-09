@@ -115,10 +115,11 @@ export type InboxMessageRecoveryProgress = {
  * provider's view, not the chain's. When neither reading can settle the ambiguity the pass reports pending rather
  * than inventing evidence either way.
  *
- * The inherited finalized-height shortcut is kept: a stored message observed at or below the finality marker
- * persisted by the last sync that reached agreement with L1 is accepted as an anchor without a lookup, and the marker
- * only advances on such agreement. A message re-mined above the finalized height whose old height was below it can
- * therefore be trusted wrongly; that exception is deliberately retained and not repaired here.
+ * A stored message's recorded L1 height is a search hint and never evidence in itself: it says where the message was
+ * observed, not where the canonical chain carries it now, so every anchor is a message an event lookup found. That
+ * holds for heights at or below the persisted finality marker too. A message re-mined above the marker keeps the
+ * height it was first seen at, since a log that still agrees with the Inbox is never refetched, so its recorded
+ * height would claim a finality the message does not have and anchor the log on a prefix L1 has replaced.
  */
 export class InboxMessageSynchronizer {
   private recovery: RecoveryState | undefined;
@@ -482,14 +483,10 @@ export class InboxMessageSynchronizer {
   /**
    * Walks the local log backwards from the current candidate looking for a message L1 still emits at the same index
    * and hash, spending at most the per-pass lookup budget. Returns the prefix to roll back to, or undefined when the
-   * budget ran out first. A message at or below the finalized L1 block is accepted without a lookup; a search that
-   * runs out of candidates keeps nothing and starts again from the deployment block.
+   * budget ran out first. A search that runs out of candidates keeps nothing and starts again from the deployment
+   * block.
    */
   private async searchAnchor(recovery: RecoveryState): Promise<RecoveryAnchor | undefined> {
-    // Only the finality marker persisted by the last sync that reached agreement with L1 is trusted here: a fresher
-    // finalized height covers messages this node never verified against it, and trusting them would widen the
-    // inherited shortcut to whatever the local log happens to hold.
-    const finalizedL1Block = await this.stores.messages.getMessagesFinalizedL1Block();
     let lookups = 0;
     while (true) {
       const candidateIndex = recovery.nextCandidateIndex;
@@ -505,13 +502,6 @@ export class InboxMessageSynchronizer {
         // The row the search expected is gone; nothing here knows what its rolling hash was, so report the position
         // with no expected value rather than the Inbox's tip hash, which belongs to a different count entirely.
         throw new InboxMessagePrefixChangedError(candidateIndex + 1n, undefined, undefined);
-      }
-      if (finalizedL1Block !== undefined && candidate.l1BlockNumber <= finalizedL1Block.l1BlockNumber) {
-        this.log.info(`Anchoring L1 to L2 message recovery at finalized L1 block ${candidate.l1BlockNumber}`, {
-          candidateIndex,
-          l1BlockNumber: candidate.l1BlockNumber,
-        });
-        return { keep: positionAfter([candidate]), anchorL1Block: candidate.l1BlockNumber };
       }
       if (lookups >= this.opts.maxAnchorLookupsPerPass) {
         this.log.verbose(`L1 to L2 message anchor search paused after ${lookups} lookups`, this.getRecoveryProgress());
