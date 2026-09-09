@@ -86,7 +86,9 @@ export type InboxMessageRecoveryProgress = {
  * needs no event lookups), or a stored message whose event L1 still emits at the same index and hash within five L1
  * blocks of the height it was observed at, found by walking the log backwards with a bounded number of event lookups
  * per pass. A lookup that misses moves the search to an older candidate, and running out of candidates falls back to
- * the deployment block. Once an anchor is chosen the log is rolled back to it in one store transaction: the suffix
+ * the deployment block, which is itself re-read: the Inbox's first message can be emitted by a later transaction in
+ * the block the contracts were deployed in, so the deployment block is the one block an exclusive cursor may not
+ * skip. Once an anchor is chosen the log is rolled back to it in one store transaction: the suffix
  * rows are deleted, the proposed blocks that consumed more messages than the retained count are pruned with their
  * descendants, the scanned cursor rewinds to the block before the anchor's and the syncpoint is cleared. Nothing is
  * fetched in that pass; ordinary forward ingestion refills the log from the rewound cursor, rewriting the retained
@@ -100,10 +102,19 @@ export type InboxMessageRecoveryProgress = {
  * deleted rows are re-fetched, and published checkpoints are never deleted by this path. An RPC exception is not a
  * miss and commits nothing.
  *
- * Recovery is pinned to the head it started against: a merely advancing `latest` does not reset it, only a replaced
- * or unavailable head does. Event lookups are bounded above by that head, so an anchor can never sit at or past it
- * and leave the rewound cursor unreachable. The search position is process-local; after a restart, anchor discovery
+ * Recovery is pinned to the head it started against: a merely advancing `latest` does not reset it, only a positively
+ * replaced head does. Event lookups are bounded above by that head, so an anchor can never sit at or past it and
+ * leave the rewound cursor unreachable. The search position is process-local; after a restart, anchor discovery
  * starts over from the stored log, which is correct.
+ *
+ * Every L1 block this class depends on is checked with three outcomes, not two: canonical, positively replaced, or
+ * unreadable. An RPC exception, a provider behind the height and a pruned range all read as unreadable, and none of
+ * them is evidence of a reorg. Unreadable therefore commits nothing, deletes nothing, logs no replacement and keeps
+ * an in-flight recovery's search position; only a block that reads back with a different hash restarts recovery. For
+ * the same reason a head reporting fewer messages than the local log is not truncated against while a syncpoint
+ * above it is still canonical: that syncpoint certified the whole log at a higher block, so the shortfall is the
+ * provider's view, not the chain's. When neither reading can settle the ambiguity the pass reports pending rather
+ * than inventing evidence either way.
  *
  * The inherited finalized-height shortcut is kept: a stored message observed at or below the finality marker
  * persisted by the last sync that reached agreement with L1 is accepted as an anchor without a lookup, and the marker
@@ -166,10 +177,19 @@ export class InboxMessageSynchronizer {
   private async syncPass(head: L1BlockId, finalizedL1Block: L1BlockId | undefined): Promise<InboxMessageSyncResult> {
     if (this.recovery !== undefined) {
       const pinnedHead = this.recovery.head;
-      if (await this.isHeadStillCanonical(pinnedHead)) {
+      const pinnedStatus = await this.checkL1Block(pinnedHead);
+      if (pinnedStatus === 'canonical') {
         const result = await this.continueRecovery();
         // Recovery is complete relative to the head it was pinned to; blocks after it still need normal ingestion.
         return result.status === 'synced' && !sameL1Block(pinnedHead, head) ? { ...result, status: 'pending' } : result;
+      }
+      if (pinnedStatus === 'unknown') {
+        // The pinned head could not be read. That is a provider problem, not evidence its chain is gone: keep the
+        // search position and its lookup progress and try again next pass.
+        this.log.verbose(`Could not confirm the L1 head recovery is pinned to; keeping recovery progress`, {
+          ...this.getRecoveryProgress(),
+        });
+        return pending();
       }
       this.log.warn(`L1 head ${this.recovery.head.l1BlockNumber} recovery was pinned to has been replaced`, {
         ...this.getRecoveryProgress(),
@@ -198,8 +218,8 @@ export class InboxMessageSynchronizer {
     const local = await this.stores.messages.getSyncedMessagePosition();
     if (positionMatches(local, remote)) {
       // The state was read by block number: only a head that is still canonical proves it was this head's.
-      if (!(await this.isHeadStillCanonical(head))) {
-        this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while reading the Inbox state`);
+      if ((await this.checkL1Block(head)) !== 'canonical') {
+        this.log.verbose(`Could not confirm L1 head ${head.l1BlockNumber} after reading the Inbox state`);
         return pending();
       }
       await this.stores.messages.setMessageSyncState({ l1Block: head, authenticated: true, finalizedL1Block });
@@ -207,12 +227,20 @@ export class InboxMessageSynchronizer {
     }
 
     if (remote.totalMessagesInserted < local.totalMessageCount) {
+      // A head shorter than the local log is ambiguous: the chain really did shorten, or this provider is behind the
+      // one the log was certified against. A retained syncpoint above this head that is still canonical settles it as
+      // lag, and lag must not delete messages or claim a lower head as synced.
+      if (await this.isLaggedView(head, persistedSyncPoint)) {
+        return pending();
+      }
       // A shorter canonical sequence whose tip hash is our prefix hash at that count is a pure truncation; the tip
       // itself proves where it ends, so no old placement lookup is needed.
       const localAtRemote = await this.stores.messages.getMessagePosition(remote.totalMessagesInserted);
       if (localAtRemote !== undefined && localAtRemote.rollingHash.equals(remote.rollingHash)) {
-        if (!(await this.isHeadStillCanonical(head))) {
-          this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while reading the Inbox state; not truncating`);
+        if ((await this.checkL1Block(head)) !== 'canonical') {
+          this.log.verbose(
+            `Could not confirm L1 head ${head.l1BlockNumber} after reading the Inbox state; ` + `not truncating`,
+          );
           return pending();
         }
         return this.truncate(localAtRemote, head, finalizedL1Block);
@@ -220,8 +248,9 @@ export class InboxMessageSynchronizer {
       return this.startRecovery(head, remote, finalizedL1Block);
     }
 
-    if (head.l1BlockNumber <= cursor.l1BlockNumber) {
-      // A head at or below what has already been scanned, and the log does not agree with it: there is no forward
+    const ingestFrom = this.ingestionStartFor(cursor);
+    if (head.l1BlockNumber < ingestFrom) {
+      // A head below the first block still to be scanned, and the log does not agree with it: there is no forward
       // range to fetch, so find where the local log and the canonical one part ways.
       return this.startRecovery(head, remote, finalizedL1Block);
     }
@@ -230,18 +259,31 @@ export class InboxMessageSynchronizer {
     // inherited prefix. That is only sound while the cursor's block is still on the chain: after a reorg below it, the
     // messages read up to it may belong to a chain L1 no longer has, so the log has to be compared with the canonical
     // one instead.
-    if (persistedCursor !== undefined && !(await this.isHeadStillCanonical(persistedCursor))) {
-      this.log.warn(`L1 block ${cursor.l1BlockNumber} the message log was scanned through has been replaced`, {
-        cursor,
-        syncPoint: persistedSyncPoint,
-        headL1BlockNumber: head.l1BlockNumber,
-      });
-      return this.startRecovery(head, remote, finalizedL1Block);
+    if (persistedCursor !== undefined) {
+      const cursorStatus = await this.checkL1Block(persistedCursor);
+      if (cursorStatus === 'unknown') {
+        // Nothing was learned about the cursor's block, so the inherited prefix is neither proven nor disproven.
+        // Fetching forward would inherit an unverified prefix and recovering would delete on no evidence: wait.
+        this.log.verbose(`Could not confirm L1 block ${cursor.l1BlockNumber} the message log was scanned through`, {
+          cursor,
+          syncPoint: persistedSyncPoint,
+          headL1BlockNumber: head.l1BlockNumber,
+        });
+        return pending();
+      }
+      if (cursorStatus === 'replaced') {
+        this.log.warn(`L1 block ${cursor.l1BlockNumber} the message log was scanned through has been replaced`, {
+          cursor,
+          syncPoint: persistedSyncPoint,
+          headL1BlockNumber: head.l1BlockNumber,
+        });
+        return this.startRecovery(head, remote, finalizedL1Block);
+      }
     }
 
     let headBatch: InboxMessage[];
     try {
-      headBatch = await this.ingestForward(cursor.l1BlockNumber + 1n, head);
+      headBatch = await this.ingestForward(ingestFrom, head);
     } catch (err) {
       if (err instanceof CapturedHeadReplacedError) {
         this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while fetching L1 to L2 messages`);
@@ -256,10 +298,10 @@ export class InboxMessageSynchronizer {
       throw err;
     }
 
-    if (!(await this.isHeadStillCanonical(head))) {
-      // The chain moved under the fetch: the logs may belong to another chain than the position they are compared
-      // with, so neither the head batch nor a recovery is committed; the next pass reads the replacement head.
-      this.log.verbose(`L1 head ${head.l1BlockNumber} was replaced while fetching L1 to L2 messages`);
+    if ((await this.checkL1Block(head)) !== 'canonical') {
+      // The chain may have moved under the fetch: the logs would then belong to another chain than the position they
+      // are compared with, so neither the head batch nor a recovery is committed; the next pass reads a fresh head.
+      this.log.verbose(`Could not confirm L1 head ${head.l1BlockNumber} after fetching L1 to L2 messages`);
       return pending();
     }
     const positionAfterHeadBatch =
@@ -281,6 +323,48 @@ export class InboxMessageSynchronizer {
       return synced();
     }
     return this.startRecovery(head, remote, finalizedL1Block);
+  }
+
+  /**
+   * Whether a head shorter than the local log is a lagged provider view rather than a real chain replacement.
+   *
+   * The syncpoint is the highest L1 block at which the whole stored log was found equal to the Inbox's own position.
+   * If that block is above this head and still canonical, the chain did not shorten past it: the messages the head
+   * appears to be missing are on the chain, and this provider simply has not reached them. Deleting them here would
+   * throw away certified messages and prune the proposed blocks that consumed them, only for the next pass to fetch
+   * them straight back.
+   *
+   * An unreadable syncpoint block is not treated as lag: without positive evidence the shorter head is handled by the
+   * ordinary path, which authenticates whatever it retains.
+   */
+  private async isLaggedView(head: L1BlockId, syncPoint: L1BlockId | undefined): Promise<boolean> {
+    if (syncPoint === undefined || syncPoint.l1BlockNumber <= head.l1BlockNumber) {
+      return false;
+    }
+    if ((await this.checkL1Block(syncPoint)) !== 'canonical') {
+      return false;
+    }
+    this.log.verbose(
+      `L1 head ${head.l1BlockNumber} is behind the certified syncpoint at ${syncPoint.l1BlockNumber}, which is ` +
+        `still canonical; keeping the message log and waiting for the provider to catch up`,
+      { headL1BlockNumber: head.l1BlockNumber, syncPointL1BlockNumber: syncPoint.l1BlockNumber },
+    );
+    return true;
+  }
+
+  /**
+   * First L1 block ordinary ingestion must read, given the scanned cursor.
+   *
+   * The cursor is exclusive, so fetching normally resumes at the block after it. The deployment block is the
+   * exception: message index 0 can be emitted by a later transaction in that very block, and a cursor sitting at it
+   * means nothing has read it yet — that is where the archiver starts with no persisted cursor, and where the
+   * zero-anchor rollback rewinds to. Resuming one block later would skip index 0 permanently, since no later message
+   * can fill the gap and every pass would rediscover the same disagreement. Only the deployment block is re-read;
+   * genuine completed cursors keep exclusive semantics, and re-reading it is harmless because the store rewrites an
+   * unchanged message in place.
+   */
+  private ingestionStartFor(cursor: L1BlockId): bigint {
+    return cursor.l1BlockNumber <= this.l1Start.l1BlockNumber ? this.l1Start.l1BlockNumber : cursor.l1BlockNumber + 1n;
   }
 
   /**
@@ -307,7 +391,7 @@ export class InboxMessageSynchronizer {
         // Logs and the batch-end block are read by number: only a head still canonical after both reads proves they
         // came from the captured chain, so a batch is never committed under a replacement chain's cursor.
         const l1Block = await this.l1BlockIdFor(end, head);
-        if (!(await this.isHeadStillCanonical(head))) {
+        if ((await this.checkL1Block(head)) !== 'canonical') {
           throw new CapturedHeadReplacedError(head);
         }
         await this.storeMessages(messages, { l1Block, authenticated: false });
@@ -396,11 +480,13 @@ export class InboxMessageSynchronizer {
           headL1BlockNumber: recovery.head.l1BlockNumber,
           lookups: recovery.lookups,
         });
-        return { keep: zeroMessagePosition(), anchorL1Block: this.l1Start.l1BlockNumber + 1n };
+        return { keep: zeroMessagePosition(), anchorL1Block: this.l1Start.l1BlockNumber };
       }
       const candidate = await this.stores.messages.getL1ToL2Message(candidateIndex);
       if (candidate === undefined) {
-        throw new InboxMessagePrefixChangedError(candidateIndex + 1n, recovery.remote.rollingHash, undefined);
+        // The row the search expected is gone; nothing here knows what its rolling hash was, so report the position
+        // with no expected value rather than the Inbox's tip hash, which belongs to a different count entirely.
+        throw new InboxMessagePrefixChangedError(candidateIndex + 1n, undefined, undefined);
       }
       if (finalizedL1Block !== undefined && candidate.l1BlockNumber <= finalizedL1Block.l1BlockNumber) {
         this.log.info(`Anchoring L1 to L2 message recovery at finalized L1 block ${candidate.l1BlockNumber}`, {
@@ -459,9 +545,17 @@ export class InboxMessageSynchronizer {
     const cursor = await this.l1BlockIdFor(maxBigint(anchor.anchorL1Block - 1n, this.l1Start.l1BlockNumber), head);
     // The anchor event and the cursor block were both read by number: only a head still canonical after both reads
     // proves they came from the captured chain, so a rollback never commits against a replacement chain.
-    if (!(await this.isHeadStillCanonical(head))) {
-      this.log.warn(`L1 head ${head.l1BlockNumber} was replaced during L1 to L2 message recovery; restarting`);
-      this.recovery = undefined;
+    const headStatus = await this.checkL1Block(head);
+    if (headStatus !== 'canonical') {
+      // A replaced head invalidates the anchor evidence, so the search starts over against the new view. An
+      // unreadable one proves nothing: keep the recovery and its lookup progress and retry next pass.
+      this.log.warn(`Could not confirm L1 head ${head.l1BlockNumber} during L1 to L2 message recovery`, {
+        headStatus,
+        ...this.getRecoveryProgress(),
+      });
+      if (headStatus === 'replaced') {
+        this.recovery = undefined;
+      }
       return pending();
     }
     this.log.warn(
@@ -511,16 +605,35 @@ export class InboxMessageSynchronizer {
     return { l1BlockNumber, l1BlockHash: Buffer32.fromString(block.hash) };
   }
 
-  private async isHeadStillCanonical(head: L1BlockId): Promise<boolean> {
+  /**
+   * Whether an L1 block this pass depends on is still the one that was captured.
+   *
+   * An exception or a missing answer is `unknown`, not `replaced`: a provider that lags behind the height, is
+   * temporarily unreachable, or answers a pruned range cannot distinguish a reorg from its own view. Treating that
+   * as a replacement would delete messages and restart recovery on nothing more than an RPC failure, so callers keep
+   * their pending work and retry instead. Only a block that reads back with a different hash is `replaced`.
+   */
+  private async checkL1Block(block: L1BlockId): Promise<L1BlockStatus> {
+    let remote;
     try {
-      const block = await this.publicClient.getBlock({ blockNumber: head.l1BlockNumber, includeTransactions: false });
-      return Buffer32.fromString(block.hash).equals(head.l1BlockHash);
+      remote = await this.publicClient.getBlock({ blockNumber: block.l1BlockNumber, includeTransactions: false });
     } catch (err) {
-      this.log.debug(`Could not read L1 block ${head.l1BlockNumber} to confirm the captured head: ${err}`);
-      return false;
+      this.log.debug(`Could not read L1 block ${block.l1BlockNumber} to confirm it is still canonical: ${err}`);
+      return 'unknown';
     }
+    if (remote?.hash === undefined || remote.hash === null) {
+      this.log.debug(`L1 block ${block.l1BlockNumber} was returned without a hash; canonicality is unknown`);
+      return 'unknown';
+    }
+    return Buffer32.fromString(remote.hash).equals(block.l1BlockHash) ? 'canonical' : 'replaced';
   }
 }
+
+/**
+ * Whether a captured L1 block is still the canonical one at its height, was positively replaced, or could not be
+ * read. `unknown` is deliberately not merged into `replaced`: only the latter is evidence of a chain replacement.
+ */
+type L1BlockStatus = 'canonical' | 'replaced' | 'unknown';
 
 /** The L1 head a sync pass was captured against is no longer canonical; the pass's uncommitted work is discarded. */
 class CapturedHeadReplacedError extends Error {
