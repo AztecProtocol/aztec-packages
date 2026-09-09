@@ -4,7 +4,8 @@ pragma solidity >=0.8.27;
 
 import {RewardLibBase} from "./RewardLibBase.sol";
 import {
-  IRegistryProvider,
+  IATP,
+  IATPStaker,
   Bps,
   MutableRewardConfig,
   RegistryRewardOverride,
@@ -12,25 +13,14 @@ import {
 } from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {Epoch, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {MAXIMUM_COMMITTEE_SIZE} from "@aztec/core/interfaces/IValidatorSelection.sol";
-
-contract RewardRegistryProvider is IRegistryProvider {
-  address internal immutable registry;
-
-  constructor(address _registry) {
-    registry = _registry;
-  }
-
-  function getRegistry() external view returns (address) {
-    return registry;
-  }
-}
+import {MockATP, MockATPStaker, deployMockATPStaker} from "@test/mock/ATPMocks.sol";
 
 contract RegistryRewardTest is RewardLibBase {
   function test_WhenWithdrawerRegistryMatchesOverride() external prepare(100e18, 5000) {
     address attester = makeAddr("attester");
     address registry = makeAddr("registry");
-    RewardRegistryProvider provider = new RewardRegistryProvider(registry);
-    wrapper.setWithdrawer(attester, address(provider));
+    (MockATPStaker staker,) = deployMockATPStaker(registry);
+    wrapper.setWithdrawer(attester, address(staker));
 
     RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory overrides;
     overrides[1] = RegistryRewardOverride({registry: registry, sequencerReward: 10e18});
@@ -43,8 +33,8 @@ contract RegistryRewardTest is RewardLibBase {
   function test_WhenOverrideExceedsUpdatedDefaultReward_CapsAtDefault() external prepare(100e18, 5000) {
     address attester = makeAddr("attester");
     address registry = makeAddr("registry");
-    RewardRegistryProvider provider = new RewardRegistryProvider(registry);
-    wrapper.setWithdrawer(attester, address(provider));
+    (MockATPStaker staker,) = deployMockATPStaker(registry);
+    wrapper.setWithdrawer(attester, address(staker));
 
     RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory overrides;
     overrides[0] = RegistryRewardOverride({registry: registry, sequencerReward: 40e18});
@@ -58,8 +48,8 @@ contract RegistryRewardTest is RewardLibBase {
   function test_WhenWithdrawerRegistryMatchesZeroRewardOverrideAcrossCheckpoints() external prepare(100e18, 5000) {
     address attester = makeAddr("attester");
     address registry = makeAddr("registry");
-    RewardRegistryProvider provider = new RewardRegistryProvider(registry);
-    wrapper.setWithdrawer(attester, address(provider));
+    (MockATPStaker staker, MockATP atp) = deployMockATPStaker(registry);
+    wrapper.setWithdrawer(attester, address(staker));
 
     args.end = args.start + 1;
     _setHeaders(2, sequencer);
@@ -69,7 +59,8 @@ contract RegistryRewardTest is RewardLibBase {
     overrides[0] = RegistryRewardOverride({registry: registry, sequencerReward: 0});
 
     vm.expectCall(address(wrapper.gse()), abi.encodeWithSignature("getWithdrawer(address)", attester), 1);
-    vm.expectCall(address(provider), abi.encodeWithSelector(IRegistryProvider.getRegistry.selector), 1);
+    vm.expectCall(address(staker), abi.encodeWithSelector(IATPStaker.getATP.selector), 1);
+    vm.expectCall(address(atp), abi.encodeWithSelector(IATP.getRegistry.selector), 1);
     wrapper.handleRewardsAndFees(args, Epoch.wrap(0), _singletonCommittee(attester), overrides);
 
     _assertRewards(0, 100e18);
@@ -77,14 +68,14 @@ contract RegistryRewardTest is RewardLibBase {
 
   function test_WhenZeroRewardProposerAtIndex255Repeats_CachesReward() external prepare(100e18, 5000) {
     address registry = makeAddr("registry");
-    RewardRegistryProvider provider = new RewardRegistryProvider(registry);
+    (MockATPStaker staker, MockATP atp) = deployMockATPStaker(registry);
 
     address[] memory committee = new address[](MAXIMUM_COMMITTEE_SIZE);
     for (uint256 i = 0; i < committee.length; i++) {
       committee[i] = address(uint160(0x1000 + i));
     }
     committee[255] = makeAddr("attester255");
-    wrapper.setWithdrawer(committee[255], address(provider));
+    wrapper.setWithdrawer(committee[255], address(staker));
 
     Slot firstSlot = _findSlotForProposerIndex(255, committee.length, 0);
     Slot secondSlot = _findSlotForProposerIndex(255, committee.length, Slot.unwrap(firstSlot) + 1);
@@ -99,7 +90,8 @@ contract RegistryRewardTest is RewardLibBase {
     overrides[0] = RegistryRewardOverride({registry: registry, sequencerReward: 0});
 
     vm.expectCall(address(wrapper.gse()), abi.encodeWithSignature("getWithdrawer(address)", committee[255]), 1);
-    vm.expectCall(address(provider), abi.encodeWithSelector(IRegistryProvider.getRegistry.selector), 1);
+    vm.expectCall(address(staker), abi.encodeWithSelector(IATPStaker.getATP.selector), 1);
+    vm.expectCall(address(atp), abi.encodeWithSelector(IATP.getRegistry.selector), 1);
     wrapper.handleRewardsAndFees(args, Epoch.wrap(0), committee, overrides);
 
     _assertRewards(0, 100e18);
@@ -107,12 +99,12 @@ contract RegistryRewardTest is RewardLibBase {
 
   function test_WhenCommitteeMembersShareWithdrawer_AppliesOverrideToBoth() external prepare(100e18, 5000) {
     address registry = makeAddr("registry");
-    RewardRegistryProvider provider = new RewardRegistryProvider(registry);
+    (MockATPStaker staker,) = deployMockATPStaker(registry);
     address[] memory committee = new address[](2);
     committee[0] = makeAddr("attester0");
     committee[1] = makeAddr("attester1");
-    wrapper.setWithdrawer(committee[0], address(provider));
-    wrapper.setWithdrawer(committee[1], address(provider));
+    wrapper.setWithdrawer(committee[0], address(staker));
+    wrapper.setWithdrawer(committee[1], address(staker));
 
     args.end = args.start + 1;
     _setHeaders(2, sequencer);
@@ -142,8 +134,8 @@ contract RegistryRewardTest is RewardLibBase {
 
   function test_WhenWithdrawerRegistryDoesNotMatchOverride() external prepare(100e18, 5000) {
     address attester = makeAddr("attester");
-    RewardRegistryProvider provider = new RewardRegistryProvider(makeAddr("unknownRegistry"));
-    wrapper.setWithdrawer(attester, address(provider));
+    (MockATPStaker staker,) = deployMockATPStaker(makeAddr("unknownRegistry"));
+    wrapper.setWithdrawer(attester, address(staker));
 
     RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory overrides;
     overrides[0] = RegistryRewardOverride({registry: makeAddr("configuredRegistry"), sequencerReward: 10e18});
@@ -151,6 +143,20 @@ contract RegistryRewardTest is RewardLibBase {
     wrapper.handleRewardsAndFees(args, Epoch.wrap(0), _singletonCommittee(attester), overrides);
 
     // the override was 10e18 so we check the reward was not the overriden value
+    _assertRewards(50e18, 50e18);
+  }
+
+  function test_WhenWithdrawerIsATPInsteadOfStaker_UsesDefault() external prepare(100e18, 5000) {
+    address attester = makeAddr("attester");
+    address registry = makeAddr("registry");
+    MockATP atp = new MockATP(registry);
+    wrapper.setWithdrawer(attester, address(atp));
+
+    RegistryRewardOverride[MAX_REGISTRY_REWARD_OVERRIDES] memory overrides;
+    overrides[0] = RegistryRewardOverride({registry: registry, sequencerReward: 10e18});
+
+    wrapper.handleRewardsAndFees(args, Epoch.wrap(0), _singletonCommittee(attester), overrides);
+
     _assertRewards(50e18, 50e18);
   }
 

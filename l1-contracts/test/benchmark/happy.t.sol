@@ -69,7 +69,8 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
-import {IRegistryProvider, RegistryRewardOverride} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RegistryRewardOverride} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {MockATP, MockATPStaker} from "@test/mock/ATPMocks.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -104,20 +105,6 @@ contract FakeCanonical is IRewardDistributor {
 
   function availableTo(address) external pure returns (uint256) {
     return type(uint256).max;
-  }
-}
-
-contract GasReportRegistryProvider is IRegistryProvider {
-  address internal immutable REGISTRY;
-
-  constructor(address _registry) {
-    REGISTRY = _registry;
-  }
-
-  /// @notice Returns the registry represented by this benchmark withdrawer.
-  /// @return The configured registry address.
-  function getRegistry() external view returns (address) {
-    return REGISTRY;
   }
 }
 
@@ -734,27 +721,27 @@ contract PartialEpochProofGasReportTest is PartialEpochProofGasReportBase {
 }
 
 contract PartialEpochProofWithTwoOverridesGasReportTest is PartialEpochProofGasReportBase {
-  GasReportRegistryProvider internal firstProvider;
-  GasReportRegistryProvider internal secondProvider;
+  address internal firstRegistry = makeAddr("firstRegistry");
+  address internal secondRegistry = makeAddr("secondRegistry");
+  MockATPStaker internal firstStaker;
+  MockATPStaker internal secondStaker;
 
   function setUp() public override {
-    firstProvider = new GasReportRegistryProvider(makeAddr("firstRegistry"));
-    secondProvider = new GasReportRegistryProvider(makeAddr("secondRegistry"));
+    firstStaker = new MockATPStaker(address(new MockATP(firstRegistry)));
+    secondStaker = new MockATPStaker(address(new MockATP(secondRegistry)));
     super.setUp();
   }
 
   function _configureRollupBuilder(RollupBuilder _builder) internal override {
     Config memory config = _builder.getConfig();
     RollupConfigInput memory rollupConfig = config.rollupConfigInput;
-    rollupConfig.registryRewardOverrides[0] =
-      RegistryRewardOverride({registry: firstProvider.getRegistry(), sequencerReward: 10e18});
-    rollupConfig.registryRewardOverrides[1] =
-      RegistryRewardOverride({registry: secondProvider.getRegistry(), sequencerReward: 20e18});
+    rollupConfig.registryRewardOverrides[0] = RegistryRewardOverride({registry: firstRegistry, sequencerReward: 10e18});
+    rollupConfig.registryRewardOverrides[1] = RegistryRewardOverride({registry: secondRegistry, sequencerReward: 20e18});
     _builder.setRollupConfigInput(rollupConfig);
   }
 
   function _validatorWithdrawer(uint256 _validatorIndex) internal view override returns (address) {
-    return _validatorIndex % 2 == 0 ? address(firstProvider) : address(secondProvider);
+    return _validatorIndex % 2 == 0 ? address(firstStaker) : address(secondStaker);
   }
 
   function testGasReportSubmit1CheckpointWithTwoOverrides() public {
