@@ -873,7 +873,13 @@ export interface ${prefix}WasmOptions {
    * Response, or a compiled WebAssembly.Module.
    */
   module?: WasmModuleSource;
-  /** Run the module in a dedicated worker (default true) so a call never blocks the caller's thread. */
+  /**
+   * Where a call runs. Default (true) is a dedicated worker, so a long call never blocks the
+   * caller — the right choice for proving, and the only safe one on a browser's main thread.
+   * False runs the module on the calling thread and every call blocks it until the module
+   * returns, which is cheaper per call and fine for short work off the main thread. For short
+   * work *on* the main thread, prefer the synchronous backend, which always runs there.
+   */
   worker?: boolean;
   /** WASI environ for the module. */
   env?: Record<string, string>;
@@ -938,7 +944,11 @@ ${ffiExports}
   return backend;
 }
 
-/** The module on the calling thread with one thread: every call blocks until it returns. */
+/**
+ * The module on the calling thread, single-threaded: every call blocks until it returns, with no
+ * worker and no message passing. This is the form for short synchronous work such as hashing,
+ * including on a browser's main thread.
+ */
 export async function createWasmBackendSync(options: ${prefix}WasmOptions = {}): Promise<WasmFfiBackendSync> {
   const backend = await createWasmFfiBackendSync({
     module: options.module ?? defaultWasmModule(1),
@@ -1206,7 +1216,20 @@ ${backends}
 ${threadsNote}.${syncForm ? ` \`${svc}Sync.create\` is the synchronous form (${syncForm}).` : ""}
 \`createBackend\`/\`createBackendSync\` expose the same policy for code that wraps
 the generated API itself.
+${
+  wasm
+    ? `
+## Which thread the work runs on
 
+The caller chooses. An asynchronous wasm backend runs the module in a worker by
+default, so a long call never blocks the caller; \`{ wasm: { worker: false } }\`
+runs it on the calling thread instead, blocking until it returns. The
+synchronous backend always runs on the calling thread, which is what short work
+such as hashing wants, including on a browser's main thread. A spawned process
+is off the caller's thread either way.
+`
+    : ""
+}
 ## Entries per host
 
 The package resolves to a different entry per host through export conditions:
