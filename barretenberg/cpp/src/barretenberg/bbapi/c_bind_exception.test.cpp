@@ -26,11 +26,10 @@ template <typename Cmd> std::string ffi_response_type(const char* name, const Cm
 
     uint8_t* out = nullptr;
     size_t out_len = 0;
-    ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &out, &out_len);
+    bb_ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &out, &out_len);
 
     auto oh = msgpack::unpack(reinterpret_cast<const char*>(out), out_len);
-    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
-    free(out);
+    bb_ipc_ffi_free(out);
     auto arr = oh.get().via.array;
     EXPECT_EQ(arr.size, 2U);
     auto type = arr.ptr[0].as<std::string>();

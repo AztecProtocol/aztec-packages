@@ -585,7 +585,8 @@ function generate(args: Args) {
         copyTemplate("rust", "error.rs", absOut);
       }
       if (args.ffi) {
-        copyTemplate("rust", "ffi_backend.rs", absOut);
+        // Generated rather than a template: it links the service-prefixed symbols.
+        writeFile("ffi_backend.rs", gen.generateFfiBackend());
       }
       break;
     }
@@ -621,7 +622,8 @@ function generate(args: Args) {
         copyTemplate("zig", "backend.zig", absOut);
       }
       if (args.ffi) {
-        copyTemplate("zig", "ffi_backend.zig", absOut);
+        // Generated rather than a template: it links the service-prefixed symbols.
+        writeFile("ffi_backend.zig", gen.generateFfiBackend());
       }
       break;
     }

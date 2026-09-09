@@ -1,6 +1,7 @@
-// In-process FFI conformance test (C++): drives the generated ipc_ffi_entry
-// with wire requests and checks the responses — a round trip, the error frame
-// for a failing command, and the error frame for malformed input.
+// In-process FFI conformance test (C++): drives the generated
+// echo_ipc_ffi_entry with wire requests and checks the responses — a round
+// trip, the error frame for a failing command, and the error frame for
+// malformed input.
 //
 // Usage: ffi_test
 
@@ -35,16 +36,17 @@ std::vector<uint8_t> pack_request(const char *name, const Cmd &cmd) {
 }
 
 // Hand the request over the way a foreign caller does: in a buffer from
-// ipc_ffi_alloc, receiving the response in one it frees with ipc_ffi_free.
+// echo_ipc_ffi_alloc, receiving the response in one it frees with
+// echo_ipc_ffi_free.
 std::vector<uint8_t> call(const std::vector<uint8_t> &request) {
-  auto *in = static_cast<uint8_t *>(ipc_ffi_alloc(request.size()));
+  auto *in = static_cast<uint8_t *>(echo_ipc_ffi_alloc(request.size()));
   std::copy(request.begin(), request.end(), in);
   uint8_t *out = nullptr;
   size_t out_len = 0;
-  ipc_ffi_entry(in, request.size(), &out, &out_len);
-  ipc_ffi_free(in);
+  echo_ipc_ffi_entry(in, request.size(), &out, &out_len);
+  echo_ipc_ffi_free(in);
   std::vector<uint8_t> response(out, out + out_len);
-  ipc_ffi_free(out);
+  echo_ipc_ffi_free(out);
   return response;
 }
 
