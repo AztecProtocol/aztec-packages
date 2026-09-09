@@ -94,7 +94,7 @@ node --experimental-strip-types --experimental-transform-types --no-warnings \
 |---|---|
 | `--schema <file>` | Path to the schema (JSON or JSONC; friendly or legacy positional form — see `SCHEMA_SPEC.md`). |
 | `--lang <ts\|cpp\|rust\|zig>` | Target language. |
-| `--out <dir>` | Output directory. Generated files are (re)written every run; static templates are copied alongside and re-copied only if missing (so handwritten edits to templated scaffolding are preserved). |
+| `--out <dir>` | Output directory. Generated files are (re)written every run; static templates are copied alongside and re-copied only if missing (so handwritten edits to templated scaffolding are preserved). Implied by `--package` (`<package>/src/generated`, where the package shell imports the bindings from). |
 
 ### Role flags
 
@@ -167,7 +167,6 @@ transport — no template copy.
 src/generate.ts \
   --schema /path/to/myservice_schema.jsonc \
   --lang ts \
-  --out /path/to/myservice/src/generated \
   --client \
   --package /path/to/myservice \
   --package-name @aztec/myservice \
@@ -175,7 +174,8 @@ src/generate.ts \
   --package-transports uds,shm
 ```
 
-Produces the generated TS client under `src/generated/` plus a package shell
+Produces the generated TS client under `src/generated/` (the package implies
+`--out`) plus a package shell
 (`package.json`, `tsconfig.json`, `src/index.ts`, `src/platform.ts`, and
 `scripts/prepare_arch_packages.sh`). The package exports a
 `MyServiceService.spawn(...)` helper that launches the native binary and wraps
