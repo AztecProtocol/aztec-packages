@@ -103,7 +103,10 @@ export class WasmInstanceHost {
   ) {}
 
   static async instantiate(opts: InstanceOptions): Promise<WasmInstanceHost> {
-    const memory = opts.memory;
+    // A module either imports its memory, and is handed the one the caller made, or defines and
+    // exports its own — the default for a Rust cdylib. Which it is is only settled below, after
+    // instantiation, so everything reading memory goes through this.
+    let memory = opts.memory;
     const logger = opts.logger ?? (() => {});
     const ctx: HostImportsContext = {
       memory: () => memory,
@@ -155,6 +158,10 @@ export class WasmInstanceHost {
 
     const instance = await WebAssembly.instantiate(opts.module, imports);
     const exports = instance.exports as Record<string, WebAssembly.ExportValue>;
+    if (exports.memory instanceof WebAssembly.Memory) {
+      // The module defined its own; the one passed in (if any) is not what it reads and writes.
+      memory = exports.memory;
+    }
     if (
       opts.runInitialize !== false &&
       typeof exports._initialize === "function"

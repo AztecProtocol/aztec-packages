@@ -1,12 +1,11 @@
-import { EchoService, SyncApi, type EchoTransport } from "./index.js";
+import { EchoService, EchoServiceSync, SyncApi } from "./index.js";
 import { createNapiShmSyncClient } from "@aztec-foundation/ipc-runtime";
 
 const args = process.argv.slice(2);
 const transportArg = args[args.indexOf("--transport") + 1] ?? "uds";
-if (transportArg !== "uds" && transportArg !== "shm") {
+if (transportArg !== "uds" && transportArg !== "shm" && transportArg !== "wasm") {
   throw new Error(`Unknown --transport '${transportArg}'`);
 }
-const transport = transportArg as EchoTransport;
 
 function testHash(base: number): Uint8Array {
   return Uint8Array.from({ length: 32 }, (_v, i) => base + i);
@@ -27,6 +26,48 @@ function assertBytes(actual: Uint8Array, expected: Uint8Array, label: string) {
     label,
   );
 }
+
+// The wasm transport runs the service's own wasi reactor in-process, with no binary at all.
+// Both the worker-hosted and calling-thread forms, and the synchronous one.
+if (transportArg === "wasm") {
+  for (const worker of [true, false]) {
+    const wasmService = await EchoService.create({
+      backend: "wasm",
+      wasm: { worker },
+    });
+    try {
+      const data = Uint8Array.from([0xde, 0xad, 0xbe, 0xef]);
+      assertBytes((await wasmService.bytes({ data })).data, data, `wasm(worker=${worker}).bytes`);
+      const fields = await wasmService.fields({ a: 1, b: 2, name: "wasm" });
+      assertEqual(fields.name, "wasm", `wasm(worker=${worker}).fields.name`);
+      await wasmService
+        .fail({ message: "boom" })
+        .then(() => {
+          throw new Error(`wasm(worker=${worker}): fail should reject`);
+        })
+        .catch((e: Error) => {
+          if (!e.message.includes("boom")) throw e;
+        });
+    } finally {
+      await wasmService.destroy();
+    }
+  }
+
+  const sync = await EchoServiceSync.create({ backend: "wasm" });
+  try {
+    assertBytes(
+      sync.bytes({ data: Uint8Array.from([1, 2, 3]) }).data,
+      Uint8Array.from([1, 2, 3]),
+      "wasm sync bytes.data",
+    );
+  } finally {
+    sync.destroy();
+  }
+  console.error("echo ts package: wasm OK");
+  process.exit(0);
+}
+
+const transport = transportArg;
 
 // The default policy: the echo binary resolves, so create() spawns it.
 {
