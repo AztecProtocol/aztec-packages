@@ -371,6 +371,42 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       }
     });
 
+    it('withholds the result while the block fork is still closing', async () => {
+      // The narrowest window: the archive snapshot is captured from the fork, so it exists before `close()`
+      // returns. A block root proof landing during the close runs verification itself and would find header,
+      // proof and archive all present, so publishing the archive any earlier resolves the sub-tree with the
+      // block's own fork still open.
+      const closeGate = promiseWithResolvers<void>();
+      const proofGate = promiseWithResolvers<void>();
+      const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(1);
+      const subTree = await startInspectableSubTree(1, constants, l1ToL2Messages, previousBlockHeader, {
+        worldState: withHeldForkClose(context.worldState, closeGate.promise),
+        prover: withHeldBlockRootProof(context.prover, proofGate.promise),
+      });
+      try {
+        const result = trackSettlement(subTree.getSubTreeResult());
+        const { blockNumber, timestamp } = blocks[0].header.globalVariables;
+
+        await subTree.startNewBlock(blockNumber, timestamp, 0, l1ToL2Messages);
+
+        // Park completion inside the fork close, then let the block root proof land in that window.
+        const completed = subTree.setBlockCompleted(blockNumber, blocks[0].header);
+        await sleep(50);
+        proofGate.resolve();
+        await waitForAllProofs(subTree);
+
+        expect(result.settled).toBe(false);
+
+        closeGate.resolve();
+        await completed;
+        await expect(subTree.getSubTreeResult()).resolves.toBeDefined();
+      } finally {
+        proofGate.resolve();
+        closeGate.resolve();
+        await subTree.stop();
+      }
+    });
+
     it('withholds the result until the last block of a multi-block checkpoint is verified', async () => {
       // Same race with the block merge in play: the second block is message-only, so its root proof is enqueued
       // from startNewBlock and the merge can complete while that block is still being driven.
@@ -451,11 +487,14 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     previousBlockHeader: BlockHeader,
-    { worldState = context.worldState }: { worldState?: typeof context.worldState } = {},
+    {
+      worldState = context.worldState,
+      prover = context.prover,
+    }: { worldState?: typeof context.worldState; prover?: typeof context.prover } = {},
   ): Promise<InspectableSubTree> {
     return InspectableSubTree.startInspectable(
       worldState,
-      context.prover,
+      prover,
       EthAddress.ZERO,
       chonkCache,
       EpochNumber(1),
@@ -542,13 +581,45 @@ function trackSettlement(promise: Promise<unknown>) {
  * the synced one and verification must reject the checkpoint.
  */
 function withStaleArchiveSnapshots<T extends object>(worldState: T): T {
-  return new Proxy(worldState, {
-    get(target, prop, receiver) {
-      const value = Reflect.get(target, prop, receiver);
-      if (prop === 'getSnapshot' && typeof value === 'function') {
-        return (blockNumber: number) => value.call(target, blockNumber - 1);
+  return replacingMethod(worldState, 'getSnapshot', getSnapshot => blockNumber => getSnapshot(Number(blockNumber) - 1));
+}
+
+/** A world state whose block forks park in `close()` until `held` settles. */
+function withHeldForkClose<T extends object>(worldState: T, held: Promise<void>): T {
+  return replacingMethod(worldState, 'fork', fork => async (...args) => {
+    const db = await fork(...args);
+    if (typeof db !== 'object' || db === null) {
+      throw new Error('Expected a fork.');
+    }
+    return replacingMethod(db, 'close', close => async () => {
+      await held;
+      return await close();
+    });
+  });
+}
+
+/** A prover that withholds an empty block's root proof until `held` settles. */
+function withHeldBlockRootProof<T extends object>(prover: T, held: Promise<void>): T {
+  return replacingMethod(prover, 'getBlockRootNoTxsRollupProof', getProof => async (...args) => {
+    await held;
+    return await getProof(...args);
+  });
+}
+
+/** Forwards every member to `target` except the named method, which `replace` rebuilds from the original. */
+function replacingMethod<T extends object>(
+  target: T,
+  name: string,
+  replace: (original: (...args: unknown[]) => unknown) => (...args: unknown[]) => unknown,
+): T {
+  return new Proxy(target, {
+    get(_target, prop) {
+      const value = Reflect.get(target, prop);
+      if (typeof value !== 'function') {
+        return value;
       }
-      return typeof value === 'function' ? value.bind(target) : value;
+      const method = value.bind(target);
+      return prop === name ? replace(method) : method;
     },
   });
 }

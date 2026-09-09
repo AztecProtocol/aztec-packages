@@ -471,15 +471,21 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     this.dbs.delete(provingState.blockNumber);
 
     // Update the archive tree, capture the snapshot, and close the fork deterministically.
+    let builtArchive: AppendOnlyTreeSnapshot;
     try {
       this.logger.verbose(
         `Updating archive tree with block ${provingState.blockNumber} header ${(await header.hash()).toString()}`,
       );
       await db.updateArchive(header);
-      provingState.setBuiltArchive(await getTreeSnapshot(MerkleTreeId.ARCHIVE, db));
+      builtArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     } finally {
       await db.close();
     }
+
+    // Publish the archive only once the fork is closed. Verification also runs from the block root proof callback,
+    // so an archive published before the close lets a proof arriving during it find every piece present, verify,
+    // and resolve the sub-tree while this block's fork is still open.
+    provingState.setBuiltArchive(builtArchive);
 
     await this.verifyBuiltBlockAgainstSyncedState(provingState);
 
