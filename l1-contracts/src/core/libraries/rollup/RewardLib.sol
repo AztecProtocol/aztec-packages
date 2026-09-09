@@ -11,8 +11,8 @@ import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -21,7 +21,19 @@ import {BitMaps} from "@oz/utils/structs/BitMaps.sol";
 
 type Bps is uint32;
 
-interface IRegistryProvider {
+/**
+ * @notice The subset of an Aztec Token Position (ATP) staker contract that the reward computation relies on.
+ * @dev ATP stakers register themselves as the GSE withdrawer when they deposit, so the withdrawer of an ATP-backed
+ *      validator is the staker, not the ATP. The staker only exposes the ATP it belongs to.
+ */
+interface IATPStaker {
+  function getATP() external view returns (address);
+}
+
+/**
+ * @notice The subset of an Aztec Token Position (ATP) contract that the reward computation relies on.
+ */
+interface IATP {
   function getRegistry() external view returns (address);
 }
 
@@ -371,21 +383,48 @@ library RewardLib {
     return (se.shares[_prover] * er.rewards / se.summedShares);
   }
 
+  /**
+   * @notice Resolves the ATP registry that an attester's withdrawer belongs to.
+   * @dev ATP-backed validators register their staker contract as the GSE withdrawer. The staker exposes the ATP it
+   *      belongs to, and the ATP exposes the registry it was created from, so the lookup is
+   *      `withdrawer.getATP()` followed by `atp.getRegistry()`. Both hops are probed defensively so that arbitrary
+   *      withdrawer contracts cannot make the reward computation revert or burn unbounded gas.
+   * @param _withdrawer The withdrawer registered in the GSE for the attester.
+   * @return responded Whether both hops returned a well-formed address.
+   * @return registry The registry the withdrawer's ATP belongs to, or zero when the lookup did not resolve.
+   */
   function tryGetRegistry(address _withdrawer) internal view returns (bool responded, address registry) {
-    if (_withdrawer.code.length == 0) {
+    (bool atpResponded, address atp) = tryGetAddress(_withdrawer, IATPStaker.getATP.selector);
+    if (!atpResponded || atp == address(0)) {
+      return (false, address(0));
+    }
+    return tryGetAddress(atp, IATP.getRegistry.selector);
+  }
+
+  /**
+   * @notice Probes `_target` with a zero-argument view call that is expected to return a single address.
+   * @dev Runs with a fixed gas cap and requires exactly 32 bytes of return data holding a clean address, so a
+   *      misbehaving target can only make the probe fail, never revert the caller or consume unbounded gas.
+   * @param _target The contract to probe. Accounts without code are treated as not responding.
+   * @param _selector The selector of the zero-argument getter to call.
+   * @return responded Whether the call succeeded and returned a well-formed address.
+   * @return result The returned address, or zero when the probe failed.
+   */
+  function tryGetAddress(address _target, bytes4 _selector) internal view returns (bool responded, address result) {
+    if (_target.code.length == 0) {
       return (false, address(0));
     }
 
-    uint256 selector = uint32(IRegistryProvider.getRegistry.selector);
+    uint256 selector = uint32(_selector);
 
     assembly ("memory-safe") {
       mstore(0x00, shl(224, selector))
-      let callSucceeded := staticcall(REGISTRY_PROBE_GAS_LIMIT, _withdrawer, 0x00, 0x04, 0x20, 0x20)
-      let result := mload(0x20)
-      responded := and(and(callSucceeded, eq(returndatasize(), 0x20)), iszero(shr(160, result)))
-      registry := 0
+      let callSucceeded := staticcall(REGISTRY_PROBE_GAS_LIMIT, _target, 0x00, 0x04, 0x20, 0x20)
+      let word := mload(0x20)
+      responded := and(and(callSucceeded, eq(returndatasize(), 0x20)), iszero(shr(160, word)))
+      result := 0
       if responded {
-        registry := and(result, sub(shl(160, 1), 1))
+        result := and(word, sub(shl(160, 1), 1))
       }
     }
   }
