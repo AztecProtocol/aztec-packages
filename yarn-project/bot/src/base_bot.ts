@@ -10,7 +10,38 @@ import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import type { BotConfig } from './config.js';
 
-export abstract class BaseBot {
+/** The surface `BotRunner` needs from every bot, whichever mode it is running. */
+export interface RunnableBot {
+  /** Address of the account the bot sends its transactions from. */
+  readonly defaultAccountAddress: AztecAddress;
+  /** Performs a single unit of bot work. */
+  run(): Promise<unknown>;
+}
+
+/**
+ * A bot that drives its own clock instead of being ticked by the runner's interval. When a bot implements this,
+ * `BotRunner` delegates start/stop to it and does not start its own `RunningPromise`.
+ */
+export interface BotLifecycle extends RunnableBot {
+  /** Starts the bot's own scheduling. */
+  start(): Promise<void>;
+  /** Stops the bot, persisting any recoverable work before returning. */
+  stop(): Promise<void>;
+  /** Whether the bot considers itself healthy. */
+  isHealthy(): boolean;
+}
+
+/** Returns whether the bot drives its own clock and should not be ticked by the runner. */
+export function isBotLifecycle(bot: RunnableBot): bot is BotLifecycle {
+  const candidate = bot as Partial<BotLifecycle>;
+  return (
+    typeof candidate.start === 'function' &&
+    typeof candidate.stop === 'function' &&
+    typeof candidate.isHealthy === 'function'
+  );
+}
+
+export abstract class BaseBot implements RunnableBot {
   protected log = createLogger('bot');
 
   protected attempts: number = 0;

@@ -1,10 +1,15 @@
 export { Bot } from './bot.js';
 export { AmmBot } from './amm_bot.js';
 export { CrossChainBot } from './cross_chain_bot.js';
+export { InboxBot } from './inbox_bot.js';
+export { type BotLifecycle, type RunnableBot, isBotLifecycle } from './base_bot.js';
 export { BotRunner } from './runner.js';
 export { BotStore } from './store/bot_store.js';
 export {
   type BotConfig,
+  type BotInboxConsumeMode,
+  applyInboxModeDefaults,
+  assertValidInboxConfig,
   getBotConfigFromEnv,
   getBotDefaultConfig,
   botConfigMappings,

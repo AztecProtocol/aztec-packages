@@ -8,16 +8,19 @@ import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@a
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { AmmBot } from './amm_bot.js';
-import type { BaseBot } from './base_bot.js';
+import { type BotLifecycle, type RunnableBot, isBotLifecycle } from './base_bot.js';
 import { Bot } from './bot.js';
 import type { BotConfig } from './config.js';
 import { CrossChainBot } from './cross_chain_bot.js';
+import { InboxBot } from './inbox_bot.js';
 import type { BotInfo, BotRunnerApi } from './interface.js';
 import { BotStore } from './store/index.js';
 
 export class BotRunner implements BotRunnerApi, Traceable {
   private log = createLogger('bot');
-  private bot?: Promise<BaseBot>;
+  private bot?: Promise<RunnableBot>;
+  private lifecycleBot?: BotLifecycle;
+  private lifecycleRunning = false;
   private runningPromise: RunningPromise;
   private consecutiveErrors = 0;
   private healthy = true;
@@ -58,6 +61,14 @@ export class BotRunner implements BotRunnerApi, Traceable {
    */
   public async start() {
     await this.setup();
+    if (this.lifecycleBot) {
+      if (!this.lifecycleRunning) {
+        this.log.info(`Starting bot on its own schedule`);
+        await this.lifecycleBot.start();
+        this.lifecycleRunning = true;
+      }
+      return;
+    }
     if (!this.runningPromise.isRunning()) {
       this.log.info(`Starting bot with interval of ${this.config.txIntervalSeconds}s`);
       this.runningPromise.start();
@@ -65,10 +76,15 @@ export class BotRunner implements BotRunnerApi, Traceable {
   }
 
   /**
-   * Stops sending txs. Returns once all ongoing txs are finished.
+   * Stops sending txs. Returns once all ongoing txs are finished. A bot that owns its schedule is stopped
+   * before the store is closed, so that it can persist any recoverable work.
    */
   public async stop() {
-    if (this.runningPromise.isRunning()) {
+    if (this.lifecycleBot && this.lifecycleRunning) {
+      this.log.verbose(`Stopping bot`);
+      await this.lifecycleBot.stop();
+      this.lifecycleRunning = false;
+    } else if (this.runningPromise.isRunning()) {
       this.log.verbose(`Stopping bot`);
       await this.runningPromise.stop();
     }
@@ -77,12 +93,15 @@ export class BotRunner implements BotRunnerApi, Traceable {
   }
 
   public isHealthy() {
+    if (this.lifecycleBot) {
+      return this.lifecycleRunning && this.healthy && this.lifecycleBot.isHealthy();
+    }
     return this.runningPromise.isRunning() && this.healthy;
   }
 
   /** Returns whether the bot is running. */
   public isRunning() {
-    return this.runningPromise.isRunning();
+    return this.lifecycleBot ? this.lifecycleRunning : this.runningPromise.isRunning();
   }
 
   /**
@@ -106,7 +125,8 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
   /**
    * Triggers a single iteration of the bot. Requires the bot to be initialized.
-   * Blocks until the run is finished.
+   * Blocks until the run is finished. For a bot that owns its schedule this triggers a single production step
+   * rather than a full tick of its pipeline.
    */
   public async run() {
     if (!this.bot) {
@@ -180,12 +200,24 @@ export class BotRunner implements BotRunnerApi, Traceable {
             this.syncChainTip,
           );
           break;
+        case 'inbox':
+          this.bot = InboxBot.create(
+            this.config,
+            this.wallet,
+            this.aztecNode,
+            this.aztecNodeAdmin,
+            this.store,
+            this.telemetry,
+            this.syncChainTip,
+          );
+          break;
         default: {
           const _exhaustive: never = this.config.botMode;
           throw new Error(`Unsupported bot mode: [${_exhaustive}]`);
         }
       }
-      await this.bot;
+      const bot = await this.bot;
+      this.lifecycleBot = isBotLifecycle(bot) ? bot : undefined;
     } catch (err) {
       this.log.error(`Error setting up bot: ${err}`);
       throw err;
