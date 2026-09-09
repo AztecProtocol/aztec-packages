@@ -85,7 +85,8 @@ function usage(): never {
 Required:
   --schema <file>    JSON schema file
   --lang <lang>      Target language (ts, rust, zig, cpp)
-  --out <dir>        Output directory
+  --out <dir>        Output directory for the generated bindings (implied by
+                     --package: <package>/src/generated)
 
 Optional:
   --server                 Generate server dispatch
@@ -244,6 +245,18 @@ function parseArgs(argv: string[]): Args {
     }
   }
 
+  if (args.packageDir) {
+    // The package shell imports the bindings from ./generated, so that is where they go.
+    const packageOut = join(resolve(args.packageDir), "src", "generated");
+    if (!args.out) {
+      args.out = packageOut;
+    } else if (resolve(args.out) !== packageOut) {
+      console.error(
+        `--out must be <package>/src/generated (${packageOut}) when --package is given; omit it`,
+      );
+      process.exit(1);
+    }
+  }
   if (!args.schema || !args.lang || !args.out) {
     usage();
   }

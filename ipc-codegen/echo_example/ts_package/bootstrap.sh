@@ -10,7 +10,6 @@ $NODE "$CODEGEN/src/generate.ts" \
   --schema "$DIR/../schema/schema.jsonc" \
   --lang ts \
   --client \
-  --out "$DIR/src/generated" \
   --package "$DIR" \
   --package-name "@aztec/echo-ipc" \
   --binary-name echo_server \

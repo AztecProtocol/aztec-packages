@@ -27,7 +27,6 @@ function generate_bb_avm_sim_package {
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/avm/avm_schema.json" \
     --lang ts \
     --client \
-    --out "$ROOT/barretenberg/ts/bb-avm-sim/src/generated" \
     --package "$ROOT/barretenberg/ts/bb-avm-sim" \
     --package-name "$BB_AVM_SIM_PACKAGE" \
     --binary-name "$BB_AVM_SIM_BINARY" \
@@ -45,7 +44,6 @@ function generate_cdb_package {
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/cdb/cdb_schema.json" \
     --lang ts \
     --server \
-    --out "$ROOT/barretenberg/ts/cdb/src/generated" \
     --package "$ROOT/barretenberg/ts/cdb" \
     --package-name "$CDB_PACKAGE"
 }
@@ -62,7 +60,6 @@ function generate_bb_js_api_package {
     --schema "$bbapi/bb_schema.json" \
     --lang ts \
     --client \
-    --out "$ROOT/barretenberg/ts/bb.js-api/src/generated" \
     --package "$ROOT/barretenberg/ts/bb.js-api" \
     --package-name "$BB_JS_API_PACKAGE" \
     --binary-name bb \

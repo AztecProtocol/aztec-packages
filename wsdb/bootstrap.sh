@@ -15,7 +15,6 @@ function generate_ts_package {
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/wsdb/wsdb_schema.jsonc" \
     --lang ts \
     --client \
-    --out "$ROOT/wsdb/ts/src/generated" \
     --package "$ROOT/wsdb/ts" \
     --package-name @aztec-foundation/wsdb \
     --binary-name "$WSDB_BINARY" \
