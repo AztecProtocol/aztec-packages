@@ -763,11 +763,10 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
 
         // Verification is called from both here and setBlockCompleted. Whichever runs last
         // will be the first to see all three pieces (header, proof output, archive) and run the checks.
+        // It enqueues the sub-tree resolution itself, so a single-block checkpoint needs nothing further.
         await this.verifyBuiltBlockAgainstSyncedState(provingState);
 
-        if (checkpointProvingState.totalNumBlocks === 1) {
-          this.checkAndEnqueueSubTreeResolution(checkpointProvingState);
-        } else {
+        if (checkpointProvingState.totalNumBlocks > 1) {
           this.checkAndEnqueueNextBlockMergeRollup(checkpointProvingState, leafLocation);
         }
       },

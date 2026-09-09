@@ -256,5 +256,17 @@ describe('checkStreamingBlockProposal', () => {
       const result = await readStreamingBlockBundle(view, metadata as typeof metadata & { accepted: true });
       expect(result).toEqual({ accepted: false, reason: 'inbox_prefix_unavailable' });
     });
+
+    it('carries the error text of a range read that failed for an unanticipated reason', async () => {
+      const failing = {
+        getL1ToL2MessageRange: () => Promise.reject(new Error('database is closed')),
+      };
+      const result = await readStreamingBlockBundle(failing, {
+        parentTotalMsgCount: 0n,
+        endTotalMsgCount: 1n,
+        inboxPrefixRef: InboxMessagePrefixRef.random(),
+      });
+      expect(result).toEqual({ accepted: false, reason: 'inbox_prefix_unavailable', error: 'database is closed' });
+    });
   });
 });

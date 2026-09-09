@@ -1180,6 +1180,8 @@ export class ProposalHandler {
       this.log.warn(`Timed out reading a consistent Inbox bundle, rejecting proposal`, {
         reason: 'inbox_prefix_sync_timeout',
         firstReason: first.reason,
+        // Set only when the message source failed for a reason the checks did not anticipate, rather than sync lag.
+        error: first.error,
         slot: slotNumber,
         waitedMs: timer.ms(),
         ...proposalInfo,
