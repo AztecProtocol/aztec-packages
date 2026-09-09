@@ -514,7 +514,14 @@ function generate(args: Args) {
           writePackage("tsconfig.json", packageGen.generateTsconfig());
           writePackage("README.md", packageGen.generateReadme());
           writePackage("src/index.ts", packageGen.generateIndex());
+          writePackage(
+            "src/react-native.ts",
+            packageGen.generateReactNativeIndex(),
+          );
           writePackage("src/platform.ts", packageGen.generatePlatform());
+          if (transports.some((t) => t !== "wasm")) {
+            writePackage("src/process.ts", packageGen.generateProcess());
+          }
           if (binaryName) {
             writePackage("src/bin.ts", packageGen.generateBin());
           }

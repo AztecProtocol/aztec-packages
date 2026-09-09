@@ -2,6 +2,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
+// The bb binary ships with @aztec-foundation/bb.js-api (per-platform optional dependencies, or
+// BB_BINARY_PATH); bb.js itself only carries the LMDB NAPI module below.
+export { findBbBinary } from '@aztec-foundation/bb.js-api';
+
 function getCurrentDir() {
   if (typeof __dirname !== 'undefined') {
     return __dirname;
@@ -77,58 +81,10 @@ export function detectPlatform(): Platform | null {
 }
 
 /**
- * Find the bb binary for the native backend.
- * @param customPath Optional custom path to bb binary (overrides automatic detection)
- * @returns Absolute path to bb binary, or null if not found
- *
- * Search order:
- * 1. If customPath is provided and exists, return it
- * 2. If BB_BINARY_PATH is set and exists, return it
- * 3. Otherwise search in <package-root>/build/<platform>/bb
+ * Find bb's LMDB NAPI module (nodejs_module.node) bundled with this package.
+ * @param customPath Optional custom path (overrides automatic detection)
+ * @returns Absolute path to the module, or null if not found
  */
-export function findBbBinary(customPath?: string): string | null {
-  // Check custom path first if provided
-  if (customPath) {
-    if (fs.existsSync(customPath)) {
-      return path.resolve(customPath);
-    }
-    // Custom path provided but doesn't exist - return null
-    return null;
-  }
-
-  const envPath = process.env.BB_BINARY_PATH;
-  if (envPath) {
-    if (fs.existsSync(envPath)) {
-      return path.resolve(envPath);
-    }
-    return null;
-  }
-
-  // Automatic detection
-  const platform = detectPlatform();
-  if (!platform) {
-    return null;
-  }
-
-  const buildDir = PLATFORM_TO_BUILD_DIR[platform];
-
-  // Get package root by climbing directory tree to find package.json
-  const packageRoot = findPackageRoot();
-
-  if (!packageRoot) {
-    return null;
-  }
-
-  // Check in build/<platform>/bb
-  const bbPath = path.join(packageRoot, 'build', buildDir, 'bb');
-
-  if (fs.existsSync(bbPath)) {
-    return bbPath;
-  }
-
-  return null;
-}
-
 export function findNapiBinary(customPath?: string): string | null {
   // Check custom path first if provided
   if (customPath) {

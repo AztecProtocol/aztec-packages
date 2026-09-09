@@ -28,6 +28,20 @@ function assertBytes(actual: Uint8Array, expected: Uint8Array, label: string) {
   );
 }
 
+// The default policy: the echo binary resolves, so create() spawns it.
+{
+  const created = await EchoService.create();
+  try {
+    if (!created.process) {
+      throw new Error("create(): expected a spawned process backend");
+    }
+    const data = Uint8Array.from([7, 8, 9]);
+    assertBytes((await created.bytes({ data })).data, data, "create().bytes");
+  } finally {
+    await created.destroy();
+  }
+}
+
 const service = await EchoService.spawn({ transport });
 try {
   const data = Uint8Array.from([0xde, 0xad, 0xbe, 0xef, 0x42]);
@@ -50,7 +64,11 @@ try {
   const nested = await service.nested({ inner });
   assertEqual(nested.inner.flag, true, "nested.inner.flag");
   assertEqual(nested.inner.values.length, 2, "nested.inner.values.length");
-  assertBytes(nested.inner.values[0]!, inner.values[0]!, "nested.inner.values[0]");
+  assertBytes(
+    nested.inner.values[0]!,
+    inner.values[0]!,
+    "nested.inner.values[0]",
+  );
 
   const hash = testHash(0x10);
   const second = testHash(0x40);

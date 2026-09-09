@@ -26,7 +26,6 @@ function generate_bb_avm_sim_package {
     "$ROOT/ipc-codegen/src/generate.ts" \
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/avm/avm_schema.json" \
     --lang ts \
-    --client \
     --package "$ROOT/barretenberg/ts/bb-avm-sim" \
     --package-name "$BB_AVM_SIM_PACKAGE" \
     --binary-name "$BB_AVM_SIM_BINARY" \
@@ -59,7 +58,6 @@ function generate_bb_js_api_package {
     "$ROOT/ipc-codegen/src/generate.ts" \
     --schema "$bbapi/bb_schema.json" \
     --lang ts \
-    --client \
     --package "$ROOT/barretenberg/ts/bb.js-api" \
     --package-name "$BB_JS_API_PACKAGE" \
     --binary-name bb \
@@ -237,7 +235,10 @@ function test {
   (cd bb.js && ./bootstrap.sh test)
 }
 
+# bb.js's own cross copies (the LMDB NAPI module) and bb.js-api's (the bb binary), which bb.js
+# runs through.
 function cross_copy_bb_js {
+  cross_copy_bb_js_api "$@"
   (cd bb.js && ./bootstrap.sh cross_copy "$@")
 }
 
@@ -250,7 +251,6 @@ function cross_copy_bb_avm_sim {
 }
 
 function cross_copy {
-  cross_copy_bb_js_api "$@"
   cross_copy_bb_js "$@"
 }
 
@@ -301,7 +301,8 @@ function cross_copy_bb_js_api {
   prepare_bb_js_api_arch_packages
 }
 
-# bb.js depends on bb.js-api, so it is published first (with its arch packages).
+# bb.js depends on bb.js-api, so it is published first (with its arch packages, the one published
+# home of the bb binary).
 function release_bb_js_api {
   generate_packages
   copy_bb_js_api_wasm
@@ -310,6 +311,12 @@ function release_bb_js_api {
   npm_install_deps "$IPC_RUNTIME_PKG"
   yarn workspace "$BB_JS_API_PACKAGE" build
   prepare_bb_js_api_arch_packages
+  # The binaries come from builds keyed on source, not on the release: finalize them so they
+  # carry this release's version like every other copy.
+  local f
+  for f in bb.js-api/packages/*/bb; do
+    [ -f "$f" ] && ../cpp/bootstrap.sh finalize_bb_binary "$(realpath "$f")"
+  done
   for package_dir in bb.js-api/packages/*; do
     (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
   done

@@ -1,49 +1,58 @@
-import { createWasmBackend, createWasmBackendSync } from '@aztec-foundation/bb.js-api';
+import { createBackend, createBackendSync } from '@aztec-foundation/bb.js-api';
+import * as os from 'os';
 
 import { BackendOptions, BackendType } from '../index.js';
 import type { IMsgpackBackendAsync, IMsgpackBackendSync } from '../interface.js';
-import { BarretenbergNativeShmSyncBackend } from './native_shm.js';
-import { BarretenbergNativeShmAsyncBackend } from './native_shm_async.js';
-import { BarretenbergNativeSocketAsyncBackend } from './native_socket.js';
-import { findBbBinary } from './platform.js';
+
+// Shared-memory rings sized for bb's payloads (witnesses, proofs); the async backend pipelines, so
+// it gets a response ring of the same size.
+const SHM_RING_SIZE = 1024 * 1024 * 4;
 
 /**
- * Create backend of specific type (no fallback)
+ * bb monitors parent death (prctl/kqueue) and exits on its own, so the child must never hold the
+ * Node event loop open; its log pipes (present with a logger) do, unless the caller asked for unref.
+ */
+function bbProcessLifetime(options: BackendOptions) {
+  return { unref: true, unrefStdio: options.unref };
+}
+
+/**
+ * Create backend of specific type (no fallback). Everything here is bb's choice of options over
+ * @aztec-foundation/bb.js-api's backends: thread defaults, ring sizes, artifact overrides.
  */
 export async function createAsyncBackend(
   type: BackendType,
   options: BackendOptions,
   logger: (msg: string) => void,
 ): Promise<IMsgpackBackendAsync> {
-  options = {
-    ...options,
-    wasmPath: options.wasmPath ?? process.env.BB_WASM_PATH,
-  };
+  const wasmPath = options.wasmPath ?? process.env.BB_WASM_PATH;
 
   switch (type) {
-    case BackendType.NativeUnixSocket: {
-      const bbPath = findBbBinary(options.bbPath);
-      if (!bbPath) {
-        throw new Error('Native backend requires bb binary.');
-      }
-      logger(`Using native Unix socket backend: ${bbPath}`);
-      return await BarretenbergNativeSocketAsyncBackend.new(bbPath, options.threads, options.logger, options.unref);
-    }
+    case BackendType.NativeUnixSocket:
+      logger('Using native Unix socket backend');
+      return await createBackend({
+        backend: 'process',
+        // If threads not set use num cpu cores, max 16.
+        threads: options.threads ?? Math.min(16, os.cpus().length),
+        logger: options.logger,
+        process: { binaryPath: options.bbPath, transport: 'uds', ...bbProcessLifetime(options) },
+      });
 
-    case BackendType.NativeSharedMemory: {
-      const bbPath = findBbBinary(options.bbPath);
-      if (!bbPath) {
-        throw new Error('Native backend requires bb binary.');
-      }
-      logger(`Using native shared memory async backend: ${bbPath}`);
-      return await BarretenbergNativeShmAsyncBackend.new(
-        bbPath,
-        options.napiPath,
-        options.threads,
-        options.logger,
-        options.unref,
-      );
-    }
+    case BackendType.NativeSharedMemory:
+      logger('Using native shared memory async backend');
+      return await createBackend({
+        backend: 'process',
+        threads: options.threads ?? 16,
+        logger: options.logger,
+        process: {
+          binaryPath: options.bbPath,
+          transport: 'shm',
+          clientId: 0,
+          napiPath: options.napiPath,
+          extraArgs: ['--request-ring-size', `${SHM_RING_SIZE}`, '--response-ring-size', `${SHM_RING_SIZE}`],
+          ...bbProcessLifetime(options),
+        },
+      });
 
     case BackendType.Wasm:
     case BackendType.WasmWorker: {
@@ -51,17 +60,13 @@ export async function createAsyncBackend(
       // every call blocks until bb returns.
       const worker = type === BackendType.WasmWorker;
       logger(`Using WASM backend (worker: ${worker})`);
-      const backend = await createWasmBackend({
+      return await createBackend({
+        backend: 'wasm',
         threads: options.threads,
-        module: options.wasmPath,
         logger: options.logger,
-        memory: options.memory,
-        worker,
+        unref: options.unref,
+        wasm: { module: wasmPath, memory: options.memory, worker },
       });
-      if (options.unref) {
-        backend.unref();
-      }
-      return backend;
     }
 
     default:
@@ -77,39 +82,33 @@ export async function createSyncBackend(
   options: BackendOptions,
   logger: (msg: string) => void,
 ): Promise<IMsgpackBackendSync> {
-  options = {
-    ...options,
-    wasmPath: options.wasmPath ?? process.env.BB_WASM_PATH,
-  };
+  const wasmPath = options.wasmPath ?? process.env.BB_WASM_PATH;
 
   switch (type) {
-    case BackendType.NativeSharedMemory: {
-      const bbPath = findBbBinary(options.bbPath);
-      if (!bbPath) {
-        throw new Error('Native backend requires bb binary.');
-      }
-      logger(`Using native shared memory backend: ${bbPath}`);
-      return await BarretenbergNativeShmSyncBackend.new(
-        bbPath,
-        options.napiPath,
-        options.threads,
-        options.logger,
-        options.unref,
-      );
-    }
-
-    case BackendType.Wasm: {
-      logger('Using WASM backend');
-      const backend = await createWasmBackendSync({
-        module: options.wasmPath,
+    case BackendType.NativeSharedMemory:
+      logger('Using native shared memory backend');
+      return await createBackendSync({
+        backend: 'process',
+        // Sync callers do short, one-at-a-time requests: one thread, one request ring.
+        threads: options.threads ?? 1,
         logger: options.logger,
-        memory: options.memory,
+        process: {
+          binaryPath: options.bbPath,
+          transport: 'shm',
+          napiPath: options.napiPath,
+          extraArgs: ['--request-ring-size', `${SHM_RING_SIZE}`],
+          ...bbProcessLifetime(options),
+        },
       });
-      if (options.unref) {
-        backend.unref();
-      }
-      return backend;
-    }
+
+    case BackendType.Wasm:
+      logger('Using WASM backend');
+      return await createBackendSync({
+        backend: 'wasm',
+        logger: options.logger,
+        unref: options.unref,
+        wasm: { module: wasmPath, memory: options.memory },
+      });
 
     default:
       throw new Error(`Backend ${type} not supported for BarretenbergSync`);
