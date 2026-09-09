@@ -41,7 +41,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
-import type { InboxEndpointReader } from './checkpoint_endpoint_check.js';
+import { type FakeInbox, makeFakeInbox } from './fake_inbox_test_helper.js';
 import type { ValidatorMetrics } from './metrics.js';
 import {
   type CheckpointProposalValidationResult,
@@ -72,56 +72,6 @@ function mockEmptyInboxView(source: MockProxy<L1ToL2MessageSource>) {
       ? Promise.resolve({ messages: [], start: position(0n, Fr.ZERO), end: position(0n, Fr.ZERO) })
       : Promise.reject(new Error(`Inbox message range [${start}, ${end}) is not fully synced`)),
   );
-}
-
-/** A live Inbox bucket: the cumulative message total it ends at, and the prefix hash it commits to. */
-type LiveBucket = { seq: bigint; total: bigint; rollingHash: Fr };
-
-/** A fake live Inbox ring for the checkpoint endpoint gate, whose contents and readability tests can move. */
-type FakeInbox = InboxEndpointReader & {
-  /** What each endpoint read asked for, and the L1 view it was made in. */
-  reads: { upperBound: bigint; blockNumber: bigint | undefined }[];
-  /** Replaces the live ring, the way an eviction or a reorg moves it between two reads. */
-  setBuckets(buckets: LiveBucket[]): void;
-  /** Makes every read fail, the way an unreachable provider does. */
-  setUnreadable(err: Error | undefined): void;
-  /** Runs before each read with its index, so a test can move the L1 view between two attempts. */
-  onRead(hook: (readIndex: number) => void): void;
-};
-
-/** An Inbox resolving an upper bound to the newest live bucket ending at or below it, as the contract does. */
-function makeFakeInbox(buckets: LiveBucket[] = [{ seq: 0n, total: 0n, rollingHash: Fr.ZERO }]): FakeInbox {
-  let live = buckets;
-  let unreadable: Error | undefined;
-  let beforeRead: (readIndex: number) => void = () => {};
-  const reads: FakeInbox['reads'] = [];
-  return {
-    reads,
-    setBuckets: next => {
-      live = next;
-    },
-    setUnreadable: err => {
-      unreadable = err;
-    },
-    onRead: hook => {
-      beforeRead = hook;
-    },
-    client: { getBlockNumber: () => (unreadable ? Promise.reject(unreadable) : Promise.resolve(777n)) },
-    getBucketAtOrBeforeTotal: (upperBound, opts) => {
-      beforeRead(reads.length);
-      reads.push({ upperBound, blockNumber: opts?.blockNumber });
-      if (unreadable) {
-        return Promise.reject(unreadable);
-      }
-      const match = [...live].sort((a, b) => Number(a.total - b.total)).findLast(b => b.total <= upperBound);
-      return Promise.resolve(
-        match && {
-          seq: match.seq,
-          bucket: { rollingHash: match.rollingHash, totalMsgCount: match.total, timestamp: 1n, msgCount: 1 },
-        },
-      );
-    },
-  };
 }
 
 /**
@@ -1370,7 +1320,7 @@ describe('ProposalHandler checkpoint validation', () => {
         expect(result).toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
         // The last block's own consumed total, resolved once against an explicitly captured L1 head. The
         // intermediate block's position is never asked about.
-        expect(inbox.reads).toEqual([{ upperBound: 7n, blockNumber: 777n }]);
+        expect(inbox.reads).toEqual([{ upperBound: 7n, blockNumber: 900n }]);
       });
 
       // A checkpoint that consumed nothing still ends somewhere: the position it inherited, which has to be a live
@@ -1382,7 +1332,7 @@ describe('ProposalHandler checkpoint validation', () => {
         const result = await validate(header);
 
         expect(result).toEqual({ isValid: true, checkpointNumber: CheckpointNumber(1) });
-        expect(inbox.reads).toEqual([{ upperBound: 3n, blockNumber: 777n }]);
+        expect(inbox.reads).toEqual([{ upperBound: 3n, blockNumber: 900n }]);
       });
 
       // Blocks may consume an arbitrary prefix, so a checkpoint can be entirely content-valid and still finish
@@ -1510,7 +1460,8 @@ describe('ProposalHandler checkpoint validation', () => {
       });
 
       // A refusal describes the L1 view at that instant, so it is not remembered as this proposal's verdict: the
-      // next call re-reads and can still accept it.
+      // next call re-reads and can still accept it. The content verdict the refused call paid a full rebuild for
+      // is kept, so the attestation call moments later does not rebuild the checkpoint all over again.
       it('accepts on a later call once the endpoint reappears in a recovered view', async () => {
         const { header, inboxRollingHash } = setupContentValidCheckpoint({ midLeafCount: 5, lastLeafCount: 7 });
         inbox.setUnreadable(new Error('l1 rpc request failed'));
@@ -1528,6 +1479,8 @@ describe('ProposalHandler checkpoint validation', () => {
           isValid: true,
           checkpointNumber: CheckpointNumber(1),
         });
+        expect(checkpointsBuilder.openCheckpoint).toHaveBeenCalledTimes(1);
+        expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('valid');
       });
     });
   });

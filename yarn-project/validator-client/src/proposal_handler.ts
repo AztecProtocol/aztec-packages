@@ -289,14 +289,6 @@ function describeEndpointFailure(result: InboxEndpointCheckResult | undefined): 
   };
 }
 
-/**
- * Whether a refusal only describes the L1 view read at that instant. Such a verdict is not remembered as the
- * proposal's, so the next call re-reads and can still accept it once the view recovers.
- */
-function isInboxEndpointReason(reason: CheckpointProposalValidationFailureReason): boolean {
-  return reason === 'inbox_endpoint_unverifiable' || reason === 'inbox_endpoint_not_live';
-}
-
 /** Block-proposal validation failures that constitute a slashable invalid-block offense. */
 export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailureReason[] = [
   'state_mismatch',
@@ -1538,10 +1530,10 @@ export class ProposalHandler {
   }
 
   /**
-   * Confirms through L1 that the position a checkpoint finishes at closes a live Inbox bucket committing to the
+   * Confirms through L1 that the position a checkpoint finishes at ends a live Inbox bucket committing to the
    * rolling hash it signed. The content checks authenticate what the checkpoint consumed against this node's own
    * message log; they cannot tell whether the position it ends at is one L1 will accept, and only a checkpoint's
-   * final position has to be a bucket boundary.
+   * final position has to be a bucket boundary. Whether that bucket has settled stays an L1-only check.
    *
    * A view that disagrees, and one that cannot be read at all, are both refusals rather than verdicts about the
    * proposer: a provider trailing the head has not seen the message that closed the bucket yet, an eviction or a
@@ -1550,12 +1542,20 @@ export class ProposalHandler {
    * recovers in time still yields a valid verdict, and a stalled read cannot hold the acceptance path open.
    */
   private async awaitInboxEndpoint(
-    slot: SlotNumber,
-    finalTotalMsgCount: bigint,
-    inboxRollingHash: Fr,
+    proposal: CheckpointProposalCore,
+    lastBlock: BlockData | undefined,
     proposalInfo: LogData,
     budget: DutyBudget,
   ): Promise<{ accepted: true } | { accepted: false; reason: CheckpointEndpointReason }> {
+    if (lastBlock === undefined) {
+      // The block carrying the signed archive went missing between the content verdict and this read, so the
+      // position to ask L1 about is unknown. That is a local uncertainty like an unreadable view, not misconduct.
+      this.log.warn(`Cannot read the checkpoint's last block to confirm its final message position`, proposalInfo);
+      return { accepted: false, reason: 'inbox_endpoint_unverifiable' };
+    }
+    const slot = proposal.slotNumber;
+    const finalTotalMsgCount = this.blockLeafCount(lastBlock);
+    const inboxRollingHash = proposal.checkpointHeader.inboxRollingHash;
     const timer = new Timer();
     const deadline = new Date(
       Math.min(budget.deadline.getTime(), this.dateProvider.now() + INBOX_ENDPOINT_RETRY_WINDOW_MS),
@@ -1781,57 +1781,67 @@ export class ProposalHandler {
 
     // Check cache: same signed-payload hash means we already validated this exact proposal. A valid verdict rests
     // on blocks this node holds locally, and p2p makes two calls for one proposal (the all-nodes validation, then
-    // the attestation), so an archiver rollback in between can prune those blocks. Re-check that the checkpoint's
-    // last block is still local before reusing a valid verdict, or the attestation outlives what it was based on.
-    // That re-check is a store read like any other, so it runs inside the duty budget rather than unbounded.
-    if (this.lastCheckpointValidationResult && this.lastCheckpointValidationResult.payloadHash === payloadHash) {
-      const cached = this.lastCheckpointValidationResult.result;
-      if (!cached.isValid) {
-        this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
-        return cached;
-      }
-      const lastBlock = await budget.run(`cached checkpoint verdict re-check for slot ${slot}`, () =>
-        this.blockSource.getBlockData({ archive: proposal.archive }),
-      );
+    // the attestation), so an archiver rollback in between can prune those blocks. Re-reading the checkpoint's
+    // last block confirms it is still there before a valid verdict is reused, or the attestation outlives what it
+    // was based on. The same read gives the endpoint gate below the position the checkpoint finishes at, so it is
+    // taken on either path. Store reads run inside the duty budget rather than unbounded.
+    const cached =
+      this.lastCheckpointValidationResult?.payloadHash === payloadHash
+        ? this.lastCheckpointValidationResult.result
+        : undefined;
+    if (cached && !cached.isValid) {
+      this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
+      return cached;
+    }
+
+    let result: CheckpointProposalValidationResult | undefined;
+    let lastBlock: BlockData | undefined;
+    if (cached) {
+      lastBlock = await this.readCheckpointLastBlock(proposal, budget);
       if (lastBlock !== undefined) {
-        // The other half of a valid verdict is an Inbox endpoint that was live in the L1 view read at the time.
-        // The ring and the head both move between the two calls, so the endpoint is re-read rather than carried
-        // over: reuse is bound to a view, not just to a payload.
-        const endpoint = await this.awaitInboxEndpoint(
-          slot,
-          this.blockLeafCount(lastBlock),
-          proposal.checkpointHeader.inboxRollingHash,
+        this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
+        result = cached;
+      } else {
+        this.log.warn(
+          `Re-validating checkpoint proposal at slot ${slot}: its blocks are no longer local`,
           proposalInfo,
-          budget,
         );
-        if (endpoint.accepted) {
-          this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
-          return cached;
-        }
-        // Not the proposal's verdict, only this view's: leave the cached one in place so a later call can reuse it.
-        return { isValid: false, reason: endpoint.reason, checkpointNumber: cached.checkpointNumber };
       }
-      this.log.warn(`Re-validating checkpoint proposal at slot ${slot}: its blocks are no longer local`, proposalInfo);
     }
 
-    const proposer = proposal.getSender();
-    let result: CheckpointProposalValidationResult;
-    if (!proposer) {
-      this.log.warn(`Received checkpoint proposal with invalid signature for slot ${proposal.slotNumber}`);
-      result = { isValid: false as const, reason: 'invalid_signature' };
-    } else if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
-      this.log.warn(
-        `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${proposal.slotNumber}`,
-      );
-      result = { isValid: false, reason: 'invalid_fee_asset_price_modifier' };
-    } else {
-      result = await this.validateCheckpointProposal(proposal, proposalInfo, budget);
-    }
-
-    // An endpoint refusal describes the L1 view of the moment, not this proposal, so it is not remembered as its
-    // verdict: the attestation call re-reads and can still accept the same payload once the view recovers.
-    if (result.isValid || !isInboxEndpointReason(result.reason)) {
+    if (result === undefined) {
+      const proposer = proposal.getSender();
+      if (!proposer) {
+        this.log.warn(`Received checkpoint proposal with invalid signature for slot ${proposal.slotNumber}`);
+        result = { isValid: false as const, reason: 'invalid_signature' };
+      } else if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
+        this.log.warn(
+          `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${proposal.slotNumber}`,
+        );
+        result = { isValid: false, reason: 'invalid_fee_asset_price_modifier' };
+      } else {
+        result = await this.validateCheckpointProposal(proposal, proposalInfo, budget);
+      }
       this.lastCheckpointValidationResult = { payloadHash, result };
+      if (result.isValid) {
+        lastBlock = await this.readCheckpointLastBlock(proposal, budget);
+        // Blobs follow the content verdict rather than the endpoint gate: the data is the same either way, and
+        // tying it here uploads a checkpoint's blobs once, on the call that built the verdict (fire and forget).
+        this.tryUploadBlobsForCheckpoint(proposal, proposalInfo);
+      }
+    }
+
+    // A content verdict says the checkpoint is the one its signed payload describes and that this node holds the
+    // messages it consumed. What it cannot say is whether the position the checkpoint finishes at is one L1
+    // accepts, which is the last thing left before this becomes an accepted parent or an attestation. It is gated
+    // here rather than inside the content validation so a refusal — which describes the L1 view of the moment and
+    // nothing about the proposer — does not discard a verdict that cost a full rebuild: the next call reuses the
+    // content verdict, re-reads L1 and can still accept the same payload once the view recovers.
+    if (result.isValid) {
+      const endpoint = await this.awaitInboxEndpoint(proposal, lastBlock, proposalInfo, budget);
+      if (!endpoint.accepted) {
+        result = { isValid: false, reason: endpoint.reason, checkpointNumber: result.checkpointNumber };
+      }
     }
 
     // Record the outcome on the re-execution tracker.
@@ -1857,12 +1867,20 @@ export class ProposalHandler {
       }
     }
 
-    // Upload blobs to filestore if validation passed (fire and forget)
-    if (result.isValid) {
-      this.tryUploadBlobsForCheckpoint(proposal, proposalInfo);
-    }
-
     return result;
+  }
+
+  /**
+   * Reads the checkpoint's last block: the one carrying the signed archive. Its presence is what a reused verdict
+   * rests on, and its L1-to-L2 leaf count is the cumulative message position the checkpoint finishes at.
+   */
+  private readCheckpointLastBlock(
+    proposal: CheckpointProposalCore,
+    budget: DutyBudget,
+  ): Promise<BlockData | undefined> {
+    return budget.run(`checkpoint last block read for slot ${proposal.slotNumber}`, () =>
+      this.blockSource.getBlockData({ archive: proposal.archive }),
+    );
   }
 
   /**
@@ -2006,11 +2024,10 @@ export class ProposalHandler {
     // messages are already in the db from per-block validation; this list drives the checkpoint's rolling-hash
     // recomputation in completeCheckpoint. No bucket or L1 endpoint is resolved here: that is the proposer's and
     // L1's publication check.
-    const lastBlockTotal = this.blockLeafCount(lastBlock);
     const consumed = await this.awaitCheckpointConsumedMessages(
       slot,
       checkpointStartTotal,
-      lastBlockTotal,
+      this.blockLeafCount(lastBlock),
       proposal.checkpointHeader.inboxRollingHash,
       proposalInfo,
       budget,
@@ -2168,22 +2185,6 @@ export class ProposalHandler {
     } catch (err) {
       this.log.warn(`Checkpoint validation failed: ${err}`, proposalInfo);
       return { isValid: false, reason: 'checkpoint_validation_failed', checkpointNumber };
-    }
-
-    // Everything above is deterministic and local: it says the checkpoint is the one its signed payload describes
-    // and that this node holds the messages it consumed. What it cannot say is whether the position the checkpoint
-    // finishes at is one L1 accepts, which is the last thing left before this becomes an accepted parent or an
-    // attestation. It is checked last so the cheap deterministic work decides the outcome wherever it can, and so
-    // an offense keeps its own reason instead of being reported as an unconfirmed endpoint.
-    const endpoint = await this.awaitInboxEndpoint(
-      slot,
-      lastBlockTotal,
-      proposal.checkpointHeader.inboxRollingHash,
-      proposalInfo,
-      budget,
-    );
-    if (!endpoint.accepted) {
-      return { isValid: false, reason: endpoint.reason, checkpointNumber };
     }
 
     this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
