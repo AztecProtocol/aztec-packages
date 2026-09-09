@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Copies cross-compiled bb binary and napi module to dest.
+# Copies cross-compiled LMDB NAPI modules to build/. The bb binary itself ships with
+# @aztec-foundation/bb.js-api (see barretenberg/ts/bootstrap.sh cross_copy_bb_js_api).
 set -e
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
@@ -8,15 +9,13 @@ cd $(dirname $0)/..
 if [ -n "${1:-}" ]; then
   arch="$1"
   mkdir -p ./build/$arch
-  cp ../../cpp/build-$arch/bin/bb ./build/$arch
   cp ../../cpp/build-$arch/lib/nodejs_module.node ./build/$arch
 elif semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
   # We're building a release.
   # Copy all cross-compiled architectures for release builds.
-  # The native amd64-linux binary is already copied by copy_native.sh (bb-ts target).
+  # The native amd64-linux module is already copied by copy_native.sh (bb-ts target).
   for arch in arm64-linux amd64-macos arm64-macos; do
     mkdir -p ./build/$arch
-    cp ../../cpp/build-$arch/bin/bb ./build/$arch
     cp ../../cpp/build-$arch/lib/nodejs_module.node ./build/$arch
   done
 

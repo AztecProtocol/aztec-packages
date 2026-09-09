@@ -46,14 +46,16 @@ See `src/main.ts` for larger example of how to use.
 
 ### How bb is reached
 
-The typed API (`Barretenberg` extends it) is generated from bb's schema into the
-`@aztec-foundation/bb.js-api` package by ipc-codegen; bb.js adds the facades, backend selection and CRS
-handling. That package also ships bb's wasm modules (single-thread and threads builds) and runs them
-in-process through `@aztec-foundation/ipc-runtime/wasm`: the module in a worker, wasi threads on further
-workers, `WebAssembly.compileStreaming` for loading (so browsers that cache compiled code start warm on a
-repeat visit). Pass `wasmPath` (or set `BB_WASM_PATH` in node) to run another build of the module, and
-`warmup: true` to run bb's `Warmup` command after initialization, which takes the prover's hot loops
-through the engine's optimizing tier before the first real request.
+The typed API (`Barretenberg` extends it) and every way of reaching bb come from the
+`@aztec-foundation/bb.js-api` package, generated from bb's schema by ipc-codegen; bb.js adds the facades,
+its `BackendType` options and CRS handling. That package ships the bb binary as per-platform optional
+dependencies (override with `bbPath` or `BB_BINARY_PATH`) and bb's wasm modules (single-thread and threads
+builds), run in-process through `@aztec-foundation/ipc-runtime/wasm`: the module in a worker, wasi threads
+on further workers, `WebAssembly.compileStreaming` for loading (so browsers that cache compiled code start
+warm on a repeat visit). Pass `wasmPath` (or set `BB_WASM_PATH` in node) to run another build of the
+module, and `warmup: true` to run bb's `Warmup` command after initialization, which takes the prover's hot
+loops through the engine's optimizing tier before the first real request. bb.js itself only bundles bb's
+LMDB NAPI module (`findNapiBinary`).
 
 ### Browser Context
 

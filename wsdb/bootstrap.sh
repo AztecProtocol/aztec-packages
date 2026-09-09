@@ -14,7 +14,6 @@ function generate_ts_package {
     "$ROOT/ipc-codegen/src/generate.ts" \
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/wsdb/wsdb_schema.jsonc" \
     --lang ts \
-    --client \
     --package "$ROOT/wsdb/ts" \
     --package-name @aztec-foundation/wsdb \
     --binary-name "$WSDB_BINARY" \

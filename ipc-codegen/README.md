@@ -102,7 +102,7 @@ node --experimental-strip-types --experimental-transform-types --no-warnings \
 |---|---|
 | `--server` | Emit server dispatch (matches request name to handler, deserialises, calls handler, serialises response). Pair it with an `ipc::IpcServer` from ipc-runtime. |
 | `--client` | Emit a typed client class/struct with one method per command. Pair it with an `ipc::IpcClient` (C++) or the equivalent Rust/Zig/TS binding. |
-| `--package <dir>` | TS only. Emit a complete package shell. Which of the two shells you get depends on the role flags. With `--client` (or with neither role flag): a wrapper around the generated async client that launches a native service binary, connects over UDS or SHM, and resolves the binary from an override path, environment variable, installed arch package, or local `build/<platform>/` directory. With `--server` and no `--client`: a pure-TS server binding package instead, holding wire types, the `Handler` interface and `handleRequest`/`dispatch`, plus the schema file at the package root, with no binary launcher and no arch packages. The byte transport is then supplied by the consumer, e.g. `UdsIpcServer` from ipc-runtime. Passing `--server --client` selects the client shell. |
+| `--package <dir>` | TS only. Emit a complete client package: the generated API over every backend the package has (`--package-transports`), with a `<Service>Service.create(options)` that picks one by default (the spawned process when the binary resolves, else the wasm module), can be forced to one, or takes a backend object of the consumer's own; one entry per host (node, `browser`, `react-native`) so each host sees only the backends that exist there; the binary resolved from an override path, an environment variable, or the installed per-platform arch package (this package's optional dependencies). With `--server` and no `--client`: a pure-TS server binding package instead, holding wire types, the `Handler` interface and `handleRequest`/`dispatch`, plus the schema file at the package root, with no binary launcher and no arch packages. The byte transport is then supplied by the consumer, e.g. `UdsIpcServer` from ipc-runtime. |
 | `--uds` | Rust/Zig only. Copies the `Backend` trait template (and `error.rs` for Rust) into `<out>` so consumers can plug ipc-runtime — or any custom transport — behind the generated client. The flag name is historical: the trait is transport-agnostic. |
 | `--ffi` | In-process FFI, both directions of the contract in `SCHEMA_SPEC.md` ("FFI entry"). With `--client` (Rust/Zig): generates `ffi_backend`, a client backend that calls a linked library's `<service>_ipc_ffi_entry`. With `--server` (C++/Rust): emits the entry itself — `<service>_ffi.{hpp,cpp}` defining `<service>_ipc_ffi_entry`/`_alloc`/`_free` over the generated dispatch (the service defines `ipc_ffi_dispatcher()`), or `<service>_ffi.rs` with an `export_<service>_ffi!` macro doing the same over a `Handler + Default` type. The service prefix on the symbols lets several services be linked into one binary. A wasm reactor built from these is what the TS `wasm` transport runs. |
 | `--package-transports <t>` | TS `--package` only. Comma-separated transports the package offers: `uds`, `shm` (spawned process) and `wasm` (the service's wasm module, run in-process through `@aztec-foundation/ipc-runtime/wasm`; adds a browser entry). |
@@ -177,9 +177,11 @@ src/generate.ts \
 Produces the generated TS client under `src/generated/` (the package implies
 `--out`) plus a package shell
 (`package.json`, `tsconfig.json`, `src/index.ts`, `src/platform.ts`, and
-`scripts/prepare_arch_packages.sh`). The package exports a
-`MyServiceService.spawn(...)` helper that launches the native binary and wraps
-the generated async client. `scripts/prepare_arch_packages.sh` turns
+`scripts/prepare_arch_packages.sh`). The package exports
+`MyServiceService.create(...)`, which wraps the generated async client around
+the backend chosen for the host (a spawned process by default here; `spawn`
+and `wasm` force one), plus `createBackend` for facades that wrap the API
+themselves. `scripts/prepare_arch_packages.sh` turns
 `build/<platform>/<binary>` directories into per-architecture npm packages
 matching the binary resolution path.
 

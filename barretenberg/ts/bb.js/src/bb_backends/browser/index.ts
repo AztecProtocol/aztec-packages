@@ -1,4 +1,4 @@
-import { createWasmBackend, createWasmBackendSync } from '@aztec-foundation/bb.js-api';
+import { createBackend, createBackendSync, sharedMemoryAvailable } from '@aztec-foundation/bb.js-api';
 
 import { BackendOptions, BackendType } from '../index.js';
 import type { IMsgpackBackendAsync, IMsgpackBackendSync } from '../interface.js';
@@ -16,12 +16,13 @@ export async function createAsyncBackend(
     case BackendType.WasmWorker: {
       const worker = type === BackendType.WasmWorker;
       logger(`Using WASM backend (worker: ${worker})`);
-      return await createWasmBackend({
-        threads: options.threads,
-        module: options.wasmPath,
+      return await createBackend({
+        backend: 'wasm',
+        // bb.js's documented behaviour: a page served without COOP/COEP gets the single-threaded
+        // module, whatever thread count was asked for.
+        threads: sharedMemoryAvailable() ? options.threads : 1,
         logger,
-        memory: options.memory,
-        worker,
+        wasm: { module: options.wasmPath, memory: options.memory, worker },
       });
     }
 
@@ -39,10 +40,13 @@ export async function createSyncBackend(
   logger: (msg: string) => void,
 ): Promise<IMsgpackBackendSync> {
   switch (type) {
-    case BackendType.Wasm: {
+    case BackendType.Wasm:
       logger('Using WASM backend');
-      return await createWasmBackendSync({ module: options.wasmPath, logger, memory: options.memory });
-    }
+      return await createBackendSync({
+        backend: 'wasm',
+        logger,
+        wasm: { module: options.wasmPath, memory: options.memory },
+      });
 
     default:
       throw new Error(`Backend ${type} not supported for BarretenbergSync`);

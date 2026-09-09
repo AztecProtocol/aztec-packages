@@ -9,7 +9,6 @@ NODE="node --experimental-strip-types --experimental-transform-types --no-warnin
 $NODE "$CODEGEN/src/generate.ts" \
   --schema "$DIR/../schema/schema.jsonc" \
   --lang ts \
-  --client \
   --package "$DIR" \
   --package-name "@aztec/echo-ipc" \
   --binary-name echo_server \
