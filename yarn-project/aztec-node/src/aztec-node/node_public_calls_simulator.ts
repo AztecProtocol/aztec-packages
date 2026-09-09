@@ -261,7 +261,11 @@ export class NodePublicCallsSimulator {
   private async appendPredictedL1ToL2Messages(
     fork: MerkleTreeWriteOperations,
     opts: {
-      /** Last block of the checkpoint the next block extends; undefined when the next block opens a checkpoint. */
+      /**
+       * Last block of the *parent* checkpoint, the one the in-progress checkpoint starts after, whose L1-to-L2 leaf
+       * count is the origin of the per-checkpoint cap. It is not a block of the checkpoint being extended. Undefined
+       * when the next block opens a checkpoint, in which case the tip is the origin.
+       */
       checkpointStartBlock: BlockNumber | undefined;
     },
   ): Promise<void> {

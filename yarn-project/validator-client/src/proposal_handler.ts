@@ -1308,11 +1308,6 @@ export class ProposalHandler {
   }
 
   /**
-   * Runs {@link readCheckpointConsumedMessages}, waiting out a local sync lag the way the per-block checks do: an
-   * unavailable or mismatching prefix forces an archiver sync and re-reads until it resolves or the attestation
-   * deadline passes. Neither outcome is proposer misconduct, so a timeout keeps the nonpunitive reason.
-   */
-  /**
    * Reads the blocks of a slot as one snapshot for checkpoint validation, locating the checkpoint's last block by the
    * signed archive. Undefined when the archive is not among the slot's blocks or the blocks do not chain onto each
    * other, both of which are the archiver replacing or pruning blocks while they were read.
@@ -1334,6 +1329,11 @@ export class ProposalHandler {
     return contiguous ? { blocks, lastBlockIndex } : undefined;
   }
 
+  /**
+   * Runs {@link readCheckpointConsumedMessages}, waiting out a local sync lag the way the per-block checks do: an
+   * unavailable or mismatching prefix forces an archiver sync and re-reads until it resolves or the attestation
+   * deadline passes. Neither outcome is proposer misconduct, so a timeout keeps the nonpunitive reason.
+   */
   private async awaitCheckpointConsumedMessages(
     slot: SlotNumber,
     checkpointStartTotal: bigint,

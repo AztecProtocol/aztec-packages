@@ -5,9 +5,9 @@ export type Value = NonNullable<any>;
 
 /** A range of keys of arbitrary type. */
 export type CustomRange<K> = {
-  /** The key of the first item to include */
+  /** The key to start iterating at, inclusive */
   start?: K;
-  /** The key of the last item to include */
+  /** The key to stop iterating at, exclusive: an entry with exactly this key is not returned */
   end?: K;
   /** Whether to iterate in reverse */
   reverse?: boolean;

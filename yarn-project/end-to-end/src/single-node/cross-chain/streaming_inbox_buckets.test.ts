@@ -23,11 +23,16 @@ jest.setTimeout(900_000);
 
 // Streaming Inbox coverage of what happens at Inbox bucket boundaries. Buckets are keyed by L1 block timestamp,
 // and Ethereum's strictly increasing timestamps close a bucket the moment its block is mined, so on a real chain a
-// bucket is observed whole. anvil is the exception: two blocks can share a timestamp and therefore a bucket, which
-// is the only way a test can make one bucket span two L2 blocks or grow a bucket after a checkpoint selected its end
-// as the final endpoint. Both cases here mine such co-timestamped blocks by hand with L1 interval mining paused for
-// well under an L2 slot (the sequencer stops building once the archiver's synced slot falls more than one slot behind
-// the wall clock).
+// bucket is observed whole. anvil is the exception: two blocks can share a timestamp and therefore a bucket, so a
+// bucket can still grow after the node observed it.
+//
+// A bucket split across L2 blocks does not by itself need that exception: blocks end at arbitrary message prefixes,
+// so an ordinary block can stop in the middle of a bucket it observed whole, whether because the per-block cap cut
+// it short or because the next block picked up the rest. What the co-timestamped blocks buy these two scenarios is a
+// bucket that is still open across the split, so the second half arrives after the first L2 block was built, and a
+// bucket that grows past an endpoint a checkpoint had already selected as its final position. Both scenarios mine
+// such co-timestamped blocks by hand with L1 interval mining paused for well under an L2 slot (the sequencer stops
+// building once the archiver's synced slot falls more than one slot behind the wall clock).
 //
 // Same environment as streaming_inbox.test.ts (36s slots / 6s blocks, message-only blocks allowed), plus a prover
 // node so the checkpoint containing a split bucket has to be accepted by an actual prover, not just marked proven.

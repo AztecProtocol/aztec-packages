@@ -16,10 +16,10 @@ This changelog documents all configuration changes, new features, and breaking c
 The streaming Inbox (Fast Inbox) consumes L1-to-L2 messages into the next L2 block the proposer builds, with an archiver store reset on upgrade.
 
 **Key changes:**
-- Archiver store format changed (`ARCHIVER_DB_VERSION` 10, no migration): the node resets and resyncs its archiver on first start
+- Archiver store format changed (`ARCHIVER_DB_VERSION` 10, no migration): the node resets and resyncs its archiver on first start. This is the only store the streaming Inbox changes; other v6 work bumps other stores independently
 - Messages are eligible for the next L2 block once observed on L1; only a checkpoint's final message position must be an Inbox bucket end
 - Validators retry, and never penalize, local Inbox prefix disagreements (`inbox_prefix_unavailable`, `inbox_prefix_mismatch`)
-- L1 reorg recovery compares message content before pruning proposed blocks
+- L1 reorg recovery rolls the message log back to an authenticated anchor before refetching, dropping messages past it (and the proposed blocks that consumed them) even when L1 still holds the same content
 - `maxBlocksPerCheckpoint` floor lowered from 7 to 4; no configuration changes required
 
 **Migration difficulty**: Low
