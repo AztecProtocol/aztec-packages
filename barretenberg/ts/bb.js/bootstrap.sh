@@ -26,11 +26,10 @@ function formatting {
 
 function build {
   echo_header "bb.js build"
-  prepare_project
-  yarn formatting
-  # The wasm modules and bb binary bb.js runs at test time ship in bb.js-api; stage them
-  # whether or not bb.js's own build is cached.
+  # bb.js compiles against @aztec-foundation/bb.js-api and runs the wasm modules and bb binary
+  # that package stages, so stage them whether or not bb.js's own build is cached.
   (cd .. && ./bootstrap.sh build_bb_js_api)
+  yarn formatting
 
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
