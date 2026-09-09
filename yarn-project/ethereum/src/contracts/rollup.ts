@@ -7,7 +7,6 @@ import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { getErrorCause } from '@aztec/foundation/types';
-import { ErrorsAbi } from '@aztec/l1-artifacts/ErrorsAbi';
 import { EscapeHatchAbi } from '@aztec/l1-artifacts/EscapeHatchAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
@@ -37,7 +36,7 @@ import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
 import type { L1TxRequest, L1TxUtils, ReadOnlyL1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
-import { formatViemError, mergeAbis } from '../utils.js';
+import { formatViemError } from '../utils.js';
 import { GSEContract } from './gse.js';
 import type { L1EventLog } from './log.js';
 import { SlasherContract } from './slasher_contract.js';
@@ -925,7 +924,7 @@ export class RollupContract {
       },
       { time: opts.time },
       opts.stateOverrides ?? [],
-      mergeAbis([RollupAbi, ErrorsAbi]),
+      RollupAbi,
     );
     return decodeFunctionResult({ abi: RollupAbi, functionName: 'validateCheckpointHeaderAndInbox', data: result });
   }
