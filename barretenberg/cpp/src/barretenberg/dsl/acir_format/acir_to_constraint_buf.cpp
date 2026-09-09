@@ -28,7 +28,8 @@ namespace acir_format {
 
 using namespace bb;
 
-/// ========= HELPERS ========= ///
+// Cap on `WitnessMap` indices: bounds the gap-fill allocation in `witness_map_to_witness_vector`.
+static constexpr uint32_t MAX_WITNESS_INDEX = 1U << 28;
 
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
@@ -454,6 +455,15 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
 {
     // Note that the WitnessMap is in increasing order of witness indices because the comparator for the Acir::Witness
     // is defined in terms of the witness index.
+
+    if (!witness_map.value.empty()) {
+        const uint32_t max_index = witness_map.value.rbegin()->first.value;
+        if (max_index > MAX_WITNESS_INDEX) {
+            throw_or_abort("acir_format::witness_map_to_witness_vector: witness index " +
+                           std::to_string(max_index) + " exceeds the maximum allowed (" +
+                           std::to_string(MAX_WITNESS_INDEX) + ").");
+        }
+    }
 
     WitnessVector witness_vector;
     for (size_t index = 0; const auto& e : witness_map.value) {
