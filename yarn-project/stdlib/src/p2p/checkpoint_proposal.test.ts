@@ -42,7 +42,7 @@ describe('CheckpointProposal serialization / deserialization', () => {
       'a lastBlock carrying its txs',
       async () => {
         const tx = await mockTx(1);
-        return makeCheckpointProposal({ lastBlock: { txHashes: [await tx.getTxHash()], txs: [tx] } });
+        return makeCheckpointProposal({ lastBlock: { txHashes: [tx.getTxHash()], txs: [tx] } });
       },
     ],
     [
