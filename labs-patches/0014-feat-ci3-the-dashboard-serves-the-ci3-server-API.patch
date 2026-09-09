@@ -7,76 +7,161 @@ Adds ci3_api.py, registered by rk.py: the API in aztec-packages' ci3/CI3_SERVER_
 dashboard's redis and S3, with the key shapes the dashboard already renders. Every route takes the
 dashboard's basic auth, which the ci3 client sends from ~/.ci3/config.json once it is pointed here.
 
+The API refuses to serve without a password; bodies and gzip expansion are bounded; log and kv
+writes cannot cross into the run and list families; runs are validated, stored compact and
+replaced atomically; a redis outage does not lose a final log; only genuine absence is a 404.
+Alongside: constant-time password comparison, quoted /grind arguments, redis and S3 client
+timeouts. ci3_api_test.py covers it against a real redis and an in-memory S3.
+
 diff --git a/ci3/dashboard/ci3_api.py b/ci3/dashboard/ci3_api.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..9eda8c40823321bb9927c1d34cb97b84d84f95e5
+index 0000000000000000000000000000000000000000..f43c3e92c6c5fe623c65ece7baf0065163b383b2
 --- /dev/null
 +++ b/ci3/dashboard/ci3_api.py
-@@ -0,0 +1,185 @@
+@@ -0,0 +1,310 @@
 +"""The ci3 server API (aztec-packages ci3/CI3_SERVER_API.md) on the dashboard's redis and S3.
 +
 +The key shapes are the ones the dashboard already renders: gzipped logs under their id, test-cache
 +values under the command hash, `history_*` / `failed_tests*` lists, `ci-run-<section>` sorted sets,
 +`ci:test:*` events, final logs at logs/<4>/<id>.log.gz (or logs/<path>.log.gz for path ids such as
 +test-timings/... and bench/bb-breakdown/...), artifacts in the build cache. Register with rk.py's
-+app, auth decorator and S3 settings: every route takes the dashboard's basic auth.
++app, auth decorator, S3 client and settings. Every route but /health takes the dashboard's basic
++auth, and the API refuses to serve at all without a password: its callers write.
++
++Callers are trusted shared writers. What the API guards against is a mistaken or malicious caller
++taking the dashboard down with it: bodies and gzip expansion are bounded, keys cannot cross into
++the families other resources own, a redis outage does not lose a final log, and only genuine
++absence is a 404.
 +"""
-+import gzip
 +import json
 +import re
++import threading
++import zlib
 +
-+from botocore.exceptions import ClientError
++from botocore.exceptions import BotoCoreError, ClientError
 +from flask import Response, abort, redirect, request
++from redis.exceptions import RedisError
 +
 +from rk_core import r
 +
-+SEGMENT = re.compile(r"^[A-Za-z0-9._:+@=,-]+$")
++SEGMENT = re.compile(r"[A-Za-z0-9._:+@=,-]+")
++RUN_ID = re.compile(r"[0-9]{1,18}")
++RESERVED = ("ci-run-", "history_", "failed_tests")  # owned by the runs and lists resources
++EVENT_PREFIX = "ci:"
 +LOG_TTL = 60 * 60 * 24 * 14
++MAX_TTL = 60 * 60 * 24 * 400
 +LIST_DEFAULT_MAX = 1000
++MAX_LIST = 10000
++MAX_MGET = 1000
++MAX_LISTING = 10000
 +RUNS_MAX = 1000
++MAX_BODY = 64 << 20  # as sent
++MAX_EXPANDED = 256 << 20  # after gzip
++RUN_FIELDS = ("status", "msg", "name", "author")
 +CACHE_BUCKET = "aztec-ci-artifacts"
 +CACHE_PREFIX = "build-cache"
++uploads = threading.BoundedSemaphore(4)  # artifact uploads in flight, per worker
 +
 +
 +def check_key(key):
-+    if any(p in ("", ".", "..") or not SEGMENT.match(p) for p in key.split("/")):
++    if any(p in ("", ".", "..") or not SEGMENT.fullmatch(p) for p in key.split("/")):
 +        abort(400, "bad path")
 +    return key
++
++
++def own_key(key):
++    """A key a log or kv write may use: not one of the families runs and lists own."""
++    if check_key(key).startswith(RESERVED):
++        abort(400, "reserved key")
++    return key
++
++
++def int_arg(name, default, maximum):
++    value = request.args.get(name)
++    if value is None or value == "":
++        return default
++    if not value.isdigit() or int(value) < 1 or int(value) > maximum:
++        abort(400, "%s must be an integer in 1..%d" % (name, maximum))
++    return int(value)
 +
 +
 +def log_object(prefix, key):
 +    return "%s/%s.log.gz" % (prefix, key if "/" in key else "%s/%s" % (key[:4], key))
 +
 +
-+def ttl_arg(default=None):
-+    v = request.args.get("ttl")
-+    return int(v) if v else default
++def raw_body():
++    length = request.content_length
++    if length is None:
++        abort(411, "Content-Length required")
++    if length > MAX_BODY:
++        abort(413, "body larger than %d bytes" % MAX_BODY)
++    return request.get_data()
 +
 +
 +def body():
-+    data = request.get_data()
-+    if request.headers.get("Content-Encoding", "").lower() == "gzip":
-+        data = gzip.decompress(data)
++    data = raw_body()
++    encoding = request.headers.get("Content-Encoding", "").lower()
++    if encoding == "gzip":
++        return inflate(data)
++    if encoding:
++        abort(415, "only gzip content encoding is supported")
 +    return data
 +
 +
-+def text(data, missing="", status_missing=404):
++def inflate(data):
++    d = zlib.decompressobj(16 + zlib.MAX_WBITS)
++    try:
++        out = d.decompress(data, MAX_EXPANDED + 1)
++    except zlib.error:
++        abort(400, "bad gzip body")
++    if len(out) > MAX_EXPANDED or d.unconsumed_tail:
++        abort(413, "body larger than %d bytes once decompressed" % MAX_EXPANDED)
++    if not d.eof:
++        abort(400, "truncated gzip body")
++    return out
++
++
++def deflate(data):
++    c = zlib.compressobj(wbits=16 + zlib.MAX_WBITS)
++    return c.compress(data) + c.flush()
++
++
++def text(data, missing=""):
 +    if data is None:
-+        return Response(missing, status=status_missing, mimetype="text/plain")
++        return Response(missing, status=404, mimetype="text/plain")
 +    return Response(data, mimetype="text/plain")
 +
 +
-+def register(app, protect, s3, logs_bucket, logs_prefix):
++def s3_missing(e):
++    return e.response.get("Error", {}).get("Code") in ("404", "NoSuchKey", "NotFound")
++
++
++def register(app, protect, s3, logs_bucket, logs_prefix, password):
 +    def route(rule, **kw):
 +        def deco(fn):
-+            return app.route(rule, **kw)(protect(fn))
++            def guarded(*a, **k):
++                if not password:
++                    abort(503, "the ci3 API is disabled: DASHBOARD_PASSWORD is not set")
++                return fn(*a, **k)
++            guarded.__name__ = fn.__name__
++            return app.route(rule, **kw)(protect(guarded))
 +        return deco
++
++    @app.errorhandler(RedisError)
++    def redis_unavailable(e):
++        app.logger.error("ci3 api: redis: %s", e)
++        return Response("redis unavailable\n", status=503, mimetype="text/plain")
++
++    @app.errorhandler(BotoCoreError)
++    @app.errorhandler(ClientError)
++    def s3_unavailable(e):
++        app.logger.error("ci3 api: s3: %s", e)
++        return Response("s3 unavailable\n", status=503, mimetype="text/plain")
 +
 +    @app.route("/health")
 +    def ci3_health():
 +        return Response("ci3-server", mimetype="text/plain", headers={"X-CI3-Server": "rkapp"})
 +
-+    # --- logs
 +    def log_list(prefix):
 +        names = []
 +        pages = s3.get_paginator("list_objects_v2").paginate(Bucket=logs_bucket, Prefix="%s/%s/" % (logs_prefix, prefix), Delimiter="/")
@@ -85,57 +170,86 @@ index 0000000000000000000000000000000000000000..9eda8c40823321bb9927c1d34cb97b84
 +                name = obj["Key"].rsplit("/", 1)[-1]
 +                if name.endswith(".log.gz"):
 +                    names.append(name[: -len(".log.gz")])
++                    if len(names) >= MAX_LISTING:
++                        break
++            if len(names) >= MAX_LISTING:
++                break
 +        return Response("".join(n + "\n" for n in sorted(names)), mimetype="text/plain")
 +
 +    @route("/logs/<path:key>", methods=["PUT"])
 +    def ci3_log_put(key):
-+        check_key(key)
-+        packed = gzip.compress(body())
-+        r.setex(key, ttl_arg(LOG_TTL), packed)
-+        if request.args.get("final") == "1":
++        own_key(key)
++        ttl = int_arg("ttl", LOG_TTL, MAX_TTL)
++        packed = deflate(body())
++        final = request.args.get("final") == "1"
++        try:
++            r.setex(key, ttl, packed)
++        except RedisError as e:
++            # The final copy is the durable one: it goes to S3 even when redis is down.
++            if not final:
++                raise
++            s3.put_object(Bucket=logs_bucket, Key=log_object(logs_prefix, key), Body=packed)
++            raise e
++        if final:
 +            s3.put_object(Bucket=logs_bucket, Key=log_object(logs_prefix, key), Body=packed)
 +        return "", 204
 +
 +    @route("/logs/<path:key>", strict_slashes=False)
 +    def ci3_log_get(key):
-+        # A trailing slash lists the ids under a prefix; one rule, so werkzeug never redirects.
-+        check_key(key.rstrip("/"))
++        # A trailing slash lists the ids under a prefix; one rule, so werkzeug does not redirect.
 +        if request.path.endswith("/"):
-+            return log_list(key.rstrip("/"))
-+        data = r.get(key)
++            return log_list(check_key(key.rstrip("/")))
++        check_key(key)
++        try:
++            data = r.get(key)
++        except RedisError as e:
++            app.logger.error("ci3 api: redis: %s", e)
++            data = None
 +        if data is None:
 +            try:
 +                data = s3.get_object(Bucket=logs_bucket, Key=log_object(logs_prefix, key))["Body"].read()
-+            except ClientError:
++            except ClientError as e:
++                if not s3_missing(e):
++                    raise
 +                data = None
 +        if data is not None and data[:2] == b"\x1f\x8b":
-+            data = gzip.decompress(data)
++            data = inflate(data)
 +        return text(data, "Log not found: %s\n" % key)
 +
-+    # --- key/value: the test cache and heartbeats
 +    @route("/kv/mget", methods=["POST"])
 +    def ci3_kv_mget():
-+        keys = [k for k in body().decode().split("\n") if k]
++        keys = [k for k in body().decode(errors="replace").split("\n") if k]
++        if len(keys) > MAX_MGET:
++            abort(413, "at most %d keys" % MAX_MGET)
 +        values = r.mget([check_key(k) for k in keys]) if keys else []
-+        return Response("".join((v or b"").decode(errors="replace").rstrip("\n") + "\n" for v in values), mimetype="text/plain")
++        # One line per key, whatever the value holds: callers index the answer by position.
++        lines = ((v or b"").decode(errors="replace").replace("\n", " ") for v in values)
++        return Response("".join(line + "\n" for line in lines), mimetype="text/plain")
 +
 +    @route("/kv/<path:key>", methods=["PUT"])
 +    def ci3_kv_put(key):
-+        check_key(key)
-+        ttl = ttl_arg()
-+        r.setex(key, ttl, body()) if ttl else r.set(key, body())
++        own_key(key)
++        ttl = int_arg("ttl", None, MAX_TTL)
++        data = body()
++        if ttl:
++            r.setex(key, ttl, data)
++        else:
++            r.set(key, data)
 +        return "", 204
 +
 +    @route("/kv/<path:key>")
 +    def ci3_kv_get(key):
 +        return text(r.get(check_key(key)))
 +
-+    # --- lists: test history
 +    @route("/lists/<path:name>", methods=["POST"])
 +    def ci3_list_push(name):
 +        check_key(name)
-+        r.lpush(name, body().decode(errors="replace").rstrip("\n"))
-+        r.ltrim(name, 0, int(request.args.get("max", LIST_DEFAULT_MAX)) - 1)
++        maximum = int_arg("max", LIST_DEFAULT_MAX, MAX_LIST)
++        line = body().decode(errors="replace").rstrip("\n").replace("\n", " ")
++        pipe = r.pipeline(transaction=True)
++        pipe.lpush(name, line)
++        pipe.ltrim(name, 0, maximum - 1)
++        pipe.execute()
 +        return "", 204
 +
 +    @route("/lists/<path:name>")
@@ -143,10 +257,9 @@ index 0000000000000000000000000000000000000000..9eda8c40823321bb9927c1d34cb97b84
 +        lines = r.lrange(check_key(name), 0, -1)
 +        return text(b"".join(l + b"\n" for l in lines) if lines else None)
 +
-+    # --- runs: the sections this dashboard renders
 +    def split_run(rest):
 +        section, _, run_id = rest.rpartition("/")
-+        return (section, run_id) if section and run_id.isdigit() else (rest, None)
++        return (section, run_id) if section and RUN_ID.fullmatch(run_id) else (rest, None)
 +
 +    @route("/runs/<path:rest>", methods=["PUT"])
 +    def ci3_run_put(rest):
@@ -154,12 +267,19 @@ index 0000000000000000000000000000000000000000..9eda8c40823321bb9927c1d34cb97b84
 +        if run_id is None:
 +            abort(405)
 +        key = "ci-run-" + check_key(section)
-+        data = body()
-+        json.loads(data)
-+        for old in r.zrangebyscore(key, run_id, run_id):
-+            r.zrem(key, old)
-+        r.zadd(key, {data: int(run_id)})
-+        r.zremrangebyrank(key, 0, -(RUNS_MAX + 1))
++        try:
++            record = json.loads(body())
++        except ValueError:
++            abort(400, "runs take a JSON object")
++        # The dashboard renders these fields and its filter parses compact JSON with the id as timestamp.
++        if not isinstance(record, dict) or record.get("timestamp") != int(run_id) or not all(isinstance(record.get(f), str) for f in RUN_FIELDS):
++            abort(400, "a run is an object with timestamp == id and string %s" % ", ".join(RUN_FIELDS))
++        data = json.dumps(record, separators=(",", ":"))
++        pipe = r.pipeline(transaction=True)
++        pipe.zremrangebyscore(key, run_id, run_id)
++        pipe.zadd(key, {data: int(run_id)})
++        pipe.zremrangebyrank(key, 0, -(RUNS_MAX + 1))
++        pipe.execute()
 +        return "", 204
 +
 +    @route("/runs/<path:rest>")
@@ -172,44 +292,342 @@ index 0000000000000000000000000000000000000000..9eda8c40823321bb9927c1d34cb97b84
 +        runs = [json.loads(raw) for raw in r.zrevrange(key, 0, RUNS_MAX - 1)]
 +        return Response(json.dumps(runs), mimetype="application/json")
 +
-+    # --- events
 +    @route("/events/<path:channel>", methods=["POST"])
 +    def ci3_event(channel):
-+        r.publish(check_key(channel), body().decode(errors="replace").strip())
++        if not check_key(channel).startswith(EVENT_PREFIX):
++            abort(400, "events are published on %s* channels" % EVENT_PREFIX)
++        r.publish(channel, body().decode(errors="replace").strip())
 +        return "", 204
 +
-+    # --- artifacts: the build cache
 +    def artifact_key(name):
 +        return "%s/%s" % (CACHE_PREFIX, check_key(name))
 +
 +    @route("/artifacts/<path:name>", methods=["PUT"])
 +    def ci3_artifact_put(name):
-+        s3.upload_fileobj(request.stream, CACHE_BUCKET, artifact_key(name))
++        key = artifact_key(name)
++        if request.content_length is None:
++            abort(411, "Content-Length required")
++        if request.headers.get("Content-Encoding"):
++            abort(415, "artifacts are uploaded as they are")
++        if not uploads.acquire(blocking=False):
++            abort(503, "too many uploads in flight; retry")
++        try:
++            s3.upload_fileobj(request.stream, CACHE_BUCKET, key)
++        finally:
++            uploads.release()
 +        return "", 201
 +
-+    @route("/artifacts/<path:name>", methods=["GET"])
++    @route("/artifacts/<path:name>", methods=["GET", "HEAD"])
 +    def ci3_artifact_get(name):
-+        return redirect("http://%s.s3.amazonaws.com/%s" % (CACHE_BUCKET, artifact_key(name)), code=302)
++        key = artifact_key(name)
++        if request.method == "HEAD":
++            try:
++                s3.head_object(Bucket=CACHE_BUCKET, Key=key)
++                return "", 200
++            except ClientError as e:
++                if s3_missing(e):
++                    return "", 404
++                raise
++        return redirect("https://%s.s3.amazonaws.com/%s" % (CACHE_BUCKET, key), code=302)
+diff --git a/ci3/dashboard/ci3_api_test.py b/ci3/dashboard/ci3_api_test.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..ae8174ee17cd7a932b10622685b81f0ffcb99526
+--- /dev/null
++++ b/ci3/dashboard/ci3_api_test.py
+@@ -0,0 +1,230 @@
++#!/usr/bin/env python3
++"""Tests for ci3_api against a real redis (REDIS_HOST/REDIS_PORT) and an in-memory S3.
 +
-+    @route("/artifacts/<path:name>", methods=["HEAD"])
-+    def ci3_artifact_head(name):
++  REDIS_HOST=127.0.0.1 REDIS_PORT=6379 python3 ci3_api_test.py
++"""
++import base64
++import gzip
++import io
++import json
++import os
++import unittest
++
++os.environ.setdefault("REDIS_HOST", "127.0.0.1")
++from botocore.exceptions import ClientError
++from flask import Flask
++from flask_httpauth import HTTPBasicAuth
++from redis.exceptions import RedisError
++
++import ci3_api
++from rk_core import r
++
++PASSWORD = "secret"
++AUTH = {"Authorization": "Basic " + base64.b64encode(b"aztec:" + PASSWORD.encode()).decode()}
++
++
++class FakeS3:
++    """The five boto3 calls the API makes, on a dict. `failing` makes every call raise."""
++
++    def __init__(self):
++        self.objects, self.failing = {}, None
++
++    def _check(self):
++        if self.failing:
++            raise self.failing
++
++    def put_object(self, Bucket, Key, Body):
++        self._check()
++        self.objects[(Bucket, Key)] = Body
++
++    def get_object(self, Bucket, Key):
++        self._check()
++        if (Bucket, Key) not in self.objects:
++            raise ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
++        return {"Body": io.BytesIO(self.objects[(Bucket, Key)])}
++
++    def head_object(self, Bucket, Key):
++        self._check()
++        if (Bucket, Key) not in self.objects:
++            raise ClientError({"Error": {"Code": "404"}}, "HeadObject")
++
++    def upload_fileobj(self, stream, Bucket, Key):
++        self._check()
++        self.objects[(Bucket, Key)] = stream.read()
++
++    def get_paginator(self, name):
++        s3 = self
++
++        class Paginator:
++            def paginate(self, Bucket, Prefix, Delimiter):
++                s3._check()
++                keys = [k for (b, k) in s3.objects if b == Bucket and k.startswith(Prefix) and "/" not in k[len(Prefix):]]
++                return [{"Contents": [{"Key": k} for k in keys]}]
++        return Paginator()
++
++
++class FailingRedis:
++    def __getattr__(self, name):
++        def fail(*a, **k):
++            raise RedisError("down")
++        return fail
++
++
++def make_app(s3, password=PASSWORD):
++    app = Flask(__name__)
++    app.config["TESTING"] = True
++    auth = HTTPBasicAuth()
++
++    @auth.verify_password
++    def verify(user, pw):
++        return user if user == "aztec" and pw == password else None
++
++    ci3_api.register(app, auth.login_required if password else (lambda f: f), s3, "logs-bucket", "logs", password)
++    return app
++
++
++class ApiTest(unittest.TestCase):
++    def setUp(self):
++        r.flushdb()
++        self.s3 = FakeS3()
++        self.c = make_app(self.s3).test_client()
++
++    def put(self, path, data=b"", **kw):
++        return self.c.put(path, data=data, headers={**AUTH, **kw.pop("headers", {})}, **kw)
++
++    def post(self, path, data=b"", **kw):
++        return self.c.post(path, data=data, headers={**AUTH, **kw.pop("headers", {})}, **kw)
++
++    def get(self, path, **kw):
++        return self.c.get(path, headers=AUTH, **kw)
++
++    def test_health_is_open_and_everything_else_is_not(self):
++        resp = self.c.get("/health")
++        self.assertEqual((resp.status_code, resp.data, resp.headers["X-CI3-Server"]), (200, b"ci3-server", "rkapp"))
++        self.assertEqual(self.c.put("/kv/k", data=b"v").status_code, 401)
++        self.assertEqual(self.c.get("/kv/k").status_code, 401)
++        wrong = {"Authorization": "Basic " + base64.b64encode(b"aztec:nope").decode()}
++        self.assertEqual(self.c.get("/kv/k", headers=wrong).status_code, 401)
++
++    def test_no_password_disables_the_api(self):
++        c = make_app(self.s3, password="").test_client()
++        self.assertEqual(c.put("/kv/k", data=b"v").status_code, 503)
++        self.assertEqual(c.get("/health").status_code, 200)
++
++    def test_logs_live_and_final(self):
++        self.assertEqual(self.put("/logs/abcdef0123456789?ttl=100", b"live\n").status_code, 204)
++        self.assertEqual(r.get("abcdef0123456789")[:2], b"\x1f\x8b")
++        self.assertTrue(0 < r.ttl("abcdef0123456789") <= 100)
++        self.assertEqual(self.s3.objects, {})
++        self.assertEqual(self.get("/logs/abcdef0123456789").data, b"live\n")
++        self.assertEqual(self.put("/logs/abcdef0123456789?final=1", b"done\n").status_code, 204)
++        self.assertEqual(gzip.decompress(self.s3.objects[("logs-bucket", "logs/abcd/abcdef0123456789.log.gz")]), b"done\n")
++        r.delete("abcdef0123456789")
++        self.assertEqual(self.get("/logs/abcdef0123456789").data, b"done\n")
++        self.assertEqual(self.get("/logs/nope").status_code, 404)
++
++    def test_path_ids_and_listing(self):
++        self.put("/logs/test-timings/1700000000000123/aaaa?final=1", b"a")
++        self.put("/logs/test-timings/1700000000000123/bbbb?final=1", b"b")
++        self.assertIn(("logs-bucket", "logs/test-timings/1700000000000123/bbbb.log.gz"), self.s3.objects)
++        self.assertEqual(self.get("/logs/test-timings/1700000000000123/").data, b"aaaa\nbbbb\n")
++        self.assertEqual(self.put("/logs/bench/bb-breakdown/native-ecdsar1+transfer_0_recursions+sponsored_fpc-abc?final=1", b"{}").status_code, 204)
++
++    def test_gzip_bodies_are_decoded_and_bounded(self):
++        self.assertEqual(self.put("/logs/g1", gzip.compress(b"zipped"), headers={"Content-Encoding": "gzip"}).status_code, 204)
++        self.assertEqual(self.get("/logs/g1").data, b"zipped")
++        self.assertEqual(self.put("/logs/g2", b"not gzip", headers={"Content-Encoding": "gzip"}).status_code, 400)
++        self.assertEqual(self.put("/logs/g3", gzip.compress(b"x")[:-5], headers={"Content-Encoding": "gzip"}).status_code, 400)
++        self.assertEqual(self.put("/logs/g4", b"x", headers={"Content-Encoding": "br"}).status_code, 415)
++        ci3_api.MAX_EXPANDED, saved = 1000, ci3_api.MAX_EXPANDED
 +        try:
-+            s3.head_object(Bucket=CACHE_BUCKET, Key=artifact_key(name))
-+            return "", 200
-+        except ClientError:
-+            return "", 404
++            self.assertEqual(self.put("/logs/bomb", gzip.compress(b"\0" * 5000), headers={"Content-Encoding": "gzip"}).status_code, 413)
++            self.assertIsNone(r.get("bomb"))
++        finally:
++            ci3_api.MAX_EXPANDED = saved
++        ci3_api.MAX_BODY, saved = 10, ci3_api.MAX_BODY
++        try:
++            self.assertEqual(self.put("/logs/big", b"x" * 11).status_code, 413)
++        finally:
++            ci3_api.MAX_BODY = saved
++
++    def test_kv_and_mget(self):
++        self.assertEqual(self.put("/kv/0123456789abcdef?ttl=604800", b"logid").status_code, 204)
++        self.assertEqual(self.put("/kv/hb-1700000000000123?ttl=60", b"1").status_code, 204)
++        self.assertEqual(self.get("/kv/0123456789abcdef").data, b"logid")
++        self.assertEqual(self.get("/kv/nope").status_code, 404)
++        self.put("/kv/multi", b"two\nlines")
++        self.assertEqual(self.post("/kv/mget", b"0123456789abcdef\nnope\nmulti\n").data, b"logid\n\ntwo lines\n")
++        self.assertEqual(self.post("/kv/mget", b"\xff\xfe\n").status_code, 400)
++        self.assertEqual(self.post("/kv/mget", "\n".join("k%d" % i for i in range(ci3_api.MAX_MGET + 1)).encode()).status_code, 413)
++
++    def test_writes_cannot_cross_into_runs_and_lists(self):
++        r.zadd("ci-run-prs", {"{}": 1})
++        self.assertEqual(self.put("/kv/ci-run-prs", b"x").status_code, 400)
++        self.assertEqual(self.put("/logs/history_abc_next", b"x").status_code, 400)
++        self.assertEqual(self.put("/kv/failed_tests_prs", b"x").status_code, 400)
++        self.assertEqual(r.type("ci-run-prs"), b"zset")
++        self.assertEqual(self.post("/events/not-ci", b"{}").status_code, 400)
++        self.assertEqual(self.post("/events/ci:test:started", b'{"a":1}').status_code, 204)
++
++    def test_bad_arguments_are_400_before_any_mutation(self):
++        for bad in ("abc", "-5", "0", str(ci3_api.MAX_TTL + 1)):
++            self.assertEqual(self.put("/kv/k?ttl=" + bad, b"v").status_code, 400, bad)
++        self.assertIsNone(r.get("k"))
++        self.assertEqual(self.post("/lists/h?max=0", b"x").status_code, 400)
++        self.assertEqual(self.post("/lists/h?max=abc", b"x").status_code, 400)
++        self.assertEqual(r.llen("h"), 0)
++        self.assertEqual(self.put("/logs/../etc", b"x").status_code, 400)
++        self.assertIn(self.put("/logs/a%0a", b"x").status_code, (400, 404))  # werkzeug rejects it before the view
++        self.assertEqual(self.c.put("/kv/k", headers={**AUTH, "Transfer-Encoding": "chunked"}, data=b"v").status_code, 411)
++
++    def test_lists(self):
++        for line in ("one", "two", "three"):
++            self.assertEqual(self.post("/lists/history_x_next?max=2", line.encode()).status_code, 204)
++        self.assertEqual(self.get("/lists/history_x_next").data, b"three\ntwo\n")
++        self.assertEqual(self.get("/lists/nolist").status_code, 404)
++
++    def test_runs_are_validated_compact_and_atomic(self):
++        record = {"timestamp": 1700000000000111, "status": "RUNNING", "msg": "m", "name": "next", "author": "a", "spot": True}
++        self.assertEqual(self.put("/runs/prs/1700000000000111", json.dumps(record, indent=2).encode()).status_code, 204)
++        self.assertEqual(r.zrange("ci-run-prs", 0, -1), [json.dumps(record, separators=(",", ":")).encode()])
++        record["status"] = "PASSED"
++        self.assertEqual(self.put("/runs/prs/1700000000000111", json.dumps(record).encode()).status_code, 204)
++        self.assertEqual(r.zcard("ci-run-prs"), 1)
++        self.assertEqual(json.loads(self.get("/runs/prs/1700000000000111").data)["status"], "PASSED")
++        self.assertEqual(json.loads(self.get("/runs/prs").data)[0]["name"], "next")
++        self.assertEqual(self.get("/runs/prs/1").status_code, 404)
++        for bad in (b"null", b"[]", b"{}", b"not json", json.dumps({**record, "timestamp": 5}).encode()):
++            self.assertEqual(self.put("/runs/prs/1700000000000222", bad).status_code, 400, bad)
++        self.assertEqual(self.put("/runs/merge-train/avm/1700000000000333", json.dumps({**record, "timestamp": 1700000000000333}).encode()).status_code, 204)
++        self.assertEqual(r.zcard("ci-run-merge-train/avm"), 1)
++
++    def test_artifacts(self):
++        self.assertEqual(self.put("/artifacts/foo-abc.tar.gz", b"bytes").status_code, 201)
++        self.assertEqual(self.s3.objects[("aztec-ci-artifacts", "build-cache/foo-abc.tar.gz")], b"bytes")
++        self.assertEqual(self.c.head("/artifacts/foo-abc.tar.gz", headers=AUTH).status_code, 200)
++        self.assertEqual(self.c.head("/artifacts/nope.tar.gz", headers=AUTH).status_code, 404)
++        resp = self.get("/artifacts/foo-abc.tar.gz")
++        self.assertEqual((resp.status_code, resp.headers["Location"]), (302, "https://aztec-ci-artifacts.s3.amazonaws.com/build-cache/foo-abc.tar.gz"))
++        self.assertEqual(self.put("/artifacts/x.tar.gz", b"x", headers={"Content-Encoding": "gzip"}).status_code, 415)
++
++    def test_s3_failures_are_503_not_misses(self):
++        self.s3.failing = ClientError({"Error": {"Code": "AccessDenied"}}, "GetObject")
++        self.assertEqual(self.get("/logs/nope").status_code, 503)
++        self.assertEqual(self.c.head("/artifacts/nope.tar.gz", headers=AUTH).status_code, 503)
++        self.assertEqual(self.put("/logs/x?final=1", b"x").status_code, 503)
++
++    def test_redis_down_still_persists_final_logs_and_reads_s3(self):
++        self.put("/logs/durable?final=1", b"kept")
++        real, ci3_api.r = ci3_api.r, FailingRedis()
++        try:
++            self.assertEqual(self.put("/logs/durable2?final=1", b"still").status_code, 503)
++            self.assertEqual(gzip.decompress(self.s3.objects[("logs-bucket", "logs/dura/durable2.log.gz")]), b"still")
++            self.assertEqual(self.get("/logs/durable").data, b"kept")
++            self.assertEqual(self.get("/kv/k").status_code, 503)
++        finally:
++            ci3_api.r = real
++
++
++if __name__ == "__main__":
++    unittest.main()
 diff --git a/ci3/dashboard/rk.py b/ci3/dashboard/rk.py
-index 6907b70a6d0999b314af3a5e9a1c9d5d13b734c8..e72f8456666467264be1671de965d732b9a104f5 100644
+index 6907b70a6d0999b314af3a5e9a1c9d5d13b734c8..e6bd27a0b96def5a6cbea30868f734b6e2ab06e6 100644
 --- a/ci3/dashboard/rk.py
 +++ b/ci3/dashboard/rk.py
-@@ -639,6 +639,10 @@ def proxy_dashboard():
+@@ -2,8 +2,10 @@ from flask import Flask, render_template_string, request, Response, redirect
+ from flask_compress import Compress
+ from flask_httpauth import HTTPBasicAuth
+ import boto3
++from botocore.config import Config
+ from botocore.exceptions import ClientError
+ import gzip
++import hmac
+ import json
+ import os
+ import re
+@@ -24,7 +26,7 @@ from rk_core import (
+ S3_LOGS_BUCKET = os.getenv('S3_LOGS_BUCKET', 'aztec-ci-artifacts')
+ S3_LOGS_PREFIX = os.getenv('S3_LOGS_PREFIX', 'logs')
+ 
+-_s3 = boto3.client('s3', region_name='us-east-2')
++_s3 = boto3.client('s3', region_name='us-east-2', config=Config(connect_timeout=10, read_timeout=60, retries={'max_attempts': 3}))
+ DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', '')
+ CI_METRICS_PORT = int(os.getenv('CI_METRICS_PORT', '8081'))
+ CI_METRICS_URL = os.getenv('CI_METRICS_URL', f'http://localhost:{CI_METRICS_PORT}')
+@@ -125,7 +127,7 @@ def read_breakdown_from_s3(runtime, flow_name, sha):
+ 
+ @auth.verify_password
+ def verify_password(username, password):
+-    if username == "aztec" and password == DASHBOARD_PASSWORD:
++    if username == "aztec" and hmac.compare_digest(password.encode(), DASHBOARD_PASSWORD.encode()):
+         return username
+     return None
+ 
+@@ -576,7 +578,7 @@ def trigger_grind():
+             return redirect(f'/{run_id}')
+ 
+         subprocess.Popen(
+-            ['bash', '-c', f'cd {repo_path} && RUN_ID={run_id} CPUS={cpus} ./ci.sh grind-test {shlex.quote(full_cmd)} {grind_time} {jobs_pct} {memsuspend_pct} {commit}'],
++            ['bash', '-c', f'cd {shlex.quote(repo_path)} && RUN_ID={shlex.quote(run_id)} CPUS={shlex.quote(cpus)} ./ci.sh grind-test {shlex.quote(full_cmd)} {shlex.quote(grind_time)} {shlex.quote(jobs_pct)} {shlex.quote(memsuspend_pct)} {shlex.quote(commit)}'],
+             stdout=subprocess.DEVNULL,
+             stderr=subprocess.DEVNULL,
+             start_new_session=True
+@@ -639,6 +641,10 @@ def proxy_dashboard():
  def proxy_api(path):
      return _proxy(f'/api/{path}')
  
 +# The ci3 server API (ci3/CI3_SERVER_API.md in aztec-packages): what the ci3 scripts talk to.
 +import ci3_api
-+ci3_api.register(app, optional_auth, _s3, S3_LOGS_BUCKET, S3_LOGS_PREFIX)
++ci3_api.register(app, optional_auth, _s3, S3_LOGS_BUCKET, S3_LOGS_PREFIX, DASHBOARD_PASSWORD)
 +
  @app.route('/<key>')
  @optional_auth
  def get_value(key):
+diff --git a/ci3/dashboard/rk_core.py b/ci3/dashboard/rk_core.py
+index a4d64c9dd8b04dbf890ed398d6a3277cd8d16c23..6455e40d20303d571994ce60bde5cba752e4fa76 100644
+--- a/ci3/dashboard/rk_core.py
++++ b/ci3/dashboard/rk_core.py
+@@ -36,7 +36,7 @@ def ts_to_s(ts):
+ 
+ REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+ REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
+-r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=False)
++r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=False, socket_connect_timeout=5, socket_timeout=10)
+ 
+ def get_list_as_string(key, limit=None):
+     try:
