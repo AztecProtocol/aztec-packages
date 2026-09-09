@@ -35,7 +35,7 @@ DENOISE_ENV=(
   # Under CI=1 denoise posts a real GitHub commit status for a failing command, and this
   # suite runs failing commands on purpose.
   CI=0
-  CI3_SERVER_AVAILABLE=0
+  CI3_SERVER=
   DENOISE_WIDTH=4
   DUMP_FAIL=0
   FORCE_COLOR=0

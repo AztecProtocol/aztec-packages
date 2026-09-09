@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 """Reference implementations of ci3/CI3_SERVER_API.md. Python 3 standard library only.
 
-  ci3_server run    [--backend file|compat] [--host H] [--port P] [--dir D]   serve in the foreground
+  ci3_server run    [--backend file|compat] [--host H] [--port P] [--dir D] [compat flags]   serve in the foreground
   ci3_server start  [same options]     start detached unless one already answers on P; prints its URL
   ci3_server stop   [--port P] [--dir D]
   ci3_server status [--port P] [--dir D]
 
 Backends:
 
-  file    Everything is a file under --dir (default $CI3_LOCAL_DIR or /tmp/ci3):
+  file    Everything is a file under --dir (default /tmp/ci3):
             logs/<id>  kv/<key>  lists/<name>  runs/<section>/<id>.json  events/<channel>.jsonl  artifacts/<name>
           An entry written with ?ttl= gets a `<path>.expires` sidecar holding the expiry epoch; expired
           entries read as absent and are swept periodically. This is what a local run uses.
 
   compat  Transitional: forwards to the stores the pre-API ci3 wrote to directly, with the exact key
           shapes the labs dashboard reads, so CI keeps its logs and test cache until that dashboard
-          implements the API itself. Logs, kv, lists, runs and events go to redis (CI3_COMPAT_REDIS_HOST,
-          port CI3_COMPAT_REDIS_PORT); final logs are also copied to S3 (CI3_COMPAT_S3_LOGS, as
-          <first 4 chars of id>/<id>.log.gz, or <path>.log.gz for ids that are paths, the shapes
-          the pre-API ci3 wrote); artifacts go to S3 (CI3_COMPAT_S3_CACHE) and are
-          read back through the bucket's public HTTP endpoint. S3 is driven through the `aws` CLI with
-          whatever credentials it finds (the instance profile in CI).
+          implements the API itself. Logs, kv, lists, runs and events go to redis (--redis HOST:PORT,
+          required); final logs are also copied to S3 (--s3-logs, as <first 4 chars of id>/<id>.log.gz,
+          or <path>.log.gz for ids that are paths, the shapes the pre-API ci3 wrote); artifacts go to
+          S3 (--s3-cache) and are read back through the bucket's public HTTP endpoint
+          (--public-cache-url). S3 is driven through the `aws` CLI (--aws) with whatever credentials
+          it finds (the instance profile in CI).
 
 Set CI3_SERVER_TOKEN to require `Authorization: Bearer` on writes (reads stay anonymous), which is what
 makes exposing a server through a tunnel safe.
@@ -46,7 +46,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 
 DEFAULT_PORT = 4275
-DEFAULT_DIR = os.environ.get("CI3_LOCAL_DIR", "/tmp/ci3")
+DEFAULT_DIR = "/tmp/ci3"
 SEGMENT = re.compile(r"^[A-Za-z0-9._:+@=,-]+$")
 LIST_DEFAULT_MAX = 1000
 RUNS_MAX = 1000
@@ -317,16 +317,16 @@ def gunzip_if_needed(data):
 
 
 class CompatBackend:
-    def __init__(self):
-        env = os.environ.get
-        self.redis = Redis(env("CI3_COMPAT_REDIS_HOST", "localhost"), int(env("CI3_COMPAT_REDIS_PORT", "6379")))
-        self.s3_logs = env("CI3_COMPAT_S3_LOGS", "s3://aztec-ci-artifacts/logs")
-        self.s3_cache = env("CI3_COMPAT_S3_CACHE", "s3://aztec-ci-artifacts/build-cache")
-        self.aws = env("CI3_COMPAT_AWS", "aws")
+    def __init__(self, args):
+        if not args.redis:
+            raise SystemExit("the compat backend needs --redis HOST:PORT")
+        host, _, port = args.redis.rpartition(":")
+        self.redis = Redis(host or args.redis, int(port) if port else 6379)
+        self.s3_logs = args.s3_logs
+        self.s3_cache = args.s3_cache
+        self.aws = args.aws
         cache_bucket, cache_prefix = s3_split(self.s3_cache)
-        self.public_cache_url = env(
-            "CI3_COMPAT_PUBLIC_CACHE_URL", "http://%s.s3.amazonaws.com/%s" % (cache_bucket, cache_prefix)
-        ).rstrip("/")
+        self.public_cache_url = (args.public_cache_url or "http://%s.s3.amazonaws.com/%s" % (cache_bucket, cache_prefix)).rstrip("/")
         # Redis is best effort, as it was for the pre-API ci3: artifacts and final logs still reach S3
         # when it is down, and the redis-only operations fail per request (502, which the clients
         # treat as a miss).
@@ -753,7 +753,7 @@ def identity_of(args):
     """What two starters must agree on to share a server: backend, storage directory, and whether
     writes take a token (the token's value is checked with a write probe, never exposed)."""
     token = os.environ.get("CI3_SERVER_TOKEN", "")
-    return "backend=%s dir=%s auth=%s" % (args.backend, os.path.abspath(args.dir), "token" if token else "none")
+    return "backend=%s dir=%s redis=%s auth=%s" % (args.backend, os.path.abspath(args.dir), args.redis, "token" if token else "none")
 
 
 # process management
@@ -803,7 +803,7 @@ def port_open(port, host="127.0.0.1"):
 
 def make_backend(args):
     if args.backend == "compat":
-        return CompatBackend()
+        return CompatBackend(args)
     return FileBackend(args.dir)
 
 
@@ -858,7 +858,11 @@ def cmd_start(args):
     logfile = os.path.join(args.dir, "server.log")
     log = open(logfile, "ab")
     cmd = [sys.executable, os.path.abspath(__file__), "run", "--backend", args.backend, "--host", args.host,
-           "--port", str(args.port), "--dir", args.dir]
+           "--port", str(args.port), "--dir", args.dir, "--s3-logs", args.s3_logs, "--s3-cache", args.s3_cache, "--aws", args.aws]
+    if args.redis:
+        cmd += ["--redis", args.redis]
+    if args.public_cache_url:
+        cmd += ["--public-cache-url", args.public_cache_url]
     if args.verbose:
         cmd.append("--verbose")
     proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, close_fds=True)
@@ -911,11 +915,16 @@ def main():
     sub = parser.add_subparsers(dest="cmd", required=True)
     for name, fn in (("run", cmd_run), ("start", cmd_start), ("stop", cmd_stop), ("status", cmd_status)):
         p = sub.add_parser(name)
-        p.add_argument("--backend", choices=("file", "compat"), default=os.environ.get("CI3_SERVER_BACKEND", "file"))
+        p.add_argument("--backend", choices=("file", "compat"), default="file")
         p.add_argument("--host", default="127.0.0.1")
-        p.add_argument("--port", type=int, default=int(os.environ.get("CI3_LOCAL_PORT", DEFAULT_PORT)))
-        p.add_argument("--dir", default=DEFAULT_DIR)
+        p.add_argument("--port", type=int, default=DEFAULT_PORT)
+        p.add_argument("--dir", default=DEFAULT_DIR, help="file backend storage; also where server.pid and server.log live")
         p.add_argument("--verbose", action="store_true")
+        p.add_argument("--redis", default="", help="compat: HOST[:PORT] of the redis to forward to")
+        p.add_argument("--s3-logs", default="s3://aztec-ci-artifacts/logs", help="compat: where final logs are copied")
+        p.add_argument("--s3-cache", default="s3://aztec-ci-artifacts/build-cache", help="compat: where artifacts are uploaded")
+        p.add_argument("--public-cache-url", default="", help="compat: public HTTP endpoint of --s3-cache (default: the bucket's)")
+        p.add_argument("--aws", default="aws", help="compat: the aws CLI to drive S3 with")
         p.set_defaults(fn=fn)
     args = parser.parse_args()
     sys.exit(args.fn(args) or 0)

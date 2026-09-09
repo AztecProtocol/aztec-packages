@@ -20,16 +20,16 @@ needs to implement exactly this document.
 
 | Variable | Meaning |
 |---|---|
-| `CI3_SERVER_URL` | Base URL of the server. Unset in a local run: `ci3_server` is started on localhost. Unset in CI (`CI=1`): the compat server if `CI3_SERVER_BACKEND=compat`, else no server and the run proceeds with no logs and no test cache. |
-| `CI3_SERVER_BACKEND` | Which `ci3_server` backend a CI run (`CI=1`) starts on demand when no URL is configured: unset means no server, `compat` the compat backend. A local run (`CI=0`) always starts the file backend. The compat backend reads `CI3_COMPAT_REDIS_HOST`, `CI3_COMPAT_REDIS_PORT`, `CI3_COMPAT_S3_LOGS`, `CI3_COMPAT_S3_CACHE`, and `CI3_COMPAT_PUBLIC_URL` becomes the link base. |
-| `CI3_SERVER_LOCAL` | Set to `1` by the client when it started the server on demand. Such a server exists only on this machine: `bootstrap_ec2` never forwards it to a build instance. |
-| `CI3_LOG_EXPIRE`, `CI3_ARTIFACT_EXPIRE` | The `ttl` the clients ask for: logs 14 days in CI and 2 days locally, artifacts 7 days (so a local file server does not grow without bound; a CI backend may ignore it). |
+| `CI3_SERVER_URL` | The server: a base URL, or `compat` to start the transitional compat server locally (what CI does until the dashboard serves the API). Unset: a local run (`CI=0`) starts the file-backed server on `localhost:4275`; a CI run has no server and proceeds with no logs and no test cache. |
 | `CI3_SERVER_TOKEN` | Sent on every request as `Authorization: Bearer <token>`. Servers require it for writes and may allow anonymous reads. |
-| `CI3_PUBLIC_URL` | Base of the URLs printed in terminal links (default `CI3_SERVER_URL`). |
-| `CI3_LOCAL_DIR`, `CI3_LOCAL_PORT` | Storage directory and port of the on-demand local `ci3_server` (`/tmp/ci3`, `4275`). |
+| `CI3_PUBLIC_URL` | Base of the URLs printed in terminal links. Default: the server, or the dashboard when the logs end up there (compat, or CI with no server). Set it to share a tunnelled local server. |
+| `CI3_SERVER_START_ARGS` | Extra `ci3_server` flags for a server started on demand (`--port`, `--dir`, the compat `--redis`/`--public-cache-url`, ...). |
 
-The client probes `GET /health` once per process tree and exports `CI3_SERVER_AVAILABLE=0|1`; every
-`ci3_client_*` script is a no-op (draining stdin, returning empty results) when it is `0`.
+The client resolves this once per process tree into `CI3_SERVER`, the base URL every `ci3_client_*`
+script talks to, or empty when there is none: then every script is a no-op (draining stdin,
+returning empty results, exit codes callers can rely on). Setting `CI3_SERVER` (even empty) skips
+discovery. Retention is fixed by the clients: logs 14 days in CI and 2 days locally, artifacts 7 days
+(so a local file server does not grow without bound; a CI backend may ignore it).
 
 ## Conventions
 

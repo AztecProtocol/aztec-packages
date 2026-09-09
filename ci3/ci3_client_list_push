@@ -6,6 +6,6 @@ set -uo pipefail
 name=${1:?usage: ci3_client_list_push <name> <line> [max]}
 line=${2?usage: ci3_client_list_push <name> <line> [max]}
 max=${3:-}
-[ "$CI3_SERVER_AVAILABLE" -eq 1 ] || exit 0
+[ -n "$CI3_SERVER" ] || exit 0
 printf '%s\n' "$line" | ci3_curl --max-time 30 --data-binary @- -o /dev/null \
-  "$CI3_SERVER_URL/lists/$name${max:+?max=$max}" || true
+  "$CI3_SERVER/lists/$name${max:+?max=$max}" || true

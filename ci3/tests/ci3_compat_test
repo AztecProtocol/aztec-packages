@@ -78,17 +78,15 @@ redis() { docker exec "$redis_name" redis-cli --raw "$@"; }
 (cd "$fake_s3/aztec-ci-artifacts/build-cache" && exec python3 -m http.server $public_port --bind 127.0.0.1 >/dev/null 2>&1) &
 public_pid=$!
 
-# Discovery the way the build instance sees it: CI=1, no URL, compat backend requested.
-unset CI3_SERVER_AVAILABLE CI3_SERVER_URL CI3_PUBLIC_URL CI3_SERVER_TOKEN PARENT_LOG_ID
-unset "${!CI3_COMPAT_@}"
-export CI=1 CI3_SERVER_BACKEND=compat CI3_LOCAL_PORT=$server_port CI3_LOCAL_DIR="$work/store"
-export CI3_COMPAT_REDIS_HOST=127.0.0.1 CI3_COMPAT_REDIS_PORT=$redis_port
-export CI3_COMPAT_S3_LOGS=s3://aztec-ci-artifacts/logs CI3_COMPAT_S3_CACHE=s3://aztec-ci-artifacts/build-cache
-export CI3_COMPAT_PUBLIC_CACHE_URL=http://127.0.0.1:$public_port CI3_COMPAT_PUBLIC_URL=http://dashboard.example
-export CI3_PUBLIC_CACHE_URL=http://127.0.0.1:$public_port
+# Discovery the way the build instance sees it: CI=1 and CI3_SERVER_URL=compat. The test's redis and
+# fake bucket endpoint go in through the start args; links are checked against the real dashboard
+# constant since that is what CI prints.
+unset CI3_SERVER CI3_PUBLIC_URL CI3_SERVER_TOKEN PARENT_LOG_ID
+export CI=1 CI3_SERVER_URL=compat
+export CI3_SERVER_START_ARGS="--port $server_port --dir $work/store --redis 127.0.0.1:$redis_port --public-cache-url http://127.0.0.1:$public_port"
 source "$ci3/source_ci3_client"
-check "compat server started on demand" 1 "$CI3_SERVER_AVAILABLE"
-check "links point at the dashboard" "http://dashboard.example/abc" "$(ci3_client_url abc)"
+check "compat server started on demand" "http://localhost:$server_port" "$CI3_SERVER"
+check "links point at the dashboard" "http://ci.aztec-labs.com/abc" "$(ci3_client_url abc)"
 
 echo "--- logs ---"
 printf 'live\n' | ci3_client_log_put log1 100
@@ -138,13 +136,13 @@ check "runs are the ci-run-<section> sorted set" 2 "$(redis ZCARD ci-run-prs)"
 echo '{"status":"PASSED","name":"a"}' | ci3_client_run_put prs 1700000000000111
 check "run update replaces the member" 2 "$(redis ZCARD ci-run-prs)"
 check "run get" '{"status":"PASSED","name":"a"}' "$(ci3_client_run_get prs 1700000000000111)"
-check "runs listed newest first" "b,a" "$(curl -s "$CI3_SERVER_URL/runs/prs" | jq -r 'map(.name) | join(",")')"
+check "runs listed newest first" "b,a" "$(curl -s "$CI3_SERVER/runs/prs" | jq -r 'map(.name) | join(",")')"
 echo '{"status":"RUNNING"}' | ci3_client_run_put merge-train/avm 1700000000000333
 check "slashed section key" 1 "$(redis ZCARD ci-run-merge-train/avm)"
 if ci3_client_run_get prs 1 2>/dev/null; then fail "missing run exits 1" "exit 0"; else pass "missing run exits 1"; fi
 
 echo "--- events ---"
-check "event is published" 204 "$(printf '{"a":1}' | curl -s -o /dev/null -w '%{http_code}' --data-binary @- "$CI3_SERVER_URL/events/ci:test:started")"
+check "event is published" 204 "$(printf '{"a":1}' | curl -s -o /dev/null -w '%{http_code}' --data-binary @- "$CI3_SERVER/events/ci:test:started")"
 
 echo "--- artifacts ---"
 head -c 100000 /dev/urandom >"$work/blob"
@@ -152,7 +150,7 @@ ci3_client_artifact_put foo-abc.tar.gz "$work/blob"
 if cmp -s "$work/blob" "$fake_s3/aztec-ci-artifacts/build-cache/foo-abc.tar.gz"; then pass "artifact put lands in the bucket"; else fail "artifact put lands in the bucket" "missing or differs"; fi
 if ci3_client_artifact_exists foo-abc.tar.gz; then pass "artifact exists via the public endpoint"; else fail "artifact exists via the public endpoint" "exit 1"; fi
 if ci3_client_artifact_exists nope.tar.gz; then fail "missing artifact exists exits 1" "exit 0"; else pass "missing artifact exists exits 1"; fi
-check "artifact get redirects to the public endpoint" "302" "$(curl -s -o /dev/null -w '%{http_code}' "$CI3_SERVER_URL/artifacts/foo-abc.tar.gz")"
+check "artifact get redirects to the public endpoint" "302" "$(curl -s -o /dev/null -w '%{http_code}' "$CI3_SERVER/artifacts/foo-abc.tar.gz")"
 if cmp -s "$work/blob" <(ci3_client_artifact_get foo-abc.tar.gz); then pass "artifact get follows the redirect"; else fail "artifact get follows the redirect" "content differs"; fi
 
 echo "--- build cache through the compat server ---"
@@ -165,12 +163,12 @@ check "cache_download extracts it" "artifact content" "$(cat "$work/dst/src/file
 
 echo "--- unreachable redis ---"
 # Redis is best effort: the server comes up, redis-backed operations fail per request, S3 still works.
-url2=$(CI3_COMPAT_REDIS_PORT=1 "$ci3/ci3_server" start --backend compat --port $((server_port + 1)) --dir "$work/store2" 2>/dev/null)
+url2=$("$ci3/ci3_server" start --backend compat --redis 127.0.0.1:1 --port $((server_port + 1)) --dir "$work/store2" 2>/dev/null)
 check "compat server starts without redis" "http://localhost:$((server_port + 1))" "$url2"
 check "redis-backed write fails per request" 502 "$(curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary v "$url2/kv/k")"
 check "final log still reaches S3 without redis" 502 "$(printf 'x' | curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary @- "$url2/logs/noredis?final=1")"
 check "final log object written" "x" "$(gunzip -c "$fake_s3/aztec-ci-artifacts/logs/nore/noredis.log.gz")"
-CI3_SERVER_URL=$url2 ci3_client_artifact_put via-no-redis.tar.gz "$work/blob"
+CI3_SERVER=$url2 ci3_client_artifact_put via-no-redis.tar.gz "$work/blob"
 if cmp -s "$work/blob" "$fake_s3/aztec-ci-artifacts/build-cache/via-no-redis.tar.gz"; then pass "artifact upload works without redis"; else fail "artifact upload works without redis" "missing"; fi
 "$ci3/ci3_server" stop --port $((server_port + 1)) --dir "$work/store2" >/dev/null 2>&1 || true
 

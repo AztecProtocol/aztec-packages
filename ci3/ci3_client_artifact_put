@@ -6,5 +6,5 @@ NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
 set -uo pipefail
 name=${1:?usage: ci3_client_artifact_put <name> <file>}
 file=${2:?usage: ci3_client_artifact_put <name> <file>}
-[ "$CI3_SERVER_AVAILABLE" -eq 1 ] || exit 1
-ci3_curl --connect-timeout 10 -L -X PUT -T "$file" -o /dev/null "$CI3_SERVER_URL/artifacts/$name?ttl=$CI3_ARTIFACT_EXPIRE"
+[ -n "$CI3_SERVER" ] || exit 1
+ci3_curl --connect-timeout 10 -L -X PUT -T "$file" -o /dev/null "$CI3_SERVER/artifacts/$name?ttl=$ci3_artifact_expire"

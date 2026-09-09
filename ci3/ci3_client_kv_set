@@ -6,6 +6,6 @@ set -uo pipefail
 key=${1:?usage: ci3_client_kv_set <key> <value> [ttl]}
 value=${2?usage: ci3_client_kv_set <key> <value> [ttl]}
 ttl=${3:-}
-[ "$CI3_SERVER_AVAILABLE" -eq 1 ] || exit 0
+[ -n "$CI3_SERVER" ] || exit 0
 printf '%s' "$value" | ci3_curl --max-time 30 -X PUT --data-binary @- -o /dev/null \
-  "$CI3_SERVER_URL/kv/$key${ttl:+?ttl=$ttl}" || true
+  "$CI3_SERVER/kv/$key${ttl:+?ttl=$ttl}" || true

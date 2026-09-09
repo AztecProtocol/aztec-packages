@@ -5,18 +5,18 @@ NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
 set -uo pipefail
 [ $# -ge 1 ] || { echo "usage: ci3_client_kv_get <key>..." >&2; exit 1; }
 function misses { for _ in "$@"; do echo; done; }
-if [ "$CI3_SERVER_AVAILABLE" -ne 1 ]; then
+if [ -z "$CI3_SERVER" ]; then
   misses "$@"
   exit 0
 fi
 if [ $# -eq 1 ]; then
-  value=$(ci3_curl --max-time 30 "$CI3_SERVER_URL/kv/$1") || value=""
+  value=$(ci3_curl --max-time 30 "$CI3_SERVER/kv/$1") || value=""
   echo "$value"
 else
   tmp=$(mktemp)
   trap 'rm -f $tmp' EXIT
   # Callers index the answer by position, so it must be exactly one line per key even on failure.
-  if printf '%s\n' "$@" | ci3_curl --max-time 30 --data-binary @- -o $tmp "$CI3_SERVER_URL/kv/mget" \
+  if printf '%s\n' "$@" | ci3_curl --max-time 30 --data-binary @- -o $tmp "$CI3_SERVER/kv/mget" \
       && [ "$(wc -l <$tmp)" -eq $# ]; then
     cat $tmp
   else

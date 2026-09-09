@@ -43,7 +43,7 @@ function download_from_remote {
   if [ "$source" == "ci3 server" ]; then
     ci3_client_artifact_get "$tar_file"
   else
-    curl -s -f "$CI3_PUBLIC_CACHE_URL/$tar_file"
+    curl -s -f "$ci3_public_cache_url/$tar_file"
   fi
 }
 

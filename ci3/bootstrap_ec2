@@ -20,21 +20,17 @@ export CI=1
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
-# The server the instance talks to. A server this machine started on demand (a developer's
-# local one) is not reachable from the instance and is not handed over. With no configured
-# server the instance runs ci3_server in compat mode (transitional, see source_ci3_client) and
-# every link, including the ones printed here and posted as commit statuses, points at the
-# dashboard where those logs land. CI_REDIS is for the labs submodule's own ci3, still the
-# pre-API one, which reads it directly.
-instance_server_url=${CI3_SERVER_URL:-}
-instance_server_backend=""
+# The server the instance talks to: the configured CI3_SERVER_URL, or with none the compat
+# server it starts itself (transitional, see source_ci3_client). A server this machine started on
+# demand is never handed over: CI3_SERVER_URL stays unset for those. With compat, every link,
+# including the ones printed here and posted as commit statuses, points at the dashboard where
+# those logs land, and a parent log on a developer's local server is not referenced there.
+# CI_REDIS is for the labs submodule's own ci3, still the pre-API one, which reads it directly.
+instance_server_url=${CI3_SERVER_URL:-compat}
 instance_parent_log_id=${PARENT_LOG_ID:-}
-if [ "${CI3_SERVER_LOCAL:-0}" -eq 1 ] || [ -z "$instance_server_url" ]; then
-  instance_server_url=""
-  instance_server_backend=compat
-  export CI3_PUBLIC_URL=$CI3_COMPAT_PUBLIC_URL
-  # A parent log on a developer's local server does not exist where the instance's logs go.
-  [ "${CI3_SERVER_LOCAL:-0}" -eq 1 ] && instance_parent_log_id=""
+if [ "$instance_server_url" == compat ]; then
+  export CI3_PUBLIC_URL=$ci3_dashboard_url
+  [ -n "$CI3_SERVER" ] && instance_parent_log_id=""
 fi
 
 # Pre-generate a log ID and print the dashboard link.
@@ -374,13 +370,7 @@ start_build() {
     -e CI3_SERVER_URL=$(printf %q "$instance_server_url") \
     -e CI3_SERVER_TOKEN=$(printf %q "${CI3_SERVER_TOKEN:-}") \
     -e CI3_PUBLIC_URL=$(printf %q "${CI3_PUBLIC_URL:-}") \
-    -e CI3_SERVER_BACKEND=$instance_server_backend \
-    -e CI3_COMPAT_REDIS_HOST=$CI3_COMPAT_REDIS_HOST \
-    -e CI3_COMPAT_REDIS_PORT=$CI3_COMPAT_REDIS_PORT \
-    -e CI3_COMPAT_S3_LOGS=$CI3_COMPAT_S3_LOGS \
-    -e CI3_COMPAT_S3_CACHE=$CI3_COMPAT_S3_CACHE \
-    -e CI3_COMPAT_PUBLIC_URL=$CI3_COMPAT_PUBLIC_URL \
-    -e CI_REDIS=$CI3_COMPAT_REDIS_HOST \
+    -e CI_REDIS=${ci3_compat_redis%%:*} \
     -e RUN_ID=${RUN_ID:-} \
     -e JOB_ID=${JOB_ID:-} \
     -e REF_NAME=${REF_NAME:-} \

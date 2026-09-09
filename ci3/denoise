@@ -74,13 +74,13 @@ function format_log_output {
 }
 
 function publish_log {
-  [ "$CI3_SERVER_AVAILABLE" -eq 0 ] && return
+  [ -z "$CI3_SERVER" ] && return
   format_log_output | ci3_client_log_put $key
 }
 
 function publish_log_final {
-  [ "$CI3_SERVER_AVAILABLE" -eq 0 ] && return
-  format_log_output | ci3_client_log_put $key $CI3_LOG_EXPIRE final
+  [ -z "$CI3_SERVER" ] && return
+  format_log_output | ci3_client_log_put $key $ci3_log_expire final
 }
 
 function live_publish_log {
@@ -92,7 +92,7 @@ function live_publish_log {
   done
 }
 
-if [ "$CI3_SERVER_AVAILABLE" -eq 1 ]; then
+if [ -n "$CI3_SERVER" ]; then
   live_publish_log &
   publish_pid=$!
   log_info="(${yellow}${url}${reset})"
@@ -146,7 +146,7 @@ if [ "$status" -ne 0 ]; then
   else
     # With no log server there is no log URL to point the reader at, so the output has to go
     # inline or the failure is invisible.
-    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ] || [ "$CI3_SERVER_AVAILABLE" -eq 0 ]; then
+    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ] || [ -z "$CI3_SERVER" ]; then
       echo -e "\nCommand exited with status $status. Dumping output:"
       cat $outfile
     fi
@@ -158,7 +158,7 @@ if [ "$status" -ne 0 ]; then
 else
   # With no log server there is no log to link to, so a CI orchestrator (e.g. the GitHub runner
   # driving bootstrap_ec2) would lose the output entirely, including the build's CI Log link.
-  if [ "$CI3_SERVER_AVAILABLE" -eq 0 ] && [ "${CI:-0}" == "1" ]; then
+  if [ -z "$CI3_SERVER" ] && [ "${CI:-0}" == "1" ]; then
     echo -e "\nOutput (no log store available):"
     cat $outfile
   fi

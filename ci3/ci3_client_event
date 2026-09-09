@@ -9,6 +9,6 @@ if [ $# -ge 2 ]; then
 else
   json=$(cat)
 fi
-[ "$CI3_SERVER_AVAILABLE" -eq 1 ] || exit 0
+[ -n "$CI3_SERVER" ] || exit 0
 printf '%s' "$json" | ci3_curl --max-time 30 -H 'Content-Type: application/json' --data-binary @- \
-  -o /dev/null "$CI3_SERVER_URL/events/$channel" || true
+  -o /dev/null "$CI3_SERVER/events/$channel" || true

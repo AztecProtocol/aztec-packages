@@ -147,11 +147,10 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           # ci3_success.sh uploads the whole-run success marker to the build cache: with no configured
-          # server the runner runs the compat backend, which reaches S3 with the job's OIDC role
+          # server the runner runs the compat server, which reaches S3 with the job's OIDC role
           # (redis is out of reach here and not needed for that).
-          CI3_SERVER_URL: ${{ vars.CI3_SERVER_URL }}
+          CI3_SERVER_URL: ${{ vars.CI3_SERVER_URL || 'compat' }}
           CI3_SERVER_TOKEN: ${{ secrets.CI3_SERVER_TOKEN }}
-          CI3_SERVER_BACKEND: compat
         run: ./.github/ci3_success.sh
 
       - name: Notify Slack on backport CI failure

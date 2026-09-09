@@ -1,96 +1,97 @@
 # Connects ci3 to its log / test-cache / artifact server (see CI3_SERVER_API.md).
 # Nothing in ci3 talks to a server except through the ci3_client_* scripts, which source this.
 #
-# CI3_SERVER_URL set: use that server (eventually: the labs CI dashboard).
-# Unset in a local run (CI=0): start the file-backed reference server, ci3_server, on localhost.
-# Unset in CI (CI=1) with CI3_SERVER_BACKEND=compat (bootstrap_ec2 sets it for the build instance):
-# start ci3_server in compat mode, which forwards to the production redis/S3 the pre-API ci3 wrote
-# to directly, with links pointing at the production dashboard.
-# Unset in CI otherwise: no server. The run proceeds with no logs and no test cache, as it does on
-# the GitHub runner, which only orchestrates the build instance; its links still point at the
-# dashboard, where the instance's compat server will put the logs.
-# CI3_SERVER_LOCAL=1 marks a server this process tree started on demand: it exists only on this
-# machine, so it is never a configured server to hand to another one.
+# Configuration (the only variables a caller sets):
+#   CI3_SERVER_URL         the server to use. A URL, or `compat`: start the transitional compat
+#                          server here, forwarding to the production redis/S3 the pre-API ci3 wrote
+#                          to directly (what CI does until the labs dashboard serves the API).
+#                          Unset: a local run (CI=0) starts the file-backed server on localhost;
+#                          a CI run has no server and proceeds without logs or a test cache, as the
+#                          GitHub runner does (its links still point at the dashboard).
+#   CI3_SERVER_TOKEN       bearer token for writes.
+#   CI3_PUBLIC_URL         base of the links we print (default: the server, or the dashboard for
+#                          compat and for CI with no server). Set it to share a tunnelled server.
+#   CI3_SERVER_START_ARGS  extra flags for a server started on demand (e.g. --port, --dir).
+#
+# CI3_SERVER is the outcome, exported once per process tree: the base URL of the server every
+# client talks to, or empty when there is none. Setting it (even empty) skips discovery.
 #
 # Self-contained on purpose: the client scripts source only this file, so it must not depend on
 # the rest of ci3/source having been loaded.
 
 export ci3=${ci3:-$(git rev-parse --show-toplevel)/ci3}
-export CI3_LOCAL_DIR=${CI3_LOCAL_DIR:-/tmp/ci3}
-export CI3_LOCAL_PORT=${CI3_LOCAL_PORT:-4275}
 
-# Transitional, until the labs dashboard serves the API: where the pre-API ci3 wrote, for the compat
-# backend, and the dashboard that renders it, for links. All in one place so removing them is one edit.
-export CI3_COMPAT_REDIS_HOST=${CI3_COMPAT_REDIS_HOST:-ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com}
-export CI3_COMPAT_REDIS_PORT=${CI3_COMPAT_REDIS_PORT:-6379}
-export CI3_COMPAT_S3_LOGS=${CI3_COMPAT_S3_LOGS:-s3://aztec-ci-artifacts/logs}
-export CI3_COMPAT_S3_CACHE=${CI3_COMPAT_S3_CACHE:-s3://aztec-ci-artifacts/build-cache}
-export CI3_COMPAT_PUBLIC_URL=${CI3_COMPAT_PUBLIC_URL:-http://ci.aztec-labs.com}
+# Transitional constants, until the labs dashboard serves the API: the redis the compat server
+# forwards to and the dashboard that renders it. One place, so removing them is one edit.
+ci3_compat_redis=ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com:6379
+ci3_dashboard_url=http://ci.aztec-labs.com
 
-# Probe once per process tree; the result is inherited by every child.
-if [ -z "${CI3_SERVER_AVAILABLE:-}" ]; then
-  export CI3_SERVER_AVAILABLE=0
-  export CI3_SERVER_LOCAL=0
-  if [ -n "${CI3_SERVER_URL:-}" ]; then
-    CI3_SERVER_URL=${CI3_SERVER_URL%/}
-    if [ "$(curl -s --max-time 5 "$CI3_SERVER_URL/health" 2>/dev/null)" == "ci3-server" ]; then
-      export CI3_SERVER_AVAILABLE=1
-    else
-      echo -e "\033[38;2;250;217;121mCannot reach ci3 server at $CI3_SERVER_URL. Logs and test cache disabled.\033[0m" >&2
-    fi
-  elif [ "${CI:-0}" -eq 0 ] || [ "${CI3_SERVER_BACKEND:-file}" == compat ]; then
-    backend=file
-    [ "${CI:-0}" -eq 1 ] && backend=compat
-    if command -v python3 &>/dev/null \
-        && url=$("$ci3/ci3_server" start --backend $backend --port "$CI3_LOCAL_PORT" --dir "$CI3_LOCAL_DIR"); then
-      export CI3_SERVER_URL=$url
-      export CI3_SERVER_AVAILABLE=1
-      export CI3_SERVER_LOCAL=1
-      if [ "$backend" == compat ]; then
-        export CI3_PUBLIC_URL=${CI3_PUBLIC_URL:-$CI3_COMPAT_PUBLIC_URL}
+if [ -z "${CI3_SERVER+set}" ]; then
+  export CI3_SERVER=""
+  case "${CI3_SERVER_URL:-}" in
+    compat)
+      if url=$("$ci3/ci3_server" start --backend compat --redis "$ci3_compat_redis" ${CI3_SERVER_START_ARGS:-}); then
+        export CI3_SERVER=$url
+        export CI3_PUBLIC_URL=${CI3_PUBLIC_URL:-$ci3_dashboard_url}
+      else
+        echo -e "\033[38;2;250;217;121mCould not start the compat ci3 server. Logs and test cache disabled.\033[0m" >&2
       fi
-    else
-      echo -e "\033[38;2;250;217;121mCould not start the local ci3 server ($backend backend; needs python3). Logs and test cache disabled.\033[0m" >&2
-    fi
-    unset backend
-  fi
+      ;;
+    "")
+      if [ "${CI:-0}" -eq 0 ]; then
+        if url=$("$ci3/ci3_server" start ${CI3_SERVER_START_ARGS:-}); then
+          export CI3_SERVER=$url
+        else
+          echo -e "\033[38;2;250;217;121mCould not start the local ci3 server (needs python3). Logs and test cache disabled.\033[0m" >&2
+        fi
+      fi
+      ;;
+    *)
+      url=${CI3_SERVER_URL%/}
+      if [ "$(curl -s --max-time 5 "$url/health" 2>/dev/null)" == "ci3-server" ]; then
+        export CI3_SERVER=$url
+      else
+        echo -e "\033[38;2;250;217;121mCannot reach ci3 server at $url. Logs and test cache disabled.\033[0m" >&2
+      fi
+      ;;
+  esac
+  unset url
 fi
 
-# Base of the links we print. Override to share a tunnelled local server. In CI with no server the
-# logs end up on the dashboard (via the build instance's compat server), so link there.
+# Links: the server, or the dashboard when the logs end up there (compat, or CI with no server).
 if [ -z "${CI3_PUBLIC_URL:-}" ]; then
-  if [ "$CI3_SERVER_AVAILABLE" -eq 0 ] && [ "${CI:-0}" -eq 1 ]; then
-    export CI3_PUBLIC_URL=$CI3_COMPAT_PUBLIC_URL
+  if [ -z "$CI3_SERVER" ] && [ "${CI:-0}" -eq 1 ]; then
+    export CI3_PUBLIC_URL=$ci3_dashboard_url
   else
-    export CI3_PUBLIC_URL=${CI3_SERVER_URL:-}
+    export CI3_PUBLIC_URL=$CI3_SERVER
   fi
 fi
 CI3_PUBLIC_URL=${CI3_PUBLIC_URL%/}
 
 # No server, no test cache.
-if [ "$CI3_SERVER_AVAILABLE" -eq 0 ]; then
+if [ -z "$CI3_SERVER" ]; then
   export USE_TEST_CACHE=0
 fi
 
-# Retention asked of the server: logs 2 weeks in CI and 2 days locally, build-cache artifacts a week
-# (a local run stores every build it makes; without this /tmp/ci3 would only ever grow).
+# Retention asked of the server: logs 2 weeks in CI and 2 days locally, build-cache artifacts a
+# week (a local run stores every build it makes; without this /tmp/ci3 would only ever grow).
 if [ "${CI:-0}" -eq 1 ]; then
-  export CI3_LOG_EXPIRE=$((60 * 60 * 24 * 14))
+  ci3_log_expire=$((60 * 60 * 24 * 14))
 else
-  export CI3_LOG_EXPIRE=$((60 * 60 * 24 * 2))
+  ci3_log_expire=$((60 * 60 * 24 * 2))
 fi
-export CI3_ARTIFACT_EXPIRE=${CI3_ARTIFACT_EXPIRE:-$((60 * 60 * 24 * 7))}
+ci3_artifact_expire=$((60 * 60 * 24 * 7))
+
+# The public, read-only build cache (S3 over plain HTTP) that artifact reads fall back to on a miss:
+# the bucket endpoint from inside AWS, the CDN in front of it otherwise. ci3 never writes to it.
+if [ "${CI:-0}" -eq 1 ]; then
+  ci3_public_cache_url=http://aztec-ci-artifacts.s3.amazonaws.com/build-cache
+else
+  ci3_public_cache_url=https://build-cache.aztec-labs.com
+fi
 
 # curl against the server with the bearer token. Silent: callers decide what a failure means.
 function ci3_curl {
   curl -s -f ${CI3_SERVER_TOKEN:+-H "Authorization: Bearer $CI3_SERVER_TOKEN"} "$@"
 }
 export -f ci3_curl
-
-# The public, read-only build cache (S3 over plain HTTP) that artifact reads fall back to on a miss.
-# The bucket endpoint from inside AWS, the CDN in front of it otherwise. ci3 never writes to it.
-if [ "${CI:-0}" -eq 1 ]; then
-  export CI3_PUBLIC_CACHE_URL=${CI3_PUBLIC_CACHE_URL:-http://aztec-ci-artifacts.s3.amazonaws.com/build-cache}
-else
-  export CI3_PUBLIC_CACHE_URL=${CI3_PUBLIC_CACHE_URL:-https://build-cache.aztec-labs.com}
-fi

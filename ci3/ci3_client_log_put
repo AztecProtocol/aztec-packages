@@ -8,10 +8,10 @@ NO_CD=1 source ${ci3:-$(git rev-parse --show-toplevel)/ci3}/source_ci3_client
 set -uo pipefail
 id=${1:?usage: ci3_client_log_put <id> [ttl]}
 ttl=${2:-}
-ttl=${ttl:-$CI3_LOG_EXPIRE}
+ttl=${ttl:-$ci3_log_expire}
 final=0
 [ "${3:-}" == final ] && final=1
-if [ "$CI3_SERVER_AVAILABLE" -ne 1 ]; then
+if [ -z "$CI3_SERVER" ]; then
   cat >/dev/null
   exit 0
 fi
@@ -19,7 +19,7 @@ tmp=$(mktemp)
 trap 'rm -f $tmp' EXIT
 gzip -c >$tmp
 if ! ci3_curl --max-time 60 -X PUT -H 'Content-Encoding: gzip' --data-binary @$tmp -o /dev/null \
-    "$CI3_SERVER_URL/logs/$id?ttl=$ttl&final=$final" && [ "${BUILD_SYSTEM_DEBUG:-0}" -eq 1 ]; then
+    "$CI3_SERVER/logs/$id?ttl=$ttl&final=$final" && [ "${BUILD_SYSTEM_DEBUG:-0}" -eq 1 ]; then
   echo "ci3_client_log_put: failed to store log $id" >&2
 fi
 exit 0

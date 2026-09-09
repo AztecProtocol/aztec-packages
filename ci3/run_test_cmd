@@ -34,7 +34,7 @@ slack_notify_flake=0
 
 if [ "$CI" -eq 1 ]; then
   # CI overrides.
-  if [ "$CI3_SERVER_AVAILABLE" -eq 1 ]; then
+  if [ -n "$CI3_SERVER" ]; then
     live_logging=1
     publish=1
   fi
@@ -110,18 +110,18 @@ function sig_handler {
 trap sig_handler SIGTERM SIGINT
 
 function publish_log {
-  local expire=${1:-$CI3_LOG_EXPIRE}
+  local expire=${1:-$ci3_log_expire}
   cat $tmp_file 2>/dev/null | ci3_client_log_put $log_key $expire
 }
 
 function publish_log_final {
-  local expire=${1:-$CI3_LOG_EXPIRE}
+  local expire=${1:-$ci3_log_expire}
   cat $tmp_file 2>/dev/null | ci3_client_log_put $log_key $expire final
 }
 
 # Finalize the current log and start a fresh one with a new unique key.
 function rotate_log {
-  if [ "$CI3_SERVER_AVAILABLE" -eq 1 ]; then
+  if [ -n "$CI3_SERVER" ]; then
     publish_log_final "$@"
   fi
   log_key=$(uuid)
@@ -207,7 +207,7 @@ function run_test {
 }
 
 function finalize_test {
-  if [ "$CI3_SERVER_AVAILABLE" -eq 1 ]; then
+  if [ -n "$CI3_SERVER" ]; then
     # If the test succeeded and we're in CI, set success flag for test. This key is unique to the test.
     # If the test succeeded and we're logging passes, save the test log.
     # If the test failed, save the test log.
@@ -414,7 +414,7 @@ else
 
   if [ $code -eq 0 ]; then
     # Publish the retry's log, then point back at the failure for flake reporting.
-    if [ "$CI3_SERVER_AVAILABLE" -eq 1 ]; then
+    if [ -n "$CI3_SERVER" ]; then
       publish_log_final
     fi
     log_key=$failure_log_key

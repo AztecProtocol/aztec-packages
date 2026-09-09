@@ -357,9 +357,9 @@ case "$cmd" in
     else
       # Transitional: CI logs live behind the labs dashboard until it serves the ci3 API, and it
       # wants its basic-auth password (CI_PASSWORD) to show them.
-      curl -sf ${CI_PASSWORD:+-u "aztec:$CI_PASSWORD"} "$CI3_COMPAT_PUBLIC_URL/$key.txt" | $pager
+      curl -sf ${CI_PASSWORD:+-u "aztec:$CI_PASSWORD"} "$ci3_dashboard_url/$key.txt" | $pager
       if [ ${PIPESTATUS[0]} -ne 0 ]; then
-        echo "Log $key not found locally nor at $CI3_COMPAT_PUBLIC_URL (set CI_PASSWORD for the latter)."
+        echo "Log $key not found locally nor at $ci3_dashboard_url (set CI_PASSWORD for the latter)."
         exit 1
       fi
     fi
@@ -384,7 +384,7 @@ case "$cmd" in
     else
       # Transitional: a CI job's timings live in the labs log bucket until the dashboard serves the
       # ci3 API; reading them needs AWS credentials.
-      aws s3 cp --recursive "$CI3_COMPAT_S3_LOGS/test-timings/${ci_log_id}/" "$folder/"
+      aws s3 cp --recursive "s3://aztec-ci-artifacts/logs/test-timings/${ci_log_id}/" "$folder/"
       for f in "$folder"/*.log.gz; do
         [ -e "$f" ] || continue
         gunzip -c "$f" > "${f%.log.gz}.jsonl"

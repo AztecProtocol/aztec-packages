@@ -38,16 +38,13 @@ trap cleanup EXIT
 # A fresh probe in this process tree, against our private file-backed server, with the write token.
 # CI runs this inside a build whose environment selects the compat backend and the production
 # redis; none of that may leak into the server under test.
-unset CI3_SERVER_AVAILABLE CI3_PUBLIC_URL CI3_SERVER_BACKEND PARENT_LOG_ID
-unset "${!CI3_COMPAT_@}"
+unset CI3_SERVER CI3_PUBLIC_URL CI3_SERVER_START_ARGS PARENT_LOG_ID
 export CI=0
 export CI3_SERVER_TOKEN=$token
 url=$("$ci3/ci3_server" start --backend file --port $port --dir "$work/store")
 export CI3_SERVER_URL=$url
 source "$ci3/source_ci3_client"
-# A separately started on-demand server, to check it is marked local (never handed to an instance).
-CI3_SERVER_LOCAL_EXPECTED=$(unset CI3_SERVER_AVAILABLE CI3_SERVER_URL; CI=0 CI3_LOCAL_PORT=$((port + 1)) CI3_LOCAL_DIR="$work/store-local" bash -c 'source $ci3/source_ci3_client >/dev/null 2>&1; echo $CI3_SERVER_LOCAL; $ci3/ci3_server stop --port $CI3_LOCAL_PORT --dir $CI3_LOCAL_DIR >/dev/null')
-check "server probed as available" 1 "$CI3_SERVER_AVAILABLE"
+check "configured server probed" "$url" "$CI3_SERVER"
 check "url points at the server" "$url/abc" "$(ci3_client_url abc)"
 check "CI3_PUBLIC_URL overrides printed links" "https://me.example/abc" "$(CI3_PUBLIC_URL=https://me.example ci3_client_url abc)"
 
@@ -151,14 +148,15 @@ check "run files are not addressable as logs" 400 "$(curl -s -o /dev/null -w '%{
 
 # --- no server: every client is a harmless no-op ---
 echo "--- no server ---"
-check "log_put drains stdin and exits 0" 0 "$( { printf 'x\n' | CI3_SERVER_AVAILABLE=0 ci3_client_log_put z; echo $?; } )"
-mapfile -t got < <(CI3_SERVER_AVAILABLE=0 ci3_client_kv_get a b)
+check "log_put drains stdin and exits 0" 0 "$( { printf 'x\n' | CI3_SERVER= ci3_client_log_put z; echo $?; } )"
+mapfile -t got < <(CI3_SERVER= ci3_client_kv_get a b)
 check "kv_get answers one empty line per key" "2||" "${#got[@]}|${got[0]}|${got[1]}"
-check "kv_set exits 0" 0 "$( { CI3_SERVER_AVAILABLE=0 ci3_client_kv_set a b; echo $?; } )"
-if CI3_SERVER_AVAILABLE=0 ci3_client_artifact_exists foo-abc.tar.gz; then fail "artifact_exists exits 1" "exit 0"; else pass "artifact_exists exits 1"; fi
-check "unreachable server probes as unavailable" 0 "$(unset CI3_SERVER_AVAILABLE; CI3_SERVER_URL=http://127.0.0.1:1 bash -c 'source $ci3/source_ci3_client 2>/dev/null; echo $CI3_SERVER_AVAILABLE')"
-check "CI with no server links to the dashboard" "http://dash.example/abc" "$(unset CI3_SERVER_AVAILABLE CI3_SERVER_URL CI3_PUBLIC_URL; CI=1 CI3_COMPAT_PUBLIC_URL=http://dash.example bash -c 'source $ci3/source_ci3_client 2>/dev/null; ci3_client_url abc')"
-check "on-demand server is marked local" 1 "$CI3_SERVER_LOCAL_EXPECTED"
+check "kv_set exits 0" 0 "$( { CI3_SERVER= ci3_client_kv_set a b; echo $?; } )"
+if CI3_SERVER= ci3_client_artifact_exists foo-abc.tar.gz; then fail "artifact_exists exits 1" "exit 0"; else pass "artifact_exists exits 1"; fi
+check "unreachable server resolves to no server" "" "$(unset CI3_SERVER; CI3_SERVER_URL=http://127.0.0.1:1 bash -c 'source $ci3/source_ci3_client 2>/dev/null; echo $CI3_SERVER')"
+check "CI with no server links to the dashboard" "http://ci.aztec-labs.com/abc" "$(unset CI3_SERVER CI3_SERVER_URL CI3_PUBLIC_URL; CI=1 bash -c 'source $ci3/source_ci3_client 2>/dev/null; ci3_client_url abc')"
+# A local run starts a server on demand; CI3_SERVER_URL stays unset, so it is never handed to an instance.
+check "local run starts a server on demand and leaves CI3_SERVER_URL unset" "http://localhost:$((port + 1)) unset" "$(unset CI3_SERVER CI3_SERVER_URL; CI=0 CI3_SERVER_START_ARGS="--port $((port + 1)) --dir $work/store-local" bash -c 'source $ci3/source_ci3_client >/dev/null 2>&1; echo "$CI3_SERVER ${CI3_SERVER_URL:-unset}"; $ci3/ci3_server stop --port '$((port + 1))' --dir '$work/store-local' >/dev/null')"
 
 # --- the ci3 scripts built on the clients ---
 echo "--- cache_log ---"

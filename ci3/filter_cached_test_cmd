@@ -27,7 +27,7 @@ function process_batch {
 }
 export -f process_batch
 
-if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI3_SERVER_AVAILABLE" -eq 1 ]; then
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ -n "$CI3_SERVER" ]; then
   exec 3> >(cache_log "Skipped tests")
   # Process stdin in batches of 50.
   parallel --pipe -N50 --keep-order process_batch
