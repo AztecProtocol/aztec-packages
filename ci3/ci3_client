@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """The only way ci3 talks to its log / test-cache / artifact server (see CI3_SERVER_API.md).
 
-Every command is also reachable as ci3_client_<command> (symlinks to this file), so shell callers read
-naturally: `cat log | ci3_client_log_put <id>`. Python 3 standard library only.
+Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Python 3 standard library only.
 
   env                              shell exports for the resolved server (source_ci3_client evals it)
   url [path]                       the browse URL of a log id / server path, as printed in links
@@ -207,7 +206,7 @@ def out(data):
 
 
 def usage(cmd, text):
-    sys.stderr.write("usage: ci3_client_%s %s\n" % (cmd, text))
+    sys.stderr.write("usage: ci3_client %s %s\n" % (cmd, text))
     return 2
 
 
@@ -350,7 +349,7 @@ def cmd_artifact_put(args):
             resp.read()
             return 0 if resp.status < 300 else 1
     except OSError as e:
-        sys.stderr.write("ci3_client_artifact_put: %s\n" % e)
+        sys.stderr.write("ci3_client artifact_put: %s\n" % e)
         return 1
 
 
@@ -373,19 +372,22 @@ def cmd_artifact_exists(args):
         return 1
 
 
-COMMANDS = {name[4:]: fn for name, fn in globals().items() if name.startswith("cmd_")}
+COMMANDS = {
+    "env": cmd_env, "url": cmd_url,
+    "log_put": cmd_log_put, "log_get": cmd_log_get, "log_list": cmd_log_list,
+    "kv_get": cmd_kv_get, "kv_set": cmd_kv_set,
+    "list_push": cmd_list_push, "list_get": cmd_list_get,
+    "event": cmd_event, "run_put": cmd_run_put, "run_get": cmd_run_get,
+    "artifact_put": cmd_artifact_put, "artifact_get": cmd_artifact_get, "artifact_exists": cmd_artifact_exists,
+}
 
 
 def main():
-    prog = os.path.basename(sys.argv[0])
     argv = sys.argv[1:]
-    if prog.startswith("ci3_client_"):
-        cmd = prog[len("ci3_client_"):]
-    elif argv:
-        cmd, argv = argv[0], argv[1:]
-    else:
+    if not argv:
         sys.stderr.write(__doc__)
         return 2
+    cmd, argv = argv[0], argv[1:]
     if cmd not in COMMANDS:
         sys.stderr.write("ci3_client: unknown command %s\n%s" % (cmd, __doc__))
         return 2

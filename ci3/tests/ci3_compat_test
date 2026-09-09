@@ -86,72 +86,72 @@ export CI=1 CI3_SERVER_URL=compat
 export CI3_SERVER_START_ARGS="--port $server_port --dir $work/store --redis 127.0.0.1:$redis_port --public-cache-url http://127.0.0.1:$public_port"
 source "$ci3/source_ci3_client"
 check "compat server started on demand" "http://localhost:$server_port" "$CI3_SERVER"
-check "links point at the dashboard" "http://ci.aztec-labs.com/abc" "$(ci3_client_url abc)"
+check "links point at the dashboard" "http://ci.aztec-labs.com/abc" "$(ci3_client url abc)"
 
 echo "--- logs ---"
-printf 'live\n' | ci3_client_log_put log1 100
+printf 'live\n' | ci3_client log_put log1 100
 check "live log lands in redis, gzipped" "1f8b" "$(redis GET log1 | head -c 2 | xxd -p)"
 check "live log is not copied to S3" "" "$(ls "$fake_s3/aztec-ci-artifacts/logs" 2>/dev/null)"
-check "live log reads back" "live" "$(ci3_client_log_get log1)"
-printf 'done\n' | ci3_client_log_put log1 100 final
+check "live log reads back" "live" "$(ci3_client log_get log1)"
+printf 'done\n' | ci3_client log_put log1 100 final
 check "final log copied to S3 as <4>/<id>.log.gz" "done" "$(gunzip -c "$fake_s3/aztec-ci-artifacts/logs/log1/log1.log.gz")"
 check "redis ttl applied" 1 "$( [ "$(redis TTL log1)" -le 100 ] && [ "$(redis TTL log1)" -gt 0 ] && echo 1 || echo 0)"
 redis DEL log1 >/dev/null
-check "log falls back to S3 when gone from redis" "done" "$(ci3_client_log_get log1)"
-if ci3_client_log_get nope 2>/dev/null; then fail "missing log exits 1" "exit 0"; else pass "missing log exits 1"; fi
-printf 'x\n' | ci3_client_log_put 1700000000000123 100 final
+check "log falls back to S3 when gone from redis" "done" "$(ci3_client log_get log1)"
+if ci3_client log_get nope 2>/dev/null; then fail "missing log exits 1" "exit 0"; else pass "missing log exits 1"; fi
+printf 'x\n' | ci3_client log_put 1700000000000123 100 final
 check "run log object name" "1700/1700000000000123.log.gz" "$(cd "$fake_s3/aztec-ci-artifacts/logs" && ls 1700/*)"
-printf '{"bench":1}\n' | ci3_client_log_put bench/bb-breakdown/native-flow-abc "" final
+printf '{"bench":1}\n' | ci3_client log_put bench/bb-breakdown/native-flow-abc "" final
 check "path ids keep their S3 path (dashboard breakdown views)" '{"bench":1}' "$(gunzip -c "$fake_s3/aztec-ci-artifacts/logs/bench/bb-breakdown/native-flow-abc.log.gz")"
-printf '{"t":1}\n' | ci3_client_log_put test-timings/1700000000000123/aaaa "" final
-printf '{"t":2}\n' | ci3_client_log_put test-timings/1700000000000123/bbbb "" final
-check "timing files listed from the bucket" "$(printf 'aaaa\nbbbb')" "$(ci3_client_log_list test-timings/1700000000000123)"
-check "timing file read back" '{"t":2}' "$(ci3_client_log_get test-timings/1700000000000123/bbbb)"
+printf '{"t":1}\n' | ci3_client log_put test-timings/1700000000000123/aaaa "" final
+printf '{"t":2}\n' | ci3_client log_put test-timings/1700000000000123/bbbb "" final
+check "timing files listed from the bucket" "$(printf 'aaaa\nbbbb')" "$(ci3_client log_list test-timings/1700000000000123)"
+check "timing file read back" '{"t":2}' "$(ci3_client log_get test-timings/1700000000000123/bbbb)"
 
 echo "--- kv ---"
-ci3_client_kv_set testhash logid1 604800
+ci3_client kv_set testhash logid1 604800
 check "kv is a plain redis string" "logid1" "$(redis GET testhash)"
 check "kv ttl applied" 1 "$( [ "$(redis TTL testhash)" -gt 0 ] && echo 1 || echo 0)"
-ci3_client_kv_set forever 1
+ci3_client kv_set forever 1
 check "kv without ttl persists" -1 "$(redis TTL forever)"
-check "kv get" "logid1" "$(ci3_client_kv_get testhash)"
-mapfile -t got < <(ci3_client_kv_get testhash nope forever)
+check "kv get" "logid1" "$(ci3_client kv_get testhash)"
+mapfile -t got < <(ci3_client kv_get testhash nope forever)
 check "kv mget" "logid1||1" "${got[0]}|${got[1]}|${got[2]}"
-ci3_client_kv_set hb-1 1 1
+ci3_client kv_set hb-1 1 1
 sleep 2
-check "kv expires" "" "$(ci3_client_kv_get hb-1)"
+check "kv expires" "" "$(ci3_client kv_get hb-1)"
 
 echo "--- lists ---"
-ci3_client_list_push history_x_next one 2
-ci3_client_list_push history_x_next two 2
-ci3_client_list_push history_x_next three 2
+ci3_client list_push history_x_next one 2
+ci3_client list_push history_x_next two 2
+ci3_client list_push history_x_next three 2
 check "list is a redis list, newest first, trimmed" "$(printf 'three\ntwo')" "$(redis LRANGE history_x_next 0 -1)"
-check "list get" "$(printf 'three\ntwo')" "$(ci3_client_list_get history_x_next)"
-if ci3_client_list_get nolist 2>/dev/null; then fail "missing list exits 1" "exit 0"; else pass "missing list exits 1"; fi
+check "list get" "$(printf 'three\ntwo')" "$(ci3_client list_get history_x_next)"
+if ci3_client list_get nolist 2>/dev/null; then fail "missing list exits 1" "exit 0"; else pass "missing list exits 1"; fi
 
 echo "--- runs ---"
-echo '{"status":"RUNNING","name":"a"}' | ci3_client_run_put prs 1700000000000111
-echo '{"status":"RUNNING","name":"b"}' | ci3_client_run_put prs 1700000000000222
+echo '{"status":"RUNNING","name":"a"}' | ci3_client run_put prs 1700000000000111
+echo '{"status":"RUNNING","name":"b"}' | ci3_client run_put prs 1700000000000222
 check "runs are the ci-run-<section> sorted set" 2 "$(redis ZCARD ci-run-prs)"
-echo '{"status":"PASSED","name":"a"}' | ci3_client_run_put prs 1700000000000111
+echo '{"status":"PASSED","name":"a"}' | ci3_client run_put prs 1700000000000111
 check "run update replaces the member" 2 "$(redis ZCARD ci-run-prs)"
-check "run get" '{"status":"PASSED","name":"a"}' "$(ci3_client_run_get prs 1700000000000111)"
+check "run get" '{"status":"PASSED","name":"a"}' "$(ci3_client run_get prs 1700000000000111)"
 check "runs listed newest first" "b,a" "$(curl -s "$CI3_SERVER/runs/prs" | jq -r 'map(.name) | join(",")')"
-echo '{"status":"RUNNING"}' | ci3_client_run_put merge-train/avm 1700000000000333
+echo '{"status":"RUNNING"}' | ci3_client run_put merge-train/avm 1700000000000333
 check "slashed section key" 1 "$(redis ZCARD ci-run-merge-train/avm)"
-if ci3_client_run_get prs 1 2>/dev/null; then fail "missing run exits 1" "exit 0"; else pass "missing run exits 1"; fi
+if ci3_client run_get prs 1 2>/dev/null; then fail "missing run exits 1" "exit 0"; else pass "missing run exits 1"; fi
 
 echo "--- events ---"
 check "event is published" 204 "$(printf '{"a":1}' | curl -s -o /dev/null -w '%{http_code}' --data-binary @- "$CI3_SERVER/events/ci:test:started")"
 
 echo "--- artifacts ---"
 head -c 100000 /dev/urandom >"$work/blob"
-ci3_client_artifact_put foo-abc.tar.gz "$work/blob"
+ci3_client artifact_put foo-abc.tar.gz "$work/blob"
 if cmp -s "$work/blob" "$fake_s3/aztec-ci-artifacts/build-cache/foo-abc.tar.gz"; then pass "artifact put lands in the bucket"; else fail "artifact put lands in the bucket" "missing or differs"; fi
-if ci3_client_artifact_exists foo-abc.tar.gz; then pass "artifact exists via the public endpoint"; else fail "artifact exists via the public endpoint" "exit 1"; fi
-if ci3_client_artifact_exists nope.tar.gz; then fail "missing artifact exists exits 1" "exit 0"; else pass "missing artifact exists exits 1"; fi
+if ci3_client artifact_exists foo-abc.tar.gz; then pass "artifact exists via the public endpoint"; else fail "artifact exists via the public endpoint" "exit 1"; fi
+if ci3_client artifact_exists nope.tar.gz; then fail "missing artifact exists exits 1" "exit 0"; else pass "missing artifact exists exits 1"; fi
 check "artifact get redirects to the public endpoint" "302" "$(curl -s -o /dev/null -w '%{http_code}' "$CI3_SERVER/artifacts/foo-abc.tar.gz")"
-if cmp -s "$work/blob" <(ci3_client_artifact_get foo-abc.tar.gz); then pass "artifact get follows the redirect"; else fail "artifact get follows the redirect" "content differs"; fi
+if cmp -s "$work/blob" <(ci3_client artifact_get foo-abc.tar.gz); then pass "artifact get follows the redirect"; else fail "artifact get follows the redirect" "content differs"; fi
 
 echo "--- build cache through the compat server ---"
 mkdir -p "$work/src" "$work/dst"
@@ -168,7 +168,7 @@ check "compat server starts without redis" "http://localhost:$((server_port + 1)
 check "redis-backed write fails per request" 502 "$(curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary v "$url2/kv/k")"
 check "final log still reaches S3 without redis" 502 "$(printf 'x' | curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary @- "$url2/logs/noredis?final=1")"
 check "final log object written" "x" "$(gunzip -c "$fake_s3/aztec-ci-artifacts/logs/nore/noredis.log.gz")"
-CI3_SERVER=$url2 ci3_client_artifact_put via-no-redis.tar.gz "$work/blob"
+CI3_SERVER=$url2 ci3_client artifact_put via-no-redis.tar.gz "$work/blob"
 if cmp -s "$work/blob" "$fake_s3/aztec-ci-artifacts/build-cache/via-no-redis.tar.gz"; then pass "artifact upload works without redis"; else fail "artifact upload works without redis" "missing"; fi
 "$ci3/ci3_server" stop --port $((server_port + 1)) --dir "$work/store2" >/dev/null 2>&1 || true
 

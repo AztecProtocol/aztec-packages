@@ -27,12 +27,12 @@ function finalize_log {
 }
 
 function publish_log {
-  cat $outfile | ci3_client_log_put $key
+  cat $outfile | ci3_client log_put $key
 }
 
 function publish_log_final {
   finalize_log
-  cat $outfile | ci3_client_log_put $key $ci3_log_expire final
+  cat $outfile | ci3_client log_put $key $ci3_log_expire final
 }
 
 function live_publish_log {
@@ -48,7 +48,7 @@ function live_publish_log {
 }
 
 if [ -n "$CI3_SERVER" ]; then
-  log_str="$name log id: ${yellow}$(ci3_client_url $key)${reset}"
+  log_str="$name log id: ${yellow}$(ci3_client url $key)${reset}"
   echo_stderr -e "$log_str"
   # Close inherited pipeline FDs to prevent blocking parent pipelines.
   # When cache_log runs inside a pipeline, fd 1/2 may reference the parent's pipe.

@@ -80,7 +80,7 @@ test_hash=$(hash_str_orig "$test_cmd")
 # We actually pre-filter tests in CI runs so this is rarely hit.
 # Commands marked 'disabled-cache' must never be served a cached result (mirrors filter_cached_test_cmd).
 if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [[ "$cmd" != *disabled-cache* ]]; then
-  log_key=$(ci3_client_kv_get $key)
+  log_key=$(ci3_client kv_get $key)
   if [ -n "$log_key" ]; then
     log_info=" ($(ci_term_link $log_key))"
     echo -e "${blue}SKIPPED${reset}${log_info:-}: $cmd"
@@ -111,12 +111,12 @@ trap sig_handler SIGTERM SIGINT
 
 function publish_log {
   local expire=${1:-$ci3_log_expire}
-  cat $tmp_file 2>/dev/null | ci3_client_log_put $log_key $expire
+  cat $tmp_file 2>/dev/null | ci3_client log_put $log_key $expire
 }
 
 function publish_log_final {
   local expire=${1:-$ci3_log_expire}
-  cat $tmp_file 2>/dev/null | ci3_client_log_put $log_key $expire final
+  cat $tmp_file 2>/dev/null | ci3_client log_put $log_key $expire final
 }
 
 # Finalize the current log and start a fresh one with a new unique key.
@@ -160,7 +160,7 @@ function live_publish_log {
 # Create a new log key and ci link.
 log_key=$(uuid)
 log_info=" ($(ci_term_link $log_key))"
-grind_link=$(term_link "$(ci3_client_url "grind?cmd=$(urlencode "$cmd")")" "grind")
+grind_link=$(term_link "$(ci3_client url "grind?cmd=$(urlencode "$cmd")")" "grind")
 fail_links="($grind_link)"
 
 # Create a temporary file for the test log.
@@ -173,14 +173,14 @@ if [ "$publish" -eq 1 ]; then
     --arg status "started" \
     --arg test_cmd "$cmd" \
     --arg log_id "$log_key" \
-    --arg log_url "$(ci3_client_url $log_key)" \
+    --arg log_url "$(ci3_client url $log_key)" \
     --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
     --arg commit_hash "$COMMIT_HASH" \
     --arg commit_author "$COMMIT_AUTHOR" \
     --arg commit_msg "$COMMIT_MSG" \
     --arg dashboard "${CI_DASHBOARD:-}" \
     '{status: $status, test_cmd: $test_cmd, log_id: $log_id, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, dashboard: $dashboard, timestamp: now | todate}')
-  ci3_client_event "ci:test:started" "$start_event"
+  ci3_client event "ci:test:started" "$start_event"
 fi
 
 # Start live log publishing if enabled.
@@ -213,7 +213,7 @@ function finalize_test {
     # If the test failed, save the test log.
     if [ $code -eq 0 ]; then
       if [ "$CI" -eq 1 ]; then
-        ci3_client_kv_set $key $log_key 604800
+        ci3_client kv_set $key $log_key 604800
       fi
       if [ "$pass_log" -eq 1 ]; then
         publish_log_final
@@ -233,7 +233,7 @@ function track_test {
   local line=$(pr_link "$2")
   local max_lines=${3:-1000}
 
-  ci3_client_list_push $list_key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" $max_lines
+  ci3_client list_push $list_key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" $max_lines
 }
 
 function track_test_history {
@@ -248,7 +248,7 @@ function publish_event {
   local event=$(jq -n \
     --arg status "$1" \
     --arg test_cmd "$cmd" \
-    --arg log_url "$(ci3_client_url $log_key)" \
+    --arg log_url "$(ci3_client url $log_key)" \
     --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
     --arg commit_hash "$COMMIT_HASH" \
     --arg commit_author "$COMMIT_AUTHOR" \
@@ -257,7 +257,7 @@ function publish_event {
     --argjson duration "$SECONDS" \
     --arg dashboard "${CI_DASHBOARD:-}" \
     '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, dashboard: $dashboard, timestamp: now | todate}')
-  ci3_client_event "ci:test:$1" "$event"
+  ci3_client event "ci:test:$1" "$event"
 }
 
 # Show PASSED and early out on success.
@@ -295,7 +295,7 @@ function post_github_failure_status {
   local body
   body=$(jq -n \
     --arg state "failure" \
-    --arg target_url "$(ci3_client_url $log_key)" \
+    --arg target_url "$(ci3_client url $log_key)" \
     --arg description "$description" \
     --arg context "$context" \
     '{state: $state, target_url: $target_url, description: $description, context: $context}')
@@ -376,7 +376,7 @@ function flake {
     for uid in $owners; do
       slack_uids+="<@$uid> "
     done
-    slack_notify "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` $(ci3_client_url $log_key)" "$(flake_slack_channel)"
+    slack_notify "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` $(ci3_client url $log_key)" "$(flake_slack_channel)"
   fi
 
   exit 0

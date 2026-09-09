@@ -16,7 +16,7 @@ We avoid heavy CI vendor lock-in by using shell scripts with a uniform framework
    Multiple projects within one repository can have separate build steps that only rebuild if their subset of files changes.
 
 2. **Remote Caching**
-   Build artifacts, logs and the test cache go through one small HTTP API, [`CI3_SERVER_API.md`](CI3_SERVER_API.md), via the `ci3_client_*` scripts. Nothing else in ci3 knows what stores them. A local run starts the file-backed reference server (`ci3_server`, files under `/tmp/ci3`); CI points `CI3_SERVER_URL` at the labs dashboard. Artifact reads fall back to the public build cache (S3 over plain HTTP), which ci3 never writes to.
+   Build artifacts, logs and the test cache go through one small HTTP API, [`CI3_SERVER_API.md`](CI3_SERVER_API.md), via the `ci3_client` commands. Nothing else in ci3 knows what stores them. A local run starts the file-backed reference server (`ci3_server`, files under `/tmp/ci3`); CI points `CI3_SERVER_URL` at the labs dashboard. Artifact reads fall back to the public build cache (S3 over plain HTTP), which ci3 never writes to.
 
 3. **Content-based Rebuilds**
    We compare content-hashes of relevant files. If no changes, no rebuild. This encourages fine-grained patterns (e.g., ignoring docs changes, but not ignoring new code).
@@ -47,7 +47,7 @@ Tools are provided for the following themes.
 1. **Caching**
    - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
    - **`cache_upload`, `cache_download`, `cache_exists`**: Store/fetch `.tar.gz` artifacts on the ci3 server, falling back to the public build cache for reads. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
-   - **`ci3_client`** (and its `ci3_client_<command>` symlinks): The only way ci3 talks to its server: `log_put/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, `event`, `artifact_put/artifact_get/artifact_exists`, and `env` (discovery).
+   - **`ci3_client <command>`**: The only way ci3 talks to its server: `log_put/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, `event`, `artifact_put/artifact_get/artifact_exists`, and `env` (discovery).
    - **`ci3_server`**: The reference server (`start`, `stop`, `status`, `run`): `--backend file` for local runs, `--backend compat` forwarding to the production redis/S3 until the labs dashboard speaks the API.
 
 2. **Test Parallelization & Caching**

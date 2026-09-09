@@ -30,7 +30,7 @@ if [ -z "$CI3_SERVER" ] && [ -z "${CACHE_LOCAL_DIR:-}" ]; then
   exit 0
 fi
 
-if [ -n "$CI3_SERVER" ] && [ -z "${S3_FORCE_UPLOAD:-}" ] && ci3_client_artifact_exists "$name"; then
+if [ -n "$CI3_SERVER" ] && [ -z "${S3_FORCE_UPLOAD:-}" ] && ci3_client artifact_exists "$name"; then
   echo_stderr "Skipping upload, already exists: $name"
   exit 0
 fi
@@ -56,7 +56,7 @@ fi
 
 if [ -z "$CI3_SERVER" ]; then
   echo_stderr "Skipping upload of $name, no ci3 server available."
-elif ci3_client_artifact_put "$name" "$out_tar"; then
+elif ci3_client artifact_put "$name" "$out_tar"; then
   echo_stderr "Cache upload of $name complete in ${SECONDS}s."
 else
   echo_stderr "Cache upload of $name failed."

@@ -13,8 +13,8 @@ nothing about what sits behind it. Two implementations exist:
 - The labs CI dashboard (`ci.aztec-labs.com`, in the aztec-node repository): the production
   implementation once it serves this API; then `CI3_SERVER_URL` points at it.
 
-Every ci3 script reaches the server only through `ci3/ci3_client` (python, stdlib only; each command
-is also a `ci3_client_<command>` symlink), so a new backend needs to implement exactly this document.
+Every ci3 script reaches the server only through `ci3/ci3_client <command>` (python, stdlib only),
+so a new backend needs to implement exactly this document.
 
 ## Client configuration
 
@@ -26,7 +26,7 @@ is also a `ci3_client_<command>` symlink), so a new backend needs to implement e
 | `CI3_SERVER_START_ARGS` | Extra `ci3_server` flags for a server started on demand (`--port`, `--dir`, the compat `--redis`/`--public-cache-url`, ...). |
 
 `ci3_client env` resolves this once per process tree into `CI3_SERVER`, the base URL every
-`ci3_client_*` command talks to, or empty when there is none: then every command is a no-op (draining
+`ci3_client <command>` command talks to, or empty when there is none: then every command is a no-op (draining
 stdin, returning empty results, exit codes callers can rely on). Setting `CI3_SERVER` (even empty)
 skips discovery. Retention is fixed by the clients: logs 14 days in CI and 2 days locally, artifacts 7 days
 (so a local file server does not grow without bound; a CI backend may ignore it).

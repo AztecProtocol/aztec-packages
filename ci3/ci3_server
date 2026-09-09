@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
 """Reference implementations of ci3/CI3_SERVER_API.md. Python 3 standard library only.
 
-  ci3_server run    [--backend file|compat] [--host H] [--port P] [--dir D] [compat flags]   serve in the foreground
-  ci3_server start  [same options]     start detached unless one already answers on P; prints its URL
+  ci3_server start  [--backend file|compat] [--port P] [--dir D] [compat flags]
+                    start detached unless one already answers on the port; prints its URL
+  ci3_server run    same flags, in the foreground
   ci3_server stop   [--port P] [--dir D]
-  ci3_server status [--port P] [--dir D]
+  ci3_server status [--port P]
 
 Backends:
 
   file    Everything is a file under --dir (default /tmp/ci3):
             logs/<id>  kv/<key>  lists/<name>  runs/<section>/<id>.json  events/<channel>.jsonl  artifacts/<name>
-          An entry written with ?ttl= gets a `<path>.expires` sidecar holding the expiry epoch; expired
-          entries read as absent and are swept periodically. This is what a local run uses.
+          A write with ?ttl= gets a `<path>.expires` sidecar holding the expiry epoch; expired entries
+          read as absent and are swept periodically. This is what a local run uses.
 
-  compat  Transitional: forwards to the stores the pre-API ci3 wrote to directly, with the exact key
-          shapes the labs dashboard reads, so CI keeps its logs and test cache until that dashboard
-          implements the API itself. Logs, kv, lists, runs and events go to redis (--redis HOST:PORT,
-          required); final logs are also copied to S3 (--s3-logs, as <first 4 chars of id>/<id>.log.gz,
-          or <path>.log.gz for ids that are paths, the shapes the pre-API ci3 wrote); artifacts go to
-          S3 (--s3-cache) and are read back through the bucket's public HTTP endpoint
-          (--public-cache-url). S3 is driven through the `aws` CLI (--aws) with whatever credentials
-          it finds (the instance profile in CI).
+  compat  Transitional: forwards to the stores the pre-API ci3 wrote to directly, with the key shapes
+          the labs dashboard reads, so CI keeps its logs and test cache until that dashboard serves the
+          API itself. Logs, kv, lists, runs and events go to redis (--redis HOST:PORT); final logs are
+          also copied to S3 (--s3-logs), artifacts go to S3 (--s3-cache) and are read back through the
+          bucket's public HTTP endpoint (--public-cache-url). S3 is driven through the `aws` CLI
+          (--aws) with whatever credentials it finds (the instance profile in CI).
 
 Set CI3_SERVER_TOKEN to require `Authorization: Bearer` on writes (reads stay anonymous), which is what
 makes exposing a server through a tunnel safe.
@@ -28,7 +27,6 @@ makes exposing a server through a tunnel safe.
 import argparse
 import gzip
 import http.client
-import io
 import json
 import os
 import re
@@ -53,8 +51,6 @@ RUNS_MAX = 1000
 DEFAULT_LOG_TTL = 60 * 60 * 24 * 14
 SWEEP_INTERVAL = 600
 CHUNK = 1 << 20
-MAX_CHUNKED_BODY = 1 << 30
-SOCKET_TIMEOUT = 300
 STORES = ("logs", "kv", "lists", "runs", "events", "artifacts")
 
 
@@ -62,41 +58,36 @@ class BadKey(ValueError):
     pass
 
 
+class IncompleteBody(Exception):
+    """The client sent fewer bytes than its Content-Length announced (it went away mid-upload)."""
+
+
+class Redirect(Exception):
+    def __init__(self, location):
+        self.location = location
+
+
 def check_key(key):
-    """Keys are '/'-separated paths of safe segments; the reference servers' own file suffixes are
-    reserved so sidecars can never be addressed."""
+    """Keys are '/'-separated paths of safe segments. The reference servers' own file suffixes are
+    reserved so a sidecar can never be addressed."""
     parts = key.split("/")
-    if not parts or any(p in ("", ".", "..") or not SEGMENT.match(p) for p in parts):
+    if any(p in ("", ".", "..") or not SEGMENT.match(p) for p in parts):
         raise BadKey(key)
     if parts[-1].endswith((".expires", ".json", ".jsonl")) or parts[-1].startswith(".tmp-"):
         raise BadKey(key)
     return parts
 
 
-class IncompleteBody(Exception):
-    """The client sent fewer bytes than its Content-Length announced (it went away mid-upload)."""
-
-
-class Redirect(Exception):
-    """An artifact operation answered by pointing the client elsewhere."""
-
-    def __init__(self, code, location):
-        self.code, self.location = code, location
-
-
-# file backend
-
-
 class FileBackend:
     """Files with optional expiry sidecars. Writes are atomic (temp file + rename) because a live log
-    is re-PUT every few seconds while the browser reads it. The lock serialises the sidecar and data
+    is re-PUT every few seconds while a browser reads it. The lock serialises the sidecar and data
     updates against expiry checks, so a refresh of an expired entry is never mistaken for expired."""
 
     def __init__(self, root):
         self.root = os.path.abspath(root)
         self.lock = threading.RLock()
-        for s in STORES:
-            os.makedirs(os.path.join(self.root, s), exist_ok=True)
+        for store in STORES:
+            os.makedirs(os.path.join(self.root, store), exist_ok=True)
 
     def describe(self):
         return "backend: file\nstorage: %s" % self.root
@@ -104,10 +95,10 @@ class FileBackend:
     def path(self, store, key):
         return os.path.join(self.root, store, *check_key(key))
 
-    def _expired(self, path):
+    def expired(self, path):
         try:
             with open(path + ".expires") as f:
-                return float(f.read().strip()) < time.time()
+                return float(f.read()) < time.time()
         except (FileNotFoundError, ValueError):
             return False
 
@@ -115,7 +106,7 @@ class FileBackend:
         with self.lock:
             if not os.path.isfile(path):
                 return False
-            if self._expired(path):
+            if self.expired(path):
                 self.remove(path)
                 return False
             return True
@@ -128,33 +119,24 @@ class FileBackend:
                 pass
 
     def write(self, path, data, ttl=None):
-        """data: bytes, or a file-like object streamed in chunks. Nothing is published unless the
-        whole body arrived."""
+        """data: bytes, or a file-like object streamed in chunks."""
         os.makedirs(os.path.dirname(path), exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".tmp-")
         try:
             with os.fdopen(fd, "wb") as f:
-                if isinstance(data, (bytes, bytearray)):
+                if isinstance(data, bytes):
                     f.write(data)
                 else:
                     shutil.copyfileobj(data, f, CHUNK)
-                    if getattr(data, "remaining", 0) > 0:
-                        raise IncompleteBody()
             with self.lock:
-                if ttl is not None:
+                if ttl is None:
+                    self.remove(path + ".expires")
+                else:
                     with open(path + ".expires", "w") as f:
                         f.write(str(int(time.time() + ttl)))
-                else:
-                    try:
-                        os.remove(path + ".expires")
-                    except FileNotFoundError:
-                        pass
                 os.replace(tmp, path)
         except BaseException:
-            try:
-                os.remove(tmp)
-            except FileNotFoundError:
-                pass
+            self.remove(tmp)
             raise
 
     def read(self, path):
@@ -168,8 +150,6 @@ class FileBackend:
             for name in files:
                 if name.endswith(".expires"):
                     self.exists(os.path.join(dirpath, name[: -len(".expires")]))
-
-    # --- API ---
 
     def log_put(self, key, data, ttl, final):
         self.write(self.path("logs", key), data, ttl)
@@ -190,22 +170,11 @@ class FileBackend:
     def kv_get(self, key):
         return self.read(self.path("kv", key))
 
-    def kv_mget(self, keys):
-        out = []
-        for k in keys:
-            try:
-                v = self.kv_get(k)
-            except BadKey:
-                v = None
-            out.append(v)
-        return out
-
     def list_push(self, name, line, maximum, ttl):
         path = self.path("lists", name)
         with self.lock:
-            existing = (self.read(path) or b"").decode(errors="replace").splitlines()
-            lines = [line] + existing
-            self.write(path, ("".join(l + "\n" for l in lines[:maximum])).encode(), ttl)
+            lines = [line] + (self.read(path) or b"").decode(errors="replace").splitlines()
+            self.write(path, "".join(l + "\n" for l in lines[:maximum]).encode(), ttl)
 
     def list_get(self, name):
         return self.read(self.path("lists", name))
@@ -217,18 +186,11 @@ class FileBackend:
         return self.read(self.path("runs", section + "/" + run_id) + ".json")
 
     def runs_list(self, section):
-        section_dir = self.path("runs", section)
-        runs = []
-        if os.path.isdir(section_dir):
-            names = sorted((n for n in os.listdir(section_dir) if n.endswith(".json")), reverse=True)
-            for n in names[:RUNS_MAX]:
-                data = self.read(os.path.join(section_dir, n))
-                if data:
-                    try:
-                        runs.append(json.loads(data))
-                    except ValueError:
-                        pass
-        return runs
+        d = self.path("runs", section)
+        if not os.path.isdir(d):
+            return []
+        names = sorted((n for n in os.listdir(d) if n.endswith(".json")), reverse=True)
+        return [json.loads(data) for n in names[:RUNS_MAX] for data in [self.read(os.path.join(d, n))] if data]
 
     def event(self, channel, body):
         path = self.path("events", channel) + ".jsonl"
@@ -250,46 +212,34 @@ class FileBackend:
         with self.lock:
             if not self.exists(path):
                 return None
-            try:
-                f = open(path, "rb")
-            except FileNotFoundError:
-                return None
+            f = open(path, "rb")
         return os.fstat(f.fileno()).st_size, f
 
 
-# compat backend: redis + S3, the stores the old ci3 wrote to directly
-
-
 class Redis:
-    """Just enough of the RESP protocol for the commands below; one connection per call, so no
-    locking. Values are bytes."""
+    """Just enough of the RESP protocol for the commands the compat backend uses. One connection per
+    call, so no locking. Values are bytes."""
 
     def __init__(self, host, port, timeout=30):
         self.host, self.port, self.timeout = host, port, timeout
 
     def __call__(self, *args):
         with socket.create_connection((self.host, self.port), timeout=self.timeout) as s:
-            parts = [b"*%d\r\n" % len(args)]
-            for a in args:
-                if isinstance(a, str):
-                    a = a.encode()
-                elif isinstance(a, int):
-                    a = str(a).encode()
-                parts.append(b"$%d\r\n%s\r\n" % (len(a), a))
-            s.sendall(b"".join(parts))
-            return self._read(s.makefile("rb"))
+            args = [a if isinstance(a, bytes) else str(a).encode() for a in args]
+            s.sendall(b"*%d\r\n" % len(args) + b"".join(b"$%d\r\n%s\r\n" % (len(a), a) for a in args))
+            return self.read_reply(s.makefile("rb"))
 
-    def _read(self, f):
+    def read_reply(self, f):
         line = f.readline()
         if not line:
             raise ConnectionError("redis closed the connection")
         kind, rest = line[:1], line[1:-2]
         if kind == b"+":
             return rest
-        if kind == b"-":
-            raise RuntimeError("redis: " + rest.decode(errors="replace"))
         if kind == b":":
             return int(rest)
+        if kind == b"-":
+            raise RuntimeError("redis: " + rest.decode(errors="replace"))
         if kind == b"$":
             n = int(rest)
             if n < 0:
@@ -300,20 +250,13 @@ class Redis:
             return data
         if kind == b"*":
             n = int(rest)
-            return None if n < 0 else [self._read(f) for _ in range(n)]
+            return None if n < 0 else [self.read_reply(f) for _ in range(n)]
         raise RuntimeError("redis: unexpected reply %r" % line)
 
 
 def s3_split(location):
-    no_scheme = location[len("s3://") :] if location.startswith("s3://") else location
-    bucket, _, prefix = no_scheme.partition("/")
+    bucket, _, prefix = location[len("s3://"):].partition("/")
     return bucket, prefix.strip("/")
-
-
-def gunzip_if_needed(data):
-    if data is not None and data[:2] == b"\x1f\x8b":
-        return gzip.decompress(data)
-    return data
 
 
 class CompatBackend:
@@ -321,72 +264,58 @@ class CompatBackend:
         if not args.redis:
             raise SystemExit("the compat backend needs --redis HOST:PORT")
         host, _, port = args.redis.rpartition(":")
-        self.redis = Redis(host or args.redis, int(port) if port else 6379)
-        self.s3_logs = args.s3_logs
-        self.s3_cache = args.s3_cache
-        self.aws = args.aws
-        cache_bucket, cache_prefix = s3_split(self.s3_cache)
-        self.public_cache_url = (args.public_cache_url or "http://%s.s3.amazonaws.com/%s" % (cache_bucket, cache_prefix)).rstrip("/")
+        self.redis = Redis(host or args.redis, int(port or 6379))
+        self.s3_logs, self.s3_cache, self.aws = args.s3_logs, args.s3_cache, args.aws
+        bucket, prefix = s3_split(self.s3_cache)
+        self.public_cache_url = (args.public_cache_url or "http://%s.s3.amazonaws.com/%s" % (bucket, prefix)).rstrip("/")
         # Redis is best effort, as it was for the pre-API ci3: artifacts and final logs still reach S3
-        # when it is down, and the redis-only operations fail per request (502, which the clients
-        # treat as a miss).
+        # when it is down, and the redis-only operations fail per request (502, a miss to the clients).
         try:
             Redis(self.redis.host, self.redis.port, timeout=3)("PING")
-            self.redis_ok = True
+            self.redis_state = "ok at start"
         except OSError as e:
-            self.redis_ok = False
-            sys.stderr.write("ci3_server: redis %s:%d unreachable (%s); logs, test cache, lists, runs and events will fail\n"
-                             % (self.redis.host, self.redis.port, e))
+            self.redis_state = "unreachable at start"
+            sys.stderr.write("ci3_server: redis %s:%d unreachable (%s)\n" % (self.redis.host, self.redis.port, e))
 
     def describe(self):
         return "backend: compat\nredis: %s:%d (%s)\nlogs: %s\ncache: %s" % (
-            self.redis.host, self.redis.port, "ok at start" if self.redis_ok else "unreachable at start", self.s3_logs, self.s3_cache)
+            self.redis.host, self.redis.port, self.redis_state, self.s3_logs, self.s3_cache)
 
     def sweep(self):
         pass
 
-    # --- S3 through the aws CLI ---
-
-    def _s3_uri(self, location, key):
+    def s3_uri(self, location, key):
         bucket, prefix = s3_split(location)
         return "s3://%s/%s" % (bucket, "/".join(p for p in (prefix, key) if p))
 
-    def _s3_put(self, location, key, data):
-        """data: bytes or a file path."""
-        uri = self._s3_uri(location, key)
-        if isinstance(data, (bytes, bytearray)):
-            subprocess.run([self.aws, "s3", "cp", "-", uri], input=data, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        else:
-            subprocess.run([self.aws, "s3", "cp", data, uri], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    def s3_put(self, location, key, data):
+        """data: bytes, or a local file path."""
+        src, stdin = ("-", data) if isinstance(data, bytes) else (data, None)
+        subprocess.run([self.aws, "s3", "cp", src, self.s3_uri(location, key)], input=stdin, check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
-    def _s3_get(self, location, key):
-        r = subprocess.run([self.aws, "s3", "cp", self._s3_uri(location, key), "-"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    def s3_get(self, location, key):
+        r = subprocess.run([self.aws, "s3", "cp", self.s3_uri(location, key), "-"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         return r.stdout if r.returncode == 0 else None
 
     @staticmethod
-    def _log_object(key):
-        # The shapes the pre-API ci3 wrote: a flat id lands at <first 4 chars>/<id>.log.gz
-        # (cache_persistent), a path such as bench/bb-breakdown/<key> at <path>.log.gz
-        # (cache_s3_transfer_to), which is where the dashboard's breakdown views read.
-        if "/" in key:
-            return key + ".log.gz"
-        return "%s/%s.log.gz" % (key[:4], key)
-
-    # --- API ---
+    def log_object(key):
+        """The shapes the pre-API ci3 wrote: a flat id at <first 4 chars>/<id>.log.gz, a path such as
+        bench/bb-breakdown/<key> at <path>.log.gz (where the dashboard's breakdown views read)."""
+        return key + ".log.gz" if "/" in key else "%s/%s.log.gz" % (key[:4], key)
 
     def log_put(self, key, data, ttl, final):
         check_key(key)
         packed = gzip.compress(data)
-        redis_error = None
         try:
             self.redis("SETEX", key, ttl or DEFAULT_LOG_TTL, packed)
+            redis_error = None
         except (OSError, RuntimeError) as e:
             redis_error = e
         if final:
-            # Synchronous: the top-level run log is written as the instance's last act and a
-            # background upload would die with it. Done even when redis failed.
-            self._s3_put(self.s3_logs, self._log_object(key), packed)
-        if redis_error is not None:
+            # Synchronous: the top-level run log is written as the instance's last act.
+            self.s3_put(self.s3_logs, self.log_object(key), packed)
+        if redis_error:
             raise redis_error
 
     def log_get(self, key):
@@ -396,41 +325,22 @@ class CompatBackend:
         except OSError:
             data = None
         if data is None:
-            data = self._s3_get(self.s3_logs, self._log_object(key))
-        return gunzip_if_needed(data)
+            data = self.s3_get(self.s3_logs, self.log_object(key))
+        return gzip.decompress(data) if data and data[:2] == b"\x1f\x8b" else data
 
     def log_list(self, prefix):
         check_key(prefix)
-        r = subprocess.run([self.aws, "s3", "ls", self._s3_uri(self.s3_logs, prefix) + "/"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        names = []
-        for line in r.stdout.decode(errors="replace").splitlines():
-            name = line.split()[-1] if line.split() else ""
-            if name.endswith(".log.gz"):
-                names.append(name[: -len(".log.gz")])
-        return sorted(names)
+        r = subprocess.run([self.aws, "s3", "ls", self.s3_uri(self.s3_logs, prefix) + "/"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        names = [line.split()[-1] for line in r.stdout.decode(errors="replace").splitlines() if line.split()]
+        return sorted(n[: -len(".log.gz")] for n in names if n.endswith(".log.gz"))
 
     def kv_put(self, key, data, ttl):
         check_key(key)
-        if ttl:
-            self.redis("SETEX", key, ttl, data)
-        else:
-            self.redis("SET", key, data)
+        self.redis("SETEX", key, ttl, data) if ttl else self.redis("SET", key, data)
 
     def kv_get(self, key):
         check_key(key)
         return self.redis("GET", key)
-
-    def kv_mget(self, keys):
-        good = []
-        for k in keys:
-            try:
-                check_key(k)
-                good.append(k)
-            except BadKey:
-                good.append(None)
-        wanted = [k for k in good if k is not None]
-        values = iter(self.redis("MGET", *wanted) if wanted else [])
-        return [next(values) if k is not None else None for k in good]
 
     def list_push(self, name, line, maximum, ttl):
         check_key(name)
@@ -440,33 +350,25 @@ class CompatBackend:
     def list_get(self, name):
         check_key(name)
         lines = self.redis("LRANGE", name, 0, -1)
-        if not lines:
-            return None
-        return b"".join(l + b"\n" for l in lines)
+        return b"".join(l + b"\n" for l in lines) if lines else None
 
-    def _runs_key(self, section):
+    def runs_key(self, section):
         check_key(section)
         return "ci-run-" + section
 
     def run_put(self, section, run_id, body, ttl):
-        key = self._runs_key(section)
+        key = self.runs_key(section)
         for old in self.redis("ZRANGEBYSCORE", key, run_id, run_id) or []:
             self.redis("ZREM", key, old)
         self.redis("ZADD", key, run_id, body)
         self.redis("ZREMRANGEBYRANK", key, 0, -(RUNS_MAX + 1))
 
     def run_get(self, section, run_id):
-        found = self.redis("ZRANGEBYSCORE", self._runs_key(section), run_id, run_id)
+        found = self.redis("ZRANGEBYSCORE", self.runs_key(section), run_id, run_id)
         return found[0] if found else None
 
     def runs_list(self, section):
-        runs = []
-        for raw in self.redis("ZREVRANGE", self._runs_key(section), 0, RUNS_MAX - 1) or []:
-            try:
-                runs.append(json.loads(raw))
-            except ValueError:
-                pass
-        return runs
+        return [json.loads(raw) for raw in self.redis("ZREVRANGE", self.runs_key(section), 0, RUNS_MAX - 1) or []]
 
     def event(self, channel, body):
         check_key(channel)
@@ -478,43 +380,55 @@ class CompatBackend:
         try:
             with os.fdopen(fd, "wb") as f:
                 shutil.copyfileobj(stream, f, CHUNK)
-            if getattr(stream, "remaining", 0) > 0:
-                raise IncompleteBody()
-            self._s3_put(self.s3_cache, name, tmp)
+            self.s3_put(self.s3_cache, name, tmp)
         finally:
             os.remove(tmp)
 
-    def _public_url(self, name):
+    def public_url(self, name):
         check_key(name)
         return "%s/%s" % (self.public_cache_url, name)
 
     def artifact_exists(self, name):
-        req = urllib.request.Request(self._public_url(name), method="HEAD")
         try:
-            with urllib.request.urlopen(req, timeout=30):
+            with urllib.request.urlopen(urllib.request.Request(self.public_url(name), method="HEAD"), timeout=30):
                 return True
         except urllib.error.URLError:
             return False
 
     def artifact_open(self, name):
-        raise Redirect(302, self._public_url(name))
+        raise Redirect(self.public_url(name))
 
 
-# HTTP
+class Body:
+    """A request body of known length, read lazily so an artifact streams to disk. `complete` says
+    whether the client sent everything it announced."""
+
+    def __init__(self, rfile, length):
+        self.rfile, self.remaining = rfile, length
+
+    def read(self, n=-1):
+        if self.remaining <= 0:
+            return b""
+        data = self.rfile.read(self.remaining if n < 0 else min(n, self.remaining))
+        self.remaining -= len(data)
+        return data
+
+    @property
+    def complete(self):
+        return self.remaining == 0
 
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "ci3-server/1"
     protocol_version = "HTTP/1.1"
-    timeout = SOCKET_TIMEOUT  # a stalled client cannot hold a thread forever
+    timeout = 300  # a stalled client cannot hold a thread forever
 
     def log_message(self, fmt, *args):
         if self.server.verbose:
             sys.stderr.write("%s %s\n" % (self.address_string(), fmt % args))
 
     def reply(self, code, body=b"", ctype="text/plain; charset=utf-8", headers=()):
-        if isinstance(body, str):
-            body = body.encode()
+        body = body.encode() if isinstance(body, str) else body
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
@@ -524,90 +438,55 @@ class Handler(BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
-    def body_stream(self):
-        """The request body as a file object: Content-Length bodies are read lazily, chunked ones
-        (curl -T -) are decoded fully first."""
-        if self.headers.get("Transfer-Encoding", "").lower() == "chunked":
-            out = io.BytesIO()
-            total = 0
-            while True:
-                line = self.rfile.readline()
-                if not line:
-                    raise IncompleteBody()
-                size = int(line.strip().split(b";")[0] or b"0", 16)
-                if size == 0:
-                    while self.rfile.readline().strip():
-                        pass
-                    break
-                total += size
-                if total > MAX_CHUNKED_BODY:
-                    raise IncompleteBody()
-                chunk = self.rfile.read(size)
-                if len(chunk) != size or self.rfile.readline() not in (b"\r\n", b"\n"):
-                    raise IncompleteBody()
-                out.write(chunk)
-            out.seek(0)
-            return out
-        length = int(self.headers.get("Content-Length") or 0)
-        return _Limited(self.rfile, length)
-
-    def body_bytes_from(self, stream):
-        data = stream.read()
-        if getattr(stream, "remaining", 0) > 0:
-            raise IncompleteBody()
-        return data
+    def body(self):
+        if self.headers.get("Transfer-Encoding"):
+            raise LengthRequired()
+        return Body(self.rfile, int(self.headers.get("Content-Length") or 0))
 
     def body_bytes(self):
-        data = self.body_bytes_from(self.body_stream())
-        if self.headers.get("Content-Encoding", "").lower() == "gzip":
-            data = gzip.decompress(data)
-        return data
-
-    def authorized(self):
-        token = self.server.token
-        return not token or self.headers.get("Authorization", "") == "Bearer " + token
+        body = self.body()
+        data = body.read()
+        if not body.complete:
+            raise IncompleteBody()
+        return gzip.decompress(data) if self.headers.get("Content-Encoding", "").lower() == "gzip" else data
 
     def ttl(self):
-        v = self.query.get("ttl", [None])[0]
+        v = self.query.get("ttl", [""])[0]
         return int(v) if v else None
 
-    def route(self):
+    def handle_request(self, fn):
         url = urlsplit(self.path)
         self.query = parse_qs(url.query)
         parts = [unquote(p) for p in url.path.strip("/").split("/") if p]
-        head = parts[0] if parts else ""
-        return parts, head, "/".join(parts[1:])
-
-    def dispatch(self, fn):
         try:
-            return fn()
+            fn(parts, parts[0] if parts else "", "/".join(parts[1:]))
         except BadKey:
-            return self.reply(400, "bad path\n")
+            self.reply(400, "bad path\n")
+        except LengthRequired:
+            self.close_connection = True
+            self.reply(411, "Content-Length required\n")
         except IncompleteBody:
             self.close_connection = True
-            return self.reply(400, "incomplete body\n")
+            self.reply(400, "incomplete body\n")
         except Redirect as r:
-            return self.reply(r.code, "", headers=[("Location", r.location)])
+            self.reply(302, headers=[("Location", r.location)])
         except Exception as e:  # a backend failure must not take the server down
             sys.stderr.write("ci3_server: %s %s failed: %r\n" % (self.command, self.path, e))
-            return self.reply(502, "backend error: %r\n" % (e,))
-
-    def text_or_404(self, data, missing):
-        if data is None:
-            return self.reply(404, missing)
-        return self.reply(200, data)
-
-    # --- reads ---
-
-    def do_HEAD(self):
-        self.do_GET()
+            self.reply(502, "backend error: %r\n" % (e,))
 
     def do_GET(self):
-        self.dispatch(self._get)
+        self.handle_request(self.get)
 
-    def _get(self):
+    do_HEAD = do_GET
+
+    def do_PUT(self):
+        self.handle_request(self.put)
+
+    def do_POST(self):
+        self.handle_request(self.post)
+
+    def get(self, parts, head, rest):
         b = self.server.backend
-        parts, head, rest = self.route()
         if not parts:
             return self.reply(200, "ci3-server\n%s\n" % b.describe())
         if head == "health":
@@ -615,26 +494,23 @@ class Handler(BaseHTTPRequestHandler):
         if head == "logs" and rest:
             if self.path.split("?")[0].endswith("/"):
                 return self.reply(200, "".join(n + "\n" for n in b.log_list(rest)))
-            return self.text_or_404(b.log_get(rest), "Log not found: %s\n" % rest)
+            return self.text(b.log_get(rest), "Log not found: %s\n" % rest)
         if head == "kv" and rest:
-            return self.text_or_404(b.kv_get(rest), "")
+            return self.text(b.kv_get(rest), "")
         if head in ("lists", "list") and rest:
-            return self.text_or_404(b.list_get(rest), "")
+            return self.text(b.list_get(rest), "")
         if head == "runs" and rest:
-            # A section may itself contain '/'; a run id is always a decimal timestamp, so a path
-            # ending in one is tried as a run before being treated as a section.
+            # A section may itself contain '/'; a run id is always a decimal timestamp.
             if len(parts) >= 3 and parts[-1].isdigit():
                 data = b.run_get("/".join(parts[1:-1]), parts[-1])
-                if data is not None:
-                    return self.reply(200, data, "application/json")
-                return self.reply(404, "{}", "application/json")
+                return self.reply(200, data, "application/json") if data else self.reply(404, "{}", "application/json")
             return self.reply(200, json.dumps(b.runs_list(rest)), "application/json")
         if head == "artifacts" and rest:
             if self.command == "HEAD":
-                return self.reply(200 if b.artifact_exists(rest) else 404, "")
+                return self.reply(200 if b.artifact_exists(rest) else 404)
             opened = b.artifact_open(rest)
-            if opened is None:
-                return self.reply(404, "")
+            if not opened:
+                return self.reply(404)
             size, f = opened
             with f:
                 self.send_response(200)
@@ -644,28 +520,28 @@ class Handler(BaseHTTPRequestHandler):
                 shutil.copyfileobj(f, self.wfile, CHUNK)
             return
         if head in STORES:
-            return self.reply(404, "")
+            return self.reply(404)
         # Browse URL: /<log id>, with an optional .txt suffix for compatibility with older links.
         key = "/".join(parts)
-        if key.endswith(".txt"):
-            key = key[:-4]
-        return self.text_or_404(b.log_get(key), "Log not found: %s\n" % key)
+        key = key[:-4] if key.endswith(".txt") else key
+        return self.text(b.log_get(key), "Log not found: %s\n" % key)
 
-    # --- writes ---
+    def text(self, data, missing):
+        return self.reply(200, data) if data is not None else self.reply(404, missing)
 
-    def do_PUT(self):
-        self.dispatch(self._put)
+    def authorized(self):
+        token = self.server.token
+        if token and self.headers.get("Authorization") != "Bearer " + token:
+            # The body is not read: an anonymous client must not make the server buffer it.
+            self.close_connection = True
+            self.reply(401, "missing or invalid bearer token\n")
+            return False
+        return True
 
-    def unauthorized(self):
-        # The body is not read: an anonymous client must not be able to make the server buffer it.
-        self.close_connection = True
-        return self.reply(401, "missing or invalid bearer token\n")
-
-    def _put(self):
+    def put(self, parts, head, rest):
         b = self.server.backend
-        parts, head, rest = self.route()
         if not self.authorized():
-            return self.unauthorized()
+            return
         if head == "logs" and rest:
             b.log_put(rest, self.body_bytes(), self.ttl(), self.query.get("final", ["0"])[0] == "1")
             return self.reply(204)
@@ -674,108 +550,78 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(204)
         if head == "runs" and len(parts) >= 3:
             body = self.body_bytes()
-            try:
-                json.loads(body)
-            except ValueError:
-                return self.reply(400, "runs take a JSON object\n")
+            json.loads(body)
             b.run_put("/".join(parts[1:-1]), parts[-1], body, self.ttl())
             return self.reply(204)
         if head == "artifacts" and rest:
-            stream = self.body_stream()
-            if self.headers.get("Content-Encoding", "").lower() == "gzip":
-                stream = io.BytesIO(gzip.decompress(self.body_bytes_from(stream)))
-            b.artifact_put(rest, stream, self.ttl())
+            body = self.body()
+            b.artifact_put(rest, body, self.ttl())
+            if not body.complete:
+                raise IncompleteBody()
             return self.reply(201)
-        self.body_stream().read()
-        return self.reply(405, "")
+        return self.reply(405)
 
-    def do_POST(self):
-        self.dispatch(self._post)
-
-    def _post(self):
+    def post(self, parts, head, rest):
         b = self.server.backend
-        parts, head, rest = self.route()
         if not self.authorized():
-            return self.unauthorized()
+            return
         if head == "kv" and rest == "mget":
             keys = self.body_bytes().decode().split("\n")
-            if keys and keys[-1] == "":
-                keys.pop()
-            values = b.kv_mget(keys)
-            return self.reply(200, "".join((v or b"").decode(errors="replace").rstrip("\n") + "\n" for v in values))
+            keys = keys[:-1] if keys and keys[-1] == "" else keys
+            values = []
+            for k in keys:
+                try:
+                    values.append(b.kv_get(k) or b"")
+                except BadKey:
+                    values.append(b"")
+            return self.reply(200, "".join(v.decode(errors="replace").rstrip("\n") + "\n" for v in values))
         if head == "lists" and rest:
             line = self.body_bytes().decode(errors="replace").rstrip("\n")
-            maximum = int(self.query.get("max", [LIST_DEFAULT_MAX])[0])
-            b.list_push(rest, line, maximum, self.ttl())
+            b.list_push(rest, line, int(self.query.get("max", [LIST_DEFAULT_MAX])[0]), self.ttl())
             return self.reply(204)
         if head == "events" and rest:
             b.event(rest, self.body_bytes().decode(errors="replace").strip())
             return self.reply(204)
-        self.body_stream().read()
-        return self.reply(405, "")
+        return self.reply(405)
 
 
-class _Limited(io.RawIOBase):
-    def __init__(self, raw, length):
-        self.raw, self.remaining = raw, length
-
-    def readable(self):
-        return True
-
-    def read(self, n=-1):
-        if self.remaining <= 0:
-            return b""
-        if n < 0 or n > self.remaining:
-            n = self.remaining
-        data = self.raw.read(n)
-        self.remaining -= len(data)
-        return data
-
-    def readinto(self, b):
-        data = self.read(len(b))
-        b[: len(data)] = data
-        return len(data)
+class LengthRequired(Exception):
+    pass
 
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
-    # Hundreds of parallel test processes publish at once in CI; the default backlog of 5 would
-    # drop connections.
-    request_queue_size = 256
+    request_queue_size = 256  # hundreds of parallel test processes publish at once in CI
 
-    def __init__(self, addr, backend, token, verbose, identity):
+    def __init__(self, addr, backend, identity, verbose):
         super().__init__(addr, Handler)
-        self.backend, self.token, self.verbose, self.identity = backend, token, verbose, identity
+        self.backend, self.identity, self.verbose = backend, identity, verbose
+        self.token = os.environ.get("CI3_SERVER_TOKEN", "")
 
 
 def identity_of(args):
-    """What two starters must agree on to share a server: backend, storage directory, and whether
-    writes take a token (the token's value is checked with a write probe, never exposed)."""
-    token = os.environ.get("CI3_SERVER_TOKEN", "")
-    return "backend=%s dir=%s redis=%s auth=%s" % (args.backend, os.path.abspath(args.dir), args.redis, "token" if token else "none")
+    """What two starters must agree on to share a server. The token's value is checked with a write
+    probe, never exposed."""
+    auth = "token" if os.environ.get("CI3_SERVER_TOKEN") else "none"
+    return "backend=%s dir=%s redis=%s auth=%s" % (args.backend, os.path.abspath(args.dir), args.redis, auth)
 
 
-# process management
-
-
-def health(port, host="127.0.0.1"):
-    """The server's identity line, or None when nothing answers as a ci3 server."""
+def health(port):
+    """The identity of the ci3 server on the port, or None."""
     try:
-        conn = http.client.HTTPConnection(host, port, timeout=2)
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
         conn.request("GET", "/health")
         resp = conn.getresponse()
-        if resp.status == 200 and resp.read() == b"ci3-server":
-            return resp.getheader("X-CI3-Server", "")
-        return None
+        return resp.getheader("X-CI3-Server", "") if resp.status == 200 and resp.read() == b"ci3-server" else None
     except OSError:
         return None
 
 
-def token_accepted(port, token, host="127.0.0.1"):
-    """A write probe: the running server takes our token. Nothing is stored (a 1 second ttl)."""
+def token_accepted(port, token):
+    """A write probe with a 1 second ttl: nothing is stored."""
     try:
-        conn = http.client.HTTPConnection(host, port, timeout=5)
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
         conn.request("PUT", "/kv/ci3-server-probe?ttl=1", body=b"1", headers={"Authorization": "Bearer " + token})
         return conn.getresponse().status < 300
     except OSError:
@@ -783,7 +629,6 @@ def token_accepted(port, token, host="127.0.0.1"):
 
 
 def reusable(args, identity):
-    """Whether the server already on the port is the one this start asks for."""
     if identity != identity_of(args):
         sys.stderr.write("port %d has a ci3 server with a different configuration (%s), wanted (%s); stop it first\n"
                          % (args.port, identity, identity_of(args)))
@@ -795,23 +640,10 @@ def reusable(args, identity):
     return True
 
 
-def port_open(port, host="127.0.0.1"):
-    with socket.socket() as s:
-        s.settimeout(0.5)
-        return s.connect_ex((host, port)) == 0
-
-
-def make_backend(args):
-    if args.backend == "compat":
-        return CompatBackend(args)
-    return FileBackend(args.dir)
-
-
 def cmd_run(args):
-    backend = make_backend(args)
-    server = Server((args.host, args.port), backend, os.environ.get("CI3_SERVER_TOKEN", ""), args.verbose, identity_of(args))
-    # Written by the process that actually holds the port, so `stop` never targets a starter that
-    # lost the race to bind.
+    backend = CompatBackend(args) if args.backend == "compat" else FileBackend(args.dir)
+    server = Server((args.host, args.port), backend, identity_of(args), args.verbose)
+    # Written by the process that holds the port, so `stop` never targets a starter that lost the race.
     os.makedirs(args.dir, exist_ok=True)
     with open(os.path.join(args.dir, "server.pid"), "w") as f:
         f.write(str(os.getpid()))
@@ -819,66 +651,51 @@ def cmd_run(args):
     def sweeper():
         while True:
             time.sleep(SWEEP_INTERVAL)
-            try:
-                backend.sweep()
-            except OSError:
-                pass
+            backend.sweep()
 
     threading.Thread(target=sweeper, daemon=True).start()
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-    sys.stderr.write("ci3_server listening on http://%s:%d (%s)\n" % (args.host, args.port, backend.describe()))
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
+    sys.stderr.write("ci3_server listening on http://%s:%d\n%s\n" % (args.host, args.port, backend.describe()))
+    server.serve_forever()
 
 
 def cmd_start(args):
     url = "http://localhost:%d" % args.port
-    identity = health(args.port)
-    if identity is not None:
+
+    def answer_if_up():
+        identity = health(args.port)
+        if identity is None:
+            return None
         if not reusable(args, identity):
             return 1
         print(url)
         return 0
-    if port_open(args.port):
-        # Something listens but did not answer as a ci3 server: most likely another starter's
-        # server still binding. Give it a moment before calling the port foreign.
+
+    result = answer_if_up()
+    if result is not None:
+        return result
+    # Parallel bootstraps sourcing ci3/source all start the server at once; only one binds. The
+    # others see the port taken (or their own child exit) while the winner is still coming up, so
+    # keep asking for a while before calling the port foreign or the start failed.
+    if port_taken(args.port):
         for _ in range(30):
             time.sleep(0.1)
-            identity = health(args.port)
-            if identity is not None:
-                if not reusable(args, identity):
-                    return 1
-                print(url)
-                return 0
+            result = answer_if_up()
+            if result is not None:
+                return result
         sys.stderr.write("port %d is taken by something that is not a ci3 server\n" % args.port)
         return 1
     os.makedirs(args.dir, exist_ok=True)
     logfile = os.path.join(args.dir, "server.log")
-    log = open(logfile, "ab")
-    cmd = [sys.executable, os.path.abspath(__file__), "run", "--backend", args.backend, "--host", args.host,
-           "--port", str(args.port), "--dir", args.dir, "--s3-logs", args.s3_logs, "--s3-cache", args.s3_cache, "--aws", args.aws]
-    if args.redis:
-        cmd += ["--redis", args.redis]
-    if args.public_cache_url:
-        cmd += ["--public-cache-url", args.public_cache_url]
-    if args.verbose:
-        cmd.append("--verbose")
-    proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, close_fds=True)
-    # Concurrent callers (parallel bootstraps sourcing ci3/source at once) race to start the
-    # server. The losers fail to bind and exit while the winner is still coming up, so a child
-    # exit is not a failure until the port has stayed silent for a while.
-    deadline = time.time() + 10
-    exited_at = None
+    cmd = [sys.executable, os.path.abspath(__file__), "run"] + run_flags(args)
+    with open(logfile, "ab") as log:
+        child = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+    deadline, exited_at = time.time() + 10, None
     while time.time() < deadline:
-        identity = health(args.port)
-        if identity is not None:
-            if not reusable(args, identity):
-                return 1
-            print(url)
-            return 0
-        if proc.poll() is not None:
+        result = answer_if_up()
+        if result is not None:
+            return result
+        if child.poll() is not None:
             exited_at = exited_at or time.time()
             if time.time() - exited_at > 3:
                 break
@@ -887,27 +704,40 @@ def cmd_start(args):
     return 1
 
 
+def run_flags(args):
+    flags = ["--backend", args.backend, "--host", args.host, "--port", str(args.port), "--dir", args.dir,
+             "--s3-logs", args.s3_logs, "--s3-cache", args.s3_cache, "--aws", args.aws]
+    for name in ("redis", "public_cache_url"):
+        if getattr(args, name):
+            flags += ["--" + name.replace("_", "-"), getattr(args, name)]
+    return flags + (["--verbose"] if args.verbose else [])
+
+
+def port_taken(port):
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
 def cmd_stop(args):
     pidfile = os.path.join(args.dir, "server.pid")
     try:
         with open(pidfile) as f:
-            pid = int(f.read().strip())
+            pid = int(f.read())
         os.kill(pid, signal.SIGTERM)
         os.remove(pidfile)
         print("stopped ci3_server (pid %d)" % pid)
     except (FileNotFoundError, ValueError, ProcessLookupError):
         print("no ci3_server running from %s" % args.dir)
-    return 0
 
 
 def cmd_status(args):
-    if health(args.port) is not None:
-        conn = http.client.HTTPConnection("127.0.0.1", args.port, timeout=2)
-        conn.request("GET", "/")
-        print("ci3_server up at http://localhost:%d\n%s" % (args.port, conn.getresponse().read().decode().strip()))
-        return 0
-    print("no ci3_server on port %d" % args.port)
-    return 1
+    if health(args.port) is None:
+        print("no ci3_server on port %d" % args.port)
+        return 1
+    conn = http.client.HTTPConnection("127.0.0.1", args.port, timeout=2)
+    conn.request("GET", "/")
+    print("ci3_server up at http://localhost:%d\n%s" % (args.port, conn.getresponse().read().decode().strip()))
 
 
 def main():

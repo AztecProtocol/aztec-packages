@@ -59,7 +59,7 @@ function term_link {
 }
 
 function ci_term_link {
-  term_link "$(ci3_client_url $1)" "$1"
+  term_link "$(ci3_client url $1)" "$1"
 }
 
 function pr_link {

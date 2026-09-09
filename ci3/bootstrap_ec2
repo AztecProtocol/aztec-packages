@@ -35,11 +35,11 @@ fi
 
 # Pre-generate a log ID and print the dashboard link.
 export CI_LOG_ID=$(date +%s%3N)$((100 + RANDOM % 900))
-echo "CI booting..." | ci3_client_log_put "$CI_LOG_ID" 300
-log_url=$(ci3_client_url "$CI_LOG_ID")
+echo "CI booting..." | ci3_client log_put "$CI_LOG_ID" 300
+log_url=$(ci3_client url "$CI_LOG_ID")
 echo -e "CI Log: ${yellow}$log_url${reset}"
 if [ -n "${CI_DASHBOARD:-}" ]; then
-  echo "CI dashboard: $(ci3_client_url "section/$CI_DASHBOARD")"
+  echo "CI dashboard: $(ci3_client url "section/$CI_DASHBOARD")"
 fi
 
 # Post pending GitHub commit status so the CI log link is visible on the PR.
@@ -213,7 +213,7 @@ container_script=$(
   fi
 
   # Heartbeat.
-  while true; do ci3_client_kv_set hb-\$ci_log_id 1 60; sleep 30; done &
+  while true; do ci3_client kv_set hb-\$ci_log_id 1 60; sleep 30; done &
 
   function run {
     echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION TARGET_BRANCH=\$TARGET_BRANCH"

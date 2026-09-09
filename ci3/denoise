@@ -54,7 +54,7 @@ export FORCE_COLOR=${FORCE_COLOR:-1}
 [ -t 1 ] && realtime=1 || realtime=0
 
 key=$(uuid)
-url=$(ci3_client_url $key)
+url=$(ci3_client url $key)
 # DENOISE_TMPDIR gives a run a private output directory, so tests can scope their
 # leaked-process checks to their own denoise instead of every one on the machine.
 outfile=${DENOISE_TMPDIR:-/tmp}/$key
@@ -75,12 +75,12 @@ function format_log_output {
 
 function publish_log {
   [ -z "$CI3_SERVER" ] && return
-  format_log_output | ci3_client_log_put $key
+  format_log_output | ci3_client log_put $key
 }
 
 function publish_log_final {
   [ -z "$CI3_SERVER" ] && return
-  format_log_output | ci3_client_log_put $key $ci3_log_expire final
+  format_log_output | ci3_client log_put $key $ci3_log_expire final
 }
 
 function live_publish_log {
