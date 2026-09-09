@@ -7,6 +7,11 @@ members = [
     "crates/ts-types",
     "crates/types",
     "crates/protocol-test-utils",
+    # Integration tests (see integration-tests/README.md). Members so nargo can build them; their
+    # artifacts are moved out of target/ by build_integration_tests.
+    "integration-tests/verify-uh-proof-within-smart-contract/crates/inner-circuit",
+    "integration-tests/verify-uh-proof-within-smart-contract/crates/app-uh-verifier",
+    "integration-tests/verify-uh-proof-within-smart-contract/crates/flow-inputs-builder",
     "crates/blob",
     "crates/inbox-parity-64",
     "crates/inbox-parity-256",
