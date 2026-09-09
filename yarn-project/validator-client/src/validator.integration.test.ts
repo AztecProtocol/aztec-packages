@@ -57,7 +57,7 @@ import { ValidatorClient } from './validator.js';
  */
 function makeArchiverBackedInbox(messageSource: Pick<L1ToL2MessageSource, 'getMessagePosition'>): InboxEndpointReader {
   return {
-    client: { getBlockNumber: () => Promise.resolve(1n) },
+    client: { getBlock: ({ blockNumber }) => Promise.resolve({ number: blockNumber ?? 1n, hash: '0xhead' }) },
     getBucketAtOrBeforeTotal: async upperBound => {
       const position = await messageSource.getMessagePosition(upperBound);
       return (

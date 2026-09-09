@@ -130,21 +130,35 @@ the signed rolling hash; it says nothing about whether that bucket has settled. 
 the still-open current bucket therefore passes here and is still rejected by `propose` with
 `Rollup__InboxBucketStillMutable`. Settlement remains an L1-only check that this one does not replace.
 
-Load: one head read plus one `eth_call` per checkpoint proposal validated, that is per slot, and a second pair on
-validators when the attestation path reuses a cached valid verdict. The head is read to pin the call to an explicit
-L1 block, so the verdict names the view it was made in; viem caches it briefly, and the contract wrapper's own
-block-tag guard reads it again. Failures are re-read for up to two seconds, bounded by the slot's duty budget.
+The resolution is bound to the identity of the block it was read at, not to a height: the head is read for its
+number and hash, the `eth_call` is pinned to that number, and the block is read again afterwards. A provider serving
+a stale fork, or one the chain reorged under, answers a call at a height as readily as the canonical chain does, so
+an answer whose block is no longer the one at that height names no view and cannot verify anything. What this does
+not detect is a provider that lags uniformly: its own view is self-consistent, and only the endpoint the node's
+provider can see is ever checked. Load is therefore two block reads plus one `eth_call` per checkpoint proposal
+validated, that is per slot, and a second set on validators when the attestation path reuses a cached valid verdict.
 
-The check never fails open. An unreadable L1 view (RPC outage, timeout, a provider trailing the head, a block the
-provider will not serve) is reported as `inbox_endpoint_unverifiable`, and a view that answers without showing the
-signed position ending a live bucket (interior position, evicted endpoint, different rolling hash) as
-`inbox_endpoint_not_live`. Both are refusals to validate now, not accusations: the bucket ring, the local provider
-and L1 itself all move independently of the moment the proposal was signed. Neither reaches slashing, the
+A failure is re-read for up to two seconds. That window is a ceiling on the whole step, enforced as a race and
+capped by whatever is left of the slot's duty budget: a provider that accepts the call and never answers is
+abandoned at it, cannot start another read afterwards, and leaves the following stages their remaining budget.
+
+The check never fails open. An unreadable or unidentifiable L1 view (RPC outage, timeout, a block the provider will
+not serve, a block replaced under the call) is reported as `inbox_endpoint_unverifiable`, and a view that answers
+without showing the signed position ending a live bucket (interior position, evicted endpoint, different rolling
+hash) as `inbox_endpoint_not_live`. Both are refusals to validate now, not accusations: the bucket ring, the local
+provider and L1 itself all move independently of the moment the proposal was signed. Neither reaches slashing, the
 invalid-proposal slot marker or a peer penalty, and neither is remembered as the proposal's verdict, so a view that
-recovers within the slot still permits a valid verdict. The proposer's own checkpoints are covered by the endpoint
-its sequencer resolved against the same live ring when it built the checkpoint's final block, plus the publication
-preflight it runs before submitting. Historical checkpoints ingested by the archiver and checkpoints replayed for
-proving are outside this gate: they may reference endpoints the ring has long evicted.
+recovers within the slot still permits a valid verdict.
+
+A refusal is not free, though: like every other outcome this node cannot complete, it records `unvalidated` for the
+slot, which the sentinel reports as a missed proposal for that slot's proposer when no checkpoint for it lands on
+L1. What it will not do is overwrite a `valid` this node already recorded for the same checkpoint, so a later RPC
+failure here cannot retract a validation that succeeded.
+
+The proposer's own checkpoints are covered by the endpoint its sequencer resolved against the same live ring when
+it built the checkpoint's final block, plus the publication preflight it runs before submitting. Historical
+checkpoints ingested by the archiver and checkpoints replayed for proving are outside this gate: they may reference
+endpoints the ring has long evicted.
 
 ### Attestation Creation
 

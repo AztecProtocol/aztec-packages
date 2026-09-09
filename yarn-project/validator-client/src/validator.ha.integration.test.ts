@@ -116,7 +116,7 @@ describe('ValidatorClient HA Integration', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     // No messages were ever sent to L1 here, so the Inbox's genesis bucket is the only live endpoint.
     inbox = {
-      client: { getBlockNumber: () => Promise.resolve(1n) },
+      client: { getBlock: ({ blockNumber }) => Promise.resolve({ number: blockNumber ?? 1n, hash: '0xhead' }) },
       getBucketAtOrBeforeTotal: () =>
         Promise.resolve({ seq: 0n, bucket: { rollingHash: Fr.ZERO, totalMsgCount: 0n, timestamp: 0n, msgCount: 0 } }),
     };
