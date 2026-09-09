@@ -2,6 +2,7 @@ import { NUM_CHECKPOINT_END_MARKER_FIELDS, getNumBlockEndBlobFields } from '@azt
 import {
   BLOBS_PER_CHECKPOINT,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+  DA_BYTES_PER_FIELD,
   DA_GAS_PER_FIELD,
   FIELDS_PER_BLOB,
   MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
@@ -37,7 +38,7 @@ import {
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
@@ -751,6 +752,131 @@ describe('CheckpointBuilder', () => {
       // remainingTxs = 90, remainingBlocks = 3, multiplier = 1
       // fairShareTxs = ceil(90 / 3 * 1) = 30
       expect(capped.maxTransactions).toBe(30);
+    });
+  });
+
+  describe('transaction-less tail block blob reservation', () => {
+    const totalBlobCapacity = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
+    const blockEndOverhead = getNumBlockEndBlobFields();
+    /** Blob fields left for txs in the current block once its own end fields and a tail's are held back. */
+    const txRoomBeyondTail = 10;
+    const nearCapacityUsed = totalBlobCapacity - 2 * blockEndOverhead - txRoomBeyondTail;
+
+    /** Measured size of a real transaction-less block, rather than the helper's constant. */
+    let tailBlockFields: number;
+
+    beforeAll(async () => {
+      const tailBlock = await L2Block.random(BlockNumber(1), { txsPerBlock: 0 });
+      tailBlockFields = tailBlock.toBlobFields().length;
+    });
+
+    /** Fills the checkpoint with a single prior block of the given blob size. */
+    function withPriorBlockOfSize(blockBlobFieldCount: number) {
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([
+        createMockBlock({ manaUsed: 0, txBlobFields: [], blockBlobFieldCount }),
+      ]);
+    }
+
+    /** Proposer opts where the fair share across remaining blocks is not the binding cap. */
+    function unsharedProposerOpts(maxBlocksPerCheckpoint: number, existingBlocks: number) {
+      const remainingBlocks = Math.max(1, maxBlocksPerCheckpoint - existingBlocks);
+      return proposerOpts({
+        maxBlocksPerCheckpoint,
+        perBlockAllocationMultiplier: remainingBlocks,
+        perBlockDAAllocationMultiplier: remainingBlocks,
+      });
+    }
+
+    it('serializes a transaction-less block into exactly the shared block-end field count', () => {
+      expect(tailBlockFields).toBe(blockEndOverhead);
+      expect(tailBlockFields).toBe(7);
+      expect(tailBlockFields * DA_BYTES_PER_FIELD).toBe(224);
+    });
+
+    it('leaves room for a tail block while another block can still follow', () => {
+      setupBuilder();
+      withPriorBlockOfSize(nearCapacityUsed);
+
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(unsharedProposerOpts(3, 1));
+
+      expect(capped.maxBlobFields).toBe(txRoomBeyondTail);
+      // A block that packs the full allowance still ends the checkpoint with exactly a tail block's fields free.
+      const usedAfterThisBlock = nearCapacityUsed + capped.maxBlobFields! + blockEndOverhead;
+      expect(totalBlobCapacity - usedAfterThisBlock).toBe(tailBlockFields);
+    });
+
+    it('packs no txs when only the tail block fits', () => {
+      setupBuilder();
+      withPriorBlockOfSize(totalBlobCapacity - 2 * blockEndOverhead);
+
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(unsharedProposerOpts(3, 1));
+
+      expect(capped.maxBlobFields).toBe(0);
+    });
+
+    it('packs no txs when the checkpoint is one field short of the tail block', () => {
+      setupBuilder();
+      withPriorBlockOfSize(totalBlobCapacity - 2 * blockEndOverhead + 1);
+
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(unsharedProposerOpts(3, 1));
+
+      expect(capped.maxBlobFields).toBe(0);
+    });
+
+    it('releases the reservation on the last block the checkpoint can hold', () => {
+      setupBuilder();
+      withPriorBlockOfSize(nearCapacityUsed);
+
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(unsharedProposerOpts(2, 1));
+
+      expect(capped.maxBlobFields).toBe(txRoomBeyondTail + blockEndOverhead);
+    });
+
+    it('reserves the tail block alone, not a second checkpoint end marker', () => {
+      setupBuilder();
+      withPriorBlockOfSize(nearCapacityUsed);
+
+      const reserved = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(unsharedProposerOpts(3, 1));
+      const released = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(unsharedProposerOpts(2, 1));
+
+      expect(released.maxBlobFields! - reserved.maxBlobFields!).toBe(tailBlockFields);
+    });
+
+    it('fits the tail block within the checkpoint after packing an ordinary block to its allowance', async () => {
+      setupBuilder();
+      withPriorBlockOfSize(nearCapacityUsed);
+
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(unsharedProposerOpts(3, 1));
+      const ordinaryBlock = createMockBlock({
+        manaUsed: 0,
+        txBlobFields: [capped.maxBlobFields!],
+        blockBlobFieldCount: capped.maxBlobFields! + blockEndOverhead,
+      });
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([
+        createMockBlock({ manaUsed: 0, txBlobFields: [], blockBlobFieldCount: nearCapacityUsed }),
+        ordinaryBlock,
+      ]);
+
+      // The tail consumes the reservation: its own end fields are the only ones it adds, and the checkpoint end
+      // marker is charged once for the whole checkpoint.
+      const tailBlock = await L2Block.random(BlockNumber(2), { txsPerBlock: 0 });
+      const usedWithTail = nearCapacityUsed + ordinaryBlock.toBlobFields().length + tailBlock.toBlobFields().length;
+      expect(usedWithTail + NUM_CHECKPOINT_END_MARKER_FIELDS).toBeLessThanOrEqual(
+        BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB,
+      );
+
+      // Building the tail itself reports no room for txs rather than charging its overhead twice.
+      const tailLimits = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(unsharedProposerOpts(3, 2));
+      expect(tailLimits.maxBlobFields).toBe(0);
+    });
+
+    it('does not reserve a tail block when re-executing a peer proposal', () => {
+      setupBuilder();
+      withPriorBlockOfSize(nearCapacityUsed);
+
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(validatorOpts());
+
+      expect(capped.maxBlobFields).toBe(txRoomBeyondTail + blockEndOverhead);
     });
   });
 
