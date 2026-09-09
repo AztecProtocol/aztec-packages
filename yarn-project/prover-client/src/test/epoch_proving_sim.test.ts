@@ -46,6 +46,9 @@ type Worker = {
   end: number;
 };
 
+// A finished job together with the window the simulated worker held it for.
+type Completion = Job & { start: number; end: number };
+
 // New type definitions for flexible test configuration
 // Each public tx group: [count, avmDuration in ms]
 type PublicTxGroup = [count: number, avmDurationMs: number];
@@ -62,7 +65,8 @@ type TestConfig = {
 
 // State tracking for dependency resolution
 type SimState = {
-  // Parity tracking: one InboxParity proof per checkpoint, gating the first block root.
+  // Parity tracking: one InboxParity proof per checkpoint. It is proven from the start of the checkpoint and feeds
+  // the checkpoint root rollup, so it runs alongside block production rather than gating any block root.
   inboxParityComplete: Map<number, boolean>;
 
   // Public tx dependency tracking (aggregate per block)
@@ -78,10 +82,16 @@ type SimState = {
   txTreeLeafCount: Map<string, number>; // total leaves (txs) per block
   txTreeNextLeafIndex: Map<string, number>; // next leaf index to assign per block
 
+  // Per-block guard so a block root is queued exactly once, whichever dependency completes last
+  blockRootEnqueued: Map<string, boolean>;
+
   // Block merge tree tracking per checkpoint
   // Key format: "checkpoint-level"
   blockTreeNodes: Map<string, Map<number, boolean>>;
   blockRootComplete: Map<number, boolean>;
+
+  // Per-checkpoint guard so the checkpoint root is queued exactly once, whichever of its two dependencies lands last
+  checkpointRootEnqueued: Map<number, boolean>;
 
   // Checkpoint merge tree tracking
   checkpointTreeNodes: Map<number, Map<number, boolean>>; // level -> index -> completed
@@ -93,7 +103,6 @@ type SimState = {
   // Block configuration for determining proof types
   blockConfigs: Map<string, Block>;
   blocksPerCheckpoint: Map<number, number>;
-  isFirstBlock: Map<string, boolean>;
   totalCheckpoints: number;
 };
 
@@ -241,14 +250,15 @@ function initializeState(checkpoints: Checkpoint[]): SimState {
     txTreeComplete: new Map(),
     txTreeLeafCount: new Map(),
     txTreeNextLeafIndex: new Map(),
+    blockRootEnqueued: new Map(),
     blockTreeNodes: new Map(),
     blockRootComplete: new Map(),
+    checkpointRootEnqueued: new Map(),
     checkpointTreeNodes: new Map(),
     checkpointRootComplete: new Map(),
     rootRollupComplete: false,
     blockConfigs: new Map(),
     blocksPerCheckpoint: new Map(),
-    isFirstBlock: new Map(),
     totalCheckpoints: checkpoints.length,
   };
 
@@ -258,6 +268,7 @@ function initializeState(checkpoints: Checkpoint[]): SimState {
     state.blocksPerCheckpoint.set(cp, blocks.length);
     state.inboxParityComplete.set(cp, false);
     state.blockRootComplete.set(cp, false);
+    state.checkpointRootEnqueued.set(cp, false);
     state.checkpointRootComplete.set(cp, false);
 
     for (let b = 1; b <= blocks.length; b++) {
@@ -265,13 +276,8 @@ function initializeState(checkpoints: Checkpoint[]): SimState {
       const block = blocks[b - 1];
       const { totalTxs } = getBlockTxCount(block);
 
-      // Empty blocks are only allowed as the first block in a checkpoint (matches orchestrator constraint)
-      if (totalTxs === 0 && b !== 1) {
-        throw new Error(`Cannot create a block with 0 txs, unless it's the first block. Checkpoint ${cp}, Block ${b}`);
-      }
-
       state.blockConfigs.set(key, block);
-      state.isFirstBlock.set(key, b === 1);
+      state.blockRootEnqueued.set(key, false);
       state.vmComplete.set(key, 0);
       state.chonkComplete.set(key, 0);
       state.publicBaseEnqueued.set(key, 0);
@@ -284,7 +290,7 @@ function initializeState(checkpoints: Checkpoint[]): SimState {
   return state;
 }
 
-function fillQueue(queues: Queues, checkpoints: Checkpoint[]): void {
+function fillQueue(queues: Queues, checkpoints: Checkpoint[], state: SimState): void {
   for (let cp = 1; cp <= checkpoints.length; cp++) {
     const blocks = checkpoints[cp - 1];
 
@@ -295,6 +301,12 @@ function fillQueue(queues: Queues, checkpoints: Checkpoint[]): void {
       const block = blocks[b - 1];
       const privateTxs = block[0];
       const publicGroups = block.slice(1) as PublicTxGroup[];
+
+      // A block with no txs has no base or merge proof whose completion would queue its block root, so it is queued
+      // as soon as the block starts. This holds wherever the block sits in the checkpoint.
+      if (getBlockTxCount(block).totalTxs === 0) {
+        tryEnqueueBlockRoot(cp, b, state, queues);
+      }
 
       // Add private tx base rollups
       if (privateTxs > 0) {
@@ -323,7 +335,7 @@ function enqueueDependentJobs(job: Job, state: SimState, queues: Queues, checkpo
   switch (type) {
     case ProvingRequestType.INBOX_PARITY: {
       state.inboxParityComplete.set(checkpoint, true);
-      tryEnqueueBlockRoot(checkpoint, 1, state, queues);
+      tryEnqueueCheckpointRoot(checkpoint, state, queues);
       break;
     }
 
@@ -488,19 +500,18 @@ function handleTxMergeComplete(
 
 function tryEnqueueBlockRoot(checkpoint: number, blk: number, state: SimState, queue: Queues): void {
   const key = blockKey(checkpoint, blk);
-  const blockConfig = state.blockConfigs.get(key)!;
-  const { totalTxs } = getBlockTxCount(blockConfig);
-  const isFirst = state.isFirstBlock.get(key)!;
 
-  // Need tx tree complete
+  if (state.blockRootEnqueued.get(key)) {
+    return;
+  }
+
+  // A block root depends only on its own tx tree. The checkpoint's parity proof is not a dependency.
   if (!state.txTreeComplete.get(key)) {
     return;
   }
 
-  // First block also needs the checkpoint's InboxParity proof
-  if (isFirst && !state.inboxParityComplete.get(checkpoint)) {
-    return;
-  }
+  const { totalTxs } = getBlockTxCount(state.blockConfigs.get(key)!);
+  state.blockRootEnqueued.set(key, true);
 
   const blockRootType = getBlockRootType(totalTxs);
   queue[blockRootType].push(createJob(checkpoint, blk, blockRootType));
@@ -569,10 +580,18 @@ function handleBlockMergeComplete(
   tryEnqueueBlockMerge(checkpoint, level, index, state, queues);
 }
 
+// The checkpoint root joins the two independent branches of a checkpoint: its reduced block tree and its single
+// InboxParity proof. Called whenever either lands, so whichever is last drives the enqueue.
 function tryEnqueueCheckpointRoot(checkpoint: number, state: SimState, queues: Queues): void {
-  if (!state.blockRootComplete.get(checkpoint)) {
+  if (state.checkpointRootEnqueued.get(checkpoint)) {
     return;
   }
+
+  if (!state.blockRootComplete.get(checkpoint) || !state.inboxParityComplete.get(checkpoint)) {
+    return;
+  }
+
+  state.checkpointRootEnqueued.set(checkpoint, true);
 
   const numBlocks = state.blocksPerCheckpoint.get(checkpoint)!;
   const checkpointRootType = getCheckpointRootType(numBlocks);
@@ -685,6 +704,7 @@ type SimulationResult = {
     workerUtilization: number;
     jobBreakdown: Record<string, number>;
     workerActivity: WorkerActivityPoint[];
+    completions: Completion[];
   };
 };
 
@@ -693,9 +713,9 @@ function runSimulationWithConfig(config: TestConfig): SimulationResult {
   const state = initializeState(checkpoints);
   const queues: Queues = times(Object.values(ProvingRequestType).length, () => []) as any;
   const workerPool: Worker[] = [];
-  const completed: Job[] = [];
+  const completed: Completion[] = [];
 
-  fillQueue(queues, checkpoints);
+  fillQueue(queues, checkpoints, state);
 
   let time = 0;
   let totalWorkerTime = 0;
@@ -731,7 +751,7 @@ function runSimulationWithConfig(config: TestConfig): SimulationResult {
 
     // Process completions and enqueue dependent jobs
     for (const worker of justCompleted) {
-      completed.push(worker.job);
+      completed.push({ ...worker.job, start: worker.start, end: worker.end });
       enqueueDependentJobs(worker.job, state, queues, checkpoints.length);
     }
 
@@ -780,6 +800,7 @@ function runSimulationWithConfig(config: TestConfig): SimulationResult {
       workerUtilization,
       jobBreakdown,
       workerActivity,
+      completions: completed,
     },
   };
 }
@@ -878,5 +899,116 @@ describe('epoch proving simulation', () => {
 
     expect(result.results.jobBreakdown['ROOT_ROLLUP']).toBe(1);
     expect(result.results.totalTimeMs).toBeLessThan(30 * 72 * 1000); // targeting root rollup in less than 30 slots
+  });
+});
+
+const BLOCK_ROOT_TYPES = [
+  ProvingRequestType.BLOCK_ROOT_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP,
+];
+
+const CHECKPOINT_ROOT_TYPES = [
+  ProvingRequestType.CHECKPOINT_ROOT_ROLLUP,
+  ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP,
+];
+
+function simulate(name: string, checkpoints: Checkpoint[], workers: number): SimulationResult {
+  return runSimulationWithConfig({ name, workers, checkpoints });
+}
+
+function completionsOf(result: SimulationResult, types: ProvingRequestType[]): Completion[] {
+  return result.results.completions.filter(c => types.includes(c.type));
+}
+
+function soleCompletion(result: SimulationResult, types: ProvingRequestType[]): Completion {
+  const found = completionsOf(result, types);
+  expect(found).toHaveLength(1);
+  return found[0];
+}
+
+// The moment a checkpoint's block tree is fully reduced: the last block root or block merge to finish for it.
+function blockTreeReadyAt(result: SimulationResult, checkpoint: number): number {
+  const ends = completionsOf(result, [...BLOCK_ROOT_TYPES, ProvingRequestType.BLOCK_MERGE_ROLLUP])
+    .filter(c => c.checkpoint === checkpoint)
+    .map(c => c.end);
+  return Math.max(...ends);
+}
+
+describe('checkpoint dependency model', () => {
+  it('proves an empty block root without waiting for inbox parity', () => {
+    const result = simulate('no transactions', [[[0]]], 16);
+
+    const blockRoot = soleCompletion(result, BLOCK_ROOT_TYPES);
+    const parity = soleCompletion(result, [ProvingRequestType.INBOX_PARITY]);
+
+    expect(blockRoot.type).toBe(ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP);
+    expect(blockRoot.start).toBe(0);
+    expect(parity.start).toBe(0);
+    expect(blockRoot.end).toBeLessThan(parity.end);
+  });
+
+  it('holds the checkpoint root until parity lands when parity finishes last', () => {
+    const result = simulate('parity last', [[[0], [0]]], 1);
+
+    const parity = soleCompletion(result, [ProvingRequestType.INBOX_PARITY]);
+    const checkpointRoot = soleCompletion(result, CHECKPOINT_ROOT_TYPES);
+
+    expect(checkpointRoot.type).toBe(ProvingRequestType.CHECKPOINT_ROOT_ROLLUP);
+    expect(blockTreeReadyAt(result, 1)).toBeLessThan(parity.end);
+    expect(checkpointRoot.start).toBe(parity.end);
+  });
+
+  it('holds the checkpoint root until the block tree lands when parity finishes first', () => {
+    const result = simulate('parity first', [[[2]]], 16);
+
+    const parity = soleCompletion(result, [ProvingRequestType.INBOX_PARITY]);
+    const checkpointRoot = soleCompletion(result, CHECKPOINT_ROOT_TYPES);
+    const blockTreeReady = blockTreeReadyAt(result, 1);
+
+    expect(parity.end).toBeLessThan(blockTreeReady);
+    expect(checkpointRoot.start).toBe(blockTreeReady);
+  });
+
+  it('routes a single-transaction block through the single-tx block root', () => {
+    const result = simulate('one transaction', [[[1]]], 16);
+
+    const blockRoot = soleCompletion(result, BLOCK_ROOT_TYPES);
+    const base = soleCompletion(result, [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]);
+
+    expect(blockRoot.type).toBe(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP);
+    expect(completionsOf(result, [ProvingRequestType.TX_MERGE_ROLLUP])).toEqual([]);
+    expect(blockRoot.start).toBeGreaterThanOrEqual(base.end);
+  });
+
+  it('reduces a multi-transaction block before its block root', () => {
+    const result = simulate('multiple transactions', [[[4]]], 16);
+
+    const blockRoot = soleCompletion(result, BLOCK_ROOT_TYPES);
+    const bases = completionsOf(result, [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]);
+
+    expect(blockRoot.type).toBe(ProvingRequestType.BLOCK_ROOT_ROLLUP);
+    expect(bases).toHaveLength(4);
+    expect(blockRoot.start).toBeGreaterThanOrEqual(Math.max(...bases.map(b => b.end)));
+  });
+
+  it('proves zero-transaction blocks at any position in a checkpoint', () => {
+    const result = simulate('mixed empty blocks', [[[0], [2], [0], [1]]], 16);
+
+    const blockRoots = completionsOf(result, BLOCK_ROOT_TYPES).sort((a, b) => a.block - b.block);
+    const parity = soleCompletion(result, [ProvingRequestType.INBOX_PARITY]);
+    const checkpointRoot = soleCompletion(result, CHECKPOINT_ROOT_TYPES);
+
+    expect(blockRoots.map(r => [r.block, r.type])).toEqual([
+      [1, ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP],
+      [2, ProvingRequestType.BLOCK_ROOT_ROLLUP],
+      [3, ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP],
+      [4, ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP],
+    ]);
+    // Neither empty block waits on parity or on the blocks around it.
+    expect(blockRoots.filter(r => r.type === ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP).map(r => r.start)).toEqual([
+      0, 0,
+    ]);
+    expect(checkpointRoot.start).toBe(Math.max(parity.end, blockTreeReadyAt(result, 1)));
   });
 });
