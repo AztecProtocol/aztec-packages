@@ -1,5 +1,8 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { InboxMessagePrefixRef, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+
+const log = createLogger('validator-client:streaming_inbox_checks');
 
 /**
  * Reason a streaming-Inbox block proposal fails the per-block acceptance checks. Follows the handler's existing
@@ -179,6 +182,10 @@ export async function checkStreamingBlockProposalMetadata(
  * same local-view condition as a missing prefix hash and the caller retries both the same way. A replacement that
  * lands *after* this read is not this function's race: the bundle and the proposal still agree, so re-execution is
  * consistent, and the archiver's insert guard is what refuses to store the block.
+ *
+ * Every failure of the range read is non-punitive, but not every failure is ordinary sync lag: a store fault or a
+ * broken provider surfaces here as the same verdict. {@link logRangeReadFailure} separates the two in the logs so an
+ * operator can tell them apart without changing what the validator does with the proposal.
  */
 export async function readStreamingBlockBundle(
   messageSource: Pick<StreamingInboxMessageSource, 'getL1ToL2MessageRange'>,
@@ -193,7 +200,8 @@ export async function readStreamingBlockBundle(
       messages,
       end: { rollingHash: endRollingHash },
     } = await messageSource.getL1ToL2MessageRange(parentTotalMsgCount, endTotalMsgCount));
-  } catch {
+  } catch (err) {
+    logRangeReadFailure(parentTotalMsgCount, endTotalMsgCount, err);
     return { accepted: false, reason: 'inbox_prefix_unavailable' };
   }
 
@@ -202,6 +210,53 @@ export async function readStreamingBlockBundle(
   }
 
   return { accepted: true, bundle: messages };
+}
+
+/**
+ * Message fragments that identify an ordinary local-view shortfall from the archiver's range read: the range reaches
+ * past what this node has synced, or its bounds are not a valid range at all. Matched on the message text rather than
+ * on the error's class, since a JSON-RPC hop between the validator and its message source leaves the class behind
+ * while preserving the message.
+ */
+const EXPECTED_RANGE_READ_FAILURES = ['is not fully synced', 'Invalid Inbox leaf count range'];
+
+/** Upper bound on the error text carried into a log line, so a verbose provider error cannot blow up a log record. */
+const MAX_LOGGED_ERROR_LENGTH = 200;
+
+/** Ranges whose unexpected read failure has already been reported, so the caller's retry loop does not repeat it. */
+const reportedRangeReadFailures = new Set<string>();
+
+/** Cap on {@link reportedRangeReadFailures}, which is cleared wholesale once reached rather than evicted per entry. */
+const MAX_REPORTED_RANGE_READ_FAILURES = 256;
+
+/**
+ * Reports a failed Inbox range read. A range the archiver has not synced is the expected outcome for a node behind
+ * L1 and is logged at debug; anything else means the message source failed for a reason this check did not anticipate
+ * and is logged once per range and error, at warn. The verdict handed back to the caller is the same either way, so
+ * this only changes what an operator can see, never whether a proposal is penalised.
+ */
+function logRangeReadFailure(startTotalMsgCount: bigint, endTotalMsgCount: bigint, err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  const error = message.slice(0, MAX_LOGGED_ERROR_LENGTH);
+  const context = { startTotalMsgCount, endTotalMsgCount, error };
+  if (EXPECTED_RANGE_READ_FAILURES.some(fragment => message.includes(fragment))) {
+    log.debug(`Inbox message range [${startTotalMsgCount}, ${endTotalMsgCount}) is not available locally`, context);
+    return;
+  }
+
+  const key = `${startTotalMsgCount}-${endTotalMsgCount}-${error}`;
+  if (reportedRangeReadFailures.has(key)) {
+    return;
+  }
+  if (reportedRangeReadFailures.size >= MAX_REPORTED_RANGE_READ_FAILURES) {
+    reportedRangeReadFailures.clear();
+  }
+  reportedRangeReadFailures.add(key);
+  log.warn(
+    `Inbox message range [${startTotalMsgCount}, ${endTotalMsgCount}) could not be read; treating the block's ` +
+      `prefix as unconfirmed`,
+    context,
+  );
 }
 
 /**
