@@ -351,8 +351,8 @@ case "$cmd" in
       key=${key#list/}
     fi
     if [[ "$key" == history_* || "$key" == failed_tests* ]]; then
-      ci3_client_list_get "$key" | $pager
-    elif log=$(ci3_client_log_get "$key" 2>/dev/null); then
+      ci3_client list_get "$key" | $pager
+    elif log=$(ci3_client log_get "$key" 2>/dev/null); then
       echo "$log" | $pager
     else
       # Transitional: CI logs live behind the labs dashboard until it serves the ci3 API, and it
@@ -376,10 +376,10 @@ case "$cmd" in
       exit 1
     fi
     mkdir -p "$folder"
-    ids=$(ci3_client_log_list "test-timings/$ci_log_id" 2>/dev/null || true)
+    ids=$(ci3_client log_list "test-timings/$ci_log_id" 2>/dev/null || true)
     if [ -n "$ids" ]; then
       for id in $ids; do
-        ci3_client_log_get "test-timings/$ci_log_id/$id" > "$folder/$id.jsonl"
+        ci3_client log_get "test-timings/$ci_log_id/$id" > "$folder/$id.jsonl"
       done
     else
       # Transitional: a CI job's timings live in the labs log bucket until the dashboard serves the

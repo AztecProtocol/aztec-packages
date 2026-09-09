@@ -282,7 +282,7 @@ if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_
     # Key format: <runtime>-<flow_name>-<sha>
     disk_key="${runtime}-${flow_name}-${current_sha}"
     {
-      cat "$tmp_breakdown_file" | ci3_client_log_put "bench/bb-breakdown/$disk_key" "" final
+      cat "$tmp_breakdown_file" | ci3_client log_put "bench/bb-breakdown/$disk_key" "" final
       rm -rf "$upload_state_dir"
     } &
 
@@ -299,7 +299,7 @@ if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_
     cp "$memory_profile_file" "$tmp_memory_file"
     memory_disk_key="memory-${runtime}-${flow_name}-${current_sha}"
     {
-      cat "$tmp_memory_file" | ci3_client_log_put "bench/bb-breakdown/$memory_disk_key" "" final
+      cat "$tmp_memory_file" | ci3_client log_put "bench/bb-breakdown/$memory_disk_key" "" final
       rm -rf "$upload_state_dir"
     } &
     echo "Stored memory profile: bench/bb-breakdown/$memory_disk_key"
