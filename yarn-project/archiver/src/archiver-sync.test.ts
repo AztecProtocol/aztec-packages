@@ -1604,28 +1604,66 @@ describe('Archiver Sync', () => {
       );
     const randomLeaves = (count: number) => times(count, () => Fr.random());
 
-    it('re-mines the same messages beyond the lookup window and appends new ones without touching proposed blocks', async () => {
+    it('appends new messages without disturbing the stored ones or the blocks that consumed them', async () => {
       const msgs = randomLeaves(3);
       fake.addMessages(CheckpointNumber(1), 100n, msgs);
       fake.setL1BlockNumber(110n);
       await archiver.syncImmediate();
       await addLocalBlocksConsuming([3]);
 
-      // The messages move 20 L1 blocks later, well past the +-5 window a lookup around their old height covers,
-      // and two new ones follow them.
-      fake.moveMessagesToL1Block(100n, 120n);
+      // The L1 blocks holding the stored messages are untouched and two new messages follow them: a plain forward
+      // append, with nothing to look up or roll back.
       const appended = randomLeaves(2);
       fake.addMessages(CheckpointNumber(2), 121n, appended);
       fake.setL1BlockNumber(125n);
       await archiver.syncImmediate();
 
       expect(await getStoredLeaves()).toEqual(asHex([...msgs, ...appended]));
-      // Unchanged content is a plain forward append; nothing needed to be looked up or pruned.
       expect(eventByHashSpy).not.toHaveBeenCalled();
       expect(pruneSpy).not.toHaveBeenCalled();
       expect(await localBlockNumbers()).toEqual([1]);
       expect(archiver.getL1BlockNumber()).toEqual(125n);
       expect(synchronizer.isRecoveringMessages()).toBe(false);
+    });
+
+    it('discards a block consuming unchanged messages that were re-mined beyond the lookup window', async () => {
+      // The finalized marker stays below the messages' L1 block, so the inherited-finality shortcut cannot anchor
+      // them without a lookup.
+      fake.setFinalizedL1BlockNumber(95n);
+      const msgs = randomLeaves(3);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      await addLocalBlocksConsuming([3]);
+
+      // L1 replaces every block from 100 on. The three messages survive the replacement with their content, index
+      // and rolling hash intact, but are re-mined 20 blocks later, past the +-5 window a lookup around their old
+      // height covers, and two new messages follow them.
+      fake.moveMessagesToL1Block(100n, 120n);
+      const appended = randomLeaves(2);
+      fake.addMessages(CheckpointNumber(2), 121n, appended);
+      fake.reorgL1BlocksFrom(100n);
+      fake.setL1BlockNumber(125n);
+      await archiver.syncImmediate();
+
+      // Every bounded lookup misses, so the anchor falls back to the deployment block and the block that consumed
+      // the three messages is pruned even though they come straight back unchanged. That is the accepted cost of a
+      // conservative recovery, not a defect: the rollback precedes the refetch.
+      expect(eventByHashSpy).toHaveBeenCalledTimes(3);
+      expect(pruneSpy).toHaveBeenCalledTimes(1);
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ blocks: [expect.objectContaining({ number: 1 })] }),
+      );
+      expect(await localBlockNumbers()).toEqual([]);
+      expect(await getStoredLeaves()).toEqual(asHex([...msgs, ...appended]));
+      expect(archiver.getL1BlockNumber()).toEqual(125n);
+      expect(synchronizer.isRecoveringMessages()).toBe(false);
+
+      // Syncing again at the same head refetches from L1 rather than resurrecting the pruned block.
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex([...msgs, ...appended]));
+      expect(await localBlockNumbers()).toEqual([]);
+      expect(pruneSpy).toHaveBeenCalledTimes(1);
     });
 
     it('rolls back to the newest message still found on L1 and re-fetches the rest, dropping unchanged work', async () => {
