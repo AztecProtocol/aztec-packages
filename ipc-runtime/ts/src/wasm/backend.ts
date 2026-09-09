@@ -46,7 +46,8 @@ export interface WasmFfiBackendOptions extends WasmFfiOptions {
   createMainWorker?: () => WorkerHandle;
 }
 
-const MAX_THREADS = 32;
+/** Above this, more wasi threads stop paying for themselves; the engine clamps to it. */
+export const MAX_THREADS = 32;
 const DEFAULT_INITIAL_PAGES = 64;
 const DEFAULT_MAXIMUM_PAGES = 65536;
 const FIRST_THREAD_ID = 2;

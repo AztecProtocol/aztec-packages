@@ -848,6 +848,7 @@ export class ${svc}Sync extends SyncApi {
   type WasmFfiBackendSync,
   type WasmModuleSource,
   type WorkerHandle,
+  MAX_THREADS,
   createWasmFfiBackend,
   createWasmFfiBackendSync,
   platform,
@@ -913,7 +914,7 @@ export function defaultWasmModule(threads: number): URL {
 /** The thread count to run with: the default where none was asked for, else the request, checked. */
 export function resolveThreads(threads?: number): number {
   if (threads === undefined) {
-    return sharedMemoryAvailable() ? platform.hardwareConcurrency() : 1;
+    return sharedMemoryAvailable() ? Math.min(platform.hardwareConcurrency(), MAX_THREADS) : 1;
   }
   if (threads > 1 && !sharedMemoryAvailable()) {
     throw new Error(
