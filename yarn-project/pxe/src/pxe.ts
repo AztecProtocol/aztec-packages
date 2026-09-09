@@ -329,11 +329,20 @@ export class PXE {
     );
     const txResolver = new TxResolverService(readCachedNode);
 
+    const stagedStores = [
+      capsuleStore,
+      senderTaggingStore,
+      recipientTaggingStore,
+      privateEventStore,
+      noteStore,
+      factStore,
+    ];
+
     const synchronizer = new BlockSynchronizer(
       readCachedNode,
       store,
       anchorBlockStore,
-      [noteStore, privateEventStore, factStore],
+      stagedStores,
       l2TipsStore,
       contractSyncService,
       config,
@@ -342,7 +351,7 @@ export class PXE {
 
     const stagedWriteCoordinator = new StagedWriteCoordinator({
       kvStore: store,
-      stagedStores: [capsuleStore, senderTaggingStore, recipientTaggingStore, privateEventStore, noteStore, factStore],
+      stagedStores,
       bindings,
     });
 
@@ -1367,15 +1376,8 @@ export class PXE {
    *    Defaults to the latest known block to PXE + 1.
    * @returns - The packed events with block and tx metadata.
    */
-  public async getPrivateEvents(
-    eventSelector: EventSelector,
-    filter: PrivateEventFilter,
-  ): Promise<PackedPrivateEvent[]> {
-    let anchorBlockNumber: BlockNumber;
-
-    await this.operationQueue.runSynced(async ({ changeSetId, anchorBlockHeader }) => {
-      anchorBlockNumber = anchorBlockHeader.getBlockNumber();
-
+  public getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventFilter): Promise<PackedPrivateEvent[]> {
+    return this.operationQueue.runSynced(async ({ changeSetId, anchorBlockHeader }) => {
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
       await this.contractSyncService.ensureContractSynced({
@@ -1395,16 +1397,15 @@ export class PXE {
         scopes: filter.scopes,
         triggeredBy: undefined,
       });
+
+      const sanitizedFilter = new PrivateEventFilterValidator(anchorBlockHeader.getBlockNumber()).validate(filter);
+
+      this.log.debug(
+        `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
+      );
+
+      return this.privateEventStore.getPrivateEvents(eventSelector, sanitizedFilter, changeSetId);
     });
-
-    // anchorBlockNumber is set during the operation and fixed to whatever it is after a block sync
-    const sanitizedFilter = new PrivateEventFilterValidator(anchorBlockNumber!).validate(filter);
-
-    this.log.debug(
-      `Getting private events for ${sanitizedFilter.contractAddress.toString()} from ${sanitizedFilter.fromBlock} to ${sanitizedFilter.toBlock}`,
-    );
-
-    return this.privateEventStore.getPrivateEvents(eventSelector, sanitizedFilter);
   }
 
   /**

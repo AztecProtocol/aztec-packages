@@ -1,68 +1,46 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import type { ChangeSetId, StagedStore } from '../staged_write_coordinator.js';
+import { BaseStagingStore, type ReadonlyDb } from '../base_staging_store.js';
+import type { ChangeSetId } from '../staged_write_coordinator.js';
 
-export class CapsuleStore implements StagedStore {
-  readonly storeName = 'capsule';
-
-  #store: AztecAsyncKVStore;
-
-  // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${scope}:${key}`, using the zero
-  // address for the global scope.
-  #capsules: AztecAsyncMap<string, Buffer>;
-
-  // changeSetId => `${contractAddress}:${scope}:${key}` => capsule data
-  // when `#stagedCapsules.get('some-change-set-id').get('${some-contract-address}:${some-scope}:${some-key}')` is
-  // null, it signals that the capsule was deleted during the change set, so it needs to be deleted on commit
-  #stagedCapsules: Map<ChangeSetId, Map<string, Buffer | null>>;
-
+export class CapsuleStore extends BaseStagingStore<CapsuleStoreChangeSet, CapsuleStoreDb> {
   logger: Logger;
 
   constructor(store: AztecAsyncKVStore) {
-    this.#store = store;
-
-    this.#capsules = this.#store.openMap('capsules');
-
-    this.#stagedCapsules = new Map();
+    super({
+      storeName: 'capsule',
+      store,
+      buildChangeSet: () => new Map(),
+      buildDb: db => ({
+        capsules: db.openMap('capsules'),
+      }),
+    });
 
     this.logger = createLogger('pxe:capsule-data-provider');
   }
 
   /**
-   * Given a change set denoted by `changeSetId`, it returns the capsules that said change set has interacted with.
-   *
-   * Capsules that haven't been committed to persistence KV storage
-   * are kept in-memory in `#stagedCapsules`, this method provides a convenient
-   * way to access that in-memory collection of data.
-   *
-   * @param changeSetId
-   * @returns
-   */
-  #getStagedCapsules(changeSetId: ChangeSetId): Map<string, Buffer | null> {
-    let stagedCapsules = this.#stagedCapsules.get(changeSetId);
-    if (!stagedCapsules) {
-      stagedCapsules = new Map();
-      this.#stagedCapsules.set(changeSetId, stagedCapsules);
-    }
-    return stagedCapsules;
-  }
-
-  /**
-   * Reads a capsule's slot from the staged version of the data associated to the given changeSetId.
+   * Reads a capsule's slot from the change set's staged data.
    *
    * If it is not there, it reads it from the KV store.
+   * @returns The slot's contents, or `null` when the slot holds no capsule, whether it was never written or was
+   * deleted in the change set.
    */
-  async #getFromStage(changeSetId: ChangeSetId, dbSlotKey: string): Promise<Buffer | null | undefined> {
-    const stagedCapsules = this.#getStagedCapsules(changeSetId);
-    const staged: Buffer | null | undefined = stagedCapsules.get(dbSlotKey);
+  async #readSlot(
+    changeSet: CapsuleStoreChangeSet,
+    db: ReadonlyDb<CapsuleStoreDb>,
+    dbSlotKey: string,
+  ): Promise<Buffer | null> {
+    const staged: Buffer | null | undefined = changeSet.get(dbSlotKey);
 
     // Always issue DB read to keep IndexedDB transaction alive, even if the value is in the staged data. This
     // keeps IndexedDB transactions alive (they auto-commit when a new micro-task starts and there are no pending read
     // requests). The staged value still takes precedence if it exists (including null for deletions).
-    const dbValue = await this.#loadCapsuleFromDb(dbSlotKey);
+    const dbValue = (await db.capsules.getAsync(dbSlotKey)) ?? null;
 
     return staged !== undefined ? staged : dbValue;
   }
@@ -70,55 +48,40 @@ export class CapsuleStore implements StagedStore {
   /**
    * Writes a capsule to the staging area.
    */
-  #setOnStage(changeSetId: ChangeSetId, dbSlotKey: string, capsuleData: Buffer) {
-    this.#getStagedCapsules(changeSetId).set(dbSlotKey, capsuleData);
+  #writeCapsule(
+    changeSet: CapsuleStoreChangeSet,
+    contractAddress: AztecAddress,
+    slot: Fr,
+    capsule: Fr[],
+    scope: AztecAddress,
+  ) {
+    changeSet.set(dbSlotToKey(contractAddress, slot, scope), packCapsule(capsule));
   }
 
   /**
    * Deletes a capsule on the staging area. Note the capsule will still
    * exist in storage until the change set is committed.
    */
-  #deleteOnStage(changeSetId: ChangeSetId, dbSlotKey: string) {
-    this.#getStagedCapsules(changeSetId).set(dbSlotKey, null);
+  #deleteCapsule(changeSet: CapsuleStoreChangeSet, contractAddress: AztecAddress, slot: Fr, scope: AztecAddress) {
+    changeSet.set(dbSlotToKey(contractAddress, slot, scope), null);
   }
 
-  async #loadCapsuleFromDb(dbSlotKey: string): Promise<Buffer | null> {
-    const dataBuffer = await this.#capsules.getAsync(dbSlotKey);
-    if (!dataBuffer) {
-      return null;
-    }
-
-    return dataBuffer;
-  }
-
-  /**
-   * Commits staged data to main storage. Called by StagedWriteCoordinator when an operation completes successfully.
-   * Note: StagedWriteCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync
-   * here (and using one would deadlock on IndexedDB).
-   * @param changeSetId - The changeSetId identifying which staged data to commit
-   */
-  async commitChangeSet(changeSetId: ChangeSetId): Promise<void> {
-    const stagedCapsules = this.#getStagedCapsules(changeSetId);
-
-    for (const [key, value] of stagedCapsules) {
+  protected async flushChangeSet(changeSet: CapsuleStoreChangeSet, db: CapsuleStoreDb): Promise<void> {
+    for (const [key, value] of changeSet) {
       // In the write stage, we represent deleted capsules with null
       // (as opposed to undefined, which denotes there was never a capsule there to begin with).
       // So we delete from actual KV store here.
       if (value === null) {
-        await this.#capsules.delete(key);
+        await db.capsules.delete(key);
       } else {
-        await this.#capsules.set(key, value);
+        await db.capsules.set(key, value);
       }
     }
-
-    this.#stagedCapsules.delete(changeSetId);
   }
 
-  /**
-   * Discards staged data without committing.
-   */
-  discardChangeSet(changeSetId: ChangeSetId): void {
-    this.#stagedCapsules.delete(changeSetId);
+  /** No-op: capsules are not anchored to a block, so a prune cannot orphan any of them. */
+  protected applyRollback(): Promise<void> {
+    return Promise.resolve();
   }
 
   /**
@@ -133,11 +96,17 @@ export class CapsuleStore implements StagedStore {
    * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
    * network state it's backed by local PXE db.
    */
-  setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], changeSetId: ChangeSetId, scope: AztecAddress) {
-    const dbSlotKey = dbSlotToKey(contractAddress, slot, scope);
-
+  setCapsule(
+    contractAddress: AztecAddress,
+    slot: Fr,
+    capsule: Fr[],
+    changeSetId: ChangeSetId,
+    scope: AztecAddress,
+  ): Promise<void> {
     // A store overrides any pre-existing data on the slot
-    this.#setOnStage(changeSetId, dbSlotKey, Buffer.concat(capsule.map(value => value.toBuffer())));
+    return this.withChangeSet(changeSetId, changeSet => {
+      this.#writeCapsule(changeSet, contractAddress, slot, capsule, scope);
+    });
   }
 
   /**
@@ -152,26 +121,25 @@ export class CapsuleStore implements StagedStore {
     changeSetId: ChangeSetId,
     scope: AztecAddress,
   ): Promise<Fr[] | null> {
-    return this.#store.transactionAsync(() => this.#getCapsuleInternal(contractAddress, slot, changeSetId, scope));
+    return this.withChangeSetAndDb(changeSetId, (changeSet, db) =>
+      this.#readCapsule(changeSet, db, contractAddress, slot, scope),
+    );
   }
 
-  /** Same as getCapsule but without its own transaction, for use inside an existing transactionAsync. */
-  async #getCapsuleInternal(
+  /** Same as getCapsule but operating on an already entered change set, for use by the other operations. */
+  async #readCapsule(
+    changeSet: CapsuleStoreChangeSet,
+    db: ReadonlyDb<CapsuleStoreDb>,
     contractAddress: AztecAddress,
     slot: Fr,
-    changeSetId: ChangeSetId,
     scope: AztecAddress,
   ): Promise<Fr[] | null> {
-    const dataBuffer = await this.#getFromStage(changeSetId, dbSlotToKey(contractAddress, slot, scope));
+    const dataBuffer = await this.#readSlot(changeSet, db, dbSlotToKey(contractAddress, slot, scope));
     if (!dataBuffer) {
       this.logger.trace(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
       return null;
     }
-    const capsule: Fr[] = [];
-    for (let i = 0; i < dataBuffer.length; i += Fr.SIZE_IN_BYTES) {
-      capsule.push(Fr.fromBuffer(dataBuffer.subarray(i, i + Fr.SIZE_IN_BYTES)));
-    }
-    return capsule;
+    return BufferReader.asReader(dataBuffer).readArray(dataBuffer.length / Fr.SIZE_IN_BYTES, Fr);
   }
 
   /**
@@ -179,9 +147,11 @@ export class CapsuleStore implements StagedStore {
    * @param contractAddress - The contract address under which the data is scoped.
    * @param slot - The slot in the database to delete.
    */
-  deleteCapsule(contractAddress: AztecAddress, slot: Fr, changeSetId: ChangeSetId, scope: AztecAddress) {
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr, changeSetId: ChangeSetId, scope: AztecAddress): Promise<void> {
     // When we commit this, we will interpret null as a deletion, so we'll propagate the delete to the KV store
-    this.#deleteOnStage(changeSetId, dbSlotToKey(contractAddress, slot, scope));
+    return this.withChangeSet(changeSetId, changeSet => {
+      this.#deleteCapsule(changeSet, contractAddress, slot, scope);
+    });
   }
 
   /**
@@ -203,11 +173,7 @@ export class CapsuleStore implements StagedStore {
     changeSetId: ChangeSetId,
     scope: AztecAddress,
   ): Promise<void> {
-    // This transactional context gives us "copy atomicity":
-    // there shouldn't be concurrent writes to what's being copied here.
-    // Equally important: this in practice is expected to perform thousands of DB operations
-    // and not using a transaction here would heavily impact performance.
-    return this.#store.transactionAsync(async () => {
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
       // In order to support overlapping source and destination regions, we need to check the relative positions of source
       // and destination. If destination is ahead of source, then by the time we overwrite source elements using forward
       // indexes we'll have already read those. On the contrary, if source is ahead of destination we need to use backward
@@ -221,12 +187,12 @@ export class CapsuleStore implements StagedStore {
         const currentSrcSlot = dbSlotToKey(contractAddress, srcSlot.add(new Fr(i)), scope);
         const currentDstSlot = dbSlotToKey(contractAddress, dstSlot.add(new Fr(i)), scope);
 
-        const toCopy = await this.#getFromStage(changeSetId, currentSrcSlot);
+        const toCopy = await this.#readSlot(changeSet, db, currentSrcSlot);
         if (!toCopy) {
           throw new Error(`Attempted to copy empty slot ${currentSrcSlot} for contract ${contractAddress.toString()}`);
         }
 
-        this.#setOnStage(changeSetId, currentDstSlot, toCopy);
+        changeSet.set(currentDstSlot, toCopy);
       }
     });
   }
@@ -234,7 +200,6 @@ export class CapsuleStore implements StagedStore {
   /**
    * Appends multiple capsules to a capsule array stored at the base slot.
    * The array length is stored at the base slot, and elements are stored in consecutive slots after it.
-   * All operations are performed in a single transaction.
    * @param contractAddress - The contract address that owns the capsule array
    * @param baseSlot - The slot where the array length is stored
    * @param content - Array of capsule data to append
@@ -246,25 +211,20 @@ export class CapsuleStore implements StagedStore {
     changeSetId: ChangeSetId,
     scope: AztecAddress,
   ): Promise<void> {
-    // We wrap this in a transaction to serialize concurrent calls from allToCompletion.
-    // Without this, concurrent appends to the same array could race: both read length=0,
-    // both write at the same slots, one overwrites the other.
-    // Equally important: this in practice is expected to perform thousands of DB operations
-    // and not using a transaction here would heavily impact performance.
-    return this.#store.transactionAsync(async () => {
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
       // Load current length, defaulting to 0 if not found
-      const lengthData = await this.#getCapsuleInternal(contractAddress, baseSlot, changeSetId, scope);
+      const lengthData = await this.#readCapsule(changeSet, db, contractAddress, baseSlot, scope);
       const currentLength = lengthData ? lengthData[0].toNumber() : 0;
 
       // Store each capsule at consecutive slots after baseSlot + 1 + currentLength
       for (let i = 0; i < content.length; i++) {
         const nextSlot = arraySlot(baseSlot, currentLength + i);
-        this.setCapsule(contractAddress, nextSlot, content[i], changeSetId, scope);
+        this.#writeCapsule(changeSet, contractAddress, nextSlot, content[i], scope);
       }
 
       // Update length to include all new capsules
       const newLength = currentLength + content.length;
-      this.setCapsule(contractAddress, baseSlot, [new Fr(newLength)], changeSetId, scope);
+      this.#writeCapsule(changeSet, contractAddress, baseSlot, [new Fr(newLength)], scope);
     });
   }
 
@@ -274,25 +234,16 @@ export class CapsuleStore implements StagedStore {
     changeSetId: ChangeSetId,
     scope: AztecAddress,
   ): Promise<Fr[][]> {
-    // I'm leaving this transactional context here though because I'm assuming this gives us "read array atomicity":
-    // there shouldn't be concurrent writes to what's being copied here. This is one point we should revisit in the
-    // future if we want to relax the concurrency of change sets: different calls running concurrently on the same
-    // contract may cause trouble.
-    return this.#store.transactionAsync(async () => {
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
       // Load length, defaulting to 0 if not found
-      const maybeLength = await this.#getCapsuleInternal(contractAddress, baseSlot, changeSetId, scope);
+      const maybeLength = await this.#readCapsule(changeSet, db, contractAddress, baseSlot, scope);
       const length = maybeLength ? maybeLength[0].toBigInt() : 0n;
 
       const values: Fr[][] = [];
 
       // Read each capsule at consecutive slots after baseSlot
       for (let i = 0; i < length; i++) {
-        const currentValue = await this.#getCapsuleInternal(
-          contractAddress,
-          arraySlot(baseSlot, i),
-          changeSetId,
-          scope,
-        );
+        const currentValue = await this.#readCapsule(changeSet, db, contractAddress, arraySlot(baseSlot, i), scope);
         if (currentValue == undefined) {
           throw new Error(
             `Expected non-empty value at capsule array in base slot ${baseSlot} at index ${i} for contract ${contractAddress}`,
@@ -312,29 +263,23 @@ export class CapsuleStore implements StagedStore {
     content: Fr[][],
     changeSetId: ChangeSetId,
     scope: AztecAddress,
-  ) {
-    // This transactional context in theory isn't so critical now because we aren't writing to DB so if there's
-    // exceptions midway and it blows up, no visible impact to persistent storage will happen. I'm leaving this
-    // transactional context here though because I'm assuming this gives us "write array atomicity": there shouldn't be
-    // concurrent writes to what's being copied here. This is one point we should revisit in the future if we want to
-    // relax the concurrency of change sets: different calls running concurrently on the same contract may cause
-    // trouble.
-    return this.#store.transactionAsync(async () => {
+  ): Promise<void> {
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
       // Load current length, defaulting to 0 if not found
-      const maybeLength = await this.#getCapsuleInternal(contractAddress, baseSlot, changeSetId, scope);
+      const maybeLength = await this.#readCapsule(changeSet, db, contractAddress, baseSlot, scope);
       const originalLength = maybeLength ? maybeLength[0].toNumber() : 0;
 
       // Set the new length
-      this.setCapsule(contractAddress, baseSlot, [new Fr(content.length)], changeSetId, scope);
+      this.#writeCapsule(changeSet, contractAddress, baseSlot, [new Fr(content.length)], scope);
 
       // Store the new content, possibly overwriting existing values
       for (let i = 0; i < content.length; i++) {
-        this.setCapsule(contractAddress, arraySlot(baseSlot, i), content[i], changeSetId, scope);
+        this.#writeCapsule(changeSet, contractAddress, arraySlot(baseSlot, i), content[i], scope);
       }
 
       // Clear any stragglers
       for (let i = content.length; i < originalLength; i++) {
-        this.deleteCapsule(contractAddress, arraySlot(baseSlot, i), changeSetId, scope);
+        this.#deleteCapsule(changeSet, contractAddress, arraySlot(baseSlot, i), scope);
       }
     });
   }
@@ -347,3 +292,19 @@ function dbSlotToKey(contractAddress: AztecAddress, slot: Fr, scope: AztecAddres
 function arraySlot(baseSlot: Fr, index: number) {
   return baseSlot.add(new Fr(1)).add(new Fr(index));
 }
+
+function packCapsule(capsule: Fr[]): Buffer {
+  return serializeToBuffer(capsule);
+}
+
+/**
+ * A change set's staged capsules, keyed as `${contractAddress}:${scope}:${slot}`. A `null` value signals that the
+ * capsule was deleted during the change set, so it needs to be deleted on commit.
+ */
+type CapsuleStoreChangeSet = Map<string, Buffer | null>;
+
+type CapsuleStoreDb = {
+  // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${scope}:${slot}`, using the zero
+  // address for the global scope.
+  capsules: AztecAsyncMap<string, Buffer>;
+};

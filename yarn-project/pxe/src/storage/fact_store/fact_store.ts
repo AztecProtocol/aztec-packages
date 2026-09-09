@@ -1,11 +1,10 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { allToCompletion } from '@aztec/foundation/promise';
-import { Semaphore } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 
-import type { Rollbackable } from '../rollbackable.js';
-import type { ChangeSetId, StagedStore } from '../staged_write_coordinator.js';
+import { BaseStagingStore, type ReadonlyDb } from '../base_staging_store.js';
+import type { ChangeSetId } from '../staged_write_coordinator.js';
 import { FactCollectionKey, type FactCollectionTypeKey, type OriginBlock } from './fact_store_keys.js';
 import { type Fact, StoredFact, factKeyStrOf } from './stored_fact.js';
 
@@ -51,35 +50,20 @@ type StagedOp = { kind: 'recordFact'; fact: StoredFact } | { kind: 'deleteFactCo
  *
  * As with most other PXE stores, writes are staged per change set ID and flushed atomically on commit.
  */
-export class FactStore implements StagedStore, Rollbackable {
-  readonly storeName: string = 'fact';
-
-  #store: AztecAsyncKVStore;
-
-  /** Primary index of fact records. */
-  #facts: AztecAsyncMap<FactKeyStr, FactBuffer>;
-
-  /** Index for per-collection fact enumeration and by-type collection discovery. */
-  #factsByCollection: AztecAsyncMultiMap<FactCollectionKeyStr, FactKeyStr>;
-
-  /** Index for delete-on-prune of retractable facts (those with an origin block). */
-  #factsByBlock: AztecAsyncMultiMap<BlockNum, FactKeyStr>;
-
-  /** Uncommitted data, keyed by change set ID */
-  #opsForChangeSet: Map<ChangeSetId, StagedOp[]>;
-
-  /** Per-change-set locks */
-  #changeSetLocks: Map<ChangeSetId, Semaphore>;
-
+export class FactStore extends BaseStagingStore<FactStoreChangeSet, FactStoreDb> {
   logger = createLogger('fact_store');
 
   constructor(store: AztecAsyncKVStore) {
-    this.#store = store;
-    this.#facts = store.openMap('facts');
-    this.#factsByCollection = store.openMultiMap('facts_by_collection');
-    this.#factsByBlock = store.openMultiMap('facts_by_block');
-    this.#opsForChangeSet = new Map();
-    this.#changeSetLocks = new Map();
+    super({
+      storeName: 'fact',
+      store,
+      buildChangeSet: () => [],
+      buildDb: db => ({
+        facts: db.openMap('facts'),
+        factsByCollection: db.openMultiMap('facts_by_collection'),
+        factsByBlock: db.openMultiMap('facts_by_block'),
+      }),
+    });
   }
 
   /**
@@ -101,12 +85,11 @@ export class FactStore implements StagedStore, Rollbackable {
     originBlock: OriginBlock | undefined,
     changeSetId: ChangeSetId,
   ): Promise<void> {
-    return this.#withChangeSetLock(changeSetId, () => {
-      this.#stagedOpsFor(changeSetId).push({
+    return this.withChangeSet(changeSetId, changeSet => {
+      changeSet.push({
         kind: 'recordFact',
         fact: new StoredFact(factCollectionKey, factTypeId, payload, originBlock),
       });
-      return Promise.resolve();
     });
   }
 
@@ -116,62 +99,57 @@ export class FactStore implements StagedStore, Rollbackable {
    * Idempotent: deleting a collection that does not exist is a no-op.
    */
   deleteFactCollection(factCollectionKey: FactCollectionKey, changeSetId: ChangeSetId): Promise<void> {
-    return this.#withChangeSetLock(changeSetId, () => {
-      this.#stagedOpsFor(changeSetId).push({ kind: 'deleteFactCollection', key: factCollectionKey });
-      return Promise.resolve();
+    return this.withChangeSet(changeSetId, changeSet => {
+      changeSet.push({ kind: 'deleteFactCollection', key: factCollectionKey });
     });
   }
 
   /**
    * Returns the fact collection for the (scope-qualified) key, or undefined if it has no facts.
    */
-  async getFactCollection(
+  getFactCollection(
     factCollectionKey: FactCollectionKey,
     changeSetId: ChangeSetId,
   ): Promise<FactCollection | undefined> {
-    const collectionKey = factCollectionKey.toString();
-    const committed = await this.#store.transactionAsync(() => this.#readCollectionsFromDb([factCollectionKey]));
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
+      const collectionKey = factCollectionKey.toString();
+      const committedCollection = await this.#loadCommittedCollection(db, factCollectionKey);
+      const committed = new Map(committedCollection ? [[collectionKey, committedCollection]] : []);
 
-    const collection = this.#foldStagedOps(committed, changeSetId).get(collectionKey);
-    if (!collection) {
-      return undefined;
-    }
-    const facts = [...collection.facts.values()];
-    return facts.length > 0 ? { key: factCollectionKey, facts } : undefined;
+      const collection = this.#foldStagedOps(committed, changeSet).get(collectionKey);
+      if (!collection) {
+        return undefined;
+      }
+      const facts = [...collection.facts.values()];
+      return facts.length > 0 ? { key: factCollectionKey, facts } : undefined;
+    });
   }
 
   /**
    * Returns every fact collection of the given type for the queried scope, each holding its facts.
    */
-  async getFactCollectionsByType(
+  getFactCollectionsByType(
     factCollectionTypeKey: FactCollectionTypeKey,
     changeSetId: ChangeSetId,
   ): Promise<FactCollection[]> {
-    const typeKey = factCollectionTypeKey.toString();
-    const committed = await this.#readCollectionsFromDbByType(typeKey);
+    return this.withChangeSetAndDb(changeSetId, async (changeSet, db) => {
+      const typeKey = factCollectionTypeKey.toString();
+      const committed = await this.#readCollectionsFromDbByType(db, typeKey);
 
-    return Array.from(this.#foldStagedOps(committed, changeSetId, typeKey).values())
-      .map(collection => ({ key: collection.key, facts: [...collection.facts.values()] }))
-      .filter(collection => collection.facts.length > 0);
+      return Array.from(this.#foldStagedOps(committed, changeSet, typeKey).values())
+        .map(collection => ({ key: collection.key, facts: [...collection.facts.values()] }))
+        .filter(collection => collection.facts.length > 0);
+    });
   }
 
-  /**
-   * Commits all staged operations for the given change set to persistent storage.
-   *
-   * Must be called inside a transaction owned by the caller (StagedWriteCoordinator wraps all commits in a single
-   * transactionAsync, and IndexedDB does not support nested transactions).
-   *
-   * DO NOT call `#withChangeSetLock` here: awaiting the lock creates a microtask boundary that causes IndexedDB to
-   * auto-commit the outer transaction.
-   */
-  async commitChangeSet(changeSetId: ChangeSetId): Promise<void> {
-    for (const op of this.#stagedOpsFor(changeSetId)) {
+  protected async flushChangeSet(changeSet: FactStoreChangeSet, db: FactStoreDb): Promise<void> {
+    for (const op of changeSet) {
       switch (op.kind) {
         case 'recordFact':
-          await this.#commitFact(op.fact);
+          await this.#commitFact(db, op.fact);
           break;
         case 'deleteFactCollection':
-          await this.#deleteCollection(op.key.toString());
+          await this.#deleteCollection(db, op.key.toString());
           break;
         default: {
           const _exhaustive: never = op;
@@ -179,30 +157,15 @@ export class FactStore implements StagedStore, Rollbackable {
         }
       }
     }
-    this.#clearChangeSetData(changeSetId);
-  }
-
-  /** Discards all staged operations for the given change set without persisting them. */
-  discardChangeSet(changeSetId: ChangeSetId): void {
-    this.#clearChangeSetData(changeSetId);
   }
 
   /**
    * Removes every retractable fact originating from blocks over height `toBlock`, across all scopes.
    *
-   * Non-retractable facts are untouched. Must run inside a caller-owned transaction (because it needs to share the
-   * transaction with other stores and IndexedDB has no nested transactions).
-   *
-   * Throws if any change set is in flight (has accessed the store and not yet committed or discarded), since rolling
-   * back mid-change-set could re-introduce records originating from deleted blocks or change state underneath a change
-   * set's view.
+   * Non-retractable facts are untouched.
    */
-  async rollbackToBlock(toBlock: BlockNum): Promise<void> {
-    if (this.#opsForChangeSet.size > 0) {
-      throw new Error('PXE fact store rollback is not allowed while staged writes are pending');
-    }
-
-    const removedFacts = await this.#retractFacts(toBlock);
+  protected async applyRollback(toBlock: BlockNum, db: FactStoreDb): Promise<void> {
+    const removedFacts = await this.#retractFacts(db, toBlock);
 
     this.logger.verbose('rolled back fact store', { removedFacts, toBlock });
   }
@@ -213,13 +176,13 @@ export class FactStore implements StagedStore, Rollbackable {
    *
    * Requires to be run in a transactionAsync context.
    */
-  async #retractFacts(toBlock: BlockNum): Promise<number> {
+  async #retractFacts(db: FactStoreDb, toBlock: BlockNum): Promise<number> {
     // Snapshot the orphaned fact keys before mutating so we never delete from the cursor we are iterating, kicking off
     // each fact-body read during the scan so a DB request stays pending across the cursor-to-delete boundary (a drained
     // cursor with no read in flight would let the transaction auto-commit before the deletes).
     const factReads = new Map<FactKeyStr, Promise<FactBuffer | undefined>>();
-    for await (const [, factKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
-      factReads.set(factKey, this.#facts.getAsync(factKey));
+    for await (const [, factKey] of db.factsByBlock.entriesAsync({ start: toBlock + 1 })) {
+      factReads.set(factKey, db.facts.getAsync(factKey));
     }
     await allToCompletion(
       Array.from(factReads, async ([factKey, read]) => {
@@ -232,61 +195,48 @@ export class FactStore implements StagedStore, Rollbackable {
           });
           return;
         }
-        await this.#deleteFact(factKey, StoredFact.fromBuffer(buf));
+        await this.#deleteFact(db, factKey, StoredFact.fromBuffer(buf));
       }),
     );
     return factReads.size;
   }
 
-  /**
-   * Reads the given collections (their facts) by key into a Map keyed by collection key, skipping
-   * keys with no committed facts.
-   *
-   * Reads are not wrapped in a transaction: the caller owns the transaction boundary.
-   */
-  async #readCollectionsFromDb(keys: FactCollectionKey[]): Promise<Map<FactCollectionKeyStr, CollectionWithFacts>> {
-    const result = new Map<FactCollectionKeyStr, CollectionWithFacts>();
-    for (const key of keys) {
-      const collection = await this.#loadCommittedCollection(key);
-      if (collection) {
-        result.set(key.toString(), collection);
+  async #readCollectionsFromDbByType(
+    db: ReadonlyDb<FactStoreDb>,
+    typeKey: FactCollectionTypeKeyStr,
+  ): Promise<Map<FactCollectionKeyStr, CollectionWithFacts>> {
+    const factReadsByCollection = new Map<FactCollectionKeyStr, Map<FactKeyStr, Promise<FactBuffer | undefined>>>();
+    for await (const [collectionKey, factKey] of db.factsByCollection.entriesAsync({
+      start: `${typeKey}:`,
+      end: `${typeKey};`,
+    })) {
+      let reads = factReadsByCollection.get(collectionKey);
+      if (!reads) {
+        reads = new Map<FactKeyStr, Promise<FactBuffer | undefined>>();
+        factReadsByCollection.set(collectionKey, reads);
       }
+      reads.set(factKey, db.facts.getAsync(factKey));
+    }
+
+    const result = new Map<FactCollectionKeyStr, CollectionWithFacts>();
+    for (const [collectionKey, reads] of factReadsByCollection) {
+      const collection = await this.#assembleCollection(FactCollectionKey.fromString(collectionKey), reads);
+      result.set(collectionKey, collection);
     }
     return result;
   }
 
-  #readCollectionsFromDbByType(typeKey: FactCollectionTypeKeyStr) {
-    return this.#store.transactionAsync(async () => {
-      const factReadsByCollection = new Map<FactCollectionKeyStr, Map<FactKeyStr, Promise<FactBuffer | undefined>>>();
-      for await (const [collectionKey, factKey] of this.#factsByCollection.entriesAsync({
-        start: `${typeKey}:`,
-        end: `${typeKey};`,
-      })) {
-        let reads = factReadsByCollection.get(collectionKey);
-        if (!reads) {
-          reads = new Map<FactKeyStr, Promise<FactBuffer | undefined>>();
-          factReadsByCollection.set(collectionKey, reads);
-        }
-        reads.set(factKey, this.#facts.getAsync(factKey));
-      }
-
-      const result = new Map<FactCollectionKeyStr, CollectionWithFacts>();
-      for (const [collectionKey, reads] of factReadsByCollection) {
-        const collection = await this.#assembleCollection(FactCollectionKey.fromString(collectionKey), reads);
-        result.set(collectionKey, collection);
-      }
-      return result;
-    });
-  }
-
-  async #loadCommittedCollection(collectionKey: FactCollectionKey): Promise<CollectionWithFacts | undefined> {
+  async #loadCommittedCollection(
+    db: ReadonlyDb<FactStoreDb>,
+    collectionKey: FactCollectionKey,
+  ): Promise<CollectionWithFacts | undefined> {
     // Kick off each fact read while iterating the index so a DB request is always pending. Draining the cursor and only
     // then reading the facts one `await` at a time would let the IndexedDB transaction auto-commit at the boundary
     // (IndexedDB auto-commits once control returns to the event loop with no pending request), throwing mid-read on the
     // browser backend.
     const factReads = new Map<FactKeyStr, Promise<FactBuffer | undefined>>();
-    for await (const factKey of this.#factsByCollection.getValuesAsync(collectionKey.toString())) {
-      factReads.set(factKey, this.#facts.getAsync(factKey));
+    for await (const factKey of db.factsByCollection.getValuesAsync(collectionKey.toString())) {
+      factReads.set(factKey, db.facts.getAsync(factKey));
     }
     if (factReads.size === 0) {
       return undefined;
@@ -334,7 +284,7 @@ export class FactStore implements StagedStore, Rollbackable {
    */
   #foldStagedOps(
     committed: Map<FactCollectionKeyStr, CollectionWithFacts>,
-    changeSetId: ChangeSetId,
+    changeSet: FactStoreChangeSet,
     typeKey?: FactCollectionTypeKeyStr,
   ): Map<FactCollectionKeyStr, CollectionWithFacts> {
     const result = new Map<FactCollectionKeyStr, CollectionWithFacts>();
@@ -343,7 +293,7 @@ export class FactStore implements StagedStore, Rollbackable {
     for (const [collectionKey, { key, facts }] of committed) {
       result.set(collectionKey, { key, facts: new Map(facts) });
     }
-    for (const op of this.#stagedOpsFor(changeSetId)) {
+    for (const op of changeSet) {
       switch (op.kind) {
         case 'recordFact':
           this.#foldRecordFact(result, op, typeKey);
@@ -405,16 +355,16 @@ export class FactStore implements StagedStore, Rollbackable {
   /**
    * Writes a fact to persistent storage. Idempotent: an identical fact (same scope-qualified key) is left untouched.
    */
-  async #commitFact(fact: StoredFact): Promise<void> {
+  async #commitFact(db: FactStoreDb, fact: StoredFact): Promise<void> {
     const factKey = factKeyStrOf(fact);
-    if (await this.#facts.hasAsync(factKey)) {
+    if (await db.facts.hasAsync(factKey)) {
       this.logger.debug(`Ignoring already recorded fact`, { factKey });
       return;
     }
-    await this.#facts.set(factKey, fact.toBuffer());
-    await this.#factsByCollection.set(fact.factCollectionKey.toString(), factKey);
+    await db.facts.set(factKey, fact.toBuffer());
+    await db.factsByCollection.set(fact.factCollectionKey.toString(), factKey);
     if (fact.originBlock !== undefined) {
-      await this.#factsByBlock.set(fact.originBlock.blockNumber, factKey);
+      await db.factsByBlock.set(fact.originBlock.blockNumber, factKey);
     }
   }
 
@@ -423,13 +373,13 @@ export class FactStore implements StagedStore, Rollbackable {
    *
    * Caller must wrap in a transaction.
    */
-  async #deleteCollection(collectionKey: FactCollectionKeyStr): Promise<void> {
+  async #deleteCollection(db: FactStoreDb, collectionKey: FactCollectionKeyStr): Promise<void> {
     // Snapshot the fact index before mutating so we never delete from the cursor we are iterating, kicking off each
     // fact-body read during the scan so a DB request stays pending across the cursor-to-mutation boundary (a drained
     // cursor with no read in flight would let the transaction auto-commit before the deletes).
     const factReads = new Map<FactKeyStr, Promise<FactBuffer | undefined>>();
-    for await (const factKey of this.#factsByCollection.getValuesAsync(collectionKey)) {
-      factReads.set(factKey, this.#facts.getAsync(factKey));
+    for await (const factKey of db.factsByCollection.getValuesAsync(collectionKey)) {
+      factReads.set(factKey, db.facts.getAsync(factKey));
     }
     await allToCompletion(
       Array.from(factReads, async ([factKey, read]) => {
@@ -439,53 +389,36 @@ export class FactStore implements StagedStore, Rollbackable {
           // corrupt.
           throw new Error(`Fact not found for factKey ${factKey}`);
         }
-        await this.#deleteFact(factKey, StoredFact.fromBuffer(buf));
+        await this.#deleteFact(db, factKey, StoredFact.fromBuffer(buf));
       }),
     );
   }
 
   /**
-   * Deletes a fact from the primary store and all its indexes (`#factsByCollection`, plus `#factsByBlock` if
+   * Deletes a fact from the primary store and all its indexes (`factsByCollection`, plus `factsByBlock` if
    * retractable).
    *
    * Caller must wrap in a transaction.
    */
-  async #deleteFact(factKey: FactKeyStr, fact: StoredFact): Promise<void> {
-    await this.#facts.delete(factKey);
-    await this.#factsByCollection.deleteValue(fact.factCollectionKey.toString(), factKey);
+  async #deleteFact(db: FactStoreDb, factKey: FactKeyStr, fact: StoredFact): Promise<void> {
+    await db.facts.delete(factKey);
+    await db.factsByCollection.deleteValue(fact.factCollectionKey.toString(), factKey);
     if (fact.originBlock !== undefined) {
-      await this.#factsByBlock.deleteValue(fact.originBlock.blockNumber, factKey);
-    }
-  }
-
-  /**
-   * Returns the change set's staged-ops array, creating it on first access.
-   * */
-  #stagedOpsFor(changeSetId: ChangeSetId): StagedOp[] {
-    let ops = this.#opsForChangeSet.get(changeSetId);
-    if (ops === undefined) {
-      ops = [];
-      this.#opsForChangeSet.set(changeSetId, ops);
-    }
-    return ops;
-  }
-
-  #clearChangeSetData(changeSetId: ChangeSetId) {
-    this.#opsForChangeSet.delete(changeSetId);
-    this.#changeSetLocks.delete(changeSetId);
-  }
-
-  async #withChangeSetLock<T>(changeSetId: ChangeSetId, fn: () => Promise<T>): Promise<T> {
-    let lock = this.#changeSetLocks.get(changeSetId);
-    if (!lock) {
-      lock = new Semaphore(1);
-      this.#changeSetLocks.set(changeSetId, lock);
-    }
-    await lock.acquire();
-    try {
-      return await fn();
-    } finally {
-      lock.release();
+      await db.factsByBlock.deleteValue(fact.originBlock.blockNumber, factKey);
     }
   }
 }
+
+/** A change set's staged data: the ops it has accumulated, replayed over committed state on read and on flush. */
+type FactStoreChangeSet = StagedOp[];
+
+type FactStoreDb = {
+  /** Primary index of fact records. */
+  facts: AztecAsyncMap<FactKeyStr, FactBuffer>;
+
+  /** Index for per-collection fact enumeration and by-type collection discovery. */
+  factsByCollection: AztecAsyncMultiMap<FactCollectionKeyStr, FactKeyStr>;
+
+  /** Index for delete-on-prune of retractable facts (those with an origin block). */
+  factsByBlock: AztecAsyncMultiMap<BlockNum, FactKeyStr>;
+};

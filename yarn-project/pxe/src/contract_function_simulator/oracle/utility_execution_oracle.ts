@@ -725,9 +725,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
+  public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): Promise<void> {
     this.#assertOwnContract(contractAddress);
-    this.capsuleService.setCapsule(contractAddress, slot, capsule, this.changeSetId, scope);
+    return this.capsuleService.setCapsule(contractAddress, slot, capsule, this.changeSetId, scope);
   }
 
   public async getCapsule(
@@ -741,9 +741,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return values ? Option.some(values) : Option.none({ length: tSize });
   }
 
-  public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
+  public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): Promise<void> {
     this.#assertOwnContract(contractAddress);
-    this.capsuleService.deleteCapsule(contractAddress, slot, this.changeSetId, scope);
+    return this.capsuleService.deleteCapsule(contractAddress, slot, this.changeSetId, scope);
   }
 
   public copyCapsule(
