@@ -1,0 +1,384 @@
+#!/usr/bin/env python3
+"""The only way ci3 talks to its log / test-cache / artifact server (see CI3_SERVER_API.md).
+
+Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Python 3 standard library only.
+
+  env                              shell exports for the resolved server (source_ci3_client evals it)
+  url [path]                       the browse URL of a log id / server path, as printed in links
+  log_put <id> [ttl] [final]       stdin -> the log <id> (replaces); "final" marks a log's last write
+  log_get <id>                     the log <id> -> stdout (exit 1 if absent)
+  log_list <prefix>                the ids directly under <prefix>, one per line
+  kv_get <key>...                  one line per key: the value, or empty
+  kv_set <key> <value> [ttl]
+  list_push <name> <line> [max]    prepend; the server keeps at most <max> (default 1000) lines
+  list_get <name>                  newest first (exit 1 if absent)
+  event <channel> [json]           publish a JSON event (json argument, or stdin)
+  run_put <section> <id>           stdin (JSON) -> the CI run record
+  run_get <section> <id>           the JSON record -> stdout (exit 1 if absent)
+  artifact_put <name> <file>       upload a build-cache artifact (exit 1 on failure)
+  artifact_get <name>              stream a build-cache artifact -> stdout (exit 1 if absent)
+  artifact_exists <name>           exit 0 if present, else 1
+
+Configuration, all read from the environment:
+  CI3_SERVER_URL         the server. Unset: a local run (CI=0) starts ci3_server, the file-backed
+                         server, on demand; a CI run has no server.
+  CI3_SERVER_TOKEN       bearer token for writes.
+  CI3_PUBLIC_URL         base of the links we print (default: the server). Set it to share a
+                         tunnelled server, or when the logs are viewed somewhere else.
+  CI3_SERVER_START_ARGS  extra ci3_server flags for a server started on demand (--port, --dir, ...).
+  CI3_SERVER             the outcome, exported once per process tree by `env`: the server every
+                         command talks to, or empty for none. Set (even empty) it skips discovery.
+
+With no server every command is a harmless no-op: stdin is drained, kv_get answers one empty line
+per key, writes exit 0, reads exit 1. Writes never fail the caller: logging is best effort.
+"""
+import gzip
+import http.client
+import io
+import os
+import shlex
+import subprocess
+import sys
+import urllib.parse
+
+# The public, read-only build cache (S3 over plain HTTP) artifact reads fall back to on a miss: the
+# bucket endpoint from inside AWS, the CDN in front of it otherwise. ci3 never writes to it.
+PUBLIC_CACHE_URL_CI = "http://aztec-ci-artifacts.s3.amazonaws.com/build-cache"
+PUBLIC_CACHE_URL_LOCAL = "https://build-cache.aztec-labs.com"
+# Retention asked of the server: logs 2 weeks in CI and 2 days locally, build-cache artifacts a week
+# (a local run stores every build it makes; without this /tmp/ci3 would only ever grow).
+LOG_EXPIRE_CI = 60 * 60 * 24 * 14
+LOG_EXPIRE_LOCAL = 60 * 60 * 24 * 2
+ARTIFACT_EXPIRE = 60 * 60 * 24 * 7
+
+YELLOW, RESET = "\033[38;2;250;217;121m", "\033[0m"
+HERE = os.path.dirname(os.path.realpath(__file__))
+
+
+def warn(msg):
+    sys.stderr.write("%s%s%s\n" % (YELLOW, msg, RESET))
+
+
+def in_ci():
+    return os.environ.get("CI", "0") == "1"
+
+
+# --- discovery ---------------------------------------------------------------------------------
+
+
+def start_server():
+    cmd = [os.path.join(HERE, "ci3_server"), "start", *shlex.split(os.environ.get("CI3_SERVER_START_ARGS", ""))]
+    r = subprocess.run(cmd, stdout=subprocess.PIPE)
+    return r.stdout.decode().strip() if r.returncode == 0 else None
+
+
+def probe(url):
+    try:
+        conn = connection(url, timeout=5)
+        conn.request("GET", "/health")
+        resp = conn.getresponse()
+        return resp.status == 200 and resp.read() == b"ci3-server"
+    except OSError:
+        return False
+
+
+def resolve_server():
+    """The server this process tree talks to, or "" for none. Cached in CI3_SERVER."""
+    if "CI3_SERVER" in os.environ:
+        return os.environ["CI3_SERVER"]
+    configured = os.environ.get("CI3_SERVER_URL", "")
+    server = ""
+    if configured == "":
+        if not in_ci():
+            server = start_server() or ""
+            if not server:
+                warn("Could not start the local ci3 server. Logs and test cache disabled.")
+    else:
+        url = configured.rstrip("/")
+        if probe(url):
+            server = url
+        else:
+            warn("Cannot reach ci3 server at %s. Logs and test cache disabled." % url)
+    os.environ["CI3_SERVER"] = server
+    return server
+
+
+def public_url():
+    """Base of the links we print: CI3_PUBLIC_URL, else the server."""
+    return os.environ.get("CI3_PUBLIC_URL", "").rstrip("/") or resolve_server()
+
+
+def cmd_env(args):
+    server = resolve_server()
+    public = public_url()
+    lines = ["export CI3_SERVER=%s" % shlex.quote(server), "export CI3_PUBLIC_URL=%s" % shlex.quote(public)]
+    if not server:
+        lines.append("export USE_TEST_CACHE=0")
+    lines += [
+        "ci3_log_expire=%d" % (LOG_EXPIRE_CI if in_ci() else LOG_EXPIRE_LOCAL),
+        "ci3_artifact_expire=%d" % ARTIFACT_EXPIRE,
+        "ci3_public_cache_url=%s" % (PUBLIC_CACHE_URL_CI if in_ci() else PUBLIC_CACHE_URL_LOCAL),
+    ]
+    print("\n".join(lines))
+    return 0
+
+
+# --- HTTP --------------------------------------------------------------------------------------
+
+
+def connection(url, timeout):
+    u = urllib.parse.urlsplit(url)
+    cls = http.client.HTTPSConnection if u.scheme == "https" else http.client.HTTPConnection
+    return cls(u.hostname, u.port, timeout=timeout)
+
+
+def request(method, url, body=None, headers=None, timeout=30, redirects=5):
+    """One request; 3xx answers are followed, re-sending the body (a file body is rewound)."""
+    headers = dict(headers or {})
+    token = os.environ.get("CI3_SERVER_TOKEN")
+    if token:
+        headers["Authorization"] = "Bearer " + token
+    for _ in range(redirects + 1):
+        u = urllib.parse.urlsplit(url)
+        conn = connection(url, timeout)
+        if hasattr(body, "seek"):
+            body.seek(0)
+        conn.request(method, u.path + ("?" + u.query if u.query else ""), body=body, headers=headers)
+        resp = conn.getresponse()
+        if resp.status in (301, 302, 303, 307, 308) and resp.getheader("Location"):
+            resp.read()
+            url = urllib.parse.urljoin(url, resp.getheader("Location"))
+            if resp.status in (301, 302, 303):
+                method, body = ("GET" if method != "HEAD" else "HEAD"), None
+                headers.pop("Authorization", None)  # not for a redirect target such as a public bucket
+            continue
+        return resp
+    raise OSError("too many redirects")
+
+
+def key_path(*parts):
+    return "/".join(urllib.parse.quote(p, safe="/:+@=,") for p in parts)
+
+
+def api(method, path, body=None, headers=None, timeout=30, query=None):
+    server = resolve_server()
+    url = server + path + ("?" + urllib.parse.urlencode(query) if query else "")
+    return request(method, url, body, headers, timeout)
+
+
+def swallow(fn):
+    """Best-effort writes: never fail the caller (details with BUILD_SYSTEM_DEBUG=1)."""
+    try:
+        resp = fn()
+        if resp.status >= 300 and os.environ.get("BUILD_SYSTEM_DEBUG") == "1":
+            sys.stderr.write("ci3_client: server answered %d\n" % resp.status)
+        resp.read()
+    except OSError as e:
+        if os.environ.get("BUILD_SYSTEM_DEBUG") == "1":
+            sys.stderr.write("ci3_client: %s\n" % e)
+    return 0
+
+
+def stdin_bytes():
+    return sys.stdin.buffer.read()
+
+
+def out(data):
+    sys.stdout.buffer.write(data)
+    sys.stdout.buffer.flush()
+
+
+def usage(cmd, text):
+    sys.stderr.write("usage: ci3_client %s %s\n" % (cmd, text))
+    return 2
+
+
+# --- commands ----------------------------------------------------------------------------------
+
+
+def cmd_url(args):
+    print("%s/%s" % (public_url(), args[0] if args else ""))
+    return 0
+
+
+def cmd_log_put(args):
+    if not args:
+        return usage("log_put", "<id> [ttl] [final]")
+    data = stdin_bytes()  # always drained: an undrained writer dies of SIGPIPE
+    if not resolve_server():
+        return 0
+    ttl = args[1] if len(args) > 1 and args[1] else str(LOG_EXPIRE_CI if in_ci() else LOG_EXPIRE_LOCAL)
+    final = "1" if len(args) > 2 and args[2] == "final" else "0"
+    return swallow(lambda: api("PUT", "/logs/" + key_path(args[0]), gzip.compress(data),
+                               {"Content-Encoding": "gzip"}, timeout=60, query={"ttl": ttl, "final": final}))
+
+
+def read_or_fail(path, missing, timeout=60):
+    if not resolve_server():
+        sys.stderr.write("No ci3 server available.\n")
+        return 1
+    try:
+        resp = api("GET", path, timeout=timeout)
+        if resp.status != 200:
+            sys.stderr.write(missing + "\n")
+            return 1
+        while True:
+            chunk = resp.read(1 << 20)
+            if not chunk:
+                return 0
+            out(chunk)
+    except OSError as e:
+        sys.stderr.write("%s (%s)\n" % (missing, e))
+        return 1
+
+
+def cmd_log_get(args):
+    if not args:
+        return usage("log_get", "<id>")
+    return read_or_fail("/logs/" + key_path(args[0]), "Log not found: " + args[0], timeout=120)
+
+
+def cmd_log_list(args):
+    if not args:
+        return usage("log_list", "<prefix>")
+    return read_or_fail("/logs/" + key_path(args[0].strip("/")) + "/", "Cannot list logs under " + args[0])
+
+
+def cmd_kv_get(args):
+    if not args:
+        return usage("kv_get", "<key>...")
+    misses = "\n".join("" for _ in args) + "\n"
+    if not resolve_server():
+        out(misses.encode())
+        return 0
+    try:
+        if len(args) == 1:
+            resp = api("GET", "/kv/" + key_path(args[0]))
+            value = resp.read() if resp.status == 200 else b""
+            out(value.rstrip(b"\n") + b"\n")
+            return 0
+        resp = api("POST", "/kv/mget", ("\n".join(args) + "\n").encode())
+        body = resp.read() if resp.status == 200 else b""
+        lines = body.decode(errors="replace").split("\n")
+        if lines and lines[-1] == "":
+            lines.pop()
+        # Callers index the answer by position: it must be exactly one line per key even on failure.
+        if len(lines) != len(args):
+            out(misses.encode())
+        else:
+            out(("\n".join(lines) + "\n").encode())
+    except OSError:
+        out(misses.encode())
+    return 0
+
+
+def cmd_kv_set(args):
+    if len(args) < 2:
+        return usage("kv_set", "<key> <value> [ttl]")
+    if not resolve_server():
+        return 0
+    query = {"ttl": args[2]} if len(args) > 2 and args[2] else None
+    return swallow(lambda: api("PUT", "/kv/" + key_path(args[0]), args[1].encode(), query=query))
+
+
+def cmd_list_push(args):
+    if len(args) < 2:
+        return usage("list_push", "<name> <line> [max]")
+    if not resolve_server():
+        return 0
+    query = {"max": args[2]} if len(args) > 2 and args[2] else None
+    return swallow(lambda: api("POST", "/lists/" + key_path(args[0]), (args[1] + "\n").encode(), query=query))
+
+
+def cmd_list_get(args):
+    if not args:
+        return usage("list_get", "<name>")
+    return read_or_fail("/lists/" + key_path(args[0]), "List not found: " + args[0])
+
+
+def cmd_event(args):
+    if not args:
+        return usage("event", "<channel> [json]")
+    body = args[1].encode() if len(args) > 1 else stdin_bytes()
+    if not resolve_server():
+        return 0
+    return swallow(lambda: api("POST", "/events/" + key_path(args[0]), body, {"Content-Type": "application/json"}))
+
+
+def cmd_run_put(args):
+    if len(args) < 2:
+        return usage("run_put", "<section> <id>")
+    body = stdin_bytes()
+    if not resolve_server():
+        return 0
+    return swallow(lambda: api("PUT", "/runs/" + key_path(args[0], args[1]), body, {"Content-Type": "application/json"}))
+
+
+def cmd_run_get(args):
+    if len(args) < 2:
+        return usage("run_get", "<section> <id>")
+    return read_or_fail("/runs/" + key_path(args[0], args[1]), "Run not found: %s/%s" % (args[0], args[1]))
+
+
+def cmd_artifact_put(args):
+    if len(args) < 2:
+        return usage("artifact_put", "<name> <file>")
+    if not resolve_server():
+        return 1
+    try:
+        with open(args[1], "rb") as f:
+            headers = {"Content-Length": str(os.fstat(f.fileno()).st_size)}
+            resp = api("PUT", "/artifacts/" + key_path(args[0]), f, headers, timeout=600, query={"ttl": str(ARTIFACT_EXPIRE)})
+            resp.read()
+            return 0 if resp.status < 300 else 1
+    except OSError as e:
+        sys.stderr.write("ci3_client artifact_put: %s\n" % e)
+        return 1
+
+
+def cmd_artifact_get(args):
+    if not args:
+        return usage("artifact_get", "<name>")
+    return read_or_fail("/artifacts/" + key_path(args[0]), "Artifact not found: " + args[0], timeout=600)
+
+
+def cmd_artifact_exists(args):
+    if not args:
+        return usage("artifact_exists", "<name>")
+    if not resolve_server():
+        return 1
+    try:
+        resp = api("HEAD", "/artifacts/" + key_path(args[0]))
+        resp.read()
+        return 0 if resp.status == 200 else 1
+    except OSError:
+        return 1
+
+
+COMMANDS = {
+    "env": cmd_env, "url": cmd_url,
+    "log_put": cmd_log_put, "log_get": cmd_log_get, "log_list": cmd_log_list,
+    "kv_get": cmd_kv_get, "kv_set": cmd_kv_set,
+    "list_push": cmd_list_push, "list_get": cmd_list_get,
+    "event": cmd_event, "run_put": cmd_run_put, "run_get": cmd_run_get,
+    "artifact_put": cmd_artifact_put, "artifact_get": cmd_artifact_get, "artifact_exists": cmd_artifact_exists,
+}
+
+
+def main():
+    argv = sys.argv[1:]
+    if not argv:
+        sys.stderr.write(__doc__)
+        return 2
+    cmd, argv = argv[0], argv[1:]
+    if cmd not in COMMANDS:
+        sys.stderr.write("ci3_client: unknown command %s\n%s" % (cmd, __doc__))
+        return 2
+    return COMMANDS[cmd](argv)
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except BrokenPipeError:
+        sys.exit(0)
