@@ -41,7 +41,7 @@ trap cleanup EXIT
 unset CI3_SERVER CI3_PUBLIC_URL CI3_SERVER_START_ARGS PARENT_LOG_ID
 export CI=0
 export CI3_SERVER_TOKEN=$token
-url=$("$ci3/ci3_server" start --backend file --port $port --dir "$work/store")
+url=$("$ci3/ci3_server" start --port $port --dir "$work/store")
 export CI3_SERVER_URL=$url
 source "$ci3/source_ci3_client"
 check "configured server probed" "$url" "$CI3_SERVER"
@@ -134,9 +134,9 @@ check "anonymous oversized write is refused without being read" 401 "$(head -c 2
 # --- auth ---
 echo "--- auth ---"
 check "anonymous write rejected" 401 "$(curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary x "$url/kv/anon")"
-if CI3_SERVER_TOKEN=other "$ci3/ci3_server" start --backend file --port $port --dir "$work/store" >/dev/null 2>&1; then fail "start with a different token refuses to reuse the server" "reused"; else pass "start with a different token refuses to reuse the server"; fi
-if "$ci3/ci3_server" start --backend file --port $port --dir "$work/other-store" >/dev/null 2>&1; then fail "start with a different storage dir refuses to reuse the server" "reused"; else pass "start with a different storage dir refuses to reuse the server"; fi
-check "start with the same configuration reuses the server" "$url" "$("$ci3/ci3_server" start --backend file --port $port --dir "$work/store" 2>/dev/null)"
+if CI3_SERVER_TOKEN=other "$ci3/ci3_server" start --port $port --dir "$work/store" >/dev/null 2>&1; then fail "start with a different token refuses to reuse the server" "reused"; else pass "start with a different token refuses to reuse the server"; fi
+if "$ci3/ci3_server" start --port $port --dir "$work/other-store" >/dev/null 2>&1; then fail "start with a different storage dir refuses to reuse the server" "reused"; else pass "start with a different storage dir refuses to reuse the server"; fi
+check "start with the same configuration reuses the server" "$url" "$("$ci3/ci3_server" start --port $port --dir "$work/store" 2>/dev/null)"
 check "anonymous read allowed" "v1" "$(curl -s "$url/kv/k1")"
 CI3_SERVER_TOKEN=wrong ci3_client kv_set k1 hacked
 check "wrong token write ignored" "v1" "$(ci3_client kv_get k1)"
@@ -152,7 +152,7 @@ check "kv_get answers one empty line per key" "2||" "${#got[@]}|${got[0]}|${got[
 check "kv_set exits 0" 0 "$( { CI3_SERVER= ci3_client kv_set a b; echo $?; } )"
 if CI3_SERVER= ci3_client artifact_exists foo-abc.tar.gz; then fail "artifact_exists exits 1" "exit 0"; else pass "artifact_exists exits 1"; fi
 check "unreachable server resolves to no server" "" "$(unset CI3_SERVER; CI3_SERVER_URL=http://127.0.0.1:1 bash -c 'source $ci3/source_ci3_client 2>/dev/null; echo $CI3_SERVER')"
-check "CI with no server links to the dashboard" "http://ci.aztec-labs.com/abc" "$(unset CI3_SERVER CI3_SERVER_URL CI3_PUBLIC_URL; CI=1 bash -c 'source $ci3/source_ci3_client 2>/dev/null; ci3_client url abc')"
+check "CI with no configured server has none" "server=[] cache=0" "$(unset CI3_SERVER CI3_SERVER_URL CI3_PUBLIC_URL USE_TEST_CACHE; CI=1 bash -c 'source $ci3/source_ci3_client 2>/dev/null; echo "server=[$CI3_SERVER] cache=$USE_TEST_CACHE"')"
 # A local run starts a server on demand; CI3_SERVER_URL stays unset, so it is never handed to an instance.
 check "local run starts a server on demand and leaves CI3_SERVER_URL unset" "http://localhost:$((port + 1)) unset" "$(unset CI3_SERVER CI3_SERVER_URL; CI=0 CI3_SERVER_START_ARGS="--port $((port + 1)) --dir $work/store-local" bash -c 'source $ci3/source_ci3_client >/dev/null 2>&1; echo "$CI3_SERVER ${CI3_SERVER_URL:-unset}"; $ci3/ci3_server stop --port '$((port + 1))' --dir '$work/store-local' >/dev/null')"
 

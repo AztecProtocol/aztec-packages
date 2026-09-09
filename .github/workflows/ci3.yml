@@ -132,9 +132,11 @@ jobs:
           CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
           CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-          # The log / test-cache server (ci3/CI3_SERVER_API.md). Unset: the run has no logs and no test cache.
+          # The log / test-cache server (ci3/CI3_SERVER_API.md). Unset, the build instance runs the
+          # transitional ci3_compat_server, which writes where the labs dashboard reads: links go there.
           CI3_SERVER_URL: ${{ vars.CI3_SERVER_URL }}
           CI3_SERVER_TOKEN: ${{ secrets.CI3_SERVER_TOKEN }}
+          CI3_PUBLIC_URL: ${{ vars.CI3_SERVER_URL || 'http://ci.aztec-labs.com' }}
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
         run: ./.github/ci3.sh $CI_MODE
 
@@ -146,12 +148,14 @@ jobs:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          # ci3_success.sh uploads the whole-run success marker to the build cache: with no configured
-          # server the runner runs the compat server, which reaches S3 with the job's OIDC role
-          # (redis is out of reach here and not needed for that).
-          CI3_SERVER_URL: ${{ vars.CI3_SERVER_URL || 'compat' }}
+          CI3_SERVER_URL: ${{ vars.CI3_SERVER_URL }}
           CI3_SERVER_TOKEN: ${{ secrets.CI3_SERVER_TOKEN }}
-        run: ./.github/ci3_success.sh
+        # ci3_success.sh uploads the whole-run success marker to the build cache. Transitional: with no
+        # configured server the runner runs ci3_compat_server, which reaches S3 with the job's OIDC
+        # role (redis is out of reach here and not needed for that).
+        run: |
+          [ -n "$CI3_SERVER_URL" ] || export CI3_SERVER_URL=$(./ci3/ci3_compat_server start)
+          ./.github/ci3_success.sh
 
       - name: Notify Slack on backport CI failure
         if: failure() && startsWith(github.event.pull_request.head.ref, 'backport-to-') && endsWith(github.event.pull_request.head.ref, '-staging')

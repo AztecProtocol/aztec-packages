@@ -20,12 +20,11 @@ Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Py
   artifact_exists <name>           exit 0 if present, else 1
 
 Configuration, all read from the environment:
-  CI3_SERVER_URL         the server: a URL, or `compat` to start the transitional compat server here
-                         (what CI does until the labs dashboard serves the API). Unset: a local run
-                         (CI=0) starts the file-backed server on demand; a CI run has no server.
+  CI3_SERVER_URL         the server. Unset: a local run (CI=0) starts ci3_server, the file-backed
+                         server, on demand; a CI run has no server.
   CI3_SERVER_TOKEN       bearer token for writes.
-  CI3_PUBLIC_URL         base of the links we print (default: the server, or the dashboard when the
-                         logs end up there). Set it to share a tunnelled server.
+  CI3_PUBLIC_URL         base of the links we print (default: the server). Set it to share a
+                         tunnelled server, or when the logs are viewed somewhere else.
   CI3_SERVER_START_ARGS  extra ci3_server flags for a server started on demand (--port, --dir, ...).
   CI3_SERVER             the outcome, exported once per process tree by `env`: the server every
                          command talks to, or empty for none. Set (even empty) it skips discovery.
@@ -42,10 +41,6 @@ import subprocess
 import sys
 import urllib.parse
 
-# Transitional constants, until the labs dashboard serves the API: the redis the compat server
-# forwards to and the dashboard that renders it. One place, so removing them is one edit.
-COMPAT_REDIS = "ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com:6379"
-DASHBOARD_URL = "http://ci.aztec-labs.com"
 # The public, read-only build cache (S3 over plain HTTP) artifact reads fall back to on a miss: the
 # bucket endpoint from inside AWS, the CDN in front of it otherwise. ci3 never writes to it.
 PUBLIC_CACHE_URL_CI = "http://aztec-ci-artifacts.s3.amazonaws.com/build-cache"
@@ -71,8 +66,8 @@ def in_ci():
 # --- discovery ---------------------------------------------------------------------------------
 
 
-def start_server(*args):
-    cmd = [os.path.join(HERE, "ci3_server"), "start", *args, *shlex.split(os.environ.get("CI3_SERVER_START_ARGS", ""))]
+def start_server():
+    cmd = [os.path.join(HERE, "ci3_server"), "start", *shlex.split(os.environ.get("CI3_SERVER_START_ARGS", ""))]
     r = subprocess.run(cmd, stdout=subprocess.PIPE)
     return r.stdout.decode().strip() if r.returncode == 0 else None
 
@@ -93,15 +88,11 @@ def resolve_server():
         return os.environ["CI3_SERVER"]
     configured = os.environ.get("CI3_SERVER_URL", "")
     server = ""
-    if configured == "compat":
-        server = start_server("--backend", "compat", "--redis", COMPAT_REDIS) or ""
-        if not server:
-            warn("Could not start the compat ci3 server. Logs and test cache disabled.")
-    elif configured == "":
+    if configured == "":
         if not in_ci():
             server = start_server() or ""
             if not server:
-                warn("Could not start the local ci3 server (needs python3). Logs and test cache disabled.")
+                warn("Could not start the local ci3 server. Logs and test cache disabled.")
     else:
         url = configured.rstrip("/")
         if probe(url):
@@ -113,14 +104,8 @@ def resolve_server():
 
 
 def public_url():
-    """Base of the links we print: the server, or the dashboard when the logs end up there (compat,
-    or CI with no server)."""
-    if os.environ.get("CI3_PUBLIC_URL"):
-        return os.environ["CI3_PUBLIC_URL"].rstrip("/")
-    server = resolve_server()
-    if os.environ.get("CI3_SERVER_URL") == "compat" or (not server and in_ci()):
-        return DASHBOARD_URL
-    return server
+    """Base of the links we print: CI3_PUBLIC_URL, else the server."""
+    return os.environ.get("CI3_PUBLIC_URL", "").rstrip("/") or resolve_server()
 
 
 def cmd_env(args):
@@ -133,8 +118,6 @@ def cmd_env(args):
         "ci3_log_expire=%d" % (LOG_EXPIRE_CI if in_ci() else LOG_EXPIRE_LOCAL),
         "ci3_artifact_expire=%d" % ARTIFACT_EXPIRE,
         "ci3_public_cache_url=%s" % (PUBLIC_CACHE_URL_CI if in_ci() else PUBLIC_CACHE_URL_LOCAL),
-        "ci3_dashboard_url=%s" % DASHBOARD_URL,
-        "ci3_compat_redis=%s" % COMPAT_REDIS,
     ]
     print("\n".join(lines))
     return 0

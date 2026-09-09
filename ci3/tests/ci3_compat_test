@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Exercises ci3_server's compat backend: the API served on top of redis and S3 with the key shapes the
-# pre-API ci3 wrote. Redis is a throwaway docker container; S3 is a fake `aws` on PATH that copies to a
+# Exercises ci3_compat_server: the API served on top of redis and S3 with the key shapes the pre-API
+# ci3 wrote. Redis is a throwaway docker container; S3 is a fake `aws` on PATH that copies to a
 # directory, fronted by a static http server as the bucket's public endpoint. Skips when docker is
 # unavailable.
 set -euo pipefail
@@ -40,7 +40,7 @@ fake_s3="$work/s3"
 mkdir -p "$fake_s3/aztec-ci-artifacts/build-cache" "$fake_s3/aztec-ci-artifacts/logs" "$work/bin"
 
 cleanup() {
-  "$ci3/ci3_server" stop --port $server_port --dir "$work/store" >/dev/null 2>&1 || true
+  "$ci3/ci3_compat_server" stop --port $server_port --dir "$work/store" >/dev/null 2>&1 || true
   [ -n "${public_pid:-}" ] && kill $public_pid 2>/dev/null || true
   docker rm -f "$redis_name" >/dev/null 2>&1 || true
   rm -rf "$work"
@@ -78,15 +78,14 @@ redis() { docker exec "$redis_name" redis-cli --raw "$@"; }
 (cd "$fake_s3/aztec-ci-artifacts/build-cache" && exec python3 -m http.server $public_port --bind 127.0.0.1 >/dev/null 2>&1) &
 public_pid=$!
 
-# Discovery the way the build instance sees it: CI=1 and CI3_SERVER_URL=compat. The test's redis and
-# fake bucket endpoint go in through the start args; links are checked against the real dashboard
-# constant since that is what CI prints.
-unset CI3_SERVER CI3_PUBLIC_URL CI3_SERVER_TOKEN PARENT_LOG_ID
-export CI=1 CI3_SERVER_URL=compat
-export CI3_SERVER_START_ARGS="--port $server_port --dir $work/store --redis 127.0.0.1:$redis_port --public-cache-url http://127.0.0.1:$public_port"
+# The way the build instance runs it: the CI launcher starts the compat server explicitly, points
+# CI3_SERVER_URL at it and CI3_PUBLIC_URL at the dashboard; the clients know nothing about compat.
+unset CI3_SERVER CI3_SERVER_TOKEN CI3_SERVER_START_ARGS PARENT_LOG_ID
+url=$("$ci3/ci3_compat_server" start --port $server_port --dir "$work/store" --redis 127.0.0.1:$redis_port --public-cache-url http://127.0.0.1:$public_port)
+export CI=1 CI3_SERVER_URL=$url CI3_PUBLIC_URL=http://dashboard.example
 source "$ci3/source_ci3_client"
-check "compat server started on demand" "http://localhost:$server_port" "$CI3_SERVER"
-check "links point at the dashboard" "http://ci.aztec-labs.com/abc" "$(ci3_client url abc)"
+check "compat server probed" "http://localhost:$server_port" "$CI3_SERVER"
+check "links point where the launcher says" "http://dashboard.example/abc" "$(ci3_client url abc)"
 
 echo "--- logs ---"
 printf 'live\n' | ci3_client log_put log1 100
@@ -163,14 +162,14 @@ check "cache_download extracts it" "artifact content" "$(cat "$work/dst/src/file
 
 echo "--- unreachable redis ---"
 # Redis is best effort: the server comes up, redis-backed operations fail per request, S3 still works.
-url2=$("$ci3/ci3_server" start --backend compat --redis 127.0.0.1:1 --port $((server_port + 1)) --dir "$work/store2" 2>/dev/null)
+url2=$("$ci3/ci3_compat_server" start --redis 127.0.0.1:1 --port $((server_port + 1)) --dir "$work/store2" 2>/dev/null)
 check "compat server starts without redis" "http://localhost:$((server_port + 1))" "$url2"
 check "redis-backed write fails per request" 502 "$(curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary v "$url2/kv/k")"
 check "final log still reaches S3 without redis" 502 "$(printf 'x' | curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary @- "$url2/logs/noredis?final=1")"
 check "final log object written" "x" "$(gunzip -c "$fake_s3/aztec-ci-artifacts/logs/nore/noredis.log.gz")"
 CI3_SERVER=$url2 ci3_client artifact_put via-no-redis.tar.gz "$work/blob"
 if cmp -s "$work/blob" "$fake_s3/aztec-ci-artifacts/build-cache/via-no-redis.tar.gz"; then pass "artifact upload works without redis"; else fail "artifact upload works without redis" "missing"; fi
-"$ci3/ci3_server" stop --port $((server_port + 1)) --dir "$work/store2" >/dev/null 2>&1 || true
+"$ci3/ci3_compat_server" stop --port $((server_port + 1)) --dir "$work/store2" >/dev/null 2>&1 || true
 
 echo
 if [[ $TESTS_FAILED -eq 0 ]]; then

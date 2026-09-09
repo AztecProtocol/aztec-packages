@@ -20,16 +20,16 @@ export CI=1
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
-# The server the instance talks to: the configured CI3_SERVER_URL, or with none the compat
-# server it starts itself (transitional, see source_ci3_client). A server this machine started on
-# demand is never handed over: CI3_SERVER_URL stays unset for those. With compat, every link,
-# including the ones printed here and posted as commit statuses, points at the dashboard where
-# those logs land, and a parent log on a developer's local server is not referenced there.
+# The server the instance talks to is the configured CI3_SERVER_URL. A server this machine started
+# on demand is never handed over: CI3_SERVER_URL stays unset for those, and the instance then runs
+# the transitional ci3_compat_server itself (see the container script), which writes where the
+# labs dashboard reads. Every link printed here and posted as a commit status then points at that
+# dashboard, and a parent log on a developer's local server is not referenced there.
 # CI_REDIS is for the labs submodule's own ci3, still the pre-API one, which reads it directly.
-instance_server_url=${CI3_SERVER_URL:-compat}
+dashboard_url=http://ci.aztec-labs.com
 instance_parent_log_id=${PARENT_LOG_ID:-}
-if [ "$instance_server_url" == compat ]; then
-  export CI3_PUBLIC_URL=$ci3_dashboard_url
+if [ -z "${CI3_SERVER_URL:-}" ]; then
+  export CI3_PUBLIC_URL=$dashboard_url
   [ -n "$CI3_SERVER" ] && instance_parent_log_id=""
 fi
 
@@ -204,6 +204,12 @@ container_script=$(
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD
   git checkout -b \$REF_NAME
+  # Transitional, until the labs dashboard serves the ci3 API: with no configured server, run the
+  # compat server here (it forwards to the redis/S3 the dashboard reads) and link to the dashboard.
+  if [ -z "\${CI3_SERVER_URL:-}" ]; then
+    export CI3_SERVER_URL=\$(ci3/ci3_compat_server start)
+    export CI3_PUBLIC_URL=$dashboard_url
+  fi
   source ci3/source
   ci_log_id=\$CI_LOG_ID
   log_ci_run \$ci_log_id
@@ -367,10 +373,10 @@ start_build() {
     -e CI=1 \
     -e CI_SSM_MODE=$ci_ssm_mode \
     -e CI_LOG_ID=${CI_LOG_ID:-} \
-    -e CI3_SERVER_URL=$(printf %q "$instance_server_url") \
+    -e CI3_SERVER_URL=$(printf %q "${CI3_SERVER_URL:-}") \
     -e CI3_SERVER_TOKEN=$(printf %q "${CI3_SERVER_TOKEN:-}") \
-    -e CI3_PUBLIC_URL=$(printf %q "${CI3_PUBLIC_URL:-}") \
-    -e CI_REDIS=${ci3_compat_redis%%:*} \
+    -e CI3_PUBLIC_URL=$(printf %q "${CI3_SERVER_URL:+${CI3_PUBLIC_URL:-}}") \
+    -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
     -e RUN_ID=${RUN_ID:-} \
     -e JOB_ID=${JOB_ID:-} \
     -e REF_NAME=${REF_NAME:-} \

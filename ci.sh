@@ -357,9 +357,10 @@ case "$cmd" in
     else
       # Transitional: CI logs live behind the labs dashboard until it serves the ci3 API, and it
       # wants its basic-auth password (CI_PASSWORD) to show them.
-      curl -sf ${CI_PASSWORD:+-u "aztec:$CI_PASSWORD"} "$ci3_dashboard_url/$key.txt" | $pager
+      dashboard_url=http://ci.aztec-labs.com
+      curl -sf ${CI_PASSWORD:+-u "aztec:$CI_PASSWORD"} "$dashboard_url/$key.txt" | $pager
       if [ ${PIPESTATUS[0]} -ne 0 ]; then
-        echo "Log $key not found locally nor at $ci3_dashboard_url (set CI_PASSWORD for the latter)."
+        echo "Log $key not found locally nor at $dashboard_url (set CI_PASSWORD for the latter)."
         exit 1
       fi
     fi

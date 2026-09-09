@@ -3,13 +3,14 @@
 ci3 stores CI logs, the test cache, run metadata and build artifacts through the HTTP API below. It knows
 nothing about what sits behind it. Two implementations exist:
 
-- `ci3/ci3_server --backend file`: the file-backed reference implementation. A local run starts it
-  on demand (`http://localhost:4275`, files under `/tmp/ci3`). Put it behind a tunnel (ngrok etc.)
-  and set `CI3_PUBLIC_URL` to share links.
-- `ci3/ci3_server --backend compat`: transitional. Forwards to the redis and S3 stores the pre-API
-  ci3 wrote to directly, with the key shapes the labs dashboard reads, so CI keeps its logs and test
-  cache before that dashboard speaks the API. `bootstrap_ec2` starts it on the build instance when no
-  `CI3_SERVER_URL` is configured; it is the implementation to upstream into the dashboard.
+- `ci3/ci3_server`: the file-backed reference implementation. A local run starts it on demand
+  (`http://localhost:4275`, files under `/tmp/ci3`). Put it behind a tunnel (ngrok etc.) and set
+  `CI3_PUBLIC_URL` to share links.
+- `ci3/ci3_compat_server`: transitional. Forwards to the redis and S3 stores the pre-API ci3 wrote
+  to directly, with the key shapes the labs dashboard reads, so CI keeps its logs and test cache
+  before that dashboard speaks the API. The CI launcher (`bootstrap_ec2`) starts it on the build
+  instance when no `CI3_SERVER_URL` is configured; it is the implementation to upstream into the
+  dashboard, and nothing else in ci3 knows it exists.
 - The labs CI dashboard (`ci.aztec-labs.com`, in the aztec-node repository): the production
   implementation once it serves this API; then `CI3_SERVER_URL` points at it.
 
@@ -20,10 +21,10 @@ so a new backend needs to implement exactly this document.
 
 | Variable | Meaning |
 |---|---|
-| `CI3_SERVER_URL` | The server: a base URL, or `compat` to start the transitional compat server locally (what CI does until the dashboard serves the API). Unset: a local run (`CI=0`) starts the file-backed server on `localhost:4275`; a CI run has no server and proceeds with no logs and no test cache. |
+| `CI3_SERVER_URL` | The server's base URL. Unset: a local run (`CI=0`) starts the file-backed server on `localhost:4275`; a CI run has no server and proceeds with no logs and no test cache. |
 | `CI3_SERVER_TOKEN` | Sent on every request as `Authorization: Bearer <token>`. Servers require it for writes and may allow anonymous reads. |
-| `CI3_PUBLIC_URL` | Base of the URLs printed in terminal links. Default: the server, or the dashboard when the logs end up there (compat, or CI with no server). Set it to share a tunnelled local server. |
-| `CI3_SERVER_START_ARGS` | Extra `ci3_server` flags for a server started on demand (`--port`, `--dir`, the compat `--redis`/`--public-cache-url`, ...). |
+| `CI3_PUBLIC_URL` | Base of the URLs printed in terminal links (default: the server). Set it to share a tunnelled local server, or when the logs are viewed somewhere else (CI points it at the dashboard). |
+| `CI3_SERVER_START_ARGS` | Extra `ci3_server` flags for a server started on demand (`--port`, `--dir`). |
 
 `ci3_client env` resolves this once per process tree into `CI3_SERVER`, the base URL every
 `ci3_client <command>` command talks to, or empty when there is none: then every command is a no-op (draining
@@ -43,9 +44,9 @@ skips discovery. Retention is fixed by the clients: logs 14 days in CI and 2 day
 - Writes answer 2xx. Reads answer 200 with the content, 404 when absent. 401 for a missing or wrong
   token, 400 for a bad path, 405 for an unsupported method.
 - `GET /health` answers 200 with the body `ci3-server` (the probe checks the body, so a stale
-  unrelated service on the port is not mistaken for a server). The reference server also returns an
-  `X-CI3-Server` header naming its backend, storage and whether writes take a token, so a second
-  `ci3_server start` with a different configuration refuses to reuse it.
+  unrelated service on the port is not mistaken for a server). The reference servers also return an
+  `X-CI3-Server` header naming their configuration, so a second `start` with a different one refuses
+  to reuse them.
 
 ## Logs
 

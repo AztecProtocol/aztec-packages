@@ -48,7 +48,7 @@ Tools are provided for the following themes.
    - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
    - **`cache_upload`, `cache_download`, `cache_exists`**: Store/fetch `.tar.gz` artifacts on the ci3 server, falling back to the public build cache for reads. Local runs upload too (a week's retention under `/tmp/ci3`); `NO_CACHE_UPLOAD=1` skips it.
    - **`ci3_client <command>`**: The only way ci3 talks to its server: `log_put/log_get/log_list/url`, `kv_get/kv_set`, `list_push/list_get`, `run_put/run_get`, `event`, `artifact_put/artifact_get/artifact_exists`, and `env` (discovery).
-   - **`ci3_server`**: The reference server (`start`, `stop`, `status`, `run`): `--backend file` for local runs, `--backend compat` forwarding to the production redis/S3 until the labs dashboard speaks the API.
+   - **`ci3_server`**: The file-backed reference server (`start`, `stop`, `status`, `run`) a local run uses. **`ci3_compat_server`** is the transitional one CI runs, forwarding to the production redis/S3 until the labs dashboard speaks the API.
 
 2. **Test Parallelization & Caching**
    - **`parallelize`**: Reads test commands from STDIN, executes in parallel, aggregates logs.
