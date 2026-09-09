@@ -13,6 +13,8 @@ function buildModule(opts: {
   shared: boolean;
   min: number;
   max: number;
+  /** Define and export a memory instead of importing one, the way a Rust cdylib does. */
+  ownMemory?: boolean;
 }): WebAssembly.Module {
   const leb = (n: number) => {
     const out = [];
@@ -52,24 +54,23 @@ function buildModule(opts: {
     I32,
     0, // (i32) -> ()                     free
   ]);
+  const limits = [opts.shared ? 0x03 : 0x01, ...leb(opts.min), ...leb(opts.max)];
   const imports = section(2, [
-    2,
-    ...str("env"),
-    ...str("memory"),
-    0x02,
-    opts.shared ? 0x03 : 0x01,
-    ...leb(opts.min),
-    ...leb(opts.max),
+    ...(opts.ownMemory
+      ? [1]
+      : [2, ...str("env"), ...str("memory"), 0x02, ...limits]),
     ...str("wasi"),
     ...str("thread-spawn"),
     0x00,
     0,
   ]);
+  const memories = opts.ownMemory ? section(5, [1, ...limits]) : [];
   const functions = section(3, [4, 0, 1, 0, 2]);
   // The bump allocator's next free offset, past the page the entry never touches.
   const globals = section(6, [1, I32, 0x01, 0x41, ...leb(4096), 0x0b]);
   const exports = section(7, [
-    4,
+    opts.ownMemory ? 5 : 4,
+    ...(opts.ownMemory ? [...str("memory"), 0x02, 0] : []),
     ...str("spawn_thread"),
     0x00,
     SPAWN,
@@ -144,6 +145,7 @@ function buildModule(opts: {
       ...types,
       ...imports,
       ...functions,
+      ...memories,
       ...globals,
       ...exports,
       ...code,
@@ -260,5 +262,20 @@ test("round-trips requests, growing the reused request buffer to fit", async () 
     );
     assert.deepEqual(engine.call(request), request, `echo of ${size} bytes`);
   }
+  await engine.destroy();
+});
+
+test("uses the module's own memory when it exports one instead of importing", async () => {
+  // A Rust cdylib defines its own memory, so the one the engine would have made is not the one the
+  // module reads and writes: a request echoed through the wrong memory comes back as zeroes. Such
+  // a module also cannot be threaded, since every instance would have a memory to itself.
+  const engine = await WasmFfiEngine.create(
+    { module: buildModule({ shared: false, min: 4, max: 64, ownMemory: true }), threads: 4 },
+    countingBinding(),
+  );
+  assert.equal(engine.threads, 1, "a module owning its memory cannot share it with workers");
+  assert.equal(engine.memory, engine.host.instance.exports.memory);
+  const request = Uint8Array.from({ length: 5000 }, (_v, i) => (i * 7) & 0xff);
+  assert.deepEqual(engine.call(request), request);
   await engine.destroy();
 });

@@ -179,18 +179,21 @@ export class WasmFfiEngine {
     );
     // The module's declaration wins over the request: a threads build gets a shared memory even
     // for one thread, and workers need a shared memory, so the thread count follows the memory.
+    // A module that defines its own memory instead of importing one cannot be threaded at all —
+    // every instance would get a memory of its own, with nothing shared between them.
+    const importsMemory = WebAssembly.Module.imports(module).some(
+      (i) => i.kind === "memory",
+    );
     const shared = memory.buffer instanceof SharedArrayBuffer;
     const threads =
-      shared && platform.sharedMemoryAvailable() ? wantThreads : 1;
+      importsMemory && shared && platform.sharedMemoryAvailable()
+        ? wantThreads
+        : 1;
     const env = {
       HARDWARE_CONCURRENCY: String(threads),
       RAYON_NUM_THREADS: String(threads),
       ...(opts.env ?? {}),
     };
-    logger(
-      `wasm: ${threads} thread(s), memory ${memory.buffer.byteLength >> 16} pages initial, shared=${shared}`,
-    );
-
     // Threads are created when the module asks for them, so nothing is spawned here — and
     // nothing at all if the module never spawns a thread.
     const threadWorkers =
@@ -217,7 +220,13 @@ export class WasmFfiEngine {
       threads,
       spawnThread: (startArg) => threadWorkers?.spawn(startArg) ?? -1,
     });
-    return new WasmFfiEngine(host, threadWorkers, memory, threads);
+    // host.memory is the one the module actually uses, which is its own when it exports one.
+    logger(
+      `wasm: ${threads} thread(s), memory ${host.memory.buffer.byteLength >> 16} pages initial, ` +
+        `shared=${host.memory.buffer instanceof SharedArrayBuffer}, ` +
+        `${importsMemory ? "imported" : "owned by the module"}`,
+    );
+    return new WasmFfiEngine(host, threadWorkers, host.memory, threads);
   }
 
   call(input: Uint8Array): Uint8Array {

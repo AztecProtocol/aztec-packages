@@ -11,4 +11,9 @@ src/react-native.ts
 src/platform.ts
 src/process.ts
 src/bin.ts
+src/browser.ts
+src/wasm.ts
+src/wasm/
+src/wasm_host_imports.ts
+wasm/
 scripts/prepare_arch_packages.sh
