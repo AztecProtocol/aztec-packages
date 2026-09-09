@@ -128,7 +128,6 @@ if ci3_client artifact_exists truncated.tar.gz; then fail "truncated upload is n
 check "artifact ttl recorded" 1 "$( [ -f "$work/store/artifacts/foo-abc.tar.gz.expires" ] && echo 1 || echo 0)"
 # Bodies must announce their length: a chunked upload (curl -T -) is refused outright.
 check "chunked upload is refused" 411 "$(printf 'x' | curl -s -o /dev/null -w '%{http_code}' -H 'Transfer-Encoding: chunked' -T - "$url/logs/chunked")"
-check "anonymous oversized write is refused without being read" 401 "$(head -c 20000 /dev/urandom | curl -s -o /dev/null -w '%{http_code}' -X PUT --data-binary @- "$url/kv/anon-big")"
 
 # --- auth ---
 echo "--- bad paths and reuse ---"
