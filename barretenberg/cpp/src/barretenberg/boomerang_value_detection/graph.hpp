@@ -8,6 +8,7 @@
 #include "./gate_patterns.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include <array>
 #include <list>
 #include <set>
 #include <typeinfo>
@@ -69,6 +70,10 @@ struct ConnectedComponent {
     const std::vector<uint32_t>& vars() const { return variable_indices; }
 };
 
+// Explanation-only mode reports every repeated witness value that is not removed by a concrete structural or provenance
+// explanation. Triage mode additionally applies value-only noise filters for high-volume diagnostic runs.
+enum class WitnessDuplicateFilterMode { EXPLANATION_ONLY, TRIAGE_VALUE_FILTERS };
+
 /*
  * This class describes an arithmetic circuit as an undirected graph, where vertices are variables from the circuit.
  * Edges describe connections between variables through gates. We want to find variables that weren't properly
@@ -106,6 +111,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     }
     void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, auto& blk);
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() const { return this->variables_gate_counts; };
+    const auto& get_witness_duplicate_map() const { return filtered_witness_value_map; }
 
     /**
      * @brief Extract gate variables using a declarative pattern
@@ -117,7 +123,12 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
                                                  bb::GateKind kind);
 
     void process_execution_trace();
-
+    void fill_witness_duplicate_map(
+        const std::unordered_set<FF>& additional_filter_values = {},
+        WitnessDuplicateFilterMode filter_mode = WitnessDuplicateFilterMode::EXPLANATION_ONLY,
+        const std::unordered_set<FF>& rerun_varying_filter_values = {});
+    std::unordered_set<FF> get_rerun_varying_duplicate_values(
+        const std::vector<const CircuitBuilder*>& rerun_builders) const;
     // Methods with special handling that can't be inlined as pure patterns
     std::vector<uint32_t> get_rom_table_connected_component(const bb::RomTranscript& rom_array);
     std::vector<uint32_t> get_ram_table_connected_component(const bb::RamTranscript& ram_array);
@@ -132,6 +143,16 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void mark_process_rom_connected_component();
     bool is_gate_sorted_rom(auto& memory_block, size_t gate_idx) const;
     bool variable_only_in_sorted_rom_gates(uint32_t var_idx, auto& blk) const;
+    bool is_non_native_field_custom_gate(auto& block, size_t gate_idx) const;
+    bool is_non_native_field_prime_limb_gate(auto& block, size_t gate_idx) const;
+    bool is_fixed_witness_gate(auto& block, size_t gate_idx, uint32_t var_idx) const;
+    bool is_modulus_arithmetic_gate(auto& block, size_t gate_idx) const;
+    bool variable_only_in_non_native_field_prime_limb_gates(uint32_t var_idx) const;
+    bool variable_only_in_modulus_arithmetic_gates(uint32_t var_idx) const;
+    bool variable_only_in_memory_gates(uint32_t var_idx) const;
+    bool variable_only_in_msm_table_materialization_gates(uint32_t var_idx) const;
+    bool variable_only_in_elliptic_materialization_gates(uint32_t var_idx) const;
+    bool variable_only_in_ecc_op_materialization_gates(uint32_t var_idx) const;
     std::vector<ConnectedComponent> find_connected_components();
     void connect_all_variables_in_vector(const std::vector<uint32_t>& variables_vector);
 
@@ -167,7 +188,16 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     // Store reference to the circuit builder
     CircuitBuilder& circuit_builder;
     bool connect_variables;
-
+    std::unordered_map<uint32_t, std::vector<uint32_t>> build_memory_table_duplicate_adjacency() const;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> build_databus_read_duplicate_adjacency() const;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> build_provenance_duplicate_adjacency() const;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> build_non_native_field_duplicate_adjacency() const;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> build_arithmetic_derivation_duplicate_adjacency() const;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> build_elliptic_operation_duplicate_adjacency() const;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> build_ecc_op_table_duplicate_adjacency() const;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> build_lookup_table_duplicate_adjacency() const;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> build_straus_table_duplicate_adjacency() const;
+    std::unordered_set<uint32_t> get_databus_read_value_variables() const;
     std::unordered_map<uint32_t, std::vector<uint32_t>>
         variable_adjacency_lists; // we use this data structure to contain information about variables and their
                                   // connections between each other
@@ -178,10 +208,16 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::unordered_map<KeyPair, std::vector<size_t>, KeyHasher, KeyEquals>
         variable_gates; // we use this data structure to store gates and TraceBlocks for every variables, where static
                         // analyzer finds them in the circuit.
+    // Same information as variable_gates, indexed directly by variable for source-aware duplicate filters.
+    std::unordered_map<uint32_t, std::vector<std::pair<const void*, size_t>>> variable_gate_refs;
     std::unordered_set<uint32_t> variables_in_one_gate;
     std::unordered_set<uint32_t> constant_variable_indices_set;
 
     std::vector<ConnectedComponent> connected_components;
+
+    std::unordered_map<bb::fr, std::set<uint32_t>>
+        filtered_witness_value_map; // We use the filtered map to discover untethered duplicates of the same
+                                    // high-entropy value within the circuit-builder
 };
 
 // Type aliases for convenience
