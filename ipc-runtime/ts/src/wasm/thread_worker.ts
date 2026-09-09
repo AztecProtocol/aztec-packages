@@ -7,22 +7,25 @@ export interface ThreadWorkerOptions {
 }
 
 /**
- * Body of a wasi-threads worker: instantiate the module over the shared memory on `init`, then
- * run the module's thread entry for each `start`. A thread runs to completion inside
- * `wasi_thread_start`, so one worker serves one wasi thread at a time — the pool is sized to the
- * number of threads the module will create.
+ * Body of a wasi-threads worker: instantiate the module over the shared memory on `init`, then run
+ * the module's thread entry on `start`. A thread runs to completion inside `wasi_thread_start`, so
+ * this worker serves that one thread and is done; the parent creates one worker per thread the
+ * module spawns.
  */
 export function runThreadWorker(
   side: WorkerSide,
   opts: ThreadWorkerOptions = {},
 ): void {
-  let host: WasmInstanceHost | undefined;
+  // `init` and `start` arrive back to back, and instantiation is asynchronous, so `start` waits on
+  // this rather than on the message order.
+  let instantiated: Promise<WasmInstanceHost> | undefined;
   const log = (message: string) => side.postMessage({ type: "log", message });
+
   side.onMessage(async (msg) => {
     try {
       switch (msg?.type) {
         case "init":
-          host = await WasmInstanceHost.instantiate({
+          instantiated = WasmInstanceHost.instantiate({
             module: msg.module,
             memory: msg.memory,
             env: msg.env,
@@ -35,12 +38,18 @@ export function runThreadWorker(
             spawnThread: () => -1,
             logger: log,
           });
+          await instantiated;
           side.postMessage({ type: "ready" });
           break;
-        case "start":
-          host!.callExport("wasi_thread_start", msg.tid, msg.startArg);
+        case "start": {
+          if (!instantiated) {
+            throw new Error("start before init");
+          }
+          const host = await instantiated;
+          host.callExport("wasi_thread_start", msg.tid, msg.startArg);
           side.postMessage({ type: "thread-exit", tid: msg.tid });
           break;
+        }
         default:
           break;
       }
@@ -50,6 +59,7 @@ export function runThreadWorker(
         side.postMessage({ type: "init-error", message });
       } else {
         log(`wasm thread worker: ${message}`);
+        side.postMessage({ type: "thread-exit", tid: msg?.tid });
       }
     }
   });
