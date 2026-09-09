@@ -58,6 +58,11 @@ export const FALLBACK_ALLOCATOR_EXPORTS: Array<[string, string]> = [
 
 type WasmFn = (...args: number[]) => number;
 
+/** The response pointer and length the entry writes back, ahead of the request in the scratch. */
+const SLOTS_BYTES = 8;
+/** Starting size of the request scratch; it grows to fit and never shrinks. */
+const MIN_SCRATCH_BYTES = 64 * 1024;
+
 /** The entry export to use and the service prefix it carries (`bb_` for `bb_ipc_ffi_entry`). */
 function findEntry(
   exports: Record<string, WebAssembly.ExportValue>,
@@ -198,41 +203,73 @@ export class WasmInstanceHost {
     return (fn as WasmFn)(...args);
   }
 
+  /** Views over module memory, rebuilt only when a call grows it and detaches the old buffer. */
+  private viewed?: ArrayBufferLike;
+  private bytes!: Uint8Array;
+  private words!: DataView;
+
+  private refreshViews(): void {
+    if (this.viewed !== this.memory.buffer) {
+      this.viewed = this.memory.buffer;
+      this.bytes = new Uint8Array(this.memory.buffer);
+      this.words = new DataView(this.memory.buffer);
+    }
+  }
+
   /**
-   * One FFI round trip: request bytes in, a copy of the response bytes out. The request is
-   * placed in module memory with the module's allocator, the response is read from where the
-   * module left it and freed with the module's free, as the FFI contract requires.
+   * A buffer held across calls for the request and the two response slots, so a round trip costs
+   * no allocator traffic of its own. It only ever grows, and calls are serialized (the entry is
+   * synchronous and single-threaded), so one buffer is enough.
+   */
+  private scratch = 0;
+  private scratchCapacity = 0;
+
+  private reserveScratch(size: number): number {
+    if (size <= this.scratchCapacity) {
+      return this.scratch;
+    }
+    const capacity = Math.max(
+      size,
+      this.scratchCapacity * 2,
+      MIN_SCRATCH_BYTES,
+    );
+    const scratch = this.alloc(capacity) >>> 0;
+    if (scratch === 0) {
+      throw new Error(
+        `wasm module could not allocate a ${capacity} byte request buffer`,
+      );
+    }
+    if (this.scratch !== 0) {
+      this.free(this.scratch);
+    }
+    this.scratch = scratch;
+    this.scratchCapacity = capacity;
+    return scratch;
+  }
+
+  /**
+   * One FFI round trip: request bytes in, a copy of the response bytes out. The request is placed
+   * in module memory, and the response is read from where the module left it and released with the
+   * module's own free, as the FFI contract requires.
    */
   call(input: Uint8Array): Uint8Array {
-    const inPtr = input.length > 0 ? this.alloc(input.length) >>> 0 : 0;
-    if (input.length > 0 && inPtr === 0) {
-      throw new Error("wasm module allocation failed for the request buffer");
-    }
-    const slots = this.alloc(8) >>> 0;
-    if (slots === 0) {
-      throw new Error("wasm module allocation failed for the response slots");
-    }
+    const slots = this.reserveScratch(SLOTS_BYTES + input.length);
+    const inPtr = slots + SLOTS_BYTES;
     let outPtr = 0;
     try {
-      if (input.length > 0) {
-        new Uint8Array(this.memory.buffer).set(input, inPtr);
-      }
-      const before = new DataView(this.memory.buffer);
-      before.setUint32(slots, 0, true);
-      before.setUint32(slots + 4, 0, true);
+      this.refreshViews();
+      this.bytes.set(input, inPtr);
+      this.words.setUint32(slots, 0, true);
+      this.words.setUint32(slots + 4, 0, true);
       this.entry(inPtr, input.length, slots, slots + 4);
-      // Re-read through a fresh view: the call may have grown memory and detached the old buffer.
-      const after = new DataView(this.memory.buffer);
-      outPtr = after.getUint32(slots, true);
-      const outLen = after.getUint32(slots + 4, true);
-      return new Uint8Array(this.memory.buffer).slice(outPtr, outPtr + outLen);
+      // The call may have grown memory, detaching the buffer the views were built over.
+      this.refreshViews();
+      outPtr = this.words.getUint32(slots, true);
+      const outLen = this.words.getUint32(slots + 4, true);
+      return this.bytes.slice(outPtr, outPtr + outLen);
     } finally {
       if (outPtr !== 0) {
         this.free(outPtr);
-      }
-      this.free(slots);
-      if (inPtr !== 0) {
-        this.free(inPtr);
       }
     }
   }
