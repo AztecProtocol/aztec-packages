@@ -8,6 +8,12 @@ export interface TypeScriptPackageOptions {
   ipcRuntimeDependency: string;
   ipcPathArgs: string[];
   transports: string[];
+  /** wasm transport: basename of the single-thread module shipped in the package's wasm/ directory. */
+  wasmModule?: string;
+  /** wasm transport: basename of the threads module shipped in the package's wasm/ directory. */
+  wasmThreadsModule?: string;
+  /** Whether generated/curve_constants.ts is emitted alongside (re-exported from the entries). */
+  curveConstants?: boolean;
 }
 
 function className(prefix: string): string {
@@ -20,6 +26,10 @@ function transportType(prefix: string): string {
 
 function optionsType(prefix: string): string {
   return `${prefix}ServiceOptions`;
+}
+
+function wasmOptionsType(prefix: string): string {
+  return `${prefix}WasmOptions`;
 }
 
 function binaryFinderName(prefix: string): string {
@@ -177,6 +187,21 @@ runs \`yarn build\`.
 export class TypeScriptPackageCodegen {
   constructor(private opts: TypeScriptPackageOptions) {}
 
+  private get wasm(): boolean {
+    return this.opts.transports.includes("wasm");
+  }
+
+  private get processTransports(): string[] {
+    return this.opts.transports.filter((t) => t !== "wasm");
+  }
+
+  private generatedExports(): string {
+    return `export * from './generated/api_types.js';
+export { AsyncApi } from './generated/async.js';
+export { SyncApi } from './generated/sync.js';
+${this.opts.curveConstants ? "export * from './generated/curve_constants.js';\n" : ""}`;
+  }
+
   generatePackageJson(): string {
     const archPackages = archPackageNames(this.opts.packageName);
     const scripts: Record<string, string> = {
@@ -196,13 +221,27 @@ export class TypeScriptPackageCodegen {
       ...(this.opts.binaryName
         ? { bin: { [this.opts.binaryName]: "./dest/bin.js" } }
         : {}),
+      // main/types for consumers resolving without export conditions (a CommonJS build's
+      // TypeScript resolution); `exports` is authoritative everywhere else.
+      main: "./dest/index.js",
+      types: "./dest/index.d.ts",
       exports: {
         ".": {
           types: "./dest/index.d.ts",
+          // Bundlers pick the browser entry, which has no process transport.
+          ...(this.wasm ? { browser: "./dest/browser.js" } : {}),
           default: "./dest/index.js",
         },
+        ...(this.wasm
+          ? {
+              "./browser": {
+                types: "./dest/browser.d.ts",
+                default: "./dest/browser.js",
+              },
+            }
+          : {}),
       },
-      files: ["dest/", "README.md"],
+      files: ["dest/", ...(this.wasm ? ["wasm/"] : []), "README.md"],
       scripts,
       dependencies: {
         "@aztec-foundation/ipc-runtime": this.opts.ipcRuntimeDependency,
@@ -279,21 +318,20 @@ process.exit(result.status ?? 1);
     const serviceOptions = optionsType(prefix);
     const serviceTransport = transportType(prefix);
     const findBinary = binaryFinderName(prefix);
-    const supportsShm = this.opts.transports.includes("shm");
-    const transports = this.opts.transports.map((t) => `'${t}'`).join(" | ");
+    const supportsShm = this.processTransports.includes("shm");
+    const transports = this.processTransports.map((t) => `'${t}'`).join(" | ");
     const ipcPathArgs = JSON.stringify(this.opts.ipcPathArgs);
-    const defaultTransport = this.opts.transports.includes("uds")
+    const defaultTransport = this.processTransports.includes("uds")
       ? "uds"
-      : this.opts.transports[0]!;
+      : this.processTransports[0]!;
+    const wasm = this.wasm;
+    const wasmOptions = wasmOptionsType(prefix);
 
-    return `import { IpcSpawnError, SpawnedProcessBackend } from '@aztec-foundation/ipc-runtime';
-import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
+    return `import { type IpcClientAsync, IpcSpawnError, SpawnedProcessBackend } from '@aztec-foundation/ipc-runtime';
+${wasm ? "import { type WasmFfiBackend, platform } from '@aztec-foundation/ipc-runtime/wasm';\n" : ""}import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
 import { ${findBinary} } from './platform.js';
-
-export * from './generated/api_types.js';
-export { AsyncApi } from './generated/async.js';
-export { SyncApi } from './generated/sync.js';
-
+${wasm ? `import { type ${wasmOptions}, createWasmBackendWith } from './wasm.js';\n` : ""}
+${this.generatedExports()}${wasm ? "export * from './wasm.js';\n" : ""}
 export type ${serviceTransport} = ${transports};
 
 export interface ${serviceOptions} {
@@ -312,7 +350,25 @@ export interface ${serviceOptions} {
    */
   respawn?: boolean;
 ${supportsShm ? "  napiPath?: string;\n  clientId?: number;\n" : ""}}
-
+${
+  wasm
+    ? `
+/**
+ * Runs the ${this.opts.binaryName} wasm module in-process (node): the main instance in a worker
+ * thread by default, wasi threads on further workers.
+ */
+export function createWasmBackend(options: ${wasmOptions} = {}): Promise<WasmFfiBackend> {
+  return createWasmBackendWith(
+    {
+      createMainWorker: () => platform.createWorker(new URL('./wasm/main.worker.js', import.meta.url)),
+      createThreadWorker: () => platform.createWorker(new URL('./wasm/thread.worker.js', import.meta.url)),
+    },
+    options,
+  );
+}
+`
+    : ""
+}
 /**
  * Spawns and talks to a '${this.opts.binaryName}' server process. Process
  * lifecycle — connectivity, death detection, optional respawn, teardown — is
@@ -321,8 +377,12 @@ ${supportsShm ? "  napiPath?: string;\n  clientId?: number;\n" : ""}}
  * the failure was environmental and the operation may be retried.
  */
 export class ${serviceClass} extends AsyncApi {
-  private constructor(private spawnedBackend: SpawnedProcessBackend, createError?: IpcErrorFactory) {
-    super(spawnedBackend, createError);
+  private constructor(
+    backend: IpcClientAsync,
+    private readonly spawnedBackend?: SpawnedProcessBackend,
+    createError?: IpcErrorFactory,
+  ) {
+    super(backend, createError);
   }
 
   static async spawn(options: ${serviceOptions} = {}): Promise<${serviceClass}> {
@@ -342,17 +402,214 @@ export class ${serviceClass} extends AsyncApi {
       extraArgs: options.extraArgs,
       respawn: options.respawn,
 ${supportsShm ? "      clientId: options.clientId,\n      napiPath: options.napiPath,\n" : ""}    });
-    return new ${serviceClass}(backend, options.createError);
+    return new ${serviceClass}(backend, backend, options.createError);
   }
-
+${
+  wasm
+    ? `
+  /** The service over the in-process wasm module instead of a spawned process. */
+  static async wasm(options: ${wasmOptions} = {}): Promise<${serviceClass}> {
+    return new ${serviceClass}(await createWasmBackend(options), undefined, options.createError);
+  }
+`
+    : ""
+}
   getIpcPath(): string {
-    return this.spawnedBackend.getIpcPath();
+    return this.requireSpawned().getIpcPath();
   }
 
   sendProcessSignal(signal: NodeJS.Signals): void {
-    this.spawnedBackend.sendProcessSignal(signal);
+    this.requireSpawned().sendProcessSignal(signal);
+  }
+
+  private requireSpawned(): SpawnedProcessBackend {
+    if (!this.spawnedBackend) {
+      throw new Error('${serviceClass}: not backed by a spawned process');
+    }
+    return this.spawnedBackend;
   }
 }
+`;
+  }
+
+  /** Browser entry: the service runs in-process as a wasm module; there is no process to spawn. */
+  generateBrowserIndex(): string {
+    const prefix = this.opts.prefix;
+    const serviceClass = className(prefix);
+    const wasmOptions = wasmOptionsType(prefix);
+
+    return `import type { IpcClientAsync } from '@aztec-foundation/ipc-runtime';
+import { type WasmFfiBackend, workerHandle } from '@aztec-foundation/ipc-runtime/wasm';
+import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
+import { type ${wasmOptions}, createWasmBackendWith } from './wasm.js';
+
+${this.generatedExports()}export * from './wasm.js';
+
+/**
+ * Runs the ${this.opts.binaryName} wasm module in-process: the main instance in a web worker by
+ * default, wasi threads on further workers when the page is cross-origin isolated (COOP/COEP).
+ * The worker scripts are spawned with the literal expression bundlers detect, so they ship as
+ * worker chunks of the consuming application.
+ */
+export function createWasmBackend(options: ${wasmOptions} = {}): Promise<WasmFfiBackend> {
+  return createWasmBackendWith(
+    {
+      createMainWorker: () =>
+        workerHandle(new Worker(new URL('./wasm/main.worker.browser.js', import.meta.url), { type: 'module' })),
+      createThreadWorker: () =>
+        workerHandle(new Worker(new URL('./wasm/thread.worker.js', import.meta.url), { type: 'module' })),
+    },
+    options,
+  );
+}
+
+export class ${serviceClass} extends AsyncApi {
+  private constructor(backend: IpcClientAsync, createError?: IpcErrorFactory) {
+    super(backend, createError);
+  }
+
+  /** The service over the in-process wasm module. */
+  static async wasm(options: ${wasmOptions} = {}): Promise<${serviceClass}> {
+    return new ${serviceClass}(await createWasmBackend(options), options.createError);
+  }
+}
+`;
+  }
+
+  /** Platform-neutral part of the wasm transport: options, module selection, backend construction. */
+  generateWasm(): string {
+    const prefix = this.opts.prefix;
+    const wasmOptions = wasmOptionsType(prefix);
+    const moduleUrl = (name: string | undefined) =>
+      name ? `new URL('../wasm/${name}', import.meta.url)` : "undefined";
+
+    return `import {
+  type WasmFfiBackend,
+  type WasmFfiBackendSync,
+  type WasmModuleSource,
+  type WorkerHandle,
+  createWasmFfiBackend,
+  createWasmFfiBackendSync,
+  platform,
+  sharedMemoryAvailable,
+} from '@aztec-foundation/ipc-runtime/wasm';
+import type { IpcErrorFactory } from './generated/async.js';
+import { hostImports } from './wasm_host_imports.js';
+
+/** Options for running the ${this.opts.binaryName} wasm module in-process. */
+export interface ${wasmOptions} {
+  /** Threads to run with (1 = no worker threads). Default: the platform's parallelism, capped at 32. */
+  threads?: number;
+  /** Linear memory bounds in 64 KiB pages. */
+  memory?: { initial?: number; maximum?: number };
+  /**
+   * The module to run instead of the package's own: a URL or path, gzipped or raw bytes, a fetch
+   * Response, or a compiled WebAssembly.Module.
+   */
+  module?: WasmModuleSource;
+  /** Run the module in a dedicated worker (default true) so a call never blocks the caller's thread. */
+  worker?: boolean;
+  /** WASI environ for the module. */
+  env?: Record<string, string>;
+  logger?: (msg: string) => void;
+  createError?: IpcErrorFactory;
+}
+
+/** Worker factories a platform entry binds (see WasmFfiBinding in ipc-runtime for why factories). */
+export interface WasmWorkers {
+  createMainWorker: () => WorkerHandle;
+  createThreadWorker: () => WorkerHandle;
+}
+
+const THREADS_MODULE: URL | undefined = ${moduleUrl(this.opts.wasmThreadsModule)};
+const SINGLE_MODULE: URL | undefined = ${moduleUrl(this.opts.wasmModule)};
+
+/**
+ * The package's own module for a thread count: the threads build when more than one thread is
+ * wanted and a shared memory is available, otherwise the single-thread build (each falls back to
+ * the other when the package ships only one).
+ */
+export function defaultWasmModule(threads: number): URL {
+  const threaded = threads > 1 && sharedMemoryAvailable();
+  const module = threaded ? (THREADS_MODULE ?? SINGLE_MODULE) : (SINGLE_MODULE ?? THREADS_MODULE);
+  if (!module) {
+    throw new Error('${this.opts.packageName}: no wasm module ships with this package');
+  }
+  return module;
+}
+
+export function createWasmBackendWith(workers: WasmWorkers, options: ${wasmOptions} = {}): Promise<WasmFfiBackend> {
+  const threads = options.threads ?? platform.hardwareConcurrency();
+  return createWasmFfiBackend({
+    module: options.module ?? defaultWasmModule(threads),
+    threads,
+    memory: options.memory,
+    env: options.env,
+    logger: options.logger,
+    worker: options.worker,
+    hostImports,
+    createMainWorker: workers.createMainWorker,
+    createThreadWorker: workers.createThreadWorker,
+  });
+}
+
+/** The module on the calling thread with one thread: every call blocks until it returns. */
+export function createWasmBackendSync(options: ${wasmOptions} = {}): Promise<WasmFfiBackendSync> {
+  return createWasmFfiBackendSync({
+    module: options.module ?? defaultWasmModule(1),
+    threads: 1,
+    memory: options.memory,
+    env: options.env,
+    logger: options.logger,
+    hostImports,
+  });
+}
+`;
+  }
+
+  /** wasi-threads worker: one module instance per thread. Platform-neutral (it spawns nothing). */
+  generateThreadWorker(): string {
+    return `import { runThreadWorker, workerSide } from '@aztec-foundation/ipc-runtime/wasm';
+import { hostImports } from '../wasm_host_imports.js';
+
+runThreadWorker(workerSide(), { hostImports });
+`;
+  }
+
+  /** Main-instance worker for node. */
+  generateMainWorker(): string {
+    return `import { platform, runMainWorker, workerSide } from '@aztec-foundation/ipc-runtime/wasm';
+import { hostImports } from '../wasm_host_imports.js';
+
+runMainWorker(workerSide(), platform, {
+  hostImports,
+  createThreadWorker: () => platform.createWorker(new URL('./thread.worker.js', import.meta.url)),
+});
+`;
+  }
+
+  /** Main-instance worker for browsers: spawns thread workers with the expression bundlers detect. */
+  generateBrowserMainWorker(): string {
+    return `import { platform, runMainWorker, workerHandle, workerSide } from '@aztec-foundation/ipc-runtime/wasm';
+import { hostImports } from '../wasm_host_imports.js';
+
+runMainWorker(workerSide(), platform, {
+  hostImports,
+  createThreadWorker: () =>
+    workerHandle(new Worker(new URL('./thread.worker.js', import.meta.url), { type: 'module' })),
+});
+`;
+  }
+
+  /** Placeholder for a module that needs nothing beyond WASI (--package-wasm-host-imports replaces it). */
+  generateDefaultHostImports(): string {
+    return `import type { HostImportsFactory } from '@aztec-foundation/ipc-runtime/wasm';
+
+/**
+ * Imports the module needs beyond WASI and wasi-threads. The FFI contract needs none; a module
+ * whose platform layer imports its own hooks ships them via --package-wasm-host-imports.
+ */
+export const hostImports: HostImportsFactory | undefined = undefined;
 `;
   }
 
@@ -495,14 +752,39 @@ done
   }
 
   generateReadme(): string {
+    const serviceClass = className(this.opts.prefix);
+    const wasmSection = this.wasm
+      ? `
+## In-process wasm
+
+The package also ships the service as a wasm module under \`wasm/\` and runs it
+in-process through \`@aztec-foundation/ipc-runtime/wasm\`. In browsers (the
+\`browser\` export condition) this is the only transport:
+
+\`\`\`ts
+import { ${serviceClass} } from '${this.opts.packageName}';
+
+const service = await ${serviceClass}.wasm({ threads: 4 });
+\`\`\`
+
+The main instance runs in a worker by default; wasi threads run on further
+workers when a shared memory is available (node, or a browser page served with
+COOP/COEP headers), otherwise the single-thread module is used. The worker
+scripts and the module are referenced with \`new URL(..., import.meta.url)\`, so
+bundlers emit them as chunks/assets of the application (Vite users: exclude the
+package from \`optimizeDeps\`). \`createWasmBackendSync\` gives the synchronous,
+single-thread form; the \`module\` option substitutes another build of the
+module (a URL, bytes, a fetch Response or a compiled Module).
+`
+      : "";
     return `# ${this.opts.packageName}
 
 Generated TypeScript IPC package for the ${this.opts.prefix} service.
 
 \`\`\`ts
-import { ${className(this.opts.prefix)} } from '${this.opts.packageName}';
+import { ${serviceClass} } from '${this.opts.packageName}';
 
-const service = await ${className(this.opts.prefix)}.spawn({ transport: 'uds' });
+const service = await ${serviceClass}.spawn({ transport: 'uds' });
 try {
   const response = await service.bytes({ data: new Uint8Array([1, 2, 3]) });
 } finally {
@@ -512,7 +794,7 @@ try {
 
 The package resolves \`${this.opts.binaryName}\` from \`${this.opts.binaryEnvVar}\`,
 an explicit \`binaryPath\`, or an installed/prepared arch package.
-
+${wasmSection}
 ## Build
 
 The package shell (package.json, tsconfig, src/index.ts, scripts/) is

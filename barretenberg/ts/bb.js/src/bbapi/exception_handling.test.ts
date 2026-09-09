@@ -1,12 +1,12 @@
-import { BarretenbergWasmSyncBackend } from '../bb_backends/wasm.js';
-import { SyncApi } from '../generated/sync.js';
+import { SyncApi, createWasmBackendSync } from '@aztec-foundation/bb.js-api';
+import type { WasmFfiBackendSync } from '@aztec-foundation/ipc-runtime/wasm';
 
 describe('BBApi Exception Handling from bb.js', () => {
-  let backend: BarretenbergWasmSyncBackend;
+  let backend: WasmFfiBackendSync;
   let api: SyncApi;
 
   beforeAll(async () => {
-    backend = await BarretenbergWasmSyncBackend.new();
+    backend = await createWasmBackendSync();
     api = new SyncApi(backend);
   }, 60000);
 

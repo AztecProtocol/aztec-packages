@@ -30,6 +30,8 @@
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/crypto/schnorr/schnorr.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
+#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -564,6 +566,45 @@ void handle_srs_init_grumpkin_srs(BBApiRequest& /*ctx*/,
                                                                 i * sizeof(curve::Grumpkin::AffineElement));
     }
     bb::srs::init_grumpkin_mem_crs_factory(points);
+    respond.ok({});
+}
+
+void handle_warmup(BBApiRequest& /*ctx*/, wire::BbWarmup&& /*cmd*/, Responder<wire::BbWarmupResponse> respond)
+{
+    // Run the prover's hot loops once — field arithmetic, batch inversion, Poseidon2 and a Pippenger
+    // MSM — so a tiering JIT (wasm) has optimized them before real work runs through them.
+    constexpr size_t NUM_POINTS = 1 << 14;
+    constexpr size_t NUM_HASHES = 1 << 10;
+
+    // Successive doublings of the generator: sums of distinct subsets of {2^i G} are distinct, so the
+    // MSM's addition tree never meets two equal points, which the unsafe (SRS-shaped) path cannot
+    // handle. Small multiples of G would (G + 4G = 2G + 3G).
+    std::vector<g1::element> points(NUM_POINTS);
+    points[0] = g1::one;
+    for (size_t i = 1; i < NUM_POINTS; ++i) {
+        points[i] = points[i - 1].dbl();
+    }
+    g1::element::batch_normalize(points.data(), NUM_POINTS);
+    std::vector<g1::affine_element> affine_points(NUM_POINTS);
+    for (size_t i = 0; i < NUM_POINTS; ++i) {
+        affine_points[i] = g1::affine_element(points[i]);
+    }
+    Polynomial<fr> scalars = Polynomial<fr>::random(NUM_POINTS);
+    g1::element commitment = scalar_multiplication::pippenger_unsafe<curve::BN254>(scalars, affine_points);
+
+    std::vector<fr> elements(NUM_POINTS);
+    for (size_t i = 0; i < NUM_POINTS; ++i) {
+        elements[i] = scalars[i].sqr() + fr(static_cast<uint64_t>(i + 1));
+    }
+    fr::batch_invert(elements.data(), NUM_POINTS);
+
+    fr acc = elements[0];
+    for (size_t i = 0; i < NUM_HASHES; ++i) {
+        acc = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ acc, elements[i] });
+    }
+    if (commitment.is_point_at_infinity() || acc.is_zero()) {
+        throw_or_abort("Warmup: degenerate result");
+    }
     respond.ok({});
 }
 

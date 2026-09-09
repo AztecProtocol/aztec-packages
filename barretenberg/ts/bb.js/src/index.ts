@@ -28,9 +28,9 @@ export type {
   GrumpkinPoint,
   Secp256k1Point,
   Secp256r1Point,
-} from './generated/api_types.js';
+} from '@aztec-foundation/bb.js-api';
 
-export { toChonkProof } from './generated/api_types.js';
+export { toChonkProof } from '@aztec-foundation/bb.js-api';
 
 /**
  * @deprecated Fq2 coordinates are typed per curve now (see Bn254G2Point).
@@ -55,6 +55,6 @@ export {
   SECP256R1_FR_MODULUS,
   SECP256R1_FQ_MODULUS,
   SECP256R1_G1_GENERATOR,
-} from './generated/curve_constants.js';
+} from '@aztec-foundation/bb.js-api';
 
 export { findBbBinary, findNapiBinary } from './bb_backends/node/platform.js';

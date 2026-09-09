@@ -8,6 +8,8 @@
   },
   "workspaces": [
     "bb.js",
+    "bb.js-api",
+    "bb.js-api/packages/*",
     "bb-avm-sim",
     "bb-avm-sim/packages/*",
     "cdb"

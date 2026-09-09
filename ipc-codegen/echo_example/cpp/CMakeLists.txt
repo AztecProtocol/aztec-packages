@@ -39,7 +39,7 @@ target_compile_definitions(echo_common INTERFACE
     MSGPACK_USE_STD_VARIANT_ADAPTOR
 )
 
-add_executable(echo_server src/echo_server.cpp)
+add_executable(echo_server src/echo_server.cpp src/echo_handlers.cpp)
 target_link_libraries(echo_server PRIVATE echo_common ipc_runtime)
 
 add_executable(echo_client
@@ -50,3 +50,15 @@ target_link_libraries(echo_client PRIVATE echo_common ipc_runtime)
 
 add_executable(golden_test src/golden_test.cpp)
 target_link_libraries(golden_test PRIVATE echo_common)
+
+# The service as an in-process library: the generated FFI entry over the same
+# handlers the socket server uses.
+add_library(echo_ffi STATIC
+    src/echo_ffi.cpp
+    src/echo_handlers.cpp
+    src/generated/echo_ffi.cpp
+)
+target_link_libraries(echo_ffi PUBLIC echo_common)
+
+add_executable(ffi_test src/ffi_test.cpp)
+target_link_libraries(ffi_test PRIVATE echo_ffi)
