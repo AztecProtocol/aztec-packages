@@ -543,6 +543,44 @@ export class CheckpointProposalJob implements Traceable {
   }
 
   /**
+   * The latest moment at which this proposal may still be sent: the consensus receive deadline less one propagation
+   * budget. Everything on the path to `broadcastCheckpointProposal` — the pre-gossip preflight, signing, the local
+   * archiver insertion — is budgeted against it, because a proposal that leaves this node later than this is refused
+   * on ingress by every peer. This is deliberately tighter than {@link getAttestationDeadline}, which bounds
+   * attestation collection, and than {@link getL1PublishDeadline}, which bounds the send.
+   */
+  private getProposalSendDeadline(): Date {
+    return new Date(this.timetable.getCheckpointProposalSendDeadline(this.targetSlot) * 1000);
+  }
+
+  /**
+   * Whether there is still time to gossip this slot's proposal. Signing may be remote (HA) and the archiver insertion
+   * resolves through a queue, so neither is guaranteed to be quick; a timer wrapped around the preflight alone does
+   * not cover them. Callers re-check before each further side effect, and abandon the send rather than starting one
+   * that peers will refuse. An already-produced signature and its duty record are left untouched.
+   */
+  private reportSendBudgetExpired(stage: string, deadline: Date): void {
+    const context = {
+      slot: this.targetSlot,
+      checkpointNumber: this.checkpointNumber,
+      stage,
+      deadline: deadline.toISOString(),
+      reason: 'proposal_send_timeout',
+    };
+    this.log.warn(
+      `Checkpoint proposal for slot ${this.targetSlot} missed the proposal send deadline during ${stage}; ` +
+        `not gossiping it`,
+      context,
+    );
+    this.metrics.recordCheckpointProposalFailed('proposal_send_timeout');
+    this.eventEmitter.emit('header-validation-failed', {
+      slot: this.targetSlot,
+      checkpointNumber: this.checkpointNumber,
+      reason: `proposal send deadline ${deadline.toISOString()} passed during ${stage}`,
+    });
+  }
+
+  /**
    * Latest L1 block the propose can still land in for the target slot: the last Ethereum block inside the target slot
    * (`target_slot_start + S - E`). This is one ethereum slot later than `attestation_deadline`, which bounds when
    * validators must have signed, not when the proposer must have sent. Using the attestation deadline here is too
@@ -1079,15 +1117,16 @@ export class CheckpointProposalJob implements Traceable {
       // rules. If this fails the slot is aborted before any gossip work. The pipelined parent is supplied through
       // the simulation overrides, so this verdict is conditional on that parent landing; the pre-publication
       // preflight repeats it once the parent has landed, keeping only the assumptions still outstanding then.
-      // The simulation is bounded by the attestation deadline: a verdict that arrives once no validator can attest
-      // any more must not lead to signing.
+      // The simulation is bounded by the proposal send deadline, not the attestation deadline: a verdict arriving
+      // once peers have stopped accepting proposals for this slot must not lead to signing and gossiping one.
+      const sendDeadline = this.getProposalSendDeadline();
       let bucketHint: bigint;
       try {
         bucketHint = await this.preflightWithinDeadline(
           checkpoint.header,
           streamingState,
           this.checkpointSimulationOverridesPlan,
-          this.getAttestationDeadline(),
+          sendDeadline,
         );
       } catch (err) {
         if (err instanceof SequencerInterruptedError) {
@@ -1121,12 +1160,26 @@ export class CheckpointProposalJob implements Traceable {
         checkpointProposalOptions,
       );
 
+      // Signing may be remote (HA), so the preflight's own budget check does not cover it. Stop here rather than
+      // start the archiver insertion for a proposal no peer will accept; the signature and its duty record stand.
+      if (this.dateProvider.now() >= sendDeadline.getTime()) {
+        this.reportSendBudgetExpired('signing', sendDeadline);
+        return undefined;
+      }
+
       // Advance our own optimistic proposed-checkpoint tip locally before gossiping. Gossipsub
       // doesn't echo our own messages back, so this is how the proposer makes its own proposed
       // checkpoint visible for pipelining the next slot. Built from local checkpoint data — never
       // from the broadcast proposal archive, which may be deliberately corrupted under test flags.
       // Fail closed: if this throws, the outer catch aborts the slot before gossiping.
       await this.syncProposedCheckpointToArchiver(checkpoint, blocksInCheckpoint.length, feeAssetPriceModifier);
+
+      // The insertion resolves through the archiver's queue, so re-check immediately before the broadcast itself.
+      // The local tip stays advanced: it is this node's own optimistic state, not something peers acted on.
+      if (this.dateProvider.now() >= sendDeadline.getTime()) {
+        this.reportSendBudgetExpired('archiver insertion', sendDeadline);
+        return undefined;
+      }
 
       const blockProposedAt = this.dateProvider.now();
       if (this.config.skipBroadcastCheckpointProposal) {
@@ -1466,8 +1519,7 @@ export class CheckpointProposalJob implements Traceable {
     if (this.dateProvider.now() / 1000 < lastBlockBuildTime) {
       return { deadline: new Date(lastBlockBuildTime * 1000), pastLastBlockBuildTime: false };
     }
-    const hardStop =
-      this.timetable.getCheckpointProposalReceiveDeadline(this.targetSlot) - this.timetable.p2pPropagationTime;
+    const hardStop = this.timetable.getCheckpointProposalSendDeadline(this.targetSlot);
     return { deadline: new Date(hardStop * 1000), pastLastBlockBuildTime: true };
   }
 

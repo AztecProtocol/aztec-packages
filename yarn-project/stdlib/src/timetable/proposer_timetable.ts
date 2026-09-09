@@ -167,6 +167,19 @@ export class ProposerTimetable extends ConsensusTimetable {
   }
 
   /**
+   * Latest moment at which the proposer may still start work that ends in gossiping a checkpoint proposal:
+   * {@link getCheckpointProposalReceiveDeadline} less one propagation budget, so a proposal sent at it still reaches
+   * peers before they stop accepting proposals for the slot.
+   *
+   * This is not {@link getAttestationDeadline}, which is a full ethereum slot plus a block duration later and bounds
+   * when attestations must exist, not when the proposal must have been sent. Work budgeted against the attestation
+   * deadline can finish after peers have already refused the proposal.
+   */
+  public getCheckpointProposalSendDeadline(slot: SlotNumber): number {
+    return this.getCheckpointProposalReceiveDeadline(slot) - this.p2pPropagationTime;
+  }
+
+  /**
    * Selects the next block sub-slot to build for the target slot given the current wall-clock time.
    *
    * Scans sub-slots in order and picks the first whose build deadline is at least `min_block_duration`
