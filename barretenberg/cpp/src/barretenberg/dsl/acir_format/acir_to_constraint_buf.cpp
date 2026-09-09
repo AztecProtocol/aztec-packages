@@ -72,6 +72,13 @@ uint32_t get_witness_from_function_input(const Acir::FunctionInput& input)
 void update_max_witness_index(const uint32_t witness_idx, AcirFormat& af)
 {
     if (witness_idx != stdlib::IS_CONSTANT) {
+        // Cap witness index to prevent OOM-DoS via crafted circuit opcodes referencing
+        // extremely large indices. Same bound as witness_map_to_witness_vector (2^28).
+        static constexpr uint32_t MAX_WITNESS_INDEX = 1U << 28;
+        BB_ASSERT_LTE(witness_idx,
+                      MAX_WITNESS_INDEX,
+                      "acir_format::update_max_witness_index: witness index exceeds maximum (" +
+                          std::to_string(MAX_WITNESS_INDEX) + "), got " + std::to_string(witness_idx));
         af.max_witness_index = std::max(af.max_witness_index, witness_idx);
     }
 }
