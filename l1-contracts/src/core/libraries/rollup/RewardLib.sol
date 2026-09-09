@@ -5,6 +5,7 @@ pragma solidity >=0.8.27;
 import {RollupConfig, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
@@ -59,6 +60,8 @@ struct RewardStorage {
 
 struct Values {
   address sequencer;
+  uint256 fee;
+  uint256 protocolFee;
   uint256 proverFee;
   uint256 sequencerFee;
   uint256 sequencerCheckpointReward;
@@ -221,26 +224,28 @@ library RewardLib {
       }
 
       for (uint256 i = $er.longestProvenLength; i < length; i++) {
+        {
+          ProposedHeader calldata header = _args.headers[i - _args.provenCheckpointFees.length];
+          v.fee = header.accumulatedFees;
+          v.sequencer = header.coinbase;
+        }
         CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
 
         v.manaUsed = feeHeader.getManaUsed();
+        v.protocolFee = feeHeader.getProtocolFee() * v.manaUsed;
 
-        uint256 fee = _args.headers[i].accumulatedFees;
-        uint256 protocolFee = feeHeader.getProtocolFee() * v.manaUsed;
-
-        t.feesToClaim += fee;
-        t.totalProtocolFee += protocolFee;
+        t.feesToClaim += v.fee;
+        t.totalProtocolFee += v.protocolFee;
 
         // Compute the proving fee in the fee asset
-        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - protocolFee);
+        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), v.fee - v.protocolFee);
         if (v.proverFee > 0) {
           $er.rewards += v.proverFee.toUint128();
         }
 
-        v.sequencerFee = fee - protocolFee - v.proverFee;
+        v.sequencerFee = v.fee - v.protocolFee - v.proverFee;
 
         {
-          v.sequencer = _args.headers[i].coinbase;
           uint256 toSequencer = v.sequencerCheckpointReward + v.sequencerFee;
           if (toSequencer > 0) {
             rewardStorage.sequencerRewards[v.sequencer] += toSequencer;

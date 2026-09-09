@@ -3,6 +3,8 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {Strings} from "@oz/utils/Strings.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
@@ -771,6 +773,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         start: startCheckpointNumber,
         end: endCheckpointNumber,
         args: args,
+        provenCheckpointFees: new ProvenCheckpointFees[](0),
         headers: headers,
         attestations: _attestations,
         blobInputs: endFull.checkpoint.batchedBlobInputs,

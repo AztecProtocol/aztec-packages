@@ -2,6 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -235,6 +237,7 @@ contract Tmnt207Test is RollupBase {
           endInboxRollingHash: 0,
           proverId: address(0)
         }),
+        provenCheckpointFees: new ProvenCheckpointFees[](0),
         headers: headers,
         attestations: AttestationLibHelper.packAttestations(l2CheckpointReal.attestations),
         blobInputs: full.checkpoint.batchedBlobInputs,

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {DecoderBase} from "./DecoderBase.sol";
 
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
@@ -102,6 +104,7 @@ contract RollupBase is DecoderBase {
         start: startCheckpointNumber,
         end: endCheckpointNumber,
         args: args,
+        provenCheckpointFees: new ProvenCheckpointFees[](0),
         headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: endFull.checkpoint.batchedBlobInputs,

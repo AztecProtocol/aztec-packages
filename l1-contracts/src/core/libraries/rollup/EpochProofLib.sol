@@ -6,6 +6,7 @@ import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {
   SubmitEpochRootProofArgs,
+  ProvenCheckpointFees,
   PublicInputArgs,
   IRollupCore,
   RollupStore,
@@ -103,7 +104,8 @@ library EpochProofLib {
    *              - start: First checkpoint number in the epoch (inclusive)
    *              - end: Last checkpoint number in the epoch (inclusive)
    *              - args: Public inputs (previousArchive, endArchive, endTimestamp, proverId)
-   *              - headers: Proposed headers for each checkpoint, supplying the fee recipient and value
+   *              - provenCheckpointFees: Fee recipient and value for an already proven and accounted prefix
+   *              - headers: Proposed headers for the remaining checkpoints
    *              - attestations: Committee attestations for the last checkpoint in the epoch
    *              - blobInputs: Batched blob data for EIP-4844 point evaluation precompile
    *              - proof: The validity proof bytes for the root rollup circuit
@@ -115,17 +117,23 @@ library EpochProofLib {
     }
 
     (Epoch endEpoch, Epoch currentEpoch, uint256 provenBeforeSubmission) = assertAcceptable(_args.start, _args.end);
-    uint256 firstHeaderToVerify;
-    if (provenBeforeSubmission >= _args.start) {
-      uint256 provenPrefixLength = provenBeforeSubmission - _args.start + 1;
-      uint256 accountedPrefixLength = RewardLib.getLongestProvenLength(endEpoch);
-      firstHeaderToVerify = provenPrefixLength < accountedPrefixLength ? provenPrefixLength : accountedPrefixLength;
-    }
-
     {
-      // The skipped calldata prefix is untrusted, but rewards have already consumed it and proof verification binds its
-      // fee data to the canonical checkpoint headers. We only verify new headers since the last proof
-      bytes32[] memory headerHashes = verifyHeaders(_args.start, _args.end, _args.headers, firstHeaderToVerify);
+      uint256 firstHeaderToVerify;
+      if (provenBeforeSubmission >= _args.start) {
+        uint256 provenPrefixLength = provenBeforeSubmission - _args.start + 1;
+        uint256 accountedPrefixLength = RewardLib.getLongestProvenLength(endEpoch);
+        firstHeaderToVerify = provenPrefixLength < accountedPrefixLength ? provenPrefixLength : accountedPrefixLength;
+      }
+
+      uint256 prefixLength = _args.provenCheckpointFees.length;
+      require(
+        prefixLength <= firstHeaderToVerify,
+        Errors.Rollup__InvalidProvenCheckpointCount(firstHeaderToVerify, prefixLength)
+      );
+
+      // Proof verification binds compact fee data to canonical header hashes. Rewards may only consume full headers.
+      bytes32[] memory headerHashes =
+        verifyHeaders(_args.start, _args.end, _args.headers, prefixLength, firstHeaderToVerify);
 
       require(verifyEpochRootProof(_args, _config, headerHashes), Errors.Rollup__InvalidProof());
     }
@@ -195,7 +203,7 @@ library EpochProofLib {
     bytes calldata _blobPublicInputs,
     RollupConfig memory _config
   ) internal view returns (bytes32[] memory) {
-    bytes32[] memory headerHashes = verifyHeaders(_start, _end, _headers, 0);
+    bytes32[] memory headerHashes = verifyHeaders(_start, _end, _headers, 0, 0);
     return computeEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs, _config, headerHashes);
   }
 
@@ -263,7 +271,7 @@ library EpochProofLib {
    * @param  _start - The start of the epoch (inclusive)
    * @param  _end - The end of the epoch (inclusive)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
-   * @param  _headers - The proposed checkpoint headers supplying the fee recipient and value for each checkpoint
+   * @param  _headers - The proposed checkpoint headers supplying fee data for the remaining suffix
    * @param  _blobPublicInputs - The blob public inputs for the proof
    * @param  _config - The rollup's deployment-time configuration
    * @param  _headerHashes - The canonical stored header hashes returned by verifyHeaders
@@ -357,11 +365,11 @@ library EpochProofLib {
 
     uint256 offset = 5 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
 
-    // Taking recipient/value from the checkpoint headers rather than the prover
-    // as defense in depth. Slots past numCheckpoints stay zero.
-    for (uint256 i = 0; i < numCheckpoints; i++) {
-      publicInputs[offset + 2 * i] = addressToField(_headers[i].coinbase);
-      publicInputs[offset + 2 * i + 1] = bytes32(_headers[i].accumulatedFees);
+    // The submit path fills the compact prefix directly from calldata before verifying the proof.
+    uint256 suffixOffset = offset + 2 * (numCheckpoints - _headers.length);
+    for (uint256 i = 0; i < _headers.length; i++) {
+      publicInputs[suffixOffset + 2 * i] = addressToField(_headers[i].coinbase);
+      publicInputs[suffixOffset + 2 * i + 1] = bytes32(_headers[i].accumulatedFees);
     }
     offset += Constants.MAX_CHECKPOINTS_PER_EPOCH * 2;
 
@@ -420,7 +428,8 @@ library EpochProofLib {
    *
    * @param _start The first checkpoint number in the epoch (inclusive)
    * @param _end The last checkpoint number in the epoch (inclusive)
-   * @param _headers The proposed headers for each checkpoint in [_start, _end]
+   * @param _headers The proposed headers after the compact prefix
+   * @param _prefixLength The number of checkpoints represented by compact fee data
    * @param _firstHeaderToVerify The index of the first header that has not already been proven and accounted for
    * @return headerHashes The canonical stored header hashes for the checkpoint range
    */
@@ -428,17 +437,19 @@ library EpochProofLib {
     uint256 _start,
     uint256 _end,
     ProposedHeader[] calldata _headers,
+    uint256 _prefixLength,
     uint256 _firstHeaderToVerify
   ) private view returns (bytes32[] memory headerHashes) {
     uint256 numCheckpoints = _end - _start + 1;
     require(
-      _headers.length == numCheckpoints, Errors.Rollup__InvalidCheckpointHeaderCount(numCheckpoints, _headers.length)
+      _headers.length + _prefixLength == numCheckpoints,
+      Errors.Rollup__InvalidCheckpointHeaderCount(numCheckpoints, _headers.length + _prefixLength)
     );
 
     headerHashes = STFLib.getHeaderHashes(_start, _end);
     for (uint256 i = _firstHeaderToVerify; i < numCheckpoints; i++) {
       bytes32 expectedHeaderHash = headerHashes[i];
-      bytes32 providedHeaderHash = ProposedHeaderLib.hashCalldata(_headers[i]);
+      bytes32 providedHeaderHash = ProposedHeaderLib.hashCalldata(_headers[i - _prefixLength]);
       require(
         providedHeaderHash == expectedHeaderHash,
         Errors.Rollup__InvalidCheckpointHeader(expectedHeaderHash, providedHeaderHash)
@@ -574,6 +585,13 @@ library EpochProofLib {
     bytes32[] memory publicInputs = computeEpochProofPublicInputs(
       _args.start, _args.end, _args.args, _args.headers, _args.blobInputs, _config, _headerHashes
     );
+
+    uint256 offset = 5 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
+    ProvenCheckpointFees[] calldata provenFees = _args.provenCheckpointFees;
+    for (uint256 i = 0; i < provenFees.length; i++) {
+      publicInputs[offset + 2 * i] = addressToField(provenFees[i].coinbase);
+      publicInputs[offset + 2 * i + 1] = bytes32(provenFees[i].accumulatedFees);
+    }
 
     require(_config.epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
 

@@ -34,11 +34,17 @@ struct PublicInputArgs {
   address proverId;
 }
 
+struct ProvenCheckpointFees {
+  address coinbase;
+  uint256 accumulatedFees;
+}
+
 struct SubmitEpochRootProofArgs {
   uint256 start; // inclusive
   uint256 end; // inclusive
   PublicInputArgs args;
-  ProposedHeader[] headers; // Must match what was proposed by the committee
+  ProvenCheckpointFees[] provenCheckpointFees; // Optional prefix already proven and accounted for
+  ProposedHeader[] headers; // Remaining suffix; must match what was proposed by the committee
   CommitteeAttestations attestations; // attestations for the last checkpoint in epoch
   bytes blobInputs;
   bytes proof;
