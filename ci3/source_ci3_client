@@ -30,8 +30,8 @@ if [ -z "${CI3_SERVER+set}" ]; then
   export CI3_SERVER=""
   case "${CI3_SERVER_URL:-}" in
     compat)
-      if url=$("$ci3/ci3_server" start --backend compat --redis "$ci3_compat_redis" ${CI3_SERVER_START_ARGS:-}); then
-        export CI3_SERVER=$url
+      if ci3_url=$("$ci3/ci3_server" start --backend compat --redis "$ci3_compat_redis" ${CI3_SERVER_START_ARGS:-}); then
+        export CI3_SERVER=$ci3_url
         export CI3_PUBLIC_URL=${CI3_PUBLIC_URL:-$ci3_dashboard_url}
       else
         echo -e "\033[38;2;250;217;121mCould not start the compat ci3 server. Logs and test cache disabled.\033[0m" >&2
@@ -39,23 +39,23 @@ if [ -z "${CI3_SERVER+set}" ]; then
       ;;
     "")
       if [ "${CI:-0}" -eq 0 ]; then
-        if url=$("$ci3/ci3_server" start ${CI3_SERVER_START_ARGS:-}); then
-          export CI3_SERVER=$url
+        if ci3_url=$("$ci3/ci3_server" start ${CI3_SERVER_START_ARGS:-}); then
+          export CI3_SERVER=$ci3_url
         else
           echo -e "\033[38;2;250;217;121mCould not start the local ci3 server (needs python3). Logs and test cache disabled.\033[0m" >&2
         fi
       fi
       ;;
     *)
-      url=${CI3_SERVER_URL%/}
-      if [ "$(curl -s --max-time 5 "$url/health" 2>/dev/null)" == "ci3-server" ]; then
-        export CI3_SERVER=$url
+      ci3_url=${CI3_SERVER_URL%/}
+      if [ "$(curl -s --max-time 5 "$ci3_url/health" 2>/dev/null)" == "ci3-server" ]; then
+        export CI3_SERVER=$ci3_url
       else
-        echo -e "\033[38;2;250;217;121mCannot reach ci3 server at $url. Logs and test cache disabled.\033[0m" >&2
+        echo -e "\033[38;2;250;217;121mCannot reach ci3 server at $ci3_url. Logs and test cache disabled.\033[0m" >&2
       fi
       ;;
   esac
-  unset url
+  unset ci3_url
 fi
 
 # Links: the server, or the dashboard when the logs end up there (compat, or CI with no server).
