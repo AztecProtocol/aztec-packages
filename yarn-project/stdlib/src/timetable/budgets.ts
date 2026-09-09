@@ -43,6 +43,14 @@ export const FAST_PROFILE_CHECKPOINT_PROPOSAL_PREPARE_TIME = 0.5;
 /** Fast-profile minimum block-building budget (seconds). See {@link FAST_PROFILE_P2P_PROPAGATION_TIME}. */
 export const FAST_PROFILE_MIN_BLOCK_DURATION = 1;
 
+/**
+ * Whether a network's Ethereum slot duration marks it as a fast local/e2e profile with mocked p2p rather than a
+ * production deployment. See {@link FAST_PROFILE_ETHEREUM_SLOT_DURATION}.
+ */
+export function isFastLocalProfile(ethereumSlotDuration: number): boolean {
+  return ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION;
+}
+
 /** Resolved operational timing budgets used to size the proposer build window. */
 export type ResolvedTimingBudgets = {
   minBlockDuration: number;
@@ -70,8 +78,7 @@ export function getDefaultCheckpointProposalSyncGrace(blockDuration: number): nu
 export function resolveTimingBudgets(ethereumSlotDuration: number, opts: ResolvedTimingBudgets): ResolvedTimingBudgets {
   const { minBlockDuration, p2pPropagationTime, checkpointProposalPrepareTime, checkpointProposalInitTime } = opts;
 
-  const isFastProfile = ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION;
-  if (!isFastProfile) {
+  if (!isFastLocalProfile(ethereumSlotDuration)) {
     return { minBlockDuration, p2pPropagationTime, checkpointProposalPrepareTime, checkpointProposalInitTime };
   }
 

@@ -36,10 +36,10 @@ import {
   SequencerConfigSchema,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, MIN_BLOCKS_FOR_INBOX_CATCHUP } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
-import { ProposerTimetable, buildProposerTimetable } from '@aztec/stdlib/timetable';
+import { ProposerTimetable, buildProposerTimetable, isFastLocalProfile } from '@aztec/stdlib/timetable';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
@@ -215,9 +215,50 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       maxNumberOfBlocks,
     });
 
+    this.assertEffectiveCapacityClearsInboxBacklog(config, maxNumberOfBlocks);
     this.assertConfigMeetsNetworkTxLimits(config, maxNumberOfBlocks);
 
     return timetable;
+  }
+
+  /**
+   * Checks the block opportunities this sequencer can actually use against {@link MIN_BLOCKS_FOR_INBOX_CATCHUP}.
+   *
+   * `validateNetworkConsensusConfig` applies the same floor to a generated network profile, but only to the
+   * configured `maxBlocksPerCheckpoint`. A running sequencer is bounded by the smaller of that cap and what its
+   * own slot timings derive (see {@link CheckpointProposalJob}), so timings that shrink the derived count below
+   * the floor leave a proposer that can never reach a mandatory endpoint: L1 keeps rejecting its publications
+   * and it loses all of its slots.
+   *
+   * Only production profiles are rejected. Fast local/e2e profiles deliberately run one or two blocks per slot
+   * (see `PIPELINING_SETUP_OPTS`) against an Inbox nobody is filling with a cap-sized backlog, so the floor
+   * would reject every sandbox and e2e run; those get a warning instead.
+   */
+  private assertEffectiveCapacityClearsInboxBacklog(config: ResolvedSequencerConfig, timetableMaxBlocks: number) {
+    const effectiveMaxBlocks = Math.min(config.maxBlocksPerCheckpoint, timetableMaxBlocks);
+    if (effectiveMaxBlocks >= MIN_BLOCKS_FOR_INBOX_CATCHUP) {
+      return;
+    }
+
+    const detail =
+      `this sequencer can build at most ${effectiveMaxBlocks} block(s) per checkpoint ` +
+      `(MAX_BLOCKS_PER_CHECKPOINT ${config.maxBlocksPerCheckpoint}, ${timetableMaxBlocks} derived from slot ` +
+      `timings), below the ${MIN_BLOCKS_FOR_INBOX_CATCHUP} needed to clear a mandatory streaming-Inbox backlog`;
+
+    if (isFastLocalProfile(this.l1Constants.ethereumSlotDuration)) {
+      this.log.warn(`Inbox catch-up capacity below the floor: ${detail}.`, {
+        effectiveMaxBlocks,
+        maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
+        timetableMaxBlocks,
+        minBlocksForInboxCatchup: MIN_BLOCKS_FOR_INBOX_CATCHUP,
+      });
+      return;
+    }
+
+    throw new Error(
+      `Rejecting sequencer configuration: ${detail}. Raise MAX_BLOCKS_PER_CHECKPOINT, lower the block duration, ` +
+        `or raise the slot duration.`,
+    );
   }
 
   /**
