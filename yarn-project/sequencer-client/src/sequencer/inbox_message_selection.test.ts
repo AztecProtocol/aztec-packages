@@ -117,6 +117,43 @@ describe('resolveEndpoint', () => {
   });
 });
 
+// The local-only step is what a node reuses to guess the next block's bundle when simulating public calls. It is an
+// estimate in both directions: a final block lands on a live bucket boundary, which can be behind that step.
+describe('local selection against the final block that has to land on a bucket boundary', () => {
+  const caps = PROTOCOL_INBOX_CONSUMPTION_CAPS;
+
+  it('ends a final block below the local step when the last boundary in reach is behind it', async () => {
+    const messageSource = mock<L1ToL2MessageSource>();
+    const inbox = mock<InboxContract>();
+    const streamingInbox = mockStreamingInbox(messageSource, inbox);
+    // Cursor at the checkpoint start, 400 messages observed, live buckets ending at 200 and 400.
+    streamingInbox.set(
+      Array.from({ length: 400 }, (_, i) => new Fr(i + 1)),
+      [200n, 400n],
+    );
+    const selection = { cursorCount: 0n, localSyncedCount: 400n, checkpointStartCount: 0n, caps };
+
+    const localEnd = selectSafeLocalEnd(selection);
+    const upperBound = getEndpointUpperBound({ ...selection, isFinalBlock: true });
+    const resolved = await resolveEndpoint({
+      inbox,
+      messageSource,
+      cursor: streamingInbox.positionAt(0n),
+      upperBound,
+    });
+
+    // The local step takes a full block; the final block stops at the boundary below it.
+    expect(localEnd).toEqual(256n);
+    expect(upperBound).toEqual(256n);
+    const finalBlockEnd = resolved.ok ? resolved.endpoint.totalMessageCount : undefined;
+    expect(finalBlockEnd).toEqual(200n);
+    // A public call using message index 220 runs against a message the local step covers and the block never inserts.
+    const messageIndex = 220n;
+    expect(messageIndex < localEnd).toBe(true);
+    expect(messageIndex >= finalBlockEnd!).toBe(true);
+  });
+});
+
 describe('ordinary message selection', () => {
   const caps = PROTOCOL_INBOX_CONSUMPTION_CAPS;
   // 1024 - 256: the last position from which one block always reaches the end of the bucket the cursor sits in.
