@@ -931,6 +931,11 @@ describe('ValidatorClient', () => {
       });
 
       inbox.setBuckets([{ seq: 0n, total: 0n, rollingHash: checkpointProposal.checkpointHeader.inboxRollingHash }]);
+      // The checkpoint consumes nothing, so it ends where the Inbox's genesis bucket does; make that bucket
+      // commit to the hash this proposal signed, so the live endpoint gate confirms it and the flow reaches
+      // the signer.
+      inbox.setBuckets([{ seq: 0n, total: 0n, rollingHash: checkpointProposal.checkpointHeader.inboxRollingHash }]);
+
       const validateCheckpointSpy = jest
         .spyOn(validatorClient.getProposalHandler(), 'validateCheckpointProposal')
         .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(1) });
@@ -974,13 +979,18 @@ describe('ValidatorClient', () => {
         },
       });
 
+      // The checkpoint consumes nothing, so it ends where the Inbox's genesis bucket does; make that bucket
+      // commit to the hash this proposal signed, so the live endpoint gate confirms it and the flow reaches
+      // the signer.
+      inbox.setBuckets([{ seq: 0n, total: 0n, rollingHash: checkpointProposal.checkpointHeader.inboxRollingHash }]);
+
       const validateCheckpointSpy = jest
         .spyOn(validatorClient.getProposalHandler(), 'validateCheckpointProposal')
         .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(1) });
 
       // A short but nonzero budget, and a signer that never answers within it.
       const deadline = validatorClient.getProposalHandler().getReexecutionDeadline(proposal.slotNumber);
-      dateProvider.setTime(deadline.getTime() - 200);
+      dateProvider.setTime(deadline.getTime() - 3_000);
       const validationService = (validatorClient as unknown as { validationService: ValidationService })
         .validationService;
       jest.spyOn(validationService, 'attestToCheckpointProposal').mockImplementation(() => new Promise(() => {}));
