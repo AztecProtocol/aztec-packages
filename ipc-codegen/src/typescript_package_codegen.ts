@@ -209,7 +209,7 @@ ${this.opts.curveConstants ? "export * from './generated/curve_constants.js';\n"
     const scripts: Record<string, string> = {
       clean: "rm -rf dest .tsbuildinfo",
       build: "tsc -p tsconfig.json",
-      prepare_arch_packages: "./scripts/prepare_arch_packages.sh",
+      prepare_arch_packages: "ipc-runtime-prepare-arch-packages",
     };
     const entry = (name: string) => ({
       types: `./dest/${name}.d.ts`,
@@ -661,33 +661,26 @@ ${this.serviceClasses({ process: false, wasm: true })}`;
    * this entry ships no backend of its own. A native backend package (a JSI/TurboModule bridge to
    * the service's linked library) registers itself; otherwise the consumer passes a backend object.
    */
+  /**
+   * React Native entry: Hermes has no WebAssembly or workers and Metro cannot bundle worker URLs,
+   * so this entry ships no backend of its own. A native backend package (a JSI/TurboModule bridge
+   * to the service's linked library) registers one with ipc-runtime; otherwise the consumer passes
+   * a backend object.
+   */
   generateReactNativeIndex(): string {
-    const { prefix, packageName, binaryName } = this.opts;
+    const { prefix, packageName } = this.opts;
     const svc = className(prefix);
 
-    return `import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
+    return `import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime/registry';
+import { registerBackend as register, registeredBackend } from '@aztec-foundation/ipc-runtime/registry';
 import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
 
-${this.generatedExports()}
-/** Backend factories a native backend package registers for a service, by service name. */
-export interface RegisteredBackends {
-  async?: () => Promise<IpcClientAsync> | IpcClientAsync;
-  sync?: () => Promise<IpcClientSync> | IpcClientSync;
-}
+${this.generatedExports()}export type { RegisteredBackends } from '@aztec-foundation/ipc-runtime/registry';
 
-// A well-known global rather than an import in either direction, so the native package and this
-// one need not depend on each other (a type-only import keeps the runtime free of ipc-runtime).
-const REGISTRY_KEY = Symbol.for('@aztec-foundation/ipc-runtime/ffi-backends');
-
-function registry(): Map<string, RegisteredBackends> {
-  const global = globalThis as unknown as Record<symbol, Map<string, RegisteredBackends> | undefined>;
-  return (global[REGISTRY_KEY] ??= new Map());
-}
-
-/** Make \`factories\` the default backends for ${prefix} in this app; a native backend package calls this when imported. */
-export function registerBackend(factories: RegisteredBackends): void {
-  registry().set('${prefix}', factories);
+/** Make these the backends for ${prefix} in this app; a native backend package calls it on import. */
+export function registerBackend(factories: Parameters<typeof register>[1]): void {
+  register('${prefix}', factories);
 }
 
 export interface ${prefix}CreateOptions {
@@ -701,29 +694,12 @@ export interface ${prefix}CreateSyncOptions {
   createError?: IpcErrorFactory;
 }
 
-const NO_BACKEND =
-  '${packageName}: no backend for React Native. Install a native backend package for ${binaryName} (it registers itself when imported) or pass one in options.backend.';
-
 export async function createBackend(options: ${prefix}CreateOptions = {}): Promise<IpcClientAsync> {
-  if (options.backend) {
-    return options.backend;
-  }
-  const registered = registry().get('${prefix}')?.async;
-  if (!registered) {
-    throw new Error(NO_BACKEND);
-  }
-  return await registered();
+  return options.backend ?? (await registeredBackend('${prefix}', 'async', '${packageName}')());
 }
 
 export async function createBackendSync(options: ${prefix}CreateSyncOptions = {}): Promise<IpcClientSync> {
-  if (options.backend) {
-    return options.backend;
-  }
-  const registered = registry().get('${prefix}')?.sync;
-  if (!registered) {
-    throw new Error(NO_BACKEND);
-  }
-  return await registered();
+  return options.backend ?? (await registeredBackend('${prefix}', 'sync', '${packageName}')());
 }
 
 export class ${svc} extends AsyncApi {
@@ -964,69 +940,7 @@ export const ARCH_PACKAGE_STEM = '${packageStem(this.opts.packageName)}';
 `;
   }
 
-  generatePrepareArchPackagesScript(): string {
-    return `#!/usr/bin/env bash
-set -euo pipefail
 
-cd "$(dirname "$0")/.."
-
-declare -A PLATFORMS=(
-${ARCH_PACKAGES.map(({ buildDir, suffix, os, cpu }) => `  ["${buildDir}"]="${suffix} ${os} ${cpu}"`).join("\n")}
-)
-
-version=$(node -p "require('./package.json').version")
-
-declare -A BINARIES=()
-for arg in "$@"; do
-  case "$arg" in
-    *=*)
-      key="\${arg%%=*}"
-      value="\${arg#*=}"
-      BINARIES["$key"]="$value"
-      ;;
-    *)
-      echo "Usage: npm run prepare_arch_packages -- [<platform>=<binary> ...]" >&2
-      echo "Platforms: linux-x64, linux-arm64, darwin-x64, darwin-arm64" >&2
-      exit 1
-      ;;
-  esac
-done
-
-for build_dir in "\${!PLATFORMS[@]}"; do
-  read -r suffix os cpu <<< "\${PLATFORMS[$build_dir]}"
-  pkg_name="${this.opts.packageName}-\${suffix}"
-  out_dir="packages/${packageStem(this.opts.packageName)}-\${suffix}"
-  binary_path="\${BINARIES[$suffix]:-\${BINARIES[$build_dir]:-}}"
-
-  if [ -z "$binary_path" ]; then
-    binary_path="build/\${build_dir}/${this.opts.binaryName}"
-  fi
-
-  if [ ! -f "$binary_path" ]; then
-    echo "Skipping \${pkg_name}: no binary at \${binary_path}"
-    continue
-  fi
-
-  rm -rf "\${out_dir}"
-  mkdir -p "\${out_dir}"
-  cp "$binary_path" "\${out_dir}/${this.opts.binaryName}"
-  chmod +x "\${out_dir}/${this.opts.binaryName}" 2>/dev/null || true
-
-  cat > "\${out_dir}/package.json" <<EOF
-{
-  "name": "\${pkg_name}",
-  "version": "\${version}",
-  "description": "Native binary for ${this.opts.packageName} (\${suffix})",
-  "license": "MIT",
-  "os": ["\${os}"],
-  "cpu": ["\${cpu}"],
-  "files": ["${this.opts.binaryName}"],
-  "preferUnplugged": true
-}
-EOF
-done
-`;
-  }
 
   generateReadme(): string {
     const svc = className(this.opts.prefix);

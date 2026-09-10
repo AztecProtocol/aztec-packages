@@ -23,6 +23,11 @@ export { WasmExitError } from "./wasi_shim.js";
 export { runMainWorker } from "./main_worker.js";
 export { runThreadWorker } from "./thread_worker.js";
 export { chooseWasmModule, resolveWasmThreads } from "./service.js";
+export {
+  type RegisteredBackends,
+  registerBackend,
+  registeredBackend,
+} from "../backend_registry.js";
 
 export interface WasmEntry {
   createWasmFfiBackend(opts: WasmFfiBackendOptions): Promise<WasmFfiBackend>;

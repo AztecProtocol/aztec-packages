@@ -552,11 +552,6 @@ function generate(args: Args) {
           for (const manifest of packageGen.generateArchPackageManifests()) {
             writePackage(manifest.path, manifest.content);
           }
-          writePackage(
-            "scripts/prepare_arch_packages.sh",
-            packageGen.generatePrepareArchPackagesScript(),
-            { executable: true },
-          );
         }
       }
       break;
