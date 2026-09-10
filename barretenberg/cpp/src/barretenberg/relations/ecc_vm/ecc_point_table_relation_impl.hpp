@@ -53,28 +53,29 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * The point table columns process one tuple every 8 rows. The tuple with the largest pc value is first.
      * When transitioning between tuple elements, pc decrements by 1.
      *
-     * The following table gives an example for two points.
-     * In the table, the point associated with `pc = 1` is labelled P.
-     *               the point associated with `pc = 0` is labelled Q.
+     * The following table gives an example for two points. Active `precompute_pc` runs from the number of points
+     * down to 1; `pc = 0` is reserved for padding.
+     * In the table, the point associated with `pc = 2` is labelled P.
+     *               the point associated with `pc = 1` is labelled Q.
      *
      * | precompute_pc | precompute_point_transition  | precompute_round    |  Tx    | Ty    | Dx   | Dy   |
      * | ------------- | ---------------------------- | ------------------- |  ----- | ----- | ---- | ---- |
-     * | 1             | 0                            |                   0 | 15P.x  | 15P.y | 2P.x | 2P.y |
-     * | 1             | 0                            |                   1 | 13P.x  | 13P.y | 2P.x | 2P.y |
-     * | 1             | 0                            |                   2 | 11P.x  | 11P.y | 2P.x | 2P.y |
-     * | 1             | 0                            |                   3 |  9P.x  |  9P.y | 2P.x | 2P.y |
-     * | 1             | 0                            |                   4 |  7P.x  |  7P.y | 2P.x | 2P.y |
-     * | 1             | 0                            |                   5 |  5P.x  |  5P.y | 2P.x | 2P.y |
-     * | 1             | 0                            |                   6 |  3P.x  |  3P.y | 2P.x | 2P.y |
-     * | 1             | 1                            |                   7 |   P.x  |   P.y | 2P.x | 2P.y |
-     * | 0             | 0                            |                   0 | 15Q.x  | 15Q.y | 2Q.x | 2Q.y |
-     * | 0             | 0                            |                   1 | 13Q.x  | 13Q.y | 2Q.x | 2Q.y |
-     * | 0             | 0                            |                   2 | 11Q.x  | 11Q.y | 2Q.x | 2Q.y |
-     * | 0             | 0                            |                   3 |  9Q.x  |  9Q.y | 2Q.x | 2Q.y |
-     * | 0             | 0                            |                   4 |  7Q.x  |  7Q.y | 2Q.x | 2Q.y |
-     * | 0             | 0                            |                   5 |  5Q.x  |  5Q.y | 2Q.x | 2Q.y |
-     * | 0             | 0                            |                   6 |  3Q.x  |  3Q.y | 2Q.x | 2Q.y |
-     * | 0             | 1                            |                   7 |   Q.x  |   Q.y | 2Q.x | 2Q.y |
+     * | 2             | 0                            |                   0 | 15P.x  | 15P.y | 2P.x | 2P.y |
+     * | 2             | 0                            |                   1 | 13P.x  | 13P.y | 2P.x | 2P.y |
+     * | 2             | 0                            |                   2 | 11P.x  | 11P.y | 2P.x | 2P.y |
+     * | 2             | 0                            |                   3 |  9P.x  |  9P.y | 2P.x | 2P.y |
+     * | 2             | 0                            |                   4 |  7P.x  |  7P.y | 2P.x | 2P.y |
+     * | 2             | 0                            |                   5 |  5P.x  |  5P.y | 2P.x | 2P.y |
+     * | 2             | 0                            |                   6 |  3P.x  |  3P.y | 2P.x | 2P.y |
+     * | 2             | 1                            |                   7 |   P.x  |   P.y | 2P.x | 2P.y |
+     * | 1             | 0                            |                   0 | 15Q.x  | 15Q.y | 2Q.x | 2Q.y |
+     * | 1             | 0                            |                   1 | 13Q.x  | 13Q.y | 2Q.x | 2Q.y |
+     * | 1             | 0                            |                   2 | 11Q.x  | 11Q.y | 2Q.x | 2Q.y |
+     * | 1             | 0                            |                   3 |  9Q.x  |  9Q.y | 2Q.x | 2Q.y |
+     * | 1             | 0                            |                   4 |  7Q.x  |  7Q.y | 2Q.x | 2Q.y |
+     * | 1             | 0                            |                   5 |  5Q.x  |  5Q.y | 2Q.x | 2Q.y |
+     * | 1             | 0                            |                   6 |  3Q.x  |  3Q.y | 2Q.x | 2Q.y |
+     * | 1             | 1                            |                   7 |   Q.x  |   Q.y | 2Q.x | 2Q.y |
      *
      * We apply the following relations to constrain the above table:
      *
@@ -121,7 +122,7 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      *
      * When computing a point table for point [P] = (Px, Py), we require [D] (Dx, Dy) = 2.[P]
      * If all other relations are satisfied, we know that (Tx, Ty) = (Px, Py)
-     * i.e. (Dx, Dy) = 2(Px, Py) when precompute_round_transition = 1.
+     * i.e. (Dx, Dy) = 2(Px, Py) when precompute_point_transition = 1.
      *
      * Double formula:
      * x_3 = 9x^4 / 4y^2 - 2x
@@ -143,7 +144,10 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     std::get<DOUBLE_Y>(accumulator) += precompute_point_transition * y_double_check * scaling_factor;
 
     /**
-     * @brief If precompute_round_transition = 0, (Dx_shift, Dy_shift) = (Dx, Dy)
+     * @brief If precompute_point_transition = 0, (Dx, Dy) = (Dx_shift, Dy_shift)
+     *
+     * DOUBLE_X/Y fix [D] = 2.[P] at the block's last row, where precompute_point_transition = 1.
+     * This equality propagates [D] backwards through the block.
      *
      * 1st row is empty => don't apply if lagrange_first == 1
      */
@@ -154,7 +158,8 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
 
     /**
      * @brief Valdiate (Tx, Ty) is correctly computed from (Tx_shift, Ty_shift), (Dx, Dy).
-     *        If precompute_round_transition = 0, [T] = [T_shift] + [D].
+     *        If precompute_point_transition = 0, [T] = [T_shift] + [D]. As with [D], the chain runs backwards from
+     *        the block's transition row, where [T] = [P].
      *
      * Add formula:
      * x_3 = (y_2 - y_1)^2 / (x_2 - x_1)^2 - x_2 - x_1
