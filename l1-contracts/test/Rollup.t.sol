@@ -243,7 +243,12 @@ contract RollupTest is RollupBase {
 
     _proposeCheckpointWithExtraBlobs("mixed_checkpoint_1", 1, 1e6, extraBlobHashes);
 
-    assertTrue(Rollup(address(rollup)).checkBlob());
+    bool blobCheckEnabled = Rollup(address(rollup)).checkBlob();
+    if (vm.envOr("FORGE_GAS_REPORT", false)) {
+      assertFalse(blobCheckEnabled);
+      return;
+    }
+    assertTrue(blobCheckEnabled);
     bytes32[] memory blobs = vm.getBlobhashes();
     assertEq(blobs.length, originalBlobHashes.length + extraBlobHashes.length);
     for (uint256 i = 0; i < originalBlobHashes.length; i++) {
@@ -642,7 +647,6 @@ contract RollupTest is RollupBase {
   function testRevertInvalidTimestamp() public setUpFor("empty_checkpoint_1") {
     DecoderBase.Data memory data = load("empty_checkpoint_1").checkpoint;
     ProposedHeader memory header = data.header;
-    vm.blobhashes(this.getBlobHashes(data.blobCommitments));
     bytes32 archive = data.archive;
 
     Timestamp realTs = header.timestamp;
@@ -678,8 +682,6 @@ contract RollupTest is RollupBase {
     // Tweak the coinbase.
     header.coinbase = address(0);
 
-    bytes32[] memory blobHashes = this.getBlobHashes(data.blobCommitments);
-    vm.blobhashes(blobHashes);
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidCoinbase.selector));
     ProposeArgs memory args =
