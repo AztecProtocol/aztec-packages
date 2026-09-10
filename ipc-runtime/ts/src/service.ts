@@ -40,8 +40,8 @@ export interface ServiceProcessOptions {
   env?: NodeJS.ProcessEnv;
   extraArgs?: string[];
   respawn?: boolean;
+  /** When true, an idle backend does not keep the process alive; see SpawnedProcessBackendOptions. */
   unref?: boolean;
-  unrefStdio?: boolean;
   clientId?: number;
   napiPath?: string;
 }
@@ -142,7 +142,6 @@ export function spawnServiceBackend(
     extraArgs: options.extraArgs,
     respawn: options.respawn,
     unref: options.unref,
-    unrefStdio: options.unrefStdio,
     clientId: options.clientId,
     napiPath: options.napiPath,
   });
@@ -169,7 +168,6 @@ export function spawnServiceBackendSync(
     env: serviceProcessEnv(options),
     extraArgs: options.extraArgs,
     unref: options.unref,
-    unrefStdio: options.unrefStdio,
     clientId: options.clientId ?? 0,
     napiPath: options.napiPath,
   });

@@ -552,7 +552,7 @@ ${
   process
     ? `    process: {
       available: () => ${findBinary}(options.process?.binaryPath) !== null,
-      create: () => spawnProcessBackend({ ...common, unrefStdio: options.unref, ...options.process }),
+      create: () => spawnProcessBackend({ ...common, ...options.process }),
     },
 `
     : ""
@@ -574,7 +574,7 @@ ${
   shm
     ? `    process: {
       available: () => ${findBinary}(options.process?.binaryPath) !== null,
-      create: () => spawnProcessBackendSync({ ...common, unrefStdio: options.unref, ...options.process }),
+      create: () => spawnProcessBackendSync({ ...common, ...options.process }),
     },
 `
     : ""

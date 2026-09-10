@@ -9,14 +9,12 @@ import { BackendOptions, BackendType } from '../index.js';
 const SHM_RING_SIZE = 1024 * 1024 * 4;
 
 /**
- * A spawned server dies with its parent — ipc-runtime's C++ installs that watch, and the
- * generated serve() calls it — so it must never hold the Node event loop open. The runtime does
- * not assume it, so ask. Its log pipes are separate: they exist only when a logger is attached,
- * and unref'ing them lets the process exit with lines still unread, so they follow the caller.
+ * An idle bb never keeps the caller's process alive: it dies with its parent anyway, since
+ * ipc-runtime's C++ installs that watch and the generated serve() calls it. Starting up and
+ * calls in flight still hold the loop, so this costs nothing but the child's trailing log lines
+ * if the process exits mid-line.
  */
-function bbProcessLifetime(options: BackendOptions) {
-  return { unref: true, unrefStdio: options.unref };
-}
+const BB_PROCESS_LIFETIME = { unref: true };
 
 /**
  * Create backend of specific type (no fallback). Everything here is bb's choice of options over
@@ -37,7 +35,7 @@ export async function createAsyncBackend(
         // If threads not set use num cpu cores, max 16.
         threads: options.threads ?? Math.min(16, os.cpus().length),
         logger: options.logger,
-        process: { binaryPath: options.bbPath, transport: 'uds', ...bbProcessLifetime(options) },
+        process: { binaryPath: options.bbPath, transport: 'uds', ...BB_PROCESS_LIFETIME },
       });
 
     case BackendType.NativeSharedMemory:
@@ -52,7 +50,7 @@ export async function createAsyncBackend(
           clientId: 0,
           napiPath: options.napiPath,
           extraArgs: ['--request-ring-size', `${SHM_RING_SIZE}`, '--response-ring-size', `${SHM_RING_SIZE}`],
-          ...bbProcessLifetime(options),
+          ...BB_PROCESS_LIFETIME,
         },
       });
 
@@ -99,7 +97,7 @@ export async function createSyncBackend(
           transport: 'shm',
           napiPath: options.napiPath,
           extraArgs: ['--request-ring-size', `${SHM_RING_SIZE}`],
-          ...bbProcessLifetime(options),
+          ...BB_PROCESS_LIFETIME,
         },
       });
 
