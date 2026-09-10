@@ -1,4 +1,4 @@
-use crate::utils::compress_to_blob_commitment;
+use crate::utils::{__mul_add, compress_to_blob_commitment};
 use super::{
     batching_blob_commitment::BatchingBlobCommitment, BLSPoint,
     final_blob_accumulator::FinalBlobAccumulator,
@@ -6,6 +6,7 @@ use super::{
 use bigcurve::{BigCurve, curves::bls12_381::{BLS12_381, BLS12_381Scalar}};
 use bignum::{BigNum, BLS12_381_Fq, BLS12_381_Fr};
 use std::ops::{Add, Mul};
+use std::runtime::is_unconstrained;
 use types::{
     constants::{
         BLOB_ACCUMULATOR_LENGTH, DOM_SEP__BLOB_GAMMA_ACC, DOM_SEP__BLOB_HASHED_Y_LIMBS,
@@ -128,11 +129,24 @@ impl BlobAccumulator {
         );
 
         // Equivalent to self.c_acc.add(other.c_i.point.mul(BLS12_381Scalar::from_bignum(self.gamma_pow_acc)))
-        let c_acc = BLS12_381::evaluate_linear_expression(
-            [other.c_i.point],
-            [BLS12_381Scalar::from_bignum(self.gamma_pow_acc)],
-            [self.c_acc],
-        );
+        let c_acc = if is_unconstrained() {
+            // `evaluate_linear_expression` generates a Jacobian witness and then replays the
+            // whole multiplication in affine arithmetic to constrain it. With no constraints to
+            // satisfy there is nothing to replay, and both the replay and the batched transcript
+            // inversion that feeds it are pure overhead.
+            //
+            // Safety: unconstrained execution emits no constraints, so there is nothing to
+            // verify; `__mul_add` is checked against the replay in its own tests.
+            unsafe {
+                __mul_add(other.c_i.point, self.gamma_pow_acc, self.c_acc)
+            }
+        } else {
+            BLS12_381::evaluate_linear_expression(
+                [other.c_i.point],
+                [BLS12_381Scalar::from_bignum(self.gamma_pow_acc)],
+                [self.c_acc],
+            )
+        };
 
         Self {
             blob_commitments_hash_acc: sha256_to_field(self
