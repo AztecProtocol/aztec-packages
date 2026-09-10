@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {TestERC20} from "src/mock/TestERC20.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {MIN_BUCKET_RING_SIZE} from "@aztec/core/messagebridge/Inbox.sol";
 import {InboxHarness} from "./harnesses/InboxHarness.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
@@ -194,6 +195,21 @@ contract InboxBucketsTest is Test {
     assertEq(bucket2.totalMsgCount, 3, "cumulative total spans buckets");
     assertEq(bucket2.timestamp, uint64(block.timestamp), "bucket 2 timestamp");
     assertEq(bucket2.msgCount, 1, "bucket 2 msg count");
+  }
+
+  // The bucket cap is the protocol's per-block message cap, sourced from the generated constants so the node and
+  // the contract cannot drift apart. A hand-edited alias fails here; the rollover below pins the behaviour to the
+  // generated value.
+  function testBucketCapIsTheGeneratedPerBlockCap() public {
+    assertEq(MAX_MSGS_PER_BUCKET, Constants.MAX_L1_TO_L2_MSGS_PER_BLOCK, "bucket cap alias drifted");
+
+    uint256 cap = Constants.MAX_L1_TO_L2_MSGS_PER_BLOCK;
+    for (uint256 i = 0; i < cap; i++) {
+      _send(inbox, i);
+    }
+    assertEq(inbox.getCurrentBucketSeq(), 1, "the per-block cap fits in one bucket");
+    _send(inbox, cap);
+    assertEq(inbox.getCurrentBucketSeq(), 2, "one more message spills into the next bucket");
   }
 
   function testRolloverIntoNextBucket() public {

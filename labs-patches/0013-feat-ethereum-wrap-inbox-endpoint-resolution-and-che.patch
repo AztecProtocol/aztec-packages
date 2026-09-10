@@ -1,0 +1,640 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Santiago Palladino <santiago@aztec-labs.com>
+Date: Thu, 10 Sep 2026 12:50:44 -0300
+Subject: [PATCH] feat(ethereum): wrap inbox endpoint resolution and checkpoint
+ preflight
+
+`InboxContract.getBucketAtOrBeforeTotal` resolves a locally known cumulative
+message count to the newest live bucket boundary at or below it, returning
+`undefined` on the not-found revert so a caller whose target has already been
+evicted from the ring sees an absent endpoint rather than an error.
+
+`RollupContract.validateCheckpointHeaderAndInbox` simulates the Rollup's
+integrated header and Inbox preflight over `eth_simulateV1` with a block-time
+override and the caller's state overrides, and returns the bucket sequence to
+submit to `propose` as `bucketHint`.
+
+`getRevertedErrorName` decodes the custom error a viem contract call reverted
+with, which is how the Inbox wrapper tells the not-found revert apart from
+every other failure.
+
+diff --git a/yarn-project/ethereum/src/contracts/inbox.test.ts b/yarn-project/ethereum/src/contracts/inbox.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..9736cb997e90d039777e11d69d56185939f11134
+--- /dev/null
++++ b/yarn-project/ethereum/src/contracts/inbox.test.ts
+@@ -0,0 +1,179 @@
++import { InboxAbi } from '@aztec-foundation/l1-artifacts/InboxAbi';
++
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { createLogger } from '@aztec-labs/foundation/log';
++import { DateProvider } from '@aztec-labs/foundation/timer';
++import { mock } from 'jest-mock-extended';
++import {
++  ContractFunctionExecutionError,
++  ContractFunctionRevertedError,
++  type Hex,
++  encodeAbiParameters,
++  encodeErrorResult,
++  getContract,
++  keccak256,
++} from 'viem';
++import { foundry } from 'viem/chains';
++
++import { L1RpcError } from '../client.js';
++import { DefaultL1ContractsConfig } from '../config.js';
++import { type DeployAztecL1ContractsReturnType, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
++import { EthCheatCodes } from '../test/eth_cheat_codes.js';
++import type { Anvil } from '../test/start_anvil.js';
++import { startAnvil } from '../test/start_anvil.js';
++import type { ViemClient } from '../types.js';
++import { InboxContract } from './inbox.js';
++import { RollupContract } from './rollup.js';
++
++describe('InboxContract', () => {
++  let anvil: Anvil;
++  let rpcUrl: string;
++  let cheatCodes: EthCheatCodes;
++  let deployed: DeployAztecL1ContractsReturnType;
++  let inbox: InboxContract;
++  let version: bigint;
++
++  beforeAll(async () => {
++    const privateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
++    ({ anvil, rpcUrl } = await startAnvil());
++    cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
++
++    deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
++      ...DefaultL1ContractsConfig,
++      vkTreeRoot: Fr.random(),
++      protocolContractsHash: Fr.random(),
++      genesisArchiveRoot: Fr.random(),
++      realVerifier: false,
++    });
++    inbox = InboxContract.getFromL1ContractsValues(deployed);
++    version = await new RollupContract(deployed.l1Client, deployed.l1ContractAddresses.rollupAddress).getVersion();
++  });
++
++  afterAll(async () => {
++    await anvil?.stop().catch(err => createLogger('cleanup').error(err));
++  });
++
++  /**
++   * Sends `count` messages in one fresh L1 block, 12 seconds after the previous one so they open a new bucket, and
++   * returns that bucket's sequence.
++   */
++  async function sendMessages(count: number): Promise<bigint> {
++    const contract = getContract({
++      address: deployed.l1ContractAddresses.inboxAddress.toString(),
++      abi: InboxAbi,
++      client: deployed.l1Client,
++    });
++    const { timestamp } = await deployed.l1Client.getBlock();
++    await cheatCodes.warp(timestamp + 12n, { silent: true });
++    await cheatCodes.setAutomine(false);
++    const hashes: Hex[] = [];
++    for (let i = 0; i < count; i++) {
++      hashes.push(
++        await contract.write.sendL2Message(
++          [{ actor: Fr.random().toString(), version }, Fr.random().toString(), Fr.random().toString()],
++          { gas: 1_000_000n },
++        ),
++      );
++    }
++    await cheatCodes.mine(1);
++    await cheatCodes.setAutomine(true);
++    for (const hash of hashes) {
++      const receipt = await deployed.l1Client.waitForTransactionReceipt({ hash });
++      expect(receipt.status).toBe('success');
++    }
++    return inbox.getCurrentBucketSeq();
++  }
++
++  describe('getBucketAtOrBeforeTotal', () => {
++    it('resolves to the genesis bucket on an empty inbox', async () => {
++      const found = await inbox.getBucketAtOrBeforeTotal(0n);
++      expect(found?.seq).toBe(0n);
++      expect(found?.bucket).toEqual(await inbox.getBucket(0n));
++
++      const loose = await inbox.getBucketAtOrBeforeTotal(100n);
++      expect(loose?.seq).toBe(0n);
++    });
++
++    it('resolves exact and interior bounds to the newest bucket at or below them', async () => {
++      const first = await sendMessages(3);
++      const second = await sendMessages(2);
++      expect([first, second]).toEqual([1n, 2n]);
++
++      const exact = await inbox.getBucketAtOrBeforeTotal(3n);
++      expect(exact?.seq).toBe(1n);
++      expect(exact?.bucket).toEqual(await inbox.getBucket(1n));
++      expect(exact?.bucket.totalMsgCount).toBe(3n);
++
++      const interior = await inbox.getBucketAtOrBeforeTotal(4n);
++      expect(interior?.seq).toBe(1n);
++
++      const newest = await inbox.getBucketAtOrBeforeTotal(5n);
++      expect(newest?.seq).toBe(2n);
++      expect(newest?.bucket.totalMsgCount).toBe(5n);
++
++      const belowFirst = await inbox.getBucketAtOrBeforeTotal(2n);
++      expect(belowFirst?.seq).toBe(0n);
++    });
++
++    // The ring has to wrap for a bound to fall below every live bucket, which no test can reach by sending messages.
++    // Rewrite the Inbox's storage instead: a wrapped sequence counter with the newest probed entries and the oldest
++    // live entry all ending past the bound, exactly the state the contract reverts on.
++    it('resolves to undefined when every live bucket ends past the bound', async () => {
++      const inboxAddress = deployed.l1ContractAddresses.inboxAddress;
++      const current = await inbox.getContract().read.BUCKET_RING_SIZE();
++      const oldest = 1n;
++      // Slot 1 packs (currentBucketSeq, provenConsumedBucketSeq); a bucket's packed word sits one slot after its
++      // `buckets` mapping entry and holds (totalMsgCount, timestamp, msgCount).
++      const seqSlot = 1n;
++      const totalsSlotOf = (seq: bigint) =>
++        BigInt(keccak256(encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [seq % current, 0n]))) + 1n;
++      const touched = [seqSlot, ...[current, current - 1n, current - 2n, current - 3n, oldest].map(totalsSlotOf)];
++      const saved = await Promise.all(touched.map(slot => cheatCodes.load(inboxAddress, slot)));
++
++      try {
++        await cheatCodes.store(inboxAddress, seqSlot, current);
++        for (const slot of touched.slice(1)) {
++          await cheatCodes.store(inboxAddress, slot, 10n);
++        }
++
++        await expect(inbox.getBucketAtOrBeforeTotal(9n)).resolves.toBeUndefined();
++        const hit = await inbox.getBucketAtOrBeforeTotal(10n);
++        expect(hit?.seq).toBe(current);
++        expect(hit?.bucket.totalMsgCount).toBe(10n);
++      } finally {
++        for (const [i, slot] of touched.entries()) {
++          await cheatCodes.store(inboxAddress, slot, saved[i]);
++        }
++      }
++      expect((await inbox.getBucketAtOrBeforeTotal(0n))?.seq).toBe(0n);
++    });
++
++    it('propagates reverts other than not-found and transport failures', async () => {
++      const address = deployed.l1ContractAddresses.inboxAddress.toString();
++      const revertWith = (errorName: 'Inbox__NoBucketAtOrBeforeTotal' | 'Inbox__BucketOutOfWindow') =>
++        new ContractFunctionExecutionError(
++          new ContractFunctionRevertedError({
++            abi: InboxAbi,
++            data: encodeErrorResult({ abi: InboxAbi, errorName, args: [3n, 7n] }),
++            functionName: 'getBucketAtOrBeforeTotal',
++          }),
++          { abi: InboxAbi, functionName: 'getBucketAtOrBeforeTotal', args: [3n], contractAddress: address },
++        );
++      const failing = (err: Error) => {
++        const client = mock<ViemClient>();
++        client.readContract.mockRejectedValue(err);
++        return new InboxContract(client, address);
++      };
++
++      await expect(failing(revertWith('Inbox__NoBucketAtOrBeforeTotal')).getBucketAtOrBeforeTotal(3n)).resolves.toBe(
++        undefined,
++      );
++      await expect(failing(revertWith('Inbox__BucketOutOfWindow')).getBucketAtOrBeforeTotal(3n)).rejects.toThrow(
++        /Inbox__BucketOutOfWindow/,
++      );
++      await expect(failing(new L1RpcError('L1 RPC request failed')).getBucketAtOrBeforeTotal(3n)).rejects.toThrow(
++        /L1 RPC request failed/,
++      );
++    });
++  });
++});
+diff --git a/yarn-project/ethereum/src/contracts/inbox.ts b/yarn-project/ethereum/src/contracts/inbox.ts
+index 0cd7471ceca7db19152f8ddd3c07dac57ec20f79..83515b23a951327c99c0b6838c231b00ad05591f 100644
+--- a/yarn-project/ethereum/src/contracts/inbox.ts
++++ b/yarn-project/ethereum/src/contracts/inbox.ts
+@@ -11,8 +11,9 @@ import { getPublicClient } from '../client.js';
+ import type { DeployAztecL1ContractsReturnType } from '../deploy_aztec_l1_contracts.js';
+ import type { L1ReaderConfig } from '../l1_reader.js';
+ import type { ViemClient } from '../types.js';
++import { formatViemError } from '../utils.js';
+ import type { L1EventLog } from './log.js';
+-import { checkBlockTag } from './utils.js';
++import { checkBlockTag, getRevertedErrorName } from './utils.js';
+ 
+ /** The full L1-to-L2 message emitted by the Inbox, decoded from the event. Hashing it yields `leaf`. */
+ export type MessageSentMessage = {
+@@ -105,12 +106,29 @@ export class InboxContract {
+   ): Promise<InboxContractBucket> {
+     await checkBlockTag(opts.blockNumber, this.client);
+     const bucket = await this.inbox.read.getBucket([seq], opts);
+-    return {
+-      rollingHash: Fr.fromString(bucket.rollingHash),
+-      totalMsgCount: bucket.totalMsgCount,
+-      timestamp: bucket.timestamp,
+-      msgCount: bucket.msgCount,
+-    };
++    return toInboxContractBucket(bucket);
++  }
++
++  /**
++   * Returns the live Inbox bucket with the greatest cumulative message total at or below `upperBound`, together with
++   * its sequence number. Resolves to `undefined` when even the oldest retained bucket ends past the bound, i.e. the
++   * ring has already evicted every bucket that could have matched. Totals strictly increase per bucket, so the result
++   * is the newest bucket boundary reachable from a local message count.
++   */
++  public async getBucketAtOrBeforeTotal(
++    upperBound: bigint,
++    opts: { blockTag?: BlockTag; blockNumber?: bigint } = {},
++  ): Promise<{ seq: bigint; bucket: InboxContractBucket } | undefined> {
++    await checkBlockTag(opts.blockNumber, this.client);
++    try {
++      const [seq, bucket] = await this.inbox.read.getBucketAtOrBeforeTotal([upperBound], opts);
++      return { seq, bucket: toInboxContractBucket(bucket) };
++    } catch (err) {
++      if (getRevertedErrorName(err) === 'Inbox__NoBucketAtOrBeforeTotal') {
++        return undefined;
++      }
++      throw formatViemError(err);
++    }
+   }
+ 
+   /** Fetches MessageSent events within the given block range. */
+@@ -210,6 +228,20 @@ export type InboxContractState = {
+   currentBucketSeq: bigint;
+ };
+ 
++function toInboxContractBucket(bucket: {
++  rollingHash: Hex;
++  totalMsgCount: bigint;
++  timestamp: bigint;
++  msgCount: number;
++}): InboxContractBucket {
++  return {
++    rollingHash: Fr.fromString(bucket.rollingHash),
++    totalMsgCount: bucket.totalMsgCount,
++    timestamp: bucket.timestamp,
++    msgCount: bucket.msgCount,
++  };
++}
++
+ /** A snapshot of an on-chain Inbox rolling-hash bucket. */
+ export type InboxContractBucket = {
+   /** Consensus rolling hash (truncated sha256 chain) after the last message absorbed into this bucket. */
+diff --git a/yarn-project/ethereum/src/contracts/rollup.test.ts b/yarn-project/ethereum/src/contracts/rollup.test.ts
+index 7c770fabeac2c4a296c348524d106fc0dc047997..cf222eccafe55ff9b3615f3ad1c28d8ab4631e20 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.test.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.test.ts
+@@ -1,3 +1,4 @@
++import { InboxAbi } from '@aztec-foundation/l1-artifacts/InboxAbi';
+ import { RollupAbi } from '@aztec-foundation/l1-artifacts/RollupAbi';
+ 
+ import { L1RpcError, getPublicClient } from '@aztec-labs/ethereum/client';
+@@ -8,16 +9,19 @@ import { EthAddress } from '@aztec-labs/foundation/eth-address';
+ import { createLogger } from '@aztec-labs/foundation/log';
+ import { DateProvider } from '@aztec-labs/foundation/timer';
+ import { jest } from '@jest/globals';
+-import { type Abi, RpcRequestError, encodeErrorResult } from 'viem';
++import { type Abi, RpcRequestError, encodeErrorResult, getContract } from 'viem';
+ import { foundry } from 'viem/chains';
+ 
+ import { DefaultL1ContractsConfig } from '../config.js';
+-import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
++import { type DeployAztecL1ContractsReturnType, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
++import { ReadOnlyL1TxUtils } from '../l1_tx_utils/index.js';
+ import { EthCheatCodes } from '../test/eth_cheat_codes.js';
+ import type { Anvil } from '../test/start_anvil.js';
+ import { startAnvil } from '../test/start_anvil.js';
+ import type { ViemClient } from '../types.js';
+-import { type FeeHeader, RollupContract, TempCheckpointLogField } from './rollup.js';
++import { buildSimulationOverridesStateOverride } from './chain_state_override.js';
++import { InboxContract } from './inbox.js';
++import { type CheckpointPreflightArgs, type FeeHeader, RollupContract, TempCheckpointLogField } from './rollup.js';
+ 
+ describe('compressFeeHeader', () => {
+   /** Creates a zero fee header with the given overrides. */
+@@ -237,25 +241,28 @@ describe('Rollup', () => {
+ 
+   let vkTreeRoot: Fr;
+   let protocolContractsHash: Fr;
++  let genesisArchiveRoot: Fr;
+   let rollupAddress: `0x${string}`;
+   let rollup: RollupContract;
++  let deployed: DeployAztecL1ContractsReturnType;
+ 
+   beforeAll(async () => {
+     // this is the 6th address that gets funded by the junk mnemonic
+     const privateKeyRaw = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
+     vkTreeRoot = Fr.random();
+     protocolContractsHash = Fr.random();
++    genesisArchiveRoot = Fr.random();
+ 
+     ({ anvil, rpcUrl } = await startAnvil());
+ 
+     publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
+     cheatCodes = new EthCheatCodes([rpcUrl], new DateProvider());
+ 
+-    const deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
++    deployed = await deployAztecL1Contracts(rpcUrl, privateKeyRaw, foundry.id, {
+       ...DefaultL1ContractsConfig,
+       vkTreeRoot,
+       protocolContractsHash,
+-      genesisArchiveRoot: Fr.random(),
++      genesisArchiveRoot,
+       realVerifier: false,
+     });
+ 
+@@ -361,6 +368,185 @@ describe('Rollup', () => {
+     });
+   });
+ 
++  describe('validateCheckpointHeaderAndInbox', () => {
++    let l1TxUtils: ReadOnlyL1TxUtils;
++    let inbox: InboxContract;
++    let slotDuration: bigint;
++    let l1GenesisTime: bigint;
++    let liveTips: bigint;
++
++    beforeAll(async () => {
++      l1TxUtils = new ReadOnlyL1TxUtils(publicClient, undefined, new DateProvider());
++      inbox = InboxContract.getFromL1ContractsValues(deployed);
++      slotDuration = BigInt(await rollup.getSlotDuration());
++      l1GenesisTime = await rollup.getL1GenesisTime();
++      // Earlier tests rewrote the chain tips; run against the fresh chain (effective parent 0) and put them back after.
++      liveTips = await cheatCodes.load(EthAddress.fromString(rollupAddress), BigInt(RollupContract.stfStorageSlot));
++      await cheatCodes.store(EthAddress.fromString(rollupAddress), BigInt(RollupContract.stfStorageSlot), 0n);
++    });
++
++    afterAll(async () => {
++      await cheatCodes.store(EthAddress.fromString(rollupAddress), BigInt(RollupContract.stfStorageSlot), liveTips);
++    });
++
++    /** Builds an otherwise valid header for the second L2 slot after the current L1 time, and the time to simulate at. */
++    async function buildHeader(inboxRollingHash: Fr): Promise<{ args: CheckpointPreflightArgs; time: bigint }> {
++      const now = (await publicClient.getBlock()).timestamp;
++      const slot = SlotNumber(Number((now - l1GenesisTime) / slotDuration) + 2);
++      const time = await rollup.getTimestampForSlot(slot);
++      const minFee = await rollup.getManaMinFeeAt(time, true);
++      const zero = Fr.ZERO.toString();
++      const args: CheckpointPreflightArgs = {
++        header: {
++          lastArchiveRoot: genesisArchiveRoot.toString(),
++          blockHeadersHash: zero,
++          blobsHash: zero,
++          inboxRollingHash: inboxRollingHash.toString(),
++          outHash: zero,
++          slotNumber: BigInt(slot),
++          timestamp: time,
++          coinbase: EthAddress.random().toString(),
++          feeRecipient: zero,
++          gasFees: { feePerDaGas: 0n, feePerL2Gas: minFee },
++          totalManaUsed: 0n,
++          accumulatedFees: 0n,
++        },
++        attestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
++        signers: [],
++        attestationsAndSignersSignature: { r: zero, s: zero, v: 0 },
++        digest: zero,
++        blobsHash: zero,
++        flags: { ignoreDA: true },
++        expectedTotal: 0n,
++        expectedParentCheckpointNumber: 0n,
++      };
++      return { args, time };
++    }
++
++    it('returns the genesis bucket for a checkpoint consuming nothing on a fresh chain', async () => {
++      const { args, time } = await buildHeader(Fr.ZERO);
++      await expect(rollup.validateCheckpointHeaderAndInbox(l1TxUtils, args, { time })).resolves.toBe(0n);
++    });
++
++    it('rejects a parent claim that differs from the parent propose would use', async () => {
++      const { args, time } = await buildHeader(Fr.ZERO);
++      await expect(
++        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, { ...args, expectedParentCheckpointNumber: 1n }, { time }),
++      ).rejects.toThrow(/Rollup__UnexpectedParentCheckpoint/);
++    });
++
++    it('rejects a consumed total that is not a bucket boundary', async () => {
++      const { args, time } = await buildHeader(Fr.ZERO);
++      await expect(
++        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, { ...args, expectedTotal: 1n }, { time }),
++      ).rejects.toThrow(/Rollup__InboxTotalNotAtBucketBoundary/);
++    });
++
++    it('runs the shared header checks against the derived parent', async () => {
++      const { args, time } = await buildHeader(Fr.ZERO);
++      const header = { ...args.header, lastArchiveRoot: Fr.random().toString() };
++      await expect(rollup.validateCheckpointHeaderAndInbox(l1TxUtils, { ...args, header }, { time })).rejects.toThrow(
++        /Rollup__InvalidArchive/,
++      );
++    });
++
++    /** Sends one message in a fresh L1 block 12 seconds after the previous one, so it opens a new bucket. */
++    async function sendMessageInNewBucket(): Promise<void> {
++      const inboxContract = getContract({
++        address: deployed.l1ContractAddresses.inboxAddress.toString(),
++        abi: InboxAbi,
++        client: deployed.l1Client,
++      });
++      const version = await rollup.getVersion();
++      const { timestamp } = await publicClient.getBlock();
++      await cheatCodes.warp(timestamp + 12n, { silent: true });
++      const hash = await inboxContract.write.sendL2Message(
++        [{ actor: Fr.random().toString(), version }, Fr.random().toString(), Fr.random().toString()],
++        { gas: 1_000_000n },
++      );
++      await deployed.l1Client.waitForTransactionReceipt({ hash });
++    }
++
++    it('resolves a consumed bucket to its sequence and rejects a stale hash for it', async () => {
++      await sendMessageInNewBucket();
++      const bucket = await inbox.getBucket(1n);
++      expect(bucket.totalMsgCount).toBe(1n);
++
++      const { args, time } = await buildHeader(bucket.rollingHash);
++      await expect(
++        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, { ...args, expectedTotal: 1n }, { time }),
++      ).resolves.toBe(1n);
++
++      const stale = { ...args.header, inboxRollingHash: Fr.random().toString() };
++      await expect(
++        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, { ...args, header: stale, expectedTotal: 1n }, { time }),
++      ).rejects.toThrow(/Rollup__InvalidInboxRollingHash/);
++    });
++
++    // A pipelined checkpoint is validated against a parent that has not landed: the state overrides describe that
++    // parent (tips, archive, slot, consumed total) and the call reads the parent's total from them, so the same call
++    // without the overrides has no such parent and a parent total ahead of the child rejects the child.
++    it('validates against an unpublished parent supplied through state overrides', async () => {
++      // Two fresh buckets: the parent consumed through the first, the child consumes the second.
++      await sendMessageInNewBucket();
++      const parentSeq = await inbox.getCurrentBucketSeq();
++      await sendMessageInNewBucket();
++      const childSeq = await inbox.getCurrentBucketSeq();
++      expect(childSeq).toBe(parentSeq + 1n);
++      const parentBucket = await inbox.getBucket(parentSeq);
++      const childBucket = await inbox.getBucket(childSeq);
++      expect(childBucket.totalMsgCount).toBe(parentBucket.totalMsgCount + 1n);
++
++      const { args, time } = await buildHeader(childBucket.rollingHash);
++      const parentArchive = Fr.random();
++      const parentSlot = SlotNumber(Number(args.header.slotNumber) - 1);
++      // The mana fee derivation reads the parent's fee header; the genesis one stands in for a real parent's.
++      const parentFeeHeader = await rollup.getFeeHeader(0n);
++      const overridesFor = (parentInboxMsgTotal: bigint) =>
++        buildSimulationOverridesStateOverride(rollup, {
++          chainTipsOverride: { pending: CheckpointNumber(1), proven: CheckpointNumber(0) },
++          pendingCheckpointState: {
++            archive: parentArchive,
++            slotNumber: parentSlot,
++            inboxMsgTotal: parentInboxMsgTotal,
++            inboxConsumedBucket: parentSeq,
++            feeHeader: parentFeeHeader,
++          },
++        });
++
++      const stateOverrides = await overridesFor(parentBucket.totalMsgCount);
++      const minFee = await rollup.getManaMinFeeAt(time, true, stateOverrides);
++      const header = {
++        ...args.header,
++        lastArchiveRoot: parentArchive.toString(),
++        gasFees: { ...args.header.gasFees, feePerL2Gas: minFee },
++      };
++      const childArgs = {
++        ...args,
++        header,
++        expectedTotal: childBucket.totalMsgCount,
++        expectedParentCheckpointNumber: 1n,
++      };
++
++      await expect(
++        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, childArgs, { time, stateOverrides }),
++      ).resolves.toBe(childSeq);
++
++      // Without the parent's state the effective parent is still checkpoint 0.
++      await expect(rollup.validateCheckpointHeaderAndInbox(l1TxUtils, childArgs, { time })).rejects.toThrow(
++        /Rollup__UnexpectedParentCheckpoint/,
++      );
++
++      // The parent's stored total, not the caller, is the consumption floor.
++      await expect(
++        rollup.validateCheckpointHeaderAndInbox(l1TxUtils, childArgs, {
++          time,
++          stateOverrides: await overridesFor(childBucket.totalMsgCount + 3n),
++        }),
++      ).rejects.toThrow(/Rollup__InboxConsumptionBehindParent/);
++    });
++  });
++
+   describe('getVkTreeRoot and getProtocolContractsHash', () => {
+     it('reads vkTreeRoot', async () => {
+       const result = await rollup.getVkTreeRoot();
+diff --git a/yarn-project/ethereum/src/contracts/rollup.ts b/yarn-project/ethereum/src/contracts/rollup.ts
+index b72cc405e81aee557a54df55a165666884e939b9..e8c5da3881bb37da8f712d67a0a22a6cf564d3be 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.ts
+@@ -1,3 +1,4 @@
++import { ErrorsAbi } from '@aztec-foundation/l1-artifacts/ErrorsAbi';
+ import { EscapeHatchAbi } from '@aztec-foundation/l1-artifacts/EscapeHatchAbi';
+ import { RollupAbi } from '@aztec-foundation/l1-artifacts/RollupAbi';
+ import { RollupStorage } from '@aztec-foundation/l1-artifacts/RollupStorage';
+@@ -22,6 +23,7 @@ import {
+   type StateOverride,
+   type WatchContractEventReturnType,
+   decodeErrorResult,
++  decodeFunctionResult,
+   encodeAbiParameters,
+   encodeFunctionData,
+   getContract,
+@@ -33,9 +35,9 @@ import { getPublicClient } from '../client.js';
+ import type { DeployAztecL1ContractsReturnType } from '../deploy_aztec_l1_contracts.js';
+ import type { L1ContractAddresses } from '../l1_contract_addresses.js';
+ import type { L1ReaderConfig } from '../l1_reader.js';
+-import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
++import type { L1TxRequest, L1TxUtils, ReadOnlyL1TxUtils } from '../l1_tx_utils/index.js';
+ import type { ViemClient } from '../types.js';
+-import { formatViemError } from '../utils.js';
++import { formatViemError, mergeAbis } from '../utils.js';
+ import { GSEContract } from './gse.js';
+ import type { L1EventLog } from './log.js';
+ import { SlasherContract } from './slasher_contract.js';
+@@ -96,6 +98,21 @@ export type ViemGasFees = {
+   feePerL2Gas: bigint;
+ };
+ 
++/** Inputs of the Rollup's integrated header and Inbox preflight, mirroring the contract's `CheckpointPreflightArgs`. */
++export type CheckpointPreflightArgs = {
++  header: ViemHeader;
++  attestations: ViemCommitteeAttestations;
++  signers: `0x${string}`[];
++  attestationsAndSignersSignature: ViemSignature;
++  digest: `0x${string}`;
++  blobsHash: `0x${string}`;
++  flags: { ignoreDA: boolean };
++  /** Cumulative Inbox message count the checkpoint consumed up to; must be a live bucket boundary. */
++  expectedTotal: bigint;
++  /** Checkpoint number the header was built on; the call derives the real parent and rejects any other. */
++  expectedParentCheckpointNumber: bigint;
++};
++
+ /**
+  * Status of a validator/attester in the staking system.
+  * Matches the Status enum in StakingLib.sol
+@@ -890,6 +907,39 @@ export class RollupContract {
+     }
+   }
+ 
++  /**
++   * Simulates `validateCheckpointHeaderAndInbox` at the intended execution time and state, and returns the Inbox
++   * bucket sequence to submit to `propose` as `bucketHint`.
++   *
++   * The call derives the parent checkpoint from the simulated Rollup storage the way `propose` does (the proven tip if
++   * the pending chain is prunable at `time`), so `stateOverrides` must describe the state the real transaction will
++   * see: a pipelined parent, or the tips after a bundled invalidation. It runs over `eth_simulateV1` with a block time
++   * override, the same transport as the header-only preflight, and throws a formatted error naming the contract
++   * revert (`Rollup__UnexpectedParentCheckpoint`, `Rollup__InboxTotalNotAtBucketBoundary`,
++   * `Inbox__NoBucketAtOrBeforeTotal`, or any header/Inbox consumption error `propose` raises) when the checkpoint is
++   * not publishable in that context.
++   * @param l1TxUtils - The simulation transport
++   * @param args - The header validation inputs plus the consumed Inbox total and the expected parent
++   * @param opts - The block timestamp to simulate at, the state overrides to apply, and the simulated sender
++   */
++  public async validateCheckpointHeaderAndInbox(
++    l1TxUtils: Pick<ReadOnlyL1TxUtils, 'simulate'>,
++    args: CheckpointPreflightArgs,
++    opts: { time: bigint; stateOverrides?: StateOverride; from?: `0x${string}` },
++  ): Promise<bigint> {
++    const { result } = await l1TxUtils.simulate(
++      {
++        to: this.address,
++        data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateCheckpointHeaderAndInbox', args: [args] }),
++        from: opts.from,
++      },
++      { time: opts.time },
++      opts.stateOverrides ?? [],
++      mergeAbis([RollupAbi, ErrorsAbi]),
++    );
++    return decodeFunctionResult({ abi: RollupAbi, functionName: 'validateCheckpointHeaderAndInbox', data: result });
++  }
++
+   /**
+    * @notice  Calls `canProposeAtTime` with the time of the next Ethereum block and the sender address
+    *
+diff --git a/yarn-project/ethereum/src/contracts/utils.ts b/yarn-project/ethereum/src/contracts/utils.ts
+index 5877ba44392da9e77b9198a69c0c40951ae6bde4..b3a061a615e653939ac6c5432659485a408b9b19 100644
+--- a/yarn-project/ethereum/src/contracts/utils.ts
++++ b/yarn-project/ethereum/src/contracts/utils.ts
+@@ -1,3 +1,5 @@
++import { BaseError, ContractFunctionRevertedError } from 'viem';
++
+ import type { ViemClient } from '../types.js';
+ import { BlockTagTooOldError } from './errors.js';
+ 
+@@ -12,3 +14,12 @@ export async function checkBlockTag(block: bigint | undefined, publicClient: Vie
+     throw new BlockTagTooOldError(block, latestBlock);
+   }
+ }
++
++/** Returns the name of the custom error a viem contract call reverted with, if the revert data could be decoded. */
++export function getRevertedErrorName(err: unknown): string | undefined {
++  if (!(err instanceof BaseError)) {
++    return undefined;
++  }
++  const revertError = err.walk(e => e instanceof ContractFunctionRevertedError);
++  return revertError instanceof ContractFunctionRevertedError ? revertError.data?.errorName : undefined;
++}
