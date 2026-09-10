@@ -60,6 +60,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec-foundation/bb.js@workspace:bb.js"
   dependencies:
+    "@aztec-foundation/ipc-runtime": "@aztec-foundation/ipc-runtime"
     "@jest/globals": "npm:^30.0.0"
     "@swc/core": "npm:^1.10.1"
     "@swc/jest": "npm:^0.2.37"

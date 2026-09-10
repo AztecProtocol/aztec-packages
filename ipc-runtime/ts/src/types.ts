@@ -20,7 +20,7 @@ export interface IpcClientSync {
  * than this is treated as corruption and the connection is closed instead
  * of buffering the claimed size.
  */
-export const MAX_FRAME_SIZE = 256 * 1024 * 1024; // 256 MiB
+export const MAX_FRAME_SIZE = 1024 * 1024 * 1024; // 1 GiB
 
 /**
  * Total budget (ms) for connect() retry loops, covering the window where

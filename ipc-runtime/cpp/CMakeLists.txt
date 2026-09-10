@@ -46,6 +46,8 @@ else()
         ipc_runtime/c_abi.cpp
         ipc_runtime/ipc_client.cpp
         ipc_runtime/ipc_server.cpp
+        ipc_runtime/pipe_client.cpp
+        ipc_runtime/pipe_server.cpp
         ipc_runtime/serve_helper.cpp
         ipc_runtime/signal_handlers.cpp
         ipc_runtime/socket_client.cpp
@@ -84,7 +86,7 @@ if(IPC_RUNTIME_BUILD_TESTS AND NOT WASM)
         FetchContent_MakeAvailable(GTest)
     endif()
 
-    add_executable(ipc_runtime_tests ipc_runtime/shm.test.cpp ipc_runtime/socket.test.cpp)
+    add_executable(ipc_runtime_tests ipc_runtime/pipe.test.cpp ipc_runtime/shm.test.cpp ipc_runtime/socket.test.cpp)
     target_link_libraries(ipc_runtime_tests PRIVATE ipc_runtime GTest::gtest_main)
 
     include(GoogleTest)

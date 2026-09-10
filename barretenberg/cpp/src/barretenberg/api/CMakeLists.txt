@@ -6,5 +6,5 @@ if(AVM_TRANSPILER_LIB)
 endif()
 
 if(NOT WASM AND NOT BB_LITE)
-    target_link_libraries(api_objects PRIVATE ipc)
+    target_link_libraries(api_objects PRIVATE ipc_runtime)
 endif()

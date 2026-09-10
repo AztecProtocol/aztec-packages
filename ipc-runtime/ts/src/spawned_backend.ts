@@ -4,8 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { threadId } from "node:worker_threads";
 import { IpcError, IpcProcessExitedError, IpcSpawnError } from "./errors.js";
-import { createNapiShmAsyncClient } from "./shm_client.js";
-import { IpcClientAsync } from "./types.js";
+import {
+  createNapiShmAsyncClient,
+  createNapiShmSyncClient,
+} from "./shm_client.js";
+import { IpcClientAsync, IpcClientSync } from "./types.js";
 import { UdsIpcClient } from "./uds_client.js";
 
 export type SpawnedTransport = "uds" | "shm";
@@ -33,6 +36,20 @@ export interface SpawnedProcessBackendOptions {
    * still reject (with retry=true); only later calls see the fresh process.
    */
   respawn?: boolean;
+  /**
+   * Unref the child process (and, over UDS, the idle socket) so a backend
+   * that is never destroy()ed cannot hold the Node event loop open. Calls in
+   * flight still keep the loop alive until their response arrives.
+   */
+  unref?: boolean;
+  /**
+   * Also unref the child's stdout/stderr pipes, which exist only when
+   * `logger` is set. Separate from `unref` because those pipes are how the
+   * caller sees the child's output: unref'ing them lets the process exit with
+   * log lines still unread, so it is opt-in even when the child itself is
+   * unref'd.
+   */
+  unrefStdio?: boolean;
   /** SHM only: fixed client slot id. When unset the client self-allocates a free slot. */
   clientId?: number;
   /** SHM only: override the native addon path. */
@@ -54,6 +71,119 @@ const SIGTERM_GRACE_MS = 5_000;
 // the process is still alive. The socket usually breaks before 'exit' lands,
 // so without this grace a death would be misreported as a bare transport error.
 const EXIT_ATTRIBUTION_GRACE_MS = 250;
+
+/** POSIX shm segment names an shm server creates for `<name>.shm`. */
+function shmSegmentPaths(ipcPath: string): string[] {
+  const shmName = ipcPath.replace(/\.shm$/, "");
+  return ["_request", "_response"].map((suffix) => `/dev/shm/${shmName}${suffix}`);
+}
+
+/**
+ * Remove any ipc path left behind by a previous occupant of this name.
+ *
+ * Run before spawning as well as after teardown: a server killed outright
+ * (SIGKILL, OOM) never reaches its own cleanup, and shm segments are created
+ * with O_EXCL, so a leftover segment makes the next server fail at startup
+ * with a bare "File exists". Instance names embed the pid, so this only bites
+ * once pids recycle — which is routine in containers and CI.
+ */
+async function removeStaleIpcPath(
+  transport: SpawnedTransport,
+  ipcPath: string,
+): Promise<void> {
+  try {
+    const paths =
+      transport === "shm" ? shmSegmentPaths(ipcPath) : [ipcPath];
+    await Promise.all(paths.map((p) => rm(p, { force: true })));
+  } catch {
+    // Best effort: a stale path we cannot remove surfaces as the server's own
+    // startup error, which carries more context than anything we could throw.
+  }
+}
+
+/**
+ * Spawn the server process with the caller's argv/env, wiring stdio to the
+ * live logger when there is one and to `logFd` otherwise. Shared by the async
+ * and sync backends so process setup has exactly one implementation.
+ */
+function spawnServerProcess(
+  options: SpawnedProcessBackendOptions,
+  ipcPath: string,
+  logFd?: number,
+): ChildProcess {
+  const child = spawn(
+    options.binaryPath,
+    [
+      ...options.ipcPathArgs.map((arg) => (arg === "{path}" ? ipcPath : arg)),
+      ...(options.extraArgs ?? []),
+    ],
+    {
+      stdio: [
+        "ignore",
+        options.logger ? "pipe" : logFd!,
+        options.logger ? "pipe" : logFd!,
+      ],
+      env: { ...process.env, ...(options.env ?? {}) },
+    },
+  );
+  if (options.logger) {
+    child.stdout?.on("data", (data: Buffer) =>
+      options.logger?.(
+        `[${options.binaryName} stdout] ${data.toString().trimEnd()}`,
+      ),
+    );
+    child.stderr?.on("data", (data: Buffer) =>
+      options.logger?.(
+        `[${options.binaryName} stderr] ${data.toString().trimEnd()}`,
+      ),
+    );
+  }
+  if (options.unref) {
+    child.unref();
+  }
+  if (options.unrefStdio) {
+    // The stdio pipes are net.Sockets at runtime but typed as Readable.
+    (child.stdout as unknown as { unref?: () => void } | null)?.unref?.();
+    (child.stderr as unknown as { unref?: () => void } | null)?.unref?.();
+  }
+  return child;
+}
+
+/**
+ * A promise that rejects if the child fails to spawn or dies before its IPC
+ * endpoint is ready, for racing against the connect. Already observed, since
+ * it can reject before the caller attaches a handler (spawn failures land on
+ * nextTick) and would otherwise count as an unhandled rejection.
+ */
+function childReadyFailurePromise(
+  child: ChildProcess,
+  binaryName: string,
+): Promise<never> {
+  const failure = new Promise<never>((_, reject) => {
+    // Spawn syscall failures are the one place errno distinguishes a
+    // configuration error (missing/non-executable binary → retrying cannot
+    // help) from an environmental one.
+    child.once("error", (err) => {
+      const code = (err as NodeJS.ErrnoException).code;
+      const retry = code !== "ENOENT" && code !== "EACCES";
+      reject(
+        new IpcSpawnError(`Failed to spawn ${binaryName}: ${err.message}`, retry, {
+          cause: err,
+        }),
+      );
+    });
+    child.once("exit", (code, signal) => {
+      reject(
+        new IpcSpawnError(
+          `${binaryName} exited before IPC connection was ready (code=${code}, signal=${signal})`,
+          /*retry=*/ true,
+        ),
+      );
+    });
+  });
+  failure.catch(() => {});
+  return failure;
+}
 
 let instanceCounter = 0;
 
@@ -235,9 +365,7 @@ export class SpawnedProcessBackend implements IpcClientAsync {
   /** Spawn the server process and connect to it; kills the child on any failure. */
   private async spawnIncarnation(): Promise<Incarnation> {
     const { options } = this;
-    if (options.transport === "uds") {
-      await rm(this.ipcPath, { force: true });
-    }
+    await removeStaleIpcPath(options.transport, this.ipcPath);
 
     // Without a live logger, capture the child's stdout/stderr to the backend's
     // log file (a plain fd, not a pipe — a pipe would keep the libuv loop
@@ -248,35 +376,7 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     // whole event loop.
     const logFile =
       this.logPath !== undefined ? await open(this.logPath, "a") : undefined;
-    const child = spawn(
-      options.binaryPath,
-      [
-        ...options.ipcPathArgs.map((arg) =>
-          arg === "{path}" ? this.ipcPath : arg,
-        ),
-        ...(options.extraArgs ?? []),
-      ],
-      {
-        stdio: [
-          "ignore",
-          options.logger ? "pipe" : logFile!.fd,
-          options.logger ? "pipe" : logFile!.fd,
-        ],
-        env: { ...process.env, ...(options.env ?? {}) },
-      },
-    );
-    if (options.logger) {
-      child.stdout?.on("data", (data: Buffer) =>
-        options.logger?.(
-          `[${options.binaryName} stdout] ${data.toString().trimEnd()}`,
-        ),
-      );
-      child.stderr?.on("data", (data: Buffer) =>
-        options.logger?.(
-          `[${options.binaryName} stderr] ${data.toString().trimEnd()}`,
-        ),
-      );
-    }
+    const child = spawnServerProcess(options, this.ipcPath, logFile?.fd);
 
     const incarnation: Partial<Incarnation> & { child: ChildProcess } = {
       child,
@@ -290,35 +390,10 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     });
     incarnation.exitPromise = exitPromise;
 
-    const childReadyFailure = new Promise<never>((_, reject) => {
-      // Spawn syscall failures are the one place errno distinguishes a
-      // configuration error (missing/non-executable binary → retrying cannot
-      // help) from an environmental one.
-      child.once("error", (err) => {
-        const code = (err as NodeJS.ErrnoException).code;
-        const retry = code !== "ENOENT" && code !== "EACCES";
-        reject(
-          new IpcSpawnError(
-            `Failed to spawn ${options.binaryName}: ${err.message}`,
-            retry,
-            { cause: err },
-          ),
-        );
-      });
-      child.once("exit", (code, signal) => {
-        reject(
-          new IpcSpawnError(
-            `${options.binaryName} exited before IPC connection was ready (code=${code}, signal=${signal})`,
-            /*retry=*/ true,
-          ),
-        );
-      });
-    });
-
-    // Observe immediately: childReadyFailure can reject during the awaits
-    // below (spawn failures land on nextTick), before Promise.race attaches
-    // its handler — without this it would count as an unhandled rejection.
-    childReadyFailure.catch(() => {});
+    const childReadyFailure = childReadyFailurePromise(
+      child,
+      options.binaryName,
+    );
 
     if (logFile !== undefined) {
       // spawn() dups the fd synchronously; the parent's handle isn't needed.
@@ -333,12 +408,17 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     // and fail immediately with the real cause if the process dies first. On
     // any failure, reap the child and its ipc path so a failed spawn cannot
     // leak an orphan process still holding sockets or database locks.
+    // The connect retries on a timer until its budget expires. When the child
+    // dies first the race rejects, but nothing stops that loop — so abort it,
+    // or it keeps dialling a dead server and holds the event loop open.
+    const connectAbort = new AbortController();
     try {
       incarnation.client = await Promise.race([
-        this.connectClient(),
+        this.connectClient(connectAbort.signal),
         childReadyFailure,
       ]);
     } catch (err) {
+      connectAbort.abort();
       if (child.pid !== undefined) {
         // SIGKILL, not SIGTERM: the process never became ready, so it has no
         // state to flush, and a wedged process may not honour SIGTERM.
@@ -385,7 +465,7 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     }
   }
 
-  private async connectClient(): Promise<IpcClientAsync> {
+  private async connectClient(signal?: AbortSignal): Promise<IpcClientAsync> {
     const { options } = this;
     const timeoutMs = options.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
     if (options.transport === "uds") {
@@ -396,13 +476,15 @@ export class SpawnedProcessBackend implements IpcClientAsync {
       // wait with its real exit cause.
       return await UdsIpcClient.connect(this.ipcPath, {
         connectTimeoutMs: timeoutMs,
+        unref: options.unref,
+        signal,
       });
     }
     // The SHM client attaches to server-created rings, so creation can race
     // server startup; retry until the backstop expires.
     const deadline = Date.now() + timeoutMs;
     let lastError: unknown;
-    while (Date.now() <= deadline) {
+    while (Date.now() <= deadline && !signal?.aborted) {
       try {
         return createNapiShmAsyncClient(this.ipcPath.replace(/\.shm$/, ""), {
           clientId: options.clientId,
@@ -443,18 +525,151 @@ export class SpawnedProcessBackend implements IpcClientAsync {
   }
 
   private async cleanupIpcPath(): Promise<void> {
+    await removeStaleIpcPath(this.options.transport, this.ipcPath);
+  }
+}
+
+/**
+ * A synchronous IpcClientSync backed by a spawned server process, for callers
+ * whose API cannot await (BarretenbergSync and friends). Shares process setup,
+ * stale-path removal and the connect backstop with SpawnedProcessBackend; only
+ * the request path differs, blocking in the NAPI client instead of returning a
+ * promise.
+ *
+ * SHM only: a synchronous request needs the shared-memory client, as a socket
+ * round trip cannot block the event loop without deadlocking it. Construction
+ * is still async — the server has to come up before the first call — so only
+ * call() and destroy() are synchronous.
+ */
+export class SpawnedProcessBackendSync implements IpcClientSync {
+  private destroyed = false;
+
+  private constructor(
+    private readonly options: SpawnedProcessBackendOptions,
+    private readonly child: ChildProcess,
+    private readonly client: IpcClientSync,
+    private readonly ipcPath: string,
+    private readonly logPath?: string,
+  ) {}
+
+  static async spawn(
+    options: SpawnedProcessBackendOptions,
+  ): Promise<SpawnedProcessBackendSync> {
+    if (options.transport !== "shm") {
+      throw new IpcError(
+        `SpawnedProcessBackendSync requires the shm transport (got ${options.transport})`,
+        /*retry=*/ false,
+      );
+    }
+    const instanceId = `${options.instancePrefix}-${process.pid}-${threadId}-${instanceCounter++}`;
+    const ipcPath = `${instanceId}.shm`;
+    const logPath = options.logger
+      ? undefined
+      : join(tmpdir(), `${instanceId}.log`);
+
+    await removeStaleIpcPath("shm", ipcPath);
+    const logFile = logPath !== undefined ? await open(logPath, "a") : undefined;
+    const child = spawnServerProcess(options, ipcPath, logFile?.fd);
+    const childReadyFailure = childReadyFailurePromise(
+      child,
+      options.binaryName,
+    );
+    await logFile?.close();
+
     try {
-      if (this.options.transport === "uds") {
-        await rm(this.ipcPath, { force: true });
+      const client = await Promise.race([
+        connectShmSyncClient(options, ipcPath),
+        childReadyFailure,
+      ]);
+      return new SpawnedProcessBackendSync(
+        options,
+        child,
+        client,
+        ipcPath,
+        logPath,
+      );
+    } catch (err) {
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill("SIGKILL");
       }
-      if (this.options.transport === "shm") {
-        const shmName = this.ipcPath.replace(/\.shm$/, "");
-        for (const suffix of ["_request", "_response"]) {
-          await rm(`/dev/shm/${shmName}${suffix}`, { force: true });
-        }
-      }
-    } catch {
-      // Cleanup is best-effort; the paths live under tmpdir.
+      child.removeAllListeners();
+      await removeStaleIpcPath("shm", ipcPath);
+      throw err instanceof IpcError
+        ? err
+        : new IpcSpawnError(
+            `Failed to start ${options.binaryName}: ${String(err)}`,
+            /*retry=*/ true,
+            { cause: err },
+          );
     }
   }
+
+  call(input: Uint8Array): Uint8Array {
+    if (this.destroyed) {
+      throw new IpcError(
+        `${this.options.binaryName} backend destroyed`,
+        /*retry=*/ false,
+      );
+    }
+    try {
+      return this.client.call(input);
+    } catch (err) {
+      // A dead server is the likeliest cause of a failed shm call; report it as
+      // such (with the log path) rather than as an opaque transport error.
+      if (this.child.exitCode !== null || this.child.signalCode !== null) {
+        throw new IpcProcessExitedError(
+          `${this.options.binaryName} exited unexpectedly (code=${this.child.exitCode}, signal=${this.child.signalCode})` +
+            (this.logPath !== undefined ? `; see logs: ${this.logPath}` : ""),
+          this.child.exitCode,
+          this.child.signalCode,
+          this.logPath,
+        );
+      }
+      throw err;
+    }
+  }
+
+  destroy(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
+    this.client.destroy();
+    if (this.child.exitCode === null && this.child.signalCode === null) {
+      this.child.kill("SIGTERM");
+    }
+    this.child.removeAllListeners();
+    // Teardown is synchronous by contract, so the segments are reaped in the
+    // background; the pre-spawn removal is what actually guarantees a clean
+    // start for the next occupant.
+    void removeStaleIpcPath("shm", this.ipcPath);
+  }
+}
+
+/** Retry attaching the sync shm client until the server has created its rings. */
+async function connectShmSyncClient(
+  options: SpawnedProcessBackendOptions,
+  ipcPath: string,
+): Promise<IpcClientSync> {
+  const deadline =
+    Date.now() + (options.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS);
+  let lastError: unknown;
+  while (Date.now() <= deadline) {
+    try {
+      return createNapiShmSyncClient(ipcPath.replace(/\.shm$/, ""), {
+        clientId: options.clientId,
+        customAddonPath: options.napiPath,
+      });
+    } catch (err) {
+      lastError = err;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+  const message =
+    lastError instanceof Error ? lastError.message : String(lastError);
+  throw new IpcSpawnError(
+    `Timed out connecting to ${options.binaryName}: ${message}`,
+    /*retry=*/ true,
+    { cause: lastError },
+  );
 }

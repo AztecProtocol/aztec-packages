@@ -128,7 +128,6 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     add_subdirectory(barretenberg/world_state)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
-    add_subdirectory(barretenberg/ipc)
     add_subdirectory(barretenberg/wsdb)
     add_subdirectory(barretenberg/vm2_wsdb)
     add_subdirectory(barretenberg/cdb)
@@ -234,7 +233,7 @@ add_library(
 )
 
 # bb-external: static library for external consumers (e.g. barretenberg-rs).
-# Uses the core object list without lmdb/world_state — FFI consumers only need bbapi().
+# Uses the core object list without lmdb/world_state — FFI consumers only need ipc_ffi_entry().
 # Built with -fvisibility=hidden; only WASM_EXPORT symbols remain visible.
 if(NOT WASM)
     add_library(

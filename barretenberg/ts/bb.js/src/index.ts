@@ -28,12 +28,17 @@ export type {
   GrumpkinPoint,
   Secp256k1Point,
   Secp256r1Point,
-  Field2,
-} from './cbind/generated/api_types.js';
+} from './generated/api_types.js';
 
-export { toChonkProof } from './cbind/generated/api_types.js';
+export { toChonkProof } from './generated/api_types.js';
 
-export { CircuitKind } from './cbind/circuit_kind.js';
+/**
+ * @deprecated Fq2 coordinates are typed per curve now (see Bn254G2Point).
+ * Kept so consumers of the previous public API keep compiling.
+ */
+export type Field2 = [Uint8Array, Uint8Array];
+
+export { CircuitKind } from './circuit_kind.js';
 
 // Export curve constants for use in foundation
 export {
@@ -50,6 +55,6 @@ export {
   SECP256R1_FR_MODULUS,
   SECP256R1_FQ_MODULUS,
   SECP256R1_G1_GENERATOR,
-} from './cbind/generated/curve_constants.js';
+} from './generated/curve_constants.js';
 
 export { findBbBinary, findNapiBinary } from './bb_backends/node/platform.js';

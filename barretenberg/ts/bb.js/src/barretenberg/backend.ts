@@ -1,8 +1,8 @@
 import { Decoder, Encoder } from 'msgpackr';
 import { ungzip } from 'pako';
 
-import { CircuitKind } from '../cbind/circuit_kind.js';
-import { ChonkProof, fromChonkProof, toChonkProof } from '../cbind/generated/api_types.js';
+import { CircuitKind } from '../circuit_kind.js';
+import { ChonkProof, fromChonkProof, toChonkProof } from '../generated/api_types.js';
 import { ProofData, hexToUint8Array, uint8ArrayToHex } from '../proof/index.js';
 import type { Barretenberg } from './index.js';
 
@@ -336,7 +336,10 @@ export class AztecClientBackend {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
 
-    this.api.chonkStart({ kinds: this.circuitKinds });
+    // Pipelined: the accumulation commands are issued back to back and only
+    // the final chonkProve is awaited, so a failure surfaces there.
+    // CircuitKind values travel as u8 on the wire.
+    void this.api.chonkStart({ kinds: Uint8Array.from(this.circuitKinds) });
 
     const lastIdx = this.acirBuf.length - 1;
     for (let i = 0; i < this.acirBuf.length; i++) {
@@ -351,7 +354,7 @@ export class AztecClientBackend {
         );
       }
 
-      this.api.chonkLoad({
+      void this.api.chonkLoad({
         circuit: {
           name: functionName,
           bytecode: bytecode,
@@ -360,7 +363,7 @@ export class AztecClientBackend {
         kind: this.circuitKinds[i],
       });
 
-      this.api.chonkAccumulate({
+      void this.api.chonkAccumulate({
         witness,
       });
     }

@@ -24,17 +24,7 @@ pub fn build(b: *std.Build) void {
     runtime_mod.addIncludePath(cpp_root);
     runtime_mod.addCSourceFiles(.{
         .root = cpp_root,
-        .files = &.{
-            "ipc_runtime/c_abi.cpp",
-            "ipc_runtime/ipc_client.cpp",
-            "ipc_runtime/ipc_server.cpp",
-            "ipc_runtime/serve_helper.cpp",
-            "ipc_runtime/signal_handlers.cpp",
-            "ipc_runtime/socket_client.cpp",
-            "ipc_runtime/socket_server.cpp",
-            "ipc_runtime/shm/mpsc_shm.cpp",
-            "ipc_runtime/shm/spsc_shm.cpp",
-        },
+        .files = collectCppSources(b, cpp_root, "ipc_runtime"),
         .flags = &.{ "-std=c++20", "-fPIC" },
     });
     const runtime = b.addLibrary(.{
@@ -68,4 +58,31 @@ pub fn build(b: *std.Build) void {
     smoke.root_module.addImport("ipc_runtime", mod);
     smoke.linkLibrary(runtime);
     b.installArtifact(smoke);
+}
+
+/// Every non-test .cpp under the runtime's source tree, relative to `root`.
+///
+/// Discovered rather than listed: a hand-maintained copy of the CMake target's
+/// sources silently drifts when a file is added there, and the symptom is an
+/// undefined symbol at link time in whichever consumer links this archive, far
+/// from the change that caused it.
+fn collectCppSources(b: *std.Build, root: std.Build.LazyPath, subdir: []const u8) []const []const u8 {
+    var files: std.ArrayList([]const u8) = .empty;
+    // Only the runtime's own sources: cpp/ also holds the NAPI addon (needs
+    // node headers) and CMake build directories.
+    const root_path = b.pathJoin(&.{ root.getPath(b), subdir });
+    var dir = std.fs.cwd().openDir(root_path, .{ .iterate = true }) catch |err|
+        std.debug.panic("cannot open {s}: {s}", .{ root_path, @errorName(err) });
+    defer dir.close();
+    var walker = dir.walk(b.allocator) catch @panic("out of memory");
+    defer walker.deinit();
+    while (walker.next() catch @panic("failed walking ipc-runtime sources")) |entry| {
+        if (entry.kind != .file) continue;
+        if (!std.mem.endsWith(u8, entry.path, ".cpp")) continue;
+        if (std.mem.endsWith(u8, entry.path, ".test.cpp")) continue;
+        // Paths are relative to `root`, which is what addCSourceFiles expects.
+        files.append(b.allocator, b.pathJoin(&.{ subdir, entry.path })) catch @panic("out of memory");
+    }
+    if (files.items.len == 0) std.debug.panic("no C++ sources under {s}", .{root_path});
+    return files.toOwnedSlice(b.allocator) catch @panic("out of memory");
 }

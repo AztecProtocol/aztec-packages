@@ -1,0 +1,7 @@
+// Configure-time embed of bb_schema.json (see CMakeLists.txt). @ONLY substitution.
+#pragma once
+#include <string_view>
+
+namespace bb::bbapi {
+inline constexpr std::string_view k_bb_schema_json = R"bbschema(@BB_SCHEMA_CONTENT@)bbschema";
+} // namespace bb::bbapi

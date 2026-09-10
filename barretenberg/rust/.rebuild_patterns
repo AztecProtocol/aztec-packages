@@ -1,2 +1,6 @@
 ^barretenberg/rust/.*\.(rs|toml)$
 ^barretenberg/rust/bootstrap.sh
+^ipc-codegen/src/.*\.ts$
+^ipc-codegen/templates/rust/
+^ipc-runtime/(rust|cpp)/
+^barretenberg/cpp/src/barretenberg/bbapi/bb_schema\.json$
