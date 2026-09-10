@@ -604,9 +604,10 @@ abstract contract PartialEpochProofGasReportBase is BenchmarkRollupBase {
 
   function _sendInboxMessage(uint256 _salt) internal {
     vm.prank(address(this));
-    Inbox(address(rollup.getInbox())).sendL2Message(
-      DataStructures.L2Actor({actor: bytes32(_salt), version: rollup.getVersion()}), bytes32(_salt), bytes32(0)
-    );
+    Inbox(address(rollup.getInbox()))
+      .sendL2Message(
+        DataStructures.L2Actor({actor: bytes32(_salt), version: rollup.getVersion()}), bytes32(_salt), bytes32(0)
+      );
   }
 
   function _prepareGasReportEpoch() internal {
