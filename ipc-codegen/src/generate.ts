@@ -25,7 +25,7 @@ import {
   rmSync,
 } from "fs";
 import { execSync } from "child_process";
-import { basename, dirname, join, resolve } from "path";
+import { basename, dirname, join, relative, resolve } from "path";
 import { fileURLToPath } from "url";
 import {
   SchemaVisitor,
@@ -47,6 +47,9 @@ import { toSnakeCase } from "./naming.ts";
 
 // @ts-ignore
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** Records what the last run produced, so this one can remove what it no longer emits. */
+const MANIFEST = ".ipc-codegen-manifest";
 
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -348,6 +351,35 @@ function detectPrefix(compiled: CompiledSchema): string {
 // Template copying
 // ---------------------------------------------------------------------------
 
+/**
+ * Every path this run produced. Generated output is disposable and the set of files changes as
+ * the generator does, so the next run uses this to delete what it no longer emits — otherwise a
+ * checkout keeps compiling a file that is no longer generated from anything.
+ */
+const written: string[] = [];
+
+/**
+ * Remove anything an earlier run produced under `root` that this one did not, then record what
+ * this one did. Paths are stored relative to `root` so the tree can move.
+ */
+function pruneStale(root: string) {
+  const manifestPath = join(root, MANIFEST);
+  const current = written.map((p) => relative(root, p)).sort();
+  let previous: string[] = [];
+  try {
+    previous = readFileSync(manifestPath, "utf-8").split("\n").filter(Boolean);
+  } catch {
+    // No manifest: either the first run here, or output from before manifests existed. Either
+    // way there is nothing we can safely claim to own, so only record.
+  }
+  for (const stale of previous.filter((p) => !current.includes(p))) {
+    const path = join(root, stale);
+    rmSync(path, { recursive: true, force: true });
+    console.log(`  ${path} (removed, no longer generated)`);
+  }
+  writeFileSync(manifestPath, current.join("\n") + "\n");
+}
+
 function copyTemplate(lang: string, filename: string, outDir: string) {
   const templatePath = join(__dirname, "..", "templates", lang, filename);
   const destPath = join(outDir, filename);
@@ -355,6 +387,7 @@ function copyTemplate(lang: string, filename: string, outDir: string) {
   const tmpPath = `${destPath}.${process.pid}.tmp`;
   writeFileSync(tmpPath, readFileSync(templatePath, "utf-8"));
   renameSync(tmpPath, destPath);
+  written.push(destPath);
   console.log(`  ${destPath} (template)`);
 }
 
@@ -363,6 +396,7 @@ function copyTemplateDir(lang: string, dirname: string, outDir: string) {
   const destPath = join(outDir, dirname);
   rmSync(destPath, { recursive: true, force: true });
   cpSync(templatePath, destPath, { recursive: true });
+  written.push(destPath);
   console.log(`  ${destPath} (template)`);
 }
 
@@ -409,6 +443,7 @@ function generate(args: Args) {
     const tmpPath = `${path}.${process.pid}.tmp`;
     writeFileSync(tmpPath, content);
     renameSync(tmpPath, path);
+    written.push(path);
     console.log(`  ${path}`);
     return path;
   }
@@ -450,6 +485,7 @@ function generate(args: Args) {
           const tmpPath = `${path}.${process.pid}.tmp`;
           writeFileSync(tmpPath, content);
           renameSync(tmpPath, path);
+          written.push(path);
           if (opts?.executable) {
             try {
               execSync(`chmod +x ${path}`);
@@ -693,6 +729,9 @@ function generate(args: Args) {
       process.exit(1);
   }
 
+  // Generated output for one service lives under the package when there is one, and under --out
+  // otherwise; either way that directory is the generator's to keep tidy.
+  pruneStale(args.packageDir ? resolve(args.packageDir) : absOut);
   console.log("Done.");
 }
 

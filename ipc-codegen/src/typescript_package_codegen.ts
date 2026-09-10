@@ -115,7 +115,7 @@ export class TypeScriptServerPackageCodegen {
       files: ["dest/", this.opts.schemaFileName, "README.md"],
       scripts: {
         clean: "rm -rf dest .tsbuildinfo",
-        build: "tsc -p tsconfig.json",
+        build: "rm -rf dest .tsbuildinfo && tsc -p tsconfig.json",
       },
       dependencies: {
         msgpackr: "^1.11.2",
@@ -206,7 +206,9 @@ export { SyncApi } from './generated/sync.js';
     const archPackages = archPackageNames(this.opts.packageName);
     const scripts: Record<string, string> = {
       clean: "rm -rf dest .tsbuildinfo",
-      build: "tsc -p tsconfig.json",
+      // Clean first: tsc would leave behind the output of a source file the generator no
+      // longer emits, and these packages are a couple of seconds to compile.
+      build: "rm -rf dest .tsbuildinfo && tsc -p tsconfig.json",
       prepare_arch_packages: "ipc-runtime-prepare-arch-packages",
     };
     const entry = (name: string) => ({
