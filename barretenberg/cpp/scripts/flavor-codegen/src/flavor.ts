@@ -4,10 +4,12 @@ interface FlavorInput {
     name: string;
     family: string;
     generatedClassName?: string;
+    // C++ circuit-builder alias for this arithmetization; defaults to a title-cased family
+    // (e.g. "mega_app" -> "MegaAppCircuitBuilder"). Only meaningful for a flavor that owns its trace.
+    builderName?: string;
     relations: readonly Relation[];
     composites?: Readonly<Record<string, readonly string[]>>;
-    traceExtraBlocks?: readonly string[];
-    emitsTrace?: boolean;
+    arithmetization: string;
 }
 
 export function flavor(input: FlavorInput): Flavor {
@@ -19,11 +21,18 @@ export function flavor(input: FlavorInput): Flavor {
         name: input.name,
         family: input.family,
         generatedClassName: input.generatedClassName ?? defaultGeneratedClassName(input.family),
+        builderName: input.builderName ?? defaultBuilderName(input.family),
         relations: Object.freeze([...input.relations]),
         composites: Object.freeze(composites),
-        traceExtraBlocks: Object.freeze([...(input.traceExtraBlocks ?? [])]),
-        emitsTrace: input.emitsTrace ?? false,
+        arithmetization: input.arithmetization,
     };
+}
+
+// Snake_case → TitleCase + "CircuitBuilder"; override `builderName` when the arithmetization's
+// builder is named for what it builds rather than for its flavor.
+function defaultBuilderName(family: string): string {
+    const segments = family.split("_").map((seg) => seg.charAt(0).toUpperCase() + seg.slice(1));
+    return `${segments.join("")}CircuitBuilder`;
 }
 
 // Snake_case → TitleCase; tokens in `ACRONYMS` stay uppercase. Override `generatedClassName`

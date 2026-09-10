@@ -11,8 +11,9 @@
 
 namespace bb {
 
-void KernelCompletion::instantiate_stdlib_verification_queue(ClientCircuit& circuit,
-                                                             const std::vector<StdlibCircuitVKAndHash>& input_keys)
+template <typename Circuit>
+void KernelCompletion<Circuit>::instantiate_stdlib_verification_queue(
+    Circuit& circuit, const std::vector<StdlibCircuitVKAndHash<Circuit>>& input_keys)
 {
     const bool vkeys_provided = !input_keys.empty();
     if (vkeys_provided) {
@@ -24,7 +25,7 @@ void KernelCompletion::instantiate_stdlib_verification_queue(ClientCircuit& circ
 
     size_t input_idx = 0;
     while (!ivc.verification_queue.empty()) {
-        const Chonk::VerifierInputs& entry = ivc.verification_queue.front();
+        const typename Chonk::VerifierInputs& entry = ivc.verification_queue.front();
 
         StdlibProof stdlib_proof(circuit, entry.proof);
 
@@ -44,7 +45,8 @@ void KernelCompletion::instantiate_stdlib_verification_queue(ClientCircuit& circ
     }
 }
 
-KernelCompletion::PublicInputsResult KernelCompletion::process_kernel_public_inputs(
+template <typename Circuit>
+typename KernelCompletion<Circuit>::PublicInputsResult KernelCompletion<Circuit>::process_kernel_public_inputs(
     std::vector<StdlibFF>& public_inputs,
     KernelWitnessCommitments& witness_commitments,
     const std::optional<StdlibFF>& prev_accum_hash)
@@ -109,20 +111,23 @@ KernelCompletion::PublicInputsResult KernelCompletion::process_kernel_public_inp
     return { std::move(kernel_input.pairing_inputs), std::move(kernel_input.ecc_op_hash) };
 }
 
-KernelCompletion::PublicInputsResult KernelCompletion::process_app_public_inputs(
+template <typename Circuit>
+typename KernelCompletion<Circuit>::PublicInputsResult KernelCompletion<Circuit>::process_app_public_inputs(
     std::vector<StdlibFF>& public_inputs, AppWitnessCommitments& witness_commitments)
 {
-    stdlib::recursion::honk::AppIO app_input; // pairing points
+    stdlib::recursion::honk::AppIO<Circuit> app_input; // pairing points
     app_input.reconstruct_from_public(public_inputs);
     bus_depot.set_app_return_data_commitment(witness_commitments.return_data());
     return { std::move(app_input.pairing_inputs), std::nullopt };
 }
 
-std::pair<KernelCompletion::PairingPoints, KernelCompletion::EccOpRunningHash> KernelCompletion::
-    recursive_verification_and_consistency_checks(const StdlibVerifierInputs& verifier_inputs,
-                                                  FoldingRecursiveVerifier& folding_verifier,
-                                                  const std::optional<StdlibFF>& prev_stdlib_acc_hash,
-                                                  const std::optional<EccOpRunningHash>& running_ecc_op_hash)
+template <typename Circuit>
+std::pair<typename KernelCompletion<Circuit>::PairingPoints, typename KernelCompletion<Circuit>::EccOpRunningHash>
+KernelCompletion<Circuit>::recursive_verification_and_consistency_checks(
+    const StdlibVerifierInputs& verifier_inputs,
+    FoldingRecursiveVerifier& folding_verifier,
+    const std::optional<StdlibFF>& prev_stdlib_acc_hash,
+    const std::optional<EccOpRunningHash>& running_ecc_op_hash)
 {
     BB_BENCH_NAME("KernelCompletion::recursive_verification_and_consistency_checks");
 
@@ -133,7 +138,7 @@ std::pair<KernelCompletion::PairingPoints, KernelCompletion::EccOpRunningHash> K
     if (verifier_inputs.is_kernel()) {
         auto verifier_instance =
             std::make_shared<KernelRecursiveVerifierInstance>(verifier_inputs.kernel_honk_vk_and_hash);
-        folding_verifier.accumulate_instance<KernelRecursiveFlavor>(verifier_instance, verifier_inputs.proof);
+        folding_verifier.template accumulate_instance<KernelRecursiveFlavor>(verifier_instance, verifier_inputs.proof);
 
         KernelWitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
         std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
@@ -143,7 +148,7 @@ std::pair<KernelCompletion::PairingPoints, KernelCompletion::EccOpRunningHash> K
         ecc_op_col_commitments_vec.assign(ecc_op_col_commitments.begin(), ecc_op_col_commitments.end());
     } else {
         auto verifier_instance = std::make_shared<AppRecursiveVerifierInstance>(verifier_inputs.app_honk_vk_and_hash);
-        folding_verifier.accumulate_instance<AppRecursiveFlavor>(verifier_instance, verifier_inputs.proof);
+        folding_verifier.template accumulate_instance<AppRecursiveFlavor>(verifier_instance, verifier_inputs.proof);
 
         AppWitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
         std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
@@ -162,7 +167,8 @@ std::pair<KernelCompletion::PairingPoints, KernelCompletion::EccOpRunningHash> K
         updated_hash = public_inputs_result.ecc_op_hash.value();
     }
 
-    updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
+    updated_hash =
+        Goblin::BatchMergeRecursiveVerifier<Circuit>::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
 
     return { public_inputs_result.pairing_points, updated_hash.value() };
 }
@@ -180,7 +186,7 @@ std::pair<KernelCompletion::PairingPoints, KernelCompletion::EccOpRunningHash> K
  *
  * @param circuit The kernel circuit to append verification logic to
  */
-void KernelCompletion::complete_kernel_circuit_logic(ClientCircuit& circuit)
+template <typename Circuit> void KernelCompletion<Circuit>::complete_kernel_circuit_logic(Circuit& circuit)
 {
     BB_BENCH_NAME("KernelCompletion::complete_kernel_circuit_logic");
     // Step 1: SETUP - Initialize state and determine kernel type
@@ -226,7 +232,7 @@ void KernelCompletion::complete_kernel_circuit_logic(ClientCircuit& circuit)
     std::optional<RecursiveVerifierAccumulator> prev_stdlib_verifier_accumulator;
     std::optional<StdlibFF> prev_stdlib_accum_hash;
     if (!is_init) {
-        prev_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveCurve>(
+        prev_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::template stdlib_from_native<RecursiveCurve>(
             &circuit, ivc.recursive_verifier_native_accum);
         prev_stdlib_accum_hash =
             prev_stdlib_verifier_accumulator->hash_with_origin_tagging(*accumulation_recursive_transcript);
@@ -286,10 +292,10 @@ void KernelCompletion::complete_kernel_circuit_logic(ClientCircuit& circuit)
         PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
 
         // Extract native verifier accumulator from the stdlib accum to use it in the next round
-        ivc.recursive_verifier_native_accum = output_accumulator.get_value<Chonk::VerifierAccumulator>();
+        ivc.recursive_verifier_native_accum = output_accumulator.template get_value<Chonk::VerifierAccumulator>();
 
         auto kernel_return_data_commitment = bus_depot.get_kernel_return_data_commitment(circuit);
-        KernelIO::AppReturnDataCommitments app_return_data_commitments;
+        typename KernelIO::AppReturnDataCommitments app_return_data_commitments;
         for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
             app_return_data_commitments[idx] = bus_depot.get_app_return_data_commitment(circuit, idx);
         }
@@ -309,17 +315,20 @@ void KernelCompletion::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 }
 
-bool KernelCompletion::is_init_kernel() const
+template <typename Circuit> bool KernelCompletion<Circuit>::is_init_kernel() const
 {
     BB_ASSERT(!stdlib_verification_queue.empty(),
               "is_init_kernel: stdlib verification queue must hold the current kernel's group");
     return stdlib_verification_queue.front().kind == CircuitKind::App;
 }
 
-void KernelCompletion::hide_op_queue_content(ClientCircuit& circuit)
+template <typename Circuit> void KernelCompletion<Circuit>::hide_op_queue_content(Circuit& circuit)
 {
     circuit.queue_ecc_random_op();
     circuit.queue_ecc_random_op();
 }
+
+template class KernelCompletion<KernelCircuit>;
+template class KernelCompletion<HidingKernelCircuit>;
 
 } // namespace bb

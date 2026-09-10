@@ -16,6 +16,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
+#include "barretenberg/honk/execution_trace/generated/ultra_execution_trace_generated.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
@@ -89,6 +90,9 @@ class UltraZKFlavor_Generated {
                                   bb::Poseidon2ExternalRelation<FF>,
                                   bb::Poseidon2InternalRelation<FF>>;
 
+    // Execution trace this flavor's circuits are built on; part of the builder's type.
+    using ExecutionTraceBlocks = UltraExecutionTraceBlocks;
+
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
     static constexpr size_t NUM_WITNESS_ENTITIES = 8;
     static constexpr size_t NUM_MASKING_ENTITIES = 1;
@@ -149,6 +153,11 @@ class UltraZKFlavor_Generated {
         GateKind::Lookup, GateKind::Arith, GateKind::DeltaRange,   GateKind::Elliptic,
         GateKind::Memory, GateKind::Nnf,   GateKind::Poseidon2Ext, GateKind::Poseidon2Int,
     };
+
+    static_assert(gate_kinds_mask(GATE_KINDS) == ExecutionTraceBlocks::GATE_KINDS_MASK,
+                  "flavor's gate relations and its execution trace's gate kinds disagree");
+    static_assert(ExecutionTraceBlocks::BUS_INDICES_MASK == 0,
+                  "flavor's databus relations and its execution trace's bus columns disagree");
 
     // Non-gate selectors in `get_non_gate_selectors()` order, as references into a single block.
     template <typename TraceBlock> static auto get_block_non_gate_selectors(TraceBlock& block)

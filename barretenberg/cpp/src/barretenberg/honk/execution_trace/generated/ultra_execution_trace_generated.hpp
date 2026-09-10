@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <string_view>
 #include <vector>
 
@@ -13,25 +14,46 @@
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
+#include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
 
 namespace bb {
 
-using UltraTraceBlock = ExecutionTraceBlock<fr, 4>;
-
 struct UltraTraceBlockData {
-    using BlockBase = UltraTraceBlock;
+    using BlockBase = ExecutionTraceBlockStorage<fr>;
 
-    UltraTraceBlock pub_inputs{};
-    UltraTraceBlock lookup{ GateKind::Lookup };
-    UltraTraceBlock arithmetic{ GateKind::Arith };
-    UltraTraceBlock delta_range{ GateKind::DeltaRange };
-    UltraTraceBlock elliptic{ GateKind::Elliptic };
-    UltraTraceBlock memory{ GateKind::Memory };
-    UltraTraceBlock nnf{ GateKind::Nnf };
-    UltraTraceBlock poseidon2_external{ GateKind::Poseidon2Ext };
-    UltraTraceBlock poseidon2_internal{ GateKind::Poseidon2Int };
+    template <GateKind... Kinds> using Block = ExecutionTraceBlock<fr, Kinds...>;
+
+    Block<> pub_inputs{};
+    Block<GateKind::Lookup> lookup{};
+    Block<GateKind::Arith> arithmetic{};
+    Block<GateKind::DeltaRange> delta_range{};
+    Block<GateKind::Elliptic> elliptic{};
+    Block<GateKind::Memory> memory{};
+    Block<GateKind::Nnf> nnf{};
+    Block<GateKind::Poseidon2Ext> poseidon2_external{};
+    Block<GateKind::Poseidon2Int> poseidon2_internal{};
 
     static constexpr size_t NUM_BLOCKS = 9;
+
+    // Every gate kind some block of this trace owns: everything a builder over it can create.
+    static constexpr GateKindMask GATE_KINDS_MASK =
+        gate_kind_bit(GateKind::Lookup) | gate_kind_bit(GateKind::Arith) | gate_kind_bit(GateKind::DeltaRange) |
+        gate_kind_bit(GateKind::Elliptic) | gate_kind_bit(GateKind::Memory) | gate_kind_bit(GateKind::Nnf) |
+        gate_kind_bit(GateKind::Poseidon2Ext) | gate_kind_bit(GateKind::Poseidon2Int);
+
+    // Databus columns this arithmetization has, as a bitmask over builder bus indices.
+    static constexpr uint32_t BUS_INDICES_MASK = 0;
+
+    static constexpr bool has_bus(size_t bus_idx) { return (BUS_INDICES_MASK & (uint32_t{ 1 } << bus_idx)) != 0; }
+
+    /**
+     * @brief Whether this arithmetization has a block owning `kind`, i.e. whether such a gate can
+     * exist in a circuit built on it at all. Gate-creation paths that only some arithmetizations
+     * support test this, either with `static_assert` (the caller is hand-written and the call is
+     * simply wrong) or with `if constexpr` (the caller is generic over arithmetizations, e.g. ACIR
+     * translation, and must fail at runtime on bytecode it cannot represent).
+     */
+    static constexpr bool has_gate_kind(GateKind kind) { return (GATE_KINDS_MASK & gate_kind_bit(kind)) != 0; }
 
     std::vector<std::string_view> get_labels() const
     {
@@ -43,7 +65,7 @@ struct UltraTraceBlockData {
 
     auto get()
     {
-        return RefArray(std::array<UltraTraceBlock*, NUM_BLOCKS>{
+        return RefArray(std::array<BlockBase*, NUM_BLOCKS>{
             &pub_inputs,
             &lookup,
             &arithmetic,
@@ -58,7 +80,7 @@ struct UltraTraceBlockData {
 
     auto get() const
     {
-        return RefArray(std::array<const UltraTraceBlock*, NUM_BLOCKS>{
+        return RefArray(std::array<const BlockBase*, NUM_BLOCKS>{
             &pub_inputs,
             &lookup,
             &arithmetic,
@@ -87,5 +109,9 @@ struct UltraTraceBlockData {
 
     bool operator==(const UltraTraceBlockData& other) const = default;
 };
+
+// The execution trace of the UltraFlavor arithmetization. Part of the builder's type: a circuit
+// built on this trace can only be proven with a flavor whose relations constrain its blocks.
+using UltraExecutionTraceBlocks = UltraExecutionTraceBlocks_<UltraTraceBlockData>;
 
 } // namespace bb

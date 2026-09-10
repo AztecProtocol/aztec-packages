@@ -57,7 +57,6 @@ class ChonkTests : public ::testing::Test {
 
     using FF = Chonk::FF;
     using Commitment = Chonk::Commitment;
-    using Builder = Chonk::ClientCircuit;
     using DeciderProver = Chonk::DeciderProver;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using ChonkVerifier = ChonkNativeVerifier;

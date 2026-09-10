@@ -25,7 +25,7 @@ class MegaKernelFlavor : public MegaKernelFlavor_Generated {
   public:
     using Generated = MegaKernelFlavor_Generated;
 
-    using CircuitBuilder = MegaCircuitBuilder;
+    using CircuitBuilder = MegaKernelCircuitBuilder;
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using GroupElement = Curve::Element;

@@ -2155,4 +2155,67 @@ TYPED_TEST(CycleGroupTest, TestFixedBatchMulZeroScalar)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+/**
+ * @brief Scalar multiplication over the kernel arithmetization, which has no lookup gate.
+ * @details This is the shape every Chonk kernel runs when it derives a contract address
+ * (address_point = pre_address * G + Ivpk_m): a constant base point with a witness scalar. The Grumpkin
+ * generator carries no precomputed fixed-base plookup table, so batch_mul routes it to variable-base
+ * Straus, which reads ROM tables. The result must match the arithmetization that does have the lookup
+ * gate available, and no lookup gate may be created.
+ */
+TEST(CycleGroupKernelArithmetizationTest, FixedBaseMulUsesRomTablesWithoutLookupGate)
+{
+    using Curve = bb::stdlib::cycle_group<bb::MegaKernelCircuitBuilder>::Curve;
+    using AffineElement = Curve::AffineElement;
+    using ScalarField = Curve::ScalarField;
+
+    const AffineElement generator = Curve::Group::one;
+    const ScalarField scalar = ScalarField::random_element(&engine);
+    const AffineElement expected(Curve::Element(generator) * scalar);
+
+    // The kernel arithmetization: no lookup block exists on this builder at all.
+    static_assert(!bb::MegaKernelCircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup));
+
+    bb::MegaKernelCircuitBuilder builder;
+    using kernel_cycle_group_ct = bb::stdlib::cycle_group<bb::MegaKernelCircuitBuilder>;
+    std::vector<kernel_cycle_group_ct> points{ kernel_cycle_group_ct(generator) };
+    std::vector<kernel_cycle_group_ct::cycle_scalar> scalars{ kernel_cycle_group_ct::cycle_scalar::from_witness(
+        &builder, scalar) };
+
+    const auto result = kernel_cycle_group_ct::batch_mul(points, scalars);
+    EXPECT_EQ(result.get_value(), expected);
+
+    // The multiplication is real work in the blocks this arithmetization does constrain.
+    EXPECT_GT(builder.blocks.elliptic.size(), 0U);
+    EXPECT_GT(builder.blocks.memory.size(), 0U);
+
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(bb::CircuitChecker::check(builder));
+}
+
+/**
+ * @brief The same multiplication over the full Mega arithmetization yields the same point.
+ * @details Guards against the lookup-less routing silently computing something else.
+ */
+TEST(CycleGroupKernelArithmetizationTest, FixedBaseMulAgreesWithFullArithmetization)
+{
+    using Curve = bb::stdlib::cycle_group<bb::MegaCircuitBuilder>::Curve;
+    using ScalarField = Curve::ScalarField;
+
+    const auto generator = Curve::Group::one;
+    const ScalarField scalar = ScalarField::random_element(&engine);
+
+    const auto multiply = [&scalar]<typename Builder>(Builder& builder) {
+        using group_ct = bb::stdlib::cycle_group<Builder>;
+        std::vector<group_ct> points{ group_ct(typename group_ct::Curve::AffineElement(group_ct::Curve::Group::one)) };
+        std::vector<typename group_ct::cycle_scalar> scalars{ group_ct::cycle_scalar::from_witness(&builder, scalar) };
+        return group_ct::batch_mul(points, scalars).get_value();
+    };
+
+    bb::MegaCircuitBuilder full_builder;
+    bb::MegaKernelCircuitBuilder kernel_builder;
+    EXPECT_EQ(multiply(full_builder), multiply(kernel_builder));
+    EXPECT_EQ(multiply(full_builder), Curve::AffineElement(Curve::Element(generator) * scalar));
+}
+
 #pragma GCC diagnostic pop

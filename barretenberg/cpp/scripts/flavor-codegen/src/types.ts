@@ -43,14 +43,15 @@ export interface Flavor {
     readonly family: string;
     // C++ class name; defaults to a title-cased family (e.g. "ultra_zk" → "UltraZKFlavor_Generated").
     readonly generatedClassName: string;
+    // C++ circuit-builder alias for this flavor's arithmetization, e.g. "MegaKernelCircuitBuilder".
+    readonly builderName: string;
     readonly relations: readonly Relation[];
     // Subset name → list of existing subsets whose entries are concatenated. Example:
     // `selectors: ["non_gate_selectors", "gate_selectors"]`.
     readonly composites: Readonly<Record<string, readonly string[]>>;
-    // Trace blocks without a gate selector (e.g. `ecc_op`, `pub_inputs`), prepended to the
-    // relation-discovered blocks in `<Family>TraceBlockData`.
-    readonly traceExtraBlocks: readonly string[];
-    // Whether codegen emits `<family>_execution_trace_generated.hpp` for this flavor. Reduced /
-    // ZK variants share the parent flavor's generated trace.
-    readonly emitsTrace: boolean;
+    // Arithmetization this flavor builds on: "mega" or "ultra". Selects the execution-trace wrapper
+    // (`MegaExecutionTraceBlocks_` / `UltraExecutionTraceBlocks_`) that the emitted trace type uses.
+    // The blocks themselves are derived per flavor from its own relations, so a flavor that drops a
+    // relation gets a trace without the corresponding block.
+    readonly arithmetization: string;
 }

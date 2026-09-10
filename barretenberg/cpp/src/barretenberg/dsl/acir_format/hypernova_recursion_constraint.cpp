@@ -126,11 +126,11 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const bool is_kernel)
     entry.kind = is_kernel ? Chonk::CircuitKind::Kernel : Chonk::CircuitKind::App;
 
     if (is_kernel) {
-        using KernelIO = stdlib::recursion::honk::KernelIO;
+        using KernelIO = stdlib::recursion::honk::KernelIO<KernelCircuit>;
         entry.proof = create_mock_sumcheck_to_accumulator_proof<KernelFlavor, KernelIO>();
         entry.kernel_honk_vk = create_mock_honk_vk<KernelFlavor, KernelIO>(1 << KernelFlavor::VIRTUAL_LOG_N);
     } else {
-        using AppIO = stdlib::recursion::honk::AppIO;
+        using AppIO = stdlib::recursion::honk::AppIO<AppCircuit>;
         entry.proof = create_mock_sumcheck_to_accumulator_proof<AppFlavor, AppIO>();
         entry.app_honk_vk = create_mock_honk_vk<AppFlavor, AppIO>(1 << AppFlavor::VIRTUAL_LOG_N);
     }

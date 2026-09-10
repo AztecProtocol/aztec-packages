@@ -552,6 +552,6 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
 }
 
 template class bool_t<bb::UltraCircuitBuilder>;
-template class bool_t<bb::MegaCircuitBuilder>;
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER(bool_t)
 
 } // namespace bb::stdlib

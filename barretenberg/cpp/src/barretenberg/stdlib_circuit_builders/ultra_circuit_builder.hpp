@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
-#include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
+#include "barretenberg/honk/execution_trace/generated/ultra_execution_trace_generated.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
@@ -223,7 +222,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     virtual void free_construction_data();
 
-    void process_non_native_field_multiplications();
+    void process_non_native_field_multiplications()
+        requires(ExecutionTrace::has_gate_kind(GateKind::Nnf));
 
     UltraCircuitBuilder_(bool is_write_vk_mode = false)
         : CircuitBuilderBase<FF>(is_write_vk_mode)
@@ -287,12 +287,15 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_add_gate(const add_triple_<FF>& in);
     void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);
-    void create_bilinear_batched_eq_gate(const bilinear_batched_eq_gate_<FF>& in);
+    void create_bilinear_batched_eq_gate(const bilinear_batched_eq_gate_<FF>& in)
+        requires(ExecutionTrace::has_gate_kind(GateKind::BilinearBatchedEq));
 
     void create_bool_gate(const uint32_t a);
     void create_arithmetic_gate(const arithmetic_triple_<FF>& in);
-    void create_ecc_add_gate(const ecc_add_gate_& in);
-    void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in);
+    void create_ecc_add_gate(const ecc_add_gate_& in)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Elliptic));
+    void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Elliptic));
 
     void fix_witness(const uint32_t witness_index, const FF& witness_value);
 
@@ -441,13 +444,15 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                             const plookup::BasicTable::LookupEntry& entry,
                             FF column_1_step_size = 0,
                             FF column_2_step_size = 0,
-                            FF column_3_step_size = 0);
+                            FF column_3_step_size = 0)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Lookup));
 
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         const plookup::MultiTableId& id,
         const plookup::ReadData<FF>& read_values,
         const uint32_t key_a_index,
-        std::optional<uint32_t> key_b_index = std::nullopt);
+        std::optional<uint32_t> key_b_index = std::nullopt)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Lookup));
 
     /**
      * @brief Range-constrain a variable to [0, 2^num_bits - 1] by decomposing into smaller limbs.
@@ -474,7 +479,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_unconstrained_gate(
         auto& block, const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
     {
-        block.append_gate({ .wires = { idx_1, idx_2, idx_3, idx_4 } });
+        block.append_unconstrained_row({ .wires = { idx_1, idx_2, idx_3, idx_4 } });
         this->increment_num_gates();
     }
     void create_unconstrained_gates(const std::vector<uint32_t>& variable_index);
@@ -566,8 +571,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     using GateRowT = GateRow<FF, ExecutionTrace::NUM_WIRES>;
     // Build the selector/gate-kind part of a memory or nnf gate row; the caller fills in the wires
     // and appends the completed row.
-    GateRowT memory_selectors_row(const MEMORY_SELECTORS type) const;
-    GateRowT nnf_selectors_row(const NNF_SELECTORS type) const;
+    GateRowT memory_selectors_row(const MEMORY_SELECTORS type) const
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
+    GateRowT nnf_selectors_row(const NNF_SELECTORS type) const
+        requires(ExecutionTrace::has_gate_kind(GateKind::Nnf));
 
     /**
      * Non Native Field Arithmetic
@@ -576,11 +583,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                                    const uint32_t hi_idx,
                                    const size_t lo_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS,
                                    const size_t hi_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS,
-                                   std::string_view msg = "range_constrain_two_limbs");
+                                   std::string_view msg = "range_constrain_two_limbs")
+        requires(ExecutionTrace::has_gate_kind(GateKind::Nnf));
     std::array<uint32_t, 2> evaluate_non_native_field_multiplication(
-        const non_native_multiplication_witnesses<FF>& input);
+        const non_native_multiplication_witnesses<FF>& input)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Nnf));
     std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(
-        const non_native_partial_multiplication_witnesses<FF>& input);
+        const non_native_partial_multiplication_witnesses<FF>& input)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Nnf));
     using scaled_witness = std::pair<uint32_t, FF>;
     using add_simple = std::tuple<scaled_witness, scaled_witness, FF>;
     std::array<uint32_t, 5> evaluate_non_native_field_subtraction(add_simple limb0,
@@ -597,20 +607,29 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Memory
      **/
-    size_t create_ROM_array(const size_t array_size);
-    void set_ROM_element(const size_t rom_id, const size_t index_value, const uint32_t value_witness);
+    size_t create_ROM_array(const size_t array_size)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
+    void set_ROM_element(const size_t rom_id, const size_t index_value, const uint32_t value_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
     void set_ROM_element_pair(const size_t rom_id,
                               const size_t index_value,
-                              const std::array<uint32_t, 2>& value_witnesses);
+                              const std::array<uint32_t, 2>& value_witnesses)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
 
-    uint32_t read_ROM_array(const size_t rom_id, const uint32_t index_witness);
-    std::array<uint32_t, 2> read_ROM_array_pair(const size_t rom_id, const uint32_t index_witness);
+    uint32_t read_ROM_array(const size_t rom_id, const uint32_t index_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
+    std::array<uint32_t, 2> read_ROM_array_pair(const size_t rom_id, const uint32_t index_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
 
-    size_t create_RAM_array(const size_t array_size);
-    void init_RAM_element(const size_t ram_id, const size_t index_value, const uint32_t value_witness);
+    size_t create_RAM_array(const size_t array_size)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
+    void init_RAM_element(const size_t ram_id, const size_t index_value, const uint32_t value_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
 
-    uint32_t read_RAM_array(const size_t ram_id, const uint32_t index_witness);
-    void write_RAM_array(const size_t ram_id, const uint32_t index_witness, const uint32_t value_witness);
+    uint32_t read_RAM_array(const size_t ram_id, const uint32_t index_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
+    void write_RAM_array(const size_t ram_id, const uint32_t index_witness, const uint32_t value_witness)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Memory));
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);

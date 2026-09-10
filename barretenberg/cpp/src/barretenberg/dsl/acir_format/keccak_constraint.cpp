@@ -27,7 +27,10 @@ template <typename Builder> void create_keccak_permutations_constraints(Builder&
 template void create_keccak_permutations_constraints<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
                                                                               const Keccakf1600& constraint);
 
-template void create_keccak_permutations_constraints<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
-                                                                             const Keccakf1600& constraint);
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+#define INSTANTIATE_CREATE_KECCAK_PERMUTATIONS_CONSTRAINTS(Builder)                                                    \
+    template void create_keccak_permutations_constraints<Builder>(Builder&, const Keccakf1600& constraint);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(INSTANTIATE_CREATE_KECCAK_PERMUTATIONS_CONSTRAINTS)
+#undef INSTANTIATE_CREATE_KECCAK_PERMUTATIONS_CONSTRAINTS
 
 } // namespace acir_format

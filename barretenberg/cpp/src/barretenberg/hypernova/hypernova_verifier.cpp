@@ -11,10 +11,10 @@
 
 namespace bb {
 
-template <bool IsRecursive_>
+template <bool IsRecursive_, typename Builder_>
 template <size_t N>
-HypernovaFoldingVerifier<IsRecursive_>::Commitment HypernovaFoldingVerifier<IsRecursive_>::batch_mul(
-    std::span<Commitment, N> _points, std::vector<FF>& scalars)
+HypernovaFoldingVerifier<IsRecursive_, Builder_>::Commitment HypernovaFoldingVerifier<IsRecursive_, Builder_>::
+    batch_mul(std::span<Commitment, N> _points, std::vector<FF>& scalars)
 {
     std::vector<Commitment> points(N);
     for (size_t idx = 0; idx < N; ++idx) {
@@ -23,9 +23,9 @@ HypernovaFoldingVerifier<IsRecursive_>::Commitment HypernovaFoldingVerifier<IsRe
     return Commitment::batch_mul(points, scalars);
 }
 
-template <bool IsRecursive_>
+template <bool IsRecursive_, typename Builder_>
 template <typename InstanceFlavor>
-bool HypernovaFoldingVerifier<IsRecursive_>::accumulate_instance(
+bool HypernovaFoldingVerifier<IsRecursive_, Builder_>::accumulate_instance(
     const std::shared_ptr<VerifierInstance<InstanceFlavor>>& instance, const Proof& proof)
 {
     static_assert(IsRecursiveFlavor<InstanceFlavor> == IsRecursive,
@@ -46,9 +46,9 @@ bool HypernovaFoldingVerifier<IsRecursive_>::accumulate_instance(
     return sumcheck_output.verified;
 }
 
-template <bool IsRecursive_>
+template <bool IsRecursive_, typename Builder_>
 template <typename InstanceFlavor>
-SumcheckOutput<InstanceFlavor> HypernovaFoldingVerifier<IsRecursive_>::sumcheck_on_incoming_instance(
+SumcheckOutput<InstanceFlavor> HypernovaFoldingVerifier<IsRecursive_, Builder_>::sumcheck_on_incoming_instance(
     const std::shared_ptr<VerifierInstance<InstanceFlavor>>& instance, const Proof& proof, size_t num_public_inputs)
 {
     BB_BENCH_NAME("HypernovaFoldingVerifier::sumcheck_on_incoming_instance");
@@ -64,11 +64,11 @@ SumcheckOutput<InstanceFlavor> HypernovaFoldingVerifier<IsRecursive_>::sumcheck_
     return sumcheck.verify(instance->relation_parameters, instance->gate_challenges);
 }
 
-template <bool IsRecursive_>
+template <bool IsRecursive_, typename Builder_>
 template <typename InstanceFlavor>
-HypernovaFoldingVerifier<IsRecursive_>::Accumulator HypernovaFoldingVerifier<
-    IsRecursive_>::sumcheck_output_to_accumulator(SumcheckOutput<InstanceFlavor>& sumcheck_output,
-                                                  const std::shared_ptr<VerifierInstance<InstanceFlavor>>& instance)
+HypernovaFoldingVerifier<IsRecursive_, Builder_>::Accumulator HypernovaFoldingVerifier<IsRecursive_, Builder_>::
+    sumcheck_output_to_accumulator(SumcheckOutput<InstanceFlavor>& sumcheck_output,
+                                   const std::shared_ptr<VerifierInstance<InstanceFlavor>>& instance)
 {
     BB_BENCH_NAME("HypernovaFoldingVerifier::sumcheck_output_to_accumulator");
 
@@ -97,9 +97,10 @@ HypernovaFoldingVerifier<IsRecursive_>::Accumulator HypernovaFoldingVerifier<
                         .shifted_commitment = batched_shifted_commitment };
 }
 
-template <bool IsRecursive_>
-std::pair<bool, typename HypernovaFoldingVerifier<IsRecursive_>::Accumulator> HypernovaFoldingVerifier<
-    IsRecursive_>::finalize(const Proof& batching_proof, std::optional<Accumulator> previous_accumulator)
+template <bool IsRecursive_, typename Builder_>
+std::pair<bool, typename HypernovaFoldingVerifier<IsRecursive_, Builder_>::Accumulator> HypernovaFoldingVerifier<
+    IsRecursive_,
+    Builder_>::finalize(const Proof& batching_proof, std::optional<Accumulator> previous_accumulator)
 {
     BB_BENCH_NAME("HypernovaFoldingVerifier::finalize");
 
@@ -132,15 +133,26 @@ std::pair<bool, typename HypernovaFoldingVerifier<IsRecursive_>::Accumulator> Hy
 }
 
 template class HypernovaFoldingVerifier<false>;
-template class HypernovaFoldingVerifier<true>;
 
 template bool HypernovaFoldingVerifier<false>::accumulate_instance<MegaKernelFlavor>(
     const std::shared_ptr<VerifierInstance_<MegaKernelFlavor>>&, const HonkProof&);
 template bool HypernovaFoldingVerifier<false>::accumulate_instance<MegaAppFlavor>(
     const std::shared_ptr<VerifierInstance_<MegaAppFlavor>>&, const HonkProof&);
-template bool HypernovaFoldingVerifier<true>::accumulate_instance<MegaKernelRecursiveFlavor>(
-    const std::shared_ptr<VerifierInstance_<MegaKernelRecursiveFlavor>>&, const stdlib::Proof<MegaCircuitBuilder>&);
-template bool HypernovaFoldingVerifier<true>::accumulate_instance<MegaAppRecursiveFlavor>(
-    const std::shared_ptr<VerifierInstance_<MegaAppRecursiveFlavor>>&, const stdlib::Proof<MegaCircuitBuilder>&);
+
+// One recursive instantiation per kernel arithmetization: a group's proofs are verified inside either a
+// regular kernel or the hiding kernel, and each verifies both kernel and app proofs.
+#define INSTANTIATE_RECURSIVE_FOLDING_VERIFIER(Builder, KernelRecursiveFlavor, AppRecursiveFlavor)                     \
+    template class HypernovaFoldingVerifier<true, Builder>;                                                            \
+    template bool HypernovaFoldingVerifier<true, Builder>::accumulate_instance<KernelRecursiveFlavor>(                 \
+        const std::shared_ptr<VerifierInstance_<KernelRecursiveFlavor>>&, const stdlib::Proof<Builder>&);              \
+    template bool HypernovaFoldingVerifier<true, Builder>::accumulate_instance<AppRecursiveFlavor>(                    \
+        const std::shared_ptr<VerifierInstance_<AppRecursiveFlavor>>&, const stdlib::Proof<Builder>&);
+
+INSTANTIATE_RECURSIVE_FOLDING_VERIFIER(MegaKernelCircuitBuilder, MegaKernelRecursiveFlavor, MegaAppRecursiveFlavor)
+INSTANTIATE_RECURSIVE_FOLDING_VERIFIER(MegaHidingKernelCircuitBuilder,
+                                       HidingMegaKernelRecursiveFlavor,
+                                       HidingMegaAppRecursiveFlavor)
+
+#undef INSTANTIATE_RECURSIVE_FOLDING_VERIFIER
 
 } // namespace bb

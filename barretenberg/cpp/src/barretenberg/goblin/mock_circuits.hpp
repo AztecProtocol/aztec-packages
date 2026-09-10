@@ -116,15 +116,15 @@ class GoblinMockCircuits {
      * @param builder
      * @param large If true, construct a "large" circuit (2^19), else a medium circuit (2^17)
      */
-    static void construct_mock_app_circuit(MegaBuilder& builder, bool large = false)
+    template <typename Builder> static void construct_mock_app_circuit(Builder& builder, bool large = false)
     {
         BB_BENCH();
 
         if (large) { // Results in circuit size 2^19
-            generate_sha256_test_circuit<MegaBuilder>(builder, 9);
+            generate_sha256_test_circuit<Builder>(builder, 9);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 8);
         } else { // Results in circuit size 2^17
-            generate_sha256_test_circuit<MegaBuilder>(builder, 8);
+            generate_sha256_test_circuit<Builder>(builder, 8);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
         }
     }
@@ -134,7 +134,7 @@ class GoblinMockCircuits {
      *
      * @param builder
      */
-    static void add_some_ecc_op_gates(MegaBuilder& builder)
+    template <typename Builder> static void add_some_ecc_op_gates(Builder& builder)
     {
         BB_BENCH();
 
@@ -152,7 +152,7 @@ class GoblinMockCircuits {
     /**
      * @brief Add some randomness into the op queue.
      */
-    static void randomise_op_queue(MegaBuilder& builder, size_t num_ops)
+    template <typename Builder> static void randomise_op_queue(Builder& builder, size_t num_ops)
     {
 
         for (size_t i = 0; i < num_ops; ++i) {
@@ -165,13 +165,13 @@ class GoblinMockCircuits {
      *
      * @param builder
      */
-    static void construct_simple_circuit(MegaBuilder& builder)
+    template <typename Builder> static void construct_simple_circuit(Builder& builder)
     {
         BB_BENCH();
 
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
-        bb::stdlib::recursion::honk::DefaultIO<MegaBuilder>::add_default(builder);
+        bb::stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
     }
 
     static void construct_and_merge_mock_circuits(Goblin& goblin, const size_t num_circuits = 3)
@@ -204,7 +204,7 @@ class GoblinMockCircuits {
      * @param function_fold_proof
      * @param kernel_fold_proof
      */
-    static void construct_mock_folding_kernel(MegaBuilder& builder)
+    template <typename Builder> static void construct_mock_folding_kernel(Builder& builder)
     {
         BB_BENCH();
 
@@ -213,7 +213,7 @@ class GoblinMockCircuits {
         // neither lookup nor non-native field gates, so the body may not use plookup- or bigfield-backed
         // gadgets (ecdsa, sha256, keccak, ...); poseidon2 hashing stands in for the real kernel workload.
         const size_t NUM_POSEIDON2_HASHES = 5200;
-        generate_poseidon2_chain_test_circuit<MegaBuilder>(builder, NUM_POSEIDON2_HASHES);
+        generate_poseidon2_chain_test_circuit<Builder>(builder, NUM_POSEIDON2_HASHES);
     }
 };
 } // namespace bb

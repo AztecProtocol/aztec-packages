@@ -65,7 +65,9 @@ template <typename Builder> class cycle_scalar {
     cycle_scalar(const ScalarField& in = 0);
     cycle_scalar(const field_t& lo, const field_t& hi);
     static cycle_scalar from_witness(Builder* context, const ScalarField& value);
-    explicit cycle_scalar(BigScalarField& scalar);
+    // bigfield exists only where the non-native-field gate does, so this conversion does too.
+    explicit cycle_scalar(BigScalarField& scalar)
+        requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Nnf));
 
     [[nodiscard]] bool is_constant() const;
     ScalarField get_value() const;

@@ -297,14 +297,10 @@ template class UltraVerifier_<UltraStarknetZKFlavor, DefaultIO>;
 // UltraRecursiveFlavor with DefaultIO
 template class UltraVerifier_<UltraRecursiveFlavor_<UltraCircuitBuilder>,
                               stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
-template class UltraVerifier_<UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                              stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 
 // UltraZKRecursiveFlavor with DefaultIO
 template class UltraVerifier_<UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
                               stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
-template class UltraVerifier_<UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
-                              stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 
 // UltraRecursiveFlavor with RollupIO (replaces UltraRollupRecursiveFlavor)
 template class UltraVerifier_<UltraRecursiveFlavor_<UltraCircuitBuilder>, stdlib::recursion::honk::RollupIO>;
@@ -324,6 +320,14 @@ template class UltraVerifier_<MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
 // MegaZKRecursiveFlavor with HidingKernelIO (Chonk)
 template class UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                               stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>;
+
+// An UltraHonk proof recursively verified inside a Mega circuit: the verifier's bigfield base field
+// needs the non-native-field gate, so only the arithmetizations that keep it.
+#define INSTANTIATE_MEGA_ULTRA_VERIFIER(Builder)                                                                       \
+    template class UltraVerifier_<UltraRecursiveFlavor_<Builder>, stdlib::recursion::honk::DefaultIO<Builder>>;        \
+    template class UltraVerifier_<UltraZKRecursiveFlavor_<Builder>, stdlib::recursion::honk::DefaultIO<Builder>>;
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_NNF(INSTANTIATE_MEGA_ULTRA_VERIFIER)
+#undef INSTANTIATE_MEGA_ULTRA_VERIFIER
 
 // MegaRecursiveFlavor with GoblinAvmIO
 template class UltraVerifier_<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,

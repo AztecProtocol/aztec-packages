@@ -119,26 +119,27 @@ MultilinearBatchingVerifierInternal<Flavor_>::verify_proof(const std::vector<Ver
     return { verified, std::move(verifier_claim) };
 }
 
-template <bool IsRecursive_>
-MultilinearBatchingVerifier<IsRecursive_>::MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript)
+template <bool IsRecursive_, typename Builder_>
+MultilinearBatchingVerifier<IsRecursive_, Builder_>::MultilinearBatchingVerifier(
+    const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
 {}
 
-template <bool IsRecursive_>
+template <bool IsRecursive_, typename Builder_>
 template <size_t NumClaims>
-std::pair<bool, typename MultilinearBatchingVerifier<IsRecursive_>::VerifierClaim> MultilinearBatchingVerifier<
-    IsRecursive_>::verify_with_width(const std::vector<VerifierClaim>& claims)
+std::pair<bool, typename MultilinearBatchingVerifier<IsRecursive_, Builder_>::VerifierClaim>
+MultilinearBatchingVerifier<IsRecursive_, Builder_>::verify_with_width(const std::vector<VerifierClaim>& claims)
 {
     using Flavor = std::conditional_t<IsRecursive_,
-                                      MultilinearBatchingRecursiveFlavor_<NumClaims>,
+                                      MultilinearBatchingRecursiveFlavor_<NumClaims, Builder_>,
                                       MultilinearBatchingFlavor_<NumClaims>>;
     MultilinearBatchingVerifierInternal<Flavor> internal(transcript);
     return internal.verify_proof(claims);
 }
 
-template <bool IsRecursive_>
-std::pair<bool, typename MultilinearBatchingVerifier<IsRecursive_>::VerifierClaim> MultilinearBatchingVerifier<
-    IsRecursive_>::verify_proof(const std::vector<VerifierClaim>& claims)
+template <bool IsRecursive_, typename Builder_>
+std::pair<bool, typename MultilinearBatchingVerifier<IsRecursive_, Builder_>::VerifierClaim>
+MultilinearBatchingVerifier<IsRecursive_, Builder_>::verify_proof(const std::vector<VerifierClaim>& claims)
 {
     // Dispatch the runtime claim count to the matching compile-time width. The range is derived from
     // CHONK_MAX_CLAIMS_PER_KERNEL, so every supported width is instantiated automatically and bumping the constant
@@ -156,6 +157,8 @@ std::pair<bool, typename MultilinearBatchingVerifier<IsRecursive_>::VerifierClai
 }
 
 template class MultilinearBatchingVerifier<false>;
-template class MultilinearBatchingVerifier<true>;
+// One recursive instantiation per kernel arithmetization.
+template class MultilinearBatchingVerifier<true, MegaKernelCircuitBuilder>;
+template class MultilinearBatchingVerifier<true, MegaHidingKernelCircuitBuilder>;
 
 } // namespace bb

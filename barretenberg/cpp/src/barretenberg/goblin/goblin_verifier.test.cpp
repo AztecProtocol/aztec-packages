@@ -169,11 +169,13 @@ TEST_F(GoblinRecursiveVerifierTests, BatchMergeWithPaddedActiveSubtables)
     ASSERT_TRUE(batch_result.reduction_succeeded);
     ASSERT_TRUE(batch_result.pairing_points.check());
 
-    MegaCircuitBuilder batch_builder;
-    using BatchVerifier = Goblin::BatchMergeRecursiveVerifier;
+    // The batch merge is recursively verified in the hiding kernel, so its arithmetization is the one
+    // BatchMergeRecursiveVerifier is instantiated for at CHONK_MAX_NUM_CIRCUITS subtables.
+    MegaHidingKernelCircuitBuilder batch_builder;
+    using BatchVerifier = Goblin::BatchMergeRecursiveVerifier<MegaHidingKernelCircuitBuilder>;
     auto recursive_hash = BatchVerifier::FF::from_witness(&batch_builder, binding_hash.value());
     recursive_hash.unset_free_witness_tag();
-    stdlib::Proof<MegaCircuitBuilder> recursive_proof(batch_builder, goblin.batch_merge_proof);
+    stdlib::Proof<MegaHidingKernelCircuitBuilder> recursive_proof(batch_builder, goblin.batch_merge_proof);
     BatchVerifier recursive_batch_verifier;
     const auto recursive_batch_result =
         recursive_batch_verifier.reduce_to_pairing_check(recursive_proof, recursive_hash);

@@ -8,6 +8,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { generateBuilders } from "./builders.js";
 import { Mega } from "./flavors/mega.js";
 import { MegaApp } from "./flavors/mega_app.js";
 import { MegaKernel } from "./flavors/mega_kernel.js";
@@ -16,7 +17,13 @@ import { MegaZK } from "./flavors/mega_zk.js";
 import { Ultra } from "./flavors/ultra.js";
 import { UltraZK } from "./flavors/ultra_zk.js";
 import { formatInPlace } from "./format.js";
-import { GATE_SELECTOR_TO_GATE_KIND, generateTrace } from "./trace.js";
+import {
+    builderBusIndices,
+    GATE_SELECTOR_TO_GATE_KIND,
+    generateTrace,
+    traceNames,
+    traceShapeSignature,
+} from "./trace.js";
 import type { EntityDecl, EntityName, Flavor } from "./types.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +31,10 @@ const __dirname = path.dirname(__filename);
 
 interface ResolvedLayout {
     family: string;
+    // Emitted trace type this flavor builds on: its own, or that of a shape-identical flavor.
+    traceOwnerFamily: string;
+    traceTypeName: string;
+    traceBlockDataName: string;
     generatedClassName: string;
     // Rendered template-instantiation strings for `Relations_<FF>`; structural relations are skipped.
     relationCppInstantiations: string[];
@@ -106,7 +117,21 @@ function deriveLayout(flavor: Flavor, declsByName: Map<string, EntityDecl>): str
     return out;
 }
 
+// Family whose emitted trace each flavor uses. Flavors with an identical block/kind shape (e.g. a ZK
+// variant that only adds masking witnesses) share one trace type rather than duplicating it; the first
+// flavor in FLAVORS with a given shape owns it.
+const traceOwners = new Map<string, string>();
+
+function traceOwnerFamily(flavor: Flavor): string {
+    const signature = traceShapeSignature(flavor);
+    if (!traceOwners.has(signature)) {
+        traceOwners.set(signature, flavor.family);
+    }
+    return traceOwners.get(signature)!;
+}
+
 function resolveLayout(flavor: Flavor): ResolvedLayout {
+    const owner = traceOwnerFamily(flavor);
     const declsByName = new Map<string, EntityDecl>();
     const shiftedSet = new Set<EntityName>();
 
@@ -246,6 +271,9 @@ function resolveLayout(flavor: Flavor): ResolvedLayout {
 
     return {
         family: flavor.family,
+        traceOwnerFamily: owner,
+        traceTypeName: traceNames(owner).traceTypeName,
+        traceBlockDataName: traceNames(owner).traceBlockDataName,
         generatedClassName: flavor.generatedClassName,
         relationCppInstantiations: flavor.relations
             .filter((r) => !r.structural)
@@ -273,22 +301,7 @@ function resolveLayout(flavor: Flavor): ResolvedLayout {
         repeatedCommitments,
         hasDataBus: numBusColumns > 0,
         numBusColumns,
-        builderBusIndices: (() => {
-            // Selector → builder bus_idx (kernel_calldata=0, first_app=1, second_app=2,
-            // third_app=3, fourth_app=4, fifth_app=5, return_data=6). Order of buses in this
-            // flavor comes from the `databus_selectors` subset.
-            const sel_to_idx = new Map<string, number>([
-                ["q_l", 0], ["q_r", 1], ["q_o", 2], ["q_4", 3], ["q_5", 4], ["q_c", 5], ["q_m", 6],
-            ]);
-            const sels = subsets.get("databus_selectors") ?? [];
-            return sels.map((sel) => {
-                const idx = sel_to_idx.get(sel);
-                if (idx === undefined) {
-                    throw new Error(`flavor-codegen: databus selector '${sel}' has no builder bus_idx mapping`);
-                }
-                return idx;
-            });
-        })(),
+        builderBusIndices: builderBusIndices(flavor),
         relationIds: new Set(flavor.relations.map((r) => r.id)),
         gateBlockNames: (() => {
             // selector → block (first relation declaring a selector wins); emit one block per
@@ -477,6 +490,7 @@ function emitGeneratedHeader(layout: ResolvedLayout): string {
     lines.push("#include \"barretenberg/common/ref_vector.hpp\"");
     lines.push("#include \"barretenberg/flavor/repeated_commitments_data.hpp\"");
     lines.push("#include \"barretenberg/honk/execution_trace/execution_trace_block.hpp\"");
+    lines.push(`#include "barretenberg/honk/execution_trace/generated/${layout.traceOwnerFamily}_execution_trace_generated.hpp"`);
     for (const header of layout.relationHeaders) {
         lines.push(`#include "${header}"`);
     }
@@ -507,6 +521,9 @@ function emitGeneratedHeader(layout: ResolvedLayout): string {
         const suffix = i === layout.relationCppInstantiations.length - 1 ? ">;" : ",";
         lines.push(`        ${layout.relationCppInstantiations[i]}${suffix}`);
     }
+    lines.push("");
+    lines.push("    // Execution trace this flavor's circuits are built on; part of the builder's type.");
+    lines.push(`    using ExecutionTraceBlocks = ${layout.traceTypeName};`);
     lines.push("");
     lines.push(`    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = ${layout.numPrecomputed};`);
     lines.push(`    static constexpr size_t NUM_WITNESS_ENTITIES     = ${layout.numWitness};`);
@@ -576,6 +593,26 @@ function emitGeneratedHeader(layout: ResolvedLayout): string {
             lines.push(`        GateKind::${kind},`);
         }
         lines.push("    };");
+        lines.push("");
+
+        // The flavor/builder correspondence, as a compile-time fact: this flavor constrains exactly the gate
+        // kinds and databus columns its execution trace can hold -- no more (a relation with no gates to
+        // constrain) and no less (a gate no relation constrains). The trace is part of the builder's type, so
+        // a circuit cannot be built for one flavor and proven with another.
+        lines.push("    static_assert(gate_kinds_mask(GATE_KINDS) == ExecutionTraceBlocks::GATE_KINDS_MASK,");
+        lines.push(
+            '                  "flavor\'s gate relations and its execution trace\'s gate kinds disagree");'
+        );
+        if (layout.numBusColumns > 0) {
+            lines.push(
+                "    static_assert(bus_indices_mask(BUILDER_BUS_INDICES) == ExecutionTraceBlocks::BUS_INDICES_MASK,"
+            );
+        } else {
+            lines.push("    static_assert(ExecutionTraceBlocks::BUS_INDICES_MASK == 0,");
+        }
+        lines.push(
+            '                  "flavor\'s databus relations and its execution trace\'s bus columns disagree");'
+        );
         lines.push("");
     }
 
@@ -761,6 +798,9 @@ function generate(flavor: Flavor, repoRoot: string): { path: string; layout: Res
 function main(): void {
     const repoRoot = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
+    // One flavor owns each arithmetization; that set drives the builder forward declarations.
+    const traceOwnerFlavors: Flavor[] = [];
+
     for (const flavorValue of [Mega, MegaApp, MegaAvm, MegaKernel, MegaZK, Ultra, UltraZK]) {
         const { path: outFile, layout } = generate(flavorValue, repoRoot);
         process.stdout.write(
@@ -768,11 +808,20 @@ function main(): void {
                 `(precomputed=${layout.numPrecomputed} witness=${layout.numWitness} ` +
                 `masking=${layout.numMasking} shifted=${layout.numShifted} all=${layout.numAll})\n`
         );
-        if (flavorValue.emitsTrace) {
+        // Only the flavor that owns its shape emits a trace; the others reuse it.
+        if (layout.traceOwnerFamily === flavorValue.family) {
+            traceOwnerFlavors.push(flavorValue);
             const traceFile = generateTrace(flavorValue, repoRoot);
             process.stdout.write(`flavor-codegen: emitted ${path.relative(repoRoot, traceFile)}\n`);
+        } else {
+            process.stdout.write(
+                `flavor-codegen: ${flavorValue.family} reuses the ${layout.traceOwnerFamily} execution trace\n`
+            );
         }
     }
+
+    const buildersFile = generateBuilders(traceOwnerFlavors, repoRoot);
+    process.stdout.write(`flavor-codegen: emitted ${path.relative(repoRoot, buildersFile)}\n`);
 }
 
 main();

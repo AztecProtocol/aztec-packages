@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
@@ -122,10 +123,10 @@ template <typename Curve> struct PairingPoints {
         Group P0;
         Group P1;
 
-        // For MegaCircuitBuilder (Goblin): batch_mul optimizes constant scalar 1 (uses add instead of mul)
+        // For Mega builders (Goblin): batch_mul optimizes constant scalar 1 (uses add instead of mul)
         // so we can include all points in a single batch_mul with scalar [1, r₁, r₂, ..., rₙ₋₁]
         // For UltraCircuitBuilder: no optimization for witness point × constant(1), so keep first point separate
-        if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+        if constexpr (IsMegaBuilder<Builder>) {
             // Single batch_mul for all points (efficient for Goblin with constant scalar 1)
             std::vector<Fr> scalars;
             scalars.reserve(num_points);
@@ -183,9 +184,9 @@ template <typename Curve> struct PairingPoints {
         auto recursion_separator =
             transcript.template get_short_challenge<typename Curve::ScalarField>("recursion_separator");
         is_default_ = false; // After aggregation, points are no longer default
-        // If Mega Builder is in use, the EC operations are deferred via Goblin.
+        // If a Mega builder is in use, the EC operations are deferred via Goblin.
         // batch_mul with constant scalar 1 is optimal here (Goblin uses add instead of mul).
-        if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+        if constexpr (IsMegaBuilder<Builder>) {
             // Goblin: batch_mul with constant scalar 1 uses add instead of mul
             _points[0] = Group::batch_mul({ P0(), other.P0() }, { 1, recursion_separator });
             _points[1] = Group::batch_mul({ P1(), other.P1() }, { 1, recursion_separator });

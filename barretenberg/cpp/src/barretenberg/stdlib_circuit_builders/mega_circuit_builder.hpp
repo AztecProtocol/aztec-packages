@@ -3,22 +3,38 @@
 #include <utility>
 
 #include "barretenberg/crypto/sha256/sha256.hpp"
-#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_app_execution_trace_generated.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_avm_execution_trace_generated.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_execution_trace_generated.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_kernel_execution_trace_generated.hpp"
+#include "barretenberg/honk/execution_trace/generated/mega_zk_execution_trace_generated.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
 namespace bb {
 
-template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<MegaExecutionTraceBlocks> {
+/**
+ * @brief Circuit builder for the Mega arithmetization.
+ *
+ * @tparam ExecutionTrace_ The arithmetization this circuit is built for: which blocks exist, which gate kinds
+ * they own, and which databus columns are present. A reduced arithmetization (kernel, app, hiding kernel)
+ * omits what its flavor does not constrain, so the builder type and the flavor correspond one to one -- see
+ * `Flavor::CircuitBuilder`, which `ProverInstance_<Flavor>` takes as its circuit type. A gate the flavor
+ * cannot constrain has no block to be appended to, and creating one is a compile error.
+ */
+template <typename FF, typename ExecutionTrace_>
+class MegaCircuitBuilder_ : public UltraCircuitBuilder_<ExecutionTrace_> {
   private:
     DataBus databus; // Container for public calldata/returndata
 
   public:
-    using ExecutionTrace = MegaExecutionTraceBlocks;
+    using ExecutionTrace = ExecutionTrace_;
+    using Base = UltraCircuitBuilder_<ExecutionTrace>;
+    using GateRowT = typename Base::GateRowT;
 
-    static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
-        UltraCircuitBuilder_<MegaExecutionTraceBlocks>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+    static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = Base::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
     // Stores record of ecc operations and performs corresponding native operations internally
     std::shared_ptr<ECCOpQueue> op_queue;
@@ -40,12 +56,13 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
   private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op, bool in_finalize = false);
     void set_goblin_ecc_op_code_constant_variables();
-    void create_databus_read_gate(const databus_lookup_gate_<FF>& in, BusId bus_idx);
+    void create_databus_read_gate(const databus_lookup_gate_<FF>& in, BusId bus_idx)
+        requires(ExecutionTrace::has_gate_kind(GateKind::BusRead));
 
   public:
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
                         bool is_write_vk_mode = false)
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(is_write_vk_mode)
+        : Base(is_write_vk_mode)
         , op_queue(std::move(op_queue_in))
     {
         BB_BENCH();
@@ -77,7 +94,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
                         const std::vector<FF>& witness_values,
                         const std::vector<uint32_t>& public_inputs,
                         const bool is_write_vk_mode)
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(witness_values, public_inputs, is_write_vk_mode)
+        : Base(witness_values, public_inputs, is_write_vk_mode)
         , op_queue(std::move(op_queue_in))
     {
         // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
@@ -128,28 +145,39 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @brief Add a witness variable to the specified calldata bus.
      *
      */
-    void add_public_calldata(BusId bus_idx, const uint32_t& in) { return append_to_bus_vector(bus_idx, in); }
+    void add_public_calldata(BusId bus_idx, const uint32_t& in)
+        requires(ExecutionTrace::has_gate_kind(GateKind::BusRead))
+    {
+        return append_to_bus_vector(bus_idx, in);
+    }
 
     /**
      * @brief Add a witness variable to the public return_data.
      *
      */
-    void add_public_return_data(const uint32_t& in) { return append_to_bus_vector(BusId::RETURNDATA, in); }
+    void add_public_return_data(const uint32_t& in)
+        requires(ExecutionTrace::has_gate_kind(GateKind::BusRead))
+    {
+        return append_to_bus_vector(BusId::RETURNDATA, in);
+    }
 
-    uint32_t read_bus_vector(BusId bus_idx, const uint32_t& read_idx_witness_idx);
+    uint32_t read_bus_vector(BusId bus_idx, const uint32_t& read_idx_witness_idx)
+        requires(ExecutionTrace::has_gate_kind(GateKind::BusRead));
 
     /**
      * @brief Emit a busread gate at slot `slot_idx` whose value wire is the bus_vector entry at that slot.
      * @details Creates a constant witness for the index, reuses the bus entry's existing witness as the
      * value wire (no fresh allocation), and increments the slot's read_count.
      */
-    void create_databus_init_read_gate(BusId bus_idx, size_t slot_idx);
+    void create_databus_init_read_gate(BusId bus_idx, size_t slot_idx)
+        requires(ExecutionTrace::has_gate_kind(GateKind::BusRead));
 
     /**
      * @brief Read from the specified calldata bus and create a corresponding databus read gate
      *
      */
     uint32_t read_calldata(BusId bus_idx, const uint32_t& read_idx_witness_idx)
+        requires(ExecutionTrace::has_gate_kind(GateKind::BusRead))
     {
         return read_bus_vector(bus_idx, read_idx_witness_idx);
     };
@@ -161,6 +189,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @return uint32_t Witness index for the result of the read
      */
     uint32_t read_return_data(const uint32_t& read_idx_witness_idx)
+        requires(ExecutionTrace::has_gate_kind(GateKind::BusRead))
     {
         return read_bus_vector(BusId::RETURNDATA, read_idx_witness_idx);
     };
@@ -169,10 +198,29 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @brief Append a witness to a bus column and bind the new slot to that witness via a busread gate.
      */
     void append_to_bus_vector(const BusId bus_idx, const uint32_t& witness_idx)
+        requires(ExecutionTrace::has_gate_kind(GateKind::BusRead))
     {
+        assert_bus_allowed(bus_idx, "append to");
         auto& bus_vector = databus[static_cast<size_t>(bus_idx)];
         bus_vector.append(witness_idx);
         create_databus_init_read_gate(bus_idx, bus_vector.size() - 1);
+    }
+
+    /**
+     * @brief Abort unless this arithmetization has bus `bus_idx`.
+     * @details Unlike a gate kind, which a reduced arithmetization simply has no block for, the bus is
+     * selected by a runtime `BusId` at every databus call site, so this one check stays dynamic (against a
+     * compile-time mask). `append_to_bus_vector` and `read_bus_vector` are the only builder-level databus
+     * entry points. Reads must be checked independently of content: a read gate lands in the `busread`
+     * block, which every Mega arithmetization keeps, so only the read call site knows which bus was read.
+     */
+    void assert_bus_allowed(const BusId bus_idx, const char* action) const
+    {
+        if (!ExecutionTrace::has_bus(static_cast<size_t>(bus_idx))) {
+            throw_or_abort("MegaCircuitBuilder: cannot " + std::string(action) + " databus column " +
+                           std::to_string(static_cast<size_t>(bus_idx)) +
+                           "; it is not part of the arithmetization this circuit is built for.");
+        }
     }
 
     const BusVector& get_calldata(BusId idx) const { return databus[static_cast<size_t>(idx)]; }
@@ -202,7 +250,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         std::vector<uint8_t> buffer;
 
         // Hash each block's complete structure - need to const_cast to call non-const methods
-        auto& blocks_ref = const_cast<MegaExecutionTraceBlocks&>(this->blocks);
+        auto& blocks_ref = const_cast<ExecutionTrace&>(this->blocks);
         for (auto& block : blocks_ref.get()) {
             // Hash all wires; implicitly contains copy constraint information
             for (const auto& wire : block.wires) {
@@ -229,5 +277,5 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         return ss.str();
     }
 };
-using MegaCircuitBuilder = MegaCircuitBuilder_<bb::fr>;
+// The builder aliases (one per arithmetization) are declared in circuit_builders_fwd.hpp.
 } // namespace bb

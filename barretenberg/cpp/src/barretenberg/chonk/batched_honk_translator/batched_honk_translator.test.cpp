@@ -27,6 +27,11 @@
 
 using namespace bb;
 
+// The hiding kernel is proven with MegaZKFlavor; its builder, prover instance and VK travel together.
+using MegaZKProverInst = ProverInstance_<MegaZKFlavor>;
+using MegaZKVK = MegaZKFlavor::VerificationKey;
+using MegaZKVKAndHash = MegaZKFlavor::VKAndHash;
+
 class BatchedHonkTranslatorTests : public ::testing::Test {
   public:
     using FF = TranslatorFlavor::FF;
@@ -251,11 +256,6 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
 // =============================================================================
 TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
 {
-    using MegaZKFlavor = MegaZKFlavor;
-    using MegaZKProverInst = ProverInstance_<MegaZKFlavor>;
-    using MegaZKVK = MegaZKFlavor::VerificationKey;
-    using MegaZKVKAndHash = MegaZKFlavor::VKAndHash;
-
     // -------------------------------------------------------------------------
     // 1. Translator inputs (random translation challenges — no ECCVM needed).
     // -------------------------------------------------------------------------
@@ -275,10 +275,10 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     // -------------------------------------------------------------------------
     // 2. Hiding kernel inputs: pad to JOINT_LOG_N = 17 so hiding_log_n == JOINT_LOG_N.
     // -------------------------------------------------------------------------
-    MegaCircuitBuilder mega_zk_circuit;
+    MegaZKFlavor::CircuitBuilder mega_zk_circuit;
     GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
     // Pad so that hiding_log_n == JOINT_LOG_N.  We aim for JOINT_LOG_N-1 as the arithmetic
-    // target because MegaCircuitBuilder's execution-trace overhead grows the dyadic size by one.
+    // target because the execution-trace overhead grows the dyadic size by one.
     static constexpr size_t JOINT_LOG_N = BatchedHonkTranslatorProver::JOINT_LOG_N;
     MockCircuits::construct_arithmetic_circuit(mega_zk_circuit, JOINT_LOG_N - 1, /*include_public_inputs=*/false);
 
@@ -316,10 +316,6 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
 // =============================================================================
 TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
 {
-    using MegaZKProverInst = ProverInstance_<MegaZKFlavor>;
-    using MegaZKVK = MegaZKFlavor::VerificationKey;
-    using MegaZKVKAndHash = MegaZKFlavor::VKAndHash;
-
     const Fq batching_challenge_v = Fq::random_element();
     const Fq evaluation_input_x = Fq::random_element();
 
@@ -331,7 +327,7 @@ TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
     const Fq accumulated_result = get_accumulated_result(translator_key);
     const auto op_queue_wire_commitments = commit_op_queue_wires(translator_key);
 
-    MegaCircuitBuilder mega_zk_circuit;
+    MegaZKFlavor::CircuitBuilder mega_zk_circuit;
     GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
 
     auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
@@ -371,9 +367,6 @@ TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
 // =============================================================================
 TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
 {
-    using MegaZKProverInst = ProverInstance_<MegaZKFlavor>;
-    using MegaZKVK = MegaZKFlavor::VerificationKey;
-
     const Fq batching_challenge_v = Fq::random_element();
     const Fq evaluation_input_x = Fq::random_element();
 
@@ -383,7 +376,7 @@ TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
         TranslatorProver init_prover(translator_key, tmp);
     }
 
-    MegaCircuitBuilder mega_zk_circuit;
+    MegaZKFlavor::CircuitBuilder mega_zk_circuit;
     GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
     auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
     auto mega_zk_vk = std::make_shared<MegaZKVK>(mega_zk_inst->get_precomputed());
@@ -412,11 +405,6 @@ TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
 // =============================================================================
 TEST_F(BatchedHonkTranslatorTests, ProveAndVerifySmallHiding)
 {
-    using MegaZKFlavor = MegaZKFlavor;
-    using MegaZKProverInst = ProverInstance_<MegaZKFlavor>;
-    using MegaZKVK = MegaZKFlavor::VerificationKey;
-    using MegaZKVKAndHash = MegaZKFlavor::VKAndHash;
-
     const Fq batching_challenge_v = Fq::random_element();
     const Fq evaluation_input_x = Fq::random_element();
 
@@ -430,7 +418,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerifySmallHiding)
 
     // Use a small hiding circuit — NOT padded to JOINT_LOG_N.
     // hiding_log_n will be well below 17, exercising the variable-size code paths.
-    MegaCircuitBuilder mega_zk_circuit;
+    MegaZKFlavor::CircuitBuilder mega_zk_circuit;
     GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
 
     auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);

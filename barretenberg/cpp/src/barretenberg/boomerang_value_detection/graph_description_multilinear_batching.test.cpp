@@ -100,12 +100,12 @@ TEST_F(MultilinearBatchingGraphDescriptionTests, RecursiveVerifierGraphDescripti
     MultilinearBatchingProver prover(std::move(set.prover_claims), prover_transcript);
     HonkProof proof = prover.construct_proof();
 
-    using RecursiveVerifier = MultilinearBatchingRecursiveVerifier;
+    using RecursiveVerifier = MultilinearBatchingRecursiveVerifier<MegaKernelCircuitBuilder>;
     using RecursiveCurve = typename RecursiveVerifier::Curve;
     using RecursiveClaim = MultilinearBatchingVerifierClaim<RecursiveCurve>;
     using RecursiveFF = typename RecursiveCurve::ScalarField;
 
-    MegaCircuitBuilder builder;
+    MegaKernelCircuitBuilder builder;
     auto transcript = std::make_shared<typename RecursiveVerifier::Transcript>();
     typename RecursiveVerifier::Proof stdlib_proof(builder, proof);
     transcript->load_proof(stdlib_proof);
@@ -155,7 +155,7 @@ TEST_F(MultilinearBatchingGraphDescriptionTests, RecursiveVerifierGraphDescripti
     info("Multilinear batching recursive verifier: finalized num gates = ",
          builder.get_num_finalized_gates_inefficient());
 
-    auto analyzer = cdg::MegaStaticAnalyzer(builder);
+    auto analyzer = cdg::MegaStaticAnalyzer_<MegaKernelCircuitBuilder>(builder);
     auto [connected_components, variables_in_one_gate] = analyzer.analyze_circuit();
     EXPECT_EQ(connected_components.size(), 1);
     for (const uint32_t var_idx : variables_in_one_gate) {

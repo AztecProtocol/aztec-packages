@@ -40,7 +40,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
     using NativeDeciderVerifier = HypernovaDeciderVerifier<NativeFlavor>;
     using RecursiveDeciderVerifier = HypernovaDeciderVerifier<RecursiveFlavor>;
     using NativeVerifier = HypernovaFoldingNativeVerifier;
-    using RecursiveVerifier = HypernovaFoldingRecursiveVerifier;
+    using RecursiveVerifier = HypernovaFoldingRecursiveVerifier_<MegaKernelCircuitBuilder>;
     using NativeVerifierAccumulator = NativeVerifier::Accumulator;
     using NativeTranscript = NativeVerifier::Transcript;
     using RecursiveTranscript = RecursiveVerifier::Transcript;
@@ -95,10 +95,12 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
 
     static std::shared_ptr<ProverInstance> generate_new_instance(size_t log_num_gates = LOG_NUM_GATES)
     {
-        Builder builder;
+        typename NativeFlavor::CircuitBuilder builder;
         bb::MockCircuits::add_arithmetic_gates(builder, log_num_gates);
         bb::MockCircuits::add_arithmetic_gates_with_public_inputs(builder);
-        bb::MockCircuits::add_lookup_gates(builder);
+        if constexpr (NativeFlavor::HasLogDerivLookup) {
+            bb::MockCircuits::add_lookup_gates(builder);
+        }
         return std::make_shared<ProverInstance>(builder);
     }
 

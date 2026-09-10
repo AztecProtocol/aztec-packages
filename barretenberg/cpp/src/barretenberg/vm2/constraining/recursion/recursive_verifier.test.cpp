@@ -151,7 +151,7 @@ TEST_F(AvmRecursiveTests, TranscriptOperations)
         GTEST_SKIP() << "Skipping slow test";
     }
 
-    using FF = stdlib::field_t<MegaCircuitBuilder>;
+    using FF = stdlib::field_t<OuterBuilder>;
 
     NativeProofResult proof_result;
     std::cout << "Creating and verifying native proof..." << std::endl;
@@ -164,8 +164,8 @@ TEST_F(AvmRecursiveTests, TranscriptOperations)
     auto [proof, public_inputs_cols] = proof_result;
 
     // Construct stdlib representations of the proof, public inputs and verification key
-    MegaCircuitBuilder builder;
-    stdlib::Proof<MegaCircuitBuilder> stdlib_proof(builder, proof);
+    OuterBuilder builder;
+    stdlib::Proof<OuterBuilder> stdlib_proof(builder, proof);
 
     std::vector<std::vector<FF>> public_inputs_ct;
     public_inputs_ct.reserve(public_inputs_cols.size());

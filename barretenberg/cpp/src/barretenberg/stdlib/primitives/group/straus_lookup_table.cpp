@@ -171,6 +171,8 @@ template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::r
 }
 
 template class straus_lookup_table<bb::UltraCircuitBuilder>;
-template class straus_lookup_table<bb::MegaCircuitBuilder>;
+// ROM-backed (see the create_ROM_array / read_ROM_array_pair calls above): the arithmetizations that
+// keep the memory gate. The plookup-backed table is straus_plookup_table.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_MEMORY(straus_lookup_table)
 
 } // namespace bb::stdlib

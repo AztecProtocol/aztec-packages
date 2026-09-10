@@ -1,5 +1,6 @@
 #include "flavor.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 
 namespace bb::avm2 {
 

@@ -52,4 +52,6 @@ template class HypernovaDeciderVerifier<MegaAppFlavor>;
 template class HypernovaDeciderVerifier<MegaKernelFlavor>;
 template class HypernovaDeciderVerifier<MegaAppRecursiveFlavor>;
 template class HypernovaDeciderVerifier<MegaKernelRecursiveFlavor>;
+template class HypernovaDeciderVerifier<HidingMegaAppRecursiveFlavor>;
+template class HypernovaDeciderVerifier<HidingMegaKernelRecursiveFlavor>;
 }; // namespace bb

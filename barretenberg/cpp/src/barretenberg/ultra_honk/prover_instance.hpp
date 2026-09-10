@@ -107,7 +107,8 @@ template <typename Flavor_> class ProverInstance_ {
     void construct_lookup_polynomials(Circuit& circuit)
         requires(Flavor::HasLogDerivLookup);
 
-    void populate_memory_records(const Circuit& circuit);
+    void populate_memory_records(const Circuit& circuit)
+        requires(Circuit::ExecutionTrace::has_gate_kind(GateKind::Memory));
 };
 
 } // namespace bb

@@ -112,11 +112,14 @@ TEST_F(MockVerifierInputsTest, MockMegaOinkProofSize)
     using Builder = MegaCircuitBuilder;
     constexpr size_t OINK_LENGTH = ProofLength::Oink<Flavor>::LENGTH_WITHOUT_PUB_INPUTS;
 
-    HonkProof app_proof = create_mock_oink_proof<Flavor, stdlib::recursion::honk::AppIO>();
-    EXPECT_EQ(app_proof.size(), OINK_LENGTH + stdlib::recursion::honk::AppIO::PUBLIC_INPUTS_SIZE);
+    HonkProof app_proof = create_mock_oink_proof<Flavor, stdlib::recursion::honk::AppIO<MegaAppCircuitBuilder>>();
+    EXPECT_EQ(app_proof.size(),
+              OINK_LENGTH + stdlib::recursion::honk::AppIO<MegaAppCircuitBuilder>::PUBLIC_INPUTS_SIZE);
 
-    HonkProof kernel_proof = create_mock_oink_proof<Flavor, stdlib::recursion::honk::KernelIO>();
-    EXPECT_EQ(kernel_proof.size(), OINK_LENGTH + stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE);
+    HonkProof kernel_proof =
+        create_mock_oink_proof<Flavor, stdlib::recursion::honk::KernelIO<MegaKernelCircuitBuilder>>();
+    EXPECT_EQ(kernel_proof.size(),
+              OINK_LENGTH + stdlib::recursion::honk::KernelIO<MegaKernelCircuitBuilder>::PUBLIC_INPUTS_SIZE);
 
     HonkProof hiding_proof = create_mock_oink_proof<Flavor, stdlib::recursion::honk::HidingKernelIO<Builder>>();
     EXPECT_EQ(hiding_proof.size(), OINK_LENGTH + stdlib::recursion::honk::HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE);
@@ -156,11 +159,14 @@ TEST_F(MockVerifierInputsTest, MockMegaHonkProofSize)
     using Builder = MegaCircuitBuilder;
     constexpr size_t HONK_LENGTH = ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N);
 
-    HonkProof app_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::AppIO>();
-    EXPECT_EQ(app_proof.size(), HONK_LENGTH + stdlib::recursion::honk::AppIO::PUBLIC_INPUTS_SIZE);
+    HonkProof app_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::AppIO<MegaAppCircuitBuilder>>();
+    EXPECT_EQ(app_proof.size(),
+              HONK_LENGTH + stdlib::recursion::honk::AppIO<MegaAppCircuitBuilder>::PUBLIC_INPUTS_SIZE);
 
-    HonkProof kernel_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::KernelIO>();
-    EXPECT_EQ(kernel_proof.size(), HONK_LENGTH + stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE);
+    HonkProof kernel_proof =
+        create_mock_honk_proof<Flavor, stdlib::recursion::honk::KernelIO<MegaKernelCircuitBuilder>>();
+    EXPECT_EQ(kernel_proof.size(),
+              HONK_LENGTH + stdlib::recursion::honk::KernelIO<MegaKernelCircuitBuilder>::PUBLIC_INPUTS_SIZE);
 
     HonkProof hiding_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::HidingKernelIO<Builder>>();
     EXPECT_EQ(hiding_proof.size(), HONK_LENGTH + stdlib::recursion::honk::HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE);

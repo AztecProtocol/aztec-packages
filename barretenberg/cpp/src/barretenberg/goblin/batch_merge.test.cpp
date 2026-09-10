@@ -440,7 +440,7 @@ template <typename Param> class BatchMergeTests : public testing::Test {
 using TestParams = ::testing::Types<TestParam<curve::BN254, 9>,
                                     TestParam<curve::BN254, CHONK_MAX_NUM_CIRCUITS>,
                                     TestParam<stdlib::bn254<MegaCircuitBuilder>, 9>,
-                                    TestParam<stdlib::bn254<MegaCircuitBuilder>, CHONK_MAX_NUM_CIRCUITS>>;
+                                    TestParam<stdlib::bn254<MegaHidingKernelCircuitBuilder>, CHONK_MAX_NUM_CIRCUITS>>;
 TYPED_TEST_SUITE(BatchMergeTests, TestParams);
 
 // Completeness
@@ -595,8 +595,8 @@ TYPED_TEST(BatchMergeTests, GraphDescription)
 
         builder.finalize_circuit();
 
-        using Analyzer =
-            std::conditional_t<IsMegaBuilder<BuilderType>, cdg::MegaStaticAnalyzer, cdg::UltraStaticAnalyzer>;
+        using Analyzer = std::
+            conditional_t<IsMegaBuilder<BuilderType>, cdg::MegaStaticAnalyzer_<BuilderType>, cdg::UltraStaticAnalyzer>;
         auto graph = Analyzer(builder);
         auto [cc, variables_in_one_gate] = graph.analyze_circuit(/*filter_cc=*/true);
 

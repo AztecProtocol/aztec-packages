@@ -393,7 +393,10 @@ bool BatchMergeVerifier_<Curve, MaxMergeSize>::check_hash_consistency(const FF& 
 
 // Explicit template instantiations
 template class BatchMergeVerifier_<curve::BN254, CHONK_MAX_NUM_CIRCUITS>;
-template class BatchMergeVerifier_<stdlib::bn254<MegaCircuitBuilder>, CHONK_MAX_NUM_CIRCUITS>;
+// One recursive instantiation per kernel arithmetization: the running ECC-op hash is stepped in every kernel and
+// the batch merge itself is verified in the hiding kernel.
+template class BatchMergeVerifier_<stdlib::bn254<MegaKernelCircuitBuilder>, CHONK_MAX_NUM_CIRCUITS>;
+template class BatchMergeVerifier_<stdlib::bn254<MegaHidingKernelCircuitBuilder>, CHONK_MAX_NUM_CIRCUITS>;
 
 // For testing
 template class BatchMergeVerifier_<curve::BN254, 9>;
