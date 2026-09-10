@@ -100,7 +100,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
       throw this.errorOnBuild;
     }
 
-    this.inboxRollingHash = accumulateInboxRollingHash(this.inboxRollingHash, opts.l1ToL2Messages ?? []);
+    this.inboxRollingHash = accumulateInboxRollingHash(this.inboxRollingHash, opts.l1ToL2Messages);
 
     let block: L2Block;
     let usedTxs: Tx[];

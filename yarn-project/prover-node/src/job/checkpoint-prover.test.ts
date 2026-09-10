@@ -8,10 +8,10 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { EpochProverFactory } from '@aztec/prover-client';
-import type { ChonkCache, SubTreeResult } from '@aztec/prover-client/orchestrator';
-import type { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { CheckpointSubTreeOrchestrator, ChonkCache, SubTreeResult } from '@aztec/prover-client/orchestrator';
+import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
-import type { ForkMerkleTreeOperations, ITxProvider } from '@aztec/stdlib/interfaces/server';
+import type { ForkMerkleTreeOperations, ITxProvider, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { BlockHeader, type Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -504,7 +504,8 @@ describe('CheckpointProver', () => {
 
       const prover = makeProver();
 
-      await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(/did not complete block processing/);
+      // The failure the loop hit wins over the early proofs, and is what the promise rejects with.
+      await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(/Unable to get meta data for block 0/);
       await prover.whenDone();
       expect(stop).toHaveBeenCalledTimes(1);
       expect(prover.isFailed()).toBe(true);
@@ -515,25 +516,37 @@ describe('CheckpointProver', () => {
   // ---------------- data-plane reorg fork fault ----------------
 
   describe('streaming message slicing', () => {
-    /** Stubs the sub-tree and forks so the execute loop runs with empty-tx blocks, recording per-block messages. */
-    function stubExecution() {
+    /**
+     * Stubs the sub-tree, the forks and the public processor so the execute loop runs over empty-tx blocks, and
+     * exposes the per-block message bundles it hands each of them. `blocksCompleted` resolves once the loop has run
+     * `expectedBlocks` blocks to completion, which is the point at which every bundle has been handed over.
+     */
+    function stubExecution(expectedBlocks: number) {
       txProvider.getTxsForBlock.mockReset();
       txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
-      const startNewBlock = jest.fn((..._args: unknown[]) => Promise.resolve());
-      const appendLeaves = jest.fn((..._args: unknown[]) => Promise.resolve());
-      const subTree = {
-        getSubTreeResult: () => new Promise<never>(() => {}),
-        startNewBlock,
-        startChonkVerifierCircuits: () => Promise.resolve(),
-        addTxs: () => Promise.resolve(),
-        setBlockCompleted: () => Promise.resolve(),
-        cancel: () => {},
-        stop: () => Promise.resolve(),
-      };
-      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(subTree as any);
-      dbProvider.fork.mockResolvedValue({ appendLeaves, close: () => Promise.resolve() } as any);
-      publicProcessorFactory.create.mockReturnValue({ process: () => Promise.resolve([[], []]) } as any);
-      return { startNewBlock, appendLeaves };
+
+      const blocksCompleted = promiseWithResolvers<void>();
+      const subTree = mock<CheckpointSubTreeOrchestrator>();
+      // The sub-tree's proofs never land: these tests only exercise the block loop that feeds it.
+      subTree.getSubTreeResult.mockReturnValue(new Promise<SubTreeResult>(() => {}));
+      subTree.setBlockCompleted.mockImplementation((_blockNumber, expectedHeader) => {
+        if (subTree.setBlockCompleted.mock.calls.length >= expectedBlocks) {
+          blocksCompleted.resolve();
+        }
+        return Promise.resolve(expectedHeader ?? BlockHeader.empty());
+      });
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(subTree);
+
+      const fork = mock<MerkleTreeWriteOperations>();
+      dbProvider.fork.mockResolvedValue(fork);
+
+      const publicProcessor = mock<PublicProcessor>();
+      publicProcessor.process.mockResolvedValue([[], [], [], [], []]);
+      publicProcessorFactory.create.mockReturnValue(publicProcessor);
+
+      const bundlesPassedToSubTree = () => subTree.startNewBlock.mock.calls.map(([, , , messages]) => messages);
+      const bundlesAppendedToFork = () => fork.appendLeaves.mock.calls.map(([, leaves]) => leaves);
+      return { blocksCompleted: blocksCompleted.promise, bundlesPassedToSubTree, bundlesAppendedToFork };
     }
 
     it('slices the checkpoint messages per block by the headers leaf counts', async () => {
@@ -541,13 +554,14 @@ describe('CheckpointProver', () => {
       // The parent consumed 10 messages; the blocks consume 2, 0 and 1 more.
       pinConsumedMessageCounts(checkpoint, [12, 12, 13]);
       const messages = [Fr.random(), Fr.random(), Fr.random()];
-      const { startNewBlock, appendLeaves } = stubExecution();
+      const { blocksCompleted, bundlesPassedToSubTree, bundlesAppendedToFork } = stubExecution(3);
 
       const prover = makeProver({ previousBlockHeader: makePreviousBlockHeader(10), l1ToL2Messages: messages });
-      await (prover as any).runPromise;
+      await blocksCompleted;
 
-      expect(startNewBlock.mock.calls.map(call => call[3])).toEqual([messages.slice(0, 2), [], messages.slice(2)]);
-      expect(appendLeaves.mock.calls.map(call => call[1])).toEqual([messages.slice(0, 2), [], messages.slice(2)]);
+      const expectedBundles = [messages.slice(0, 2), [], messages.slice(2)];
+      expect(bundlesPassedToSubTree()).toEqual(expectedBundles);
+      expect(bundlesAppendedToFork()).toEqual(expectedBundles);
       expect(prover.isFailed()).toBe(false);
       prover.cancel();
       await prover.whenDone();
@@ -556,7 +570,7 @@ describe('CheckpointProver', () => {
     it('fails the prover when the message list does not cover the blocks leaf count range', async () => {
       checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, txsPerBlock: 0 });
       pinConsumedMessageCounts(checkpoint, [12, 13]);
-      const { startNewBlock } = stubExecution();
+      const { bundlesPassedToSubTree } = stubExecution(2);
 
       // The parent consumed 10, the blocks reach 13, but only two messages are supplied.
       const prover = makeProver({
@@ -567,7 +581,8 @@ describe('CheckpointProver', () => {
       await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(
         /consumed 3 L1 to L2 messages .* but 2 were supplied/,
       );
-      expect(startNewBlock).not.toHaveBeenCalled();
+      // The mismatch is caught before any block is handed to the sub-tree, so nothing was proven on a bad slice.
+      expect(bundlesPassedToSubTree()).toEqual([]);
       expect(prover.isFailed()).toBe(true);
       expect(onFailed).toHaveBeenCalledWith(prover);
       await prover.whenDone();
@@ -576,16 +591,15 @@ describe('CheckpointProver', () => {
     it('fails the prover when a block leaf count falls below its parent', async () => {
       checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, txsPerBlock: 0 });
       pinConsumedMessageCounts(checkpoint, [13, 12]);
-      const { startNewBlock } = stubExecution();
+      const messages = [Fr.random(), Fr.random()];
+      const { bundlesPassedToSubTree } = stubExecution(2);
 
-      const prover = makeProver({
-        previousBlockHeader: makePreviousBlockHeader(10),
-        l1ToL2Messages: [Fr.random(), Fr.random()],
-      });
+      const prover = makeProver({ previousBlockHeader: makePreviousBlockHeader(10), l1ToL2Messages: messages });
 
       await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(/leaf count 12 is below its parent's 13/);
-      // The first block was started before the second's count was found to rewind.
-      expect(startNewBlock).toHaveBeenCalledTimes(1);
+      // The first block was started (claiming all three messages the header says it consumed, of which only two
+      // exist) before the second block's count was found to rewind.
+      expect(bundlesPassedToSubTree()).toEqual([messages]);
       expect(prover.isFailed()).toBe(true);
       await prover.whenDone();
     });
