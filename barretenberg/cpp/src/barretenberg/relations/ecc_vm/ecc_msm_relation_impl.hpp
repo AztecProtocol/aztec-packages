@@ -107,6 +107,9 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      *     1. count_shift < msm_size
      *     2. round != 32
      *
+     * The first condition describes the prover's algorithm. No subrelation compares `msm_count` with
+     * `msm_size_of_msm`; the point count is checked through the set relation, as explained below.
+     *
      * Algorithm to process MSM ADDITION round:
      * 1. If `round == 0` set `count = 0`
      * 2. For j = pc + count, perform the following:
@@ -166,8 +169,9 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * Additionally, if `precompute_point_transition == 1`, we add
      *      5. (precompute_pc, 4 * precompute_round + 4, precompute_skew)
      *
-     * ELSE `precompute_select == 0` and we add:
-     *      1. (0, 0, 0)
+     * ELSE `precompute_select == 0`. The ungated digit factors contribute four padding tuples:
+     *      (0, 0, 0), (0, 1, 0), (0, 2, 0), (0, 3, 0).
+     * `eccvm_set_permutation_delta` cancels their product of fingerprints.
      *
      * Here, w_K is the compressed wNAF slices corresponding to `precompute_sKhi` and `precompute_sKlo`, for K ∈ {1, 2,
      * 3, 4} and precompute_skew ∈ {0, 7}.
@@ -199,11 +203,19 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * The ordering of `pc` is not established by a local constraint. `MSM_TRANSITION_PC` fixes only the step
      * `pc = pc_shift + msm_size_of_msm`, and no subrelation constrains `msm_size_of_msm`, including its positivity, so
      * a zero-size boundary repeats a `pc` without wrapping the modulus. Both the ordering of `pc` and the agreement
-     * between a segment's consumed point count and its declared `msm_size_of_msm` follow from the multiset argument:
-     * the per-round read runs are anchored at each segment's own `pc` and must tile the point range exactly, so a
-     * segment consuming the wrong number of points produces a double-read and a gap. This argument spans this relation
-     * and `ECCVMSetRelation`, and additionally relies on the trace row count being small enough to preclude wraparound.
-     * Changes to the set relation, the tuple layout, or the per-round read structure must re-establish it.
+     * between a segment's consumed point count and its declared `msm_size_of_msm` are recovered globally, in this
+     * order:
+     *      1. `ECCVMTranscriptRelation` pins `transcript_pc` to 0 on the last active row and steps it by
+     *      `q_mul * num_muls_in_row` per row, so a backward induction bounds every `transcript_pc` by twice the number
+     *      of rows that follow it.
+     *      2. `transcript_msm_transition` is 1 only where `msm_count + num_muls_in_row` is invertible
+     *      (`MSM_COUNT_ZERO_AT_TRANSITION`, `MSM_TRANSITION`), and the third term of `ECCVMSetRelation` matches each
+     *      segment's `(pc, P.x, P.y, msm_size)` write against that read. Together these force every emitted
+     *      `msm_size` to be nonzero and the boundary `pc` values to strictly decrease.
+     *      3. Given those non-overlapping `pc` intervals, the first set-relation term requires the per-round reads
+     *      to cover each interval exactly. A wrong point count produces a repeated read and a gap.
+     * The read-count argument requires the ordering from step 2: aggregate slice equality alone does not determine
+     * per-segment reads when `pc` values repeat. These arguments also require a trace too short for field wraparound.
      *
      * Conversely, if the Prover sets `q_addK = 1` when it should be set to 0, there are several options: either
      * we are at the end of a `round` (so e.g. `q_add4 ` _should_ be 0), or we are at a double row, or we are at a row
@@ -394,13 +406,14 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      *    1. count_shift >= msm_size
      *    2. round != 32
      *
+     * The first condition describes the prover's algorithm; no subrelation compares `msm_count` with `msm_size_of_msm`.
+     *
      * Algorithm to process MSM DOUBLE round:
      * [Acc_shift] = ((([Acc].double()).double()).double()).double()
      *
-     * As with additions, the column q_double describes whether row is a double round. It is Prover-defined.
-     * The value of `msm_round` can only update when `q_double = 1` and we use this to ensure Prover correctly sets
-     * `q_double`. The reason for this is that `msm_round` witnesses the wNAF digit we are processing, and we only
-     * perform the four doublings when we are done processing a wNAF digit. See round transition relations further down.
+     * A double row advances the wNAF round by one (`DOUBLE_REQUIRES_ROUND_CHANGE`). Round changes within an MSM
+     * enter either a double row or a skew row (`ROUND_TRANSITION_EXACTLY_ONE_DOUBLE_OR_SKEW`); skew rows have
+     * round 32 (`SKEW_IMPLIES_ROUND_32`). A new MSM resets the round to zero (`MSM_TRANSITION_ROUND_ZERO`).
      */
     auto [x_d1, y_d1, double_slope_relation1] = dbl(acc_x, acc_y, lambda1);
     auto [x_d2, y_d2, double_slope_relation2] = dbl(x_d1, y_d1, lambda2);
@@ -565,9 +578,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<ROUND_TRANSITION_EXACTLY_ONE_DOUBLE_OR_SKEW>(accumulator) +=
         round_transition * (q_skew_shift + q_double_shift - 1) * scaling_factor;
     std::get<DOUBLE_REQUIRES_ROUND_CHANGE>(accumulator) += (-round_delta + 1) * q_double_shift * scaling_factor;
-    // `round_minus_31_inv` is intentionally zero when round == 31, because (round - 31)^-1 is undefined there.
-    // On every other active MSM row, it stores the canonical inverse (round - 31)^-1. Therefore, if q_double_shift
-    // is active, the prover must witness that round != 31.
+    // Only q_double_shift = 1 constrains this witness to (round - 31)^-1, excluding a double after round 31.
+    // The builder also fills it elsewhere, using zero at round 31; those cells are unconstrained.
     std::get<DOUBLE_SHIFT_FORBIDS_ROUND_31>(accumulator) +=
         q_double_shift * (FF(1) - (round - FF(LAST_ADDITION_ROUND)) * round_minus_31_inv) * scaling_factor;
     // if the next is neither double nor skew, and we are not at an msm_transition, then round_delta = 0 and the next
@@ -592,8 +604,11 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // _until_ we start our new MSM.
     std::get<SKEW_PERSISTS_UNTIL_MSM_TRANSITION>(accumulator) +=
         (-msm_transition_shift + 1) * q_skew * (-q_skew_shift + 1) * scaling_factor;
-    // if q_skew == 1, then round == 32. This is almost certainly redundant but psychologically useful to "constrain
-    // both ends".
+    // Fixing skew rows at round 32 has three uses:
+    // 1. With ROUND_TRANSITION_FORCES_DELTA_ONE, it implies ROUND_TRANSITION_SKEW_IMPLIES_ROUND_31.
+    // 2. MSM_TRANSITION_FOLLOWS_SKEW and MSM_TRANSITION_ROUND_ZERO give a 32-to-0 change at each new MSM.
+    //    COUNT_SHIFT_ZERO_ON_ROUND_CHANGE then resets msm_count, which enters the address msm_pc - msm_count - k.
+    // 3. It excludes skew on the first row of an MSM, where MSM_TRANSITION_ROUND_ZERO requires round 0.
     std::get<SKEW_IMPLIES_ROUND_32>(accumulator) += q_skew * (-round + 32) * scaling_factor;
 
     // UPDATING THE COUNT

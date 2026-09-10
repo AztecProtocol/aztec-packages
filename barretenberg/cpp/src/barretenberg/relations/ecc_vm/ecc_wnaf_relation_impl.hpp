@@ -20,6 +20,9 @@ namespace bb {
  * | 0                | 6     | s24,s25,s26,s27 | 0      | \sum_{i=0}^23 16^i * s_{23 - i} |
  * | 1                | 7     | s28,s29,s30,s31 | s_skew | \sum_{i=0}^27 16^i * s_{27 - i} |
  *
+ * On rounds 0-6 the builder writes skew = 0, but `SKEW_RANGE` permits either 0 or 7 on active rows.
+ * The skew correction is used only at `precompute_point_transition == 1`, on round 7.
+ *
  * The value of the input scalar is equal to the following:
  *
  * scalar = 2^16 * scalar_sum + 2^12 * s28 + 2^8 * s29 + 2^4 * s30 + s31 - s_skew
@@ -178,19 +181,25 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      *      == pc - 1`.
      *      2. When `q_transition == 0`, then `round_shift - round == 1` and `pc_shift == pc`
      *
-     * For the latter: note that we don't actually range-constrain `round` (expensive if we don't need to!). We
-     * nonetheless can correctly constrain `round`, because of the multiset checks. There are two multiset equality
-     * checks that we perform that implicate the wNAF relation:
+     * The local relations and non-cyclic shift bound `round` to [0, ..., 7] without a separate range constraint:
+     *      1. `ROUND_SHIFT_ZERO` starts each block at round 0; `PRECOMPUTE_SELECT_SHAPE` keeps active rows contiguous.
+     *      2. `ROUND_CHECK` increments the round by 1 until `q_transition == 1`, which requires round 7.
+     *      3. Ending a block without a transition would require round -1: the next round is zero, either from
+     *      `INACTIVE_ROUND` or from the non-cyclic shift past the end of the trace. Starting at 0 cannot reach -1
+     *      within a trace shorter than the field modulus.
+     * The end-of-trace zero comes from the polynomial representation and PCS opening, not a subrelation.
+     * Changing the shift convention requires revisiting this bound.
+     *
+     * The multiset checks catch a block that passes round 7 as well, independently of the above. There are two
+     * multiset equality checks that implicate the wNAF relation:
      *      1. (pc, msm_round, wnaf_slice)
      *      2. (pc, P.x, P.y, scalar-multiplier)
      * The first is used to communicate with the MSM table, to validate that the slice * point values the MSM tables use
      * are indeed what we have precomputed. The second facilitates communication with the Transcript table, to ensure
      * that the wNAF expansion of the scalar is indeed correct. Moreover, the second is only "sent" to the multiset when
-     * `q_transition == 1`. (It is helpful to recall that `pc` is monotonic: one per each point involved in a
-     * non-trivial scalar multiplication.)
-     *
-     * Here is the logic. We must ensure that `round` can never be set to a value > 7. If this were possible at row `i`,
-     * then `q_transition == 0` for all subsequent rows by the incrementing logic. There are (at least) two problems.
+     * `q_transition == 1`. (It is helpful to recall that `precompute_pc` does decrement by one per point locally, via
+     * `PC_CHECK`: one point per non-trivial scalar multiplication.) Suppose `round` were set to a value > 7 at row
+     * `i`; then `q_transition == 0` for all subsequent rows by the incrementing logic, and:
      *
      * 1. The implicit MSM round (accounted for in (1)) is between `4 * round` and `4 * round + 3` (in fact `4 *
      * round + 4` iff we are at a skew). As the `round` must increment, this means that the `msm_round` will be
@@ -204,8 +213,6 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      * subsequent values. We explicate this latter failure. The transcript table will certainly fill _some_ values in
      * for (pc, P.x, P.y, scalar-multipler) (at least with correct pc and scalar-multiplier values), which will cause
      * the multiset equality check to fail.
-     *
-     * As always, we are relying on the monotonicity of the `pc` in these arguments.
      *
      */
 

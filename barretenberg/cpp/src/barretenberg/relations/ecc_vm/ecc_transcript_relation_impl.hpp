@@ -130,8 +130,9 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      */
     Accumulator pc_delta = pc - pc_shift;
     auto num_muls_in_row = ((-z1_zero + 1) + (-z2_zero + 1)) * (-transcript_Pinfinity + 1);
-    // note that the value of `pc` in the first row is 0 because `pc` is shiftable. It is the second row where it starts
-    // out at its maximum value.
+    // BOUNDARY_MSM_COUNT_AND_PC pins pc to zero at the last row. PC_UPDATE propagates the remaining mul count
+    // backwards and is disabled at lagrange_first. The zero at column index 0 belongs to the shift convention
+    // (NUM_ZERO_ROWS), not the counter's boundary condition.
     std::get<PC_UPDATE>(accumulator) +=
         is_not_first_row * (pc_delta - q_mul * num_muls_in_row) * scaling_factor; // degree 4
 
@@ -483,13 +484,21 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
          *   (A) accumulator_infinity_preserve: active when propagate_transcript_accumulator != 0
          *       (i.e. q_mul without msm_transition, or q_eq without q_reset). Preserves the emptiness flag.
          *   (B) accumulator_infinity_q_reset: active when q_reset_accumulator = 1. Forces empty.
-         *   (B) accumulator_infinity_from_add: active when any_add_is_active != 0 (q_add or msm_transition).
+         *   (C) accumulator_infinity_from_add: active when any_add_is_active != 0 (q_add or msm_transition).
          *       Sets emptiness from the add/msm result.
-         *   (C) accumulator_infinity_from_noop: active when opcode_is_zero != 0 (all selectors off). Forces empty.
+         *   (D) accumulator_infinity_from_noop: active when opcode_is_zero != 0 (all selectors off). Forces empty.
          *
-         * These are mutually exclusive because opcode_is_zero requires all selectors = 0 (which zeros out A and B),
-         * while A and B each require at least one selector to be non-zero (which zeros out C).
-         * Within A and B, exclusivity follows from the opcode exclusion constraint (subrelation 8).
+         * These are mutually exclusive because opcode_is_zero requires all selectors = 0 (which zeros out A, B and
+         * C), while A, B and C each require at least one selector to be non-zero (which zeros out D).
+         * Within A, B and C, exclusivity follows from the opcode exclusion constraint (subrelation 8).
+         *
+         * All four terms vanish at lagrange_first, so this subrelation does not constrain the next row's
+         * transcript_accumulator_not_empty. That is the hiding row: HIDING_ROW_RESET forces q_reset = 1,
+         * and is_not_hiding_row disables the on-curve and equality checks that would read the flag.
+         *
+         * At the final row, (A) vanishes. The non-cyclic shift makes transcript_accumulator_not_empty_shift = 0,
+         * hence is_accumulator_empty_shift = 1. Term (C) requires any group operation there to output infinity:
+         * (q_add + msm_transition) * (result_is_infinity - 1) = 0.
          */
         auto accumulator_infinity_preserve_flag = propagate_transcript_accumulator; // degree 1
         auto accumulator_infinity_preserve = accumulator_infinity_preserve_flag *
