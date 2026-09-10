@@ -4,7 +4,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { assertAllowedScope } from '../allowed_scopes.js';
 import type { ChangeSetId } from '../staged_write_coordinator.js';
 import type { FactStore } from './fact_store.js';
-import type { FactCollectionKey, FactCollectionTypeKey, OriginBlock } from './fact_store_keys.js';
+import type { BlockReference, FactCollectionKey, FactCollectionTypeKey } from './fact_store_keys.js';
 import {
   type FactCollectionWithOriginState,
   type FactWithOriginState,
@@ -29,7 +29,7 @@ export class FactService {
     factCollectionKey: FactCollectionKey,
     factTypeId: Fr,
     payload: Fr[],
-    originBlock: OriginBlock | undefined,
+    originBlock: BlockReference | undefined,
     changeSetId: ChangeSetId,
   ): Promise<void> {
     assertAllowedScope(factCollectionKey.scope, this.allowedScopes);

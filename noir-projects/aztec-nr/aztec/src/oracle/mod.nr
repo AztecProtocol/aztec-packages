@@ -28,6 +28,7 @@ pub mod aes128_decrypt;
 pub mod auth_witness;
 #[generate_oracle_tests]
 pub mod block_header;
+pub mod block_reference;
 #[generate_oracle_tests]
 pub mod call_private_function;
 #[generate_oracle_tests]

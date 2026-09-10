@@ -2,10 +2,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-/**
- * The block a retractable fact originates from.
- */
-export type OriginBlock = { blockNumber: number; blockHash: Fr };
+/** A block, identified by its number and hash. */
+export type BlockReference = { blockNumber: number; blockHash: Fr };
 
 /** Facts are always tied to a real scope; the zero address is not a valid fact scope. */
 function assertNonZeroScope(scope: AztecAddress): void {

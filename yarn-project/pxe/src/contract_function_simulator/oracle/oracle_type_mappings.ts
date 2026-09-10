@@ -53,7 +53,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import {
-  type OriginBlock,
+  type BlockReference,
   type OriginBlockState,
   type RetractableFactOrigin,
   originBlockStateFromNumber,
@@ -562,7 +562,7 @@ export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT([
   { name: 'context', type: RESOLVED_TX },
 ]);
 
-export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = STRUCT([
+export const BLOCK_REFERENCE: TypeMapping<BlockReference> = STRUCT([
   { name: 'blockNumber', type: U32 },
   { name: 'blockHash', type: FIELD },
 ]);
