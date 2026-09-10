@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import {
   InboxBotBlockRelations,
+  InboxBotChecks,
   InboxBotMilestones,
   InboxBotModes,
   InboxBotReasons,
@@ -14,6 +15,7 @@ import {
   InboxBotStages,
 } from '../inbox_bot_metrics.js';
 import type {
+  InboxBotCheck,
   InboxBotMilestone,
   InboxBotMode,
   InboxBotReason,
@@ -149,11 +151,18 @@ export const InboxBatchRecordSchema = z.object({
   unknownMessageProbedAt: timestampMs.optional(),
   /** When the batch's replay probe resolved, so a restart does not repeat it. */
   replayProbedAt: timestampMs.optional(),
+  /** When the batch's bucket layout was checked against the Inbox, so a restart does not repeat it. */
+  bucketProbedAt: timestampMs.optional(),
+  /**
+   * Checks that failed anywhere in this batch, so a run's outcome can be judged on every check having passed and
+   * not only on its messages having been consumed. Bounded by the check set, and each check is listed once.
+   */
+  failedChecks: z.array(z.enum(InboxBotChecks)).default([]),
 });
 export type InboxBatchRecord = z.infer<typeof InboxBatchRecordSchema>;
 
 /** One-off probes a batch carries, each run at most once over the batch's lifetime. */
-export const InboxBatchProbes = ['unknown_message', 'replay'] as const;
+export const InboxBatchProbes = ['unknown_message', 'replay', 'bucket_rollover'] as const;
 export type InboxBatchProbe = (typeof InboxBatchProbes)[number];
 
 /** The bot's saturation schedule, which survives restarts so downtime does not produce a catch-up burst. */
@@ -486,6 +495,8 @@ export class InboxStore {
         await this.moveMessage(message, updated);
         invalidated.push(updated);
       }
+      // The bucket layout is derived from the receipt too, so a re-mined batch is checked again.
+      await this.batches.set(batchId, JSON.stringify({ ...batch, bucketProbedAt: undefined }));
       this.log.warn(`Invalidated inbox state derived from a non-canonical receipt`, {
         batchId,
         count: invalidated.length,
@@ -575,8 +586,32 @@ export class InboxStore {
     const now = this.dateProvider.now();
     await this.store.transactionAsync(async () => {
       const batch = await this.requireBatch(batchId);
-      const patch = probe === 'unknown_message' ? { unknownMessageProbedAt: now } : { replayProbedAt: now };
+      const patch =
+        probe === 'unknown_message'
+          ? { unknownMessageProbedAt: now }
+          : probe === 'replay'
+            ? { replayProbedAt: now }
+            : { bucketProbedAt: now };
       await this.batches.set(batchId, JSON.stringify({ ...batch, ...patch }));
+    });
+  }
+
+  /**
+   * Records that one of the batch's checks failed. Listed once per check: a check that fails for several of a
+   * batch's messages says the same thing about the batch as a check that failed for one of them.
+   */
+  public async recordCheckFailure(batchId: string, check: InboxBotCheck): Promise<void> {
+    await this.store.transactionAsync(async () => {
+      const batch = await this.batches.getAsync(batchId);
+      if (batch === undefined) {
+        // A check can outlive its batch: retention drops terminal records, and the outcome is already recorded.
+        return;
+      }
+      const current = parseRecord(InboxBatchRecordSchema, 'batch', batchId, batch);
+      if (current.failedChecks.includes(check)) {
+        return;
+      }
+      await this.batches.set(batchId, JSON.stringify({ ...current, failedChecks: [...current.failedChecks, check] }));
     });
   }
 

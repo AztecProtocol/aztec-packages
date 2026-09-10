@@ -1,4 +1,4 @@
-import { MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
+import { InboxContract, MULTI_CALL_3_ADDRESS } from '@aztec/ethereum/contracts';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
@@ -48,6 +48,12 @@ export interface InboxL1Producer {
   /** Whether the given block is still canonical at its height. */
   isBlockCanonical(blockNumber: bigint, blockHash: string): Promise<boolean>;
 
+  /**
+   * Messages an Inbox bucket held as of the given L1 block, or undefined when it cannot be read — the ring may
+   * have evicted the bucket, or the node may not serve state at that height.
+   */
+  getBucketMessageCount(bucketSeq: bigint, atL1BlockNumber: bigint): Promise<number | undefined>;
+
   /** Compares a mined batch against the intent that was persisted before it was broadcast. */
   validateBatch(
     intents: readonly L1ToL2MessageIntent[],
@@ -63,13 +69,17 @@ export class ViemInboxL1Producer implements InboxL1Producer {
    */
   public readonly expectedSender: string = MULTI_CALL_3_ADDRESS;
 
+  private readonly inbox: InboxContract;
+
   constructor(
     private readonly l1Client: ExtendedViemWalletClient,
     private readonly inboxAddress: EthAddress,
     private readonly recipient: AztecAddress,
     private readonly rollupVersion: bigint,
     private readonly log: Logger,
-  ) {}
+  ) {
+    this.inbox = new InboxContract(l1Client, inboxAddress);
+  }
 
   public assertReady(): Promise<void> {
     return assertMulticall3Deployed(this.l1Client);
@@ -114,6 +124,16 @@ export class ViemInboxL1Producer implements InboxL1Producer {
 
   public isBlockCanonical(blockNumber: bigint, blockHash: string): Promise<boolean> {
     return isL1BlockCanonical(this.l1Client, blockNumber, blockHash);
+  }
+
+  public async getBucketMessageCount(bucketSeq: bigint, atL1BlockNumber: bigint): Promise<number | undefined> {
+    try {
+      const bucket = await this.inbox.getBucket(bucketSeq, { blockNumber: atL1BlockNumber });
+      return bucket.msgCount;
+    } catch (err) {
+      this.log.debug(`Could not read Inbox bucket ${bucketSeq} at L1 block ${atL1BlockNumber}`, { err });
+      return undefined;
+    }
   }
 
   public validateBatch(

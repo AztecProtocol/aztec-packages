@@ -13,6 +13,9 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../entrypoints"
     },
     {

@@ -8,6 +8,7 @@ export { BotStore } from './store/bot_store.js';
 export {
   InboxStore,
   InboxStoreCorruptionError,
+  isTerminalInboxMessageState,
   type InboxBatchRecord,
   type InboxMessageRecord,
   type InboxMessageState,
@@ -23,6 +24,18 @@ export {
 } from './inbox_bot_metrics.js';
 export { type InboxL1Producer, ViemInboxL1Producer } from './inbox_l1_producer.js';
 export {
+  type L1ToL2MessageBatchBucket,
+  type L1ToL2MessageBatchBucketVerdict,
+  type L1ToL2MessageBatchMismatch,
+  type L1ToL2MessageBatchReceipt,
+  type L1ToL2MessageIntent,
+  type SentInboxMessage,
+  generateL1ToL2MessageIntents,
+  sendL1ToL2MessageBatch,
+  summarizeL1ToL2MessageBatchBuckets,
+  validateL1ToL2MessageBatchBuckets,
+} from './l1_to_l2_seeding.js';
+export {
   type InboxConsumptionRequest,
   type InboxL2Consumer,
   WalletInboxL2Consumer,
@@ -33,6 +46,7 @@ export {
   type BotConfig,
   type BotInboxConsumeMode,
   MAX_INBOX_MESSAGES_PER_BATCH,
+  MAX_INBOX_MESSAGES_PER_BUCKET,
   applyInboxModeDefaults,
   assertValidInboxConfig,
   getBotConfigFromEnv,

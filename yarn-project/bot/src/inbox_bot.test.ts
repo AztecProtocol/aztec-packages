@@ -35,7 +35,13 @@ import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type BotConfig, MAX_INBOX_MESSAGES_PER_BATCH, applyInboxModeDefaults, getBotDefaultConfig } from './config.js';
+import {
+  type BotConfig,
+  MAX_INBOX_MESSAGES_PER_BATCH,
+  MAX_INBOX_MESSAGES_PER_BUCKET,
+  applyInboxModeDefaults,
+  getBotDefaultConfig,
+} from './config.js';
 import { InboxBot } from './inbox_bot.js';
 import {
   InboxBotAnchorPolicies,
@@ -76,9 +82,19 @@ class FakeInboxL1Producer implements InboxL1Producer {
   public confirmedNonce = 0;
   public nextIndex = 0n;
   public bucketSeq = 0n;
+  /**
+   * Messages already in the current bucket when the next batch is absorbed. Every batch is its own L1 block, so
+   * it normally opens a fresh bucket; a test sets this to model a bucket another sender left partly filled in a
+   * block sharing the same timestamp.
+   */
+  public carriedBucketFill?: number;
+  /** Messages a bucket holds before it rolls over, overridable so a test can model an Inbox that miscounts. */
+  public bucketCapacity = MAX_INBOX_MESSAGES_PER_BUCKET;
   /** Receipts keyed by tx hash, so a reconciling step can look up a submission the previous run left behind. */
   public readonly receipts = new Map<string, L1ToL2MessageBatchReceipt>();
   public nonCanonicalBlocks = new Set<string>();
+  /** Messages each bucket held once the batch's L1 block mined, as the Inbox would report them. */
+  public readonly bucketCounts = new Map<bigint, number | undefined>();
   /** Applied to the events of the next batch, to model a receipt that does not match the persisted intent. */
   public corruptNextReceipt?: (messages: SentInboxMessage[]) => SentInboxMessage[];
 
@@ -106,7 +122,16 @@ class FakeInboxL1Producer implements InboxL1Producer {
   }
 
   public buildReceipt(txHash: string, intents: readonly L1ToL2MessageIntent[]): L1ToL2MessageBatchReceipt {
+    // A batch is one L1 block, so its first message opens a bucket unless the test says another block already
+    // filled part of one at the same timestamp. Afterwards a bucket only rolls over once it is full.
+    let fill = this.carriedBucketFill ?? this.bucketCapacity;
     let messages = intents.map(intent => {
+      if (fill >= this.bucketCapacity) {
+        this.bucketSeq += 1n;
+        fill = 0;
+      }
+      fill += 1;
+      this.bucketCounts.set(this.bucketSeq, fill);
       const message: SentInboxMessage = {
         msgHash: Fr.random().toString(),
         globalLeafIndex: this.nextIndex++,
@@ -119,6 +144,7 @@ class FakeInboxL1Producer implements InboxL1Producer {
       };
       return message;
     });
+    this.carriedBucketFill = undefined;
     if (this.corruptNextReceipt) {
       messages = this.corruptNextReceipt(messages);
       this.corruptNextReceipt = undefined;
@@ -144,6 +170,10 @@ class FakeInboxL1Producer implements InboxL1Producer {
 
   public isBlockCanonical(_blockNumber: bigint, blockHash: string): Promise<boolean> {
     return Promise.resolve(!this.nonCanonicalBlocks.has(blockHash));
+  }
+
+  public getBucketMessageCount(bucketSeq: bigint, _atL1BlockNumber: bigint): Promise<number | undefined> {
+    return Promise.resolve(this.bucketCounts.get(bucketSeq));
   }
 
   public validateBatch(
@@ -753,8 +783,9 @@ describe('InboxBot', () => {
   });
 
   describe('saturation schedule', () => {
-    // The message timeout has to outlast the saturation interval, or the messages a run is waiting on time out
-    // before the next run is even due.
+    // The timeout outlasts the interval so the simulated hours these cases jump over do not time the messages
+    // out mid-scenario. An operator wants the opposite ordering — see bot/README.md — because a run that stays
+    // unresolved past its due time blocks the next one; nothing here depends on that ordering.
     const saturationConfig = {
       inboxSaturationIntervalSeconds: 3600,
       l1ToL2SeedCount: 300,
@@ -890,6 +921,95 @@ describe('InboxBot', () => {
       dateProvider.advanceTime(10);
       await bot.produceStep();
       expect(producer.sent.filter(sent => sent.intents.length === MAX_INBOX_MESSAGES_PER_BATCH).length).toEqual(1);
+    });
+
+    it('checks the bucket layout of a saturation batch against the Inbox', async () => {
+      const bot = buildBot({ ...saturationConfig, l1ToL2SeedCount: 600 });
+      await bot.produceStep();
+      dateProvider.advanceTime(3600);
+
+      await bot.produceStep();
+
+      expect(checks('bucket_rollover', 'passed')).toEqual(1);
+      expect(checks('bucket_rollover', 'failed')).toEqual(0);
+      const batchId = (await store.getSchedule())!.inFlightBatchId!;
+      const messages = await store.getBatchMessages(batchId);
+      // 257 messages fill the bucket they opened and roll it over exactly once.
+      const seqs = [...new Set(messages.map(m => m.bucketSeq))];
+      expect(seqs.length).toEqual(2);
+      expect((await store.getBatch(batchId))!.bucketProbedAt).toBeDefined();
+    });
+
+    it('derives the rollover point from the bucket the batch actually started in', async () => {
+      const bot = buildBot({ ...saturationConfig, l1ToL2SeedCount: 600 });
+      await bot.produceStep();
+      dateProvider.advanceTime(3600);
+      // Another sender left 100 messages in the bucket, so the batch's rollover falls 100 messages earlier.
+      producer.carriedBucketFill = 100;
+
+      await bot.produceStep();
+
+      expect(checks('bucket_rollover', 'passed')).toEqual(1);
+      const batchId = (await store.getSchedule())!.inFlightBatchId!;
+      const messages = await store.getBatchMessages(batchId);
+      const firstBucket = messages.filter(m => m.bucketSeq === messages[0].bucketSeq);
+      expect(firstBucket.length).toEqual(MAX_INBOX_MESSAGES_PER_BUCKET - 100);
+    });
+
+    it('fails the bucket check when a bucket rolled over before it was full', async () => {
+      const bot = buildBot({ ...saturationConfig, l1ToL2SeedCount: 600 });
+      await bot.produceStep();
+      dateProvider.advanceTime(3600);
+      // The Inbox reports a bucket that rolled over 8 messages short of its capacity.
+      producer.bucketCapacity = MAX_INBOX_MESSAGES_PER_BUCKET - 8;
+
+      await bot.produceStep();
+
+      expect(checks('bucket_rollover', 'failed')).toEqual(1);
+      expect(failures('bucket_mismatch')).toEqual(1);
+      const batchId = (await store.getSchedule())!.inFlightBatchId!;
+      expect((await store.getBatch(batchId))!.failedChecks).toEqual(['bucket_rollover']);
+    });
+
+    it('leaves the bucket check unrecorded when the Inbox bucket cannot be read', async () => {
+      const bot = buildBot({ ...saturationConfig, l1ToL2SeedCount: 600 });
+      await bot.produceStep();
+      dateProvider.advanceTime(3600);
+      producer.getBucketMessageCount = () => Promise.resolve(undefined);
+
+      await bot.produceStep();
+
+      expect(checks('bucket_rollover', 'passed')).toEqual(0);
+      expect(checks('bucket_rollover', 'failed')).toEqual(0);
+      const batchId = (await store.getSchedule())!.inFlightBatchId!;
+      expect((await store.getBatch(batchId))!.bucketProbedAt).toBeUndefined();
+    });
+
+    it('does not check bucket layout for ordinary batches', async () => {
+      const bot = buildBot();
+
+      await bot.produceStep();
+
+      expect(checks('bucket_rollover', 'passed')).toEqual(0);
+      expect(checks('bucket_rollover', 'failed')).toEqual(0);
+    });
+
+    it('does not advance the success timestamp when a check failed, even with every message consumed', async () => {
+      const bot = buildBot({ ...saturationConfig, l1ToL2SeedCount: 600 });
+      await bot.produceStep();
+      dateProvider.advanceTime(3600);
+      producer.bucketCapacity = MAX_INBOX_MESSAGES_PER_BUCKET - 8;
+      await bot.produceStep();
+      const batchId = (await store.getSchedule())!.inFlightBatchId!;
+      for (const message of await store.getBatchMessages(batchId)) {
+        await store.transitionMessage(message.messageId, 'completed', {});
+      }
+
+      await bot.produceStep();
+
+      const schedule = await store.getSchedule();
+      expect(schedule).toMatchObject({ runInFlight: false });
+      expect(schedule!.lastSuccessAt).toBeUndefined();
     });
 
     it('never runs and reports a zero due time when saturation is disabled', async () => {

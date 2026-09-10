@@ -1072,6 +1072,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"

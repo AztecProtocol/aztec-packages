@@ -1,3 +1,4 @@
+import { MAX_L1_TO_L2_MSGS_PER_BLOCK } from '@aztec/constants';
 import {
   type ConfigMappingsType,
   SecretValue,
@@ -30,8 +31,11 @@ const BotInboxConsumeMode = ['mixed', 'public', 'private'] as const;
 /** Which L2 domain the inbox bot consumes its messages through. */
 export type BotInboxConsumeMode = (typeof BotInboxConsumeMode)[number];
 
+/** Largest number of messages a single Inbox bucket holds before the next message rolls it over. */
+export const MAX_INBOX_MESSAGES_PER_BUCKET = MAX_L1_TO_L2_MSGS_PER_BLOCK;
+
 /** Largest number of messages that fit in a single Inbox bucket, plus the one that rolls it over. */
-export const MAX_INBOX_MESSAGES_PER_BATCH = 257;
+export const MAX_INBOX_MESSAGES_PER_BATCH = MAX_INBOX_MESSAGES_PER_BUCKET + 1;
 
 /** Effective `l1ToL2SeedCount` for inbox mode when the operator left it at its default. */
 const INBOX_DEFAULT_L1_TO_L2_SEED_COUNT = 512;

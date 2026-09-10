@@ -115,8 +115,113 @@ export interface L1ToL2MessageBatchReceipt {
 
 /** A way in which a mined batch failed to match the intent that was persisted before broadcasting it. */
 export interface L1ToL2MessageBatchMismatch {
-  kind: 'count' | 'indices' | 'recipient' | 'version' | 'sender' | 'content' | 'secret_hash';
+  kind: 'count' | 'indices' | 'recipient' | 'version' | 'sender' | 'content' | 'secret_hash' | 'buckets';
   detail: string;
+}
+
+/** How many of a batch's messages landed in one Inbox bucket, in the order the buckets were used. */
+export interface L1ToL2MessageBatchBucket {
+  seq: bigint;
+  /** Messages of this batch absorbed into the bucket. */
+  messagesInBatch: number;
+  /** Messages the bucket held in total once the batch's L1 block was mined, or undefined when it was unreadable. */
+  totalInBucket?: number;
+}
+
+/**
+ * Verdict of the bucket layout check over a mined batch. `indeterminate` covers a bucket whose on-chain count
+ * could not be read, which is neither evidence for nor against the Inbox behaving correctly.
+ */
+export type L1ToL2MessageBatchBucketVerdict =
+  | { outcome: 'valid'; buckets: L1ToL2MessageBatchBucket[] }
+  | { outcome: 'indeterminate'; buckets: L1ToL2MessageBatchBucket[]; detail: string }
+  | { outcome: 'invalid'; buckets: L1ToL2MessageBatchBucket[]; mismatches: L1ToL2MessageBatchMismatch[] };
+
+/** Groups a batch's messages by the bucket the Inbox absorbed them into, in the order the buckets were used. */
+export function summarizeL1ToL2MessageBatchBuckets(
+  messages: readonly SentInboxMessage[],
+  bucketTotals: ReadonlyMap<bigint, number | undefined> = new Map(),
+): L1ToL2MessageBatchBucket[] {
+  const buckets: L1ToL2MessageBatchBucket[] = [];
+  for (const message of messages) {
+    const current = buckets.at(-1);
+    if (current !== undefined && current.seq === message.bucketSeq) {
+      current.messagesInBatch += 1;
+    } else {
+      buckets.push({
+        seq: message.bucketSeq,
+        messagesInBatch: 1,
+        totalInBucket: bucketTotals.get(message.bucketSeq),
+      });
+    }
+  }
+  return buckets;
+}
+
+/**
+ * Checks how a mined batch was laid out across Inbox buckets, against what the Inbox promises for messages sent
+ * in a single L1 block: buckets are used in ascending sequence one after another, and within one block a bucket
+ * only rolls over once it is full.
+ *
+ * Every expectation is derived from the receipt and the on-chain bucket counts at the batch's own L1 block. The
+ * batch is never assumed to have started at a bucket boundary: another sender's messages, or another block
+ * sharing the same timestamp, can leave the first bucket partly filled, which changes where the rollover falls
+ * without making it wrong.
+ *
+ * @param bucketTotals - Messages each used bucket held once the batch's L1 block was mined; a missing or
+ * undefined entry makes the verdict indeterminate rather than a failure.
+ * @param bucketCapacity - Messages a bucket holds before the next one rolls it over.
+ */
+export function validateL1ToL2MessageBatchBuckets(args: {
+  messages: readonly SentInboxMessage[];
+  bucketTotals: ReadonlyMap<bigint, number | undefined>;
+  bucketCapacity: number;
+}): L1ToL2MessageBatchBucketVerdict {
+  const { messages, bucketTotals, bucketCapacity } = args;
+  const buckets = summarizeL1ToL2MessageBatchBuckets(messages, bucketTotals);
+  const mismatches: L1ToL2MessageBatchMismatch[] = [];
+
+  if (messages.length === 0) {
+    return { outcome: 'indeterminate', buckets, detail: 'the batch carried no messages' };
+  }
+
+  for (let i = 1; i < buckets.length; i++) {
+    if (buckets[i].seq !== buckets[i - 1].seq + 1n) {
+      mismatches.push({
+        kind: 'buckets',
+        detail: `bucket ${buckets[i].seq} does not follow ${buckets[i - 1].seq}`,
+      });
+    }
+  }
+
+  if (messages.length > bucketCapacity && buckets.length < 2) {
+    mismatches.push({
+      kind: 'buckets',
+      detail: `${messages.length} messages were absorbed into a single bucket of capacity ${bucketCapacity}`,
+    });
+  }
+
+  // Every bucket the batch left behind must have been full: within one L1 block that is the only thing that
+  // opens the next one. The last bucket is still accumulating, so only its lower bound is known.
+  for (const [i, bucket] of buckets.entries()) {
+    if (bucket.totalInBucket === undefined) {
+      return { outcome: 'indeterminate', buckets, detail: `bucket ${bucket.seq} could not be read` };
+    }
+    if (i < buckets.length - 1 && bucket.totalInBucket !== bucketCapacity) {
+      mismatches.push({
+        kind: 'buckets',
+        detail: `bucket ${bucket.seq} rolled over holding ${bucket.totalInBucket} of ${bucketCapacity} messages`,
+      });
+    }
+    if (bucket.totalInBucket < bucket.messagesInBatch) {
+      mismatches.push({
+        kind: 'buckets',
+        detail: `bucket ${bucket.seq} holds ${bucket.totalInBucket} messages but the batch put ${bucket.messagesInBatch} in it`,
+      });
+    }
+  }
+
+  return mismatches.length > 0 ? { outcome: 'invalid', buckets, mismatches } : { outcome: 'valid', buckets };
 }
 
 /**

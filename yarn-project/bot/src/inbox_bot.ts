@@ -19,6 +19,7 @@ import type { BotLifecycle } from './base_bot.js';
 import {
   type BotConfig,
   MAX_INBOX_MESSAGES_PER_BATCH,
+  MAX_INBOX_MESSAGES_PER_BUCKET,
   applyInboxModeDefaults,
   assertValidInboxConfig,
 } from './config.js';
@@ -61,6 +62,7 @@ import {
   type L1ToL2MessageBatchReceipt,
   type L1ToL2MessageIntent,
   generateL1ToL2MessageIntents,
+  validateL1ToL2MessageBatchBuckets,
 } from './l1_to_l2_seeding.js';
 import {
   type InboxBatchRecord,
@@ -516,7 +518,7 @@ export class InboxBot implements BotLifecycle {
 
     const mismatches = this.producer.validateBatch(intents, receipt.messages);
     if (mismatches.length > 0) {
-      this.recordCheck('event_integrity', 'failed', { batchId, mismatches });
+      await this.recordCheck('event_integrity', 'failed', { batchId, mismatches });
       const reason: InboxBotReason = mismatches.some(m => m.kind === 'indices' || m.kind === 'count')
         ? 'bucket_mismatch'
         : 'api_inconsistency';
@@ -525,7 +527,7 @@ export class InboxBot implements BotLifecycle {
       this.log.error(`Inbox batch receipt does not match its persisted intent`, { batchId, mismatches });
       return undefined;
     }
-    this.recordCheck('event_integrity', 'passed', { batchId });
+    await this.recordCheck('event_integrity', 'passed', { batchId });
 
     const mined = await this.store.recordBatchMined(
       batchId,
@@ -547,10 +549,62 @@ export class InboxBot implements BotLifecycle {
     );
 
     await this.recordL1Batch(mined, 'success', receipt);
+    await this.checkBucketRollover(mined, receipt);
     for (const message of await this.store.getBatchMessages(batchId)) {
       await this.recordMessageMilestone(message, 'sent');
     }
     return mined;
+  }
+
+  /**
+   * Checks how a saturation batch was laid out across Inbox buckets: the buckets it used run in ascending
+   * sequence, and one only rolls over where the previous one filled up. Every expectation comes from the receipt
+   * and from the Inbox's own bucket counts at the batch's L1 block, so a batch that started midway through a
+   * bucket someone else had already filled is judged on where its rollover actually belonged.
+   *
+   * Ordinary batches are much smaller than a bucket and can neither fill nor roll one over, so the check is only
+   * meaningful for the full-bucket saturation batch.
+   */
+  private async checkBucketRollover(batch: InboxBatchRecord, receipt: L1ToL2MessageBatchReceipt): Promise<void> {
+    if (batch.scenario !== 'saturation' || batch.bucketProbedAt !== undefined) {
+      return;
+    }
+    const totals = new Map<bigint, number | undefined>();
+    for (const seq of new Set(receipt.messages.map(message => message.bucketSeq))) {
+      totals.set(seq, await this.producer.getBucketMessageCount(seq, receipt.l1BlockNumber));
+    }
+    const verdict = validateL1ToL2MessageBatchBuckets({
+      messages: receipt.messages,
+      bucketTotals: totals,
+      bucketCapacity: MAX_INBOX_MESSAGES_PER_BUCKET,
+    });
+    const buckets = verdict.buckets.map(bucket => ({
+      seq: bucket.seq.toString(),
+      messagesInBatch: bucket.messagesInBatch,
+      totalInBucket: bucket.totalInBucket,
+    }));
+
+    if (verdict.outcome === 'indeterminate') {
+      // Neither evidence for nor against the Inbox: recorded as no check at all, which also leaves the run short
+      // of a full success, since `lastSuccessAt` means every check passed.
+      this.log.warn(`Inbox bucket layout check was inconclusive`, {
+        batchId: batch.batchId,
+        detail: verdict.detail,
+        buckets,
+      });
+      return;
+    }
+    if (verdict.outcome === 'invalid') {
+      await this.recordCheck('bucket_rollover', 'failed', {
+        batchId: batch.batchId,
+        buckets,
+        mismatches: verdict.mismatches,
+      });
+      this.recordFailure('bucket_mismatch', { batchId: batch.batchId, mismatches: verdict.mismatches });
+    } else {
+      await this.recordCheck('bucket_rollover', 'passed', { batchId: batch.batchId, buckets });
+    }
+    await this.store.recordBatchProbe(batch.batchId, 'bucket_rollover');
   }
 
   /**
@@ -758,13 +812,24 @@ export class InboxBot implements BotLifecycle {
       return;
     }
 
-    const succeeded = messages.every(message => message.state === 'completed');
+    // A run only succeeded if every message was consumed *and* every check the run carried passed, including the
+    // bucket layout check. A check that never resolved leaves the run short of a success rather than passing by
+    // default, so `lastSuccessAt` always means the whole run was verified.
+    const batch = await this.store.getBatch(schedule.inFlightBatchId);
+    const consumed = messages.every(message => message.state === 'completed');
+    const checked = batch !== undefined && batch.failedChecks.length === 0 && batch.bucketProbedAt !== undefined;
+    const succeeded = consumed && checked;
     await this.store.updateSchedule({
       runInFlight: false,
       inFlightBatchId: undefined,
       lastSuccessAt: succeeded ? this.dateProvider.now() : schedule.lastSuccessAt,
     });
-    this.recordSaturationRun(succeeded ? 'success' : 'failed', { batchId: schedule.inFlightBatchId });
+    this.recordSaturationRun(succeeded ? 'success' : 'failed', {
+      batchId: schedule.inFlightBatchId,
+      consumed,
+      failedChecks: batch?.failedChecks,
+      bucketChecked: batch?.bucketProbedAt !== undefined,
+    });
   }
 
   private saturationRetryDelayMs(consecutiveFailures: number): number {
@@ -902,7 +967,8 @@ export class InboxBot implements BotLifecycle {
         index = await this.node.getL1ToL2MessageIndex(msgHash);
       }
       if (index !== expected) {
-        this.recordCheck('index_match', 'failed', {
+        await this.recordCheck('index_match', 'failed', {
+          batchId: message.batchId,
           messageId: message.messageId,
           expected: expected.toString(),
           reported: index?.toString(),
@@ -916,7 +982,7 @@ export class InboxBot implements BotLifecycle {
         continue;
       }
 
-      this.recordCheck('index_match', 'passed', { messageId: message.messageId });
+      await this.recordCheck('index_match', 'passed', { batchId: message.batchId, messageId: message.messageId });
       const updated = await this.store.transitionMessage(message.messageId, 'observed', {
         observedAt: this.dateProvider.now(),
       });
@@ -937,9 +1003,9 @@ export class InboxBot implements BotLifecycle {
     }
     const index = await this.node.getL1ToL2MessageIndex(Fr.random());
     if (index === undefined) {
-      this.recordCheck('unknown_message', 'passed', { batchId });
+      await this.recordCheck('unknown_message', 'passed', { batchId });
     } else {
-      this.recordCheck('unknown_message', 'failed', { batchId, reported: index.toString() });
+      await this.recordCheck('unknown_message', 'failed', { batchId, reported: index.toString() });
       this.recordFailure('api_inconsistency', { batchId, check: 'unknown_message' });
     }
     await this.store.recordBatchProbe(batchId, 'unknown_message');
@@ -994,14 +1060,16 @@ export class InboxBot implements BotLifecycle {
         continue;
       }
       if (result.outcome === 'invalid') {
-        this.recordCheck('readiness_witness', 'failed', {
+        await this.recordCheck('readiness_witness', 'failed', {
+          batchId: message.batchId,
           messageId: message.messageId,
           blockNumber: result.blockNumber,
           detail: result.detail,
         });
         this.recordFailure('invalid_witness', { messageId: message.messageId, detail: result.detail });
       } else {
-        this.recordCheck('readiness_witness', 'passed', {
+        await this.recordCheck('readiness_witness', 'passed', {
+          batchId: message.batchId,
           messageId: message.messageId,
           blockNumber: result.blockNumber,
         });
@@ -1163,9 +1231,14 @@ export class InboxBot implements BotLifecycle {
     }
     const result = await this.checkReadiness(message, anchor);
     if (result.outcome === 'ready') {
-      this.recordCheck('readiness_witness', 'passed', { messageId: message.messageId, blockNumber: anchor });
+      await this.recordCheck('readiness_witness', 'passed', {
+        batchId: message.batchId,
+        messageId: message.messageId,
+        blockNumber: anchor,
+      });
     } else if (result.outcome !== 'indeterminate') {
-      this.recordCheck('readiness_witness', 'failed', {
+      await this.recordCheck('readiness_witness', 'failed', {
+        batchId: message.batchId,
         messageId: message.messageId,
         blockNumber: anchor,
         detail: result.detail ?? result.outcome,
@@ -1373,9 +1446,13 @@ export class InboxBot implements BotLifecycle {
     }
     const expected = await this.expectedConsumptionNullifier(message);
     if (receipt.txEffect.nullifiers.some(nullifier => nullifier.equals(expected))) {
-      this.recordCheck('consumption_nullifier', 'passed', { messageId: message.messageId });
+      await this.recordCheck('consumption_nullifier', 'passed', {
+        batchId: message.batchId,
+        messageId: message.messageId,
+      });
     } else {
-      this.recordCheck('consumption_nullifier', 'failed', {
+      await this.recordCheck('consumption_nullifier', 'failed', {
+        batchId: message.batchId,
         messageId: message.messageId,
         txHash: message.l2TxHash,
         blockNumber: receipt.blockNumber,
@@ -1546,7 +1623,7 @@ export class InboxBot implements BotLifecycle {
       await this.consumer.simulate(request);
     } catch (err) {
       if (isAlreadyNullifiedError(err)) {
-        this.recordCheck('replay_rejection', 'passed', { batchId, messageId: message.messageId, mode: opposite });
+        await this.recordCheck('replay_rejection', 'passed', { batchId, messageId: message.messageId, mode: opposite });
         await this.store.recordBatchProbe(batchId, 'replay');
       } else {
         this.log.warn(`Replay probe was inconclusive; it will be tried again`, {
@@ -1559,7 +1636,7 @@ export class InboxBot implements BotLifecycle {
       return;
     }
 
-    this.recordCheck('replay_rejection', 'failed', { batchId, messageId: message.messageId, mode: opposite });
+    await this.recordCheck('replay_rejection', 'failed', { batchId, messageId: message.messageId, mode: opposite });
     this.recordFailure('replay_accepted', { batchId, messageId: message.messageId, mode: opposite });
     await this.store.recordBatchProbe(batchId, 'replay');
   }
@@ -1623,13 +1700,22 @@ export class InboxBot implements BotLifecycle {
     };
   }
 
-  private recordCheck(check: InboxBotCheck, result: InboxBotCheckResult, context: object): void {
+  /**
+   * Records the outcome of one semantic check. A failure is also persisted against the batch it belongs to, so a
+   * run's outcome can be judged on every check having passed rather than only on its messages being consumed.
+   */
+  private async recordCheck(
+    check: InboxBotCheck,
+    result: InboxBotCheckResult,
+    context: Record<string, unknown> & { batchId: string },
+  ): Promise<void> {
     this.metrics.recordCheck(check, result);
     if (result === 'passed') {
       this.log.debug(`Inbox check ${check} passed`, { check, result, ...context });
-    } else {
-      this.log.warn(`Inbox check ${check} failed`, { check, result, ...context });
+      return;
     }
+    this.log.warn(`Inbox check ${check} failed`, { check, result, ...context });
+    await this.store.recordCheckFailure(context.batchId, check);
   }
 
   private recordFailure(reason: InboxBotReason, context: object): void {
