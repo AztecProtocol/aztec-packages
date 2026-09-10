@@ -87,8 +87,8 @@ def cmd_start(args):
         print(url)
         return 0
     prepare()
-    host, _, port = args.redis.rpartition(":")
-    env = {**os.environ, "REDIS_HOST": host or args.redis, "REDIS_PORT": port or "6379",
+    host, _, port = args.redis.partition(":")
+    env = {**os.environ, "REDIS_HOST": host, "REDIS_PORT": port or "6379",
            "DASHBOARD_PASSWORD": args.password or secrets.token_hex(16)}
     pid_file, log_file = paths(args.port)
     with open(log_file, "ab") as log:
