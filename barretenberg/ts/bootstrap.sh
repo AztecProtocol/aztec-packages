@@ -67,8 +67,8 @@ function generate_bb_js_api_package {
     --curve-constants "$bbapi/bb_curve_constants.json" \
     --package-transports uds,shm,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \
-    --package-wasm-module barretenberg.wasm.gz \
-    --package-wasm-threads-module barretenberg-threads.wasm.gz \
+    --package-wasm-module barretenberg.wasm \
+    --package-wasm-threads-module barretenberg-threads.wasm \
     --package-wasm-host-imports "$ROOT/barretenberg/ts/codegen/bb_wasm_host_imports.ts"
 }
 
@@ -83,10 +83,19 @@ function generate_packages {
 
 # The wasm builds the bb.js-api package ships: threads (node, cross-origin isolated
 # browsers) and single-thread (browsers without SharedArrayBuffer).
+#
+# Shipped uncompressed. npm tarballs are gzipped either way, so this costs nothing on install,
+# and it is the form a host's own compression and the browser's compiled-code cache both want:
+# only a real application/wasm response can be streamed straight into WebAssembly.compileStreaming
+# and cached. A consumer serving from a host that does not compress can point bb.js's wasmPath (or
+# BB_WASM_PATH) at a compressed copy instead; the loader recognises gzip.
 function copy_bb_js_api_wasm {
+  # Replace rather than add to: the package publishes everything under wasm/, so a module left
+  # from an earlier build would ship alongside the current one.
+  rm -rf bb.js-api/wasm
   mkdir -p bb.js-api/wasm
-  cp "$ROOT/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm.gz" bb.js-api/wasm/barretenberg-threads.wasm.gz
-  cp "$ROOT/barretenberg/cpp/build-wasm/bin/barretenberg.wasm.gz" bb.js-api/wasm/barretenberg.wasm.gz
+  cp "$ROOT/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm" bb.js-api/wasm/barretenberg-threads.wasm
+  cp "$ROOT/barretenberg/cpp/build-wasm/bin/barretenberg.wasm" bb.js-api/wasm/barretenberg.wasm
 }
 
 function copy_bb_js_api_native {

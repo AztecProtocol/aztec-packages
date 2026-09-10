@@ -103,7 +103,9 @@ Optional:
                            Comma-separated binary args for IPC path; use {path}
   --package-wasm-module <file>
                            wasm transport: the single-thread module, shipped in the
-                           package's wasm/ directory
+                           package's wasm/ directory. Ship it uncompressed: only a
+                           real application/wasm response can be streamed into
+                           WebAssembly.compileStreaming and cached by the browser
   --package-wasm-threads-module <file>
                            wasm transport: the threads module, shipped in wasm/
   --package-wasm-host-imports <path>

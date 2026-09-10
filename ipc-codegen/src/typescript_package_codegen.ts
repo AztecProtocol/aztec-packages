@@ -870,8 +870,10 @@ export interface ${prefix}WasmOptions {
   /** Linear memory bounds in 64 KiB pages. */
   memory?: { initial?: number; maximum?: number };
   /**
-   * The module to run instead of the package's own: a URL or path, gzipped or raw bytes, a fetch
-   * Response, or a compiled WebAssembly.Module.
+   * The module to run instead of the package's own: a URL or path, raw or gzipped bytes, a fetch
+   * Response, or an already compiled WebAssembly.Module. The package's own module is uncompressed,
+   * so that a browser can stream it into compileStreaming and cache the compiled code; point this
+   * at a gzipped copy when serving from a host that applies no compression of its own.
    */
   module?: WasmModuleSource;
   /**
@@ -1164,7 +1166,7 @@ done
       process &&
         `- \`'process'\`: spawns the \`${this.opts.binaryName}\` binary (node) and talks to it over ${this.processTransports.join(" or ")}. The binary is resolved from \`${this.opts.binaryEnvVar}\`, an explicit \`process.binaryPath\`, or the installed arch package (one of this package's optional dependencies).`,
       wasm &&
-        `- \`'wasm'\`: runs the service's wasm module in-process (node and browsers) through \`@aztec-foundation/ipc-runtime/wasm\`: the main instance in a worker, wasi threads on further workers where a shared memory is available (node, or a browser page served with COOP/COEP headers), otherwise the single-thread module. The worker scripts and the module are referenced with \`new URL(..., import.meta.url)\`, so bundlers emit them as chunks and assets of the application (Vite users: exclude the package from \`optimizeDeps\`).`,
+        `- \`'wasm'\`: runs the service's wasm module in-process (node and browsers) through \`@aztec-foundation/ipc-runtime/wasm\`: the main instance in a worker, wasi threads on further workers where a shared memory is available (node, or a browser page served with COOP/COEP headers), otherwise the single-thread module. The worker scripts and the module are referenced with \`new URL(..., import.meta.url)\`, so bundlers emit them as chunks and assets of the application, and only the module actually chosen is ever fetched (Vite users: exclude the package from \`optimizeDeps\`). The module ships uncompressed, which is what lets the browser stream it into \`WebAssembly.compileStreaming\` and cache the compiled code between visits; serve it with your host's own compression. Where that is not possible, \`wasm.module\` takes a compressed copy — or bytes, a \`Response\`, or an already compiled \`Module\`.`,
       `- an object: anything with \`call(bytes)\`/\`destroy()\`, for a transport of your own (a bridge to a natively linked library, for instance).`,
     ]
       .filter(Boolean)
