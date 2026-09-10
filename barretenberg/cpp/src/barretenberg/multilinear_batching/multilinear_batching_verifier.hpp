@@ -32,8 +32,6 @@ template <typename Flavor_> class MultilinearBatchingVerifierInternal {
     using Transcript = typename Flavor::Transcript;
     using Sumcheck = SumcheckVerifier<Flavor>;
     using VerifierClaim = MultilinearBatchingVerifierClaim<Curve>;
-    using Proof = std::conditional_t<Curve::is_stdlib_type, stdlib::Proof<MegaCircuitBuilder>, HonkProof>;
-
     static constexpr size_t NUM_CLAIMS = Flavor::NUM_CLAIMS;
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
 
@@ -61,13 +59,16 @@ template <typename Flavor_> class MultilinearBatchingVerifierInternal {
  * @details Templated only on the native/recursive axis (a compile-time caller choice). verify_proof() routes on the
  * runtime claim count to the internal verifier of the matching width.
  */
-template <bool IsRecursive_> class MultilinearBatchingVerifier {
+template <bool IsRecursive_, typename Builder_ = MegaKernelCircuitBuilder> class MultilinearBatchingVerifier {
   public:
-    using BaseFlavor = std::conditional_t<IsRecursive_, MultilinearBatchingRecursiveFlavor, MultilinearBatchingFlavor>;
+    // The circuit verifying the batching proof (recursive case only; ignored natively).
+    using Builder = Builder_;
+    using BaseFlavor =
+        std::conditional_t<IsRecursive_, MultilinearBatchingRecursiveFlavor<Builder>, MultilinearBatchingFlavor>;
     using Curve = typename BaseFlavor::Curve;
     using Transcript = typename BaseFlavor::Transcript;
     using VerifierClaim = MultilinearBatchingVerifierClaim<Curve>;
-    using Proof = std::conditional_t<Curve::is_stdlib_type, stdlib::Proof<MegaCircuitBuilder>, HonkProof>;
+    using Proof = std::conditional_t<Curve::is_stdlib_type, stdlib::Proof<Builder>, HonkProof>;
 
     static constexpr bool IsRecursive = IsRecursive_;
 
@@ -84,6 +85,6 @@ template <bool IsRecursive_> class MultilinearBatchingVerifier {
 };
 
 using MultilinearBatchingNativeVerifier = MultilinearBatchingVerifier<false>;
-using MultilinearBatchingRecursiveVerifier = MultilinearBatchingVerifier<true>;
+template <typename Builder> using MultilinearBatchingRecursiveVerifier = MultilinearBatchingVerifier<true, Builder>;
 
 } // namespace bb

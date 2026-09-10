@@ -140,7 +140,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
     using FoldingProver = bb::HypernovaFoldingProver;
     using ProverAccumulator = FoldingProver::Accumulator;
     using NativeVerifier = bb::HypernovaFoldingNativeVerifier;
-    using RecursiveVerifier = bb::HypernovaFoldingRecursiveVerifier;
+    using RecursiveVerifier = bb::HypernovaFoldingRecursiveVerifier_<MegaKernelCircuitBuilder>;
     using NativeVerifierAccumulator = NativeVerifier::Accumulator;
     using NativeTranscript = NativeVerifier::Transcript;
     using RecursiveTranscript = RecursiveVerifier::Transcript;
@@ -152,10 +152,12 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
     template <typename Flavor>
     static std::shared_ptr<ProverInstance_<Flavor>> generate_instance(size_t log_num_gates = LOG_NUM_GATES)
     {
-        Builder builder;
+        typename Flavor::CircuitBuilder builder;
         bb::MockCircuits::add_arithmetic_gates(builder, log_num_gates);
         bb::MockCircuits::add_arithmetic_gates_with_public_inputs(builder);
-        bb::MockCircuits::add_lookup_gates(builder);
+        if constexpr (Flavor::HasLogDerivLookup) {
+            bb::MockCircuits::add_lookup_gates(builder);
+        }
         return std::make_shared<ProverInstance_<Flavor>>(builder);
     }
 

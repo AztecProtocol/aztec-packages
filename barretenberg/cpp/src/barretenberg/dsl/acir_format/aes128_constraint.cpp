@@ -7,6 +7,7 @@
 #include "aes128_constraint.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/stdlib/encryption/aes128/aes128.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include <cstdint>
 #include <cstdio>
 #include <span>
@@ -82,7 +83,10 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
 template void create_aes128_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
                                                              const AES128Constraint& constraint);
 
-template void create_aes128_constraints<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                            const AES128Constraint& constraint);
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+#define INSTANTIATE_CREATE_AES128_CONSTRAINTS(Builder)                                                                 \
+    template void create_aes128_constraints<Builder>(Builder&, const AES128Constraint& constraint);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(INSTANTIATE_CREATE_AES128_CONSTRAINTS)
+#undef INSTANTIATE_CREATE_AES128_CONSTRAINTS
 
 } // namespace acir_format

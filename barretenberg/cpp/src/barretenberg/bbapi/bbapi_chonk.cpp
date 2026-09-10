@@ -359,13 +359,23 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
         .collect_gates_per_opcode = include_gates_per_opcode
     };
 
+    // The request carries no CircuitKind, so infer the arithmetization from the bytecode: only kernels
+    // recursively verify the IVC's own proofs. The inference cannot tell a hiding kernel from a regular one,
+    // and counts both as the latter. Their gate kinds are a superset of the hiding kernel's, so the count is
+    // representative -- except where the circuit uses a construct only the regular kernel can represent (a
+    // ROM/RAM block, say), which is counted here and then rejected when the hiding kernel is really built.
+    const CircuitKind kind = ivc_constraints.empty() ? CircuitKind::App : CircuitKind::Kernel;
+
     // Create and finalize circuit
-    auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-    builder.finalize_circuit();
+    dispatch_kind(kind, [&]<CircuitKind K>() {
+        auto builder = acir_format::create_circuit<circuit_for<K>>(program, metadata);
+        builder.finalize_circuit();
+        response.circuit_size = static_cast<uint32_t>(builder.num_gates());
+        builder.blocks.summarize();
+    });
 
     // Set response values
     response.acir_opcodes = program.constraints.num_acir_opcodes;
-    response.circuit_size = static_cast<uint32_t>(builder.num_gates());
 
     // Optionally include gates per opcode
     if (include_gates_per_opcode) {
@@ -380,9 +390,6 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
          response.acir_opcodes,
          ", circuit_size: ",
          response.circuit_size);
-
-    // Print execution trace details
-    builder.blocks.summarize();
 
     return response;
 }

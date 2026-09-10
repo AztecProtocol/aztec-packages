@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <string_view>
 #include <vector>
 
@@ -13,30 +14,56 @@
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
+#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 
 namespace bb {
 
-using MegaTraceBlock = ExecutionTraceBlock<fr, 4>;
-
 struct MegaTraceBlockData {
-    using BlockBase = MegaTraceBlock;
+    using BlockBase = ExecutionTraceBlockStorage<fr>;
 
-    MegaTraceBlock ecc_op{};
-    MegaTraceBlock pub_inputs{};
-    MegaTraceBlock lookup{ GateKind::Lookup };
-    MegaTraceBlock arithmetic{ GateKind::Arith, GateKind::BilinearBatchedEq };
-    MegaTraceBlock delta_range{ GateKind::DeltaRange };
-    MegaTraceBlock elliptic{ GateKind::Elliptic };
-    MegaTraceBlock memory{ GateKind::Memory };
-    MegaTraceBlock nnf{ GateKind::Nnf };
-    MegaTraceBlock busread{ GateKind::BusRead };
-    MegaTraceBlock poseidon2{ GateKind::Poseidon2Ext,
-                              GateKind::Poseidon2ExtInitial,
-                              GateKind::Poseidon2QuadInt,
-                              GateKind::Poseidon2QuadIntTerminal,
-                              GateKind::Poseidon2TransitionEntry };
+    template <GateKind... Kinds> using Block = ExecutionTraceBlock<fr, Kinds...>;
+
+    Block<> ecc_op{};
+    Block<> pub_inputs{};
+    Block<GateKind::Lookup> lookup{};
+    Block<GateKind::Arith, GateKind::BilinearBatchedEq> arithmetic{};
+    Block<GateKind::DeltaRange> delta_range{};
+    Block<GateKind::Elliptic> elliptic{};
+    Block<GateKind::Memory> memory{};
+    Block<GateKind::Nnf> nnf{};
+    Block<GateKind::BusRead> busread{};
+    Block<GateKind::Poseidon2Ext,
+          GateKind::Poseidon2ExtInitial,
+          GateKind::Poseidon2QuadInt,
+          GateKind::Poseidon2QuadIntTerminal,
+          GateKind::Poseidon2TransitionEntry>
+        poseidon2{};
 
     static constexpr size_t NUM_BLOCKS = 10;
+
+    // Every gate kind some block of this trace owns: everything a builder over it can create.
+    static constexpr GateKindMask GATE_KINDS_MASK =
+        gate_kind_bit(GateKind::Lookup) | gate_kind_bit(GateKind::Arith) | gate_kind_bit(GateKind::BilinearBatchedEq) |
+        gate_kind_bit(GateKind::DeltaRange) | gate_kind_bit(GateKind::Elliptic) | gate_kind_bit(GateKind::Memory) |
+        gate_kind_bit(GateKind::Nnf) | gate_kind_bit(GateKind::BusRead) | gate_kind_bit(GateKind::Poseidon2Ext) |
+        gate_kind_bit(GateKind::Poseidon2ExtInitial) | gate_kind_bit(GateKind::Poseidon2QuadInt) |
+        gate_kind_bit(GateKind::Poseidon2QuadIntTerminal) | gate_kind_bit(GateKind::Poseidon2TransitionEntry);
+
+    // Databus columns this arithmetization has, as a bitmask over builder bus indices.
+    static constexpr uint32_t BUS_INDICES_MASK = (uint32_t{ 1 } << 0) | (uint32_t{ 1 } << 1) | (uint32_t{ 1 } << 2) |
+                                                 (uint32_t{ 1 } << 3) | (uint32_t{ 1 } << 4) | (uint32_t{ 1 } << 5) |
+                                                 (uint32_t{ 1 } << 6);
+
+    static constexpr bool has_bus(size_t bus_idx) { return (BUS_INDICES_MASK & (uint32_t{ 1 } << bus_idx)) != 0; }
+
+    /**
+     * @brief Whether this arithmetization has a block owning `kind`, i.e. whether such a gate can
+     * exist in a circuit built on it at all. Gate-creation paths that only some arithmetizations
+     * support test this, either with `static_assert` (the caller is hand-written and the call is
+     * simply wrong) or with `if constexpr` (the caller is generic over arithmetizations, e.g. ACIR
+     * translation, and must fail at runtime on bytecode it cannot represent).
+     */
+    static constexpr bool has_gate_kind(GateKind kind) { return (GATE_KINDS_MASK & gate_kind_bit(kind)) != 0; }
 
     std::vector<std::string_view> get_labels() const
     {
@@ -48,7 +75,7 @@ struct MegaTraceBlockData {
 
     auto get()
     {
-        return RefArray(std::array<MegaTraceBlock*, NUM_BLOCKS>{
+        return RefArray(std::array<BlockBase*, NUM_BLOCKS>{
             &ecc_op,
             &pub_inputs,
             &lookup,
@@ -64,7 +91,7 @@ struct MegaTraceBlockData {
 
     auto get() const
     {
-        return RefArray(std::array<const MegaTraceBlock*, NUM_BLOCKS>{
+        return RefArray(std::array<const BlockBase*, NUM_BLOCKS>{
             &ecc_op,
             &pub_inputs,
             &lookup,
@@ -95,5 +122,9 @@ struct MegaTraceBlockData {
 
     bool operator==(const MegaTraceBlockData& other) const = default;
 };
+
+// The execution trace of the MegaFlavor arithmetization. Part of the builder's type: a circuit
+// built on this trace can only be proven with a flavor whose relations constrain its blocks.
+using MegaExecutionTraceBlocks = MegaExecutionTraceBlocks_<MegaTraceBlockData>;
 
 } // namespace bb

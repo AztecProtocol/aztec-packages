@@ -45,7 +45,7 @@ void Chonk::run_native_instance_sumcheck(const std::shared_ptr<typename NativeFl
 }
 
 template <typename InstanceFlavor>
-void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
+void Chonk::debug_incoming_circuit(typename InstanceFlavor::CircuitBuilder& circuit,
                                    const std::shared_ptr<ProverInstance_<InstanceFlavor>>& prover_instance,
                                    const std::shared_ptr<typename InstanceFlavor::VerificationKey>& precomputed_vk)
 {
@@ -150,7 +150,7 @@ Chonk::Chonk(std::vector<CircuitKind> circuit_kinds)
 /**
  * @brief Build the hiding kernel's ZK proving key and verification key (proving is deferred to prove()).
  */
-void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit,
+void Chonk::accumulate_hiding_kernel(HidingKernelCircuit& circuit,
                                      const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk)
 {
     BB_BENCH_NAME("Chonk::accumulate_hiding_kernel");
@@ -185,7 +185,7 @@ void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit,
 // MegaKernelFlavor for kernels). The Hypernova accumulator is flavor-agnostic so apps and kernels
 // fold into the same `prover_accumulator`.
 template <typename InstanceFlavor>
-HonkProof Chonk::instance_to_accumulator(ClientCircuit& circuit,
+HonkProof Chonk::instance_to_accumulator(typename InstanceFlavor::CircuitBuilder& circuit,
                                          const std::shared_ptr<typename InstanceFlavor::VerificationKey>& vk)
 {
     using PI = ProverInstance_<InstanceFlavor>;
@@ -204,11 +204,15 @@ HonkProof Chonk::instance_to_accumulator(ClientCircuit& circuit,
     return folding_prover->template accumulate_instance<InstanceFlavor>(prover_instance, vk);
 }
 
-void Chonk::accumulate_and_fold(ClientCircuit& circuit, const CircuitVerificationKey& vk)
+template <IsChonkCircuit Circuit> void Chonk::accumulate_and_fold(Circuit& circuit, const CircuitVerificationKey& vk)
 {
     BB_BENCH_NAME("Chonk::accumulate_and_fold");
 
-    const CircuitKind kind = current_kind();
+    // The circuit's arithmetization fixes its kind; accumulate() has already checked it against current_kind().
+    constexpr CircuitKind kind = kind_of_circuit<Circuit>;
+    static_assert(kind == CircuitKind::App || kind == CircuitKind::Kernel,
+                  "the hiding kernel is not folded; see accumulate_hiding_kernel");
+    using InstanceFlavor = flavor_for<kind>;
     const CircuitKind following_kind = next_kind();
 
     const bool state_says_kernel = verification_queue.empty() && num_circuits_accumulated > 0;
@@ -232,19 +236,15 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit, const CircuitVerificatio
 #endif
     }
 
-    HonkProof proof;
     VerifierInputs queue_entry;
     queue_entry.kind = kind;
-    if (kind == CircuitKind::Kernel) {
-        auto kernel_vk = std::get<std::shared_ptr<KernelVerificationKey>>(vk);
-        proof = instance_to_accumulator<KernelFlavor>(circuit, kernel_vk);
-        queue_entry.kernel_honk_vk = std::move(kernel_vk);
+    auto circuit_vk = std::get<std::shared_ptr<typename InstanceFlavor::VerificationKey>>(vk);
+    queue_entry.proof = instance_to_accumulator<InstanceFlavor>(circuit, circuit_vk);
+    if constexpr (kind == CircuitKind::Kernel) {
+        queue_entry.kernel_honk_vk = std::move(circuit_vk);
     } else {
-        auto app_vk = std::get<std::shared_ptr<AppVerificationKey>>(vk);
-        proof = instance_to_accumulator<AppFlavor>(circuit, app_vk);
-        queue_entry.app_honk_vk = std::move(app_vk);
+        queue_entry.app_honk_vk = std::move(circuit_vk);
     }
-    queue_entry.proof = std::move(proof);
 
     if (detail::use_memory_profile) {
         detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_accumulate");
@@ -287,22 +287,23 @@ Chonk::CircuitKind Chonk::next_kind() const
  * kernel, the circuit being accumulated completes that kernel's group, so its multilinear batching proof
  * (and, before the hiding kernel, the decider proof) is produced here.
  */
-void Chonk::accumulate(ClientCircuit& circuit, const CircuitVerificationKey& vk)
+template <IsChonkCircuit Circuit> void Chonk::accumulate(Circuit& circuit, const CircuitVerificationKey& vk)
 {
     BB_BENCH_NAME("Chonk::accumulate");
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
-    const CircuitKind kind = current_kind();
+    constexpr CircuitKind kind = kind_of_circuit<Circuit>;
+    // Throw, not BB_ASSERT: the kinds arrive from msgpack, so a caller may hand us a circuit built for a
+    // different position in the stack than the one the IVC expects next.
+    if (kind != current_kind()) {
+        throw_or_abort("Chonk::accumulate: circuit arithmetization disagrees with the expected CircuitKind");
+    }
 
-    switch (kind) {
-    case CircuitKind::HidingKernel: {
+    if constexpr (kind == CircuitKind::HidingKernel) {
         // The constructor guarantees the HidingKernel kind only at the final position; std::get below throws
         // bad_variant_access if the caller supplies a non-MegaZK VK.
         accumulate_hiding_kernel(circuit, std::get<std::shared_ptr<MegaZKVerificationKey>>(vk));
-        break;
-    }
-    case CircuitKind::App:
-    case CircuitKind::Kernel: {
+    } else {
         // Capture before folding: accumulate_and_fold advances num_circuits_accumulated.
         const CircuitKind following_kind = next_kind();
 
@@ -322,12 +323,12 @@ void Chonk::accumulate(ClientCircuit& circuit, const CircuitVerificationKey& vk)
             prover_accumulator.shifted_polynomial = ProverAccumulator::Polynomial{};
             goblin.prove_batch_merge();
         }
-        break;
-    }
-    case CircuitKind::None:
-        throw_or_abort("Chonk::accumulate: CircuitKind is None (unset)");
     }
 }
+
+template void Chonk::accumulate<AppCircuit>(AppCircuit&, const CircuitVerificationKey&);
+template void Chonk::accumulate<KernelCircuit>(KernelCircuit&, const CircuitVerificationKey&);
+template void Chonk::accumulate<HidingKernelCircuit>(HidingKernelCircuit&, const CircuitVerificationKey&);
 
 /**
  * @brief Batch the group's sumcheck claims (collected during the group's accumulate() calls) together with the
@@ -363,6 +364,19 @@ void Chonk::prove_multilinear_batching()
     folding_prover.reset();
 }
 
+/**
+ * @brief Construct Chonk proof using the batched MegaZK + Translator protocol.
+ *
+ * @details Orchestrates the batched proving flow on a shared transcript:
+ *   1. MegaZK Oink (pre-sumcheck commitments for the hiding kernel)
+ *   2. Merge proof (fixed-location append of the final subtable from the hiding kernel)
+ *   3. ECCVM proof (produces translation challenges v, x)
+ *   4. IPA proof (separate transcript)
+ *   5. Translator Oink + Joint sumcheck + Joint PCS
+ *
+ * The joint sumcheck and PCS batch the MegaZK and translator circuits together,
+ * eliminating separate sumcheck/PCS phases and reducing proof size.
+ */
 ChonkProof Chonk::prove()
 {
     BB_BENCH_NAME("Chonk::prove");

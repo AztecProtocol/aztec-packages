@@ -27,35 +27,38 @@ namespace bb {
 class Chonk;
 
 /**
- * @brief The recursive-verification logic a kernel circuit carries.
+ * @brief The recursive-verification logic a kernel circuit carries, instantiated for the arithmetization of
+ * the kernel that carries it.
  *
- * @details Chonk itself handles all three circuit kinds and drives accumulation; only the stdlib appended
- * *inside* a kernel lives here. This owns the state that exists solely for kernel completion: the stdlib
- * verification queue, which mirrors the IVC's native queue, and the databus depot.
+ * @details Chonk itself handles all three circuit kinds and is not templated; only the stdlib appended *inside*
+ * a kernel depends on that kernel's arithmetization. There is one instantiation per kernel arithmetization
+ * (regular kernel and hiding kernel), each owning the per-arithmetization state: the stdlib verification queue
+ * and the databus depot.
+ *
+ * @tparam Circuit The kernel circuit type; determines the stdlib primitives the recursive verifier may use.
  */
-class KernelCompletion {
+template <typename Circuit> class KernelCompletion {
   public:
-    using ClientCircuit = MegaCircuitBuilder; // can only be Mega
-    using KernelRecursiveFlavor = MegaKernelRecursiveFlavor;
-    using AppRecursiveFlavor = MegaAppRecursiveFlavor;
+    using KernelRecursiveFlavor = MegaKernelRecursiveFlavor_<Circuit>;
+    using AppRecursiveFlavor = MegaAppRecursiveFlavor_<Circuit>;
     // Recursive scalar / commitment / transcript shapes are common to the App and Kernel recursive flavors
     // (shared BN254 stdlib base), so these aliases are sourced from the kernel one.
-    using StdlibFF = KernelRecursiveFlavor::FF;
-    using RecursiveCurve = KernelRecursiveFlavor::Curve;
-    using RecursiveCommitment = KernelRecursiveFlavor::Commitment;
-    using RecursiveTranscript = KernelRecursiveFlavor::Transcript;
+    using StdlibFF = typename KernelRecursiveFlavor::FF;
+    using RecursiveCurve = typename KernelRecursiveFlavor::Curve;
+    using RecursiveCommitment = typename KernelRecursiveFlavor::Commitment;
+    using RecursiveTranscript = typename KernelRecursiveFlavor::Transcript;
     using AppRecursiveVerifierInstance = VerifierInstance_<AppRecursiveFlavor>;
     using KernelRecursiveVerifierInstance = VerifierInstance_<KernelRecursiveFlavor>;
-    using AppRecursiveVKAndHash = AppRecursiveFlavor::VKAndHash;
-    using KernelRecursiveVKAndHash = KernelRecursiveFlavor::VKAndHash;
-    using AppWitnessCommitments = AppRecursiveFlavor::WitnessCommitments;
-    using KernelWitnessCommitments = KernelRecursiveFlavor::WitnessCommitments;
+    using AppRecursiveVKAndHash = typename AppRecursiveFlavor::VKAndHash;
+    using KernelRecursiveVKAndHash = typename KernelRecursiveFlavor::VKAndHash;
+    using AppWitnessCommitments = typename AppRecursiveFlavor::WitnessCommitments;
+    using KernelWitnessCommitments = typename KernelRecursiveFlavor::WitnessCommitments;
     using PairingPoints = stdlib::recursion::PairingPoints<RecursiveCurve>;
-    using StdlibProof = stdlib::Proof<ClientCircuit>;
-    using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
-    using KernelIO = stdlib::recursion::honk::KernelIO;
-    using HidingKernelIO = stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
-    using FoldingRecursiveVerifier = HypernovaFoldingRecursiveVerifier;
+    using StdlibProof = stdlib::Proof<Circuit>;
+    using DataBusDepot = stdlib::DataBusDepot<Circuit>;
+    using KernelIO = stdlib::recursion::honk::KernelIO<Circuit>;
+    using HidingKernelIO = stdlib::recursion::honk::HidingKernelIO<Circuit>;
+    using FoldingRecursiveVerifier = HypernovaFoldingRecursiveVerifier_<Circuit>;
     // The decider is flavor-independent; the flavor supplies only HasZK (= false) and whether we are in-circuit.
     using RecursiveDeciderVerifier = HypernovaDeciderVerifier<KernelRecursiveFlavor>;
     using RecursiveVerifierAccumulator = MultilinearBatchingVerifierClaim<RecursiveCurve>;
@@ -111,14 +114,14 @@ class KernelCompletion {
      * constraint. This option is not provided for proofs since valid proof witnesses are in general not known at
      * the time of acir constraint generation).
      */
-    void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
-                                               const std::vector<StdlibCircuitVKAndHash>& input_keys = {});
+    void instantiate_stdlib_verification_queue(Circuit& circuit,
+                                               const std::vector<StdlibCircuitVKAndHash<Circuit>>& input_keys = {});
 
     /**
      * @brief Append logic to complete a kernel circuit (HN/merge recursive verification, databus consistency
      * checks, public input propagation).
      */
-    void complete_kernel_circuit_logic(ClientCircuit& circuit);
+    void complete_kernel_circuit_logic(Circuit& circuit);
 
     /**
      * @brief Whether the kernel currently being completed is the init kernel (the first kernel, which carries
@@ -182,12 +185,15 @@ class KernelCompletion {
      * @brief Adds two random non-ops to the hiding kernel for zero-knowledge.
      * @details See MERGE_PROTOCOL.md (ZK Considerations) for detailed analysis.
      */
-    static void hide_op_queue_content(ClientCircuit& circuit);
+    static void hide_op_queue_content(Circuit& circuit);
 
     // Management of linking databus commitments between circuits in the IVC
     DataBusDepot bus_depot;
 
     Chonk& ivc;
 };
+
+extern template class KernelCompletion<KernelCircuit>;
+extern template class KernelCompletion<HidingKernelCircuit>;
 
 } // namespace bb

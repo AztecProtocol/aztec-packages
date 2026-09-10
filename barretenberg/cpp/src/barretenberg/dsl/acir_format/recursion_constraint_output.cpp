@@ -19,10 +19,16 @@ void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstrai
         this->points_accumulator = other.points_accumulator;
     }
 
-    if (update_ipa_data) {
-        // Update ipa proofs and claims
-        this->nested_ipa_proofs.push_back(other.ipa_proof);
-        this->nested_ipa_claims.push_back(other.ipa_claim);
+    // IPA claims only arise after the ECCVM, at which point every builder is Ultra: a Mega builder has no
+    // bigfield to hold a grumpkin claim in.
+    if constexpr (IsUltraBuilder<Builder>) {
+        if (update_ipa_data) {
+            // Update ipa proofs and claims
+            this->nested_ipa_proofs.push_back(other.ipa_proof);
+            this->nested_ipa_claims.push_back(other.ipa_claim);
+        }
+    } else {
+        BB_ASSERT(!update_ipa_data, "IPA data update requested on a Mega builder.");
     }
 }
 
@@ -36,15 +42,19 @@ void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstrai
         this->points_accumulator = other.points_accumulator;
     }
 
-    if (update_ipa_data) {
-        // Update ipa proofs and claims (if other has no proofs/claims, we are not appending anything)
-        this->nested_ipa_proofs.insert(
-            this->nested_ipa_proofs.end(), other.nested_ipa_proofs.begin(), other.nested_ipa_proofs.end());
-        this->nested_ipa_claims.insert(
-            this->nested_ipa_claims.end(), other.nested_ipa_claims.begin(), other.nested_ipa_claims.end());
-        this->nested_triple_ipa_openings.insert(this->nested_triple_ipa_openings.end(),
-                                                other.nested_triple_ipa_openings.begin(),
-                                                other.nested_triple_ipa_openings.end());
+    if constexpr (IsUltraBuilder<Builder>) {
+        if (update_ipa_data) {
+            // Update ipa proofs and claims (if other has no proofs/claims, we are not appending anything)
+            this->nested_ipa_proofs.insert(
+                this->nested_ipa_proofs.end(), other.nested_ipa_proofs.begin(), other.nested_ipa_proofs.end());
+            this->nested_ipa_claims.insert(
+                this->nested_ipa_claims.end(), other.nested_ipa_claims.begin(), other.nested_ipa_claims.end());
+            this->nested_triple_ipa_openings.insert(this->nested_triple_ipa_openings.end(),
+                                                    other.nested_triple_ipa_openings.begin(),
+                                                    other.nested_triple_ipa_openings.end());
+        }
+    } else {
+        BB_ASSERT(!update_ipa_data, "IPA data update requested on a Mega builder.");
     }
 }
 
@@ -166,18 +176,20 @@ void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::finalize(UltraCircuitB
     }
 }
 
-template <>
-void HonkRecursionConstraintsOutput<MegaCircuitBuilder>::finalize(MegaCircuitBuilder& builder,
-                                                                  [[maybe_unused]] bool is_hn_recursion_constraints,
-                                                                  [[maybe_unused]] bool has_ipa_claim)
+// Every Mega arithmetization finalizes the same way; UltraCircuitBuilder is specialized above.
+template <typename Builder>
+void HonkRecursionConstraintsOutput<Builder>::finalize(Builder& builder,
+                                                       [[maybe_unused]] bool is_hn_recursion_constraints,
+                                                       [[maybe_unused]] bool has_ipa_claim)
 {
-    using IO = stdlib::recursion::honk::AppIO;
+    static_assert(IsMegaBuilder<Builder>, "the Ultra arithmetization has its own specialization");
+    using IO = stdlib::recursion::honk::AppIO<Builder>;
 
     BB_ASSERT_EQ(
-        nested_ipa_claims.size(), static_cast<size_t>(0), "IPA claims present when not expected in MegaBuilder.");
+        nested_ipa_claims.size(), static_cast<size_t>(0), "IPA claims present when not expected in a Mega builder.");
     BB_ASSERT_EQ(nested_triple_ipa_openings.size(),
                  static_cast<size_t>(0),
-                 "TripleIPA openings present when not expected in MegaBuilder.");
+                 "TripleIPA openings present when not expected in a Mega builder.");
 
     // If the recursion constraints from HN, the public inputs have already been set. Otherwise, we need to propagate
     // the pairing points
@@ -195,17 +207,25 @@ void HonkRecursionConstraintsOutput<MegaCircuitBuilder>::finalize(MegaCircuitBui
 template void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::update(
     const HonkRecursionConstraintOutput<UltraCircuitBuilder>&, bool);
 
-template void HonkRecursionConstraintsOutput<MegaCircuitBuilder>::update(
-    const HonkRecursionConstraintOutput<MegaCircuitBuilder>&, bool);
-
 template void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::update(
     const HonkRecursionConstraintsOutput<UltraCircuitBuilder>&, bool);
-
-template void HonkRecursionConstraintsOutput<MegaCircuitBuilder>::update(
-    const HonkRecursionConstraintsOutput<MegaCircuitBuilder>&, bool);
 
 template void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::update_triple_ipa_opening(
     const stdlib::recursion::PairingPoints<stdlib::bn254<UltraCircuitBuilder>>&,
     HonkRecursionConstraintsOutput<UltraCircuitBuilder>::TripleIpaOpening);
+
+#define INSTANTIATE_MEGA_RECURSION_CONSTRAINTS_OUTPUT(Builder)                                                         \
+    template void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstraintOutput<Builder>&,       \
+                                                                  bool);                                               \
+    template void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstraintsOutput<Builder>&,      \
+                                                                  bool);                                               \
+    template void HonkRecursionConstraintsOutput<Builder>::finalize(Builder&, bool, bool);
+
+INSTANTIATE_MEGA_RECURSION_CONSTRAINTS_OUTPUT(MegaCircuitBuilder)
+INSTANTIATE_MEGA_RECURSION_CONSTRAINTS_OUTPUT(MegaAppCircuitBuilder)
+INSTANTIATE_MEGA_RECURSION_CONSTRAINTS_OUTPUT(MegaKernelCircuitBuilder)
+INSTANTIATE_MEGA_RECURSION_CONSTRAINTS_OUTPUT(MegaHidingKernelCircuitBuilder)
+
+#undef INSTANTIATE_MEGA_RECURSION_CONSTRAINTS_OUTPUT
 
 } // namespace acir_format

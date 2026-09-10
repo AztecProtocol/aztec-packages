@@ -189,5 +189,6 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
 }
 
 template class rom_table<bb::UltraCircuitBuilder>;
-template class rom_table<bb::MegaCircuitBuilder>;
+// Uses the memory gate: only the arithmetizations that keep it.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_MEMORY(rom_table)
 } // namespace bb::stdlib

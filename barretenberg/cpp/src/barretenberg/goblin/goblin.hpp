@@ -53,11 +53,14 @@ class Goblin {
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
     using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier<MegaBuilder>;
-    using BatchMergeRecursiveVerifier = stdlib::recursion::goblin::BatchMergeRecursiveVerifier<MegaBuilder>;
+    // The batch merge is verified inside a kernel, so it is parameterised by that kernel's arithmetization.
+    template <typename Builder>
+    using BatchMergeRecursiveVerifier = stdlib::recursion::goblin::BatchMergeRecursiveVerifier<Builder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
     using TableCommitments = MergeVerifier::TableCommitments;
     using RecursiveTableCommitments = MergeRecursiveVerifier::TableCommitments;
-    using BatchRecursiveTableCommitments = BatchMergeRecursiveVerifier::TableCommitments;
+    template <typename Builder>
+    using BatchRecursiveTableCommitments = typename BatchMergeRecursiveVerifier<Builder>::TableCommitments;
     using MergeCommitments = MergeVerifier::InputCommitments;
     using RecursiveMergeCommitments = MergeRecursiveVerifier::InputCommitments;
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
@@ -137,8 +140,10 @@ class Goblin {
      * @details `hash` is the running ECC-op hash chained over all per-circuit subtable commitments observed
      * during accumulation; the in-circuit verifier checks the proof's column commitments against it.
      */
-    std::pair<PairingPoints, BatchRecursiveTableCommitments> recursively_verify_batch_merge(
-        MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash) const;
+    template <typename Builder>
+    std::pair<stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>, BatchRecursiveTableCommitments<Builder>>
+    recursively_verify_batch_merge(Builder& builder,
+                                   const typename BatchMergeRecursiveVerifier<Builder>::FF& hash) const;
 };
 
 } // namespace bb

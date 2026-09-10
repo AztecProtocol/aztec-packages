@@ -345,12 +345,12 @@ template <typename Params> class MultilinearBatchingTests : public ::testing::Te
             MultilinearBatchingNativeVerifier verifier(transcript);
             std::tie(verified, new_claim) = verifier.verify_proof(faulty.verifier_claims);
         } else {
-            using RecursiveVerifier = MultilinearBatchingRecursiveVerifier;
+            using RecursiveVerifier = MultilinearBatchingRecursiveVerifier<MegaKernelCircuitBuilder>;
             using RecursiveCurve = typename RecursiveVerifier::Curve;
             using RecursiveClaim = MultilinearBatchingVerifierClaim<RecursiveCurve>;
             using RecursiveFF = typename RecursiveCurve::ScalarField;
 
-            MegaCircuitBuilder builder;
+            MegaKernelCircuitBuilder builder;
             auto transcript = std::make_shared<typename RecursiveVerifier::Transcript>();
             typename RecursiveVerifier::Proof stdlib_proof(builder, faulty.proof);
             transcript->load_proof(stdlib_proof);

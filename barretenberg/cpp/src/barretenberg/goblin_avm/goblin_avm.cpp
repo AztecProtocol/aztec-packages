@@ -21,7 +21,7 @@
 
 namespace bb {
 
-GoblinAvm::GoblinAvm(MegaBuilder& builder, const std::shared_ptr<Transcript>& avm_transcript)
+GoblinAvm::GoblinAvm(Builder& builder, const std::shared_ptr<Transcript>& avm_transcript)
 {
     // Set members of base Goblin class
     avm_mode = true;

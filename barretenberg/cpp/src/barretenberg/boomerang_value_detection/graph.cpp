@@ -96,6 +96,7 @@ std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::extract_gate_variable
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_rom_table_connected_component(
     const bb::RomTranscript& rom_array)
+    requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory))
 {
     // Every RomTranscript data structure has 2 main components that are interested for static analyzer:
     // 1) records contains values that were put in the gate, we can use them to create connections between variables
@@ -162,6 +163,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_rom_table_
 template <typename FF, typename CircuitBuilder>
 inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_ram_table_connected_component(
     const bb::RamTranscript& ram_array)
+    requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory))
 {
     std::vector<uint32_t> ram_table_variables;
     auto& memory_block = circuit_builder.blocks.memory;
@@ -333,19 +335,16 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
         }
     }
 
-    const auto& rom_arrays = circuit_builder.rom_ram_logic.rom_arrays;
-    if (!rom_arrays.empty()) {
-        for (const auto& rom_array : rom_arrays) {
+    // ROM/RAM tables only exist in arithmetizations that keep the memory gate.
+    if constexpr (CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory)) {
+        for (const auto& rom_array : circuit_builder.rom_ram_logic.rom_arrays) {
             std::vector<uint32_t> variable_indices = get_rom_table_connected_component(rom_array);
             if (connect_variables) {
                 connect_all_variables_in_vector(variable_indices);
             }
         }
-    }
 
-    const auto& ram_arrays = circuit_builder.rom_ram_logic.ram_arrays;
-    if (!ram_arrays.empty()) {
-        for (const auto& ram_array : ram_arrays) {
+        for (const auto& ram_array : circuit_builder.rom_ram_logic.ram_arrays) {
             std::vector<uint32_t> variable_indices = get_ram_table_connected_component(ram_array);
             if (connect_variables) {
                 connect_all_variables_in_vector(variable_indices);
@@ -539,7 +538,9 @@ std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connec
     }
     mark_range_list_connected_components();
     mark_finalize_connected_components();
-    mark_process_rom_connected_component();
+    if constexpr (CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory)) {
+        mark_process_rom_connected_component();
+    }
     return connected_components;
 }
 
@@ -591,6 +592,7 @@ bool StaticAnalyzer_<FF, CircuitBuilder>::variable_only_in_sorted_rom_gates(uint
  */
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::mark_process_rom_connected_component()
+    requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory))
 {
     auto& memory_block = circuit_builder.blocks.memory;
     for (auto& cc : connected_components) {
@@ -811,6 +813,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_range_constrains_va
 template <typename FF, typename CircuitBuilder>
 inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_aes_plookup_variables(BasicTableId& table_id,
                                                                                           size_t gate_index)
+    requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup))
 {
 
     auto find_position = [&](uint32_t real_variable_index) {
@@ -849,6 +852,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_aes_plookup_
 template <typename FF, typename CircuitBuilder>
 inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_sha256_plookup_variables(BasicTableId& table_id,
                                                                                              size_t gate_index)
+    requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup))
 {
     auto find_position = [&](uint32_t real_variable_index) {
         return variables_in_one_gate.contains(real_variable_index);
@@ -897,6 +901,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_sha256_plook
 template <typename FF, typename CircuitBuilder>
 inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_keccak_plookup_variables(BasicTableId& table_id,
                                                                                              size_t gate_index)
+    requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup))
 {
     auto find_position = [&](uint32_t real_variable_index) {
         return variables_in_one_gate.contains(real_variable_index);
@@ -937,6 +942,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_keccak_plook
 
 template <typename FF, typename CircuitBuilder>
 inline void StaticAnalyzer_<FF, CircuitBuilder>::process_current_plookup_gate(size_t gate_index)
+    requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup))
 {
     auto find_position = [&](uint32_t real_variable_index) {
         return variables_in_one_gate.contains(real_variable_index);
@@ -992,6 +998,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_current_plookup_gate(si
 
 template <typename FF, typename CircuitBuilder>
 inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_plookup_variables()
+    requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup))
 {
     auto& lookup_block = circuit_builder.blocks.lookup;
     if (lookup_block.size() > 0) {
@@ -1011,6 +1018,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_plookup_vari
 
 template <typename FF, typename CircuitBuilder>
 inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_record_witness_variables()
+    requires(CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory))
 {
     auto& memory_block = circuit_builder.blocks.memory;
     std::vector<uint32_t> to_remove;
@@ -1070,7 +1078,9 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
         }
     }
     remove_unnecessary_decompose_variables(decompose_variables);
-    remove_unnecessary_plookup_variables();
+    if constexpr (CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup)) {
+        remove_unnecessary_plookup_variables();
+    }
     remove_unnecessary_range_constrains_variables();
 
     // Remove variables that are intentionally in one gate (e.g., fix_witness, inverse checks).
@@ -1082,20 +1092,24 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
     for (const auto& elem : circuit_builder.get_used_witnesses()) {
         variables_in_one_gate.erase(elem);
     }
-    remove_record_witness_variables();
+    if constexpr (CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory)) {
+        remove_record_witness_variables();
+    }
 
     // Remove variables that only appear in sorted ROM gates - these are constrained via tau tags
     // (permutation argument) rather than copy constraints, matching how connected components
     // are filtered with is_process_rom_cc
-    auto& memory_block = circuit_builder.blocks.memory;
-    std::vector<uint32_t> to_remove;
-    for (const auto& var_idx : variables_in_one_gate) {
-        if (variable_only_in_sorted_rom_gates(var_idx, memory_block)) {
-            to_remove.emplace_back(var_idx);
+    if constexpr (CircuitBuilder::ExecutionTrace::has_gate_kind(bb::GateKind::Memory)) {
+        auto& memory_block = circuit_builder.blocks.memory;
+        std::vector<uint32_t> to_remove;
+        for (const auto& var_idx : variables_in_one_gate) {
+            if (variable_only_in_sorted_rom_gates(var_idx, memory_block)) {
+                to_remove.emplace_back(var_idx);
+            }
         }
-    }
-    for (const auto& elem : to_remove) {
-        variables_in_one_gate.erase(elem);
+        for (const auto& elem : to_remove) {
+            variables_in_one_gate.erase(elem);
+        }
     }
 
     return variables_in_one_gate;
@@ -1396,7 +1410,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_memory_gate_info(size_t gate_ind
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_variable_info(const uint32_t real_idx)
 {
-    using BlockType = std::conditional_t<IsMegaBuilder<CircuitBuilder>, bb::MegaTraceBlock, bb::UltraTraceBlock>;
+    using BlockType = bb::ExecutionTraceBlockStorage<FF>;
     for (const auto& [key, gates] : variable_gates) {
         if (key.first == real_idx) {
             for (size_t i = 0; i < gates.size(); i++) {
@@ -1461,6 +1475,8 @@ std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> StaticA
 }
 
 template class StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>;
-template class StaticAnalyzer_<bb::fr, bb::MegaCircuitBuilder>;
+#define INSTANTIATE_STATIC_ANALYZER(Builder) template class StaticAnalyzer_<bb::fr, Builder>;
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_STATIC_ANALYZER)
+#undef INSTANTIATE_STATIC_ANALYZER
 
 } // namespace cdg

@@ -5,6 +5,7 @@ import * as R from "../relations/index.js";
 export const Ultra = flavor({
     name: "UltraFlavor",
     family: "ultra",
+  arithmetization: "ultra",
     relations: [
         // Order matters: it determines both selector/entity layout and trace block indices.
         // UltraPermutation (no gate block) is first so the to-be-shifted witnesses
@@ -25,6 +26,4 @@ export const Ultra = flavor({
     composites: {
         selectors: ["non_gate_selectors", "gate_selectors"],
     },
-    traceExtraBlocks: ["pub_inputs"],
-    emitsTrace: true,
-});
+  });

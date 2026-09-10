@@ -58,10 +58,12 @@ static_assert(2 * NUM_AVM_ULTRA_OPS < (1 << CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SI
  */
 class TwoLayerAvmRecursiveVerifier {
   public:
-    using MegaPairingPoints = bb::stdlib::recursion::PairingPoints<stdlib::bn254<MegaCircuitBuilder>>;
+    // The inner circuit is built for the arithmetization MegaAvmFlavor constrains.
+    using InnerBuilder = MegaAvmFlavor::CircuitBuilder;
+    using MegaPairingPoints = bb::stdlib::recursion::PairingPoints<stdlib::bn254<InnerBuilder>>;
 
     using UltraFF = stdlib::field_t<UltraCircuitBuilder>;
-    using MegaFF = stdlib::field_t<MegaCircuitBuilder>;
+    using MegaFF = stdlib::field_t<InnerBuilder>;
 
     // The output of the goblinized AVM2 recursive verifier
     struct TwoLayerAvmRecursiveVerifierOutput {
@@ -171,7 +173,7 @@ class TwoLayerAvmRecursiveVerifier {
         using MegaAvmProver = UltraProver_<MegaAvmFlavor>;
 
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
-        MegaCircuitBuilder inner_builder;
+        InnerBuilder inner_builder;
         GoblinAvm goblin(inner_builder);
 
         // Construct the inner recursive verification circuit
@@ -208,16 +210,16 @@ class TwoLayerAvmRecursiveVerifier {
      * @brief Construct the inner recursive verification circuit for the AVM2 recursive verifier.
      *
      */
-    static void construct_inner_recursive_verification_circuit(MegaCircuitBuilder& inner_builder,
+    static void construct_inner_recursive_verification_circuit(InnerBuilder& inner_builder,
                                                                const stdlib::Proof<UltraCircuitBuilder>& stdlib_proof,
                                                                const std::vector<std::vector<UltraFF>>& public_inputs)
     {
-        using IO = stdlib::recursion::honk::GoblinAvmIO<MegaCircuitBuilder>;
+        using IO = stdlib::recursion::honk::GoblinAvmIO<InnerBuilder>;
 
         // Create free witnesses representing the AVM proof and public inputs in the inner circuit.
         // The honest prover sets these values to match the values of the proof and public inputs in the outer circuit.
         // Consistency between these witnesses and the ones in the outer circuit is enforced via a hash check.
-        stdlib::Proof<MegaCircuitBuilder> inner_stdlib_proof(inner_builder, stdlib_proof.get_value());
+        stdlib::Proof<InnerBuilder> inner_stdlib_proof(inner_builder, stdlib_proof.get_value());
         std::vector<std::vector<MegaFF>> inner_public_inputs;
         inner_public_inputs.reserve(AVM_NUM_PUBLIC_INPUT_COLUMNS);
         for (const auto& public_input_column : public_inputs) {

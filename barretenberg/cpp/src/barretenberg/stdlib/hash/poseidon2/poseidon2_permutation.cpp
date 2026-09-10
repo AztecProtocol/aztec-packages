@@ -88,15 +88,16 @@ void apply_standard_internal_rounds(Builder* builder,
     Permutation::propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2_internal);
 }
 
-void apply_mega_internal_rounds(MegaCircuitBuilder* builder,
-                                typename Poseidon2Permutation<MegaCircuitBuilder>::State& current_state,
-                                typename Poseidon2Permutation<MegaCircuitBuilder>::NativeState& current_native_state,
+template <IsMegaBuilder Builder>
+void apply_mega_internal_rounds(Builder* builder,
+                                typename Poseidon2Permutation<Builder>::State& current_state,
+                                typename Poseidon2Permutation<Builder>::NativeState& current_native_state,
                                 const size_t rounds_f_beginning)
 {
-    using Permutation = Poseidon2Permutation<MegaCircuitBuilder>;
+    using Permutation = Poseidon2Permutation<Builder>;
     using FF = typename Permutation::FF;
     using NativeState = typename Permutation::NativeState;
-    using Witness = witness_t<MegaCircuitBuilder>;
+    using Witness = witness_t<Builder>;
 
     // K=4 compressed encoding: w_l, w_r, w_o, w_4 = state[0] at rounds 4i+0, 4i+1, 4i+2, 4i+3.
     // (s_1, s_2, s_3) at row-start are derived inside the relation via a 3x3 Vandermonde solve.
@@ -277,7 +278,7 @@ void Poseidon2Permutation<Builder>::matrix_multiplication_external(State& state)
     }
 }
 
-template class Poseidon2Permutation<MegaCircuitBuilder>;
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER(Poseidon2Permutation)
 template class Poseidon2Permutation<UltraCircuitBuilder>;
 
 } // namespace bb::stdlib

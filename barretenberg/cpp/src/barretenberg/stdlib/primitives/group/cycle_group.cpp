@@ -13,6 +13,7 @@
 
 #include "./cycle_group.hpp"
 #include "barretenberg/numeric/general/general.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -895,6 +896,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 template <typename Builder>
 typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_fixed_base_batch_mul_internal(
     const std::span<cycle_scalar> scalars, const std::span<AffineElement> base_points)
+    requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup))
 {
     BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in fixed-base batch mul");
 
@@ -990,6 +992,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const std::span<AffineElement const> base_points,
     const std::span<AffineElement const> offset_generators,
     const size_t table_bits)
+    requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup))
 {
     BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to fixed base plookup batch mul!");
     BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in fixed base plookup batch mul!");
@@ -1109,6 +1112,7 @@ template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::fixed_batch_mul(const std::vector<cycle_group>& constant_points,
                                                            const std::vector<cycle_scalar>& scalars,
                                                            const size_t table_bits)
+    requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup))
 {
     BB_ASSERT_EQ(scalars.size(), constant_points.size(), "Points/scalars size mismatch in fixed_batch_mul!");
 
@@ -1272,7 +1276,13 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
                                                     "infinity");
                 continue;
             }
-            if (plookup::fixed_base::table::lookup_table_exists_for_point(point.get_value())) {
+            // Case 2A needs the precomputed plookup tables. An arithmetization without the lookup gate has
+            // none, so every constant point takes the ROM-table path, which computes the same result.
+            bool point_has_plookup_table = false;
+            if constexpr (Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup)) {
+                point_has_plookup_table = plookup::fixed_base::table::lookup_table_exists_for_point(point.get_value());
+            }
+            if (point_has_plookup_table) {
                 // Case 2A: constant point is one of two for which we have plookup tables; use fixed-base Straus
                 fixed_base_scalars.push_back(scalar);
                 fixed_base_points.push_back(point.get_value());
@@ -1305,12 +1315,15 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     const bool has_fixed_points = !fixed_base_points.empty();
 
     cycle_group result;
-    if (has_fixed_points) {
-        // Compute the result of the fixed-base portion of the MSM and update the offset accumulator
-        const auto [fixed_accumulator, offset_generator_delta] =
-            _fixed_base_batch_mul_internal(fixed_base_scalars, fixed_base_points);
-        offset_accumulator += offset_generator_delta;
-        result = fixed_accumulator;
+    // `has_fixed_points` is only ever true when the arithmetization has the lookup gate (see the dispatch above).
+    if constexpr (Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup)) {
+        if (has_fixed_points) {
+            // Compute the result of the fixed-base portion of the MSM and update the offset accumulator
+            const auto [fixed_accumulator, offset_generator_delta] =
+                _fixed_base_batch_mul_internal(fixed_base_scalars, fixed_base_points);
+            offset_accumulator += offset_generator_delta;
+            result = fixed_accumulator;
+        }
     }
 
     if (has_variable_points) {
@@ -1370,12 +1383,16 @@ template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator
     return *this;
 }
 
-template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator*(const BigScalarField& scalar) const
+template <typename Builder>
+cycle_group<Builder> cycle_group<Builder>::operator*(const BigScalarField& scalar) const
+    requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Nnf))
 {
     return batch_mul({ *this }, { scalar });
 }
 
-template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator*=(const BigScalarField& scalar)
+template <typename Builder>
+cycle_group<Builder>& cycle_group<Builder>::operator*=(const BigScalarField& scalar)
+    requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Nnf))
 {
     *this = operator*(scalar);
     return *this;
@@ -1413,6 +1430,9 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
 };
 
 template class cycle_group<bb::UltraCircuitBuilder>;
-template class cycle_group<bb::MegaCircuitBuilder>;
+// Scalar multiplication needs the elliptic gate, and the memory gate for the ROM tables the Straus
+// algorithm reads. The fixed-base plookup path additionally needs the lookup gate and is constrained
+// out for arithmetizations without it.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_MEMORY(cycle_group)
 
 } // namespace bb::stdlib

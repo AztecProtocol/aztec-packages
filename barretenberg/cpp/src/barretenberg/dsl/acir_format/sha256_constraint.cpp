@@ -7,6 +7,7 @@
 #include "sha256_constraint.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
 namespace acir_format {
 
@@ -40,7 +41,10 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
 
 template void create_sha256_compression_constraints<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
                                                                              const Sha256Compression& constraint);
-template void create_sha256_compression_constraints<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
-                                                                            const Sha256Compression& constraint);
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+#define INSTANTIATE_CREATE_SHA256_COMPRESSION_CONSTRAINTS(Builder)                                                     \
+    template void create_sha256_compression_constraints<Builder>(Builder&, const Sha256Compression& constraint);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(INSTANTIATE_CREATE_SHA256_COMPRESSION_CONSTRAINTS)
+#undef INSTANTIATE_CREATE_SHA256_COMPRESSION_CONSTRAINTS
 
 } // namespace acir_format

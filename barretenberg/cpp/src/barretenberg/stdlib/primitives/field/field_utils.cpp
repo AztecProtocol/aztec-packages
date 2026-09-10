@@ -120,21 +120,27 @@ template <typename Builder> void mark_witness_as_used(const field_t<Builder>& fi
 // Explicit instantiations for split_unique
 template std::pair<field_t<bb::UltraCircuitBuilder>, field_t<bb::UltraCircuitBuilder>> split_unique(
     const field_t<bb::UltraCircuitBuilder>& field, const size_t lo_bits, const bool skip_range_constraints);
-template std::pair<field_t<bb::MegaCircuitBuilder>, field_t<bb::MegaCircuitBuilder>> split_unique(
-    const field_t<bb::MegaCircuitBuilder>& field, const size_t lo_bits, const bool skip_range_constraints);
+#define INSTANTIATE_SPLIT_UNIQUE(Builder)                                                                              \
+    template std::pair<field_t<Builder>, field_t<Builder>> split_unique(                                               \
+        const field_t<Builder>& field, const size_t lo_bits, const bool skip_range_constraints);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_SPLIT_UNIQUE)
+#undef INSTANTIATE_SPLIT_UNIQUE
 
 // Explicit instantiations for validate_split_in_field_unsafe
 template void validate_split_in_field_unsafe(const field_t<bb::UltraCircuitBuilder>& lo,
                                              const field_t<bb::UltraCircuitBuilder>& hi,
                                              const size_t lo_bits,
                                              const uint256_t& field_modulus);
-template void validate_split_in_field_unsafe(const field_t<bb::MegaCircuitBuilder>& lo,
-                                             const field_t<bb::MegaCircuitBuilder>& hi,
-                                             const size_t lo_bits,
-                                             const uint256_t& field_modulus);
+#define INSTANTIATE_VALIDATE_SPLIT_IN_FIELD_UNSAFE(Builder)                                                            \
+    template void validate_split_in_field_unsafe(                                                                      \
+        const field_t<Builder>& lo, const field_t<Builder>& hi, const size_t lo_bits, const uint256_t& field_modulus);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_VALIDATE_SPLIT_IN_FIELD_UNSAFE)
+#undef INSTANTIATE_VALIDATE_SPLIT_IN_FIELD_UNSAFE
 
 // Explicit instantiations for mark_witness_as_used
 template void mark_witness_as_used(const field_t<bb::UltraCircuitBuilder>& field);
-template void mark_witness_as_used(const field_t<bb::MegaCircuitBuilder>& field);
+#define INSTANTIATE_MARK_WITNESS_AS_USED(Builder) template void mark_witness_as_used(const field_t<Builder>& field);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_MARK_WITNESS_AS_USED)
+#undef INSTANTIATE_MARK_WITNESS_AS_USED
 
 } // namespace bb::stdlib

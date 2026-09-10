@@ -26,10 +26,100 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <utility>
 
 namespace acir_format {
 
 using namespace bb;
+
+namespace {
+
+// The opcode list a bench label names, e.g. "logic_constraints" for "acir::logic_constraints"; used to name
+// the offending opcodes when an arithmetization cannot represent them.
+constexpr std::string_view opcode_list_name(std::string_view bench_label)
+{
+    constexpr std::string_view prefix = "acir::";
+    return bench_label.starts_with(prefix) ? bench_label.substr(prefix.size()) : bench_label;
+}
+
+// Opcode indices are one per constraint, except for BATCHED_EQ rows, where one gate is shared between a pair
+// of opcodes and the gate delta is attributed to the first.
+constexpr size_t first_opcode_index(size_t opcode_index)
+{
+    return opcode_index;
+}
+template <size_t N> constexpr size_t first_opcode_index(const std::array<size_t, N>& opcode_indices)
+{
+    return opcode_indices[0];
+}
+
+// What every opcode list of one `build_constraints` call is translated into, and where the gate counts it
+// attributes to each opcode are recorded.
+// NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members) short-lived parameter bundle
+template <typename Builder_, typename GateCounterT> struct Translation {
+    using Builder = Builder_;
+    Builder& builder;
+    GateCounterT& gate_counter;
+    std::vector<size_t>& gates_per_opcode;
+};
+// NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
+
+/**
+ * @brief Translate one ACIR opcode list, or reject it if the target arithmetization has no gates for it.
+ * @details A reduced arithmetization has no block to append `RequiredKinds` to, so `translate` is compiled out
+ * for it. Whether such an opcode is present is runtime data in the bytecode, so the mismatch is reported here
+ * rather than being silently dropped: rejection is part of the same statement as the translation it replaces,
+ * so a list cannot be translated without deciding which gate kinds it needs.
+ *
+ * @tparam Label Bench zone name; also names the opcodes in the rejection message.
+ * @tparam RequiredKinds Gate kinds the translation creates. Empty for lists every arithmetization can represent.
+ * @param translate Invoked with the builder. Generic so that its body is instantiated only when it is called,
+ * i.e. only for arithmetizations that can represent these opcodes.
+ */
+template <bb::detail::OperationLabel Label,
+          GateKind... RequiredKinds,
+          typename Translation_,
+          typename ConstraintList,
+          typename Translate>
+void translate_or_reject(Translation_& translation, ConstraintList& acir_constraints, Translate&& translate)
+{
+    if constexpr ((Translation_::Builder::ExecutionTrace::has_gate_kind(RequiredKinds) && ...)) {
+        BB_BENCH_ONLY_NAME(Label);
+        std::forward<Translate>(translate)(translation.builder);
+    } else if (!acir_constraints.empty()) {
+        throw_or_abort("ACIR contains " + std::string(opcode_list_name(Label.value)) +
+                       ", which this arithmetization cannot represent.");
+    }
+}
+
+/**
+ * @brief Translate an ACIR opcode list one constraint at a time, tracking the gates each opcode contributes.
+ * @details The common shape of a translation: see `translate_or_reject` for the rejection path, and
+ * `build_constraints` for the lists whose gate counting does not fit this shape.
+ */
+template <bb::detail::OperationLabel Label,
+          GateKind... RequiredKinds,
+          typename Translation_,
+          typename ConstraintList,
+          typename IndexList,
+          typename CreateGates>
+void translate_opcodes(Translation_& translation,
+                       ConstraintList& acir_constraints,
+                       const IndexList& opcode_indices,
+                       const CreateGates& create_gates)
+{
+    BB_ASSERT_EQ(acir_constraints.size(),
+                 opcode_indices.size(),
+                 "Each ACIR constraint must carry the index of the opcode it came from.");
+    translate_or_reject<Label, RequiredKinds...>(translation, acir_constraints, [&](auto& target) {
+        for (size_t i = 0; i < acir_constraints.size(); ++i) {
+            create_gates(target, acir_constraints[i]);
+            translation.gate_counter.track_diff(translation.gates_per_opcode, first_opcode_index(opcode_indices[i]));
+        }
+    });
+}
+
+} // namespace
 
 template <typename Builder>
 void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramMetadata& metadata)
@@ -56,205 +146,166 @@ void build_constraints(Builder& builder, AcirFormat& constraints, const ProgramM
                                       ARITH_RESERVE_SLACK);
     builder.blocks.delta_range.reserve(GATES_PER_SMALL_RANGE_HINT * constraints.range_constraints.size() +
                                        BLOCK_RESERVE_FLOOR);
-    builder.blocks.memory.reserve(BLOCK_RESERVE_FLOOR);
-    builder.blocks.nnf.reserve(BLOCK_RESERVE_FLOOR);
+    if constexpr (Builder::ExecutionTrace::has_gate_kind(GateKind::Memory)) {
+        builder.blocks.memory.reserve(BLOCK_RESERVE_FLOOR);
+    }
+    if constexpr (Builder::ExecutionTrace::has_gate_kind(GateKind::Nnf)) {
+        builder.blocks.nnf.reserve(BLOCK_RESERVE_FLOOR);
+    }
+
+    Translation translation{ builder, gate_counter, constraints.gates_per_opcode };
+    const AcirFormatOriginalOpcodeIndices& opcode_indices = constraints.original_opcode_indices;
 
     // Add standard width-4 Ultra arithmetic gates
-    {
-        BB_BENCH_ONLY_NAME("acir::quad_constraints");
-        for (auto [constraint, opcode_idx] :
-             zip_view(constraints.quad_constraints, constraints.original_opcode_indices.quad_constraints)) {
-            create_quad_constraint(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    translate_opcodes<"acir::quad_constraints">(
+        translation, constraints.quad_constraints, opcode_indices.quad_constraints, [](auto& target, auto& constraint) {
+            create_quad_constraint(target, constraint);
+        });
 
     // When an expression doesn't fit into a single width-4 gate, we split it across multiple gates and we leverage
     // w4_shift to use the least possible number of intermediate witnesses. See the documentation of
     // split_into_mul_quad_gates for more information.
-    {
-        BB_BENCH_ONLY_NAME("acir::big_quad_constraints");
-        for (auto [big_constraint, opcode_idx] :
-             zip_view(constraints.big_quad_constraints, constraints.original_opcode_indices.big_quad_constraints)) {
-            create_big_quad_constraint(builder, big_constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    translate_opcodes<"acir::big_quad_constraints">(
+        translation,
+        constraints.big_quad_constraints,
+        opcode_indices.big_quad_constraints,
+        [](auto& target, auto& constraint) { create_big_quad_constraint(target, constraint); });
 
     // Bilinear rows: AssertZero opcodes with two products routed to the bilinear gate (Mega-only; see
-    // bilinear_or_batched_eq_check_relation.hpp). Each row originates from a single AssertZero.
-    BB_ASSERT(constraints.bilinear_constraints.empty() || IsMegaBuilder<Builder>,
-              "Bilinear constraints should only be present when using MegaCircuitBuilder.");
-    {
-        BB_BENCH_ONLY_NAME("acir::bilinear_constraints");
-        for (auto [constraint, opcode_idx] :
-             zip_view(constraints.bilinear_constraints, constraints.original_opcode_indices.bilinear_constraints)) {
-            create_bilinear_constraint(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    // bilinear_or_batched_eq_check_relation.hpp). Each row originates from a single AssertZero. The Ultra
+    // arithmetization has no block owning this gate kind, so the bytecode must not contain these opcodes.
+    translate_opcodes<"acir::bilinear_constraints", GateKind::BilinearBatchedEq>(
+        translation,
+        constraints.bilinear_constraints,
+        opcode_indices.bilinear_constraints,
+        [](auto& target, auto& constraint) { create_bilinear_constraint(target, constraint); });
 
     // BatchedEq rows: pairs of linear AssertZeros batched into one row (Mega-only). Each row originates from 1
-    // (unpaired single-half) or 2 (paired) AssertZero opcodes.
-    BB_ASSERT(constraints.batched_eq_check_constraints.empty() || IsMegaBuilder<Builder>,
-              "BatchedEq constraints should only be present when using MegaCircuitBuilder.");
-    {
-        BB_BENCH_ONLY_NAME("acir::batched_eq_check_constraints");
-        for (auto [constraint, opcode_idx] :
-             zip_view(constraints.batched_eq_check_constraints,
-                      constraints.original_opcode_indices.batched_eq_check_constraints)) {
-            create_batched_eq_check_constraint(builder, constraint);
-            // For paired BATCHED_EQ rows, the single emitted gate is shared between two opcodes; attribute the
-            // delta only to the first (track_diff would record 0 for the second anyway since no new gates
-            // were added between the calls).
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx[0]);
-        }
-    }
+    // (unpaired single-half) or 2 (paired) AssertZero opcodes; for a pair, the single emitted gate is attributed
+    // to the first opcode (see first_opcode_index).
+    translate_opcodes<"acir::batched_eq_check_constraints", GateKind::BilinearBatchedEq>(
+        translation,
+        constraints.batched_eq_check_constraints,
+        opcode_indices.batched_eq_check_constraints,
+        [](auto& target, auto& constraint) { create_batched_eq_check_constraint(target, constraint); });
 
     // Add logic constraint
-    {
-        BB_BENCH_ONLY_NAME("acir::logic_constraints");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.logic_constraints, constraints.original_opcode_indices.logic_constraints)) {
+    translate_opcodes<"acir::logic_constraints", GateKind::Lookup>(
+        translation,
+        constraints.logic_constraints,
+        opcode_indices.logic_constraints,
+        [](auto& target, auto& constraint) {
             create_logic_gate(
-                builder, constraint.a, constraint.b, constraint.result, constraint.num_bits, constraint.is_xor_gate);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+                target, constraint.a, constraint.b, constraint.result, constraint.num_bits, constraint.is_xor_gate);
+        });
 
-    // Add range constraint
-    {
-        BB_BENCH_ONLY_NAME("acir::range_constraints");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.range_constraints, constraints.original_opcode_indices.range_constraints)) {
-            // The failure message is only consumed when the witness is out of range; formatting it eagerly
-            // dominates the cost of this loop, so only build it for values that will actually fail.
+    // Add range constraint. The message is only consumed when the witness is out of range; formatting it
+    // eagerly dominates the cost of this loop, so only build it for values that will actually fail. It names
+    // the opcode, so the constraint is looked up by index rather than through the per-constraint callback.
+    translate_or_reject<"acir::range_constraints">(translation, constraints.range_constraints, [&](auto& target) {
+        for (size_t i = 0; i < constraints.range_constraints.size(); ++i) {
+            const RangeConstraint& constraint = constraints.range_constraints[i];
+            const size_t opcode_index = opcode_indices.range_constraints[i];
             std::string msg;
-            if (uint256_t(builder.get_variable(constraint.witness)).get_msb() >= constraint.num_bits) {
+            if (uint256_t(target.get_variable(constraint.witness)).get_msb() >= constraint.num_bits) {
                 msg = std::format("acir_format::build_constraints: range constraint at opcode index {} failed",
-                                  opcode_idx);
+                                  opcode_index);
             }
-            builder.create_dyadic_range_constraint(constraint.witness, constraint.num_bits, msg);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
+            target.create_dyadic_range_constraint(constraint.witness, constraint.num_bits, msg);
+            gate_counter.track_diff(constraints.gates_per_opcode, opcode_index);
         }
-    }
+    });
 
     // Add aes128 constraints
-    {
-        BB_BENCH_ONLY_NAME("acir::aes128_constraints");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.aes128_constraints, constraints.original_opcode_indices.aes128_constraints)) {
-            create_aes128_constraints(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    translate_opcodes<"acir::aes128_constraints", GateKind::Lookup>(
+        translation,
+        constraints.aes128_constraints,
+        opcode_indices.aes128_constraints,
+        [](auto& target, auto& constraint) { create_aes128_constraints(target, constraint); });
 
     // Add sha256 constraints
-    {
-        BB_BENCH_ONLY_NAME("acir::sha256_compression");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.sha256_compression, constraints.original_opcode_indices.sha256_compression)) {
-            create_sha256_compression_constraints(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    translate_opcodes<"acir::sha256_compression", GateKind::Lookup>(
+        translation,
+        constraints.sha256_compression,
+        opcode_indices.sha256_compression,
+        [](auto& target, auto& constraint) { create_sha256_compression_constraints(target, constraint); });
 
     // Add ECDSA k1 constraints
-    {
-        BB_BENCH_ONLY_NAME("acir::ecdsa_k1_constraints");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.ecdsa_k1_constraints, constraints.original_opcode_indices.ecdsa_k1_constraints)) {
-            create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    translate_opcodes<"acir::ecdsa_k1_constraints", GateKind::Nnf>(
+        translation,
+        constraints.ecdsa_k1_constraints,
+        opcode_indices.ecdsa_k1_constraints,
+        [](auto& target, auto& constraint) {
+            create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(target, constraint);
+        });
 
     // Add ECDSA r1 constraints
-    {
-        BB_BENCH_ONLY_NAME("acir::ecdsa_r1_constraints");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.ecdsa_r1_constraints, constraints.original_opcode_indices.ecdsa_r1_constraints)) {
-            create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    translate_opcodes<"acir::ecdsa_r1_constraints", GateKind::Nnf>(
+        translation,
+        constraints.ecdsa_r1_constraints,
+        opcode_indices.ecdsa_r1_constraints,
+        [](auto& target, auto& constraint) {
+            create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(target, constraint);
+        });
+
     // Add blake2s constraints
-    {
-        BB_BENCH_ONLY_NAME("acir::blake2s_constraints");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.blake2s_constraints, constraints.original_opcode_indices.blake2s_constraints)) {
-            create_blake2s_constraints(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    translate_opcodes<"acir::blake2s_constraints", GateKind::Lookup>(
+        translation,
+        constraints.blake2s_constraints,
+        opcode_indices.blake2s_constraints,
+        [](auto& target, auto& constraint) { create_blake2s_constraints(target, constraint); });
 
     // Add blake3 constraints
-    {
-        BB_BENCH_ONLY_NAME("acir::blake3_constraints");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.blake3_constraints, constraints.original_opcode_indices.blake3_constraints)) {
-            create_blake3_constraints(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    translate_opcodes<"acir::blake3_constraints", GateKind::Lookup>(
+        translation,
+        constraints.blake3_constraints,
+        opcode_indices.blake3_constraints,
+        [](auto& target, auto& constraint) { create_blake3_constraints(target, constraint); });
 
     // Add keccak permutations
-    {
-        BB_BENCH_ONLY_NAME("acir::keccak_permutations");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.keccak_permutations, constraints.original_opcode_indices.keccak_permutations)) {
-            create_keccak_permutations_constraints(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    translate_opcodes<"acir::keccak_permutations", GateKind::Lookup>(
+        translation,
+        constraints.keccak_permutations,
+        opcode_indices.keccak_permutations,
+        [](auto& target, auto& constraint) { create_keccak_permutations_constraints(target, constraint); });
 
     // Add poseidon2 constraints
-    {
-        BB_BENCH_ONLY_NAME("acir::poseidon2_constraints");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.poseidon2_constraints, constraints.original_opcode_indices.poseidon2_constraints)) {
-            create_poseidon2_permutations_constraints(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    translate_opcodes<"acir::poseidon2_constraints">(
+        translation,
+        constraints.poseidon2_constraints,
+        opcode_indices.poseidon2_constraints,
+        [](auto& target, auto& constraint) { create_poseidon2_permutations_constraints(target, constraint); });
 
-    // Add multi scalar mul constraints
-    {
-        BB_BENCH_ONLY_NAME("acir::multi_scalar_mul_constraints");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.multi_scalar_mul_constraints,
-                      constraints.original_opcode_indices.multi_scalar_mul_constraints)) {
-            create_multi_scalar_mul_constraint(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    // Add multi scalar mul constraints. cycle_group's Straus algorithm needs the elliptic gate and the
+    // memory gate for its ROM tables; the plookup fixed-base path is an optimization it does without.
+    translate_opcodes<"acir::multi_scalar_mul_constraints", GateKind::Elliptic, GateKind::Memory>(
+        translation,
+        constraints.multi_scalar_mul_constraints,
+        opcode_indices.multi_scalar_mul_constraints,
+        [](auto& target, auto& constraint) { create_multi_scalar_mul_constraint(target, constraint); });
 
-    // Add ec add constraints
-    {
-        BB_BENCH_ONLY_NAME("acir::ec_add_constraints");
-        for (const auto& [constraint, opcode_idx] :
-             zip_view(constraints.ec_add_constraints, constraints.original_opcode_indices.ec_add_constraints)) {
-            create_ec_add_constraint(builder, constraint);
-            gate_counter.track_diff(constraints.gates_per_opcode, opcode_idx);
-        }
-    }
+    // Add ec add constraints (cycle_group; see above)
+    translate_opcodes<"acir::ec_add_constraints", GateKind::Elliptic, GateKind::Memory>(
+        translation,
+        constraints.ec_add_constraints,
+        opcode_indices.ec_add_constraints,
+        [](auto& target, auto& constraint) { create_ec_add_constraint(target, constraint); });
 
-    // Add block constraints
-    {
-        BB_BENCH_ONLY_NAME("acir::block_constraints");
-        for (const auto& [constraint, opcode_indices] :
-             zip_view(constraints.block_constraints, constraints.original_opcode_indices.block_constraints)) {
-            create_block_constraints(builder, constraint);
+    // Add block constraints. The opcode covers both memory tables and databus columns, so which
+    // arithmetizations can represent it is decided per block type inside create_block_constraints. Each
+    // constraint may correspond to multiple opcodes, so its gate count is averaged over them.
+    translate_or_reject<"acir::block_constraints">(translation, constraints.block_constraints, [&](auto& target) {
+        for (const auto& [constraint, block_opcode_indices] :
+             zip_view(constraints.block_constraints, opcode_indices.block_constraints)) {
+            create_block_constraints(target, constraint);
             if (collect_gates_per_opcode) {
-                // Each block constraint may correspond to multiple opcodes, so we record the average number of gates
-                // added by the entire constraint as the number of gates for each opcode.
-                size_t avg_gates_per_opcode = gate_counter.compute_diff() / opcode_indices.size();
-                for (size_t opcode_index : opcode_indices) {
+                size_t avg_gates_per_opcode = gate_counter.compute_diff() / block_opcode_indices.size();
+                for (size_t opcode_index : block_opcode_indices) {
                     constraints.gates_per_opcode[opcode_index] = avg_gates_per_opcode;
                 }
             }
         }
-    }
+    });
 
     // RecursionConstraints
     BB_BENCH_ONLY_NAME("acir::recursion_constraints");
@@ -310,12 +361,13 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
 };
 
 /**
- * @brief Specialization for creating a Mega circuit from an acir program
+ * @brief Create a Mega circuit of the given arithmetization from an acir program
  *
  * @param program constraints and optionally a witness
  * @param metadata additional data needed to construct the circuit
  */
-template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
+template <IsMegaBuilder Builder>
+static Builder create_mega_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
     BB_BENCH();
     AcirFormat& constraints = program.constraints;
@@ -334,7 +386,7 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->get_goblin().op_queue;
 
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    MegaCircuitBuilder builder{ op_queue, witness, constraints.public_inputs, is_write_vk_mode };
+    Builder builder{ op_queue, witness, constraints.public_inputs, is_write_vk_mode };
 
     // Populate constraints in the builder
     build_constraints(builder, constraints, metadata);
@@ -344,7 +396,33 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     return builder;
 };
 
+// One entry point per Mega arithmetization. The full-Mega one is not a Chonk circuit kind; it is the
+// unrestricted arithmetization used by standalone Mega circuits and tests.
+template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
+{
+    return create_mega_circuit<MegaCircuitBuilder>(program, metadata);
+}
+template <> MegaAppCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
+{
+    return create_mega_circuit<MegaAppCircuitBuilder>(program, metadata);
+}
+template <> MegaKernelCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
+{
+    return create_mega_circuit<MegaKernelCircuitBuilder>(program, metadata);
+}
+template <> MegaHidingKernelCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
+{
+    return create_mega_circuit<MegaHidingKernelCircuitBuilder>(program, metadata);
+}
+
 template void build_constraints<UltraCircuitBuilder>(UltraCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
+template void build_constraints<MegaAppCircuitBuilder>(MegaAppCircuitBuilder&, AcirFormat&, const ProgramMetadata&);
+template void build_constraints<MegaKernelCircuitBuilder>(MegaKernelCircuitBuilder&,
+                                                          AcirFormat&,
+                                                          const ProgramMetadata&);
+template void build_constraints<MegaHidingKernelCircuitBuilder>(MegaHidingKernelCircuitBuilder&,
+                                                                AcirFormat&,
+                                                                const ProgramMetadata&);
 
 } // namespace acir_format

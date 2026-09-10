@@ -1352,16 +1352,16 @@ std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::no_wrap_split_at
 template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow<32UL>(
     const field_t<bb::UltraCircuitBuilder>&) const;
 
-template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow<32UL>(
-    const field_t<bb::MegaCircuitBuilder>&) const;
-
 template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow<CONST_OP_QUEUE_LOG_SIZE + 1>(
     const field_t<bb::UltraCircuitBuilder>&) const;
 
-template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow<CONST_OP_QUEUE_LOG_SIZE + 1>(
-    const field_t<bb::MegaCircuitBuilder>&) const;
+#define INSTANTIATE_FIELD_T_POW(Builder)                                                                               \
+    template field_t<Builder> field_t<Builder>::pow<32UL>(const field_t<Builder>&) const;                              \
+    template field_t<Builder> field_t<Builder>::pow<CONST_OP_QUEUE_LOG_SIZE + 1>(const field_t<Builder>&) const;
+INSTANTIATE_FOR_EACH_MEGA_BUILDER(INSTANTIATE_FIELD_T_POW)
+#undef INSTANTIATE_FIELD_T_POW
 
 template class field_t<bb::UltraCircuitBuilder>;
-template class field_t<bb::MegaCircuitBuilder>;
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER(field_t)
 
 } // namespace bb::stdlib

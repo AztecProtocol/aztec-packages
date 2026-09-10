@@ -3,11 +3,16 @@ import * as R from "../relations/index.js";
 import type { SingleBusLookupSpec } from "../relations/index.js";
 import { megaPoseidon2Relations } from "./mega_poseidon2.js";
 
-// Kernel-circuit flavor for Chonk. Kernels use no lookups or non-native-field gates, so
-// LogDerivLookupRelation and NonNativeFieldRelation are dropped. Elliptic/Memory/EccOpQueue and all
+// Kernel-circuit flavor for Chonk. A kernel's recursive verification resolves to goblin_element
+// (backed by the ecc op queue) rather than bigfield, so kernels create no lookup or non-native-field
+// gates and LogDerivLookupRelation / NonNativeFieldRelation are dropped. Memory, EccOpQueue and all
 // seven buses are kept: kernels are the read side of the databus and host the recursive-verifier
-// stdlib (biggroup / bigfield / poseidon) that exercises those relations. The selector order here
-// must match apply_databus_selectors in mega_circuit_builder.cpp (indexed by BusId).
+// stdlib that exercises those relations. Elliptic and Memory are both populated by contract-address
+// derivation (address_point = pre_address * G + Ivpk_m, see aztec_address.nr): that is a cycle_group
+// MSM over a constant base with a witness scalar, and since the Grumpkin generator is not one of the
+// points carrying a precomputed fixed-base plookup table, cycle_group takes the variable-base Straus
+// path -- ROM tables and point additions, no plookup reads. The selector order here must match
+// apply_databus_selectors in mega_circuit_builder.cpp (indexed by BusId).
 const busSpecs: SingleBusLookupSpec[] = (
   [
     ["kernel_calldata", "q_l"],
@@ -30,6 +35,7 @@ const busSpecs: SingleBusLookupSpec[] = (
 export const MegaKernel = flavor({
   name: "MegaKernelFlavor",
   family: "mega_kernel",
+  arithmetization: "mega",
   relations: [
     R.ArithmeticRelation,
     R.BilinearOrBatchedEqCheckRelation,

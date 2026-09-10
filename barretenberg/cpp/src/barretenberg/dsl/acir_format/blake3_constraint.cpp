@@ -8,6 +8,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
 namespace acir_format {
 
@@ -44,7 +45,10 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
 
 template void create_blake3_constraints<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
                                                                  const Blake3Constraint& constraint);
-template void create_blake3_constraints<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
-                                                                const Blake3Constraint& constraint);
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+#define INSTANTIATE_CREATE_BLAKE3_CONSTRAINTS(Builder)                                                                 \
+    template void create_blake3_constraints<Builder>(Builder&, const Blake3Constraint& constraint);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(INSTANTIATE_CREATE_BLAKE3_CONSTRAINTS)
+#undef INSTANTIATE_CREATE_BLAKE3_CONSTRAINTS
 
 } // namespace acir_format

@@ -227,10 +227,11 @@ template <size_t NumClaims> class MultilinearBatchingFlavor_ {
 
 using MultilinearBatchingFlavor = MultilinearBatchingFlavor_<CHONK_MAX_CLAIMS_PER_KERNEL>;
 
-template <size_t NumClaims> class MultilinearBatchingRecursiveFlavor_ {
+template <size_t NumClaims, typename Builder_ = MegaKernelCircuitBuilder> class MultilinearBatchingRecursiveFlavor_ {
   public:
     using NativeFlavor = MultilinearBatchingFlavor_<NumClaims>;
-    using Builder = MegaCircuitBuilder;
+    // The circuit verifying the batching proof: a kernel or the hiding kernel.
+    using Builder = Builder_;
     using Curve = stdlib::bn254<Builder>;
     using PCS = KZG<Curve>;
     using FF = typename Curve::ScalarField;
@@ -258,6 +259,7 @@ template <size_t NumClaims> class MultilinearBatchingRecursiveFlavor_ {
     };
 };
 
-using MultilinearBatchingRecursiveFlavor = MultilinearBatchingRecursiveFlavor_<CHONK_MAX_CLAIMS_PER_KERNEL>;
+template <typename Builder>
+using MultilinearBatchingRecursiveFlavor = MultilinearBatchingRecursiveFlavor_<CHONK_MAX_CLAIMS_PER_KERNEL, Builder>;
 
 } // namespace bb

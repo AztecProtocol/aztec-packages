@@ -224,7 +224,7 @@ TEST_F(AvmRecursionInnerCircuitTests, DISABLED_GateCountAndVKCheck)
     std::vector<std::vector<field_t<Builder>>> public_inputs =
         PublicInputs::flat_to_columns<field_t<Builder>>(stdlib_public_inputs_flat);
 
-    MegaCircuitBuilder inner_builder;
+    TwoLayerAvmRecursiveVerifier::InnerBuilder inner_builder;
     TwoLayerAvmRecursiveVerifier::construct_inner_recursive_verification_circuit(
         inner_builder, stdlib_proof, public_inputs);
 

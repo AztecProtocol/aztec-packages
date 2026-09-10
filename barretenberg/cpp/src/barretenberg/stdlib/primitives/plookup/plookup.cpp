@@ -98,5 +98,6 @@ field_t<Builder> plookup_read<Builder>::read_from_1_to_2_table(const MultiTableI
 }
 
 template class plookup_read<bb::UltraCircuitBuilder>;
-template class plookup_read<bb::MegaCircuitBuilder>;
+// Plookup-backed: only the arithmetizations that keep the lookup gate.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_LOOKUP(plookup_read)
 } // namespace bb::stdlib

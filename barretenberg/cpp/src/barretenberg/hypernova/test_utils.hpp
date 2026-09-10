@@ -9,7 +9,7 @@ namespace bb {
  * @details Converts all fields from native to stdlib types for recursive verification testing
  */
 inline MultilinearBatchingVerifierClaim<bb::MegaKernelRecursiveFlavor::Curve> create_recursive_verifier_accumulator(
-    MegaCircuitBuilder* builder,
+    MegaKernelCircuitBuilder* builder,
     const MultilinearBatchingVerifierClaim<bb::MegaKernelFlavor::Curve>& native_accumulator)
 {
     using Flavor = bb::MegaKernelRecursiveFlavor;

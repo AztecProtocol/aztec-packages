@@ -70,6 +70,10 @@ template <typename Builder> void create_ec_add_constraint(Builder& builder, cons
 }
 
 template void create_ec_add_constraint<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder, const EcAdd& input);
-template void create_ec_add_constraint<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder, const EcAdd& input);
+// cycle_group's Straus algorithm needs the elliptic gate and the memory gate for its ROM tables.
+#define INSTANTIATE_CREATE_EC_ADD_CONSTRAINT(Builder)                                                                  \
+    template void create_ec_add_constraint<Builder>(Builder & builder, const EcAdd& input);
+INSTANTIATE_FOR_EACH_MEGA_BUILDER_WITH_MEMORY(INSTANTIATE_CREATE_EC_ADD_CONSTRAINT)
+#undef INSTANTIATE_CREATE_EC_ADD_CONSTRAINT
 
 } // namespace acir_format

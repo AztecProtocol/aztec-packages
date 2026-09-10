@@ -78,5 +78,6 @@ field_t<Builder> databus<Builder>::bus_vector::operator[](const field_pt& index)
     return result;
 }
 
-template class databus<bb::MegaCircuitBuilder>;
+// Only for arithmetizations that carry databus columns.
+INSTANTIATE_CLASS_FOR_EACH_MEGA_BUILDER_WITH_BUS_READ(databus)
 } // namespace bb::stdlib

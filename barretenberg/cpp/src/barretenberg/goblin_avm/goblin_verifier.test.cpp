@@ -13,7 +13,7 @@
 namespace bb::stdlib::recursion::honk {
 class GoblinAvmRecursiveVerifierTests : public testing::Test {
   public:
-    using InnerBuilder = MegaCircuitBuilder;
+    using InnerBuilder = GoblinAvm::Builder;
     using ECCVMVK = GoblinAvm::ECCVMVerificationKey;
     using TranslatorVK = GoblinAvm::TranslatorVerificationKey;
 
