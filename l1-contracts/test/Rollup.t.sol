@@ -232,7 +232,7 @@ contract RollupTest is RollupBase {
     );
   }
 
-  function testExtraBlobs() public setUpFor("mixed_checkpoint_1") {
+  function testExtraBlobs() public skipWhenGasReport setUpFor("mixed_checkpoint_1") {
     bytes32[] memory originalBlobHashes = this.getBlobHashes(load("mixed_checkpoint_1").checkpoint.blobCommitments);
 
     bytes32[] memory extraBlobHashes = new bytes32[](6);
@@ -644,7 +644,7 @@ contract RollupTest is RollupBase {
   function testRevertInvalidTimestamp() public setUpFor("empty_checkpoint_1") {
     DecoderBase.Data memory data = load("empty_checkpoint_1").checkpoint;
     ProposedHeader memory header = data.header;
-    vm.blobhashes(this.getBlobHashes(data.blobCommitments));
+    setBlobHashesOrSkipCheck(address(rollup), this.getBlobHashes(data.blobCommitments));
     bytes32 archive = data.archive;
 
     Timestamp realTs = header.timestamp;
@@ -681,7 +681,7 @@ contract RollupTest is RollupBase {
     header.coinbase = address(0);
 
     bytes32[] memory blobHashes = this.getBlobHashes(data.blobCommitments);
-    vm.blobhashes(blobHashes);
+    setBlobHashesOrSkipCheck(address(rollup), blobHashes);
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidCoinbase.selector));
     ProposeArgs memory args =

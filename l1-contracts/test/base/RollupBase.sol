@@ -194,15 +194,7 @@ contract RollupBase is DecoderBase {
         }
       }
 
-      // https://github.com/foundry-rs/foundry/issues/10074
-      // don't add blob hashes if forge gas report is true
-      if (!vm.envOr("FORGE_GAS_REPORT", false)) {
-        emit log("Setting blob hashes");
-        vm.blobhashes(blobHashes);
-      } else {
-        // skip blob check if forge gas report is true
-        skipBlobCheck(address(rollup));
-      }
+      setBlobHashesOrSkipCheck(address(rollup), blobHashes);
     }
 
     proposedHeaders[full.checkpoint.checkpointNumber] = full.checkpoint.header;
