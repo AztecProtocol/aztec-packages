@@ -324,8 +324,7 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
         meta.initialRoot = meta.root = current;
         meta.initialSize = meta.size = 0;
     } else {
-        // A fresh store carries a zero root sentinel rather than the empty-tree root. Seed the empty root first so
-        // the genesis append derives its sibling path from a genuinely empty tree instead of a missing node.
+        // Appending initial values requires the empty-tree root to derive the sibling path.
         meta.root = current;
         store_->put_meta(meta);
         Signal signal(1);
@@ -647,10 +646,7 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath Conten
         NodePayload nodePayload;
         bool success = store_->get_node_by_hash(hash, nodePayload, tx, requestContext.includeUncommitted);
         if (!success && hash != zero_hashes_[level]) {
-            // An empty subtree is legitimately unstored, in which case `hash` is the level's zero hash and the
-            // children are synthesised as zero below. A missing node for any *other* hash means real node data is
-            // gone (e.g. a historical fork whose root DAG was pruned); failing here avoids silently synthesising a
-            // zero prefix, which would corrupt the appended tree and still report success.
+            // Only empty subtrees may have no stored node; their children are implicit zero hashes.
             throw std::runtime_error(
                 format("Unable to find node ", hash, " while deriving append sibling path from tree root"));
         }
