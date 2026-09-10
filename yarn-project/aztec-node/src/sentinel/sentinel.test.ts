@@ -29,6 +29,7 @@ import {
 import type {
   ValidatorStats,
   ValidatorStatusHistory,
+  ValidatorStatusInSlot,
   ValidatorsEpochPerformance,
   ValidatorsStats,
 } from '@aztec/stdlib/validators';
@@ -192,6 +193,26 @@ describe('sentinel', () => {
       p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[proposer.toString()]).toEqual('checkpoint-unvalidated');
+    });
+
+    // An observer that ran out of time, or could not check a proposal against L1, records that it saw one, so the
+    // slot is not read as one the proposer skipped — the fallback below would otherwise make it checkpoint-missed
+    // or blocks-missed, both of which are counted against the proposer.
+    it('flags checkpoint as unverifiable when tracker outcome is unverifiable', async () => {
+      reexecutionTracker.recordOutcome(slot, block.archive.root, 'unverifiable', CheckpointNumber(1));
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
+      p2p.hasBlockProposalsForSlot.mockResolvedValue(true);
+      const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      expect(activity[proposer.toString()]).toEqual('checkpoint-unverifiable');
+    });
+
+    it('does not tag attestors as missed when the checkpoint is unverifiable', async () => {
+      reexecutionTracker.recordOutcome(slot, block.archive.root, 'unverifiable', CheckpointNumber(1));
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations.slice(0, -1));
+
+      const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      expect(activity[proposer.toString()]).toEqual('checkpoint-unverifiable');
+      expect(activity[committee[3].toString()]).not.toBe('attestation-missed');
     });
 
     it('flags as blocks-missed when there is no tracker outcome and no block proposals (case 1)', async () => {
@@ -405,6 +426,40 @@ describe('sentinel', () => {
       ]);
       expect(stats.missedProposals.count).toEqual(4);
       expect(stats.missedProposals.total).toEqual(5);
+    });
+
+    // The taxonomy's whole point: a slot this node could not check must not reach the proposer's inactivity
+    // accounting, while the slots it could check keep the accounting they always had.
+    it('does not count checkpoint-unverifiable as a missed proposal', () => {
+      const stats = sentinel.computeStatsForValidator(validator, [
+        { slot: SlotNumber(1), status: 'checkpoint-mined' },
+        { slot: SlotNumber(2), status: 'checkpoint-unverifiable' },
+        { slot: SlotNumber(3), status: 'checkpoint-unverifiable' },
+        { slot: SlotNumber(4), status: 'checkpoint-invalid' },
+        { slot: SlotNumber(5), status: 'checkpoint-missed' },
+      ]);
+
+      expect(stats.missedProposals.count).toEqual(2);
+      // Out of the denominator too, so unknowns cannot dilute the misses that are real: two of the three slots
+      // this node could actually assess were missed, not two of five.
+      expect(stats.missedProposals.total).toEqual(3);
+      expect(stats.missedProposals.rate).toBeCloseTo(2 / 3);
+      // Nor do they break the streak the two real misses form.
+      expect(stats.missedProposals.currentStreak).toEqual(2);
+    });
+
+    // A proposer whose checkpoints this node can never check must not come out looking better than one whose
+    // checkpoints it can: an unassessable slot is not a slot survived.
+    it('does not let unverifiable slots dilute the missed-proposal rate', () => {
+      const stats = sentinel.computeStatsForValidator(validator, [
+        { slot: SlotNumber(1), status: 'checkpoint-missed' },
+        ...times(9, (i): { slot: SlotNumber; status: ValidatorStatusInSlot } => ({
+          slot: SlotNumber(i + 2),
+          status: 'checkpoint-unverifiable',
+        })),
+      ]);
+
+      expect(stats.missedProposals).toEqual(expect.objectContaining({ count: 1, total: 1, rate: 1, currentStreak: 1 }));
     });
 
     it('resets streaks correctly', () => {

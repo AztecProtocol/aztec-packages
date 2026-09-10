@@ -43,8 +43,9 @@ import {
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, MIN_BLOCKS_FOR_INBOX_CATCHUP } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { FAST_PROFILE_ETHEREUM_SLOT_DURATION } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
@@ -93,6 +94,7 @@ describe('sequencer', () => {
   >;
 
   let sequencer: TestSequencer;
+  let config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>;
 
   const slotDuration = 8;
   const ethereumSlotDuration = 4;
@@ -390,7 +392,7 @@ describe('sequencer', () => {
     dateProvider = new TestDateProvider();
 
     signatureContext = { chainId: chainId.toNumber(), rollupAddress: EthAddress.random() };
-    const config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'> = {
+    config = {
       maxTxsPerBlock: 4,
       l1ChainId: signatureContext.chainId,
       // With aztecSlotDuration=8 and ethereumSlotDuration=4 (fast profile), a 2s block duration derives
@@ -417,6 +419,79 @@ describe('sequencer', () => {
       config,
     );
     sequencer.updateConfig(config);
+  });
+
+  describe('Inbox catch-up capacity guard', () => {
+    // Production profile: 12s ethereum slots keep the conservative budgets, so maxBlocks is driven purely by the
+    // slot and block durations. floor((S - 1 - D - 2*2 - 1) / D) with S=36 gives 8 blocks at D=3 and 2 at D=10.
+    const productionConstants = () => ({ ...l1Constants, slotDuration: 36, ethereumSlotDuration: 12 });
+
+    const buildSequencer = (overrides: Partial<SequencerConfig>, constants = productionConstants()) => {
+      const sequencerConfig = { ...config, blockDurationMs: 3000, ...overrides };
+      return new TestSequencer(
+        publisherFactory,
+        validatorClient,
+        globalVariableBuilder,
+        p2p,
+        worldState,
+        slasherClient,
+        l2BlockSource,
+        l1ToL2MessageSource,
+        checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
+        constants,
+        dateProvider,
+        epochCache,
+        rollupContract,
+        inboxContract,
+        sequencerConfig,
+      );
+    };
+
+    it.each([1, 2, 3])('rejects a configured cap of %i block(s) per checkpoint', maxBlocksPerCheckpoint => {
+      expect(() => buildSequencer({ maxBlocksPerCheckpoint })).toThrow(/streaming-Inbox backlog/);
+    });
+
+    it('accepts a configured cap at the floor', () => {
+      expect(() => buildSequencer({ maxBlocksPerCheckpoint: MIN_BLOCKS_FOR_INBOX_CATCHUP })).not.toThrow();
+    });
+
+    it('rejects timings that derive fewer blocks than the floor even when the configured cap is above it', () => {
+      // D=10 leaves floor((36 - 1 - 10 - 4 - 1) / 10) = 2 sub-slots, under a generous configured cap.
+      expect(() => buildSequencer({ maxBlocksPerCheckpoint: 8, blockDurationMs: 10_000 })).toThrow(
+        /streaming-Inbox backlog/,
+      );
+    });
+
+    it('warns rather than rejects on a fast local profile', () => {
+      expect(() => buildSequencer({ maxBlocksPerCheckpoint: 1, blockDurationMs: 2000 }, l1Constants)).not.toThrow();
+    });
+
+    // The single-node e2e default (DEFAULT_L1_BLOCK_TIME) sits at exactly this boundary, deliberately, so that
+    // those runs keep the production timing budgets. Rejecting there would fail every default-cadence e2e run.
+    it('warns rather than rejects at the fast-profile boundary', () => {
+      const atBoundary = { ...productionConstants(), ethereumSlotDuration: FAST_PROFILE_ETHEREUM_SLOT_DURATION };
+      expect(() => buildSequencer({ maxBlocksPerCheckpoint: 1 }, atBoundary)).not.toThrow();
+    });
+
+    // The exemption is a threshold on the Ethereum slot duration, not a declaration that this is a development
+    // network, so pin where it ends: the same undersized configuration one second slower is rejected outright.
+    it('rejects the same undersized configuration just above the fast-profile boundary', () => {
+      const aboveBoundary = {
+        ...productionConstants(),
+        ethereumSlotDuration: FAST_PROFILE_ETHEREUM_SLOT_DURATION + 1,
+      };
+      expect(() => buildSequencer({ maxBlocksPerCheckpoint: 1 }, aboveBoundary)).toThrow(/streaming-Inbox backlog/);
+    });
+
+    it('leaves the committed config and timetable intact when an update is rejected', () => {
+      const sequencer = buildSequencer({ maxBlocksPerCheckpoint: 8 });
+      const before = sequencer.getTimeTable();
+
+      expect(() => sequencer.updateConfig({ blockDurationMs: 10_000 })).toThrow(/streaming-Inbox backlog/);
+
+      expect(sequencer.getTimeTable()).toBe(before);
+      expect(sequencer.getTimeTable().blockDuration).toEqual(3);
+    });
   });
 
   describe('perBlockAllocationMultiplier guard', () => {

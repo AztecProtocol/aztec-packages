@@ -11,6 +11,11 @@ export type ValidatorStatusType = 'proposer' | 'attestation';
  * - `checkpoint-missed`       — block proposals seen but no checkpoint proposal (case 2).
  * - `checkpoint-unvalidated`  — checkpoint proposal seen but local re-execution couldn't
  *                               validate (missing txs, timeouts, etc.) (case 3).
+ * - `checkpoint-unverifiable` — checkpoint proposal seen and content-valid, but this observer could
+ *                               not check it against an authority outside itself (an L1 read that
+ *                               failed or answered from a view it could not pin). Recorded so the
+ *                               slot is not mistaken for one without a proposal, and never counted
+ *                               against the proposer: the failure is this node's.
  * - `checkpoint-invalid`      — checkpoint proposal re-executed and rejected as invalid (case 4).
  * - `checkpoint-valid`        — checkpoint proposal re-executed locally as valid (case 5).
  * - `checkpoint-mined`        — checkpoint published on L1 (case 6).
@@ -25,6 +30,7 @@ export type ValidatorStatusInSlot =
   | 'checkpoint-valid'
   | 'checkpoint-invalid'
   | 'checkpoint-unvalidated'
+  | 'checkpoint-unverifiable'
   | 'checkpoint-missed'
   | 'blocks-missed'
   | 'attestation-sent'

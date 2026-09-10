@@ -204,7 +204,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
   ): Promise<CheckpointSubTreeOrchestrator> {
-    const subTree = new CheckpointSubTreeOrchestrator(
+    const subTree = new this(
       dbProvider,
       prover,
       proverId,
@@ -471,15 +471,21 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     this.dbs.delete(provingState.blockNumber);
 
     // Update the archive tree, capture the snapshot, and close the fork deterministically.
+    let builtArchive: AppendOnlyTreeSnapshot;
     try {
       this.logger.verbose(
         `Updating archive tree with block ${provingState.blockNumber} header ${(await header.hash()).toString()}`,
       );
       await db.updateArchive(header);
-      provingState.setBuiltArchive(await getTreeSnapshot(MerkleTreeId.ARCHIVE, db));
+      builtArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     } finally {
       await db.close();
     }
+
+    // Publish the archive only once the fork is closed. Verification also runs from the block root proof callback,
+    // so an archive published before the close lets a proof arriving during it find every piece present, verify,
+    // and resolve the sub-tree while this block's fork is still open.
+    provingState.setBuiltArchive(builtArchive);
 
     await this.verifyBuiltBlockAgainstSyncedState(provingState);
 
@@ -763,11 +769,10 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
 
         // Verification is called from both here and setBlockCompleted. Whichever runs last
         // will be the first to see all three pieces (header, proof output, archive) and run the checks.
+        // It enqueues the sub-tree resolution itself, so a single-block checkpoint needs nothing further.
         await this.verifyBuiltBlockAgainstSyncedState(provingState);
 
-        if (checkpointProvingState.totalNumBlocks === 1) {
-          this.checkAndEnqueueSubTreeResolution(checkpointProvingState);
-        } else {
+        if (checkpointProvingState.totalNumBlocks > 1) {
           this.checkAndEnqueueNextBlockMergeRollup(checkpointProvingState, leafLocation);
         }
       },
@@ -889,6 +894,13 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       // Parity not proven yet — retried when the inbox parity proof lands.
       return;
     }
+    // Proofs being present is not the same as the checkpoint being finished locally. The archive snapshot is
+    // captured before the block's fork is closed and before its outputs are compared with it, and parity can land
+    // during those awaits and reach here directly, so a proof-only gate would hand the sub-tree off — and let its
+    // caller tear it down — while a block is still being finalized. Retried as each block finishes verifying.
+    if (!provingState.allBlocksVerified()) {
+      return;
+    }
     this.subTreeResult.resolve({
       blockProofOutputs: nonEmpty,
       inboxParityProof,
@@ -982,6 +994,12 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       provingState.reject(`New archive mismatch.`);
       return;
     }
+
+    // Only now is this block's proof output known to agree with what was built locally. Recording it here (rather
+    // than inferring it from the pieces being present) is what lets the sub-tree resolution wait for it, and it is
+    // the last piece for a block whose proofs arrived before its fork was closed.
+    provingState.markVerified();
+    this.checkAndEnqueueSubTreeResolution(provingState.parentCheckpoint);
   }
 
   private getDbForBlock(blockNumber: BlockNumber): MerkleTreeWriteOperations {

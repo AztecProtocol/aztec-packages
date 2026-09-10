@@ -37,12 +37,22 @@ import { type CheckpointTopTreeData, TopTreeOrchestrator } from '../orchestrator
 // before the (two-input) block root, whereas one- or two-tx blocks feed the block root directly, so a
 // dedicated three-tx scenario is what regenerates the tx-merge sample. The samples for the variants
 // that thread a start sponge from a previous block are taken from mid-checkpoint blocks, so those
-// scenarios need a per-block message distribution. Every scenario also produces the root rollup.
+// scenarios need a per-block message distribution, and they declare which block they mean: blocks are
+// proven concurrently, so the order the inputs were captured in does not identify them. Every scenario
+// also produces the root rollup.
 const describeOrSkip = isGenerateTestDataEnabled() ? describe : describe.skip;
 
 describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
   let context: TestContext;
   let log: Logger;
+
+  /**
+   * How many L1-to-L2 messages a block inherits from earlier blocks of its checkpoint (its start sponge) and how
+   * many its own bundle inserts. A scenario that runs a block-root circuit once per block identifies the run it
+   * means by this shape, which is a property of the block itself, rather than by the order the inputs happened to
+   * be captured in.
+   */
+  type MessageShape = { inherited: number; bundle: number };
 
   interface Scenario {
     numCheckpoints: number;
@@ -56,6 +66,8 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
     l1ToL2MessagesPerBlock?: Fr[][];
     /** Circuits whose sample inputs this scenario is responsible for regenerating. */
     dump: CircuitName[];
+    /** The block whose inputs each dumped block-root sample must be taken from. */
+    sampleFrom?: Partial<Record<CircuitName, MessageShape>>;
   }
 
   // `makeCheckpoint` puts the scenario's whole message list into the first block, so the most a
@@ -76,6 +88,9 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
       numTxsPerBlock: 1,
       numL1ToL2Messages: withMessages,
       dump: ['rollup-block-root-single-tx', 'rollup-block-merge', 'rollup-checkpoint-root'],
+      // All the messages go to the first block, so the single-tx sample is the block that carries the bundle; the
+      // two blocks after it insert nothing and only inherit the sponge.
+      sampleFrom: { 'rollup-block-root-single-tx': { inherited: 0, bundle: withMessages } },
     },
     // Messages split across both blocks so the block-root sample is taken from a mid-checkpoint block with a
     // non-empty bundle, exercising the per-block sponge continuity asserts in the circuit.
@@ -86,6 +101,9 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
       numL1ToL2Messages: 0, // Overridden by l1ToL2MessagesPerBlock.
       l1ToL2MessagesPerBlock: [times(2, i => new Fr(0xb00 + i)), times(3, i => new Fr(0xc00 + i))],
       dump: ['rollup-block-root'],
+      // The second block: it inherits the two messages the first block inserted and inserts three of its own, so
+      // its start sponge is a continuation rather than the initial empty one.
+      sampleFrom: { 'rollup-block-root': { inherited: 2, bundle: 3 } },
     },
     // Three txs in a block force a tx-merge to pair the base proofs down to the two the block root
     // takes; one- or two-tx blocks feed the block root directly and never exercise tx-merge.
@@ -105,6 +123,7 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
       numL1ToL2Messages: 0, // Overridden by l1ToL2MessagesPerBlock.
       l1ToL2MessagesPerBlock: [times(2, i => new Fr(0x900 + i)), times(3, i => new Fr(0xa00 + i))],
       dump: ['rollup-block-root-no-txs'],
+      sampleFrom: { 'rollup-block-root-no-txs': { inherited: 2, bundle: 3 } },
     },
     // The checkpoint-merge only appears with three checkpoints. Independently-built checkpoints do
     // not carry the inbox message state forward, so this scenario runs with no L1-to-L2 messages and
@@ -117,6 +136,51 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
       dump: ['rollup-checkpoint-merge'],
     },
   ];
+
+  /** The message shape of a captured input, or undefined for circuits that take no message bundle. */
+  const messageShapeOf = (captured: unknown): MessageShape | undefined => {
+    const { inputs } = (captured ?? {}) as {
+      inputs?: { message_bundle?: { num_msgs?: string }; start_msg_sponge?: { num_absorbed?: string } };
+    };
+    const bundle = inputs?.message_bundle?.num_msgs;
+    const inherited = inputs?.start_msg_sponge?.num_absorbed;
+    return bundle === undefined || inherited === undefined
+      ? undefined
+      : { inherited: Number(BigInt(inherited)), bundle: Number(BigInt(bundle)) };
+  };
+
+  /**
+   * Picks the one captured input a scenario means to commit for `circuitName`. A circuit the scenario runs once has
+   * a single candidate; one it runs per block is identified by the message shape the scenario declared. Nothing
+   * captured, several runs with no declared shape, or a declared shape matching no run or more than one all throw:
+   * committing whichever input happened to be captured first would silently pin the wrong block.
+   */
+  const selectSample = (circuitName: CircuitName, wanted: MessageShape | undefined): unknown => {
+    const captured = getTestData(circuitName) ?? [];
+    const shapes = () => captured.map(entry => JSON.stringify(messageShapeOf(entry) ?? 'no bundle')).join(', ');
+    if (captured.length === 0) {
+      throw new Error(`No test data captured for ${circuitName}; scenario does not exercise it.`);
+    }
+    if (wanted === undefined) {
+      if (captured.length > 1) {
+        throw new Error(
+          `${circuitName} ran ${captured.length} times (${shapes()}); declare in sampleFrom which run to commit.`,
+        );
+      }
+      return captured[0];
+    }
+    const matching = captured.filter(entry => {
+      const shape = messageShapeOf(entry);
+      return shape?.inherited === wanted.inherited && shape.bundle === wanted.bundle;
+    });
+    if (matching.length !== 1) {
+      throw new Error(
+        `Expected exactly one ${circuitName} run inheriting ${wanted.inherited} messages and inserting ` +
+          `${wanted.bundle}, found ${matching.length} of ${captured.length} runs (${shapes()}).`,
+      );
+    }
+    return matching[0];
+  };
 
   beforeEach(async () => {
     log = createLogger('prover-client:test:regenerate-rollup-sample-inputs');
@@ -136,6 +200,7 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
       numL1ToL2Messages,
       l1ToL2MessagesPerBlock,
       dump,
+      sampleFrom,
     }) => {
       const makeProcessedTxOpts = (_: unknown, txIndex: number) => ({ privateOnly: txIndex % 2 === 0 });
       const checkpoints = await timesAsync(numCheckpoints, () =>
@@ -204,12 +269,9 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
         }
 
         for (const circuitName of dump) {
-          const data = getTestData(circuitName);
-          if (!data || data.length === 0) {
-            throw new Error(`No test data captured for ${circuitName}; scenario does not exercise it.`);
-          }
-          updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(data[0] as any));
-          log.info(`Regenerated sample inputs for ${circuitName}`);
+          const sample = selectSample(circuitName, sampleFrom?.[circuitName]);
+          updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(sample as any));
+          log.info(`Regenerated sample inputs for ${circuitName}`, messageShapeOf(sample));
         }
       } finally {
         await Promise.all(subTrees.map(s => s.stop()));

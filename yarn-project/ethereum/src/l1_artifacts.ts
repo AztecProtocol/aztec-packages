@@ -3,6 +3,8 @@ import {
   CoinIssuerBytecode,
   DateGatedRelayerAbi,
   DateGatedRelayerBytecode,
+  EpochProofExtLibAbi,
+  EpochProofExtLibBytecode,
   FeeAssetHandlerAbi,
   FeeAssetHandlerBytecode,
   FeeJuicePortalAbi,
@@ -50,8 +52,6 @@ import {
   TestERC20Bytecode,
   ValidatorOperationsExtLibAbi,
   ValidatorOperationsExtLibBytecode,
-  ValidatorSelectionLibAbi,
-  ValidatorSelectionLibBytecode,
 } from '@aztec/l1-artifacts';
 
 import type { Hex } from 'viem';
@@ -81,10 +81,10 @@ export const RollupArtifact = {
   libraries: {
     linkReferences: RollupLinkReferences,
     libraryCode: {
-      ValidatorSelectionLib: {
-        name: 'ValidatorSelectionLib',
-        contractAbi: ValidatorSelectionLibAbi,
-        contractBytecode: ValidatorSelectionLibBytecode as Hex,
+      EpochProofExtLib: {
+        name: 'EpochProofExtLib',
+        contractAbi: EpochProofExtLibAbi,
+        contractBytecode: EpochProofExtLibBytecode as Hex,
       },
       RollupOperationsExtLib: {
         name: 'RollupOperationsExtLib',

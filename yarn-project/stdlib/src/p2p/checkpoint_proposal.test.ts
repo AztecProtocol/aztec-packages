@@ -7,7 +7,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { InboxMessagePrefixRef } from '../messaging/inbox_message_prefix_ref.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
-import { makeCheckpointProposal } from '../tests/mocks.js';
+import { makeCheckpointProposal, mockTx } from '../tests/mocks.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { CheckpointProposal } from './checkpoint_proposal.js';
@@ -34,6 +34,32 @@ const makeLegacyFixtureCheckpointProposal = () =>
   );
 
 describe('CheckpointProposal serialization / deserialization', () => {
+  it.each([
+    ['no lastBlock', () => makeCheckpointProposal({})],
+    ['a nonzero fee asset price modifier', () => makeCheckpointProposal({ feeAssetPriceModifier: -1234n })],
+    ['a lastBlock', () => makeCheckpointProposal({ lastBlock: {} })],
+    [
+      'a lastBlock carrying its txs',
+      async () => {
+        const tx = await mockTx(1);
+        return makeCheckpointProposal({ lastBlock: { txHashes: [tx.getTxHash()], txs: [tx] } });
+      },
+    ],
+    [
+      'a lastBlock with an inbox prefix reference',
+      () => {
+        const checkpointHeader = CheckpointHeader.random();
+        return makeCheckpointProposal({
+          checkpointHeader,
+          lastBlock: { inboxPrefixRef: new InboxMessagePrefixRef(checkpointHeader.inboxRollingHash) },
+        });
+      },
+    ],
+  ])('reports the actual serialized size with %s', async (_name, build) => {
+    const proposal = await build();
+    expect(proposal.getSize()).toEqual(proposal.toBuffer().length);
+  });
+
   it('round-trips with a lastBlock', async () => {
     const proposal = await makeCheckpointProposal({ lastBlock: {} });
     const deserialized = CheckpointProposal.fromBuffer(proposal.toBuffer());

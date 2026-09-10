@@ -4,10 +4,17 @@ import { padArrayEnd, sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { L1ToL2MessageSponge, ScopedL2ToL1Message, computeBlockOutHash } from '@aztec/stdlib/messaging';
+import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { makeScopedL2ToL1Message } from '@aztec/stdlib/testing';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import { TestContext, makeTestDeferredJobQueue } from '../mocks/test_context.js';
+import type { BlockProvingState } from './block-proving-state.js';
+import type { CheckpointProvingState } from './checkpoint-proving-state.js';
 import { CheckpointSubTreeOrchestrator } from './checkpoint-sub-tree-orchestrator.js';
 import { ChonkCache } from './chonk-cache.js';
 
@@ -311,4 +318,308 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       await subTree.stop();
     }
   });
+
+  describe('local completion join', () => {
+    it('withholds the result while a block whose proofs are already in is still using its fork', async () => {
+      // An empty block's root rollup is enqueued from startNewBlock, so its proof — and the checkpoint's parity
+      // proof — can land while the caller still holds the block's processing fork and has not called
+      // setBlockCompleted. Resolving here would hand the sub-tree to a consumer that may tear it down underneath
+      // that caller.
+      const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(1);
+      const subTree = await startInspectableSubTree(1, constants, l1ToL2Messages, previousBlockHeader);
+      try {
+        const result = trackSettlement(subTree.getSubTreeResult());
+        const { blockNumber, timestamp } = blocks[0].header.globalVariables;
+
+        await subTree.startNewBlock(blockNumber, timestamp, 0, l1ToL2Messages);
+        await waitForAllProofs(subTree);
+
+        await sleep(50);
+        expect(result.settled).toBe(false);
+
+        await subTree.setBlockCompleted(blockNumber, blocks[0].header);
+        await expect(subTree.getSubTreeResult()).resolves.toBeDefined();
+      } finally {
+        await subTree.stop();
+      }
+    });
+
+    it('withholds the result while verification runs, even with header, archive and proofs all present', async () => {
+      // The narrower window inside setBlockCompleted: the archive snapshot is captured and the fork closed before
+      // verification runs, so every piece the resolution used to look for is present while the block is still
+      // unverified. Parity landing in that window must not resolve the sub-tree.
+      const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(1);
+      const subTree = await startInspectableSubTree(1, constants, l1ToL2Messages, previousBlockHeader);
+      try {
+        const result = trackSettlement(subTree.getSubTreeResult());
+        const { blockNumber, timestamp } = blocks[0].header.globalVariables;
+
+        subTree.holdVerification();
+        await subTree.startNewBlock(blockNumber, timestamp, 0, l1ToL2Messages);
+        await waitForAllProofs(subTree);
+
+        const completed = subTree.setBlockCompleted(blockNumber, blocks[0].header);
+        await sleep(50);
+        expect(result.settled).toBe(false);
+
+        subTree.releaseVerification();
+        await completed;
+        await expect(subTree.getSubTreeResult()).resolves.toBeDefined();
+      } finally {
+        subTree.releaseVerification();
+        await subTree.stop();
+      }
+    });
+
+    it('withholds the result while the block fork is still closing', async () => {
+      // The narrowest window: the archive snapshot is captured from the fork, so it exists before `close()`
+      // returns. A block root proof landing during the close runs verification itself and would find header,
+      // proof and archive all present, so publishing the archive any earlier resolves the sub-tree with the
+      // block's own fork still open.
+      const closeGate = promiseWithResolvers<void>();
+      const proofGate = promiseWithResolvers<void>();
+      const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(1);
+      const subTree = await startInspectableSubTree(1, constants, l1ToL2Messages, previousBlockHeader, {
+        worldState: withHeldForkClose(context.worldState, closeGate.promise),
+        prover: withHeldBlockRootProof(context.prover, proofGate.promise),
+      });
+      try {
+        const result = trackSettlement(subTree.getSubTreeResult());
+        const { blockNumber, timestamp } = blocks[0].header.globalVariables;
+
+        await subTree.startNewBlock(blockNumber, timestamp, 0, l1ToL2Messages);
+
+        // Park completion inside the fork close, then let the block root proof land in that window.
+        const completed = subTree.setBlockCompleted(blockNumber, blocks[0].header);
+        await sleep(50);
+        proofGate.resolve();
+        await waitForAllProofs(subTree);
+
+        expect(result.settled).toBe(false);
+
+        closeGate.resolve();
+        await completed;
+        await expect(subTree.getSubTreeResult()).resolves.toBeDefined();
+      } finally {
+        proofGate.resolve();
+        closeGate.resolve();
+        await subTree.stop();
+      }
+    });
+
+    it('withholds the result until the last block of a multi-block checkpoint is verified', async () => {
+      // Same race with the block merge in play: the second block is message-only, so its root proof is enqueued
+      // from startNewBlock and the merge can complete while that block is still being driven.
+      const l1ToL2MessagesPerBlock = [[], [new Fr(2001)]];
+      const { constants, blocks, l1ToL2Messages, previousBlockHeader } =
+        await context.makeCheckpointWithMessagesPerBlock(l1ToL2MessagesPerBlock, { numTxsPerBlock: [1, 0] });
+      const subTree = await startInspectableSubTree(2, constants, l1ToL2Messages, previousBlockHeader);
+      try {
+        const result = trackSettlement(subTree.getSubTreeResult());
+
+        const first = blocks[0].header.globalVariables;
+        await subTree.startNewBlock(first.blockNumber, first.timestamp, blocks[0].txs.length, []);
+        await subTree.addTxs(blocks[0].txs);
+        await subTree.setBlockCompleted(first.blockNumber, blocks[0].header);
+
+        const second = blocks[1].header.globalVariables;
+        await subTree.startNewBlock(second.blockNumber, second.timestamp, 0, l1ToL2MessagesPerBlock[1]);
+        await waitForAllProofs(subTree);
+
+        await sleep(50);
+        expect(result.settled).toBe(false);
+
+        await subTree.setBlockCompleted(second.blockNumber, blocks[1].header);
+        await expect(subTree.getSubTreeResult()).resolves.toBeDefined();
+      } finally {
+        await subTree.stop();
+      }
+    });
+
+    it('rejects and never resolves when the built archive disagrees with the synced one', async () => {
+      // A verification mismatch reports through provingState.reject rather than by throwing, so the failure has to
+      // win over the proofs that are already in hand.
+      const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(1);
+      const subTree = await startInspectableSubTree(1, constants, l1ToL2Messages, previousBlockHeader, {
+        worldState: withStaleArchiveSnapshots(context.worldState),
+      });
+      try {
+        const result = trackSettlement(subTree.getSubTreeResult());
+        const { blockNumber, timestamp } = blocks[0].header.globalVariables;
+
+        await subTree.startNewBlock(blockNumber, timestamp, 0, l1ToL2Messages);
+        await waitForAllProofs(subTree);
+        await subTree.setBlockCompleted(blockNumber, blocks[0].header);
+
+        await expect(subTree.getSubTreeResult()).rejects.toThrow(/Archive tree mismatch/);
+        expect(result.resolved).toBe(false);
+      } finally {
+        await subTree.stop();
+      }
+    });
+
+    it('does not publish a result when the caller supplies a header the block does not match', async () => {
+      const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(1);
+      const subTree = await startInspectableSubTree(1, constants, l1ToL2Messages, previousBlockHeader);
+      try {
+        const result = trackSettlement(subTree.getSubTreeResult());
+        const { blockNumber, timestamp } = blocks[0].header.globalVariables;
+
+        await subTree.startNewBlock(blockNumber, timestamp, 0, l1ToL2Messages);
+        await waitForAllProofs(subTree);
+
+        // Any header that is not this block's: completion must refuse it rather than verify against it.
+        await expect(subTree.setBlockCompleted(blockNumber, previousBlockHeader)).rejects.toThrow(
+          /Block header mismatch/,
+        );
+
+        await sleep(50);
+        expect(result.settled).toBe(false);
+      } finally {
+        await subTree.stop();
+      }
+    });
+  });
+
+  /** Starts a sub-tree that exposes its checkpoint state and can park local verification on demand. */
+  function startInspectableSubTree(
+    numBlocks: number,
+    constants: CheckpointConstantData,
+    l1ToL2Messages: Fr[],
+    previousBlockHeader: BlockHeader,
+    {
+      worldState = context.worldState,
+      prover = context.prover,
+    }: { worldState?: typeof context.worldState; prover?: typeof context.prover } = {},
+  ): Promise<InspectableSubTree> {
+    return InspectableSubTree.startInspectable(
+      worldState,
+      prover,
+      EthAddress.ZERO,
+      chonkCache,
+      EpochNumber(1),
+      false,
+      makeTestDeferredJobQueue(),
+      constants,
+      l1ToL2Messages,
+      Fr.ZERO,
+      numBlocks,
+      previousBlockHeader,
+    );
+  }
 });
+
+/**
+ * A sub-tree that lets a test observe the checkpoint's proofs and hold local verification open, so proofs can be
+ * made to land while a block is deliberately left unfinished.
+ */
+class InspectableSubTree extends CheckpointSubTreeOrchestrator {
+  private verificationGate: PromiseWithResolvers<void> | undefined;
+
+  public static async startInspectable(
+    ...args: Parameters<typeof CheckpointSubTreeOrchestrator.start>
+  ): Promise<InspectableSubTree> {
+    const subTree = await InspectableSubTree.start(...args);
+    if (!(subTree instanceof InspectableSubTree)) {
+      throw new Error('The start factory did not construct the subclass it was called on.');
+    }
+    return subTree;
+  }
+
+  public getCheckpointProvingState(): CheckpointProvingState {
+    if (!this.provingState) {
+      throw new Error('Sub-tree has no checkpoint state.');
+    }
+    return this.provingState;
+  }
+
+  /** Parks every subsequent local verification until {@link releaseVerification}. */
+  public holdVerification(): void {
+    this.verificationGate ??= promiseWithResolvers<void>();
+  }
+
+  public releaseVerification(): void {
+    this.verificationGate?.resolve();
+  }
+
+  protected override async verifyBuiltBlockAgainstSyncedState(provingState: BlockProvingState) {
+    await this.verificationGate?.promise;
+    return await super.verifyBuiltBlockAgainstSyncedState(provingState);
+  }
+}
+
+/** Waits until every block proof of the checkpoint and its parity proof are in hand. */
+async function waitForAllProofs(subTree: InspectableSubTree): Promise<void> {
+  await retryUntil(
+    () => {
+      const state = subTree.getCheckpointProvingState();
+      return state.getSubTreeOutputProofs().every(proof => !!proof) && !!state.getInboxParityProof();
+    },
+    'checkpoint proofs',
+    30,
+    0.05,
+  );
+}
+
+/** Records how a promise settled without awaiting it, so a test can assert it stayed pending. */
+function trackSettlement(promise: Promise<unknown>) {
+  const status = { settled: false, resolved: false };
+  void promise.then(
+    () => {
+      status.settled = true;
+      status.resolved = true;
+    },
+    () => {
+      status.settled = true;
+    },
+  );
+  return status;
+}
+
+/**
+ * A world state whose archive snapshots are taken one block early, so the block's built archive cannot agree with
+ * the synced one and verification must reject the checkpoint.
+ */
+function withStaleArchiveSnapshots<T extends object>(worldState: T): T {
+  return replacingMethod(worldState, 'getSnapshot', getSnapshot => blockNumber => getSnapshot(Number(blockNumber) - 1));
+}
+
+/** A world state whose block forks park in `close()` until `held` settles. */
+function withHeldForkClose<T extends object>(worldState: T, held: Promise<void>): T {
+  return replacingMethod(worldState, 'fork', fork => async (...args) => {
+    const db = await fork(...args);
+    if (typeof db !== 'object' || db === null) {
+      throw new Error('Expected a fork.');
+    }
+    return replacingMethod(db, 'close', close => async () => {
+      await held;
+      return await close();
+    });
+  });
+}
+
+/** A prover that withholds an empty block's root proof until `held` settles. */
+function withHeldBlockRootProof<T extends object>(prover: T, held: Promise<void>): T {
+  return replacingMethod(prover, 'getBlockRootNoTxsRollupProof', getProof => async (...args) => {
+    await held;
+    return await getProof(...args);
+  });
+}
+
+/** Forwards every member to `target` except the named method, which `replace` rebuilds from the original. */
+function replacingMethod<T extends object>(
+  target: T,
+  name: string,
+  replace: (original: (...args: unknown[]) => unknown) => (...args: unknown[]) => unknown,
+): T {
+  return new Proxy(target, {
+    get(_target, prop) {
+      const value = Reflect.get(target, prop);
+      if (typeof value !== 'function') {
+        return value;
+      }
+      const method = value.bind(target);
+      return prop === name ? replace(method) : method;
+    },
+  });
+}

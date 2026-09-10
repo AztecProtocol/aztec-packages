@@ -42,7 +42,7 @@ import {
 import type { RejectedCheckpoint } from '../store/block_store.js';
 import { type ArchiverDataStores, getArchiverSynchPoint } from '../store/data_stores.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
-import { ArchiverDataStoreUpdater } from './data_store_updater.js';
+import { ArchiverDataStoreUpdater, blockLeafCount } from './data_store_updater.js';
 import { InboxMessageSynchronizer } from './inbox_message_synchronizer.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
 import { validateCheckpointAttestationsFromCalldata } from './validation.js';
@@ -549,7 +549,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     if (lastBlock === undefined || lastBlock.header.getBlockNumber() !== lastBlockNumber) {
       return false;
     }
-    const consumedCount = BigInt(lastBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+    const consumedCount = blockLeafCount(lastBlock);
     const position = await this.stores.messages.getMessagePosition(consumedCount);
     return position !== undefined && position.rollingHash.equals(checkpoint.header.inboxRollingHash);
   }

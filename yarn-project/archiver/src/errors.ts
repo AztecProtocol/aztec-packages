@@ -109,11 +109,12 @@ export class BlockAlreadyCheckpointedError extends Error {
 export class InboxMessagePrefixChangedError extends Error {
   constructor(
     public readonly totalMessageCount: bigint,
-    public readonly expected: Fr,
+    /** The rolling hash the prefix was expected to have, when a caller knows it for this exact count. */
+    public readonly expected: Fr | undefined,
     public readonly actual: Fr | undefined,
   ) {
     super(
-      `Inbox message prefix at count ${totalMessageCount} changed from ${expected.toString()} to ` +
+      `Inbox message prefix at count ${totalMessageCount} changed from ${expected?.toString() ?? 'unavailable'} to ` +
         `${actual?.toString() ?? 'unavailable'} while a replacement was being prepared`,
     );
     this.name = 'InboxMessagePrefixChangedError';

@@ -176,9 +176,11 @@ describe('CheckpointProposalJob', () => {
     // ManualDateProvider freezes time (it does not track real wall-clock progression), so timing-sensitive
     // assertions on dateProvider.now() are deterministic regardless of how long the test takes to execute.
     dateProvider = new ManualDateProvider();
-    // Set time to be at the start of the slot (slot 1 starts at l1GenesisTime + slotDuration - ethereumSlotDuration)
-    const slotStartTime = Number(l1GenesisTime) + newSlotNumber * slotDuration - ethereumSlotDuration;
-    dateProvider.setTime(slotStartTime * 1000); // Convert to milliseconds
+    // Start at the target slot's build frame opening (target_slot_start - S - E), which is when a proposer actually
+    // begins its turn. Anchoring at the target slot start instead would put every job past the deadlines the
+    // timetable derives from the build frame, including the proposal send deadline.
+    const buildFrameStart = Number(l1GenesisTime) + (newSlotNumber - 1) * slotDuration - ethereumSlotDuration;
+    dateProvider.setTime(buildFrameStart * 1000); // Convert to milliseconds
 
     epochCache = mockDeep<EpochCache>();
     epochCache.getCommittee.mockResolvedValue({
@@ -396,6 +398,11 @@ describe('CheckpointProposalJob', () => {
     deadline: undefined,
     isLastBlock: false,
   });
+  // Freezes the clock past every tx-waiting deadline but still inside the proposal send budget. ManualDateProvider
+  // does not advance, so a job that genuinely waits for txs would hang; tests whose subject is the give-up path
+  // rather than the waiting itself start here instead.
+  const setTimePastTxWaits = () =>
+    dateProvider.setTime((job.getTimetable().getCheckpointProposalSendDeadline(SlotNumber(newSlotNumber)) - 1) * 1000);
   const makeSingleBlockTimetable = () =>
     makeProposerTimetable({
       l1Constants,
@@ -483,6 +490,7 @@ describe('CheckpointProposalJob', () => {
 
       job.updateConfig({ minTxsPerBlock: 2 });
 
+      setTimePastTxWaits();
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeUndefined();
@@ -1295,6 +1303,7 @@ describe('CheckpointProposalJob', () => {
       const waitSpy = jest.spyOn(job, 'waitUntilNextSubslot');
 
       job.updateConfig({ minTxsPerBlock: 0 });
+      setTimePastTxWaits();
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
@@ -1353,6 +1362,7 @@ describe('CheckpointProposalJob', () => {
       const waitSpy = jest.spyOn(job, 'waitUntilNextSubslot');
 
       job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: false });
+      setTimePastTxWaits();
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeUndefined();
@@ -1389,6 +1399,72 @@ describe('CheckpointProposalJob', () => {
       expect(checkpoint).toBeUndefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+    });
+
+    // The tx-polling interval, which must match TXS_POLLING_MS in checkpoint_proposal_job.ts.
+    const TXS_POLLING_MS = 500;
+
+    // Sets the clock inside the tx-waiting deadline, so only the send budget can stop the wait, and pins the send
+    // deadline `remainingMs` away from it. Returns a spy that counts waits and advances the clock like a real one.
+    const armTxPollWithSendBudget = (remainingMs: number) => {
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, true))
+        .mockReturnValue(noSubslot());
+      p2p.getPendingTxCount.mockResolvedValue(10);
+      p2p.hasEligiblePendingTxs.mockResolvedValue(false);
+
+      // The wait-for-txs deadline is the subslot deadline (+10s) less minBlockDuration (2s), so +1s is well inside it.
+      const nowMs = (buildFrameStartSeconds() + 1) * 1000;
+      dateProvider.setTime(nowMs);
+      jest.spyOn(job.getTimetable(), 'getCheckpointProposalSendDeadline').mockReturnValue((nowMs + remainingMs) / 1000);
+
+      job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: false });
+      return jest.spyOn(job, 'waitForTxsPollingInterval').mockImplementation(() => {
+        dateProvider.setTime(dateProvider.now() + TXS_POLLING_MS);
+        return Promise.resolve();
+      });
+    };
+
+    it('does not start a tx poll the proposal send budget cannot cover', async () => {
+      const pollSpy = armTxPollWithSendBudget(TXS_POLLING_MS - 1);
+
+      await job.executeAndAwait();
+
+      // A poll here would end past the send deadline, so it buys nothing and costs the rest of the budget.
+      expect(pollSpy).not.toHaveBeenCalled();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+    });
+
+    it('still waits for txs when a full poll fits inside the proposal send budget', async () => {
+      const pollSpy = armTxPollWithSendBudget(TXS_POLLING_MS + 1);
+
+      await job.executeAndAwait();
+
+      expect(pollSpy).toHaveBeenCalled();
+    });
+
+    it('does not wait out another sub-slot once the proposal send budget is spent', async () => {
+      // Two buildable sub-slots, so a failed first block would normally wait for the second and retry.
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, false))
+        .mockReturnValueOnce(subslot(20, 1, true))
+        .mockReturnValue(noSubslot());
+      p2p.getPendingTxCount.mockResolvedValue(10);
+      p2p.hasEligiblePendingTxs.mockResolvedValue(false);
+
+      const nowMs = (buildFrameStartSeconds() + 1) * 1000;
+      dateProvider.setTime(nowMs);
+      jest
+        .spyOn(job.getTimetable(), 'getCheckpointProposalSendDeadline')
+        .mockReturnValue((nowMs + TXS_POLLING_MS - 1) / 1000);
+      const subslotSpy = jest.spyOn(job, 'waitUntilNextSubslot');
+
+      job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: false });
+      await job.executeAndAwait();
+
+      expect(subslotSpy).not.toHaveBeenCalled();
     });
 
     it('stops building when selectNextSubslot returns false', async () => {
@@ -1592,6 +1668,7 @@ describe('CheckpointProposalJob', () => {
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
       job.updateConfig({ minTxsPerBlock: 1, buildCheckpointIfEmpty: false });
+      setTimePastTxWaits();
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
@@ -2042,18 +2119,23 @@ describe('CheckpointProposalJob', () => {
     // point at which its signature or its send could still land.
     describe('preflight deadlines', () => {
       const attestationDeadlineMs = () => job.getTimetable().getAttestationDeadline(SlotNumber(newSlotNumber)) * 1000;
+      const sendDeadlineMs = () =>
+        job.getTimetable().getCheckpointProposalSendDeadline(SlotNumber(newSlotNumber)) * 1000;
       const l1PublishDeadlineMs = () =>
         (Number(l1Constants.l1GenesisTime) + newSlotNumber * slotDuration + slotDuration - ethereumSlotDuration) * 1000;
 
-      it('does not sign the checkpoint when the pre-gossip preflight resolves after the attestation deadline', async () => {
+      it('does not sign the checkpoint when the pre-gossip preflight resolves after the send deadline', async () => {
         mockSubslots(1);
         streamingInbox.set(leaves(2));
+        // A verdict that lands after peers stop accepting proposals but well before the attestation cutoff: the
+        // two are a whole ethereum slot plus a block duration apart, and only the earlier one bounds the send.
         publisher.validateCheckpointHeaderAndInbox.mockImplementation(() => {
-          dateProvider.setTime(attestationDeadlineMs() + 1_000);
+          dateProvider.setTime(sendDeadlineMs() + 1_000);
           return Promise.resolve(0n);
         });
         await setupMultipleBlocks(1, [1]);
 
+        expect(sendDeadlineMs()).toBeLessThan(attestationDeadlineMs());
         const checkpoint = await job.executeAndAwait();
 
         expect(checkpoint).toBeUndefined();
@@ -2062,15 +2144,15 @@ describe('CheckpointProposalJob', () => {
         expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('header_validation_timeout');
       });
 
-      it('abandons a pre-gossip preflight that does not answer within the remaining attestation window', async () => {
+      it('abandons a pre-gossip preflight that does not answer within the remaining send window', async () => {
         mockSubslots(1);
         streamingInbox.set(leaves(2));
         publisher.validateCheckpointHeaderAndInbox.mockImplementation(() => new Promise<bigint>(() => {}));
         await setupMultipleBlocks(1, [1]);
-        // Once the block is built there are 200ms left to gossip a proposal validators could still attest to.
+        // Once the block is built there are 200ms left to gossip a proposal peers would still accept.
         const completeCheckpoint = checkpointBuilder.completeCheckpoint.bind(checkpointBuilder);
         jest.spyOn(checkpointBuilder, 'completeCheckpoint').mockImplementation(() => {
-          dateProvider.setTime(attestationDeadlineMs() - 200);
+          dateProvider.setTime(sendDeadlineMs() - 200);
           return completeCheckpoint();
         });
 
@@ -2079,6 +2161,55 @@ describe('CheckpointProposalJob', () => {
         expect(checkpoint).toBeUndefined();
         expect(validatorClient.createCheckpointProposal).not.toHaveBeenCalled();
         expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('header_validation_timeout');
+      });
+
+      it('does not gossip when a slow signer returns after the send deadline', async () => {
+        mockSubslots(1);
+        streamingInbox.set(leaves(2));
+        const createProposal = validatorClient.createCheckpointProposal.getMockImplementation()!;
+        validatorClient.createCheckpointProposal.mockImplementation(((...args: unknown[]) => {
+          dateProvider.setTime(sendDeadlineMs() + 1_000);
+          return (createProposal as (...a: unknown[]) => unknown)(...args);
+        }) as any);
+        await setupMultipleBlocks(1, [1]);
+
+        const checkpoint = await job.executeAndAwait();
+
+        expect(checkpoint).toBeUndefined();
+        // The signature was produced and its duty record stands; only the send is abandoned.
+        expect(validatorClient.createCheckpointProposal).toHaveBeenCalledTimes(1);
+        expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
+        expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('proposal_send_timeout');
+      });
+
+      it('does not gossip when the queued archiver insertion returns after the send deadline', async () => {
+        mockSubslots(1);
+        streamingInbox.set(leaves(2));
+        blockSink.addProposedCheckpoint.mockImplementation(() => {
+          dateProvider.setTime(sendDeadlineMs() + 1_000);
+          return Promise.resolve();
+        });
+        await setupMultipleBlocks(1, [1]);
+
+        const checkpoint = await job.executeAndAwait();
+
+        expect(checkpoint).toBeUndefined();
+        expect(validatorClient.createCheckpointProposal).toHaveBeenCalledTimes(1);
+        expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
+        expect(metrics.recordCheckpointProposalFailed).toHaveBeenCalledWith('proposal_send_timeout');
+      });
+
+      it('broadcasts once when preflight, signing and insertion all fit inside the send budget', async () => {
+        mockSubslots(1);
+        streamingInbox.set(leaves(2));
+        const { lastBlock } = await setupMultipleBlocks(1, [1]);
+        validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+        const checkpoint = await job.executeAndAwait();
+
+        expect(checkpoint).toBeDefined();
+        expect(p2p.broadcastCheckpointProposal).toHaveBeenCalledTimes(1);
+        expect(metrics.recordCheckpointProposalFailed).not.toHaveBeenCalledWith('proposal_send_timeout');
       });
 
       it('does not sign the checkpoint when the job is interrupted while the pre-gossip preflight runs', async () => {
@@ -2520,6 +2651,11 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   /** Awaits the sequencer's shared tracker so tests observe the backgrounded L1 submission completing. */
   public async awaitPendingSubmission(): Promise<void> {
     await this.pendingRequests.awaitRequests();
+  }
+
+  /** Widened so tests whose subject is whether the job waits at all can observe or stub the wait. */
+  public override waitForTxsPollingInterval(): Promise<void> {
+    return super.waitForTxsPollingInterval();
   }
 
   /** Wraps execute + awaitPendingSubmission so tests see the full pipeline complete. */

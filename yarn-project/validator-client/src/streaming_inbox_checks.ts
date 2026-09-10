@@ -89,6 +89,11 @@ export type StreamingBlockCheckResult =
       /** A check failed; `reason` mirrors the acceptance condition that rejected the proposal. */
       accepted: false;
       reason: StreamingBlockCheckReason;
+      /**
+       * Text of an unexpected message-source failure behind an `inbox_prefix_unavailable` verdict, so a caller whose
+       * retries run out can say why. Absent for ordinary sync lag and for every other reason.
+       */
+      error?: string;
     };
 
 /**
@@ -179,6 +184,10 @@ export async function checkStreamingBlockProposalMetadata(
  * same local-view condition as a missing prefix hash and the caller retries both the same way. A replacement that
  * lands *after* this read is not this function's race: the bundle and the proposal still agree, so re-execution is
  * consistent, and the archiver's insert guard is what refuses to store the block.
+ *
+ * Every failure of the range read is non-punitive, but not every failure is ordinary sync lag: a store fault or a
+ * broken provider surfaces here as the same verdict. The unexpected ones carry their error text on the result so a
+ * caller that gives up waiting can report it, without changing what the validator does with the proposal.
  */
 export async function readStreamingBlockBundle(
   messageSource: Pick<StreamingInboxMessageSource, 'getL1ToL2MessageRange'>,
@@ -193,8 +202,8 @@ export async function readStreamingBlockBundle(
       messages,
       end: { rollingHash: endRollingHash },
     } = await messageSource.getL1ToL2MessageRange(parentTotalMsgCount, endTotalMsgCount));
-  } catch {
-    return { accepted: false, reason: 'inbox_prefix_unavailable' };
+  } catch (err) {
+    return { accepted: false, reason: 'inbox_prefix_unavailable', error: unexpectedRangeReadError(err) };
   }
 
   if (!endRollingHash.equals(inboxPrefixRef.inboxRollingHash)) {
@@ -202,6 +211,25 @@ export async function readStreamingBlockBundle(
   }
 
   return { accepted: true, bundle: messages };
+}
+
+/**
+ * Message fragments that identify an ordinary local-view shortfall from the archiver's range read: the range reaches
+ * past what this node has synced, or its bounds are not a valid range at all. Matched on the message text rather than
+ * on the error's class, since a JSON-RPC hop between the validator and its message source leaves the class behind
+ * while preserving the message.
+ */
+const EXPECTED_RANGE_READ_FAILURES = ['is not fully synced', 'Invalid Inbox leaf count range'];
+
+/** Upper bound on the error text carried onto a result, so a verbose provider error cannot blow up a log record. */
+const MAX_REPORTED_ERROR_LENGTH = 200;
+
+/** Bounded text of a range-read failure the checks did not anticipate, or undefined for ordinary sync lag. */
+function unexpectedRangeReadError(err: unknown): string | undefined {
+  const message = err instanceof Error ? err.message : String(err);
+  return EXPECTED_RANGE_READ_FAILURES.some(fragment => message.includes(fragment))
+    ? undefined
+    : message.slice(0, MAX_REPORTED_ERROR_LENGTH);
 }
 
 /**

@@ -10,8 +10,11 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
  * - `unvalidated`  — the local node could not complete validation for non-deterministic reasons
  *                    (missing blocks/txs, timeouts, infra errors). Treated as proposer-fault for
  *                    slashing but surfaced separately for telemetry.
+ * - `unverifiable` — this observer could not check the proposal against an authority outside itself,
+ *                    so it learned nothing about the proposer. Never proposer-fault: it is recorded
+ *                    only to keep the absence of a verdict from being read as an absent proposal.
  */
-export type ReexecutionOutcome = 'valid' | 'invalid' | 'unvalidated';
+export type ReexecutionOutcome = 'valid' | 'invalid' | 'unvalidated' | 'unverifiable';
 
 /**
  * Tracks two pieces of per-slot state collected during proposal handling:

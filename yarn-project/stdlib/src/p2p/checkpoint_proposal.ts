@@ -365,29 +365,12 @@ export class CheckpointProposal extends Gossipable implements Signable {
     return new CheckpointProposal(checkpointHeader, archive, feeAssetPriceModifier, signature, signatureContext);
   }
 
+  /**
+   * Size in bytes of the serialized proposal. Measured from the serialization itself so it cannot drift from
+   * `toBuffer` as optional fields are added or their widths change.
+   */
   getSize(): number {
-    let size =
-      this.checkpointHeader.toBuffer().length +
-      this.archive.size +
-      this.signature.getSize() +
-      8 /* feeAssetPriceModifier */ +
-      4 /* chainId */ +
-      20 /* rollupAddress */ +
-      4; /* hasLastBlock flag */
-
-    if (this.lastBlock) {
-      size +=
-        this.lastBlock.blockHeader.getSize() +
-        4 /* indexWithinCheckpoint */ +
-        this.lastBlock.signature.getSize() +
-        4 /* txHashes.length */ +
-        this.lastBlock.txHashes.length * TxHash.SIZE +
-        4 /* hasSignedTxs flag */ +
-        (this.lastBlock.signedTxs ? this.lastBlock.signedTxs.getSize() : 0) +
-        (this.lastBlock.inboxPrefixRef ? 4 /* hasInboxPrefixRef flag */ + this.lastBlock.inboxPrefixRef.getSize() : 0);
-    }
-
-    return size;
+    return this.toBuffer().length;
   }
 
   static empty(): CheckpointProposal {

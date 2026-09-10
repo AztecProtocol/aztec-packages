@@ -41,6 +41,14 @@ export type SentinelRuntimeConfig = Pick<
   Pick<SentinelConfig, 'sentinelEpochEndBufferSlots'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>;
 
+/**
+ * Statuses that record only that this node could not assess the slot. They are evidence of nothing, so they are
+ * left out of both halves of a missed-duty rate: counting them as misses would charge a validator for an
+ * observer's failure, and counting them as successes would let unknowns dilute the misses that are real. A slot
+ * nobody could assess simply does not count towards the rate.
+ */
+const UNASSESSABLE_STATUSES: ValidatorStatusInSlot[] = ['checkpoint-unverifiable'];
+
 /** Maps a validator status to its category: proposer or attestation. */
 function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
   switch (status) {
@@ -78,10 +86,9 @@ function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
  * Triggering per-epoch evaluation off local L2 state — rather than waiting for L1 proof
  * publication — decouples slashing from prover availability.
  *
- * ## Six-case taxonomy in `getSlotActivity`
+ * ## Proposer taxonomy in `getSlotActivity`
  *
- * For each slot, the sentinel assigns the proposer one of six statuses, ranked highest-confidence
- * first:
+ * For each slot, the sentinel assigns the proposer one status, ranked highest-confidence first:
  *
  *  - `checkpoint-mined`        — a checkpoint covering this slot has landed on L1
  *                                (fetched on demand via `archiver.getCheckpoint({ slot })`).
@@ -93,18 +100,22 @@ function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
  *  - `checkpoint-unvalidated`  — the local node observed a checkpoint proposal but could not
  *                                validate it (missing blocks/txs, timeouts). Treated as
  *                                proposer-fault for slashing.
+ *  - `checkpoint-unverifiable` — the local node observed a checkpoint proposal and found its
+ *                                content valid, but could not check it against an authority
+ *                                outside itself. Recorded so the slot is not mistaken for one
+ *                                without a proposal, and charged to nobody.
  *  - `checkpoint-missed`       — block proposals seen on P2P but no checkpoint proposal at all.
  *  - `blocks-missed`           — no block proposals seen for this slot.
  *
  * Missing-attestor faults are recorded only in `checkpoint-mined` and `checkpoint-valid`, where
- * the local node has positive evidence the checkpoint was canonical or valid. In the other four
- * cases the proposer is at fault and no attestor penalty applies.
+ * the local node has positive evidence the checkpoint was canonical or valid. In the other cases
+ * no attestor penalty applies.
  *
  * ## Re-execution tracker
  *
  * `CheckpointReexecutionTracker` is populated by the validator client's checkpoint proposal
  * handler. Every early return in `validateCheckpointProposal` records an outcome
- * (`valid` / `invalid` / `unvalidated`) keyed by slot.
+ * (`valid` / `invalid` / `unvalidated` / `unverifiable`) keyed by slot.
  *
  * ## Inactivity slashing
  *
@@ -114,7 +125,7 @@ function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
  * (read from `SentinelStore.epochMap`). Only validators meeting both conditions are emitted as
  * `WANT_TO_SLASH_EVENT` with `OffenseType.INACTIVITY`. The slot-level counters that feed this —
  * `missedProposals` and `missedAttestations` — include the four proposer-fault statuses plus
- * `attestation-missed`.
+ * `attestation-missed`; `checkpoint-unverifiable` is a local-inability record and is in neither.
  *
  * ## Escape hatch
  *
@@ -513,6 +524,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       | 'checkpoint-valid'
       | 'checkpoint-invalid'
       | 'checkpoint-unvalidated'
+      | 'checkpoint-unverifiable'
       | 'checkpoint-missed'
       | 'blocks-missed';
     if (checkpoint) {
@@ -523,6 +535,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       status = 'checkpoint-invalid';
     } else if (reexecutionOutcome === 'unvalidated') {
       status = 'checkpoint-unvalidated';
+    } else if (reexecutionOutcome === 'unverifiable') {
+      // A proposal this node saw but could not check against anything outside itself. Recording it stops the
+      // fallback below reading the slot as one the proposer never proposed in.
+      status = 'checkpoint-unverifiable';
     } else {
       // No L1 checkpoint, no local re-execution outcome for this slot. Distinguish "proposer
       // sent block proposals but never made a checkpoint" from "proposer sent nothing".
@@ -652,6 +668,9 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       lastProposal: this.computeFromSlot(lastProposal?.slot),
       lastAttestation: this.computeFromSlot(lastAttestation?.slot),
       totalSlots: history.length,
+      // `checkpoint-unverifiable` is deliberately absent, and {@link UNASSESSABLE_STATUSES} keeps it out of the
+      // denominator too: it records this node's own inability to check a proposal it did see, so counting it
+      // either way would misreport the proposer.
       missedProposals: this.computeMissed(history, 'proposer', [
         'checkpoint-missed',
         'blocks-missed',
@@ -669,7 +688,9 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     filter: ValidatorStatusInSlot[],
   ) {
     const relevantHistory = history.filter(
-      h => !computeOverCategory || statusToCategory(h.status) === computeOverCategory,
+      h =>
+        !UNASSESSABLE_STATUSES.includes(h.status) &&
+        (!computeOverCategory || statusToCategory(h.status) === computeOverCategory),
     );
     const filteredHistory = relevantHistory.filter(h => filter.includes(h.status));
     return {

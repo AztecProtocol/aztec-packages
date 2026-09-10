@@ -236,6 +236,15 @@ export class CheckpointProvingState {
       : this.blockProofs.getChildren(rootLocation).map(c => c?.provingOutput);
   }
 
+  /**
+   * Whether every block of this checkpoint has been started and has passed its local verification. A checkpoint
+   * whose blocks are still being started has not, so a proof arriving before the caller reached the later blocks
+   * cannot be mistaken for a finished sub-tree.
+   */
+  public allBlocksVerified() {
+    return this.blocks.length === this.totalNumBlocks && this.blocks.every(block => block?.isVerified());
+  }
+
   /** Sibling path of the archive tree captured before any block in this checkpoint landed. */
   public getLastArchiveSiblingPath() {
     return this.lastArchiveSiblingPath;

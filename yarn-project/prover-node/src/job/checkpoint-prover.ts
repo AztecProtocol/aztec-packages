@@ -109,6 +109,15 @@ export class CheckpointProver {
    * InboxParity proof (which feeds the checkpoint root in the top tree). */
   private readonly subTreeProofs: PromiseWithResolvers<CheckpointSubTreeProofs> = promiseWithResolvers();
 
+  /**
+   * Settles when this prover has finished using the sub-tree: resolved once every block has been processed and
+   * handed over, rejected if processing gave up. The sub-tree's proofs can be ready before that — a single empty
+   * block needs none of the local work, and a cached identical-input proof returns immediately — so handing the
+   * proofs off and releasing the orchestrator on proof arrival alone would pull the sub-tree out from under a
+   * caller still building forks against it.
+   */
+  private readonly localProcessingDone: PromiseWithResolvers<void> = promiseWithResolvers();
+
   // Three independent lifecycle facts — deliberately not collapsed into one status enum, because several
   // combinations are legal and relied on: a prover can be `completed` and then `cancelled` (routine
   // teardown of an already-proven checkpoint), or `completed` and then `failed` (block proving was
@@ -146,6 +155,7 @@ export class CheckpointProver {
     // Mark subTreeProofs as observed so a cancel that lands before any consumer awaits
     // does not surface as an unhandled rejection.
     this.subTreeProofs.promise.catch(() => {});
+    this.localProcessingDone.promise.catch(() => {});
     deps.log.info(`Created CheckpointProver ${this.id}`, {
       checkpointNumber: this.checkpoint.number,
       epochNumber: this.epochNumber,
@@ -334,9 +344,16 @@ export class CheckpointProver {
         this.previousBlockHeader,
       );
       subTreeStarted = true;
-      // Bridge the sub-tree's result onto subTreeProofs.
-      void this.subTree.getSubTreeResult().then(
-        result => {
+      // Bridge the sub-tree's result onto subTreeProofs, once this prover is also done with the sub-tree.
+      void this.subTree
+        .getSubTreeResult()
+        .then(async result => {
+          // Join with local processing before handing anything off. Proofs can be ready while the loop below is
+          // still creating forks and completing later blocks; resolving and tearing down here would close the
+          // orchestrator's dbs under it. A processing failure rejects the join instead, and the shared catch below
+          // routes it to `failSubTreeProofs` — which the failing path has already called — so a failure always wins
+          // over a later success.
+          await this.localProcessingDone.promise;
           this.deps.log.info(`Sub-tree block proofs ready for checkpoint ${this.checkpoint.number}`, {
             checkpointNumber: this.checkpoint.number,
             blockProofCount: result.blockProofOutputs.length,
@@ -355,9 +372,8 @@ export class CheckpointProver {
           // top-tree job, a rebuilt EpochSession, failure upload) read only `whenSubTreeProofsReady()` and
           // this prover's own fields (`checkpoint`, `txs`, headers, sibling paths), never the sub-tree.
           this.teardownPromise = this.teardownSubTree();
-        },
-        err => this.failSubTreeProofs(err instanceof Error ? err : new Error(String(err))),
-      );
+        })
+        .catch(err => this.failSubTreeProofs(err instanceof Error ? err : new Error(String(err))));
       if (signal.aborted) {
         return;
       }
@@ -442,7 +458,12 @@ export class CheckpointProver {
         },
       );
     } finally {
-      if (!this.completed) {
+      if (this.completed) {
+        // Release the result callback: it may already be holding a finished set of proofs.
+        this.localProcessingDone.resolve();
+      } else {
+        // Fail the join first, so the result callback cannot resolve or start a teardown while this one runs.
+        this.localProcessingDone.reject(new Error(`Checkpoint ${this.id} did not complete block processing`));
         if (subTreeStarted) {
           await this.teardownSubTree();
         }

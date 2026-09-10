@@ -1,9 +1,11 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { waitForTx } from '@aztec/aztec.js/node';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -95,30 +97,86 @@ describe('single-node/cross-chain/streaming_inbox', () => {
       0.1,
     );
 
+  /** Leaves in a block's committed L1-to-L2 message tree; genesis holds none and an unknown block reports none. */
+  const committedMessageCount = async (blockNumber: number): Promise<bigint | undefined> => {
+    if (blockNumber <= 0) {
+      return 0n;
+    }
+    const data = await aztecNode.getBlockData(BlockNumber(blockNumber));
+    return data && BigInt(data.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+  };
+
   /**
-   * Finds the L2 block that inserted `msgHash` into the L1-to-L2 message tree by scanning forward from
-   * `fromBlock` for the first block whose committed tree resolves a membership witness. Under the streaming
-   * Inbox a message enters the tree at the first block the proposer builds after its archiver observed the
-   * message, which need not be the first block of a checkpoint. Returns the block-data (checkpoint number + index
-   * within checkpoint) of that block.
+   * Finds the L2 block that inserted `msgHash` into the L1-to-L2 message tree. Under the streaming Inbox a message
+   * enters the tree at the first block the proposer builds after its archiver observed it, which need not be the
+   * first block of a checkpoint. Returns the block-data (checkpoint number + index within checkpoint) of that block.
+   *
+   * The tree is append-only, so every block built after the insertion resolves a membership witness for the message
+   * just as the inserting one does: retaining membership is not inserting it, and scanning forward from a block
+   * number sampled by the caller reports where the search started whenever the message was already inserted by then.
+   * The block is instead located by the message's compact leaf index against the committed leaf count, which grows
+   * monotonically along the chain: the inserting block is the first whose count is past the index, found by bisecting
+   * the whole chain rather than trusting any sampled bound.
+   *
+   * The result is then confirmed at both states: the block's parent has no membership witness for the message and
+   * the block itself resolves one at the message's own compact index. A chain that moves under the search (the tip
+   * advancing, a prune) fails that confirmation, which is a genuine timing miss and is retried.
    */
-  const findInsertingBlock = (msgHash: Fr, fromBlock: BlockNumber) => {
-    return retryUntil(
-      async () => {
-        const tip = await aztecNode.getBlockNumber();
-        for (let n = fromBlock; n <= tip; n = BlockNumber(n + 1)) {
-          const witness = await aztecNode.getL1ToL2MessageMembershipWitness(n, msgHash);
-          if (witness !== undefined) {
-            const data = await aztecNode.getBlockData(n);
-            return { blockNumber: n, checkpointNumber: data!.checkpointNumber, index: data!.indexWithinCheckpoint };
-          }
+  const findInsertingBlock = async (msgHash: Fr) => {
+    const attempts = 3;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const { leafIndex } = await retryUntil(
+        async () => {
+          const index = await aztecNode.getL1ToL2MessageIndex(msgHash);
+          return index === undefined ? undefined : { leafIndex: index };
+        },
+        `node assigns a compact index to message ${msgHash.toString()}`,
+        240,
+        0.5,
+      );
+
+      // The chain holds the message once its tip's tree has grown past the message's index.
+      const { tip } = await retryUntil(
+        async () => {
+          const tip = await aztecNode.getBlockNumber();
+          const count = await committedMessageCount(tip);
+          return count !== undefined && count > leafIndex ? { tip } : undefined;
+        },
+        `a block committing message ${msgHash.toString()}`,
+        240,
+        0.5,
+      );
+
+      // Bisect for the first block past the index: genesis holds no messages, the tip holds this one.
+      let below = 0;
+      let holding = Number(tip);
+      while (holding - below > 1) {
+        const middle = below + Math.floor((holding - below) / 2);
+        const count = await committedMessageCount(middle);
+        if (count !== undefined && count > leafIndex) {
+          holding = middle;
+        } else {
+          below = middle;
         }
-        return undefined;
-      },
-      `find block inserting message ${msgHash.toString()}`,
-      240,
-      0.5,
-    );
+      }
+
+      const blockNumber = BlockNumber(holding);
+      const data = await aztecNode.getBlockData(blockNumber);
+      const witness = await aztecNode.getL1ToL2MessageMembershipWitness(blockNumber, msgHash);
+      const parentWitness =
+        below === 0 ? undefined : await aztecNode.getL1ToL2MessageMembershipWitness(BlockNumber(below), msgHash);
+      if (data !== undefined && witness !== undefined && witness[0] === leafIndex && parentWitness === undefined) {
+        return { blockNumber, checkpointNumber: data.checkpointNumber, index: data.indexWithinCheckpoint };
+      }
+      log.warn(`Block ${blockNumber} did not confirm as the one inserting ${msgHash.toString()}; searching again`, {
+        attempt,
+        leafIndex,
+        hasBlockData: data !== undefined,
+        resolvedIndex: witness?.[0],
+        parentHoldsMessage: parentWitness !== undefined,
+      });
+    }
+    throw new Error(`Could not confirm which block inserted message ${msgHash.toString()} in ${attempts} attempts`);
   };
 
   /**
@@ -188,7 +246,7 @@ describe('single-node/cross-chain/streaming_inbox', () => {
 
         // The background feeder drives block production; findInsertingBlock polls the committed tree without
         // sending its own wallet txs (which would race the feeder on the nonce).
-        const found = await findInsertingBlock(msgHash, BlockNumber(blockAtSend + 1));
+        const found = await findInsertingBlock(msgHash);
         log.warn(`Message ${msgHash.toString()} inserted at block ${found.blockNumber}`, {
           checkpointNumber: found.checkpointNumber,
           index: found.index,
@@ -227,7 +285,6 @@ describe('single-node/cross-chain/streaming_inbox', () => {
     const maxDelaySeconds = BigInt(t.constants.ethereumSlotDuration) + 2n * BigInt(slotDuration);
 
     await withBackgroundFeeder(async () => {
-      const blockAtSend = await aztecNode.getBlockNumber();
       const wallClockAtSend = Date.now();
       const [, secretHash] = await generateClaimSecret();
       const message = { recipient: testContract.address, content: Fr.random(), secretHash };
@@ -237,7 +294,7 @@ describe('single-node/cross-chain/streaming_inbox', () => {
 
       // The background feeder drives block production; findInsertingBlock polls the committed tree without
       // sending its own wallet txs (which would race the feeder on the nonce).
-      const inserting = await findInsertingBlock(msgHash, BlockNumber(blockAtSend + 1));
+      const inserting = await findInsertingBlock(msgHash);
       const wallClockLatencyMs = Date.now() - wallClockAtSend;
       const insertingBlock = (await aztecNode.getBlock(inserting.blockNumber))!;
       const includingBlockTs = insertingBlock.header.globalVariables.timestamp;
@@ -270,7 +327,6 @@ describe('single-node/cross-chain/streaming_inbox', () => {
       0.5,
     );
 
-    const blockAtSend = await aztecNode.getBlockNumber();
     const [, secretHash] = await generateClaimSecret();
     const message = { recipient: testContract.address, content: Fr.random(), secretHash };
     const { msgHash } = await sendMessageToL2(message);
@@ -279,7 +335,7 @@ describe('single-node/cross-chain/streaming_inbox', () => {
     // Do not feed txs; the sequencer builds empty checkpoints until the message ages past the lag, at which
     // point a zero-tx block consumes it. findInsertingBlock polls the committed tree without sending txs, so
     // the pool stays empty and the block that consumes the message carries only the bundle.
-    const inserting = await findInsertingBlock(msgHash, BlockNumber(blockAtSend + 1));
+    const inserting = await findInsertingBlock(msgHash);
 
     const insertingBlock = (await aztecNode.getBlock(inserting.blockNumber, { includeTransactions: true }))!;
     log.warn(`Message ${msgHash.toString()} inserted at block ${inserting.blockNumber}`, {
@@ -313,14 +369,13 @@ describe('single-node/cross-chain/streaming_inbox', () => {
   // double-spend revert. Mirrors cross_chain_public_message.test.ts.
   it('consumes a streaming-inserted message by compact index and rejects double-spend', async () => {
     const l1Account = t.ethAccount;
-    const blockAtSend = await aztecNode.getBlockNumber();
     const [secret, secretHash] = await generateClaimSecret();
     const message = { recipient: testContract.address, content: Fr.random(), secretHash };
     const { msgHash, globalLeafIndex } = await sendMessageToL2(message);
     log.warn(`Sent message ${msgHash.toString()} with compact index ${globalLeafIndex}`);
 
     await waitForMessageReady(msgHash, 'public');
-    const inserting = await findInsertingBlock(msgHash, BlockNumber(blockAtSend + 1));
+    const inserting = await findInsertingBlock(msgHash);
 
     const { receipt: txReceipt } = await testContract.methods
       .consume_message_from_arbitrary_sender_public(message.content, secret, l1Account, globalLeafIndex.toBigInt())
@@ -345,53 +400,55 @@ describe('single-node/cross-chain/streaming_inbox', () => {
   // Test 5 (forced same-block consumption): a public tx consuming a message that the *same* block inserts must
   // succeed. The block builder appends the block's messages to its fork before executing txs, matching the prover
   // and the block-root circuit (which pins each tx's L1-to-L2 tree snapshot to the post-append root); if it did
-  // not, this tx would revert at proposal time and succeed at proving time, making the epoch unprovable. The node
-  // simulates public calls against the messages predicted for the next block, so a consume tx sent as soon as the
-  // node's archiver has observed the message passes simulation and lands in the pool before the inserting block
-  // is built. Observation is the only trigger: a message in a mined L1 block is consumable at once, without waiting
-  // for a descendant L1 block. The send is timed to the archiver's observation and retried with fresh messages when a
-  // block slips in between.
+  // not, this tx would revert at proposal time and succeed at proving time, making the epoch unprovable.
+  //
+  // A block freezes its L1-to-L2 message set when it is prepared, which happens before the message's L1 tx is even
+  // mined, so a consume tx sent while a block is already building can only join that block -- one too early, against
+  // a frozen set that does not hold the message, and it reverts. Waiting for the archiver alone cannot avoid this:
+  // it leaves which block the tx joins up to where the send lands in the block cadence. Block production is
+  // therefore held while the message is sent and observed and the consume tx is put in the pool, so that the first
+  // block prepared after the resume is the one that both inserts the message and executes the tx.
   it('consumes a message in the same block that inserts it', async () => {
     const l1Account = t.ethAccount;
-    const maxAttempts = 5;
-    let sameBlockReceipt: { blockNumber: BlockNumber; msgHash: Fr; globalLeafIndex: bigint } | undefined;
+    const sequencer = t.context.aztecNodeService.getSequencer()!;
+    const [secret, secretHash] = await generateClaimSecret();
+    const message = { recipient: testContract.address, content: Fr.random(), secretHash };
 
-    for (let attempt = 0; attempt < maxAttempts && sameBlockReceipt === undefined; attempt++) {
-      const [secret, secretHash] = await generateClaimSecret();
-      const message = { recipient: testContract.address, content: Fr.random(), secretHash };
-      const { msgHash, globalLeafIndex, txReceipt: l1Receipt } = await sendMessageToL2(message);
-      log.warn(`Attempt ${attempt}: sent message ${msgHash.toString()} in L1 block ${l1Receipt.blockNumber}`);
+    // Proven before the pause so the proof window cannot expire while nothing is being built.
+    await markAsProven();
+    await sequencer.pause();
 
-      // Do not drive L2 blocks while waiting: an extra block here only shifts the timing of the inserting block.
-      // The archiver polls L1 within an Ethereum slot; no later L1 block is needed for the message to be usable.
-      await waitForMessageObserved(msgHash);
-      const blockAtSend = await aztecNode.getBlockNumber();
+    const { msgHash, globalLeafIndex } = await sendMessageToL2(message);
+    // The archiver polls L1 independently of block production, so it still observes the message while paused.
+    await waitForMessageObserved(msgHash);
 
-      const { receipt } = await testContract.methods
-        .consume_message_from_arbitrary_sender_public(message.content, secret, l1Account, globalLeafIndex.toBigInt())
-        .send({ from: user1Address, wait: { dontThrowOnRevert: true } });
-      const inserting = await findInsertingBlock(msgHash, BlockNumber(blockAtSend + 1));
-      const consumeBlock = BlockNumber(Number(receipt.blockNumber));
-      log.warn(`Consume tx for ${msgHash.toString()} landed in block ${consumeBlock}`, {
-        insertingBlock: inserting.blockNumber,
-        consumeBlock,
-        executionResult: receipt.executionResult,
-      });
+    // NO_WAIT: the tx has to reach the pool while production is held, so it cannot be awaited here -- nothing will
+    // mine it until the resume below. Simulation runs against the messages predicted for the next block, which the
+    // archiver has already observed, so the consume simulates against a tree that holds the message.
+    const { txHash } = await testContract.methods
+      .consume_message_from_arbitrary_sender_public(message.content, secret, l1Account, globalLeafIndex.toBigInt())
+      .send({ from: user1Address, wait: NO_WAIT });
+    log.warn(`Queued consume for ${msgHash.toString()} while production is held`, { txHash: txHash.toString() });
 
-      if (consumeBlock !== inserting.blockNumber) {
-        // A block was built between eligibility and the tx's arrival; that is timing, not a bug.
-        log.warn(`Consume did not land in the inserting block; retrying with a fresh message`);
-        continue;
-      }
+    // Resuming on a slot boundary gives the proposer its whole build frame for the block that carries both.
+    await t.monitor.waitUntilNextL2Slot();
+    await sequencer.start();
 
-      // Same block reached: the consume must have succeeded against the block's own messages.
-      expect(receipt.executionResult).toBe(TxExecutionResult.SUCCESS);
-      sameBlockReceipt = { blockNumber: consumeBlock, msgHash, globalLeafIndex: globalLeafIndex.toBigInt() };
-    }
+    const receipt = await waitForTx(aztecNode, txHash);
+    const consumeBlock = BlockNumber(Number(receipt.blockNumber));
+    const inserting = await findInsertingBlock(msgHash);
+    log.warn(`Consume tx for ${msgHash.toString()} landed in block ${consumeBlock}`, {
+      insertingBlock: inserting.blockNumber,
+      consumeBlock,
+      executionResult: receipt.executionResult,
+    });
 
-    if (sameBlockReceipt === undefined) {
-      throw new Error(`Could not produce a same-block consume in ${maxAttempts} attempts`);
-    }
+    // The premise of the case: holding production must put both in the same block. Anything else is a real failure
+    // -- a consume one block late would succeed against an already-inserted message and prove nothing.
+    expect(consumeBlock).toBe(inserting.blockNumber);
+    expect(receipt.executionResult).toBe(TxExecutionResult.SUCCESS);
+
+    const sameBlockReceipt = { blockNumber: consumeBlock, msgHash, globalLeafIndex: globalLeafIndex.toBigInt() };
     const [resolvedIndex] = (await aztecNode.getL1ToL2MessageMembershipWitness(
       sameBlockReceipt.blockNumber,
       sameBlockReceipt.msgHash,

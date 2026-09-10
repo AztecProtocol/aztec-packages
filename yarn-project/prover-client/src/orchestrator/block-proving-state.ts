@@ -57,6 +57,7 @@ export class BlockProvingState {
   private builtArchive: AppendOnlyTreeSnapshot | undefined;
   private endState: StateReference | undefined;
   private endSpongeBlob: SpongeBlob | undefined;
+  private verified = false;
   private txs: TxProvingState[] = [];
   private error: string | undefined;
 
@@ -214,6 +215,20 @@ export class BlockProvingState {
 
   public getBuiltArchive() {
     return this.builtArchive;
+  }
+
+  /**
+   * Records that this block's proof outputs were checked against the locally built header and archive and agreed.
+   * Field presence is not the same thing: the archive snapshot is captured before the fork is closed and before the
+   * comparison runs, so a caller that only looks for the pieces can see a block that has not been verified at all.
+   */
+  public markVerified() {
+    this.verified = true;
+  }
+
+  /** Whether {@link markVerified} has recorded a successful check for this block. */
+  public isVerified() {
+    return this.verified;
   }
 
   public getStartSpongeBlob() {

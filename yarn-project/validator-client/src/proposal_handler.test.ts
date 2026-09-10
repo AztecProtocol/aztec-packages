@@ -6,6 +6,8 @@ import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
@@ -398,6 +400,50 @@ describe('ProposalHandler checkpoint validation', () => {
       });
     });
 
+    // retryUntil only consults its deadline once an attempt returns, so an attempt that never settles never
+    // reaches it. The duty budget races the whole loop, so the caller settles instead of being held open. Running
+    // out of time is this node giving up rather than a verdict, so it is reported as its own reason.
+    it('settles within the duty budget when a readiness read never returns', async () => {
+      blockSource.getBlocksForSlot.mockImplementation(() => new Promise(() => {}));
+      // attestation_deadline(slot=1) is 40s; leave a short but nonzero budget.
+      dateProvider.setTime(39_800);
+
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+
+      expect(result).toEqual({ isValid: false, reason: 'validation_deadline_expired' });
+    });
+
+    it('settles within the grace when a readiness read never returns past the deadline', async () => {
+      blockSource.getBlocksForSlot.mockImplementation(() => new Promise(() => {}));
+      dateProvider.setTime(41_000);
+
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+
+      expect(result).toEqual({ isValid: false, reason: 'validation_deadline_expired' });
+    });
+
+    // The cached-valid path re-reads the checkpoint's blocks before reusing a verdict; that read is a store
+    // call like any other and must not be able to hold the duty open either.
+    it('settles when the cached-verdict re-check never returns', async () => {
+      const archiveRoot = Fr.random();
+      blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([archiveRoot]));
+      blockSource.getCheckpointData.mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as CheckpointData);
+      const proposal = await makeProposal({ archiveRoot });
+
+      // First call caches a verdict; it is not valid, so make one that is by re-running against a valid result.
+      const cached = { isValid: true as const, checkpointNumber: CheckpointNumber(1) };
+      (handler as unknown as { lastCheckpointValidationResult: unknown }).lastCheckpointValidationResult = {
+        payloadHash: proposal.getPayloadHash(),
+        result: cached,
+      };
+      blockSource.getBlockData.mockImplementation(() => new Promise(() => {}));
+      dateProvider.setTime(39_800);
+
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+
+      expect(result).toEqual({ isValid: false, reason: 'validation_deadline_expired' });
+    });
+
     // With <1s remaining the old Math.floor(...) timeout collapsed to 0 ("never time out"). The fix uses
     // a strictly-positive fractional timeout, so the wait still terminates instead of hanging.
     it('terminates with a fractional sub-second timeout when <1s remains before the deadline', async () => {
@@ -407,7 +453,81 @@ describe('ProposalHandler checkpoint validation', () => {
       dateProvider.setTime(39_700);
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
+      expect(result).toEqual({ isValid: false, reason: 'validation_deadline_expired' });
+    });
+
+    // The snapshot wait is only the first stage. Every read after it is another chance for the duty to hang, so
+    // the budget has to cover the whole method rather than the wait it started with.
+    it('settles when a read after the snapshot never returns', async () => {
+      const archiveRoot = Fr.random();
+      blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([archiveRoot]));
+      blockSource.getCheckpointData.mockImplementation(() => new Promise(() => {}));
+      dateProvider.setTime(39_800);
+
+      const result = await handler.handleCheckpointProposal(await makeProposal({ archiveRoot }), proposalInfo);
+
+      expect(result).toEqual({ isValid: false, reason: 'validation_deadline_expired' });
+    });
+
+    // Running out of time is this node giving up, not something it learned about the proposal. It caches no
+    // verdict, and records the one outcome that is charged to nobody — recording nothing would leave the sentinel
+    // to fall back to `checkpoint-missed`, which is counted against the proposer.
+    it('records the slot as unverifiable, and caches nothing, when the duty budget runs out', async () => {
+      blockSource.getBlocksForSlot.mockImplementation(() => new Promise(() => {}));
+      dateProvider.setTime(39_800);
+      const proposal = await makeProposal();
+
+      expect(await handler.handleCheckpointProposal(proposal, proposalInfo)).toEqual({
+        isValid: false,
+        reason: 'validation_deadline_expired',
+      });
+      expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('unverifiable');
+
+      // The next caller revalidates from scratch instead of inheriting the abandoned duty's non-verdict.
+      const archiveRoot = proposal.archive;
+      blockSource.getBlocksForSlot.mockResolvedValue(makeSlotBlocks([archiveRoot]));
+      blockSource.getCheckpointData.mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as CheckpointData);
+      dateProvider.setTime(20_000);
+
+      expect(await handler.handleCheckpointProposal(proposal, proposalInfo)).toEqual({
+        isValid: false,
+        reason: 'checkpoint_already_published',
+        checkpointNumber: CheckpointNumber(1),
+      });
+    });
+
+    // The recording inside `handleCheckpointProposal` never runs for an expiry in a stage before it — and on a
+    // node that is not a validator the all-nodes callback is the only handler there is, so the outermost
+    // boundary has to record too, or the slot reads as one the proposer skipped.
+    it('records the slot as unverifiable when the duty runs out before validation is reached', async () => {
+      const proposal = await makeProposal();
+      const p2p = mock<P2P>();
+      let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
+      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(handler => {
+        checkpointHandler = handler;
+      });
+      epochCache.isEscapeHatchOpenAtSlot.mockImplementation(() => new Promise(() => {}));
+      dateProvider.setTime(39_800);
+
+      handler.register(p2p, true);
+      await checkpointHandler!(proposal, {} as any);
+
+      expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('unverifiable');
+    });
+
+    // A duty that gave up learned nothing that could revise what the slot already says, in either direction.
+    it('leaves an outcome the slot already has alone when a later duty runs out', async () => {
+      const proposal = await makeProposal();
+      reexecutionTracker.recordOutcome(SlotNumber(1), proposal.archive, 'valid', CheckpointNumber(1));
+
+      blockSource.getBlocksForSlot.mockImplementation(() => new Promise(() => {}));
+      dateProvider.setTime(39_800);
+
+      expect(await handler.handleCheckpointProposal(proposal, proposalInfo)).toEqual({
+        isValid: false,
+        reason: 'validation_deadline_expired',
+      });
+      expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('valid');
     });
   });
 
@@ -439,6 +559,41 @@ describe('ProposalHandler checkpoint validation', () => {
 
       expect(archiver.addProposedCheckpoint).toHaveBeenCalled();
       expect(metrics.recordCheckpointProposalToPipelinedStateDuration).toHaveBeenCalledWith(expect.any(Number));
+    });
+
+    // Recording a proposed checkpoint is a mutation the next slot builds on top of. Its own block read can settle
+    // long after the duty was answered, so the insertion has to be barred by the budget, not just preceded by it.
+    it('does not record a proposed checkpoint from a block read that lands after the budget is gone', async () => {
+      const proposal = await makeProposal();
+      const p2p = mock<P2P>();
+      let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
+      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(handler => {
+        checkpointHandler = handler;
+      });
+
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData' | 'getL1Constants'>>();
+      archiver.addProposedCheckpoint.mockResolvedValue(undefined);
+
+      const blockRead = promiseWithResolvers<BlockData>();
+      blockSource.getBlockData.mockReturnValue(blockRead.promise);
+
+      jest
+        .spyOn(handler, 'handleCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(3) });
+
+      // 200ms of budget left, and a block read that answers only after it is spent.
+      dateProvider.setTime(39_800);
+      handler.register(p2p, true, archiver);
+      await checkpointHandler!(proposal, {} as any);
+
+      blockRead.resolve({
+        checkpointNumber: CheckpointNumber(3),
+        header: { getBlockNumber: () => 9 },
+        indexWithinCheckpoint: 2,
+      } as BlockData);
+      await sleep(50);
+
+      expect(archiver.addProposedCheckpoint).not.toHaveBeenCalled();
     });
 
     // The checkpoint-validation block-sync deadline is the L1 publish deadline (12s/one Ethereum
@@ -955,6 +1110,30 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(mockDispose).toHaveBeenCalled();
     });
 
+    // A stage that settles after the deadline must not carry the duty into the next one: the fork arriving late
+    // cannot be turned into a checkpoint rebuild nobody is waiting for.
+    it('starts no reconstruction stage when the world-state fork settles past the deadline', async () => {
+      setupDeepValidationMocks({ header: makeHeader() });
+      const fork = promiseWithResolvers<unknown>();
+      checkpointsBuilder.getFork.mockReturnValue(fork.promise as any);
+
+      // 200ms of budget left, and a fork that answers only after it is spent.
+      dateProvider.setTime(39_800);
+      const proposal = await makeProposal({ archiveRoot, checkpointHeader: makeHeader() });
+      const validation = handler.handleCheckpointProposal(proposal, proposalInfo);
+      await sleep(400);
+      fork.resolve({
+        [Symbol.asyncDispose]: mockDispose,
+        getTreeInfo: () => Promise.resolve({ root: Fr.ZERO.toBuffer() }),
+      });
+
+      expect(await validation).toEqual({ isValid: false, reason: 'validation_deadline_expired' });
+      expect(checkpointsBuilder.openCheckpoint).not.toHaveBeenCalled();
+      // The caller never reached the `await using` that would have closed this fork, so the abandoned read has
+      // to close it: otherwise every duty that gives up here leaks a world-state fork.
+      expect(mockDispose).toHaveBeenCalled();
+    });
+
     it('disposes fork even when validation fails', async () => {
       setupDeepValidationMocks({ header: CheckpointHeader.empty() });
 
@@ -1397,6 +1576,31 @@ describe('ProposalHandler checkpoint validation', () => {
         expect(elapsedMs).toBeLessThan(WAIT_BUDGET_MS + 2 * WAIT_INTERVAL_MS);
         // Waiting never buys the proposer any network work: the rejection still happens before tx collection.
         expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
+      });
+
+      // The bundle read and tx collection are started together. Once collection has failed there is no proposal
+      // left to validate, so the bundle's retries must stop rather than keep forcing archiver syncs for the rest
+      // of the slot; a catch handler on the abandoned promise only silences its rejection.
+      it('stops the bundle retries when tx collection rejects', async () => {
+        const { proposal, blockHandler, txProvider } = await setupStreamingProposal(signedRef, {
+          nowMs: BEFORE_DEADLINE_MS,
+        });
+        // The metadata check passes so both siblings start; only the bundle read keeps missing.
+        l1ToL2MessageSource.getMessagePosition.mockImplementation(count =>
+          Promise.resolve(count === 0n ? position(0n, Fr.ZERO) : count === 2n ? position(2n, prefixHash) : undefined),
+        );
+        l1ToL2MessageSource.getL1ToL2MessageRange.mockRejectedValue(new Error('range is not fully synced'));
+        txProvider.getTxsForBlockProposal.mockRejectedValue(new Error('tx provider down'));
+
+        const startMs = Date.now();
+        await expect(blockHandler.handleBlockProposal(proposal, {} as any, true)).rejects.toThrow('tx provider down');
+        const elapsedMs = Date.now() - startMs;
+
+        // It gave up as soon as its sibling failed rather than running out the remaining budget.
+        expect(elapsedMs).toBeLessThan(WAIT_BUDGET_MS);
+        const syncsAtGiveUp = blockSource.syncImmediate.mock.calls.length;
+        await sleep(3 * WAIT_INTERVAL_MS);
+        expect(blockSource.syncImmediate).toHaveBeenCalledTimes(syncsAtGiveUp);
       });
 
       it('rejects immediately without syncing when the attestation deadline has already passed', async () => {
