@@ -15,10 +15,8 @@
 
 namespace bb {
 
-// The hiding-kernel subtable (APPEND_TRACE_OFFSET zero rows, then NUM_ROWS_PER_OP * HIDING_KERNEL_ULTRA_OPS op rows)
-// is appended at the fixed shift compute_fixed_append_offset(get_append_offset_for_verifier()) and ends exactly at
-// the Translator mini-circuit size; get_append_offset is defined to make this so. Its last NUM_RANDOM_OPS_END ops
-// are random ops, which is what occupies the Translator's end-masking band [MINI - NUM_MASKED_ROWS_END, MINI).
+// get_append_offset reserves the ZK prefix, append preamble, and hiding-kernel ops within the fixed table size.
+// The resulting offset places the kernel's trailing NUM_RANDOM_OPS_END ops in the Translator's masking rows.
 // See MERGE_PROTOCOL.md, "The merge protocol shift".
 static_assert(ECCOpQueue::compute_fixed_append_offset(ECCOpQueue::get_append_offset_for_verifier()) +
                       UltraEccOpsTable::APPEND_TRACE_OFFSET +

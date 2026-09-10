@@ -217,29 +217,33 @@ The prover controls several values: $N$, the subtable sizes $s_i$, the column co
 - **Concatenation:** The random evaluation check proves that the aggregate commitments open to the concatenation determined by the same size parameters.
 - **PCS openings:** Shplonk batches all openings, and KZG reduces the final claim to pairing points.
 
-### Subtable sizes are bounded only from below
+### Subtable sizes need not be exact
 
-The sizes $\sigma_i$ come from the prover, and the degree identity proves only $\deg(C_i) < \sigma_i$. Nothing
-ties $\sigma_i$ to the true size of $C_i$ or bounds $\sum_i \sigma_i$ beyond the per-slot range constraint, so a
-prover can over-state a size and place zeros after that subtable. The aggregate commitment is therefore not
-canonical: one hash-bound set of subtables has several accepted aggregates, differing only in zeros.
+The sizes $\sigma_i$ come from the prover. The degree check proves $\deg(C_{i,j}) < \sigma_i$ for each column,
+but does not require the claimed size to equal the subtable's length. There is also an upper bound:
+recursive verification computes $\kappa^{\sigma_i}$ using
+`pow<CONST_OP_QUEUE_LOG_SIZE + 1>`, which constrains each exponent to that many bits. Batch merge does not
+separately check the sum of the sizes.
 
-This is harmless. The aggregate table is consumed only by the Translator (via the latest merge), and the
-following in-circuit constraints leave no way to turn the zeros into a false statement:
+A prover can therefore claim a larger size and leave zero rows after a subtable. Even with the subtable
+commitments and ZK prefix fixed, the protocol allows different amounts of zero padding between subtables.
+The following checks ensure that this padding does not change the sequence of ECC operations being verified:
 
-1. The concatenation identity at a random point forces $T = \sum_i C_i X^{\text{off}_i}$ as a polynomial, so the
-   extra rows are zero; subtable content, order and non-overlap are fixed by the hash, the slot index and
-   the degree bound.
-2. An odd number of zero rows shifts every later operation onto an odd Translator row, where the opcode
-   must be zero (`relations/translator_vm/translator_extra_relations.hpp`); a real op there fails the proof.
-3. An even number of zero rows decodes as no-ops. The Translator's no-op leaves the accumulator unchanged.
-   The ECCVM's matching no-op rows force its accumulator empty
-   (`relations/ecc_vm/ecc_transcript_relation_impl.hpp`, `accumulator_infinity_from_noop`), which can only
-   make a later `eq` fail: every Goblin `batch_mul` opens with a mul and closes with eq+reset, so the
-   accumulator is already empty at every subtable boundary.
-4. No zeros can move a real operation into the hiding-kernel region or the Translator's masking band: the
-   latest merge enforces $\deg(L) < \ell$ with $\ell$ fixed in the verifier.
+1. The concatenation and degree checks preserve each subtable's contents and order, prevent overlap, and
+   require the added rows to be zero.
+2. Padding that places a nonzero opcode on an odd Translator row is rejected. The Translator requires
+   opcodes on odd rows to be zero (`TranslatorOpcodeConstraintRelationImpl` in
+   `relations/translator_vm/translator_extra_relations_impl.hpp`).
+3. Pairs of zero rows are Translator no-ops. They leave its evaluation accumulator unchanged, so they do
+   not change the evaluation compared with ECCVM. They do not require matching ECCVM rows:
+   `ECCOpQueue::no_op_ultra_only()` adds no ECCVM operation. This evaluation accumulator is distinct from
+   the EC accumulator whose operations ECCVM verifies.
+4. The final merge checks $\deg(L_j) < \ell$ for every aggregate column, with $\ell$ fixed by the verifier.
+   Nonzero rows from earlier subtables must therefore remain before the hiding-kernel subtable and its
+   trailing random rows in the Translator's masking region.
 
-Binding $\sigma_i$ would need a hash-bound per-circuit op count in the Mega verification key, buying a
-canonical commitment that nothing consumes. Removing or relaxing any of the four constraints above
-invalidates this argument.
+Requiring exact sizes would need additional information binding each subtable's length to its circuit.
+The checks above allow zero padding without requiring that information.
+
+These arguments retain the usual Schwartz-Zippel, degree-check batching, Shplonk batching, KZG binding,
+and hash-chain collision failure probabilities.
