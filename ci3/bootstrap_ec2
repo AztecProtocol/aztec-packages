@@ -21,21 +21,20 @@ export CI=1
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
 # The instance sets up its own ci3 server (ci3_setup in CI: the aztec one, where CI logs live), so
-# the links printed here and posted as commit statuses point at the dashboard, and a parent log on
-# a developer's local server is not referenced there.
+# the links printed here and posted as commit statuses are the instance's, on the dashboard, and a
+# parent log on a developer's local server is not referenced there.
 # CI_REDIS is for the labs submodule's own ci3, still the pre-API one, which reads it directly.
 dashboard_url=http://ci.aztec-labs.com
-export CI3_PUBLIC_URL=$dashboard_url
 instance_parent_log_id=${PARENT_LOG_ID:-}
 [ "$(ci3_setup --show | grep -c '"mode": "aztec"')" -eq 0 ] && instance_parent_log_id=""
 
 # Pre-generate a log ID and print the dashboard link.
 export CI_LOG_ID=$(date +%s%3N)$((100 + RANDOM % 900))
 echo "CI booting..." | ci3_client log_put "$CI_LOG_ID" 300
-log_url=$(ci3_client url "$CI_LOG_ID")
+log_url=$dashboard_url/$CI_LOG_ID
 echo -e "CI Log: ${yellow}$log_url${reset}"
 if [ -n "${CI_DASHBOARD:-}" ]; then
-  echo "CI dashboard: $(ci3_client url "section/$CI_DASHBOARD")"
+  echo "CI dashboard: $dashboard_url/section/$CI_DASHBOARD"
 fi
 
 # Post pending GitHub commit status so the CI log link is visible on the PR.

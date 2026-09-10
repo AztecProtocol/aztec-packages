@@ -45,6 +45,8 @@ public_cache=http://127.0.0.1:$minio_port/aztec-ci-artifacts/build-cache
 echo "starting rkapp (ci3_rkapp, as CI does)..."
 S3_CACHE_PUBLIC_URL=$public_cache ci3_rkapp start --port "$rk_port" --redis "127.0.0.1:$redis_port" --password secret
 check "rkapp answers as a ci3 server" "ci3-server" "$(curl -s "http://127.0.0.1:$rk_port/health")"
+# The patch's own unit suite, from the checkout ci3_rkapp made (the venv has its dependencies).
+check "the dashboard's API unit tests pass" 0 "$(cd "$HOME/.ci3/rkapp/src/ci3/dashboard" && "$HOME/.ci3/rkapp/venv/bin/python" -m unittest -q ci3_api_test >/dev/null 2>&1; echo $?)"
 
 # ci3, set up for the aztec server: this rkapp, with the dashboard as the link base.
 export CI3_CONFIG=$work/config.json CI=1 COMMIT_HASH=abc COMMIT_AUTHOR=me COMMIT_MSG=m RUN_ID=1 JOB_ID=x-fast CI_DASHBOARD=prs TARGET_BRANCH=next AWS_TOKEN=none

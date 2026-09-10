@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Runs the labs CI dashboard (rkapp) here, serving the ci3 server API on its production redis and S3.
 
-  ci3_rkapp start  [--port P] [--redis HOST:PORT] [--password PW]   start unless one answers; prints its URL
+  ci3_rkapp start  [--port P] [--redis HOST[:PORT]] [--password PW]   start, or reuse one that takes the password; prints its URL
   ci3_rkapp stop   [--port P]
   ci3_rkapp status [--port P]
 
@@ -9,17 +9,20 @@ This is how a CI build instance reaches the dashboard's stores until the deploye
 the API itself (aztec-node#140): the same rk.py the dashboard runs, at the labs commit this tree
 pins, with the labs patch that adds the API applied, under gunicorn on localhost. S3 comes from
 whatever credentials boto3 finds (the instance profile in CI); redis from --redis. Only the files
-rk.py needs are copied out, so it does not start its ci-metrics side service. Everything lives in
-~/.ci3/rkapp: the sparse checkout of the dashboard, the app, its venv, a pid and log file per port.
+rk.py needs are checked out, so it does not start its ci-metrics side service. Everything lives in
+~/.ci3/rkapp: the sparse checkout, its venv, a pid and a log file per port. Starters serialize on a
+lock, so parallel bootstraps end up sharing one server.
 """
 import argparse
+import base64
+import fcntl
 import glob
 import hashlib
 import http.client
 import os
 import secrets
-import shutil
 import signal
+import shutil
 import subprocess
 import sys
 import time
@@ -28,9 +31,10 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 ROOT = os.path.dirname(HERE)
 LABS_URL = "https://github.com/aztec-labs-eng/aztec-node.git"
 DASHBOARD = "ci3/dashboard"
-DASHBOARD_FILES = ("rk.py", "rk_core.py", "ci3_api.py", "set-filter.lua", "requirements.txt")
+FILES = ("rk.py", "rk_core.py", "ci3_api.py", "ci3_api_test.py", "set-filter.lua", "requirements.txt")
 HOME = os.path.expanduser("~/.ci3/rkapp")
-SRC, APP, VENV = (os.path.join(HOME, d) for d in ("src", "app", "venv"))
+SRC, VENV, STAMP = os.path.join(HOME, "src"), os.path.join(HOME, "venv"), os.path.join(HOME, "stamp")
+APP = os.path.join(SRC, DASHBOARD)
 DEFAULT_PORT = 4276
 DEFAULT_REDIS = "ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com:6379"
 
@@ -39,92 +43,117 @@ def sh(*cmd, **kw):
     subprocess.run(cmd, check=True, **kw)
 
 
-def health(port):
+def probe(port, path="/health", password=None):
+    """Status and X-CI3-Server header of a GET on the port, or (None, None) when nothing answers."""
+    headers = {}
+    if password:
+        headers["Authorization"] = "Basic " + base64.b64encode(("aztec:" + password).encode()).decode()
     try:
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
-        conn.request("GET", "/health")
+        conn.request("GET", path, headers=headers)
         resp = conn.getresponse()
-        return resp.status == 200 and resp.read() == b"ci3-server"
+        resp.read()
+        return resp.status, resp.getheader("X-CI3-Server", "")
     except OSError:
-        return False
+        return None, None
+
+
+def up(port):
+    return probe(port) == (200, "rkapp")
 
 
 def prepare():
-    """The dashboard at the pinned labs commit with the API patch applied, and its venv."""
+    """The dashboard at the pinned labs commit with the API patch applied, and its venv. True when rebuilt."""
     labs = subprocess.check_output(["git", "-C", ROOT, "rev-parse", "HEAD:labs"], text=True).strip()
     patch = sorted(glob.glob(os.path.join(ROOT, "labs-patches", "*-feat-ci3-the-dashboard-serves-the-ci3-server-API.patch")))[-1]
     with open(patch, "rb") as f:
         stamp = "%s %s\n" % (labs, hashlib.sha256(f.read()).hexdigest())
-    stamp_file = os.path.join(APP, "stamp")
-    if os.path.isfile(stamp_file) and open(stamp_file).read() == stamp and os.path.isfile(os.path.join(VENV, "bin", "gunicorn")):
-        return
+    if os.path.isfile(STAMP) and open(STAMP).read() == stamp and os.path.isfile(os.path.join(VENV, "bin", "gunicorn")):
+        return False
     sys.stderr.write("preparing the labs dashboard (%s) in %s...\n" % (labs[:10], HOME))
     shutil.rmtree(SRC, ignore_errors=True)
-    shutil.rmtree(APP, ignore_errors=True)
     os.makedirs(SRC)
     sh("git", "init", "-q", SRC)
-    sh("git", "-C", SRC, "sparse-checkout", "set", DASHBOARD)
+    sh("git", "-C", SRC, "sparse-checkout", "set", "--no-cone", *("/%s/%s" % (DASHBOARD, name) for name in FILES))
     sh("git", "-C", SRC, "fetch", "-q", "--depth", "1", "--filter=blob:none", LABS_URL, labs)
     sh("git", "-C", SRC, "checkout", "-q", "FETCH_HEAD")
     sh("git", "-C", SRC, "apply", patch)
-    os.makedirs(APP)
-    for name in DASHBOARD_FILES:
-        shutil.copy(os.path.join(SRC, DASHBOARD, name), APP)
     if not os.path.isfile(os.path.join(VENV, "bin", "python")):
         sh(sys.executable, "-m", "venv", VENV)
     sh(os.path.join(VENV, "bin", "pip"), "install", "-q", "-r", os.path.join(APP, "requirements.txt"))
-    with open(stamp_file, "w") as f:
+    with open(STAMP, "w") as f:
         f.write(stamp)
+    return True
 
 
 def paths(port):
     return os.path.join(HOME, "rkapp-%d.pid" % port), os.path.join(HOME, "rkapp-%d.log" % port)
 
 
-def cmd_start(args):
-    url = "http://localhost:%d" % args.port
-    if health(args.port):
-        print(url)
-        return 0
-    prepare()
-    host, _, port = args.redis.partition(":")
-    env = {**os.environ, "REDIS_HOST": host, "REDIS_PORT": port or "6379",
-           "DASHBOARD_PASSWORD": args.password or secrets.token_hex(16)}
-    pid_file, log_file = paths(args.port)
-    with open(log_file, "ab") as log:
-        proc = subprocess.Popen([os.path.join(VENV, "bin", "gunicorn"), "-w", "4", "--threads", "12", "--timeout", "600",
-                                 "-b", "127.0.0.1:%d" % args.port, "--chdir", APP, "rk:app"],
-                                stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, env=env)
-    with open(pid_file, "w") as f:
-        f.write(str(proc.pid))
-    for _ in range(300):
-        if health(args.port):
-            print(url)
-            return 0
-        if proc.poll() is not None:
-            break
-        time.sleep(0.1)
-    sys.stderr.write("rkapp did not come up on port %d; see %s\n" % (args.port, log_file))
-    return 1
-
-
-def cmd_stop(args):
-    pid_file, _ = paths(args.port)
+def stop(port):
+    """Stops the rkapp this script started on the port, if any, and waits for the port to free up."""
+    pid_file, _ = paths(port)
     try:
         with open(pid_file) as f:
             pid = int(f.read())
         os.remove(pid_file)
         os.killpg(pid, signal.SIGTERM)
-        print("stopped rkapp on port %d" % args.port)
     except (FileNotFoundError, ValueError, ProcessLookupError):
-        print("no rkapp started by ci3_rkapp on port %d" % args.port)
+        return False
+    for _ in range(100):
+        if probe(port)[0] is None:
+            break
+        time.sleep(0.1)
+    return True
+
+
+def cmd_start(args):
+    url = "http://localhost:%d" % args.port
+    password = args.password or secrets.token_hex(16)
+    os.makedirs(HOME, exist_ok=True)
+    with open(os.path.join(HOME, "lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        rebuilt = prepare()
+        if up(args.port):
+            # Reuse only an rkapp of this build that takes our password (a 401 means another one).
+            if not rebuilt and probe(args.port, "/kv/ci3-rkapp-probe", password)[0] != 401:
+                print(url)
+                return 0
+            if not stop(args.port):
+                sys.stderr.write("port %d has an rkapp this script did not start; stop it first\n" % args.port)
+                return 1
+        elif probe(args.port)[0] is not None:
+            sys.stderr.write("port %d is taken by something that is not rkapp\n" % args.port)
+            return 1
+        host, _, port = args.redis.partition(":")
+        env = {**os.environ, "REDIS_HOST": host, "REDIS_PORT": port or "6379", "DASHBOARD_PASSWORD": password}
+        pid_file, log_file = paths(args.port)
+        with open(log_file, "ab") as log:
+            proc = subprocess.Popen([os.path.join(VENV, "bin", "gunicorn"), "-w", "4", "--threads", "12", "--timeout", "600",
+                                     "-b", "127.0.0.1:%d" % args.port, "--chdir", APP, "rk:app"],
+                                    stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, env=env)
+        with open(pid_file, "w") as f:
+            f.write(str(proc.pid))
+        for _ in range(300):
+            if up(args.port):
+                print(url)
+                return 0
+            if proc.poll() is not None:
+                break
+            time.sleep(0.1)
+    sys.stderr.write("rkapp did not come up on port %d; see %s\n" % (args.port, log_file))
+    return 1
+
+
+def cmd_stop(args):
+    print("stopped rkapp on port %d" % args.port if stop(args.port) else "no rkapp started by ci3_rkapp on port %d" % args.port)
     return 0
 
 
 def cmd_status(args):
-    up = health(args.port)
-    print("rkapp answers at http://localhost:%d" % args.port if up else "no rkapp on port %d" % args.port)
-    return 0 if up else 1
+    ok = up(args.port)
+    print("rkapp answers at http://localhost:%d" % args.port if ok else "no rkapp on port %d" % args.port)
+    return 0 if ok else 1
 
 
 def main():

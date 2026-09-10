@@ -48,11 +48,6 @@ class IncompleteBody(Exception):
     """The client sent fewer bytes than its Content-Length announced (it went away mid-upload)."""
 
 
-class Redirect(Exception):
-    def __init__(self, location):
-        self.location = location
-
-
 def check_key(key):
     """Keys are '/'-separated paths of safe segments. The reference servers' own file suffixes are
     reserved so a sidecar can never be addressed."""
@@ -237,9 +232,9 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def body(self):
-        if self.headers.get("Transfer-Encoding"):
+        if self.headers.get("Transfer-Encoding") or self.headers.get("Content-Length") is None:
             raise LengthRequired()
-        return Body(self.rfile, int(self.headers.get("Content-Length") or 0))
+        return Body(self.rfile, int(self.headers["Content-Length"]))
 
     def body_bytes(self):
         body = self.body()
@@ -266,8 +261,6 @@ class Handler(BaseHTTPRequestHandler):
         except IncompleteBody:
             self.close_connection = True
             self.reply(400, "incomplete body\n")
-        except Redirect as r:
-            self.reply(302, headers=[("Location", r.location)])
         except Exception as e:  # a backend failure must not take the server down
             sys.stderr.write("ci3_server: %s %s failed: %r\n" % (self.command, self.path, e))
             self.reply(502, "backend error: %r\n" % (e,))
@@ -400,17 +393,15 @@ def port_taken(port):
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-class Cli:
-    """start/run/stop/status for a server built by make_backend(args); identity_of(args) is what two
-    starters must agree on to share one; script is what `start` re-executes with `run`."""
+SCRIPT = os.path.abspath(__file__)
 
-    def __init__(self, make_backend, identity_of, script, add_flags=None, default_port=DEFAULT_PORT, default_dir=DEFAULT_DIR):
-        self.make_backend, self.identity_of, self.script, self.add_flags = make_backend, identity_of, os.path.abspath(script), add_flags
-        self.default_port, self.default_dir = default_port, default_dir
+
+class Cli:
+    """run/start/stop/status. `start` re-executes this script with `run`, detached."""
 
     def run(self, args):
-        backend = self.make_backend(args)
-        server = Server((args.host, args.port), backend, self.identity_of(args), args.verbose)
+        backend = FileBackend(args.dir)
+        server = Server((args.host, args.port), backend, identity_of(args), args.verbose)
         # Written by the process that holds the port, so `stop` never targets a starter that lost the race.
         os.makedirs(args.dir, exist_ok=True)
         with open(os.path.join(args.dir, "server.pid"), "w") as f:
@@ -427,9 +418,9 @@ class Cli:
         server.serve_forever()
 
     def reusable(self, args, identity):
-        if identity != self.identity_of(args):
+        if identity != identity_of(args):
             sys.stderr.write("port %d has a ci3 server with a different configuration (%s), wanted (%s); stop it first\n"
-                             % (args.port, identity, self.identity_of(args)))
+                             % (args.port, identity, identity_of(args)))
             return False
         return True
 
@@ -462,7 +453,7 @@ class Cli:
         os.makedirs(args.dir, exist_ok=True)
         logfile = os.path.join(args.dir, "server.log")
         with open(logfile, "ab") as log:
-            child = subprocess.Popen([sys.executable, self.script, "run"] + sys.argv[2:], stdin=subprocess.DEVNULL,
+            child = subprocess.Popen([sys.executable, SCRIPT, "run"] + sys.argv[2:], stdin=subprocess.DEVNULL,
                                      stdout=log, stderr=log, start_new_session=True)
         deadline, exited_at = time.time() + 10, None
         while time.time() < deadline:
@@ -474,7 +465,7 @@ class Cli:
                 if time.time() - exited_at > 3:
                     break
             time.sleep(0.1)
-        sys.stderr.write("%s failed to start; see %s\n" % (os.path.basename(self.script), logfile))
+        sys.stderr.write("ci3_server failed to start; see %s\n" % logfile)
         return 1
 
     def stop(self, args):
@@ -484,9 +475,9 @@ class Cli:
                 pid = int(f.read())
             os.kill(pid, signal.SIGTERM)
             os.remove(pidfile)
-            print("stopped %s (pid %d)" % (os.path.basename(self.script), pid))
+            print("stopped ci3_server (pid %d)" % pid)
         except (FileNotFoundError, ValueError, ProcessLookupError):
-            print("no %s running from %s" % (os.path.basename(self.script), args.dir))
+            print("no ci3_server running from %s" % args.dir)
 
     def status(self, args):
         if health(args.port) is None:
@@ -496,21 +487,19 @@ class Cli:
         conn.request("GET", "/")
         print("up at http://localhost:%d\n%s" % (args.port, conn.getresponse().read().decode().strip()))
 
-    def main(self, doc):
-        parser = argparse.ArgumentParser(description=doc, formatter_class=argparse.RawDescriptionHelpFormatter)
+    def main(self):
+        parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
         sub = parser.add_subparsers(dest="cmd", required=True)
         for name, fn in (("run", self.run), ("start", self.start), ("stop", self.stop), ("status", self.status)):
             p = sub.add_parser(name)
             p.add_argument("--host", default="127.0.0.1")
-            p.add_argument("--port", type=int, default=self.default_port)
-            p.add_argument("--dir", default=self.default_dir, help="storage; also where server.pid and server.log live")
+            p.add_argument("--port", type=int, default=DEFAULT_PORT)
+            p.add_argument("--dir", default=DEFAULT_DIR, help="storage; also where server.pid and server.log live")
             p.add_argument("--verbose", action="store_true")
-            if self.add_flags:
-                self.add_flags(p)
             p.set_defaults(fn=fn)
         args = parser.parse_args()
         sys.exit(args.fn(args) or 0)
 
 
 if __name__ == "__main__":
-    Cli(lambda args: FileBackend(args.dir), identity_of, __file__).main(__doc__)
+    Cli().main()

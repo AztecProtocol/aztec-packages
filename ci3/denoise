@@ -40,7 +40,7 @@ function cleanup {
 }
 trap cleanup SIGINT SIGTERM
 # Remove file on exit, so we can publish even after SIGINT or SIGTERM.
-trap 'cleanup; rm -f $outfile $dots_fifo' EXIT
+trap 'cleanup; rm -f $outfile $outfile.done $dots_fifo' EXIT
 
 dots_per_line=${DENOISE_WIDTH:-64}
 dot_count=0
@@ -84,7 +84,7 @@ function publish_log_final {
 }
 
 function live_publish_log {
-  while [ -f $outfile ]; do
+  while [ ! -f $outfile.done ]; do
     if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
       publish_log
     fi
@@ -128,7 +128,9 @@ wait $job_pid
 status=$?
 
 time="${SECONDS}s"
-[ -n "${publish_pid:-}" ] && kill $publish_pid &>/dev/null || true
+# Let the live publisher finish its last write before the final one, so nothing overwrites it.
+touch $outfile.done
+[ -n "${publish_pid:-}" ] && wait $publish_pid || true
 publish_log_final
 
 # Kill tail (source), EOF propagates through fifo, dots loop drains and exits.

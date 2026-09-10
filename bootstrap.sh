@@ -169,7 +169,7 @@ fi
 
 ### START OF MAIN BOOTSTRAP SCRIPT #####################################################################################
 # The ci3 server config (~/.ci3/config.json) and the server it names, before ci3 loads and reads it.
-"$(git rev-parse --show-toplevel)/ci3/ci3_setup"
+"$(git rev-parse --show-toplevel)/ci3/ci3_setup" || exit 1
 
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 

@@ -17,7 +17,11 @@ function save_cache {
   echo "Saved CI success marker: ${run_url}"
   # The runner has no ci3 server (it only orchestrates the build instance) but has the OIDC role:
   # the marker goes to the build cache directly.
-  tar -czf - .ci-success.txt | aws s3 cp - "s3://aztec-ci-artifacts/build-cache/$cache_name" && echo "Uploaded $cache_name"
+  if tar -czf - .ci-success.txt | aws s3 cp - "s3://aztec-ci-artifacts/build-cache/$cache_name"; then
+    echo "Uploaded $cache_name"
+  else
+    echo "Could not upload $cache_name; the next run of this tree will not be a cache hit."
+  fi
 }
 
 function handle_squash_merge {

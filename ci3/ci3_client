@@ -38,7 +38,7 @@ What ci3 keeps on the server, in ci3 terms:
 Configuration is ~/.ci3/config.json, written by ci3_setup (CI3_CONFIG names another file):
   server      base URL of the server every command talks to
   public_url  base of the links we print (default: server); edit it to share a tunnelled server
-  password    the aztec server's password, when set up for it (stored by ci3_setup; not used yet)
+  password    the aztec server's password, when set up for it; sent as basic auth (user aztec)
 No config, or a server that does not answer: every command is a harmless no-op. Stdin is drained,
 kv_get answers one empty line per key, writes exit 0, reads exit 1. Writes never fail the caller.
 """
@@ -150,10 +150,12 @@ def request(method, url, body=None, headers=None, timeout=30, redirects=5):
         resp = conn.getresponse()
         if resp.status in (301, 302, 303, 307, 308) and resp.getheader("Location"):
             resp.read()
-            url = urllib.parse.urljoin(url, resp.getheader("Location"))
+            target = urllib.parse.urljoin(url, resp.getheader("Location"))
+            if urllib.parse.urlsplit(target).netloc != u.netloc:
+                headers.pop("Authorization", None)  # the password is the server's, not a bucket's
+            url = target
             if resp.status in (301, 302, 303):
                 method, body = ("GET" if method != "HEAD" else "HEAD"), None
-                headers.pop("Authorization", None)  # not for a redirect target such as a public bucket
             continue
         return resp
     raise OSError("too many redirects")
@@ -176,7 +178,7 @@ def swallow(fn):
         if resp.status >= 300 and os.environ.get("BUILD_SYSTEM_DEBUG") == "1":
             sys.stderr.write("ci3_client: server answered %d\n" % resp.status)
         resp.read()
-    except OSError as e:
+    except (OSError, http.client.HTTPException) as e:
         if os.environ.get("BUILD_SYSTEM_DEBUG") == "1":
             sys.stderr.write("ci3_client: %s\n" % e)
     return 0
@@ -212,8 +214,9 @@ def cmd_log_put(args):
         return 0
     ttl = args[1] if len(args) > 1 and args[1] else str(LOG_EXPIRE_CI if in_ci() else LOG_EXPIRE_LOCAL)
     final = "1" if len(args) > 2 and args[2] == "final" else "0"
-    return swallow(lambda: api("PUT", "/logs/" + key_path(args[0]), gzip.compress(data),
-                               {"Content-Encoding": "gzip"}, timeout=60, query={"ttl": ttl, "final": final}))
+    # A final write may wait on the server's durable store (S3 retries): give it longer.
+    return swallow(lambda: api("PUT", "/logs/" + key_path(args[0]), gzip.compress(data), {"Content-Encoding": "gzip"},
+                               timeout=300 if final == "1" else 60, query={"ttl": ttl, "final": final}))
 
 
 def read_or_fail(path, missing, timeout=60):
@@ -225,12 +228,18 @@ def read_or_fail(path, missing, timeout=60):
         if resp.status != 200:
             sys.stderr.write(missing + "\n")
             return 1
+        expected, got = int(resp.getheader("Content-Length") or -1), 0
         while True:
             chunk = resp.read(1 << 20)
             if not chunk:
-                return 0
+                break
+            got += len(chunk)
             out(chunk)
-    except OSError as e:
+        if expected not in (-1, got):
+            sys.stderr.write("%s (truncated: %d of %d bytes)\n" % (missing, got, expected))
+            return 1
+        return 0
+    except (OSError, http.client.HTTPException) as e:
         sys.stderr.write("%s (%s)\n" % (missing, e))
         return 1
 
@@ -270,7 +279,7 @@ def cmd_kv_get(args):
             out(misses.encode())
         else:
             out(("\n".join(lines) + "\n").encode())
-    except OSError:
+    except (OSError, http.client.HTTPException):
         out(misses.encode())
     return 0
 

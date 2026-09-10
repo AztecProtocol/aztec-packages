@@ -43,10 +43,13 @@ def load():
 
 
 def save(config):
+    """Written whole and readable only by the owner: it may hold the password."""
     os.makedirs(os.path.dirname(CONFIG), exist_ok=True)
-    with open(CONFIG, "w") as f:
+    tmp = CONFIG + ".tmp-%d" % os.getpid()
+    with open(tmp, "w", opener=lambda p, flags: os.open(p, flags, 0o600)) as f:
         json.dump(config, f, indent=2)
         f.write("\n")
+    os.replace(tmp, CONFIG)
 
 
 def wanted(password):

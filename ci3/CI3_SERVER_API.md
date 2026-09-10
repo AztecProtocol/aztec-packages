@@ -33,8 +33,8 @@ server and an existing config disagrees, a terminal is asked whether to switch; 
 run stops with an error.
 
 `ci3_client env` resolves the config once per process tree into `CI3_SERVER` (the server, or empty
-when there is none or it does not answer): then every command is a no-op (draining stdin,
-returning empty results, exit codes callers can rely on). Retention is fixed by the client: logs 14
+when there is none or it does not answer): then writes are no-ops (stdin drained), reads answer
+empty or miss, and only the artifact commands fail, since a caller decides what a miss means. Retention is fixed by the client: logs 14
 days in CI and 2 days locally, artifacts 7 days (so a local file server does not grow without bound;
 a CI backend may ignore it).
 
@@ -60,9 +60,9 @@ a CI backend may ignore it).
 
 | | |
 |---|---|
-| `PUT /logs/<id>?ttl=&final=0\|1` | Body: the log text. Replaces any previous content. A running job re-PUTs its log every few seconds, so live logs are visible while it runs; its last write carries `final=1`, which a server may persist more durably (the compat server copies only final logs to S3). |
+| `PUT /logs/<id>?ttl=&final=0\|1` | Body: the log text. Replaces any previous content. A running job re-PUTs its log every few seconds, so live logs are visible while it runs; its last write carries `final=1`, which a server may persist more durably (the dashboard copies final logs to S3 and lists only those). |
 | `GET /logs/<id>` | `text/plain`. |
-| `GET /logs/<prefix>/` | The ids directly under `<prefix>`, one per line (e.g. a run's `test-timings/<run id>/`). |
+| `GET /logs/<prefix>/` | The ids directly under `<prefix>`, one per line (e.g. a run's `test-timings/<run id>/`). Meant for a run's own files: a server may list only persisted logs and cap the listing (the dashboard: 10000). |
 | `GET /<id>` | Browse URL: the human view of a log. This is what the terminal links point at (`<CI3_PUBLIC_URL>/<id>`). Plain text at minimum. |
 
 Ids are opaque to the server: 16-hex uuids for command and test logs, a decimal timestamp for a
@@ -96,7 +96,7 @@ The registry of CI runs a dashboard renders, grouped by section (`prs`, `next`, 
 
 | | |
 |---|---|
-| `PUT /runs/<section>/<id>` | Body: a JSON object. Replaces. `<id>` is the run's log id: a decimal millisecond timestamp, so ids sort chronologically. A section may contain `/` (a merge-train target branch); the id is always the last segment. |
+| `PUT /runs/<section>/<id>` | Body: a JSON object with string `status`, `msg`, `name`, `author` and a numeric `timestamp` equal to `<id>`; a server may reject anything else (400). Replaces. `<id>` is the run's log id: decimal digits (a millisecond timestamp plus a random suffix), so ids sort chronologically. A section may contain `/` (a merge-train target branch); the id is always the last segment. |
 | `GET /runs/<section>/<id>` | The JSON object. |
 | `GET /runs/<section>` | JSON array of the newest 1000 objects, newest first. |
 
@@ -106,7 +106,7 @@ The build cache: content-addressed tarballs.
 
 | | |
 |---|---|
-| `PUT /artifacts/<name>` | Body: the bytes. A server may answer `307` with a `Location` to upload to directly (a presigned S3 URL); the client follows and re-sends the body there. |
+| `PUT /artifacts/<name>` | Body: the bytes, never content-encoded (a tarball is already compressed). A server may answer `307` with a `Location` to upload to directly (a presigned S3 URL); the client follows and re-sends the body there. |
 | `GET /artifacts/<name>` | The bytes, or a `302` to a download URL. |
 | `HEAD /artifacts/<name>` | 200 or 404 (redirects followed). |
 
