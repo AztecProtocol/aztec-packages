@@ -33,3 +33,13 @@ export {
   loadIpcRuntimeNapi,
   type Platform,
 } from "./native_loader.js";
+export {
+  type ServiceBinary,
+  type ServiceProcessOptions,
+  findServiceBinary,
+  pickServiceBackend,
+  runServiceBinary,
+  serviceProcessEnv,
+  spawnServiceBackend,
+  spawnServiceBackendSync,
+} from "./service.js";

@@ -267,26 +267,11 @@ ${this.opts.curveConstants ? "export * from './generated/curve_constants.js';\n"
   }
 
   generateBin(): string {
-    const findBinary = binaryFinderName(this.opts.prefix);
     return `#!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
-import { ${findBinary} } from './platform.js';
+import { runServiceBinary } from '@aztec-foundation/ipc-runtime';
+import { BINARY } from './platform.js';
 
-const binaryPath = ${findBinary}();
-if (!binaryPath) {
-  console.error(
-    "${this.opts.binaryName}: native binary not found. Install the matching " +
-      "'${this.opts.packageName}-<platform>' package, set ${this.opts.binaryEnvVar}, or pass its path.",
-  );
-  process.exit(1);
-}
-
-const result = spawnSync(binaryPath, process.argv.slice(2), { stdio: 'inherit' });
-if (result.error) {
-  console.error(result.error.message);
-  process.exit(1);
-}
-process.exit(result.status ?? 1);
+runServiceBinary(BINARY, '${this.opts.packageName}', process.argv.slice(2));
 `;
   }
 
@@ -317,115 +302,56 @@ process.exit(result.status ?? 1);
   }
 
   /** The spawned-process backend (node only): options, environment, and the two spawn functions. */
+  /** The spawned-process backend (node only): this package's options over ipc-runtime's spawner. */
   generateProcess(): string {
-    const { prefix, binaryName, packageName } = this.opts;
-    const findBinary = binaryFinderName(prefix);
+    const { prefix, binaryName } = this.opts;
     const transports = this.processTransports.map((t) => `'${t}'`).join(" | ");
     const defaultTransport = this.processTransports.includes("uds")
       ? "uds"
       : this.processTransports[0]!;
-    const ipcPathArgs = JSON.stringify(this.opts.ipcPathArgs);
-    const shm = this.shm;
+    const syncImports = this.shm
+      ? "\n  type SpawnedProcessBackendSync,\n  spawnServiceBackendSync,"
+      : "";
+    const syncSpawn = this.shm
+      ? `
+/** The synchronous form: shared memory is the one transport with a synchronous client. */
+export function spawnProcessBackendSync(options: ${prefix}ProcessOptions = {}): Promise<SpawnedProcessBackendSync> {
+  return spawnServiceBackendSync(BINARY, options);
+}
+`
+      : "";
 
-    return `import { IpcSpawnError, SpawnedProcessBackend${shm ? ", SpawnedProcessBackendSync" : ""} } from '@aztec-foundation/ipc-runtime';
+    return `import {
+  type ServiceProcessOptions,
+  type SpawnedProcessBackend,${syncImports}
+  spawnServiceBackend,
+} from '@aztec-foundation/ipc-runtime';
 import type { IpcErrorFactory } from './generated/async.js';
-import { ${findBinary} } from './platform.js';
+import { BINARY } from './platform.js';
 
 export type ${prefix}Transport = ${transports};
 
-/** Options for running '${binaryName}' as a spawned process (node only). */
-export interface ${prefix}ProcessOptions {
-  /** Path of the binary. Default: ${this.opts.binaryEnvVar}, then the installed arch package. */
-  binaryPath?: string;
+/**
+ * Options for running '${binaryName}' as a spawned process (node only). See ServiceProcessOptions
+ * in ipc-runtime for the rest: binaryPath, threads, logger, env, extraArgs, respawn and unref.
+ */
+export interface ${prefix}ProcessOptions extends ServiceProcessOptions {
   transport?: ${prefix}Transport;
-  /** Threads the service may use, exported to it as HARDWARE_CONCURRENCY and RAYON_NUM_THREADS. */
-  threads?: number;
-  logger?: (msg: string) => void;
-  connectTimeoutMs?: number;
-  env?: NodeJS.ProcessEnv;
-  extraArgs?: string[];
-  /**
-   * Respawn the server on the next call after it dies, instead of failing all
-   * subsequent calls. Only enable for stateless servers: a respawned process
-   * remembers nothing, so any server-side session state held by callers would
-   * silently dangle.
-   */
-  respawn?: boolean;
-  /** Let node exit while the process is alive (it must exit on its own when its parent does). */
-  unref?: boolean;
-  /** Also unref the child's stdout/stderr pipes (present with \`logger\`); log lines may then go unread at exit. */
-  unrefStdio?: boolean;
   createError?: IpcErrorFactory;
-${shm ? "  /** shm: fixed client slot; default: self-allocated (0 for the synchronous backend). */\n  clientId?: number;\n  /** shm: override the ipc-runtime native addon path. */\n  napiPath?: string;\n" : ""}}
+}
 
 /** The name this package's first version used for the spawn options. */
 export type ${prefix}ServiceOptions = ${prefix}ProcessOptions;
 
-/** The process's environment: the caller's, plus the thread count under both names services read. */
-export function processEnv(options: { threads?: number; env?: NodeJS.ProcessEnv }): NodeJS.ProcessEnv | undefined {
-  if (options.threads === undefined) {
-    return options.env;
-  }
-  const threads = String(options.threads);
-  return { HARDWARE_CONCURRENCY: threads, RAYON_NUM_THREADS: threads, ...options.env };
-}
-
-function resolveBinary(binaryPath?: string): string {
-  const resolved = ${findBinary}(binaryPath);
-  if (!resolved) {
-    throw new IpcSpawnError('${binaryName} binary not found', /*retry=*/ false);
-  }
-  return resolved;
-}
-
 /**
- * Spawn '${binaryName}' and connect to it. Process lifecycle — connectivity, death detection,
- * optional respawn, teardown — is owned by the backend (see SpawnedProcessBackend in ipc-runtime).
- * Failed calls carry a 'retry' property set to true when the failure was environmental.
+ * Spawn '${binaryName}' and connect to it over ${this.processTransports.join(" or ")}. Process
+ * lifecycle — connectivity, death detection, optional respawn, teardown — is owned by the backend
+ * and never leaks onto the caller's API.
  */
-export async function spawnProcessBackend(options: ${prefix}ProcessOptions = {}): Promise<SpawnedProcessBackend> {
-  return SpawnedProcessBackend.spawn({
-    binaryPath: resolveBinary(options.binaryPath),
-    binaryName: '${binaryName}',
-    instancePrefix: '${toSnakeCase(prefix)}',
-    ipcPathArgs: ${ipcPathArgs},
-    transport: options.transport ?? '${defaultTransport}',
-    logger: options.logger,
-    connectTimeoutMs: options.connectTimeoutMs,
-    env: processEnv(options),
-    extraArgs: options.extraArgs,
-    respawn: options.respawn,
-    unref: options.unref,
-    unrefStdio: options.unrefStdio,
-${shm ? "    clientId: options.clientId,\n    napiPath: options.napiPath,\n" : ""}  });
+export function spawnProcessBackend(options: ${prefix}ProcessOptions = {}): Promise<SpawnedProcessBackend> {
+  return spawnServiceBackend(BINARY, '${defaultTransport}', options);
 }
-${
-  shm
-    ? `
-/** The synchronous process backend: shared memory is the one transport with a synchronous client. */
-export async function spawnProcessBackendSync(options: ${prefix}ProcessOptions = {}): Promise<SpawnedProcessBackendSync> {
-  if (options.transport !== undefined && options.transport !== 'shm') {
-    throw new Error('${packageName}: the synchronous backend needs the shm transport');
-  }
-  return SpawnedProcessBackendSync.spawn({
-    binaryPath: resolveBinary(options.binaryPath),
-    binaryName: '${binaryName}',
-    instancePrefix: '${toSnakeCase(prefix)}-sync',
-    ipcPathArgs: ${ipcPathArgs},
-    transport: 'shm',
-    logger: options.logger,
-    connectTimeoutMs: options.connectTimeoutMs,
-    env: processEnv(options),
-    extraArgs: options.extraArgs,
-    unref: options.unref,
-    unrefStdio: options.unrefStdio,
-    clientId: options.clientId ?? 0,
-    napiPath: options.napiPath,
-  });
-}
-`
-    : ""
-}`;
+${syncSpawn}`;
   }
 
   /** Shared shape of the create options: a backend name, a backend object, or nothing (defaults). */
@@ -575,7 +501,11 @@ ${
       Boolean,
     ) as string[];
 
-    return `import { type IpcClientAsync, type IpcClientSync${process ? ", SpawnedProcessBackend" : ""} } from '@aztec-foundation/ipc-runtime';
+    return `import {
+  type IpcClientAsync,
+  type IpcClientSync,${process ? "\n  SpawnedProcessBackend," : ""}
+  pickServiceBackend,
+} from '@aztec-foundation/ipc-runtime';
 ${wasm ? "import { type WasmFfiBackend, platform } from '@aztec-foundation/ipc-runtime/wasm/node';\n" : ""}import { AsyncApi, type IpcErrorFactory } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
 ${process ? `import { type ${prefix}ProcessOptions, spawnProcessBackend${shm ? ", spawnProcessBackendSync" : ""} } from './process.js';\n` : ""}import { ${findBinary} } from './platform.js';
@@ -606,62 +536,46 @@ export function createWasmBackend(options: ${prefix}WasmOptions = {}): Promise<W
  * generated API themselves. Unset backend: ${process ? `the process when the binary resolves${wasm ? ", falling back to wasm if it cannot be spawned" : ""}` : "the wasm module"}.
  */
 export async function createBackend(options: ${prefix}CreateOptions = {}): Promise<IpcClientAsync> {
-  if (typeof options.backend === 'object') {
-    return options.backend;
-  }
   const common = { threads: options.threads, logger: options.logger, unref: options.unref };
+  return pickServiceBackend<IpcClientAsync>(options.backend, {
+    label: '${packageName}',
+    logger: options.logger,
 ${
   process
-    ? `  if (options.backend === 'process' || (options.backend === undefined && (!${wasm} || ${findBinary}(options.process?.binaryPath)))) {
-    try {
-      return await spawnProcessBackend({ ...common, unrefStdio: options.unref, ...options.process });
-    } catch (err) {
-      if (options.backend === 'process' || !${wasm}) {
-        throw err;
-      }
-      options.logger?.(\`${binaryName} process unavailable (\${(err as Error).message}); falling back to wasm\`);
-    }
-  }
+    ? `    process: {
+      available: () => ${findBinary}(options.process?.binaryPath) !== null,
+      create: () => spawnProcessBackend({ ...common, unrefStdio: options.unref, ...options.process }),
+    },
 `
     : ""
 }${
       wasm
-        ? `  if (options.backend === undefined || options.backend === 'wasm') {
-    return createWasmBackend({ ...common, ...options.wasm });
-  }
+        ? `    wasm: { create: () => createWasmBackend({ ...common, ...options.wasm }) },
 `
         : ""
-    }  throw new Error(\`${packageName}: no such backend here: \${String(options.backend)}\`);
+    }  });
 }
 
 /** The synchronous counterpart of createBackend${shm ? ": the process over shared memory" : ""}${shm && wasm ? ", else " : ""}${wasm ? "the single-threaded wasm module" : ""}. */
 export async function createBackendSync(options: ${prefix}CreateSyncOptions = {}): Promise<IpcClientSync> {
-  if (typeof options.backend === 'object') {
-    return options.backend;
-  }
   const common = { threads: options.threads, logger: options.logger, unref: options.unref };
+  return pickServiceBackend<IpcClientSync>(options.backend, {
+    label: '${packageName}',
+    logger: options.logger,
 ${
   shm
-    ? `  if (options.backend === 'process' || (options.backend === undefined && (!${wasm} || ${findBinary}(options.process?.binaryPath)))) {
-    try {
-      return await spawnProcessBackendSync({ ...common, unrefStdio: options.unref, ...options.process });
-    } catch (err) {
-      if (options.backend === 'process' || !${wasm}) {
-        throw err;
-      }
-      options.logger?.(\`${binaryName} process unavailable (\${(err as Error).message}); falling back to wasm\`);
-    }
-  }
+    ? `    process: {
+      available: () => ${findBinary}(options.process?.binaryPath) !== null,
+      create: () => spawnProcessBackendSync({ ...common, unrefStdio: options.unref, ...options.process }),
+    },
 `
     : ""
 }${
       wasm
-        ? `  if (options.backend === undefined || options.backend === 'wasm') {
-    return createWasmBackendSync({ logger: options.logger, unref: options.unref, ...options.wasm });
-  }
+        ? `    wasm: { create: () => createWasmBackendSync({ logger: options.logger, unref: options.unref, ...options.wasm }) },
 `
         : ""
-    }  throw new Error(\`${packageName}: no such synchronous backend here: \${String(options.backend)}\`);
+    }  });
 }
 
 ${this.serviceClasses({ process, wasm })}`;
@@ -848,11 +762,11 @@ export class ${svc}Sync extends SyncApi {
   type WasmFfiBackendSync,
   type WasmModuleSource,
   type WorkerHandle,
-  MAX_THREADS,
+  chooseWasmModule,
   createWasmFfiBackend,
   createWasmFfiBackendSync,
   platform,
-  sharedMemoryAvailable,
+  resolveWasmThreads,
 } from '@aztec-foundation/ipc-runtime/wasm';
 import type { IpcErrorFactory } from './generated/async.js';
 import { hostImports } from './wasm_host_imports.js';
@@ -898,33 +812,21 @@ export interface WasmWorkers {
   createThreadWorker: () => WorkerHandle;
 }
 
-const THREADS_MODULE: URL | undefined = ${moduleUrl(this.opts.wasmThreadsModule)};
-const SINGLE_MODULE: URL | undefined = ${moduleUrl(this.opts.wasmModule)};
+// This package's own modules, as URLs relative to its own files: only the package can express
+// these, which is why the choosing lives here and the deciding does not.
+const MODULES = {
+  threads: ${moduleUrl(this.opts.wasmThreadsModule)},
+  single: ${moduleUrl(this.opts.wasmModule)},
+};
 
-/**
- * The package's own module for a thread count: the threads build for more than one thread,
- * otherwise the single-thread build (each falls back to the other when the package ships only one).
- */
+/** The module to run for a thread count: the threads build above one thread, else single. */
 export function defaultWasmModule(threads: number): URL {
-  const module = threads > 1 ? (THREADS_MODULE ?? SINGLE_MODULE) : (SINGLE_MODULE ?? THREADS_MODULE);
-  if (!module) {
-    throw new Error('${packageName}: no wasm module ships with this package');
-  }
-  return module;
+  return chooseWasmModule(MODULES, '${packageName}', threads);
 }
 
-/** The thread count to run with: the default where none was asked for, else the request, checked. */
+/** The thread count to run with: the host's parallelism by default, a request checked against it. */
 export function resolveThreads(threads?: number): number {
-  if (threads === undefined) {
-    return sharedMemoryAvailable() ? Math.min(platform.hardwareConcurrency(), MAX_THREADS) : 1;
-  }
-  if (threads > 1 && !sharedMemoryAvailable()) {
-    throw new Error(
-      \`${packageName}: \${threads} threads requested but no shared memory is available here \` +
-        '(browsers need a cross-origin isolated page: COOP/COEP headers); pass threads: 1',
-    );
-  }
-  return threads;
+  return resolveWasmThreads(platform, '${packageName}', threads);
 }
 
 export async function createWasmBackendWith(workers: WasmWorkers, options: ${prefix}WasmOptions = {}): Promise<WasmFfiBackend> {
@@ -1016,81 +918,49 @@ export const hostImports: HostImportsFactory | undefined = undefined;
 `;
   }
 
+  /**
+   * Where this package's binary lives. Resolving it and spawning it are ipc-runtime's job; this
+   * is only the description, which is all that differs from one generated package to the next.
+   */
   generatePlatform(): string {
-    const packageName = this.opts.packageName;
     const findBinary = binaryFinderName(this.opts.prefix);
-    const envVar = this.opts.binaryEnvVar;
-    const stem = packageStem(packageName);
-    const archPackages = archPackageNames(packageName);
+    const archPackages = archPackageNames(this.opts.packageName);
+    // Keyed as `process.arch`-`process.platform` reads at runtime.
+    const byPlatform = [
+      ["x64-linux", archPackages["linux-x64"]],
+      ["x64-darwin", archPackages["darwin-x64"]],
+      ["arm64-linux", archPackages["linux-arm64"]],
+      ["arm64-darwin", archPackages["darwin-arm64"]],
+    ]
+      .map(([key, name]) => `    '${key}': '${name}',`)
+      .join("\n");
 
-    return `import { createRequire } from 'node:module';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+    return `import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { type ServiceBinary, findServiceBinary } from '@aztec-foundation/ipc-runtime';
 
-export type Platform = 'x86_64-linux' | 'x86_64-darwin' | 'aarch64-linux' | 'aarch64-darwin';
-
-const PLATFORM_TO_PACKAGE: Record<Platform, string> = {
-  'x86_64-linux': '${archPackages["linux-x64"]}',
-  'x86_64-darwin': '${archPackages["darwin-x64"]}',
-  'aarch64-linux': '${archPackages["linux-arm64"]}',
-  'aarch64-darwin': '${archPackages["darwin-arm64"]}',
+/** This package's native binary, for ipc-runtime's resolver and process backends. */
+export const BINARY: ServiceBinary = {
+  name: '${this.opts.binaryName}',
+  envVar: '${this.opts.binaryEnvVar}',
+  archPackages: {
+${byPlatform}
+  },
+  ipcPathArgs: ${JSON.stringify(this.opts.ipcPathArgs)},
+  instancePrefix: '${toSnakeCase(this.opts.prefix)}',
+  packageDir: path.join(path.dirname(fileURLToPath(import.meta.url)), '..'),
 };
 
-function currentDir(): string {
-  return path.dirname(fileURLToPath(import.meta.url));
-}
-
-function detectPlatform(): Platform | null {
-  if (process.arch === 'x64' && process.platform === 'linux') return 'x86_64-linux';
-  if (process.arch === 'x64' && process.platform === 'darwin') return 'x86_64-darwin';
-  if (process.arch === 'arm64' && process.platform === 'linux') return 'aarch64-linux';
-  if (process.arch === 'arm64' && process.platform === 'darwin') return 'aarch64-darwin';
-  return null;
-}
-
-function findArchPackageDir(platform: Platform): string | null {
-  const packageName = PLATFORM_TO_PACKAGE[platform];
-  try {
-    const require = createRequire(import.meta.url);
-    return path.dirname(require.resolve(packageName + '/package.json'));
-  } catch {
-    const siblingPackageDir = path.join(currentDir(), '..', 'packages', packageName.split('/').pop()!);
-    return fs.existsSync(path.join(siblingPackageDir, 'package.json')) ? siblingPackageDir : null;
-  }
-}
-
 /**
- * The '${this.opts.binaryName}' binary to run: \`customPath\` if given, else \`${envVar}\`, else the
- * installed arch package for this platform. Null when none of those yields an existing file.
+ * The '${this.opts.binaryName}' binary to run: an explicit path if given, else
+ * \`${this.opts.binaryEnvVar}\`, else the installed arch package for this platform. Null when none
+ * of those yields an existing file.
  */
 export function ${findBinary}(customPath?: string): string | null {
-  if (customPath) {
-    return fs.existsSync(customPath) ? path.resolve(customPath) : null;
-  }
-
-  const envPath = process.env.${envVar};
-  if (envPath) {
-    return fs.existsSync(envPath) ? path.resolve(envPath) : null;
-  }
-
-  const platform = detectPlatform();
-  if (!platform) {
-    return null;
-  }
-
-  const archDir = findArchPackageDir(platform);
-  if (archDir) {
-    const candidate = path.join(archDir, '${this.opts.binaryName}');
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return null;
+  return findServiceBinary(BINARY, customPath);
 }
 
-export const ARCH_PACKAGE_STEM = '${stem}';
+export const ARCH_PACKAGE_STEM = '${packageStem(this.opts.packageName)}';
 `;
   }
 
