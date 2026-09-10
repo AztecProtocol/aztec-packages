@@ -5,13 +5,13 @@ use types::constants::{CHECKPOINT_MERGE_ROLLUP_VK_INDEX, CHECKPOINT_ROOT_ROLLUP_
 #[test]
 fn default_setup_success() {
     let builder = TestBuilder::default();
-    let _ = builder.execute_with_mock();
+    let _ = builder.execute_unconstrained();
 }
 
 #[test]
 fn default_setup_success_single_block() {
     let builder = TestBuilder::default_single_block();
-    let _ = builder.execute_with_mock();
+    let _ = builder.execute_unconstrained();
 }
 
 #[test(should_fail_with = "Vk index not in allowed list")]
@@ -20,7 +20,7 @@ fn disallowed_left_rollup_vk_index() {
 
     builder.left_rollup_vk_index = CHECKPOINT_MERGE_ROLLUP_VK_INDEX;
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }
 
 #[test(should_fail_with = "Vk index not in allowed list")]
@@ -29,7 +29,7 @@ fn disallowed_right_rollup_vk_index() {
 
     builder.right_rollup_vk_index = CHECKPOINT_ROOT_ROLLUP_VK_INDEX;
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }
 
 #[test(should_fail_with = "Vk index not in allowed list")]
@@ -38,7 +38,7 @@ fn disallowed_single_rollup_vk_index() {
 
     builder.left_rollup_vk_index = CHECKPOINT_ROOT_ROLLUP_VK_INDEX;
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }
 
 #[test(should_fail_with = "Membership check failed: vk hash not found in vk tree")]
@@ -52,7 +52,7 @@ fn left_rollup_vk_not_in_vk_tree() {
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
     builder.right_rollup.constants.vk_tree_root = new_vk_tree.get_root();
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }
 
 #[test(should_fail_with = "Membership check failed: vk hash not found in vk tree")]
@@ -68,7 +68,7 @@ fn right_rollup_vk_not_in_vk_tree() {
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
     builder.right_rollup.constants.vk_tree_root = new_vk_tree.get_root();
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }
 
 #[test(should_fail_with = "Membership check failed: vk hash not found in vk tree")]
@@ -82,5 +82,5 @@ fn single_rollup_vk_not_in_vk_tree() {
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
     builder.right_rollup.constants.vk_tree_root = new_vk_tree.get_root();
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }

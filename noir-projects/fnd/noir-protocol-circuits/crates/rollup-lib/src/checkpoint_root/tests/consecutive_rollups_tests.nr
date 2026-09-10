@@ -11,7 +11,7 @@ fn mismatch_constants() {
     // Tweak the version of the left rollup.
     builder.left_rollup.constants.version += 1;
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }
 
 #[test(should_fail_with = "Mismatched timestamps: expected right.timestamp to match left.timestamp")]
@@ -21,5 +21,5 @@ fn mismatch_timestamps() {
     // Tweak the timestamp of the right rollup to be different to the timestamp of the left rollup.
     builder.right_rollup.timestamp = builder.left_rollup.timestamp + 1;
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }

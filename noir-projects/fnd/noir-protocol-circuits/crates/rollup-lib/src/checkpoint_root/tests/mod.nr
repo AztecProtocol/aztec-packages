@@ -21,7 +21,6 @@ use crate::{
     tx_merge::accumulate_out_hash,
 };
 use protocol_test_utils::{assert_array_eq, make_fixture, pad_end};
-use std::test::OracleMock;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, checkpoint_header::CheckpointHeader,
@@ -33,7 +32,7 @@ use types::{
         BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, INBOX_PARITY_1024_VK_INDEX, OUT_HASH_TREE_LEAF_COUNT,
     },
     merkle_tree::compute_sha_tree_root,
-    traits::{Hash, Serialize},
+    traits::Hash,
 };
 
 struct TestBuilder {
@@ -286,28 +285,21 @@ impl TestBuilder {
         let _ = self.execute();
     }
 
-    pub fn execute_with_mock(self) -> (CheckpointRollupPublicInputs, OracleMock) {
-        // Safety: TODO(#10323): This is added to mock the oracle call and return data for `evaluate_blobs_and_batch`.
-        // When simulation times of unconstrained are improved and `mock_blob_oracle` is removed, this can be removed.
+    /// Run the rollup in Brillig rather than as a circuit. The blob evaluation dominates these
+    /// tests, and is an order of magnitude cheaper unconstrained.
+    pub fn execute_unconstrained(self) -> CheckpointRollupPublicInputs {
+        // Safety: these tests assert on the returned public inputs, not on constraint satisfaction.
         unsafe {
-            self.execute_unconstrained_and_mock()
+            self.execute_in_brillig()
         }
     }
 
-    pub fn execute_with_mock_and_fail(self) {
-        let _ = self.execute_with_mock();
+    pub fn execute_unconstrained_and_fail(self) {
+        let _ = self.execute_unconstrained();
     }
 
-    unconstrained fn execute_unconstrained_and_mock(
-        self,
-    ) -> (CheckpointRollupPublicInputs, OracleMock) {
-        let end_blob_accumulator_mock =
-            self.fixture_builder.get_blob_accumulator(self.fixture_builder.end_slot_number);
-
-        let evaluate_blobs_and_batch_mock =
-            OracleMock::mock("evaluateBlobs").returns(end_blob_accumulator_mock.serialize());
-
-        (self.execute(), evaluate_blobs_and_batch_mock)
+    unconstrained fn execute_in_brillig(self) -> CheckpointRollupPublicInputs {
+        self.execute()
     }
 
     pub fn assert_expected_public_inputs(self, pi: CheckpointRollupPublicInputs) {
@@ -365,15 +357,6 @@ impl TestBuilder {
         assert(pi.start_blob_accumulator != pi.end_blob_accumulator);
 
         assert_eq(pi.final_blob_challenges, hints.final_blob_challenges);
-    }
-
-    pub fn assert_mock_called(_self: Self, evaluate_blobs_and_batch_mock: OracleMock) {
-        // Safety: This is just a test.
-        unsafe {
-            assert_eq(evaluate_blobs_and_batch_mock.times_called(), 1);
-            // Clear the mock to get the correct number of times called when triggered again.
-            evaluate_blobs_and_batch_mock.clear();
-        }
     }
 
     unconstrained fn get_expected_checkpoint_header(self) -> CheckpointHeader {

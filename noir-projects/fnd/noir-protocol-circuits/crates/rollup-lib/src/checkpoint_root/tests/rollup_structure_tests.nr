@@ -17,9 +17,8 @@ fn with_both_roots() {
 
     for vk_indices in children_vk_indices {
         let builder = TestBuilder::new(vk_indices[0], 1, vk_indices[1], 1);
-        let (pi, mock) = builder.execute_with_mock();
+        let pi = builder.execute_unconstrained();
         builder.assert_expected_public_inputs(pi);
-        builder.assert_mock_called(mock);
     }
 }
 
@@ -33,9 +32,8 @@ fn with_left_merge_and_right_root() {
         BLOCK_ROOT_ROLLUP_VK_INDEX,
         1,
     );
-    let (pi, mock) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
     builder.assert_expected_public_inputs(pi);
-    builder.assert_mock_called(mock);
 }
 
 #[test(should_fail_with = "The rollup should be filled greedily from left to right, but received left rollups < right rollups")]
@@ -48,7 +46,7 @@ fn with_left_root_and_right_merge() {
         BLOCK_MERGE_ROLLUP_VK_INDEX,
         4,
     )
-        .execute_with_mock_and_fail();
+        .execute_unconstrained_and_fail();
 }
 
 #[test(should_fail_with = "The rollup should be filled greedily from left to right, but received an unbalanced left subtree")]
@@ -61,7 +59,7 @@ fn with_left_unbalanced_merge_and_right_root() {
         BLOCK_ROOT_ROLLUP_VK_INDEX,
         1,
     )
-        .execute_with_mock_and_fail();
+        .execute_unconstrained_and_fail();
 }
 
 #[test]
@@ -74,9 +72,8 @@ fn with_both_balanced_merges() {
         BLOCK_MERGE_ROLLUP_VK_INDEX,
         2,
     );
-    let (pi, mock) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
     builder.assert_expected_public_inputs(pi);
-    builder.assert_mock_called(mock);
 }
 
 #[test]
@@ -89,9 +86,8 @@ fn with_both_balanced_merges_same_size() {
         BLOCK_MERGE_ROLLUP_VK_INDEX,
         4,
     );
-    let (pi, mock) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
     builder.assert_expected_public_inputs(pi);
-    builder.assert_mock_called(mock);
 }
 
 #[test(should_fail_with = "The rollup should be filled greedily from left to right, but received left rollups < right rollups")]
@@ -104,7 +100,7 @@ fn with_both_balanced_merges_left_smaller_than_right() {
         BLOCK_MERGE_ROLLUP_VK_INDEX,
         4,
     )
-        .execute_with_mock_and_fail();
+        .execute_unconstrained_and_fail();
 }
 
 #[test]
@@ -117,9 +113,8 @@ fn with_left_balanced_merge_and_right_unbalanced_merge() {
         BLOCK_MERGE_ROLLUP_VK_INDEX,
         3,
     );
-    let (pi, mock) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
     builder.assert_expected_public_inputs(pi);
-    builder.assert_mock_called(mock);
 }
 
 #[test(should_fail_with = "The rollup should be filled greedily from left to right, but received an unbalanced left subtree")]
@@ -132,7 +127,7 @@ fn with_left_unbalanced_merge_and_right_balanced_merge() {
         BLOCK_MERGE_ROLLUP_VK_INDEX,
         2,
     )
-        .execute_with_mock_and_fail();
+        .execute_unconstrained_and_fail();
 }
 
 // --- Single block ---
@@ -148,9 +143,8 @@ fn with_single_block_root() {
 
     for vk_index in vk_indices {
         let builder = TestBuilder::new_single_block(vk_index);
-        let (pi, mock) = builder.execute_with_mock();
+        let pi = builder.execute_unconstrained();
         builder.assert_expected_public_inputs(pi);
-        builder.assert_mock_called(mock);
     }
 }
 
@@ -160,5 +154,5 @@ fn with_single_block_merge() {
 
     builder.left_rollup_vk_index = BLOCK_MERGE_ROLLUP_VK_INDEX;
 
-    builder.execute_with_mock_and_fail();
+    builder.execute_unconstrained_and_fail();
 }
