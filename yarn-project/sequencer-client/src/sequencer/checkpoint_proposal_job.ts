@@ -1288,6 +1288,16 @@ export class CheckpointProposalJob implements Traceable {
         if (timingInfo.isLastBlock) {
           break;
         }
+        // Waiting out a whole sub-slot is subject to the same budget as waiting out a tx poll, and is longer: once
+        // the proposal can no longer be sent, another attempt cannot produce a block any peer would accept, and the
+        // wait would take the checkpoint we already have past the deadline with it.
+        if (this.getProposalSendDeadline().getTime() - this.dateProvider.now() < TXS_POLLING_MS) {
+          this.log.verbose(
+            `Not waiting for another sub-slot in slot ${this.targetSlot}: the proposal send deadline is too close`,
+            { slot: this.targetSlot, checkpointNumber: this.checkpointNumber, blocksBuilt },
+          );
+          break;
+        }
         // Otherwise, if there is still time for more blocks, we wait until the next subslot and try again
         await this.waitUntilNextSubslot(timingInfo.deadline);
         continue;

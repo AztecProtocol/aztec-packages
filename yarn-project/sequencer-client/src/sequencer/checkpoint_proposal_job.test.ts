@@ -1444,6 +1444,29 @@ describe('CheckpointProposalJob', () => {
       expect(pollSpy).toHaveBeenCalled();
     });
 
+    it('does not wait out another sub-slot once the proposal send budget is spent', async () => {
+      // Two buildable sub-slots, so a failed first block would normally wait for the second and retry.
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, false))
+        .mockReturnValueOnce(subslot(20, 1, true))
+        .mockReturnValue(noSubslot());
+      p2p.getPendingTxCount.mockResolvedValue(10);
+      p2p.hasEligiblePendingTxs.mockResolvedValue(false);
+
+      const nowMs = (buildFrameStartSeconds() + 1) * 1000;
+      dateProvider.setTime(nowMs);
+      jest
+        .spyOn(job.getTimetable(), 'getCheckpointProposalSendDeadline')
+        .mockReturnValue((nowMs + TXS_POLLING_MS - 1) / 1000);
+      const subslotSpy = jest.spyOn(job, 'waitUntilNextSubslot');
+
+      job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: false });
+      await job.executeAndAwait();
+
+      expect(subslotSpy).not.toHaveBeenCalled();
+    });
+
     it('stops building when selectNextSubslot returns false', async () => {
       // Mock timetable to stop after 1 block (simulating time running out)
       jest
