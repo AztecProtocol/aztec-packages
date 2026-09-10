@@ -86,6 +86,12 @@ struct RollupConfigInput {
   uint256 ethereumSlotDuration;
 }
 
+/**
+ * @notice The rollup's deployment-time configuration.
+ * @dev Every field is fixed at construction, so the values live in the Rollup's immutables rather than
+ *      in storage. This struct is assembled in memory and threaded down into the libraries, which cannot
+ *      read the contract's immutables themselves.
+ */
 struct RollupConfig {
   bytes32 vkTreeRoot;
   bytes32 protocolContractsHash;
@@ -102,7 +108,6 @@ struct RollupStore {
   mapping(uint256 checkpointNumber => bytes32 archive) archives;
   // The following represents a circular buffer. Key is `checkpointNumber % size`.
   mapping(uint256 circularIndex => CompressedTempCheckpointLog temp) tempCheckpointLogs;
-  RollupConfig config;
 }
 
 interface IRollupCore {

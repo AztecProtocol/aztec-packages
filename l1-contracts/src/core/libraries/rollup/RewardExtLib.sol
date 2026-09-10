@@ -20,6 +20,7 @@ import {
   IValidatorSelection
 } from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 library RewardExtLib {
   function initializeConfig(RewardConfig memory _config) external {
@@ -30,12 +31,12 @@ library RewardExtLib {
     RewardLib.updateConfig(_config);
   }
 
-  function claimSequencerRewards(address _sequencer) external returns (uint256) {
-    return RewardLib.claimSequencerRewards(_sequencer);
+  function claimSequencerRewards(address _sequencer, IERC20 _feeAsset) external returns (uint256) {
+    return RewardLib.claimSequencerRewards(_sequencer, _feeAsset);
   }
 
-  function claimProverRewards(address _prover, Epoch[] memory _epochs) external returns (uint256) {
-    return RewardLib.claimProverRewards(_prover, _epochs);
+  function claimProverRewards(address _prover, Epoch[] memory _epochs, IERC20 _feeAsset) external returns (uint256) {
+    return RewardLib.claimProverRewards(_prover, _epochs, _feeAsset);
   }
 
   function deployRewardBooster(RewardBoostConfig memory _config) external returns (IBoosterCore) {

@@ -15,6 +15,7 @@ contracts=(
   "EscapeHatch"
   "SlashingProposer"
   "EmpireBase"
+  "EpochProofExtLib"
   "RollupOperationsExtLib"
   "ValidatorOperationsExtLib"
   "RewardExtLib"

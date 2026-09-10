@@ -1,0 +1,108 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Santiago Palladino <santiago@aztec-labs.com>
+Date: Thu, 10 Sep 2026 12:07:06 -0300
+Subject: [PATCH] refactor(ethereum): read rollup config through contract
+ getters
+
+The rollup's deployment-time configuration moved out of `RollupStore.config`
+storage into the Rollup's immutables, so the raw storage reads at
+`stfStorageSlot + 3` and `+ 4` no longer hold the VK tree root and the protocol
+contracts hash. Both getters call the contract instead.
+
+`Rollup`'s link references list `EpochProofExtLib` and no longer include
+`ValidatorSelectionLib`, so `RollupArtifact` supplies the former's code and
+drops the latter. A test pins the two sides together: every link reference the
+compiler emitted has code to deploy, and no library is carried that the rollup
+does not link against.
+
+diff --git a/yarn-project/ethereum/src/contracts/rollup.ts b/yarn-project/ethereum/src/contracts/rollup.ts
+index af4ac517775b024a0bc1fa86f9ac8de0d3a2a6f7..5b283b5b89f6c04b478285d1287b9c4b7c697411 100644
+--- a/yarn-project/ethereum/src/contracts/rollup.ts
++++ b/yarn-project/ethereum/src/contracts/rollup.ts
+@@ -449,16 +449,12 @@ export class RollupContract {
+ 
+   @memoize
+   async getVkTreeRoot(): Promise<Fr> {
+-    const slot = BigInt(RollupContract.stfStorageSlot) + 3n;
+-    const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
+-    return Fr.fromString(value ?? '0x0');
++    return Fr.fromString(await this.rollup.read.getVkTreeRoot());
+   }
+ 
+   @memoize
+   async getProtocolContractsHash(): Promise<Fr> {
+-    const slot = BigInt(RollupContract.stfStorageSlot) + 4n;
+-    const value = await this.client.getStorageAt({ address: this.address, slot: `0x${slot.toString(16)}` });
+-    return Fr.fromString(value ?? '0x0');
++    return Fr.fromString(await this.rollup.read.getProtocolContractsHash());
+   }
+ 
+   /**
+diff --git a/yarn-project/ethereum/src/l1_artifacts.test.ts b/yarn-project/ethereum/src/l1_artifacts.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..26de03ce230b10f98fb503a765240cc50a1bcdb6
+--- /dev/null
++++ b/yarn-project/ethereum/src/l1_artifacts.test.ts
+@@ -0,0 +1,25 @@
++import { RollupArtifact } from './l1_artifacts.js';
++
++describe('l1 artifacts', () => {
++  describe('RollupArtifact libraries', () => {
++    const { linkReferences, libraryCode } = RollupArtifact.libraries;
++    const linkedNames = Object.values(linkReferences).flatMap(refs => Object.keys(refs));
++
++    // The generic deployer deploys exactly the libraries in libraryCode and links exactly the names in
++    // linkReferences, so a name in one but not the other is either a deployment failure or a wasted deployment.
++    it('supplies code for every link reference the compiler emitted', () => {
++      expect(linkedNames.filter(name => !(name in libraryCode))).toEqual([]);
++    });
++
++    it('carries no library the rollup bytecode does not link against', () => {
++      expect(Object.keys(libraryCode).filter(name => !linkedNames.includes(name))).toEqual([]);
++    });
++
++    it('exports nonempty bytecode for every library', () => {
++      for (const [name, lib] of Object.entries(libraryCode)) {
++        expect(`${name}:${lib.contractBytecode.slice(0, 2)}`).toEqual(`${name}:0x`);
++        expect(lib.contractBytecode.length).toBeGreaterThan(2);
++      }
++    });
++  });
++});
+diff --git a/yarn-project/ethereum/src/l1_artifacts.ts b/yarn-project/ethereum/src/l1_artifacts.ts
+index d404aac730012d52c0c095fdddbf6a816b8ec705..55bd45dec2c110b63582c94030afb790a22530ac 100644
+--- a/yarn-project/ethereum/src/l1_artifacts.ts
++++ b/yarn-project/ethereum/src/l1_artifacts.ts
+@@ -3,6 +3,8 @@ import {
+   CoinIssuerBytecode,
+   DateGatedRelayerAbi,
+   DateGatedRelayerBytecode,
++  EpochProofExtLibAbi,
++  EpochProofExtLibBytecode,
+   FeeAssetHandlerAbi,
+   FeeAssetHandlerBytecode,
+   FeeJuicePortalAbi,
+@@ -50,8 +52,6 @@ import {
+   TestERC20Bytecode,
+   ValidatorOperationsExtLibAbi,
+   ValidatorOperationsExtLibBytecode,
+-  ValidatorSelectionLibAbi,
+-  ValidatorSelectionLibBytecode,
+ } from '@aztec-foundation/l1-artifacts';
+ 
+ import type { Hex } from 'viem';
+@@ -81,10 +81,10 @@ export const RollupArtifact = {
+   libraries: {
+     linkReferences: RollupLinkReferences,
+     libraryCode: {
+-      ValidatorSelectionLib: {
+-        name: 'ValidatorSelectionLib',
+-        contractAbi: ValidatorSelectionLibAbi,
+-        contractBytecode: ValidatorSelectionLibBytecode as Hex,
++      EpochProofExtLib: {
++        name: 'EpochProofExtLib',
++        contractAbi: EpochProofExtLibAbi,
++        contractBytecode: EpochProofExtLibBytecode as Hex,
+       },
+       RollupOperationsExtLib: {
+         name: 'RollupOperationsExtLib',
