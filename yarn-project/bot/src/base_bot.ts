@@ -4,11 +4,11 @@ import { createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import type { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
-import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import type { BotConfig } from './config.js';
+import { getSendInteractionOptions } from './utils.js';
 
 /** The surface `BotRunner` needs from every bot, whichever mode it is running. */
 export interface RunnableBot {
@@ -89,18 +89,6 @@ export abstract class BaseBot implements RunnableBot {
   }
 
   protected getSendMethodOpts(): SendInteractionOptions {
-    const { l2GasLimit, daGasLimit, minFeePadding } = this.config;
-
-    this.wallet.setMinFeePadding(minFeePadding);
-
-    const gasSettings =
-      l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0
-        ? { gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) }
-        : undefined;
-
-    return {
-      from: this.defaultAccountAddress,
-      ...(gasSettings ? { fee: { gasSettings } } : {}),
-    };
+    return getSendInteractionOptions(this.wallet, this.config, this.defaultAccountAddress);
   }
 }

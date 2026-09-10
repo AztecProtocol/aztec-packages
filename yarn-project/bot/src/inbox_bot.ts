@@ -1,12 +1,17 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { createLogger } from '@aztec/aztec.js/log';
+import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
+import { type MinedTxReceipt, SortedTxStatuses, TxHash, TxStatus } from '@aztec/aztec.js/tx';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import type { BlockTag } from '@aztec/stdlib/block';
+import type { BlockParameter, BlockTag } from '@aztec/stdlib/block';
+import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
@@ -19,15 +24,32 @@ import {
 } from './config.js';
 import { BotFactory } from './factory.js';
 import type {
+  InboxBotBlockRelation,
   InboxBotCheck,
   InboxBotCheckResult,
   InboxBotMilestone,
   InboxBotMode,
+  InboxBotPublicExecutionResult,
   InboxBotReason,
   InboxBotSaturationRunResult,
   InboxBotScenario,
+  InboxBotSimulationResult,
 } from './inbox_bot_metrics.js';
 import { type InboxL1Producer, ViemInboxL1Producer } from './inbox_l1_producer.js';
+import {
+  type InboxConsumptionRequest,
+  type InboxL2Consumer,
+  WalletInboxL2Consumer,
+  isAlreadyNullifiedError,
+  isFeePaymentError,
+  isMessageNotYetConsumableError,
+  isRpcError,
+} from './inbox_l2_consumer.js';
+import {
+  findMessageInsertionBlock,
+  pinReadinessNodeToBlock,
+  verifyL1ToL2MessageWitness,
+} from './inbox_message_checks.js';
 import {
   type L1ToL2MessageBatchReceipt,
   type L1ToL2MessageIntent,
@@ -36,6 +58,7 @@ import {
 import {
   type InboxBatchRecord,
   type InboxMessageRecord,
+  type InboxMessageState,
   type InboxScheduleRecord,
   type InboxStore,
   isTerminalInboxMessageState,
@@ -55,14 +78,56 @@ const TERMINAL_RECORD_RETENTION_COUNT = 5000;
  */
 const L1_REORG_RECHECK_WINDOW_MS = 5 * 60 * 1000;
 
+/**
+ * Cadence at which the bot polls the node for message observation, readiness and consumption receipts. Fixed
+ * rather than configurable: it tracks how fast blocks appear, not how much work the operator asked for, and the
+ * L1 batch cadence (`txIntervalSeconds`) is the knob that controls load.
+ */
+const CONSUMPTION_POLL_INTERVAL_MS = 1000;
+
+/**
+ * Consumption attempts the bot keeps in flight at once. An attempt simulates, proves and submits, which for the
+ * private domain takes far longer than a poll, so it runs as a background job and only the cap bounds it.
+ */
+const MAX_CONCURRENT_CONSUMPTION_ATTEMPTS = 8;
+
+/** Messages a single poll advances through one phase, bounding the RPC work one tick can do. */
+const MAX_MESSAGES_PER_POLL = 64;
+
+/**
+ * Attempts a message gets before it is written off. A message that is not consumable yet does not spend one:
+ * racing the block that absorbs the message is the expected case, not a failure.
+ */
+const MAX_CONSUMPTION_ATTEMPTS = 5;
+
+/** Blocks the insertion-block search looks back over before it gives up and reports an unknown relation. */
+const MAX_INSERTION_SEARCH_BLOCKS = 128;
+
+/** How often finished batches are scanned for their replay probe. */
+const REPLAY_PROBE_SCAN_INTERVAL_MS = 10_000;
+
+/**
+ * Outcome of a readiness check pinned to one block. `indeterminate` covers everything that moved under the check
+ * or could not be read, and counts as neither a pass nor a failure.
+ */
+type ReadinessOutcome = 'ready' | 'not_ready' | 'invalid' | 'indeterminate';
+
+/** Result of a pinned readiness check, naming the block it was answered at when there was one. */
+interface ReadinessResult {
+  outcome: ReadinessOutcome;
+  blockNumber?: BlockNumber;
+  detail?: string;
+}
+
 /** Collaborators the inbox bot runs on. `create` builds the production ones; tests substitute their own. */
 export interface InboxBotDeps {
   node: AztecNode;
   wallet: EmbeddedWallet;
   defaultAccountAddress: AztecAddress;
-  /** Contract the messages are addressed to and later consumed through. */
-  contract: TestContract;
+  /** Contract the messages are addressed to and consumed through, which their nullifiers are siloed with. */
+  contractAddress: AztecAddress;
   producer: InboxL1Producer;
+  consumer: InboxL2Consumer;
   store: InboxStore;
   telemetry: TelemetryClient;
   config: BotConfig;
@@ -89,29 +154,50 @@ export class InboxBot implements BotLifecycle {
   public readonly defaultAccountAddress: AztecAddress;
   public config: BotConfig;
 
-  private readonly contract: TestContract;
+  private readonly contractAddress: AztecAddress;
   private readonly producer: InboxL1Producer;
+  private readonly consumer: InboxL2Consumer;
   private readonly store: InboxStore;
   private readonly telemetry: TelemetryClient;
   private readonly dateProvider: DateProvider;
   private readonly syncChainTip?: BlockTag;
 
   private readonly productionPromise: RunningPromise;
+  private readonly consumptionPromise: RunningPromise;
 
   private running = false;
   private healthy = true;
+  private consumptionHealthy = true;
   /** Guards the single L1 submission the bot allows in flight, however the step was triggered. */
   private stepInFlight = false;
+  private consumeStepInFlight = false;
   private consecutiveProductionFailures = 0;
-  /** Counts produced messages so `mixed` alternates domains across messages and across batches alike. */
-  private producedMessageCount = 0;
+  private consecutiveConsumptionFailures = 0;
+  /**
+   * Consumption attempts running in the background, keyed by message id. Membership is what guarantees a message
+   * never has two attempts in flight, whatever the persisted state says.
+   */
+  private readonly attemptsInFlight = new Map<string, Promise<void>>();
+  /** Replay probes running in the background, keyed by batch id. */
+  private readonly probesInFlight = new Map<string, Promise<void>>();
+  /** Domain the next produced message is assigned in `mixed` mode, mirroring the persisted cursor. */
+  private nextMode?: InboxBotMode;
+  private lastReplayScanAt = 0;
+  private attemptsReconciled = false;
+
+  /**
+   * Running tally of everything the bot has recorded, keyed as `<kind>:<name>[:<result>]`. The instruments land
+   * in a later phase; until then this is what makes the outcomes visible to an operator without reading logs.
+   */
+  public readonly recorded = new Map<string, number>();
 
   public constructor(deps: InboxBotDeps) {
     this.node = deps.node;
     this.wallet = deps.wallet;
     this.defaultAccountAddress = deps.defaultAccountAddress;
-    this.contract = deps.contract;
+    this.contractAddress = deps.contractAddress;
     this.producer = deps.producer;
+    this.consumer = deps.consumer;
     this.store = deps.store;
     this.telemetry = deps.telemetry;
     this.config = deps.config;
@@ -123,6 +209,7 @@ export class InboxBot implements BotLifecycle {
       this.log,
       this.config.txIntervalSeconds * 1000,
     );
+    this.consumptionPromise = new RunningPromise(() => this.consumeStep(), this.log, CONSUMPTION_POLL_INTERVAL_MS);
   }
 
   /**
@@ -161,8 +248,9 @@ export class InboxBot implements BotLifecycle {
       node: aztecNode,
       wallet,
       defaultAccountAddress,
-      contract,
+      contractAddress: contract.address,
       producer,
+      consumer: new WalletInboxL2Consumer(wallet, contract, defaultAccountAddress, effectiveConfig),
       store: store.inbox,
       telemetry,
       config: effectiveConfig,
@@ -177,6 +265,7 @@ export class InboxBot implements BotLifecycle {
     await this.ensureSaturationSchedule();
     this.running = true;
     this.productionPromise.start();
+    this.consumptionPromise.start();
     this.log.info(`Started inbox bot`, {
       messagesPerBatch: this.config.inboxMessagesPerBatch,
       consumeMode: this.config.inboxConsumeMode,
@@ -196,6 +285,9 @@ export class InboxBot implements BotLifecycle {
     }
     this.running = false;
     await this.productionPromise.stop();
+    await this.consumptionPromise.stop();
+    // Attempts run outside the poll, so the store must stay open until the last of them has written its outcome.
+    await this.waitForBackgroundWork();
     this.log.info(`Stopped inbox bot`);
   }
 
@@ -210,7 +302,17 @@ export class InboxBot implements BotLifecycle {
    * separately and combines the two.
    */
   public isHealthy(): boolean {
-    return this.healthy;
+    return this.healthy && this.consumptionHealthy;
+  }
+
+  /**
+   * Resolves once every consumption attempt and replay probe running outside the poll has finished. Exposed so a
+   * caller driving the bot off its own clock can wait for the work a step started.
+   */
+  public async waitForBackgroundWork(): Promise<void> {
+    while (this.attemptsInFlight.size > 0 || this.probesInFlight.size > 0) {
+      await Promise.allSettled([...this.attemptsInFlight.values(), ...this.probesInFlight.values()]);
+    }
   }
 
   /** Number of messages counting against the outstanding-message cap. Exposed for tests and diagnostics. */
@@ -263,14 +365,16 @@ export class InboxBot implements BotLifecycle {
    */
   private async produceBatch(scenario: InboxBotScenario, count: number): Promise<InboxBatchRecord | undefined> {
     const intents = await generateL1ToL2MessageIntents(count, this.log);
+    const modes = await this.assignModes(count);
     const { batch } = await this.store.reserveBatch({
       scenario,
-      intents: intents.map(intent => ({
+      intents: intents.map((intent, index) => ({
         content: intent.content.toString(),
         secret: intent.secret.toString(),
         secretHash: intent.secretHash.toString(),
-        mode: this.assignMode(),
+        mode: modes.assigned[index],
       })),
+      nextMode: modes.next,
     });
 
     const submittedAt = this.dateProvider.now();
@@ -610,14 +714,739 @@ export class InboxBot implements BotLifecycle {
   }
 
   /**
-   * Assigns the L2 domain a message is consumed through. `mixed` alternates on every message, so a batch of one
-   * still alternates across batches.
+   * Assigns the L2 domain each message of a batch is consumed through. `mixed` alternates on every message, so a
+   * batch of one still alternates across batches. The cursor is returned alongside the assignment so it can be
+   * persisted with the reservation: a restart then continues the alternation instead of starting over at `public`.
    */
-  private assignMode(): InboxBotMode {
+  private async assignModes(count: number): Promise<{ assigned: InboxBotMode[]; next?: InboxBotMode }> {
     if (this.config.inboxConsumeMode !== 'mixed') {
-      return this.config.inboxConsumeMode;
+      return { assigned: Array(count).fill(this.config.inboxConsumeMode) };
     }
-    return this.producedMessageCount++ % 2 === 0 ? 'public' : 'private';
+    let next = this.nextMode ?? (await this.store.getNextMode()) ?? 'public';
+    const assigned: InboxBotMode[] = [];
+    for (let i = 0; i < count; i++) {
+      assigned.push(next);
+      next = next === 'public' ? 'private' : 'public';
+    }
+    this.nextMode = next;
+    return { assigned, next };
+  }
+
+  /**
+   * One turn of the consumption clock: observe messages the node has ingested, follow historical readiness,
+   * dispatch consumption attempts and poll the receipts of the ones already sent. Runs on a fixed ~1s cadence,
+   * independently of the L1 production interval.
+   *
+   * Nothing here waits on proving: an attempt is a background job, so a slow private proof cannot hold up
+   * observation or receipt polling for the other messages. It never throws, so an expected retry never reaches
+   * `BotRunner`'s consecutive-error streak.
+   */
+  public async consumeStep(): Promise<void> {
+    if (this.consumeStepInFlight) {
+      this.log.debug(`Skipping inbox consumption step, one is already in flight`);
+      return;
+    }
+    this.consumeStepInFlight = true;
+    try {
+      await this.reconcileInterruptedAttempts();
+      const active = await this.store.getActiveMessages();
+
+      const observed = await this.observeMessages(active.filter(message => message.state === 'awaiting_l1'));
+      await this.trackReadiness(
+        [...active.filter(message => message.state !== 'awaiting_l1'), ...observed].filter(
+          message => message.readyAt === undefined,
+        ),
+      );
+      // Receipts are polled before attempts are dispatched, so a transaction found dropped in this poll is
+      // replaced by a fresh attempt in the same turn rather than a second later.
+      await this.pollConsumptionReceipts(active.filter(message => message.state === 'sent'));
+      await this.dispatchAttempts([...observed, ...active]);
+      await this.scanReplayProbes();
+
+      this.consecutiveConsumptionFailures = 0;
+      this.consumptionHealthy = true;
+    } catch (err) {
+      this.registerConsumptionFailure(err);
+    } finally {
+      this.consumeStepInFlight = false;
+    }
+  }
+
+  /**
+   * Writes off attempts that a restart interrupted. A message left in `preparing` may or may not have had a
+   * transaction submitted for it and the bot has no hash to follow, so retrying it could spend the message twice;
+   * it is reported as a failed attempt instead. Messages in `sent` keep their hash and are simply polled again.
+   */
+  private async reconcileInterruptedAttempts(): Promise<void> {
+    if (this.attemptsReconciled) {
+      return;
+    }
+    this.attemptsReconciled = true;
+    for (const message of await this.store.getMessagesByState('preparing')) {
+      this.log.warn(`Abandoning an inbox consumption attempt whose transaction was never recorded`, {
+        messageId: message.messageId,
+        batchId: message.batchId,
+        mode: message.mode,
+      });
+      this.recordFailure('l2_drop', { messageId: message.messageId, detail: 'attempt interrupted before broadcast' });
+      const failed = await this.store.transitionMessage(message.messageId, 'failed', {
+        failedAt: this.dateProvider.now(),
+        failureReason: 'l2_drop',
+      });
+      this.recordMessageMilestone(failed, 'failed');
+    }
+  }
+
+  /**
+   * Moves messages the node has ingested to `observed` and checks that the index it reports is the one the Inbox
+   * event assigned on L1. Returns the messages that became observed in this poll, so their consumption can start
+   * in the same turn rather than a second later.
+   */
+  private async observeMessages(messages: InboxMessageRecord[]): Promise<InboxMessageRecord[]> {
+    const observed: InboxMessageRecord[] = [];
+    for (const message of messages.slice(0, MAX_MESSAGES_PER_POLL)) {
+      if (message.msgHash === undefined || message.globalLeafIndex === undefined) {
+        continue;
+      }
+      await this.probeUnknownMessage(message.batchId);
+
+      const msgHash = Fr.fromHexString(message.msgHash);
+      const expected = BigInt(message.globalLeafIndex);
+      let index = await this.node.getL1ToL2MessageIndex(msgHash);
+      if (index === undefined) {
+        this.log.debug(`Inbox message not indexed by the node yet`, {
+          messageId: message.messageId,
+          msgHash: message.msgHash,
+        });
+        continue;
+      }
+      if (index !== expected) {
+        // Read it once more before calling the node inconsistent: a read that raced an L1 reorg is not evidence.
+        index = await this.node.getL1ToL2MessageIndex(msgHash);
+      }
+      if (index !== expected) {
+        this.recordCheck('index_match', 'failed', {
+          messageId: message.messageId,
+          expected: expected.toString(),
+          reported: index?.toString(),
+        });
+        this.recordFailure('api_inconsistency', { messageId: message.messageId, check: 'index_match' });
+        const failed = await this.store.transitionMessage(message.messageId, 'failed', {
+          failedAt: this.dateProvider.now(),
+          failureReason: 'api_inconsistency',
+        });
+        this.recordMessageMilestone(failed, 'failed');
+        continue;
+      }
+
+      this.recordCheck('index_match', 'passed', { messageId: message.messageId });
+      const updated = await this.store.transitionMessage(message.messageId, 'observed', {
+        observedAt: this.dateProvider.now(),
+      });
+      this.recordMessageMilestone(updated, 'observed');
+      observed.push(updated);
+    }
+    return observed;
+  }
+
+  /**
+   * Asks the node for a hash it cannot know about, once per batch. A node that answers with an index for a message
+   * nobody sent is inventing messages, which no other check would catch.
+   */
+  private async probeUnknownMessage(batchId: string): Promise<void> {
+    const batch = await this.store.getBatch(batchId);
+    if (!batch || batch.unknownMessageProbedAt !== undefined) {
+      return;
+    }
+    const index = await this.node.getL1ToL2MessageIndex(Fr.random());
+    if (index === undefined) {
+      this.recordCheck('unknown_message', 'passed', { batchId });
+    } else {
+      this.recordCheck('unknown_message', 'failed', { batchId, reported: index.toString() });
+      this.recordFailure('api_inconsistency', { batchId, check: 'unknown_message' });
+    }
+    await this.store.recordBatchProbe(batchId, 'unknown_message');
+  }
+
+  /**
+   * Follows historical readiness for every message that has not reached it, whichever domain it belongs to. The
+   * public path does not wait for readiness, but the observation is still finished so the latency is recorded;
+   * the private path uses it as its gate.
+   */
+  private async trackReadiness(messages: InboxMessageRecord[]): Promise<void> {
+    for (const message of messages.slice(0, MAX_MESSAGES_PER_POLL)) {
+      if (message.msgHash === undefined || message.globalLeafIndex === undefined) {
+        continue;
+      }
+      const result = await this.checkReadiness(message);
+      if (result.outcome === 'not_ready') {
+        this.log.debug(`Inbox message not ready yet`, {
+          messageId: message.messageId,
+          blockNumber: result.blockNumber,
+        });
+        continue;
+      }
+      if (result.outcome === 'indeterminate') {
+        this.log.debug(`Inbox readiness check was inconclusive`, {
+          messageId: message.messageId,
+          detail: result.detail,
+        });
+        continue;
+      }
+      if (result.outcome === 'invalid') {
+        this.recordCheck('readiness_witness', 'failed', {
+          messageId: message.messageId,
+          blockNumber: result.blockNumber,
+          detail: result.detail,
+        });
+        this.recordFailure('invalid_witness', { messageId: message.messageId, detail: result.detail });
+      } else {
+        this.recordCheck('readiness_witness', 'passed', {
+          messageId: message.messageId,
+          blockNumber: result.blockNumber,
+        });
+      }
+      // Readiness itself was positive either way, so the message is let through: a witness that does not verify is
+      // reported on its own, and the consumption attempt that follows says more about it than a silent timeout.
+      const updated = await this.store.patchMessage(message.messageId, {
+        readyAt: this.dateProvider.now(),
+        readyBlockNumber: result.blockNumber?.toString(),
+      });
+      this.recordMessageMilestone(updated, 'ready');
+    }
+  }
+
+  /**
+   * Answers whether a message is consumable at one concrete block, and proves that answer against that block's
+   * own header. The tip is resolved to a block number first and every read is pinned to it, so the two halves of
+   * the readiness comparison cannot straddle a chain that moved; the block is re-read afterwards, and anything
+   * that changed under the check is reported as inconclusive rather than as a failure.
+   */
+  private async checkReadiness(message: InboxMessageRecord, atBlock?: BlockNumber): Promise<ReadinessResult> {
+    const msgHash = Fr.fromHexString(message.msgHash!);
+    const target: BlockParameter = atBlock === undefined ? (this.syncChainTip ?? 'latest') : { number: atBlock };
+    const block = await this.node.getBlockData(target);
+    if (!block) {
+      return { outcome: 'indeterminate', detail: 'no block at the requested tip' };
+    }
+    const blockNumber = block.header.globalVariables.blockNumber;
+
+    if (!(await isL1ToL2MessageReady(pinReadinessNodeToBlock(this.node, blockNumber), msgHash))) {
+      return { outcome: 'not_ready', blockNumber };
+    }
+
+    const witness = await this.node.getL1ToL2MessageMembershipWitness({ number: blockNumber }, msgHash);
+    const verdict =
+      witness === undefined
+        ? 'missing'
+        : await verifyL1ToL2MessageWitness({
+            msgHash,
+            witnessIndex: witness[0],
+            siblingPath: witness[1].toBufferArray(),
+            expectedIndex: BigInt(message.globalLeafIndex!),
+            expectedRoot: block.header.state.l1ToL2MessageTree.root,
+          });
+
+    const after = await this.node.getBlockData({ number: blockNumber });
+    if (!after || !after.blockHash.equals(block.blockHash)) {
+      return { outcome: 'indeterminate', blockNumber, detail: 'the pinned block changed under the check' };
+    }
+    if (verdict === 'unverifiable') {
+      return { outcome: 'indeterminate', blockNumber, detail: verdict };
+    }
+    return verdict === 'valid'
+      ? { outcome: 'ready', blockNumber }
+      : { outcome: 'invalid', blockNumber, detail: verdict };
+  }
+
+  /**
+   * Starts consumption attempts for messages whose domain will accept them, up to the concurrency cap. A public
+   * message starts as soon as the node has indexed it — the block being built may well absorb it, and losing that
+   * race is an ordinary not-ready outcome. A private message waits for readiness, because its proof anchors at a
+   * block that must already contain the message.
+   *
+   * Every candidate is re-read first: observation, readiness and receipt polling all move messages within the
+   * same poll, and only a message that is still waiting for its one attempt may be dispatched.
+   */
+  private async dispatchAttempts(candidates: InboxMessageRecord[]): Promise<void> {
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      if (seen.has(candidate.messageId) || this.attemptsInFlight.has(candidate.messageId)) {
+        continue;
+      }
+      seen.add(candidate.messageId);
+
+      const message = await this.store.getMessage(candidate.messageId);
+      if (!message || (message.state !== 'observed' && message.state !== 'awaiting_anchor')) {
+        continue;
+      }
+      if (message.mode === 'private' && message.readyAt === undefined) {
+        if (message.state === 'observed') {
+          await this.store.transitionMessage(message.messageId, 'awaiting_anchor');
+        }
+        continue;
+      }
+      if (this.attemptsInFlight.size >= MAX_CONCURRENT_CONSUMPTION_ATTEMPTS) {
+        return;
+      }
+      const job = this.runConsumptionAttempt(message)
+        .catch(err => this.registerConsumptionFailure(err))
+        .finally(() => this.attemptsInFlight.delete(message.messageId));
+      this.attemptsInFlight.set(message.messageId, job);
+    }
+  }
+
+  /**
+   * Runs one consumption attempt end to end. The message moves to `preparing` before anything is submitted, so a
+   * restart can tell an attempt whose fate is unknown from one that never started, and to `sent` only once the
+   * node has the transaction.
+   */
+  private async runConsumptionAttempt(message: InboxMessageRecord): Promise<void> {
+    const preparing = await this.store.transitionMessage(message.messageId, 'preparing');
+    const request: InboxConsumptionRequest = {
+      mode: preparing.mode,
+      content: Fr.fromHexString(preparing.content),
+      secret: Fr.fromHexString(preparing.secret),
+      sender: EthAddress.fromString(preparing.sender!),
+      leafIndex: new Fr(BigInt(preparing.globalLeafIndex!)),
+    };
+
+    let txHash: TxHash;
+    try {
+      txHash = await this.consumer.send(request);
+    } catch (err) {
+      await this.handleAttemptFailure(preparing, err);
+      return;
+    }
+
+    this.recordSimulation('accepted', preparing);
+    const sent = await this.store.transitionMessage(preparing.messageId, 'sent', {
+      l2TxHash: txHash.toString(),
+      attempts: preparing.attempts + 1,
+    });
+    this.log.verbose(`Sent inbox consumption transaction`, {
+      messageId: sent.messageId,
+      batchId: sent.batchId,
+      mode: sent.mode,
+      txHash: sent.l2TxHash,
+      globalLeafIndex: sent.globalLeafIndex,
+    });
+    await this.checkAnchorAdvanced(sent, txHash);
+  }
+
+  /**
+   * The wallet chooses the anchor block when it builds the transaction, which can be newer than the block the
+   * readiness check was pinned to. When it is, readiness is validated there too, so the check describes the state
+   * the transaction actually ran against. The anchor is only readable while the transaction is pending, so one
+   * that mined immediately leaves this inconclusive.
+   */
+  private async checkAnchorAdvanced(message: InboxMessageRecord, txHash: TxHash): Promise<void> {
+    if (message.readyBlockNumber === undefined) {
+      return;
+    }
+    const anchor = await this.getPendingTxAnchorBlock(txHash);
+    if (anchor === undefined || anchor <= Number(message.readyBlockNumber)) {
+      return;
+    }
+    const result = await this.checkReadiness(message, anchor);
+    if (result.outcome === 'ready') {
+      this.recordCheck('readiness_witness', 'passed', { messageId: message.messageId, blockNumber: anchor });
+    } else if (result.outcome !== 'indeterminate') {
+      this.recordCheck('readiness_witness', 'failed', {
+        messageId: message.messageId,
+        blockNumber: anchor,
+        detail: result.detail ?? result.outcome,
+      });
+      this.recordFailure(result.outcome === 'not_ready' ? 'reorg' : 'invalid_witness', {
+        messageId: message.messageId,
+        blockNumber: anchor,
+      });
+    }
+  }
+
+  /** Block a still-pending transaction anchored at, or undefined when it cannot be read. */
+  private async getPendingTxAnchorBlock(txHash: TxHash): Promise<BlockNumber | undefined> {
+    try {
+      const receipt = await this.node.getTxReceipt(txHash, { includePendingTx: true });
+      return receipt?.isPending()
+        ? receipt.tx?.data.constants.anchorBlockHeader.globalVariables.blockNumber
+        : undefined;
+    } catch (err) {
+      this.log.debug(`Could not read the anchor block of ${txHash.toString()}`, { err });
+      return undefined;
+    }
+  }
+
+  /** Classifies a failed attempt and decides whether the message is retried or written off. */
+  private async handleAttemptFailure(message: InboxMessageRecord, err: unknown): Promise<void> {
+    const waiting: InboxMessageState = message.mode === 'private' ? 'awaiting_anchor' : 'observed';
+
+    if (isMessageNotYetConsumableError(err)) {
+      // Expected while the bot races the block that absorbs the message: the attempt cost a simulation and nothing
+      // else. It retries on the next poll, does not spend an attempt, and never counts against the bot's health.
+      this.recordSimulation('not_ready', message);
+      this.log.debug(`Inbox message is not consumable yet`, { messageId: message.messageId, mode: message.mode });
+      await this.store.transitionMessage(message.messageId, waiting);
+      return;
+    }
+
+    this.recordSimulation('error', message);
+    const attempts = message.attempts + 1;
+    const reason: InboxBotReason = isAlreadyNullifiedError(err)
+      ? // A message that is already nullified after an earlier attempt was reported dropped means that attempt
+        // landed after all; on a first attempt it means something else spent a message only this bot holds.
+        message.attempts > 0
+        ? 'l2_drop'
+        : 'invalid_consumption'
+      : isRpcError(err)
+        ? 'rpc'
+        : 'simulation';
+
+    this.recordFailure(reason, {
+      messageId: message.messageId,
+      batchId: message.batchId,
+      mode: message.mode,
+      attempts,
+      feePayment: isFeePaymentError(err),
+      err,
+    });
+
+    const terminal = reason === 'invalid_consumption' || reason === 'l2_drop' || attempts >= MAX_CONSUMPTION_ATTEMPTS;
+    if (terminal) {
+      const failed = await this.store.transitionMessage(message.messageId, 'failed', {
+        attempts,
+        failedAt: this.dateProvider.now(),
+        failureReason: reason,
+      });
+      this.recordMessageMilestone(failed, 'failed');
+    } else {
+      await this.store.transitionMessage(message.messageId, waiting, { attempts });
+    }
+    if (reason === 'rpc') {
+      this.registerConsumptionFailure(err);
+    }
+  }
+
+  /** Polls the receipts of consumption transactions already submitted, one message at a time. */
+  private async pollConsumptionReceipts(messages: InboxMessageRecord[]): Promise<void> {
+    for (const message of messages.slice(0, MAX_MESSAGES_PER_POLL)) {
+      if (message.l2TxHash === undefined || this.attemptsInFlight.has(message.messageId)) {
+        continue;
+      }
+      const receipt = await this.node.getTxReceipt(TxHash.fromString(message.l2TxHash), { includeTxEffect: true });
+      if (!receipt || receipt.isPending()) {
+        continue;
+      }
+      if (receipt.isDropped()) {
+        await this.handleDroppedConsumption(message);
+      } else if (receipt.isMined()) {
+        if (receipt.hasExecutionReverted()) {
+          await this.handleRevertedConsumption(message, receipt);
+        } else {
+          await this.completeConsumption(message, receipt);
+        }
+      }
+    }
+  }
+
+  /**
+   * A dropped transaction never spent anything, so the message goes back to waiting and is attempted again with a
+   * fresh transaction. Its hash is cleared so a stale receipt can never be mistaken for the new attempt's.
+   */
+  private async handleDroppedConsumption(message: InboxMessageRecord): Promise<void> {
+    this.recordFailure('l2_drop', {
+      messageId: message.messageId,
+      batchId: message.batchId,
+      mode: message.mode,
+      txHash: message.l2TxHash,
+      attempts: message.attempts,
+    });
+    if (message.attempts >= MAX_CONSUMPTION_ATTEMPTS) {
+      const failed = await this.store.transitionMessage(message.messageId, 'failed', {
+        failedAt: this.dateProvider.now(),
+        failureReason: 'l2_drop',
+      });
+      this.recordMessageMilestone(failed, 'failed');
+      return;
+    }
+    const waiting: InboxMessageState = message.mode === 'private' ? 'awaiting_anchor' : 'observed';
+    await this.store.transitionMessage(message.messageId, waiting, { l2TxHash: undefined });
+  }
+
+  /**
+   * Diagnoses a reverted consumption against the block it executed in. A message the block did not cover, or one
+   * that was already spent, is an ordinary revert; a message that was present, unspent and consumed with the index
+   * the Inbox reported is a correctness failure.
+   *
+   * A mined receipt carries no revert text, so this reads the chain rather than an error string. Fee and account
+   * failures do not reach here: they fail the simulation, and are accounted at the attempt instead.
+   */
+  private async handleRevertedConsumption(message: InboxMessageRecord, receipt: MinedTxReceipt): Promise<void> {
+    if (message.mode === 'public') {
+      this.recordPublicExecution('reverted', message, receipt);
+      // The simulation accepted this transaction, or it would never have been sent, so the sequencer's view of the
+      // message differed from the one the node predicted for it.
+      this.recordPredictionMismatch(message, receipt);
+    }
+
+    const covered = await this.wasMessageCoveredIn(message, receipt.blockNumber);
+    const spentBefore = await this.wasMessageSpentBefore(message, receipt.blockNumber);
+    const index = await this.node.getL1ToL2MessageIndex(Fr.fromHexString(message.msgHash!));
+    const argumentsStillValid = index === BigInt(message.globalLeafIndex!);
+
+    const reason: InboxBotReason =
+      covered === true && spentBefore === false && argumentsStillValid ? 'invalid_consumption' : 'l2_revert';
+
+    this.recordFailure(reason, {
+      messageId: message.messageId,
+      batchId: message.batchId,
+      mode: message.mode,
+      txHash: message.l2TxHash,
+      blockNumber: receipt.blockNumber,
+      covered,
+      spentBefore,
+      argumentsStillValid,
+    });
+    const failed = await this.store.transitionMessage(message.messageId, 'failed', {
+      failedAt: this.dateProvider.now(),
+      failureReason: reason,
+    });
+    this.recordMessageMilestone(failed, 'failed');
+  }
+
+  /**
+   * Records a successful consumption. Proposed inclusion is recorded the first time the transaction is seen in a
+   * block, together with the nullifier check and the block relation; the message only becomes `completed` once the
+   * receipt reaches the configured completion policy, which can be many blocks later.
+   */
+  private async completeConsumption(message: InboxMessageRecord, receipt: MinedTxReceipt): Promise<void> {
+    let current = message;
+    if (message.includedAt === undefined) {
+      if (message.mode === 'public') {
+        this.recordPublicExecution('success', message, receipt);
+      }
+      await this.checkConsumptionNullifier(message, receipt);
+      const relation = await this.classifyBlockRelation(message, receipt);
+      current = await this.store.patchMessage(message.messageId, {
+        includedAt: this.dateProvider.now(),
+        proposedInclusionBlockNumber: receipt.blockNumber.toString(),
+        insertionBlockNumber: relation.insertionBlockNumber?.toString(),
+        blockRelation: relation.relation,
+      });
+      this.recordMessageMilestone(current, 'included');
+    }
+
+    if (!this.hasReachedCompletionPolicy(receipt.status)) {
+      return;
+    }
+    const completed = await this.store.transitionMessage(current.messageId, 'completed', {
+      completedAt: this.dateProvider.now(),
+      completionBlockNumber: receipt.blockNumber.toString(),
+    });
+    this.recordMessageMilestone(completed, 'completed');
+  }
+
+  /** Checks that the consuming transaction's effects carry the nullifier this message's consumption must emit. */
+  private async checkConsumptionNullifier(message: InboxMessageRecord, receipt: MinedTxReceipt): Promise<void> {
+    if (!receipt.txEffect) {
+      // The node served the receipt without its effects; there is nothing to check against, so nothing is recorded.
+      this.log.debug(`Consumption receipt carried no tx effect`, { messageId: message.messageId });
+      return;
+    }
+    const expected = await this.expectedConsumptionNullifier(message);
+    if (receipt.txEffect.nullifiers.some(nullifier => nullifier.equals(expected))) {
+      this.recordCheck('consumption_nullifier', 'passed', { messageId: message.messageId });
+    } else {
+      this.recordCheck('consumption_nullifier', 'failed', {
+        messageId: message.messageId,
+        txHash: message.l2TxHash,
+        blockNumber: receipt.blockNumber,
+      });
+      this.recordFailure('invalid_consumption', { messageId: message.messageId, check: 'consumption_nullifier' });
+    }
+  }
+
+  /**
+   * Works out whether the consumption landed in the very block that inserted the message. The consuming block is
+   * checked for canonicality first, and an inconclusive search stays `unknown`: a public message losing the race
+   * to the next block is the ordinary outcome, not a failure.
+   */
+  private async classifyBlockRelation(
+    message: InboxMessageRecord,
+    receipt: MinedTxReceipt,
+  ): Promise<{ relation: InboxBotBlockRelation; insertionBlockNumber?: BlockNumber }> {
+    const block = await this.node.getBlockData({ number: receipt.blockNumber });
+    if (!block || !block.blockHash.equals(receipt.blockHash)) {
+      return { relation: 'unknown' };
+    }
+    const insertion = await findMessageInsertionBlock(
+      this.node,
+      BigInt(message.globalLeafIndex!),
+      receipt.blockNumber,
+      MAX_INSERTION_SEARCH_BLOCKS,
+    );
+    if (insertion === undefined) {
+      return { relation: 'unknown' };
+    }
+    return {
+      relation: insertion === receipt.blockNumber ? 'same_block' : 'later_block',
+      insertionBlockNumber: insertion,
+    };
+  }
+
+  /** Whether the given block's L1→L2 message tree had grown past this message's index. */
+  private async wasMessageCoveredIn(
+    message: InboxMessageRecord,
+    blockNumber: BlockNumber,
+  ): Promise<boolean | undefined> {
+    const block = await this.node.getBlockData({ number: blockNumber });
+    return block === undefined
+      ? undefined
+      : BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex) > BigInt(message.globalLeafIndex!);
+  }
+
+  /** Whether this message's consumption nullifier was already in the tree before the given block ran. */
+  private async wasMessageSpentBefore(
+    message: InboxMessageRecord,
+    blockNumber: BlockNumber,
+  ): Promise<boolean | undefined> {
+    if (blockNumber <= 1) {
+      return false;
+    }
+    const nullifier = await this.expectedConsumptionNullifier(message);
+    const [found] = await this.node.findLeavesIndexes(
+      { number: BlockNumber(blockNumber - 1) },
+      MerkleTreeId.NULLIFIER_TREE,
+      [nullifier],
+    );
+    return found !== undefined;
+  }
+
+  /**
+   * The siloed nullifier a successful consumption of this message emits. `TestContract` consumes with a single
+   * secret field, which is the derivation {@link computeFeeJuiceMessageNullifier} implements; the kernel then
+   * silos it with the consuming contract's address.
+   */
+  private async expectedConsumptionNullifier(message: InboxMessageRecord): Promise<Fr> {
+    const inner = await computeFeeJuiceMessageNullifier(
+      Fr.fromHexString(message.msgHash!),
+      Fr.fromHexString(message.secret),
+    );
+    return await siloNullifier(this.contractAddress, inner);
+  }
+
+  /** Whether a mined receipt has reached the chain tip the operator configured as completion. */
+  private hasReachedCompletionPolicy(status: TxStatus): boolean {
+    if (this.config.followChain === 'NONE') {
+      return true;
+    }
+    return SortedTxStatuses.indexOf(status) >= SortedTxStatuses.indexOf(TxStatus[this.config.followChain]);
+  }
+
+  /**
+   * Looks for batches whose messages have all resolved and runs their replay probe. Scanned on its own slower
+   * clock: it reads every batch record, and nothing about it is latency sensitive.
+   */
+  private async scanReplayProbes(): Promise<void> {
+    const now = this.dateProvider.now();
+    if (now - this.lastReplayScanAt < REPLAY_PROBE_SCAN_INTERVAL_MS) {
+      return;
+    }
+    this.lastReplayScanAt = now;
+
+    for (const batch of await this.store.getBatchesPendingReplayProbe()) {
+      if (this.probesInFlight.has(batch.batchId)) {
+        continue;
+      }
+      const messages = await this.store.getBatchMessages(batch.batchId);
+      if (messages.length === 0 || messages.some(message => !isTerminalInboxMessageState(message.state))) {
+        continue;
+      }
+      const spent = messages.find(message => message.state === 'completed' && message.msgHash !== undefined);
+      if (!spent) {
+        // Nothing in the batch was ever consumed, so there is no spent message to try to replay.
+        await this.store.recordBatchProbe(batch.batchId, 'replay');
+        continue;
+      }
+      if (now - batch.createdAt > this.config.l1ToL2MessageTimeoutSeconds * 1000) {
+        this.log.warn(`Giving up on the replay probe for a batch whose nullifier never became visible`, {
+          batchId: batch.batchId,
+        });
+        await this.store.recordBatchProbe(batch.batchId, 'replay');
+        continue;
+      }
+      this.probesInFlight.set(
+        batch.batchId,
+        this.runReplayProbe(batch.batchId, spent)
+          .catch(err => this.registerConsumptionFailure(err))
+          .finally(() => this.probesInFlight.delete(batch.batchId)),
+      );
+    }
+  }
+
+  /**
+   * Simulates consuming an already-spent message a second time, through the domain it was *not* consumed in, and
+   * requires the specific duplicate-nullifier rejection. The simulation only runs once the anchor it will be
+   * answered at actually contains the spending nullifier, since before that a rejection would prove nothing. Any
+   * other error leaves the probe unresolved and it is tried again, so an unrelated failure can never pass as
+   * replay protection.
+   */
+  private async runReplayProbe(batchId: string, message: InboxMessageRecord): Promise<void> {
+    const opposite: InboxBotMode = message.mode === 'public' ? 'private' : 'public';
+    // A private simulation is answered at the wallet's sync tip; a public one at the node's latest state.
+    const anchor: BlockParameter = opposite === 'private' ? (this.syncChainTip ?? 'latest') : 'latest';
+    const nullifier = await this.expectedConsumptionNullifier(message);
+    const [spent] = await this.node.findLeavesIndexes(anchor, MerkleTreeId.NULLIFIER_TREE, [nullifier]);
+    if (spent === undefined) {
+      this.log.debug(`Deferring the replay probe until the spending nullifier is visible`, {
+        batchId,
+        messageId: message.messageId,
+      });
+      return;
+    }
+
+    const request: InboxConsumptionRequest = {
+      mode: opposite,
+      content: Fr.fromHexString(message.content),
+      secret: Fr.fromHexString(message.secret),
+      sender: EthAddress.fromString(message.sender!),
+      leafIndex: new Fr(BigInt(message.globalLeafIndex!)),
+    };
+
+    try {
+      await this.consumer.simulate(request);
+    } catch (err) {
+      if (isAlreadyNullifiedError(err)) {
+        this.recordCheck('replay_rejection', 'passed', { batchId, messageId: message.messageId, mode: opposite });
+        await this.store.recordBatchProbe(batchId, 'replay');
+      } else {
+        this.log.warn(`Replay probe was inconclusive; it will be tried again`, {
+          batchId,
+          messageId: message.messageId,
+          mode: opposite,
+          err,
+        });
+      }
+      return;
+    }
+
+    this.recordCheck('replay_rejection', 'failed', { batchId, messageId: message.messageId, mode: opposite });
+    this.recordFailure('replay_accepted', { batchId, messageId: message.messageId, mode: opposite });
+    await this.store.recordBatchProbe(batchId, 'replay');
+  }
+
+  private registerConsumptionFailure(err: unknown): void {
+    this.consecutiveConsumptionFailures++;
+    this.log.error(`Inbox bot consumption step failed`, {
+      consecutiveFailures: this.consecutiveConsumptionFailures,
+      err,
+    });
+    if (
+      this.config.maxConsecutiveErrors > 0 &&
+      this.consecutiveConsumptionFailures >= this.config.maxConsecutiveErrors
+    ) {
+      this.consumptionHealthy = false;
+    }
   }
 
   private registerProductionFailure(err: unknown): void {
@@ -637,7 +1466,12 @@ export class InboxBot implements BotLifecycle {
   // The five methods below are the points at which the bot's telemetry is emitted. They log today; the metrics
   // class introduced alongside the instruments hooks into them without moving any of the call sites.
 
+  private tally(key: string): void {
+    this.recorded.set(key, (this.recorded.get(key) ?? 0) + 1);
+  }
+
   private recordCheck(check: InboxBotCheck, result: InboxBotCheckResult, context: object): void {
+    this.tally(`check:${check}:${result}`);
     if (result === 'passed') {
       this.log.debug(`Inbox check ${check} passed`, { check, result, ...context });
     } else {
@@ -646,10 +1480,12 @@ export class InboxBot implements BotLifecycle {
   }
 
   private recordFailure(reason: InboxBotReason, context: object): void {
+    this.tally(`failure:${reason}`);
     this.log.warn(`Inbox bot failure`, { reason, ...context });
   }
 
   private recordMessageMilestone(message: InboxMessageRecord, milestone: InboxBotMilestone): void {
+    this.tally(`milestone:${milestone}`);
     this.log.debug(`Inbox message reached ${milestone}`, {
       milestone,
       messageId: message.messageId,
@@ -659,10 +1495,57 @@ export class InboxBot implements BotLifecycle {
       msgHash: message.msgHash,
       globalLeafIndex: message.globalLeafIndex,
       bucketSeq: message.bucketSeq,
+      l2TxHash: message.l2TxHash,
+      blockRelation: message.blockRelation,
+      insertionBlockNumber: message.insertionBlockNumber,
+      proposedInclusionBlockNumber: message.proposedInclusionBlockNumber,
+      completionBlockNumber: message.completionBlockNumber,
+    });
+  }
+
+  private recordSimulation(result: InboxBotSimulationResult, message: InboxMessageRecord): void {
+    this.tally(`simulation:${result}`);
+    this.log.debug(`Inbox consumption simulation ${result}`, {
+      result,
+      messageId: message.messageId,
+      batchId: message.batchId,
+      mode: message.mode,
+      scenario: message.scenario,
+    });
+  }
+
+  private recordPublicExecution(
+    result: InboxBotPublicExecutionResult,
+    message: InboxMessageRecord,
+    receipt: MinedTxReceipt,
+  ): void {
+    this.tally(`public_execution:${result}`);
+    this.log.info(`Inbox public consumption ${result}`, {
+      result,
+      messageId: message.messageId,
+      batchId: message.batchId,
+      scenario: message.scenario,
+      txHash: message.l2TxHash,
+      blockNumber: receipt.blockNumber,
+    });
+  }
+
+  /** A consumption whose simulation was accepted and whose execution then reverted: the two views disagreed. */
+  private recordPredictionMismatch(message: InboxMessageRecord, receipt: MinedTxReceipt): void {
+    this.tally('prediction_mismatch');
+    this.log.warn(`Inbox consumption reverted after an accepted simulation`, {
+      messageId: message.messageId,
+      batchId: message.batchId,
+      mode: message.mode,
+      scenario: message.scenario,
+      txHash: message.l2TxHash,
+      blockNumber: receipt.blockNumber,
+      error: receipt.error,
     });
   }
 
   private recordL1Batch(batchId: string, result: 'success' | 'reverted', receipt: L1ToL2MessageBatchReceipt): void {
+    this.tally(`l1_batch:${result}`);
     this.log.info(`Inbox batch ${result}`, {
       batchId,
       result,
@@ -675,6 +1558,7 @@ export class InboxBot implements BotLifecycle {
   }
 
   private recordSaturationRun(result: InboxBotSaturationRunResult, context: object): void {
+    this.tally(`saturation_run:${result}`);
     this.log.info(`Inbox saturation run ${result}`, { result, ...context });
   }
 }

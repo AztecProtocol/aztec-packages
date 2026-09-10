@@ -6,6 +6,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@azt
 import { z } from 'zod';
 
 import {
+  InboxBotBlockRelations,
   InboxBotMilestones,
   InboxBotModes,
   InboxBotReasons,
@@ -97,6 +98,8 @@ export const InboxMessageRecordSchema = z.object({
   observedAt: timestampMs.optional(),
   /** First positive historical readiness check under the configured anchor policy. */
   readyAt: timestampMs.optional(),
+  /** Block that readiness check was pinned to, so a later anchor can be compared against it. */
+  readyBlockNumber: decimalString.optional(),
   /** First proposed inclusion of the consuming transaction. */
   includedAt: timestampMs.optional(),
   /** Block that first carried the consuming transaction, regardless of the completion policy. */
@@ -104,6 +107,10 @@ export const InboxMessageRecordSchema = z.object({
   /** Completion under the configured `followChain` policy, which can lag proposed inclusion by a long way. */
   completedAt: timestampMs.optional(),
   completionBlockNumber: decimalString.optional(),
+  /** First block whose L1→L2 message tree covered this message, when the search for it was conclusive. */
+  insertionBlockNumber: decimalString.optional(),
+  /** How the consuming block relates to the block that inserted the message. */
+  blockRelation: z.enum(InboxBotBlockRelations).optional(),
   timedOutAt: timestampMs.optional(),
   failedAt: timestampMs.optional(),
   failureReason: z.enum(InboxBotReasons).optional(),
@@ -138,8 +145,16 @@ export const InboxBatchRecordSchema = z.object({
   sender: hexString.optional(),
   failureReason: z.enum(InboxBotReasons).optional(),
   exportedStages: z.array(z.enum(InboxBotStages)).default([]),
+  /** When the batch's unknown-message probe ran, so a restart does not repeat it. */
+  unknownMessageProbedAt: timestampMs.optional(),
+  /** When the batch's replay probe resolved, so a restart does not repeat it. */
+  replayProbedAt: timestampMs.optional(),
 });
 export type InboxBatchRecord = z.infer<typeof InboxBatchRecordSchema>;
+
+/** One-off probes a batch carries, each run at most once over the batch's lifetime. */
+export const InboxBatchProbes = ['unknown_message', 'replay'] as const;
+export type InboxBatchProbe = (typeof InboxBatchProbes)[number];
 
 /** The bot's saturation schedule, which survives restarts so downtime does not produce a catch-up burst. */
 export const InboxScheduleRecordSchema = z.object({
@@ -237,6 +252,7 @@ export class InboxStore {
   private readonly messages: AztecAsyncMap<string, string>;
   private readonly messagesByState: AztecAsyncMap<string, string>;
   private readonly schedule: AztecAsyncSingleton<string>;
+  private readonly modeCursor: AztecAsyncSingleton<string>;
 
   constructor(
     private readonly store: AztecAsyncKVStore,
@@ -247,6 +263,7 @@ export class InboxStore {
     this.messages = store.openMap<string, string>('inbox_messages');
     this.messagesByState = store.openMap<string, string>('inbox_messages_by_state');
     this.schedule = store.openSingleton<string>('inbox_schedule');
+    this.modeCursor = store.openSingleton<string>('inbox_mode_cursor');
   }
 
   /**
@@ -256,6 +273,8 @@ export class InboxStore {
   public async reserveBatch(args: {
     scenario: InboxBotScenario;
     intents: InboxMessageIntentInput[];
+    /** Domain the next message produced after this batch must be assigned, persisted with the reservation. */
+    nextMode?: InboxBotMode;
   }): Promise<{ batch: InboxBatchRecord; messages: InboxMessageRecord[] }> {
     const { scenario, intents } = args;
     if (intents.length === 0) {
@@ -291,6 +310,9 @@ export class InboxStore {
       await this.batches.set(batchId, JSON.stringify(batch));
       for (const message of messages) {
         await this.writeMessage(message);
+      }
+      if (args.nextMode) {
+        await this.modeCursor.set(args.nextMode);
       }
     });
 
@@ -378,6 +400,19 @@ export class InboxStore {
         failed.push(updated);
       }
       return failed;
+    });
+  }
+
+  /**
+   * Applies a patch to a message without changing its state. Readiness tracking runs alongside a consumption
+   * attempt, so it must never write back a state it read before that attempt advanced it.
+   */
+  public async patchMessage(messageId: string, patch: InboxMessagePatch): Promise<InboxMessageRecord> {
+    return await this.store.transactionAsync(async () => {
+      const message = await this.requireMessage(messageId);
+      const updated: InboxMessageRecord = { ...message, ...patch };
+      await this.writeMessage(updated);
+      return updated;
     });
   }
 
@@ -517,6 +552,44 @@ export class InboxStore {
       }
     }
     return count;
+  }
+
+  /**
+   * Domain the next produced message must be assigned in `mixed` mode. Undefined before the first batch is
+   * reserved, so the caller decides where the alternation starts.
+   */
+  public async getNextMode(): Promise<InboxBotMode | undefined> {
+    const raw = await this.modeCursor.getAsync();
+    if (raw === undefined) {
+      return undefined;
+    }
+    const parsed = z.enum(InboxBotModes).safeParse(raw);
+    if (!parsed.success) {
+      throw new InboxStoreCorruptionError('mode cursor', 'inbox_mode_cursor', z.prettifyError(parsed.error));
+    }
+    return parsed.data;
+  }
+
+  /** Records that a batch's one-off probe has run, so it is never repeated for that batch. */
+  public async recordBatchProbe(batchId: string, probe: InboxBatchProbe): Promise<void> {
+    const now = this.dateProvider.now();
+    await this.store.transactionAsync(async () => {
+      const batch = await this.requireBatch(batchId);
+      const patch = probe === 'unknown_message' ? { unknownMessageProbedAt: now } : { replayProbedAt: now };
+      await this.batches.set(batchId, JSON.stringify({ ...batch, ...patch }));
+    });
+  }
+
+  /** Mined batches whose replay probe has not run yet, oldest first. */
+  public async getBatchesPendingReplayProbe(): Promise<InboxBatchRecord[]> {
+    const pending: InboxBatchRecord[] = [];
+    for await (const [key, raw] of this.batches.entriesAsync()) {
+      const batch = parseRecord(InboxBatchRecordSchema, 'batch', key, raw);
+      if (batch.state === 'mined' && batch.replayProbedAt === undefined) {
+        pending.push(batch);
+      }
+    }
+    return pending;
   }
 
   /** Batches whose L1 outcome is not yet known, oldest first. These are what a restart must reconcile. */

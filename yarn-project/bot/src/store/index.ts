@@ -2,6 +2,7 @@ export { BotStore, type BridgeClaimData, type PendingL1ToL2Message } from './bot
 export {
   InboxStore,
   InboxStoreCorruptionError,
+  InboxBatchProbes,
   InboxBatchRecordSchema,
   InboxBatchReceiptStatuses,
   InboxBatchStates,
@@ -10,6 +11,7 @@ export {
   InboxScheduleRecordSchema,
   InboxTerminalMessageStates,
   isTerminalInboxMessageState,
+  type InboxBatchProbe,
   type InboxBatchReceiptInput,
   type InboxBatchReceiptStatus,
   type InboxBatchRecord,

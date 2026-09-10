@@ -15,6 +15,13 @@ export {
 } from './store/index.js';
 export { type InboxL1Producer, ViemInboxL1Producer } from './inbox_l1_producer.js';
 export {
+  type InboxConsumptionRequest,
+  type InboxL2Consumer,
+  WalletInboxL2Consumer,
+  isAlreadyNullifiedError,
+  isMessageNotYetConsumableError,
+} from './inbox_l2_consumer.js';
+export {
   type BotConfig,
   type BotInboxConsumeMode,
   MAX_INBOX_MESSAGES_PER_BATCH,
