@@ -16,7 +16,7 @@ This is an auto-generated reference. For tutorials and guides, see the [Aztec.js
 
 *Package: @aztec/aztec.js*
 
-*Generated: 2026-08-19T09:19:51.719Z*
+*Generated: 2026-09-10T04:03:25.794Z*
 
 This document provides a comprehensive reference for all public APIs in the Aztec.js library.
 
@@ -4682,7 +4682,7 @@ public override send(options?: Omit<SendInteractionOptions<InteractionWaitOption
 
 **Type:** Function
 
-Waits for the L1 to L2 message to be ready to be consumed.
+Waits for the L1 to L2 message to be ready to be consumed, that is, for a block that already exists to have inserted it into the message tree at the given tip. This is a check on the chain as it stands, not a promise about a future block: a node simulating public calls may optimistically include messages that are still only in the Inbox, and the block that eventually inserts them can stop short of the one being waited for.
 
 **Signature:**
 
@@ -4727,7 +4727,7 @@ export waitForL1ToL2MessageReady(
 
 **Type:** Function
 
-Returns whether the L1 to L2 message is ready to be consumed.
+Returns whether the L1 to L2 message is ready to be consumed: whether a block at `chainTip` has already inserted it into the message tree. A message that is in the Inbox but not yet in any block is not ready, even though a node may already simulate public calls against it; use this rather than a successful simulation when a caller needs to know the message is really there.
 
 **Signature:**
 
