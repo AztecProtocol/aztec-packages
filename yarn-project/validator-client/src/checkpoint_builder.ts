@@ -190,8 +190,9 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
   /**
    * Caps per-block gas and blob field limits by remaining checkpoint-level budgets.
    * When building a proposal (isBuildingProposal=true), computes a fair share of remaining budget
-   * across remaining blocks scaled by the multiplier. When validating, only caps by per-block limit
-   * and remaining checkpoint budget (no redistribution or multiplier).
+   * across remaining blocks scaled by the multiplier, and holds back blob space for a transaction-less block that
+   * may still be needed to end the checkpoint at a live L1 Inbox bucket end. When validating, only caps by per-block
+   * limit and remaining checkpoint budget (no redistribution, multiplier or reservation).
    */
   protected capLimitsByCheckpointBudgets(
     opts: BlockBuilderOptions,
@@ -212,7 +213,20 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const usedBlobFields = sum(existingBlocks.map(b => b.toBlobFields().length));
     const totalBlobCapacity = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
     const blockEndOverhead = getNumBlockEndBlobFields();
-    const maxBlobFieldsForTxs = totalBlobCapacity - usedBlobFields - blockEndOverhead;
+
+    // A proposer whose sub-slots run out while the consumption cursor sits at a prefix that is not a live L1 Inbox
+    // bucket end appends one transaction-less block to reach one, so the checkpoint can be published at all. That
+    // block still writes its own block-end fields, so hold them back from transaction packing while such a block can
+    // still follow; the last block the checkpoint can hold releases them, since nothing can follow it. Only the
+    // proposer packs against this: re-executing a peer's proposal must not reject a block over it. The checkpoint end
+    // marker is already deducted from the total capacity, so the reservation is a block's end fields alone.
+    // Reserving blob space does not reserve build time, nor guarantee that the extra block can be built.
+    const rescueTailReservation =
+      opts.isBuildingProposal && opts.maxBlocksPerCheckpoint - existingBlocks.length > 1 ? blockEndOverhead : 0;
+    const maxBlobFieldsForTxs = Math.max(
+      0,
+      totalBlobCapacity - usedBlobFields - blockEndOverhead - rescueTailReservation,
+    );
 
     // Remaining txs
     const usedTxs = sum(existingBlocks.map(b => b.body.txEffects.length));
