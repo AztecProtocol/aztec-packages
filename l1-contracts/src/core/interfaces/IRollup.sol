@@ -34,11 +34,17 @@ struct PublicInputArgs {
   address proverId;
 }
 
+struct ProvenCheckpointFees {
+  address coinbase;
+  uint256 accumulatedFees;
+}
+
 struct SubmitEpochRootProofArgs {
   uint256 start; // inclusive
   uint256 end; // inclusive
   PublicInputArgs args;
-  ProposedHeader[] headers; // Must match what was proposed by the committee
+  ProvenCheckpointFees[] provenCheckpointFees; // Optional prefix already proven and accounted for
+  ProposedHeader[] headers; // Remaining suffix; must match what was proposed by the committee
   CommitteeAttestations attestations; // attestations for the last checkpoint in epoch
   bytes blobInputs;
   bytes proof;
@@ -86,6 +92,12 @@ struct RollupConfigInput {
   uint256 ethereumSlotDuration;
 }
 
+/**
+ * @notice The rollup's deployment-time configuration.
+ * @dev Every field is fixed at construction, so the values live in the Rollup's immutables rather than
+ *      in storage. This struct is assembled in memory and threaded down into the libraries, which cannot
+ *      read the contract's immutables themselves.
+ */
 struct RollupConfig {
   bytes32 vkTreeRoot;
   bytes32 protocolContractsHash;
@@ -102,7 +114,9 @@ struct RollupStore {
   mapping(uint256 checkpointNumber => bytes32 archive) archives;
   // The following represents a circular buffer. Key is `checkpointNumber % size`.
   mapping(uint256 circularIndex => CompressedTempCheckpointLog temp) tempCheckpointLogs;
-  RollupConfig config;
+  // Only written at the checkpoint a proof ended at, so entries are sparse: a proof of checkpoints 1-10 followed by
+  // one of 11-20 records entries at 10 and 20 only. Use getFirstProvenBy to resolve an arbitrary checkpoint number.
+  mapping(uint256 checkpointNumber => uint256 encodedProverId) firstProvenBy;
 }
 
 interface IRollupCore {
@@ -118,6 +132,8 @@ interface IRollupCore {
   event RewardConfigUpdated(MutableRewardConfig rewardConfig);
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenCheckpointNumber, uint256 pendingCheckpointNumber);
+  event ProtocolFeeMarginUpdated(uint16 oldBps, uint16 newBps);
+  event ProtocolFeeRecipientUpdated(address oldRecipient, address newRecipient);
 
   function claimSequencerRewards(address _recipient) external returns (uint256);
   function claimProverRewards(address _recipient, Epoch[] memory _epochs) external returns (uint256);
@@ -126,6 +142,9 @@ interface IRollupCore {
   function updateL1GasFeeOracle() external;
 
   function setProvingCostPerMana(EthValue _provingCostPerMana) external;
+
+  function setProtocolFeeMargin(uint16 _protocolFeeMarginBps) external;
+  function setProtocolFeeRecipient(address _recipient) external;
 
   function propose(
     ProposeArgs calldata _args,
@@ -203,6 +222,7 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getEthPerFeeAsset() external view returns (EthPerFeeAssetE12);
 
   function getEpochForCheckpoint(uint256 _checkpointNumber) external view returns (Epoch);
+  function getFirstProvenBy(uint256 _checkpointNumber) external view returns (address);
   function canPruneAtTime(Timestamp _ts) external view returns (bool);
 
   function archive() external view returns (bytes32);
@@ -231,7 +251,8 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getFeeAsset() external view returns (IERC20);
   function getFeeAssetPortal() external view returns (IFeeJuicePortal);
   function getRewardDistributor() external view returns (IRewardDistributor);
-  function getBurnAddress() external view returns (address);
+  function getProtocolFeeRecipient() external view returns (address);
+  function getProtocolFeeMargin() external view returns (uint16);
 
   function getInbox() external view returns (IInbox);
   function getOutbox() external view returns (IOutbox);

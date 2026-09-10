@@ -2,6 +2,8 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {ValidatorSelectionTestBase} from "@test/validator-selection/ValidatorSelectionBase.sol";
 import {DecoderBase} from "@test/base/DecoderBase.sol";
 import {IEscapeHatchCore, Status, CandidateInfo, Hatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
@@ -351,6 +353,7 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
         start: _start,
         end: _end,
         args: args,
+        provenCheckpointFees: new ProvenCheckpointFees[](0),
         headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: endFull.checkpoint.batchedBlobInputs,

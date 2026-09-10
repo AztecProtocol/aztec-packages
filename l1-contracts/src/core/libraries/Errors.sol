@@ -55,6 +55,7 @@ library Errors {
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidCheckpointHeader(bytes32 expected, bytes32 actual);
   error Rollup__InvalidCheckpointHeaderCount(uint256 expected, uint256 actual);
+  error Rollup__InvalidProvenCheckpointCount(uint256 maximum, uint256 actual);
   error Rollup__InvalidCheckpointNumber(uint256 expected, uint256 actual); // 0xd1ba9bfa
   error Rollup__InvalidInboxRollingHash(bytes32 expected, bytes32 actual); // 0xed1f7bb5
   error Rollup__InvalidPreviousInboxRollingHash(bytes32 expected, bytes32 actual); // 0x2fe7cae5
@@ -65,6 +66,7 @@ library Errors {
   error Rollup__InvalidOutHash(bytes32 expected, bytes32 actual); // 0x8eb39062
   error Rollup__InvalidPreviousArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidProof(); // 0xa5b2ba17
+  error Rollup__InvalidProofSubmissionEpochs(uint256 minimum, uint256 provided);
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
   error Rollup__InvalidAttestations();
@@ -103,6 +105,7 @@ library Errors {
   error Rollup__CannotInvalidateEscapeHatch();
   error Rollup__InvalidEscapeHatchProposer(address expected, address actual);
   error Rollup__FieldElementOutOfRange(bytes32 value);
+  error Rollup__CheckpointNotProven(uint256 proven, uint256 requested);
 
   // EscapeHatch
   error EscapeHatch__AlreadyInCandidateSet(address candidate);
@@ -206,6 +209,8 @@ library Errors {
   error FeeLib__ProvingCostAboveCeiling(uint256 provided, uint256 maximum);
   error FeeLib__ProvingCostCooldown(uint256 nextAllowed);
   error FeeLib__ProvingCostStepExceeded(uint256 current, uint256 requested);
+  error FeeLib__ProtocolFeeMarginCooldown(uint256 nextAllowed);
+  error FeeLib__ProtocolFeeMarginStepExceeded(uint256 current, uint256 requested);
 
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c
@@ -223,6 +228,7 @@ library Errors {
 
   error RewardLib__InvalidSequencerBps();
   error RewardLib__ZeroShares(address prover);
+  error RewardLib__InvalidProtocolFeeRecipient();
 
   // SlashingProposer
   error SlashingProposer__InvalidSignature();

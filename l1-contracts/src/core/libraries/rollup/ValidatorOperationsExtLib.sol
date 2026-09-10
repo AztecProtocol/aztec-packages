@@ -4,6 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
+import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Epoch, Slot, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {StakingLib, Exit, Status, AttesterView} from "./StakingLib.sol";
@@ -97,6 +98,7 @@ library ValidatorOperationsExtLib {
 
   function setEscapeHatch(address _escapeHatch) external {
     ValidatorSelectionLib.setEscapeHatch(_escapeHatch);
+    emit IValidatorSelectionCore.EscapeHatchSet(_escapeHatch);
   }
 
   function invalidateBadAttestation(

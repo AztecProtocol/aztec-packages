@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
+import {ProvenCheckpointFees} from "@aztec/core/interfaces/IRollup.sol";
+
 import {DecoderBase} from "./DecoderBase.sol";
 
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
@@ -102,6 +104,7 @@ contract RollupBase is DecoderBase {
         start: startCheckpointNumber,
         end: endCheckpointNumber,
         args: args,
+        provenCheckpointFees: new ProvenCheckpointFees[](0),
         headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: endFull.checkpoint.batchedBlobInputs,
@@ -191,15 +194,7 @@ contract RollupBase is DecoderBase {
         }
       }
 
-      // https://github.com/foundry-rs/foundry/issues/10074
-      // don't add blob hashes if forge gas report is true
-      if (!vm.envOr("FORGE_GAS_REPORT", false)) {
-        emit log("Setting blob hashes");
-        vm.blobhashes(blobHashes);
-      } else {
-        // skip blob check if forge gas report is true
-        skipBlobCheck(address(rollup));
-      }
+      setBlobHashesOrSkipCheck(address(rollup), blobHashes);
     }
 
     proposedHeaders[full.checkpoint.checkpointNumber] = full.checkpoint.header;

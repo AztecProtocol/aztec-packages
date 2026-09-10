@@ -89,24 +89,20 @@ library STFLib {
   using CompressedTimeMath for CompressedSlot;
   using FeeHeaderLib for CompressedFeeHeader;
 
+  uint256 private constant PROVER_ID_PRESENT_BIT = 1 << 160;
+
   // @note  This is also used in the cheatcodes, so if updating, please also update the cheatcode.
   bytes32 private constant STF_STORAGE_POSITION = keccak256("aztec.stf.storage");
 
   /**
-   * @notice Initializes the rollup state with genesis configuration
-   * @dev Sets up the initial state of the rollup including verification keys and the genesis archive root.
-   *      This function should only be called once during rollup deployment.
+   * @notice Writes the genesis archive root at checkpoint 0
+   * @dev Should only be called once during rollup deployment. The remaining genesis fields
+   *      (vkTreeRoot, protocolContractsHash) are held in the Rollup's immutables.
    *
-   * @param _genesisState The initial state configuration containing:
-   *        - vkTreeRoot: Root of the verification key tree for circuit verification
-   *        - protocolContractsHash: Root containing protocol contract addresses and configurations
-   *        - genesisArchiveRoot: Initial archive root representing the genesis state
+   * @param _genesisState The initial state configuration; only `genesisArchiveRoot` is read here
    */
   function initialize(GenesisState memory _genesisState) internal {
     RollupStore storage rollupStore = STFLib.getStorage();
-
-    rollupStore.config.vkTreeRoot = _genesisState.vkTreeRoot;
-    rollupStore.config.protocolContractsHash = _genesisState.protocolContractsHash;
 
     // The genesis archive root is decoded as an Fr off chain and propagates into the first header's lastArchiveRoot,
     // so it must be a valid field element.
@@ -131,7 +127,7 @@ library STFLib {
         payloadDigest: bytes32(0),
         slotNumber: Slot.wrap(0),
         feeHeader: FeeHeader({
-          excessMana: 0, manaUsed: 0, ethPerFeeAsset: _initialEthPerFeeAsset, congestionCost: 0, proverCost: 0
+          excessMana: 0, manaUsed: 0, ethPerFeeAsset: _initialEthPerFeeAsset, protocolFee: 0, proverCost: 0
         }),
         // Genesis Inbox consumption base case, matching the Inbox's genesis bucket-0 sentinel {0, 0, 0}, so
         // checkpoint 1 validates its consumption against it.
@@ -187,6 +183,17 @@ library STFLib {
     rollupStore.tips = tips.updatePending(proven);
 
     emit IRollupCore.PrunedPending(proven, pending);
+  }
+
+  /**
+   * @notice Records the prover that proved up to the given checkpoint
+   * @dev Only ever called with a checkpoint number above the proven tip, and the proven tip never moves backwards,
+   *      so an entry for `_checkpointNumber` cannot already exist and the write is unconditional.
+   * @param _checkpointNumber The last checkpoint number covered by the proof
+   * @param _proverId The prover that submitted the proof
+   */
+  function recordFirstProvenBy(uint256 _checkpointNumber, address _proverId) internal {
+    getStorage().firstProvenBy[_checkpointNumber] = uint256(uint160(_proverId)) | PROVER_ID_PRESENT_BIT;
   }
 
   /**
@@ -277,6 +284,31 @@ library STFLib {
   }
 
   /**
+   * @notice Retrieves the stored header hashes for a contiguous checkpoint range.
+   * @dev Checking the newest checkpoint is not in the future and the oldest has not been overwritten proves every
+   * checkpoint between them is available.
+   * @param _start The first checkpoint number in the range (inclusive)
+   * @param _end The last checkpoint number in the range (inclusive)
+   * @return headerHashes The stored header hashes in checkpoint order
+   */
+  function getHeaderHashes(uint256 _start, uint256 _end) internal view returns (bytes32[] memory headerHashes) {
+    uint256 numCheckpoints = _end - _start + 1;
+    RollupStore storage rollupStore = getStorage();
+    uint256 pending = rollupStore.tips.getPending();
+    uint256 size = roundaboutSize();
+
+    uint256 upperLimit = _start + size;
+    require(
+      _end <= pending && pending < upperLimit, Errors.Rollup__UnavailableTempCheckpointLog(_start, pending, upperLimit)
+    );
+
+    headerHashes = new bytes32[](numCheckpoints);
+    for (uint256 i = 0; i < numCheckpoints; i++) {
+      headerHashes[i] = rollupStore.tempCheckpointLogs[(_start + i) % size].headerHash;
+    }
+  }
+
+  /**
    * @notice Retrieves the compressed fee header for a specific checkpoint number
    * @dev Returns the fee information including base fee components and mana costs.
    *      The data remains in compressed format for gas efficiency. Reverts if the checkpoint is stale.
@@ -360,6 +392,40 @@ library STFLib {
       Errors.Rollup__InvalidCheckpointNumber(rollupStore.tips.getPending(), _checkpointNumber)
     );
     return getSlotNumber(_checkpointNumber).epochFromSlot();
+  }
+
+  /**
+   * @notice Returns the prover that first proved the given checkpoint
+   *
+   * @dev Entries are only written at the checkpoint a proof ended at, so this walks forward from
+   *      `_checkpointNumber` until it hits one. The first entry found at or after `_checkpointNumber` belongs to the
+   *      earliest proof that covered the checkpoint, since the proven tip only ever advances. Proofs cover at most
+   *      one epoch, so the walk terminates within `epochDuration` steps.
+   *
+   * @dev Errors Thrown:
+   *      - Rollup__CheckpointNotProven: The checkpoint is beyond the proven tip, so no prover exists for it
+   *
+   * @param _checkpointNumber The checkpoint number to look up
+   * @return The prover that first proved the checkpoint
+   */
+  function getFirstProvenBy(uint256 _checkpointNumber) internal view returns (address) {
+    RollupStore storage rollupStore = STFLib.getStorage();
+    uint256 proven = rollupStore.tips.getProven();
+    require(
+      0 < _checkpointNumber && _checkpointNumber <= proven,
+      Errors.Rollup__CheckpointNotProven(proven, _checkpointNumber)
+    );
+
+    for (uint256 i = _checkpointNumber; i <= proven; i++) {
+      uint256 encodedProverId = rollupStore.firstProvenBy[i];
+      if (encodedProverId != 0) {
+        return address(uint160(encodedProverId));
+      }
+    }
+
+    // Unreachable: the proof that advanced the proven tip past `_checkpointNumber` ended at some checkpoint in
+    // [_checkpointNumber, proven] and wrote its entry there.
+    revert Errors.Rollup__CheckpointNotProven(proven, _checkpointNumber);
   }
 
   /**

@@ -2,9 +2,10 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {RollupConfig, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
@@ -54,10 +55,13 @@ struct RewardStorage {
   mapping(Epoch => EpochRewards) epochRewards;
   mapping(address prover => BitMaps.BitMap claimed) proverClaimed;
   RewardConfig config;
+  address protocolFeeRecipient;
 }
 
 struct Values {
   address sequencer;
+  uint256 fee;
+  uint256 protocolFee;
   uint256 proverFee;
   uint256 sequencerFee;
   uint256 sequencerCheckpointReward;
@@ -66,7 +70,7 @@ struct Values {
 
 struct Totals {
   uint256 feesToClaim;
-  uint256 totalBurn;
+  uint256 totalProtocolFee;
 }
 
 library RewardLib {
@@ -79,11 +83,6 @@ library RewardLib {
 
   bytes32 private constant REWARD_STORAGE_POSITION = keccak256("aztec.reward.storage");
 
-  // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold
-  // offerings,
-  // such as sacrificial hearts, during rituals performed within temples.
-  address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
-
   /// @notice One-shot writer used during rollup construction. Writes every field of
   ///         {RewardConfig}, including the immutable `rewardDistributor` and `booster`.
   /// @dev Must only be reachable from the constructor path. Post-deployment updates go through
@@ -92,6 +91,18 @@ library RewardLib {
     require(Bps.unwrap(_config.sequencerBps) <= 10_000, Errors.RewardLib__InvalidSequencerBps());
     RewardStorage storage rewardStorage = getStorage();
     rewardStorage.config = _config;
+    // A Cuauhxicalli ("eagle gourd bowl") is a ceremonial Aztec vessel used to hold offerings.
+    rewardStorage.protocolFeeRecipient = address(bytes20("CUAUHXICALLI"));
+  }
+
+  /// @notice Owner-gated post-deployment writer for the protocol fee recipient.
+  /// @param _recipient The new recipient of the protocol fee tranche
+  /// @return oldRecipient The recipient in effect before this call
+  function updateProtocolFeeRecipient(address _recipient) internal returns (address oldRecipient) {
+    require(_recipient != address(0), Errors.RewardLib__InvalidProtocolFeeRecipient());
+    RewardStorage storage rewardStorage = getStorage();
+    oldRecipient = rewardStorage.protocolFeeRecipient;
+    rewardStorage.protocolFeeRecipient = _recipient;
   }
 
   /// @notice Owner-gated post-deployment writer. Only updates the mutable subset
@@ -105,22 +116,20 @@ library RewardLib {
     rewardStorage.config.checkpointReward = _config.checkpointReward;
   }
 
-  function claimSequencerRewards(address _sequencer) internal returns (uint256) {
+  function claimSequencerRewards(address _sequencer, IERC20 _feeAsset) internal returns (uint256) {
     RewardStorage storage rewardStorage = getStorage();
-    RollupStore storage rollupStore = STFLib.getStorage();
     uint256 amount = rewardStorage.sequencerRewards[_sequencer];
 
     if (amount > 0) {
       rewardStorage.sequencerRewards[_sequencer] = 0;
-      rollupStore.config.feeAsset.safeTransfer(_sequencer, amount);
+      _feeAsset.safeTransfer(_sequencer, amount);
     }
 
     return amount;
   }
 
-  function claimProverRewards(address _prover, Epoch[] memory _epochs) internal returns (uint256) {
+  function claimProverRewards(address _prover, Epoch[] memory _epochs, IERC20 _feeAsset) internal returns (uint256) {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    RollupStore storage rollupStore = STFLib.getStorage();
 
     RewardStorage storage rewardStorage = getStorage();
 
@@ -145,14 +154,18 @@ library RewardLib {
     }
 
     if (accumulatedRewards > 0) {
-      rollupStore.config.feeAsset.safeTransfer(_prover, accumulatedRewards);
+      _feeAsset.safeTransfer(_prover, accumulatedRewards);
     }
 
     return accumulatedRewards;
   }
 
-  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) internal {
-    RollupStore storage rollupStore = STFLib.getStorage();
+  function handleRewardsAndFees(
+    SubmitEpochRootProofArgs calldata _args,
+    Epoch _endEpoch,
+    RollupConfig memory _config,
+    bool _fullEpochProof
+  ) internal {
     RewardStorage storage rewardStorage = getStorage();
 
     uint256 length = _args.end - _args.start + 1;
@@ -163,10 +176,10 @@ library RewardLib {
       address prover = _args.args.proverId;
 
       require($sr.shares[prover] == 0, Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch));
-      // Beware that it is possible to get marked active in an epoch even if you did not provide the longest
-      // proof. This is acceptable, as they were actually active. And boosting this way is not the most
-      // efficient way to do it, so this is fine.
-      uint256 shares = rewardStorage.config.booster.updateAndGetShares(prover);
+      // The prover is only marked active if they have provided a full epoch proof
+      uint256 shares = _fullEpochProof
+        ? rewardStorage.config.booster.updateAndGetShares(prover)
+        : rewardStorage.config.booster.getSharesFor(prover);
 
       // The duplicate-submission guard above uses `shares == 0` as the sentinel for "not yet
       // submitted". A booster that ever returns zero would let the same prover submit again
@@ -211,26 +224,28 @@ library RewardLib {
       }
 
       for (uint256 i = $er.longestProvenLength; i < length; i++) {
+        {
+          ProposedHeader calldata header = _args.headers[i - _args.provenCheckpointFees.length];
+          v.fee = header.accumulatedFees;
+          v.sequencer = header.coinbase;
+        }
         CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
 
         v.manaUsed = feeHeader.getManaUsed();
+        v.protocolFee = feeHeader.getProtocolFee() * v.manaUsed;
 
-        uint256 fee = _args.headers[i].accumulatedFees;
-        uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
-
-        t.feesToClaim += fee;
-        t.totalBurn += burn;
+        t.feesToClaim += v.fee;
+        t.totalProtocolFee += v.protocolFee;
 
         // Compute the proving fee in the fee asset
-        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
+        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), v.fee - v.protocolFee);
         if (v.proverFee > 0) {
           $er.rewards += v.proverFee.toUint128();
         }
 
-        v.sequencerFee = fee - burn - v.proverFee;
+        v.sequencerFee = v.fee - v.protocolFee - v.proverFee;
 
         {
-          v.sequencer = _args.headers[i].coinbase;
           uint256 toSequencer = v.sequencerCheckpointReward + v.sequencerFee;
           if (toSequencer > 0) {
             rewardStorage.sequencerRewards[v.sequencer] += toSequencer;
@@ -241,11 +256,11 @@ library RewardLib {
       $er.longestProvenLength = length.toUint128();
 
       if (t.feesToClaim > 0) {
-        rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
+        _config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
       }
 
-      if (t.totalBurn > 0) {
-        rollupStore.config.feeAsset.safeTransfer(BURN_ADDRESS, t.totalBurn);
+      if (t.totalProtocolFee > 0) {
+        _config.feeAsset.safeTransfer(rewardStorage.protocolFeeRecipient, t.totalProtocolFee);
       }
     }
   }
@@ -262,6 +277,10 @@ library RewardLib {
     return getStorage().epochRewards[_epoch].rewards;
   }
 
+  function getLongestProvenLength(Epoch _epoch) internal view returns (uint256) {
+    return getStorage().epochRewards[_epoch].longestProvenLength;
+  }
+
   function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover) internal view returns (bool) {
     return getStorage().epochRewards[_epoch].subEpoch[_length].shares[_prover] > 0;
   }
@@ -272,6 +291,10 @@ library RewardLib {
 
   function getCheckpointReward() internal view returns (uint256) {
     return getStorage().config.checkpointReward;
+  }
+
+  function getProtocolFeeRecipient() internal view returns (address) {
+    return getStorage().protocolFeeRecipient;
   }
 
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover) internal view returns (uint256) {
