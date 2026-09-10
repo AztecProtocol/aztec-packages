@@ -518,18 +518,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         ),
       )
     ).flat();
-    return siloedNullifiers.map((_, i): NullifierStatus => {
-      const leaf = leaves[i];
-      return leaf
-        ? {
-            exists: true,
-            originBlock: Option.some({
-              blockNumber: leaf.l2BlockNumber,
-              blockHash: new Fr(leaf.l2BlockHash.toBuffer()),
-            }),
-          }
-        : { exists: false, originBlock: Option.none() };
-    });
+    return leaves.map(
+      (leaf): NullifierStatus =>
+        leaf
+          ? {
+              exists: true,
+              originBlock: Option.some({ blockNumber: leaf.l2BlockNumber, blockHash: leaf.l2BlockHash.toFr() }),
+            }
+          : { exists: false, originBlock: Option.none() },
+    );
   }
 
   /**
