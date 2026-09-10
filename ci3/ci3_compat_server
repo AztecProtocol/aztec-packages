@@ -7,7 +7,7 @@ dashboard serves the API itself; then this file is deleted. Python 3 standard li
                           [--aws CMD] [--port P] [--dir D]
   ci3_compat_server run|stop|status   as ci3_server
 
-Logs, kv, lists, runs and events go to redis. Final logs are also copied to S3 (--s3-logs, as
+Logs, kv, lists and runs go to redis. Final logs are also copied to S3 (--s3-logs, as
 <first 4 chars of id>/<id>.log.gz, or <path>.log.gz for ids that are paths). Artifacts go to S3
 (--s3-cache) and are read back through the bucket's public HTTP endpoint (--public-cache-url). S3 is
 driven through the `aws` CLI (--aws) with whatever credentials it finds (the instance profile in CI).
@@ -190,10 +190,6 @@ class CompatBackend:
 
     def runs_list(self, section):
         return [json.loads(raw) for raw in self.redis("ZREVRANGE", self.runs_key(section), 0, RUNS_MAX - 1) or []]
-
-    def event(self, channel, body):
-        ci3_server.check_key(channel)
-        self.redis("PUBLISH", channel, body)
 
     def artifact_put(self, name, stream, ttl):
         ci3_server.check_key(name)

@@ -101,15 +101,6 @@ The registry of CI runs a dashboard renders, grouped by section (`prs`, `next`, 
 | `GET /runs/<section>/<id>` | The JSON object. |
 | `GET /runs/<section>` | JSON array of the newest 1000 objects, newest first. |
 
-## Events
-
-Fire-and-forget notifications (`ci:test:started`, `ci:test:passed`, `ci:test:failed`,
-`ci:test:flaked`). A server may fan them out or discard them.
-
-| | |
-|---|---|
-| `POST /events/<channel>` | Body: a JSON object. |
-
 ## Artifacts
 
 The build cache: content-addressed tarballs.

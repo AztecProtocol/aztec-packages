@@ -106,12 +106,6 @@ check "runs list for a slashed section" 1 "$(curl -s "$url/runs/merge-train/avm"
 if ci3_client run_get prs 1 2>/dev/null; then fail "missing run exits 1" "exit 0"; else pass "missing run exits 1"; fi
 check "unknown section lists empty" "[]" "$(curl -s "$url/runs/nothing")"
 
-# --- events ---
-echo "--- events ---"
-ci3_client event ci:test:started '{"a":1}'
-echo '{"b":2}' | ci3_client event ci:test:started
-check "events appended" "$(printf '{"a":1}\n{"b":2}')" "$(cat "$work/store/events/ci:test:started.jsonl")"
-
 # --- artifacts ---
 echo "--- artifacts ---"
 head -c 200000 /dev/urandom >"$work/blob"

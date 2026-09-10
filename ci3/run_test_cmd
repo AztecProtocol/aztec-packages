@@ -2,7 +2,6 @@
 # Called by 'parallelize' to execute a given test cmd.
 # This is a thin wrapper around exec_test that handles CI integration:
 # - Cache checking
-# - Publishing started/passed/failed/flaked events
 # - Flake detection and owner notification
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
@@ -19,8 +18,6 @@ is_merge_queue=0
 
 # If enabled, update the test log every 5s.
 live_logging=0
-# If enabled, publish test started/passed/failed/flaked events.
-publish=0
 # If enabled, save logs for passed tests.
 pass_log=0
 # Allow a flaking tests to pass rather than fail.
@@ -36,7 +33,6 @@ if [ "$CI" -eq 1 ]; then
   # CI overrides.
   if [ -n "$CI3_SERVER" ]; then
     live_logging=1
-    publish=1
   fi
   pass_log=1
   allow_flakes=1
@@ -59,7 +55,6 @@ fi
 
 # Env overrides.
 live_logging=${LIVE_LOGGING:-$live_logging}
-publish=${PUBLISH:-$publish}
 pass_log=${PASS_LOG:-$pass_log}
 allow_flakes=${ALLOW_FLAKES:-$allow_flakes}
 track_test_history=${TRACK_TEST_HISTORY:-$track_test_history}
@@ -167,22 +162,6 @@ fail_links="($grind_link)"
 tmp_file=/tmp/$key
 touch $tmp_file
 
-# Publish test started event.
-if [ "$publish" -eq 1 ]; then
-  start_event=$(jq -n \
-    --arg status "started" \
-    --arg test_cmd "$cmd" \
-    --arg log_id "$log_key" \
-    --arg log_url "$(ci3_client url $log_key)" \
-    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
-    --arg commit_hash "$COMMIT_HASH" \
-    --arg commit_author "$COMMIT_AUTHOR" \
-    --arg commit_msg "$COMMIT_MSG" \
-    --arg dashboard "${CI_DASHBOARD:-}" \
-    '{status: $status, test_cmd: $test_cmd, log_id: $log_id, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, dashboard: $dashboard, timestamp: now | todate}')
-  ci3_client event "ci:test:started" "$start_event"
-fi
-
 # Start live log publishing if enabled.
 if [ "$live_logging" -eq 1 ]; then
   live_publish_log &
@@ -244,30 +223,12 @@ function track_test_failed {
   track_test "failed_tests${CI_DASHBOARD:+_$CI_DASHBOARD}" "$1" 10000
 }
 
-function publish_event {
-  local event=$(jq -n \
-    --arg status "$1" \
-    --arg test_cmd "$cmd" \
-    --arg log_url "$(ci3_client url $log_key)" \
-    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
-    --arg commit_hash "$COMMIT_HASH" \
-    --arg commit_author "$COMMIT_AUTHOR" \
-    --arg commit_msg "$COMMIT_MSG" \
-    --argjson code "$code" \
-    --argjson duration "$SECONDS" \
-    --arg dashboard "${CI_DASHBOARD:-}" \
-    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, dashboard: $dashboard, timestamp: now | todate}')
-  ci3_client event "ci:test:$1" "$event"
-}
-
 # Show PASSED and early out on success.
 function pass {
   finalize_test
 
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
   echo -e "$line"
-
-  [ "$publish" -eq 1 ] && publish_event "passed"
 
   if [ "$track_test_history" -eq 1 ]; then
     local track_line="${green}PASSED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
@@ -322,7 +283,6 @@ function fail {
   local track_line="${red}FAILED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   [ "$track_test_history" -eq 1 ] && track_test_history "$track_line"
   [ "$track_test_fail" -eq 1 ] && track_test_failed "$track_line"
-  [ "$publish" -eq 1 ] && publish_event "failed"
   [ "$CI" -eq 1 ] && post_github_failure_status
 
   exit $code
@@ -363,8 +323,6 @@ function flake {
   local track_line="${purple}FLAKED${reset}${log_info:-} ${fail_links}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix} (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   [ "$track_test_history" -eq 1 ] && track_test_history "$track_line"
   [ "$track_test_fail" -eq 1 ] && track_test_failed "$track_line"
-  [ "$publish" -eq 1 ] && publish_event "flaked"
-
   # Save flake to buffer file (for PR comment generation)
   if [ -n "${FLAKES_FILE:-}" ]; then
     echo "$line" >> "$FLAKES_FILE"

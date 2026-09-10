@@ -12,12 +12,28 @@ Usage: ci3_client <command> [args], e.g. `cat log | ci3_client log_put <id>`. Py
   kv_set <key> <value> [ttl]
   list_push <name> <line> [max]    prepend; the server keeps at most <max> (default 1000) lines
   list_get <name>                  newest first (exit 1 if absent)
-  event <channel> [json]           publish a JSON event (json argument, or stdin)
   run_put <section> <id>           stdin (JSON) -> the CI run record
   run_get <section> <id>           the JSON record -> stdout (exit 1 if absent)
   artifact_put <name> <file>       upload a build-cache artifact (exit 1 on failure)
   artifact_get <name>              stream a build-cache artifact -> stdout (exit 1 if absent)
   artifact_exists <name>           exit 0 if present, else 1
+
+What ci3 keeps on the server, in ci3 terms:
+  logs       every denoised command (denoise), every test attempt (run_test_cmd), the run's top-level
+             log (CI_LOG_ID, bootstrap_ec2), and data files with path ids: test-timings/<run>/<test
+             log> (exec_test) and bench/bb-breakdown/<key> (the bb benchmarks). A running job re-puts
+             its log every few seconds; its last write is marked final.
+  kv         the test cache: key = hash of the full test command line, value = the id of the log of
+             its passing run, 7 days (run_test_cmd sets it, filter_cached_test_cmd and run_test_cmd
+             read it). Also hb-<run id>, the heartbeat bootstrap_ec2 refreshes every 30s.
+  lists      history_<test hash>[_<target branch>] (one line per attempt of a test) and
+             failed_tests[_<dashboard>] (every failure and flake), what the dashboard's history links
+             show.
+  runs       the run registry the dashboard renders per section (prs, next, releases, ...): one
+             record per CI_LOG_ID, written RUNNING by log_ci_run when a run starts and PASSED/FAILED
+             when it ends.
+  artifacts  the build cache: <component>-<content hash>.tar.gz|.zst (cache_upload/cache_download),
+             plus bench-<tree>.tar.gz, npm-release-<tag>.tar.gz and the ci-success-* whole-run marker.
 
 Configuration is ~/.ci3/config.json, written by ci3_setup (CI3_CONFIG names another file):
   server      base URL of the server every command talks to
@@ -283,15 +299,6 @@ def cmd_list_get(args):
     return read_or_fail("/lists/" + key_path(args[0]), "List not found: " + args[0])
 
 
-def cmd_event(args):
-    if not args:
-        return usage("event", "<channel> [json]")
-    body = args[1].encode() if len(args) > 1 else stdin_bytes()
-    if not resolve_server():
-        return 0
-    return swallow(lambda: api("POST", "/events/" + key_path(args[0]), body, {"Content-Type": "application/json"}))
-
-
 def cmd_run_put(args):
     if len(args) < 2:
         return usage("run_put", "<section> <id>")
@@ -347,7 +354,7 @@ COMMANDS = {
     "log_put": cmd_log_put, "log_get": cmd_log_get, "log_list": cmd_log_list,
     "kv_get": cmd_kv_get, "kv_set": cmd_kv_set,
     "list_push": cmd_list_push, "list_get": cmd_list_get,
-    "event": cmd_event, "run_put": cmd_run_put, "run_get": cmd_run_get,
+    "run_put": cmd_run_put, "run_get": cmd_run_get,
     "artifact_put": cmd_artifact_put, "artifact_get": cmd_artifact_get, "artifact_exists": cmd_artifact_exists,
 }
 

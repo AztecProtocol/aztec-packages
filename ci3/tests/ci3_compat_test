@@ -141,9 +141,6 @@ echo '{"status":"RUNNING"}' | ci3_client run_put merge-train/avm 170000000000033
 check "slashed section key" 1 "$(redis ZCARD ci-run-merge-train/avm)"
 if ci3_client run_get prs 1 2>/dev/null; then fail "missing run exits 1" "exit 0"; else pass "missing run exits 1"; fi
 
-echo "--- events ---"
-check "event is published" 204 "$(printf '{"a":1}' | curl -s -o /dev/null -w '%{http_code}' --data-binary @- "$CI3_SERVER/events/ci:test:started")"
-
 echo "--- artifacts ---"
 head -c 100000 /dev/urandom >"$work/blob"
 ci3_client artifact_put foo-abc.tar.gz "$work/blob"

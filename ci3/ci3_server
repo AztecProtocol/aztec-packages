@@ -7,9 +7,9 @@
   ci3_server status [--port P]
 
 Everything is a file under --dir (default /tmp/ci3):
-  logs/<id>  kv/<key>  lists/<name>  runs/<section>/<id>.json  events/<channel>.jsonl  artifacts/<name>
+  logs/<id>  kv/<key>  lists/<name>  runs/<section>/<id>.json  artifacts/<name>
 A write with ?ttl= gets a `<path>.expires` sidecar holding the expiry epoch; expired entries read as
-absent and are swept periodically.
+absent and are swept periodically. What each store holds, in ci3 terms, is described in ci3_client.
 
 Another backend can reuse the HTTP handling and process management here (ci3_compat_server does):
 call run_cli() with its backend factory, identity function and extra flags.
@@ -39,7 +39,7 @@ RUNS_MAX = 1000
 DEFAULT_LOG_TTL = 60 * 60 * 24 * 14
 SWEEP_INTERVAL = 600
 CHUNK = 1 << 20
-STORES = ("logs", "kv", "lists", "runs", "events", "artifacts")
+STORES = ("logs", "kv", "lists", "runs", "artifacts")
 
 
 class BadKey(ValueError):
@@ -181,13 +181,6 @@ class FileBackend:
             return []
         names = sorted((n for n in os.listdir(d) if n.endswith(".json")), reverse=True)
         return [json.loads(data) for n in names[:RUNS_MAX] for data in [self.read(os.path.join(d, n))] if data]
-
-    def event(self, channel, body):
-        path = self.path("events", channel) + ".jsonl"
-        with self.lock:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "a") as f:
-                f.write(body + "\n")
 
     def artifact_put(self, name, stream, ttl):
         self.write(self.path("artifacts", name), stream, ttl)
@@ -369,9 +362,6 @@ class Handler(BaseHTTPRequestHandler):
         if head == "lists" and rest:
             line = self.body_bytes().decode(errors="replace").rstrip("\n")
             b.list_push(rest, line, int(self.query.get("max", [LIST_DEFAULT_MAX])[0]), self.ttl())
-            return self.reply(204)
-        if head == "events" and rest:
-            b.event(rest, self.body_bytes().decode(errors="replace").strip())
             return self.reply(204)
         return self.reply(405)
 
