@@ -46,7 +46,20 @@ describe('wasm backends', () => {
     }
   }, 60000);
 
-  it('surfaces bb errors as exceptions', async () => {
+  it('surfaces bb errors as exceptions, with the message bb gave', () => {
+    // Buffers too small for the point count they claim: bb throws inside from_buffer, and under
+    // BB_NO_EXCEPTIONS (which wasm builds with) that becomes an abort the host turns into a throw.
+    const tooSmall = { numPoints: 100, pointsBuf: new Uint8Array(10), g2Point: new Uint8Array(10) };
+    return BarretenbergSync.new({ backend: BackendType.Wasm }).then(api => {
+      try {
+        expect(() => api.srsInitSrs(tooSmall)).toThrow(/invalid points_buf size/);
+      } finally {
+        api.destroy();
+      }
+    });
+  }, 60000);
+
+  it('surfaces bb errors as exceptions asynchronously', async () => {
     const api = await Barretenberg.new({ backend: BackendType.WasmWorker, threads: 1, skipSrsInit: true });
     try {
       await expect(

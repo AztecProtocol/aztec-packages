@@ -3,7 +3,7 @@ import { Decoder, Encoder } from 'msgpackr';
 import { ungzip } from 'pako';
 
 import { CircuitKind } from '../circuit_kind.js';
-import { ProofData, hexToUint8Array, uint8ArrayToHex } from '../proof/index.js';
+import { ProofData, hexToUint8Array, uint8ArrayToHex } from '../proof.js';
 import type { Barretenberg } from './index.js';
 
 export class AztecClientBackendError extends Error {

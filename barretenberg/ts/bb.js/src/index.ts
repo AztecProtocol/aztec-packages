@@ -16,7 +16,7 @@ export {
 } from './barretenberg/index.js';
 
 export { randomBytes } from './random/index.js';
-export { splitHonkProof, reconstructHonkProof, deflattenFields, type ProofData } from './proof/index.js';
+export { splitHonkProof, reconstructHonkProof, deflattenFields, type ProofData } from './proof.js';
 export { BBApiException } from './bbapi_exception.js';
 
 // Export Point types for use in foundation and other packages
@@ -43,4 +43,4 @@ export { CircuitKind } from './circuit_kind.js';
 // Curve constants, for callers doing their own field arithmetic.
 export * from './curve_constants.js';
 
-export { findBbBinary, findNapiBinary } from './bb_backends/node/platform.js';
+export { findBbBinary, findNapiBinary } from './backends/node/platform.js';

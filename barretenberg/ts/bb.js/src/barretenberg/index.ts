@@ -1,8 +1,8 @@
 import { AsyncApi, SyncApi } from '@aztec-foundation/bb.js-api';
 import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 
-import { BackendOptions, BackendType } from '../bb_backends/index.js';
-import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
+import { BackendOptions, BackendType } from '../backends/index.js';
+import { createAsyncBackend, createSyncBackend } from '../backends/node/index.js';
 import { BBApiException } from '../bbapi_exception.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
 
@@ -21,7 +21,7 @@ export {
   type UltraHonkBackendOptions,
   type VerifierTarget,
 } from './backend.js';
-export * from '../bb_backends/index.js';
+export * from '../backends/index.js';
 
 export type CircuitOptions = {
   /** @description Whether to produce SNARK friendly proofs */
