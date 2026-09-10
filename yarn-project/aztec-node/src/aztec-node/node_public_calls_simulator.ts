@@ -253,7 +253,9 @@ export class NodePublicCallsSimulator {
    * 400 messages observed and live buckets ending at 200 and 400, this appends 256 while a final block lands on
    * 200: a public call consuming message index 220 simulates successfully and then fails when it runs for real.
    * Callers that need certainty check inclusion at an L2 tip that already exists, with `isL1ToL2MessageReady` from
-   * `@aztec/aztec.js/messaging`.
+   * `@aztec/aztec.js/messaging`. Closing that gap would mean this node running the sequencer's live endpoint
+   * selection, including its Inbox reads, on every simulation; it is deferred:
+   * https://linear.app/aztec-labs/issue/A-1982
    *
    * Any failure, such as messages not synced yet or a torn archiver snapshot, leaves the fork at the tip state,
    * which is what the transaction sees if the next block consumes nothing.

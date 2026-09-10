@@ -307,7 +307,7 @@ describe('CheckpointProposalJob', () => {
     validatorClient = mock<ValidatorClient>();
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve([]));
     validatorClient.createBlockProposal.mockImplementation(
-      async (blockHeader, _checkpointNumber, indexWithinCheckpoint, archiveRoot, txs) => {
+      async (blockHeader, _checkpointNumber, indexWithinCheckpoint, archiveRoot, txs, _proposer, inboxPrefixRef) => {
         const txHashes = await Promise.all((txs ?? []).map((tx: Tx) => tx.getTxHash()));
         return new BlockProposal(
           blockHeader,
@@ -316,6 +316,7 @@ describe('CheckpointProposalJob', () => {
           txHashes,
           mockedSig,
           signatureContext,
+          inboxPrefixRef,
         );
       },
     );
@@ -342,6 +343,7 @@ describe('CheckpointProposalJob', () => {
             indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
             txHashes,
             signature: mockedSig,
+            inboxPrefixRef: lastBlockInfo.inboxPrefixRef,
             // Note: signedTxs omitted since publishTxsWithProposals is false in tests
           },
         );
@@ -1606,7 +1608,7 @@ describe('CheckpointProposalJob', () => {
     };
     const bundleLengths = () => checkpointBuilder.buildBlockCalls.map(call => call.opts.l1ToL2Messages?.length);
     const signedPrefixes = () =>
-      validatorClient.createBlockProposal.mock.calls.map(call => call[7]?.inboxRollingHash.toString());
+      validatorClient.createBlockProposal.mock.calls.map(call => call[6].inboxRollingHash.toString());
     const prefixAt = (count: number) => streamingInbox.positionAt(BigInt(count)).rollingHash.toString();
     const preflightTotals = () =>
       publisher.validateCheckpointHeaderAndInbox.mock.calls.map(call => call[1].expectedTotal);

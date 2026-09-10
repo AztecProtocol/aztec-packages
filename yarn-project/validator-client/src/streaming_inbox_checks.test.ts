@@ -69,7 +69,7 @@ class FakeInboxView implements StreamingInboxMessageSource {
 function baseInput(overrides: Partial<StreamingBlockCheckInput>): StreamingBlockCheckInput {
   return {
     messageSource: new FakeInboxView(),
-    inboxPrefixRef: undefined,
+    inboxPrefixRef: InboxMessagePrefixRef.empty(),
     endTotalMsgCount: 0n,
     parentTotalMsgCount: 0n,
     checkpointStartTotalMsgCount: 0n,
@@ -80,14 +80,7 @@ function baseInput(overrides: Partial<StreamingBlockCheckInput>): StreamingBlock
 }
 
 describe('checkStreamingBlockProposal', () => {
-  describe('check 1: reference present', () => {
-    it('rejects a proposal with no prefix reference as unavailable', async () => {
-      const result = await checkStreamingBlockProposal(baseInput({ inboxPrefixRef: undefined }));
-      expect(result).toEqual({ accepted: false, reason: 'inbox_prefix_unavailable' });
-    });
-  });
-
-  describe('check 2: consumption moves forward', () => {
+  describe('check 1: consumption moves forward', () => {
     it('rejects an end count behind the parent block', async () => {
       const view = new FakeInboxView();
       const end = view.append(3);
@@ -103,7 +96,7 @@ describe('checkStreamingBlockProposal', () => {
     });
   });
 
-  describe('check 3: caps', () => {
+  describe('check 2: caps', () => {
     it('rejects a bundle over the per-block cap', async () => {
       const view = new FakeInboxView();
       const end = view.append(PER_BLOCK_CAP + 1);
@@ -133,7 +126,7 @@ describe('checkStreamingBlockProposal', () => {
     });
   });
 
-  describe('check 4: prefix hash at the signed count', () => {
+  describe('check 3: prefix hash at the signed count', () => {
     it('rejects as unavailable when the local view has not synced the end count', async () => {
       const view = new FakeInboxView();
       view.append(2);

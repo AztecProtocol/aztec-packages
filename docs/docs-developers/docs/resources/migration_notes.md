@@ -71,6 +71,23 @@ In `@aztec/ethereum/contracts`, the top-level `MessageSentLog.l1BlockTimestamp` 
 
 **Impact**: Only node-internal and tooling consumers are affected; `getL1ToL2MessageIndex`, `getL1ToL2MessageMembershipWitness` and the Aztec.nr consumption functions are unchanged. Operators upgrading a node: see the node changelog for the archiver store reset.
 
+### [Aztec Node] The Inbox prefix reference is a required proposal field, before the transaction bundle
+
+`BlockProposal.inboxPrefixRef` and `CheckpointProposal.lastBlock.inboxPrefixRef` are no longer optional, and the reference moves ahead of the optional `SignedTxs` bundle on the wire. Every proposed block carries one, including a block that consumes no new messages: such a block re-states the prefix its parent ended at, so the pair (the header's cumulative message count, the reference's rolling hash) is signed either way. The zero hash is a real value only for the empty prefix a chain starts from.
+
+The 32-byte reference is now written with no presence flag, immediately after the transaction hashes and before the `hasSignedTxs` flag, and it is always part of the signed payload. There is no end-of-buffer fallback: a proposal that omits or truncates the reference fails to decode instead of reading as a proposal that consumed nothing. A valid-reference proposal is four bytes smaller than before, because the presence flag is gone. The last block embedded in a `CheckpointProposal` uses the same layout, and its reference is checked against the checkpoint header's `inboxRollingHash` at construction and at decode. The embedded last block itself stays optional.
+
+This is a breaking peer-to-peer format change on top of the encoding change already noted above: a node on the previous format cannot decode a proposal from a node on this one, and vice versa. Every node that gossips, signs or validates proposals on a network has to run a matching version.
+
+**Migration:**
+
+```diff
+- new BlockProposal(header, index, archive, txHashes, signature, signatureContext, signedTxs, inboxPrefixRef)
++ new BlockProposal(header, index, archive, txHashes, signature, signatureContext, inboxPrefixRef, signedTxs)
+```
+
+`BlockProposal.createProposalFromSigner` takes `inboxPrefixRef` after `signatureContext` and before the signer callbacks, and `Validator.createBlockProposal` takes it after `proposerAddress` and before `options`. `ValidationService.createBlockProposal` keeps its parameter order but the reference is required. Historical blocks replayed from L1 blobs are unaffected: the reference is peer-to-peer only and is not part of any published block.
+
 ### [Aztec Node] Sequencer and validator streaming-Inbox internals
 
 For consumers wiring these packages directly. `Sequencer` takes an `InboxContract` constructor argument (after `rollupContract`) and `AutomineSequencerDeps` gains `inboxContract`; completion uses it to resolve a checkpoint's final message position to a live bucket. `NodePublicCallsSimulator` deps drop `l1Client` and `useAutomineSequencer`. `SequencerPublisher.validateCheckpointHeader` is replaced by `validateCheckpointHeaderAndInbox(header, { expectedTotal, expectedParentCheckpointNumber }, simulationOverridesPlan?)`, which returns the `bucketHint` to pass to `propose`. `@aztec/sequencer-client` no longer exports `InboxBucketConfirmationTracker`, `InboxBucketEligibility`, `L1BlockReader`, `immediateEligibility`, `ConsumedBucketCursor`, `InboxBucketSelection`, `InboxBucketSource`, `SelectInboxBucketInput` or `selectInboxBucketForBlock`; it exports `InboxConsumptionCaps`, `PROTOCOL_INBOX_CONSUMPTION_CAPS`, `InboxEndpointResolver`, `StreamingMessageSource`, `selectOrdinaryMessageEnd`, `selectSafeLocalEnd`, `getOrdinaryCeiling`, `mustQueryEndpoint`, `getEndpointUpperBound` and `resolveEndpoint` instead. These helpers are stateless: nothing is retained between blocks. `selectOrdinaryMessageEnd` returns the greedy end of the locally observed messages under the per-block and checkpoint caps; `getOrdinaryCeiling` is the threshold one bucket's worth of messages below the checkpoint cap, and `selectSafeLocalEnd` holds the greedy end down to it. `mustQueryEndpoint` decides, from that prospective end, whether the block has to resolve a live L1 bucket end at all, and `resolveEndpoint` performs the single Inbox lookup (bounded by `getEndpointUpperBound`) and authenticates the resolved end against the local message log in one snapshot.

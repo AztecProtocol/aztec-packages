@@ -1204,7 +1204,7 @@ export class CheckpointProposalJob implements Traceable {
     checkpointBuilder: CheckpointBuilder,
     timestamp: bigint,
     blockProposalOptions: BlockProposalOptions,
-    streamingState?: StreamingCheckpointState,
+    streamingState: StreamingCheckpointState,
   ): Promise<BlockBuildingResult> {
     const blocksInCheckpoint: L2Block[] = [];
     const txHashesAlreadyIncluded = new Set<string>();
@@ -1250,17 +1250,15 @@ export class CheckpointProposalJob implements Traceable {
       // includes the block that reaches the per-checkpoint block cap, not just the timetable's last sub-slot.
       const maxBlocks = Math.min(this.config.maxBlocksPerCheckpoint, this.timetable.getMaxBlocksPerCheckpoint());
       const isCheckpointFinalBlock = timingInfo.isLastBlock || blocksBuilt + 1 >= maxBlocks;
-      const selection = streamingState
-        ? await this.selectStreamingBundle(streamingState, {
-            isFinalBlock: isCheckpointFinalBlock,
-            buildDeadline: timingInfo.deadline,
-          })
-        : undefined;
+      const selection = await this.selectStreamingBundle(streamingState, {
+        isFinalBlock: isCheckpointFinalBlock,
+        buildDeadline: timingInfo.deadline,
+      });
 
       // No checkpoint ending on the messages this block could consume can be published: stop before signing
       // anything more and give up the slot.
-      if (selection?.kind === 'abort') {
-        this.reportStreamingAbort(streamingState!, selection.reason, {
+      if (selection.kind === 'abort') {
+        this.reportStreamingAbort(streamingState, selection.reason, {
           blocksBuilt,
           blockNumber,
           ...selection.context,
@@ -1268,7 +1266,7 @@ export class CheckpointProposalJob implements Traceable {
         return { aborted: true };
       }
 
-      const streamingBundle = selection?.range.messages;
+      const streamingBundle = selection.range.messages;
 
       const buildResult = await this.buildSingleBlock(checkpointBuilder, {
         // Create all blocks with the same timestamp
@@ -1327,11 +1325,8 @@ export class CheckpointProposalJob implements Traceable {
 
       // Streaming Inbox: the block built successfully, so advance the cursor to the prefix it consumed through and
       // sign that prefix as this block's reference. A block that consumed nothing re-signs the cursor's prefix.
-      let blockPrefixRef: InboxMessagePrefixRef | undefined = undefined;
-      if (streamingState && selection) {
-        streamingState.cursor = selection.range.end;
-        blockPrefixRef = InboxMessagePrefixRef.fromPosition(streamingState.cursor);
-      }
+      streamingState.cursor = selection.range.end;
+      const blockPrefixRef = InboxMessagePrefixRef.fromPosition(streamingState.cursor);
 
       // Sign the block proposal. This will throw if HA signing fails.
       const proposal = await this.createBlockProposal(
@@ -1378,7 +1373,6 @@ export class CheckpointProposalJob implements Traceable {
     // block rather than lose the slot; this is the only place the loop overrides the timetable. A cursor still at the
     // checkpoint start needs nothing: the parent checkpoint already ended on a live bucket end.
     if (
-      streamingState &&
       ranOutOfSubslots &&
       blocksInCheckpoint.length > 0 &&
       streamingState.cursor.totalMessageCount > streamingState.checkpointStartTotalMsgCount
@@ -1524,7 +1518,7 @@ export class CheckpointProposalJob implements Traceable {
     block: L2Block,
     usedTxs: Tx[],
     blockProposalOptions: BlockProposalOptions,
-    inboxPrefixRef?: InboxMessagePrefixRef,
+    inboxPrefixRef: InboxMessagePrefixRef,
   ): Promise<BlockProposal | undefined> {
     if (this.config.fishermanMode) {
       this.log.info(`Skipping block proposal for block ${block.number} in fisherman mode`);
@@ -1537,8 +1531,8 @@ export class CheckpointProposalJob implements Traceable {
       block.archive.root,
       usedTxs,
       this.proposer,
-      blockProposalOptions,
       inboxPrefixRef,
+      blockProposalOptions,
     );
   }
 
@@ -2320,10 +2314,7 @@ export class CheckpointProposalJob implements Traceable {
    * and fee analysis only, and pushing them to the archiver causes spurious reorg cascades
    * whenever the real proposer's block arrives from L1.
    */
-  private async syncProposedBlockToArchiver(
-    block: L2Block,
-    inboxPrefixRef: InboxMessagePrefixRef | undefined,
-  ): Promise<void> {
+  private async syncProposedBlockToArchiver(block: L2Block, inboxPrefixRef: InboxMessagePrefixRef): Promise<void> {
     if (this.config.skipPushProposedBlocksToArchiver || this.config.fishermanMode) {
       this.log.warn(`Skipping push of proposed block ${block.number} to archiver`, {
         blockNumber: block.number,
@@ -2332,11 +2323,7 @@ export class CheckpointProposalJob implements Traceable {
       return;
     }
     // The archiver re-validates this reference against its own messages inside the insert transaction, which is what
-    // stops a block built before an L1 reorg from landing after the reorg pruned the chain it belongs to. Streaming
-    // block building always produces one, so a missing reference here is a wiring bug, not a compatibility case.
-    if (inboxPrefixRef === undefined) {
-      throw new Error(`Streaming inbox: proposed block ${block.number} has no signed Inbox prefix reference`);
-    }
+    // stops a block built before an L1 reorg from landing after the reorg pruned the chain it belongs to.
     this.log.debug(`Syncing proposed block ${block.number} to archiver`, {
       blockNumber: block.number,
       slot: block.header.globalVariables.slotNumber,

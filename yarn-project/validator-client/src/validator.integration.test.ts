@@ -290,11 +290,14 @@ describe('ValidatorClient Integration', () => {
 
     // Attach the signed reference to the message prefix this block consumed through (the rolling hash at its
     // cumulative L1-to-L2 leaf count), mirroring the sequencer's block-building loop which carries one on every
-    // proposal. Without it the validator's streaming acceptance check rejects the proposal as
-    // `inbox_prefix_unavailable`. A block that consumed nothing references the parent's prefix.
+    // proposal. A block that consumed nothing references the parent's prefix. A prefix the proposer's own archiver
+    // cannot serve means the test fixture is out of sync, so fail loudly rather than signing a placeholder.
     const blockTotal = BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
     const position = await proposer.archiver.getMessagePosition(blockTotal);
-    const inboxPrefixRef = position ? InboxMessagePrefixRef.fromPosition(position) : undefined;
+    if (position === undefined) {
+      throw new Error(`No Inbox message position at cumulative total ${blockTotal} for block ${blockNumber}`);
+    }
+    const inboxPrefixRef = InboxMessagePrefixRef.fromPosition(position);
 
     const proposal = await proposer.validator.createBlockProposal(
       block.header,
@@ -303,8 +306,8 @@ describe('ValidatorClient Integration', () => {
       block.archive.root,
       usedTxs,
       proposerSigner.address,
-      {},
       inboxPrefixRef,
+      {},
     );
 
     logger.warn(`Built block proposal for block ${blockNumber}`, { ...block.toBlockInfo() });
