@@ -4,13 +4,44 @@ import { createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import type { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
-import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import type { BotConfig } from './config.js';
+import { getSendInteractionOptions } from './utils.js';
 
-export abstract class BaseBot {
+/** The surface `BotRunner` needs from every bot, whichever mode it is running. */
+export interface RunnableBot {
+  /** Address of the account the bot sends its transactions from. */
+  readonly defaultAccountAddress: AztecAddress;
+  /** Performs a single unit of bot work. */
+  run(): Promise<unknown>;
+}
+
+/**
+ * A bot that drives its own clock instead of being ticked by the runner's interval. When a bot implements this,
+ * `BotRunner` delegates start/stop to it and does not start its own `RunningPromise`.
+ */
+export interface BotLifecycle extends RunnableBot {
+  /** Starts the bot's own scheduling. */
+  start(): Promise<void>;
+  /** Stops the bot, persisting any recoverable work before returning. */
+  stop(): Promise<void>;
+  /** Whether the bot considers itself healthy. */
+  isHealthy(): boolean;
+}
+
+/** Returns whether the bot drives its own clock and should not be ticked by the runner. */
+export function isBotLifecycle(bot: RunnableBot): bot is BotLifecycle {
+  const candidate = bot as Partial<BotLifecycle>;
+  return (
+    typeof candidate.start === 'function' &&
+    typeof candidate.stop === 'function' &&
+    typeof candidate.isHealthy === 'function'
+  );
+}
+
+export abstract class BaseBot implements RunnableBot {
   protected log = createLogger('bot');
 
   protected attempts: number = 0;
@@ -58,18 +89,6 @@ export abstract class BaseBot {
   }
 
   protected getSendMethodOpts(): SendInteractionOptions {
-    const { l2GasLimit, daGasLimit, minFeePadding } = this.config;
-
-    this.wallet.setMinFeePadding(minFeePadding);
-
-    const gasSettings =
-      l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0
-        ? { gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) }
-        : undefined;
-
-    return {
-      from: this.defaultAccountAddress,
-      ...(gasSettings ? { fee: { gasSettings } } : {}),
-    };
+    return getSendInteractionOptions(this.wallet, this.config, this.defaultAccountAddress);
   }
 }

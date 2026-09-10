@@ -1,3 +1,4 @@
+import { MAX_L1_TO_L2_MSGS_PER_BLOCK } from '@aztec/constants';
 import {
   type ConfigMappingsType,
   SecretValue,
@@ -23,8 +24,21 @@ import { z } from 'zod';
 const BotFollowChain = ['NONE', 'PROPOSED', 'CHECKPOINTED', 'PROVEN'] as const;
 type BotFollowChain = (typeof BotFollowChain)[number];
 
-const BotMode = ['transfer', 'amm', 'crosschain'] as const;
+const BotMode = ['transfer', 'amm', 'crosschain', 'inbox'] as const;
 type BotMode = (typeof BotMode)[number];
+
+const BotInboxConsumeMode = ['mixed', 'public', 'private'] as const;
+/** Which L2 domain the inbox bot consumes its messages through. */
+export type BotInboxConsumeMode = (typeof BotInboxConsumeMode)[number];
+
+/** Largest number of messages a single Inbox bucket holds before the next message rolls it over. */
+export const MAX_INBOX_MESSAGES_PER_BUCKET = MAX_L1_TO_L2_MSGS_PER_BLOCK;
+
+/** Largest number of messages that fit in a single Inbox bucket, plus the one that rolls it over. */
+export const MAX_INBOX_MESSAGES_PER_BATCH = MAX_INBOX_MESSAGES_PER_BUCKET + 1;
+
+/** Effective `l1ToL2SeedCount` for inbox mode when the operator left it at its default. */
+const INBOX_DEFAULT_L1_TO_L2_SEED_COUNT = 512;
 
 export enum SupportedTokenContracts {
   TokenContract = 'TokenContract',
@@ -86,6 +100,12 @@ export type BotConfig = {
   l2ToL1MessagesPerTx: number;
   /** Max L1→L2 messages to keep in-flight (crosschain mode). */
   l1ToL2SeedCount: number;
+  /** How many L1→L2 messages the inbox bot sends per atomic L1 batch (inbox mode). */
+  inboxMessagesPerBatch: number;
+  /** Which L2 domain the inbox bot consumes its messages through (inbox mode). */
+  inboxConsumeMode: BotInboxConsumeMode;
+  /** How often the inbox bot runs a full-bucket saturation batch, in seconds; 0 disables it (inbox mode). */
+  inboxSaturationIntervalSeconds: number;
 } & Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb'>;
 
 export const BotConfigSchema = zodFor<BotConfig>()(
@@ -118,6 +138,9 @@ export const BotConfigSchema = zodFor<BotConfig>()(
       botMode: z.enum(BotMode).default('transfer'),
       l2ToL1MessagesPerTx: z.number().int().nonnegative().default(1),
       l1ToL2SeedCount: z.number().int().nonnegative().default(1),
+      inboxMessagesPerBatch: z.number().int().min(1).max(MAX_INBOX_MESSAGES_PER_BATCH).default(4),
+      inboxConsumeMode: z.enum(BotInboxConsumeMode).default('mixed'),
+      inboxSaturationIntervalSeconds: z.number().int().nonnegative().default(86400),
       dataDirectory: z.string().optional(),
       dataStoreMapSizeKb: z.number().optional(),
     })
@@ -279,7 +302,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   botMode: {
     env: 'BOT_MODE',
-    description: 'Bot mode: transfer, amm, or crosschain',
+    description: 'Bot mode: transfer, amm, crosschain, or inbox',
     defaultValue: 'transfer' as BotMode,
     parseEnv(val: string) {
       if (!(BotMode as readonly string[]).includes(val)) {
@@ -295,8 +318,31 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   l1ToL2SeedCount: {
     env: 'BOT_L1_TO_L2_SEED_COUNT',
-    description: 'Max L1→L2 messages to keep in-flight (crosschain mode)',
+    description: 'Max L1→L2 messages to keep in-flight (crosschain and inbox modes)',
     ...numberConfigHelper(1),
+  },
+  inboxMessagesPerBatch: {
+    env: 'BOT_INBOX_MESSAGES_PER_BATCH',
+    description: 'How many L1→L2 messages the inbox bot sends per atomic L1 batch (inbox mode)',
+    ...numberConfigHelper(4),
+  },
+  inboxConsumeMode: {
+    env: 'BOT_INBOX_CONSUME_MODE',
+    description: 'Which L2 domain the inbox bot consumes through: mixed, public, or private (inbox mode)',
+    defaultValue: 'mixed' as BotInboxConsumeMode,
+    parseEnv(val: string) {
+      if (!(BotInboxConsumeMode as readonly string[]).includes(val)) {
+        throw new Error(
+          `Invalid value for BOT_INBOX_CONSUME_MODE: ${val}. Valid values: ${BotInboxConsumeMode.join(', ')}`,
+        );
+      }
+      return val as BotInboxConsumeMode;
+    },
+  },
+  inboxSaturationIntervalSeconds: {
+    env: 'BOT_INBOX_SATURATION_INTERVAL_SECONDS',
+    description: 'How often the inbox bot runs a full-bucket saturation batch, in seconds; 0 disables it',
+    ...numberConfigHelper(86400),
   },
   ...pickConfigMappings(dataConfigMappings, ['dataStoreMapSizeKb', 'dataDirectory']),
 };
@@ -307,6 +353,63 @@ export function getBotConfigFromEnv(): BotConfig {
 
 export function getBotDefaultConfig(): BotConfig {
   return getDefaultConfig<BotConfig>(botConfigMappings);
+}
+
+/**
+ * Returns the config with inbox-mode effective defaults applied. Other modes are returned untouched, so
+ * `getBotDefaultConfig()` and the transfer/amm/crosschain paths are unaffected.
+ *
+ * Inbox mode needs a far larger outstanding-message allowance than crosschain's single in-flight message.
+ * `BotConfig` has no representation for "unset", so a field still equal to its `getBotDefaultConfig()` value is
+ * taken to have been left alone and gets the inbox default; any other value is the operator's and wins.
+ */
+export function applyInboxModeDefaults(config: BotConfig): BotConfig {
+  if (config.botMode !== 'inbox') {
+    return config;
+  }
+  const defaults = getBotDefaultConfig();
+  return {
+    ...config,
+    l1ToL2SeedCount:
+      config.l1ToL2SeedCount === defaults.l1ToL2SeedCount ? INBOX_DEFAULT_L1_TO_L2_SEED_COUNT : config.l1ToL2SeedCount,
+  };
+}
+
+/**
+ * Throws a descriptive error if the config cannot drive the inbox bot. Values are never silently clamped: an
+ * operator who asks for an impossible configuration is told, rather than getting a bot that quietly stalls.
+ */
+export function assertValidInboxConfig(config: BotConfig): void {
+  if (config.botMode !== 'inbox') {
+    return;
+  }
+  if (config.followChain === 'NONE') {
+    throw new Error(`Inbox bot requires followChain to be set (got NONE)`);
+  }
+  if (
+    !Number.isInteger(config.inboxMessagesPerBatch) ||
+    config.inboxMessagesPerBatch < 1 ||
+    config.inboxMessagesPerBatch > MAX_INBOX_MESSAGES_PER_BATCH
+  ) {
+    throw new Error(
+      `Inbox bot requires inboxMessagesPerBatch in [1, ${MAX_INBOX_MESSAGES_PER_BATCH}] (got ${config.inboxMessagesPerBatch})`,
+    );
+  }
+  if (!Number.isInteger(config.inboxSaturationIntervalSeconds) || config.inboxSaturationIntervalSeconds < 0) {
+    throw new Error(
+      `Inbox bot requires a nonnegative integer inboxSaturationIntervalSeconds (got ${config.inboxSaturationIntervalSeconds})`,
+    );
+  }
+  if (config.l1ToL2SeedCount < config.inboxMessagesPerBatch) {
+    throw new Error(
+      `Inbox bot requires l1ToL2SeedCount (${config.l1ToL2SeedCount}) to be at least inboxMessagesPerBatch (${config.inboxMessagesPerBatch}), otherwise the outstanding-message cap blocks production`,
+    );
+  }
+  if (config.inboxSaturationIntervalSeconds > 0 && config.l1ToL2SeedCount < MAX_INBOX_MESSAGES_PER_BATCH) {
+    throw new Error(
+      `Inbox bot with saturation enabled requires l1ToL2SeedCount to be at least ${MAX_INBOX_MESSAGES_PER_BATCH} (got ${config.l1ToL2SeedCount}), otherwise a saturation batch can never fit under the outstanding-message cap`,
+    );
+  }
 }
 
 export function getVersions(): Partial<ComponentsVersions> {

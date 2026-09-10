@@ -5,6 +5,8 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 
+import { InboxStore } from './inbox_store.js';
+
 export interface BridgeClaimData {
   claim: L2AmountClaim;
   timestamp: number;
@@ -29,10 +31,21 @@ export interface PendingL1ToL2Message {
 }
 
 /**
- * Simple data store for the bot to persist L1 bridge claims.
+ * Data store for the bot: L1 bridge claims, the crosschain bot's pending L1→L2 messages, and — under
+ * {@link BotStore.inbox} — the inbox bot's batches, messages and saturation schedule. The inbox bot's state lives
+ * in its own maps, so the two message pipelines never reinterpret each other's records.
  */
 export class BotStore {
-  public static readonly SCHEMA_VERSION = 1;
+  /**
+   * Bumped to 2 to introduce the inbox bot's maps. `initStoreForRollupAndSchemaVersion` clears the database when
+   * this changes, so a store written by a version-1 build is discarded rather than migrated: its records are
+   * crosschain seeds the bot re-creates on startup.
+   */
+  public static readonly SCHEMA_VERSION = 2;
+
+  /** Durable state owned by the inbox bot. */
+  public readonly inbox: InboxStore;
+
   private readonly bridgeClaims: AztecAsyncMap<string, string>;
   private readonly pendingL1ToL2: AztecAsyncMap<string, string>;
 
@@ -43,6 +56,7 @@ export class BotStore {
   ) {
     this.bridgeClaims = store.openMap<string, string>('bridge_claims');
     this.pendingL1ToL2 = store.openMap<string, string>('pending_l1_to_l2');
+    this.inbox = new InboxStore(store, createLogger('bot:store:inbox'), dateProvider);
   }
 
   /**

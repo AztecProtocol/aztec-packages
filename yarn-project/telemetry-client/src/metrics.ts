@@ -1800,3 +1800,101 @@ export const HA_SIGNER_CLEANUP_OUTDATED_ROLLUP_DUTIES_COUNT: MetricDefinition = 
   description: 'Number of duties cleaned due to rollup upgrade',
   valueType: ValueType.INT,
 };
+
+// Fast Inbox bot metrics
+export const BOT_INBOX_MESSAGE_COUNT: MetricDefinition = {
+  name: 'aztec.bot.inbox.message_count',
+  description: 'Count of L1→L2 messages reaching each milestone of the inbox bot pipeline',
+  unit: 'messages',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_STAGE_DURATION: MetricDefinition = {
+  name: 'aztec.bot.inbox.stage_duration',
+  description: 'Bot-observed duration of each stage of the L1→L2 message lifecycle',
+  unit: 's',
+  valueType: ValueType.DOUBLE,
+};
+export const BOT_INBOX_SIMULATION_COUNT: MetricDefinition = {
+  name: 'aztec.bot.inbox.simulation_count',
+  description: 'Count of L2 consumption simulation attempts by outcome',
+  unit: 'attempts',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_PUBLIC_EXECUTION_COUNT: MetricDefinition = {
+  name: 'aztec.bot.inbox.public_execution_count',
+  description: 'Count of public consumption executions by outcome',
+  unit: 'attempts',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_PREDICTION_MISMATCH_COUNT: MetricDefinition = {
+  name: 'aztec.bot.inbox.prediction_mismatch_count',
+  description: 'Count of accepted simulations whose public execution later reverted',
+  unit: 'attempts',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_CHECK_COUNT: MetricDefinition = {
+  name: 'aztec.bot.inbox.check_count',
+  description: 'Count of node API semantic checks by check and outcome',
+  unit: 'checks',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_FAILURE_COUNT: MetricDefinition = {
+  name: 'aztec.bot.inbox.failure_count',
+  description: 'Count of inbox bot failures by bounded reason',
+  unit: 'failures',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_PENDING_COUNT: MetricDefinition = {
+  name: 'aztec.bot.inbox.pending_count',
+  description: 'Number of produced messages not yet completed',
+  unit: 'messages',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_OLDEST_PENDING_AGE: MetricDefinition = {
+  name: 'aztec.bot.inbox.oldest_pending_age',
+  description: 'Age of the oldest message not yet completed',
+  unit: 's',
+  valueType: ValueType.DOUBLE,
+};
+export const BOT_INBOX_L1_BATCH_COUNT: MetricDefinition = {
+  name: 'aztec.bot.inbox.l1_batch_count',
+  description: 'Count of L1 Inbox batches submitted by outcome',
+  unit: 'batches',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_L1_BATCH_SIZE: MetricDefinition = {
+  name: 'aztec.bot.inbox.l1_batch_size',
+  description: 'Number of messages per L1 Inbox batch',
+  unit: 'messages',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_L1_GAS_USED: MetricDefinition = {
+  name: 'aztec.bot.inbox.l1_gas_used',
+  description: 'L1 gas used by an Inbox batch transaction',
+  unit: 'gas',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_SATURATION_RUN_COUNT: MetricDefinition = {
+  name: 'aztec.bot.inbox.saturation_run_count',
+  description: 'Count of full-bucket saturation runs by outcome',
+  unit: 'runs',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_SATURATION_LAST_SUCCESS_TIMESTAMP: MetricDefinition = {
+  name: 'aztec.bot.inbox.saturation_last_success_timestamp',
+  description: 'Unix timestamp of the last fully successful saturation run, or 0 if none',
+  unit: 's',
+  valueType: ValueType.DOUBLE,
+};
+export const BOT_INBOX_SATURATION_ENABLED: MetricDefinition = {
+  name: 'aztec.bot.inbox.saturation_enabled',
+  description: 'Whether the saturation schedule is enabled (1) or disabled (0)',
+  unit: '1',
+  valueType: ValueType.INT,
+};
+export const BOT_INBOX_SATURATION_NEXT_DUE_TIMESTAMP: MetricDefinition = {
+  name: 'aztec.bot.inbox.saturation_next_due_timestamp',
+  description: 'Unix timestamp of the next scheduled saturation run, or 0 when disabled',
+  unit: 's',
+  valueType: ValueType.DOUBLE,
+};

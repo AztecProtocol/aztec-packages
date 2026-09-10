@@ -1,8 +1,12 @@
-import { ContractBase } from '@aztec/aztec.js/contracts';
+import { ContractBase, type SendInteractionOptions } from '@aztec/aztec.js/contracts';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Gas } from '@aztec/stdlib/gas';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
+
+import type { BotConfig } from './config.js';
 
 /**
  * Gets the private and public balance of the given token for the given address.
@@ -35,4 +39,25 @@ export function isStandardTokenContract(token: ContractBase): token is TokenCont
 
 export function isAMMContract(contract: ContractBase): contract is AMMContract {
   return 'add_liquidity' in contract.methods;
+}
+
+/**
+ * Builds the send options every bot uses for its transactions: the sender account, and explicit gas limits when
+ * the operator configured them. Also applies the configured fee padding to the wallet.
+ */
+export function getSendInteractionOptions(
+  wallet: EmbeddedWallet,
+  config: BotConfig,
+  from: AztecAddress,
+): SendInteractionOptions {
+  const { l2GasLimit, daGasLimit, minFeePadding } = config;
+
+  wallet.setMinFeePadding(minFeePadding);
+
+  const gasSettings =
+    l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0
+      ? { gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) }
+      : undefined;
+
+  return { from, ...(gasSettings ? { fee: { gasSettings } } : {}) };
 }

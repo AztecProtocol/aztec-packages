@@ -172,3 +172,33 @@ export const HA_NODE_ID = 'aztec.ha_signer.node_id';
 
 /** The address of an attester (validator) participating in consensus */
 export const ATTESTER_ADDRESS = 'aztec.attester.address';
+
+/** Domain a message is consumed through (public, private) */
+export const BOT_INBOX_MODE = 'aztec.bot.inbox.mode';
+
+/** Kind of inbox bot batch (normal, saturation) */
+export const BOT_INBOX_SCENARIO = 'aztec.bot.inbox.scenario';
+
+/** Stage of the L1→L2 message lifecycle being timed (l1_submission_to_mined, l1_mined_to_observed, l1_mined_to_ready, l1_mined_to_included, l1_mined_to_completed) */
+export const BOT_INBOX_STAGE = 'aztec.bot.inbox.stage';
+
+/** Milestone a message reached (sent, observed, ready, included, completed, timed_out, failed) */
+export const BOT_INBOX_MILESTONE = 'aztec.bot.inbox.milestone';
+
+/** Outcome of an instrumented attempt; the value set is per instrument (e.g. accepted, not_ready, error) */
+export const BOT_INBOX_RESULT = 'aztec.bot.inbox.result';
+
+/** Relation between the block that inserted a message and the block that consumed it (same_block, later_block, unknown) */
+export const BOT_INBOX_BLOCK_RELATION = 'aztec.bot.inbox.block_relation';
+
+/** Node API check being recorded (unknown_message, event_integrity, index_match, readiness_witness, consumption_nullifier, replay_rejection, bucket_rollover) */
+export const BOT_INBOX_CHECK = 'aztec.bot.inbox.check';
+
+/** Bounded failure reason (l1_submission, l1_revert, rpc, simulation, l2_drop, l2_revert, timeout, api_inconsistency, invalid_witness, invalid_consumption, replay_accepted, bucket_mismatch, reorg) */
+export const BOT_INBOX_REASON = 'aztec.bot.inbox.reason';
+
+/** Chain tip the readiness check is anchored at (latest, proposed, checkpointed, proven, finalized) */
+export const BOT_INBOX_ANCHOR_POLICY = 'aztec.bot.inbox.anchor_policy';
+
+/** Chain tip a message must reach to count as completed (proposed, checkpointed, proven) */
+export const BOT_INBOX_COMPLETION_POLICY = 'aztec.bot.inbox.completion_policy';

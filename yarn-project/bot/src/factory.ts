@@ -128,10 +128,11 @@ export class BotFactory {
   }
 
   /**
-   * Initializes the cross-chain bot by deploying TestContract, creating an L1 client,
-   * seeding initial L1→L2 messages, and waiting for the first to be ready.
+   * Sets up the account, the L1 client and the TestContract used by the cross-chain bot modes.
+   * @param options.seedMessages - Whether to top the store up to `l1ToL2SeedCount` L1→L2 messages and block on
+   * the first one becoming ready. Inbox mode produces its own batches on its own clock, so it opts out.
    */
-  public async setupCrossChain(): Promise<{
+  public async setupCrossChain(options: { seedMessages?: boolean } = {}): Promise<{
     wallet: EmbeddedWallet;
     defaultAccountAddress: AztecAddress;
     contract: TestContract;
@@ -169,25 +170,31 @@ export class BotFactory {
     });
     const contractAddress = (await testContractDeploy.getInstance()).address;
 
-    // Recover any pending messages from store (clean up stale ones first)
-    await this.store.cleanupOldPendingMessages();
-    const pendingMessages = await this.store.getUnconsumedL1ToL2Messages();
+    const seedMessages = options.seedMessages ?? true;
+    const seedInitialMessages = async () => {
+      if (!seedMessages) {
+        return;
+      }
+      // Recover any pending messages from store (clean up stale ones first)
+      await this.store.cleanupOldPendingMessages();
+      const pendingMessages = await this.store.getUnconsumedL1ToL2Messages();
 
-    // Seed initial L1→L2 messages if pipeline is empty. The seeds are sent one at a time: they share the
-    // bot's L1 account, so concurrent sends would race on the L1 nonce.
-    const seedCount = Math.max(0, this.config.l1ToL2SeedCount - pendingMessages.length);
-    const inboxAddress = EthAddress.fromString(l1ContractAddresses.inboxAddress.toString());
+      // Seed initial L1→L2 messages if pipeline is empty. The seeds are sent one at a time: they share the
+      // bot's L1 account, so concurrent sends would race on the L1 nonce.
+      const seedCount = Math.max(0, this.config.l1ToL2SeedCount - pendingMessages.length);
+      const inboxAddress = EthAddress.fromString(l1ContractAddresses.inboxAddress.toString());
+      for (let i = 0; i < seedCount; i++) {
+        await seedL1ToL2Message(l1Client, inboxAddress, contractAddress, rollupVersion, this.store, this.log);
+      }
+    };
+
     const [contract] = await Promise.all([
       this.deployTestContract(defaultAccountAddress, testContractDeploy),
-      (async () => {
-        for (let i = 0; i < seedCount; i++) {
-          await seedL1ToL2Message(l1Client, inboxAddress, contractAddress, rollupVersion, this.store, this.log);
-        }
-      })(),
+      seedInitialMessages(),
     ]);
 
     // Block until at least one message is ready
-    const allMessages = await this.store.getUnconsumedL1ToL2Messages();
+    const allMessages = seedMessages ? await this.store.getUnconsumedL1ToL2Messages() : [];
     if (allMessages.length > 0) {
       this.log.info(`Waiting for first L1→L2 message to be ready...`);
       const firstMsg = allMessages[0];
