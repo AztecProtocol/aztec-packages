@@ -58,7 +58,7 @@ import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import { FactService, FactStore } from '../../storage/fact_store/index.js';
-import { type OriginBlock, OriginBlockState } from '../../storage/fact_store/index.js';
+import { type BlockReference, OriginBlockState } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -945,7 +945,7 @@ describe('Utility Execution test suite', () => {
       const typeId = new Fr(10);
       const collectionId = new Fr(20);
       const factTypeId = new Fr(30);
-      const noBlock = Option.none<OriginBlock>();
+      const noBlock = Option.none<BlockReference>();
       const payloadOf = (value: number) => EphemeralArray.fromValues(service, [new Fr(value)]);
 
       it('records a fact and reads it back via getFactCollection', async () => {
@@ -1002,7 +1002,7 @@ describe('Utility Execution test suite', () => {
         });
         l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(100));
         const oracle = makeOracle({ scopes: [scope] });
-        const originBlock = Option.some<OriginBlock>({ blockNumber: 5, blockHash: new Fr(0xabc) });
+        const originBlock = Option.some<BlockReference>({ blockNumber: 5, blockHash: new Fr(0xabc) });
         await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, payloadOf(42), originBlock);
 
         const result = await oracle.getFactCollection(contractAddress, scope, typeId, collectionId);

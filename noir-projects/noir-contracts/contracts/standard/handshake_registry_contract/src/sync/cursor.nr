@@ -1,6 +1,7 @@
 use crate::sync::rewindable_register::RewindableRegister;
 use aztec::{
-    facts::{delete_fact_collection, OriginBlock},
+    facts::delete_fact_collection,
+    oracle::block_reference::BlockReference,
     protocol::{abis::block_header::BlockHeader, address::AztecAddress, hash::sha256_to_field, traits::Hash},
 };
 
@@ -38,7 +39,7 @@ impl SyncCursor {
     pub(crate) unconstrained fn advance(self, anchor_block_header: BlockHeader) {
         self.register().write(
             anchor_block_header.block_number(),
-            OriginBlock { block_number: anchor_block_header.block_number(), block_hash: anchor_block_header.hash() },
+            BlockReference { block_number: anchor_block_header.block_number(), block_hash: anchor_block_header.hash() },
         );
     }
 

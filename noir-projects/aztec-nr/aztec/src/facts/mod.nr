@@ -6,6 +6,7 @@
 //! They are stored in PXE's FactStore, which automatically deals with reorgs by removing any facts
 //! associated with blocks that have been pruned.
 use crate::ephemeral::EphemeralArray;
+use crate::oracle::block_reference::BlockReference;
 use crate::oracle::fact_store::{
     delete_fact_collection_oracle, get_fact_collection_oracle, get_fact_collections_by_type_oracle, record_fact_oracle,
 };
@@ -13,13 +14,6 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 mod origin_state;
 pub use origin_state::OriginBlockState;
-
-/// The block a retractable fact originates from.
-#[derive(Deserialize, Eq, Serialize)]
-pub struct OriginBlock {
-    pub block_number: u32,
-    pub block_hash: Field,
-}
 
 /// A retractable fact's origin block.
 #[derive(Deserialize, Eq, Serialize)]
@@ -63,7 +57,7 @@ pub unconstrained fn record_retractable_fact(
     fact_collection_id: Field,
     fact_type_id: Field,
     payload: EphemeralArray<Field>,
-    origin_block: OriginBlock,
+    origin_block: BlockReference,
 ) {
     record_fact_oracle(
         contract_address,
@@ -144,9 +138,10 @@ pub unconstrained fn get_fact_collections_by_type(
 mod test {
     use crate::ephemeral::EphemeralArray;
     use crate::facts::{
-        delete_fact_collection, get_fact_collection, get_fact_collections_by_type, OriginBlock,
-        record_non_retractable_fact, record_retractable_fact,
+        delete_fact_collection, get_fact_collection, get_fact_collections_by_type, record_non_retractable_fact,
+        record_retractable_fact,
     };
+    use crate::oracle::block_reference::BlockReference;
     use crate::protocol::address::AztecAddress;
     use crate::protocol::traits::{FromField, ToField};
     use crate::test::helpers::test_environment::TestEnvironment;
@@ -242,7 +237,7 @@ mod test {
                 COLLECTION_ID,
                 FACT_TYPE_ID,
                 make_payload(PAYLOAD),
-                OriginBlock { block_number: origin_block_number, block_hash: 0xabc },
+                BlockReference { block_number: origin_block_number, block_hash: 0xabc },
             );
 
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
@@ -273,7 +268,7 @@ mod test {
                 COLLECTION_ID,
                 FACT_TYPE_ID,
                 make_payload(PAYLOAD),
-                OriginBlock { block_number: future_block_number, block_hash: 0xabc },
+                BlockReference { block_number: future_block_number, block_hash: 0xabc },
             );
 
             let origin = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID)

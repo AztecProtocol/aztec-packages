@@ -1,7 +1,8 @@
 //! `#[oracle(...)]` declarations for the fact store.
 
 use crate::ephemeral::EphemeralArray;
-use crate::facts::{FactCollection, OriginBlock};
+use crate::facts::FactCollection;
+use crate::oracle::block_reference::BlockReference;
 use crate::protocol::address::AztecAddress;
 
 #[oracle(aztec_utl_recordFact)]
@@ -12,7 +13,7 @@ pub(crate) unconstrained fn record_fact_oracle(
     fact_collection_id: Field,
     fact_type_id: Field,
     payload: EphemeralArray<Field>,
-    origin_block: Option<OriginBlock>,
+    origin_block: Option<BlockReference>,
 ) {}
 
 #[oracle(aztec_utl_deleteFactCollection)]

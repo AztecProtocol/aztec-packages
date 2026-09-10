@@ -56,7 +56,7 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import { assertAllowedScope } from '../../storage/allowed_scopes.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import { FactCollectionKey, FactCollectionTypeKey, anchoredTipBlockNumbers } from '../../storage/fact_store/index.js';
-import type { FactService, OriginBlock } from '../../storage/fact_store/index.js';
+import type { BlockReference, FactService } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { ChangeSetId } from '../../storage/staged_write_coordinator.js';
@@ -777,7 +777,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     factCollectionId: Fr,
     factTypeId: Fr,
     payload: EphemeralArray<Fr>,
-    originBlock: Option<OriginBlock>,
+    originBlock: Option<BlockReference>,
   ): Promise<void> {
     this.#assertOwnContract(contractAddress);
     return this.factService.recordFact(

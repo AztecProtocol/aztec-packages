@@ -5,7 +5,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@azte
 
 import { BaseStagingStore, type ReadonlyDb } from '../base_staging_store.js';
 import type { ChangeSetId } from '../staged_write_coordinator.js';
-import { FactCollectionKey, type FactCollectionTypeKey, type OriginBlock } from './fact_store_keys.js';
+import { type BlockReference, FactCollectionKey, type FactCollectionTypeKey } from './fact_store_keys.js';
 import { type Fact, StoredFact, factKeyStrOf } from './stored_fact.js';
 
 type BlockNum = number;
@@ -82,7 +82,7 @@ export class FactStore extends BaseStagingStore<FactStoreChangeSet, FactStoreDb>
     factCollectionKey: FactCollectionKey,
     factTypeId: Fr,
     payload: Fr[],
-    originBlock: OriginBlock | undefined,
+    originBlock: BlockReference | undefined,
     changeSetId: ChangeSetId,
   ): Promise<void> {
     return this.withChangeSet(changeSetId, changeSet => {
