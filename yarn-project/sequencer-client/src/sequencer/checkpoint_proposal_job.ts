@@ -2001,6 +2001,26 @@ export class CheckpointProposalJob implements Traceable {
         return { canStartBuilding: false, minTxs };
       }
 
+      // Never start a poll the send budget cannot cover. Peers refuse this slot's proposal once the send deadline
+      // passes, so a full interval that ends past it cannot produce a block anyone would accept, and spending it
+      // leaves nothing for the signing and archiver insertion still to come. Stop waiting and let the checkpoint
+      // go with the blocks already built.
+      const sendDeadline = this.getProposalSendDeadline();
+      if (sendDeadline.getTime() - now.getTime() < TXS_POLLING_MS) {
+        this.log.verbose(
+          `Not waiting for txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ` +
+            `${this.targetSlot}: a poll would outlast the proposal send deadline`,
+          {
+            blockNumber,
+            slot: this.targetSlot,
+            indexWithinCheckpoint,
+            minTxs,
+            sendDeadline: sendDeadline.toISOString(),
+          },
+        );
+        return { canStartBuilding: false, minTxs };
+      }
+
       // Wait a bit before checking again
       this.setState(SequencerState.WAITING_FOR_TXS);
       this.log.verbose(

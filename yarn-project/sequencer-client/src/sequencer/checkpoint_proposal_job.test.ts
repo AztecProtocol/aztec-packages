@@ -1401,6 +1401,49 @@ describe('CheckpointProposalJob', () => {
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
     });
 
+    // The tx-polling interval, which must match TXS_POLLING_MS in checkpoint_proposal_job.ts.
+    const TXS_POLLING_MS = 500;
+
+    // Sets the clock inside the tx-waiting deadline, so only the send budget can stop the wait, and pins the send
+    // deadline `remainingMs` away from it. Returns a spy that counts waits and advances the clock like a real one.
+    const armTxPollWithSendBudget = (remainingMs: number) => {
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, true))
+        .mockReturnValue(noSubslot());
+      p2p.getPendingTxCount.mockResolvedValue(10);
+      p2p.hasEligiblePendingTxs.mockResolvedValue(false);
+
+      // The wait-for-txs deadline is the subslot deadline (+10s) less minBlockDuration (2s), so +1s is well inside it.
+      const nowMs = (buildFrameStartSeconds() + 1) * 1000;
+      dateProvider.setTime(nowMs);
+      jest.spyOn(job.getTimetable(), 'getCheckpointProposalSendDeadline').mockReturnValue((nowMs + remainingMs) / 1000);
+
+      job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: false });
+      return jest.spyOn(job, 'waitForTxsPollingInterval').mockImplementation(() => {
+        dateProvider.setTime(dateProvider.now() + TXS_POLLING_MS);
+        return Promise.resolve();
+      });
+    };
+
+    it('does not start a tx poll the proposal send budget cannot cover', async () => {
+      const pollSpy = armTxPollWithSendBudget(TXS_POLLING_MS - 1);
+
+      await job.executeAndAwait();
+
+      // A poll here would end past the send deadline, so it buys nothing and costs the rest of the budget.
+      expect(pollSpy).not.toHaveBeenCalled();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+    });
+
+    it('still waits for txs when a full poll fits inside the proposal send budget', async () => {
+      const pollSpy = armTxPollWithSendBudget(TXS_POLLING_MS + 1);
+
+      await job.executeAndAwait();
+
+      expect(pollSpy).toHaveBeenCalled();
+    });
+
     it('stops building when selectNextSubslot returns false', async () => {
       // Mock timetable to stop after 1 block (simulating time running out)
       jest
@@ -2585,6 +2628,11 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   /** Awaits the sequencer's shared tracker so tests observe the backgrounded L1 submission completing. */
   public async awaitPendingSubmission(): Promise<void> {
     await this.pendingRequests.awaitRequests();
+  }
+
+  /** Widened so tests whose subject is whether the job waits at all can observe or stub the wait. */
+  public override waitForTxsPollingInterval(): Promise<void> {
+    return super.waitForTxsPollingInterval();
   }
 
   /** Wraps execute + awaitPendingSubmission so tests see the full pipeline complete. */
