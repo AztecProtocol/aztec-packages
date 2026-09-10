@@ -153,10 +153,11 @@ check "refused switch leaves the config alone" "local" "$(jq -r .mode "$setup_cf
 CI3_CONFIG=$setup_cfg CI=0 "$ci3/ci3_setup" </dev/null >/dev/null 2>&1 || true
 check "existing local config is honoured without a password" "local" "$(jq -r .mode "$setup_cfg")"
 aztec_cfg=$work/setup-aztec/config.json
-GITHUB_ACTIONS=true CI3_CONFIG=$aztec_cfg CI=0 CI3_PASSWORD=secret "$ci3/ci3_setup" </dev/null >/dev/null 2>&1 || true
-check "aztec setup stores the password and links to the dashboard" "aztec secret http://ci.aztec-labs.com" "$(jq -r '"\(.mode) \(.password) \(.public_url)"' "$aztec_cfg")"
-GITHUB_ACTIONS=true CI3_CONFIG=$work/setup-ci/config.json CI=1 CI3_PASSWORD= "$ci3/ci3_setup" </dev/null >/dev/null 2>&1 || true
-check "on the runner, CI selects aztec mode with no server and a random password" "aztec [] 32" "$(jq -r '"\(.mode) [\(.server)] \(.password | length)"' "$work/setup-ci/config.json")"
+CI3_CONFIG=$aztec_cfg CI=0 CI3_PASSWORD=secret "$ci3/ci3_setup" </dev/null >/dev/null 2>&1 || true
+check "aztec setup names the dashboard and stores the password" "aztec http://ci.aztec-labs.com secret" "$(jq -r '"\(.mode) \(.server) \(.password)"' "$aztec_cfg")"
+check "the config is private" 600 "$(stat -c %a "$aztec_cfg")"
+CI3_CONFIG=$work/setup-ci/config.json CI=1 CI3_PASSWORD= "$ci3/ci3_setup" </dev/null >/dev/null 2>&1 || true
+check "CI selects the dashboard even without a password" "aztec http://ci.aztec-labs.com" "$(jq -r '"\(.mode) \(.server)"' "$work/setup-ci/config.json")"
 
 # --- the ci3 scripts built on the clients ---
 echo "--- cache_log ---"

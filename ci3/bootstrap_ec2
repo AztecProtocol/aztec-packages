@@ -20,9 +20,9 @@ export CI=1
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
-# The instance sets up its own ci3 server (ci3_setup in CI: the aztec one, where CI logs live), so
-# the links printed here and posted as commit statuses are the instance's, on the dashboard, and a
-# parent log on a developer's local server is not referenced there.
+# The instance sets ci3 up for the dashboard (ci3_setup in CI), so the links printed here and posted
+# as commit statuses are the instance's, on the dashboard, and a parent log on a developer's local
+# server is not referenced there.
 # CI_REDIS is for the labs submodule's own ci3, still the pre-API one, which reads it directly.
 dashboard_url=http://ci.aztec-labs.com
 instance_parent_log_id=${PARENT_LOG_ID:-}

@@ -7,22 +7,14 @@ names is running. Run by the entry points (bootstrap.sh, ci.sh, the CI launcher)
 
 Which server, decided once and then honoured from the config:
   aztec   when CI3_PASSWORD is in the environment, or in CI (CI=1): the labs CI dashboard, where CI
-          logs live. Until the deployed dashboard serves the ci3 API, that means running the
-          dashboard (rkapp) here, from the labs submodule with the labs patch that adds the API
-          (ci3_rkapp), on the dashboard's redis and S3, with links to the dashboard. The password is
-          the one it runs with (CI3_PASSWORD, else a random one); the deployed dashboard's, later.
+          logs live, with the password (its basic auth) stored in the config.
   local   otherwise: ci3_server, the file-backed server, on this machine.
 
 An existing config is kept as it is. When the environment asks for the aztec server and the config
 disagrees, a terminal is asked whether to switch; a non-interactive run stops with an error.
-
-The GitHub runner (GITHUB_ACTIONS) only launches build instances and reaches none of the
-dashboard's stores, so its aztec config names no server: links go to the dashboard, nothing is
-stored (as before the API), and the build cache is read through its public URL.
 """
 import json
 import os
-import secrets
 import subprocess
 import sys
 import urllib.parse
@@ -31,7 +23,6 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 CONFIG = os.environ.get("CI3_CONFIG") or os.path.expanduser("~/.ci3/config.json")
 DASHBOARD_URL = "http://ci.aztec-labs.com"
 LOCAL_URL = "http://localhost:4275"
-RKAPP_URL = "http://localhost:4276"
 
 
 def load():
@@ -54,8 +45,7 @@ def save(config):
 
 def wanted(password):
     if password or os.environ.get("CI") == "1":
-        server = "" if os.environ.get("GITHUB_ACTIONS") == "true" else RKAPP_URL
-        return {"mode": "aztec", "server": server, "public_url": DASHBOARD_URL, "password": password or secrets.token_hex(16)}
+        return {"mode": "aztec", "server": DASHBOARD_URL, "public_url": DASHBOARD_URL, "password": password}
     return {"mode": "local", "server": LOCAL_URL, "public_url": LOCAL_URL}
 
 
@@ -74,11 +64,7 @@ def ensure_server(config):
     url = urllib.parse.urlsplit(config["server"])
     if url.hostname not in ("localhost", "127.0.0.1"):
         return True
-    if config["mode"] == "aztec":
-        cmd = [os.path.join(HERE, "ci3_rkapp"), "start", "--port", str(url.port), "--password", config["password"]]
-    else:
-        cmd = [os.path.join(HERE, "ci3_server"), "start", "--port", str(url.port)]
-    return subprocess.run(cmd, stdout=subprocess.DEVNULL).returncode == 0
+    return subprocess.run([os.path.join(HERE, "ci3_server"), "start", "--port", str(url.port)], stdout=subprocess.DEVNULL).returncode == 0
 
 
 def main():

@@ -353,17 +353,8 @@ case "$cmd" in
     fi
     if [[ "$key" == history_* || "$key" == failed_tests* ]]; then
       ci3_client list_get "$key" | $pager
-    elif log=$(ci3_client log_get "$key" 2>/dev/null); then
-      echo "$log" | $pager
     else
-      # Transitional: CI logs live behind the labs dashboard until it serves the ci3 API, and it
-      # wants its basic-auth password (CI_PASSWORD) to show them.
-      dashboard_url=http://ci.aztec-labs.com
-      curl -sf ${CI_PASSWORD:+-u "aztec:$CI_PASSWORD"} "$dashboard_url/$key.txt" | $pager
-      if [ ${PIPESTATUS[0]} -ne 0 ]; then
-        echo "Log $key not found locally nor at $dashboard_url (set CI_PASSWORD for the latter)."
-        exit 1
-      fi
+      ci3_client log_get "$key" | $pager
     fi
     ;;
 
@@ -378,21 +369,9 @@ case "$cmd" in
       exit 1
     fi
     mkdir -p "$folder"
-    ids=$(ci3_client log_list "test-timings/$ci_log_id" 2>/dev/null || true)
-    if [ -n "$ids" ]; then
-      for id in $ids; do
-        ci3_client log_get "test-timings/$ci_log_id/$id" > "$folder/$id.jsonl"
-      done
-    else
-      # Transitional: a CI job's timings live in the labs log bucket until the dashboard serves the
-      # ci3 API; reading them needs AWS credentials.
-      aws s3 cp --recursive "s3://aztec-ci-artifacts/logs/test-timings/${ci_log_id}/" "$folder/"
-      for f in "$folder"/*.log.gz; do
-        [ -e "$f" ] || continue
-        gunzip -c "$f" > "${f%.log.gz}.jsonl"
-        rm -f "$f"
-      done
-    fi
+    for id in $(ci3_client log_list "test-timings/$ci_log_id"); do
+      ci3_client log_get "test-timings/$ci_log_id/$id" > "$folder/$id.jsonl"
+    done
     echo "Downloaded test timings for job $ci_log_id into $folder/"
     ;;
 
