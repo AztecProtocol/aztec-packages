@@ -225,9 +225,10 @@ networks:
     AZTEC_LAG_IN_EPOCHS_FOR_RANDAO: 1
     # Single-validator dev network.
     AZTEC_TARGET_COMMITTEE_SIZE: 1
-    # 3s blocks rather than the 6s of the 72s-slot networks: at 6s a 36s slot only fits 4 blocks per checkpoint,
-    # below MIN_BLOCKS_FOR_INBOX_CATCHUP, which leaves the network haltable by an adversarial L1-to-L2 message
-    # pattern no checkpoint can consume within its block budget.
+    # 3s blocks rather than the 6s of the 72s-slot networks: at 6s a 36s slot only fits 4 blocks per checkpoint.
+    # Four exactly meets MIN_BLOCKS_FOR_INBOX_CATCHUP (ceil(1024 / 256)), so it is legal but leaves no slack: every
+    # one of the four would have to carry a full 256-message bundle to drain a mandatory backlog within the slot,
+    # and any block opportunity lost to timing puts the checkpoint below the floor. 3s blocks give room to spare.
     SEQ_BLOCK_DURATION_MS: 3000
     # Must equal what the default proposer budgets derive for a 36s slot / 3s block (see chain_l2_config.test.ts).
     MAX_BLOCKS_PER_CHECKPOINT: 9

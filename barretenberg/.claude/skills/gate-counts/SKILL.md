@@ -220,11 +220,13 @@ AZTEC_GENERATE_TEST_DATA=1 \
   yarn workspace @aztec/prover-client test regenerate_rollup_sample_inputs
 ```
 
-Regenerates `Prover.toml` for `rollup-block-root-first-empty-tx`,
-`rollup-block-root-first`, `rollup-block-root-first-single-tx`,
-`rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-root-msgs-only`,
-`rollup-block-merge`, `rollup-checkpoint-root`, `rollup-checkpoint-root-single-block`,
-`rollup-checkpoint-merge`, `rollup-tx-merge`, `rollup-root`.
+Regenerates the `Prover.toml` of every block-root variant plus the block-merge,
+checkpoint-root, checkpoint-merge, tx-merge and root circuits. Read the exact
+inventory off the `dump` fields of the `scenarios` array in
+`yarn-project/prover-client/src/test/regenerate_rollup_sample_inputs.test.ts`
+rather than from a list here: each scenario declares which circuits it is
+responsible for, and the set changes whenever a block-root variant is added or
+removed.
 
 **Private-kernel + transaction-base circuits — e2e prover full test** (spins up
 an L1/anvil sandbox):

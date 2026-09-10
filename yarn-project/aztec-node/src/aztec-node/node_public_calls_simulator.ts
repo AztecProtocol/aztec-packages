@@ -91,9 +91,10 @@ export interface NodePublicCallsSimulatorDeps {
  *   applying the same `SimulationOverridesPlan` the sequencer applies so the simulated mana min fee
  *   matches what the sequencer will write into the block header.
  *
- * Either way it also predicts the L1-to-L2 message bundle the next block would consume and appends it
+ * Either way it also estimates the L1-to-L2 message bundle the next block would consume and appends it
  * to the fork, so a transaction consuming a message that is in the Inbox but not yet in a block
- * simulates against the state it will actually run in.
+ * simulates against something close to the state it will run in. That estimate is best effort and can
+ * differ from what the block actually consumes, as `appendPredictedL1ToL2Messages` describes.
  */
 export class NodePublicCallsSimulator {
   private readonly blockSource: L2BlockSource;
@@ -241,22 +242,30 @@ export class NodePublicCallsSimulator {
   }
 
   /**
-   * Appends the L1-to-L2 messages the next block would consume to the simulation fork, so a transaction consuming
-   * a message that has reached the Inbox but no block yet simulates against the state it will run in. Runs the same
-   * local-only part of the sequencer's selection: every message the archiver has observed, up to the per-block cap
-   * and the threshold one bucket below the checkpoint cap.
+   * Appends the L1-to-L2 messages the next block is expected to consume to the simulation fork, so a transaction
+   * consuming a message that has reached the Inbox but no block yet simulates against something close to the state
+   * it will run in. Runs the same local-only part of the sequencer's selection: every message the archiver has
+   * observed, up to the per-block cap and the threshold one bucket below the checkpoint cap.
    *
-   * This is a lower bound, not the sequencer's choice. Above that threshold, and on a checkpoint's final block, the
-   * sequencer's end depends on a live L1 bucket end it reads from the Inbox and this node does not, so the
-   * prediction stops where the local log alone is authoritative.
+   * The result is best effort, and neither an upper nor a lower bound on what the next block takes. Above that
+   * threshold, and on a checkpoint's final block, the end comes from a live L1 bucket boundary the sequencer reads
+   * from the Inbox and this node does not, and that boundary can sit below the local estimate. With a cursor of 0,
+   * 400 messages observed and live buckets ending at 200 and 400, this appends 256 while a final block lands on
+   * 200: a public call consuming message index 220 simulates successfully and then fails when it runs for real.
+   * Callers that need certainty check inclusion at an L2 tip that already exists, with `isL1ToL2MessageReady` from
+   * `@aztec/aztec.js/messaging`.
    *
-   * Best-effort. Any failure, such as messages not synced yet or a torn archiver snapshot, leaves the fork at the
-   * tip state, which is what the transaction sees if the next block consumes nothing.
+   * Any failure, such as messages not synced yet or a torn archiver snapshot, leaves the fork at the tip state,
+   * which is what the transaction sees if the next block consumes nothing.
    */
   private async appendPredictedL1ToL2Messages(
     fork: MerkleTreeWriteOperations,
     opts: {
-      /** Last block of the checkpoint the next block extends; undefined when the next block opens a checkpoint. */
+      /**
+       * Last block of the *parent* checkpoint, the one the in-progress checkpoint starts after, whose L1-to-L2 leaf
+       * count is the origin of the per-checkpoint cap. It is not a block of the checkpoint being extended. Undefined
+       * when the next block opens a checkpoint, in which case the tip is the origin.
+       */
       checkpointStartBlock: BlockNumber | undefined;
     },
   ): Promise<void> {

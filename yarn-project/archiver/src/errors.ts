@@ -124,6 +124,10 @@ export class InboxMessagePrefixChangedError extends Error {
  * Thrown when a cumulative Inbox message-count range is not fully backed by the messages this archiver has synced,
  * either because it reaches past the synced tip or because the store is missing a message the range needs.
  * Distinguishes "not available locally, retry once L1 sync catches up" from a genuinely empty range.
+ *
+ * The distinction is only available in process. Across JSON-RPC this arrives as a generic `Error` carrying the
+ * message text alone, so remote callers cannot recover the class or the `startLeafCount`/`endLeafCount` fields and
+ * instead treat any range failure as unavailability. Do not add behaviour that depends on `instanceof` surviving.
  */
 export class InboxMessageRangeNotSyncedError extends Error {
   constructor(

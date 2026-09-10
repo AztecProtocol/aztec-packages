@@ -96,7 +96,7 @@ sequenceDiagram
     Portal->>Aave: withdraw(aTokenAmount)
     Aave-->>Portal: underlying + yield
     Portal->>Inbox: sendL2Message(content)
-    Note over Inbox: Wait for an L2 block to include the message (12-30s)
+    Note over Inbox: Wait for the next L2 block to include the message
     User->>Bridge: claim_public(amount_with_yield)
     Bridge->>Inbox: consume_l1_to_l2_message
     Bridge->>Token: mint_to_public(user, amount_with_yield)
@@ -441,7 +441,9 @@ Extract the message leaf index:
 
 #include_code get_claim_leaf_index /docs/examples/ts/aave_bridge/index.ts typescript
 
-On the local network, L2 blocks are only produced when transactions are submitted. An L1-to-L2 message can only be consumed once an L2 block includes it, and the local sandbox includes it as soon as it sees it. This utility deploys two dummy contracts (with random salts for unique addresses) to force block production. On devnet or testnet, blocks are produced continuously and this step is unnecessary, but there the sequencer first waits for the L1 block carrying the message to gain a child, which takes one more L1 block (around 12 to 14 seconds):
+On devnet or testnet, blocks are produced continuously. A proposer consumes the messages its node has already observed in a mined L1 block into the next L2 block it builds: there is no confirmation depth and no wait for the L1 block to gain a child. Observing a message is not the same as inserting it, though, and an inserted message is only usable once the chain tip your claim is simulated against has grown past the message's leaf index. Inclusion can still be deferred by a backlog above the per-block or per-checkpoint message caps, or by a checkpoint that fails to build or publish, so treat any particular delay as an observation rather than a guarantee. Instead of sleeping for a fixed interval, wait on readiness with `waitForL1ToL2MessageReady(node, messageHash, { chainTip })` from `@aztec/aztec.js/messaging`, passing the tip the consuming transaction anchors to (`'latest'` by default, or `'proven'` if that is what your PXE syncs to).
+
+On the local network, blocks are produced only when transactions are submitted, so nothing will insert the message until something else is sent. This utility deploys two dummy contracts (with random salts for unique addresses) to force block production:
 
 #include_code mine_blocks /docs/examples/ts/aave_bridge/index.ts typescript
 
@@ -501,7 +503,7 @@ If `claim_public` reverts, ensure you called `set_minter(l2Bridge.address, true)
 
 ### L1→L2 message not found — claim reverts after mining blocks
 
-An L1-to-L2 message becomes consumable once an L2 block includes it, which takes 12 to 30 seconds after the L1 transaction. Make sure `mine2Blocks` runs before the claim. If the issue persists, verify the `messageLeafIndex` extracted from the `MessageSent` event is correct.
+A message emitted by `MessageSent` on L1 is not yet consumable. It becomes consumable once an L2 block has inserted it and the chain tip your claim is simulated against has grown past its leaf index, and there is no fixed delay that guarantees either step. On the local network, make sure `mine2Blocks` runs before the claim so a block is produced at all. On any network, wait on readiness rather than on a timer: call `waitForL1ToL2MessageReady` (or poll `isL1ToL2MessageReady`) against the tip the claim will anchor to. If readiness never arrives, verify the `messageLeafIndex` extracted from the `MessageSent` event is correct.
 
 ## Next Steps
 

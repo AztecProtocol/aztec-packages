@@ -31,7 +31,7 @@ Two commands cover the protocol-circuit tomls, split by whether the sample needs
 AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test regenerate_rollup_sample_inputs
 ```
 
-Regenerates: `rollup-block-root-first-empty-tx`, `rollup-block-root-first`, `rollup-block-root-first-single-tx`, `rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-root-msgs-only`, `rollup-block-merge`, `rollup-checkpoint-root`, `rollup-checkpoint-root-single-block`, `rollup-checkpoint-merge`, `rollup-tx-merge`, `rollup-root`. The scenario list lives in the `scenarios` array in that test; each scenario's `dump` field names the tomls it owns.
+Regenerates every block-root variant plus the block-merge, checkpoint-root, checkpoint-merge, tx-merge and root tomls. Take the exact inventory from the `scenarios` array in that test rather than from a list here: each scenario's `dump` field names the tomls it owns, and the set changes whenever a block-root variant is added or removed.
 
 ### Private-kernel and transaction-base circuits — e2e prover full test
 

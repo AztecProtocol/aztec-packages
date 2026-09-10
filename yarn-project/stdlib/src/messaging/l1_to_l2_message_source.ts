@@ -85,6 +85,11 @@ export interface L1ToL2MessageSource {
    * valid and returns equal positions. The range contract is that of `getL1ToL2MessagesBetweenLeafCounts`: an
    * invalid range, or one the source cannot serve whole (including its starting position), throws rather than
    * returning a partial or empty result.
+   *
+   * An in-process archiver throws its own typed error for a range it has not synced, but that class does not survive
+   * a JSON-RPC hop: a remote source raises a generic `Error` carrying only the message. Callers therefore have to
+   * treat any throw from this method as "not available from this source right now" and must not branch on the error's
+   * class or on `instanceof`.
    * @param startLeafCount - The cumulative Inbox message count the range starts at, inclusive.
    * @param endLeafCount - The cumulative Inbox message count the range ends at, exclusive.
    */

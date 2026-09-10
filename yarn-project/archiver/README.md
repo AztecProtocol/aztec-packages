@@ -42,13 +42,22 @@ Two independent syncpoints track progress on L1:
 - `blocksSynchedTo`: L1 block number for checkpoint events
 - `messagesSynchedTo`: L1 block ID (number + hash) for messages
 
+Message progress is actually two separate pointers, and the difference matters:
+- The **scanned cursor** is the L1 block through which `MessageSent` logs were read into the store. It moves with every
+  validated batch and says only which L1 blocks were queried, not that their responses were complete.
+- The **certified syncpoint** (`messagesSynchedTo`) is the L1 block at which the *whole* stored log was found equal to
+  the Inbox's own position at a canonical captured head. Only a syncpoint may answer "the node is synced to this head".
+
+A batch that has not been through such a comparison advances the scanned cursor and clears the syncpoint. Its messages
+stay in the store and stay usable locally; what is withheld is the claim that the log matches L1 at that height.
+
 ### L1-to-L2 Messages
 
 Messages are synced from the Inbox contract by `InboxMessageSynchronizer`. Each sync pass captures the L1 head, reads the Inbox's position at that head (cumulative message count and consensus rolling hash) and compares it with the local message log.
 
 1. If the persisted message syncpoint already is the captured head (number and hash), there is nothing to do.
 2. If the local position equals the Inbox's, only the syncpoint (and the finalized-block marker) is updated.
-3. Otherwise `MessageSent` events are fetched forward from the syncpoint in bounded L1 block batches. Each batch is validated (contiguous compact indices, unbroken rolling-hash chain) and committed together with the syncpoint covering it, so completed batches are usable at once and a later RPC failure leaves them in place. Oversized log ranges are bisected at block boundaries; a single block the provider cannot serve is reported as a failure, never as an absence of messages.
+3. Otherwise `MessageSent` events are fetched forward from the scanned cursor in bounded L1 block batches. Each batch is validated (contiguous compact indices, unbroken rolling-hash chain) and committed together with the scanned cursor that covers it, so completed batches are usable at once and a later RPC failure leaves them in place. None of these intermediate batches has been compared with the Inbox's position, so none of them moves the syncpoint: they clear it instead. The batch reaching the captured head is committed with that head as the syncpoint only once the position after it equals the captured one, which certifies the intermediate batches along with it. Oversized log ranges are bisected at block boundaries; a single block the provider cannot serve is reported as a failure, never as an absence of messages.
 4. After the fetch the local position is compared with the captured one again. A disagreement means an L1 reorg changed messages the node already holds, and recovery starts.
 
 Recovery is pinned to the captured head and bounded per pass:
@@ -90,7 +99,7 @@ The `blocksSynchedTo` syncpoint is updated:
 
 Note that the `blocksSynchedTo` pointer is NOT updated during normal sync when there are no new checkpoints. This protects against small L1 reorgs that could add a checkpoint on an L1 block we have flagged as already synced.
 
-The `messagesSynchedTo` pointer is always advanced to the current L1 block on success. If a rolling hash mismatch or post-download inconsistency is detected, the pointer rolls back to the last common message and the operation retries. The rolling hash chain and pre/post-sync consistency checks provide the primary reorg protection.
+On the message side the scanned cursor advances with every committed message batch, while `messagesSynchedTo`, the certified syncpoint, only moves to the captured L1 head once the whole local log agrees with the Inbox's position at that head; an uncertified batch clears it. On a disagreement the recovery transaction described above rewinds the cursor to just before the anchor's L1 block and clears the syncpoint, so the syncpoint is never ahead of content the node has actually compared with the Inbox, and the messages it no longer certifies are the ones the conservative rollback has already deleted. The rolling hash chain and the pre/post-sync position comparison provide the primary reorg protection.
 
 ### Block Queue
 
@@ -124,7 +133,7 @@ Use checkpointed queries when the result must reflect L1 state (e.g., determinin
 
 Both message and checkpoint sync detect L1 reorgs by comparing local state against L1. When detected, they find the last common ancestor and rollback.
 
-**Messages**: Each stored message includes its rolling hash. During sync, if the local last message's rolling hash doesn't match L1, the archiver walks backwards through local messages, querying L1 for each one, until it finds a message with a matching rolling hash. Everything after that message is deleted, and the syncpoint is rolled back.
+**Messages**: Each stored message includes its rolling hash. During sync, if the local position doesn't match the Inbox's at the captured L1 head, the archiver finds an anchor (a shorter canonical prefix matched by hash, or a stored message L1 still emits at the same index and hash near its recorded height) and rolls the log back to it, dropping every message past the anchor and every proposed block that consumed one, before ordinary forward sync re-fetches the canonical suffix. Unchanged messages the bounded lookup cannot place are dropped and re-fetched too; a re-mine the node can still place changes nothing. See "L1-to-L2 Messages" above for the bounded, per-pass procedure.
 
 **Checkpoints**: When the archiver queries the Rollup contract for the archive root at the local pending checkpoint number, and it doesn't match the local archive root, the local checkpoint is no longer in L1's chain. The archiver walks backwards through local checkpoints, querying `archiveAt()` for each, until it finds one that matches. All checkpoints after that are unwound.
 

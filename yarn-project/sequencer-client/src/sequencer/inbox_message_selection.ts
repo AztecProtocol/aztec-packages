@@ -86,8 +86,13 @@ export function selectOrdinaryMessageEnd(input: {
 
 /**
  * The furthest a block may advance on the local log alone without risking the checkpoint's last legal endpoint: the
- * greedy end held down to the threshold. A block whose endpoint lookup fails or resolves short of this still takes
- * it, since ending at or below the threshold always leaves one bucket of checkpoint capacity in reserve.
+ * greedy end held down to the threshold. A non-final block whose endpoint lookup fails or resolves short of this
+ * still takes it, since ending at or below the threshold always leaves one bucket of checkpoint capacity in reserve.
+ *
+ * Reused outside block building to guess what the next block will consume, this is an estimate and not a bound in
+ * either direction. A checkpoint's final block has to land on a live L1 bucket boundary, which can be below this:
+ * from a cursor of 0, with 400 messages observed and live buckets ending at 200 and 400, this returns 256 while the
+ * final block ends at 200.
  */
 export function selectSafeLocalEnd(input: {
   cursorCount: bigint;

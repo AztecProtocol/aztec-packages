@@ -175,7 +175,9 @@ contract RollupFieldRangeTest is RollupBase {
 
     vm.blobhashes(this.getBlobHashes(full.checkpoint.blobCommitments));
 
-    // Streaming Inbox: nothing is seeded here, so reference the genesis bucket (hash 0).
+    // Streaming Inbox: `_populateInbox` above did seed messages, but consuming them is optional at this timestamp,
+    // since their buckets are not yet past the censorship cutoff. The genesis bucket (hash 0, total 0) is therefore
+    // still a legal endpoint for this checkpoint.
     header.inboxRollingHash = bytes32(0);
 
     ProposeArgs memory args =
