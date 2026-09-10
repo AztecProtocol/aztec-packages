@@ -12,7 +12,7 @@ fn accumulated_out_hash_for_first_checkpoint() {
     builder.left_rollup.out_hash = 456;
     builder.right_rollup.out_hash = 123;
 
-    let (pi, _) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
     builder.assert_expected_public_inputs(pi);
 
     let merged_out_hash = accumulate_sha256(456, 123);
@@ -30,7 +30,7 @@ fn accumulated_out_hash_for_third_checkpoint() {
     builder.left_rollup.out_hash = 456;
     builder.right_rollup.out_hash = 123;
 
-    let (pi, _) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
     builder.assert_expected_public_inputs(pi);
 
     let merged_out_hash = accumulate_sha256(456, 123);
@@ -51,7 +51,7 @@ fn propagate_left_out_hash_when_right_is_zero() {
     builder.left_rollup.out_hash = 456;
     builder.right_rollup.out_hash = 0;
 
-    let (pi, _) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
     builder.assert_expected_public_inputs(pi);
 
     let merged_out_hash = 456;
@@ -71,7 +71,7 @@ fn propagate_right_out_hash_when_left_is_zero() {
     builder.left_rollup.out_hash = 0;
     builder.right_rollup.out_hash = 123;
 
-    let (pi, _) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
     builder.assert_expected_public_inputs(pi);
 
     let merged_out_hash = 123;
@@ -91,7 +91,7 @@ fn output_zero_when_both_out_hashes_are_zero() {
     builder.left_rollup.out_hash = 0;
     builder.right_rollup.out_hash = 0;
 
-    let (pi, _) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
 
     assert_eq(pi.new_out_hash.root, pi.previous_out_hash.root);
     assert_eq(

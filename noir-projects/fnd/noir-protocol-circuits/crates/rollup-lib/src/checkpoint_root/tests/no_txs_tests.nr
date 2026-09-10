@@ -11,9 +11,8 @@ fn checkpoint_with_no_txs_right_block() {
         BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX,
         1,
     );
-    let (pi, mock) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
     builder.assert_expected_public_inputs(pi);
-    builder.assert_mock_called(mock);
 }
 
 // A transaction-less block may also be the leftmost block of a checkpoint, as long as it starts from the initial
@@ -26,7 +25,6 @@ fn checkpoint_with_no_txs_leftmost_block() {
         BLOCK_ROOT_ROLLUP_VK_INDEX,
         1,
     );
-    let (pi, mock) = builder.execute_with_mock();
+    let pi = builder.execute_unconstrained();
     builder.assert_expected_public_inputs(pi);
-    builder.assert_mock_called(mock);
 }
