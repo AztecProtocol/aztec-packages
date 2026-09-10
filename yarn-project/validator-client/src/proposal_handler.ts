@@ -754,7 +754,7 @@ export class ProposalHandler {
     if (!streamingMetadata.accepted) {
       this.log.warn(`Streaming Inbox block acceptance check failed, skipping processing`, {
         reason: streamingMetadata.reason,
-        inboxPrefixRef: proposal.inboxPrefixRef?.toInspect(),
+        inboxPrefixRef: proposal.inboxPrefixRef.toInspect(),
         ...proposalInfo,
       });
       return { isValid: false, blockNumber, reason: streamingMetadata.reason };
@@ -788,7 +788,7 @@ export class ProposalHandler {
     if (!bundle.accepted) {
       this.log.warn(`Streaming Inbox bundle read failed, skipping processing`, {
         reason: bundle.reason,
-        inboxPrefixRef: proposal.inboxPrefixRef?.toInspect(),
+        inboxPrefixRef: proposal.inboxPrefixRef.toInspect(),
         ...proposalInfo,
       });
       return { isValid: false, blockNumber, reason: bundle.reason };
@@ -1236,11 +1236,11 @@ export class ProposalHandler {
       });
       return 'inbox_prefix_unavailable';
     }
-    if (!current.rollingHash.equals(proposal.inboxPrefixRef!.inboxRollingHash)) {
+    if (!current.rollingHash.equals(proposal.inboxPrefixRef.inboxRollingHash)) {
       this.log.warn(`Re-execution mismatch while the local Inbox prefix changed, not attributing it`, {
         ...proposalInfo,
         endTotalMsgCount: streamingMetadata.endTotalMsgCount,
-        signed: proposal.inboxPrefixRef!.inboxRollingHash.toString(),
+        signed: proposal.inboxPrefixRef.inboxRollingHash.toString(),
         local: current.rollingHash.toString(),
       });
       return 'inbox_prefix_mismatch';
@@ -1330,13 +1330,12 @@ export class ProposalHandler {
     proposalInfo: LogData,
   ): Promise<StreamingBlockMetadataCheckResult> {
     const first = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
-    const inboxPrefixRef = proposal.inboxPrefixRef;
-    if (first.accepted || inboxPrefixRef === undefined || !isRetryableStreamingBlockCheckReason(first.reason)) {
+    if (first.accepted || !isRetryableStreamingBlockCheckReason(first.reason)) {
       return first;
     }
 
     const slotNumber = proposal.slotNumber;
-    const inboxRollingHash = inboxPrefixRef.inboxRollingHash.toString();
+    const inboxRollingHash = proposal.inboxPrefixRef.inboxRollingHash.toString();
     this.log.info(`Referenced Inbox prefix ${inboxRollingHash} unconfirmed locally, awaiting archiver sync`, {
       reason: first.reason,
       inboxRollingHash,

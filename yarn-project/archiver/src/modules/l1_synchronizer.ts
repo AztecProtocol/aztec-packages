@@ -680,6 +680,13 @@ export class ArchiverL1Synchronizer implements Traceable {
         // We must only set this block number based on actually retrieved logs.
         // TODO(#8621): Tackle this properly when we handle L1 Re-orgs.
         // await this.stores.blocks.setSynchedL1BlockNumber(currentL1BlockNumber);
+        //
+        // Known limitation: this short-circuit only compares the pending archive root, so a reconciliation that
+        // replaced the checkpoint at the same height leaves work outstanding that this pass skips, and the refetch
+        // waits for L1 to produce a block that moves the root again. A "checkpoint refetch still pending" flag
+        // carried out of reconciliation past this optimization would let the next pass fetch at the same head. It is
+        // general checkpoint-event syncing rather than an Inbox consumption rule, and is deferred:
+        // https://linear.app/aztec-labs/issue/A-1985
         this.log.debug(`No checkpoints to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
         return { rollupStatus, fetchCheckpoints: false, provenArchive };
       }

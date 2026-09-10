@@ -1019,8 +1019,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     archive: Fr,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
+    inboxPrefixRef: InboxMessagePrefixRef,
     options: BlockProposalOptions = {},
-    inboxPrefixRef?: InboxMessagePrefixRef,
   ): Promise<BlockProposal> {
     // Validate that we're not creating a proposal for an older or equal position
     if (this.lastProposedBlock) {

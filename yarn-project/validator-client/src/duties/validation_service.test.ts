@@ -3,6 +3,7 @@ import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/brand
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { InboxMessagePrefixRef } from '@aztec/stdlib/messaging';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
@@ -44,6 +45,7 @@ describe('ValidationService', () => {
       txs,
       addresses[0],
       { publishFullTxs: true },
+      InboxMessagePrefixRef.random(),
     );
     expect(proposal.getSender()).toEqual(store.getAddress(0));
     expect(proposal.txs).toBeDefined();
@@ -64,6 +66,7 @@ describe('ValidationService', () => {
       txs,
       addresses[0],
       { publishFullTxs: false },
+      InboxMessagePrefixRef.random(),
     );
     expect(proposal.getSender()).toEqual(addresses[0]);
     expect(proposal.txs).toBeUndefined();
@@ -95,6 +98,7 @@ describe('ValidationService', () => {
       txs,
       addresses[0],
       { publishFullTxs: true },
+      new InboxMessagePrefixRef(checkpointHeader.inboxRollingHash),
     );
 
     // Create a spy keystore to capture signing contexts

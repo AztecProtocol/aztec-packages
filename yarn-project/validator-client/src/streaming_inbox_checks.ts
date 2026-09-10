@@ -38,7 +38,7 @@ export type StreamingBlockMetadataCheckInput = {
    * The proposal's signed Inbox prefix reference: the rolling hash of the message prefix the block consumed through,
    * interpreted together with {@link endTotalMsgCount}. It need not name an L1 bucket boundary.
    */
-  inboxPrefixRef: InboxMessagePrefixRef | undefined;
+  inboxPrefixRef: InboxMessagePrefixRef;
   /** Cumulative Inbox message count consumed through this block, from its signed header's L1-to-L2 leaf count. */
   endTotalMsgCount: bigint;
   /** Cumulative Inbox message count consumed through the parent block (its L1-to-L2 tree leaf count; 0 at genesis). */
@@ -105,11 +105,13 @@ export type StreamingBlockCheckResult =
  * it, a matching hash at the end count proves the proposer consumed exactly the message prefix this node holds, so
  * the bundle between the parent's count and this one is determined by content alone. The checks, in order:
  *
- * 1. **Reference present**: a streaming proposal must carry a prefix reference to authenticate against.
- * 2. **Moves forward**: the end count is at least the parent block's, so consumption never rewinds. Equal counts
+ * 1. **Moves forward**: the end count is at least the parent block's, so consumption never rewinds. Equal counts
  *    mean the block consumes nothing (empty bundle), which still has its prefix hash checked.
- * 3. **Caps**: the per-block message count and the running per-checkpoint total fit their respective caps.
- * 4. **Prefix matches**: the canonical prefix hash at the end count exists locally and equals the signed reference.
+ * 2. **Caps**: the per-block message count and the running per-checkpoint total fit their respective caps.
+ * 3. **Prefix matches**: the canonical prefix hash at the end count exists locally and equals the signed reference.
+ *
+ * There is no "reference present" check: the wire format makes the reference a required field, so a proposal that
+ * omits it fails to decode and never reaches here.
  *
  * There is deliberately no requirement that the end count sit on an L1 bucket boundary and no check on how recently
  * the messages arrived: blocks consume whatever message prefix the proposer's archiver had observed, and only the
@@ -136,27 +138,22 @@ export async function checkStreamingBlockProposalMetadata(
     perCheckpointCap,
   } = input;
 
-  // Check 1: a streaming proposal must carry a prefix reference to authenticate its consumed range against.
-  if (inboxPrefixRef === undefined) {
-    return { accepted: false, reason: 'inbox_prefix_unavailable' };
-  }
-
-  // Check 2: consumption moves forward relative to the parent block.
+  // Check 1: consumption moves forward relative to the parent block.
   if (endTotalMsgCount < parentTotalMsgCount) {
     return { accepted: false, reason: 'consumption_moves_backwards' };
   }
 
-  // Check 3a: the per-block message count fits the per-block cap.
+  // Check 2a: the per-block message count fits the per-block cap.
   if (endTotalMsgCount - parentTotalMsgCount > BigInt(perBlockCap)) {
     return { accepted: false, reason: 'bundle_over_block_cap' };
   }
 
-  // Check 3b: the running per-checkpoint total fits the per-checkpoint cap.
+  // Check 2b: the running per-checkpoint total fits the per-checkpoint cap.
   if (endTotalMsgCount - checkpointStartTotalMsgCount > BigInt(perCheckpointCap)) {
     return { accepted: false, reason: 'checkpoint_over_msg_cap' };
   }
 
-  // Check 4: the canonical prefix at the signed end count hashes to the signed reference. An empty block is checked
+  // Check 3: the canonical prefix at the signed end count hashes to the signed reference. An empty block is checked
   // here too: its unchanged count must still name the prefix the proposer signed, so an empty range is never a
   // licence to skip the hash.
   const canonical = await messageSource.getMessagePosition(endTotalMsgCount);

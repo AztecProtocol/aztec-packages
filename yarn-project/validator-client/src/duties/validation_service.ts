@@ -39,6 +39,7 @@ export class ValidationService {
    * @param txs - Ordered list of transactions (Tx[])
    * @param proposerAttesterAddress - The address of the proposer/attester, or undefined
    * @param options - Block proposal options (including broadcastInvalidBlockProposal for testing)
+   * @param inboxPrefixRef - Rolling hash of the Inbox message prefix the block consumed through
    *
    * @returns A block proposal signing the above information
    * @throws DutyAlreadySignedError if HA signer indicates duty already signed by another node
@@ -52,7 +53,7 @@ export class ValidationService {
     txs: Tx[],
     proposerAttesterAddress: EthAddress | undefined,
     options: BlockProposalOptions,
-    inboxPrefixRef?: InboxMessagePrefixRef,
+    inboxPrefixRef: InboxMessagePrefixRef,
   ): Promise<BlockProposal> {
     // For testing: change the new archive to trigger state_mismatch validation failure
     if (options.broadcastInvalidBlockProposal) {
@@ -79,9 +80,9 @@ export class ValidationService {
       txs.map(tx => tx.getTxHash()),
       options.publishFullTxs ? txs : undefined,
       this.signatureContext,
+      inboxPrefixRef,
       payloadSigner,
       txsSigner,
-      inboxPrefixRef,
     );
   }
 

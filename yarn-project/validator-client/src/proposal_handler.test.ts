@@ -1811,10 +1811,7 @@ describe('ProposalHandler checkpoint validation', () => {
     }
 
     /** Genesis-parent block proposal at slot 1 consuming two messages, with the handler wired to reach the checks. */
-    async function setupStreamingProposal(
-      inboxPrefixRef: InboxMessagePrefixRef | undefined,
-      options: { nowMs?: number } = {},
-    ) {
+    async function setupStreamingProposal(inboxPrefixRef: InboxMessagePrefixRef, options: { nowMs?: number } = {}) {
       const blockHeader = makeBlockHeader(1, { slotNumber: SlotNumber(1) });
       blockHeader.state.l1ToL2MessageTree.nextAvailableLeafIndex = 2;
       const proposal = ValidatedBlockProposal(
@@ -1875,16 +1872,6 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(result).toEqual(rejection('inbox_prefix_mismatch'));
       expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
       expect(reexecuteSpy).not.toHaveBeenCalled();
-    });
-
-    it('rejects without collecting txs when the proposal carries no prefix reference', async () => {
-      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(undefined);
-      mockLocalView(prefixHash);
-
-      const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
-
-      expect(result).toEqual(rejection('inbox_prefix_unavailable'));
-      expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
     });
 
     it('re-executes with the bundle read by count when the checks pass, and inserts it with the signed reference', async () => {
@@ -1992,16 +1979,6 @@ describe('ProposalHandler checkpoint validation', () => {
 
         expect(result).toEqual(rejection('inbox_prefix_unavailable'));
         // With no budget left there is nothing to wait for, so the archiver is not poked at all.
-        expect(blockSource.syncImmediate).not.toHaveBeenCalled();
-      });
-
-      it('rejects immediately without syncing when the proposal carries no prefix reference', async () => {
-        const { proposal, blockHandler } = await setupStreamingProposal(undefined, { nowMs: BEFORE_DEADLINE_MS });
-        mockLocalView(prefixHash);
-
-        const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
-
-        expect(result).toEqual(rejection('inbox_prefix_unavailable'));
         expect(blockSource.syncImmediate).not.toHaveBeenCalled();
       });
 

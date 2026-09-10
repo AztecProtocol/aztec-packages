@@ -599,7 +599,7 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
   const txs = options?.txs;
   const signer = options?.signer ?? Secp256k1Signer.random();
   const signatureContext = options?.signatureContext ?? TEST_COORDINATION_SIGNATURE_CONTEXT;
-  const inboxPrefixRef = options?.inboxPrefixRef;
+  const inboxPrefixRef = options?.inboxPrefixRef ?? InboxMessagePrefixRef.random();
 
   return BlockProposal.createProposalFromSigner(
     blockHeader,
@@ -609,9 +609,9 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
     txHashes,
     txs,
     signatureContext,
-    (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
-    (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
     inboxPrefixRef,
+    (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
+    (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
   );
 };
 
@@ -632,7 +632,10 @@ export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOpt
         txs: options.lastBlock.txs,
         signer,
         signatureContext,
-        inboxPrefixRef: options.lastBlock.inboxPrefixRef,
+        // The checkpoint constructor requires the last block's reference to equal the header's rolling hash, so the
+        // default follows the header rather than being random like a standalone proposal's.
+        inboxPrefixRef:
+          options.lastBlock.inboxPrefixRef ?? new InboxMessagePrefixRef(checkpointHeader.inboxRollingHash),
       })
     : undefined;
 
