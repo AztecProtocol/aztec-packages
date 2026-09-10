@@ -335,12 +335,7 @@ impl PartialNoteFsm {
 
 /// Serializes a [`DeliveredPendingPartialNote`] into a fact payload.
 unconstrained fn to_payload(pending: DeliveredPendingPartialNote) -> EphemeralArray<Field> {
-    let fields = pending.serialize();
-    let payload: EphemeralArray<Field> = EphemeralArray::empty();
-    for i in 0..fields.len() {
-        payload.push(fields[i]);
-    }
-    payload
+    EphemeralArray::from_array(pending.serialize())
 }
 
 mod test {
@@ -607,9 +602,10 @@ mod test {
             // A single pending partial note can resolve to more than one completion log (e.g. the same partial note
             // completed twice). Both logs here would independently discover a note, but step must complete only once
             // (enqueuing exactly one note) rather than panic, so this cannot break sync.
-            let completion_logs: EphemeralArray<LogRetrievalResponse> = EphemeralArray::empty();
-            completion_logs.push(matching_completion_log(address, COMPLETION_LOG_FIRST_NULLIFIER));
-            completion_logs.push(matching_completion_log(address, SECOND_COMPLETION_LOG_FIRST_NULLIFIER));
+            let completion_logs: EphemeralArray<LogRetrievalResponse> = EphemeralArray::from_array([
+                matching_completion_log(address, COMPLETION_LOG_FIRST_NULLIFIER),
+                matching_completion_log(address, SECOND_COMPLETION_LOG_FIRST_NULLIFIER),
+            ]);
 
             PartialNoteFsm::load_all(address, scope).get(0).step(
                 Option::some(completion_logs),

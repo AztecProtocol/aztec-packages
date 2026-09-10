@@ -75,6 +75,18 @@ where
         Self::at(random())
     }
 
+    /// Returns an array at a fresh, randomly allocated slot holding `values` in order.
+    pub unconstrained fn from_array<let N: u32>(values: [T; N]) -> Self
+    where
+        T: Serialize,
+    {
+        let array = Self::empty();
+        for i in 0..N {
+            array.push(values[i]);
+        }
+        array
+    }
+
     /// Returns the number of elements stored in the array.
     pub unconstrained fn len(self) -> u32 {
         Oracle::len_oracle(self.slot)

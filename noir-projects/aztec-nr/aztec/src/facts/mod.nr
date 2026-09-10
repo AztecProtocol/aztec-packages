@@ -157,14 +157,6 @@ mod test {
         (env, scope)
     }
 
-    unconstrained fn make_payload<let N: u32>(values: [Field; N]) -> EphemeralArray<Field> {
-        let payload: EphemeralArray<Field> = EphemeralArray::empty();
-        for i in 0..N {
-            payload.push(values[i]);
-        }
-        payload
-    }
-
     unconstrained fn assert_payload(payload: EphemeralArray<Field>) {
         assert_eq(payload.len(), PAYLOAD.len());
         for i in 0..PAYLOAD.len() {
@@ -179,7 +171,7 @@ mod test {
             TYPE_ID,
             COLLECTION_ID,
             FACT_TYPE_ID,
-            make_payload(PAYLOAD),
+            EphemeralArray::from_array(PAYLOAD),
         );
     }
 
@@ -236,7 +228,7 @@ mod test {
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
-                make_payload(PAYLOAD),
+                EphemeralArray::from_array(PAYLOAD),
                 BlockReference { block_number: origin_block_number, block_hash: 0xabc },
             );
 
@@ -267,7 +259,7 @@ mod test {
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
-                make_payload(PAYLOAD),
+                EphemeralArray::from_array(PAYLOAD),
                 BlockReference { block_number: future_block_number, block_hash: 0xabc },
             );
 

@@ -163,12 +163,7 @@ pub(crate) unconstrained fn serialize_payload<T>(value: T) -> EphemeralArray<Fie
 where
     T: Serialize,
 {
-    let fields = value.serialize();
-    let payload = EphemeralArray::empty();
-    for i in 0..fields.len() {
-        payload.push(fields[i]);
-    }
-    payload
+    EphemeralArray::from_array(value.serialize())
 }
 
 /// Deserializes a fact payload into a value.
