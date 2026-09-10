@@ -1867,17 +1867,22 @@ export class ProposalHandler {
       }
     }
 
-    // Record the outcome on the re-execution tracker, except where that would forget a validation this node
-    // already completed. p2p evaluates one proposal twice (all-nodes validation, then attestation) and the second
-    // look can fail on something purely local, so a local-inability outcome never replaces a recorded `valid`:
-    // the node did validate this checkpoint, and only its second look was unlucky. Only the very checkpoint that
-    // was validated is protected: another archive at this slot still records.
+    // Record the outcome on the re-execution tracker, except where uncertainty would replace something this node
+    // determined. p2p evaluates one proposal twice (all-nodes validation, then attestation) and the second look
+    // can fail on something purely local, so a local-inability outcome never overwrites a verdict.
+    //
+    // A recorded `valid` is protected for the very checkpoint that produced it — a different archive at the same
+    // slot is a different question, and still records. A recorded `invalid` is protected for the slot outright:
+    // the tracker keys its slot entry by slot alone, so an equivocating proposer whose second proposal this node
+    // could not check would otherwise erase the first one's determination.
     const outcome = result.isValid ? ('valid' as const) : CHECKPOINT_VALIDATION_REASON_TO_OUTCOME[result.reason];
-    const wouldForgetValid =
-      (outcome === 'unvalidated' || outcome === 'unverifiable') &&
-      result.checkpointNumber !== undefined &&
-      this.reexecutionTracker.hasReexecuted(result.checkpointNumber, proposal.archive);
-    if (outcome !== undefined && !wouldForgetValid) {
+    const isLocalInability = outcome === 'unvalidated' || outcome === 'unverifiable';
+    const wouldForgetVerdict =
+      isLocalInability &&
+      (this.reexecutionTracker.getOutcomeForSlot(slot) === 'invalid' ||
+        (result.checkpointNumber !== undefined &&
+          this.reexecutionTracker.hasReexecuted(result.checkpointNumber, proposal.archive)));
+    if (outcome !== undefined && !wouldForgetVerdict) {
       this.reexecutionTracker.recordOutcome(slot, proposal.archive, outcome, result.checkpointNumber);
     }
 
