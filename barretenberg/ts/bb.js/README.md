@@ -51,11 +51,17 @@ The typed API (`Barretenberg` extends it) and every way of reaching bb come from
 its `BackendType` options and CRS handling. That package ships the bb binary as per-platform optional
 dependencies (override with `bbPath` or `BB_BINARY_PATH`) and bb's wasm modules (single-thread and threads
 builds), run in-process through `@aztec-foundation/ipc-runtime/wasm`: the module in a worker, wasi threads
-on further workers, `WebAssembly.compileStreaming` for loading (so browsers that cache compiled code start
-warm on a repeat visit). Pass `wasmPath` (or set `BB_WASM_PATH` in node) to run another build of the
-module, and `warmup: true` to run bb's `Warmup` command after initialization, which takes the prover's hot
-loops through the engine's optimizing tier before the first real request. bb.js itself only bundles bb's
-LMDB NAPI module (`findNapiBinary`).
+on further workers. Pass `warmup: true` to run bb's `Warmup` command after initialization, which takes the
+prover's hot loops through the engine's optimizing tier before the first real request. bb.js itself only
+bundles bb's LMDB NAPI module (`findNapiBinary`).
+
+The wasm modules ship uncompressed and are fetched as ordinary assets, so the browser streams them
+straight into `WebAssembly.compileStreaming` and can cache the compiled code between visits. That means
+serving them with your host's own compression: most CDNs compress `application/wasm` by default, but nginx
+does not unless `application/wasm` is added to `gzip_types`. Where you cannot compress on the wire, pass
+`wasmPath` (or set `BB_WASM_PATH` in node) pointing at a gzipped copy — the loader recognises gzip, at the
+cost of the compiled-code cache. `wasmPath` also takes any other build of the module, and is used verbatim:
+unlike earlier versions, bb.js no longer rewrites the filename to pick a `-threads` variant.
 
 ### Browser Context
 
@@ -106,5 +112,7 @@ stripped one:
 ```
 BB_WASM_PATH=$(git rev-parse --show-toplevel)/barretenberg/cpp/build-wasm-threads/bin/barretenberg-debug.wasm
 ```
+
+(the loader takes a `.wasm` or a `.wasm.gz` either way)
 
 Run your test again to get a trace.
