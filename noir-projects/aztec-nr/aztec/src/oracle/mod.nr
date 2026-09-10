@@ -116,7 +116,12 @@ pub mod message_processing;
     ],
 )]
 pub mod notes;
-#[generate_oracle_tests]
+#[generate_oracle_tests_excluding(
+    @[
+        // TODO: implement once the test resolver can serve EphemeralArray contents.
+        quote { get_nullifier_statuses_oracle },
+    ],
+)]
 pub mod nullifiers;
 #[generate_oracle_tests]
 pub mod offchain_effect;

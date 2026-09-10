@@ -46,6 +46,7 @@ import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { ContractClassLogData } from '../noir-structs/contract_class_log_data.js';
 import type { NoteData } from '../noir-structs/note_data.js';
+import type { NullifierStatus } from '../noir-structs/nullifier_status.js';
 import { Option } from '../noir-structs/option.js';
 import type { ResolvedTaggingStrategy } from '../noir-structs/resolved_tagging_strategy.js';
 import { pickNotes } from '../pick_notes.js';
@@ -418,21 +419,23 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return Promise.resolve(preimage);
   }
 
-  override async doesNullifierExist(innerNullifier: Fr): Promise<boolean> {
-    // This oracle must be overridden because while utility execution can only meaningfully check if a nullifier exists
-    // in the synched block, during private execution there's also the possibility of it being pending, i.e. created
-    // in the current transaction.
+  protected override async getSiloedNullifierStatuses(siloedNullifiers: Fr[]): Promise<NullifierStatus[]> {
+    // This must be overridden because while utility execution can only meaningfully check if a nullifier exists in
+    // the anchor block, during private execution there's also the possibility of it being pending, i.e. created in
+    // the current transaction.
 
-    this.logger.debug(`Checking existence of inner nullifier ${innerNullifier}`, {
+    this.logger.debug(`Checking existence of ${siloedNullifiers.length} nullifiers`, {
       contractAddress: this.contractAddress,
+      siloedNullifiers,
     });
 
-    const nullifier = (await siloNullifier(this.contractAddress, innerNullifier)).toBigInt();
+    const pendingNullifiers = this.noteCache.getNullifiers(this.contractAddress);
+    const isPending = siloedNullifiers.map(nullifier => pendingNullifiers.has(nullifier.toBigInt()));
+    const settledStatuses = await super.getSiloedNullifierStatuses(siloedNullifiers.filter((_, i) => !isPending[i]));
 
-    return (
-      this.noteCache.getNullifiers(this.contractAddress).has(nullifier) ||
-      (await super.doesNullifierExist(innerNullifier))
-    );
+    const pendingStatus: NullifierStatus = { exists: true, originBlock: Option.none() };
+    let nextSettled = 0;
+    return isPending.map(pending => (pending ? pendingStatus : settledStatuses[nextSettled++]));
   }
 
   /**

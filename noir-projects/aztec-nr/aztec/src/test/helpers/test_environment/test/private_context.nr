@@ -1,9 +1,11 @@
-use crate::oracle::nullifiers::check_nullifier_exists;
+use crate::ephemeral::EphemeralArray;
+use crate::oracle::block_header::get_block_header_at;
+use crate::oracle::nullifiers::{check_nullifier_exists, get_nullifier_statuses};
 use crate::protocol::{
     abis::{function_selector::FunctionSelector, gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
     address::AztecAddress,
     constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS},
-    traits::FromField,
+    traits::{FromField, Hash},
 };
 use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
 
@@ -219,5 +221,72 @@ unconstrained fn check_nullifier_exists_pending() {
     env.private_context(|context| {
         context.push_nullifier_unsafe(1);
         assert(check_nullifier_exists(1));
+    });
+}
+
+#[test]
+unconstrained fn get_nullifier_statuses_nonexistent() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|_| {
+        let status = get_nullifier_statuses(EphemeralArray::from_array([1])).get(0);
+        assert(!status.exists);
+        assert(status.origin_block.is_none());
+    });
+}
+
+#[test]
+unconstrained fn get_nullifier_statuses_settled() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| { context.push_nullifier_unsafe(1); });
+    let settled_block_number = env.last_block_number();
+
+    env.private_context(|context| {
+        let status = get_nullifier_statuses(EphemeralArray::from_array([1])).get(0);
+        assert(status.exists);
+
+        let origin_block = status.origin_block.unwrap();
+        assert_eq(origin_block.block_number, settled_block_number);
+        assert_eq(origin_block.block_hash, get_block_header_at(settled_block_number, *context).hash());
+    });
+}
+
+#[test]
+unconstrained fn get_nullifier_statuses_pending() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        context.push_nullifier_unsafe(1);
+
+        let status = get_nullifier_statuses(EphemeralArray::from_array([1])).get(0);
+        assert(status.exists);
+        assert(status.origin_block.is_none());
+    });
+}
+
+#[test]
+unconstrained fn get_nullifier_statuses_mixed() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| { context.push_nullifier_unsafe(1); });
+
+    env.private_context(|context| {
+        context.push_nullifier_unsafe(2);
+
+        let statuses = get_nullifier_statuses(EphemeralArray::from_array([1, 2, 3]));
+        assert_eq(statuses.len(), 3);
+
+        let settled = statuses.get(0);
+        assert(settled.exists);
+        assert(settled.origin_block.is_some());
+
+        let pending = statuses.get(1);
+        assert(pending.exists);
+        assert(pending.origin_block.is_none());
+
+        let nonexistent = statuses.get(2);
+        assert(!nonexistent.exists);
+        assert(nonexistent.origin_block.is_none());
     });
 }

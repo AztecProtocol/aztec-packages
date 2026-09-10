@@ -35,6 +35,7 @@ import {
   NOTE_SELECTOR,
   NOTE_VALIDATION_REQUEST,
   NULLIFIER_MEMBERSHIP_WITNESS,
+  NULLIFIER_STATUS,
   OPTION,
   type OutputSlot,
   PENDING_TAGGED_LOG,
@@ -187,9 +188,9 @@ export const ORACLE_REGISTRY = {
     returnType: OPTION(PUBLIC_KEYS_AND_PARTIAL_ADDRESS),
   }),
 
-  aztec_utl_doesNullifierExist: makeEntry({
-    params: [{ name: 'innerNullifier', type: FIELD }],
-    returnType: BOOL,
+  aztec_utl_getNullifierStatuses: makeEntry({
+    params: [{ name: 'innerNullifiers', type: EPHEMERAL_ARRAY(FIELD) }],
+    returnType: EPHEMERAL_ARRAY(NULLIFIER_STATUS),
   }),
 
   aztec_utl_getL1ToL2MembershipWitnessV2: makeEntry({
