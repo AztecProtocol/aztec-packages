@@ -1,4 +1,5 @@
 use crate::config::{D_INV, LOG_FIELDS_PER_BLOB, ROOTS};
+use crate::utils::__sum_of_products;
 
 use bignum::{BigNum, BLS12_381_Fr};
 use std::ops::{Mul, Neg};
@@ -387,16 +388,10 @@ unconstrained fn __compute_sum(
     //              sum = /   y_i . ---------
     //                   /____       z - w^i
     //                    i=0
-
-    let mut sum = BLS12_381_Fr::zero();
-    for i in 0..FIELDS_PER_BLOB {
-        // y_k * ( w^k / (z - w^k) )
-        let summand = ys[i].__mul(fracs[i]);
-
-        // partial_sum + ( y_k * ( w^k / (z - w^k) ) -> partial_sum
-        sum = sum.__add(summand);
-    }
-    sum
+    //
+    // `__sum_of_products` batches the modular reductions across the whole sum, which matters at
+    // this length: a `__mul`/`__add` chain pays a Barrett reduction on each of the d terms.
+    __sum_of_products(ys, fracs)
 }
 
 mod tests {
