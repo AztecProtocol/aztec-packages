@@ -466,11 +466,21 @@ describe('sequencer', () => {
       expect(() => buildSequencer({ maxBlocksPerCheckpoint: 1, blockDurationMs: 2000 }, l1Constants)).not.toThrow();
     });
 
+    // The single-node e2e default (DEFAULT_L1_BLOCK_TIME) sits at exactly this boundary, deliberately, so that
+    // those runs keep the production timing budgets. Rejecting there would fail every default-cadence e2e run.
+    it('warns rather than rejects at the fast-profile boundary', () => {
+      const atBoundary = { ...productionConstants(), ethereumSlotDuration: FAST_PROFILE_ETHEREUM_SLOT_DURATION };
+      expect(() => buildSequencer({ maxBlocksPerCheckpoint: 1 }, atBoundary)).not.toThrow();
+    });
+
     // The exemption is a threshold on the Ethereum slot duration, not a declaration that this is a development
     // network, so pin where it ends: the same undersized configuration one second slower is rejected outright.
-    it('rejects the same undersized configuration at the fast-profile boundary', () => {
-      const atBoundary = { ...productionConstants(), ethereumSlotDuration: FAST_PROFILE_ETHEREUM_SLOT_DURATION };
-      expect(() => buildSequencer({ maxBlocksPerCheckpoint: 1 }, atBoundary)).toThrow(/streaming-Inbox backlog/);
+    it('rejects the same undersized configuration just above the fast-profile boundary', () => {
+      const aboveBoundary = {
+        ...productionConstants(),
+        ethereumSlotDuration: FAST_PROFILE_ETHEREUM_SLOT_DURATION + 1,
+      };
+      expect(() => buildSequencer({ maxBlocksPerCheckpoint: 1 }, aboveBoundary)).toThrow(/streaming-Inbox backlog/);
     });
 
     it('leaves the committed config and timetable intact when an update is rejected', () => {

@@ -39,7 +39,11 @@ import {
 import { type L1ToL2MessageSource, MIN_BLOCKS_FOR_INBOX_CATCHUP } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
-import { ProposerTimetable, buildProposerTimetable, isFastLocalProfile } from '@aztec/stdlib/timetable';
+import {
+  FAST_PROFILE_ETHEREUM_SLOT_DURATION,
+  ProposerTimetable,
+  buildProposerTimetable,
+} from '@aztec/stdlib/timetable';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
@@ -230,16 +234,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * the floor leave a proposer that can never reach a mandatory endpoint: L1 keeps rejecting its publications
    * and it loses all of its slots.
    *
-   * Only production profiles are rejected. Fast local/e2e profiles deliberately run one or two blocks per slot
+   * Only production profiles are rejected. Sandbox and e2e profiles deliberately run one or two blocks per slot
    * (see `PIPELINING_SETUP_OPTS`) against an Inbox nobody is filling with a cap-sized backlog, so the floor
-   * would reject every sandbox and e2e run; those get a warning instead.
+   * would reject every one of those runs; they get a warning instead. The exemption is boundary-inclusive, unlike
+   * the budget-clamping `isFastLocalProfile` test: the single-node e2e default runs at exactly
+   * {@link FAST_PROFILE_ETHEREUM_SLOT_DURATION} precisely so that it keeps the production timing budgets, and at
+   * that cadence a 16s L2 slot derives 2 block opportunities. A strictly-below test would therefore reject every
+   * default-cadence e2e run.
    *
-   * That exemption is wider than the sandbox it is for, and deliberately so for now. `isFastLocalProfile` is a
-   * threshold on the Ethereum slot duration, not a declaration that this node is a development one — no such flag
-   * reaches the sequencer — so a real network that happens to run short Ethereum slots is exempted too. Faster
-   * L1 slots do not raise the per-block message cap, so such a sequencer can still be unable to reach a mandatory
-   * endpoint and lose its slots against an aged backlog. The alternative was rejecting every sandbox and e2e
-   * configuration, which is why the warning stands until an explicit development-profile signal exists.
+   * That exemption is wider than the sandbox it is for, and deliberately so for now. It is a threshold on the
+   * Ethereum slot duration, not a declaration that this node is a development one — no such flag reaches the
+   * sequencer — so a real network that happens to run short Ethereum slots is exempted too. Faster L1 slots do not
+   * raise the per-block message cap, so such a sequencer can still be unable to reach a mandatory endpoint and
+   * lose its slots against an aged backlog. The alternative was rejecting every sandbox and e2e configuration,
+   * which is why the warning stands until an explicit development-profile signal exists.
    */
   private assertEffectiveCapacityClearsInboxBacklog(config: ResolvedSequencerConfig, timetableMaxBlocks: number) {
     const effectiveMaxBlocks = Math.min(config.maxBlocksPerCheckpoint, timetableMaxBlocks);
@@ -252,7 +260,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       `(MAX_BLOCKS_PER_CHECKPOINT ${config.maxBlocksPerCheckpoint}, ${timetableMaxBlocks} derived from slot ` +
       `timings), below the ${MIN_BLOCKS_FOR_INBOX_CATCHUP} needed to clear a mandatory streaming-Inbox backlog`;
 
-    if (isFastLocalProfile(this.l1Constants.ethereumSlotDuration)) {
+    if (this.l1Constants.ethereumSlotDuration <= FAST_PROFILE_ETHEREUM_SLOT_DURATION) {
       this.log.warn(`Inbox catch-up capacity below the floor: ${detail}.`, {
         effectiveMaxBlocks,
         maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
