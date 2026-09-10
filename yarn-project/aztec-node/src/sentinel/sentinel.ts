@@ -41,6 +41,14 @@ export type SentinelRuntimeConfig = Pick<
   Pick<SentinelConfig, 'sentinelEpochEndBufferSlots'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>;
 
+/**
+ * Statuses that record only that this node could not assess the slot. They are evidence of nothing, so they are
+ * left out of both halves of a missed-duty rate: counting them as misses would charge a validator for an
+ * observer's failure, and counting them as successes would let unknowns dilute the misses that are real. A slot
+ * nobody could assess simply does not count towards the rate.
+ */
+const UNASSESSABLE_STATUSES: ValidatorStatusInSlot[] = ['checkpoint-unverifiable'];
+
 /** Maps a validator status to its category: proposer or attestation. */
 function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
   switch (status) {
@@ -660,8 +668,9 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       lastProposal: this.computeFromSlot(lastProposal?.slot),
       lastAttestation: this.computeFromSlot(lastAttestation?.slot),
       totalSlots: history.length,
-      // `checkpoint-unverifiable` is deliberately absent: it records this node's own inability to check a
-      // proposal it did see, so counting it here would charge the proposer for an observer's failed L1 read.
+      // `checkpoint-unverifiable` is deliberately absent, and {@link UNASSESSABLE_STATUSES} keeps it out of the
+      // denominator too: it records this node's own inability to check a proposal it did see, so counting it
+      // either way would misreport the proposer.
       missedProposals: this.computeMissed(history, 'proposer', [
         'checkpoint-missed',
         'blocks-missed',
@@ -679,7 +688,9 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     filter: ValidatorStatusInSlot[],
   ) {
     const relevantHistory = history.filter(
-      h => !computeOverCategory || statusToCategory(h.status) === computeOverCategory,
+      h =>
+        !UNASSESSABLE_STATUSES.includes(h.status) &&
+        (!computeOverCategory || statusToCategory(h.status) === computeOverCategory),
     );
     const filteredHistory = relevantHistory.filter(h => filter.includes(h.status));
     return {

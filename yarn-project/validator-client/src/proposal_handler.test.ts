@@ -496,6 +496,25 @@ describe('ProposalHandler checkpoint validation', () => {
       });
     });
 
+    // The recording inside `handleCheckpointProposal` never runs for an expiry in a stage before it — and on a
+    // node that is not a validator the all-nodes callback is the only handler there is, so the outermost
+    // boundary has to record too, or the slot reads as one the proposer skipped.
+    it('records the slot as unverifiable when the duty runs out before validation is reached', async () => {
+      const proposal = await makeProposal();
+      const p2p = mock<P2P>();
+      let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
+      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(handler => {
+        checkpointHandler = handler;
+      });
+      epochCache.isEscapeHatchOpenAtSlot.mockImplementation(() => new Promise(() => {}));
+      dateProvider.setTime(39_800);
+
+      handler.register(p2p, true);
+      await checkpointHandler!(proposal, {} as any);
+
+      expect(reexecutionTracker.getOutcomeForSlot(SlotNumber(1))).toEqual('unverifiable');
+    });
+
     // A duty that gave up learned nothing that could revise what the slot already says, in either direction.
     it('leaves an outcome the slot already has alone when a later duty runs out', async () => {
       const proposal = await makeProposal();
@@ -1110,6 +1129,9 @@ describe('ProposalHandler checkpoint validation', () => {
 
       expect(await validation).toEqual({ isValid: false, reason: 'validation_deadline_expired' });
       expect(checkpointsBuilder.openCheckpoint).not.toHaveBeenCalled();
+      // The caller never reached the `await using` that would have closed this fork, so the abandoned read has
+      // to close it: otherwise every duty that gives up here leaks a world-state fork.
+      expect(mockDispose).toHaveBeenCalled();
     });
 
     it('disposes fork even when validation fails', async () => {

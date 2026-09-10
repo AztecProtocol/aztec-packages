@@ -464,6 +464,10 @@ export class ProposalHandler {
             slot: proposal.slotNumber,
             deadline: budget.deadline.toISOString(),
           });
+          // An expiry in a stage before validation is reached — the escape-hatch or own-proposal read — never
+          // passes through the recording inside. This is the outermost boundary, and on a node that is not a
+          // validator it is the only one, so the neutral record is made here too.
+          this.recordUncheckedProposal(proposal);
         } else {
           this.log.warn(`Error handling checkpoint proposal for slot ${proposal.slotNumber}`, { err });
         }
@@ -856,14 +860,17 @@ export class ProposalHandler {
     slotNumber: SlotNumber,
     what: string,
     resolve: () => Promise<T | undefined>,
-    stop?: AbortSignal,
+    { budget, stop = budget?.signal }: { budget?: DutyBudget; stop?: AbortSignal } = {},
   ): Promise<T | undefined> {
     const deadline = this.getReexecutionDeadline(slotNumber);
     if (deadline.getTime() - this.dateProvider.now() <= 0 || stop?.aborted) {
       return undefined;
     }
-    try {
-      return await retryUntil(
+    // `retryUntil` consults its deadline only after an attempt returns, so a sync or a read that never settles
+    // never reaches it. A caller that owns a duty budget races the whole loop against it as well; one that does
+    // not (the block-proposal paths) keeps the deadline-between-attempts behaviour it always had.
+    const loop = () =>
+      retryUntil(
         async () => {
           if (stop?.aborted) {
             throw new TimeoutError(`Stopped waiting for ${what}`);
@@ -875,6 +882,10 @@ export class ProposalHandler {
         { deadline, dateProvider: this.dateProvider },
         0.5,
       );
+    try {
+      // A budget expiry propagates: it is the duty giving up, which the caller answers with its own reason
+      // rather than as a local-view verdict against the proposer.
+      return budget ? await budget.run(what, loop) : await loop();
     } catch (err) {
       if (err instanceof TimeoutError) {
         return undefined;
@@ -1186,7 +1197,7 @@ export class ProposalHandler {
         const result = await readBundle();
         return !result.accepted && isRetryableStreamingBlockCheckReason(result.reason) ? undefined : result;
       },
-      stop,
+      { stop },
     );
     if (resolved === undefined) {
       this.log.warn(`Timed out reading a consistent Inbox bundle, rejecting proposal`, {
@@ -1412,7 +1423,8 @@ export class ProposalHandler {
   ): Promise<{ accepted: true; messages: Fr[] } | { accepted: false; reason: CheckpointInboxPrefixReason }> {
     const read = () =>
       this.readCheckpointConsumedMessages(checkpointStartTotal, lastBlockTotal, checkpointInboxRollingHash);
-    const first = await read();
+    const what = `inbox prefix for checkpoint at slot ${slot}`;
+    const first = budget ? await budget.run(what, read) : await read();
     if (first.accepted) {
       return first;
     }
@@ -1424,12 +1436,12 @@ export class ProposalHandler {
     });
     const resolved = await this.awaitLocalSync(
       slot,
-      `inbox prefix for checkpoint at slot ${slot}`,
+      what,
       async () => {
         const result = await read();
         return result.accepted ? result : undefined;
       },
-      budget?.signal,
+      { budget },
     );
     if (resolved === undefined) {
       this.log.warn(`Timed out waiting for the checkpoint's consumed Inbox prefix to sync, refusing to attest`, {
@@ -1596,15 +1608,23 @@ export class ProposalHandler {
         ...proposalInfo,
         deadline: budget.deadline.toISOString(),
       });
-      // Something does have to be recorded, though. With no record and no checkpoint on L1 the sentinel reads the
-      // slot as one the proposer never proposed in, which is counted against it — so silence here would blame the
-      // proposer for this node's clock running out. `unverifiable` says a proposal was seen and could not be
-      // checked, and is counted against nobody. It never revises an outcome already recorded for the slot: a duty
-      // that gave up learned nothing that could.
-      if (this.reexecutionTracker.getOutcomeForSlot(proposal.slotNumber) === undefined) {
-        this.reexecutionTracker.recordOutcome(proposal.slotNumber, proposal.archive, 'unverifiable');
-      }
+      this.recordUncheckedProposal(proposal);
       return { isValid: false, reason: 'validation_deadline_expired' };
+    }
+  }
+
+  /**
+   * Records that a proposal was seen and could not be checked, for a duty that ran out of time.
+   *
+   * Something does have to be recorded. With no record and no checkpoint on L1 the sentinel reads the slot as one
+   * the proposer never proposed in, which is counted against it — so silence here would blame the proposer for
+   * this node's clock running out. `unverifiable` says a proposal was seen and could not be checked, and is
+   * counted against nobody. It never revises an outcome the slot already has: a duty that gave up learned nothing
+   * that could.
+   */
+  private recordUncheckedProposal(proposal: CheckpointProposalCore): void {
+    if (this.reexecutionTracker.getOutcomeForSlot(proposal.slotNumber) === undefined) {
+      this.reexecutionTracker.recordOutcome(proposal.slotNumber, proposal.archive, 'unverifiable');
     }
   }
 
@@ -1873,9 +1893,17 @@ export class ProposalHandler {
     const parentBlockNumber = BlockNumber(firstBlock.number - 1);
     let forkResult: MerkleTreeWriteOperations;
     try {
-      forkResult = await budget.run(`world state fork at block ${parentBlockNumber} for slot ${slot}`, async () => {
+      const what = `world state fork at block ${parentBlockNumber} for slot ${slot}`;
+      forkResult = await budget.run(what, async signal => {
         const parentBlockHash = (await this.blockSource.getBlockData({ number: parentBlockNumber }))?.blockHash;
-        return await this.checkpointsBuilder.getFork(parentBlockNumber, parentBlockHash);
+        const opened = await this.checkpointsBuilder.getFork(parentBlockNumber, parentBlockHash);
+        if (signal.aborted) {
+          // The caller lost the race and never reached the `await using` that would have closed this fork, so
+          // closing it is this continuation's job: otherwise every abandoned duty leaks a world-state fork.
+          await opened[Symbol.asyncDispose]();
+          throw new DutyBudgetExpiredError(what, budget.deadline);
+        }
+        return opened;
       });
     } catch (err) {
       if (err instanceof DutyBudgetExpiredError) {
@@ -1895,7 +1923,9 @@ export class ProposalHandler {
     // built on (e.g. a reorg), so recomputing the checkpoint against it would be meaningless. This mirrors
     // the block-proposal re-execution check and fails fast with a clean, non-slashable result instead of a
     // confusing downstream mismatch.
-    const forkArchiveRoot = new Fr((await fork.getTreeInfo(MerkleTreeId.ARCHIVE)).root);
+    const forkArchiveRoot = new Fr(
+      (await budget.run(`fork archive root for slot ${slot}`, () => fork.getTreeInfo(MerkleTreeId.ARCHIVE))).root,
+    );
     if (!forkArchiveRoot.equals(proposal.checkpointHeader.lastArchiveRoot)) {
       this.log.warn(`Fork archive root does not match checkpoint proposal's last archive`, {
         ...proposalInfo,
@@ -1906,7 +1936,8 @@ export class ProposalHandler {
     }
 
     // Create checkpoint builder with all existing blocks, and complete it to get the computed values.
-    const computedCheckpoint = await budget.run(`checkpoint reconstruction for slot ${slot}`, async () => {
+    const reconstruction = `checkpoint reconstruction for slot ${slot}`;
+    const computedCheckpoint = await budget.run(reconstruction, async signal => {
       const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(
         checkpointNumber,
         constants,
@@ -1918,6 +1949,11 @@ export class ProposalHandler {
         blocks,
         this.log.getBindings(),
       );
+      // The caller's `await using` starts closing the fork the moment it loses the race, and the rebuild reads
+      // from that fork, so a late `openCheckpoint` must not run one against a fork that is going away.
+      if (signal.aborted) {
+        throw new DutyBudgetExpiredError(reconstruction, budget.deadline);
+      }
       return await checkpointBuilder.completeCheckpoint();
     });
 

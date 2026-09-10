@@ -29,6 +29,7 @@ import {
 import type {
   ValidatorStats,
   ValidatorStatusHistory,
+  ValidatorStatusInSlot,
   ValidatorsEpochPerformance,
   ValidatorsStats,
 } from '@aztec/stdlib/validators';
@@ -439,9 +440,26 @@ describe('sentinel', () => {
       ]);
 
       expect(stats.missedProposals.count).toEqual(2);
-      expect(stats.missedProposals.total).toEqual(5);
-      // The unverifiable slots do not extend the streak the two real misses start either.
+      // Out of the denominator too, so unknowns cannot dilute the misses that are real: two of the three slots
+      // this node could actually assess were missed, not two of five.
+      expect(stats.missedProposals.total).toEqual(3);
+      expect(stats.missedProposals.rate).toBeCloseTo(2 / 3);
+      // Nor do they break the streak the two real misses form.
       expect(stats.missedProposals.currentStreak).toEqual(2);
+    });
+
+    // A proposer whose checkpoints this node can never check must not come out looking better than one whose
+    // checkpoints it can: an unassessable slot is not a slot survived.
+    it('does not let unverifiable slots dilute the missed-proposal rate', () => {
+      const stats = sentinel.computeStatsForValidator(validator, [
+        { slot: SlotNumber(1), status: 'checkpoint-missed' },
+        ...times(9, (i): { slot: SlotNumber; status: ValidatorStatusInSlot } => ({
+          slot: SlotNumber(i + 2),
+          status: 'checkpoint-unverifiable',
+        })),
+      ]);
+
+      expect(stats.missedProposals).toEqual(expect.objectContaining({ count: 1, total: 1, rate: 1, currentStreak: 1 }));
     });
 
     it('resets streaks correctly', () => {

@@ -526,7 +526,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // preliminary reads and the signer await are unbounded, and p2p waits on this callback.
     const budget = new DutyBudget(this.proposalHandler.getReexecutionDeadline(proposal.slotNumber), this.dateProvider);
     try {
-      return await this.attestToCheckpointProposalWithinBudget(proposal, budget);
+      // Every stage inside consults the budget, and the whole body is raced against it as well: an await this
+      // audit missed, or one a later change adds, still cannot hold p2p's callback open past the slot.
+      return await budget.run(`checkpoint attestation for slot ${proposal.slotNumber}`, () =>
+        this.attestToCheckpointProposalWithinBudget(proposal, budget),
+      );
     } catch (err) {
       if (!(err instanceof DutyBudgetExpiredError)) {
         throw err;
@@ -744,7 +748,29 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
-    await this.p2pClient.addOwnCheckpointAttestations(attestations);
+    // The pool write is another await that can outlast the slot, and what comes back from here is gossiped, so
+    // it is bounded and the deadline rechecked after it rather than only after signing.
+    const pool = () => this.p2pClient.addOwnCheckpointAttestations(attestations);
+    try {
+      budget ? await budget.run(`attestation pool write for slot ${proposal.slotNumber}`, pool) : await pool();
+    } catch (err) {
+      if (!(err instanceof DutyBudgetExpiredError)) {
+        throw err;
+      }
+      this.log.warn(`Abandoning attestations for slot ${proposal.slotNumber}: the pool did not accept them in time`, {
+        slot: proposal.slotNumber,
+        deadline: budget!.deadline.toISOString(),
+      });
+      return undefined;
+    }
+
+    if (budget?.expired()) {
+      this.log.warn(`Not gossiping attestations for slot ${proposal.slotNumber}: the deadline passed`, {
+        slot: proposal.slotNumber,
+        deadline: budget.deadline.toISOString(),
+      });
+      return undefined;
+    }
     return attestations;
   }
 
