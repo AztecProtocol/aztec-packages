@@ -13,6 +13,14 @@ export {
   type InboxMessageState,
   type InboxScheduleRecord,
 } from './store/index.js';
+export {
+  InboxBotMetrics,
+  type InboxBotMessageLabels,
+  type InboxBotObservedState,
+  type InboxBotPendingState,
+  type InboxBotSaturationState,
+  INBOX_BOT_TELEMETRY_NAME,
+} from './inbox_bot_metrics.js';
 export { type InboxL1Producer, ViemInboxL1Producer } from './inbox_l1_producer.js';
 export {
   type InboxConsumptionRequest,

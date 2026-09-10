@@ -12,7 +12,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { TelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, type Span, type TelemetryClient, execInSpan } from '@aztec/telemetry-client';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import type { BotLifecycle } from './base_bot.js';
@@ -23,17 +23,24 @@ import {
   assertValidInboxConfig,
 } from './config.js';
 import { BotFactory } from './factory.js';
-import type {
-  InboxBotBlockRelation,
-  InboxBotCheck,
-  InboxBotCheckResult,
-  InboxBotMilestone,
-  InboxBotMode,
-  InboxBotPublicExecutionResult,
-  InboxBotReason,
-  InboxBotSaturationRunResult,
-  InboxBotScenario,
-  InboxBotSimulationResult,
+import {
+  type InboxBotAnchorPolicy,
+  type InboxBotBlockRelation,
+  type InboxBotCheck,
+  type InboxBotCheckResult,
+  type InboxBotCompletionPolicy,
+  type InboxBotL1BatchResult,
+  InboxBotMetrics,
+  type InboxBotMilestone,
+  type InboxBotMode,
+  type InboxBotObservedState,
+  type InboxBotPublicExecutionResult,
+  type InboxBotReason,
+  type InboxBotSaturationRunResult,
+  type InboxBotScenario,
+  InboxBotScenarios,
+  type InboxBotSimulationResult,
+  type InboxBotStage,
 } from './inbox_bot_metrics.js';
 import { type InboxL1Producer, ViemInboxL1Producer } from './inbox_l1_producer.js';
 import {
@@ -107,6 +114,49 @@ const MAX_INSERTION_SEARCH_BLOCKS = 128;
 const REPLAY_PROBE_SCAN_INTERVAL_MS = 10_000;
 
 /**
+ * How long after a message completes the bot keeps looking for the historical readiness it never observed. A
+ * public consumption routinely wins the race with the readiness poll, and the observation is worth finishing;
+ * without a bound, a check that stays inconclusive would be retried for as long as the record survives.
+ */
+const READINESS_BACKFILL_WINDOW_MS = 5 * 60 * 1000;
+
+/**
+ * Span-only attribute keys. They correlate a trace with the records in the store and the lines in the log, and
+ * are deliberately not metric attributes: a batch or message id has one sample and would make any series useless.
+ */
+const INBOX_BATCH_ID_SPAN_ATTRIBUTE = 'aztec.bot.inbox.batch_id';
+const INBOX_MESSAGE_ID_SPAN_ATTRIBUTE = 'aztec.bot.inbox.message_id';
+
+/**
+ * Stage each milestone closes, and the message timestamp that ends it. Every one of them starts at the batch's
+ * mined timestamp. Milestones absent from this map close no stage: a timeout or a failure is an outcome, never a
+ * latency sample.
+ */
+const MILESTONE_STAGES: Partial<
+  Record<InboxBotMilestone, { stage: InboxBotStage; endedAt: (message: InboxMessageRecord) => number | undefined }>
+> = {
+  observed: { stage: 'l1_mined_to_observed', endedAt: message => message.observedAt },
+  ready: { stage: 'l1_mined_to_ready', endedAt: message => message.readyAt },
+  included: { stage: 'l1_mined_to_included', endedAt: message => message.includedAt },
+  completed: { stage: 'l1_mined_to_completed', endedAt: message => message.completedAt },
+};
+
+/**
+ * Chain tip the bot labels its completion metrics with. `followChain: NONE` is rejected for inbox mode, so it
+ * only reaches here when a caller constructs the bot directly; proposed inclusion is what it then reports.
+ */
+function toCompletionPolicy(followChain: BotConfig['followChain']): InboxBotCompletionPolicy {
+  switch (followChain) {
+    case 'CHECKPOINTED':
+      return 'checkpointed';
+    case 'PROVEN':
+      return 'proven';
+    default:
+      return 'proposed';
+  }
+}
+
+/**
  * Outcome of a readiness check pinned to one block. `indeterminate` covers everything that moved under the check
  * or could not be read, and counts as neither a pass nor a failure.
  */
@@ -144,7 +194,7 @@ export interface InboxBotDeps {
  *
  * Production is interval-driven with at most one L1 submission in flight, gated by the outstanding-message cap
  * (`l1ToL2SeedCount`). Every step that can be interrupted by a crash is made durable before it becomes uncertain,
- * so a restart reconciles rather than resends. L2 consumption is not implemented yet.
+ * so a restart reconciles rather than resends.
  */
 export class InboxBot implements BotLifecycle {
   protected log = createLogger('bot:inbox');
@@ -158,9 +208,11 @@ export class InboxBot implements BotLifecycle {
   private readonly producer: InboxL1Producer;
   private readonly consumer: InboxL2Consumer;
   private readonly store: InboxStore;
-  private readonly telemetry: TelemetryClient;
+  private readonly metrics: InboxBotMetrics;
   private readonly dateProvider: DateProvider;
   private readonly syncChainTip?: BlockTag;
+  private readonly anchorPolicy: InboxBotAnchorPolicy;
+  private readonly completionPolicy: InboxBotCompletionPolicy;
 
   private readonly productionPromise: RunningPromise;
   private readonly consumptionPromise: RunningPromise;
@@ -184,12 +236,11 @@ export class InboxBot implements BotLifecycle {
   private nextMode?: InboxBotMode;
   private lastReplayScanAt = 0;
   private attemptsReconciled = false;
-
   /**
-   * Running tally of everything the bot has recorded, keyed as `<kind>:<name>[:<result>]`. The instruments land
-   * in a later phase; until then this is what makes the outcomes visible to an operator without reading logs.
+   * Messages that completed before their historical readiness was ever observed, and when they completed. Held in
+   * memory only: the observation is a nicety, and a restart that loses it costs one latency sample, not state.
    */
-  public readonly recorded = new Map<string, number>();
+  private readonly readinessBackfill = new Map<string, number>();
 
   public constructor(deps: InboxBotDeps) {
     this.node = deps.node;
@@ -199,10 +250,12 @@ export class InboxBot implements BotLifecycle {
     this.producer = deps.producer;
     this.consumer = deps.consumer;
     this.store = deps.store;
-    this.telemetry = deps.telemetry;
     this.config = deps.config;
     this.dateProvider = deps.dateProvider ?? new DateProvider();
     this.syncChainTip = deps.syncChainTip;
+    this.anchorPolicy = deps.syncChainTip ?? 'latest';
+    this.completionPolicy = toCompletionPolicy(deps.config.followChain);
+    this.metrics = new InboxBotMetrics(deps.telemetry, this.anchorPolicy, this.completionPolicy);
 
     this.productionPromise = new RunningPromise(
       () => this.produceStep(),
@@ -264,6 +317,7 @@ export class InboxBot implements BotLifecycle {
     }
     await this.ensureSaturationSchedule();
     this.running = true;
+    this.metrics.start(() => this.readObservedState());
     this.productionPromise.start();
     this.consumptionPromise.start();
     this.log.info(`Started inbox bot`, {
@@ -288,6 +342,9 @@ export class InboxBot implements BotLifecycle {
     await this.consumptionPromise.stop();
     // Attempts run outside the poll, so the store must stay open until the last of them has written its outcome.
     await this.waitForBackgroundWork();
+    // Removed rather than left armed: `BotRunner.update()` recreates the bot, and two callbacks reading two
+    // stores would export the same gauges twice.
+    this.metrics.stop();
     this.log.info(`Stopped inbox bot`);
   }
 
@@ -363,7 +420,18 @@ export class InboxBot implements BotLifecycle {
    * transaction hash are durable before the outcome is known, so a crash at any point leaves a record that
    * {@link reconcileUnresolvedBatches} can resolve without ever resending.
    */
-  private async produceBatch(scenario: InboxBotScenario, count: number): Promise<InboxBatchRecord | undefined> {
+  private produceBatch(scenario: InboxBotScenario, count: number): Promise<InboxBatchRecord | undefined> {
+    return execInSpan(this.metrics.tracer, 'InboxBot.produceBatch', span =>
+      this.produceBatchInSpan(span, scenario, count),
+    );
+  }
+
+  private async produceBatchInSpan(
+    span: Span,
+    scenario: InboxBotScenario,
+    count: number,
+  ): Promise<InboxBatchRecord | undefined> {
+    span.setAttribute(Attributes.BOT_INBOX_SCENARIO, scenario);
     const intents = await generateL1ToL2MessageIntents(count, this.log);
     const modes = await this.assignModes(count);
     const { batch } = await this.store.reserveBatch({
@@ -376,6 +444,8 @@ export class InboxBot implements BotLifecycle {
       })),
       nextMode: modes.next,
     });
+    // Ids are span-only: they identify a single batch and would blow up the cardinality of any metric label.
+    span.setAttribute(INBOX_BATCH_ID_SPAN_ATTRIBUTE, batch.batchId);
 
     const submittedAt = this.dateProvider.now();
     let receipt: L1ToL2MessageBatchReceipt;
@@ -420,11 +490,16 @@ export class InboxBot implements BotLifecycle {
     intents: readonly L1ToL2MessageIntent[],
     receipt: L1ToL2MessageBatchReceipt,
   ): Promise<InboxBatchRecord | undefined> {
+    const batch = await this.store.getBatch(batchId);
+    if (!batch) {
+      this.log.error(`Cannot resolve an L1 receipt for an unknown inbox batch`, { batchId });
+      return undefined;
+    }
     const messages = await this.store.getBatchMessages(batchId);
 
     if (receipt.status === 'reverted') {
       await this.store.recordBatchFailed(batchId, 'l1_revert');
-      this.recordL1Batch(batchId, 'reverted', receipt);
+      await this.recordL1Batch(batch, 'reverted', receipt);
       this.recordFailure('l1_revert', { batchId, txHash: receipt.txHash });
       return undefined;
     }
@@ -471,9 +546,9 @@ export class InboxBot implements BotLifecycle {
       })),
     );
 
-    this.recordL1Batch(batchId, 'success', receipt);
+    await this.recordL1Batch(mined, 'success', receipt);
     for (const message of await this.store.getBatchMessages(batchId)) {
-      this.recordMessageMilestone(message, 'sent');
+      await this.recordMessageMilestone(message, 'sent');
     }
     return mined;
   }
@@ -576,7 +651,7 @@ export class InboxBot implements BotLifecycle {
   private async applyRetention(): Promise<void> {
     const timedOut = await this.store.timeOutStaleMessages(this.config.l1ToL2MessageTimeoutSeconds * 1000);
     for (const message of timedOut) {
-      this.recordMessageMilestone(message, 'timed_out');
+      await this.recordMessageMilestone(message, 'timed_out');
       this.recordFailure('timeout', { messageId: message.messageId, batchId: message.batchId });
     }
     await this.store.pruneTerminalRecords({
@@ -753,9 +828,11 @@ export class InboxBot implements BotLifecycle {
 
       const observed = await this.observeMessages(active.filter(message => message.state === 'awaiting_l1'));
       await this.trackReadiness(
-        [...active.filter(message => message.state !== 'awaiting_l1'), ...observed].filter(
-          message => message.readyAt === undefined,
-        ),
+        [
+          ...active.filter(message => message.state !== 'awaiting_l1'),
+          ...observed,
+          ...(await this.messagesAwaitingReadinessBackfill()),
+        ].filter(message => message.readyAt === undefined),
       );
       // Receipts are polled before attempts are dispatched, so a transaction found dropped in this poll is
       // replaced by a fresh attempt in the same turn rather than a second later.
@@ -793,7 +870,7 @@ export class InboxBot implements BotLifecycle {
         failedAt: this.dateProvider.now(),
         failureReason: 'l2_drop',
       });
-      this.recordMessageMilestone(failed, 'failed');
+      await this.recordMessageMilestone(failed, 'failed');
     }
   }
 
@@ -835,7 +912,7 @@ export class InboxBot implements BotLifecycle {
           failedAt: this.dateProvider.now(),
           failureReason: 'api_inconsistency',
         });
-        this.recordMessageMilestone(failed, 'failed');
+        await this.recordMessageMilestone(failed, 'failed');
         continue;
       }
 
@@ -843,7 +920,7 @@ export class InboxBot implements BotLifecycle {
       const updated = await this.store.transitionMessage(message.messageId, 'observed', {
         observedAt: this.dateProvider.now(),
       });
-      this.recordMessageMilestone(updated, 'observed');
+      await this.recordMessageMilestone(updated, 'observed');
       observed.push(updated);
     }
     return observed;
@@ -866,6 +943,29 @@ export class InboxBot implements BotLifecycle {
       this.recordFailure('api_inconsistency', { batchId, check: 'unknown_message' });
     }
     await this.store.recordBatchProbe(batchId, 'unknown_message');
+  }
+
+  /**
+   * Messages that completed before their historical readiness was ever observed. Consuming a message publicly
+   * routinely wins the race with the readiness poll, and the plan requires that observation to be finished rather
+   * than dropped; the window bounds a check that never resolves.
+   */
+  private async messagesAwaitingReadinessBackfill(): Promise<InboxMessageRecord[]> {
+    const now = this.dateProvider.now();
+    const messages: InboxMessageRecord[] = [];
+    for (const [messageId, completedAt] of this.readinessBackfill) {
+      if (now - completedAt > READINESS_BACKFILL_WINDOW_MS) {
+        this.readinessBackfill.delete(messageId);
+        continue;
+      }
+      const message = await this.store.getMessage(messageId);
+      if (message === undefined || message.readyAt !== undefined) {
+        this.readinessBackfill.delete(messageId);
+        continue;
+      }
+      messages.push(message);
+    }
+    return messages;
   }
 
   /**
@@ -912,7 +1012,8 @@ export class InboxBot implements BotLifecycle {
         readyAt: this.dateProvider.now(),
         readyBlockNumber: result.blockNumber?.toString(),
       });
-      this.recordMessageMilestone(updated, 'ready');
+      await this.recordMessageMilestone(updated, 'ready');
+      this.readinessBackfill.delete(message.messageId);
     }
   }
 
@@ -1001,7 +1102,19 @@ export class InboxBot implements BotLifecycle {
    * restart can tell an attempt whose fate is unknown from one that never started, and to `sent` only once the
    * node has the transaction.
    */
-  private async runConsumptionAttempt(message: InboxMessageRecord): Promise<void> {
+  private runConsumptionAttempt(message: InboxMessageRecord): Promise<void> {
+    return execInSpan(this.metrics.tracer, 'InboxBot.consumptionAttempt', span => {
+      span.setAttributes({
+        [Attributes.BOT_INBOX_MODE]: message.mode,
+        [Attributes.BOT_INBOX_SCENARIO]: message.scenario,
+        [INBOX_BATCH_ID_SPAN_ATTRIBUTE]: message.batchId,
+        [INBOX_MESSAGE_ID_SPAN_ATTRIBUTE]: message.messageId,
+      });
+      return this.runConsumptionAttemptInSpan(message);
+    });
+  }
+
+  private async runConsumptionAttemptInSpan(message: InboxMessageRecord): Promise<void> {
     const preparing = await this.store.transitionMessage(message.messageId, 'preparing');
     const request: InboxConsumptionRequest = {
       mode: preparing.mode,
@@ -1118,7 +1231,7 @@ export class InboxBot implements BotLifecycle {
         failedAt: this.dateProvider.now(),
         failureReason: reason,
       });
-      this.recordMessageMilestone(failed, 'failed');
+      await this.recordMessageMilestone(failed, 'failed');
     } else {
       await this.store.transitionMessage(message.messageId, waiting, { attempts });
     }
@@ -1166,7 +1279,7 @@ export class InboxBot implements BotLifecycle {
         failedAt: this.dateProvider.now(),
         failureReason: 'l2_drop',
       });
-      this.recordMessageMilestone(failed, 'failed');
+      await this.recordMessageMilestone(failed, 'failed');
       return;
     }
     const waiting: InboxMessageState = message.mode === 'private' ? 'awaiting_anchor' : 'observed';
@@ -1211,7 +1324,7 @@ export class InboxBot implements BotLifecycle {
       failedAt: this.dateProvider.now(),
       failureReason: reason,
     });
-    this.recordMessageMilestone(failed, 'failed');
+    await this.recordMessageMilestone(failed, 'failed');
   }
 
   /**
@@ -1233,7 +1346,7 @@ export class InboxBot implements BotLifecycle {
         insertionBlockNumber: relation.insertionBlockNumber?.toString(),
         blockRelation: relation.relation,
       });
-      this.recordMessageMilestone(current, 'included');
+      await this.recordMessageMilestone(current, 'included');
     }
 
     if (!this.hasReachedCompletionPolicy(receipt.status)) {
@@ -1243,7 +1356,12 @@ export class InboxBot implements BotLifecycle {
       completedAt: this.dateProvider.now(),
       completionBlockNumber: receipt.blockNumber.toString(),
     });
-    this.recordMessageMilestone(completed, 'completed');
+    if (completed.readyAt === undefined) {
+      // Public consumption routinely beats the readiness poll; the observation is finished afterwards so its
+      // latency is recorded rather than dropped.
+      this.readinessBackfill.set(completed.messageId, this.dateProvider.now());
+    }
+    await this.recordMessageMilestone(completed, 'completed');
   }
 
   /** Checks that the consuming transaction's effects carry the nullifier this message's consumption must emit. */
@@ -1391,7 +1509,18 @@ export class InboxBot implements BotLifecycle {
    * other error leaves the probe unresolved and it is tried again, so an unrelated failure can never pass as
    * replay protection.
    */
-  private async runReplayProbe(batchId: string, message: InboxMessageRecord): Promise<void> {
+  private runReplayProbe(batchId: string, message: InboxMessageRecord): Promise<void> {
+    return execInSpan(this.metrics.tracer, 'InboxBot.replayProbe', span => {
+      span.setAttributes({
+        [Attributes.BOT_INBOX_CHECK]: 'replay_rejection',
+        [INBOX_BATCH_ID_SPAN_ATTRIBUTE]: batchId,
+        [INBOX_MESSAGE_ID_SPAN_ATTRIBUTE]: message.messageId,
+      });
+      return this.runReplayProbeInSpan(batchId, message);
+    });
+  }
+
+  private async runReplayProbeInSpan(batchId: string, message: InboxMessageRecord): Promise<void> {
     const opposite: InboxBotMode = message.mode === 'public' ? 'private' : 'public';
     // A private simulation is answered at the wallet's sync tip; a public one at the node's latest state.
     const anchor: BlockParameter = opposite === 'private' ? (this.syncChainTip ?? 'latest') : 'latest';
@@ -1463,15 +1592,39 @@ export class InboxBot implements BotLifecycle {
     }
   }
 
-  // The five methods below are the points at which the bot's telemetry is emitted. They log today; the metrics
-  // class introduced alongside the instruments hooks into them without moving any of the call sites.
+  // Everything below is where the bot's telemetry leaves it: the instruments are fed here, and the same call
+  // sites carry the structured logs, so a transition can never be counted in one place and logged in another.
 
-  private tally(key: string): void {
-    this.recorded.set(key, (this.recorded.get(key) ?? 0) + 1);
+  /**
+   * Snapshot of the bot's reconciled durable state for the observable gauges. Read on every collection rather
+   * than kept as an in-memory tally, so the gauges survive a restart with the state they describe.
+   */
+  private async readObservedState(): Promise<InboxBotObservedState> {
+    const now = this.dateProvider.now();
+    const active = await this.store.getActiveMessages();
+    const pending = InboxBotScenarios.map(scenario => {
+      const messages = active.filter(message => message.scenario === scenario);
+      const oldest = Math.min(...messages.map(message => message.createdAt));
+      return {
+        scenario,
+        count: messages.length,
+        oldestAgeSeconds: messages.length === 0 ? 0 : Math.max(0, (now - oldest) / 1000),
+      };
+    });
+
+    const schedule = await this.store.getSchedule();
+    return {
+      pending,
+      saturation: {
+        enabled: schedule?.enabled ?? false,
+        lastSuccessTimestampSeconds: (schedule?.lastSuccessAt ?? 0) / 1000,
+        nextDueTimestampSeconds: schedule?.enabled ? schedule.nextDueAt / 1000 : 0,
+      },
+    };
   }
 
   private recordCheck(check: InboxBotCheck, result: InboxBotCheckResult, context: object): void {
-    this.tally(`check:${check}:${result}`);
+    this.metrics.recordCheck(check, result);
     if (result === 'passed') {
       this.log.debug(`Inbox check ${check} passed`, { check, result, ...context });
     } else {
@@ -1480,12 +1633,39 @@ export class InboxBot implements BotLifecycle {
   }
 
   private recordFailure(reason: InboxBotReason, context: object): void {
-    this.tally(`failure:${reason}`);
+    this.metrics.recordFailure(reason);
     this.log.warn(`Inbox bot failure`, { reason, ...context });
   }
 
-  private recordMessageMilestone(message: InboxMessageRecord, milestone: InboxBotMilestone): void {
-    this.tally(`milestone:${milestone}`);
+  /**
+   * Emits a message milestone and the stage latency it closes, at most once per message. The persisted markers
+   * are what make that hold across a restart: a message reloaded from the store already names the milestones and
+   * stages handed to the instruments, and they are not exported again.
+   */
+  private async recordMessageMilestone(message: InboxMessageRecord, milestone: InboxBotMilestone): Promise<void> {
+    if (message.exportedMilestones.includes(milestone)) {
+      return;
+    }
+    this.metrics.recordMessageMilestone(message, milestone, message.blockRelation);
+
+    const timing = MILESTONE_STAGES[milestone];
+    const endedAt = timing?.endedAt(message);
+    const stages: InboxBotStage[] = [];
+    if (
+      timing !== undefined &&
+      endedAt !== undefined &&
+      message.minedAt !== undefined &&
+      !message.exportedStages.includes(timing.stage)
+    ) {
+      this.metrics.recordStage(timing.stage, message, (endedAt - message.minedAt) / 1000);
+      stages.push(timing.stage);
+    }
+    await this.store.markExported(message.messageId, { milestones: [milestone], stages });
+
+    if (milestone === 'completed') {
+      await this.logCompletion(message);
+      return;
+    }
     this.log.debug(`Inbox message reached ${milestone}`, {
       milestone,
       messageId: message.messageId,
@@ -1503,8 +1683,51 @@ export class InboxBot implements BotLifecycle {
     });
   }
 
+  /**
+   * The one structured record of a message's whole journey, emitted when it completes. Everything too granular
+   * for a metric label lives here: ids, transaction and block hashes, indices, the bucket, and every stage
+   * timestamp with the latency it closes. The claim secret is deliberately absent, as it is from every other log.
+   */
+  private async logCompletion(message: InboxMessageRecord): Promise<void> {
+    const batch = await this.store.getBatch(message.batchId);
+    this.log.info(`Inbox message completed`, {
+      messageId: message.messageId,
+      batchId: message.batchId,
+      scenario: message.scenario,
+      mode: message.mode,
+      msgHash: message.msgHash,
+      globalLeafIndex: message.globalLeafIndex,
+      bucketSeq: message.bucketSeq,
+      attempts: message.attempts,
+      anchorPolicy: this.anchorPolicy,
+      completionPolicy: this.completionPolicy,
+      blockRelation: message.blockRelation,
+      l1TxHash: batch?.l1TxHash,
+      l1BlockNumber: batch?.l1BlockNumber,
+      l1BlockHash: batch?.l1BlockHash,
+      l1BlockTimestamp: batch?.l1BlockTimestamp,
+      l1GasUsed: batch?.gasUsed,
+      l2TxHash: message.l2TxHash,
+      readyBlockNumber: message.readyBlockNumber,
+      insertionBlockNumber: message.insertionBlockNumber,
+      proposedInclusionBlockNumber: message.proposedInclusionBlockNumber,
+      completionBlockNumber: message.completionBlockNumber,
+      sentAt: message.sentAt,
+      minedAt: message.minedAt,
+      observedAt: message.observedAt,
+      readyAt: message.readyAt,
+      includedAt: message.includedAt,
+      completedAt: message.completedAt,
+      submissionToMinedSeconds: secondsBetween(message.sentAt, message.minedAt),
+      minedToObservedSeconds: secondsBetween(message.minedAt, message.observedAt),
+      minedToReadySeconds: secondsBetween(message.minedAt, message.readyAt),
+      minedToIncludedSeconds: secondsBetween(message.minedAt, message.includedAt),
+      minedToCompletedSeconds: secondsBetween(message.minedAt, message.completedAt),
+    });
+  }
+
   private recordSimulation(result: InboxBotSimulationResult, message: InboxMessageRecord): void {
-    this.tally(`simulation:${result}`);
+    this.metrics.recordSimulation(result, message);
     this.log.debug(`Inbox consumption simulation ${result}`, {
       result,
       messageId: message.messageId,
@@ -1519,7 +1742,7 @@ export class InboxBot implements BotLifecycle {
     message: InboxMessageRecord,
     receipt: MinedTxReceipt,
   ): void {
-    this.tally(`public_execution:${result}`);
+    this.metrics.recordPublicExecution(result, message.scenario);
     this.log.info(`Inbox public consumption ${result}`, {
       result,
       messageId: message.messageId,
@@ -1532,7 +1755,7 @@ export class InboxBot implements BotLifecycle {
 
   /** A consumption whose simulation was accepted and whose execution then reverted: the two views disagreed. */
   private recordPredictionMismatch(message: InboxMessageRecord, receipt: MinedTxReceipt): void {
-    this.tally('prediction_mismatch');
+    this.metrics.recordPredictionMismatch(message.scenario);
     this.log.warn(`Inbox consumption reverted after an accepted simulation`, {
       messageId: message.messageId,
       batchId: message.batchId,
@@ -1544,13 +1767,38 @@ export class InboxBot implements BotLifecycle {
     });
   }
 
-  private recordL1Batch(batchId: string, result: 'success' | 'reverted', receipt: L1ToL2MessageBatchReceipt): void {
-    this.tally(`l1_batch:${result}`);
+  /**
+   * Emits a batch outcome with its size and gas, and the submission-to-mined latency it closes. That latency is
+   * a batch-scoped sample with no mode: a batch carries messages of both domains.
+   */
+  private async recordL1Batch(
+    batch: InboxBatchRecord,
+    result: InboxBotL1BatchResult,
+    receipt: L1ToL2MessageBatchReceipt,
+  ): Promise<void> {
+    this.metrics.recordL1Batch(result, batch.scenario, {
+      messageCount: batch.messageCount,
+      gasUsed: receipt.gasUsed,
+    });
+    if (
+      result === 'success' &&
+      batch.submittedAt !== undefined &&
+      batch.minedAt !== undefined &&
+      !batch.exportedStages.includes('l1_submission_to_mined')
+    ) {
+      this.metrics.recordStage(
+        'l1_submission_to_mined',
+        { scenario: batch.scenario },
+        (batch.minedAt - batch.submittedAt) / 1000,
+      );
+      await this.store.markBatchExported(batch.batchId, ['l1_submission_to_mined']);
+    }
     this.log.info(`Inbox batch ${result}`, {
-      batchId,
+      batchId: batch.batchId,
       result,
+      scenario: batch.scenario,
       txHash: receipt.txHash,
-      messageCount: receipt.messages.length,
+      messageCount: batch.messageCount,
       gasUsed: receipt.gasUsed.toString(),
       l1BlockNumber: receipt.l1BlockNumber.toString(),
       l1BlockTimestamp: receipt.l1BlockTimestamp.toString(),
@@ -1558,7 +1806,12 @@ export class InboxBot implements BotLifecycle {
   }
 
   private recordSaturationRun(result: InboxBotSaturationRunResult, context: object): void {
-    this.tally(`saturation_run:${result}`);
+    this.metrics.recordSaturationRun(result);
     this.log.info(`Inbox saturation run ${result}`, { result, ...context });
   }
+}
+
+/** Seconds between two local observations, or undefined when either of them was never made. */
+function secondsBetween(from: number | undefined, to: number | undefined): number | undefined {
+  return from === undefined || to === undefined ? undefined : (to - from) / 1000;
 }

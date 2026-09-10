@@ -30,13 +30,29 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, PartialStateReference, StateReference, TxEffect } from '@aztec/stdlib/tx';
-import { getTelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, Metrics } from '@aztec/telemetry-client';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type BotConfig, MAX_INBOX_MESSAGES_PER_BATCH, applyInboxModeDefaults, getBotDefaultConfig } from './config.js';
 import { InboxBot } from './inbox_bot.js';
+import {
+  InboxBotAnchorPolicies,
+  InboxBotBlockRelations,
+  InboxBotCheckResults,
+  InboxBotChecks,
+  InboxBotCompletionPolicies,
+  InboxBotL1BatchResults,
+  InboxBotMilestones,
+  InboxBotModes,
+  InboxBotPublicExecutionResults,
+  InboxBotReasons,
+  InboxBotSaturationRunResults,
+  InboxBotScenarios,
+  InboxBotSimulationResults,
+  InboxBotStages,
+} from './inbox_bot_metrics.js';
 import type { InboxL1Producer } from './inbox_l1_producer.js';
 import type { InboxConsumptionRequest, InboxL2Consumer } from './inbox_l2_consumer.js';
 import type {
@@ -46,6 +62,7 @@ import type {
   SentInboxMessage,
 } from './l1_to_l2_seeding.js';
 import { type InboxMessageRecord, InboxStore } from './store/inbox_store.js';
+import { RecordingTelemetryClient } from './test/recording_telemetry.js';
 
 /**
  * L1 side of the producer under the test's control. It records every batch it was asked to send and can be told
@@ -350,6 +367,24 @@ function buildBlockData(block: FakeBlock): BlockData {
 let recipient: AztecAddress;
 const rollupVersion = 1n;
 
+/** Every value the bot is allowed to put on a metric label. Anything else would be unbounded cardinality. */
+const BOUNDED_ATTRIBUTE_VALUES: string[] = [
+  ...InboxBotModes,
+  ...InboxBotScenarios,
+  ...InboxBotStages,
+  ...InboxBotMilestones,
+  ...InboxBotBlockRelations,
+  ...InboxBotChecks,
+  ...InboxBotReasons,
+  ...InboxBotAnchorPolicies,
+  ...InboxBotCompletionPolicies,
+  ...InboxBotSimulationResults,
+  ...InboxBotPublicExecutionResults,
+  ...InboxBotCheckResults,
+  ...InboxBotL1BatchResults,
+  ...InboxBotSaturationRunResults,
+];
+
 /** The store validates hashes as hex on read, so test fixtures must look like real ones. */
 const hash = (n: number) => `0x${n.toString(16).padStart(64, '0')}`;
 const RECOVERED_TX = hash(0xfeed);
@@ -361,6 +396,30 @@ describe('InboxBot', () => {
   let consumer: FakeInboxL2Consumer;
   let chain: FakeChain;
   let dateProvider: ManualDateProvider;
+  let telemetry: RecordingTelemetryClient;
+
+  /** Number of checks the bot exported for one check and outcome, across every anchor policy. */
+  const checks = (check: string, result: string) =>
+    telemetry.meter.sum(Metrics.BOT_INBOX_CHECK_COUNT, {
+      [Attributes.BOT_INBOX_CHECK]: check,
+      [Attributes.BOT_INBOX_RESULT]: result,
+    });
+
+  /** Number of failures the bot exported for one bounded reason. */
+  const failures = (reason: string) =>
+    telemetry.meter.sum(Metrics.BOT_INBOX_FAILURE_COUNT, { [Attributes.BOT_INBOX_REASON]: reason });
+
+  /** Number of simulation outcomes the bot exported, across every mode and scenario. */
+  const simulations = (result: string) =>
+    telemetry.meter.sum(Metrics.BOT_INBOX_SIMULATION_COUNT, { [Attributes.BOT_INBOX_RESULT]: result });
+
+  /** Number of public executions the bot exported with the given outcome. */
+  const publicExecutions = (result: string) =>
+    telemetry.meter.sum(Metrics.BOT_INBOX_PUBLIC_EXECUTION_COUNT, { [Attributes.BOT_INBOX_RESULT]: result });
+
+  /** Number of messages the bot exported as reaching a milestone, across every mode and scenario. */
+  const milestones = (milestone: string) =>
+    telemetry.meter.sum(Metrics.BOT_INBOX_MESSAGE_COUNT, { [Attributes.BOT_INBOX_MILESTONE]: milestone });
 
   const buildConfig = (overrides: Partial<BotConfig> = {}): BotConfig =>
     applyInboxModeDefaults({
@@ -384,7 +443,7 @@ describe('InboxBot', () => {
       producer,
       consumer,
       store,
-      telemetry: getTelemetryClient(),
+      telemetry,
       config: buildConfig(overrides),
       dateProvider,
     });
@@ -400,6 +459,7 @@ describe('InboxBot', () => {
     producer = new FakeInboxL1Producer();
     consumer = new FakeInboxL2Consumer();
     chain = new FakeChain();
+    telemetry = new RecordingTelemetryClient();
   });
 
   afterEach(async () => {
@@ -901,7 +961,7 @@ describe('InboxBot', () => {
       expect(updated.state).toEqual('sent');
       expect(updated.readyAt).toBeUndefined();
       expect(updated.attempts).toEqual(1);
-      expect(bot.recorded.get('check:index_match:passed')).toEqual(1);
+      expect(checks('index_match', 'passed')).toEqual(1);
     });
 
     it('holds a private consumption until the message is in the pinned block and its witness verifies', async () => {
@@ -921,7 +981,7 @@ describe('InboxBot', () => {
       const updated = await reload(message);
       expect(updated.state).toEqual('sent');
       expect(updated.readyBlockNumber).toEqual(block.number.toString());
-      expect(bot.recorded.get('check:readiness_witness:passed')).toEqual(1);
+      expect(checks('readiness_witness', 'passed')).toEqual(1);
     });
 
     it('reports a witness that does not reconstruct the pinned block root, and still attempts the message', async () => {
@@ -935,8 +995,8 @@ describe('InboxBot', () => {
 
       await consume(bot);
 
-      expect(bot.recorded.get('check:readiness_witness:failed')).toEqual(1);
-      expect(bot.recorded.get('failure:invalid_witness')).toEqual(1);
+      expect(checks('readiness_witness', 'failed')).toEqual(1);
+      expect(failures('invalid_witness')).toEqual(1);
       expect(consumer.sent.length).toEqual(1);
     });
 
@@ -954,8 +1014,8 @@ describe('InboxBot', () => {
 
       await consume(bot);
 
-      expect(bot.recorded.get('check:readiness_witness:failed')).toBeUndefined();
-      expect(bot.recorded.get('check:readiness_witness:passed')).toBeUndefined();
+      expect(checks('readiness_witness', 'failed')).toEqual(0);
+      expect(checks('readiness_witness', 'passed')).toEqual(0);
       expect((await reload(message)).readyAt).toBeUndefined();
       expect(consumer.sent).toEqual([]);
     });
@@ -970,7 +1030,7 @@ describe('InboxBot', () => {
 
       const updated = await reload(message);
       expect(updated).toMatchObject({ state: 'failed', failureReason: 'api_inconsistency' });
-      expect(bot.recorded.get('check:index_match:failed')).toEqual(1);
+      expect(checks('index_match', 'failed')).toEqual(1);
       expect(consumer.sent).toEqual([]);
     });
 
@@ -981,7 +1041,7 @@ describe('InboxBot', () => {
       await consume(bot);
       await consume(bot);
 
-      expect(bot.recorded.get('check:unknown_message:passed')).toEqual(1);
+      expect(checks('unknown_message', 'passed')).toEqual(1);
     });
 
     it('retries a message that is not consumable yet without spending an attempt or reporting a failure', async () => {
@@ -993,8 +1053,8 @@ describe('InboxBot', () => {
 
       const retrying = await reload(message);
       expect(retrying).toMatchObject({ state: 'observed', attempts: 0 });
-      expect(bot.recorded.get('simulation:not_ready')).toEqual(1);
-      expect(bot.recorded.get('failure:simulation')).toBeUndefined();
+      expect(simulations('not_ready')).toEqual(1);
+      expect(failures('simulation')).toEqual(0);
       expect(bot.isHealthy()).toBe(true);
 
       await consume(bot);
@@ -1010,8 +1070,8 @@ describe('InboxBot', () => {
 
       await consume(bot);
 
-      expect(bot.recorded.get('simulation:error')).toEqual(1);
-      expect(bot.recorded.get('simulation:not_ready')).toBeUndefined();
+      expect(simulations('error')).toEqual(1);
+      expect(simulations('not_ready')).toEqual(0);
       expect(await reload(message)).toMatchObject({ state: 'observed', attempts: 1 });
 
       for (let i = 0; i < 5; i++) {
@@ -1063,7 +1123,7 @@ describe('InboxBot', () => {
 
       await consume(bot);
 
-      expect(bot.recorded.get('failure:l2_drop')).toEqual(1);
+      expect(failures('l2_drop')).toEqual(1);
       const retried = await reload(message);
       expect(retried.state).toEqual('sent');
       expect(retried.l2TxHash).not.toEqual(sent.l2TxHash);
@@ -1088,8 +1148,8 @@ describe('InboxBot', () => {
       expect(included.state).toEqual('sent');
       expect(included.proposedInclusionBlockNumber).toEqual(insertion.number.toString());
       expect(included.blockRelation).toEqual('same_block');
-      expect(bot.recorded.get('check:consumption_nullifier:passed')).toEqual(1);
-      expect(bot.recorded.get('public_execution:success')).toEqual(1);
+      expect(checks('consumption_nullifier', 'passed')).toEqual(1);
+      expect(publicExecutions('success')).toEqual(1);
 
       chain.mine(sent, {
         blockNumber: insertion.number,
@@ -1119,7 +1179,7 @@ describe('InboxBot', () => {
         blockRelation: 'later_block',
         insertionBlockNumber: insertion.number.toString(),
       });
-      expect(bot.recorded.get('failure:l2_revert')).toBeUndefined();
+      expect(failures('l2_revert')).toEqual(0);
     });
 
     it('reports an unknown relation when the consuming block is no longer canonical', async () => {
@@ -1150,8 +1210,8 @@ describe('InboxBot', () => {
       await consume(bot);
 
       expect(await reload(message)).toMatchObject({ state: 'failed', failureReason: 'invalid_consumption' });
-      expect(bot.recorded.get('public_execution:reverted')).toEqual(1);
-      expect(bot.recorded.get('prediction_mismatch')).toEqual(1);
+      expect(publicExecutions('reverted')).toEqual(1);
+      expect(telemetry.meter.sum(Metrics.BOT_INBOX_PREDICTION_MISMATCH_COUNT)).toEqual(1);
     });
 
     it('calls a revert an ordinary one when the executing block did not carry the message', async () => {
@@ -1217,7 +1277,7 @@ describe('InboxBot', () => {
 
         expect(consumer.simulated.length).toEqual(1);
         expect(consumer.simulated[0].mode).toEqual('private');
-        expect(bot.recorded.get('check:replay_rejection:passed')).toEqual(1);
+        expect(checks('replay_rejection', 'passed')).toEqual(1);
       });
 
       it('reports a replay that was accepted', async () => {
@@ -1228,8 +1288,8 @@ describe('InboxBot', () => {
         dateProvider.advanceTime(30);
         await consume(bot);
 
-        expect(bot.recorded.get('check:replay_rejection:failed')).toEqual(1);
-        expect(bot.recorded.get('failure:replay_accepted')).toEqual(1);
+        expect(checks('replay_rejection', 'failed')).toEqual(1);
+        expect(failures('replay_accepted')).toEqual(1);
       });
 
       it('does not accept an unrelated rejection as replay protection, and tries again', async () => {
@@ -1241,16 +1301,134 @@ describe('InboxBot', () => {
         dateProvider.advanceTime(30);
         await consume(bot);
 
-        expect(bot.recorded.get('check:replay_rejection:passed')).toBeUndefined();
-        expect(bot.recorded.get('check:replay_rejection:failed')).toBeUndefined();
+        expect(checks('replay_rejection', 'passed')).toEqual(0);
+        expect(checks('replay_rejection', 'failed')).toEqual(0);
 
         consumer.simulateError = alreadyNullified;
         dateProvider.advanceTime(30);
         await consume(bot);
 
-        expect(bot.recorded.get('check:replay_rejection:passed')).toEqual(1);
+        expect(checks('replay_rejection', 'passed')).toEqual(1);
         expect(consumer.simulated.length).toEqual(2);
       });
+    });
+
+    it('finishes a readiness observation that only became true after the message was consumed', async () => {
+      const bot = buildBot({ inboxConsumeMode: 'public', inboxMessagesPerBatch: 1 });
+      const [message] = await produceObservedBatch(bot);
+      await consume(bot);
+      const sent = await reload(message);
+      // The consuming block does not carry the message, so readiness is still negative when the receipt lands.
+      const consuming = chain.appendBlock(0);
+      chain.mine(sent, { blockNumber: consuming.number, nullifiers: [await nullifierOf(sent)] });
+
+      await consume(bot);
+
+      const completed = await reload(message);
+      expect(completed.state).toEqual('completed');
+      expect(completed.readyAt).toBeUndefined();
+      expect(milestones('ready')).toEqual(0);
+
+      await chain.insert(sent);
+      dateProvider.advanceTime(1);
+      await consume(bot);
+
+      expect((await reload(message)).readyAt).toBeDefined();
+      expect(milestones('ready')).toEqual(1);
+      expect(
+        telemetry.meter.values(Metrics.BOT_INBOX_STAGE_DURATION, {
+          [Attributes.BOT_INBOX_STAGE]: 'l1_mined_to_ready',
+        }),
+      ).toHaveLength(1);
+    });
+  });
+
+  describe('telemetry', () => {
+    it('exports an L1 batch with its size, gas and submission latency', async () => {
+      const bot = buildBot({ inboxMessagesPerBatch: 4 });
+
+      await bot.produceStep();
+
+      expect(
+        telemetry.meter.sum(Metrics.BOT_INBOX_L1_BATCH_COUNT, { [Attributes.BOT_INBOX_RESULT]: 'success' }),
+      ).toEqual(1);
+      expect(telemetry.meter.values(Metrics.BOT_INBOX_L1_BATCH_SIZE)).toEqual([4]);
+      expect(telemetry.meter.values(Metrics.BOT_INBOX_L1_GAS_USED)).toEqual([1_000_000]);
+      expect(
+        telemetry.meter.values(Metrics.BOT_INBOX_STAGE_DURATION, {
+          [Attributes.BOT_INBOX_STAGE]: 'l1_submission_to_mined',
+          [Attributes.BOT_INBOX_SCENARIO]: 'normal',
+        }),
+      ).toEqual([0]);
+      expect(milestones('sent')).toEqual(4);
+    });
+
+    it('never exports a milestone twice, even when a receipt is resolved again after a restart', async () => {
+      const bot = buildBot({ inboxMessagesPerBatch: 2, l1ToL2SeedCount: 2 });
+      await bot.produceStep();
+      expect(milestones('sent')).toEqual(2);
+
+      const [message] = await store.getActiveMessages();
+      const mined = (await store.getBatch(message.batchId))!;
+      producer.nonCanonicalBlocks.add(mined.l1BlockHash!);
+      producer.nextIndex = 50n;
+      producer.receipts.set(mined.l1TxHash!, {
+        ...producer.buildReceipt(mined.l1TxHash!, producer.sent[0].intents),
+        l1BlockNumber: 99n,
+        l1BlockHash: hash(99),
+      });
+
+      // A different instance reading the same store: the persisted markers, not anything held in memory, are
+      // what keep the re-resolved receipt from being counted a second time.
+      await buildBot({ inboxMessagesPerBatch: 2, l1ToL2SeedCount: 2 }).produceStep();
+
+      expect((await store.getBatchMessages(message.batchId)).map(m => m.globalLeafIndex)).toEqual(['50', '51']);
+      expect(milestones('sent')).toEqual(2);
+      expect(
+        telemetry.meter.values(Metrics.BOT_INBOX_STAGE_DURATION, {
+          [Attributes.BOT_INBOX_STAGE]: 'l1_submission_to_mined',
+        }),
+      ).toHaveLength(1);
+      expect(failures('reorg')).toEqual(1);
+    });
+
+    it('arms its observable gauges while running and removes them when stopped', async () => {
+      const bot = buildBot();
+      expect(telemetry.meter.armedCallbackCount).toEqual(0);
+
+      await bot.start();
+      expect(telemetry.meter.armedCallbackCount).toEqual(1);
+
+      await telemetry.meter.collect();
+      expect(telemetry.meter.last(Metrics.BOT_INBOX_SATURATION_ENABLED)).toEqual(0);
+      expect(telemetry.meter.last(Metrics.BOT_INBOX_SATURATION_NEXT_DUE_TIMESTAMP)).toEqual(0);
+      expect(
+        telemetry.meter.last(Metrics.BOT_INBOX_PENDING_COUNT, { [Attributes.BOT_INBOX_SCENARIO]: 'saturation' }),
+      ).toEqual(0);
+
+      await bot.stop();
+      expect(telemetry.meter.armedCallbackCount).toEqual(0);
+
+      telemetry.meter.clear();
+      await telemetry.meter.collect();
+      expect(telemetry.meter.samples).toEqual([]);
+    });
+
+    it('labels every sample with bounded values only', async () => {
+      const bot = buildBot({ inboxMessagesPerBatch: 1, inboxConsumeMode: 'public' });
+      await bot.produceStep();
+      const [message] = await store.getActiveMessages();
+      chain.observe(message);
+      await bot.consumeStep();
+      await bot.waitForBackgroundWork();
+
+      expect(telemetry.meter.samples.length).toBeGreaterThan(0);
+      for (const sample of telemetry.meter.samples) {
+        for (const value of Object.values(sample.attributes)) {
+          expect(typeof value).toEqual('string');
+          expect(BOUNDED_ATTRIBUTE_VALUES).toContain(value);
+        }
+      }
     });
   });
 });
