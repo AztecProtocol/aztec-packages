@@ -326,7 +326,7 @@ The generic Google-Benchmark A/B scripts still exist for non-Chonk targets:
 - **WASM is ~2.8x slower than native** — this ratio is consistent across all circuit types.
 - **CRS:** Ensure `~/.bb-crs` exists. For WASM, wasmtime needs `--dir=$HOME/.bb-crs`.
 - **`BB_BENCH=1` vs `--print_bench`:** Either activates profiling. `--print_bench` also triggers the hierarchical tree output to stderr. In Google-Benchmark targets that wrap their loops with `GOOGLE_BB_BENCH_REPORTER`, the same activation happens automatically when `BB_BENCH=1` is set.
-- **Dashboard:** CI uploads breakdown data to `bench/bb-breakdown/` on S3. The dashboard at `ci3/dashboard/chonk-breakdowns/` visualizes it.
+- **Dashboard:** CI stores breakdown data as logs `bench/bb-breakdown/<runtime>-<flow>-<sha>` on the ci3 server (`ci3/CI3_SERVER_API.md`; in CI that lands at `bench/bb-breakdown/` in the S3 log bucket). The labs dashboard's chonk-breakdowns view (aztec-node repository) visualizes it.
 - **Rebuilding after instrumentation changes:** Only `ninja bb` is needed — no need to reconfigure.
 
 ## Presenting results
