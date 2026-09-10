@@ -40,21 +40,7 @@ export type Field2 = [Uint8Array, Uint8Array];
 
 export { CircuitKind } from './circuit_kind.js';
 
-// Export curve constants for use in foundation
-export {
-  BN254_FQ_MODULUS,
-  BN254_FR_MODULUS,
-  BN254_G1_GENERATOR,
-  BN254_G2_GENERATOR,
-  GRUMPKIN_FR_MODULUS,
-  GRUMPKIN_FQ_MODULUS,
-  GRUMPKIN_G1_GENERATOR,
-  SECP256K1_FR_MODULUS,
-  SECP256K1_FQ_MODULUS,
-  SECP256K1_G1_GENERATOR,
-  SECP256R1_FR_MODULUS,
-  SECP256R1_FQ_MODULUS,
-  SECP256R1_G1_GENERATOR,
-} from '@aztec-foundation/bb.js-api';
+// Curve constants, for callers doing their own field arithmetic.
+export * from './curve_constants.js';
 
 export { findBbBinary, findNapiBinary } from './bb_backends/node/platform.js';

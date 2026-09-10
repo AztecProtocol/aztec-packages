@@ -64,7 +64,6 @@ function generate_bb_js_api_package {
     --binary-env-var BB_BINARY_PATH \
     --strip-method-prefix \
     --strip-type-prefix \
-    --curve-constants "$bbapi/bb_curve_constants.json" \
     --package-transports uds,shm,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \
     --package-wasm-module barretenberg.wasm \
@@ -120,7 +119,7 @@ function copy_bb_js_api_cross {
 }
 
 function prepare_bb_js_api_arch_packages {
-  (cd bb.js-api && ./scripts/prepare_arch_packages.sh "$@")
+  yarn workspace "$BB_JS_API_PACKAGE" run prepare_arch_packages "$@"
 }
 
 # Generate + compile the package bb.js compiles against, without the wasm/binary artifacts
@@ -165,7 +164,7 @@ function copy_bb_avm_sim_cross {
 }
 
 function prepare_bb_avm_sim_arch_packages {
-  (cd bb-avm-sim && ./scripts/prepare_arch_packages.sh "$@")
+  yarn workspace "$BB_AVM_SIM_PACKAGE" run prepare_arch_packages "$@"
 }
 
 function build_bb_js {

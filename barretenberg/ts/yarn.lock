@@ -163,7 +163,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec-foundation/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbarretenberg-ts-packages%40workspace%3A."
   bin:
-    ipc-runtime-prepare-arch-packages: ./scripts/prepare_arch_packages.sh
+    ipc-runtime-prepare-arch-packages: ./scripts/prepare_arch_packages.mjs
   languageName: node
   linkType: soft
 
