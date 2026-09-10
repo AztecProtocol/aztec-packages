@@ -185,6 +185,11 @@ pub fn validate_factor(z_pow_d: BLS12_381_Fr, factor: BLS12_381_Fr) {
 pub fn compute_factor(z: BLS12_381_Fr) -> BLS12_381_Fr {
     let z_pow_d = z_pow_d(z);
 
+    // The barycentric formula only holds off the evaluation domain. At a d-th root of unity the
+    // factor is zero and p(z) collapses to zero for every blob, and `validate_fracs` has no
+    // solution there; asserting on `z^d` names that precondition in one place.
+    z_pow_d.assert_is_not_equal(BLS12_381_Fr::one());
+
     // Safety: We immediately check that this result is correct in the following `evaluate_quadratic_expression` call.
     let factor = unsafe { __compute_factor_helper(z_pow_d) };
 
@@ -232,6 +237,12 @@ pub fn compute_factor(z: BLS12_381_Fr) -> BLS12_381_Fr {
 ///
 /// Total: ~2.5d multiplications and one inversion, against ~4d and one inversion for the
 /// batch-inversion form (Montgomery's trick alone costs 3 multiplications per element).
+///
+/// Requires `z^d != 1`, i.e. `z` must not itself be a d-th root of unity, and asserts it: at a
+/// root the single inversion would be of zero, which `__invmod` maps to zero, and every entry
+/// derived from it would be zero too. `validate_fracs` has no solution there whatever the hint
+/// returns, because `fracs[i] * 0 = ROOTS[i]` is unsatisfiable at the index where
+/// `z = ROOTS[i]`, and reaching a root needs a Poseidon2 preimage.
 unconstrained fn __compute_fracs(z: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_BLOB] {
     // z_pow[k] = z^(2^k)
     let mut z_pow = [BLS12_381_Fr::zero(); LOG_FIELDS_PER_BLOB + 1];
@@ -240,9 +251,12 @@ unconstrained fn __compute_fracs(z: BLS12_381_Fr) -> [BLS12_381_Fr; FIELDS_PER_B
         z_pow[k] = z_pow[k - 1].__mul(z_pow[k - 1]);
     }
 
-    // The single inverse everything else is derived from. If `z` is itself a d-th root of unity
-    // this is zero and the whole array degenerates to zeros, exactly as the batch-inversion form
-    // did; `validate_fracs` rejects that, and reaching it needs a Poseidon2 preimage.
+    // The single inverse everything else is derived from. It is zero iff `z` is a d-th root of
+    // unity, which the precondition excludes; fail here rather than return an all-zero array.
+    assert(
+        z_pow[LOG_FIELDS_PER_BLOB] != BLS12_381_Fr::one(),
+        "blob challenge z is a d-th root of unity",
+    );
     let mut inverses = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
     inverses[0] = z_pow[LOG_FIELDS_PER_BLOB].__sub(BLS12_381_Fr::one()).__invmod();
 
@@ -631,18 +645,80 @@ mod tests {
     /// `__compute_fracs` derives every entry from a single inversion by halving down the roots
     /// of unity, so an error in one level would corrupt a whole contiguous half of the output.
     /// Spot-checking a few indices would miss that; check the defining relation everywhere.
-    #[test]
-    unconstrained fn test_compute_fracs_satisfies_defining_relation_everywhere() {
-        let z = BLS12_381_Fr::from(
-            0x1f4a21e3a1ab23739c164d0df1596c870180aab5f810c548097dd6371ac3186d,
-        );
-
+    /// For any `z` with `z^d != 1` each relation pins its `fracs[i]` uniquely.
+    unconstrained fn assert_fracs_satisfy_defining_relation_everywhere(z: BLS12_381_Fr) {
         let fracs = __compute_fracs(z);
 
         for i in 0..FIELDS_PER_BLOB {
             // fracs[i] * (z - w^i) == w^i
             assert_eq(fracs[i].__mul(z.__sub(ROOTS[i])), ROOTS[i]);
         }
+    }
+
+    #[test]
+    unconstrained fn test_compute_fracs_satisfies_defining_relation_everywhere() {
+        let two = BLS12_381_Fr::from_limbs([2, 0, 0]);
+        let three = BLS12_381_Fr::from_limbs([3, 0, 0]);
+        let challenges = [
+            // A challenge of the size Poseidon2 produces in the rollup.
+            BLS12_381_Fr::from(
+                0x1f4a21e3a1ab23739c164d0df1596c870180aab5f810c548097dd6371ac3186d,
+            ),
+            // Small values.
+            BLS12_381_Fr::zero(),
+            two,
+            BLS12_381_Fr::from_limbs([42, 0, 0]),
+            // Either side of the 120-bit limb boundaries.
+            BLS12_381_Fr::from_limbs([0xffffffffffffffffffffffffffffff, 0, 0]),
+            BLS12_381_Fr::from_limbs([0, 1, 0]),
+            BLS12_381_Fr::from_limbs([1, 1, 0]),
+            BLS12_381_Fr::from_limbs([
+                0xffffffffffffffffffffffffffffff,
+                0xffffffffffffffffffffffffffffff,
+                0,
+            ]),
+            BLS12_381_Fr::from_limbs([0, 0, 1]),
+            // The top of the BLS12-381 scalar field. `-1` itself is `ROOTS[1]`, a d-th root of
+            // unity, and so outside the precondition; `-2` and `-3` are not roots.
+            two.__neg(),
+            three.__neg(),
+        ];
+
+        for j in 0..challenges.len() {
+            assert_fracs_satisfy_defining_relation_everywhere(challenges[j]);
+        }
+    }
+
+    /// At `z = 0` every fraction is `w^i / (0 - w^i) = -1`, so the whole array is known in
+    /// closed form.
+    #[test]
+    unconstrained fn test_compute_fracs_at_zero_is_all_minus_one() {
+        let minus_one = BLS12_381_Fr::one().__neg();
+
+        let fracs = __compute_fracs(BLS12_381_Fr::zero());
+
+        for i in 0..FIELDS_PER_BLOB {
+            assert_eq(fracs[i], minus_one);
+        }
+    }
+
+    // `__compute_fracs` requires `z^d != 1` and asserts it: at a d-th root of unity the one
+    // inversion would be of zero, which `__invmod` maps to zero, and every derived entry with it.
+    // Checked at 1, -1 and a root with no special structure.
+
+    #[test(should_fail_with = "blob challenge z is a d-th root of unity")]
+    unconstrained fn test_compute_fracs_rejects_z_equal_to_one() {
+        let _ = compute_fracs(ROOTS[0]);
+    }
+
+    #[test(should_fail_with = "blob challenge z is a d-th root of unity")]
+    unconstrained fn test_compute_fracs_rejects_z_equal_to_minus_one() {
+        let _ = compute_fracs(ROOTS[1]);
+    }
+
+    #[test(should_fail_with = "blob challenge z is a d-th root of unity")]
+    unconstrained fn test_compute_fracs_rejects_z_equal_to_nontrivial_root_of_unity() {
+        let _ = compute_fracs(ROOTS[1000]);
     }
 
     /// The halving reads a parent's two children as `2u` / `2u + 1` and its root as `ROOTS[2u]`.
@@ -653,6 +729,17 @@ mod tests {
     unconstrained fn test_roots_are_stored_adjacent_to_their_negations() {
         for u in 0..(FIELDS_PER_BLOB / 2) {
             assert_eq(ROOTS[2 * u + 1], ROOTS[2 * u].__neg());
+        }
+    }
+
+    /// The other half of the indexing invariant: descending a level squares the root, and the
+    /// bit-reversed layout puts `ROOTS[2u]^2` at the parent's index `u`. The final level reads
+    /// `ROOTS[u]` as `w^2t` on the strength of this. Adjacent negation alone does not imply it:
+    /// reordering intact `(r, -r)` pairs keeps every pair adjacent but breaks the parent lookup.
+    #[test]
+    unconstrained fn test_roots_square_to_their_parent() {
+        for u in 0..(FIELDS_PER_BLOB / 2) {
+            assert_eq(ROOTS[2 * u].__mul(ROOTS[2 * u]), ROOTS[u]);
         }
     }
 
@@ -823,7 +910,8 @@ mod tests {
     // ==================== SOUNDNESS TESTS ====================
     // These tests verify that invalid hints are rejected by the constraints.
     // The BigNum library's evaluate_quadratic_expression asserts `remainder == [0; N]`
-    // when the constraint is not satisfied.
+    // when the constraint is not satisfied. That assertion carries no message, so the
+    // `validate_*` tests below can only say `should_fail`.
 
     #[test(should_fail)]
     fn test_validate_factor_rejects_invalid_factor() {
@@ -892,6 +980,53 @@ mod tests {
 
         // This should fail because the constraints check each position independently
         validate_fracs(z, fracs);
+    }
+
+    #[test(should_fail)]
+    fn test_validate_fracs_rejects_invalid_frac_at_last_index() {
+        // The last pair is the final one written by the halving's last level; corrupt its second
+        // entry rather than only ever exercising index 0.
+        let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
+        let last = FIELDS_PER_BLOB - 1;
+
+        // Safety: computing correct values first
+        let mut fracs = unsafe { __compute_fracs(z) };
+        fracs[last] = unsafe { fracs[last].__add(BLS12_381_Fr::one()) };
+
+        validate_fracs(z, fracs);
+    }
+
+    /// At `z = ROOTS[j]` the constraint at index `j` reads `fracs[j] * 0 = ROOTS[j]`, so no array
+    /// satisfies `validate_fracs`. The hint array here is correct at every other index, so the
+    /// rejection is that index alone, independent of the hint's own assertion.
+    #[test(should_fail)]
+    fn test_validate_fracs_rejects_root_of_unity_for_any_fracs() {
+        let j: u32 = 1000;
+        let z = ROOTS[j];
+
+        // Safety: test hint. `batch_invert` leaves the one zero denominator (index `j`) as zero
+        // and inverts the rest, so every entry but `j` satisfies its constraint by construction.
+        let fracs = unsafe {
+            let mut denoms = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+            for i in 0..FIELDS_PER_BLOB {
+                denoms[i] = z.__sub(ROOTS[i]);
+            }
+            let inv_denoms = bignum::bignum::batch_invert(denoms);
+            let mut fracs = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
+            for i in 0..FIELDS_PER_BLOB {
+                fracs[i] = ROOTS[i].__mul(inv_denoms[i]);
+            }
+            fracs
+        };
+
+        validate_fracs(z, fracs);
+    }
+
+    /// `compute_factor` asserts `z^d != 1` in-circuit: at a root the factor is zero and the
+    /// evaluation would collapse to zero for every blob.
+    #[test(should_fail_with = "assert_is_not_equal fail")]
+    fn test_compute_factor_rejects_root_of_unity() {
+        let _ = compute_factor(ROOTS[1]);
     }
 
     #[test(should_fail)]
