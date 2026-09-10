@@ -9,9 +9,9 @@ pub fn assert_trailing_zeros<let N: u32>(input: [Field; N], in_len: u32) {
     let mut should_check = false;
     for i in 0..N {
         should_check |= i == in_len;
-        if should_check {
-            assert_eq(input[i], 0, "Found non-zero field after breakpoint");
-        }
+        // Branch-free: `should_check` gates the value instead of the assertion, so the unrolled
+        // loop is straight-line rather than N conditional blocks for flattening to collapse.
+        assert_eq(input[i] * should_check as Field, 0, "Found non-zero field after breakpoint");
     }
 }
 
