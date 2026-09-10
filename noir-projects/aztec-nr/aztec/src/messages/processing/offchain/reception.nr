@@ -292,12 +292,7 @@ impl OffchainReception {
 
 /// Serializes an [`OffchainMessage`] into a fact payload.
 unconstrained fn to_payload(message: OffchainMessage) -> EphemeralArray<Field> {
-    let fields = message.serialize();
-    let payload: EphemeralArray<Field> = EphemeralArray::empty();
-    for i in 0..fields.len() {
-        payload.push(fields[i]);
-    }
-    payload
+    EphemeralArray::from_array(message.serialize())
 }
 
 mod test {
