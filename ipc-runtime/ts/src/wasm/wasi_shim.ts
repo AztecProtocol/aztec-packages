@@ -137,8 +137,21 @@ export function createWasiImports(
       return ERRNO_SUCCESS;
     },
     fd_close: () => ERRNO_BADF,
+    // wasi-libc walks descriptors from 3 looking for preopened directories and aborts on any
+    // error but this one, so a module with no preopens must be told BADF, not NOSYS.
+    fd_prestat_get: () => ERRNO_BADF,
+    fd_prestat_dir_name: () => ERRNO_BADF,
     sched_yield: () => ERRNO_SUCCESS,
     proc_exit: (code) => {
+      // Nothing more will be written, so a line still waiting for its terminator is final output.
+      // A module that gives up part way through a message would otherwise lose it entirely.
+      for (const [fd, text] of Object.entries(pending)) {
+        const sink = Number(fd) === 1 ? opts.onStdout : opts.onStderr;
+        if (text && sink) {
+          sink(text);
+        }
+        delete pending[Number(fd)];
+      }
       throw new WasmExitError(code);
     },
   };

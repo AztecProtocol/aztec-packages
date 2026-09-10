@@ -1,10 +1,5 @@
-import { type HostImportsFactory, WasmInstanceHost } from "./host.js";
+import { WasmInstanceHost } from "./host.js";
 import type { WorkerSide } from "./platform.js";
-
-export interface ThreadWorkerOptions {
-  /** The same module-specific imports the main instance was given, if any. */
-  hostImports?: HostImportsFactory;
-}
 
 /**
  * Body of a wasi-threads worker: instantiate the module over the shared memory on `init`, then run
@@ -12,10 +7,7 @@ export interface ThreadWorkerOptions {
  * this worker serves that one thread and is done; the parent creates one worker per thread the
  * module spawns.
  */
-export function runThreadWorker(
-  side: WorkerSide,
-  opts: ThreadWorkerOptions = {},
-): void {
+export function runThreadWorker(side: WorkerSide): void {
   // `init` and `start` arrive back to back, and instantiation is asynchronous, so `start` waits on
   // this rather than on the message order.
   let instantiated: Promise<WasmInstanceHost> | undefined;
@@ -30,7 +22,6 @@ export function runThreadWorker(
             memory: msg.memory,
             env: msg.env,
             entry: msg.entry,
-            hostImports: opts.hostImports,
             threads: 1,
             runInitialize: false,
             // Only the main instance spawns threads; a request from a thread is refused.

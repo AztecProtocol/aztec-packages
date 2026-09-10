@@ -1,10 +1,7 @@
 import { type WasmFfiBinding, WasmFfiEngine } from "./backend.js";
-import type { HostImportsFactory } from "./host.js";
 import type { WasmPlatform, WorkerHandle, WorkerSide } from "./platform.js";
 
 export interface MainWorkerOptions {
-  /** Module-specific imports for the main instance (thread workers get theirs from their own entry). */
-  hostImports?: HostImportsFactory;
   /** Spawns the thread pool's workers (see `WasmFfiBinding` for why this is a factory). */
   createThreadWorker: () => WorkerHandle;
 }
@@ -39,7 +36,6 @@ export function runMainWorker(
               memory: o.memory,
               env: o.env,
               entry: o.entry,
-              hostImports: opts.hostImports,
               logger: log,
             },
             binding,

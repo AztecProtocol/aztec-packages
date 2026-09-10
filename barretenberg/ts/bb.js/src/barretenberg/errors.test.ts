@@ -51,8 +51,9 @@ describe('command errors', () => {
   });
 
   // bb's wasm build compiles with BB_NO_EXCEPTIONS, so the dispatcher's catch is compiled away and
-  // throw_or_abort reaches the host's throw hook instead. The message survives; the type does not.
-  // Pinned so the divergence cannot change silently — catch Error to handle both.
+  // a throw cannot unwind: bb writes the reason to stderr and exits, and ipc-runtime turns that
+  // into an error carrying the text. The message survives; the type does not. Pinned so the
+  // divergence cannot change silently — catch Error to handle both.
   it('reports a thrown error as a plain Error on wasm', async () => {
     const err = await thrownFailure(wasm).catch(e => e);
     expect(err).toBeInstanceOf(Error);

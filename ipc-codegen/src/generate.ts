@@ -23,6 +23,7 @@ import {
   mkdirSync,
   cpSync,
   rmSync,
+  rmdirSync,
 } from "fs";
 import { execSync } from "child_process";
 import { basename, dirname, join, relative, resolve } from "path";
@@ -70,7 +71,6 @@ interface Args {
   packageIpcPathArgs: string;
   packageWasmModule: string;
   packageWasmThreadsModule: string;
-  packageWasmHostImports: string;
   ipcRuntimeDependency: string;
   cppNamespace: string;
   cppWireNamespace: string;
@@ -110,9 +110,6 @@ Optional:
                            WebAssembly.compileStreaming and cached by the browser
   --package-wasm-threads-module <file>
                            wasm transport: the threads module, shipped in wasm/
-  --package-wasm-host-imports <path>
-                           wasm transport: TS module copied to src/wasm_host_imports.ts
-                           supplying the module's imports beyond WASI (default: none)
   --ipc-runtime-dependency <spec>
                            package.json dependency spec for @aztec-foundation/ipc-runtime
   --prefix <str>           Type prefix (auto-detected when >= 2 commands share one)
@@ -148,7 +145,6 @@ function parseArgs(argv: string[]): Args {
     packageIpcPathArgs: "--socket,{path}",
     packageWasmModule: "",
     packageWasmThreadsModule: "",
-    packageWasmHostImports: "",
     ipcRuntimeDependency: "@aztec-foundation/ipc-runtime",
     cppNamespace: "",
     cppWireNamespace: "wire",
@@ -211,9 +207,6 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--package-wasm-threads-module":
         args.packageWasmThreadsModule = takeValue();
-        break;
-      case "--package-wasm-host-imports":
-        args.packageWasmHostImports = takeValue();
         break;
       case "--ipc-runtime-dependency":
         args.ipcRuntimeDependency = takeValue();
@@ -372,10 +365,24 @@ function pruneStale(root: string) {
     // No manifest: either the first run here, or output from before manifests existed. Either
     // way there is nothing we can safely claim to own, so only record.
   }
+  const emptied = new Set<string>();
   for (const stale of previous.filter((p) => !current.includes(p))) {
     const path = join(root, stale);
     rmSync(path, { recursive: true, force: true });
     console.log(`  ${path} (removed, no longer generated)`);
+    for (let dir = dirname(path); dir !== root; dir = dirname(dir)) {
+      emptied.add(dir);
+    }
+  }
+  // Deepest first, so a directory holding only now-empty directories goes too. rmdir on a
+  // directory that still holds something fails, which is exactly the test we want.
+  for (const dir of [...emptied].sort((a, b) => b.length - a.length)) {
+    try {
+      rmdirSync(dir);
+      console.log(`  ${dir} (removed, now empty)`);
+    } catch {
+      // Still holds something generated, or something we did not write. Leave it.
+    }
   }
   writeFileSync(manifestPath, current.join("\n") + "\n");
 }
@@ -557,30 +564,6 @@ function generate(args: Args) {
           if (wasm) {
             writePackage("src/browser.ts", packageGen.generateBrowserIndex());
             writePackage("src/wasm.ts", packageGen.generateWasm());
-            writePackage(
-              "src/wasm/thread.worker.ts",
-              packageGen.generateThreadWorker(),
-            );
-            writePackage(
-              "src/wasm/node/main.worker.ts",
-              packageGen.generateMainWorker(),
-            );
-            writePackage(
-              "src/wasm/browser/main.worker.ts",
-              packageGen.generateBrowserMainWorker(),
-            );
-            // The host imports have to be a module inside the package rather than something the
-            // caller passes to a constructor: they are closures, and the same closures are needed
-            // in every realm that instantiates the module — the calling thread, the main worker
-            // and each wasi thread worker. Functions cannot be cloned across a worker boundary, so
-            // a worker can only get them by importing them, from a path a bundler can resolve at
-            // build time.
-            writePackage(
-              "src/wasm_host_imports.ts",
-              args.packageWasmHostImports
-                ? readFileSync(resolve(args.packageWasmHostImports), "utf-8")
-                : packageGen.generateDefaultHostImports(),
-            );
           }
           for (const manifest of packageGen.generateArchPackageManifests()) {
             writePackage(manifest.path, manifest.content);
