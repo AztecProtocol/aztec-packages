@@ -45,6 +45,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, MIN_BLOCKS_FOR_INBOX_CATCHUP } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { FAST_PROFILE_ETHEREUM_SLOT_DURATION } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
@@ -463,6 +464,13 @@ describe('sequencer', () => {
 
     it('warns rather than rejects on a fast local profile', () => {
       expect(() => buildSequencer({ maxBlocksPerCheckpoint: 1, blockDurationMs: 2000 }, l1Constants)).not.toThrow();
+    });
+
+    // The exemption is a threshold on the Ethereum slot duration, not a declaration that this is a development
+    // network, so pin where it ends: the same undersized configuration one second slower is rejected outright.
+    it('rejects the same undersized configuration at the fast-profile boundary', () => {
+      const atBoundary = { ...productionConstants(), ethereumSlotDuration: FAST_PROFILE_ETHEREUM_SLOT_DURATION };
+      expect(() => buildSequencer({ maxBlocksPerCheckpoint: 1 }, atBoundary)).toThrow(/streaming-Inbox backlog/);
     });
 
     it('leaves the committed config and timetable intact when an update is rejected', () => {

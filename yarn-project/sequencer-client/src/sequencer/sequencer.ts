@@ -233,6 +233,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Only production profiles are rejected. Fast local/e2e profiles deliberately run one or two blocks per slot
    * (see `PIPELINING_SETUP_OPTS`) against an Inbox nobody is filling with a cap-sized backlog, so the floor
    * would reject every sandbox and e2e run; those get a warning instead.
+   *
+   * That exemption is wider than the sandbox it is for, and deliberately so for now. `isFastLocalProfile` is a
+   * threshold on the Ethereum slot duration, not a declaration that this node is a development one — no such flag
+   * reaches the sequencer — so a real network that happens to run short Ethereum slots is exempted too. Faster
+   * L1 slots do not raise the per-block message cap, so such a sequencer can still be unable to reach a mandatory
+   * endpoint and lose its slots against an aged backlog. The alternative was rejecting every sandbox and e2e
+   * configuration, which is why the warning stands until an explicit development-profile signal exists.
    */
   private assertEffectiveCapacityClearsInboxBacklog(config: ResolvedSequencerConfig, timetableMaxBlocks: number) {
     const effectiveMaxBlocks = Math.min(config.maxBlocksPerCheckpoint, timetableMaxBlocks);
