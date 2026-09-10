@@ -183,7 +183,7 @@ another. The proof length must agree across **three** places:
 1. barretenberg C++ — the `bb` binary.
 2. the noir stdlib — the pinned `noir/noir-repo` submodule, baked into the
    compiled circuit bytecode at `nargo compile` time.
-3. the TS constants in `yarn-project/constants/src/constants.gen.ts` —
+3. the TS constants in `labs/yarn-project/constants/src/constants.gen.ts` —
    `RECURSIVE_ROLLUP_HONK_PROOF_LENGTH` / `NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH`
    (Honk, e.g. 480) and `CHONK_PROOF_LENGTH` (e.g. 1271). These fill the
    **fake recursive-proof arrays** in the committed `Prover.toml` fixtures.
@@ -212,26 +212,32 @@ change they must be regenerated (or hacked — see below). Two commands cover al
 protocol circuits, split by whether the sample needs a real client-proved
 transaction.
 
+Both commands below run from `labs/yarn-project`, the TypeScript node's git
+submodule; see the `update-prover-toml` skill for the directory the captured
+tomls actually land in, which is not this repository.
+
 **Block-root and above rollup circuits — prover-client suite** (simulated
 orchestrator, no L1 sandbox):
 
 ```bash
 AZTEC_GENERATE_TEST_DATA=1 \
-  yarn workspace @aztec/prover-client test regenerate_rollup_sample_inputs
+  yarn workspace @aztec-labs/prover-client test regenerate_rollup_sample_inputs
 ```
 
-Regenerates `Prover.toml` for `rollup-block-root-first-empty-tx`,
-`rollup-block-root-first`, `rollup-block-root-first-single-tx`,
-`rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-root-msgs-only`,
-`rollup-block-merge`, `rollup-checkpoint-root`, `rollup-checkpoint-root-single-block`,
-`rollup-checkpoint-merge`, `rollup-tx-merge`, `rollup-root`.
+Regenerates the `Prover.toml` of every block-root variant plus the block-merge,
+checkpoint-root, checkpoint-merge, tx-merge and root circuits. Read the exact
+inventory off the `dump` fields of the `scenarios` array in
+`labs/yarn-project/prover-client/src/test/regenerate_rollup_sample_inputs.test.ts`
+rather than from a list here: each scenario declares which circuits it is
+responsible for, and the set changes whenever a block-root variant is added or
+removed.
 
 **Private-kernel + transaction-base circuits — e2e prover full test** (spins up
 an L1/anvil sandbox):
 
 ```bash
 AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 \
-  yarn workspace @aztec/end-to-end test:e2e single-node/prover/server/full.test
+  yarn workspace @aztec-labs/end-to-end test:e2e single-node/prover/server/full.test
 ```
 
 Regenerates `Prover.toml` for: `private-kernel-init` and its `private-kernel-init-N`
@@ -242,17 +248,18 @@ transactions the simulated orchestrator cannot produce. (`private-kernel-reset`,
 the inner reset, is commented out and hand-maintained — not regenerated.)
 
 The circuit lists live in the `updateProtocolCircuitSampleInputs(...)` loops in
-`yarn-project/end-to-end/src/single-node/prover/server/full.test.ts` and the
+`labs/yarn-project/end-to-end/src/single-node/prover/server/full.test.ts` and the
 `scenarios` array in
-`yarn-project/prover-client/src/test/regenerate_rollup_sample_inputs.test.ts`;
+`labs/yarn-project/prover-client/src/test/regenerate_rollup_sample_inputs.test.ts`;
 re-read them if a circuit seems missing (entries get commented in/out).
 
 ### Build prerequisites for regeneration
 
-The fake-proof lengths come from `@aztec/constants`, so the TS build must be
+The fake-proof lengths come from `@aztec-labs/constants`, so the TS build must be
 current *after* any proof-length change — otherwise regeneration re-emits the
-old length. Build in dependency order (simplest: `make yarn-project` from the
-git root, which does bb → noir → l1-contracts → yarn-project):
+old length. Build in dependency order (simplest: `make labs-yarn-project` from
+the git root, which does bb → noir → l1-contracts → protocol circuits → the
+submodule's yarn-project):
 
 - **bb / bb-avm native** at `barretenberg/cpp/build/bin/{bb,bb-avm}`. The
   prover-client test looks for `bb-avm` and the e2e test for `bb`; both fall
@@ -260,10 +267,12 @@ git root, which does bb → noir → l1-contracts → yarn-project):
 - **noir-execute** at `noir/noir-repo/target/release/noir-execute` (witness
   generation; WASM fallback if absent).
 - **Protocol circuits compiled** under `noir-projects/fnd/noir-protocol-circuits`
-  (artifacts are bundled into `@aztec/noir-protocol-circuits-types`).
-- **TS build current**, especially `@aztec/constants` (regenerated from
-  `noir-projects/.../constants.nr`), then `@aztec/noir-protocol-circuits-types`,
-  `@aztec/bb-prover`, `@aztec/simulator`, and the test's own package.
+  (artifacts are staged into `@aztec-foundation/protocol-circuits-artifacts`,
+  which `@aztec-labs/noir-protocol-circuits-types` consumes).
+- **TS build current**, especially `@aztec-labs/constants` (regenerated from
+  `noir-projects/.../constants.nr`), then
+  `@aztec-labs/noir-protocol-circuits-types`, `@aztec-labs/bb-prover`,
+  `@aztec-labs/simulator`, and the test's own package.
 - The e2e command additionally needs `l1-contracts` built (it runs anvil).
 
 After regenerating, recompile the affected circuit (Step 2) and re-run
