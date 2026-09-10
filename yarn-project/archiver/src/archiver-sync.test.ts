@@ -1114,7 +1114,7 @@ describe('Archiver Sync', () => {
       expect(await getStoredLeaves()).toEqual(asHex([msgs1[0], msgs1[1], msgs3[0], msgs3[1], msg40, msg50, msg51]));
     });
 
-    it('short-circuits rollback at the finalized L1 block', async () => {
+    it('looks up a message recorded at the finalized L1 block before anchoring on it', async () => {
       // Sync two checkpoints worth of messages so we have history to roll back over.
       const msgs1 = [Fr.random(), Fr.random()];
       fake.addMessages(CheckpointNumber(1), 100n, msgs1);
@@ -1122,15 +1122,16 @@ describe('Archiver Sync', () => {
       const msgs3 = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
       fake.addMessages(CheckpointNumber(3), 101n, msgs3);
 
-      // Mark block 100 as finalized so messages there cannot be reorged.
+      // Finality sits at block 100, the height the first two messages are recorded at.
       fake.setFinalizedL1BlockNumber(100n);
       fake.setL1BlockNumber(110n);
       await archiver.syncImmediate();
 
       expect(await getStoredLeaves()).toEqual(asHex([...msgs1, ...msgs3]));
 
-      // Simulate L1 reorg: remove the last 2 messages from checkpoint 3 and add new ones.
-      fake.removeMessagesAfter(4);
+      // Simulate L1 reorg: remove every checkpoint-3 message and add a new one, so the search walks back past the
+      // messages recorded at the finalized block.
+      fake.removeMessagesAfter(2);
       const msg40 = Fr.random();
       fake.addMessages(CheckpointNumber(4), 102n, [msg40]);
 
@@ -1141,17 +1142,17 @@ describe('Archiver Sync', () => {
 
       await archiver.syncImmediate();
 
-      // The two checkpoint-1 messages sit at L1 block 100 (≤ finalized). The rollback loop
-      // should stop there without issuing a per-message log query for them.
+      // A recorded height at or below the finalized block is a search hint, not proof that the message is still on
+      // the chain there, so the anchor at L1 block 100 is the one a lookup found.
       const callsAtFinalizedOrBelow = eventByHashSpy.mock.calls.filter(
         ([, aroundL1BlockNumber]) => aroundL1BlockNumber <= 100n,
       );
-      expect(callsAtFinalizedOrBelow).toHaveLength(0);
+      expect(callsAtFinalizedOrBelow).toHaveLength(1);
 
-      expect(await getStoredLeaves()).toEqual(asHex([msgs1[0], msgs1[1], msgs3[0], msgs3[1], msg40]));
+      expect(await getStoredLeaves()).toEqual(asHex([msgs1[0], msgs1[1], msg40]));
     });
 
-    it('falls back to per-message log queries when finalized block is undefined', async () => {
+    it('finds the common point with per-message log queries when no block is finalized yet', async () => {
       const msgs1 = [Fr.random(), Fr.random()];
       fake.addMessages(CheckpointNumber(1), 100n, msgs1);
 
@@ -1173,9 +1174,8 @@ describe('Archiver Sync', () => {
 
       await archiver.syncImmediate();
 
-      // Without a finalized pointer the synchronizer must use per-message log queries to find the common point. The
-      // search starts below the canonical count (5), so msgs3[3] is never looked up: msgs3[2] mismatches on remote and
-      // msgs3[1] matches, anchoring the replay.
+      // The search starts below the canonical count (5), so msgs3[3] is never looked up: msgs3[2] mismatches on
+      // remote and msgs3[1] matches, anchoring the replay.
       expect(eventByHashSpy).toHaveBeenCalledTimes(2);
 
       expect(await getStoredLeaves()).toEqual(asHex([msgs1[0], msgs1[1], msgs3[0], msgs3[1], msg40]));
@@ -1635,9 +1635,6 @@ describe('Archiver Sync', () => {
     });
 
     it('discards a block consuming unchanged messages that were re-mined beyond the lookup window', async () => {
-      // The finalized marker stays below the messages' L1 block, so the inherited-finality shortcut cannot anchor
-      // them without a lookup.
-      fake.setFinalizedL1BlockNumber(95n);
       const msgs = randomLeaves(3);
       fake.addMessages(CheckpointNumber(1), 100n, msgs);
       fake.setL1BlockNumber(110n);
@@ -1945,7 +1942,6 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(115n);
       await archiver.syncImmediate();
       await addLocalBlocksConsuming([4]);
-
       // A replacement chain shorter than every stored height by more than the lookup window, carrying none of the
       // stored messages. Each candidate's window (95..105 and 105..115) starts above the new head, so bounding it by
       // the head inverts the range: no anchor is found, and the log rolls back to the deployment block.
@@ -2347,7 +2343,7 @@ describe('Archiver Sync', () => {
       expect(archiver.getL1BlockNumber()).toEqual(111n);
     });
 
-    it('anchors on the finality marker of the last agreed sync, not on a fresher finalized height', async () => {
+    it('advances the persisted finality marker only once the log agrees with L1 again', async () => {
       const msgs = randomLeaves(4);
       fake.addMessages(CheckpointNumber(1), 100n, msgs.slice(0, 2));
       fake.addMessages(CheckpointNumber(1), 101n, msgs.slice(2));
@@ -2356,8 +2352,8 @@ describe('Archiver Sync', () => {
       await archiver.syncImmediate();
       expect((await archiverStore.messages.getMessagesFinalizedL1Block())?.l1BlockNumber).toEqual(90n);
 
-      // Every message is replaced and L1 finality has since moved past them. Trusting the fresh height would anchor
-      // on a stale message without a lookup and try to graft the replacement onto a prefix L1 no longer has.
+      // Every message is replaced and L1 finality has since moved past the heights they were recorded at. Recovery
+      // keeps nothing, and the marker the store carries through it does not stop the replacement from landing.
       const replacement = randomLeaves(4);
       fake.removeMessagesAfter(0);
       fake.addMessages(CheckpointNumber(1), 100n, replacement.slice(0, 2));
@@ -2371,6 +2367,39 @@ describe('Archiver Sync', () => {
       expect(archiver.getL1BlockNumber()).toEqual(111n);
       // Finality advances only once the log agrees with L1 again.
       expect((await archiverStore.messages.getMessagesFinalizedL1Block())?.l1BlockNumber).toEqual(150n);
+    });
+
+    it('escapes a recovery whose stored messages sit below the finality marker but were re-mined above it', async () => {
+      const msgs = randomLeaves(2);
+      fake.addMessages(CheckpointNumber(1), 100n, msgs);
+      fake.setFinalizedL1BlockNumber(95n);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+
+      // L1 re-mines both messages thirty blocks later with their content, index and rolling hash intact. The log
+      // still agrees with the Inbox, so nothing refetches them and their stored rows keep the height they were first
+      // observed at, while finality passes that height without reaching where they now sit.
+      fake.moveMessagesToL1Block(100n, 130n);
+      fake.reorgL1BlocksFrom(100n);
+      fake.setFinalizedL1BlockNumber(120n);
+      fake.setL1BlockNumber(135n);
+      await archiver.syncImmediate();
+      expect(await getStoredLeaves()).toEqual(asHex(msgs));
+      expect((await archiverStore.messages.getMessagesFinalizedL1Block())?.l1BlockNumber).toEqual(120n);
+
+      // L1 now replaces block 130 on, which is above the marker, so both messages really are gone. Anchoring on
+      // their recorded height would keep a prefix L1 no longer has and the refetch would never chain onto it.
+      const replacement = randomLeaves(2);
+      fake.removeMessagesAfter(0);
+      fake.addMessages(CheckpointNumber(2), 130n, replacement);
+      fake.reorgL1BlocksFrom(130n);
+      fake.setL1BlockNumber(140n);
+      await archiver.syncImmediate();
+
+      expect(await getStoredLeaves()).toEqual(asHex(replacement));
+      expect(archiver.getL1BlockNumber()).toEqual(140n);
+      expect(synchronizer.isRecoveringMessages()).toBe(false);
     });
 
     it('re-verifies the persisted syncpoint before ingesting forward, so an empty batch cannot certify a stale tail', async () => {
