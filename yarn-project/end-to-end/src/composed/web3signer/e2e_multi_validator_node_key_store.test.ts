@@ -16,6 +16,7 @@ import { type EthPrivateKey, KeystoreManager, loadKeystores, mergeKeystores } fr
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { Sequencer, SequencerClient, SequencerPublisherFactory } from '@aztec/sequencer-client';
 import type { TestSequencer, TestSequencerClient } from '@aztec/sequencer-client/test';
+import type { InboxMessagePrefixRef } from '@aztec/stdlib/messaging';
 import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
@@ -379,6 +380,7 @@ describe('e2e_multi_validator_node', () => {
       archive: Fr,
       txs: Tx[],
       proposerAddress: EthAddress | undefined,
+      inboxPrefixRef: InboxMessagePrefixRef,
       options: BlockProposalOptions,
     ) => {
       if (proposerAddress) {
@@ -399,6 +401,7 @@ describe('e2e_multi_validator_node', () => {
         archive,
         txs,
         proposerAddress,
+        inboxPrefixRef,
         options,
       );
     };

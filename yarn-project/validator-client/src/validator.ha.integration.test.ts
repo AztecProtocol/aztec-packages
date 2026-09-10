@@ -18,7 +18,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { SlasherConfig, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { InboxMessagePrefixRef, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
@@ -30,7 +30,7 @@ import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { INSERT_SCHEMA_VERSION, SCHEMA_SETUP, SCHEMA_VERSION } from '@aztec/validator-ha-signer/db';
-import { DutyAlreadySignedError } from '@aztec/validator-ha-signer/errors';
+import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validator-ha-signer/errors';
 import { createHASigner } from '@aztec/validator-ha-signer/factory';
 import { Pool } from '@aztec/validator-ha-signer/test';
 import type { ValidatorHASigner } from '@aztec/validator-ha-signer/validator-ha-signer';
@@ -308,6 +308,9 @@ describe('ValidatorClient HA Integration', () => {
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3].map(() => mockTx()));
       const proposerAddress = EthAddress.fromString(validatorAccounts[0].address);
+      // Shared across the validators: a per-validator reference would make each payload different, which the HA
+      // signer reports as a slashing-protection conflict rather than the duplicate duty this test covers.
+      const inboxPrefixRef = InboxMessagePrefixRef.random();
 
       // All 5 validators try to create a block proposal for the same slot simultaneously
       const results = await Promise.allSettled(
@@ -319,6 +322,7 @@ describe('ValidatorClient HA Integration', () => {
             archive,
             txs,
             proposerAddress,
+            inboxPrefixRef,
             {
               publishFullTxs: false,
             },
@@ -342,6 +346,42 @@ describe('ValidatorClient HA Integration', () => {
       expect(successfulResult?.value?.getSender()).toEqual(proposerAddress);
     });
 
+    it('should refuse to sign a second prefix reference for the same block duty', async () => {
+      // After an L1 reorg a peer can rebuild the same block against a different message prefix. The reference is part
+      // of the signed payload, so that second attempt is a conflicting signature for a duty already signed, not a
+      // duplicate of it.
+      const blockHeader = makeBlockHeader(1);
+      const indexWithinCheckpoint = IndexWithinCheckpoint(0);
+      const archive = Fr.random();
+      const txs = await Promise.all([1, 2, 3].map(() => mockTx()));
+      const proposerAddress = EthAddress.fromString(validatorAccounts[0].address);
+
+      const first = await validators[0].createBlockProposal(
+        blockHeader,
+        CheckpointNumber(1),
+        indexWithinCheckpoint,
+        archive,
+        txs,
+        proposerAddress,
+        new InboxMessagePrefixRef(new Fr(1n)),
+        { publishFullTxs: false },
+      );
+      expect(first.getSender()).toEqual(proposerAddress);
+
+      await expect(
+        validators[1].createBlockProposal(
+          blockHeader,
+          CheckpointNumber(1),
+          indexWithinCheckpoint,
+          archive,
+          txs,
+          proposerAddress,
+          new InboxMessagePrefixRef(new Fr(2n)),
+          { publishFullTxs: false },
+        ),
+      ).rejects.toThrow(SlashingProtectionError);
+    });
+
     it('should allow different validators to create proposals for different slots', async () => {
       const proposerAddress = EthAddress.fromString(validatorAccounts[0].address);
       const txs = await Promise.all([1, 2, 3].map(() => mockTx()));
@@ -358,6 +398,7 @@ describe('ValidatorClient HA Integration', () => {
             archive,
             txs,
             proposerAddress,
+            InboxMessagePrefixRef.random(),
             { publishFullTxs: false },
           );
         }),

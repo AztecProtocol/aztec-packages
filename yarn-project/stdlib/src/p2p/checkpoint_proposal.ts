@@ -71,12 +71,12 @@ export type CheckpointLastBlock = Omit<CheckpointLastBlockData, 'txs'> & {
   /** The signed transactions in the last block (optional, for DA guarantees) */
   signedTxs?: SignedTxs;
   /**
-   * The signed Inbox message-prefix reference the last block proposes to have consumed through. When set it must
-   * equal the checkpoint header's `inboxRollingHash` (enforced at construction), which makes the last block's position
-   * the checkpoint's own: unlike an intermediate block's, that position must resolve to a live L1 bucket at
-   * publication, because L1 reads the header's hash out of the bucket the `propose` hint names.
+   * The signed Inbox message-prefix reference the last block proposes to have consumed through. It must equal the
+   * checkpoint header's `inboxRollingHash` (enforced at construction), which makes the last block's position the
+   * checkpoint's own: unlike an intermediate block's, that position must resolve to a live L1 bucket at publication,
+   * because L1 reads the header's hash out of the bucket the `propose` hint names.
    */
-  inboxPrefixRef?: InboxMessagePrefixRef;
+  inboxPrefixRef: InboxMessagePrefixRef;
 };
 
 /**
@@ -114,11 +114,8 @@ export class CheckpointProposal extends Gossipable implements Signable {
 
     // Check that last block properties match those of the checkpoint. The last block's Inbox prefix reference
     // commits to the same rolling hash as the checkpoint header, so the checkpoint's consumed position is exactly
-    // its last block's. Only enforced when the reference is set.
-    if (
-      lastBlock?.inboxPrefixRef &&
-      !lastBlock.inboxPrefixRef.inboxRollingHash.equals(checkpointHeader.inboxRollingHash)
-    ) {
+    // its last block's.
+    if (lastBlock && !lastBlock.inboxPrefixRef.inboxRollingHash.equals(checkpointHeader.inboxRollingHash)) {
       throw new Error(
         `CheckpointProposal lastBlock inboxPrefixRef rolling hash ${lastBlock.inboxPrefixRef.inboxRollingHash} does not match checkpoint inboxRollingHash ${checkpointHeader.inboxRollingHash}`,
       );
@@ -160,8 +157,8 @@ export class CheckpointProposal extends Gossipable implements Signable {
       this.lastBlock.txHashes,
       this.lastBlock.signature,
       this.signatureContext,
-      this.lastBlock.signedTxs,
       this.lastBlock.inboxPrefixRef,
+      this.lastBlock.signedTxs,
     );
   }
 
@@ -294,17 +291,13 @@ export class CheckpointProposal extends Gossipable implements Signable {
       buffer.push(this.lastBlock.signature);
       buffer.push(this.lastBlock.txHashes.length);
       buffer.push(this.lastBlock.txHashes);
+      // Same layout as a standalone block proposal: the required reference precedes the optional transaction bundle.
+      buffer.push(this.lastBlock.inboxPrefixRef);
       if (this.lastBlock.signedTxs) {
         buffer.push(1); // hasSignedTxs = true
         buffer.push(this.lastBlock.signedTxs.toBuffer());
       } else {
         buffer.push(0); // hasSignedTxs = false
-      }
-      // Optional Inbox prefix-reference tail. Appended only when set, so a proposal without a reference
-      // serializes without the tail and a decoder that reaches EOF reads it as unset.
-      if (this.lastBlock.inboxPrefixRef) {
-        buffer.push(1); // hasInboxPrefixRef = true
-        buffer.push(this.lastBlock.inboxPrefixRef.toBuffer());
       }
     } else {
       buffer.push(0); // hasLastBlock = false
@@ -333,23 +326,12 @@ export class CheckpointProposal extends Gossipable implements Signable {
         throw new Error(`txHashes count ${txHashCount} exceeds maximum ${MAX_TXS_PER_BLOCK}`);
       }
       const txHashes = reader.readArray(txHashCount, TxHash);
+      const inboxPrefixRef = reader.readObject(InboxMessagePrefixRef);
 
       let signedTxs: SignedTxs | undefined;
-      if (!reader.isEmpty()) {
-        const hasSignedTxs = reader.readNumber();
-        if (hasSignedTxs) {
-          signedTxs = SignedTxs.fromBuffer(reader);
-        }
-      }
-
-      // Optional Inbox prefix-reference tail. A buffer that ends after the signedTxs flag decodes as
-      // "no reference", so proposals written without the tail round-trip cleanly.
-      let inboxPrefixRef: InboxMessagePrefixRef | undefined;
-      if (!reader.isEmpty()) {
-        const hasInboxPrefixRef = reader.readNumber();
-        if (hasInboxPrefixRef) {
-          inboxPrefixRef = InboxMessagePrefixRef.fromBuffer(reader);
-        }
+      const hasSignedTxs = reader.readNumber();
+      if (hasSignedTxs) {
+        signedTxs = SignedTxs.fromBuffer(reader);
       }
 
       return new CheckpointProposal(checkpointHeader, archive, feeAssetPriceModifier, signature, signatureContext, {
@@ -384,8 +366,9 @@ export class CheckpointProposal extends Gossipable implements Signable {
   }
 
   static random(): CheckpointProposal {
+    const checkpointHeader = CheckpointHeader.random();
     return new CheckpointProposal(
-      CheckpointHeader.random(),
+      checkpointHeader,
       Fr.random(),
       0n,
       Signature.random(),
@@ -395,6 +378,7 @@ export class CheckpointProposal extends Gossipable implements Signable {
         indexWithinCheckpoint: IndexWithinCheckpoint(Math.floor(Math.random() * 5)),
         txHashes: [TxHash.random(), TxHash.random()],
         signature: Signature.random(),
+        inboxPrefixRef: new InboxMessagePrefixRef(checkpointHeader.inboxRollingHash),
       },
     );
   }
@@ -413,7 +397,7 @@ export class CheckpointProposal extends Gossipable implements Signable {
             indexWithinCheckpoint: this.lastBlock.indexWithinCheckpoint,
             txHashes: this.lastBlock.txHashes.map(h => h.toString()),
             signature: this.lastBlock.signature.toString(),
-            inboxPrefixRef: this.lastBlock.inboxPrefixRef?.toInspect(),
+            inboxPrefixRef: this.lastBlock.inboxPrefixRef.toInspect(),
           }
         : undefined,
     };

@@ -11,6 +11,7 @@ import type {
   ICheckpointsBuilder,
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
+import { accumulateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
 import type { CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
@@ -43,10 +44,26 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
   /** Set to an error to make buildBlock throw on next call */
   public errorOnBuild: Error | undefined = undefined;
 
+  /**
+   * Rolling hash over every Inbox message consumed through the blocks built so far, starting from the parent
+   * checkpoint's. The real builder derives the checkpoint header's `inboxRollingHash` this way, and the last block's
+   * signed prefix reference has to equal it, so the mock tracks it rather than leaving the header's hash at zero.
+   */
+  private inboxRollingHash: Fr;
+
   constructor(
     private readonly constants: CheckpointGlobalVariables,
     private readonly checkpointNumber: CheckpointNumber,
-  ) {}
+    private previousInboxRollingHash: Fr = Fr.ZERO,
+  ) {
+    this.inboxRollingHash = previousInboxRollingHash;
+  }
+
+  /** Sets the parent checkpoint's rolling hash this checkpoint accumulates from, and rewinds to it. */
+  setPreviousInboxRollingHash(previousInboxRollingHash: Fr): void {
+    this.previousInboxRollingHash = previousInboxRollingHash;
+    this.inboxRollingHash = previousInboxRollingHash;
+  }
 
   /** Seed the builder with blocks to return on successive buildBlock calls */
   seedBlocks(blocks: L2Block[], usedTxsPerBlock?: Tx[][]): this {
@@ -82,6 +99,8 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     if (this.errorOnBuild) {
       throw this.errorOnBuild;
     }
+
+    this.inboxRollingHash = accumulateInboxRollingHash(this.inboxRollingHash, opts.l1ToL2Messages ?? []);
 
     let block: L2Block;
     let usedTxs: Tx[];
@@ -163,6 +182,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     const checkpointHeader = CheckpointHeader.empty({
       lastArchiveRoot: firstBlock.header.lastArchive.root,
       blockHeadersHash: Fr.random(),
+      inboxRollingHash: this.inboxRollingHash,
       slotNumber: gv.slotNumber,
       timestamp: gv.timestamp,
       coinbase: gv.coinbase,
@@ -183,6 +203,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
   resetCheckpointState(): void {
     this.builtBlocks = [];
     this.blockIndex = 0;
+    this.inboxRollingHash = this.previousInboxRollingHash;
     this.consumedTxHashes.clear();
     this.completeCheckpointCalled = false;
     this.getCheckpointCalled = false;
@@ -269,7 +290,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
     constants: CheckpointGlobalVariables,
     feeAssetPriceModifier: bigint,
     previousCheckpointOutHashes: Fr[],
-    _previousInboxRollingHash: Fr,
+    previousInboxRollingHash: Fr,
     _fork: MerkleTreeWriteOperations,
     _bindings?: LoggerBindings,
   ): Promise<ICheckpointBlockBuilder> {
@@ -282,9 +303,10 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
 
     if (!this.checkpointBuilder) {
       // Auto-create a builder if none was set
-      this.checkpointBuilder = new MockCheckpointBuilder(constants, checkpointNumber);
+      this.checkpointBuilder = new MockCheckpointBuilder(constants, checkpointNumber, previousInboxRollingHash);
     } else {
       this.checkpointBuilder.resetCheckpointState();
+      this.checkpointBuilder.setPreviousInboxRollingHash(previousInboxRollingHash);
     }
 
     return Promise.resolve(this.checkpointBuilder);

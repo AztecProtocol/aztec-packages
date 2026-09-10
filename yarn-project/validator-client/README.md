@@ -21,10 +21,10 @@ A `BlockProposal` is broadcast by the proposer for each block **except the last 
 BlockProposal {
   blockHeader          // Per-block header with global variables
   indexWithinCheckpoint // 0, 1, 2, ... position within checkpoint
-  inboxPrefixRef       // Rolling hash of the Inbox message prefix the block consumed through (with the header's leaf count)
   archive              // Archive root after this block
   txHashes             // Transaction hashes in order
   signature            // Proposer's signature
+  inboxPrefixRef       // Rolling hash of the Inbox message prefix the block consumed through (with the header's leaf count)
   signedTxs?           // Optional full transactions for DA
 }
 ```
@@ -45,10 +45,13 @@ CheckpointProposal {
     indexWithinCheckpoint
     txHashes
     signature
+    inboxPrefixRef     // Must equal the checkpointHeader's inboxRollingHash
     signedTxs?
   }
 }
 ```
+
+`inboxPrefixRef` is a required field on every proposed block, including one that consumes no new messages: such a block re-states the prefix its parent ended at. It is serialized without a presence flag, immediately before the optional transaction bundle, and is always part of the signed payload, so a proposal that omits or truncates it fails to decode rather than reading as a block that consumed nothing.
 
 The `checkpointHeader` contains aggregated data: `blockHeadersHash` (hash of all block headers), `contentCommitment` (blobsHash, inboxRollingHash, outHash), and shared global variables.
 

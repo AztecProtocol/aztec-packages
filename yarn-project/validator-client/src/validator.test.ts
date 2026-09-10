@@ -269,6 +269,7 @@ describe('ValidatorClient', () => {
         archive,
         txs,
         EthAddress.fromString(validatorAccounts[0].address),
+        InboxMessagePrefixRef.random(),
         { publishFullTxs: false },
       );
 
